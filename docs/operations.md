@@ -374,13 +374,17 @@ seed のセッションのトークン（`seed/sessions.ts`）と API トーク�
 | Builds の環境変数 | `CLOUDFLARE_ACCOUNT_ID`（32桁のアカウント ID）。`WORKERS_CI=1` と `WORKERS_CI_BRANCH` は Builds が渡すものを使う |
 | API トークン | Builds が作った専用トークン。Account: Workers Scripts: Edit、D1: Edit、Account Settings: Read と、Builds が要する User Details: Read、Memberships: Read。R2 の binding 確認に必要になったときだけ Workers R2 Storage: Read を足す。本番のトークンを流用しない。`CLOUDFLARE_API_TOKEN` としてデプロイのコマンドでも使えることを確認する |
 
+番号付きブランチの例は `374-pr-preview`。Builds の対象は信頼する人の同一リポジトリのブランチだけに絞り、`claude/*`、`feature/*`、`production`、fork を含めない。Cloudflare の include/exclude のパターンの方言で数字の範囲を表せるとは仮定せず、初回は人が許可した具体的なブランチ名を include に登録して確かめる。スクリプトも番号の無いブランチを変更前に拒否する。
+
 `--preview-alias` の名前は `pr-<Issue番号>`。英字で始まり英数字とハイフンから成る名前とし、Worker 名と合わせた DNS ラベルは63文字以下に制限する。wrangler 4.153.0 のオプションと alias の規則をコードで確認しているが、カスタムの非本番デプロイのコマンドで GitHub の PR に URL が自動表示されるかは、初回の実ビルドで確認する。表示されなければ Builds のログに出る URL、または番号から組み立てた上記の URL を PR の確認に使う。GitHub へデプロイの鍵や Access トークンを登録して補わない。
 
 Builds は PR の先頭のコードを、アカウント全体の Workers Scripts と D1 を編集できるトークンで動かす。Worker・D1 の名前と本番 ID の検査は手違いへの踏み線であり、悪意ある PR や依存に対する隔離ではない。同じアカウントでは本番の Worker と D1 に届きうる（R2 の binding も同様）。Issue #374 で決めたとおり本番を運用していない間の前提で始め、ベータの前に、別 Cloudflare アカウントへ移すか preview builds を止めるかを人が判断し、Issue に残す。fork のコードはこの接続でビルドしない。
 
+掃除の GitHub API は公開リポジトリの認証なし読み取りだけを使う。共有 IP のレート制限（通常60リクエスト/時）などの 403 や、非公開化による 404 は空の PR 一覧とみなさず、削除せずに失敗する。Builds の失敗を確認し、上限の回復後に `main` のビルドを再実行する。非公開化する前にはこの接続の Builds を止め、読み取り専用の認証方法を別途用意してから掃除を再開する。デプロイの鍵を GitHub に置く対応ではない。
+
 ### 初回と変更後の確認
 
-1. 本番 `/api/health` の版と、seed セッション・API トークンが本番で 401 になることを控える（上の「seed のセッションが本番に入ったとき」）。番号付きの PR ブランチをビルドし、Builds のログで D1 の作成、全マイグレーション、seed、`versions upload` の成功を見る
+1. 本番 `/api/health` の版と、seed セッション・API トークンが本番で 401 になることを控える（上の「seed のセッションが本番に入ったとき」）。番号付きの PR ブランチをビルドし、Builds のログで D1 の作成、全マイグレーション、seed、`versions upload` の成功を見る。特に標準入力を閉じた Builds で `migrations apply --remote` が確認待ちにならないことと、`PRAGMA defer_foreign_keys` から始まる seed SQL を `d1 execute --remote --file` で新規 D1 へ投入できることを確認する（Node／SQLite のテストだけでは実証済みと扱わない）
 2. サービストークンも Access のログイン Cookie も無い別のブラウザで、alias の画面と `/api/health` が Access に拒否されることを確認する。版の URL と通常 URL も同じく確認する。通ったら Builds を止め、Access の対象を修正してから続ける
 3. 人の端末で Access のトークンの ID と Secret を `CF_ACCESS_CLIENT_ID`、`CF_ACCESS_CLIENT_SECRET` の環境変数に設定し、`pnpm dev:open --origin https://pr-374-scrum-guild-preview.ucan-lab.workers.dev admin /aoba` を実行する。`member /aoba`、`operator /operator` に替えて各画面が出ること、画面と `/api/health` の版が PR のコミットであることを確認する。トークンを git、Issue、PR、スクリーンショット、シェル履歴へ貼らない
 4. マイグレーションを含むブランチでも確認し、別番号の D1 が変わらないこと、本番の版と seed の 401 が前のままなことを見る。プレビューのビルド失敗は本番のロールバックを起こさない
