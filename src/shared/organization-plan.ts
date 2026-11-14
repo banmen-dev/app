@@ -43,7 +43,7 @@ export function contractLimits(contract: ContractLimitsInput): {
 } {
   const base =
     contract.plan === 'custom'
-      ? { member_limit: contract.custom_member_limit!, attachment_quota_bytes: contract.custom_attachment_quota_bytes! }
+      ? { member_limit: contract.custom_member_limit, attachment_quota_bytes: contract.custom_attachment_quota_bytes }
       : PLAN_LIMITS[contract.plan];
   if (base.member_limit == null || base.attachment_quota_bytes == null) throw new Error('個別契約の標準値が無い');
   return {
