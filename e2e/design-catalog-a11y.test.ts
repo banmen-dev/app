@@ -4,8 +4,9 @@ import { expect, test } from './fixtures.ts';
 import { A11Y_THEMES, applyTheme, findA11yViolations, formatA11yViolations } from './helpers.ts';
 
 // アプリの配信対象外の見本を、既存の design-catalog.test.ts と同じ方法で開く。seed の認証は使わない。
-// 大きなカタログの axe 検査と trace の記録に余裕を持たせる。各 assertion の待ちは延ばさない。
-test.setTimeout(60_000);
+// #1229: CI の狭幅では正常な検査も約55秒かかり、60秒では処理時間の揺れを吸収できない。
+// カタログ全体の axe 検査と trace の記録に2分を確保する。各 assertion の待ちは延ばさない。
+test.setTimeout(120_000);
 
 test.beforeEach(async ({ page }) => {
   const files: Record<string, string> = {
@@ -52,9 +53,9 @@ for (const width of [1280, 390]) {
   for (const theme of A11Y_THEMES) {
     test(`見本のカタログの axe: ${width}px / ${theme}`, async ({ page }) => {
       await page.setViewportSize({ width, height: 1000 });
-      await openCatalog(page);
-      await applyTheme(page, theme);
-      await expectAccessibleCatalog(page);
+      await test.step('カタログの全セクションを表示する', () => openCatalog(page));
+      await test.step('テーマを適用する', () => applyTheme(page, theme));
+      await test.step('カタログ全体を axe で検査する', () => expectAccessibleCatalog(page));
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
     });
   }
