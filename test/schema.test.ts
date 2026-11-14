@@ -55,6 +55,65 @@ describe('容量通知のスキーマ', () => {
   });
 });
 
+describe('0032_add_custom_contract_limits', () => {
+  async function contract() {
+    const org = await createOrganization();
+    await run(
+      'INSERT INTO organization_contracts (organization_id, plan, billing_interval, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+      org.id,
+      'custom',
+      'yearly',
+      AT,
+      AT,
+    );
+    return org.id;
+  }
+
+  test('個別の標準値はNULLと整数の上下限を受け付け、旧版のプラン変更も妨げない', async () => {
+    const orgId = await contract();
+    for (const [members, quota] of [
+      [1, 1024 ** 3],
+      [10000, 100 * 1024 ** 4],
+      [null, null],
+    ]) {
+      await run(
+        'UPDATE organization_contracts SET custom_member_limit = ?, custom_attachment_quota_bytes = ? WHERE organization_id = ?',
+        members,
+        quota,
+        orgId,
+      );
+    }
+    await run(
+      'UPDATE organization_contracts SET custom_member_limit = ?, custom_attachment_quota_bytes = ? WHERE organization_id = ?',
+      80,
+      200 * 1024 ** 3,
+      orgId,
+    );
+    await run('UPDATE organization_contracts SET plan = ? WHERE organization_id = ?', 'team', orgId);
+  });
+
+  test.each([0, -1, 10001, 1.5, 'invalid'])('個別の人数 %s はCHECKで拒否する', async (members) => {
+    const orgId = await contract();
+    await expect(
+      run('UPDATE organization_contracts SET custom_member_limit = ? WHERE organization_id = ?', members, orgId),
+    ).rejects.toThrow(/CHECK/);
+  });
+
+  test.each([0, -1, 1024 ** 3 - 1, 1024 ** 3 + 1, 100 * 1024 ** 4 + 1024 ** 3, 1024 ** 3 + 0.5, 'invalid'])(
+    '個別の標準容量 %s はCHECKで拒否する',
+    async (quota) => {
+      const orgId = await contract();
+      await expect(
+        run(
+          'UPDATE organization_contracts SET custom_attachment_quota_bytes = ? WHERE organization_id = ?',
+          quota,
+          orgId,
+        ),
+      ).rejects.toThrow(/CHECK/);
+    },
+  );
+});
+
 describe('0031_drop_vocabulary', () => {
   test('組織とワークスペースに vocabulary 列を持たない', async () => {
     for (const table of ['organizations', 'workspaces']) {
