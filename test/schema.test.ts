@@ -1934,3 +1934,47 @@ describe('delegatees と tasks.delegatee_id', () => {
     expect(plan.results.some((row) => row.detail.includes('USING INDEX delegatees_organization_name'))).toBe(true);
   });
 });
+
+describe('0033 請求管理者のスキーマ', () => {
+  test('組織とアカウントの組は一意で、状態・日時・外部キーを検査する', async () => {
+    const org = await organization();
+    const account = id();
+    await run('INSERT INTO accounts (id, created_at, updated_at) VALUES (?, ?, ?)', account, AT, AT);
+    const insert = (rowId: string, status = 'pending', at = AT, organizationId = org, accountId = account) =>
+      run(
+        'INSERT INTO billing_administrators (id, organization_id, account_id, status, invited_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        rowId,
+        organizationId,
+        accountId,
+        status,
+        account,
+        at,
+        at,
+      );
+    await expect(insert(id(), 'admin')).rejects.toThrow(/CHECK/);
+    await expect(insert(id(), 'pending', '2026-11-15')).rejects.toThrow(/CHECK/);
+    await expect(insert(id(), 'pending', AT, id())).rejects.toThrow(/FOREIGN KEY/);
+    await expect(insert(id(), 'pending', AT, org, id())).rejects.toThrow(/FOREIGN KEY/);
+    await insert(id());
+    await expect(insert(id())).rejects.toThrow(/UNIQUE/);
+  });
+
+  test('請求監査は決まった操作とUTCミリ秒の日時だけを受け付ける', async () => {
+    const org = await organization();
+    const account = id();
+    await run('INSERT INTO accounts (id, created_at, updated_at) VALUES (?, ?, ?)', account, AT, AT);
+    const insert = (action: string, at = AT) =>
+      run(
+        'INSERT INTO billing_admin_events (id, organization_id, actor_account_id, target_account_id, action, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        id(),
+        org,
+        account,
+        account,
+        action,
+        at,
+      );
+    await insert('invited');
+    await expect(insert('changed')).rejects.toThrow(/CHECK/);
+    await expect(insert('accepted', '2026-11-15')).rejects.toThrow(/CHECK/);
+  });
+});

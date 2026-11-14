@@ -67,6 +67,10 @@ export function loadingFixtureSql(now = new Date()): string {
   return (
     shapeSql({ workspaceId: loadingWorkspace, prefix: '1', completedPerTen: 8 }) +
     `
+-- 専用の請求画面の成功経路だけに使う。通常seedの業務管理者に請求権限を自動付与しない。
+INSERT INTO billing_administrators (id, organization_id, account_id, status, invited_by, created_at, updated_at)
+  SELECT '${id('1', 1, 'd')}', '${ORGANIZATION_ID}', account_id, 'active', account_id, '${AT}', '${AT}'
+  FROM users WHERE id = '${ADMIN_USER_ID}' AND account_id IS NOT NULL;
 INSERT INTO board_columns (id, workspace_id, name, is_done, position, created_at, updated_at) VALUES
   ('${id('1', 1, 'b')}', '${loadingWorkspace}', '未着手', 0, 'a0', '${AT}', '${AT}'),
   ('${id('1', 2, 'b')}', '${loadingWorkspace}', '完了', 1, 'a1', '${AT}', '${AT}');

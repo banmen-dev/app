@@ -11,6 +11,7 @@ import { createFakeGithub } from '../auth/fake-github.ts';
 import { createFakePatGithub, fakePat, fakeRepos } from '../import/fake-github-pat.ts';
 import { githubUser } from '../auth/helpers.ts';
 import {
+  createAccount,
   createAttachment,
   createBoardColumn,
   createCategory,
@@ -175,7 +176,46 @@ async function prepareDelegatees(target: Target): Promise<void> {
   );
 }
 
+// 請求の組織外操作用に、呼ぶ本人へ独立した請求権限だけを用意する。
+async function billingFor(caller: Person, status: 'active' | 'pending' = 'active') {
+  const organization = await createOrganization();
+  const db = commonDb(env);
+  const id = uuidv7();
+  await db.batch([
+    db.statement((q) =>
+      q.insertInto('billing_administrators').values({
+        id,
+        organization_id: organization.id,
+        account_id: caller.accountId,
+        status,
+        invited_by: caller.accountId,
+        created_at: '2026-11-01T00:00:00.000Z',
+        updated_at: '2026-11-01T00:00:00.000Z',
+      }),
+    ),
+  ]);
+  return { organization, id };
+}
+
 export const pointers: Pointers = {
+  'billing-admin-list': async (_target, caller) => ({ slug: (await billingFor(caller)).organization.slug }),
+  'billing-admin-invite': async (_target, caller) => ({
+    slug: (await billingFor(caller)).organization.slug,
+    account_id: (await createAccount()).id,
+  }),
+  'billing-invitation-respond': async (_target, caller) => ({
+    invitation_id: (await billingFor(caller, 'pending')).id,
+    accept: true,
+  }),
+  'billing-admin-remove': async (_target, caller) => {
+    const fixture = await billingFor(caller);
+    return { slug: fixture.organization.slug, administrator_id: fixture.id };
+  },
+  'operator-billing-admin-invite': async () => ({
+    slug: (await createOrganization()).slug,
+    account_id: (await createAccount()).id,
+  }),
+
   'delegatee-list': { noReference: {} },
   'delegatee-create': {
     noReference: { name: '白川 葵' },

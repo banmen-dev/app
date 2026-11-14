@@ -151,6 +151,27 @@ async function fillOrganization(organization: Awaited<ReturnType<typeof createOr
   const common = commonDb(env);
   await common.batch([
     common.statement((q) =>
+      q.insertInto('billing_administrators').values({
+        id: uuidv7(),
+        organization_id: organization.id,
+        account_id: admin.account_id!,
+        status: 'active',
+        invited_by: admin.account_id!,
+        created_at: AT,
+        updated_at: AT,
+      }),
+    ),
+    common.statement((q) =>
+      q.insertInto('billing_admin_events').values({
+        id: uuidv7(),
+        organization_id: organization.id,
+        actor_account_id: admin.account_id!,
+        target_account_id: admin.account_id!,
+        action: 'accepted',
+        created_at: AT,
+      }),
+    ),
+    common.statement((q) =>
       q.insertInto('organization_contracts').values({
         organization_id: organization.id,
         plan: 'team',

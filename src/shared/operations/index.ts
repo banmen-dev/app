@@ -1,3 +1,10 @@
+import {
+  myBillingOrganizations,
+  billingAdminList,
+  billingAdminInvite,
+  billingInvitationRespond,
+  billingAdminRemove,
+} from './billing.ts';
 import { favoriteList, favoriteSet } from './favorite.ts';
 import { notificationList, notificationRead } from './notification.ts';
 import { wikiOperations } from './wiki/index.ts';
@@ -19,6 +26,11 @@ import { taskOperations } from './task/index.ts';
 import { workspaceOperations } from './workspace/index.ts';
 
 export const operations: readonly AnyOperationDefinition[] = [
+  myBillingOrganizations,
+  billingAdminList,
+  billingAdminInvite,
+  billingInvitationRespond,
+  billingAdminRemove,
   notificationList,
   notificationRead,
   favoriteList,

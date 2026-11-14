@@ -131,6 +131,9 @@
       </li>
     {/if}
     <li>
+      <a href={resolve('/auth/billing')} onclick={closeMenu}><span class="org-menu-name">{t('billingOpen')}</span></a>
+    </li>
+    <li>
       <button type="button" aria-disabled={logoutState.busy} onclick={performLogout}>
         <span class="org-menu-name">{logoutState.busy ? t('logoutMoving') : t('logout')}</span>
       </button>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import { operatorStatuses } from '../../lib/operator-status.ts';
   import { tick } from 'svelte';
   import { invalidateAll } from '$app/navigation';
@@ -537,7 +538,10 @@
         </div>
       {/if}
       <span class="visually-hidden" role="status">{status}</span>
-      <div class="form-actions"><LogoutButton /></div>
+      <div class="form-actions">
+        <a class="btn is-sm" href={resolve('/auth/billing')}>{t('billingOpen')}</a>
+        <LogoutButton />
+      </div>
     </GateSheet>
   </Gate>
 {/if}

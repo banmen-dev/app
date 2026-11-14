@@ -1,5 +1,6 @@
 // 運用者だけの操作の定義（permission: 'operator'）。運用者の権限を決める定義なので、人が差分を読む領域（docs/development.md の「マージの判定」）。
 // 運用者は組織の中に特権を持たない。ここの操作の応答に、組織の中のデータ（人の名前など）を入れない
+import { operatorBillingAdminInvite } from './billing-admin-invite.ts';
 import type { AnyOperationDefinition } from '../define.ts';
 import { createOrganization } from './create-organization.ts';
 import { listOrganizations } from './list-organizations.ts';
@@ -13,6 +14,7 @@ import { organizationSuspensionUpdate } from './organization-suspension-update.t
 import { resolveGithubUser } from './resolve-github-user.ts';
 
 export {
+  operatorBillingAdminInvite,
   createOrganization,
   listOrganizations,
   organizationAdminReassign,
@@ -51,6 +53,7 @@ export { GITHUB_USERNAME_MAX_LENGTH } from './resolve-github-user.ts';
 export { adminStatuses, type AdminStatus } from './list-organizations.ts';
 
 export const operatorOperations: readonly AnyOperationDefinition[] = [
+  operatorBillingAdminInvite,
   listOrganizations,
   resolveGithubUser,
   createOrganization,
