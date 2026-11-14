@@ -2669,7 +2669,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
        <p class="field-hint" id="d-pp" hidden>停止中の${t("organization")}は、契約しても停止したままです。使えるようにするには、続けて再開してください。</p>
        <p class="field-hint" id="d-pn" hidden>人数と添付ファイルの上限はプランの値になり、「人数と容量の上限を変える」では変えられなくなります。</p>
        <p class="field-hint">プランの変更は${t("organization")}の変更の履歴に、運用者の操作として残ります。</p>`,
-      `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" id="d-ps" aria-disabled="true" aria-describedby="d-pu">変える</button>`),
+      `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" id="d-plan-submit" aria-disabled="true" aria-describedby="d-pu">変える</button>`),
     suspendOrganization: () => {
       openDialog(`${t("organization")}を停止する`,
       `<p>ひばり工房を停止します。停止すると誰も入れなくなり、取り込みと日をまたぐ処理も止まります。データは残り、再開すれば元どおりに使えます。</p>
@@ -3720,7 +3720,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   const syncPlanDialog = () => {
     const plan = document.querySelector('input[name="d-p"]:checked');
     const interval = document.querySelector('input[name="d-pi"]:checked');
-    const submit = document.getElementById("d-ps");
+    const submit = document.getElementById("d-plan-submit");
     if (!plan || !interval || !submit) return;
     const custom = plan.value === "custom";
     document.getElementById("d-p-custom").hidden = !custom;
@@ -4088,8 +4088,8 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       const e = D.epics[el.dataset.celebrate];
       celebrate(e.title, `${t("party")}の ${e.party.length} 人に ${{ small: 100, medium: 300, large: 600 }[e.tier]} XP`); return;
     }
-    if (ev.target.closest("#d-ps")) {
-      const submit = document.getElementById("d-ps");
+    if (ev.target.closest("#d-plan-submit")) {
+      const submit = document.getElementById("d-plan-submit");
       if (planSubmitting || submit.getAttribute("aria-disabled") === "true") return;
       const custom = document.querySelector('input[name="d-p"]:checked')?.value === "custom";
       let firstInvalid = null;
@@ -4107,7 +4107,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       planSubmitting = true;
       for (const input of document.querySelectorAll("#d-p-members, #d-p-size")) input.readOnly = true;
       for (const button of document.querySelectorAll("#dialog button")) button.setAttribute("aria-disabled", "true");
-      submit.textContent = "変更しています";
+      submit.textContent = "変えています";
       setTimeout(() => {
         planSubmitting = false;
         closeDialog();
