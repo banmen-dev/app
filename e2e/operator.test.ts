@@ -2155,6 +2155,8 @@ test.describe('運用者', () => {
         await field.fill(invalid);
         await dialog.getByRole('button', { name: '変える' }).click();
         await expect(field).toHaveAttribute('aria-invalid', 'true');
+        await expect(dialog.locator('.field-hint[role="status"]')).toBeAttached();
+        await expect(dialog.locator('.field-hint[role="status"]')).toBeEmpty();
         await expect(field).toHaveAccessibleDescription(
           '0〜100 の整数で入力してください。 それぞれ 0〜100 の整数で入力してください。',
         );

@@ -1334,7 +1334,7 @@ label.pick-row:hover { background: var(--color-accent-soft); }
 .table.is-properties th, .table.is-properties td { overflow-wrap: anywhere; white-space: pre-wrap; vertical-align: top; }
 .table.is-properties th:first-child { width: 30%; }
 .table.is-properties tbody th { font-family: var(--font-mono); }
-/* 数の列の中の文字のボタン（運用の画面の「人数と容量の上限を変える」）は、数の等幅の書体と折り返さない指定を引き継がない */
+/* 数の列の文字ボタンと注記（全ての表の .props-note）は、数の等幅の書体と折り返さない指定を引き継がない */
 .table .is-num .link-btn, .table .is-num .props-note { font-family: var(--font-body); white-space: normal; overflow-wrap: anywhere; }
 .table a { color: var(--color-fg); }
 .table .mono, .table .btn { white-space: nowrap; }

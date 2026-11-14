@@ -191,9 +191,9 @@
       {:else}
         <p class="field-hint">{t('operatorStorageTeamNote')}</p>
       {/if}
-      {#if valid}<p class="field-hint" role="status">
-          {t('operatorStorageAfter', { quota: sizeText(next.attachment_quota_bytes) })}
-        </p>{/if}
+      <p class="field-hint" role="status">
+        {#if valid}{t('operatorStorageAfter', { quota: sizeText(next.attachment_quota_bytes) })}{/if}
+      </p>
       {#if unchanged}<p class="field-hint">{t('operatorStorageUnchanged')}</p>{/if}
       {#if valid && target?.kind === 'personal' && target.contract === null && next.attachment_quota_bytes < target.attachment_quota_bytes}
         <div class="callout is-warn">
