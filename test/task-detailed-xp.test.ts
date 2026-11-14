@@ -1,6 +1,8 @@
 import { env } from 'cloudflare:workers';
 import { describe, expect, test } from 'vitest';
 import { createApp } from '../src/server/app.ts';
+import { queryPlanForTest } from '../src/server/db/testing.ts';
+import { detailedProspectiveStatement } from '../src/server/operations/experience.ts';
 import { orgDb } from '../src/server/db/index.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
 import { experienceSummary } from '../src/shared/operations/experience/index.ts';
@@ -257,10 +259,29 @@ describe('詳細の経験値', () => {
     expect(rows.map((row) => row.amount).sort((a, b) => a - b)).toEqual([-20, 20]);
   });
 
-  test('別ワークスペースの欄と値が混ざっていても、受取人と未記入の判定に使わない', async () => {
+  test('詳細の見込みは本人が書いた値の索引からタスク候補を引き、バックログ全件を読まない', async () => {
+    const { target, db } = await setup();
+    const plan = (await queryPlanForTest(env, detailedProspectiveStatement(db, target.member.userId!))).join('\n');
+    expect(plan).toContain('USING INDEX task_field_values_updated_by (updated_by=?)');
+    expect(plan).not.toMatch(/(?:SCAN tasks|SEARCH tasks USING INDEX tasks_workspace_tray)/);
+  });
+
+  test('本人が複数の欄を書いても詳細の見込みはタスク1件分だけ', async () => {
+    const { target, task, first } = await setup();
+    await call(target, taskFieldSet, {
+      task_id: task.id,
+      field_id: first.id,
+      value_md: '本人が更新',
+      read_md: '- 影響する画面を挙げてある',
+    });
+    expect((await summary(target)).prospective).toBe(30);
+  });
+
+  test.each([false, true])('別ワークスペースの欄と値を判定に使わない（別組織=%s）', async (differentOrganization) => {
     const { target, task } = await setup();
-    const other = await createWorkspace(target.organization, target.admin.userId!);
-    const field = await createDetailField(target.organization, other.id);
+    const foreign = differentOrganization ? await createTarget() : null;
+    const other = foreign?.workspace ?? (await createWorkspace(target.organization, target.admin.userId!));
+    const field = await createDetailField(foreign?.organization ?? target.organization, other.id);
     await createTaskFieldValue(target.organization, task.id, field.id, target.admin.userId!, { updated_at: AT });
     expect((await summary(target)).prospective).toBe(30);
     await call(target, taskComplete, { task_id: task.id });

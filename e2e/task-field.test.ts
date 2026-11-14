@@ -207,8 +207,9 @@ test('計画の画面の先のスプリントとスプリントに入れるダ�
 
 // 詳細の見込み → 完了で確定 → 戻して見込みへ、を本物のAPIとプロフィールの表示で確かめる。
 test('欄を埋めたタスクの詳細20が見込み・明細・打ち消しに反映される', async ({ page, baseURL }) => {
-  const name = '詳細の経験値チーム';
-  const title = '通知の受け入れ条件を整える';
+  const suffix = crypto.randomUUID();
+  const name = `詳細の経験値チーム ${suffix}`;
+  const title = `通知の受け入れ条件を整える ${suffix}`;
   await createWorkspace(page, name);
   const workspaceId = new URL(page.url()).pathname.split('/').at(-1)!;
   const call = async (operation: string, body: Record<string, unknown>) => {
@@ -238,12 +239,15 @@ test('欄を埋めたタスクの詳細20が見込み・明細・打ち消しに
   await input.blur();
   expect((await saved).ok()).toBe(true);
 
+  const summaryResponse = page.waitForResponse(
+    (response) => response.url().endsWith('/experience-summary') && response.request().method() === 'POST',
+  );
   await page.goto('/aoba/me');
+  const shown = await (await summaryResponse).json();
   const workspace = page.locator('.breakdown > div', { has: page.locator('dt', { hasText: name }) });
   await expect(workspace.locator('dd')).toHaveText('0');
-  const pending = await call('experience-summary', {});
-  expect((await pending.json()).workspaces.find((row: { id: string }) => row.id === workspaceId).prospective).toBe(30);
-  await expect(page.locator('.xp-sub')).toHaveText(/^次のレベルまで [\d,]+・見込み \+[\d,]+$/);
+  expect(shown.workspaces.find((row: { id: string }) => row.id === workspaceId).prospective).toBe(30);
+  await expect(page.locator('.xp-sub')).toContainText(`見込み +${shown.prospective.toLocaleString('ja-JP')}`);
   await call('task-complete', { task_id: task.id });
   await page.reload();
   const rows = page.getByRole('table', { name: '経験値の明細' }).locator('tbody tr', { hasText: title });

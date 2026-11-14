@@ -93,6 +93,32 @@ function byNameThenId(a: { name: string; id: string }, b: { name: string; id: st
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
+// 詳細の見込み。付与と共通の式で最後の更新者を選ぶ。取り込んだタスクも対象。
+export function detailedProspectiveStatement(db: OrganizationDb, userId: string) {
+  const organizationId = db.organizationId;
+  return db.statement((q) =>
+    q
+      .selectFrom(
+        q.selectFrom('task_field_values').select('task_id').where('updated_by', '=', userId).distinct().as('candidate'),
+      )
+      .crossJoin('tasks')
+      .innerJoin('workspaces as w', 'w.id', 'tasks.workspace_id')
+      .innerJoin('memberships as m', 'm.workspace_id', 'w.id')
+      .whereRef('tasks.id', '=', 'candidate.task_id')
+      .select((eb) => ['m.workspace_id', eb.fn.countAll<number>().as('count')])
+      .where('m.user_id', '=', userId)
+      .where('m.left_at', 'is', null)
+      .where('w.organization_id', '=', organizationId)
+      .where('w.closed_at', 'is', null)
+      .where('tasks.tray', '=', 'backlog')
+      .where('tasks.deleted_at', 'is', null)
+      .where('tasks.completed_at', 'is', null)
+      .where('tasks.points', '>=', MIN_POINTS_FOR_EXPERIENCE)
+      .where((eb) => eb(detailedRecipient(eb), '=', userId))
+      .groupBy('m.workspace_id'),
+  );
+}
+
 export const experienceSummaryOperation = implement(experienceSummary, async ({ db, actor }) => {
   const userId = actorUserIdOf(actor);
   const organizationId = db.organizationId;
@@ -150,24 +176,7 @@ export const experienceSummaryOperation = implement(experienceSummary, async ({ 
         .where('w.organization_id', '=', organizationId)
         .groupBy(['w.id', 'w.name']),
     ),
-    // 詳細の見込み。付与と共通の式で最後の更新者を選ぶ。取り込んだタスクも対象。
-    db.statement((q) =>
-      q
-        .selectFrom('memberships as m')
-        .innerJoin('workspaces as w', 'w.id', 'm.workspace_id')
-        .innerJoin('tasks', 'tasks.workspace_id', 'm.workspace_id')
-        .select((eb) => ['m.workspace_id', eb.fn.countAll<number>().as('count')])
-        .where('m.user_id', '=', userId)
-        .where('m.left_at', 'is', null)
-        .where('w.organization_id', '=', organizationId)
-        .where('w.closed_at', 'is', null)
-        .where('tasks.tray', '=', 'backlog')
-        .where('tasks.deleted_at', 'is', null)
-        .where('tasks.completed_at', 'is', null)
-        .where('tasks.points', '>=', MIN_POINTS_FOR_EXPERIENCE)
-        .where((eb) => eb(detailedRecipient(eb), '=', userId))
-        .groupBy('m.workspace_id'),
-    ),
+    detailedProspectiveStatement(db, userId),
   ] as const);
 
   const workspaces = new Map<
@@ -188,7 +197,7 @@ export const experienceSummaryOperation = implement(experienceSummary, async ({ 
   }
   for (const row of prospectiveResult.rows) {
     const workspace = workspaces.get(row.workspace_id);
-    if (workspace !== undefined) workspace.prospective = amountOf(row.count) * XP_TASK_CREATED;
+    if (workspace !== undefined) workspace.prospective += amountOf(row.count) * XP_TASK_CREATED;
   }
 
   for (const row of detailedResult.rows) {
