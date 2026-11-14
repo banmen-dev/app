@@ -3494,11 +3494,11 @@ function judgeSegment(words, ctx) {
   }
   if (['curl', 'wget', 'http', 'https'].includes(tool)) results.push(judgeHttpClient(tool, args, ctx.stdinContext));
   if (tool === 'eval') results.push(judgeBash(args.join(' '), nextCtx));
-  if (SCRIPT_READERS.has(tool)) {
+  if (SCRIPT_READERS.has(tool) || RUNNERS.has(tool) || INTERPRETERS.has(tool)) {
     const processSubstitution = (word) => /[<=]\(…\)/.test(word);
     if (positionals(args).some(processSubstitution) ||
         redirectsOf(words).some((r) => isReadRedirect(r) && r.processSubstitution)) {
-      results.push([ASK, 'プロセス置換でシェルに渡すスクリプトの中身は判定できない。人が確かめる']);
+      results.push([ASK, 'プロセス置換で実行する道具に渡すスクリプトの中身は判定できない。人が確かめる']);
     }
   }
   if (SHELLS.has(tool)) {

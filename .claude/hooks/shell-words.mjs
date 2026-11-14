@@ -548,8 +548,8 @@ export function splitSegments(command) {
       continue;
     }
 
-    if ((c === '<' || c === '>') && command[i + 1] === '(') {
-      // プロセス置換 <(…) と >(…)。中身は別の区切りとして判定し、語には /dev/fd/… のパスに置き換わる印を残す
+    if ((c === '<' || c === '>' || (c === '=' && !inWord)) && command[i + 1] === '(') {
+      // プロセス置換 <(…) と >(…)、zsh の =(…)。中身は別の区切りとして判定し、語には /dev/fd/… のパスに置き換わる印を残す
       const end = closingParen(command, i + 2);
       nested.push(command.slice(i + 2, end));
       add(`${c}(…)`);
