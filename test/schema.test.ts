@@ -82,6 +82,13 @@ describe('0032_add_custom_contract_limits', () => {
         quota,
         orgId,
       );
+      expect(
+        await env.DB.prepare(
+          'SELECT custom_member_limit, custom_attachment_quota_bytes FROM organization_contracts WHERE organization_id = ?',
+        )
+          .bind(orgId)
+          .first(),
+      ).toEqual({ custom_member_limit: members, custom_attachment_quota_bytes: quota });
     }
     await run(
       'UPDATE organization_contracts SET custom_member_limit = ?, custom_attachment_quota_bytes = ? WHERE organization_id = ?',
