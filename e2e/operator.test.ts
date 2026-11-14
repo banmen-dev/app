@@ -2269,12 +2269,17 @@ test.describe('運用者', () => {
       await dialog.getByRole('radio', { name: /個別/ }).check();
       const members = dialog.getByRole('spinbutton', { name: '人数の上限' });
       const size = dialog.getByRole('spinbutton', { name: '標準の添付容量（GB）' });
+      const preview = dialog.locator('.form-fields[aria-live="polite"]');
+      await expect(preview).toHaveCount(1);
+      await expect(preview).toHaveAttribute('aria-atomic', 'false');
+      await expect(preview).toContainText('変えた後の上限は');
+      await expect(preview.getByRole('spinbutton')).toHaveCount(0);
       await expect(members).toHaveAccessibleDescription('1〜10,000 人の整数で入力してください。');
       await expect(size).toHaveAccessibleDescription(
         '1〜102,400 GB の整数で入力してください。追加容量の口数は、この標準容量に足します。',
       );
       await members.fill('');
-      await expect(dialog).toContainText(
+      await expect(preview).toContainText(
         '人数と標準の添付容量を範囲内の整数で入力すると、変更後の上限と超過の注意を確認できます。',
       );
       await expect(dialog).not.toContainText('変えた後の上限は');

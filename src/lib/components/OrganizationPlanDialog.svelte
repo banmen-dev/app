@@ -341,34 +341,37 @@
           {/each}
         </div>
       </div>
-      {#if unchanged}
-        <span class="field-hint" id={unchangedHintId}>{t('operatorPlanUnchangedHint')}</span>
-      {:else if next !== null}
-        <p class="field-hint">
-          {t('operatorPlanAfter', { members: next.member_limit, quota: sizeText(next.attachment_quota_bytes) })}
-        </p>
-      {:else}
-        <p class="field-hint">{t('operatorPlanCustomInvalidHint')}</p>
-      {/if}
-      {#if target !== null && next !== null && target.contract === null && (next.member_limit < target.member_limit || next.attachment_quota_bytes < target.attachment_quota_bytes)}
-        <div class="callout is-warn">
-          <Icon name="alert" /><span
-            >{t('operatorPlanLimitsLower', {
-              members: target.member_limit,
-              quota: sizeText(target.attachment_quota_bytes),
-            })}</span
-          >
-        </div>
-      {/if}
-      {#if target !== null && next !== null && !unchanged && target.used > next.member_limit}
-        <div class="callout is-warn">
-          <Icon name="alert" /><span>{t('operatorPlanSeatsOver', { used: target.used, limit: next.member_limit })}</span
-          >
-        </div>
-      {/if}
-      {#if target !== null && next !== null && !unchanged && next.attachment_quota_bytes < target.attachment_used_bytes}
-        <div class="callout is-warn"><Icon name="alert" /><span>{t('operatorStorageBelowUsage')}</span></div>
-      {/if}
+      <div class="form-fields" aria-live="polite" aria-atomic="false">
+        {#if unchanged}
+          <span class="field-hint" id={unchangedHintId}>{t('operatorPlanUnchangedHint')}</span>
+        {:else if next !== null}
+          <p class="field-hint">
+            {t('operatorPlanAfter', { members: next.member_limit, quota: sizeText(next.attachment_quota_bytes) })}
+          </p>
+        {:else}
+          <p class="field-hint">{t('operatorPlanCustomInvalidHint')}</p>
+        {/if}
+        {#if target !== null && next !== null && target.contract === null && (next.member_limit < target.member_limit || next.attachment_quota_bytes < target.attachment_quota_bytes)}
+          <div class="callout is-warn">
+            <Icon name="alert" /><span
+              >{t('operatorPlanLimitsLower', {
+                members: target.member_limit,
+                quota: sizeText(target.attachment_quota_bytes),
+              })}</span
+            >
+          </div>
+        {/if}
+        {#if target !== null && next !== null && !unchanged && target.used > next.member_limit}
+          <div class="callout is-warn">
+            <Icon name="alert" /><span
+              >{t('operatorPlanSeatsOver', { used: target.used, limit: next.member_limit })}</span
+            >
+          </div>
+        {/if}
+        {#if target !== null && next !== null && !unchanged && next.attachment_quota_bytes < target.attachment_used_bytes}
+          <div class="callout is-warn"><Icon name="alert" /><span>{t('operatorStorageBelowUsage')}</span></div>
+        {/if}
+      </div>
       {#if target?.trial && !unchanged}
         <p class="field-hint">{t('operatorPlanTrialNote')}</p>
       {/if}
