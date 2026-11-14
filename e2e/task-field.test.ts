@@ -204,3 +204,57 @@ test('計画の画面の先のスプリントとスプリントに入れるダ�
   // 先のスプリントの .lane-sub に未記入の件数が出る
   await expect(page.locator('.lane').first().locator('[data-lane-unfilled]')).toHaveText('詳細 未記入 1 件');
 });
+
+// 詳細の見込み → 完了で確定 → 戻して見込みへ、を本物のAPIとプロフィールの表示で確かめる。
+test('欄を埋めたタスクの詳細20が見込み・明細・打ち消しに反映される', async ({ page, baseURL }) => {
+  const name = '詳細の経験値チーム';
+  const title = '通知の受け入れ条件を整える';
+  await createWorkspace(page, name);
+  const workspaceId = new URL(page.url()).pathname.split('/').at(-1)!;
+  const call = async (operation: string, body: Record<string, unknown>) => {
+    const response = await page.request.post(`/api/aoba/${operation}`, {
+      headers: { Origin: new URL(baseURL!).origin, 'Content-Type': 'application/json' },
+      data: { workspace_id: workspaceId, ...body },
+    });
+    expect(response.status()).toBe(200);
+    return response;
+  };
+  const created = await call('task-create', { title, points: 1 });
+  const { task } = await created.json();
+  const listed = await call('detail-field-list', {});
+  const { fields } = await listed.json();
+  expect(fields).toHaveLength(1);
+
+  // 引き出しから実際に欄を書く。
+  await page.reload();
+  await page.getByRole('link', { name: title, exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: title });
+  await drawer.getByRole('button', { name: '受け入れ基準を書く' }).click();
+  const input = drawer.getByRole('textbox', { name: '受け入れ基準', exact: true });
+  await input.fill('通知を一度だけ表示する');
+  const saved = page.waitForResponse(
+    (response) => response.url().endsWith('/task-field-set') && response.request().method() === 'POST',
+  );
+  await input.blur();
+  expect((await saved).ok()).toBe(true);
+
+  await page.goto('/aoba/me');
+  const workspace = page.locator('.breakdown > div', { has: page.locator('dt', { hasText: name }) });
+  await expect(workspace.locator('dd')).toHaveText('0');
+  const pending = await call('experience-summary', {});
+  expect((await pending.json()).workspaces.find((row: { id: string }) => row.id === workspaceId).prospective).toBe(30);
+  await expect(page.locator('.xp-sub')).toHaveText(/^次のレベルまで [\d,]+・見込み \+[\d,]+$/);
+  await call('task-complete', { task_id: task.id });
+  await page.reload();
+  const rows = page.getByRole('table', { name: '経験値の明細' }).locator('tbody tr', { hasText: title });
+  const detailed = rows.filter({ has: page.locator('.tag', { hasText: /^詳細(?:の打ち消し)?$/ }) });
+  await expect(detailed).toHaveCount(1);
+  await expect(detailed.locator('.xp-delta')).toHaveText('+20');
+  await expect(workspace.locator('dd')).toHaveText('60');
+  await call('task-reopen', { task_id: task.id });
+  await page.reload();
+  await expect(workspace.locator('dd')).toHaveText('0');
+  const reopened = await call('experience-summary', {});
+  expect((await reopened.json()).workspaces.find((row: { id: string }) => row.id === workspaceId).prospective).toBe(30);
+  await expect(detailed.locator('.xp-delta')).toHaveText(['-20', '+20']);
+});
