@@ -1918,6 +1918,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   let dialogOpener = null;
   // 値を二度と出せないダイアログ（API トークンの発行直後）は、Esc と背景では閉じず、「閉じる」と × だけで閉じる（本番の Dialog の outsideDismiss={false}）
   let dialogOnlyButtons = false;
+  let planSubmitting = false;
   function openDialog(title, body, foot, onlyButtons = false) {
     dialogOnlyButtons = onlyButtons;
     dialogOpener = document.activeElement;
@@ -1932,6 +1933,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     (el.querySelector("input, textarea, select, .btn.is-primary") || el.querySelector("[data-close-dialog]")).focus();
   }
   function closeDialog() {
+    if (planSubmitting) return false;
     const el = document.getElementById("dialog");
     if (!el || el.hidden) return false;
     el.hidden = true; el.innerHTML = ""; dialogOnlyButtons = false; pendingDrawer = null;
@@ -2648,13 +2650,17 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
            <label class="choice"><input type="radio" name="d-p" value="business" data-plan-choice checked><div><b>ビジネス</b><span>50&nbsp;人・100&nbsp;GB</span></div></label>
            <label class="choice"><input type="radio" name="d-p" value="custom" data-plan-choice><div><b>個別</b><span>相談して決めた人数と標準の容量</span></div></label>
          </div></div>
-       <div class="form-row is-start" id="d-p-custom" hidden><div class="field"><label class="field-label" for="d-p-members">人数の上限</label><input class="input" id="d-p-members" type="number" min="1" max="10000" step="1" value="80"></div><div class="field"><label class="field-label" for="d-p-size">標準の添付容量（GB）</label><input class="input" id="d-p-size" type="number" min="1" max="102400" step="1" value="200"></div></div>
+       <div class="form-row is-start" id="d-p-custom" hidden>
+         <div class="field"><label class="field-label" for="d-p-members">人数の上限（人）</label><input class="input" id="d-p-members" type="number" inputmode="numeric" min="1" max="10000" step="1" value="50" aria-describedby="d-p-members-hint"><span class="field-hint" id="d-p-members-hint">1〜10,000 人の整数で入力してください。</span><span class="field-error" id="d-p-members-error" role="alert" hidden>${icon("alert")}人数の上限は 1〜10,000 の整数で入れてください。</span></div>
+         <div class="field"><label class="field-label" for="d-p-size">標準の添付容量（GB）</label><input class="input" id="d-p-size" type="number" inputmode="numeric" min="1" max="102400" step="1" value="100" aria-describedby="d-p-size-hint"><span class="field-hint" id="d-p-size-hint">1〜102,400 GB の整数で入力してください。追加容量の口数は、この標準容量に足します。</span><span class="field-error" id="d-p-size-error" role="alert" hidden>${icon("alert")}添付ファイルの上限は 1〜102,400 の整数（GB）で入れてください。</span></div>
+       </div>
        <div class="field"><span class="field-label" id="d-pil">支払いの周期</span>
          <div class="choice-list" role="radiogroup" aria-labelledby="d-pil">
            <label class="choice"><input type="radio" name="d-pi" value="monthly" data-plan-choice checked><div><b>月払い</b></div></label>
            <label class="choice"><input type="radio" name="d-pi" value="yearly" data-plan-choice><div><b>年払い</b></div></label>
          </div></div>
        <p class="field-hint" id="d-pu">今の契約です。別のプランか支払いの周期を選ぶと変えられます。</p>
+       <p class="field-hint" id="d-p-invalid" hidden>人数と標準の添付容量を範囲内の整数で入力すると、変更後の上限と超過の注意を確認できます。</p>
        <p class="field-hint" id="d-pa" hidden>変えた後の上限は 50&nbsp;人・100&nbsp;GB です。</p>
        <div class="callout is-warn" id="d-pl2" hidden>${icon("alert")}<span>今の上限（120&nbsp;人・500&nbsp;GB）より下がります。契約を付けると、上限を「人数と容量の上限を変える」で値に戻せなくなります。</span></div>
        <div class="callout is-warn" id="d-po" hidden>${icon("alert")}<span>今の人数（38&nbsp;人）が、変えた後の上限（15&nbsp;人）を超えます。今いる人はそのまま残り、上限を下回るまで新しい人の招待と管理者への指名だけを止めます。</span></div>
@@ -3722,7 +3728,8 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const size = custom ? Number(document.getElementById("d-p-size").value) : plan.value === "team" ? 30 : 100;
     const valid = Number.isInteger(members) && members >= 1 && members <= 10000 && Number.isInteger(size) && size >= 1 && size <= 102400;
     const same = plan.value === "business" && interval.value === "monthly";
-    submit.setAttribute("aria-disabled", String(same || !valid));
+    submit.setAttribute("aria-disabled", String(same));
+    document.getElementById("d-p-invalid").hidden = valid;
     document.getElementById("d-pu").hidden = !same;
     const after = document.getElementById("d-pa");
     after.hidden = same || !valid;
@@ -3730,16 +3737,20 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     document.getElementById("d-po").hidden = !valid || members >= 38;
     document.querySelector("#d-po span").textContent = `今の人数（38 人）が、変えた後の上限（${members} 人）を超えます。今いる人はそのまま残り、上限を下回るまで新しい人の招待と管理者への指名だけを止めます。`;
     document.getElementById("d-pq").hidden = !valid || size >= 42;
-    if (same || !valid) {
-      submit.removeAttribute("data-close-dialog");
-      submit.removeAttribute("data-toast");
-    } else {
-      submit.setAttribute("data-close-dialog", "");
-      submit.setAttribute("data-toast", "「くもラボ」のプランを変えました");
-    }
+    submit.removeAttribute("data-close-dialog");
+    submit.removeAttribute("data-toast");
+    if (same) submit.setAttribute("aria-describedby", "d-pu");
+    else submit.removeAttribute("aria-describedby");
   };
   document.addEventListener("change", (ev) => { if (ev.target.closest("[data-plan-choice]")) syncPlanDialog(); });
-  document.addEventListener("input", (ev) => { if (ev.target.closest("#d-qm, #d-qg")) syncQuotaDialog(); if (ev.target.closest("#d-p-members, #d-p-size")) syncPlanDialog(); });
+  document.addEventListener("input", (ev) => { if (ev.target.closest("#d-qm, #d-qg")) syncQuotaDialog(); if (ev.target.closest("#d-p-members, #d-p-size")) {
+    const input = ev.target;
+    input.setAttribute("aria-invalid", "false");
+    input.setAttribute("aria-describedby", `${input.id}-hint`);
+    input.closest(".field").classList.remove("is-invalid");
+    document.getElementById(`${input.id}-error`).hidden = true;
+    syncPlanDialog();
+  } });
   function syncStorageDialog() {
     const first = document.getElementById("d-storage10"), second = document.getElementById("d-storage50");
     if (!first || !second) return;
@@ -4076,6 +4087,33 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     if ((el = hit("data-celebrate"))) {
       const e = D.epics[el.dataset.celebrate];
       celebrate(e.title, `${t("party")}の ${e.party.length} 人に ${{ small: 100, medium: 300, large: 600 }[e.tier]} XP`); return;
+    }
+    if (ev.target.closest("#d-ps")) {
+      const submit = document.getElementById("d-ps");
+      if (planSubmitting || submit.getAttribute("aria-disabled") === "true") return;
+      const custom = document.querySelector('input[name="d-p"]:checked')?.value === "custom";
+      let firstInvalid = null;
+      for (const id of ["d-p-members", "d-p-size"]) {
+        const input = document.getElementById(id);
+        const invalid = custom && (input.value === "" || !input.validity.valid);
+        input.setAttribute("aria-invalid", String(invalid));
+        input.setAttribute("aria-describedby", `${id}-hint${invalid ? ` ${id}-error` : ""}`);
+        input.closest(".field").classList.toggle("is-invalid", invalid);
+        document.getElementById(`${id}-error`).hidden = !invalid;
+        if (invalid && !firstInvalid) firstInvalid = input;
+      }
+      if (firstInvalid) { firstInvalid.focus(); return; }
+      // 見本は通信をしない。短い疑似送信で、本番と同じ読み取り専用の入力と閉じられない状態を示す。
+      planSubmitting = true;
+      for (const input of document.querySelectorAll("#d-p-members, #d-p-size")) input.readOnly = true;
+      for (const button of document.querySelectorAll("#dialog button")) button.setAttribute("aria-disabled", "true");
+      submit.textContent = "変更しています";
+      setTimeout(() => {
+        planSubmitting = false;
+        closeDialog();
+        toast(`${icon("check")}「くもラボ」のプランを変えました`);
+      }, 400);
+      return;
     }
     if ((el = hit("data-close-dialog")) || (ev.target.id === "dialog" && !dialogOnlyButtons)) {
       const msg = el && el.dataset.toast; closeDialog(); if (msg) toast(`${icon("check")}${esc(msg)}`);
