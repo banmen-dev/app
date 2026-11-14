@@ -1018,6 +1018,8 @@ GitHub の通知を受け取る人は、リポジトリの **Watch → Custom �
 
 テスト開始前の seed でローカル D1 の `SQLITE_BUSY` が出たときは、同じ操作を500ms、1000ms待って最大2回再試行する。ロック以外の失敗と再試行後の失敗はそのまま CI を落とす。
 
+見本のカタログ全体の axe 検査（`e2e/design-catalog-a11y.test.ts`）は、狭幅の正常な検査でも CI で約55秒かかったため、テスト単位の上限を120秒とする（#1229）。assertion の待ち時間は延ばさず、表示・テーマ適用・axe 検査を別の step にして遅れた工程を trace で確認できるようにする。共通の axe の入口は `resultTypes` に `violations` と `incomplete` を指定し、使わない合格・対象外の要素の結果生成を抑える。検査対象・規則・違反と保留の全要素は維持する。
+
 1. 落ちたジョブのログを読む。GitHub の MCP の `get_job_logs`（`gh run view <run_id> --log-failed` でもよい）で、落ちたテストの名前、`expect` の失敗の文言、スタックを見る。ログの末尾の `[e2e-stall]` の行で、その時刻にサーバーが止まっていたかを確かめる（下の「サーバーの止まりの記録」）
 2. 足りなければ、ジョブの成果物（`e2e-<i>-attempt-<n>`、`e2e-dev-<i>-attempt-<n>`、`e2e-repeat-<i>-attempt-<n>`。`<n>` は実行回数。再実行前の trace も上書きせず14 日残る）の `playwright-report/` と `test-results/` を `gh run download <run_id> -n e2e-<i>-attempt-<n>` で取り、trace を `pnpm exec playwright show-trace <trace.zip>` で読む（`show-trace` は止めない）。落ちたテストの画面は `test-failed-<n>.png` にある。成果物が取れない環境（プロキシで止まるクラウドのセッションなど）では、ログだけで直し、足りなければ手順 4 で人に頼む
 3. 直して、すべてコミットしてから1回にまとめて push する。CI が走り直す
