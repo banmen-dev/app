@@ -27,6 +27,7 @@ import {
   concatWords,
   expandsAt,
   followsGlobGroup,
+  globHeadOf,
   isAssignment,
   positionalIndexes,
   positionals,
@@ -2034,6 +2035,65 @@ function judgeVia(prefix, args, start, { dir, place }, ctx) {
   return judgeSegment(concatWords(prefix, sliceWords(args, start)), { ...ctx, dir, place, envFrom: prefix.length, depth: ctx.depth + 1 });
 }
 
+const MAX_REDIRECT_GLOB_LENGTH = 1024;
+const MAX_REDIRECT_GLOB_WORK = 4_000_000;
+const MAX_REDIRECT_GLOB_CALLS = 4096;
+
+// 展開後の長さの二乗と、秘密の2候補への接頭部・設定4候補への相対/絶対パスの接尾部の照合回数も先に制限する。
+function boundedRedirectPatterns(word, dir = null) {
+  if (word.length > MAX_REDIRECT_GLOB_LENGTH || expansionSize(word) > MAX_BRACE_EXPANSION) return null;
+  const patterns = expandBraces(word);
+  let work = 0;
+  let calls = 0;
+  for (const pattern of patterns) {
+    work += pattern.length ** 2;
+    const relativeParts = path.posix.normalize(pattern).split('/').length;
+    const absoluteParts = dir ? path.resolve(dir, pattern).split('/').length : 0;
+    calls += pattern.length * 2 + (relativeParts + absoluteParts) * 4;
+    if (work > MAX_REDIRECT_GLOB_WORK || calls > MAX_REDIRECT_GLOB_CALLS) return null;
+  }
+  return patterns;
+}
+
+// リダイレクトの先の glob と brace を、特別な名前の候補に照合する。
+// 対象の名前はどのディレクトリでも守るので、パスの各接尾部を候補に当てる。
+// 大きすぎる展開は名前を決めず、呼び出し側で確認に回す。
+function redirectGlobMatches(word, candidates, dir = null) {
+  const written = withoutGlobGroup(word).toLowerCase();
+  if (!GLOB_CHARS.test(written)) return false;
+  const bounded = boundedRedirectPatterns(written, dir);
+  if (!bounded) return false;
+  return bounded.some((expanded) => {
+    const patterns = [path.posix.normalize(expanded), ...(dir ? [path.resolve(dir, expanded)] : [])];
+    return patterns.some((pattern) => {
+      const parts = pattern.toLowerCase().split('/');
+      return parts.some((_, i) => candidates.some((candidate) => matchesGlob(candidate, parts.slice(i).join('/'))));
+    });
+  });
+}
+
+// 環境ごとの接尾部もシークレット。glob が名前の途中にあっても、名前に当たる接頭部と残る接尾部を見る。
+// .example で始まる接尾部は例として許可し、未知の glob の接尾部は秘密の名前になりうる側に倒す。
+function secretRedirectGlobMatches(word, dir = null) {
+  const written = withoutGlobGroup(word).toLowerCase();
+  const bounded = boundedRedirectPatterns(written, dir);
+  if (!bounded) return false;
+  return bounded.some((expanded) => {
+    if (mentionsSecret(expanded)) return true;
+    const pattern = path.posix.basename(path.posix.normalize(expanded));
+    const literalPrefix = /^[^*?\[\]!+@(){}]*/.exec(pattern)[0];
+    return ['.dev.vars', '.env'].some((name) => {
+      if (!name.startsWith(literalPrefix)) return false;
+      for (let i = 1; i <= pattern.length; i++) {
+        if (!matchesGlob(name, pattern.slice(0, i))) continue;
+        const suffix = pattern.slice(i);
+        if (!suffix || (/^[.*?[!+@{]/.test(suffix) && !suffix.startsWith('.example'))) return true;
+      }
+      return false;
+    });
+  });
+}
+
 // .dev.vars と .env（.example は除く）。コードの文字列の中（readFileSync('.dev.vars')）も拾う。
 // .envrc や process.env は拾わない。.dev.v* のように名前の途中で切ったグロブは取りこぼす。
 // macOS の APFS は大文字小文字を区別しないので、.DEV.VARS も同じファイルを指す（i）
@@ -2786,7 +2846,11 @@ function gitConfigFileAt(dir, cdWords, namesGitDir) {
 // cdWords は、これまでの cd の行き先の字面（~/.config/git）をつないだもの。namesGitDir は gitConfigFileAt を参照
 function judgeFileWrites(tool, args, words, dir = null, cdWords = '', namesGitDir = false) {
   const results = [];
-  if (judgeSecretAccess(tool, args, words) || writesTo(mentionsSecret, tool, args, words, { anyOperand: true })) {
+  const globRedirects = redirectsOf(words).filter((r) => !isHeredocRedirect(r) && r.expands);
+  const redirectNames = globRedirects.map((r) => r.globPattern);
+  if (redirectNames.some((w) => !boundedRedirectPatterns(w, dir))) results.push([ASK, 'リダイレクトの先の glob の長さ・展開数・照合量・照合回数が上限を超えるので、名前を照合せず人が確かめる']);
+  if (judgeSecretAccess(tool, args, words) || writesTo(mentionsSecret, tool, args, words, { anyOperand: true }) ||
+      redirectNames.some((w) => secretRedirectGlobMatches(w, dir))) {
     results.push([DENY, SECRET_FILE_REASON]);
   }
   // mv は元を消すので、元が守る先（mv .githooks/pre-commit /tmp/）でも守りが外れる。コピーの元（cp .claude/hooks/x.mjs /tmp/）は見ない
@@ -2805,7 +2869,8 @@ function judgeFileWrites(tool, args, words, dir = null, cdWords = '', namesGitDi
     results.push([ASK, '守る仕組み（Claude の設定とフック）とマイグレーションの書き換えは人が確かめる']);
   }
   const isConfig = wranglerConfigAt(dir);
-  if (writesTo(isConfig, tool, args, words, { intoDirectory: { dir, names: WRANGLER_CONFIG_NAMES, anyInstallOperand: true } }) || interpreterWords(tool, args).some(isConfig)) {
+  if (writesTo(isConfig, tool, args, words, { intoDirectory: { dir, names: WRANGLER_CONFIG_NAMES, anyInstallOperand: true } }) || interpreterWords(tool, args).some(isConfig) ||
+      globRedirects.filter(isWriteRedirect).map((r) => r.globPattern).some((w) => redirectGlobMatches(w, [...WRANGLER_CONFIG_FILES, '.wrangler/deploy/config.json'], dir))) {
     results.push([ASK, 'wrangler の設定（wrangler.jsonc、.wrangler/deploy/config.json）に remote の binding を入れると、wrangler dev が本番の D1 と R2 に届く。書き換えは人が確かめる']);
   }
   const isGitConfig = gitConfigFileAt(dir, cdWords, namesGitDir);
@@ -3438,6 +3503,13 @@ function judgeSegment(words, ctx) {
   }
   if (['curl', 'wget', 'http', 'https'].includes(tool)) results.push(judgeHttpClient(tool, args, ctx.stdinContext));
   if (tool === 'eval') results.push(judgeBash(args.join(' '), nextCtx));
+  if (SCRIPT_READERS.has(tool) || RUNNERS.has(tool) || INTERPRETERS.has(tool)) {
+    const processSubstitution = (word) => /[<=]\(…\)/.test(word);
+    if (positionals(args).some(processSubstitution) ||
+        redirectsOf(words).some((r) => isReadRedirect(r) && r.processSubstitution)) {
+      results.push([ASK, 'プロセス置換で実行する道具に渡すスクリプトの中身は判定できない。人が確かめる']);
+    }
+  }
   if (SHELLS.has(tool)) {
     // bash -c "..."、bash -lc "..."、bash <<< "..."、bash <<EOF の中身も同じ規則で見る
     const script = shellCommandBody(tool, args);
@@ -3766,6 +3838,7 @@ function judgeCommand(
   const currentBranch = (d) => (switched.has(d) ? switched.get(d) : branchOf(d));
   const results = [];
   const segments = splitSegments(command);
+  if (segments.uncertain) results.push([ASK, 'ヒアドキュメントの終端と置換の閉じ括弧が同じ行にあり、シェルごとに解釈が割れる。人が確かめる']);
   // git rev-parse --git-common-dir などで設定ファイルのあるディレクトリを引いたコマンドは、その場所を字面で読めない。外側のコマンドが引いたものも引き継ぐ
   namesGitDir ||= namesGitDirIn(segments, command);
   const pushing = pushingFunctions(command);
@@ -3786,6 +3859,18 @@ function judgeCommand(
     // 道具を問わず、何をどこへ渡すかを判定できないものとする。後ろがリダイレクトだけ（ls *(N) 2>/dev/null）なら、宛先はこの区切りで見るので通す
     if (followsGlobGroup(words) && words.length > 0) {
       results.push([ASK, 'zsh の括弧の glob（x(N)、(a|b)）は後ろの語を別の区切りに切るので、コマンドの引数（コピーの宛先、git のサブコマンド）を判定できない。人が確かめる']);
+    }
+    // glob が空になればシェルや runner は標準入力を実行する。元の道具に入力を付け直し、明確な拒否も維持する。
+    const globHead = followsGlobGroup(words) && globHeadOf(words);
+    if (globHead && redirectsOf(words).length > 0) {
+      const headCi = commandIndex(globHead);
+      const headTool = baseName(globHead[headCi] ?? '');
+      if (SCRIPT_READERS.has(headTool) || RUNNERS.has(headTool) || INTERPRETERS.has(headTool)) {
+        results.push(...judgeSegment(concatWords(globHead, sliceWords(words, words.length)), {
+          dir, branchOf: currentBranch, scriptOf, packageDirOf, depth, env, root, place, cdWords, namesGitDir, findBudget,
+          segmentCount: segments.length, stdinContext: { previous, ...shapeOfStdin },
+        }));
+      }
     }
     const ci = commandIndex(words);
     if (redirectsOf(words).some((r) => r.unterminated)) results.push([ASK, HEREDOC_UNTERMINATED_REASON]);

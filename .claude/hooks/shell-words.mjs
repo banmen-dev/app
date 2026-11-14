@@ -64,6 +64,11 @@ export function followsGlobGroup(words) {
   return words.followsGlobGroup === true;
 }
 
+// 括弧の glob を含む元のコマンド。閉じの後ろのリダイレクトを、その道具に付け直して判定するために使う。
+export function globHeadOf(words) {
+  return words.globHead;
+}
+
 // 区切りの並びにある算術のコマンド（(( … ))）と算術の展開（$(( … ))）の式の一覧（置換の中のものも含む）。
 // コマンドの頭の (( は区切りに残らず、$(( … )) は語の中の $(…) に置き換わるので、式の中身を判定の側が見られるよう配列の属性に持つ
 export function arithmeticOf(segments) {
@@ -161,28 +166,147 @@ function decodeAnsiC(text, start) {
   return { decoded, end: j };
 }
 
-// $( の後ろから、対応する ) の位置を返す。
-// git commit -m "$(cat <<'EOF' ... EOF)" の本文の ' や ( で数えを崩さないよう、ヒアドキュメントの本文は数えない
-function closingParen(text, start) {
+// ヒアドキュメントの終わりの印を、引数の位置と同じ読み方（引用符、\、$'…'）で読む。
+// 引用符か \ が1つでもあれば quoted で、シェルは本文を展開しない（<<'EOF'、<<\EOF、<<E\OF）
+function readDelimiter(command, start) {
+  let j = start;
+  while (command[j] === ' ' || command[j] === '\t') j++;
+  let text = '';
+  let quoted = false;
+  while (j < command.length && !WORD_END.has(command[j])) {
+    const ch = command[j];
+    if (ch === "'" || ch === '"') {
+      quoted = true;
+      const end = command.indexOf(ch, j + 1);
+      const stop = end === -1 ? command.length : end;
+      text += command.slice(j + 1, stop);
+      j = stop + 1;
+    } else if (ch === '$' && command[j + 1] === "'") {
+      quoted = true;
+      const { decoded, end } = decodeAnsiC(command, j + 2);
+      text += decoded;
+      j = end + 1;
+    } else if (ch === '\\' && j + 1 < command.length) {
+      // \<改行> は行継続で、印の一部にも引用にもならない
+      if (command[j + 1] !== '\n') {
+        quoted = true;
+        text += command[j + 1];
+      }
+      j += 2;
+    } else {
+      text += ch;
+      j++;
+    }
+  }
+  return [text, j, quoted];
+}
+
+// 引用しない終端の本文は、\<改行>を除いてから終端行を照合する。
+// raw は既存の本文の表現を保持し、line は終端の判定にだけ使う。
+function readHeredocLine(text, start, quoted) {
+  let j = start;
+  let line = '';
+  while (j < text.length && text[j] !== '\n') {
+    if (!quoted && text[j] === '\\' && text[j + 1] === '\n') j += 2;
+    else if (!quoted && text[j] === '\\' && text[j + 1] === '\\') {
+      line += '\\\\';
+      j += 2;
+    } else line += text[j++];
+  }
+  return { line, raw: text.slice(start, j), next: j < text.length ? j + 1 : j };
+}
+
+// $( の後ろから、対応する ) の位置を返す。引用符と本文の括弧は数えない。
+// # は語の始まる位置だけコメントにする。入れ子の置換・引用符・escapeの後も語の状態を保つ。
+function closingParen(text, start, state = {}) {
   let depth = 1;
+  let inWord = false;
+  const heredocs = [];
   for (let j = start; j < text.length; j++) {
     const ch = text[j];
-    if (ch === '\\') j++;
-    else if (text.startsWith('$((', j)) j = arithmeticEnd(text, j + 3);
-    else if (text.startsWith('<<', j) && text[j + 2] !== '<') {
-      const match = /^<<-?\s*(['"]?)([\w-]+)\1/.exec(text.slice(j));
-      if (!match) continue;
-      const bodyStart = text.indexOf('\n', j);
-      if (bodyStart === -1) return text.length;
-      const end = new RegExp(`\\n[\\t ]*${match[2]}[\\t ]*(\\n|\\)|$)`).exec(text.slice(bodyStart));
-      if (!end) return text.length;
-      // 終わりの印の行の末尾（改行か ) の手前）まで進める
-      j = bodyStart + end.index + end[0].length - (end[1] === ')' ? 2 : 1);
+    if (ch === '\\') {
+      if (text[j + 1] !== '\n') inWord = true;
+      j++;
+    } else if (ch === '#' && !inWord) {
+      const end = text.indexOf('\n', j);
+      j = end === -1 ? text.length : end - 1;
+    } else if (text.startsWith('((', j) && !inWord) {
+      // 算術コマンドの << と >> はシフトで、ヒアドキュメントとリダイレクトではない。
+      j = arithmeticEnd(text, j + 2);
+      inWord = false;
+    } else if (text.startsWith("$'", j)) {
+      j = decodeAnsiC(text, j + 2).end;
+      inWord = true;
+    } else if (text.startsWith('$(', j)) {
+      j = readSubstitution(text, j).end;
+      inWord = true;
+    } else if (ch === '$') {
+      j = readParameter(text, j).end - 1;
+      inWord = true;
+    } else if (ch === '"') {
+      // 二重引用符の中の ) は文字だが、入れ子の $(…) は独立した引用符と括弧を持つ。
+      for (j++; j < text.length && text[j] !== '"'; j++) {
+        if (text[j] === '\\') j++;
+        else if (text.startsWith('$(', j)) j = readSubstitution(text, j).end;
+        else if (text[j] === '`') j = backtickEnd(text, j + 1);
+      }
+      inWord = true;
     } else if (ch === "'") {
       const end = text.indexOf("'", j + 1);
       j = end === -1 ? text.length : end;
-    } else if (ch === '(') depth++;
-    else if (ch === ')' && --depth === 0) return j;
+      inWord = true;
+    } else if (ch === '`') {
+      j = backtickEnd(text, j + 1);
+      inWord = true;
+    } else if (text.startsWith('<<<', j)) {
+      j += 2;
+      inWord = false;
+    } else if (text.startsWith('<<', j)) {
+      const [delimiter, next, quoted] = readDelimiter(text, j + (text[j + 2] === '-' ? 3 : 2));
+      heredocs.push({ delimiter, quoted, stripTabs: text[j + 2] === '-' });
+      j = next - 1;
+      inWord = false;
+    } else if (ch === '\n' && heredocs.length > 0) {
+      // 宣言行の後から本文を順に読み飛ばす。終端行が無い場合は後ろを安全な構文とみなさない。
+      let next = j + 1;
+      for (const { delimiter, quoted, stripTabs } of heredocs) {
+        let closed = false;
+        while (next < text.length) {
+          const lineStart = next;
+          const read = readHeredocLine(text, next, quoted);
+          next = read.next;
+          const content = stripTabs ? read.line.replace(/^\t+/, '') : read.line;
+          // Bash は印で始まり ) を含む行でも置換を閉じる。zsh と解釈が割れるので確認の印を残す。
+          if (content !== delimiter && content.startsWith(delimiter) && content.includes(')')) {
+            state.uncertain = true;
+            return text.indexOf(')', lineStart);
+          }
+          if (content === delimiter) {
+            closed = true;
+            break;
+          }
+        }
+        if (!closed) return text.length;
+      }
+      j = next - 1;
+      heredocs.length = 0;
+      inWord = false;
+    } else if (ch === '(') {
+      depth++;
+      inWord = false;
+    } else if (ch === ')') {
+      if (--depth === 0) return j;
+      inWord = false;
+    } else if (WORD_END.has(ch)) inWord = false;
+    else inWord = true;
+  }
+  return text.length;
+}
+
+function backtickEnd(text, start) {
+  for (let j = start; j < text.length; j++) {
+    if (text[j] === '\\') j++;
+    else if (text[j] === '`') return j;
   }
   return text.length;
 }
@@ -207,8 +331,9 @@ function readSubstitution(text, j) {
     const end = arithmeticEnd(text, j + 3);
     return { inner: substitutionsIn(text.slice(j + 3, end - 1)), end, expression: text.slice(j + 3, end - 1) };
   }
-  const end = closingParen(text, j + 2);
-  return { inner: [text.slice(j + 2, end)], end };
+  const state = {};
+  const end = closingParen(text, j + 2, state);
+  return { inner: [text.slice(j + 2, end)], end, uncertain: state.uncertain };
 }
 
 // 引用符も \ も無い終わりの印のヒアドキュメントの本文と、算術（$(( … ))、(( … ))）の中で、シェルが実行する置換（$(…)、`…`、${X:-$(…)}）の中身。
@@ -239,12 +364,16 @@ function substitutionsIn(body) {
 export function splitSegments(command) {
   const segments = [];
   const nested = [];
+  let uncertain = false;
   // 算術の式（(( … ))、$(( … ))）の中身
   const arithmetic = [];
   const heredocs = [];
   let words = withMarks([], [], []);
   let word = '';
   let shape = '';
+  let globPattern = '';
+  let globClass = false;
+  let globBraces = 0;
   let inWord = false;
   let expands = false;
   // 開いている ( の数。0 のときの ) は case のラベルの終わり
@@ -255,26 +384,43 @@ export function splitSegments(command) {
   const groups = [];
   // 今の区切りが、括弧の glob の閉じの ) の直後から始まったか
   let afterGlobGroup = false;
+  let globHead = null;
 
   // 語に文字を足す。shapes には、実行時に決まる位置なら DYNAMIC を、そうでなければ同じ文字を足す
-  const add = (text, dynamic = false) => {
+  const add = (text, dynamic = false, literal = false) => {
     word += text;
     shape += dynamic ? DYNAMIC : text;
+    // 保護する名前の候補にglob記号は無い。引用された記号は候補に現れない印にし、未引用の記号だけを展開する。
+    for (const ch of text) {
+      const operator = /[?*\[\]{}()!+@|\\]/.test(ch) || (globClass && (ch === '-' || ch === '^')) || (globBraces > 0 && ch === ',');
+      globPattern += literal && operator ? '\u0001' : ch;
+      if (!literal && ch === '[') globClass = true;
+      else if (!literal && ch === ']') globClass = false;
+      if (!literal && ch === '{') globBraces++;
+      else if (!literal && ch === '}') globBraces = Math.max(0, globBraces - 1);
+    }
     inWord = true;
   };
   // 演算子（> など）を読んだ後で、先の語を待っているリダイレクト。次の1語は argv ではなく、この先になる
   let openRedirect = null;
+  let redirectGlobDepth = 0;
   // 先の語が来なかったリダイレクト（echo x >; …）は、空の先で閉じる
   const closeRedirect = () => {
     if (!openRedirect) return;
     words.redirects.push({ op: openRedirect.op, target: '', shape: '', substitutions: [] });
     openRedirect = null;
+    redirectGlobDepth = 0;
   };
   const endWord = () => {
     if (inWord && openRedirect) {
       // 先の中の $(…) と `…` の中身は、nested に積んだ分から取る（別の区切りとしても判定される）
-      words.redirects.push({ op: openRedirect.op, target: word, shape, substitutions: nested.slice(openRedirect.nestedFrom) });
+      const redirect = { op: openRedirect.op, target: word, shape, substitutions: nested.slice(openRedirect.nestedFrom) };
+      Object.defineProperty(redirect, 'expands', { value: expands });
+      Object.defineProperty(redirect, 'globPattern', { value: globPattern });
+      if (openRedirect.processSubstitution) redirect.processSubstitution = true;
+      words.redirects.push(redirect);
       openRedirect = null;
+      redirectGlobDepth = 0;
     } else if (inWord) {
       words.push(word);
       words.expands.push(expands && !LITERAL_WORDS.has(word));
@@ -282,6 +428,9 @@ export function splitSegments(command) {
     }
     word = '';
     shape = '';
+    globPattern = '';
+    globClass = false;
+    globBraces = 0;
     inWord = false;
     expands = false;
   };
@@ -289,45 +438,13 @@ export function splitSegments(command) {
     endWord();
     closeRedirect();
     if (words.length > 0 || words.redirects.length > 0) {
-      if (afterGlobGroup) Object.defineProperty(words, 'followsGlobGroup', { value: true, configurable: true });
+      if (afterGlobGroup) {
+        Object.defineProperty(words, 'followsGlobGroup', { value: true, configurable: true });
+        Object.defineProperty(words, 'globHead', { value: globHead, configurable: true });
+      }
       segments.push(words);
     }
     words = withMarks([], [], []);
-  };
-
-  // ヒアドキュメントの終わりの印を、引数の位置と同じ読み方（引用符、\、$'…'）で読む。
-  // 引用符か \ が1つでもあれば quoted で、シェルは本文を展開しない（<<'EOF'、<<\EOF、<<E\OF）
-  const readDelimiter = (start) => {
-    let j = start;
-    while (command[j] === ' ' || command[j] === '\t') j++;
-    let text = '';
-    let quoted = false;
-    while (j < command.length && !WORD_END.has(command[j])) {
-      const ch = command[j];
-      if (ch === "'" || ch === '"') {
-        quoted = true;
-        const end = command.indexOf(ch, j + 1);
-        const stop = end === -1 ? command.length : end;
-        text += command.slice(j + 1, stop);
-        j = stop + 1;
-      } else if (ch === '$' && command[j + 1] === "'") {
-        quoted = true;
-        const { decoded, end } = decodeAnsiC(command, j + 2);
-        text += decoded;
-        j = end + 1;
-      } else if (ch === '\\' && j + 1 < command.length) {
-        // \<改行> は行継続で、印の一部にも引用にもならない
-        if (command[j + 1] !== '\n') {
-          quoted = true;
-          text += command[j + 1];
-        }
-        j += 2;
-      } else {
-        text += ch;
-        j++;
-      }
-    }
-    return [text, j, quoted];
   };
 
   for (let i = 0; i < command.length; i++) {
@@ -341,12 +458,13 @@ export function splitSegments(command) {
     if (c === "'") {
       const end = command.indexOf("'", i + 1);
       const stop = end === -1 ? command.length : end;
-      add(command.slice(i + 1, stop));
+      add(command.slice(i + 1, stop), false, true);
       i = stop;
       continue;
     }
     if (command.startsWith('$(', i)) {
-      const { inner, end, expression } = readSubstitution(command, i);
+      const { inner, end, expression, uncertain: ambiguous } = readSubstitution(command, i);
+      uncertain ||= ambiguous;
       if (expression !== undefined) arithmetic.push(expression);
       nested.push(...inner);
       add(SUBSTITUTION, true);
@@ -365,7 +483,7 @@ export function splitSegments(command) {
     }
     if (c === '$' && command[i + 1] === "'") {
       const { decoded, end } = decodeAnsiC(command, i + 2);
-      add(decoded);
+      add(decoded, false, true);
       i = end;
       continue;
     }
@@ -376,12 +494,13 @@ export function splitSegments(command) {
           // 二重引用符の中の \ が外すのは $ ` " \ と改行だけ。\<改行> は丸ごと消え（"\<改行>--remote" は --remote）、
           // それ以外の \ は文字として残る（"\--x" は \--x でフラグにならない）
           const next = command[j + 1] ?? '';
-          if (next !== '\n') add('$`"\\'.includes(next) && next !== '' ? next : `\\${next}`);
+          if (next !== '\n') add('$`"\\'.includes(next) && next !== '' ? next : `\\${next}`, false, true);
           j += 2;
           continue;
         }
         if (command.startsWith('$(', j)) {
-          const { inner, end, expression } = readSubstitution(command, j);
+          const { inner, end, expression, uncertain: ambiguous } = readSubstitution(command, j);
+          uncertain ||= ambiguous;
           if (expression !== undefined) arithmetic.push(expression);
           nested.push(...inner);
           add(SUBSTITUTION, true);
@@ -411,7 +530,7 @@ export function splitSegments(command) {
           j = end;
           continue;
         }
-        add(command[j]);
+        add(command[j], false, true);
         j++;
       }
       inWord = true;
@@ -420,7 +539,7 @@ export function splitSegments(command) {
     }
     if (c === '\\' && i + 1 < command.length) {
       // 行継続（\ と改行）は語の状態を変えずに読み飛ばす。空の語を積むと、その後ろの道具を見失う
-      if (command[i + 1] !== '\n') add(command[i + 1]);
+      if (command[i + 1] !== '\n') add(command[i + 1], false, true);
       i++;
       continue;
     }
@@ -429,11 +548,12 @@ export function splitSegments(command) {
       continue;
     }
 
-    if ((c === '<' || c === '>') && command[i + 1] === '(') {
-      // プロセス置換 <(…) と >(…)。中身は別の区切りとして判定し、語には /dev/fd/… のパスに置き換わる印を残す
+    if ((c === '<' || c === '>' || (c === '=' && !inWord)) && command[i + 1] === '(') {
+      // プロセス置換 <(…) と >(…)、zsh の =(…)。中身は別の区切りとして判定し、語には /dev/fd/… のパスに置き換わる印を残す
       const end = closingParen(command, i + 2);
       nested.push(command.slice(i + 2, end));
       add(`${c}(…)`);
+      if (openRedirect) openRedirect.processSubstitution = true;
       i = end;
       continue;
     }
@@ -452,6 +572,9 @@ export function splitSegments(command) {
       if (!openRedirect && inWord && /^\d+$/.test(word)) {
         word = '';
         shape = '';
+        globPattern = '';
+        globClass = false;
+        globBraces = 0;
         inWord = false;
       }
       endWord();
@@ -463,11 +586,11 @@ export function splitSegments(command) {
       }
       if (command.startsWith('<<', i)) {
         const start = command[i + 2] === '-' ? i + 3 : i + 2;
-        const [delimiter, next, quoted] = readDelimiter(start);
-        // 本文は改行の後で読み、この項目の target に足す。<<- も同じ op（タブを外す違いは、本文の行を trim して照合するので区別しない）
+        const [delimiter, next, quoted] = readDelimiter(command, start);
+        // 本文は改行の後で読み、この項目の target に足す。<<- は先頭のタブだけを外して終端を照合する
         const redirect = { op: '<<', target: '', shape: '', substitutions: [] };
         words.redirects.push(redirect);
-        heredocs.push({ delimiter, redirect, quoted });
+        heredocs.push({ delimiter, redirect, quoted, stripTabs: command[i + 2] === '-' });
         i = next - 1;
         continue;
       }
@@ -479,13 +602,33 @@ export function splitSegments(command) {
       if ((command[j] === '!' || (command[j] === '|' && !written.endsWith('|'))) && written.includes('>')) j++;
       const op = command.slice(i, j).replace(/!$/, '');
       // 記述子の複製と閉じ（2>&1、>&2、<&0、>&-）は、書き込み先にも読み込み元にも数えない
-      if (op.endsWith('&') && /[\d-]/.test(command[j] ?? '')) {
-        while (/[\d-]/.test(command[j] ?? '')) j++;
+      const descriptor = /^(?:\d+|-)(?=$|[ \t\n;&|<>()`])/.exec(command.slice(j));
+      if (op.endsWith('&') && descriptor) {
+        j += descriptor[0].length;
         i = j - 1;
         continue;
       }
       openRedirect = { op, nestedFrom: nested.length };
       i = j - 1;
+      continue;
+    }
+
+    // リダイレクトの (a|b) は zsh の名前の選択肢。区切りに切らず、照合用だけ Node の @(a|b) にする。
+    // (N) のような修飾子は従来どおりの印で読み、引用した | や括弧は上の引用符処理で文字として残す。
+    const redirectExtglob = openRedirect && /[?*+@!]$/.test(globPattern);
+    const redirectAlternation = openRedirect && c === '(' && !globClass &&
+      (redirectExtglob || redirectGlobDepth > 0 || command.slice(i + 1, closingParen(command, i + 1)).includes('|'));
+    if (redirectAlternation) {
+      add('(');
+      // Bash の @/+/*/?/! は既に演算子なので保ち、裸の zsh の選択肢だけ @ を補う。
+      if (!redirectExtglob) globPattern = globPattern.slice(0, -1) + '@(';
+      expands = true;
+      redirectGlobDepth++;
+      continue;
+    }
+    if (openRedirect && redirectGlobDepth > 0 && (c === '|' || c === ')')) {
+      add(c);
+      if (c === ')' && !globClass) redirectGlobDepth--;
       continue;
     }
 
@@ -522,6 +665,9 @@ export function splitSegments(command) {
       if (label) {
         word = '';
         shape = '';
+        globPattern = '';
+        globClass = false;
+        globBraces = 0;
         inWord = false;
         expands = false;
         openRedirect = null;
@@ -531,6 +677,7 @@ export function splitSegments(command) {
         continue;
       }
       let closesGlobGroup = false;
+      let closedGlobHead = null;
       if (op === '(') {
         // 道具の後ろに書ける ( は、zsh の glob（(a|b)、x(N)）と関数の定義（f() { … }）だけ。前置きだけの後ろ（if (、! (、time (）はサブシェル。
         // zsh は (KV|--no-local) を作業場所のファイルの名前に展開するので、区切りは切ったまま、括弧の位置に展開の印の付いた GLOB_GROUP を残す。
@@ -543,31 +690,33 @@ export function splitSegments(command) {
           add(GLOB_GROUP);
           expands = true;
         }
-        groups.push(isGlob);
+        groups.push({ isGlob, head: afterGlobGroup && globHead ? globHead : words });
         depth++;
       } else if (op === ')') {
         depth = Math.max(0, depth - 1);
-        closesGlobGroup = groups.pop() === true;
+        const group = groups.pop();
+        closesGlobGroup = group?.isGlob === true;
+        closedGlobHead = group?.head;
       }
       // この区切りの後ろの演算子。| と |& は、この区切りの標準出力を次の区切りの標準入力に渡す
       const ended = words;
       endSegment();
       if (segments.at(-1) === ended) Object.defineProperty(ended, 'endOp', { value: op, configurable: true });
       afterGlobGroup = closesGlobGroup;
+      globHead = closedGlobHead;
       i += op.length - 1;
       // ヒアドキュメントの本文（行の終わりから終わりの印の行まで）は、区切りとして読まない
       if (op === '\n' && heredocs.length > 0) {
         let j = i + 1;
-        for (const { delimiter, redirect, quoted } of heredocs) {
+        for (const { delimiter, redirect, quoted, stripTabs } of heredocs) {
           const body = [];
           let closed = false;
           while (j < command.length && !closed) {
-            const end = command.indexOf('\n', j);
-            const lineEnd = end === -1 ? command.length : end;
-            const line = command.slice(j, lineEnd);
-            j = lineEnd + 1;
-            if (line.trim() === delimiter) closed = true;
-            else body.push(line);
+            const read = readHeredocLine(command, j, quoted);
+            j = read.next;
+            const content = stripTabs ? read.line.replace(/^\t+/, '') : read.line;
+            if (content === delimiter) closed = true;
+            else body.push(read.raw);
           }
           redirect.target = body.join('\n');
           // 終わりの印の行が無いと、後ろのコマンドを全部本文に飲む。判定の側が確認を挟めるよう印を残す
@@ -608,10 +757,12 @@ export function splitSegments(command) {
   endSegment();
   for (const inner of nested) {
     const innerSegments = splitSegments(inner);
+    uncertain ||= innerSegments.uncertain;
     arithmetic.push(...arithmeticOf(innerSegments));
     segments.push(...innerSegments);
   }
   Object.defineProperty(segments, 'arithmetic', { value: arithmetic, configurable: true });
+  Object.defineProperty(segments, 'uncertain', { value: Boolean(uncertain), configurable: true });
   return segments;
 }
 

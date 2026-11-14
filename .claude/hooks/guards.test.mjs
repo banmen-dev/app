@@ -7208,3 +7208,106 @@ describe('#1180: AI レビューの指摘', () => {
     }
   });
 });
+
+
+describe('Issue #301: 括弧・リダイレクト・置換の取りこぼしを防ぐ', () => {
+  const cases = (kind, rows) => {
+    for (const [command, expected, branch] of rows) {
+      test(`${kind}: ${JSON.stringify(command)}`, () => {
+        assert.equal(decision(command, branch), expected, command);
+      });
+    }
+  };
+
+  cases('括弧の glob の後ろの標準入力', [
+    ['bash nope(N) <<< "wrangler deploy"', 'deny'],
+    ['bash nope(N) < scripts/deploy-production.ts', 'deny'],
+    ['node nope(N) < scripts/deploy-production.ts', 'deny'],
+    ['bash nope(N) <<< "cat .dev.vars"', 'deny'],
+    ['bash nope(N) <<< "git push origin main"', 'deny', 'main'],
+    ['bash nope(N) <<< "echo x > .claude/settings.json"', 'ask'],
+    ['bash nope(N) <<< "echo x > wrangler.jsonc"', 'ask'],
+  ]);
+
+  cases('引用符の括弧を含むコマンド置換', [
+    ['x=$(echo ")"; wrangler deploy)', 'deny'],
+    ['x=$(echo ")"; git push origin main)', 'deny', 'main'],
+    ['x=$(echo ")"; cat .dev.vars)', 'deny'],
+    ['x=$(echo ")"; echo x > .claude/settings.json)', 'ask'],
+    ['x=$(echo ")"; echo x > wrangler.jsonc)', 'ask'],
+    ["x=$(echo ')'; wrangler deploy)", 'deny'],
+    ['x=$(echo "$(echo \')\')"; wrangler deploy)', 'deny'],
+    ['x="$(echo \"$(echo \")\"; wrangler deploy)\")"', 'deny'],
+  ]);
+
+  cases('記述子に見えるパスのリダイレクト', [
+    ['mkdir -p 1 && echo x >&1/../.dev.vars', 'deny'],
+    ['echo x >&-/../.claude/settings.json', 'ask'],
+    ['echo x >&1/../wrangler.jsonc', 'ask'],
+    ['cat <&1/../.dev.vars', 'deny'],
+    ['cat <&-/../.dev.vars', 'deny'],
+  ]);
+
+  cases('書き込み先の glob と brace', [
+    ['echo x > .dev.var?', 'deny'],
+    ['echo x > .dev.var[s]', 'deny'],
+    ['echo x > .dev.var{s,}', 'deny'],
+    ['echo x > .en[v]', 'deny'],
+    ['echo x > .{env,txt}', 'deny'],
+    ['echo x > .claude/setting[s].json', 'ask'],
+    ["echo '{}' > wrangler.json?", 'ask'],
+    ['echo x > wrangler.json{c,}', 'ask'],
+    ['cd config && echo x > ../wrangler.json?', 'ask'],
+    ['echo x > /repo/.dev.var[s]', 'deny'],
+  ]);
+
+  cases('シェルに渡すプロセス置換', [
+    ['bash <(echo wrangler deploy)', 'ask'],
+    ['source <(echo harmless)', 'ask'],
+    ['. <(echo harmless)', 'ask'],
+    ['bash < <(echo harmless)', 'ask'],
+    ['bash =(echo harmless)', 'ask'],
+    ['source =(echo harmless)', 'ask'],
+    ['. =(echo harmless)', 'ask'],
+    ['sh <(printf harmless)', 'ask'],
+  ]);
+
+  for (const [written, delimiter] of [
+    ['EOF.x', 'EOF.x'],
+    [String.raw`\EOF`, 'EOF'],
+    ["$'EOF'", 'EOF'],
+  ]) {
+    for (const body of ['hi', "it's only text )"]) {
+      cases('置換のヒアドキュメントの終わりの印', [
+        [`x="$(cat <<${written}\n${body}\n${delimiter}\n)"; wrangler deploy`, 'deny'],
+        [`x="$(cat <<${written}\n${body}\n${delimiter}\n)"; cat .dev.vars`, 'deny'],
+        [`x="$(cat <<${written}\n${body}\n${delimiter}\n)"; echo x > wrangler.jsonc`, 'ask'],
+      ]);
+    }
+  }
+
+  cases('置換のヒアドキュメントの終わりが無い', [
+    ['x="$(cat <<EOF.x\nhi\n)"', 'ask'],
+    [String.raw`x="$(cat <<\EOF` + '\nhi\n)"', 'ask'],
+    ['x="$(cat <<$\'EOF\'\nhi\n)"', 'ask'],
+  ]);
+
+  cases('安全な形を通す', [
+    ['diff <(ls a) <(ls b)', 'allow'],
+    ['ls *(N) 2>/dev/null', 'allow'],
+    ['echo ")"', 'allow'],
+    ['cmd 2>&1', 'allow'],
+    ['cmd >&2', 'allow'],
+    ['cmd <&0 >&-', 'allow'],
+    ['x=$(echo ")"; echo harmless)', 'allow'],
+    ["x=$(echo ')'; echo harmless)", 'allow'],
+    ['echo x > output.log', 'allow'],
+    ['echo x > report.{txt,log}', 'allow'],
+    ['echo x > report.json?', 'allow'],
+    ['cat < input.txt', 'allow'],
+    ['echo x > .dev.vars.example', 'allow'],
+    ['x="$(cat <<EOF.x\nhi\nEOF.x\n)"; echo harmless', 'allow'],
+    [String.raw`x="$(cat <<\EOF` + '\nhi\nEOF\n)"; echo harmless', 'allow'],
+    ['x="$(cat <<$\'EOF\'\nhi\nEOF\n)"; echo harmless', 'allow'],
+  ]);
+});
