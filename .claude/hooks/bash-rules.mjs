@@ -3856,7 +3856,7 @@ function judgeCommand(
     if (globHead && redirectsOf(words).length > 0) {
       const headCi = commandIndex(globHead);
       const headTool = baseName(globHead[headCi] ?? '');
-      if (SCRIPT_READERS.has(headTool) || RUNNERS.has(headTool)) {
+      if (SCRIPT_READERS.has(headTool) || RUNNERS.has(headTool) || INTERPRETERS.has(headTool)) {
         results.push(...judgeSegment(concatWords(globHead, sliceWords(words, words.length)), {
           dir, branchOf: currentBranch, scriptOf, packageDirOf, depth, env, root, place, cdWords, namesGitDir, findBudget,
           segmentCount: segments.length, stdinContext: { previous, ...shapeOfStdin },
