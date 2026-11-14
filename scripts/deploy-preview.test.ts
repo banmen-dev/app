@@ -1,12 +1,37 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { test } from 'node:test';
+import ts from 'typescript';
 import { openPreviewBranches, publishPreview } from './deploy-preview.ts';
 import { previewConfig, PRODUCTION_DATABASE_ID } from './preview-config.ts';
 
 const SHA = 'a'.repeat(40);
 const DB = { name: 'scrum-guild-pr-374', uuid: '11111111-1111-4111-8111-111111111111' };
+
+test('ランタイムと資産・bindingの共通設定は本番とずれない', () => {
+  const text = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
+  const parsed = ts.parseConfigFileTextToJson('wrangler.jsonc', text);
+  assert.equal(parsed.error, undefined);
+  const production = parsed.config as ReturnType<typeof previewConfig>;
+  const preview = previewConfig('374', DB, SHA, '/workspace/app');
+  assert.deepEqual(
+    Object.keys(preview).sort(),
+    Object.keys(production)
+      .filter((key) => key !== '$schema')
+      .sort(),
+  );
+  assert.equal(preview.compatibility_date, production.compatibility_date);
+  assert.equal(preview.send_metrics, production.send_metrics);
+  assert.equal(preview.main, `/workspace/app/${production.main}`);
+  assert.equal(preview.assets.directory, path.resolve('/workspace/app', production.assets.directory));
+  assert.deepEqual(preview.assets, { ...production.assets, directory: preview.assets.directory });
+  assert.equal(preview.d1_databases[0].binding, production.d1_databases[0].binding);
+  assert.equal(preview.d1_databases[0].migrations_dir, `/workspace/app/${production.d1_databases[0].migrations_dir}`);
+  assert.equal(preview.r2_buckets[0].binding, production.r2_buckets[0].binding);
+  assert.deepEqual(preview.observability, production.observability);
+});
 
 test('拒否する本番IDは本番の設定と一致する', () => {
   const production = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
