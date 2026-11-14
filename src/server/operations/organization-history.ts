@@ -138,6 +138,25 @@ function planChange(changes: Changes): HistoryEvent | undefined {
   return { kind: 'organization_plan_changed', from: { plan: planFrom, billing_interval: intervalFrom }, to };
 }
 
+function storageChange(changes: Changes): HistoryEvent | undefined {
+  const ten = pairOf(changes, 'extra_10gb_units');
+  const fifty = pairOf(changes, 'extra_50gb_units');
+  const interval = pairOf(changes, 'billing_interval');
+  if (!ten || !fifty || !interval || !isInterval(interval[1])) return undefined;
+  if (interval[0] !== null && !isInterval(interval[0])) return undefined;
+  if (![...ten, ...fifty].every((value) => typeof value === 'number' && Number.isInteger(value) && value >= 0))
+    return undefined;
+  return {
+    kind: 'organization_storage_changed',
+    from: {
+      extra_10gb_units: ten[0] as number,
+      extra_50gb_units: fifty[0] as number,
+      billing_interval: interval[0],
+    },
+    to: { extra_10gb_units: ten[1] as number, extra_50gb_units: fifty[1] as number, billing_interval: interval[1] },
+  };
+}
+
 function organizationEvent(action: string, changes: Changes): HistoryEvent {
   switch (action) {
     case 'create':
@@ -149,6 +168,8 @@ function organizationEvent(action: string, changes: Changes): HistoryEvent {
     case 'update': {
       const purgeOn = pairOf(changes, 'purge_on');
       if (purgeOn !== undefined) return { kind: 'organization_suspension_changed', purge_on: textOrNull(purgeOn[1]) };
+      const storage = storageChange(changes);
+      if (storage !== undefined) return storage;
       const plan = planChange(changes);
       if (plan !== undefined) return plan;
       // vocabulary は言葉づかいを選べた頃に残した行の項目

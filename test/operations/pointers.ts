@@ -506,6 +506,13 @@ export const pointers: Pointers = {
     expected: { member_limit: 15, attachment_quota_bytes: 30 * 1024 ** 3 },
   }),
   // 契約の変更は、呼ぶたびに別の未契約の組織を作る（同じ契約への変更は何も書かないため）
+  'organization-storage-update': async () => ({
+    slug: (await createOrganization({ kind: 'personal', member_limit: 1, attachment_quota_bytes: 1024 ** 3 })).slug,
+    billing_interval: 'monthly',
+    extra_10gb_units: 1,
+    extra_50gb_units: 0,
+    expected: null,
+  }),
   'organization-plan-update': async () => ({
     slug: (await createOrganization()).slug,
     plan: 'business',

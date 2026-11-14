@@ -12,6 +12,7 @@
   import Icon from '../../lib/components/Icon.svelte';
   import LoadFailed from '../../lib/components/LoadFailed.svelte';
   import LogoutButton from '../../lib/components/LogoutButton.svelte';
+  import OrganizationStorageDialog from '../../lib/components/OrganizationStorageDialog.svelte';
   import OrganizationPlanDialog from '../../lib/components/OrganizationPlanDialog.svelte';
   import OrganizationQuotaDialog from '../../lib/components/OrganizationQuotaDialog.svelte';
   import OrganizationSuspendDialog from '../../lib/components/OrganizationSuspendDialog.svelte';
@@ -56,6 +57,9 @@
   let suspendDialog = $state<ReturnType<typeof OrganizationSuspendDialog>>();
   let reassignDialog = $state<ReturnType<typeof ReassignAdminDialog>>();
   let quotaDialog = $state<ReturnType<typeof OrganizationQuotaDialog>>();
+  let storageDialog = $state<ReturnType<typeof OrganizationStorageDialog>>();
+  let storageName = $state('');
+  let storageSlug = $state('');
   let planDialog = $state<ReturnType<typeof OrganizationPlanDialog>>();
   // 契約の変更の対象の組織。ダイアログの結果のトーストに使う
   let planName = $state('');
@@ -220,6 +224,37 @@
     planDialog?.show(row, trigger);
   }
 
+  function changeStorage(row: Parameters<NonNullable<typeof storageDialog>['show']>[0], trigger: HTMLElement): void {
+    if (resumingSlug !== null) return;
+    storageName = row.name;
+    storageSlug = row.slug;
+    storageDialog?.show(row, trigger);
+  }
+  function storageFinished(outcome: 'done' | 'state_changed' | 'purge_due' | 'unavailable' | 'unauthenticated'): void {
+    if (outcome === 'unauthenticated') {
+      window.location.assign(loginUrl(page.url));
+      return;
+    }
+    const name = storageName;
+    if (outcome === 'purge_due') {
+      showToast(t('operatorStoragePurgeDue', { name }), 'alert');
+      void invalidateAll().then(() => focusPurgeDue(storageSlug));
+      return;
+    }
+    showToast(
+      t(
+        outcome === 'done'
+          ? 'operatorStorageDone'
+          : outcome === 'state_changed'
+            ? 'operatorStateChanged'
+            : 'operatorUnavailable',
+        { name },
+      ),
+      outcome === 'done' ? 'check' : 'alert',
+    );
+    void reloadAndFlash(outcome === 'done' ? storageSlug : undefined);
+  }
+
   // 停止している組織の今の停止の理由。消す予定日があれば解約
   const kindOf = (row: Row): SuspensionKind => (row.purge_on === null ? 'temporary' : 'cancellation');
 
@@ -374,6 +409,31 @@
                     {usageText(organization.attachment_used_bytes)} / {quotaText(organization.attachment_quota_bytes)}
                     <!-- 上限を決める契約の印 -->
                     <br />{@render planChip(organization)}
+                    {#if organization.contract !== null}
+                      <br /><span class="props-note"
+                        >{t('orgPlanExtraUnits', {
+                          size: 10,
+                          units: formatCount(organization.contract.extra_10gb_units),
+                        })}、{t('orgPlanExtraUnits', {
+                          size: 50,
+                          units: formatCount(organization.contract.extra_50gb_units),
+                        })}</span
+                      >
+                    {/if}
+                    {#if !organization.purge_due}
+                      {#if (organization.kind === 'personal' && organization.contract?.plan !== 'custom') || organization.contract?.plan === 'team' || organization.contract?.plan === 'business'}
+                        <br /><button
+                          class="link-btn"
+                          type="button"
+                          aria-disabled={resumingSlug !== null}
+                          aria-label={t('operatorStorageLabel', { name: organization.name })}
+                          onclick={(event) => changeStorage(organization, event.currentTarget)}
+                          >{t('operatorStorageTitle')}</button
+                        >
+                      {:else if organization.contract === null}
+                        <br /><span class="props-note">{t('operatorStoragePlanRequired')}</span>
+                      {/if}
+                    {/if}
                     <!-- 人数と添付ファイルの上限をまとめて変える。読み上げの名前に、どの組織かを添える。
                          自分用は上限を変える対象にしないので、値だけ出して変更のボタンを置かない -->
                     {#if organization.kind !== 'personal'}
@@ -490,3 +550,5 @@
 <ReassignAdminDialog bind:this={reassignDialog} onpurgedue={reassignPurgeDue} />
 <OrganizationQuotaDialog bind:this={quotaDialog} onfinish={quotaFinished} />
 <OrganizationPlanDialog bind:this={planDialog} onfinish={planFinished} />
+
+<OrganizationStorageDialog bind:this={storageDialog} onfinish={storageFinished} />

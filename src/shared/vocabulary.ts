@@ -1260,6 +1260,30 @@ export const dictionary = defineDictionary({
   billingYearly: '年払い',
   // 契約の表示。{plan} はプランの名前、{interval} は支払いの周期
   planTerms: '{plan}・{interval}',
+  orgHistoryStorageChanged:
+    '追加容量を+10\u00a0GB {from10}\u00a0口・+50\u00a0GB {from50}\u00a0口（{fromInterval}）から+10\u00a0GB {to10}\u00a0口・+50\u00a0GB {to50}\u00a0口（{toInterval}）に変更しました',
+  operatorStorageSuspendedNote: '追加容量を変えても停止したままです。使えるようにするには、続けて再開してください。',
+  operatorStorageUnitsError: '0〜100 の整数で入力してください。',
+  operatorStoragePersonalLower:
+    '現在の上限 {current} は、パーソナルの標準容量と追加口数から決まる {next} に下がります。既存のファイルは残ります。',
+  operatorStorageTitle: '追加容量を変える',
+  operatorStorageLabel: '「{name}」の追加容量を変える',
+  operatorStorageText: '「{name}」の追加容量の口数を変えます。',
+  operatorStorage10: '＋10 GB の口数',
+  operatorStorage50: '＋50 GB の口数',
+  operatorStorageUnitsHint: 'それぞれ 0〜100 の整数で入力してください。',
+  operatorStorageAfter: '変えた後の添付ファイルと Wiki の上限は {quota} です。',
+  operatorStoragePersonalNote:
+    'プランはパーソナルのままです。追加容量の料金だけを請求します。人数とワークスペースの上限は変わりません。',
+  operatorStorageTeamNote: '追加容量は基本プランと同じ支払いの周期で、まとめて請求します。',
+  operatorStorageUnchanged: '今と同じ口数と支払いの周期です。',
+  operatorStorageHistoryNote: '変更の履歴に運用者の操作として前後の口数が残ります。',
+  operatorStorageDone: '「{name}」の追加容量を変えました',
+  operatorStoragePurgeDue: '「{name}」は消す予定日を過ぎたので、追加容量を変えられません',
+  operatorStoragePlanRequired: '追加容量を付けるには、先にプランを決めてください。',
+  operatorStorageFailed: '追加容量を変えられませんでした。もう一度試してください。',
+  operatorStorageFailedUnknown:
+    '追加容量を変えられませんでした。変わっていることもあるので、閉じた後の一覧で確かめてください。',
   operatorPlanNone: '未契約',
   // 一覧の契約の印の前に、読み上げだけで添える語
   operatorPlanChipPrefix: 'プラン: ',

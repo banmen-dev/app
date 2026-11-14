@@ -157,7 +157,7 @@
         slug: target.slug,
         plan,
         billing_interval: interval,
-        expected: contract === null ? null : { plan: contract.plan, billing_interval: contract.billing_interval },
+        expected: contract,
       });
       if (mine !== generation) return;
       if (result.ok) {

@@ -8,6 +8,7 @@ import type { OutputOf } from '../src/shared/operations/define.ts';
 import { createOrganization } from '../src/shared/operations/operator/create-organization.ts';
 import { listOrganizations } from '../src/shared/operations/operator/list-organizations.ts';
 import { organizationAdminReassign } from '../src/shared/operations/operator/organization-admin-reassign.ts';
+import { organizationStorageUpdate } from '../src/shared/operations/operator/organization-storage-update.ts';
 import { organizationPlanUpdate } from '../src/shared/operations/operator/organization-plan-update.ts';
 import { organizationQuotaUpdate } from '../src/shared/operations/operator/organization-quota-update.ts';
 import { organizationResume } from '../src/shared/operations/operator/organization-resume.ts';
@@ -324,7 +325,7 @@ test.describe('運用者', () => {
     const aobaQuota = aoba.locator('td[data-label="添付・Wiki / 上限"]');
     // 値の下に契約の印（未契約）、続けて契約の変更の文字のボタンを置く
     await expect(aobaQuota).toHaveText(
-      /^\s*5\sGB\s*\/\s*30\sGB\s*プラン: 未契約\s*人数と容量の上限を変える\s*プランを変える\s*$/,
+      /^\s*5\sGB\s*\/\s*30\sGB\s*プラン: 未契約\s*追加容量を付けるには、先にプランを決めてください。\s*人数と容量の上限を変える\s*プランを変える\s*$/,
     );
     await expect(aobaQuota.locator('button.link-btn').first()).toHaveAccessibleName(
       '「あおば開発」の人数と容量の上限を変える',
@@ -501,11 +502,11 @@ test.describe('運用者', () => {
     // 見た目のダッシュは読み上げから外し（aria-hidden）、見えない文言「本人1人だけ」を添える
     await expect(seats.locator('[aria-hidden="true"]')).toHaveText('—');
     await expect(seats.locator('.chip')).toHaveCount(0);
-    // 添付ファイルの上限の値は出し、変更のボタンは置かない
+    // 添付ファイルの上限と追加容量の変更を出す。人数と容量をまとめて変える操作は置かない
     const quota = solo.locator('td[data-label="添付・Wiki / 上限"]');
     // 値の下に契約の印（自分用はパーソナル）を出す
-    await expect(quota).toHaveText(/^\s*5\sGB\s*\/\s*1\sGB\s*プラン: パーソナル\s*$/);
-    await expect(quota.getByRole('button')).toHaveCount(0);
+    await expect(quota).toHaveText(/^\s*5\sGB\s*\/\s*1\sGB\s*プラン: パーソナル\s*追加容量を変える\s*$/);
+    await expect(quota.getByRole('button')).toHaveText(['追加容量を変える']);
     await expect(solo.getByRole('button', { name: /人数と容量の上限を変える/ })).toHaveCount(0);
     // 指名のボタンは無く、停止はできる
     await expect(solo.locator('td.is-actions').getByRole('button')).toHaveText(['停止する']);
@@ -2084,6 +2085,126 @@ test.describe('運用者', () => {
     });
   });
 
+  test.describe('追加容量の変更', () => {
+    const GIB = 1024 ** 3;
+    for (const personal of [false, true]) {
+      test(`${personal ? '自分用' : 'チーム用'}に追加容量を付けると一覧の上限と口数が変わる`, async ({ page }) => {
+        const previous = personal
+          ? null
+          : { plan: 'team' as const, billing_interval: 'monthly' as const, extra_10gb_units: 0, extra_50gb_units: 0 };
+        const listed = [
+          organization({
+            name: 'あおば開発',
+            kind: personal ? 'personal' : 'team',
+            contract: previous,
+            seats: { used: personal ? 1 : 5, limit: personal ? 1 : 15 },
+            attachment_quota_bytes: (personal ? 1 : 30) * GIB,
+          }),
+        ];
+        await mockList(page, listed);
+        let sent: unknown;
+        await routeOperation(page, organizationStorageUpdate, async (call) => {
+          sent = call.input;
+          const contract = {
+            plan: personal ? ('personal' as const) : ('team' as const),
+            billing_interval: 'monthly' as const,
+            extra_10gb_units: personal ? 1 : 0,
+            extra_50gb_units: personal ? 0 : 1,
+          };
+          listed[0] = organization({ ...listed[0], contract, attachment_quota_bytes: (personal ? 11 : 80) * GIB });
+          await call.fulfill({
+            slug: 'aoba',
+            contract,
+            attachment_quota_bytes: (personal ? 11 : 80) * GIB,
+            member_limit: personal ? 1 : 15,
+            trial_ends_on: null,
+          });
+        });
+        const collect = await watchViolations(page);
+        await page.goto('/operator');
+        await page.getByRole('button', { name: '「あおば開発」の追加容量を変える' }).click();
+        const dialog = page.getByRole('dialog', { name: '追加容量を変える' });
+        await dialog.getByRole('spinbutton', { name: personal ? '＋10 GB の口数' : '＋50 GB の口数' }).fill('1');
+        await expect(dialog).toContainText(`変えた後の添付ファイルと Wiki の上限は ${personal ? 11 : 80} GB です。`);
+        await dialog.getByRole('button', { name: '変える' }).click();
+        await expect(dialog).toBeHidden();
+        expect(sent).toEqual({
+          slug: 'aoba',
+          billing_interval: 'monthly',
+          extra_10gb_units: personal ? 1 : 0,
+          extra_50gb_units: personal ? 0 : 1,
+          expected: previous,
+        });
+        const row = page.locator('.table tbody tr', { hasText: 'あおば開発' });
+        await expect(row).toContainText(`${personal ? 11 : 80} GB`);
+        await expect(row).toContainText(personal ? '+10 GB × 1 口' : '+50 GB × 1 口');
+        expect(await collect()).toEqual([]);
+      });
+    }
+    test('口数の入力エラーを日本語で出し、最初の欄へ戻す', async ({ page }) => {
+      await mockList(page, [organization({ kind: 'personal', attachment_quota_bytes: GIB })]);
+      let requests = 0;
+      await routeOperation(page, organizationStorageUpdate, async () => {
+        requests++;
+      });
+      await page.goto('/operator');
+      await page.getByRole('button', { name: '「あおば開発」の追加容量を変える' }).click();
+      const dialog = page.getByRole('dialog', { name: '追加容量を変える' });
+      const field = dialog.getByRole('spinbutton', { name: '＋10 GB の口数' });
+      for (const invalid of ['', '-1', '0.5', '101']) {
+        await field.fill(invalid);
+        await dialog.getByRole('button', { name: '変える' }).click();
+        await expect(field).toHaveAttribute('aria-invalid', 'true');
+        await expect(dialog.locator('.field-hint[role="status"]')).toBeAttached();
+        await expect(dialog.locator('.field-hint[role="status"]')).toBeEmpty();
+        await expect(field).toHaveAccessibleDescription(
+          '0〜100 の整数で入力してください。 それぞれ 0〜100 の整数で入力してください。',
+        );
+        await expect(field).toBeFocused();
+      }
+      expect(requests).toBe(0);
+      await field.fill('1');
+      await expect(field).toHaveAttribute('aria-invalid', 'false');
+      await expect(dialog.getByRole('status').filter({ hasText: '11 GB' })).toBeVisible();
+    });
+    test('未契約の自分用の現在上限より下がることと、使用量超過・停止継続を知らせる', async ({ page }) => {
+      await mockList(page, [
+        organization({
+          kind: 'personal',
+          attachment_quota_bytes: 40 * GIB,
+          attachment_used_bytes: 20 * GIB,
+          suspended_at: '2026-11-14T00:00:00Z',
+        }),
+      ]);
+      await page.goto('/operator');
+      await page.getByRole('button', { name: '「あおば開発」の追加容量を変える' }).click();
+      const dialog = page.getByRole('dialog', { name: '追加容量を変える' });
+      await expect(dialog).toContainText(
+        '現在の上限 40 GB は、パーソナルの標準容量と追加口数から決まる 1 GB に下がります。既存のファイルは残ります。',
+      );
+      await expect(dialog).toContainText('合計が下がるまで新しく添付できなくなります。');
+      await expect(dialog).toContainText('追加容量を変えても停止したままです。');
+      await dialog.getByRole('radio', { name: '年払い' }).check();
+      await expect(dialog.getByRole('radio', { name: '年払い' })).toBeChecked();
+    });
+    test('個別契約の自分用の行には反応しない追加容量ボタンを出さない', async ({ page }) => {
+      await mockList(page, [
+        organization({
+          kind: 'personal',
+          contract: { plan: 'custom', billing_interval: 'monthly', extra_10gb_units: 0, extra_50gb_units: 0 },
+        }),
+      ]);
+      await page.goto('/operator');
+      await expect(page.getByRole('button', { name: '「あおば開発」の追加容量を変える' })).toHaveCount(0);
+    });
+    test('未契約のチーム用には先にプランを決める案内を出す', async ({ page }) => {
+      await mockList(page, [organization({})]);
+      await page.goto('/operator');
+      await expect(page.getByText('追加容量を付けるには、先にプランを決めてください。')).toBeVisible();
+      await expect(page.getByRole('button', { name: '「あおば開発」の追加容量を変える' })).toHaveCount(0);
+    });
+  });
+
   // 契約の変更（organization-plan-update）。サーバーの処理は test/operator-plan.test.ts
   test.describe('契約の変更', () => {
     const GIB = 1024 ** 3;
@@ -2129,7 +2250,7 @@ test.describe('運用者', () => {
         '人数と容量の上限を変える',
         'プランを変える',
       ]);
-      await expect(quotaOf('くもラボ').getByRole('button')).toHaveText(['プランを変える']);
+      await expect(quotaOf('くもラボ').getByRole('button')).toHaveText(['追加容量を変える', 'プランを変える']);
       await expect(rows.nth(2).getByRole('button', { name: /プランを変える|人数と容量の上限を変える/ })).toHaveCount(0);
       expect(await collect()).toEqual([]);
     });
@@ -2253,7 +2374,7 @@ test.describe('運用者', () => {
         slug: 'aoba',
         plan: 'team',
         billing_interval: 'monthly',
-        expected: { plan: 'business', billing_interval: 'monthly' },
+        expected: contract('business', 'monthly'),
       });
       await expect(
         page.getByRole('status').filter({ hasText: '「あおば開発」の状態が変わっていました' }),

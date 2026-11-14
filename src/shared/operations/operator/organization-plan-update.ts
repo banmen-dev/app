@@ -3,7 +3,7 @@ import { billingIntervals, organizationPlans, teamPlans } from '../../organizati
 import { SLUG_MAX_LENGTH } from '../../organization-slug.ts';
 import { defineOperation } from '../define.ts';
 
-// 組織の契約の形。追加容量の口数は口数を変える操作（#1191）までは 0 のまま
+// 組織の契約の形。追加容量はプランの標準の容量に足す
 export const organizationContract = z.object({
   plan: z.enum(organizationPlans),
   billing_interval: z.enum(billingIntervals),
@@ -28,7 +28,13 @@ export const organizationPlanUpdate = defineOperation({
     slug: z.string().max(SLUG_MAX_LENGTH * 2),
     plan: z.enum(teamPlans),
     billing_interval: z.enum(billingIntervals),
-    expected: z.object({ plan: z.enum(organizationPlans), billing_interval: z.enum(billingIntervals) }).nullable(),
+    // 追加容量の操作を入れる前のクライアントは口数を送らない。省略は0口として受け、現在が追加容量ありなら競合にする。
+    expected: organizationContract
+      .extend({
+        extra_10gb_units: z.number().int().default(0),
+        extra_50gb_units: z.number().int().default(0),
+      })
+      .nullable(),
   }),
   output: z.object({
     slug: z.string(),

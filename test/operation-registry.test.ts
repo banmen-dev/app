@@ -210,6 +210,7 @@ describe('本番の運用者の操作', () => {
       'organization-plan-update',
       'organization-quota-update',
       'organization-resume',
+      'organization-storage-update',
       'organization-suspend',
       'organization-suspension-update',
       'resolve-github-user',
