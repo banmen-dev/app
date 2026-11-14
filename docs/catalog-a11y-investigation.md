@@ -2,7 +2,7 @@
 
 ## 失敗した trace
 
-2026-11-15 に、[main の CI run 43617710785](https://github.com/scrum-guild-dev/app/actions/runs/43617710785) の `e2e-dev (2)`、成果物 `e2e-dev-2-attempt-1`（ID `14123680680`）を調べた。対象コミットは `5f9ea485`。`390px / simple_dark` の `trace.zip` の `test.trace` と `1-trace.trace` を照合した。
+2026-11-15 に、[main の CI run 43617710785](https://github.com/scrum-guild-dev/app/actions/runs/43617710785) の `e2e-dev (2)`、成果物 `e2e-dev-2-attempt-1`（ID `14123680680`）を調べた。対象コミットは `5f9ea485` で、結果生成の削減と上限120秒化を行った PR #1230（`f9f75e3`）より前の trace。`390px / simple_dark` の `trace.zip` の `test.trace` と `1-trace.trace` を照合した。
 
 | 区間 | test.trace の開始・終了（ms） | 所要時間 |
 | --- | --- | --- |
@@ -23,4 +23,4 @@ axe 内では `runPartial` が20.29秒、結果の転送の `chunkResults` が3.
 
 ## 検証
 
-修正後の実際の所要時間と安定性は、PR の CI の `e2e-dev` と `e2e-repeat`（5回）で確認する。trace からの時間配分は原因調査であり、修正後の測定値としては扱わない。
+修正後の実際の所要時間と安定性は、PR の CI の `e2e-dev` と `e2e-repeat`（5回）で確認する。以前の内訳から逐次確認の約24.49秒を除いた約38秒は、少数の往復に置き換えた場合の概算にすぎず、先行修正の効果や実行間の揺れを測ったものではない。全テーマ・両幅で60秒の上限を維持した全件成功を必要条件とし、各テストの所要時間と繰り返しの最大値を記録する。trace からの時間配分は原因調査であり、修正後の測定値としては扱わない。
