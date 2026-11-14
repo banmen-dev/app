@@ -230,6 +230,10 @@ function closingParen(text, start, state = {}) {
     } else if (ch === '#' && !inWord) {
       const end = text.indexOf('\n', j);
       j = end === -1 ? text.length : end - 1;
+    } else if (text.startsWith('((', j) && !inWord) {
+      // 算術コマンドの << と >> はシフトで、ヒアドキュメントとリダイレクトではない。
+      j = arithmeticEnd(text, j + 2);
+      inWord = false;
     } else if (text.startsWith("$'", j)) {
       j = decodeAnsiC(text, j + 2).end;
       inWord = true;
