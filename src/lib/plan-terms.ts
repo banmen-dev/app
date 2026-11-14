@@ -1,6 +1,8 @@
 // 組織の契約（プランと支払いの周期）の表示の文。運用の画面と組織の変更の履歴が使う。
 // translate は t（か、テストが言葉を決めた word）
 import type { BillingInterval, OrganizationPlan } from '../shared/organization-plan.ts';
+import { QUOTA_GIB } from '../shared/operations/operator/organization-quota-update.ts';
+import { formatCount } from './format.ts';
 import type { DictionaryKey, TemplateParams } from '../shared/vocabulary.ts';
 
 type Translate = (key: DictionaryKey, params?: TemplateParams) => string;
@@ -33,8 +35,8 @@ export function planTermsText(
   if (terms.plan === 'custom' && terms.custom_member_limit != null && terms.custom_attachment_quota_bytes != null) {
     return translate('planCustomLimits', {
       terms: text,
-      members: terms.custom_member_limit,
-      quota: terms.custom_attachment_quota_bytes / 1024 ** 3,
+      members: formatCount(terms.custom_member_limit),
+      quota: formatCount(terms.custom_attachment_quota_bytes / QUOTA_GIB),
     });
   }
   return text;

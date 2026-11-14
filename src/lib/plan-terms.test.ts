@@ -69,3 +69,17 @@ test('個別契約の標準値が欠けたときだけ、追加容量の前に�
   ).toBe(false);
   expect(needsCustomContractLimits(null)).toBe(false);
 });
+
+test('個別契約の履歴の人数とGBをほかの上限表示と同じ桁区切りで出す', () => {
+  expect(
+    planTermsText(
+      {
+        plan: 'custom',
+        billing_interval: 'yearly',
+        custom_member_limit: 1000,
+        custom_attachment_quota_bytes: 2048 * 1024 ** 3,
+      },
+      t,
+    ),
+  ).toBe('個別・年払い（1,000 人・標準 2,048 GB）');
+});
