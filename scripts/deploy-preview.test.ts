@@ -28,8 +28,10 @@ test('ランタイムと資産・bindingの共通設定は本番とずれない'
   assert.equal(preview.assets.directory, path.resolve('/workspace/app', production.assets.directory));
   assert.deepEqual(preview.assets, { ...production.assets, directory: preview.assets.directory });
   assert.equal(preview.d1_databases[0].binding, production.d1_databases[0].binding);
+  assert.equal(preview.d1_databases.length, production.d1_databases.length);
   assert.equal(preview.d1_databases[0].migrations_dir, `/workspace/app/${production.d1_databases[0].migrations_dir}`);
   assert.equal(preview.r2_buckets[0].binding, production.r2_buckets[0].binding);
+  assert.equal(preview.r2_buckets.length, production.r2_buckets.length);
   assert.deepEqual(preview.observability, production.observability);
 });
 
@@ -48,7 +50,13 @@ test('設定は本番の binding を持たず、cron と呼び出しログを無
   assert.deepEqual(config.d1_databases, [
     { binding: 'DB', database_name: DB.name, database_id: DB.uuid, migrations_dir: '/workspace/app/migrations' },
   ]);
-  assert.equal(config.r2_buckets[0].bucket_name, 'scrum-guild-preview-attachments');
+  assert.deepEqual(config.r2_buckets, [{ binding: 'ATTACHMENTS', bucket_name: 'scrum-guild-preview-attachments' }]);
+  assert.deepEqual(config.vars, {
+    APP_VERSION: SHA,
+    PUBLIC_ORIGIN: 'https://pr-374-scrum-guild-preview.ucan-lab.workers.dev',
+    OPERATOR_LOGIN_IDS: 'github:9000000000000001',
+  });
+  assert.equal(config.workers_dev, true);
   assert.deepEqual(config.triggers.crons, []);
   assert.equal(config.observability.logs.invocation_logs, false);
   assert.equal(config.preview_urls, true);
@@ -127,7 +135,13 @@ test('削除済みforkは掃除を止めず、同じ番号の自リポジトリ�
 });
 
 test('GitHubの欠落・不明な応答を空の一覧として扱わない', async () => {
-  for (const value of [{}, [{ head: { ref: '374-preview' } }], [{ head: { ref: '374-preview', repo: 1 } }]]) {
+  for (const value of [
+    {},
+    [{ head: { ref: '374-preview' } }],
+    [{ head: { ref: '374-preview', repo: 1 } }],
+    [{ head: { ref: '374-preview', repo: {} } }],
+    [{ head: { ref: '374-preview', repo: { full_name: 1 } } }],
+  ]) {
     await assert.rejects(openPreviewBranches(async () => value));
   }
 });
