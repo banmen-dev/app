@@ -2308,13 +2308,20 @@ test.describe('運用者', () => {
         organization({
           seats: { used: 38, limit: 50 },
           attachment_quota_bytes: 170 * GIB,
-          contract: { ...contract('business', 'yearly'), extra_10gb_units: 2, extra_50gb_units: 1 },
+          contract: {
+            ...contract('business', 'yearly'),
+            extra_10gb_units: 2,
+            extra_50gb_units: 1,
+            custom_member_limit: 80,
+            custom_attachment_quota_bytes: 200 * GIB,
+          },
         }),
       ]);
       await page.goto('/operator');
       await page.getByRole('button', { name: '「あおば開発」のプランを変える' }).click();
       const dialog = page.getByRole('dialog', { name: 'プランを変える' });
       await dialog.getByRole('radio', { name: /個別/ }).check();
+      await expect(dialog.getByRole('spinbutton', { name: '人数の上限' })).toHaveValue('50');
       await expect(dialog.getByRole('spinbutton', { name: '標準の添付容量（GB）' })).toHaveValue('100');
       await expect(dialog).toContainText('変えた後の上限は 50 人・170 GB です。');
     });

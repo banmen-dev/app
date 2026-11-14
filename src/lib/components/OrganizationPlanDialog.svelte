@@ -139,7 +139,7 @@
       plan = organization.seats.limit >= PLAN_LIMITS.business.member_limit ? 'business' : 'team';
       interval = contract?.billing_interval ?? 'monthly';
     }
-    members = contract?.custom_member_limit ?? organization.seats.limit;
+    members = (contract?.plan === 'custom' ? contract.custom_member_limit : null) ?? organization.seats.limit;
     sizeGb = initialCustomQuotaGb(contract, organization.attachment_quota_bytes);
     errors = {};
     reloadOnClose = false;
