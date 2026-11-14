@@ -997,7 +997,7 @@ ai-review は Claude のサブスクリプションで動かす。手元で `cla
 
 GitHub Actions の無料枠は、private のリポジトリで月 2,000 分（public のあいだは、標準のランナーに上限が無い）。private に戻したときは、`ready` の定期の実行（1時間ごとで、1回を1分に切り上げて数えるので月約 720 分）も枠に数える。e2e と AI レビューで足りなくなりそうなら、上と同じく対象の PR を絞る。e2e のシャードは、それぞれが準備、Playwright の導入、build を繰り返す（1つあたり約1分）ので、分ける前との差は、4つに分けた3つ分の約3分（`e2e` と `e2e-dev` のそれぞれで、1回あたり）。
 
-PR ごとのプレビュー環境は持たず、Workers Builds の preview builds も有効にしない。`wrangler versions upload` のプレビュー URL は本番と同じ D1 につながり、マージ前のコードが本番のデータに触れるため。見た目の確認は、手元の `pnpm dev` と CI の e2e で行う。
+本番 Worker の preview builds と `preview_urls` は無効のままにする。本番と別の Worker・D1 を使う PR ごとの環境は、下の「プレビュー」に従う。
 
 ### main の障害通知と復旧
 
@@ -1117,6 +1117,19 @@ Workers Builds の API トークンは、Builds が作ったトークンの権�
 - 続けて push すると、ビルドは一列に並ばず同時に走る（Workers Paid のビルドの枠は6つ）。2つの push を25秒あけたときは、2つ目のビルドが1つ目の途中で始まり、デプロイの段はたまたま重ならずにどちらも通った。重なれば、2つ目はスクリプトの割り込みの検査で止まる。前のデプロイが終わるまで次の Release を publish しない（`docs/operations.md` の「出し方」）
 
 スクリプトは、版を上げる直前に割り込みが見えたら止め、煙のテストに落ちても本番が上げた版から変わっていれば戻さない。別のビルドを潰さないためで、そのときは人が本番の版を確かめる。スクリプトで `production` の先頭と比べる案は、GitHub のトークンを Cloudflare に置くことになるので採らない。
+
+### プレビュー
+
+PR の版は、本番とは別の Worker `scrum-guild-preview` の Workers Builds から配る。GitHub Actions にはデプロイの鍵を置かない。本番の `wrangler.jsonc`、`production` の接続と煙のテストは変えない。人が先に用意する Worker、Access、R2、トークンは `docs/operations.md` の「プレビュー環境」。
+
+- 番号付きブランチ（例 `374-pr-preview`）を `WORKERS_CI_BRANCH` から読み、先頭の Issue 番号で D1 `scrum-guild-pr-374` と URL `https://pr-374-scrum-guild-preview.ucan-lab.workers.dev` を決める。PR 番号ではない。1 Issue に1ブランチという決まりに合わせる。番号の無いブランチ、`production`、不正な SHA では止まる
+- ビルドのコマンドは `APP_VERSION=$(git rev-parse HEAD) && export APP_VERSION && pnpm build`。本番と違って版はコミットの SHA。デプロイのコマンドは `node scripts/deploy-preview.ts`。`WORKERS_CI=1` のときだけ動き、Cloudflare API で自分の D1 を削除・作成し、生成した設定で全マイグレーションと seed を `--remote` で当て、`wrangler versions upload --preview-alias pr-374` を呼ぶ。再ビルドすると、そのプレビューで人が変えたデータは消える。失敗したら後続の処理を行わない
+- 設定は `scripts/preview-config.ts` から一時ファイルへ生成する。本番の設定をコピーせず、DB の名前と UUID、本番 ID でないことを検査する。R2 は本番と別の `scrum-guild-preview-attachments`、運用者は seed の ID、cron は空、OAuth の秘密は登録しない。添付ファイルはプレビュー同士で共有するため、受け入れ用の架空のデータだけを入れる。D1 の作り直しでは R2 は消えない
+- `main` のビルドは配信せず、公開 GitHub API で全ページの開いた PR のブランチを読み、対応する番号の PR が無い `scrum-guild-pr-*` の D1 だけを削除する。fork の PR は対応に数えない。取得や検証の失敗時は削除しない。閉じただけでは Builds は走らないため、削除は次の `main` のビルド時（急ぐときは人が `main` のビルドを再実行）。古い版と alias は残るが、D1 は使えなくなる
+- 同じ番号のビルドを同時に走らせない。Builds の設定で同一ブランチの古いビルドを取り消し、既にデプロイ段に入っていれば終わるまで次の再実行を待つ。削除と作成は1つのトランザクションにならないため、重なると失敗してプレビューを使えなくなる。再実行で作り直す
+- `.claude/hooks/` は緩めない。フックはエージェントのセッションに適用され、Workers Builds は Claude/Codex を起動しない。セッションから `WORKERS_CI` を付けて実行したり、`--remote` を使って動作確認したりしない。手順は副作用を差し替えた Node のテストで確かめる
+
+ロールの切り替えは `pnpm dev:open --origin https://pr-374-scrum-guild-preview.ucan-lab.workers.dev admin /aoba`。`admin` を `member` など `seed/sessions.ts` のキーに替えると別のブラウザで開く。運用者は `pnpm dev:open --origin https://pr-374-scrum-guild-preview.ucan-lab.workers.dev operator /operator` で開く。`CF_ACCESS_CLIENT_ID` と `CF_ACCESS_CLIENT_SECRET` を人が実行する端末の環境変数に入れる（値は git やコマンド履歴に残さない）。`--origin` はこのプレビューの HTTPS origin だけを許可し、末尾 `/`、本番、任意の URL を拒否する。ローカル用 `--preview` とは併用しない。事前の `/api/me` とブラウザの同じ origin への通信にだけ Access のヘッダーを付け、外部へのリダイレクトには送らない。Service Worker は無効にする。HTTPS の seed Cookie は `__Host-sg_session`、Secure、HttpOnly。ローカルの開き方は変わらない。
 
 ### 見本の Worker
 
