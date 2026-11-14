@@ -3829,6 +3829,7 @@ function judgeCommand(
   const currentBranch = (d) => (switched.has(d) ? switched.get(d) : branchOf(d));
   const results = [];
   const segments = splitSegments(command);
+  if (segments.uncertain) results.push([ASK, 'ヒアドキュメントの終端と置換の閉じ括弧が同じ行にあり、シェルごとに解釈が割れる。人が確かめる']);
   // git rev-parse --git-common-dir などで設定ファイルのあるディレクトリを引いたコマンドは、その場所を字面で読めない。外側のコマンドが引いたものも引き継ぐ
   namesGitDir ||= namesGitDirIn(segments, command);
   const pushing = pushingFunctions(command);

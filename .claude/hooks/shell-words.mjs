@@ -218,7 +218,7 @@ function readHeredocLine(text, start, quoted) {
 
 // $( の後ろから、対応する ) の位置を返す。引用符と本文の括弧は数えない。
 // # は語の始まる位置だけコメントにする。入れ子の置換・引用符・escapeの後も語の状態を保つ。
-function closingParen(text, start) {
+function closingParen(text, start, state = {}) {
   let depth = 1;
   let inWord = false;
   const heredocs = [];
@@ -268,9 +268,16 @@ function closingParen(text, start) {
       for (const { delimiter, quoted, stripTabs } of heredocs) {
         let closed = false;
         while (next < text.length) {
+          const lineStart = next;
           const read = readHeredocLine(text, next, quoted);
           next = read.next;
-          if ((stripTabs ? read.line.replace(/^\t+/, '') : read.line) === delimiter) {
+          const content = stripTabs ? read.line.replace(/^\t+/, '') : read.line;
+          // Bash は印で始まり ) を含む行でも置換を閉じる。zsh と解釈が割れるので確認の印を残す。
+          if (content !== delimiter && content.startsWith(delimiter) && content.includes(')')) {
+            state.uncertain = true;
+            return text.indexOf(')', lineStart);
+          }
+          if (content === delimiter) {
             closed = true;
             break;
           }
@@ -320,8 +327,9 @@ function readSubstitution(text, j) {
     const end = arithmeticEnd(text, j + 3);
     return { inner: substitutionsIn(text.slice(j + 3, end - 1)), end, expression: text.slice(j + 3, end - 1) };
   }
-  const end = closingParen(text, j + 2);
-  return { inner: [text.slice(j + 2, end)], end };
+  const state = {};
+  const end = closingParen(text, j + 2, state);
+  return { inner: [text.slice(j + 2, end)], end, uncertain: state.uncertain };
 }
 
 // 引用符も \ も無い終わりの印のヒアドキュメントの本文と、算術（$(( … ))、(( … ))）の中で、シェルが実行する置換（$(…)、`…`、${X:-$(…)}）の中身。
@@ -352,6 +360,7 @@ function substitutionsIn(body) {
 export function splitSegments(command) {
   const segments = [];
   const nested = [];
+  let uncertain = false;
   // 算術の式（(( … ))、$(( … ))）の中身
   const arithmetic = [];
   const heredocs = [];
@@ -447,7 +456,8 @@ export function splitSegments(command) {
       continue;
     }
     if (command.startsWith('$(', i)) {
-      const { inner, end, expression } = readSubstitution(command, i);
+      const { inner, end, expression, uncertain: ambiguous } = readSubstitution(command, i);
+      uncertain ||= ambiguous;
       if (expression !== undefined) arithmetic.push(expression);
       nested.push(...inner);
       add(SUBSTITUTION, true);
@@ -482,7 +492,8 @@ export function splitSegments(command) {
           continue;
         }
         if (command.startsWith('$(', j)) {
-          const { inner, end, expression } = readSubstitution(command, j);
+          const { inner, end, expression, uncertain: ambiguous } = readSubstitution(command, j);
+          uncertain ||= ambiguous;
           if (expression !== undefined) arithmetic.push(expression);
           nested.push(...inner);
           add(SUBSTITUTION, true);
@@ -720,10 +731,12 @@ export function splitSegments(command) {
   endSegment();
   for (const inner of nested) {
     const innerSegments = splitSegments(inner);
+    uncertain ||= innerSegments.uncertain;
     arithmetic.push(...arithmeticOf(innerSegments));
     segments.push(...innerSegments);
   }
   Object.defineProperty(segments, 'arithmetic', { value: arithmetic, configurable: true });
+  Object.defineProperty(segments, 'uncertain', { value: Boolean(uncertain), configurable: true });
   return segments;
 }
 
