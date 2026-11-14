@@ -2838,8 +2838,7 @@ function judgeFileWrites(tool, args, words, dir = null, cdWords = '', namesGitDi
   const results = [];
   const globRedirects = redirectsOf(words).filter((r) => !isHeredocRedirect(r) && r.expands);
   const redirectNames = globRedirects.map((r) => r.globPattern);
-  if (redirectNames.some((w) => expansionSize(w) > MAX_BRACE_EXPANSION)) results.push([ASK, BIG_GLOB_REASON]);
-  if (redirectNames.some((w) => !boundedRedirectPatterns(w))) results.push([ASK, 'リダイレクトの先の glob が長すぎるか、展開後の照合量が大きすぎるので、名前を照合せず人が確かめる']);
+  if (redirectNames.some((w) => !boundedRedirectPatterns(w))) results.push([ASK, 'リダイレクトの先の glob の長さ・展開数・照合量が上限を超えるので、名前を照合せず人が確かめる']);
   if (judgeSecretAccess(tool, args, words) || writesTo(mentionsSecret, tool, args, words, { anyOperand: true }) ||
       redirectNames.some(secretRedirectGlobMatches)) {
     results.push([DENY, SECRET_FILE_REASON]);
