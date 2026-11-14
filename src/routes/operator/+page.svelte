@@ -24,7 +24,7 @@
   import { needsCustomContractLimits, planLabel } from '../../lib/plan-terms.ts';
   import { showToast } from '../../lib/toast.svelte.ts';
   import { t } from '../../lib/vocabulary.svelte.ts';
-  import { organizationResume, type SuspensionKind } from '../../shared/operations/operator/index.ts';
+  import { organizationResume, QUOTA_GIB, type SuspensionKind } from '../../shared/operations/operator/index.ts';
   import type { PageProps } from './$types';
 
   // 運用の画面（design/operator.html）。組織の一覧と、組織の作成、停止と再開。組織の中のデータは出さない。
@@ -409,15 +409,11 @@
                     {usageText(organization.attachment_used_bytes)} / {quotaText(organization.attachment_quota_bytes)}
                     <!-- 上限を決める契約の印 -->
                     <br />{@render planChip(organization)}
-                    {#if organization.contract?.plan === 'custom' && !needsCustomContractLimits(organization.contract)}
+                    {#if organization.contract?.plan === 'custom' && organization.contract.custom_member_limit !== null && organization.contract.custom_attachment_quota_bytes !== null}
                       <br /><span class="props-note"
                         >{t('operatorPlanCustomBase', {
-                          members: formatCount(organization.contract.custom_member_limit ?? organization.seats.limit),
-                          quota: formatCount(
-                            (organization.contract.custom_attachment_quota_bytes ??
-                              organization.attachment_quota_bytes) /
-                              1024 ** 3,
-                          ),
+                          members: formatCount(organization.contract.custom_member_limit),
+                          quota: formatCount(organization.contract.custom_attachment_quota_bytes / QUOTA_GIB),
                         })}</span
                       >
                     {/if}
@@ -442,7 +438,7 @@
                           onclick={(event) => changeStorage(organization, event.currentTarget)}
                           >{t('operatorStorageTitle')}</button
                         >
-                      {:else if needsCustomContractLimits(organization.contract)}
+                      {:else if organization.kind === 'team' && needsCustomContractLimits(organization.contract)}
                         <br /><span class="props-note">{t('operatorStorageCustomLimitsRequired')}</span>
                       {:else if organization.contract === null}
                         <br /><span class="props-note">{t('operatorStoragePlanRequired')}</span>

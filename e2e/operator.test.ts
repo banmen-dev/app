@@ -2261,6 +2261,48 @@ test.describe('運用者', () => {
       extra_50gb_units: 0,
     });
 
+    test('個別の入力には有効範囲を示し、不正な値の間は上限を確認するための案内を残す', async ({ page }) => {
+      await mockList(page, [organization({})]);
+      await page.goto('/operator');
+      await page.getByRole('button', { name: '「あおば開発」のプランを変える' }).click();
+      const dialog = page.getByRole('dialog', { name: 'プランを変える' });
+      await dialog.getByRole('radio', { name: /個別/ }).check();
+      const members = dialog.getByRole('spinbutton', { name: '人数の上限' });
+      const size = dialog.getByRole('spinbutton', { name: '標準の添付容量（GB）' });
+      await expect(members).toHaveAccessibleDescription('1〜10,000 人の整数で入力してください。');
+      await expect(size).toHaveAccessibleDescription(
+        '1〜102,400 GB の整数で入力してください。追加容量の口数は、この標準容量に足します。',
+      );
+      await members.fill('');
+      await expect(dialog).toContainText(
+        '人数と標準の添付容量を範囲内の整数で入力すると、変更後の上限と超過の注意を確認できます。',
+      );
+      await expect(dialog).not.toContainText('変えた後の上限は');
+      await dialog.getByRole('button', { name: '変える' }).click();
+      await expect(members).toHaveAttribute('aria-invalid', 'true');
+      await expect(members).toBeFocused();
+    });
+
+    test('基準値のない自分用の個別契約には、実行できないプラン変更を案内しない', async ({ page }) => {
+      await mockList(page, [
+        organization({
+          kind: 'personal',
+          contract: {
+            plan: 'custom',
+            billing_interval: 'yearly',
+            extra_10gb_units: 0,
+            extra_50gb_units: 0,
+            custom_member_limit: null,
+            custom_attachment_quota_bytes: null,
+          },
+        }),
+      ]);
+      await page.goto('/operator');
+      const row = page.locator('.table tbody tr', { hasText: 'あおば開発' });
+      await expect(row.getByRole('button', { name: /追加容量を変える|プランを変える/ })).toHaveCount(0);
+      await expect(row).not.toContainText('先に「プランを変える」');
+    });
+
     test('追加容量のあるビジネスから個別へ切り替えても、口数を標準容量へ二重に含めない', async ({ page }) => {
       await mockList(page, [
         organization({
