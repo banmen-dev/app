@@ -2994,14 +2994,16 @@ test.describe('運用者', () => {
   });
 });
 
-test('運用者でない人が /operator を開くと、/ に戻る（組織が1つの人は組織の画面に入る）', async ({
-  page,
-  context,
-  baseURL,
-}) => {
+test('運用者でない人が /operator を開くと、組織の選択か唯一の組織へ戻る', async ({ page, context, baseURL }) => {
   await signIn(context, baseURL, 'member');
   await page.goto('/operator');
-  await expect(page).toHaveURL(/\/aoba$/);
+  // 並行する容量のテストが同じ会員を別の組織に招待することもある。
+  // /operator の403から / へ戻り、1組織なら直接入り、複数なら選択に残る。
+  await expect(page).toHaveURL(/\/(?:aoba)?$/);
+  if (new URL(page.url()).pathname === '/') {
+    await expect(page.getByRole('heading', { name: '組織を選ぶ' })).toBeVisible();
+    await expect(page.getByRole('link', { name: /あおば開発/ })).toBeVisible();
+  }
 });
 
 test('運用者でない人は、運用者の操作を呼ぶと 403', async ({ page, context, baseURL }) => {
