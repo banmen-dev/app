@@ -382,6 +382,16 @@ Builds は PR の先頭のコードを、アカウント全体の Workers Script
 
 掃除の GitHub API は公開リポジトリの認証なし読み取りだけを使う。共有 IP のレート制限（通常60リクエスト/時）などの 403 や、非公開化による 404 は空の PR 一覧とみなさず、削除せずに失敗する。Builds の失敗を確認し、上限の回復後に `main` のビルドを再実行する。非公開化する前にはこの接続の Builds を止め、読み取り専用の認証方法を別途用意してから掃除を再開する。デプロイの鍵を GitHub に置く対応ではない。
 
+サービストークンを Bash の環境変数へ入れるときは、人が端末で次を実行し、各入力欄に値を貼る。値を含むコマンドを履歴に残さず、入力も画面に出さない。値を `.env` や git 管理下のファイルへ保存しない。
+
+```bash
+read -r -s -p "Access Client ID: " CF_ACCESS_CLIENT_ID
+printf '\n'
+read -r -s -p "Access Client Secret: " CF_ACCESS_CLIENT_SECRET
+printf '\n'
+export CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET
+```
+
 ### 初回と変更後の確認
 
 1. 本番 `/api/health` の版と、seed セッション・API トークンが本番で 401 になることを控える（上の「seed のセッションが本番に入ったとき」）。番号付きの PR ブランチをビルドし、Builds のログで D1 の作成、全マイグレーション、seed、`versions upload` の成功を見る。特に標準入力を閉じた Builds で `migrations apply --remote` が確認待ちにならないことと、`PRAGMA defer_foreign_keys` から始まる seed SQL を `d1 execute --remote --file` で新規 D1 へ投入できることを確認する（Node／SQLite のテストだけでは実証済みと扱わない）
