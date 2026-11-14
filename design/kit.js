@@ -2621,6 +2621,15 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     // 今の契約を選んだ状態で開き、選び直すと変えた後の上限（d-pa）と、今の人数や合計が超えるときの注意を出す。
     // 未契約の組織の上限が下がる注意（d-pl2）、お試しが終わる注記（d-pt）、停止したままの注記（d-pp）、未契約の組織の注記（d-pn）は、
     // 本番では組織の状態で出す。見本の「くもラボ」は契約済みで停止もお試しもしていないので、どれも hidden で置く
+    changeStorage: () => openDialog("追加容量を変える",
+      `<p class="wrap-anywhere">「くもラボ」の追加容量の口数を変えます。</p>
+       <div class="field"><label class="field-label" for="d-storage10">＋10 GB の口数</label><input class="input" id="d-storage10" data-storage-choice type="number" min="0" max="100" step="1" value="0" aria-describedby="d-storage-hint"></div>
+       <div class="field"><label class="field-label" for="d-storage50">＋50 GB の口数</label><input class="input" id="d-storage50" data-storage-choice type="number" min="0" max="100" step="1" value="1" aria-describedby="d-storage-hint"></div>
+       <p class="field-hint" id="d-storage-hint">それぞれ 0〜100 の整数で入力してください。</p>
+       <p class="field-hint">追加容量は基本プランと同じ支払いの周期で、まとめて請求します。</p>
+       <p class="field-hint" id="d-storage-after">変えた後の添付ファイルと Wiki の上限は 150 GB です。</p>
+       <p class="field-hint">変更の履歴に運用者の操作として前後の口数が残ります。</p>`,
+      `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" id="d-storage-submit" data-close-dialog data-toast="追加容量を変えました">変える</button>`),
     changePlan: () => openDialog("プランを変える",
       `<p class="wrap-anywhere">「くもラボ」のプランを変えます。今はビジネス・月払いで、人数 38&nbsp;人（上限 50&nbsp;人）、添付ファイルと Wiki の合計 42&nbsp;GB（上限 100&nbsp;GB）です。</p>
        <div class="field"><span class="field-label" id="d-pl">プラン</span>
@@ -3713,6 +3722,23 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   };
   document.addEventListener("change", (ev) => { if (ev.target.closest("[data-plan-choice]")) syncPlanDialog(); });
   document.addEventListener("input", (ev) => { if (ev.target.closest("#d-qm, #d-qg")) syncQuotaDialog(); });
+  document.addEventListener("input", (ev) => {
+    if (!ev.target.closest("[data-storage-choice]")) return;
+    const first = document.getElementById("d-storage10");
+    const second = document.getElementById("d-storage50");
+    const valid = [first, second].every((input) => input.value !== "" && input.validity.valid);
+    const submit = document.getElementById("d-storage-submit");
+    submit.setAttribute("aria-disabled", String(!valid));
+    if (valid) {
+      document.getElementById("d-storage-after").textContent = `変えた後の添付ファイルと Wiki の上限は ${100 + Number(first.value) * 10 + Number(second.value) * 50} GB です。`;
+      submit.setAttribute("data-close-dialog", "");
+      submit.setAttribute("data-toast", "追加容量を変えました");
+    } else {
+      document.getElementById("d-storage-after").textContent = "それぞれ 0〜100 の整数で入力してください。";
+      submit.removeAttribute("data-close-dialog");
+      submit.removeAttribute("data-toast");
+    }
+  });
 
   // ---- 操作（見本の中だけで動き、保存はしない） ----
   document.addEventListener("change", (ev) => {

@@ -23,6 +23,12 @@ const actor = z.discriminatedUnion('kind', [
 // 契約のプランと支払いの周期（organization_contracts の列）
 const contractTerms = z.object({ plan: z.enum(organizationPlans), billing_interval: z.enum(billingIntervals) });
 
+const storageTerms = z.object({
+  extra_10gb_units: z.number().int(),
+  extra_50gb_units: z.number().int(),
+  billing_interval: z.enum(billingIntervals),
+});
+
 // 内容。entity_type と action（と changes_json の列）の組ごとに、画面の文に要る値だけを持つ。changes_json はそのまま返さない。
 // 人の名前（name）は、記録にそのときの名前があればそれを、無ければ users の今の名前。分からなければ null
 const event = z.discriminatedUnion('kind', [
@@ -36,6 +42,7 @@ const event = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('organization_settings_changed') }),
   // 運用者の契約の変更。from は前の契約（未契約なら null）、to は変えた後の契約
   z.object({ kind: z.literal('organization_plan_changed'), from: contractTerms.nullable(), to: contractTerms }),
+  z.object({ kind: z.literal('organization_storage_changed'), from: storageTerms, to: storageTerms }),
   // 管理者の指名。name が null なのは、Google の招待でまだログインしていない（か、既にいる人にまとめた）指名
   z.object({ kind: z.literal('admin_designated'), name: z.string().nullable() }),
   // Google の招待で指名した人が初めてログインし、指名の行に結んだ

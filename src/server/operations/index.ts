@@ -50,6 +50,7 @@ import { meThemeUpdateOperation } from './me-theme.ts';
 import { membershipLeaveOperation, membershipRoleUpdateOperation } from './membership.ts';
 import { createOrganizationOperation, listOrganizationsOperation, resolveGithubUserOperation } from './operator.ts';
 import { organizationAdminReassignOperation } from './operator-admin.ts';
+import { organizationStorageUpdateOperation } from './operator-storage.ts';
 import { organizationPlanUpdateOperation } from './operator-plan.ts';
 import { organizationQuotaUpdateOperation } from './operator-quota.ts';
 import {
@@ -185,6 +186,7 @@ const listedOperations: readonly ImplementedOperation[] = [
   organizationAdminReassignOperation,
   organizationQuotaUpdateOperation,
   organizationPlanUpdateOperation,
+  organizationStorageUpdateOperation,
   myOrganizationsOperation,
   createMyOrganizationOperation,
   createPersonalOrganizationOperation,

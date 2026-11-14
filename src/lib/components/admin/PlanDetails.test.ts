@@ -68,3 +68,18 @@ test('契約の無い自分用の組織は「パーソナル」と出し、「�
   expect(body).toContain('容量を足すときは、運用者に問い合わせてください。');
   expect(body).not.toContain('プラン、支払いの周期');
 });
+
+test('追加容量のある自分用の組織はパーソナルの契約と口数を出す', () => {
+  const body = bodyOf({
+    kind: 'personal',
+    plan: {
+      contract: { plan: 'personal', billing_interval: 'monthly', extra_10gb_units: 1, extra_50gb_units: 0 },
+      member_limit: 1,
+      attachment_quota_bytes: 11 * GIB,
+    },
+  });
+  expect(body).toContain('パーソナル・月払い');
+  expect(body).toContain('+10 GB × 1 口');
+  expect(body).toContain('11 GB');
+  expect(body).toContain('1 人');
+});

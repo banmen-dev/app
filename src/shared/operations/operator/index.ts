@@ -4,6 +4,7 @@ import type { AnyOperationDefinition } from '../define.ts';
 import { createOrganization } from './create-organization.ts';
 import { listOrganizations } from './list-organizations.ts';
 import { organizationAdminReassign } from './organization-admin-reassign.ts';
+import { organizationStorageUpdate } from './organization-storage-update.ts';
 import { organizationPlanUpdate } from './organization-plan-update.ts';
 import { organizationQuotaUpdate } from './organization-quota-update.ts';
 import { organizationResume } from './organization-resume.ts';
@@ -16,6 +17,7 @@ export {
   listOrganizations,
   organizationAdminReassign,
   organizationPlanUpdate,
+  organizationStorageUpdate,
   organizationQuotaUpdate,
   organizationResume,
   organizationSuspend,
@@ -58,4 +60,5 @@ export const operatorOperations: readonly AnyOperationDefinition[] = [
   organizationAdminReassign,
   organizationQuotaUpdate,
   organizationPlanUpdate,
+  organizationStorageUpdate,
 ];

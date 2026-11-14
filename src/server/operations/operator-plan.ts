@@ -5,7 +5,14 @@
 import { now } from '../../shared/clock.ts';
 import { isPurgeDue, organizationPlanUpdate, utcDateOf } from '../../shared/operations/operator/index.ts';
 import { contractLimits } from '../../shared/organization-plan.ts';
-import { commonDb, purgeDueInDatabase, purgeNotDue, type CommonTables, type ExpressionBuilder } from '../db/index.ts';
+import {
+  commonDb,
+  previousStatementChanged,
+  purgeDueInDatabase,
+  purgeNotDue,
+  type CommonTables,
+  type ExpressionBuilder,
+} from '../db/index.ts';
 import { ApiError } from '../errors.ts';
 import { implement } from './implement.ts';
 import { logOperatorChange } from './operator-change-log.ts';
@@ -15,7 +22,7 @@ type CommonDb = ReturnType<typeof commonDb>;
 
 // slug の組織と、その契約（無ければ null）。組織が無ければ 404（別の組織と存在しないものを分けない）。
 // purge_on は organizations だけが持つ列なので、purgeDueInDatabase の式は結合した文でも organizations の列を指す
-async function readOrganizationWithContract(db: CommonDb, slug: string) {
+export async function readOrganizationWithContract(db: CommonDb, slug: string) {
   const row = await db.first(
     db.statement((q) =>
       q
@@ -77,7 +84,11 @@ export const organizationPlanUpdateOperation = implement(organizationPlanUpdate,
   const matchesExpected =
     expected === null
       ? contract === null
-      : contract !== null && contract.plan === expected.plan && contract.billing_interval === expected.billing_interval;
+      : contract !== null &&
+        contract.plan === expected.plan &&
+        contract.billing_interval === expected.billing_interval &&
+        contract.extra_10gb_units === expected.extra_10gb_units &&
+        contract.extra_50gb_units === expected.extra_50gb_units;
   if (!matchesExpected) throw new ApiError(409, 'conflict');
 
   const next = {
@@ -147,6 +158,7 @@ export const organizationPlanUpdateOperation = implement(organizationPlanUpdate,
     db.statement((q) =>
       q
         .updateTable('organizations')
+        .where(previousStatementChanged)
         .set({
           member_limit: limits.member_limit,
           attachment_quota_bytes: limits.attachment_quota_bytes,

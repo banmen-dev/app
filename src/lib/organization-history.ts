@@ -45,6 +45,15 @@ export function historyEventText(event: HistoryEntry['event'], translate: Transl
         : translate('orgHistorySuspensionChanged', { ...words, date: event.purge_on });
     case 'organization_settings_changed':
       return translate('orgHistoryOrganizationSettingsChanged', words);
+    case 'organization_storage_changed':
+      return translate('orgHistoryStorageChanged', {
+        from10: event.from.extra_10gb_units,
+        from50: event.from.extra_50gb_units,
+        to10: event.to.extra_10gb_units,
+        to50: event.to.extra_50gb_units,
+        fromInterval: translate(event.from.billing_interval === 'monthly' ? 'billingMonthly' : 'billingYearly'),
+        toInterval: translate(event.to.billing_interval === 'monthly' ? 'billingMonthly' : 'billingYearly'),
+      });
     case 'organization_plan_changed':
       return event.from === null
         ? translate('orgHistoryPlanStarted', { to: planTermsText(event.to, translate) })

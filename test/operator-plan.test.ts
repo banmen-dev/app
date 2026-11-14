@@ -97,14 +97,24 @@ async function changePlanBy(
         q
           .selectFrom('organizations')
           .leftJoin('organization_contracts', 'organization_contracts.organization_id', 'organizations.id')
-          .select(['organization_contracts.plan', 'organization_contracts.billing_interval'])
+          .select([
+            'organization_contracts.plan',
+            'organization_contracts.billing_interval',
+            'organization_contracts.extra_10gb_units',
+            'organization_contracts.extra_50gb_units',
+          ])
           .where('organizations.slug', '=', slug),
       ),
     );
     expected =
       row?.plan == null || row.billing_interval == null
         ? null
-        : ({ plan: row.plan, billing_interval: row.billing_interval } as Expected);
+        : ({
+            plan: row.plan,
+            billing_interval: row.billing_interval,
+            extra_10gb_units: row.extra_10gb_units,
+            extra_50gb_units: row.extra_50gb_units,
+          } as Expected);
   }
   return post(app, organizationPlanUpdate, { token, body: { slug, ...terms, expected }, env: options.env });
 }
