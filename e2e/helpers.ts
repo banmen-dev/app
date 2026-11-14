@@ -40,7 +40,10 @@ export async function findA11yViolations(page: Page, include?: string): Promise<
 async function runA11y(page: Page, include?: string): Promise<{ violations: A11yViolation[]; undecided: number }> {
   // 利用する違反・保留だけ全要素の結果を作る。合格・対象外の要素までセレクタを作ると、
   // 大きなカタログでは検査後の結果生成だけでも重くなる。規則と検査対象は減らさない。
-  const builder = new AxeBuilder({ page }).withTags(A11Y_TAGS).options({ resultTypes: ['violations', 'incomplete'] });
+  const builder = new AxeBuilder({ page }).options({
+    runOnly: { type: 'tag', values: A11Y_TAGS },
+    resultTypes: ['violations', 'incomplete'],
+  });
   if (include !== undefined) builder.include(include);
   const results = await builder.analyze();
   const undecided = results.incomplete
