@@ -67,7 +67,7 @@ for (const [name, body] of [
 ]) {
   test(`カタログの表示確認は${name}なら失敗する`, async ({ page }) => {
     await page.route('**/__design-catalog/index.html', (route) =>
-      route.fulfill({ contentType: 'text/html', body: `<h1>デザインシステム</h1>${body}` }),
+      route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<h1>デザインシステム</h1>${body}` }),
     );
     await expect(openCatalog(page)).rejects.toThrow(name);
   });
