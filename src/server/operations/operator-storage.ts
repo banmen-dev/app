@@ -22,6 +22,8 @@ export const organizationStorageUpdateOperation = implement(
     if (due) throw new ApiError(409, 'purge_due');
     const { contract } = current;
     if (current.kind === 'team' && contract === null) throw new ApiError(409, 'conflict', { reason: 'plan_required' });
+    // 自分用はパーソナル固定。個別契約を追加容量の操作で別のプランへ書き換えない。
+    if (current.kind === 'personal' && contract?.plan === 'custom') throw new ApiError(409, 'conflict');
     // 個別の標準値が無い古い行は、先にプランの変更で値を決め直す。
     if (
       contract?.plan === 'custom' &&
