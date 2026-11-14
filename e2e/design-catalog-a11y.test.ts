@@ -4,9 +4,9 @@ import { expect, test } from './fixtures.ts';
 import { A11Y_THEMES, applyTheme, findA11yViolations, formatA11yViolations } from './helpers.ts';
 
 // アプリの配信対象外の見本を、既存の design-catalog.test.ts と同じ方法で開く。seed の認証は使わない。
-// #1229: CI の狭幅では正常な検査も約55秒かかり、60秒では処理時間の揺れを吸収できない。
-// カタログ全体の axe 検査と trace の記録に2分を確保する。各 assertion の待ちは延ばさない。
-test.setTimeout(120_000);
+// #1237: 全セクションの確認をまとめ、ブラウザとの往復で検査時間を使い切らない。
+// カタログ全体の axe 検査を60秒以内で確かめる。各 assertion の待ちは延ばさない。
+test.setTimeout(60_000);
 
 test.beforeEach(async ({ page }) => {
   const files: Record<string, string> = {
@@ -33,13 +33,41 @@ async function openCatalog(page: Page): Promise<void> {
   await page.goto('/__design-catalog/index.html');
   await expect(page.getByRole('heading', { level: 1, name: 'デザインシステム', exact: true })).toBeVisible();
   const links = page.locator('#toc a');
-  expect(await links.count()).toBeGreaterThan(0);
-  await expect(page.locator('#main > .cat-block')).toHaveCount(await links.count());
-  for (const link of await links.all()) {
-    const href = await link.getAttribute('href');
-    expect(href).toMatch(/^#.+/);
-    await expect(page.locator(`#main > .cat-block${href}`)).toBeVisible();
-  }
+  const hrefs = await links.evaluateAll((elements) => elements.map((element) => element.getAttribute('href')));
+  expect(hrefs.length).toBeGreaterThan(0);
+  for (const href of hrefs) expect(href).toMatch(/^#.+/);
+  expect(new Set(hrefs).size).toBe(hrefs.length);
+  // 目次との1対1の対応と全件の表示を保ち、セクションごとの API 呼び出しを避ける。
+  const sections = page.locator('#main > .cat-block');
+  expect(await sections.evaluateAll((elements) => elements.map((element) => `#${element.id}`))).toEqual(hrefs);
+  await expect(page.locator('#main > .cat-block:visible')).toHaveCount(hrefs.length);
+}
+
+for (const [name, body] of [
+  ['目次が空', '<main id="main"></main>'],
+  [
+    '目次の参照先が不正',
+    '<nav id="toc"><a href="other.html">見本</a></nav><main id="main"><section class="cat-block" id="one">見本</section></main>',
+  ],
+  [
+    '目次とセクションが対応しない',
+    '<nav id="toc"><a href="#missing">見本</a></nav><main id="main"><section class="cat-block" id="one">見本</section></main>',
+  ],
+  [
+    '目次とセクションの ID が重複する',
+    '<nav id="toc"><a href="#one">見本1</a><a href="#one">見本2</a></nav><main id="main"><section class="cat-block" id="one">見本1</section><section class="cat-block" id="one">見本2</section></main>',
+  ],
+  [
+    'セクションが非表示',
+    '<nav id="toc"><a href="#one">見本</a></nav><main id="main"><section class="cat-block" id="one" hidden>見本</section></main>',
+  ],
+]) {
+  test(`カタログの表示確認は${name}なら失敗する`, async ({ page }) => {
+    await page.route('**/__design-catalog/index.html', (route) =>
+      route.fulfill({ contentType: 'text/html', body: `<h1>デザインシステム</h1>${body}` }),
+    );
+    await expect(openCatalog(page)).rejects.toThrow();
+  });
 }
 
 async function expectAccessibleCatalog(page: Page): Promise<void> {
