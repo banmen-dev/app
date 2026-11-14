@@ -13,21 +13,15 @@ export type PreviewDeps = {
   log: (message: string) => void;
 };
 
-// `$` は末尾の改行の直前にも合うので、必ず語全体が一致したことを調べる。
-function exactMatch(pattern: RegExp, value: string): RegExpMatchArray | null {
-  const match = value.match(pattern);
-  return match?.[0] === value ? match : null;
-}
-
 function branchNumber(branch: string): string | undefined {
-  const number = exactMatch(/^([1-9][0-9]*)-[a-zA-Z0-9][a-zA-Z0-9/_-]*$/, branch)?.[1];
+  const number = /^([1-9][0-9]*)-[a-zA-Z0-9][a-zA-Z0-9/_-]*$/.exec(branch)?.[1];
   return number && `pr-${number}-scrum-guild-preview`.length <= 63 ? number : undefined;
 }
 
 function databaseValue(value: unknown): PreviewDatabase {
   if (typeof value !== 'object' || value === null) throw new Error('D1 の一覧に不正な項目があります');
   const { name, uuid } = value as Partial<PreviewDatabase>;
-  if (typeof name !== 'string' || name.length === 0 || typeof uuid !== 'string' || !exactMatch(UUID_PATTERN, uuid)) {
+  if (typeof name !== 'string' || name.length === 0 || typeof uuid !== 'string' || !UUID_PATTERN.test(uuid)) {
     throw new Error('D1 の名前と ID を読めませんでした');
   }
   if (name.startsWith('scrum-guild-pr-') && uuid.toLowerCase() === PRODUCTION_DATABASE_ID) {
@@ -56,7 +50,7 @@ export async function deployPreview(deps: PreviewDeps): Promise<void> {
   const branch = deps.env.WORKERS_CI_BRANCH;
   const number = typeof branch === 'string' ? branchNumber(branch) : undefined;
   if (branch !== 'main' && !number) throw new Error('プレビューのブランチを判定できません');
-  if (typeof deps.commitSha !== 'string' || !exactMatch(/^[0-9a-f]{40}$/i, deps.commitSha)) {
+  if (typeof deps.commitSha !== 'string' || !/^[0-9a-f]{40}$/i.test(deps.commitSha)) {
     throw new Error('コミットの SHA を判定できません');
   }
 
@@ -77,7 +71,7 @@ export async function deployPreview(deps: PreviewDeps): Promise<void> {
     }
     const openNumbers = new Set((branches as string[]).map(branchNumber).filter((value) => value !== undefined));
     for (const database of databases) {
-      const previewNumber = exactMatch(PREVIEW_DATABASE_PATTERN, database.name)?.[1];
+      const previewNumber = PREVIEW_DATABASE_PATTERN.exec(database.name)?.[1];
       if (!previewNumber || openNumbers.has(previewNumber)) continue;
       deps.log(`閉じた PR の D1 を削除します: ${database.name}`);
       await deps.deleteDatabase(database);

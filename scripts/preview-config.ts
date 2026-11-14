@@ -13,14 +13,11 @@ export function previewConfig(
 ) {
   if (
     !/^[1-9][0-9]*$/.test(number) ||
-    number.trim() !== number ||
     `pr-${number}-scrum-guild-preview`.length > 63 ||
     database.name !== `scrum-guild-pr-${number}` ||
     !UUID_PATTERN.test(database.uuid) ||
-    database.uuid.length !== 36 ||
     database.uuid.toLowerCase() === PRODUCTION_DATABASE_ID ||
-    !/^[0-9a-f]{40}$/i.test(commitSha) ||
-    commitSha.length !== 40
+    !/^[0-9a-f]{40}$/i.test(commitSha)
   )
     throw new Error('プレビューの設定に使えない番号・D1・版です');
   return {
