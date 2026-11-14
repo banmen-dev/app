@@ -392,7 +392,7 @@ export function splitSegments(command) {
     shape += dynamic ? DYNAMIC : text;
     // 保護する名前の候補にglob記号は無い。引用された記号は候補に現れない印にし、未引用の記号だけを展開する。
     for (const ch of text) {
-      const operator = /[?*\[\]{}()!+@\\]/.test(ch) || (globClass && (ch === '-' || ch === '^')) || (globBraces > 0 && ch === ',');
+      const operator = /[?*\[\]{}()!+@|\\]/.test(ch) || (globClass && (ch === '-' || ch === '^')) || (globBraces > 0 && ch === ',');
       globPattern += literal && operator ? '\u0001' : ch;
       if (!literal && ch === '[') globClass = true;
       else if (!literal && ch === ']') globClass = false;
@@ -403,11 +403,13 @@ export function splitSegments(command) {
   };
   // 演算子（> など）を読んだ後で、先の語を待っているリダイレクト。次の1語は argv ではなく、この先になる
   let openRedirect = null;
+  let redirectGlobDepth = 0;
   // 先の語が来なかったリダイレクト（echo x >; …）は、空の先で閉じる
   const closeRedirect = () => {
     if (!openRedirect) return;
     words.redirects.push({ op: openRedirect.op, target: '', shape: '', substitutions: [] });
     openRedirect = null;
+    redirectGlobDepth = 0;
   };
   const endWord = () => {
     if (inWord && openRedirect) {
@@ -418,6 +420,7 @@ export function splitSegments(command) {
       if (openRedirect.processSubstitution) redirect.processSubstitution = true;
       words.redirects.push(redirect);
       openRedirect = null;
+      redirectGlobDepth = 0;
     } else if (inWord) {
       words.push(word);
       words.expands.push(expands && !LITERAL_WORDS.has(word));
@@ -607,6 +610,23 @@ export function splitSegments(command) {
       }
       openRedirect = { op, nestedFrom: nested.length };
       i = j - 1;
+      continue;
+    }
+
+    // リダイレクトの (a|b) は zsh の名前の選択肢。区切りに切らず、照合用だけ Node の @(a|b) にする。
+    // (N) のような修飾子は従来どおりの印で読み、引用した | や括弧は上の引用符処理で文字として残す。
+    const redirectAlternation = openRedirect && c === '(' && !globClass &&
+      (redirectGlobDepth > 0 || command.slice(i + 1, closingParen(command, i + 1)).includes('|'));
+    if (redirectAlternation) {
+      add('(');
+      globPattern = globPattern.slice(0, -1) + '@(';
+      expands = true;
+      redirectGlobDepth++;
+      continue;
+    }
+    if (openRedirect && redirectGlobDepth > 0 && (c === '|' || c === ')')) {
+      add(c);
+      if (c === ')' && !globClass) redirectGlobDepth--;
       continue;
     }
 
