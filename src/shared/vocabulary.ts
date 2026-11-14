@@ -1258,6 +1258,10 @@ export const dictionary = defineDictionary({
   planCustom: '個別',
   operatorPlanCustomHint: '相談して決めた人数と標準の容量',
   operatorPlanCustomSizeLabel: '標準の添付容量（GB）',
+  operatorPlanCustomMembersHint: '1〜{max} 人の整数で入力してください。',
+  operatorPlanCustomSizeHint: '1〜{max} GB の整数で入力してください。追加容量の口数は、この標準容量に足します。',
+  operatorPlanCustomInvalidHint:
+    '人数と標準の添付容量を範囲内の整数で入力すると、変更後の上限と超過の注意を確認できます。',
   planCustomLimits: '{terms}（{members} 人・標準 {quota} GB）',
   operatorPlanCustomBase: '標準 {members} 人・{quota} GB',
   billingMonthly: '月払い',

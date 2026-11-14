@@ -172,8 +172,8 @@
       customValues !== null &&
       target.contract.plan === plan &&
       target.contract.billing_interval === interval &&
-      (target.contract.custom_member_limit ?? null) === customValues.custom_member_limit &&
-      (target.contract.custom_attachment_quota_bytes ?? null) === customValues.custom_attachment_quota_bytes,
+      target.contract.custom_member_limit === customValues.custom_member_limit &&
+      target.contract.custom_attachment_quota_bytes === customValues.custom_attachment_quota_bytes,
   );
 
   async function submit(event: SubmitEvent): Promise<void> {
@@ -293,8 +293,11 @@
                 submitError = null;
               }}
               aria-invalid={errors.members !== undefined}
-              aria-describedby={errors.members ? `${fieldIds.members}-error` : undefined}
+              aria-describedby={`${fieldIds.members}-hint${errors.members ? ` ${fieldIds.members}-error` : ''}`}
             />
+            <span class="field-hint" id="{fieldIds.members}-hint"
+              >{t('operatorPlanCustomMembersHint', { max: formatCount(MEMBER_LIMIT_MAX) })}</span
+            >
             {#if errors.members}<span class="field-error" id="{fieldIds.members}-error" role="alert"
                 ><Icon name="alert" />{errors.members}</span
               >{/if}
@@ -316,8 +319,11 @@
                 submitError = null;
               }}
               aria-invalid={errors.size !== undefined}
-              aria-describedby={errors.size ? `${fieldIds.size}-error` : undefined}
+              aria-describedby={`${fieldIds.size}-hint${errors.size ? ` ${fieldIds.size}-error` : ''}`}
             />
+            <span class="field-hint" id="{fieldIds.size}-hint"
+              >{t('operatorPlanCustomSizeHint', { max: formatCount(SIZE_MAX_GB) })}</span
+            >
             {#if errors.size}<span class="field-error" id="{fieldIds.size}-error" role="alert"
                 ><Icon name="alert" />{errors.size}</span
               >{/if}
@@ -341,6 +347,8 @@
         <p class="field-hint">
           {t('operatorPlanAfter', { members: next.member_limit, quota: sizeText(next.attachment_quota_bytes) })}
         </p>
+      {:else}
+        <p class="field-hint">{t('operatorPlanCustomInvalidHint')}</p>
       {/if}
       {#if target !== null && next !== null && target.contract === null && (next.member_limit < target.member_limit || next.attachment_quota_bytes < target.attachment_quota_bytes)}
         <div class="callout is-warn">
