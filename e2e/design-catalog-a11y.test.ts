@@ -36,7 +36,7 @@ async function openCatalog(page: Page): Promise<void> {
   const hrefs = await links.evaluateAll((elements) => elements.map((element) => element.getAttribute('href')));
   expect(hrefs.length, '目次が空').toBeGreaterThan(0);
   for (const href of hrefs) expect(href, '目次の参照先が不正').toMatch(/^#.+/);
-  expect(new Set(hrefs).size, '目次とセクションの ID が重複する').toBe(hrefs.length);
+  expect(new Set(hrefs).size, '目次の参照先が重複する').toBe(hrefs.length);
   // 目次との1対1の対応と全件の表示を保ち、セクションごとの API 呼び出しを避ける。
   const sections = page.locator('#main > .cat-block');
   expect(
@@ -57,7 +57,7 @@ for (const [name, body] of [
     '<nav id="toc"><a href="#missing">見本</a></nav><main id="main"><section class="cat-block" id="one">見本</section></main>',
   ],
   [
-    '目次とセクションの ID が重複する',
+    '目次の参照先が重複する',
     '<nav id="toc"><a href="#one">見本1</a><a href="#one">見本2</a></nav><main id="main"><section class="cat-block" id="one">見本1</section><section class="cat-block" id="one">見本2</section></main>',
   ],
   [
