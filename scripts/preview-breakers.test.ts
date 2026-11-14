@@ -116,3 +116,40 @@ test('ブラウザの同一origin通信が失敗したらfulfillせずabortす�
   await handler(route, route.request());
   assert.equal(aborted, true);
 });
+
+test('UUID の前後の文字は拒否し、D1 名の前後の文字があるDBは掃除しない', async () => {
+  for (const value of [`${UUID}\n`, `x${UUID}`, `${UUID}x`]) {
+    let changes = 0;
+    const deps: PreviewDeps = {
+      env: { WORKERS_CI: '1', WORKERS_CI_BRANCH: 'main' },
+      commitSha: SHA,
+      listDatabases: async () => [{ name: 'scrum-guild-pr-374', uuid: value }],
+      createDatabase: async (name) => {
+        changes++;
+        return { name, uuid: UUID };
+      },
+      deleteDatabase: async () => {
+        changes++;
+      },
+      openBranches: async () => [],
+      publish: async () => {
+        changes++;
+      },
+      log: () => {},
+    };
+    await assert.rejects(deployPreview(deps));
+    assert.equal(changes, 0, '例外の有無とは別に書き込みが無いことを確かめる');
+  }
+  for (const name of ['scrum-guild-pr-374\n', 'x-scrum-guild-pr-374', 'scrum-guild-pr-374-backup']) {
+    await deployPreview({
+      env: { WORKERS_CI: '1', WORKERS_CI_BRANCH: 'main' },
+      commitSha: SHA,
+      listDatabases: async () => [{ name, uuid: UUID }],
+      createDatabase: async () => assert.fail('cleanupは作成しない'),
+      deleteDatabase: async () => assert.fail('正確なプレビュー名でなければ削除しない'),
+      openBranches: async () => [],
+      publish: async () => assert.fail('cleanupは公開しない'),
+      log: () => {},
+    });
+  }
+});
