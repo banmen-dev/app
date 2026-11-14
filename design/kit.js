@@ -2646,7 +2646,9 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
          <div class="choice-list" role="radiogroup" aria-labelledby="d-pl">
            <label class="choice"><input type="radio" name="d-p" value="team" data-plan-choice><div><b>チーム</b><span>15&nbsp;人・30&nbsp;GB</span></div></label>
            <label class="choice"><input type="radio" name="d-p" value="business" data-plan-choice checked><div><b>ビジネス</b><span>50&nbsp;人・100&nbsp;GB</span></div></label>
+           <label class="choice"><input type="radio" name="d-p" value="custom" data-plan-choice><div><b>個別</b><span>相談して決めた人数と標準の容量</span></div></label>
          </div></div>
+       <div class="form-row is-start" id="d-p-custom" hidden><div class="field"><label class="field-label" for="d-p-members">人数の上限</label><input class="input" id="d-p-members" type="number" min="1" max="10000" step="1" value="80"></div><div class="field"><label class="field-label" for="d-p-size">標準の添付容量（GB）</label><input class="input" id="d-p-size" type="number" min="1" max="102400" step="1" value="200"></div></div>
        <div class="field"><span class="field-label" id="d-pil">支払いの周期</span>
          <div class="choice-list" role="radiogroup" aria-labelledby="d-pil">
            <label class="choice"><input type="radio" name="d-pi" value="monthly" data-plan-choice checked><div><b>月払い</b></div></label>
@@ -3714,15 +3716,21 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const interval = document.querySelector('input[name="d-pi"]:checked');
     const submit = document.getElementById("d-ps");
     if (!plan || !interval || !submit) return;
+    const custom = plan.value === "custom";
+    document.getElementById("d-p-custom").hidden = !custom;
+    const members = custom ? Number(document.getElementById("d-p-members").value) : plan.value === "team" ? 15 : 50;
+    const size = custom ? Number(document.getElementById("d-p-size").value) : plan.value === "team" ? 30 : 100;
+    const valid = Number.isInteger(members) && members >= 1 && members <= 10000 && Number.isInteger(size) && size >= 1 && size <= 102400;
     const same = plan.value === "business" && interval.value === "monthly";
-    submit.setAttribute("aria-disabled", String(same));
+    submit.setAttribute("aria-disabled", String(same || !valid));
     document.getElementById("d-pu").hidden = !same;
     const after = document.getElementById("d-pa");
-    after.hidden = same;
-    after.innerHTML = plan.value === "team" ? "変えた後の上限は 15&nbsp;人・30&nbsp;GB です。" : "変えた後の上限は 50&nbsp;人・100&nbsp;GB です。";
-    document.getElementById("d-po").hidden = plan.value !== "team";
-    document.getElementById("d-pq").hidden = plan.value !== "team";
-    if (same) {
+    after.hidden = same || !valid;
+    after.textContent = `変えた後の上限は ${members} 人・${size} GB です。`;
+    document.getElementById("d-po").hidden = !valid || members >= 38;
+    document.querySelector("#d-po span").textContent = `今の人数（38 人）が、変えた後の上限（${members} 人）を超えます。今いる人はそのまま残り、上限を下回るまで新しい人の招待と管理者への指名だけを止めます。`;
+    document.getElementById("d-pq").hidden = !valid || size >= 42;
+    if (same || !valid) {
       submit.removeAttribute("data-close-dialog");
       submit.removeAttribute("data-toast");
     } else {
@@ -3731,7 +3739,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     }
   };
   document.addEventListener("change", (ev) => { if (ev.target.closest("[data-plan-choice]")) syncPlanDialog(); });
-  document.addEventListener("input", (ev) => { if (ev.target.closest("#d-qm, #d-qg")) syncQuotaDialog(); });
+  document.addEventListener("input", (ev) => { if (ev.target.closest("#d-qm, #d-qg")) syncQuotaDialog(); if (ev.target.closest("#d-p-members, #d-p-size")) syncPlanDialog(); });
   function syncStorageDialog() {
     const first = document.getElementById("d-storage10"), second = document.getElementById("d-storage50");
     if (!first || !second) return;

@@ -42,6 +42,8 @@ export async function readOrganizationWithContract(db: CommonDb, slug: string) {
           'organization_contracts.billing_interval',
           'organization_contracts.extra_10gb_units',
           'organization_contracts.extra_50gb_units',
+          'organization_contracts.custom_member_limit',
+          'organization_contracts.custom_attachment_quota_bytes',
         ])
         .where('organizations.slug', '=', slug),
     ),
@@ -71,7 +73,13 @@ export const organizationPlanUpdateOperation = implement(organizationPlanUpdate,
   if (due) throw new ApiError(409, 'purge_due');
   if (current.kind === 'personal') throw new ApiError(409, 'conflict', { reason: 'personal_organization' });
   const { contract } = current;
-  if (contract !== null && contract.plan === input.plan && contract.billing_interval === input.billing_interval) {
+  if (
+    contract !== null &&
+    contract.plan === input.plan &&
+    contract.billing_interval === input.billing_interval &&
+    contract.custom_member_limit === (input.custom_member_limit ?? null) &&
+    contract.custom_attachment_quota_bytes === (input.custom_attachment_quota_bytes ?? null)
+  ) {
     return {
       slug: input.slug,
       contract,
@@ -88,11 +96,15 @@ export const organizationPlanUpdateOperation = implement(organizationPlanUpdate,
         contract.plan === expected.plan &&
         contract.billing_interval === expected.billing_interval &&
         contract.extra_10gb_units === expected.extra_10gb_units &&
-        contract.extra_50gb_units === expected.extra_50gb_units;
+        contract.extra_50gb_units === expected.extra_50gb_units &&
+        contract.custom_member_limit === expected.custom_member_limit &&
+        contract.custom_attachment_quota_bytes === expected.custom_attachment_quota_bytes;
   if (!matchesExpected) throw new ApiError(409, 'conflict');
 
   const next = {
     plan: input.plan,
+    custom_member_limit: input.custom_member_limit ?? null,
+    custom_attachment_quota_bytes: input.custom_attachment_quota_bytes ?? null,
     billing_interval: input.billing_interval,
     extra_10gb_units: contract?.extra_10gb_units ?? 0,
     extra_50gb_units: contract?.extra_50gb_units ?? 0,
@@ -123,6 +135,8 @@ export const organizationPlanUpdateOperation = implement(organizationPlanUpdate,
               'billing_interval',
               'extra_10gb_units',
               'extra_50gb_units',
+              'custom_member_limit',
+              'custom_attachment_quota_bytes',
               'created_at',
               'updated_at',
             ])
@@ -135,6 +149,8 @@ export const organizationPlanUpdateOperation = implement(organizationPlanUpdate,
                   eb.val(next.billing_interval).as('billing_interval'),
                   eb.val(next.extra_10gb_units).as('extra_10gb_units'),
                   eb.val(next.extra_50gb_units).as('extra_50gb_units'),
+                  eb.val(next.custom_member_limit).as('custom_member_limit'),
+                  eb.val(next.custom_attachment_quota_bytes).as('custom_attachment_quota_bytes'),
                   eb.val(stamp).as('created_at'),
                   eb.val(stamp).as('updated_at'),
                 ])
@@ -145,12 +161,14 @@ export const organizationPlanUpdateOperation = implement(organizationPlanUpdate,
       : db.statement((q) =>
           q
             .updateTable('organization_contracts')
-            .set({ plan: next.plan, billing_interval: next.billing_interval, updated_at: stamp })
+            .set({ ...next, updated_at: stamp })
             .where('organization_id', '=', current.id)
             .where('plan', '=', contract.plan)
             .where('billing_interval', '=', contract.billing_interval)
             .where('extra_10gb_units', '=', contract.extra_10gb_units)
             .where('extra_50gb_units', '=', contract.extra_50gb_units)
+            .where('custom_member_limit', 'is', contract.custom_member_limit)
+            .where('custom_attachment_quota_bytes', 'is', contract.custom_attachment_quota_bytes)
             .where((eb) =>
               eb.exists(eb.selectFrom('organizations').select('organizations.id').where(organizationAsRead)),
             ),
@@ -189,6 +207,13 @@ export const organizationPlanUpdateOperation = implement(organizationPlanUpdate,
     plan: [contract?.plan ?? null, next.plan],
     billing_interval: [contract?.billing_interval ?? null, next.billing_interval],
   };
+  if (contract?.plan === 'custom' || next.plan === 'custom') {
+    changes.custom_member_limit = [contract?.custom_member_limit ?? null, next.custom_member_limit];
+    changes.custom_attachment_quota_bytes = [
+      contract?.custom_attachment_quota_bytes ?? null,
+      next.custom_attachment_quota_bytes,
+    ];
+  }
   if (current.member_limit !== limits.member_limit) changes.member_limit = [current.member_limit, limits.member_limit];
   if (current.attachment_quota_bytes !== limits.attachment_quota_bytes) {
     changes.attachment_quota_bytes = [current.attachment_quota_bytes, limits.attachment_quota_bytes];

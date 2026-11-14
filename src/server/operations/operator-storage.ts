@@ -22,7 +22,13 @@ export const organizationStorageUpdateOperation = implement(
     if (due) throw new ApiError(409, 'purge_due');
     const { contract } = current;
     if (current.kind === 'team' && contract === null) throw new ApiError(409, 'conflict', { reason: 'plan_required' });
-    if (contract?.plan === 'custom') throw new ApiError(409, 'conflict');
+    // 個別の標準値が無い古い行は、先にプランの変更で値を決め直す。
+    if (
+      contract?.plan === 'custom' &&
+      (contract.custom_member_limit === null || contract.custom_attachment_quota_bytes === null)
+    ) {
+      throw new ApiError(409, 'conflict');
+    }
     // チーム用は基本プランとまとめて請求する。周期はプランの変更でだけ変え、追加容量の操作では維持する。
     if (current.kind === 'team' && contract!.billing_interval !== input.billing_interval) {
       throw new ApiError(409, 'conflict');
@@ -49,12 +55,16 @@ export const organizationStorageUpdateOperation = implement(
           contract.plan === expected.plan &&
           contract.billing_interval === expected.billing_interval &&
           contract.extra_10gb_units === expected.extra_10gb_units &&
-          contract.extra_50gb_units === expected.extra_50gb_units;
+          contract.extra_50gb_units === expected.extra_50gb_units &&
+          contract.custom_member_limit === expected.custom_member_limit &&
+          contract.custom_attachment_quota_bytes === expected.custom_attachment_quota_bytes;
     if (!matchesExpected) throw new ApiError(409, 'conflict');
 
     const next = {
-      plan: current.kind === 'personal' ? ('personal' as const) : (contract!.plan as 'team' | 'business'),
+      plan: current.kind === 'personal' ? ('personal' as const) : contract!.plan,
       billing_interval: input.billing_interval,
+      custom_member_limit: contract?.custom_member_limit ?? null,
+      custom_attachment_quota_bytes: contract?.custom_attachment_quota_bytes ?? null,
       extra_10gb_units: input.extra_10gb_units,
       extra_50gb_units: input.extra_50gb_units,
     };
@@ -112,6 +122,8 @@ export const organizationStorageUpdateOperation = implement(
               .where('billing_interval', '=', contract.billing_interval)
               .where('extra_10gb_units', '=', contract.extra_10gb_units)
               .where('extra_50gb_units', '=', contract.extra_50gb_units)
+              .where('custom_member_limit', 'is', contract.custom_member_limit)
+              .where('custom_attachment_quota_bytes', 'is', contract.custom_attachment_quota_bytes)
               .where((eb) =>
                 eb.exists(eb.selectFrom('organizations').select('organizations.id').where(organizationAsRead)),
               ),

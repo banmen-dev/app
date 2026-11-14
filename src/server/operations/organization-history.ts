@@ -132,10 +132,26 @@ function planChange(changes: Changes): HistoryEvent | undefined {
   const [planFrom, planTo] = plan;
   const [intervalFrom, intervalTo] = interval;
   if (!isPlan(planTo) || !isInterval(intervalTo)) return undefined;
-  const to = { plan: planTo, billing_interval: intervalTo };
+  const customTerms = (index: 0 | 1) => {
+    const fields: { custom_member_limit?: number | null; custom_attachment_quota_bytes?: number | null } = {};
+    for (const key of ['custom_member_limit', 'custom_attachment_quota_bytes'] as const) {
+      const pair = pairOf(changes, key);
+      if (
+        pair !== undefined &&
+        (pair[index] === null || (typeof pair[index] === 'number' && Number.isInteger(pair[index])))
+      )
+        fields[key] = pair[index] as number | null;
+    }
+    return fields;
+  };
+  const to = { plan: planTo, billing_interval: intervalTo, ...customTerms(1) };
   if (planFrom === null && intervalFrom === null) return { kind: 'organization_plan_changed', from: null, to };
   if (!isPlan(planFrom) || !isInterval(intervalFrom)) return undefined;
-  return { kind: 'organization_plan_changed', from: { plan: planFrom, billing_interval: intervalFrom }, to };
+  return {
+    kind: 'organization_plan_changed',
+    from: { plan: planFrom, billing_interval: intervalFrom, ...customTerms(0) },
+    to,
+  };
 }
 
 function storageChange(changes: Changes): HistoryEvent | undefined {

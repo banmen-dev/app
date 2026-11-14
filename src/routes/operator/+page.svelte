@@ -21,7 +21,7 @@
   import { formatCount, formatUtcDate, quotaSize } from '../../lib/format.ts';
   import { formatDateTime, formatTrialStopDateTime } from '../../lib/format-datetime.ts';
   import { isUnauthenticated, loginUrl } from '../../lib/login-redirect.ts';
-  import { planLabel } from '../../lib/plan-terms.ts';
+  import { needsCustomContractLimits, planLabel } from '../../lib/plan-terms.ts';
   import { showToast } from '../../lib/toast.svelte.ts';
   import { t } from '../../lib/vocabulary.svelte.ts';
   import { organizationResume, type SuspensionKind } from '../../shared/operations/operator/index.ts';
@@ -409,6 +409,18 @@
                     {usageText(organization.attachment_used_bytes)} / {quotaText(organization.attachment_quota_bytes)}
                     <!-- 上限を決める契約の印 -->
                     <br />{@render planChip(organization)}
+                    {#if organization.contract?.plan === 'custom' && !needsCustomContractLimits(organization.contract)}
+                      <br /><span class="props-note"
+                        >{t('operatorPlanCustomBase', {
+                          members: formatCount(organization.contract.custom_member_limit ?? organization.seats.limit),
+                          quota: formatCount(
+                            (organization.contract.custom_attachment_quota_bytes ??
+                              organization.attachment_quota_bytes) /
+                              1024 ** 3,
+                          ),
+                        })}</span
+                      >
+                    {/if}
                     {#if organization.contract !== null}
                       <br /><span class="props-note"
                         >{t('orgPlanExtraUnits', {
@@ -421,7 +433,7 @@
                       >
                     {/if}
                     {#if !organization.purge_due}
-                      {#if (organization.kind === 'personal' && organization.contract?.plan !== 'custom') || organization.contract?.plan === 'team' || organization.contract?.plan === 'business'}
+                      {#if !needsCustomContractLimits(organization.contract) && ((organization.kind === 'personal' && organization.contract?.plan !== 'custom') || (organization.kind === 'team' && organization.contract !== null))}
                         <br /><button
                           class="link-btn"
                           type="button"
@@ -430,6 +442,8 @@
                           onclick={(event) => changeStorage(organization, event.currentTarget)}
                           >{t('operatorStorageTitle')}</button
                         >
+                      {:else if needsCustomContractLimits(organization.contract)}
+                        <br /><span class="props-note">{t('operatorStorageCustomLimitsRequired')}</span>
                       {:else if organization.contract === null}
                         <br /><span class="props-note">{t('operatorStoragePlanRequired')}</span>
                       {/if}

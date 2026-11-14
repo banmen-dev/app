@@ -21,7 +21,12 @@ const actor = z.discriminatedUnion('kind', [
 ]);
 
 // 契約のプランと支払いの周期（organization_contracts の列）
-const contractTerms = z.object({ plan: z.enum(organizationPlans), billing_interval: z.enum(billingIntervals) });
+const contractTerms = z.object({
+  plan: z.enum(organizationPlans),
+  billing_interval: z.enum(billingIntervals),
+  custom_member_limit: z.number().int().nullable().optional(),
+  custom_attachment_quota_bytes: z.number().int().nullable().optional(),
+});
 
 const storageTerms = z.object({
   extra_10gb_units: z.number().int(),

@@ -40,6 +40,8 @@ test('契約のある組織の管理者には、契約、追加容量の口数�
         : {
             contract: {
               plan: 'business' as const,
+              custom_member_limit: null,
+              custom_attachment_quota_bytes: null,
               billing_interval: 'yearly' as const,
               extra_10gb_units: 0,
               extra_50gb_units: 1,
@@ -57,6 +59,35 @@ test('契約のある組織の管理者には、契約、追加容量の口数�
   await expect(section).not.toContainText('未契約');
   await expect(section).toContainText('運用者に問い合わせてください。');
   // 同じ organization 操作を読む容量の節も待ち、差し替え中の応答をテスト終了で切らない
+  await expect(page.getByRole('region', { name: '添付ファイルと Wiki の容量' }).locator('table')).toBeVisible();
+});
+
+test('個別の契約は管理者のプランの節に名前と人数、追加容量を含む上限が出る', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'admin');
+  await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (output) => ({
+    ...output,
+    plan:
+      output.plan === null
+        ? null
+        : {
+            contract: {
+              plan: 'custom' as const,
+              billing_interval: 'yearly' as const,
+              custom_member_limit: 80,
+              custom_attachment_quota_bytes: 200 * GIB,
+              extra_10gb_units: 0,
+              extra_50gb_units: 1,
+            },
+            member_limit: 80,
+            attachment_quota_bytes: 250 * GIB,
+          },
+  }));
+  await page.goto('/aoba/admin');
+  const section = page.getByRole('region', { name: 'プラン', exact: true });
+  await expect(section.locator('dd').first()).toHaveText('個別・年払い');
+  await expect(section).toContainText('80\u00a0人');
+  await expect(section).toContainText('250\u00a0GB');
+  await expect(section).toContainText('+50\u00a0GB\u00a0×\u00a01\u00a0口');
   await expect(page.getByRole('region', { name: '添付ファイルと Wiki の容量' }).locator('table')).toBeVisible();
 });
 
@@ -79,6 +110,8 @@ test('お試し中に運用者が契約を付けた後、読み込み直さず�
           ? {
               contract: {
                 plan: 'team' as const,
+                custom_member_limit: null,
+                custom_attachment_quota_bytes: null,
                 billing_interval: 'monthly' as const,
                 extra_10gb_units: 0,
                 extra_50gb_units: 0,

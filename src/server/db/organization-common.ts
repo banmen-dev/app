@@ -49,6 +49,8 @@ export type OrganizationPlanRow = {
   readonly billing_interval: string | null;
   readonly extra_10gb_units: number | null;
   readonly extra_50gb_units: number | null;
+  readonly custom_member_limit: number | null;
+  readonly custom_attachment_quota_bytes: number | null;
   readonly member_limit: number;
   readonly attachment_quota_bytes: number;
 };
@@ -67,6 +69,8 @@ export async function readOrganizationPlanRow(env: Env, db: OrganizationDb): Pro
           'organization_contracts.billing_interval',
           'organization_contracts.extra_10gb_units',
           'organization_contracts.extra_50gb_units',
+          'organization_contracts.custom_member_limit',
+          'organization_contracts.custom_attachment_quota_bytes',
         ])
         .where('organizations.id', '=', db.organizationId),
     ),

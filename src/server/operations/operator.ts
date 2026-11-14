@@ -53,6 +53,8 @@ export const listOrganizationsOperation = implement(listOrganizations, async ({ 
           'organization_contracts.billing_interval',
           'organization_contracts.extra_10gb_units',
           'organization_contracts.extra_50gb_units',
+          'organization_contracts.custom_member_limit',
+          'organization_contracts.custom_attachment_quota_bytes',
         ])
         .orderBy('organizations.created_at', 'desc')
         .orderBy('organizations.slug'),

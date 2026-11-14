@@ -18,13 +18,26 @@ const INTERVAL_KEYS = {
 
 // 契約（プランと支払いの周期）の表示。「チーム・月払い」の形
 export function planTermsText(
-  terms: { plan: OrganizationPlan; billing_interval: BillingInterval },
+  terms: {
+    plan: OrganizationPlan;
+    billing_interval: BillingInterval;
+    custom_member_limit?: number | null;
+    custom_attachment_quota_bytes?: number | null;
+  },
   translate: Translate,
 ): string {
-  return translate('planTerms', {
+  const text = translate('planTerms', {
     plan: translate(PLAN_KEYS[terms.plan]),
     interval: translate(INTERVAL_KEYS[terms.billing_interval]),
   });
+  if (terms.plan === 'custom' && terms.custom_member_limit != null && terms.custom_attachment_quota_bytes != null) {
+    return translate('planCustomLimits', {
+      terms: text,
+      members: terms.custom_member_limit,
+      quota: terms.custom_attachment_quota_bytes / 1024 ** 3,
+    });
+  }
+  return text;
 }
 
 // 運用の画面の契約の印。契約があれば「チーム・月払い」の形、無ければ自分用は「パーソナル」、チーム用は「未契約」
@@ -35,6 +48,24 @@ export function planLabel(
   },
   translate: Translate,
 ): string {
-  if (organization.contract !== null) return planTermsText(organization.contract, translate);
+  if (organization.contract !== null)
+    return planTermsText(
+      { plan: organization.contract.plan, billing_interval: organization.contract.billing_interval },
+      translate,
+    );
   return translate(organization.kind === 'personal' ? 'planPersonal' : 'operatorPlanNone');
+}
+
+// 前の版の個別契約は標準値を持たない。追加容量を変える前に、プランの変更で標準値を設定する。
+export function needsCustomContractLimits(
+  contract: {
+    plan: OrganizationPlan;
+    custom_member_limit?: number | null;
+    custom_attachment_quota_bytes?: number | null;
+  } | null,
+): boolean {
+  return (
+    contract?.plan === 'custom' &&
+    (contract.custom_member_limit == null || contract.custom_attachment_quota_bytes == null)
+  );
 }

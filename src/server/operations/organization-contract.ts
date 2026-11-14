@@ -6,6 +6,8 @@ export type ContractRow = {
   billing_interval: string | null;
   extra_10gb_units: number | null;
   extra_50gb_units: number | null;
+  custom_member_limit: number | null;
+  custom_attachment_quota_bytes: number | null;
 };
 
 export type Contract = {
@@ -13,6 +15,8 @@ export type Contract = {
   billing_interval: BillingInterval;
   extra_10gb_units: number;
   extra_50gb_units: number;
+  custom_member_limit: number | null;
+  custom_attachment_quota_bytes: number | null;
 };
 
 export function contractOf(row: ContractRow): Contract | null {
@@ -23,5 +27,7 @@ export function contractOf(row: ContractRow): Contract | null {
     billing_interval: row.billing_interval as BillingInterval,
     extra_10gb_units: row.extra_10gb_units ?? 0,
     extra_50gb_units: row.extra_50gb_units ?? 0,
+    custom_member_limit: row.custom_member_limit,
+    custom_attachment_quota_bytes: row.custom_attachment_quota_bytes,
   };
 }

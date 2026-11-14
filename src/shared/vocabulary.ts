@@ -1256,6 +1256,10 @@ export const dictionary = defineDictionary({
   planTeam: 'チーム',
   planBusiness: 'ビジネス',
   planCustom: '個別',
+  operatorPlanCustomHint: '相談して決めた人数と標準の容量',
+  operatorPlanCustomSizeLabel: '標準の添付容量（GB）',
+  planCustomLimits: '{terms}（{members} 人・標準 {quota} GB）',
+  operatorPlanCustomBase: '標準 {members} 人・{quota} GB',
   billingMonthly: '月払い',
   billingYearly: '年払い',
   // 契約の表示。{plan} はプランの名前、{interval} は支払いの周期
@@ -1281,6 +1285,8 @@ export const dictionary = defineDictionary({
   operatorStorageDone: '「{name}」の追加容量を変えました',
   operatorStoragePurgeDue: '「{name}」は消す予定日を過ぎたので、追加容量を変えられません',
   operatorStoragePlanRequired: '追加容量を付けるには、先にプランを決めてください。',
+  operatorStorageCustomLimitsRequired:
+    '追加容量を変えるには、先に「プランを変える」で個別の人数と標準の添付容量を設定してください。',
   operatorStorageFailed: '追加容量を変えられませんでした。もう一度試してください。',
   operatorStorageFailedUnknown:
     '追加容量を変えられませんでした。変わっていることもあるので、閉じた後の一覧で確かめてください。',

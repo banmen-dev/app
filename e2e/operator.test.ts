@@ -2091,7 +2091,14 @@ test.describe('運用者', () => {
       test(`${personal ? '自分用' : 'チーム用'}に追加容量を付けると一覧の上限と口数が変わる`, async ({ page }) => {
         const previous = personal
           ? null
-          : { plan: 'team' as const, billing_interval: 'monthly' as const, extra_10gb_units: 0, extra_50gb_units: 0 };
+          : {
+              plan: 'team' as const,
+              billing_interval: 'monthly' as const,
+              extra_10gb_units: 0,
+              extra_50gb_units: 0,
+              custom_member_limit: null,
+              custom_attachment_quota_bytes: null,
+            };
         const listed = [
           organization({
             name: 'あおば開発',
@@ -2107,6 +2114,8 @@ test.describe('運用者', () => {
           sent = call.input;
           const contract = {
             plan: personal ? ('personal' as const) : ('team' as const),
+            custom_member_limit: null,
+            custom_attachment_quota_bytes: null,
             billing_interval: 'monthly' as const,
             extra_10gb_units: personal ? 1 : 0,
             extra_50gb_units: personal ? 0 : 1,
@@ -2191,12 +2200,47 @@ test.describe('運用者', () => {
       await mockList(page, [
         organization({
           kind: 'personal',
-          contract: { plan: 'custom', billing_interval: 'monthly', extra_10gb_units: 0, extra_50gb_units: 0 },
+          contract: {
+            plan: 'custom',
+            billing_interval: 'monthly',
+            extra_10gb_units: 0,
+            extra_50gb_units: 0,
+            custom_member_limit: 1,
+            custom_attachment_quota_bytes: GIB,
+          },
         }),
       ]);
       await page.goto('/operator');
       await expect(page.getByRole('button', { name: '「あおば開発」の追加容量を変える' })).toHaveCount(0);
     });
+    test('標準値のない過去の個別契約は追加容量を隠し、プランの設定へ案内する', async ({ page }) => {
+      await mockList(page, [
+        organization({
+          seats: { used: 60, limit: 80 },
+          attachment_quota_bytes: 250 * GIB,
+          contract: {
+            plan: 'custom',
+            billing_interval: 'yearly',
+            extra_10gb_units: 0,
+            extra_50gb_units: 1,
+            custom_member_limit: null,
+            custom_attachment_quota_bytes: null,
+          },
+        }),
+      ]);
+      await page.goto('/operator');
+      const row = page.locator('.table tbody tr', { hasText: 'あおば開発' });
+      await expect(row.getByRole('button', { name: '「あおば開発」の追加容量を変える' })).toHaveCount(0);
+      await expect(row).toContainText(
+        '追加容量を変えるには、先に「プランを変える」で個別の人数と標準の添付容量を設定してください。',
+      );
+      await row.getByRole('button', { name: '「あおば開発」のプランを変える' }).click();
+      const dialog = page.getByRole('dialog', { name: 'プランを変える' });
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole('radio', { name: /個別/ })).toBeChecked();
+      await expect(dialog.getByRole('spinbutton', { name: '人数の上限' })).toHaveValue('80');
+    });
+
     test('未契約のチーム用には先にプランを決める案内を出す', async ({ page }) => {
       await mockList(page, [organization({})]);
       await page.goto('/operator');
@@ -2209,10 +2253,111 @@ test.describe('運用者', () => {
   test.describe('契約の変更', () => {
     const GIB = 1024 ** 3;
     const contract = (plan: 'team' | 'business', billing_interval: 'monthly' | 'yearly') => ({
+      custom_member_limit: null,
+      custom_attachment_quota_bytes: null,
       plan,
       billing_interval,
       extra_10gb_units: 0,
       extra_50gb_units: 0,
+    });
+
+    test('個別の契約を80人・200GB・年払いで付け、追加50GBを足し、ビジネスへ下げる確認を出す', async ({ page }) => {
+      const listed = [organization({ seats: { used: 60, limit: 80 }, attachment_quota_bytes: 200 * GIB })];
+      await mockList(page, listed);
+      const custom = {
+        plan: 'custom' as const,
+        billing_interval: 'yearly' as const,
+        custom_member_limit: 80,
+        custom_attachment_quota_bytes: 200 * GIB,
+        extra_10gb_units: 0,
+        extra_50gb_units: 0,
+      };
+      let planInput: unknown;
+      let finishPlan: (() => void) | undefined;
+      const planResponse = new Promise<void>((resolve) => {
+        finishPlan = resolve;
+      });
+      await routeOperation(page, organizationPlanUpdate, async (call) => {
+        planInput = call.input;
+        await planResponse;
+        listed[0] = organization({ ...listed[0], contract: custom });
+        await call.fulfill({
+          slug: 'aoba',
+          contract: custom,
+          member_limit: 80,
+          attachment_quota_bytes: 200 * GIB,
+          trial_ends_on: null,
+        });
+      });
+      const collect = await watchViolations(page);
+      await page.goto('/operator');
+      await page.getByRole('button', { name: '「あおば開発」のプランを変える' }).click();
+      const dialog = page.getByRole('dialog', { name: 'プランを変える' });
+      await dialog.getByRole('radio', { name: /個別/ }).check();
+      await dialog.getByRole('spinbutton', { name: '人数の上限' }).fill('0');
+      await dialog.getByRole('spinbutton', { name: '標準の添付容量（GB）' }).fill('200.5');
+      await dialog.getByRole('button', { name: '変える' }).click();
+      await expect(dialog.getByRole('alert')).toHaveCount(2);
+      expect(planInput).toBeUndefined();
+      await dialog.getByRole('spinbutton', { name: '人数の上限' }).fill('80');
+      await dialog.getByRole('spinbutton', { name: '標準の添付容量（GB）' }).fill('200');
+      await dialog.getByRole('radio', { name: '年払い' }).check();
+      await expect(dialog).toContainText('変えた後の上限は 80 人・200 GB です。');
+      await dialog.getByRole('button', { name: '変える' }).click();
+      try {
+        await expect(dialog.getByRole('spinbutton', { name: '人数の上限' })).toHaveJSProperty('readOnly', true);
+        await expect(dialog.getByRole('spinbutton', { name: '標準の添付容量（GB）' })).toHaveJSProperty(
+          'readOnly',
+          true,
+        );
+        await expect(dialog.getByRole('spinbutton', { name: '人数の上限' })).toHaveValue('80');
+        await expect(dialog.getByRole('spinbutton', { name: '標準の添付容量（GB）' })).toHaveValue('200');
+      } finally {
+        finishPlan?.();
+      }
+      await expect(dialog).toBeHidden();
+      expect(planInput).toEqual({
+        slug: 'aoba',
+        plan: 'custom',
+        billing_interval: 'yearly',
+        custom_member_limit: 80,
+        custom_attachment_quota_bytes: 200 * GIB,
+        expected: null,
+      });
+      const row = page.locator('.table tbody tr', { hasText: 'あおば開発' });
+      await expect(row.locator('.chip', { hasText: '個別・年払い' })).toBeVisible();
+      await expect(row).toContainText('標準 80 人・200 GB');
+      let storageInput: unknown;
+      await routeOperation(page, organizationStorageUpdate, async (call) => {
+        storageInput = call.input;
+        listed[0] = organization({
+          ...listed[0],
+          contract: { ...custom, extra_50gb_units: 1 },
+          attachment_quota_bytes: 250 * GIB,
+        });
+        await call.fulfill({
+          slug: 'aoba',
+          contract: { ...custom, extra_50gb_units: 1 },
+          member_limit: 80,
+          attachment_quota_bytes: 250 * GIB,
+          trial_ends_on: null,
+        });
+      });
+      await row.getByRole('button', { name: '「あおば開発」の追加容量を変える' }).click();
+      const storage = page.getByRole('dialog', { name: '追加容量を変える' });
+      await storage.getByRole('spinbutton', { name: '＋50 GB の口数' }).fill('1');
+      await expect(storage).toContainText('変えた後の添付ファイルと Wiki の上限は 250 GB です。');
+      await storage.getByRole('button', { name: '変える' }).click();
+      await expect(storage).toBeHidden();
+      expect(storageInput).toMatchObject({ extra_50gb_units: 1, expected: custom });
+      await expect(row).toContainText('250 GB');
+      await row.getByRole('button', { name: '「あおば開発」のプランを変える' }).click();
+      await expect(dialog.getByRole('radio', { name: /個別/ })).toBeChecked();
+      await expect(dialog.getByRole('spinbutton', { name: '標準の添付容量（GB）' })).toHaveValue('200');
+      await dialog.getByRole('radio', { name: /ビジネス/ }).check();
+      await expect(dialog).toContainText('変えた後の上限は 50 人・150 GB です。');
+      await expect(dialog).toContainText('今の人数（60 人）が、変えた後の上限（50 人）を超えます。');
+      expect(await collect()).toEqual([]);
     });
 
     test('どの行にも契約の印を出し、契約のある行には上限の変更を置かず、自分用には契約の変更も置かない', async ({

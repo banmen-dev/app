@@ -5,6 +5,29 @@ import { historyActorName, historyEventText, type HistoryEntry } from './organiz
 const t = (key: DictionaryKey, params?: TemplateParams) => word(key, params);
 
 describe('historyEventText', () => {
+  test('個別の契約の標準の値を前後で示す', () => {
+    expect(
+      historyEventText(
+        {
+          kind: 'organization_plan_changed',
+          from: {
+            plan: 'custom',
+            billing_interval: 'yearly',
+            custom_member_limit: 80,
+            custom_attachment_quota_bytes: 200 * 1024 ** 3,
+          },
+          to: {
+            plan: 'custom',
+            billing_interval: 'yearly',
+            custom_member_limit: 90,
+            custom_attachment_quota_bytes: 300 * 1024 ** 3,
+          },
+        },
+        t,
+      ),
+    ).toBe('プランを個別・年払い（80 人・標準 200 GB）から個別・年払い（90 人・標準 300 GB）に変更しました');
+  });
+
   test('種類ごとに、辞書の文を作る', () => {
     const cases: [HistoryEntry['event'], string][] = [
       [{ kind: 'organization_created', name: 'あおば開発' }, '組織「あおば開発」を作りました'],
