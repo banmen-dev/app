@@ -96,20 +96,47 @@ test('プレビューを開く CLI は Service Worker を止め、Secure Cookie 
                 assert.deepEqual(events, ['context', 'access-route', 'cookie']);
                 assert.equal(typeof handler, 'function');
                 let fulfilled = false;
-                const response = {};
+                const externalUrl = 'https://example.invalid/x';
+                const response = { status: () => 302, headers: () => ({ location: externalUrl }) };
+                const requestHeaders = {
+                  'content-type': 'application/json',
+                  origin,
+                  accept: 'text/html',
+                };
                 await handler({
-                  request() { return { url() { return url; }, headers() { return {}; } }; },
+                  request() { return { url() { return url; }, headers() { return requestHeaders; } }; },
                   async fetch(options) {
                     assert.equal(options.maxRedirects, 0);
                     assert.equal(options.headers['CF-Access-Client-Id'], process.env.CF_ACCESS_CLIENT_ID);
                     assert.equal(options.headers['CF-Access-Client-Secret'], process.env.CF_ACCESS_CLIENT_SECRET);
+                    for (const [name, value] of Object.entries(requestHeaders)) {
+                      assert.equal(options.headers[name], value);
+                    }
                     return response;
                   },
-                  async fulfill(options) { assert.equal(options.response, response); fulfilled = true; },
+                  async fulfill(options) {
+                    assert.equal(options.response, response);
+                    assert.equal(options.response.status(), 302);
+                    assert.equal(options.response.headers().location, externalUrl);
+                    fulfilled = true;
+                  },
                   async abort() { assert.fail('Access の経路が失敗した'); },
                   async continue() { assert.fail('Access の経路を通っていない'); },
                 });
                 assert.equal(fulfilled, true);
+                // ブラウザが外部の Location を開く段では、Access の秘密を引き継がない。
+                let continued = false;
+                await handler({
+                  request() { return { url() { return externalUrl; }, headers() { return {}; } }; },
+                  async fetch() { assert.fail('外部へ Access の付いた fetch をしない'); },
+                  async fulfill() { assert.fail('外部の応答は代理で取得しない'); },
+                  async abort() { assert.fail('外部のリクエストを止めない'); },
+                  async continue(...args) {
+                    assert.deepEqual(args, []);
+                    continued = true;
+                  },
+                });
+                assert.equal(continued, true);
                 console.log('REMOTE_CLI_CONFIGURED');
               },
               async bringToFront() { setTimeout(() => disconnected(), 10); },
