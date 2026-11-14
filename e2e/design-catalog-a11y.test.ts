@@ -34,13 +34,16 @@ async function openCatalog(page: Page): Promise<void> {
   await expect(page.getByRole('heading', { level: 1, name: 'デザインシステム', exact: true })).toBeVisible();
   const links = page.locator('#toc a');
   const hrefs = await links.evaluateAll((elements) => elements.map((element) => element.getAttribute('href')));
-  expect(hrefs.length).toBeGreaterThan(0);
-  for (const href of hrefs) expect(href).toMatch(/^#.+/);
-  expect(new Set(hrefs).size).toBe(hrefs.length);
+  expect(hrefs.length, '目次が空').toBeGreaterThan(0);
+  for (const href of hrefs) expect(href, '目次の参照先が不正').toMatch(/^#.+/);
+  expect(new Set(hrefs).size, '目次とセクションの ID が重複する').toBe(hrefs.length);
   // 目次との1対1の対応と全件の表示を保ち、セクションごとの API 呼び出しを避ける。
   const sections = page.locator('#main > .cat-block');
-  expect(await sections.evaluateAll((elements) => elements.map((element) => `#${element.id}`))).toEqual(hrefs);
-  await expect(page.locator('#main > .cat-block:visible')).toHaveCount(hrefs.length);
+  expect(
+    await sections.evaluateAll((elements) => elements.map((element) => `#${element.id}`)),
+    '目次とセクションが対応しない',
+  ).toEqual(hrefs);
+  await expect(page.locator('#main > .cat-block:visible'), 'セクションが非表示').toHaveCount(hrefs.length);
 }
 
 for (const [name, body] of [
@@ -66,7 +69,7 @@ for (const [name, body] of [
     await page.route('**/__design-catalog/index.html', (route) =>
       route.fulfill({ contentType: 'text/html', body: `<h1>デザインシステム</h1>${body}` }),
     );
-    await expect(openCatalog(page)).rejects.toThrow();
+    await expect(openCatalog(page)).rejects.toThrow(name);
   });
 }
 
