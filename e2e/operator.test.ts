@@ -2299,6 +2299,8 @@ test.describe('運用者', () => {
       ]);
       await page.goto('/operator');
       const row = page.locator('.table tbody tr', { hasText: 'あおば開発' });
+      await expect(row).toBeVisible();
+      await expect(row.locator('.chip', { hasText: '個別・年払い' })).toBeVisible();
       await expect(row.getByRole('button', { name: /追加容量を変える|プランを変える/ })).toHaveCount(0);
       await expect(row).not.toContainText('先に「プランを変える」');
     });
