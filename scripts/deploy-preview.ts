@@ -1,4 +1,4 @@
-// Workers Builds 専用。セッションから実行しない。手順のテストは副作用を差し替えた preview-deploy.test.ts。
+// Workers Builds 専用。セッションから実行しない。API とコマンドは deploy-preview.test.ts、手順は preview-deploy.test.ts で確かめる。
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

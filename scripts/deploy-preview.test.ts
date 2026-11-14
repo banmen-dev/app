@@ -68,12 +68,12 @@ test('設定生成は本番・別番号のDBと不正な版や番号を拒否す
 
 test('公開前に新規D1へ全マイグレーションとseedを当て、プレビューaliasだけuploadする', () => {
   const calls: string[][] = [];
-  let temporaryDirectory = '';
+  let temporaryConfigFile = '';
   const run: typeof spawnSync = ((command: string, args: string[]) => {
     assert.ok(command.endsWith('/node_modules/.bin/wrangler'));
     calls.push(args.slice(0, -2));
     const configFile = args.at(-1)!;
-    temporaryDirectory = configFile;
+    temporaryConfigFile = configFile;
     const config = JSON.parse(readFileSync(configFile, 'utf8'));
     assert.equal(config.d1_databases[0].database_id, DB.uuid);
     if (args[1] === 'execute') {
@@ -88,7 +88,7 @@ test('公開前に新規D1へ全マイグレーションとseedを当て、プ�
   assert.deepEqual(calls[0], ['d1', 'migrations', 'apply', 'DB', '--remote']);
   assert.deepEqual(calls[1].slice(0, 5), ['d1', 'execute', 'DB', '--remote', '--file']);
   assert.deepEqual(calls[2], ['versions', 'upload', '--preview-alias', 'pr-374']);
-  assert.ok(!existsSync(temporaryDirectory));
+  assert.ok(!existsSync(temporaryConfigFile));
 });
 
 test('マイグレーション失敗後はseedやuploadをせず一時ファイルを片付ける', () => {
