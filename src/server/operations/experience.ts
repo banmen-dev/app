@@ -1,4 +1,10 @@
-import { XP_TASK_CREATED, levelOf, levelStartOf, type ExperienceAction } from '../../shared/experience.ts';
+import {
+  XP_TASK_CREATED,
+  XP_TASK_DETAILED,
+  levelOf,
+  levelStartOf,
+  type ExperienceAction,
+} from '../../shared/experience.ts';
 import {
   EXPERIENCE_GRANTS_PAGE_SIZE,
   experienceGrants,
@@ -7,6 +13,7 @@ import {
 } from '../../shared/operations/experience/index.ts';
 import { MIN_POINTS_FOR_EXPERIENCE } from '../../shared/task.ts';
 import type { OrganizationDb } from '../db/index.ts';
+import { detailedRecipient } from './task-detail-xp.ts';
 import { implement } from './implement.ts';
 import { actorUserIdOf } from './write-guards.ts';
 
@@ -86,11 +93,37 @@ function byNameThenId(a: { name: string; id: string }, b: { name: string; id: st
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
+// 詳細の見込み。付与と共通の式で最後の更新者を選ぶ。取り込んだタスクも対象。
+export function detailedProspectiveStatement(db: OrganizationDb, userId: string) {
+  const organizationId = db.organizationId;
+  return db.statement((q) =>
+    q
+      .selectFrom(
+        q.selectFrom('task_field_values').select('task_id').where('updated_by', '=', userId).distinct().as('candidate'),
+      )
+      .crossJoin('tasks')
+      .innerJoin('workspaces as w', 'w.id', 'tasks.workspace_id')
+      .innerJoin('memberships as m', 'm.workspace_id', 'w.id')
+      .whereRef('tasks.id', '=', 'candidate.task_id')
+      .select((eb) => ['m.workspace_id', eb.fn.countAll<number>().as('count')])
+      .where('m.user_id', '=', userId)
+      .where('m.left_at', 'is', null)
+      .where('w.organization_id', '=', organizationId)
+      .where('w.closed_at', 'is', null)
+      .where('tasks.tray', '=', 'backlog')
+      .where('tasks.deleted_at', 'is', null)
+      .where('tasks.completed_at', 'is', null)
+      .where('tasks.points', '>=', MIN_POINTS_FOR_EXPERIENCE)
+      .where((eb) => eb(detailedRecipient(eb), '=', userId))
+      .groupBy('m.workspace_id'),
+  );
+}
+
 export const experienceSummaryOperation = implement(experienceSummary, async ({ db, actor }) => {
   const userId = actorUserIdOf(actor);
   const organizationId = db.organizationId;
 
-  const [grantResult, membershipResult, prospectiveResult, thanksResult] = await db.batch([
+  const [grantResult, membershipResult, prospectiveResult, thanksResult, detailedResult] = await db.batch([
     // ワークスペースごとの確定の合計（明細のあるワークスペース）
     db.statement((q) =>
       q
@@ -143,6 +176,7 @@ export const experienceSummaryOperation = implement(experienceSummary, async ({ 
         .where('w.organization_id', '=', organizationId)
         .groupBy(['w.id', 'w.name']),
     ),
+    detailedProspectiveStatement(db, userId),
   ] as const);
 
   const workspaces = new Map<
@@ -163,7 +197,12 @@ export const experienceSummaryOperation = implement(experienceSummary, async ({ 
   }
   for (const row of prospectiveResult.rows) {
     const workspace = workspaces.get(row.workspace_id);
-    if (workspace !== undefined) workspace.prospective = amountOf(row.count) * XP_TASK_CREATED;
+    if (workspace !== undefined) workspace.prospective += amountOf(row.count) * XP_TASK_CREATED;
+  }
+
+  for (const row of detailedResult.rows) {
+    const workspace = workspaces.get(row.workspace_id);
+    if (workspace !== undefined) workspace.prospective += amountOf(row.count) * XP_TASK_DETAILED;
   }
 
   const rows = [...workspaces.values()].sort(byNameThenId);
