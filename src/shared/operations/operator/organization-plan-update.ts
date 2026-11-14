@@ -14,7 +14,7 @@ export const organizationContract = z.object({
   custom_attachment_quota_bytes: z.number().int().nullable().default(null),
 });
 
-// チーム用の組織の契約（プランと支払いの周期）を書く（docs/data-model.md の「書き込みの単位」の契約の変更）。
+// チーム用の組織の契約（プラン、個別の標準値、支払いの周期）を書く（docs/data-model.md の「書き込みの単位」の契約の変更）。
 // 契約の行を書き、同じ batch() で organizations の人数と添付ファイルの上限を契約から決まる値にし、お試しの期限を空にする
 // （有料のプランにしたらお試しを終える）。停止中の組織も書けるが、再開はしない。
 // expected は画面が見ていた前の契約（未契約なら null）。今の契約がそれと違えば（確認を開いた後に別の運用者が変えた）409 の conflict。
@@ -24,7 +24,7 @@ export const organizationContract = z.object({
 export const organizationPlanUpdate = defineOperation({
   name: 'organization-plan-update',
   description:
-    'チーム用の組織の契約（プランと支払いの周期）を変え、人数と添付ファイルの上限をプランの値にし、お試しを終える。expected は画面が見ていた前の契約（未契約なら null）で、今の契約と違えば 409。消す予定日を過ぎた解約の組織は 409 の purge_due',
+    'チーム用の組織の契約（チーム、ビジネス、個別と支払いの周期）を変え、人数と添付ファイルの上限を契約から決め、お試しを終える。個別は人数とGB整数の標準容量を指定する。expected は画面が見ていた前の契約（未契約なら null）で、今の契約と違えば 409。消す予定日を過ぎた解約の組織は 409 の purge_due',
   mode: 'write',
   permission: 'operator',
   input: z
