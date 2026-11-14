@@ -31,9 +31,12 @@ export async function openPreviewBranches(fetchJson = jsonRequest): Promise<stri
     );
     if (!Array.isArray(data)) throw new Error('開いた PR の一覧を読めませんでした');
     for (const pr of data) {
-      if (typeof pr?.head?.ref !== 'string' || typeof pr?.head?.repo?.full_name !== 'string') {
+      if (typeof pr?.head?.ref !== 'string') {
         throw new Error('開いた PR のブランチを読めませんでした');
       }
+      // 元の fork が削除された PR は repo:null になる。同じリポジトリのブランチではない。
+      if (pr.head.repo === null) continue;
+      if (typeof pr.head.repo?.full_name !== 'string') throw new Error('開いた PR のブランチを読めませんでした');
       if (pr.head.repo.full_name === REPOSITORY) branches.push(pr.head.ref);
     }
     if (data.length < 100) return branches;

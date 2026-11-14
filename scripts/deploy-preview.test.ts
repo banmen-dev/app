@@ -93,8 +93,16 @@ test('GitHubは全ページを取得し、forkのPRを生存中の根拠にし�
   assert.ok(branches.every((branch) => branch === '374-preview'));
 });
 
+test('削除済みforkは掃除を止めず、同じ番号の自リポジトリのPRだけ残す', async () => {
+  const branches = await openPreviewBranches(async () => [
+    { head: { ref: '275-task', repo: null } },
+    { head: { ref: '374-preview', repo: { full_name: 'scrum-guild-dev/app' } } },
+  ]);
+  assert.deepEqual(branches, ['374-preview']);
+});
+
 test('GitHubの欠落・不明な応答を空の一覧として扱わない', async () => {
-  for (const value of [{}, [{ head: { ref: '374-preview', repo: null } }]]) {
+  for (const value of [{}, [{ head: { ref: '374-preview' } }], [{ head: { ref: '374-preview', repo: 1 } }]]) {
     await assert.rejects(openPreviewBranches(async () => value));
   }
 });
