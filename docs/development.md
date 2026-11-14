@@ -998,7 +998,7 @@ ai-review は Claude のサブスクリプションで動かす。手元で `cla
 
 GitHub Actions の無料枠は、private のリポジトリで月 2,000 分（public のあいだは、標準のランナーに上限が無い）。private に戻したときは、`ready` の定期の実行（1時間ごとで、1回を1分に切り上げて数えるので月約 720 分）も枠に数える。e2e と AI レビューで足りなくなりそうなら、上と同じく対象の PR を絞る。e2e のシャードは、それぞれが準備、Playwright の導入、build を繰り返す（1つあたり約1分）ので、分ける前との差は、4つに分けた3つ分の約3分（`e2e` と `e2e-dev` のそれぞれで、1回あたり）。
 
-PR ごとのプレビュー環境は持たず、Workers Builds の preview builds も有効にしない。`wrangler versions upload` のプレビュー URL は本番と同じ D1 につながり、マージ前のコードが本番のデータに触れるため。見た目の確認は、手元の `pnpm dev` と CI の e2e で行う。
+本番 Worker の preview builds と `preview_urls` は無効のままにする。本番と別の Worker・D1 を使う PR ごとの環境は、下の「プレビュー」に従う。
 
 ### main の障害通知と復旧
 
@@ -1118,6 +1118,19 @@ Workers Builds の API トークンは、Builds が作ったトークンの権�
 - 続けて push すると、ビルドは一列に並ばず同時に走る（Workers Paid のビルドの枠は6つ）。2つの push を25秒あけたときは、2つ目のビルドが1つ目の途中で始まり、デプロイの段はたまたま重ならずにどちらも通った。重なれば、2つ目はスクリプトの割り込みの検査で止まる。前のデプロイが終わるまで次の Release を publish しない（`docs/operations.md` の「出し方」）
 
 スクリプトは、版を上げる直前に割り込みが見えたら止め、煙のテストに落ちても本番が上げた版から変わっていれば戻さない。別のビルドを潰さないためで、そのときは人が本番の版を確かめる。スクリプトで `production` の先頭と比べる案は、GitHub のトークンを Cloudflare に置くことになるので採らない。
+
+### プレビュー
+
+PR の版は、本番とは別の Worker `scrum-guild-preview` の Workers Builds から配る。GitHub Actions にはデプロイの鍵を置かない。本番の `wrangler.jsonc`、`production` の接続と煙のテストは変えない。人が先に用意する Worker、Access、R2、トークンは `docs/operations.md` の「プレビュー環境」。
+
+- 番号付きブランチ（例 `374-pr-preview`）を `WORKERS_CI_BRANCH` から読み、先頭の Issue 番号で D1 `scrum-guild-pr-374` と URL `https://pr-374-scrum-guild-preview.ucan-lab.workers.dev` を決める。PR 番号ではない。1 Issue に1ブランチという決まりに合わせる。番号の無いブランチ、`production`、不正な SHA では止まる
+- ビルドのコマンドは `APP_VERSION=$(git rev-parse HEAD) && export APP_VERSION && pnpm build`。本番と違って版はコミットの SHA。デプロイのコマンドは `node scripts/deploy-preview.ts`。`WORKERS_CI=1` のときだけ動き、Cloudflare API で自分の D1 を削除・作成し、生成した設定で全マイグレーションと seed を `--remote` で当て、`wrangler versions upload --preview-alias pr-374` を呼ぶ。再ビルドすると、そのプレビューで人が変えたデータは消える。失敗したら後続の処理を行わない
+- 設定は `scripts/preview-config.ts` から一時ファイルへ生成する。本番の設定をコピーせず、DB の名前と UUID、本番 ID でないことを検査する。R2 は本番と別の `scrum-guild-preview-attachments`、運用者は seed の ID、cron は空、OAuth の秘密は登録しない。添付ファイルはプレビュー同士で共有するため、受け入れ用の架空のデータだけを入れる。D1 の作り直しでは R2 は消えない
+- `main` のビルドは配信せず、公開 GitHub API で全ページの開いた PR のブランチを読み、対応する番号の PR が無い `scrum-guild-pr-*` の D1 だけを削除する。fork の PR は対応に数えない。取得や検証の失敗時は削除しない。閉じただけでは Builds は走らないため、削除は次の `main` のビルド時（急ぐときは人が `main` のビルドを再実行）。古い版と alias は残るが、D1 は使えなくなる
+- 同じ番号のビルドを同時に走らせない。Builds の設定で同一ブランチの古いビルドを取り消し、既にデプロイ段に入っていれば終わるまで次の再実行を待つ。削除と作成は1つのトランザクションにならないため、重なると失敗してプレビューを使えなくなる。再実行で作り直す
+- `.claude/hooks/` は緩めない。フックはエージェントのセッションに適用され、Workers Builds は Claude/Codex を起動しない。セッションから `WORKERS_CI` を付けて実行したり、`--remote` を使って動作確認したりしない。手順は副作用を差し替えた Node のテストで確かめる
+
+ロールの切り替えは `pnpm dev:open --origin https://pr-374-scrum-guild-preview.ucan-lab.workers.dev admin /aoba`。`admin` を `member` など `seed/sessions.ts` のキーに替えると別のブラウザで開く。運用者は `pnpm dev:open --origin https://pr-374-scrum-guild-preview.ucan-lab.workers.dev operator /operator` で開く。`CF_ACCESS_CLIENT_ID` と `CF_ACCESS_CLIENT_SECRET` を人が実行する端末の環境変数に入れる（値は git やコマンド履歴に残さない）。`--origin` はこのプレビューの HTTPS origin だけを許可し、末尾 `/`、本番、任意の URL を拒否する。ローカル用 `--preview` とは併用しない。事前の `/api/me` とブラウザの同じ origin への通信にだけ Access のヘッダーを付け、外部へのリダイレクトには送らない。Service Worker は無効にする。HTTPS の seed Cookie は `__Host-sg_session`、Secure、HttpOnly。ローカルの開き方は変わらない。
 
 ### 見本の Worker
 
@@ -1293,12 +1306,13 @@ GitHub のアカウントも Google のアカウントも使わない人のた�
   - seed のセッションが入った手元の `wrangler dev` を、`--ip 0.0.0.0` やトンネルで外に開かない。公開されたトークンで、誰でも管理者と運用者として入れるため
   - 本体の `.dev.vars` の `OPERATOR_LOGIN_IDS` には、seed の運用者の ID（`github:9000000000000001`）と、本物のログインで使う自分の ID を、カンマで両方並べる（`github:9000000000000001,github:<自分の数字>`）。自分の ID だけに書き換えると seed の運用者が抜け、`pnpm dev:open operator` が 401 になる。ワークツリーの `.dev.vars` は本体へのリンクなので、直すのは本体の側（上の「ワークツリーで作業する」）
   - 本番に入れない守りは、seed のスクリプトが `--local` だけを付けることと、フック（`guard-bash.mjs`）が `--remote` を止めること。本番が seed のトークンを拒むことは、デプロイの煙のテストで確かめる。版が一致した後、seed のトークン（`seed/sessions.ts` の数だけ）を本番の `POST /api/logout` に Cookie で送り（Origin は本番の URL）、どれも 401 で、本文の code が `unauthenticated` でなければ、煙のテストの失敗として前の版へ戻す（`scripts/deploy.ts`）。seed の API トークン（`seed/api-tokens.ts` の数だけ）も、Origin と Cookie を付けず `Authorization: Bearer` で本番の `POST /api/me` に送り、同じ基準で確かめる。`logout` は `cookieOnly` でトークンから 403 になるので使えず、`me` を使う。どちらの口も組織の外の操作で、入れる組織の有無を確かめないので、行が本番に残っていれば、seed の組織が本番に無くても 2xx になる（以前は入れる組織の確かめがあり、入れる組織が無いと 401 になって見逃した。#639 で確かめを無くした）。5xx、429、届かないときは、答えられていないだけなので3回まで繰り返す。2xx（受け付けた）、そのほかの 4xx、3xx（リダイレクトは辿らない）は、繰り返さずに失敗にする。受け付けたトークンがあっても、残りのトークンも全部確かめてから失敗にし、受け付けた名前（`admin` など。値は出さない）をすべて報告する。受け付けられたときは、前の版へ戻しても本番の `sessions` に seed の行が残っていれば直らないので、専用の文言で、人が実行する消す手順（`docs/operations.md` の「seed のセッションが本番に入ったとき」）を指す。トークンは `seed/sessions.ts` から import し、本番のコードには書かない
-- 人が手元の画面を見るときは `pnpm dev:open [--preview] [who] [path]`（`scripts/dev-open.ts`）で開く。seed のトークンの Cookie を置いた、画面の見えるブラウザ（Playwright の Chromium）を立てる。e2e の `signIn` と同じやり方で、ログインを飛ばす口は足さない
-  - `pnpm db:seed` を流し、`pnpm dev` か `pnpm preview` を立てておく。引数は位置でなく形で見分ける。`--preview` は `pnpm preview` の画面（`http://localhost:8787`）、`/` で始まる値は開く path、それ以外は who（`admin`、`member`、`otherOrg`、`invitee`、`operator`、`adminLogout`、`operatorLogout`。`seed/sessions.ts` のキー。最後の2つは画面からログアウトを試すときに使う。e2e も同じ行を消すので、消えたら `pnpm db:seed` を流し直す）。省略したときは `admin` と `/`。例は `pnpm dev:open admin /aoba`、`pnpm dev:open /aoba`、`pnpm dev:open --preview operator`
+- 人が手元か PR のプレビューの画面を見るときは `pnpm dev:open [--preview | --origin <origin>] [who] [path]`（`scripts/dev-open.ts`）で開く。seed のトークンの Cookie を置いた、画面の見えるブラウザ（Playwright の Chromium）を立てる。e2e の `signIn` と同じやり方で、ログインを飛ばす口は足さない
+  - 手元では `pnpm db:seed` を流し、`pnpm dev` か `pnpm preview` を立てておく。`--origin` の直後の値はプレビューの origin として取り、それ以外の引数は位置でなく形で見分ける。`--preview` は `pnpm preview` の画面（`http://localhost:8787`）、`/` で始まる値は開く path、それ以外は who（`admin`、`member`、`otherOrg`、`invitee`、`operator`、`adminLogout`、`operatorLogout`。`seed/sessions.ts` のキー。最後の2つは画面からログアウトを試すときに使う。e2e も同じ行を消すので、消えたら `pnpm db:seed` を流し直す）。省略したときは `admin` と `/`。例は `pnpm dev:open admin /aoba`、`pnpm dev:open /aoba`、`pnpm dev:open --preview operator`
+  - PR のプレビューは `pnpm dev:open --origin https://pr-<番号>-scrum-guild-preview.ucan-lab.workers.dev <who> <path>`。`CF_ACCESS_CLIENT_ID` と `CF_ACCESS_CLIENT_SECRET` を環境変数に設定する。Access のヘッダーを同じ origin にだけ付け、HTTPS の Secure Cookie を使う。`--preview` と併用しない。つながらない、401、Access の拒否は Builds とプレビューの seed・Access 設定を確認する（ローカルの `pnpm db:seed` では直らない）。詳細は上の「プレビュー」
   - 開く先のポートは `pnpm dev` と同じ決め方（上の「ポート」）。環境変数 `DEV_PORT_OFFSET` でずらして立てたときだけ、同じ値を付けて打つ（`DEV_PORT_OFFSET=10 pnpm dev:open /aoba`）。`.dev-port-offset` とワークツリーの名前から決まった値は、同じワークツリーで打てば同じになる
   - 開いたタブの題は「手元の確かめ｜<ワークツリー名>｜<元の題>」にし、ページを前に出す。ワークツリー名はスクリプトの置き場所の親ディレクトリから取り、ページ遷移・再読み込み・画面による題の更新後も表示を保つ。`--preview` と同じ context の新しいタブにも適用する。対象の origin の最上位ページだけに付け、別のサイトや別ポート・埋め込みには付けない。画面の帯は付けず、アプリの配信コードは変えない。レビューで手元を操作するときは、この題のタブとアドレスの `localhost:<ポート>` を見分けて使う
   - 開く前に `POST /api/me` を1回呼び、ブラウザを開かずに止まる条件を見分ける。画面で使うときと同じく、この呼び出しでも seed のセッションの期限が延びる（前回から1時間以上たっていれば、そこから30日）。つながらないときは `pnpm dev`（`--preview` のときは `pnpm preview`）を立てる案内、401 のときは `pnpm db:seed` の案内（seed を流していない、30日で切れた、別のワークツリーの D1 を見ている。`operator` は `.dev.vars` の `OPERATOR_LOGIN_IDS` で決まるので、ワークツリーに `.dev.vars` が無いときや、その `OPERATOR_LOGIN_IDS` に seed の運用者の `github:9000000000000001` が無いときも 401 になる。直し方は上の「ワークツリーで作業する」と、この節の `OPERATOR_LOGIN_IDS` の決まり。直したら立て直す）、10秒答えないときと、そのほかの 2xx 以外（リダイレクトは辿らない）は状態を出す。Chromium を起動できないときは、入っていなければ `pnpm exec playwright install chromium` を流すよう案内する（画面を出せない SSH の先や CI では使えない）。止まるときの終了コードは 1
-  - 引数の誤りも、Cookie を置かず通信もせずに止まる。同じ種類（who か path）が2つ以上、`--preview` 以外のフラグ、知らない who（選べるキーと説明を並べる）、受け付けない path。path はログイン後の戻り先と同じ基準（`safeReturnTo`）で、`//host`、バックスラッシュ、ドット区間、完全な URL、相対パス、最初の区間が `api` か `login` のパス（`/api/me`、`/login?x=1`。`/apiary` は開ける）は、`/` に直さず止める。完全な URL を受け付けないのは、ポートがオフセット（`DEV_PORT_OFFSET`、`.dev-port-offset`、ワークツリーの名前）で決まり、受け付ける範囲だけが広がるため。開く先の origin は http の `localhost` か `127.0.0.1` だけで、seed のトークンを手元の外へ送らない
+  - 引数の誤りも、Cookie を置かず通信もせずに止まる。同じ種類（who か path）が2つ以上、`--preview`・`--origin` 以外のフラグ、知らない who（選べるキーと説明を並べる）、受け付けない path。path はログイン後の戻り先と同じ基準（`safeReturnTo`）で、`//host`、バックスラッシュ、ドット区間、完全な URL、相対パス、最初の区間が `api` か `login` のパス（`/api/me`、`/login?x=1`。`/apiary` は開ける）は、`/` に直さず止める。完全な URL を受け付けないのは、ポートがオフセット（`DEV_PORT_OFFSET`、`.dev-port-offset`、ワークツリーの名前）で決まり、受け付ける範囲だけが広がるため。ローカル指定の origin は http の `localhost` か `127.0.0.1` だけ。明示した `--origin` でのみ上のプレビューの HTTPS origin を許可し、本番や任意の外部 URL には seed のトークンを送らない
   - 毎回新しい context に Cookie を置くので、普段のブラウザの Cookie とも、別のワークツリーを開いたブラウザの Cookie とも混ざらない（localhost の Cookie はポートで分かれない）。複数の人を並べるときは端末を2つ使い、それぞれで `pnpm dev:open admin` と `pnpm dev:open member` を打つ（1回に開くのは1人）。ブラウザを閉じるか Ctrl+C で終わる
 - テーマは、本物の設定の API（マイプロフィール）で切り替えてから撮る（言葉はスクラムの言葉に固定）。撮影のための URL のパラメータは作らない
 - 「今日」は、`.dev.vars` の `DEV_NOW`（ISO 8601、時差付き。例 `2026-10-26T10:00:00+09:00`）で固定できる。置くと `now()`（`src/shared/clock.ts`）がその時刻を返し続け、時刻は進まない（日付だけ固定して時刻を進めると、時刻を画面に出したときに写りが変わるため）。完了日時を含めて画面の写りが毎回同じになる。時刻が止まるので、同じ人が2回完了にした要求（ダブルクリック、2つのタブ）は同じ完了日時を持ち、タスクの完了の文はこれを見分ける条件を持つ（`docs/data-model.md` の「書き込みの単位」）。値は Worker のミドルウェア（`src/server/dev-clock.ts`）が `clock.ts` に渡す（`clock.ts` は `scripts/` からも読むので `cloudflare:workers` を import しない）。`pnpm dev` と `pnpm preview` は開き直すと反映される。説明は `.dev.vars.example`

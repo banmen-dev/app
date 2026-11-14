@@ -3,6 +3,7 @@
 import { chromium, type Browser } from '@playwright/test';
 import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { installDevOpenAccess } from './dev-open-access.ts';
 import { checkDevOpenSession } from './dev-open-session.ts';
 import { resolveDevOpenTarget, type DevOpenTarget } from './dev-open-target.ts';
 import { installDevOpenTitle } from './dev-open-title.ts';
@@ -39,10 +40,22 @@ async function open(target: DevOpenTarget): Promise<void> {
   });
 
   // Playwright の既定のビューポートは 1280×720 の固定で、窓を広げても画面が追わない。null で窓の大きさに合わせる
-  const context = await browser.newContext({ viewport: null });
+  const context = await browser.newContext({
+    viewport: null,
+    ...(target.remoteOrigin ? { serviceWorkers: 'block' } : {}),
+  });
+  await installDevOpenAccess(context, target, process.env);
   const worktree = basename(fileURLToPath(new URL('..', import.meta.url)));
   await context.addInitScript(installDevOpenTitle, { origin: target.origin, worktree });
-  await context.addCookies([{ name: target.cookieName, value: target.token, url: target.origin, httpOnly: true }]);
+  await context.addCookies([
+    {
+      name: target.cookieName,
+      value: target.token,
+      url: target.origin,
+      httpOnly: true,
+      secure: target.origin.startsWith('https:'),
+    },
+  ]);
   // 開いたページがすべて閉じたら終える（macOS では最後のウィンドウを閉じてもブラウザのプロセスが残ることがある）
   context.on('page', (page) => {
     page.on('close', () => {

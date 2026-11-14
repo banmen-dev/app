@@ -108,3 +108,56 @@ describe('resolveDevOpenTarget', () => {
     assert.match(failureReason(resolveDevOpenTarget(['nobody'], { DEV_PORT_OFFSET: 'x' })), /知らない who/);
   });
 });
+
+const PREVIEW_ORIGIN = 'https://pr-374-scrum-guild-preview.ucan-lab.workers.dev';
+const ACCESS_ENV = { CF_ACCESS_CLIENT_ID: 'test-id', CF_ACCESS_CLIENT_SECRET: 'test-secret' };
+
+test('プレビューは全 seed ロールを secure Cookie の名前で開く。ローカルポート設定は使わない', () => {
+  for (const [who, session] of Object.entries(SEED_SESSIONS)) {
+    const result = resolveDevOpenTarget(['--origin', PREVIEW_ORIGIN, who, '/aoba'], {
+      ...ACCESS_ENV,
+      DEV_PORT_OFFSET: 'x',
+    });
+    assert.ok(result.ok);
+    assert.equal(result.origin, PREVIEW_ORIGIN);
+    assert.equal(result.cookieName, '__Host-sg_session');
+    assert.equal(result.token, session.token);
+    assert.equal(result.url, `${PREVIEW_ORIGIN}/aoba`);
+  }
+});
+
+test('プレビュー以外の origin と origin の曖昧な指定を断る', () => {
+  for (const origin of [
+    'https://scrum-guild.ucan-lab.workers.dev',
+    'http://pr-374-scrum-guild-preview.ucan-lab.workers.dev',
+    `${PREVIEW_ORIGIN}\n`,
+    `${PREVIEW_ORIGIN}/`,
+    `${PREVIEW_ORIGIN}/aoba`,
+    `${PREVIEW_ORIGIN}?x`,
+    `${PREVIEW_ORIGIN}#x`,
+    `${PREVIEW_ORIGIN}:443`,
+    `${PREVIEW_ORIGIN}.evil.example`,
+    PREVIEW_ORIGIN.toUpperCase(),
+    PREVIEW_ORIGIN.replace('https://', 'https://user:secret@'),
+    PREVIEW_ORIGIN.replace('pr-374', 'pr-0'),
+    PREVIEW_ORIGIN.replace('pr-374', 'pr-0374'),
+  ])
+    assert.equal(resolveDevOpenTarget(['--origin', origin], ACCESS_ENV).ok, false, origin);
+  assert.equal(parseDevOpenArgs(['--origin']).ok, false);
+  assert.equal(parseDevOpenArgs(['--origin', PREVIEW_ORIGIN, '--origin', PREVIEW_ORIGIN]).ok, false);
+  assert.equal(parseDevOpenArgs(['--preview', '--origin', PREVIEW_ORIGIN]).ok, false);
+  assert.equal(parseDevOpenArgs(['--origin', PREVIEW_ORIGIN, '--preview']).ok, false);
+});
+
+test('プレビューには Access の両方の値が必要で、理由に秘密を含めない', () => {
+  for (const env of [
+    {},
+    { CF_ACCESS_CLIENT_ID: 'secret-id' },
+    { CF_ACCESS_CLIENT_SECRET: 'secret-value' },
+    { ...ACCESS_ENV, CF_ACCESS_CLIENT_ID: ' ' },
+  ]) {
+    const reason = failureReason(resolveDevOpenTarget(['--origin', PREVIEW_ORIGIN], env));
+    assert.match(reason, /両方が必要/);
+    assert.doesNotMatch(reason, /secret-id|secret-value/);
+  }
+});

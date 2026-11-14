@@ -1,12 +1,14 @@
 # seed
 
-手元の D1 と e2e に入れる架空のデータ。名前は `design/sample-data.js` から取った。
+手元の D1、e2e と、Access で保護したプレビュー専用 D1 に入れる架空のデータ。名前は `design/sample-data.js` から取った。本番には流さない。
 
 ```bash
 pnpm db:seed
 ```
 
 流すのは `scripts/db-seed.ts` で、手元の D1 に全マイグレーションを当て、マイグレーションの記録を除く全部の表の行を消してから入れ直す。手で足した行も消えるので、何度流しても同じ状態に戻せる。
+
+このコマンドは引き続き `--local` 専用。リモートの seed は、Workers Builds 専用の `scripts/deploy-preview.ts` が名前と UUID を検査した新規の `scrum-guild-pr-<番号>` だけに流す。SQL とセッションの期限の生成は、ローカルと同じ `scripts/seed.ts` を使う。プレビューを開くには `pnpm dev:open --origin https://pr-<番号>-scrum-guild-preview.ucan-lab.workers.dev [who] [path]` と Access のサービストークンを使う（`docs/development.md` の「プレビュー」）。
 
 | ファイル | 中身 |
 | --- | --- |
@@ -73,7 +75,7 @@ curl -s -X POST -H "Authorization: Bearer sgp_dev-seed-admin-write00000000000000
 トークンとパスワードは、リポジトリを読める人なら誰でも知っている値。本番の D1 に入れば、その人たちが管理者や運用者としてログインできてしまう。
 
 - `scripts/db-seed.ts` が付けるのは `--local` だけで、`--remote` はフックの `guard-bash.mjs` も止める
-- `seed/` の SQL は `wrangler d1 execute --remote` に渡さない
+- セッションから `seed/` の SQL を `wrangler d1 execute --remote` に渡さない。例外は Workers Builds 専用の `scripts/deploy-preview.ts` が、本番と別の新規プレビュー D1 を検査して流す場合だけ（上の説明と `docs/operations.md` の「プレビュー環境」）
 
 かぜラボは、お試しの期限の表示（`e2e/trial-deadline.test.ts`）に使う組織。`trialAdmin`（イツキ）と `trialMember`（フウカ）は、この組織だけに入る。期限は seed を流した UTC の日付の30日後で、固定の日付による期限切れを避ける。
 
