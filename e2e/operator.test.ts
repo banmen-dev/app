@@ -2261,6 +2261,22 @@ test.describe('運用者', () => {
       extra_50gb_units: 0,
     });
 
+    test('追加容量のあるビジネスから個別へ切り替えても、口数を標準容量へ二重に含めない', async ({ page }) => {
+      await mockList(page, [
+        organization({
+          seats: { used: 38, limit: 50 },
+          attachment_quota_bytes: 170 * GIB,
+          contract: { ...contract('business', 'yearly'), extra_10gb_units: 2, extra_50gb_units: 1 },
+        }),
+      ]);
+      await page.goto('/operator');
+      await page.getByRole('button', { name: '「あおば開発」のプランを変える' }).click();
+      const dialog = page.getByRole('dialog', { name: 'プランを変える' });
+      await dialog.getByRole('radio', { name: /個別/ }).check();
+      await expect(dialog.getByRole('spinbutton', { name: '標準の添付容量（GB）' })).toHaveValue('100');
+      await expect(dialog).toContainText('変えた後の上限は 50 人・170 GB です。');
+    });
+
     test('個別の契約を80人・200GB・年払いで付け、追加50GBを足し、ビジネスへ下げる確認を出す', async ({ page }) => {
       const listed = [organization({ seats: { used: 60, limit: 80 }, attachment_quota_bytes: 200 * GIB })];
       await mockList(page, listed);

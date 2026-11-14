@@ -20,6 +20,7 @@
   import { invalidateAll } from '$app/navigation';
   import { formatCount, quotaSize } from '../format.ts';
   import { isUnauthenticated } from '../login-redirect.ts';
+  import { initialCustomQuotaGb } from '../custom-plan.ts';
   import { planLabel } from '../plan-terms.ts';
   import { t } from '../vocabulary.svelte.ts';
   import Dialog from './Dialog.svelte';
@@ -139,10 +140,7 @@
       interval = contract?.billing_interval ?? 'monthly';
     }
     members = contract?.custom_member_limit ?? organization.seats.limit;
-    sizeGb = Math.max(
-      1,
-      Math.round((contract?.custom_attachment_quota_bytes ?? organization.attachment_quota_bytes) / QUOTA_GIB),
-    );
+    sizeGb = initialCustomQuotaGb(contract, organization.attachment_quota_bytes);
     errors = {};
     reloadOnClose = false;
     submitting = false;
