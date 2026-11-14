@@ -271,7 +271,9 @@ describe('追加容量の設定', () => {
   });
 
   test('上限の100口と年払いを設定でき、別の組織には影響せず、同じ設定は書かない', async () => {
-    const { organization, operator, contract } = await setup();
+    const organization = await createOrganization({ kind: 'personal', member_limit: 1, attachment_quota_bytes: GIB });
+    const operator = await token();
+    const contract = null;
     const other = await setup('business');
     const otherBefore = await rows(other.organization.id);
     const body = {
@@ -284,7 +286,7 @@ describe('追加容量の設定', () => {
     const response = await post(app, organizationStorageUpdate, { token: operator, body });
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      attachment_quota_bytes: 6030 * GIB,
+      attachment_quota_bytes: 6001 * GIB,
       contract: { billing_interval: 'yearly' },
     });
     const before = await rows(organization.id);
@@ -300,6 +302,122 @@ describe('追加容量の設定', () => {
     expect(await rows(organization.id)).toEqual(before);
     expect(await logs()).toEqual(beforeLogs);
     expect(await rows(other.organization.id)).toEqual(otherBefore);
+  });
+
+  test.each([0, 1])('チーム用は周期だけでも口数と一緒でも変更できない（10GB %s口）', async (ten) => {
+    const { organization, operator, contract } = await setup();
+    const before = await rows(organization.id);
+    const response = await post(app, organizationStorageUpdate, {
+      token: operator,
+      body: {
+        slug: organization.slug,
+        billing_interval: 'yearly',
+        extra_10gb_units: ten,
+        extra_50gb_units: 0,
+        expected: contract,
+      },
+    });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ error: { code: 'conflict' } });
+    expect(await rows(organization.id)).toEqual(before);
+  });
+
+  test('未契約の自分用は0口でも契約を作り、履歴の前の周期は未契約として返す', async () => {
+    const target = await createTarget();
+    const db = commonDb(env);
+    await db.batch([
+      db.statement((q) =>
+        q
+          .updateTable('organizations')
+          .set({ kind: 'personal', member_limit: 1, attachment_quota_bytes: GIB })
+          .where('id', '=', target.organization.id),
+      ),
+    ]);
+    expect((await update(target.slug, await token(), null)).status).toBe(200);
+    expect(await rows(target.organization.id)).toMatchObject({
+      contract: { plan: 'personal', extra_10gb_units: 0, extra_50gb_units: 0 },
+      organization: { attachment_quota_bytes: GIB },
+    });
+    const history = (await (
+      await post(app, organizationHistory, { token: target.admin.token, slug: target.slug })
+    ).json()) as OutputOf<typeof organizationHistory>;
+    expect(history.entries[0]).toMatchObject({
+      actor: { kind: 'operator' },
+      event: {
+        kind: 'organization_storage_changed',
+        from: { extra_10gb_units: 0, extra_50gb_units: 0, billing_interval: null },
+        to: { extra_10gb_units: 0, extra_50gb_units: 0, billing_interval: 'monthly' },
+      },
+    });
+  });
+
+  test('個別契約customは変更せず409を返す', async () => {
+    const { organization, operator } = await setup();
+    const db = commonDb(env);
+    await db.batch([
+      db.statement((q) =>
+        q.updateTable('organization_contracts').set({ plan: 'custom' }).where('organization_id', '=', organization.id),
+      ),
+    ]);
+    const before = await rows(organization.id);
+    expect(
+      (
+        await update(
+          organization.slug,
+          operator,
+          { plan: 'custom', billing_interval: 'monthly', extra_10gb_units: 0, extra_50gb_units: 0 },
+          1,
+        )
+      ).status,
+    ).toBe(409);
+    expect(await rows(organization.id)).toEqual(before);
+  });
+
+  test('読んだ後に上限が変更されたら契約と容量を更新しない', async () => {
+    const { organization, operator, contract } = await setup();
+    let armed = true;
+    const racing = envWithD1Hooks(testEnv, {
+      afterQuery: async (sql) => {
+        if (!armed || !sql.includes('"organization_contracts"') || !sql.includes('"trial_ends_on"')) return;
+        armed = false;
+        const db = commonDb(env);
+        await db.batch([
+          db.statement((q) =>
+            q
+              .updateTable('organizations')
+              .set({ attachment_quota_bytes: 31 * GIB })
+              .where('id', '=', organization.id),
+          ),
+        ]);
+      },
+    });
+    expect((await update(organization.slug, operator, contract, 1, 0, racing)).status).toBe(409);
+    expect(armed).toBe(false);
+    expect(await rows(organization.id)).toMatchObject({ contract, organization: { attachment_quota_bytes: 31 * GIB } });
+  });
+
+  test('履歴を書けなくても容量と契約は成功し、例外の詳細はログに含めない', async () => {
+    const { organization, operator, contract } = await setup();
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const failing = envWithD1Hooks(testEnv, {
+      beforeBatch: (sqls) => {
+        if (sqls.some((sql) => sql.startsWith('insert into "change_logs"'))) throw new Error('secret SQL detail');
+      },
+    });
+    expect((await update(organization.slug, operator, contract, 1, 0, failing)).status).toBe(200);
+    expect(await rows(organization.id)).toMatchObject({
+      contract: { extra_10gb_units: 1 },
+      organization: { attachment_quota_bytes: 40 * GIB },
+    });
+    expect(errorLog).toHaveBeenCalledTimes(1);
+    const logged = String(errorLog.mock.calls[0]![0]);
+    expect(JSON.parse(logged)).toMatchObject({
+      operation: 'organization-storage-update',
+      organizationId: organization.id,
+      error: 'Error',
+      changes: { extra_10gb_units: [0, 1] },
+    });
+    expect(logged).not.toContain('secret SQL detail');
   });
 
   test('消す予定日を過ぎた組織と存在しない組織は変更できない', async () => {

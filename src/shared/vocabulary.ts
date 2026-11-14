@@ -1261,8 +1261,11 @@ export const dictionary = defineDictionary({
   // 契約の表示。{plan} はプランの名前、{interval} は支払いの周期
   planTerms: '{plan}・{interval}',
   orgHistoryStorageChanged:
-    '追加容量を＋10 GB {from10} 口・＋50 GB {from50} 口（{fromInterval}）から＋10 GB {to10} 口・＋50 GB {to50} 口（{toInterval}）に変更しました',
+    '追加容量を+10\u00a0GB {from10}\u00a0口・+50\u00a0GB {from50}\u00a0口（{fromInterval}）から+10\u00a0GB {to10}\u00a0口・+50\u00a0GB {to50}\u00a0口（{toInterval}）に変更しました',
   operatorStorageSuspendedNote: '追加容量を変えても停止したままです。使えるようにするには、続けて再開してください。',
+  operatorStorageUnitsError: '0〜100 の整数で入力してください。',
+  operatorStoragePersonalLower:
+    '現在の上限 {current} は、パーソナルの標準容量と追加口数から決まる {next} に下がります。既存のファイルは残ります。',
   operatorStorageTitle: '追加容量を変える',
   operatorStorageLabel: '「{name}」の追加容量を変える',
   operatorStorageText: '「{name}」の追加容量の口数を変えます。',

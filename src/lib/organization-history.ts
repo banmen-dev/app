@@ -51,7 +51,13 @@ export function historyEventText(event: HistoryEntry['event'], translate: Transl
         from50: event.from.extra_50gb_units,
         to10: event.to.extra_10gb_units,
         to50: event.to.extra_50gb_units,
-        fromInterval: translate(event.from.billing_interval === 'monthly' ? 'billingMonthly' : 'billingYearly'),
+        fromInterval: translate(
+          event.from.billing_interval === null
+            ? 'operatorPlanNone'
+            : event.from.billing_interval === 'monthly'
+              ? 'billingMonthly'
+              : 'billingYearly',
+        ),
         toInterval: translate(event.to.billing_interval === 'monthly' ? 'billingMonthly' : 'billingYearly'),
       });
     case 'organization_plan_changed':

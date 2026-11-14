@@ -143,6 +143,7 @@ function storageChange(changes: Changes): HistoryEvent | undefined {
   const fifty = pairOf(changes, 'extra_50gb_units');
   const interval = pairOf(changes, 'billing_interval');
   if (!ten || !fifty || !interval || !isInterval(interval[1])) return undefined;
+  if (interval[0] !== null && !isInterval(interval[0])) return undefined;
   if (![...ten, ...fifty].every((value) => typeof value === 'number' && Number.isInteger(value) && value >= 0))
     return undefined;
   return {
@@ -150,7 +151,7 @@ function storageChange(changes: Changes): HistoryEvent | undefined {
     from: {
       extra_10gb_units: ten[0] as number,
       extra_50gb_units: fifty[0] as number,
-      billing_interval: isInterval(interval[0]) ? interval[0] : interval[1],
+      billing_interval: interval[0],
     },
     to: { extra_10gb_units: ten[1] as number, extra_50gb_units: fifty[1] as number, billing_interval: interval[1] },
   };

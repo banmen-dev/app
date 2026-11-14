@@ -42,7 +42,12 @@ const event = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('organization_settings_changed') }),
   // 運用者の契約の変更。from は前の契約（未契約なら null）、to は変えた後の契約
   z.object({ kind: z.literal('organization_plan_changed'), from: contractTerms.nullable(), to: contractTerms }),
-  z.object({ kind: z.literal('organization_storage_changed'), from: storageTerms, to: storageTerms }),
+  z.object({
+    kind: z.literal('organization_storage_changed'),
+    // 初めて契約した自分用は、前の支払いの周期を持たない。
+    from: storageTerms.extend({ billing_interval: z.enum(billingIntervals).nullable() }),
+    to: storageTerms,
+  }),
   // 管理者の指名。name が null なのは、Google の招待でまだログインしていない（か、既にいる人にまとめた）指名
   z.object({ kind: z.literal('admin_designated'), name: z.string().nullable() }),
   // Google の招待で指名した人が初めてログインし、指名の行に結んだ

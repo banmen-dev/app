@@ -158,6 +158,7 @@ export const organizationPlanUpdateOperation = implement(organizationPlanUpdate,
     db.statement((q) =>
       q
         .updateTable('organizations')
+        // 同じ時刻・同じ契約値でも、直前の契約の更新に負けた要求が上限だけを書かないようにする。
         .where(previousStatementChanged)
         .set({
           member_limit: limits.member_limit,

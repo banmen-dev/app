@@ -1,4 +1,5 @@
-// 運用者の組織の契約の変更（docs/data-model.md の「書き込みの単位」の契約の変更）。
+// 運用者の追加容量の変更（docs/data-model.md の「書き込みの単位」の追加容量の変更）。
+// 自分用は personal の契約を作れる。人数、お試し、停止は変えず、チーム用の支払いの周期は今の契約にそろえる。
 // 共通の DB の organization_contracts と organizations を1回の batch() で書き（どちらも共通の表）、続けて組織の DB の change_logs に
 // 運用者の操作として残す。2つの DB への書き込みは別の batch() で書く。履歴を書けなくても成功として返す。
 // 運用者は組織の中に特権を持たない。応答に組織の中のデータを入れない
@@ -22,6 +23,10 @@ export const organizationStorageUpdateOperation = implement(
     const { contract } = current;
     if (current.kind === 'team' && contract === null) throw new ApiError(409, 'conflict', { reason: 'plan_required' });
     if (contract?.plan === 'custom') throw new ApiError(409, 'conflict');
+    // チーム用は基本プランとまとめて請求する。周期はプランの変更でだけ変え、追加容量の操作では維持する。
+    if (current.kind === 'team' && contract!.billing_interval !== input.billing_interval) {
+      throw new ApiError(409, 'conflict');
+    }
     if (
       contract !== null &&
       contract.billing_interval === input.billing_interval &&

@@ -40,7 +40,15 @@ describe('historyEventText', () => {
           from: { extra_10gb_units: 0, extra_50gb_units: 0, billing_interval: 'monthly' },
           to: { extra_10gb_units: 2, extra_50gb_units: 1, billing_interval: 'yearly' },
         },
-        '追加容量を＋10 GB 0 口・＋50 GB 0 口（月払い）から＋10 GB 2 口・＋50 GB 1 口（年払い）に変更しました',
+        '追加容量を+10\u00a0GB 0\u00a0口・+50\u00a0GB 0\u00a0口（月払い）から+10\u00a0GB 2\u00a0口・+50\u00a0GB 1\u00a0口（年払い）に変更しました',
+      ],
+      [
+        {
+          kind: 'organization_storage_changed',
+          from: { extra_10gb_units: 0, extra_50gb_units: 0, billing_interval: null },
+          to: { extra_10gb_units: 1, extra_50gb_units: 0, billing_interval: 'monthly' },
+        },
+        '追加容量を+10\u00a0GB 0\u00a0口・+50\u00a0GB 0\u00a0口（未契約）から+10\u00a0GB 1\u00a0口・+50\u00a0GB 0\u00a0口（月払い）に変更しました',
       ],
       [{ kind: 'admin_designated', name: 'ミナト' }, 'ミナトを管理者に指名しました'],
       [{ kind: 'admin_designated', name: null }, 'Google で招待した人を管理者に指名しました'],

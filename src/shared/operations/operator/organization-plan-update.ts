@@ -28,6 +28,7 @@ export const organizationPlanUpdate = defineOperation({
     slug: z.string().max(SLUG_MAX_LENGTH * 2),
     plan: z.enum(teamPlans),
     billing_interval: z.enum(billingIntervals),
+    // 追加容量の操作を入れる前のクライアントは口数を送らない。省略は0口として受け、現在が追加容量ありなら競合にする。
     expected: organizationContract
       .extend({
         extra_10gb_units: z.number().int().default(0),

@@ -421,7 +421,7 @@
                       >
                     {/if}
                     {#if !organization.purge_due}
-                      {#if organization.kind === 'personal' || organization.contract?.plan === 'team' || organization.contract?.plan === 'business'}
+                      {#if (organization.kind === 'personal' && organization.contract?.plan !== 'custom') || organization.contract?.plan === 'team' || organization.contract?.plan === 'business'}
                         <br /><button
                           class="link-btn"
                           type="button"

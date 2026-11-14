@@ -2621,15 +2621,25 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     // 今の契約を選んだ状態で開き、選び直すと変えた後の上限（d-pa）と、今の人数や合計が超えるときの注意を出す。
     // 未契約の組織の上限が下がる注意（d-pl2）、お試しが終わる注記（d-pt）、停止したままの注記（d-pp）、未契約の組織の注記（d-pn）は、
     // 本番では組織の状態で出す。見本の「くもラボ」は契約済みで停止もお試しもしていないので、どれも hidden で置く
-    changeStorage: () => openDialog("追加容量を変える",
-      `<p class="wrap-anywhere">「くもラボ」の追加容量の口数を変えます。</p>
-       <div class="field"><label class="field-label" for="d-storage10">＋10 GB の口数</label><input class="input" id="d-storage10" data-storage-choice type="number" min="0" max="100" step="1" value="0" aria-describedby="d-storage-hint"></div>
-       <div class="field"><label class="field-label" for="d-storage50">＋50 GB の口数</label><input class="input" id="d-storage50" data-storage-choice type="number" min="0" max="100" step="1" value="1" aria-describedby="d-storage-hint"></div>
-       <p class="field-hint" id="d-storage-hint">それぞれ 0〜100 の整数で入力してください。</p>
-       <p class="field-hint">追加容量は基本プランと同じ支払いの周期で、まとめて請求します。</p>
-       <p class="field-hint" id="d-storage-after">変えた後の添付ファイルと Wiki の上限は 150 GB です。</p>
-       <p class="field-hint">変更の履歴に運用者の操作として前後の口数が残ります。</p>`,
-      `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" id="d-storage-submit" data-close-dialog data-toast="追加容量を変えました">変える</button>`),
+    changeStorage: (trigger) => {
+      const d = trigger.dataset;
+      const personal = d.storagePersonal === "true";
+      const units10 = Number(d.storage10 || 0), units50 = Number(d.storage50 || 0);
+      const interval = d.storageInterval || "monthly";
+      openDialog("追加容量を変える",
+        `<p class="wrap-anywhere">「${esc(d.storageName || "くもラボ")}」の追加容量の口数を変えます。</p>
+         <div class="field"><label class="field-label" for="d-storage10">＋10 GB の口数</label><input class="input" id="d-storage10" data-storage-choice data-base="${d.storageBase || 100}" data-current="${d.storageCurrent || 100}" data-used="${d.storageUsed || 0}" data-personal="${personal}" data-contracted="${d.storageContracted !== "false"}" data-initial10="${units10}" data-initial50="${units50}" data-interval="${interval}" type="number" min="0" max="100" step="1" value="${units10}" aria-describedby="d-storage-hint"></div>
+         <div class="field"><label class="field-label" for="d-storage50">＋50 GB の口数</label><input class="input" id="d-storage50" data-storage-choice type="number" min="0" max="100" step="1" value="${units50}" aria-describedby="d-storage-hint"></div>
+         <p class="field-hint" id="d-storage-hint">それぞれ 0〜100 の整数で入力してください。</p>
+         ${personal ? `<div class="field"><span class="field-label" id="d-storage-interval-label">支払いの周期</span><div class="choice-list" role="radiogroup" aria-labelledby="d-storage-interval-label">${[["monthly", "月払い"], ["yearly", "年払い"]].map(([value, label]) => `<label class="choice"><input type="radio" name="d-storage-interval" value="${value}" data-storage-choice ${interval === value ? "checked" : ""}><div><b>${label}</b></div></label>`).join("")}</div></div><p class="field-hint">プランはパーソナルのままです。追加容量の料金だけを請求します。人数とワークスペースの上限は変わりません。</p>` : `<p class="field-hint">追加容量は基本プランと同じ支払いの周期で、まとめて請求します。</p>`}
+         <p class="field-hint" id="d-storage-after" role="status"></p>
+         <div class="callout is-warn" id="d-storage-lower" hidden>${icon("alert")}<span></span></div>
+         <div class="callout is-warn" id="d-storage-over" hidden>${icon("alert")}<span>選んだ上限は今の合計より小さいため、合計が下がるまで新しく添付できなくなります。</span></div>
+         ${d.storageSuspended === "true" ? `<p class="field-hint">追加容量を変えても停止したままです。使えるようにするには、続けて再開してください。</p>` : ""}
+         <p class="field-hint">変更の履歴に運用者の操作として前後の口数が残ります。</p>`,
+        `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" id="d-storage-submit" aria-disabled="true">変える</button>`);
+      syncStorageDialog();
+    },
     changePlan: () => openDialog("プランを変える",
       `<p class="wrap-anywhere">「くもラボ」のプランを変えます。今はビジネス・月払いで、人数 38&nbsp;人（上限 50&nbsp;人）、添付ファイルと Wiki の合計 42&nbsp;GB（上限 100&nbsp;GB）です。</p>
        <div class="field"><span class="field-label" id="d-pl">プラン</span>
@@ -3722,23 +3732,30 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   };
   document.addEventListener("change", (ev) => { if (ev.target.closest("[data-plan-choice]")) syncPlanDialog(); });
   document.addEventListener("input", (ev) => { if (ev.target.closest("#d-qm, #d-qg")) syncQuotaDialog(); });
-  document.addEventListener("input", (ev) => {
-    if (!ev.target.closest("[data-storage-choice]")) return;
-    const first = document.getElementById("d-storage10");
-    const second = document.getElementById("d-storage50");
+  function syncStorageDialog() {
+    const first = document.getElementById("d-storage10"), second = document.getElementById("d-storage50");
+    if (!first || !second) return;
     const valid = [first, second].every((input) => input.value !== "" && input.validity.valid);
+    const interval = document.querySelector('input[name="d-storage-interval"]:checked')?.value || first.dataset.interval;
+    const same = first.dataset.contracted === "true" && Number(first.value) === Number(first.dataset.initial10) && Number(second.value) === Number(first.dataset.initial50) && interval === first.dataset.interval;
     const submit = document.getElementById("d-storage-submit");
-    submit.setAttribute("aria-disabled", String(!valid));
-    if (valid) {
-      document.getElementById("d-storage-after").textContent = `変えた後の添付ファイルと Wiki の上限は ${100 + Number(first.value) * 10 + Number(second.value) * 50} GB です。`;
+    submit.setAttribute("aria-disabled", String(!valid || same));
+    const next = Number(first.dataset.base) + Number(first.value) * 10 + Number(second.value) * 50;
+    document.getElementById("d-storage-after").textContent = valid ? `変えた後の添付ファイルと Wiki の上限は ${next} GB です。${same ? "今と同じ口数と支払いの周期です。" : ""}` : "それぞれ 0〜100 の整数で入力してください。";
+    document.getElementById("d-storage-over").hidden = !valid || next >= Number(first.dataset.used);
+    const lower = document.getElementById("d-storage-lower");
+    lower.hidden = !valid || first.dataset.personal !== "true" || first.dataset.contracted === "true" || next >= Number(first.dataset.current);
+    lower.querySelector("span").textContent = `現在の上限 ${first.dataset.current} GB は、パーソナルの標準容量と追加口数から決まる ${next} GB に下がります。既存のファイルは残ります。`;
+    if (valid && !same) {
       submit.setAttribute("data-close-dialog", "");
       submit.setAttribute("data-toast", "追加容量を変えました");
     } else {
-      document.getElementById("d-storage-after").textContent = "それぞれ 0〜100 の整数で入力してください。";
       submit.removeAttribute("data-close-dialog");
       submit.removeAttribute("data-toast");
     }
-  });
+  }
+  document.addEventListener("input", (ev) => { if (ev.target.closest("[data-storage-choice]")) syncStorageDialog(); });
+
 
   // ---- 操作（見本の中だけで動き、保存はしない） ----
   document.addEventListener("change", (ev) => {
