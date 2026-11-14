@@ -2037,12 +2037,22 @@ function judgeVia(prefix, args, start, { dir, place }, ctx) {
 
 const MAX_REDIRECT_GLOB_LENGTH = 1024;
 const MAX_REDIRECT_GLOB_WORK = 4_000_000;
+const MAX_REDIRECT_GLOB_CALLS = 4096;
 
-// 接頭部の照合は候補ごとに走るので、展開後の長さの二乗の合計も先に制限する。
-function boundedRedirectPatterns(word) {
+// 展開後の長さの二乗と、秘密の2候補への接頭部・設定4候補への相対/絶対パスの接尾部の照合回数も先に制限する。
+function boundedRedirectPatterns(word, dir = null) {
   if (word.length > MAX_REDIRECT_GLOB_LENGTH || expansionSize(word) > MAX_BRACE_EXPANSION) return null;
   const patterns = expandBraces(word);
-  return patterns.reduce((work, pattern) => work + pattern.length ** 2, 0) > MAX_REDIRECT_GLOB_WORK ? null : patterns;
+  let work = 0;
+  let calls = 0;
+  for (const pattern of patterns) {
+    work += pattern.length ** 2;
+    const relativeParts = path.posix.normalize(pattern).split('/').length;
+    const absoluteParts = dir ? path.resolve(dir, pattern).split('/').length : 0;
+    calls += pattern.length * 2 + (relativeParts + absoluteParts) * 4;
+    if (work > MAX_REDIRECT_GLOB_WORK || calls > MAX_REDIRECT_GLOB_CALLS) return null;
+  }
+  return patterns;
 }
 
 // リダイレクトの先の glob と brace を、特別な名前の候補に照合する。
@@ -2051,7 +2061,7 @@ function boundedRedirectPatterns(word) {
 function redirectGlobMatches(word, candidates, dir = null) {
   const written = withoutGlobGroup(word).toLowerCase();
   if (!GLOB_CHARS.test(written)) return false;
-  const bounded = boundedRedirectPatterns(written);
+  const bounded = boundedRedirectPatterns(written, dir);
   if (!bounded) return false;
   return bounded.some((expanded) => {
     const patterns = [path.posix.normalize(expanded), ...(dir ? [path.resolve(dir, expanded)] : [])];
@@ -2064,9 +2074,9 @@ function redirectGlobMatches(word, candidates, dir = null) {
 
 // 環境ごとの接尾部もシークレット。glob が名前の途中にあっても、名前に当たる接頭部と残る接尾部を見る。
 // .example で始まる接尾部は例として許可し、未知の glob の接尾部は秘密の名前になりうる側に倒す。
-function secretRedirectGlobMatches(word) {
+function secretRedirectGlobMatches(word, dir = null) {
   const written = withoutGlobGroup(word).toLowerCase();
-  const bounded = boundedRedirectPatterns(written);
+  const bounded = boundedRedirectPatterns(written, dir);
   if (!bounded) return false;
   return bounded.some((expanded) => {
     if (mentionsSecret(expanded)) return true;
@@ -2838,9 +2848,9 @@ function judgeFileWrites(tool, args, words, dir = null, cdWords = '', namesGitDi
   const results = [];
   const globRedirects = redirectsOf(words).filter((r) => !isHeredocRedirect(r) && r.expands);
   const redirectNames = globRedirects.map((r) => r.globPattern);
-  if (redirectNames.some((w) => !boundedRedirectPatterns(w))) results.push([ASK, 'リダイレクトの先の glob の長さ・展開数・照合量が上限を超えるので、名前を照合せず人が確かめる']);
+  if (redirectNames.some((w) => !boundedRedirectPatterns(w, dir))) results.push([ASK, 'リダイレクトの先の glob の長さ・展開数・照合量・照合回数が上限を超えるので、名前を照合せず人が確かめる']);
   if (judgeSecretAccess(tool, args, words) || writesTo(mentionsSecret, tool, args, words, { anyOperand: true }) ||
-      redirectNames.some(secretRedirectGlobMatches)) {
+      redirectNames.some((w) => secretRedirectGlobMatches(w, dir))) {
     results.push([DENY, SECRET_FILE_REASON]);
   }
   // mv は元を消すので、元が守る先（mv .githooks/pre-commit /tmp/）でも守りが外れる。コピーの元（cp .claude/hooks/x.mjs /tmp/）は見ない
