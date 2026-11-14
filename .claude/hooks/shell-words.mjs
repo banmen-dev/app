@@ -615,11 +615,13 @@ export function splitSegments(command) {
 
     // リダイレクトの (a|b) は zsh の名前の選択肢。区切りに切らず、照合用だけ Node の @(a|b) にする。
     // (N) のような修飾子は従来どおりの印で読み、引用した | や括弧は上の引用符処理で文字として残す。
+    const redirectExtglob = openRedirect && /[?*+@!]$/.test(globPattern);
     const redirectAlternation = openRedirect && c === '(' && !globClass &&
-      (redirectGlobDepth > 0 || command.slice(i + 1, closingParen(command, i + 1)).includes('|'));
+      (redirectExtglob || redirectGlobDepth > 0 || command.slice(i + 1, closingParen(command, i + 1)).includes('|'));
     if (redirectAlternation) {
       add('(');
-      globPattern = globPattern.slice(0, -1) + '@(';
+      // Bash の @/+/*/?/! は既に演算子なので保ち、裸の zsh の選択肢だけ @ を補う。
+      if (!redirectExtglob) globPattern = globPattern.slice(0, -1) + '@(';
       expands = true;
       redirectGlobDepth++;
       continue;
