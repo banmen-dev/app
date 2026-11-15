@@ -9,6 +9,7 @@
   import LoadFailed from '../../lib/components/LoadFailed.svelte';
   import Pane from '../../lib/components/Pane.svelte';
   import PageHead, { type Tally } from '../../lib/components/PageHead.svelte';
+  import RecentActivity from '../../lib/components/RecentActivity.svelte';
   import { formatTodayLabel } from '../../lib/format-datetime.ts';
   import Section from '../../lib/components/Section.svelte';
   import SprintGoalNotice from '../../lib/components/SprintGoalNotice.svelte';
@@ -427,7 +428,7 @@
 {/snippet}
 
 <!-- 最初にやることは2列の上に全幅で置く。その下がダッシュボード（.dashboard）で、左の列（.dashboard-main）にワークスペース、今日やること、
-     （ニュース）の面を上から並べる。右の列（.dashboard-side）は、面（最近の更新）を足すときにここへ置く。面が無い間は空の要素を置かず、右の列の幅だけが空く（広い幅は左3、右2の2列の枠） -->
+     （ニュース）の面を上から並べる。右の列（.dashboard-side）に最近の更新の面を置く（広い幅は左3、右2の2列。760px 以下は左の列の下に続く） -->
 {#snippet main()}
   <!-- 最初にやること。手順が空（必須が済んだ、出す手順が無い）か読めなかったときは置かない -->
   {#if data.organization !== null && data.firstSteps !== null && data.firstSteps.role !== null && data.firstSteps.steps.length > 0 && (data.firstSteps.role !== 'admin' || data.organization.me.is_admin)}
@@ -444,6 +445,9 @@
     <div class="dashboard-main">
       {#if data.organization !== null}{@render workspacePane()}{/if}
       {@render todayPane()}
+    </div>
+    <div class="dashboard-side">
+      <RecentActivity slug={data.slug} first={data.recentActivity} onRetry={() => void invalidate('app:today')} />
     </div>
   </div>
 {/snippet}

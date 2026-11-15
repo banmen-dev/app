@@ -403,6 +403,9 @@
 
     workspaceSwitchLabel: "{workspace} {name}。切り替える", workspaceSwitchListLabel: "所属する{workspace}",
     workspacePaneHint: "押すと{backlog}を開きます",
+    paneActivity: "最近の更新", activityEmptyTitle: "まだ更新はありません", activityEmptyText: "所属する{workspace}の{task}、{story}、{epic}の変更とコメントが、ここに新しい順に並びます。",
+    activityCreated: "{actor}が作成した", activityUpdated: "{actor}が{fields}を変更した", activityChanged: "{actor}が変更した", activityCompleted: "{actor}が{done}にした", activityReopened: "{actor}が{done}を戻した", activityCommented: "{actor}がコメントした",
+    activityMore: "さらに読む", activityLoadFailed: "最近の更新を読み込めませんでした。", activityMoreFailed: "続きを読み込めませんでした。もう一度試してください。",
     workspace: "ワークスペース", inbox: "受信箱", backlog: "バックログ", sprint: "スプリント", plan: "計画", epic: "エピック", story: "ストーリー",
     menuCollapse: "メニューを畳む", menuExpand: "メニューを広げる", breadcrumb: "パンくず", organizationMoving: "移っています",
     personalOrganizationName: "自分用", createPersonalOrganizationAction: "自分用を作る",
@@ -803,6 +806,18 @@
   // ダッシュボード。main は左の列の面、side は右の列の面（空なら右の列を置かない。広い幅では右の列の幅だけが空く）
   function dashboard(main, side = "") {
     return `<div class="dashboard"><div class="dashboard-main">${main}</div>${side ? `<div class="dashboard-side">${side}</div>` : ""}</div>`;
+  }
+  // 最近の更新の面の中身（.activity）。days は { label, rows } の配列（日付ごとの区分。新しい順）。
+  // rows は { href, title, text, body, truncated, kind, ws, time, at } の配列。text はした人とした内容の文、body はコメントの本文の先頭（あるときだけ）、
+  // kind は task、story、epic、at は ISO の日時。more が真なら「さらに読む」を出す。空の案内は呼び出し側が emptyState で置く
+  function activity(days, { more = false } = {}) {
+    const row = (r) => `<li><a class="activity-row" href="${esc(r.href)}">
+        <b class="activity-title">${esc(r.title)}</b>
+        <span class="activity-text">${esc(r.text)}</span>
+        ${r.body ? `<span class="activity-body">${esc(r.body)}${r.truncated ? "…" : ""}</span>` : ""}
+        <span class="activity-meta"><span class="chip">${esc(t(r.kind))}</span><span class="tag">${esc(r.ws)}</span><time datetime="${esc(r.at)}">${esc(r.time)}</time></span>
+      </a></li>`;
+    return `<div class="activity">${days.map((d) => `<section class="activity-day"><h3 class="activity-date">${esc(d.label)}</h3><ul class="activity-list">${d.rows.map(row).join("")}</ul></section>`).join("")}</div>${more ? `<div class="form-actions"><button class="btn is-sm" type="button">${t("activityMore")}</button></div>` : ""}`;
   }
   // ---- Wiki ----
   // ページの木（左の欄の nav の中身）。nodes は { id, title, children } の木、current は今開いているページの ID、
@@ -4514,7 +4529,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     D, t, brandMark, brandSymbol, googleMark, githubMark, THEMES, THEME_LABEL, THEME_NOTE, esc, icon, md, sumPts, cycleTheme, setTheme, applyTheme, mount,
     onRedraw: (fn) => extraRedraws.push(fn), openDrawer, drawerHtml, drawerState: drawer, flashRow,
     user, task, tasksWhere, repoTag, categoryTag, sprintTag, repoPicker, sprintLabel, colName, categoryOf, storyPts, epicPts, dueOf,
-    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, emblem, pts, dueChip, taskDue, tier, sourceKey, entry, rowMenu, orderItems, draftRow, attrChip, book, section, foldedSection, pane, paneList, dashboard, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
+    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, emblem, pts, dueChip, taskDue, tier, sourceKey, entry, rowMenu, orderItems, draftRow, attrChip, book, section, foldedSection, pane, paneList, dashboard, activity, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
     narrowDisclosure, card, board, treeStory, treeEpic, completedTasks, sprintNotice, raidNotice, progress, levelPanel, teamXp, xpDelta, load, capacityRows,
     openDialog, closeDialog, toast, celebrate, miniCap, redraw: () => redrawAll(), DIALOGS, loginTarget, orgMenuHtml, workspaceMenuHtml, accountMenuHtml, breadcrumbHtml,
     filesOf, fileThumb, fileRow, dropzone, attachments, markdownEditor, markdownToolbarHtml, mdBody, markdownSample, meter, storageBytes,

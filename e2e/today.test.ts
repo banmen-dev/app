@@ -345,8 +345,8 @@ test('広い幅では左の列にワークスペースと今日やることの�
   const todayPane = pane(page, '今日やること');
   await expect(workspaces).toBeVisible();
   await expect(todayPane).toBeVisible();
-  // 右の列は最近の更新の面を足すまで空の要素を置かず、右の列の幅だけが空く（左の列は全幅にならない）
-  await expect(page.locator('.dashboard-side')).toHaveCount(0);
+  // 右の列に最近の更新の面が置かれ、左の列（ワークスペースと今日やること）の右に並ぶ
+  await expect(page.locator('.dashboard-side').getByRole('heading', { level: 2, name: '最近の更新' })).toBeVisible();
   const [workspacesBox, todayBox] = [await workspaces.boundingBox(), await todayPane.boundingBox()];
   expect(workspacesBox!.x).toBe(todayBox!.x);
   expect(workspacesBox!.width).toBe(todayBox!.width);
@@ -408,14 +408,14 @@ test('管理者が閉じたワークスペースにだけ所属していると�
   await expect(pane(page, '今日やること').getByRole('link', { name: 'バックログを開く' })).toHaveCount(0);
 });
 
-test('761px では左3、右2の2列の枠で右の列の幅が空き、760px では1列になる', async ({ page }) => {
+test('761px では左3、右2の2列で、760px では1列になる', async ({ page }) => {
   await mockWorkspaces(page);
   await mockOperation(page, today, { slug: 'aoba' }, { tasks: ALL_SECTIONS, sprint_goals: [] });
   await page.setViewportSize({ width: 761, height: 900 });
   await page.goto('/aoba');
 
-  // 右の列に面が無くても、左の列は全幅にならず、2列の枠の左3の幅に収まる
-  await expect(page.locator('.dashboard-side')).toHaveCount(0);
+  // 左の列は全幅にならず、2列の枠の左3の幅に収まる
+  await expect(page.locator('.dashboard-side')).toHaveCount(1);
   const dashboard = (await page.locator('.dashboard').boundingBox())!;
   const wide = (await page.locator('.dashboard-main').boundingBox())!;
   expect(wide.width / dashboard.width).toBeGreaterThan(0.5);
@@ -431,21 +431,14 @@ test('761px では左3、右2の2列の枠で右の列の幅が空き、760px �
     .toBeGreaterThan(0.99);
 });
 
-test('右の列に面を足すと、761px では左の列の右に並び、760px では下に縦に並ぶ', async ({ page }) => {
+test('最近の更新の面は、761px では左の列の右に並び、760px では下に縦に並ぶ', async ({ page }) => {
   await mockWorkspaces(page);
   await mockOperation(page, today, { slug: 'aoba' }, { tasks: [], sprint_goals: [] });
   await page.setViewportSize({ width: 761, height: 900 });
   await page.goto('/aoba');
-  // 面の差し込み口の確かめ。#1262 が足す右の列を、画面の部品と同じクラスで足す
-  await page.locator('.dashboard').evaluate((element) => {
-    const side = document.createElement('div');
-    side.className = 'dashboard-side';
-    side.innerHTML =
-      '<section class="pane"><div class="pane-head"><h2 class="pane-title">差し込み</h2></div></section>';
-    element.append(side);
-  });
   const main = page.locator('.dashboard-main');
   const side = page.locator('.dashboard-side');
+  await expect(side.getByRole('heading', { level: 2, name: '最近の更新' })).toBeVisible();
   const [mainWide, sideWide] = [(await main.boundingBox())!, (await side.boundingBox())!];
   expect(sideWide.x).toBeGreaterThan(mainWide.x + mainWide.width - 1);
   expect(mainWide.width).toBeGreaterThan(sideWide.width);
@@ -480,18 +473,23 @@ test('一般のメンバーが閉じたワークスペースにだけ所属し�
   await expect(todayPane.locator('.book-empty')).toContainText('ワークスペースに所属すると');
 });
 
-test('760px 以下では1列に縦に並び、ワークスペース、今日やることの順で、横にはみ出さない', async ({ page }) => {
+test('760px 以下では1列に縦に並び、ワークスペース、今日やること、最近の更新の順で、横にはみ出さない', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 760, height: 900 });
   await mockWorkspaces(page);
   await mockOperation(page, today, { slug: 'aoba' }, { tasks: ALL_SECTIONS, sprint_goals: [] });
   await page.goto('/aoba');
 
-  const [workspacesBox, todayBox] = [
+  const [workspacesBox, todayBox, activityBox] = [
     await pane(page, 'ワークスペース').boundingBox(),
     await pane(page, '今日やること').boundingBox(),
+    await pane(page, '最近の更新').boundingBox(),
   ];
   expect(workspacesBox!.x).toBe(todayBox!.x);
   expect(workspacesBox!.y + workspacesBox!.height).toBeLessThanOrEqual(todayBox!.y);
+  expect(activityBox!.x).toBe(todayBox!.x);
+  expect(todayBox!.y + todayBox!.height).toBeLessThanOrEqual(activityBox!.y);
   const overflow = await page.evaluate(() => ({
     scroll: document.documentElement.scrollWidth,
     inner: window.innerWidth,

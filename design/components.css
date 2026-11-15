@@ -848,6 +848,22 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
 @media (min-width: 761px) {
   .dashboard { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
 }
+/* 最近の更新（面の中の、日付ごとの区分と行）。日付の見出し（.activity-date、h3）の下に、押すと対象の詳細へ移る行（.activity-row）を並べる。
+   行は、題（.activity-title）、した人とした内容の文（.activity-text）、コメントなら本文の先頭（.activity-body。3 行まで）、
+   種類の札と、ワークスペースの名前と、時刻（.activity-meta）の順。区分の間は面の中の区分と同じ --space-5、区分の中の行は .pane-list と同じ罫で区切る */
+.activity { display: grid; gap: var(--space-5); min-width: 0; }
+.activity-day { display: grid; gap: var(--space-2); min-width: 0; }
+.activity-date { font-size: var(--text-sm); font-weight: 700; color: var(--color-muted); letter-spacing: var(--tracking-label); }
+.activity-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.activity-list > li + li { border-top: 1px solid var(--color-rule); }
+.activity-row { display: grid; gap: var(--space-half); padding: var(--space-2) var(--space-1); color: inherit; text-decoration: none; border-radius: var(--radius-1); min-width: 0; }
+.activity-title { font-size: var(--text-md); font-weight: 600; overflow-wrap: anywhere; }
+.activity-text { font-size: var(--text-sm); color: var(--color-muted); overflow-wrap: anywhere; }
+.activity-body { font-size: var(--text-sm); overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.activity-meta { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; font-size: var(--text-xs); color: var(--color-muted); }
+.activity-meta > time { font-family: var(--font-mono); }
+.activity-row:hover, .activity-row:focus-visible { background: var(--color-accent-soft); }
+@media (max-width: 760px), (pointer: coarse) { .activity-row { min-height: 44px; } }
 
 .level { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3); align-items: center; }
 /* 紋章は縁（要素の背景）、線（::before）、面（::after）の3層。形は全レベルで同じ六角で、テーマの飾りが層の色と太さだけを変える。

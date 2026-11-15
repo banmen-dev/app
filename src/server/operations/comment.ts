@@ -12,6 +12,7 @@ import {
 } from '../../shared/operations/task/index.ts';
 import {
   previousStatementChanged,
+  unindexed,
   type OrganizationDb,
   type OrganizationTables,
   type QueryCreator,
@@ -41,33 +42,36 @@ function liveTask(from: Pick<QueryCreator<OrganizationTables>, 'selectFrom'>, wo
 
 // コメントの行と、書いた人と消した人の今の名前。ワークスペースで絞り、タスクが削除されていれば読まない
 function commentRows(q: QueryCreator<OrganizationTables>, organizationId: string, workspaceId: string) {
-  return q
-    .selectFrom('comments')
-    .innerJoin('tasks', (join) =>
-      join
-        .onRef('tasks.id', '=', 'comments.task_id')
-        .on('tasks.workspace_id', '=', workspaceId)
-        .on('tasks.deleted_at', 'is', null),
-    )
-    .leftJoin('users as author', (join) =>
-      join.onRef('author.id', '=', 'comments.author_user_id').on('author.organization_id', '=', organizationId),
-    )
-    .leftJoin('users as deleter', (join) =>
-      join.onRef('deleter.id', '=', 'comments.deleted_by').on('deleter.organization_id', '=', organizationId),
-    )
-    .select([
-      'comments.id',
-      'comments.task_id',
-      'comments.author_user_id',
-      'comments.body_md',
-      'comments.created_at',
-      'comments.edited_at',
-      'comments.deleted_at',
-      'comments.deleted_by',
-      'author.name as author_name',
-      'deleter.name as deleter_name',
-    ])
-    .where('comments.workspace_id', '=', workspaceId);
+  return (
+    q
+      .selectFrom('comments')
+      .innerJoin('tasks', (join) =>
+        join
+          .onRef('tasks.id', '=', 'comments.task_id')
+          .on('tasks.workspace_id', '=', workspaceId)
+          .on('tasks.deleted_at', 'is', null),
+      )
+      .leftJoin('users as author', (join) =>
+        join.onRef('author.id', '=', 'comments.author_user_id').on('author.organization_id', '=', organizationId),
+      )
+      .leftJoin('users as deleter', (join) =>
+        join.onRef('deleter.id', '=', 'comments.deleted_by').on('deleter.organization_id', '=', organizationId),
+      )
+      .select([
+        'comments.id',
+        'comments.task_id',
+        'comments.author_user_id',
+        'comments.body_md',
+        'comments.created_at',
+        'comments.edited_at',
+        'comments.deleted_at',
+        'comments.deleted_by',
+        'author.name as author_name',
+        'deleter.name as deleter_name',
+      ])
+      // 索引には使わせない（unindexed）。タスクで引く文は comments_task を使い、ワークスペースの索引（comments_workspace_created）で全コメントを読まない
+      .where(unindexed('comments.workspace_id'), '=', workspaceId)
+  );
 }
 
 // 一覧の1回分を、新しい順に 51 件（続きがあるかを知るため1件多く）読む文。索引 comments_task（task_id, created_at, id）を後ろから読む。
@@ -87,6 +91,18 @@ export function commentPageStatement(db: OrganizationDb, workspaceId: string, ta
       .orderBy('comments.created_at', 'desc')
       .orderBy('comments.id', 'desc')
       .limit(COMMENT_PAGE_SIZE + 1),
+  );
+}
+
+// 消していないコメントの数を数える文（タブの「コメント N」）。comments_task で引き、ワークスペースの索引は使わせない
+export function commentCountStatement(db: OrganizationDb, workspaceId: string, taskId: string) {
+  return db.statement((q) =>
+    q
+      .selectFrom('comments')
+      .select((eb) => eb.fn.countAll<number>().as('count'))
+      .where('comments.task_id', '=', taskId)
+      .where(unindexed('comments.workspace_id'), '=', workspaceId)
+      .where('comments.deleted_at', 'is', null),
   );
 }
 
@@ -152,16 +168,7 @@ export const commentListOperation = implement(commentList, async ({ db, actor, w
       ),
     ),
     // 消していないコメントの数（タブの「コメント N」）
-    db.first(
-      db.statement((q) =>
-        q
-          .selectFrom('comments')
-          .select((eb) => eb.fn.countAll<number>().as('count'))
-          .where('comments.task_id', '=', input.task_id)
-          .where('comments.workspace_id', '=', workspaceId)
-          .where('comments.deleted_at', 'is', null),
-      ),
-    ),
+    db.first(commentCountStatement(db, workspaceId, input.task_id)),
     db.rows(commentPageStatement(db, workspaceId, input.task_id, before)),
   ]);
   if (task === undefined) throw new ApiError(404, 'not_found');
