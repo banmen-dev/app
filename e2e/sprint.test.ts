@@ -1083,7 +1083,7 @@ for (const [name, label] of [
     await expect(page).toHaveTitle(`${label}・受託開発チーム - Scrum Guild`);
     await page.getByRole('button', { name: '延長する', exact: true }).click();
     const extend = page.getByRole('dialog', { name: 'スプリントを延ばす' });
-    await expect(extend.getByText(name === null ? label : `${label}（10/13〜10/26）`, { exact: true })).toBeVisible();
+    await expect(extend.getByRole('paragraph').first()).toHaveText(name === null ? label : `${label}（10/13〜10/26）`);
   });
 }
 
