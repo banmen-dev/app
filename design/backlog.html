@@ -93,7 +93,6 @@ SQ.mount("backlog", () => {
   return `
     ${pageHead(D.workspaces.wa.name, t("backlog"), [
       ["", "board", `未完了の${t("task")}`, open.length],
-      ["is-warn", "pen", `${t("detail")} 未記入`, open.filter((x) => x.unfilled).length],
       ["is-warn", "", "未見積もり", open.filter((x) => x.pts == null).length],
       ["", "", `${t("sprint")}に入っていない`, open.filter((x) => !x.sprint).length],
     ], "", SQ.teamXp(), t("backlogSummary"))}

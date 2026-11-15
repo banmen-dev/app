@@ -69,7 +69,7 @@ test('バックログの先頭2行が390×844pxに入り、補助情報を各1�
     await expect(header.locator('.team-xp')).toBeHidden();
     await expect(page.locator('.breadcrumb')).toHaveCount(0);
     await expect(header.locator('.mobile-page-tools')).toHaveCount(1);
-    for (const label of ['詳細 未記入', '未見積もり', 'スプリントに入っていない']) {
+    for (const label of ['未見積もり', 'スプリントに入っていない']) {
       await expect(header.getByText(label, { exact: true })).toBeHidden();
     }
     await expect(page.getByText('上ほど優先', { exact: true })).toBeVisible();
@@ -103,12 +103,14 @@ test('バックログの先頭2行が390×844pxに入り、補助情報を各1�
     }
     for (const button of [summary, filters, help]) await expect(button).toHaveAttribute('aria-expanded', 'true');
     await expect(header.locator('.team-xp')).toBeVisible();
-    for (const label of ['詳細 未記入', '未見積もり', 'スプリントに入っていない']) {
+    for (const label of ['未見積もり', 'スプリントに入っていない']) {
       const item = header.locator('.tally > div').filter({ has: page.getByText(label, { exact: true }) });
       await expect(item.locator('dt')).toBeVisible();
       await expect(item.locator('dd')).toBeVisible();
       await expect(item.locator('dd')).toHaveText(/^\d+$/);
     }
+    // 開いた集計にも「詳細 未記入」は出さない（#1263）
+    await expect(header.getByText('詳細 未記入', { exact: true })).toHaveCount(0);
     await expect(bar.getByRole('combobox')).toHaveCount(4);
     await expect(page.locator('.order-help .action-note')).toBeVisible();
     expect(await findOverflowViolations(page), theme).toEqual([]);

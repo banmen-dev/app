@@ -121,8 +121,6 @@
   } = $props();
 
   const category = $derived(showCategory ? task.category : null);
-  // 完了した行（画面で完了にした直後を含む）には印を出さない
-  const unfilled = $derived(task.unfilled && !done);
 
   const movable = $derived(onMove !== undefined && !done);
   const dropRow = $derived<DropRow>({ kind: 'task', id: task.id });
@@ -581,7 +579,7 @@
       {...taskLinkAttrs()}>{task.title}</a
     >
     <!-- eslint-enable svelte/no-navigation-without-resolve -->
-    {#if workspaceName !== undefined || (attrs === undefined && (task.repository !== null || category !== null)) || task.sprint !== null || unfilled || metaChip !== undefined || metaText !== undefined}
+    {#if workspaceName !== undefined || (attrs === undefined && (task.repository !== null || category !== null)) || task.sprint !== null || metaChip !== undefined || metaText !== undefined}
       <span class="entry-meta">
         {#if workspaceName !== undefined}<span class="tag">{workspaceName}</span>{/if}
         {#if task.sprint !== null}
@@ -593,10 +591,6 @@
         {/if}
         {#if attrs === undefined && category !== null}
           <DefinitionChip kind="category" name={category.name} />
-        {/if}
-        <!-- 決まった欄が未記入（完了していないタスクだけ。見本の taskFlags の .chip.is-todo。色だけに頼らず、鉛筆の印と文字で示す） -->
-        {#if unfilled}
-          <span class="chip is-todo"><Icon name="pen" />{t('unfilledChip', { detail: t('detail') })}</span>
         {/if}
         {#if metaChip !== undefined}<span class="chip is-warn">{metaChip}</span>{/if}
         {#if metaText !== undefined}<span class="props-note">{metaText}</span>{/if}

@@ -179,7 +179,6 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 }
 .chip.over { color: var(--danger); background: var(--danger-soft); border-color: currentColor; }
 .chip.week { color: var(--warn); background: var(--warn-soft); border-color: currentColor; }
-.chip.todo { color: var(--warn); border-color: currentColor; border-style: dashed; }
 .chip.srcdone { color: var(--ok); background: var(--ok-soft); border-color: currentColor; }
 .pts {
   display: inline-grid; place-items: center; min-width: 26px; height: 22px; padding: 0 6px;
@@ -434,7 +433,6 @@ function tile(T) {
       <div class="chips">
         <span class="chip over">${icon("alert")}${w("due")}切れ 10/17</span>
         <span class="chip week">${icon("clock")}今週 10/24</span>
-        <span class="chip todo">${icon("pen")}${w("detail")} 未記入</span>
         <span class="chip srcdone">${icon("check")}取り込み元で完了</span>
         <span class="pts" title="${w("points")}">5</span>
       </div>
@@ -451,7 +449,7 @@ function tile(T) {
         </div>
         <div class="row">
           <div class="row-t"><b>管理画面にポイント履歴の一覧を出す</b>
-            <span class="row-meta"><span>${icon("flag")} ポイントの付与と失効を確かめられる</span><span class="chip todo">${icon("pen")}${w("detail")} 未記入</span></span></div>
+            <span class="row-meta"><span>${icon("flag")} ポイントの付与と失効を確かめられる</span></span></div>
           <div class="row-end"><span class="pts">5</span>${av("ハ", 28)}</div>
         </div>
         <div class="row done">

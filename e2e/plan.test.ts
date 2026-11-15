@@ -149,8 +149,8 @@ test('スクラムの言葉: ストーリーごとと1件ずつ入れ、外し�
   await search.fill('送信');
   await expect(list.getByRole('checkbox')).toHaveCount(2);
   await story.check();
-  // 新しいワークスペースの決まった欄は書かれていないので、選んだ件数に未記入の件数が添う
-  await expect(picker.locator('.pick-count')).toHaveText(/^1 件を選んでいます\s*（うち詳細 未記入 1 件）$/);
+  // 新しいワークスペースの決まった欄は書かれていないが、選んだ件数に未記入の件数は添えない（#1263）
+  await expect(picker.locator('.pick-count')).toHaveText('1 件を選んでいます');
   await search.fill('');
   await expect(send).toBeChecked();
   await expect(form).not.toBeChecked();
@@ -177,7 +177,7 @@ test('スクラムの言葉: ストーリーごとと1件ずつ入れ、外し�
   await picker.getByRole('searchbox', { name: 'タスクとストーリーのタイトルで絞る' }).fill('ヘルプ');
   await expect(list.getByRole('checkbox')).toHaveCount(1);
   await list.getByRole('checkbox', { name: /^ヘルプを書く/ }).check();
-  await expect(picker.locator('.pick-count')).toHaveText(/^3 件を選んでいます\s*（うち詳細 未記入 3 件）$/);
+  await expect(picker.locator('.pick-count')).toHaveText('3 件を選んでいます');
   await picker.getByRole('searchbox', { name: 'タスクとストーリーのタイトルで絞る' }).fill('');
   await picker.getByRole('button', { name: '3 件入れる' }).click();
   await expect(picker).toBeHidden();
@@ -213,14 +213,13 @@ test('スクラムの言葉: ストーリーごとと1件ずつ入れ、外し�
 
   // バックログの木の行にも、入っているスプリントの名前が出る
   await page.getByRole('link', { name: 'バックログ' }).click();
-  // 新しいワークスペースには決まった欄が1つあり、どのタスクも未記入なので、「詳細 未記入」の印も並ぶ
+  // 新しいワークスペースには決まった欄が1つあり、どのタスクも書かれていないが、「詳細 未記入」の印は出さない（#1263）
   await expect(page.locator('.entry', { hasText: '送信を確かめる' }).locator('.entry-meta .chip')).toHaveText([
     'スプリント：第1回',
-    '詳細 未記入',
   ]);
-  await expect(page.locator('.entry', { hasText: 'ヘルプを書く' }).locator('.entry-meta .chip')).toHaveText(
-    '詳細 未記入',
-  );
+  // スプリントから外した「ヘルプを書く」には、印が1つも無い
+  await expect(page.locator('.entry', { hasText: 'ヘルプを書く' })).toHaveCount(1);
+  await expect(page.locator('.entry', { hasText: 'ヘルプを書く' }).locator('.entry-meta .chip')).toHaveCount(0);
   expect(await collect()).toEqual([]);
 });
 
