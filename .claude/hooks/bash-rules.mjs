@@ -3136,6 +3136,11 @@ function removesRoot(word, dir, roots) {
 // find の起点。前に置くオプション（GNU の -H、-L、-P、-D の値、-O と、オプションの終わりの --。
 // BSD の -E、-X、-d、-s、-x（-Ex のようにまとめた形も）と、値を起点として取る -f path）の後ろから、- か ( か ! で始まる語の手前まで。無ければ .
 function findStartingPoints(args) {
+  return findStartingPointIndexes(args).map((i) => i === -1 ? '.' : args[i]);
+}
+
+// 起点の位置も残し、-exec の {} に置換の中身と shape を運ぶ。-1 は省略された起点 .。
+function findStartingPointIndexes(args) {
   const starts = [];
   let i = 0;
   for (; i < args.length; i++) {
@@ -3146,11 +3151,11 @@ function findStartingPoints(args) {
     }
     if (a === '-D') i++;
     else if (a === '-f') {
-      if (args[i + 1] !== undefined) starts.push(args[++i]);
+      if (args[i + 1] !== undefined) starts.push(++i);
     } else if (!/^-([HLPEXdsx]+|O\d*)$/.test(a)) break;
   }
-  for (; i < args.length && !/^[-(!),]/.test(args[i]); i++) starts.push(args[i]);
-  return starts.length > 0 ? starts : ['.'];
+  for (; i < args.length && !/^[-(!),]/.test(args[i]); i++) starts.push(i);
+  return starts.length > 0 ? starts : [-1];
 }
 
 const FIND_EXECS = new Set(['-exec', '-execdir', '-ok', '-okdir']);
@@ -3170,7 +3175,9 @@ const FIND_COMMANDS_REASON = [ASK, 'find の起点と -exec の入れ子が多�
 // 語の {a,b} の展開の数（{} に入る起点の展開も掛ける）の和の積
 const PROTECTED_SUBDIRS = ['.claude', '.claude/hooks', '.githooks', 'migrations', 'hooks'];
 function findCommands(args, holdsProtected) {
-  const starts = findStartingPoints(args);
+  const starts = findStartingPointIndexes(args).map((i) => i === -1
+    ? { target: '.', shape: '.', expands: false, substitutions: [] }
+    : { target: args[i], shape: shapeAt(args, i), expands: expandsAt(args, i), substitutions: substitutionsAt(args, i) });
   const execs = [];
   for (let i = 0; i < args.length; i++) {
     if (!FIND_EXECS.has(args[i])) continue;
@@ -3191,22 +3198,27 @@ function findCommands(args, holdsProtected) {
   const size = (word) => Math.min(expansionSize(word), MAX_BRACE_EXPANSION + 1);
   // -execdir 系は起点の展開ごとに守る先を含みうるかを見るので重い。重さの下限（展開ごとに作業場所 2 つ × 語の数）を先に見積もり、
   // 上限を超えるなら組み合わせを作らずに打ち切る
-  const leastWeight = execs.reduce((sum, { at, inDir }) => sum + (inDir ? starts.reduce((s, start) => s + size(start), 0) * 2 * at.length : 0), 0);
+  const leastWeight = execs.reduce((sum, { at, inDir }) => sum + (inDir ? starts.reduce((s, start) => s + size(start.target), 0) * 2 * at.length : 0), 0);
   if (leastWeight > MAX_FIND_WEIGHT) return { count, weight: Infinity, build: () => [], runsFound };
   // 掛け直す組み合わせ。{ at, placed, tos } の placed は {} に入れる語、tos は作業場所の候補
   const plans = execs.flatMap(({ at, inDir }) =>
     starts.flatMap((start) => {
       if (!inDir) return [{ at, placed: start, tos: [null] }];
-      if (expansionSize(start) > MAX_BRACE_EXPANSION) return [{ at, placed: start, tos: [], tooBig: true }];
-      return expandBraces(start).map((e) => ({
+      if (expansionSize(start.target) > MAX_BRACE_EXPANSION) return [{ at, placed: start, tos: [], tooBig: true }];
+      return expandBraces(start.target).map((e) => ({
         at,
-        placed: `./${path.posix.basename(e)}`,
+        placed: {
+          ...start,
+          target: `./${path.posix.basename(e)}`,
+          shape: `./${path.posix.basename(start.shape)}`,
+          expands: start.expands && (start.shape.includes(DYNAMIC) || expandsAt([e], 0)),
+        },
         tos: [path.posix.dirname(e), e, ...(holdsProtected(e) ? PROTECTED_SUBDIRS.map((c) => path.posix.join(e, c)) : [])],
       }));
     }),
   );
   const weightOf = ({ at, placed, tos, tooBig }) =>
-    tooBig ? Infinity : tos.length * at.reduce((w, k) => w + 1 + (args[k].includes('{}') ? size(args[k].replaceAll('{}', '')) * size(placed) : size(args[k])), 0);
+    tooBig ? Infinity : tos.length * at.reduce((w, k) => w + 1 + (args[k].includes('{}') ? size(args[k].replaceAll('{}', '')) * size(placed.target) : size(args[k])), 0);
   const weight = plans.reduce((sum, plan) => sum + weightOf(plan), 0);
   const build = () =>
     plans.flatMap(({ at, placed, tos }) => {

@@ -99,15 +99,18 @@ export function sliceWords(words, start, end) {
 
 // 1語の固定部分を置き換え、元の展開とコマンド置換の印を保つ（find -exec の {}）。
 export function replaceWord(words, i, from, to) {
+  const replacement = typeof to === 'string'
+    ? { target: to, shape: shapeAt([to], 0), expands: expandsAt([to], 0), substitutions: [] }
+    : to;
   const rest = words[i].replaceAll(from, '');
   // {} 自体の brace の印は置換後には残さない。残りの展開と、置き込む起点の展開は維持する。
-  const expands = (expandsAt(words, i) && (EXPANSION_CHARS.test(rest) || shapeAt(words, i).includes(DYNAMIC))) || expandsAt([to], 0);
+  const expands = (expandsAt(words, i) && (EXPANSION_CHARS.test(rest) || shapeAt(words, i).includes(DYNAMIC))) || replacement.expands;
   return withMarks(
-    [words[i].replaceAll(from, to)],
+    [words[i].replaceAll(from, replacement.target)],
     [expands],
-    [shapeAt(words, i).replaceAll(from, to)],
+    [shapeAt(words, i).replaceAll(from, replacement.shape)],
     redirectsOf(words),
-    [substitutionsAt(words, i)],
+    [[...substitutionsAt(words, i), ...replacement.substitutions]],
   );
 }
 
