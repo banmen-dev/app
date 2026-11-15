@@ -25,10 +25,11 @@ export function declarations(css: string): Declaration[] {
   // 開いた括弧と波括弧の位置。閉じ忘れたときに、どこで開いたかを示す
   const parens: number[] = [];
   const braces: number[] = [];
-  const unclosed = (what: string, index: number) => {
+  const position = (index: number) => {
     const before = css.slice(0, index).split('\n');
-    return new Error(`${what}が閉じていない（${before.length} 行 ${before.at(-1)!.length + 1} 列で開いた）`);
+    return `${before.length} 行 ${before.at(-1)!.length + 1} 列`;
   };
+  const unclosed = (what: string, index: number) => new Error(`${what}が閉じていない（${position(index)}で開いた）`);
   const flush = () => {
     const text = buffer.trim();
     buffer = '';
@@ -62,6 +63,8 @@ export function declarations(css: string): Declaration[] {
       parens.push(i);
       buffer += char;
     } else if (char === ')') {
+      // 余分な ) は、その後ろの括弧の数え方を狂わせるので、読み進めずに止める
+      if (parens.length === 0) throw new Error(`開いていない括弧を閉じている（${position(i)}）`);
       parens.pop();
       buffer += char;
     } else if (parens.length > 0) {
