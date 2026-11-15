@@ -330,8 +330,8 @@ async function createSprint(page: Page, startOn: string, name: string): Promise<
 }
 
 async function putIntoSprint(page: Page, sprint: string, titles: string[]): Promise<void> {
-  await page.getByRole('button', { name: `バックログから入れる: スプリント ${sprint}` }).click();
-  const picker = page.getByRole('dialog', { name: `スプリント ${sprint} に入れる` });
+  await page.getByRole('button', { name: `バックログから入れる: スプリント「${sprint}」` }).click();
+  const picker = page.getByRole('dialog', { name: `スプリント「${sprint}」に入れる` });
   const list = picker.getByRole('group', { name: '入れるタスク' });
   for (const title of titles) await list.getByRole('checkbox', { name: new RegExp(`^${title}`) }).check();
   await picker.getByRole('button', { name: `${titles.length} 件入れる` }).click();
@@ -374,12 +374,12 @@ test('スプリントの画面では、列は左から右、列の中は上か�
   await page.getByRole('link', { name: '計画' }).click();
   await createSprint(page, '2099-03-01', '第1回');
   await putIntoSprint(page, '第1回', ['盤 一', '盤 二', '盤 三']);
-  await page.getByRole('button', { name: '始める: スプリント 第1回' }).click();
+  await page.getByRole('button', { name: '始める: スプリント「第1回」' }).click();
   const start = page.getByRole('dialog', { name: 'スプリントを始める' });
   await start.getByRole('button', { name: '始める' }).click();
   await expect(start).toBeHidden();
   await page.getByRole('link', { name: 'スプリント', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'スプリント 第1回' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: '第1回' })).toBeVisible();
 
   // 盤 一 を右の列（作業中）へ移す。未着手は 盤 二、盤 三、作業中は 盤 一
   const columnTitles = (column: string) =>

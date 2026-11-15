@@ -93,8 +93,8 @@ test('計画でスプリントへ入れたタスクは、バックログに戻�
   await create.getByLabel('名前（任意）').fill('次の予定');
   await create.getByRole('button', { name: '作る', exact: true }).click();
   await expect(create).toBeHidden();
-  await page.getByRole('button', { name: 'バックログから入れる: スプリント 次の予定' }).click();
-  const picker = page.getByRole('dialog', { name: 'スプリント 次の予定 に入れる' });
+  await page.getByRole('button', { name: 'バックログから入れる: スプリント「次の予定」' }).click();
+  const picker = page.getByRole('dialog', { name: 'スプリント「次の予定」に入れる' });
   await picker.getByRole('checkbox', { name: /^次に取り組む作業/ }).check();
   await picker.getByRole('button', { name: '1 件入れる' }).click();
   await expect(picker).toBeHidden();

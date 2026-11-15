@@ -31,12 +31,12 @@ test('延長の予告どおり空きを吸収して後ろを押し出し、進�
   await createSprint(page, '2099-03-01', '第1回');
   await createSprint(page, '2099-03-16', '第2回');
   await createSprint(page, '2099-03-30', '第3回');
-  await page.getByRole('button', { name: '始める: スプリント 第1回' }).click();
+  await page.getByRole('button', { name: '始める: スプリント「第1回」' }).click();
   const start = page.getByRole('dialog', { name: 'スプリントを始める' });
   await start.getByRole('button', { name: '始める', exact: true }).click();
   await expect(start).toBeHidden();
   await page.getByRole('link', { name: 'スプリント', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'スプリント 第1回' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: '第1回' })).toBeVisible();
   await page.getByRole('button', { name: '延長する', exact: true }).click();
   const extend = page.getByRole('dialog', { name: 'スプリントを延ばす' });
   await extend.getByLabel('延ばす日数').fill('3');
@@ -58,7 +58,7 @@ test('延長の予告どおり空きを吸収して後ろを押し出し、進�
   await edit.getByRole('button', { name: '保存する', exact: true }).click();
   await saved;
   await expect(edit).toBeHidden();
-  await expect(page.getByRole('heading', { level: 1, name: 'スプリント 延長した第1回' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: '延長した第1回' })).toBeVisible();
   await expect(page.locator('.notice-title')).toHaveText('運用の手順を確かめる');
 
   await page.getByRole('link', { name: '計画' }).click();
