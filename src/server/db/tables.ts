@@ -19,6 +19,7 @@ export const commonTableColumns = {
     account_id: text,
     status: text,
     invited_by: text,
+    is_bootstrap: integerDefault,
     created_at: text,
     updated_at: text,
   },

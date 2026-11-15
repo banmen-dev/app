@@ -59,6 +59,53 @@
 
   // ---- 言葉の辞書（各キーはスクラムの言葉の文字列1つ） ----
   const DICT = {
+    loadFailedText: 'しばらくしてから、もう一度試してください。',
+    loadFailedTitle: '読み込めませんでした',
+    organizationList: '組織の一覧へ',
+  billingTitle: '請求管理者',
+  billingRemoveFor: '{name}の請求管理者を解除する',
+  billingAcceptFor: '{name}の請求管理者の指名を承諾する',
+  billingDeclineFor: '{name}の請求管理者の指名を辞退する',
+  billingInvitationEmpty: '届いた請求の指名はありません。',
+  billingNominationHint: '指名元の権限が解除された指名や、最初の担当者が承諾した後に残った初回指名は、同じアカウントIDで指名し直してください。',
+  billingHistoryEmpty: '担当者の変更履歴はまだありません。',
+  billingRateLimited: '操作が続いたため、しばらく待ってからもう一度試してください。',
+
+  billingLead: '業務利用とは別に、請求の担当者を管理します。ベータ中の契約変更・支払いは運用者に連絡してください。',
+  billingAccountId: 'あなたのアカウントID',
+  billingAccountHint: '指名する人にこのIDを伝えてください。指名は本人が承諾するまで有効になりません。',
+  billingInvitations: '届いた請求の指名',
+  billingOrganizations: '担当する組織',
+  billingEmpty: '担当する組織はまだありません。',
+  billingAccept: '承諾する',
+  billingDecline: '辞退する',
+  billingInvite: '指名する',
+  billingTargetAccount: '指名する人のアカウントID',
+  billingAdministrators: '{name}の請求管理者',
+  billingRemove: '解除する',
+  billingRemoveTitle: '請求管理者の指名を解除しますか',
+  billingRemoveText: '{name}の請求管理権限または承諾待ちの指名を解除します。利用権限や契約は残ります。',
+  billingLastHint: '契約中は最後の承諾済み担当者を解除できません。新しい担当者の承諾を待ってから解除してください。',
+  billingPending: '承諾待ち',
+  billingActive: '承諾済み',
+  billingFailed:
+    '操作できませんでした。権限や指名の状態、アカウントIDを確認してください。契約中の最後の担当者は解除できません。',
+  billingRefreshFailed: '変更は保存しましたが、一覧を更新できませんでした。画面を読み直してください。',
+  billingSaved: '変更を保存しました。',
+  billingBusy: '保存しています',
+  billingHistory: '担当者の変更履歴（最新50件）',
+  billingEventInvited: '指名',
+  billingEventAccepted: '承諾',
+  billingEventDeclined: '辞退',
+  billingEventRemoved: '解除',
+  billingBootstrap: '最初の請求管理者を指名',
+  billingBootstrapHint:
+    '運用者だけの操作です。承諾済みの請求管理者がいない組織に、利用する組織管理者とは別に指名します。',
+  billingSlug: '組織のslug',
+  billingBack: '担当する組織の一覧へ',
+  billingTarget: '対象アカウント',
+  billingActor: '操作したアカウント',
+
   delegateeEmptyText: 'タスクの引き出しで新しい名前を入力すると、名簿に追加できます。',
   delegateeAssignFailed: '依頼先を変更できませんでした。タスクの状態や名簿を確認し、もう一度選んでください。',
   delegateeAssignUnavailable: '依頼先またはタスクの状態が変わった可能性があります。名簿とタスクを確認して、もう一度試してください。',
@@ -3543,11 +3590,12 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   // 画面の見本を組み立てる。render は中身の HTML を返す関数。
   // opts.operator なら運用者の画面の枠にする。本番の /operator と同じく、左のメニューと上の帯を置かず、
   // 幅の広い紙（.gate.is-wide）1枚に組む。render は紙の中身を返す
+  // opts.gate は請求などの組織の枠の外の画面。render が返す複数の紙を .gate-stack に入れる
   function mount(current, render, opts = {}) {
-    page = { current, render, operator: !!opts.operator };
+    page = { current, render, operator: !!opts.operator || !!opts.gate };
     if (page.operator) {
       document.getElementById("app").innerHTML = `
-    <main class="gate is-wide"><div class="gate-stack"><section class="gate-sheet" id="content"></section></div></main>
+    ${opts.gate ? '<main class="gate"><div class="gate-stack" id="content"></div></main>' : '<main class="gate is-wide"><div class="gate-stack"><section class="gate-sheet" id="content"></section></div></main>'}
     <div class="dialog" id="dialog" hidden></div>
     <div class="toasts" id="toasts" aria-live="polite"></div>`;
       applyTheme();

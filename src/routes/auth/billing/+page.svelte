@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
+  import { afterNavigate, invalidateAll } from '$app/navigation';
+  import { tick } from 'svelte';
+  import { focusIsFree } from '../../../lib/focus-heading.ts';
   import { resolve } from '$app/paths';
   import Gate from '../../../lib/components/Gate.svelte';
   import GateSheet from '../../../lib/components/GateSheet.svelte';
@@ -28,6 +30,18 @@
   let actionArea = $state('');
   let removeName = $state('');
   let confirmRemove: ReturnType<typeof ConfirmDialog>;
+  let navigationVersion = 0;
+  afterNavigate(({ from, to }) => {
+    if (!from || !to || from.url.href === to.url.href) return;
+    navigationVersion++;
+    message = null;
+    failed = false;
+    actionArea = '';
+    accountId = '';
+    bootstrapSlug = '';
+    bootstrapAccount = '';
+  });
+  const personLabel = (name: string, id: string) => (name === id ? id : `${name}（${id}）`);
   const eventKeys = {
     invited: 'billingEventInvited',
     accepted: 'billingEventAccepted',
@@ -35,31 +49,46 @@
     removed: 'billingEventRemoved',
   } as const;
 
-  async function save(action: () => Promise<ApiResult<unknown>>, area: string) {
+  async function save(action: () => Promise<ApiResult<unknown>>, area: string, restoreFocus = false) {
     if (busy) return;
+    const version = navigationVersion;
     busy = true;
     actionArea = area;
     message = null;
+    let restore = false;
     try {
       const result = await action();
+      if (version !== navigationVersion) return;
       failed = !result.ok;
       if (!result.ok) {
-        message = 'billingFailed';
+        message = result.error?.code === 'rate_limited' ? 'billingRateLimited' : 'billingFailed';
         return;
       }
       message = 'billingSaved';
+      if (area === 'invite') accountId = '';
+      if (area === 'bootstrap') {
+        bootstrapSlug = '';
+        bootstrapAccount = '';
+      }
       try {
         await invalidateAll();
+        if (version !== navigationVersion) return;
         if (data.failed) {
           failed = true;
           message = 'billingRefreshFailed';
-        }
+        } else restore = restoreFocus;
       } catch {
-        failed = true;
-        message = 'billingRefreshFailed';
+        if (version === navigationVersion) {
+          failed = true;
+          message = 'billingRefreshFailed';
+        }
       }
     } finally {
       busy = false;
+      if (restore && version === navigationVersion) {
+        await tick();
+        if (focusIsFree()) document.getElementById(`billing-status-${area}`)?.focus();
+      }
     }
   }
 
@@ -67,13 +96,13 @@
     if (busy) return;
     removeName = name;
     if (await confirmRemove.ask(trigger))
-      await save(() => callOperation(billingAdminRemove, { slug, administrator_id: id }), `remove-${id}`);
+      await save(() => callOperation(billingAdminRemove, { slug, administrator_id: id }), 'administrators', true);
   }
 </script>
 
 {#snippet operationStatus(area: string)}
-  <p id={`billing-status-${area}`} class:field-error={failed && actionArea === area} role="status">
-    {actionArea === area && (failed || busy) ? t(busy ? 'billingBusy' : (message ?? 'billingFailed')) : ''}
+  <p id={`billing-status-${area}`} class:field-error={failed && actionArea === area} role="status" tabindex="-1">
+    {actionArea === area ? (busy ? t('billingBusy') : message ? t(message) : '') : ''}
   </p>
 {/snippet}
 
@@ -103,28 +132,26 @@
       <div class="form-actions">
         <a class="btn is-sm" href={resolve('/')}>{t('organizationList')}</a><LogoutButton />
       </div>
-      <p class:field-error={failed} role="status" aria-live="polite">
-        {!failed && message ? t(message) : ''}
-      </p>
     </GateSheet>
     {#if data.selected}
       {@const selected = data.selected}
       <GateSheet title={t('billingAdministrators', { name: selected.name })}>
         <div class="form-actions"><a class="btn" href={resolve('/auth/billing')}>{t('billingBack')}</a></div>
         <p class="field-hint">{t('billingLastHint')}</p>
+        <p class="field-hint">{t('billingNominationHint')}</p>
         <div class="choice-list">
           {#each selected.administrators as person (person.id)}
             <div class="choice is-static">
               <div>
                 <b>{person.name}</b><span>{person.status === 'active' ? t('billingActive') : t('billingPending')}</span
                 ><span class="field-hint">{person.account_id}</span>
-                {@render operationStatus(`remove-${person.id}`)}
               </div>
               <div class="form-actions">
                 <button
                   class="btn"
                   type="button"
                   aria-disabled={busy}
+                  aria-label={t('billingRemoveFor', { name: personLabel(person.name, person.account_id) })}
                   onclick={(event) => remove(selected.slug, person.id, person.name, event.currentTarget)}
                   >{t('billingRemove')}</button
                 >
@@ -132,6 +159,7 @@
             </div>
           {/each}
         </div>
+        {@render operationStatus('administrators')}
         <form
           onsubmit={(event) => {
             event.preventDefault();
@@ -158,50 +186,54 @@
         </form>
       </GateSheet>
       <GateSheet title={t('billingHistory')}>
+        {#if selected.events.length === 0}<p>{t('billingHistoryEmpty')}</p>{/if}
         {#each selected.events as entry (entry.id)}
           <div class="choice is-static">
             <div>
               <b>{t(eventKeys[entry.action])}</b><span class="mono">{formatDateTime(entry.created_at)}</span><span
-                >{t('billingTarget')}: {entry.target_account_id}</span
-              ><span>{t('billingActor')}: {entry.actor_account_id}</span>
+                >{t('billingTarget')}: {entry.target_name ?? entry.target_account_id}</span
+              ><span>{t('billingActor')}: {entry.actor_name ?? entry.actor_account_id}</span>
             </div>
           </div>
         {/each}
       </GateSheet>
     {:else}
-      {#if data.invitations.length > 0}
-        <GateSheet title={t('billingInvitations')}>
-          {#each data.invitations as invitation (invitation.id)}
-            <div class="choice is-static">
-              <div>
-                <b>{invitation.name}</b>
-                {@render operationStatus(`invitation-${invitation.id}`)}
-              </div>
-              <div class="form-actions">
-                <button
-                  class="btn is-primary"
-                  type="button"
-                  aria-disabled={busy}
-                  onclick={() =>
-                    save(
-                      () => callOperation(billingInvitationRespond, { invitation_id: invitation.id, accept: true }),
-                      `invitation-${invitation.id}`,
-                    )}>{t('billingAccept')}</button
-                ><button
-                  class="btn"
-                  type="button"
-                  aria-disabled={busy}
-                  onclick={() =>
-                    save(
-                      () => callOperation(billingInvitationRespond, { invitation_id: invitation.id, accept: false }),
-                      `invitation-${invitation.id}`,
-                    )}>{t('billingDecline')}</button
-                >
-              </div>
+      <GateSheet title={t('billingInvitations')}>
+        {#if data.invitations.length === 0}<p>{t('billingInvitationEmpty')}</p>{/if}
+        {#each data.invitations as invitation (invitation.id)}
+          <div class="choice is-static">
+            <div>
+              <b>{invitation.name}</b>
             </div>
-          {/each}
-        </GateSheet>
-      {/if}
+            <div class="form-actions">
+              <button
+                class="btn is-primary"
+                type="button"
+                aria-disabled={busy}
+                aria-label={t('billingAcceptFor', { name: `${invitation.name}（${invitation.slug}）` })}
+                onclick={() =>
+                  save(
+                    () => callOperation(billingInvitationRespond, { invitation_id: invitation.id, accept: true }),
+                    'invitations',
+                    true,
+                  )}>{t('billingAccept')}</button
+              ><button
+                class="btn"
+                type="button"
+                aria-disabled={busy}
+                aria-label={t('billingDeclineFor', { name: `${invitation.name}（${invitation.slug}）` })}
+                onclick={() =>
+                  save(
+                    () => callOperation(billingInvitationRespond, { invitation_id: invitation.id, accept: false }),
+                    'invitations',
+                    true,
+                  )}>{t('billingDecline')}</button
+              >
+            </div>
+          </div>
+        {/each}
+        {@render operationStatus('invitations')}
+      </GateSheet>
       <GateSheet title={t('billingOrganizations')}>
         {#if data.organizations.length === 0}<p>{t('billingEmpty')}</p>{/if}
         <div class="choice-list">

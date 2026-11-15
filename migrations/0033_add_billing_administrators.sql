@@ -7,6 +7,7 @@ CREATE TABLE billing_administrators (
   account_id TEXT NOT NULL REFERENCES accounts (id),
   status TEXT NOT NULL CHECK (status IN ('pending', 'active', 'declined', 'revoked')),
   invited_by TEXT NOT NULL REFERENCES accounts (id),
+  is_bootstrap INTEGER NOT NULL DEFAULT 0 CHECK (is_bootstrap IN (0, 1)),
   created_at TEXT NOT NULL CHECK (length(created_at) = 24 AND created_at GLOB '????-??-??T??:??:??.???Z'),
   updated_at TEXT NOT NULL CHECK (length(updated_at) = 24 AND updated_at GLOB '????-??-??T??:??:??.???Z'),
   UNIQUE (organization_id, account_id)

@@ -21,7 +21,7 @@ export const myBillingOrganizationsOperation = implement(
   async ({ db, accountId, account }) => ({
     account_id: accountId,
     operator: await account.isOperator(),
-    ...(await listBillingOrganizations(db, accountId)),
+    ...(await listBillingOrganizations(db, accountId, now())),
   }),
 );
 export const billingAdminListOperation = implement(billingAdminList, async ({ db, accountId, input }) =>

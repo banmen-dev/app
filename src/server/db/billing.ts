@@ -13,9 +13,26 @@ const activeActor = (organizationId: string, accountId: string) => sql<boolean>`
 const bootstrapAllowed = (organizationId: string) => sql<boolean>`NOT EXISTS (
   SELECT 1 FROM billing_administrators AS actor WHERE actor.organization_id = ${organizationId} AND actor.status = 'active'
 )`;
-const writableOrganization = (organizationId: string, at: Date) => sql<boolean>`EXISTS (
+const writableOrganization = (organizationId: string | ReturnType<typeof sql.ref>, at: Date) => sql<boolean>`EXISTS (
   SELECT 1 FROM organizations WHERE id = ${organizationId} AND (suspended_at IS NULL OR ${purgeNotDue(at.toISOString().slice(0, 10))})
 )`;
+
+// 指名元が現在も権限を持つことを、読むときと書くときの両方で検査する。
+// 運用者の初回指名は、誰かが承諾した時点で残りも失効する。
+function validInvitation(table: 'b' | 'billing_administrators') {
+  const organization = sql.ref(`${table}.organization_id`);
+  const invitedBy = sql.ref(`${table}.invited_by`);
+  const bootstrap = sql.ref(`${table}.is_bootstrap`);
+  return sql<boolean>`(
+    (${bootstrap} = 0 AND EXISTS (
+      SELECT 1 FROM billing_administrators AS inviter
+      WHERE inviter.organization_id = ${organization} AND inviter.account_id = ${invitedBy} AND inviter.status = 'active'
+    )) OR (${bootstrap} = 1 AND NOT EXISTS (
+      SELECT 1 FROM billing_administrators AS incumbent
+      WHERE incumbent.organization_id = ${organization} AND incumbent.status = 'active'
+    ))
+  )`;
+}
 
 async function organizationFor(db: CommonDb, slug: string, accountId: string, operator = false) {
   const row = await db.first(
@@ -72,7 +89,7 @@ function eventStatement(
   );
 }
 
-export async function listBillingOrganizations(db: CommonDb, accountId: string) {
+export async function listBillingOrganizations(db: CommonDb, accountId: string, at: Date) {
   const rows = await db.rows(
     db.statement((q) =>
       q
@@ -81,6 +98,12 @@ export async function listBillingOrganizations(db: CommonDb, accountId: string) 
         .select(['b.id', 'b.status', 'o.slug', 'o.name'])
         .where('b.account_id', '=', accountId)
         .where('b.status', 'in', ['active', 'pending'])
+        .where((eb) =>
+          eb.or([
+            eb('b.status', '=', 'active'),
+            eb.and([validInvitation('b'), writableOrganization(sql.ref('b.organization_id'), at)]),
+          ]),
+        )
         .orderBy('o.name')
         .orderBy('o.id'),
     ),
@@ -112,12 +135,22 @@ export async function listBillingAdministrators(db: CommonDb, slug: string, acco
     ),
     db.statement((q) =>
       q
-        .selectFrom('billing_admin_events')
-        .select(['id', 'actor_account_id', 'target_account_id', 'action', 'created_at'])
-        .where('organization_id', '=', organization.id)
+        .selectFrom('billing_admin_events as e')
+        .leftJoin('account_profiles as actor_profile', 'actor_profile.account_id', 'e.actor_account_id')
+        .leftJoin('account_profiles as target_profile', 'target_profile.account_id', 'e.target_account_id')
+        .select([
+          'e.id',
+          'e.actor_account_id',
+          'e.target_account_id',
+          'e.action',
+          'e.created_at',
+          sql<string>`coalesce(nullif(actor_profile.name, ''), e.actor_account_id)`.as('actor_name'),
+          sql<string>`coalesce(nullif(target_profile.name, ''), e.target_account_id)`.as('target_name'),
+        ])
+        .where('e.organization_id', '=', organization.id)
         .where(activeActor(organization.id, accountId))
-        .orderBy('created_at', 'desc')
-        .orderBy('id', 'desc')
+        .orderBy('e.created_at', 'desc')
+        .orderBy('e.id', 'desc')
         .limit(50),
     ),
   ]);
@@ -162,19 +195,29 @@ export async function inviteBillingAdministrator(
     db.statement((q) =>
       q
         .selectFrom('billing_administrators')
-        .select(['id', 'status'])
+        .select(['id', 'status', validInvitation('billing_administrators').as('valid_invitation')])
         .where('organization_id', '=', organization.id)
         .where('account_id', '=', input.account_id),
     ),
   );
-  if (current?.status === 'active' || current?.status === 'pending') return { id: current.id };
+  if (current?.status === 'active' || (current?.status === 'pending' && Number(current.valid_invitation) === 1))
+    return { id: current.id };
   const id = uuidv7(at.getTime());
   const authorized = operator ? bootstrapAllowed(organization.id) : activeActor(organization.id, actorId);
   const [result] = await db.batch([
     db.statement((q) =>
       q
         .insertInto('billing_administrators')
-        .columns(['id', 'organization_id', 'account_id', 'status', 'invited_by', 'created_at', 'updated_at'])
+        .columns([
+          'id',
+          'organization_id',
+          'account_id',
+          'status',
+          'invited_by',
+          'is_bootstrap',
+          'created_at',
+          'updated_at',
+        ])
         .expression(
           q
             .selectFrom('accounts')
@@ -184,6 +227,7 @@ export async function inviteBillingAdministrator(
               'accounts.id as account_id',
               eb.val('pending').as('status'),
               eb.val(actorId).as('invited_by'),
+              eb.val(operator ? 1 : 0).as('is_bootstrap'),
               eb.val(at.toISOString()).as('created_at'),
               eb.val(at.toISOString()).as('updated_at'),
             ])
@@ -198,10 +242,19 @@ export async function inviteBillingAdministrator(
               id,
               status: 'pending',
               invited_by: actorId,
+              is_bootstrap: operator ? 1 : 0,
               created_at: at.toISOString(),
               updated_at: at.toISOString(),
             })
-            .where('billing_administrators.status', 'in', ['declined', 'revoked'])
+            .where((eb) =>
+              eb.or([
+                eb('billing_administrators.status', 'in', ['declined', 'revoked']),
+                eb.and([
+                  eb('billing_administrators.status', '=', 'pending'),
+                  eb.not(validInvitation('billing_administrators')),
+                ]),
+              ]),
+            )
             .where(authorized)
             .where(writableOrganization(organization.id, at)),
         ),
@@ -227,12 +280,15 @@ export async function respondBillingInvitation(
         .select([
           'b.organization_id',
           'b.status',
+          'b.is_bootstrap',
           'organizations.suspended_at',
           'organizations.purge_on',
           purgeDueInDatabase().as('due_in_database'),
         ])
         .where('b.id', '=', invitationId)
-        .where('b.account_id', '=', accountId),
+        .where('b.account_id', '=', accountId)
+        .where((eb) => eb.or([eb('b.status', '!=', 'pending'), validInvitation('b')]))
+        .where((eb) => eb.or([eb('b.status', '!=', 'revoked'), eb('b.is_bootstrap', '=', 0)])),
     ),
   );
   if (!row) throw new ApiError(404, 'not_found');
@@ -247,9 +303,27 @@ export async function respondBillingInvitation(
         .where('account_id', '=', accountId)
         .where('organization_id', '=', row.organization_id)
         .where('status', '=', 'pending')
+        .where(validInvitation('billing_administrators'))
         .where(writableOrganization(row.organization_id, at)),
     ),
     eventStatement(db, row.organization_id, accountId, accountId, accept ? 'accepted' : 'declined', at),
+    // 初回承諾の自動的な結果として、残りの初回指名を恒久的に失効させる。
+    // 直前の承諾イベントが書けた場合だけ変更するので、競合した要求は何も失効させない。
+    // 未承諾の指名にはまだ権限が無いため、別の権限解除イベントは作らない。
+    ...(accept && row.is_bootstrap === 1
+      ? [
+          db.statement((q) =>
+            q
+              .updateTable('billing_administrators')
+              .set({ status: 'revoked', updated_at: at.toISOString() })
+              .where('organization_id', '=', row.organization_id)
+              .where('id', '!=', invitationId)
+              .where('status', '=', 'pending')
+              .where('is_bootstrap', '=', 1)
+              .where(previousStatementChanged),
+          ),
+        ]
+      : []),
   ]);
   if (result.changes === 0) throw new ApiError(409, 'conflict');
 }

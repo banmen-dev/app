@@ -2044,3 +2044,35 @@ describe('0033 請求管理者のスキーマ', () => {
     await expect(insert('accepted', '2026-11-15')).rejects.toThrow(/CHECK/);
   });
 });
+
+describe('請求管理者の初回指名の区分', () => {
+  test('初回指名の印は省略時0で、0と1以外やNULLを受け付けない', async () => {
+    const org = await organization();
+    const account = id();
+    await run('INSERT INTO accounts (id, created_at, updated_at) VALUES (?, ?, ?)', account, AT, AT);
+    const rowId = id();
+    await run(
+      'INSERT INTO billing_administrators (id, organization_id, account_id, status, invited_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      rowId,
+      org,
+      account,
+      'pending',
+      account,
+      AT,
+      AT,
+    );
+    const read = () =>
+      env.DB.prepare('SELECT is_bootstrap FROM billing_administrators WHERE id = ?')
+        .bind(rowId)
+        .first<{ is_bootstrap: number }>();
+    expect((await read())?.is_bootstrap).toBe(0);
+    await run('UPDATE billing_administrators SET is_bootstrap = 1 WHERE id = ?', rowId);
+    expect((await read())?.is_bootstrap).toBe(1);
+    await expect(run('UPDATE billing_administrators SET is_bootstrap = 2 WHERE id = ?', rowId)).rejects.toThrow(
+      /CHECK/,
+    );
+    await expect(run('UPDATE billing_administrators SET is_bootstrap = NULL WHERE id = ?', rowId)).rejects.toThrow(
+      /NOT NULL/,
+    );
+  });
+});

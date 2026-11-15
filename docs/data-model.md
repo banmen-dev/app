@@ -318,9 +318,9 @@
 
 どちらも共通のDBに置く。組織内のusers・membershipsと結合せず、請求担当の追加や承諾でその行を作らない。請求専用の人は既存の人数集計に入らず、兼任は既存のusers/所属だけで数える。
 
-`billing_administrators` は `id`（UUIDv7、PK）、`organization_id`（organizationsへのFK）、`account_id`（accountsへのFK）、`status`（pending/active/declined/revokedのCHECK）、`invited_by`（指名したaccountsへのFK）、`created_at`、`updated_at`を持ち、組織とアカウントの組を一意にする。本人が承諾したactiveだけが請求担当で、pendingには管理権限がない。辞退・解除した行を再指名するとidを新しくし、古い指名への応答は無効にする。
+`billing_administrators` は `id`（UUIDv7、PK）、`organization_id`（organizationsへのFK）、`account_id`（accountsへのFK）、`status`（pending/active/declined/revokedのCHECK）、`is_bootstrap`（INTEGER NOT NULL、既定0、0/1のCHECK）、`invited_by`（指名したaccountsへのFK）、`created_at`、`updated_at`を持ち、組織とアカウントの組を一意にする。本人が承諾したactiveだけが請求担当で、pendingには管理権限がない。`is_bootstrap = 1` は運用者の初回指名で、承諾済み担当者がまだいない間だけ有効。通常の指名（0）は指名元が現在もactiveの間だけ有効。運用者自身が担当者を兼任しても、残った初回指名を通常の指名として扱わない。最初の承諾のUPDATEとaccepted監査に続け、同じbatchで残りの初回pendingをrevokedにして失効を確定する。未契約組織で後に全員が解除されても旧指名は復活しない。未承諾にはまだ権限がないため、この自動失効はacceptedイベントの結果とし、removedイベントは追加しない。承諾が失敗した場合は自動失効も行わない。辞退・解除・指名元の失効・初回指名の失効した行を現在の担当者が再指名するとidを新しくし、古い指名への応答は無効にする。失効済みまたは消去予定日を過ぎたpendingは本人の指名一覧に出さない。失効済みpendingへの応答は404、読んだ後に失効した競合は409。承諾済みidへの再送は409。
 
-`billing_admin_events` は `id`（UUIDv7、PK）、`organization_id`（organizationsへのFK）、`actor_account_id`（操作者のaccountsへのFK）、`target_account_id`（対象者のaccountsへのFK）、`action`（invited/accepted/declined/removedのCHECK）、`created_at`を持つ。権限の変更直後に同じ共通DBのbatchで、直前の文が変更したときだけ挿入する。再送・拒否で架空の監査を足さない。組織ごとに日時/idの降順で最新50件を返す。
+`billing_admin_events` は `id`（UUIDv7、PK）、`organization_id`（organizationsへのFK）、`actor_account_id`（操作者のaccountsへのFK）、`target_account_id`（対象者のaccountsへのFK）、`action`（invited/accepted/declined/removedのCHECK）、`created_at`を持つ。権限の変更直後に同じ共通DBのbatchで、直前の文が変更したときだけ挿入する。再送・拒否で架空の監査を足さない。組織ごとに日時/idの降順で最新50件を返す。50件より前もDBから削除しない。操作者・対象者のプロフィール名を添え、未設定ならアカウントIDで返す。ログインの手段の個人情報は引かない。
 
 一覧は、1担当者が管理する組織は数十件まで、1組織の請求担当者は数名〜数十名の想定で、現在は全件を返す。担当者の一覧を一度に比較して交代先を確認するため、人数の途中で切らない。担当組織は `account_id,status` の索引、担当者は一意索引の先頭の `organization_id` で絞り、他組織の全件を読まない。座席上限では件数を抑えないので、いずれかが千件を超えたとき、または一覧の応答・転送量・描画が遅くなったときにカーソルページングへ改める。監査は当初から最新50件に絞る。
 

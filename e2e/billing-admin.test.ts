@@ -54,25 +54,40 @@ test('請求専用画面で本人承諾・指名・解除・履歴と失敗を�
   await page.goto('/auth/billing');
   await expect(page.getByLabel(t('billingAccountId'))).toHaveValue(accountId);
   await expect(page.getByText(t('billingEmpty'))).toBeVisible();
-  await page.getByRole('button', { name: t('billingAccept'), exact: true }).click();
+  await page
+    .getByRole('button', {
+      name: t('billingAcceptFor', { name: `${organization.name}（${organization.slug}）` }),
+      exact: true,
+    })
+    .click();
+  await expect(page.locator('#billing-status-invitations')).toHaveText(t('billingSaved'));
+  await expect(page.locator('#billing-status-invitations')).toBeFocused();
   await page.getByRole('link', { name: organization.name, exact: true }).click();
   await expect(
     page.getByRole('heading', { name: t('billingAdministrators', { name: organization.name }) }),
   ).toBeVisible();
+  await expect(page.getByText(t('billingSaved'), { exact: true })).toHaveCount(0);
   await page.getByLabel(t('billingTargetAccount')).fill(nextId);
   await expect(page.getByLabel(t('billingTargetAccount'))).toHaveAttribute('aria-describedby', 'billing-status-invite');
   await page.getByRole('button', { name: t('billingInvite'), exact: true }).click();
   const row = page.locator('.choice').filter({ hasText: '若葉 凪' });
   await expect(row).toContainText(t('billingPending'));
+  await expect(page.getByLabel(t('billingTargetAccount'))).toHaveValue('');
+  await expect(page.locator('#billing-status-invite')).toHaveText(t('billingSaved'));
   await row.getByRole('button', { name: t('billingRemove') }).click();
   await page
     .getByRole('dialog')
     .getByRole('button', { name: t('billingRemove'), exact: true })
     .click();
   await expect(row).toHaveCount(0);
+  await expect(page.locator('#billing-status-administrators')).toHaveText(t('billingSaved'));
+  await expect(page.locator('#billing-status-administrators')).toBeFocused();
   await expect(page.getByRole('heading', { name: t('billingHistory') })).toBeVisible();
+  await expect(page.getByText(t('billingHistoryEmpty'), { exact: true })).toBeVisible();
   await failOperation(page, billingAdminRemove, 409, 'conflict');
-  await page.getByRole('button', { name: t('billingRemove'), exact: true }).click();
+  await page
+    .getByRole('button', { name: t('billingRemoveFor', { name: `星野 澪（${accountId}）` }), exact: true })
+    .click();
   await page
     .getByRole('dialog')
     .getByRole('button', { name: t('billingRemove'), exact: true })
@@ -105,6 +120,9 @@ test('運用者の初回指名フォームは組織とアカウントを指定�
   await page.getByRole('button', { name: t('billingInvite'), exact: true }).click();
   await expect(page.getByText(t('billingSaved'), { exact: true })).toBeVisible();
   expect(calls).toBe(1);
+  await expect(page.getByLabel(t('billingSlug'))).toHaveValue('');
+  await expect(page.getByLabel(t('billingTargetAccount'))).toHaveValue('');
+  await expect(page.locator('#billing-status-bootstrap')).toHaveText(t('billingSaved'));
   await mockOperation(page, myBillingOrganizations, {
     account_id: accountId,
     operator: false,
@@ -132,6 +150,8 @@ for (const width of [390, 1280]) {
           id: nominationId,
           actor_account_id: accountId,
           target_account_id: nextId,
+          actor_name: '星野 澪',
+          target_name: '若葉 凪',
           action: 'invited',
           created_at: '2026-11-15T00:00:00.000Z',
         },
@@ -143,6 +163,30 @@ for (const width of [390, 1280]) {
     if (width <= 760) expect(await findTargetSizeViolations(page)).toEqual([]);
     const timeZone = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
     await expect(page.getByText(formatDateTime('2026-11-15T00:00:00.000Z', timeZone), { exact: true })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await expect(page.getByText(`${t('billingTarget')}: 若葉 凪`, { exact: true })).toBeVisible();
+    await mockOperation(page, myBillingOrganizations, {
+      account_id: accountId,
+      operator: true,
+      organizations: [],
+      invitations: [
+        { ...organization, id: nominationId },
+        { slug: 'wakaba', name: '若葉商会', id: nextId },
+      ],
+    });
+    await page.goto('/auth/billing');
+    await expect(page.getByRole('heading', { name: t('billingBootstrap') })).toBeVisible();
+    await expect(
+      page.getByRole('button', {
+        name: t('billingAcceptFor', { name: `${organization.name}（${organization.slug}）` }),
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: t('billingDeclineFor', { name: '若葉商会（wakaba）' }), exact: true }),
+    ).toBeVisible();
+    expect(await findA11yViolations(page)).toEqual([]);
+    if (width <= 760) expect(await findTargetSizeViolations(page)).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   });
 }

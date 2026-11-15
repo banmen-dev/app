@@ -7,6 +7,7 @@ export const operatorBillingAdminInvite = defineOperation({
   name: 'operator-billing-admin-invite',
   description: '運用者が最初の請求管理者を指名する',
   mode: 'write',
+  rateLimit: { max: 30, windowSeconds: 600 },
   permission: 'operator',
   cookieOnly: true,
   input: z.object({ slug, account_id: idSchema }),

@@ -189,6 +189,7 @@ async function billingFor(caller: Person, status: 'active' | 'pending' = 'active
         account_id: caller.accountId,
         status,
         invited_by: caller.accountId,
+        is_bootstrap: status === 'pending' ? 1 : 0,
         created_at: '2026-11-01T00:00:00.000Z',
         updated_at: '2026-11-01T00:00:00.000Z',
       }),

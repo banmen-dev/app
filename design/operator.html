@@ -69,7 +69,7 @@ SQ.mount("operator", () => `
         ${k.purgeDue ? `<span class="props-note">消す予定日を過ぎたので、再開も停止の理由の切り替えも${k.personal ? "" : `${t("admin")}の指名も`}できません</span>` : k.personal ? "" : `<button class="btn is-sm is-quiet" type="button" data-dialog="reassignAdmin">${t("admin")}を指名</button>`}
         ${k.purgeDue ? "" : k.suspended ? `<button class="btn is-sm is-quiet" type="button" data-dialog="changeSuspension">停止の理由を変える</button><button class="btn is-sm is-quiet" type="button" data-toast="再開しました">再開する</button>` :`<button class="btn is-sm is-quiet is-danger" type="button" data-dialog="suspendOrganization">停止する</button>`}
       </span></td></tr>`).join("")}</tbody></table></div>
-  <div class="form-actions"><button class="btn is-sm is-quiet" type="button" data-toast="見本のため、ログアウトしません">${t("logout")}</button></div>`, { operator: true });
+  <div class="form-actions"><a class="btn is-sm" href="billing.html?operator=1">${t("billingOpen")}</a><button class="btn is-sm is-quiet" type="button" data-toast="見本のため、ログアウトしません">${t("logout")}</button></div>`, { operator: true });
 </script>
 </body>
 </html>

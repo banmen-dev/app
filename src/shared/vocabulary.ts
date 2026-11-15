@@ -12,6 +12,15 @@ export function defineDictionary<const T extends Record<string, string>>(entries
 
 export const dictionary = defineDictionary({
   billingTitle: '請求管理者',
+  billingRemoveFor: '{name}の請求管理者を解除する',
+  billingAcceptFor: '{name}の請求管理者の指名を承諾する',
+  billingDeclineFor: '{name}の請求管理者の指名を辞退する',
+  billingInvitationEmpty: '届いた請求の指名はありません。',
+  billingNominationHint:
+    '指名元の権限が解除された指名や、最初の担当者が承諾した後に残った初回指名は、同じアカウントIDで指名し直してください。',
+  billingHistoryEmpty: '担当者の変更履歴はまだありません。',
+  billingRateLimited: '操作が続いたため、しばらく待ってからもう一度試してください。',
+
   billingLead: '業務利用とは別に、請求の担当者を管理します。ベータ中の契約変更・支払いは運用者に連絡してください。',
   billingAccountId: 'あなたのアカウントID',
   billingAccountHint: '指名する人にこのIDを伝えてください。指名は本人が承諾するまで有効になりません。',
@@ -43,7 +52,7 @@ export const dictionary = defineDictionary({
   billingBootstrapHint:
     '運用者だけの操作です。承諾済みの請求管理者がいない組織に、利用する組織管理者とは別に指名します。',
   billingSlug: '組織のslug',
-  billingBack: '請求管理者の一覧へ',
+  billingBack: '担当する組織の一覧へ',
   billingTarget: '対象アカウント',
   billingActor: '操作したアカウント',
   billingOpen: '請求管理者を管理する',
