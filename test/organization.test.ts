@@ -594,6 +594,30 @@ describe('organization', () => {
     ]);
   });
 
+  test('別の組織のワークスペース（閉じたものと開いたもの）に同じ利用者の所属の行があっても、この組織の workspaces に出ない', async () => {
+    const visitor = await createVisitor();
+    const a = await createOrganization();
+    const b = await createOrganization();
+    const inA = await visitor.join(a, { name: 'ミナト' });
+    const inB = await visitor.join(b, { name: 'ミナト' });
+    const ownerA = await createUser(a, { is_admin: 1 });
+    const ownerB = await createUser(b, { is_admin: 1 });
+    const mine = await createWorkspace(a, ownerA.id, { name: 'この組織の進行中' });
+    const otherOpen = await createWorkspace(b, ownerB.id, { name: '別の組織の進行中' });
+    const otherClosed = await createWorkspace(b, ownerB.id, { name: '別の組織の終了', closed_at: AT });
+    await createMembership(a, mine.id, inA.id);
+    await createMembership(b, otherOpen.id, inB.id);
+    await createMembership(b, otherClosed.id, inB.id);
+
+    const result = await readOrganization(a.slug, visitor.token);
+    expect(result.workspaces).toEqual([{ id: mine.id, name: 'この組織の進行中', role: 'member', closed_at: null }]);
+    const other = await readOrganization(b.slug, visitor.token);
+    expect(other.workspaces).toEqual([
+      { id: otherClosed.id, name: '別の組織の終了', role: 'member', closed_at: AT },
+      { id: otherOpen.id, name: '別の組織の進行中', role: 'member', closed_at: null },
+    ]);
+  });
+
   test('has_workspaces は、組織にワークスペースがあるかを、所属と別に返す', async () => {
     // ワークスペースが1つも無い組織の管理者
     const empty = await createOrganization();

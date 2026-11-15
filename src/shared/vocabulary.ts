@@ -544,6 +544,8 @@ export const dictionary = defineDictionary({
   groupManage: '管理',
 
   // 今日やること
+  // 組織のホームの、自分のタスクの面の見出し。画面の見出し（pageToday）と文言は同じだが、役目が違うので分ける
+  paneToday: '今日やること',
   sectionToday: '今日やると決めたもの',
   sectionTodayHint: '印を付けた日が過ぎても、完了にするか印を外すまで残ります',
   // 今日やると決めたものが空のとき。ワークスペースに所属していれば、自分の担当を探せる{backlog}を案内する

@@ -5,7 +5,8 @@ type Workspaces = OrganizationView['workspaces'];
 // 組織のホームのワークスペースの面に並べるワークスペース。`organization` が返す所属のうち、閉じていないものだけ
 // （閉じたものは `closed_at` が入る。左のメニューなど、ほかの使い手は閉じたものも並べる）。順は返された順（名前順）のまま
 export function openWorkspaces(workspaces: Workspaces): Workspaces {
-  return workspaces.filter((workspace) => workspace.closed_at === null);
+  // 閉じたと見るのは closed_at が文字列のときだけ。版のずれで項目が欠けた行（undefined）は閉じていないものとして残す
+  return workspaces.filter((workspace) => typeof workspace.closed_at !== 'string');
 }
 
 export type HomeEmptyKind = 'default' | 'firstWorkspace' | 'noMembership';

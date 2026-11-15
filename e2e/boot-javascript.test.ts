@@ -38,7 +38,7 @@ for (const { theme, width } of [
       if (request.resourceType() === 'script') scripts.add(new URL(request.url()).pathname);
     });
     await page.goto('/aoba');
-    await expect(page.getByRole('heading', { name: '今日やること', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: '今日やること', exact: true })).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
     await expect(page.locator('.app-version')).toContainText(/版\s+\S+/);
     await page.waitForLoadState('networkidle');
@@ -93,7 +93,7 @@ for (const failure of ['network', '404'] as const) {
     const reloaded = page.waitForEvent('domcontentloaded');
     await page.getByRole('button', { name: '画面を読み直す', exact: true }).click();
     await reloaded;
-    await expect(page.getByRole('heading', { name: '今日やること', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: '今日やること', exact: true })).toBeVisible();
     await page.getByRole('button', { name: '起票', exact: true }).click();
     await expect(
       page.getByRole('dialog', { name: '起票', exact: true }).getByLabel('タイトル', { exact: true }),

@@ -19,7 +19,9 @@ test('今日の行は広い幅で横に並び、390pxでは折り返す（#1003�
       const end = await row.locator('.entry-end').boundingBox();
       expect(main).not.toBeNull();
       expect(end).not.toBeNull();
-      if (width > 760) {
+      // 今日の行は、組織のホームの左の列（ダッシュボードの左3、右2の左）に入る。右の列の幅を空けるので、900px では左の列が
+      // 台帳の折り返しの境（一覧の幅が520px 以下）を下回り、操作が題の下へ折り返す。広い幅（1280px）で横に並ぶことを確かめる
+      if (width >= 1280) {
         expect(end!.x, `${theme}/${width}: 操作が題の右に並ぶ`).toBeGreaterThanOrEqual(main!.x + main!.width);
         expect(end!.y).toBeLessThan(main!.y + main!.height);
       } else {

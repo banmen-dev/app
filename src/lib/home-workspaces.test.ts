@@ -27,6 +27,11 @@ describe('openWorkspaces', () => {
     expect(openWorkspaces([open, closed, second])).toEqual([open, second]);
   });
 
+  test('closed_at が欠けた行（版のずれ）は閉じたものと見ず、残す', () => {
+    const missing = { id: 'w-missing', name: '架空の欠けた行', role: 'member' } as unknown as typeof open;
+    expect(openWorkspaces([missing, closed])).toEqual([missing]);
+  });
+
   test('閉じたものだけなら空', () => {
     expect(openWorkspaces([closed])).toEqual([]);
   });
@@ -43,6 +48,11 @@ describe('homeEmptyKind', () => {
 
   test('閉じていない所属があれば案内を出さない', () => {
     expect(homeEmptyKind(view({ is_admin: true, has_workspaces: true, workspaces: [closed, open] }))).toBe('default');
+  });
+
+  test('一般のメンバーが閉じたワークスペースにだけ所属しているときも default（案内は面の側が所属の無い案内にする。作る案内は管理者だけ）', () => {
+    expect(homeEmptyKind(view({ is_admin: false, has_workspaces: true, workspaces: [closed] }))).toBe('default');
+    expect(openWorkspaces([closed])).toEqual([]);
   });
 
   test('管理者でない人と、組織を読めないときは default', () => {

@@ -292,7 +292,7 @@
   </div>
 {/snippet}
 
-<!-- 今日やる区分が空のとき。ワークスペースが無いときの案内（最初のワークスペースを作る、所属が無い）はワークスペースの面に出すので、ここは短い説明だけにして案内を重ねない -->
+<!-- 今日やる区分が空のとき。ワークスペースが無いときの案内（最初のワークスペースを作る、所属が無い）はワークスペースの面に出すので、ここは線画の無い短い1行（.book-empty）だけにして案内を重ねない -->
 {#snippet todayEmpty()}
   {#if firstWorkspace !== null}
     <EmptyState
@@ -308,12 +308,11 @@
         >{/snippet}
     </EmptyState>
   {:else}
-    <EmptyState
-      icon="sun"
-      art="sun"
-      title={t('todayEmptyTitle', { task: t('task') })}
-      text={t('todayEmptyNoWorkspaceText', { workspace: t('workspace'), assignee: t('assignee'), task: t('task') })}
-    />
+    <div class="book">
+      <div class="book-empty">
+        {t('todayEmptyNoWorkspaceText', { workspace: t('workspace'), assignee: t('assignee'), task: t('task') })}
+      </div>
+    </div>
   {/if}
 {/snippet}
 
@@ -364,7 +363,7 @@
 
 <!-- 今日やることの面。区分の見出しは面の見出しの下の h3 -->
 {#snippet todayPane()}
-  <Pane id="p-today" title={t('pageToday')}>
+  <Pane id="p-today" title={t('paneToday')}>
     {#if data.today !== null && data.today.sprint_goals.length > 0}
       <div class="notice-grid">
         {#each data.today.sprint_goals as sprint (sprint.workspace_id)}

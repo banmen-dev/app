@@ -9,7 +9,7 @@ test('3テーマで日本語と数字の全ての太さを自前の書体で描�
   });
   await signIn(context, baseURL, 'admin');
   await page.goto('/aoba');
-  await expect(page.getByRole('heading', { name: '今日やること', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: '今日やること', exact: true })).toBeVisible();
   // 今日の一覧は空になりうる。数値の検査はseedのストーリー集計があるバックログで行う。
   await page.goto('/aoba/w/019a0000-0000-7000-8000-000000000401');
   await expect(page.getByText('ポイント付与のバッチを作る', { exact: true }).first()).toBeVisible();

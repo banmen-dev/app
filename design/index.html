@@ -492,9 +492,12 @@ const SECTIONS = [
       pane("pane-demo-today", "今日やること", SQ.section("pane-demo-section", "今日やると決めたもの", 1, book(SQ.tasksWhere((x) => x.who === D.me && !x.doneAt && x.todayOn).slice(0, 1), { showWs: true }), "", 3)),
       pane("pane-demo-updates", "最近の更新", `<p class="panel-note">右の列に置く面の見本です。</p>`)
     )}` +
-    `<div class="cat-row"><span class="field-hint">右の列が無いとき（今のホーム）は、左の列が全幅になる</span></div>` +
-    dashboard(pane("pane-demo-single", t("workspace"), paneList([{ href: "#panes", name: "受託開発チーム", role: "leader" }]), { count: 1 })),
-    ["面（.pane）は、一覧や区分を載せる枠。1px の線（--color-line）と、見出しの下の線で区切り、光らせない。数値と計器を載せる記録の面（.panel）とは使い分ける。", "見出しは h2（.pane-title）。見出しの横に件数（.pane-count）と補足（.pane-hint）を置ける。面の中の節（.section）の見出しは h3 にし、一段小さい字（--text-lg）で出す（section と foldedSection の level）。", "押すと移る行（.pane-link）は、名前、ロールの札（.chip）、行末の chevron を並べる。指で押す画面と760px 以下では、行を44px 以上にする。", "ダッシュボード（.dashboard）は、左の列（.dashboard-main）に面を上から並べる。右の列（.dashboard-side）は、あるときだけ広い幅で3対2の2列にし、無いときは左の列を全幅にする。760px 以下は1列で、左の列、右の列の順に縦に並べる。", "「最初にやること」の面（.panel）は2列の上に全幅で置く（.layout-main の中、.dashboard の前）。", "面の見出しと枠は、テーマごとに値だけが変わる（線と地は tokens.css）。"],
+    `<div class="cat-row"><span class="field-hint">右の列に面が無いとき（今のホーム）は、右の列を置かず、幅だけが空く。所属するワークスペースが無いときは、ワークスペースの面に案内を出し、今日やることの面の空は線画の無い短い1行（.book-empty）にして重ねない</span></div>` +
+    dashboard(
+      pane("pane-demo-nomember", t("workspace"), SQ.emptyState("sun", `どの${t("workspace")}にも所属していません`, `${t("workspace")}に加わると、ここから使えます。`, "", undefined, "notice")) +
+      pane("pane-demo-today-empty", "今日やること", SQ.section("pane-demo-today-empty-section", "今日やると決めたもの", null, `<div class="book"><div class="book-empty">${t("workspace")}に所属すると、自分が担当する${t("task")}がここに並びます。</div></div>`, "", 3))
+    ),
+    ["面（.pane）は、一覧や区分を載せる枠。1px の線（--color-line）と、見出しの下の線で区切り、光らせない。数値と計器を載せる記録の面（.panel）とは使い分ける。", "見出しは h2（.pane-title）。見出しの横に件数（.pane-count）と補足（.pane-hint）を置ける。面の中の節（.section）の見出しは h3 にし、一段小さい字（--text-lg）で出す（section と foldedSection の level）。", "押すと移る行（.pane-link）は、名前、ロールの札（.chip）、行末の chevron を並べる。指で押す画面と760px 以下では、行を44px 以上にする。", "ダッシュボード（.dashboard）は、左の列（.dashboard-main）に面を上から並べる。広い幅（761px 以上）は左3、右2の2列で、右の列（.dashboard-side）は面を足すまで置かず、幅だけを空けておく（空の要素は置かない）。760px 以下は1列で、左の列、右の列の順に縦に並べる。", "「最初にやること」の面（.panel）は2列の上に全幅で置く（.layout-main の中、.dashboard の前）。", "面の見出しと枠は、テーマごとに値だけが変わる（線と地は tokens.css）。"],
     ".pane .pane-head .pane-title .pane-count .pane-hint .pane-body / .pane-list .pane-link / .dashboard .dashboard-main .dashboard-side")],
   ["notices", "貼り紙", () => block("notices", "貼り紙", "掲示する物（スプリントゴール、エピック）は、上辺に太い線を引いた紙として見せる。エピックは金、クリア済みは完了の色。",
     `<div class="notice-grid">${sprintNotice("sp14")}${raidNotice("e1")}${raidNotice("e2", { cleared: true })}</div>`,

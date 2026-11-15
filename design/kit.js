@@ -47,7 +47,7 @@
       ? [{ who: D.me, role: "leader", joined: "2026-10-20", alloc: null }]
       : [{ who: "u2", role: "leader", joined: "2026-10-16", alloc: null }, { who: D.me, role: "member", joined: "2026-10-20", alloc: null }];
     // 人数は、この見本ではワークスペースの所属だけで数える
-    return { ...common, users: { ...D.users, [D.me]: me }, workspaces: { wa: D.workspaces.wa }, members,
+    return { ...common, users: { ...D.users, [D.me]: me }, workspaces: { wa: { ...D.workspaces.wa, role: role === "leader" ? "leader" : "member" } }, members,
       seats: { ...D.seats, used: members.length } };
   }
   if (first) Object.assign(D, freshData(first));
@@ -789,7 +789,8 @@
   function foldedSection(id, title, count, body, level = 2) {
     return `<details class="section is-folded"><summary class="section-head"><h${level} class="section-title" id="${id}">${title}</h${level}><span class="section-count">${count} 件</span><span class="section-hint">開くと一覧を表示</span></summary>${body}</details>`;
   }
-  // 面（.pane。見出しと中身を持つ枠）。id は見出しと結ぶ（aria-labelledby）。count は見出しの横の件数、hint は補足
+  // 面（.pane。見出しと中身を持つ枠）。id は見出しと結ぶ（aria-labelledby）。count は見出しの横の件数、hint は補足。
+  // title と hint は HTML として埋め込むので、辞書の文言だけを渡す（利用者のデータは入れない）。body は呼び出し側で esc してから渡す
   function pane(id, title, body, { count = null, hint = "" } = {}) {
     return `<section class="pane" aria-labelledby="${id}">
       <div class="pane-head"><h2 class="pane-title" id="${id}">${title}</h2>${count != null ? `<span class="pane-count">${count} 件</span>` : ""}${hint ? `<span class="pane-hint">${hint}</span>` : ""}</div>
@@ -798,9 +799,9 @@
   }
   // 面の中の、押すと移る行の一覧。rows は { href, name, role } の配列（role は leader か member）
   function paneList(rows) {
-    return `<ul class="pane-list">${rows.map((r) => `<li><a class="pane-link" href="${r.href}"><b>${esc(r.name)}</b><span class="chip">${t(r.role)}</span>${icon("chevron")}</a></li>`).join("")}</ul>`;
+    return `<ul class="pane-list">${rows.map((r) => `<li><a class="pane-link" href="${esc(r.href)}"><b>${esc(r.name)}</b><span class="chip">${esc(t(r.role))}</span>${icon("chevron")}</a></li>`).join("")}</ul>`;
   }
-  // ダッシュボード。main は左の列の面、side は右の列の面（空なら右の列を置かず、左の列が全幅になる）
+  // ダッシュボード。main は左の列の面、side は右の列の面（空なら右の列を置かない。広い幅では右の列の幅だけが空く）
   function dashboard(main, side = "") {
     return `<div class="dashboard"><div class="dashboard-main">${main}</div>${side ? `<div class="dashboard-side">${side}</div>` : ""}</div>`;
   }

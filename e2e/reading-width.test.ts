@@ -54,11 +54,13 @@ for (const state of [
     const part = section.locator(state.part);
     await expect(part).toBeVisible();
     const head = (await page.locator('.page-head').boundingBox())!;
+    const paneHead = (await page.locator('.pane').filter({ has: section }).locator('.pane-head').boundingBox())!;
     const box = (await part.boundingBox())!;
     // 本文は上限を持たないので、見出しは 1200px を超えて広がる（止まっていたら、部品の上限を確かめたことにならない）
     expect(head.width).toBeGreaterThan(READING_MAX);
     expect(box.width).toBeLessThanOrEqual(READING_MAX);
-    expect(Math.round(box.x)).toBe(Math.round(head.x));
+    // 台帳は面の中にあるので、左端は面の見出し（.pane-head）と揃う。画面の見出し（.page-head）とは面の枠と余白の分だけずれる
+    expect(Math.round(box.x)).toBe(Math.round(paneHead.x));
   });
 }
 

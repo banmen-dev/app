@@ -408,6 +408,78 @@ test('管理者が閉じたワークスペースにだけ所属していると�
   await expect(pane(page, '今日やること').getByRole('link', { name: 'バックログを開く' })).toHaveCount(0);
 });
 
+test('761px では左3、右2の2列の枠で右の列の幅が空き、760px では1列になる', async ({ page }) => {
+  await mockWorkspaces(page);
+  await mockOperation(page, today, { slug: 'aoba' }, { tasks: ALL_SECTIONS, sprint_goals: [] });
+  await page.setViewportSize({ width: 761, height: 900 });
+  await page.goto('/aoba');
+
+  // 右の列に面が無くても、左の列は全幅にならず、2列の枠の左3の幅に収まる
+  await expect(page.locator('.dashboard-side')).toHaveCount(0);
+  const dashboard = (await page.locator('.dashboard').boundingBox())!;
+  const wide = (await page.locator('.dashboard-main').boundingBox())!;
+  expect(wide.width / dashboard.width).toBeGreaterThan(0.5);
+  expect(wide.width / dashboard.width).toBeLessThan(0.65);
+  // 760px では左の列が全幅の1列
+  await page.setViewportSize({ width: 760, height: 900 });
+  await expect
+    .poll(
+      async () =>
+        (await page.locator('.dashboard-main').boundingBox())!.width /
+        (await page.locator('.dashboard').boundingBox())!.width,
+    )
+    .toBeGreaterThan(0.99);
+});
+
+test('右の列に面を足すと、761px では左の列の右に並び、760px では下に縦に並ぶ', async ({ page }) => {
+  await mockWorkspaces(page);
+  await mockOperation(page, today, { slug: 'aoba' }, { tasks: [], sprint_goals: [] });
+  await page.setViewportSize({ width: 761, height: 900 });
+  await page.goto('/aoba');
+  // 面の差し込み口の確かめ。#1262 が足す右の列を、画面の部品と同じクラスで足す
+  await page.locator('.dashboard').evaluate((element) => {
+    const side = document.createElement('div');
+    side.className = 'dashboard-side';
+    side.innerHTML =
+      '<section class="pane"><div class="pane-head"><h2 class="pane-title">差し込み</h2></div></section>';
+    element.append(side);
+  });
+  const main = page.locator('.dashboard-main');
+  const side = page.locator('.dashboard-side');
+  const [mainWide, sideWide] = [(await main.boundingBox())!, (await side.boundingBox())!];
+  expect(sideWide.x).toBeGreaterThan(mainWide.x + mainWide.width - 1);
+  expect(mainWide.width).toBeGreaterThan(sideWide.width);
+  await page.setViewportSize({ width: 760, height: 900 });
+  // 760px ではメニューが下のタブになるので、左の列の x も変わる。同じ x（1列）に揃うことを確かめる
+  await expect
+    .poll(async () => Math.round((await side.boundingBox())!.x) - Math.round((await main.boundingBox())!.x))
+    .toBe(0);
+  const [mainNarrow, sideNarrow] = [(await main.boundingBox())!, (await side.boundingBox())!];
+  expect(sideNarrow.y).toBeGreaterThanOrEqual(mainNarrow.y + mainNarrow.height);
+});
+
+test('一般のメンバーが閉じたワークスペースにだけ所属しているときは、ワークスペースの面に所属が無い案内を出し、作るボタンは出さない', async ({
+  page,
+}) => {
+  await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (output) => ({
+    ...output,
+    me: { ...output.me, is_admin: false },
+    organization: { ...output.organization, has_workspaces: true },
+    workspaces: [{ ...HOME_WORKSPACES[0], closed_at: '2026-10-01T00:00:00.000Z' }],
+  }));
+  await mockOperation(page, today, { slug: 'aoba' }, { tasks: [], sprint_goals: [] });
+  await page.goto('/aoba');
+
+  const workspaces = pane(page, 'ワークスペース');
+  await expect(workspaces.getByText('どのワークスペースにも所属していません')).toBeVisible();
+  await expect(workspaces.getByRole('link')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'ワークスペースを作る' })).toHaveCount(0);
+  // 案内を重ねず、今日やることの面の空は線画の無い短い1行
+  const todayPane = pane(page, '今日やること');
+  await expect(todayPane.locator('.empty')).toHaveCount(0);
+  await expect(todayPane.locator('.book-empty')).toContainText('ワークスペースに所属すると');
+});
+
 test('760px 以下では1列に縦に並び、ワークスペース、今日やることの順で、横にはみ出さない', async ({ page }) => {
   await page.setViewportSize({ width: 760, height: 900 });
   await mockWorkspaces(page);
@@ -452,7 +524,8 @@ test('2列の上に最初にやることが全幅で出て、その下にダッ�
   const [stepsBox, workspacesBox] = [await steps.boundingBox(), await pane(page, 'ワークスペース').boundingBox()];
   expect(stepsBox!.y + stepsBox!.height).toBeLessThanOrEqual(workspacesBox!.y);
   expect(stepsBox!.x).toBe(workspacesBox!.x);
-  expect(stepsBox!.width).toBe(workspacesBox!.width);
+  // 最初にやることは全幅、ワークスペースの面は2列の左の列に収まる
+  expect(stepsBox!.width).toBeGreaterThan(workspacesBox!.width);
 });
 
 test('所属するワークスペースが無い管理者には、ワークスペースの面に最初のワークスペースを作る案内が出て、今日やることの面には重ねない', async ({
