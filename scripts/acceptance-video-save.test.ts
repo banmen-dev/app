@@ -107,6 +107,23 @@ page.waitForLoadState = async (state, options) => {
 page.goto = async () => { calls.push('goto'); return {status: () => 200}; };
 await probeExec(page, 'http://localhost')({kind: 'goto', path: '/next'});
 assert.deepEqual(calls, ['evaluate', 'loaded', 'evaluate', 'goto']);
+// 閉じたページなど、遷移以外の evaluate の失敗はそのまま返す。
+page.evaluate = async () => { throw new Error('Target page, context or browser has been closed'); };
+await assert.rejects(probeExec(page, 'http://localhost')({kind: 'goto', path: '/next'}), /has been closed/);
+// 保存要求が無いまま全体遷移を再試行し続けても、保存失敗とは報告しない。
+const originalNow = Date.now;
+let now = 100;
+Date.now = () => now;
+try {
+  page.evaluate = async () => { throw new Error('Execution context was destroyed'); };
+  page.waitForLoadState = async () => { now += 3000; };
+  await assert.rejects(probeExec(page, 'http://localhost')({kind: 'goto', path: '/next'}),
+    error => error.code === 'NAVIGATION_WAIT_TIMEOUT');
+  page.waitForLoadState = async () => { throw Object.assign(new Error('slow navigation'), {name: 'TimeoutError'}); };
+  await assert.rejects(probeExec(page, 'http://localhost')({kind: 'goto', path: '/next'}),
+    error => error.code === 'NAVIGATION_WAIT_TIMEOUT');
+} finally { Date.now = originalNow; }
+
 `;
   const result = spawnSync(process.execPath, ['--input-type=module', '-e', code], {
     encoding: 'utf8',

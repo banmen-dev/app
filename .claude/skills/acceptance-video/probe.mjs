@@ -1,6 +1,6 @@
 // 録画の前の試し（record.mjs --probe）が、手順書の項目を実画面（Playwright の page）で実行する部分。
 // 録画の perform と同じ locator を使う。record.mjs と、Playwright で確かめるテストの両方が読む
-import { PROBE_GOTO_TIMEOUT_MS, PROBE_TIMEOUT_MS } from './plan.mjs';
+import { NAVIGATION_WAIT_TIMEOUT, PROBE_GOTO_TIMEOUT_MS, PROBE_TIMEOUT_MS, SAVE_WAIT_TIMEOUT } from './plan.mjs';
 
 export function locate(page, spec) {
   const scope = spec.within ? locate(page, spec.within) : page;
@@ -27,18 +27,24 @@ export function probeExec(page, base) {
   };
   page.on('requestfinished', finished);
   page.on('requestfailed', finished);
-  const saveTimeout = () => Object.assign(new Error('保存の要求が完了しないため goto を中止した'), { code: 'SAVE_WAIT_TIMEOUT' });
+  const saveTimeout = () => Object.assign(new Error('保存の要求が完了しないため goto を中止した'), { code: SAVE_WAIT_TIMEOUT });
+  const navigationTimeout = () => Object.assign(new Error('画面遷移が完了しないため goto を中止した'), { code: NAVIGATION_WAIT_TIMEOUT });
   const writesFinished = async () => {
     const deadline = Date.now() + timeout;
     for (;;) {
-      if (Date.now() >= deadline) throw saveTimeout();
+      if (Date.now() >= deadline) throw pending.size > 0 ? saveTimeout() : navigationTimeout();
       // blur のハンドラーと直後のタスク、および Playwright の request 通知を先に通す。
       try {
         await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 0)));
       } catch (error) {
         if (!/Execution context was destroyed/.test(error.message)) throw error;
         // 直前の click などが全体遷移を始めていた場合は、新しい画面で追跡を続ける。
-        await page.waitForLoadState('domcontentloaded', { timeout: Math.max(1, deadline - Date.now()) });
+        try {
+          await page.waitForLoadState('domcontentloaded', { timeout: Math.max(1, deadline - Date.now()) });
+        } catch (loadError) {
+          if (loadError.name === 'TimeoutError') throw navigationTimeout();
+          throw loadError;
+        }
         continue;
       }
       if (pending.size === 0) return;

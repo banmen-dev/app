@@ -1,6 +1,8 @@
 // 手順書（steps の JSON）の形の検査と、録画の長さの見積もり。ブラウザを使わないので、録画の前に何度でも回せる。
 // 待ちの値は record.mjs と同じものを使う（字幕を読む時間を削ると、字幕が変わるのと画面が動くのが重なって見づらくなる）
 
+export const SAVE_WAIT_TIMEOUT = 'SAVE_WAIT_TIMEOUT';
+export const NAVIGATION_WAIT_TIMEOUT = 'NAVIGATION_WAIT_TIMEOUT';
 export const READ_MS = 2000; // 字幕を出してから、画面を動かすまで。人が読む時間
 export const PAUSE_MS = 1000; // 見える操作と見える操作の間
 export const HOLD_MS = 1000; // 操作のあと、結果を見せる時間
@@ -219,6 +221,7 @@ export function formatProbeLine(r) {
     verdict = '通った（存在は未確認）';
   }
   if (r.failure === 'save-wait') verdict = '保存待ちで中止';
+  if (r.failure === 'navigation-wait') verdict = '画面遷移待ちで中止';
   const tail = r.status === 'skipped' ? `（${r.reason}）` : r.detail ? `（${r.detail}）` : '';
   return `場面 ${r.step}: ${verdict}: ${describeItem(r)}${tail}`;
 }
@@ -256,10 +259,11 @@ export async function runProbe(items, exec) {
       await exec(item);
       results.push({ ...item, status: 'found' });
     } catch (err) {
-      const saveWait = err.code === 'SAVE_WAIT_TIMEOUT';
-      results.push({ ...item, status: 'missing', detail: probeDetail(err.message), ...(saveWait ? { failure: 'save-wait' } : {}) });
-      blockedBy = saveWait
-        ? `場面 ${item.step} の ${describeItem(item)} を保存待ちで中止したため、次の goto までは試せない`
+      const failure = err.code === SAVE_WAIT_TIMEOUT ? 'save-wait' : err.code === NAVIGATION_WAIT_TIMEOUT ? 'navigation-wait' : null;
+      results.push({ ...item, status: 'missing', detail: probeDetail(err.message), ...(failure ? { failure } : {}) });
+      const stopped = failure === 'save-wait' ? '保存待ちで中止' : '画面遷移待ちで中止';
+      blockedBy = failure
+        ? `場面 ${item.step} の ${describeItem(item)} を${stopped}したため、次の goto までは試せない`
         : `場面 ${item.step} の ${describeItem(item)} が見つからず、次の goto までは画面の状態が分からない`;
     }
   }
