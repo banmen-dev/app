@@ -350,6 +350,9 @@ export const membershipLeaveOperation = implement(membershipLeave, async (contex
     removeAvatar,
   ];
   const results = await db.batch(statements);
+  // 行が消えた後に R2 のファイルを消す（失敗は件数だけをログに出し、離脱は成功にする）。
+  // 消す文の条件は所属の文の成否と別なので（同じ時刻に別の要求が同じ所属を終えたときなど）、断る前でも、消した行があれば消す
+  await removeDepartedAvatarObjects(attachmentStorage, results[statements.indexOf(removeAvatar)], membershipLeave.name);
 
   if ((results[0]?.changes ?? 0) === 0) {
     // 読んでから書くまでに、閉じたか、先に抜けた（外された）か、他人を外す人が権限を失った
@@ -360,7 +363,5 @@ export const membershipLeaveOperation = implement(membershipLeave, async (contex
     }
     throw new ApiError(404, 'not_found');
   }
-  // 行が消えた後に R2 のファイルを消す（失敗は件数だけをログに出し、離脱は成功にする）
-  await removeDepartedAvatarObjects(attachmentStorage, results[statements.indexOf(removeAvatar)], membershipLeave.name);
   return { user_id: userId };
 });

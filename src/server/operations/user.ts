@@ -307,17 +307,17 @@ export const userAdminUpdateOperation = implement(
       ...(removeAvatar === undefined ? [] : [removeAvatar]),
     ];
     const results = await db.batch(statements);
-    if ((results[0]?.changes ?? 0) > 0) {
-      // 行が消えた後に R2 のファイルを消す（失敗は件数だけをログに出し、解除は成功にする）
-      if (removeAvatar !== undefined) {
-        await removeDepartedAvatarObjects(
-          attachmentStorage,
-          results[statements.indexOf(removeAvatar)],
-          userAdminUpdate.name,
-        );
-      }
-      return { user_id: userId, is_admin: next === 1, disabled_at: current.disabled_at };
+    // 行が消えた後に R2 のファイルを消す（失敗は件数だけをログに出し、解除は成功にする）。
+    // 消す文の条件は users の文の成否と別なので（同じ時刻に別の要求が同じ人を解除したときなど）、断る前でも、消した行があれば消す
+    if (removeAvatar !== undefined) {
+      await removeDepartedAvatarObjects(
+        attachmentStorage,
+        results[statements.indexOf(removeAvatar)],
+        userAdminUpdate.name,
+      );
     }
+    if ((results[0]?.changes ?? 0) > 0)
+      return { user_id: userId, is_admin: next === 1, disabled_at: current.disabled_at };
 
     // 読んでから書くまでに、相手が変わったか、呼んだ人が権限を失った。
     // 最後の管理者は、呼んだ人の権限より先に見る（2人が同時にお互いを解除したとき、後の要求は呼んだ人も解除されているが、

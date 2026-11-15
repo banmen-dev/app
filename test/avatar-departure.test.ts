@@ -9,6 +9,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { userAdminUpdate } from '../src/shared/operations/organization/index.ts';
 import { invitationAccept, membershipLeave } from '../src/shared/operations/workspace/index.ts';
 import type { AnyOperationDefinition } from '../src/shared/operations/define.ts';
+import { envWithD1Hooks } from '../src/server/db/testing.ts';
 import { recordingBucket } from './attachment-helpers.ts';
 import { pngImage } from './avatar-images.ts';
 import { createInvitation, createMembership, createWorkspace } from './factories.ts';
@@ -24,12 +25,13 @@ import {
   newMember,
   objectBytes,
   setLoginAvatar,
+  storeAvatar,
   uploadAvatar,
   uploadedUrl,
   userListAvatars,
 } from './me-avatar-helpers.ts';
 import { post } from './operations/harness.ts';
-import { createPerson, createTarget, withNewSession, type Person, type Target } from './operations/world.ts';
+import { createPerson, createTarget, testEnv, withNewSession, type Person, type Target } from './operations/world.ts';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -220,6 +222,68 @@ describe('組織に入れるままなら、画像は消えない', () => {
     const other = await newMember(target);
     expect((await leave(target, other, person)).status).toBe(403);
     await expectKept(target, person, url);
+  });
+});
+
+describe('この要求で入れなくなった人の画像だけを消す', () => {
+  test('読んでから書くまでに別の要求が先に所属を終えたとき、後の離脱は、その人に残っていた行を消さず、R2 のファイルも残す', async () => {
+    const target = await createTarget();
+    const person = await newMember(target);
+    let stored: Awaited<ReturnType<typeof storeAvatar>> | undefined;
+    // 後の要求が所属を読んだ直後に、先の要求が同じ所属を終え、この版より前に抜けた人のように行だけが残った状態を作る
+    const racing = envWithD1Hooks(testEnv, {
+      afterQuery: async (sql) => {
+        if (stored !== undefined || !sql.startsWith('select "m"."id", "m"."role"')) return;
+        expect((await leave(target, target.leader, person)).status, '先の離脱').toBe(200);
+        stored = await storeAvatar(target.organization, person.userId!);
+      },
+    });
+    expect((await leave(target, person, person, { env: racing })).status).toBe(404);
+    expect(stored, '割り込ませた離脱').toBeDefined();
+    expect(await avatarRowOf(target, person)).toMatchObject({ id: stored!.id });
+    expect(await objectBytes(stored!.object_key)).toEqual(stored!.bytes);
+    await env.ATTACHMENTS.delete(stored!.object_key);
+  });
+
+  test('別の組織の画像は、離脱でも解除でも消さない', async () => {
+    const target = await createTarget();
+    const other = await createTarget();
+    const stored = await storeAvatar(other.organization, other.member.userId!);
+    const person = await newMember(target);
+    await uploadedUrl(target, person);
+    const admin = await createPerson({ organization: target.organization, admin: true });
+    await uploadedUrl(target, admin);
+    expect((await leave(target, person, person)).status).toBe(200);
+    expect((await setAdmin(target, admin, false)).status).toBe(200);
+    expect(await avatarRowOf(target, person)).toBeUndefined();
+    expect(await avatarRowOf(target, admin)).toBeUndefined();
+    expect(await avatarRowOf(other, other.member)).toMatchObject({ id: stored.id });
+    expect(await objectBytes(stored.object_key)).toEqual(stored.bytes);
+    expect((await getAvatar(`/api/${other.slug}/user-avatar/${stored.id}`, other.admin)).status).toBe(200);
+  });
+
+  test('解除で R2 のファイルを消せなくても 200 で行は消え、ログには user-admin-update の件数だけを出す', async () => {
+    const target = await createTarget();
+    const person = await createPerson({ organization: target.organization, admin: true });
+    const url = await uploadedUrl(target, person);
+    const row = (await avatarRowOf(target, person))!;
+    const { env: failing } = recordingBucket({
+      delete: async () => {
+        throw new Error(`R2 の削除に失敗した ${row.object_key}`);
+      },
+    });
+    const logs = captureLogs();
+    expect((await setAdmin(target, person, false, { env: failing })).status).toBe(200);
+    expect(await avatarRowOf(target, person)).toBeUndefined();
+    await expectNotFound(await getAvatar(url, target.admin));
+    const counted = logs.filter((line) => line.includes('"count":1'));
+    expect(counted, '件数のログ').toHaveLength(1);
+    expect(JSON.parse(counted[0]!)).toMatchObject({ operation: 'user-admin-update', count: 1 });
+    for (const line of logs) {
+      expect(line).not.toContain('/avatars/');
+      expect(line).not.toContain('R2 の削除に失敗した');
+    }
+    await env.ATTACHMENTS.delete(row.object_key);
   });
 });
 
