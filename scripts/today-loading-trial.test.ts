@@ -103,3 +103,25 @@ test('C: 従の取得失敗や出力検証の失敗を成功として集計し�
     /invalid output/,
   );
 });
+
+for (const failedSecondary of [false, true]) {
+  test(`B: ${failedSecondary ? '従' : '主'}が先に失敗しても残る応答を回収してから拒否する`, async () => {
+    let finishRemaining!: (value: ReadResponse) => void;
+    const running = todayTrial('B', false, (secondary) =>
+      secondary === failedSecondary
+        ? Promise.reject(new Error('request failed'))
+        : new Promise((resolve) => {
+            finishRemaining = resolve;
+          }),
+    );
+    let settled = false;
+    const checked = assert.rejects(running, /request failed/).then(() => {
+      settled = true;
+    });
+    await setImmediate();
+    assert.equal(settled, false);
+    finishRemaining({ ms: 0, finishedAt: 0, secondary: !failedSecondary, body: null, validate() {} });
+    await checked;
+    assert.equal(settled, true);
+  });
+}
