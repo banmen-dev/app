@@ -488,7 +488,7 @@ describe('my-organizations の suspended', () => {
 type Info = {
   organization: { name: string; has_workspaces: boolean };
   me: { id: string; name: string; is_admin: boolean; theme: string };
-  workspaces: { id: string; name: string; role: string }[];
+  workspaces: { id: string; name: string; role: string; closed_at: string | null }[];
 };
 
 async function readOrganization(slug: string, token: string): Promise<Info> {
@@ -573,8 +573,24 @@ describe('organization', () => {
     expect(result.organization).not.toHaveProperty('vocabulary');
     expect(result.me).toEqual({ id: person.userId, name: '星野 澪', is_admin: false, theme: 'simple', level: 1 });
     expect(result.workspaces).toEqual([
-      { id: first.id, name: 'あ開発', role: 'member' },
-      { id: second.id, name: 'う開発', role: 'leader' },
+      { id: first.id, name: 'あ開発', role: 'member', closed_at: null },
+      { id: second.id, name: 'う開発', role: 'leader', closed_at: null },
+    ]);
+  });
+
+  test('閉じたワークスペースも所属に含め、閉じた日時を closed_at で返す（閉じていなければ null）', async () => {
+    const organization = await createOrganization();
+    const person = await createPerson({ organization });
+    const owner = await createUser(organization, { is_admin: 1 });
+    const active = await createWorkspace(organization, owner.id, { name: 'あ進行中' });
+    const closed = await createWorkspace(organization, owner.id, { name: 'い終了', closed_at: AT });
+    await createMembership(organization, active.id, person.userId!);
+    await createMembership(organization, closed.id, person.userId!, { role: 'leader' });
+
+    const result = await readOrganization(organization.slug, person.token);
+    expect(result.workspaces).toEqual([
+      { id: active.id, name: 'あ進行中', role: 'member', closed_at: null },
+      { id: closed.id, name: 'い終了', role: 'leader', closed_at: AT },
     ]);
   });
 

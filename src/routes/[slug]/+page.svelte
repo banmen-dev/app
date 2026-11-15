@@ -7,12 +7,14 @@
   import FirstSteps from '../../lib/components/FirstSteps.svelte';
   import Icon from '../../lib/components/Icon.svelte';
   import LoadFailed from '../../lib/components/LoadFailed.svelte';
+  import Pane from '../../lib/components/Pane.svelte';
   import PageHead, { type Tally } from '../../lib/components/PageHead.svelte';
   import { formatTodayLabel } from '../../lib/format-datetime.ts';
   import Section from '../../lib/components/Section.svelte';
   import SprintGoalNotice from '../../lib/components/SprintGoalNotice.svelte';
   import TaskEntry from '../../lib/components/TaskEntry.svelte';
   import WorkspaceCreateDialog from '../../lib/components/WorkspaceCreateDialog.svelte';
+  import { homeEmptyKind, openWorkspaces } from '../../lib/home-workspaces.ts';
   import { organizationLabel } from '../../lib/organization-label.ts';
   import { completedMessage } from '../../lib/sprint-label.ts';
   import { showToast } from '../../lib/toast.svelte.ts';
@@ -31,15 +33,12 @@
 
   let { data }: PageProps = $props();
   let createDialog = $state<ReturnType<typeof WorkspaceCreateDialog>>();
-  // 管理者でワークスペースが無い、または所属が無いときの案内。ほかは 'default'
-  const emptyKind = $derived.by(() => {
-    const view = data.organization;
-    if (view === null || !view.me.is_admin) return 'default';
-    if (!view.organization.has_workspaces) return 'firstWorkspace';
-    return view.workspaces.length === 0 ? 'noMembership' : 'default';
-  });
-  // 次にやることのボタンの行き先（所属する最初のワークスペースのバックログ）
-  const firstWorkspace = $derived(data.organization?.workspaces[0] ?? null);
+  // ホームのワークスペースの面に並べるのは、閉じていない所属だけ（`organization` の closed_at）
+  const workspaces = $derived(openWorkspaces(data.organization?.workspaces ?? []));
+  // 管理者でワークスペースが無い、または閉じていない所属が無いときの案内。ほかは 'default'
+  const emptyKind = $derived(homeEmptyKind(data.organization));
+  // 次にやることのボタンの行き先（閉じていない所属の最初のワークスペースのバックログ）
+  const firstWorkspace = $derived(workspaces[0] ?? null);
   // today の読み込みの失敗（data.today が null）は、空の一覧と区別して失敗の画面を出す
   const sections = $derived(todaySections(data.today?.tasks ?? []));
   // 見出しの上の今日の日付。読み直す（data.today が替わる）たびに今の時刻から取り直し、日をまたいで開いたままでも、
@@ -293,29 +292,9 @@
   </div>
 {/snippet}
 
+<!-- 今日やる区分が空のとき。ワークスペースが無いときの案内（最初のワークスペースを作る、所属が無い）はワークスペースの面に出すので、ここは短い説明だけにして案内を重ねない -->
 {#snippet todayEmpty()}
-  {#if emptyKind === 'firstWorkspace'}
-    <EmptyState
-      icon="sun"
-      art="map"
-      title={t('firstWorkspaceTitle', { workspace: t('workspace') })}
-      text={t('firstWorkspaceText', { workspace: t('workspace'), leader: t('leader') })}
-    >
-      {#snippet actions()}<button
-          class="btn is-sm"
-          type="button"
-          onclick={(event) => createDialog?.show(event.currentTarget)}
-          ><Icon name="plus" />{t('workspaceCreateAction', { workspace: t('workspace') })}</button
-        >{/snippet}
-    </EmptyState>
-  {:else if emptyKind === 'noMembership'}
-    <EmptyState
-      icon="sun"
-      art="notice"
-      title={t('noMembershipTitle', { workspace: t('workspace') })}
-      text={t('noMembershipText', { workspace: t('workspace') })}
-    />
-  {:else if firstWorkspace !== null}
+  {#if firstWorkspace !== null}
     <EmptyState
       icon="sun"
       art="sun"
@@ -338,6 +317,111 @@
   {/if}
 {/snippet}
 
+<!-- ワークスペースの面。所属するワークスペースを名前とロールで並べ、押すとバックログへ移る。所属が無いときの案内もここに出す -->
+{#snippet workspacePane()}
+  <Pane
+    id="p-workspaces"
+    title={t('workspace')}
+    count={workspaces.length > 0 ? workspaces.length : undefined}
+    hint={workspaces.length > 0 ? t('workspacePaneHint', { backlog: t('backlog') }) : undefined}
+  >
+    {#if workspaces.length > 0}
+      <ul class="pane-list">
+        {#each workspaces as workspace (workspace.id)}
+          <li>
+            <a class="pane-link" href={resolve('/[slug]/w/[id]', { slug: data.slug, id: workspace.id })}>
+              <b>{workspace.name}</b>
+              <span class="chip">{t(workspace.role)}</span>
+              <Icon name="chevron" />
+            </a>
+          </li>
+        {/each}
+      </ul>
+    {:else if emptyKind === 'firstWorkspace'}
+      <EmptyState
+        icon="sun"
+        art="map"
+        title={t('firstWorkspaceTitle', { workspace: t('workspace') })}
+        text={t('firstWorkspaceText', { workspace: t('workspace'), leader: t('leader') })}
+      >
+        {#snippet actions()}<button
+            class="btn is-sm"
+            type="button"
+            onclick={(event) => createDialog?.show(event.currentTarget)}
+            ><Icon name="plus" />{t('workspaceCreateAction', { workspace: t('workspace') })}</button
+          >{/snippet}
+      </EmptyState>
+    {:else}
+      <EmptyState
+        icon="sun"
+        art="notice"
+        title={t('noMembershipTitle', { workspace: t('workspace') })}
+        text={t('noMembershipText', { workspace: t('workspace') })}
+      />
+    {/if}
+  </Pane>
+{/snippet}
+
+<!-- 今日やることの面。区分の見出しは面の見出しの下の h3 -->
+{#snippet todayPane()}
+  <Pane id="p-today" title={t('pageToday')}>
+    {#if data.today !== null && data.today.sprint_goals.length > 0}
+      <div class="notice-grid">
+        {#each data.today.sprint_goals as sprint (sprint.workspace_id)}
+          <SprintGoalNotice goal={sprint.goal} workspaceName={sprint.workspace_name} />
+        {/each}
+      </div>
+    {/if}
+    {#if sections.overdue.length > 0}
+      <Section id="s-overdue" level={3} title={t('overdue')} count={sections.overdue.length}>
+        {@render rows(sections.overdue)}
+      </Section>
+    {/if}
+    <!-- 空でも出す節なので、空のときは件数を出さない（集計の 0 と空の状態の案内が同じことを伝える） -->
+    <Section
+      id="s-today"
+      level={3}
+      title={t('sectionToday')}
+      count={sections.today.length > 0 ? sections.today.length : undefined}
+      hint={t('sectionTodayHint')}
+    >
+      {#if sections.today.length === 0}
+        {@render todayEmpty()}
+      {:else}
+        {@render rows(sections.today)}
+      {/if}
+    </Section>
+    {#if sections.delegated.length > 0}
+      <Section
+        id="s-delegated"
+        level={3}
+        title={t('sectionDelegated')}
+        count={sections.delegated.length}
+        hint={t('sectionDelegatedHint', { delegatee: t('delegatee'), done: t('done') })}
+      >
+        {@render rows(sections.delegated, { delegated: true })}
+      </Section>
+    {/if}
+    {#if sections.week.length > 0}
+      <Section id="s-week" level={3} title={t('weekDue')} count={sections.week.length}>
+        {@render rows(sections.week, { markDueToday: true })}
+      </Section>
+    {/if}
+    {#if sections.sprint.length > 0}
+      <Section id="s-sprint" level={3} title={t('sprintInProgress')} count={sections.sprint.length} folded>
+        {@render rows(sections.sprint)}
+      </Section>
+    {/if}
+    {#if sections.done.length > 0}
+      <Section id="s-done" level={3} title={t('doneToday')} count={sections.done.length}>
+        {@render rows(sections.done, { done: true })}
+      </Section>
+    {/if}
+  </Pane>
+{/snippet}
+
+<!-- 最初にやることは2列の上に全幅で置く。その下がダッシュボード（.dashboard）で、左の列（.dashboard-main）にワークスペース、今日やること、
+     （ニュース）の面を上から並べる。右の列（.dashboard-side）は、面（最近の更新）を足すときにここへ置く。面が無い間は置かず、左の列が全幅になる -->
 {#snippet main()}
   <!-- 最初にやること。手順が空（必須が済んだ、出す手順が無い）か読めなかったときは置かない -->
   {#if data.organization !== null && data.firstSteps !== null && data.firstSteps.role !== null && data.firstSteps.steps.length > 0 && (data.firstSteps.role !== 'admin' || data.organization.me.is_admin)}
@@ -350,56 +434,12 @@
       onCreateWorkspace={data.organization?.me.is_admin ? (opener) => createDialog?.show(opener) : undefined}
     />
   {/if}
-  {#if data.today !== null && data.today.sprint_goals.length > 0}
-    <div class="notice-grid">
-      {#each data.today.sprint_goals as sprint (sprint.workspace_id)}
-        <SprintGoalNotice goal={sprint.goal} workspaceName={sprint.workspace_name} />
-      {/each}
+  <div class="dashboard">
+    <div class="dashboard-main">
+      {#if data.organization !== null}{@render workspacePane()}{/if}
+      {@render todayPane()}
     </div>
-  {/if}
-  {#if sections.overdue.length > 0}
-    <Section id="s-overdue" title={t('overdue')} count={sections.overdue.length}>
-      {@render rows(sections.overdue)}
-    </Section>
-  {/if}
-  <!-- 空でも出す節なので、空のときは件数を出さない（集計の 0 と空の状態の案内が同じことを伝える） -->
-  <Section
-    id="s-today"
-    title={t('sectionToday')}
-    count={sections.today.length > 0 ? sections.today.length : undefined}
-    hint={t('sectionTodayHint')}
-  >
-    {#if sections.today.length === 0}
-      {@render todayEmpty()}
-    {:else}
-      {@render rows(sections.today)}
-    {/if}
-  </Section>
-  {#if sections.delegated.length > 0}
-    <Section
-      id="s-delegated"
-      title={t('sectionDelegated')}
-      count={sections.delegated.length}
-      hint={t('sectionDelegatedHint', { delegatee: t('delegatee'), done: t('done') })}
-    >
-      {@render rows(sections.delegated, { delegated: true })}
-    </Section>
-  {/if}
-  {#if sections.week.length > 0}
-    <Section id="s-week" title={t('weekDue')} count={sections.week.length}>
-      {@render rows(sections.week, { markDueToday: true })}
-    </Section>
-  {/if}
-  {#if sections.sprint.length > 0}
-    <Section id="s-sprint" title={t('sprintInProgress')} count={sections.sprint.length} folded>
-      {@render rows(sections.sprint)}
-    </Section>
-  {/if}
-  {#if sections.done.length > 0}
-    <Section id="s-done" title={t('doneToday')} count={sections.done.length}>
-      {@render rows(sections.done, { done: true })}
-    </Section>
-  {/if}
+  </div>
 {/snippet}
 
 <!-- 読み込みに失敗したときの題名は LoadFailed が持つ -->

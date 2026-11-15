@@ -18,8 +18,9 @@
 <script src="kit.js"></script>
 <script>
 "use strict";
-// 今日やること: 所属するすべてのワークスペースから、自分が担当するタスクを並べる
-const { D, t, book, section, foldedSection, pageHead, sprintNotice } = SQ;
+// 今日やること（組織のホーム）: 2列のダッシュボード。左の列に、所属するワークスペースの面と、自分が担当するタスクの面（今日やること）を上から並べる。
+// 右の列は面（最近の更新）を足すまで置かない。置かない間は左の列が全幅になる
+const { D, t, book, section, foldedSection, pageHead, sprintNotice, pane, paneList, dashboard } = SQ;
 
 SQ.mount("today", () => {
   const mine = SQ.tasksWhere((x) => x.who === D.me);
@@ -47,9 +48,24 @@ SQ.mount("today", () => {
         `<a class="btn is-sm" href="${SQ.firstHref("backlog.html")}">${t("backlog")}を開く</a>`, undefined, "sun")
     : SQ.emptyState("sun", `今日やる${t("task")}はまだありません`, `${t("workspace")}に所属すると、自分が担当する${t("task")}がここに並びます。`, "", undefined, "sun");
   // 今日やる以外の区分は、空なら出さない
-  const part = (id, title, list) => (list.length ? section(id, title, list.length, book(list, opts)) : "");
+  // 面の中の節なので、見出しは h3
+  const part = (id, title, list) => (list.length ? section(id, title, list.length, book(list, opts), "", 3) : "");
   const dueOpts = { ...opts, meta: (x) => (dueDate(x) === D.today ? '<span class="chip is-warn">期日は今日</span>' : "") };
-  // 見出しと区分を全幅で置く。積載量は #66 で今日やるの近くに足す。
+  // ワークスペースの面。所属するワークスペースを名前とロールで並べ、押すとバックログへ移る。所属が無いときは最初のワークスペースを作る案内
+  const myRole = (wsId) => (wsId === "wa" ? (D.members.find((m) => m.who === D.me)?.role ?? "member") : "member");
+  const workspaceBody = hasWs
+    ? paneList(Object.keys(D.workspaces).map((id) => ({ href: `backlog.html?workspace=${encodeURIComponent(id)}`, name: D.workspaces[id].name, role: myRole(id) })))
+    : SQ.emptyState("sun", `まだ${t("workspace")}がありません`, `最初の${t("workspace")}を作ります。最初の${t("leader")}を1人決めて作ります。`,
+        `<button class="btn is-sm" type="button">${SQ.icon("plus")}${t("workspace")}を作る</button>`, undefined, "map");
+  const workspacePane = pane("p-workspaces", t("workspace"), workspaceBody, { count: hasWs ? Object.keys(D.workspaces).length : null, hint: hasWs ? t("workspacePaneHint").replace("{backlog}", t("backlog")) : "" });
+  const todayPane = pane("p-today", "今日やること", `
+        ${active.length ? `<div class="notice-grid">${active.map((id) => sprintNotice(id)).join("")}</div>` : ""}
+        ${part("s-overdue", `${t("due")}切れ`, overdueList)}
+        ${section("s-today", "今日やると決めたもの", todayList.length || null, book(todayList, { ...opts, empty: todayEmpty }), "印を付けた日が過ぎても、完了にするか印を外すまで残ります", 3)}
+        ${dueList.length ? section("s-due", `今週が${t("due")}`, dueList.length, book(dueList, dueOpts), "", 3) : ""}
+        ${restList.length ? foldedSection("s-sprint", `進行中の${t("sprint")}`, restList.length, book(restList, opts), 3) : ""}
+        ${part("s-done", t("doneToday"), doneList)}`);
+  // 見出しと「最初にやること」を全幅で置き、その下にダッシュボード。積載量は #66 で今日やるの近くに足す。
   return `${pageHead(D.todayLabel, "今日やること", [
         ["", "sun", "今日やると決めたもの", todayList.length],
         ["is-danger", "alert", `${t("due")}切れ`, overdueList.length],
@@ -59,12 +75,7 @@ SQ.mount("today", () => {
       ])}
     <div class="layout-main">
       ${SQ.first ? SQ.firstSteps(SQ.first) : ""}
-      ${active.length ? `<div class="notice-grid">${active.map((id) => sprintNotice(id)).join("")}</div>` : ""}
-      ${part("s-overdue", `${t("due")}切れ`, overdueList)}
-      ${section("s-today", "今日やると決めたもの", todayList.length || null, book(todayList, { ...opts, empty: todayEmpty }), "印を付けた日が過ぎても、完了にするか印を外すまで残ります")}
-      ${dueList.length ? section("s-due", `今週が${t("due")}`, dueList.length, book(dueList, dueOpts)) : ""}
-      ${restList.length ? foldedSection("s-sprint", `進行中の${t("sprint")}`, restList.length, book(restList, opts)) : ""}
-      ${part("s-done", t("doneToday"), doneList)}
+      ${dashboard(workspacePane + todayPane)}
     </div>
   `;
 });

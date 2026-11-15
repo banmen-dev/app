@@ -402,6 +402,7 @@
     wikiRestoreFailed: "戻せませんでした。もう一度試してください。",
 
     workspaceSwitchLabel: "{workspace} {name}。切り替える", workspaceSwitchListLabel: "所属する{workspace}",
+    workspacePaneHint: "押すと{backlog}を開きます",
     workspace: "ワークスペース", inbox: "受信箱", backlog: "バックログ", sprint: "スプリント", plan: "計画", epic: "エピック", story: "ストーリー",
     menuCollapse: "メニューを畳む", menuExpand: "メニューを広げる", breadcrumb: "パンくず", organizationMoving: "移っています",
     personalOrganizationName: "自分用", createPersonalOrganizationAction: "自分用を作る",
@@ -778,14 +779,30 @@
       ${hint ? `<p class="panel-note">${hint}</p>` : ""}
     </section>`;
   }
-  function section(id, title, count, body, hint = "") {
+  // level は見出しの段（既定は 2。面の中に置く節は 3）
+  function section(id, title, count, body, hint = "", level = 2) {
     return `<section class="section" aria-labelledby="${id}">
-      <div class="section-head"><h2 class="section-title" id="${id}">${title}</h2>${count != null ? `<span class="section-count">${count} 件</span>` : ""}${hint ? `<span class="section-hint">${hint}</span>` : ""}</div>
+      <div class="section-head"><h${level} class="section-title" id="${id}">${title}</h${level}>${count != null ? `<span class="section-count">${count} 件</span>` : ""}${hint ? `<span class="section-hint">${hint}</span>` : ""}</div>
       ${body}
     </section>`;
   }
-  function foldedSection(id, title, count, body) {
-    return `<details class="section is-folded"><summary class="section-head"><h2 class="section-title" id="${id}">${title}</h2><span class="section-count">${count} 件</span><span class="section-hint">開くと一覧を表示</span></summary>${body}</details>`;
+  function foldedSection(id, title, count, body, level = 2) {
+    return `<details class="section is-folded"><summary class="section-head"><h${level} class="section-title" id="${id}">${title}</h${level}><span class="section-count">${count} 件</span><span class="section-hint">開くと一覧を表示</span></summary>${body}</details>`;
+  }
+  // 面（.pane。見出しと中身を持つ枠）。id は見出しと結ぶ（aria-labelledby）。count は見出しの横の件数、hint は補足
+  function pane(id, title, body, { count = null, hint = "" } = {}) {
+    return `<section class="pane" aria-labelledby="${id}">
+      <div class="pane-head"><h2 class="pane-title" id="${id}">${title}</h2>${count != null ? `<span class="pane-count">${count} 件</span>` : ""}${hint ? `<span class="pane-hint">${hint}</span>` : ""}</div>
+      <div class="pane-body">${body}</div>
+    </section>`;
+  }
+  // 面の中の、押すと移る行の一覧。rows は { href, name, role } の配列（role は leader か member）
+  function paneList(rows) {
+    return `<ul class="pane-list">${rows.map((r) => `<li><a class="pane-link" href="${r.href}"><b>${esc(r.name)}</b><span class="chip">${t(r.role)}</span>${icon("chevron")}</a></li>`).join("")}</ul>`;
+  }
+  // ダッシュボード。main は左の列の面、side は右の列の面（空なら右の列を置かず、左の列が全幅になる）
+  function dashboard(main, side = "") {
+    return `<div class="dashboard"><div class="dashboard-main">${main}</div>${side ? `<div class="dashboard-side">${side}</div>` : ""}</div>`;
   }
   // ---- Wiki ----
   // ページの木（左の欄の nav の中身）。nodes は { id, title, children } の木、current は今開いているページの ID、
@@ -4502,7 +4519,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     D, t, brandMark, brandSymbol, googleMark, githubMark, THEMES, THEME_LABEL, THEME_NOTE, esc, icon, md, sumPts, cycleTheme, setTheme, applyTheme, mount,
     onRedraw: (fn) => extraRedraws.push(fn), openDrawer, drawerHtml, drawerState: drawer, flashRow,
     user, task, tasksWhere, repoTag, categoryTag, sprintTag, repoPicker, sprintLabel, colName, categoryOf, storyPts, epicPts, dueOf,
-    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, emblem, pts, dueChip, taskDue, tier, sourceKey, entry, rowMenu, orderItems, draftRow, attrChip, book, section, foldedSection, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
+    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, emblem, pts, dueChip, taskDue, tier, sourceKey, entry, rowMenu, orderItems, draftRow, attrChip, book, section, foldedSection, pane, paneList, dashboard, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
     narrowDisclosure, card, board, treeStory, treeEpic, completedTasks, sprintNotice, raidNotice, progress, levelPanel, teamXp, xpDelta, load, capacityRows,
     openDialog, closeDialog, toast, celebrate, miniCap, redraw: () => redrawAll(), DIALOGS, loginTarget, orgMenuHtml, workspaceMenuHtml, accountMenuHtml, breadcrumbHtml,
     filesOf, fileThumb, fileRow, dropzone, attachments, markdownEditor, markdownToolbarHtml, mdBody, markdownSample, meter, storageBytes,

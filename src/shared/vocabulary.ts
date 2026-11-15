@@ -551,6 +551,8 @@ export const dictionary = defineDictionary({
   todayEmptyText: '自分が{assignee}の{task}は、{backlog}から探せます。',
   todayEmptyAction: '{backlog}を開く',
   todayEmptyNoWorkspaceText: '{workspace}に所属すると、自分が{assignee}する{task}がここに並びます。',
+  // 組織のホームのワークスペースの面（見出しは辞書の {workspace}）。行を押すとそのワークスペースの{backlog}へ移る。見本は design/kit.js の DICT
+  workspacePaneHint: '押すと{backlog}を開きます',
   sectionOpen: '開くと一覧を表示',
   // 依頼先（自分用の組織）の付いた、自分が担当の未完了のタスク。人に振ったものを期日の早い順に確かめる
   sectionDelegated: '依頼中',
