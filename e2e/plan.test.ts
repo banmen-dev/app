@@ -104,6 +104,11 @@ test('一般のメンバーには、スプリントと入っているタスク�
   await expect(page.getByRole('button', { name: 'スプリントを作る' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^直す/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^削除する/ })).toHaveCount(0);
+  await page.getByRole('link', { name: '失効予定のポイントを知らせる文面を決める', exact: true }).click();
+  const drawer = page.getByRole('dialog');
+  await expect(drawer.locator('.props dd').filter({ hasText: '11/2〜11/15' })).toHaveText(
+    /^11\/2〜11\/15\s*計画の画面で出し入れします$/,
+  );
 });
 
 test('スクラムの言葉: ストーリーごとと1件ずつ入れ、外し、始まっていないスプリントの中で完了にすると外れる', async ({
