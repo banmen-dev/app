@@ -2076,3 +2076,120 @@ describe('請求管理者の初回指名の区分', () => {
     );
   });
 });
+
+// プロフィール画像（Issue #1265）。組織の中の表で1人1行。organization_id には外部キーを張らず、object_key の形を CHECK で揃える
+describe('user_avatars', () => {
+  async function setup() {
+    const org = await createOrganization();
+    const user = await createUser(org);
+    function avatar(
+      columns: {
+        user_id?: string;
+        id?: string;
+        organization_id?: string | null;
+        object_key?: string | null;
+        content_type?: string | null;
+        size_bytes?: number | string | null;
+        created_at?: string | null;
+      } = {},
+    ) {
+      const avatarId = columns.id ?? id();
+      const userId = columns.user_id ?? user.id;
+      const organizationId = columns.organization_id === undefined ? org.id : columns.organization_id;
+      return run(
+        'INSERT INTO user_avatars (user_id, id, organization_id, object_key, content_type, size_bytes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        userId,
+        avatarId,
+        organizationId,
+        columns.object_key === undefined ? `${organizationId}/avatars/${userId}/${avatarId}` : columns.object_key,
+        columns.content_type === undefined ? 'image/png' : columns.content_type,
+        columns.size_bytes === undefined ? 1 : columns.size_bytes,
+        columns.created_at === undefined ? AT : columns.created_at,
+      );
+    }
+    return { org, user, avatar };
+  }
+
+  test.each(['image/png', 'image/jpeg', 'image/webp'])('種類 %s は保存できる', async (content_type) => {
+    const { avatar } = await setup();
+    await expect(avatar({ content_type })).resolves.toBeTruthy();
+  });
+
+  test.each(['image/gif', 'image/svg+xml', 'IMAGE/PNG', 'image/png ', 'application/octet-stream', ''])(
+    '種類 %j は CHECK で断る',
+    async (content_type) => {
+      const { avatar } = await setup();
+      await expect(avatar({ content_type })).rejects.toThrow(/CHECK/);
+    },
+  );
+
+  test.each([1, 524288])('size_bytes の境界 %i は保存できる', async (size_bytes) => {
+    const { avatar } = await setup();
+    await expect(avatar({ size_bytes })).resolves.toBeTruthy();
+  });
+
+  test.each([0, -1, 524289, 1.5, 'invalid'])('size_bytes %j は CHECK で断る', async (size_bytes) => {
+    const { avatar } = await setup();
+    await expect(avatar({ size_bytes })).rejects.toThrow(/CHECK/);
+  });
+
+  test('object_key は <organization_id>/avatars/<user_id>/<id> だけを受け付ける', async () => {
+    const { org, user, avatar } = await setup();
+    const avatarId = id();
+    const otherOrg = id();
+    for (const object_key of [
+      `${otherOrg}/avatars/${user.id}/${avatarId}`,
+      `${org.id}/avatars/${id()}/${avatarId}`,
+      `${org.id}/avatars/${user.id}/${id()}`,
+      `${org.id}/avatars/${user.id}/${avatarId}/x`,
+      `${org.id}/avatar/${user.id}/${avatarId}`,
+      `${org.id}/${id()}/${avatarId}`,
+      `/${org.id}/avatars/${user.id}/${avatarId}`,
+      '',
+    ]) {
+      await expect(avatar({ id: avatarId, object_key }), object_key).rejects.toThrow(/CHECK/);
+    }
+    await expect(avatar({ id: avatarId })).resolves.toBeTruthy();
+  });
+
+  test('1人1行（user_id が主キー）', async () => {
+    const { avatar } = await setup();
+    await avatar();
+    await expect(avatar()).rejects.toThrow(/UNIQUE|PRIMARY KEY/);
+  });
+
+  test('画像の id は一意（別の人でも同じ id は断る）', async () => {
+    const { org, avatar } = await setup();
+    const another = await createUser(org);
+    const avatarId = id();
+    await avatar({ id: avatarId });
+    await expect(avatar({ id: avatarId, user_id: another.id })).rejects.toThrow(/UNIQUE/);
+  });
+
+  test('user_id は users を指す。organization_id には外部キーを張らない', async () => {
+    const { user, avatar } = await setup();
+    await expect(avatar({ user_id: id() })).rejects.toThrow(/FOREIGN KEY/);
+    const { results } = await env.DB.prepare(
+      `SELECT "table" AS parent, "from" AS column FROM pragma_foreign_key_list('user_avatars')`,
+    ).all<{
+      parent: string;
+      column: string;
+    }>();
+    expect(results).toEqual([{ parent: 'users', column: 'user_id' }]);
+    // 組織の行が無い organization_id でも、外部キーでは断らない（キーの形の CHECK だけが揃える）
+    await expect(avatar({ user_id: user.id, organization_id: id() })).resolves.toBeTruthy();
+  });
+
+  test.each(['2026-11-15', '2026-11-15T00:00:00Z', 'invalid'])('created_at %j は CHECK で断る', async (created_at) => {
+    const { avatar } = await setup();
+    await expect(avatar({ created_at })).rejects.toThrow(/CHECK/);
+  });
+
+  test.each(['organization_id', 'object_key', 'content_type', 'size_bytes', 'created_at'] as const)(
+    '%s は空にできない',
+    async (column) => {
+      const { avatar } = await setup();
+      await expect(avatar({ [column]: null })).rejects.toThrow(/NOT NULL|CHECK/);
+    },
+  );
+});
