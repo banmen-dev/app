@@ -18,6 +18,7 @@ import {
   type OrganizationTables,
   type QueryCreator,
 } from '../db/index.ts';
+import { removeAvatarObjects } from '../avatars/remove.ts';
 import { ApiError } from '../errors.ts';
 import { uuidv7 } from '../uuid.ts';
 import { implement } from './implement.ts';
@@ -199,7 +200,7 @@ function revokeInvitationStatements(
 // 有効な人を先に、無効の人を後ろに、それぞれ名前、ID の順に全部。件数で区切らない: 読むのはその組織の users の行
 // （抜けた人と無効の人も消さずに残るので、member_limit では抑えられない。想定は数十〜数百）で、索引（users_organization_login の先頭の
 // organization_id）の上で1組織の行だけを読み、画面は全員を1つの表で見て指名と無効化を選ぶため。所属の数は閉じていないワークスペースの今の所属。
-// アバターは共通の表なので、組織の道具で別に引く
+// アバター（上げたプロフィール画像、無ければ共通の表のログインの手段のアイコン）は、組織の道具で別に引く
 export const userListOperation = implement(userList, async ({ db, tools }) => {
   const organizationId = db.organizationId;
   const rows = await db.rows(
@@ -315,8 +316,10 @@ export const userAdminUpdateOperation = implement(
 // 8. memberships（left_on はワークスペースのタイムゾーンの今日、left_at）
 // 3〜8 は閉じたワークスペースも含めたすべてのワークスペースに当て、「この要求で無効になった（disabled_at がこの要求の時刻）」を条件にする。
 // 記録はどれも、変える文より前に置く（変えた後では対象の行を選べない）。行の ID は SQL の中で作るので、件数によらず文の数は決まっている。
-// 完了したタスク、完了の記録、経験値は変えない。討伐隊の履歴と削除も同じ batch に入れる。接続は #67 で足す
-export const userDisableOperation = implement(userDisable, async ({ db, actor, input }) => {
+// 完了したタスク、完了の記録、経験値は変えない。討伐隊の履歴と削除も同じ batch に入れる。接続は #67 で足す。
+// 最後に、その人のプロフィール画像の行（user_avatars）を同じ条件で消す（変更の履歴は残さない）。R2 のファイルは batch の後に消し、
+// 失敗は件数だけをログに出す。有効に戻しても画像は戻さない
+export const userDisableOperation = implement(userDisable, async ({ db, actor, input, attachmentStorage }) => {
   const actorUserId = actorUserIdOf(actor);
   const organizationId = db.organizationId;
   const userId = input.user_id;
@@ -363,7 +366,17 @@ export const userDisableOperation = implement(userDisable, async ({ db, actor, i
   const changes: Record<string, unknown> =
     current.is_admin === 1 ? { disabled_at: [null, stamp], is_admin: [1, 0] } : { disabled_at: [null, stamp] };
 
-  const results = await db.batch([
+  // その人のプロフィール画像の行。この要求で無効になったときだけ消し、有効に戻しても戻さない。R2 のファイルは書いた後に消す。
+  // 結果は文の位置で読むので、後ろに文を足しても別の文の結果を読まない
+  const removeAvatar = db.statement((q) =>
+    q
+      .deleteFrom('user_avatars')
+      .where('user_id', '=', userId)
+      .where('organization_id', '=', organizationId)
+      .where((eb) => eb.exists(disabledHere(q)))
+      .returning('object_key'),
+  );
+  const statements = [
     // 1
     db.statement((q) =>
       q
@@ -518,7 +531,9 @@ export const userDisableOperation = implement(userDisable, async ({ db, actor, i
         ),
     ),
     ...removeDepartedPartyMemberStatements(db, { userId, actorUserId, successLogId: disableLogId, at }),
-  ]);
+    removeAvatar,
+  ];
+  const results = await db.batch(statements);
 
   if ((results[0]?.changes ?? 0) === 0) {
     // 読んでから書くまでに、相手が変わったか、呼んだ人が権限を失った
@@ -532,6 +547,12 @@ export const userDisableOperation = implement(userDisable, async ({ db, actor, i
     if (after.disabled_at !== null) return stateOf(after);
     throw new ApiError(409, 'conflict');
   }
+  // 行が消えた後に R2 のファイルを消す（失敗は件数だけをログに出し、無効にする操作は成功にする）
+  await removeAvatarObjects(
+    attachmentStorage,
+    (results[statements.indexOf(removeAvatar)]?.rows ?? []).map((row) => (row as { object_key: string }).object_key),
+    { operation: userDisable.name },
+  );
   return { user_id: userId, is_admin: false, disabled_at: stamp };
 });
 

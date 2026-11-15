@@ -43,7 +43,8 @@ export type OrganizationTools = {
   readOrganizationPlan(): Promise<OrganizationPlanRow>;
   // 成功後は変更待ちの記録だけを待ち、通知をdeferへ渡す。容量拒否時のmarkOnlyは記録だけ行い、cronへ任せる。
   reconcileAttachmentQuota(options?: { markOnly?: boolean }): Promise<void>;
-  // 自分の組織の users の ID ごとのアバターの URL。アカウントに結ばれていない人、ログインしたことの無い人、アバターの無い人は null。
+  // 自分の組織の users の ID ごとのアバターの URL。上げた画像があれば配る URL、無ければログインの手段のアイコン。
+  // アカウントに結ばれていない人、ログインしたことの無い人、アバターの無い人は null。
   // 別の組織の ID と、存在しない ID はキーを持たない
   avatarsOf(userIds: readonly string[]): Promise<Map<string, string | null>>;
   // 呼んだ人のアカウント（actor.accountId）に結んだログインの手段、ID、ログイン名。届いた招待の一覧、承諾、辞退が、
@@ -75,6 +76,8 @@ export function organizationTools(
   env: Env,
   db: OrganizationDb,
   actor: OrganizationActor,
+  // 入った組織の slug。配る画像の URL（/api/<slug>/user-avatar/<ID>）に入れる
+  slug: string,
   inviteeResolver: (provider: string) => InviteeResolver | undefined,
   importFetcher: typeof fetch,
   defer: Defer = (task) => {
@@ -132,7 +135,7 @@ export function organizationTools(
           }
         }
       }),
-    avatarsOf: (userIds) => member(() => userAvatarsOf(env, db, userIds)),
+    avatarsOf: (userIds) => member(() => userAvatarsOf(env, db, userIds, slug)),
     myLogins: () => (logins ??= readMyLogins(env, actor.accountId)),
     importSource: (kind) =>
       member(() => {

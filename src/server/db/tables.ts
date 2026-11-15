@@ -177,6 +177,16 @@ export const organizationTableColumns = {
     created_at: text,
     updated_at: text,
   },
+  // migrations/0034_add_user_avatars.sql で足した。1人1行のプロフィール画像のメタデータ（中身は R2）
+  user_avatars: {
+    user_id: text,
+    id: text,
+    organization_id: text,
+    object_key: text,
+    content_type: text,
+    size_bytes: integer,
+    created_at: text,
+  },
   // migrations/0004_add_organization_holidays.sql で足した
   organization_holidays: {
     organization_id: text,

@@ -31,31 +31,35 @@ export const organizationInfoOperation = implement(
     const staleBefore = new Date(at.getTime() - LAST_SEEN_INTERVAL_MS).toISOString();
 
     // 画面に返す値を読む。書き込みは混ぜず、書き込みが失敗しても画面は開く
-    const [userResult, workspaceResult, anyWorkspaceResult, experienceResult] = await db.batch([
-      db.statement((q) =>
-        q
-          .selectFrom('users')
-          .select(['id', 'name', 'theme'])
-          .where('id', '=', userId)
-          .where('organization_id', '=', db.organizationId),
-      ),
-      db.statement((q) =>
-        q
-          .selectFrom('memberships as m')
-          .innerJoin('workspaces as w', 'w.id', 'm.workspace_id')
-          .select(['w.id', 'w.name', 'm.role'])
-          .where('m.user_id', '=', userId)
-          .where('m.left_at', 'is', null)
-          .where('w.organization_id', '=', db.organizationId)
-          .orderBy('w.name')
-          .orderBy('w.id'),
-      ),
-      db.statement((q) =>
-        q.selectFrom('workspaces').select('id').where('organization_id', '=', db.organizationId).limit(1),
-      ),
-      // アカウントのメニューの紋章に出すレベルの元。合計そのものは返さない
-      userExperienceTotalStatement(db, userId),
-    ] as const);
+    // アバターは共通の表（account_logins）も引くので、組織の中の表の batch とは別の問い合わせにして、並べて待つ
+    const [[userResult, workspaceResult, anyWorkspaceResult, experienceResult], avatars] = await Promise.all([
+      db.batch([
+        db.statement((q) =>
+          q
+            .selectFrom('users')
+            .select(['id', 'name', 'theme'])
+            .where('id', '=', userId)
+            .where('organization_id', '=', db.organizationId),
+        ),
+        db.statement((q) =>
+          q
+            .selectFrom('memberships as m')
+            .innerJoin('workspaces as w', 'w.id', 'm.workspace_id')
+            .select(['w.id', 'w.name', 'm.role'])
+            .where('m.user_id', '=', userId)
+            .where('m.left_at', 'is', null)
+            .where('w.organization_id', '=', db.organizationId)
+            .orderBy('w.name')
+            .orderBy('w.id'),
+        ),
+        db.statement((q) =>
+          q.selectFrom('workspaces').select('id').where('organization_id', '=', db.organizationId).limit(1),
+        ),
+        // アカウントのメニューの紋章に出すレベルの元。合計そのものは返さない
+        userExperienceTotalStatement(db, userId),
+      ] as const),
+      tools.avatarsOf([userId]),
+    ]);
 
     const user = userResult.rows[0];
     if (user === undefined) throw new ApiError(404, 'not_found');
@@ -107,6 +111,7 @@ export const organizationInfoOperation = implement(
         is_admin: actor.isAdmin,
         theme: themeOf(user.theme),
         level: levelOf(amountOf(experienceResult.rows[0]?.total)),
+        avatar_url: avatars.get(userId) ?? null,
       },
       trial:
         actor.isAdmin && organization.trial_ends_on !== null

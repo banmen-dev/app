@@ -34,6 +34,8 @@ export const organizationInfo = defineOperation({
       // 自分で選んだテーマ。選んでいない（users.theme が NULL）なら simple
       theme,
       level: z.number().int(),
+      // 自分のアバター。上げたプロフィール画像（配る URL）があればそれ、無ければログインの手段のアイコン、それも無ければ null
+      avatar_url: z.string().nullable(),
     }),
     // 組織全体の内訳は管理者だけ。一般のメンバーには所属していないワークスペースも含めて見せない。
     storage: z

@@ -55,6 +55,9 @@ const TABLES: readonly (readonly [table: string, scope: Scope])[] = [
   ['memberships', 'workspace'],
   ['workspace_point_rates', 'workspace'],
   ['workspaces', 'organization'],
+  // プロフィール画像のメタデータ。users を指すので users より前に消す。R2 のファイルは <組織の ID>/avatars/ の下にあり、
+  // 組織の接頭辞ごと消す（docs/operations.md の手順 7）
+  ['user_avatars', 'user'],
   ['users', 'organization'],
   // 共通の表の組織の契約。organizations を指すので、organizations の行の直前に消す
   ['billing_admin_events', 'organization'],
