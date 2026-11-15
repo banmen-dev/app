@@ -95,7 +95,7 @@ describe('#1247 引数の置換で組んだシークレットの名前', () => {
   }
 });
 
-describe('#1247 崩す1巡目: コピー元と find の引数の置換', () => {
+describe('#1247 宛先を指定したコピー元と find の引数の置換', () => {
   for (const secret of ['.dev.vars', '.env']) {
     for (const command of [
       `cp -t /tmp "$(echo ${secret})"`,
@@ -115,7 +115,7 @@ describe('#1247 崩す1巡目: コピー元と find の引数の置換', () => {
   }
 });
 
-describe('#1247 崩す2巡目: 入れ子と語の境目、コピーと find の別の形', () => {
+describe('#1247 入れ子と語の境目、コピーと find の別の形', () => {
   for (const [command, expected] of [
     ['cat "$(echo "$(echo .dev)").vars"', 'deny'],
     ['cp -t/tmp "$(echo .env)"', 'deny'],
