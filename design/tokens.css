@@ -25,7 +25,8 @@
   --leading-body: 1.65;
   --tracking-label: 0.04em;
 
-  /* ---- 余白（4px 刻み） ---- */
+  /* ---- 余白（4px 刻み。--space-half は部品の内側の詰めにだけ使う。DESIGN.md の「余白」） ---- */
+  --space-half: 2px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
