@@ -1322,7 +1322,7 @@ GitHub のアカウントも Google のアカウントも使わない人のた�
 
 - seed（`pnpm db:seed`）が、決まったトークンのセッションをローカルの D1 に入れる。e2e と画面の自己レビューは、その Cookie を置いてログインした画面を開く。トークンは開発用の値で、本番の D1 には入れない
   - seed のセッションで API トークンを発行できるのは、`pnpm db:seed` を流してから10分以内。e2e では `signIn`（`e2e/helpers.ts`）が Cookie を置く前に、その seed のセッションの `created_at` を今に更新する。手元で発行を試すときは、`pnpm db:seed` を流し直す
-  - 主なセッション: あおば開発の管理者、あおば開発の一般のユーザー、ひばり工房だけに入れる管理者、どの組織にも属さない運用者（`OPERATOR_LOGIN_IDS` の開発用の値、`.dev.vars.example`）、と、e2e のログアウトが消すための2本（`adminLogout` は管理者と、`operatorLogout` は運用者と同じアカウントの2本目）、くもラボの4人（`lookAdmin`、`lookMember`、`lookThemed`。テーマを選んでいない人と選んでいる人を確かめる e2e（`e2e/me-settings.test.ts`）などが使う。ほかのファイルが確かめる組織と分けた。`avatarLeaver` は、プロフィール画像の e2e（`e2e/profile-avatar.test.ts`）だけが唯一のワークスペースを抜けさせ、画像が消えることを確かめる一般のシオン）。ほかの人を含めた全部の一覧は `seed/README.md` の「セッション」。e2e は共有のセッションをログアウトしない（並列に走る別のテストが 401 で落ちるため）
+  - 主なセッション: あおば開発の管理者、あおば開発の一般のユーザー、ひばり工房だけに入れる管理者、どの組織にも属さない運用者（`OPERATOR_LOGIN_IDS` の開発用の値、`.dev.vars.example`）、と、e2e のログアウトが消すための2本（`adminLogout` は管理者と、`operatorLogout` は運用者と同じアカウントの2本目）、くもラボの3人（`lookAdmin`、`lookMember`、`lookThemed`。テーマを選んでいない人と選んでいる人を確かめる e2e（`e2e/me-settings.test.ts`）などが使う。ほかのファイルが確かめる組織と分けた）、くもラボの一般のシオン（`avatarLeaver`。プロフィール画像の e2e（`e2e/profile-avatar.test.ts`）だけが唯一のワークスペースを抜けさせ、画像が消えることを確かめる）。ほかの人を含めた全部の一覧は `seed/README.md` の「セッション」。e2e は共有のセッションをログアウトしない（並列に走る別のテストが 401 で落ちるため）
   - トークンは `seed/sessions.ts` の1か所に置き、seed はそこから SHA-256 の16進を計算して入れる。e2e も同じ定数を import し、Cookie の名前は `sessionCookieName()` で決める（e2e は `pnpm preview` の http の localhost なので `sg_session`）。中身と流し方は `seed/README.md`
   - セッションの `created_at` と `last_used_at` は seed を流した時刻、`expires_at` はその30日後にする。ほかの日時は固定の値にする。切れたら seed を流し直す
   - seed は全部の表の行を消してから入れる。手で足した行も消える
