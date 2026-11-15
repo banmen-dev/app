@@ -117,11 +117,11 @@ describe('guard-files.mjs', () => {
   const hooks = import.meta.dirname;
   const worktree = path.resolve(hooks, '../..');
   const cleanEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_') && !['CLAUDE_ENV_FILE', 'CLAUDE_CODE_REMOTE'].includes(key)));
-  const run = (filePath, { cwd = tmp, nodeArgs = [] } = {}) => {
+  const run = (filePath, { cwd = tmp, nodeArgs = [], projectDir = '' } = {}) => {
     const result = spawnSync(process.execPath, [...nodeArgs, path.join(hooks, 'guard-files.mjs')], {
       input: JSON.stringify({ tool_name: 'Write', cwd, tool_input: { file_path: filePath, content: 'export A=1' } }),
       encoding: 'utf8',
-      env: { ...cleanEnv, CLAUDE_PROJECT_DIR: '' },
+      env: { ...cleanEnv, CLAUDE_PROJECT_DIR: projectDir },
     });
     return { status: result.status, stderr: result.stderr, output: result.stdout ? JSON.parse(result.stdout).hookSpecificOutput : null };
   };
@@ -138,8 +138,18 @@ describe('guard-files.mjs', () => {
     assert.equal(plain.output, null);
   });
 
+  // 実物のワークツリーで判定すると、CI の detached な checkout では main の作業コピーの deny が先に当たる。
+  // 作業ブランチにいる一時のリポジトリを、セッションを起動した場所として判定させる
   test('ask が 2 つ出たときは、理由の文を両方つなぐ', () => {
-    const { output } = run(path.join(worktree, '.claude/hooks/session-env/x.mjs'), { cwd: worktree });
+    const repo = path.join(tmp, 'repo-two-asks');
+    mkdirSync(path.join(repo, '.claude/hooks/session-env'), { recursive: true });
+    const git = (args) => {
+      const result = spawnSync('git', args, { cwd: repo, encoding: 'utf8', env: cleanEnv });
+      assert.equal(result.status, 0, result.stderr);
+    };
+    git(['init', '-q', '-b', '1270-two-asks']);
+    git(['-c', 'user.name=t', '-c', 'user.email=t@example.com', '-c', 'commit.gpgsign=false', 'commit', '-q', '--allow-empty', '-m', 'init']);
+    const { output } = run(path.join(repo, '.claude/hooks/session-env/x.mjs'), { cwd: repo, projectDir: repo });
     assert.equal(output.permissionDecision, 'ask');
     assert.ok(output.permissionDecisionReason.includes(SHELL_ENV_REASON), output.permissionDecisionReason);
     assert.ok(output.permissionDecisionReason.includes('守る仕組み（フック）'), output.permissionDecisionReason);
