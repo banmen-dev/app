@@ -214,25 +214,28 @@ describe('design/components.css の余白', () => {
 
 // DESIGN.md は段の表に値を写して持つので、tokens.css だけを直すと表が古いまま残る
 describe('DESIGN.md の余白と文字の段の表', () => {
-  const rootPx = new Map(
-    declarations(read('../design/tokens.css'))
-      .filter(
-        ({ context, selector, property }) =>
-          context === '' && selector === ':root' && /^--(?:space|text)-/.test(property),
-      )
-      .map(({ property, value }) => {
-        const [, number, unit] = /^([\d.]+)(px|rem)$/.exec(value) ?? [];
-        assert.ok(number, `${property}: ${value} を px か rem として読めない`);
-        return [property, unit === 'rem' ? Number(number) * 16 : Number(number)] as const;
-      }),
-  );
-  const tablePx = new Map(
-    [...read('../DESIGN.md').matchAll(/^\| `(--(?:space|text)-[\w-]+)` \| (\d+)px \|/gm)].map(
-      ([, name, px]) => [name, Number(px)] as const,
-    ),
-  );
-
   test('tokens.css の --space-* と --text-* が、表にすべて同じ値で載っている', () => {
+    // 読み取りもテストの中で行う。px と rem 以外の値が来たとき、読み込みの例外でなく、この検査の失敗として見せるため
+    const rootPx = new Map(
+      declarations(read('../design/tokens.css'))
+        .filter(
+          ({ context, selector, property }) =>
+            context === '' && selector === ':root' && /^--(?:space|text)-/.test(property),
+        )
+        .map(({ property, value }) => {
+          const [, number, unit] = /^([\d.]+)(px|rem)$/.exec(value) ?? [];
+          assert.ok(
+            number,
+            `${property}: ${value} を px か rem として読めない。DESIGN.md の表と突き合わせられる値にする`,
+          );
+          return [property, unit === 'rem' ? Number(number) * 16 : Number(number)] as const;
+        }),
+    );
+    const tablePx = new Map(
+      [...read('../DESIGN.md').matchAll(/^\| `(--(?:space|text)-[\w-]+)` \| (\d+)px \|/gm)].map(
+        ([, name, px]) => [name, Number(px)] as const,
+      ),
+    );
     assert.ok(rootPx.size > 0, 'tokens.css の :root から --space-* と --text-* を読めない');
     assert.deepEqual(Object.fromEntries(tablePx), Object.fromEntries(rootPx));
   });
