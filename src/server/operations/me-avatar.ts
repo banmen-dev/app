@@ -13,6 +13,7 @@ import {
 import { readAvatarImage } from '../avatars/image.ts';
 import { removeAvatarObjects } from '../avatars/remove.ts';
 import { avatarObjectKey, avatarUrl } from '../avatars/url.ts';
+import type { OrganizationDb } from '../db/index.ts';
 import { ApiError } from '../errors.ts';
 import { uuidv7 } from '../uuid.ts';
 import { implement, type BinaryBody } from './implement.ts';
@@ -124,7 +125,9 @@ export const meAvatarUploadOperation = implement(
       ]);
       applied = (result?.rows.length ?? 0) > 0;
     } catch (error) {
-      await discardNew();
+      // D1 が書き込みを確定した後に応答だけが失われることがある。新しい ID の行が無いと確かめられたときだけ新しいファイルを消す
+      // （確かめられなければ消さない。どの行からも指されないファイルが残るほうが、行が指すファイルを消すより安全）
+      if ((await committedAvatarId(db, userId).catch(() => id)) !== id) await discardNew();
       throw failure('プロフィール画像の行を書けなかった', requestId, error);
     }
     if (!applied) {
@@ -140,6 +143,20 @@ export const meAvatarUploadOperation = implement(
     return { avatar_url: avatarUrl(organization.slug, id) };
   },
 );
+
+// 今その人の行が指す画像の ID（行が無ければ undefined）
+async function committedAvatarId(db: OrganizationDb, userId: string): Promise<string | undefined> {
+  const row = await db.first(
+    db.statement((q) =>
+      q
+        .selectFrom('user_avatars')
+        .select('id')
+        .where('user_id', '=', userId)
+        .where('organization_id', '=', db.organizationId),
+    ),
+  );
+  return row?.id;
+}
 
 // 書けなかった原因を、例外の名前だけをログに出して投げ直す（メッセージはキーを含みうる）
 function failure(reason: string, requestId: string, cause: unknown): Error {

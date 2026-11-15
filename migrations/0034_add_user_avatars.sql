@@ -3,7 +3,8 @@
 -- 画像の中身は R2（バケット ATTACHMENTS）の <organization_id>/avatars/<user_id>/<id> に置く。object_key の CHECK でこの形を揃え、
 -- 別の組織の接頭辞のファイルを指す行を作れなくする。
 -- organization_id には外部キーを張らない。組織の中の表から共通の表へ張ってよい organization_id は users、workspaces、
--- organization_holidays、change_logs だけで（後で組織ごとに D1 を分けるとき、これらだけを外してアプリの検査に替える）、組織は users 経由で辿れる。
+-- organization_holidays、delegatees、change_logs、wiki_pages だけで（docs/data-model.md。後で組織ごとに D1 を分けるとき、
+-- これらだけを外してアプリの検査に替える）、組織は users 経由で辿れる。アプリは organization_id を users の行から組む。
 -- users の行を消すのはログインしていない待ちの行だけで、待ちの行は画像を持てない。user_id の外部キーの検査の索引は主キーが兼ねる。
 -- INTEGER の列は整数に直せない値（1.5）を REAL のまま持ち、TEXT の列も BLOB をそのまま持つので、size_bytes は型も確かめる。
 

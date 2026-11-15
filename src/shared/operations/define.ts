@@ -142,12 +142,14 @@ export function assertOperationDefinition(definition: AnyOperationDefinition): v
   ) {
     throw new Error(`操作 ${name} の response は、組織の直下の read の操作に 'binary' だけ付けられる`);
   }
-  // 公開のキャッシュ（共有キャッシュ）に載せない値だけ。private で始め、後ろは印字できる文字だけ
+  // 公開のキャッシュ（共有キャッシュ）に載せない値だけ。private で始め、後ろは印字できる文字だけで、
+  // 共有キャッシュに載せる指示（public、s-maxage）を後ろに足した値も断る
   if (
     definition.cacheControl !== undefined &&
     (definition.response !== 'binary' ||
       typeof definition.cacheControl !== 'string' ||
-      !/^private(?:,[\x20-\x7e]*)?$/.test(definition.cacheControl))
+      !/^private(?:,[\x20-\x7e]*)?$/.test(definition.cacheControl) ||
+      /(?:^|,)\s*(?:public|s-maxage)\b/i.test(definition.cacheControl))
   ) {
     throw new Error(`操作 ${name} の cacheControl は、ファイルを返す操作に private で始まる値だけ付けられる`);
   }

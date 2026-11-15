@@ -329,3 +329,16 @@ describe('readBinaryBody は定義の maxBodyBytes を見る', () => {
     expect(await errorCodeOf(res)).toBe('invalid_input');
   });
 });
+
+describe('定義の cacheControl は、private の後ろに共有キャッシュに載せる指示を足した値も断る（done-check の反証）', () => {
+  test.each(['private, public, max-age=3600', 'private, s-maxage=60', 'private,public', 'private, max-age=60, Public'])(
+    '%j は断る',
+    (cacheControl) => {
+      expect(() => assertOperationDefinition(forgedDownload({ cacheControl }))).toThrow(/cacheControl/);
+    },
+  );
+
+  test.each(['private, max-age=3600, publicity', 'private, no-cache'])('%j は通る', (cacheControl) => {
+    expect(() => assertOperationDefinition(forgedDownload({ cacheControl }))).not.toThrow();
+  });
+});
