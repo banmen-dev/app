@@ -31,7 +31,9 @@ import {
   prefixIndexes,
   prefixName,
   redirectsOf,
+  replaceWord,
   shapeAt,
+  substitutionsAt,
   sliceWords,
   splitSegments,
 } from './shell-words.mjs';
@@ -1939,6 +1941,13 @@ function redirectTexts(redirect) {
   return texts;
 }
 
+// 引数もリダイレクトの先と同じ語で補う。置換の無い変数だけの語は解決しない。
+function argumentTexts(args, i) {
+  const substitutions = substitutionsAt(args, i);
+  if (substitutions.length === 0) return [args[i]];
+  return redirectTexts({ target: args[i], shape: shapeAt(args, i), substitutions });
+}
+
 // 先の shape の DYNAMIC を、pieces と ${NAME:-既定値} の既定値と空文字（未設定の変数）で埋めた文字列。
 // 位置が1つだけで固定の文字を持たない先（"$(mktemp)"）は、中身がそのまま名前になるので埋めない。
 // 位置が複数あれば、位置ごとに別の語を割り当てた組み合わせを見る（$(echo .dev)$(echo .vars) は .dev と .vars をつないだ .dev.vars）。
@@ -1981,23 +1990,26 @@ const SECRET_FILE_REASON =
 function judgeSecretAccess(tool, args, words) {
   if (redirectsOf(words).some((r) => isReadRedirect(r) && redirectTexts(r).some(mentionsSecret))) return true;
   if (GNU_PREFIXED.has(tool)) tool = tool.slice(1);
+  const secretAt = (i) => argumentTexts(args, i).some(mentionsSecret);
   // 引数を実行しない道具以外は、引数のどれかに名前があれば止める（sqlite3 x.db '.output .dev.vars'、expect -c 'spawn cat .dev.vars'、
   // docker run --env-file .env x のように、表に無い道具の読み書きを列挙しきれないため）。pnpm test -- --grep .env のような止めすぎは人に任せる。
   // find は探すだけの形（find . -name .dev.vars）が多いので外し、-exec などと -fprint などの書き込み先（writesTo）で見る
-  if (!isNonExecuting(tool) && tool !== 'find' && args.some(mentionsSecret)) return true;
+  if (!isNonExecuting(tool) && tool !== 'find' && args.some((_, i) => secretAt(i))) return true;
   // 書き込み先（>）と、文書として流すヒアドキュメントの本文は args に入らないので、args は読み取りの引数として見てよい
   if (INTERPRETERS.has(tool)) return heredocBodies(args).some(mentionsSecret);
   if (SEARCHERS.has(tool)) {
     // 最初の位置の引数は探す文字列なので、grep ".dev.vars" docs のような検索は通す
-    const pos = positionals(args, SEARCH_FLAGS_WITH_VALUE);
+    const pos = positionalIndexes(args, SEARCH_FLAGS_WITH_VALUE);
     const files = args.some((a) => ['-e', '-f', '--regexp', '--file'].includes(a)) ? pos : pos.slice(1);
-    return files.some(mentionsSecret);
+    return files.some(secretAt);
   }
-  if (READERS.has(tool) || SHELLS.has(tool)) return args.some(mentionsSecret);
+  if (READERS.has(tool) || SHELLS.has(tool)) return args.some((_, i) => secretAt(i));
   if (COPY_TOOLS.has(tool)) {
     // ここで見るのはコピーの元。書き込み先は writesTo が見る（cp .dev.vars.example .dev.vars はそちらで止まる）
-    const pos = positionals(args);
-    return pos.slice(0, -1).some(mentionsSecret);
+    const pos = positionalIndexes(args);
+    const target = TARGET_DIRECTORY_TOOLS.has(tool) ? targetDirectoryOf(args, flagsWithValueOf(tool)) : null;
+    // -t で宛先を渡すと、最後の位置引数もコピーの元になる。
+    return (target ? pos.filter((i) => i !== target.valueAt) : pos.slice(0, -1)).some(secretAt);
   }
   return false;
 }
@@ -2620,7 +2632,7 @@ function findCommands(args, holdsProtected) {
   const weight = plans.reduce((sum, plan) => sum + weightOf(plan), 0);
   const build = () =>
     plans.flatMap(({ at, placed, tos }) => {
-      const words = concatWords(...at.map((k) => (args[k].includes('{}') ? [args[k].replaceAll('{}', placed)] : sliceWords(args, k, k + 1))));
+      const words = concatWords(...at.map((k) => (args[k].includes('{}') ? replaceWord(args, k, '{}', placed) : sliceWords(args, k, k + 1))));
       return tos.map((to) => ({ words, to }));
     });
   return { count, weight, build, runsFound };
