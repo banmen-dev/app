@@ -48,6 +48,7 @@ import {
   createXpGrant,
   uuidv7,
 } from './factories.ts';
+import { storeAvatar } from './me-avatar-helpers.ts';
 
 // 消さない共通の表。organizations は組織の行を最後に消す
 const KEPT_COMMON_TABLES = [
@@ -147,6 +148,8 @@ async function fillOrganization(organization: Awaited<ReturnType<typeof createOr
   });
   await createChangeLog(organization);
   await createOrganizationHoliday(organization, admin.id);
+  // プロフィール画像（行と R2 のファイル。R2 は組織の接頭辞ごと消す手順で消える）
+  await storeAvatar(organization, member.id);
   // 組織の契約（共通の表）。organizations を指すので、organizations の行より先に消える
   const common = commonDb(env);
   await common.batch([

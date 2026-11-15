@@ -142,6 +142,15 @@ export function assertOperationDefinition(definition: AnyOperationDefinition): v
   ) {
     throw new Error(`操作 ${name} の response は、組織の直下の read の操作に 'binary' だけ付けられる`);
   }
+  // 公開のキャッシュ（共有キャッシュ）に載せない値だけ。private で始め、後ろは印字できる文字だけ
+  if (
+    definition.cacheControl !== undefined &&
+    (definition.response !== 'binary' ||
+      typeof definition.cacheControl !== 'string' ||
+      !/^private(?:,[\x20-\x7e]*)?$/.test(definition.cacheControl))
+  ) {
+    throw new Error(`操作 ${name} の cacheControl は、ファイルを返す操作に private で始まる値だけ付けられる`);
+  }
   if (
     definition.storage !== undefined &&
     (definition.storage !== 'attachments' || scope === 'outside' || definition.mode !== 'write')

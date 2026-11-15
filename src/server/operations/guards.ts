@@ -124,12 +124,13 @@ function checkLargeJsonStructure(text: string) {
 }
 
 // ヘッダーの入力を検証した後、ワークスペースを確かめる前に呼ぶ。本文はここでは読まない。
-export function readBinaryBody(c: Context<AppEnv>): BinaryBody {
+// 上限は定義の maxBodyBytes（無ければ添付の ATTACHMENT_MAX_BYTES）。申告が上限を超えれば 413 の invalid_input
+export function readBinaryBody(c: Context<AppEnv>, maxBodyBytes: number = ATTACHMENT_MAX_BYTES): BinaryBody {
   const declared = c.req.header('Content-Length');
   if (declared === undefined || !/^[0-9]+$/.test(declared)) throw new ApiError(400, 'invalid_input');
   const contentLength = Number(declared);
   if (contentLength === 0) throw new ApiError(400, 'invalid_input');
-  if (contentLength > ATTACHMENT_MAX_BYTES) throw new ApiError(413, 'invalid_input');
+  if (contentLength > maxBodyBytes) throw new ApiError(413, 'invalid_input');
   const body = c.req.raw.body;
   if (body === null) throw new ApiError(400, 'invalid_input');
   return { body, contentLength, bucket: c.env.ATTACHMENTS };
