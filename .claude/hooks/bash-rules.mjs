@@ -2703,7 +2703,7 @@ function interpreterWords(tool, args) {
 // 連結した値（perl -e'…'、python3 -c'…'）も本文とする。本文を取る短いフラグはインタープリタごとに違う。
 // -c は python では本文、node、perl、ruby では構文の確かめ、php では設定のパス。-r は php では本文、node と ruby では require。
 // perl の -p は行ごとに回すだけのフラグ。node の --print も -p と同じ。tclsh と deno は本文をヒアドキュメントとヒアストリングでだけ見る
-const BODY_FLAGS = { node: 'ep', bun: 'ep', python: 'c', python3: 'c', ruby: 'e', perl: 'eE', php: 'rRBE', osascript: 'e' };
+const BODY_FLAGS = { node: 'ep', bun: 'ep', python: 'c', python3: 'c', ruby: 'e', perl: 'eE', php: 'rRBE', osascript: 'e', lua: 'e', Rscript: 'e', julia: 'eE' };
 function interpreterBodyWords(tool, args) {
   const bodies = heredocBodies(args);
   const flags = BODY_FLAGS[tool] ?? '';
@@ -3071,27 +3071,41 @@ function linkedForm(word, dir) {
   return linked && linked !== absolute ? linked : null;
 }
 
+// 語の照合する形のどれかが hitsOne に当たるか。形を作れない（展開が大きすぎる）語は当たるものとする
+const formsHit = (dir, cdWords, hitsOne) => (word) => {
+  const forms = wordForms(word, dir, cdWords);
+  return forms === null || forms.some(hitsOne);
+};
+
+// 起動元の CLAUDE_ENV_FILE の絶対パス（と、リンクを解いた実体。/var が /private/var へのリンクの macOS では、リンクを解いた形の語と綴りが違う）。小文字にそろえる
+function envFilePaths(envFile) {
+  if (typeof envFile !== 'string' || !path.isAbsolute(envFile)) return [];
+  return [...new Set([path.resolve(envFile), resolveLinks(path.resolve(envFile))])].map((p) => p.toLowerCase());
+}
+
 // 語が環境のファイルに当たるか。envFile は起動元の環境の CLAUDE_ENV_FILE の値（無ければ undefined）
 function shellEnvFileAt(dir, cdWords, envFile) {
-  const real = typeof envFile === 'string' && path.isAbsolute(envFile) ? path.resolve(envFile).toLowerCase() : null;
-  const hitsOne = (v) =>
-    SHELL_ENV_DIR.test(v) || CLAUDE_ENV_VAR.test(v) || (GLOB_CHARS.test(v) && globHitsShellEnv(v)) || (real !== null && path.isAbsolute(v) && path.resolve(v).toLowerCase() === real);
-  return (word) => {
-    const forms = wordForms(word, dir, cdWords);
-    return forms === null || forms.some(hitsOne);
-  };
+  const isValue = isEnvFileValue(envFile);
+  return formsHit(dir, cdWords, (v) => SHELL_ENV_DIR.test(v) || CLAUDE_ENV_VAR.test(v) || (GLOB_CHARS.test(v) && globHitsShellEnv(v)) || isValue(v));
 }
+
+// 形が起動元の CLAUDE_ENV_FILE の値そのもの（のパス）か
+function isEnvFileValue(envFile) {
+  const real = envFilePaths(envFile);
+  return (v) => path.isAbsolute(v) && real.includes(path.resolve(v).toLowerCase());
+}
+// 語が値そのものを指すか（名前の照合は含まない）。宛先がディレクトリのコピーが、元の名前を付けて値に当たるかを見るのに使う
+const envFileValueAt = (dir, cdWords, envFile) => formsHit(dir, cdWords, isEnvFileValue(envFile));
 
 // 書庫を展開する先として止める語（環境のファイルのディレクトリ、.claude、ホーム）。展開した中身が環境のファイルや .claude の下に届く
 function extractionTargetAt(dir, cdWords) {
   const home = homeOrNull();
   const isHome = (v) => /^(~|\$\{?HOME\}?)\/?$/.test(v) || (home !== null && path.isAbsolute(v) && path.normalize(v).replace(/(.)\/$/, '$1') === home);
-  const hitsOne = (v) => SHELL_ENV_DIR.test(v) || CLAUDE_CONFIG_WORD.test(v) || isHome(v);
-  return (word) => {
-    const forms = wordForms(word, dir, cdWords);
-    return forms === null || forms.some(hitsOne);
-  };
+  return formsHit(dir, cdWords, (v) => SHELL_ENV_DIR.test(v) || CLAUDE_CONFIG_WORD.test(v) || isHome(v));
 }
+
+// .claude（か $CLAUDE_CONFIG_DIR）そのものに当たる語。cd ~/.claude の後の . も当たる
+const claudeConfigDirAt = (dir, cdWords) => formsHit(dir, cdWords, (v) => CLAUDE_CONFIG_WORD.test(v));
 
 // 同じコマンドの中で環境のファイルのディレクトリに入った後に、cd - と popd で行き先が分からなくなったとき、相対の語につなぐ字面。
 // 戻った先がそのディレクトリでないと言い切れないので、相対の書き込みを環境のファイルとみなす
@@ -3110,41 +3124,54 @@ function makesLinks(tool, args) {
   });
 }
 
-// コピーの宛先。-t のときは、位置引数は全部が元（cp -t /tmp ~/.claude/session-env/x/a.sh は元を読むだけ）
+// コピーの宛先。-t のときは、位置引数は全部が元（cp -t /tmp ~/.claude/session-env/x/a.sh は元を読むだけ）で、宛先は必ずディレクトリ。
+// ln は位置引数が 1 つなら、作業場所に元と同じ名前のリンクを作る
 function copyDestinations(tool, args) {
   const target = TARGET_DIRECTORY_TOOLS.has(tool) ? targetDirectoryOf(args, flagsWithValueOf(tool)) : null;
-  if (target) return [target.dir];
-  return [positionals(args).at(-1), copyOperands(args, flagsWithValueOf(tool)).at(-1)].filter((w) => w !== undefined);
+  if (target) return { destinations: [target.dir], isDirectory: true };
+  if (tool === 'ln' && positionals(args).length === 1) return { destinations: ['.'], isDirectory: true };
+  return { destinations: [positionals(args).at(-1), copyOperands(args, flagsWithValueOf(tool)).at(-1)].filter((w) => w !== undefined), isDirectory: false };
 }
 
+const isRecursiveCopy = (args) => args.some((a) => /^-[^-]*[rRa]/.test(a) || /^--(recursive|archive)$/.test(a));
+
 // コピーが環境のファイルへ書くか。宛先だけを見る（cp "$CLAUDE_ENV_FILE" /tmp/backup/ は読むだけ）。
-// 環境のファイルのディレクトリの名前で .claude に置く形（cp -r /tmp/session-env ~/.claude/）は、元の名前も見る
-function copiesToShellEnv(tool, args, isShellEnv) {
-  const destinations = copyDestinations(tool, args);
+// 宛先がディレクトリのコピーは元の名前でそこに置かれる（cp /tmp/claude-env.sh $T/）ので、宛先に元の名前を付けても見る。
+// .claude への再帰のコピー（cd ~/.claude && cp -r /tmp/x/. .）は中に session-env を持ちうるので、元の名前が環境のディレクトリでなくても止める
+function copiesToShellEnv(tool, args, { isShellEnv, isEnvFileValue, isClaudeConfig, dir }) {
+  const { destinations, isDirectory } = copyDestinations(tool, args);
   if (destinations.some(isShellEnv)) return true;
   const sources = positionals(args).filter((w) => !destinations.includes(w));
-  return destinations.some((d) => CLAUDE_CONFIG_WORD.test(d)) && sources.some((w) => SHELL_ENV_DIR_NAMES.includes(path.posix.basename(w).toLowerCase()));
+  const placedByName = (d) => (isDirectory || isDirectoryTarget(d, dir)) && sources.some((s) => isEnvFileValue(path.posix.join(d, path.posix.basename(s))));
+  if (destinations.some(placedByName)) return true;
+  const namesEnvDir = sources.some((w) => SHELL_ENV_DIR_NAMES.includes(path.posix.basename(w).toLowerCase()));
+  return destinations.some(isClaudeConfig) && (namesEnvDir || isRecursiveCopy(args));
 }
 
 // awk の標準のフラグのうち値を取るもの（-F、-v、-f、-i、-l）。プログラムは -e と --source の値か、最初の位置引数
 const AWKS = new Set(['awk', 'gawk', 'mawk', 'nawk']);
 function awkParts(args) {
   const programs = [];
+  const assigns = [];
   const rest = [];
   let inPlace = false;
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     const long = /^--([a-z-]+)(=([\s\S]*))?$/.exec(a);
     const value = () => (long?.[2] === undefined ? args[++i] : long[3]);
-    if (a === '--') rest.push(...args.slice(i + 1));
+    // -v name=値 の値は、プログラムが書き込み先として読む（BEGIN{print "x" > f}）ので、プログラムと同じく本文の語として見る
+    const assignment = a === '-v' || long?.[1] === 'assign' ? value() : /^-v(.+)/.exec(a)?.[1];
+    if (assignment !== undefined) assigns.push(assignment.slice(assignment.indexOf('=') + 1));
+    else if (a === '--') rest.push(...args.slice(i + 1));
+    if (assignment !== undefined) continue;
     if (a === '--') break;
     if (a === '-e' || long?.[1] === 'source') programs.push(value() ?? '');
     else if (a === '-i' || long?.[1] === 'include') inPlace ||= /^inplace/.test(value() ?? '');
-    else if (['-F', '-v', '-f', '-l'].includes(a) || ['field-separator', 'assign', 'file', 'load'].includes(long?.[1])) value();
+    else if (['-F', '-f', '-l'].includes(a) || ['field-separator', 'file', 'load'].includes(long?.[1])) value();
     else if (!a.startsWith('-')) rest.push(a);
   }
   if (programs.length === 0 && rest.length > 0) programs.push(rest.shift());
-  return { programs, files: rest, inPlace };
+  return { programs, assigns, files: rest, inPlace };
 }
 
 // sed の w コマンドと s///w フラグが書くファイル（sed -n 'w /x'）。スクリプトは -e の値か、最初の位置引数
@@ -3158,6 +3185,20 @@ function sedWriteTargets(args) {
   return scripts.flatMap((s) => [...s.matchAll(/(?:^|[^\w])[wW]\s*([^\s;}]+)/g)].map((m) => m[1]));
 }
 
+// git config -f と --file が書く設定ファイル（書く形のときだけ）。節の名前の '$(…)' はそのまま [a "$(…)"] の行になり、
+// Bash が環境のファイルを読むときに置換が走る。git の設定ファイルの判定（GIT_CONFIG_FILE）には広げない（環境のファイルのときだけ）
+function gitConfigFileWrites(args) {
+  const sub = positionals(args, GIT_FLAGS_WITH_VALUE)[0];
+  if (sub !== 'config') return [];
+  const rest = args.slice(args.indexOf('config') + 1);
+  const { reads, removes, edits, key, value } = readConfigArgs(rest);
+  if (reads || !(removes || edits || (key !== undefined && value !== undefined))) return [];
+  return rest.flatMap((a, k) => {
+    if (a === '-f' || isOption(a, '--file', 4)) return a.includes('=') ? [a.slice(a.indexOf('=') + 1)] : [rest[k + 1]].filter((w) => w !== undefined);
+    return /^-f./.test(a) ? [a.slice(2)] : [];
+  });
+}
+
 // 表（writesTo）に無い道具が書くファイル。sort -o、openssl -out、split の出力の接頭辞、zip の書庫、yq -i、gawk -i inplace
 function otherWrittenFiles(tool, args) {
   const pos = positionals(args);
@@ -3168,6 +3209,10 @@ function otherWrittenFiles(tool, args) {
   if (tool === 'openssl') return args.flatMap((a, i) => (['-out', '-keyout'].includes(a) && args[i + 1] !== undefined ? [args[i + 1]] : []));
   if (tool === 'split') return pos.length >= 2 ? [pos.at(-1)] : [];
   if (tool === 'zip') return pos.slice(0, 1);
+  // 入力のファイルの次の位置引数が出力のファイル（uniq 入力 出力、xxd -r 入力 出力）。値を取るフラグの値は位置引数に数えない
+  if (tool === 'uniq') return positionals(args, new Set(['-f', '-s', '-w', '--skip-fields', '--skip-chars', '--check-chars'])).slice(1, 2);
+  if (tool === 'xxd') return positionals(args, new Set(['-c', '-g', '-l', '-s', '-o', '-n'])).slice(1, 2);
+  if (tool === 'git') return gitConfigFileWrites(args);
   if (tool === 'yq') return args.some((a) => a === '--inplace' || /^-[a-zA-Z]*i/.test(a)) ? pos : [];
   if (AWKS.has(tool)) {
     const { files, inPlace } = awkParts(args);
@@ -3176,19 +3221,27 @@ function otherWrittenFiles(tool, args) {
   return [];
 }
 
-// 本文の語（-e、-c、ヒアドキュメントなど）の道具の分類。python3.12 などの版付きの名前、nodejs、tsx、ts-node も本文を読む
+// 本文の語（-e、-c、ヒアドキュメントなど）の道具の分類。python3.12、pypy3、lua5.4 などの版付きの名前、nodejs、tsx、ts-node、Rscript、julia も本文を読む
+const VERSIONED_INTERPRETERS = { python: 'python3', pypy: 'python3', ruby: 'ruby', perl: 'perl', php: 'php', lua: 'lua', luajit: 'lua' };
 function interpreterFamily(tool) {
   if (INTERPRETERS.has(tool)) return tool;
   if (/^(nodejs|tsx|ts-node(-\w+)?)$/.test(tool)) return 'node';
-  const versioned = /^(python|ruby|perl|php)(\d+(\.\d+)*)$/.exec(tool);
-  return versioned ? (versioned[1] === 'python' ? 'python3' : versioned[1]) : null;
+  if (tool === 'Rscript' || tool === 'julia') return tool;
+  const versioned = /^([a-z]+)(\d+(\.\d+)*)?$/.exec(tool);
+  return (versioned && VERSIONED_INTERPRETERS[versioned[1]]) || null;
 }
 
-// 環境のファイルの名前を探す本文の語。インタープリタの本文（スクリプトのファイルの引数は本文ではない）、awk のプログラム、sed の w の先
+// 環境のファイルの名前を探す本文の語。インタープリタの本文（スクリプトのファイルの引数は本文ではない。deno は eval の引数）、
+// awk のプログラムと -v の値、sed の w の先
 function shellEnvBodyWords(tool, args) {
-  if (AWKS.has(tool)) return awkParts(args).programs.flatMap((p) => p.split(CODE_SEPARATORS).filter(Boolean));
+  const split = (texts) => texts.flatMap((p) => p.split(CODE_SEPARATORS).filter(Boolean));
+  if (AWKS.has(tool)) {
+    const { programs, assigns } = awkParts(args);
+    return split([...programs, ...assigns]);
+  }
   if (tool === 'sed' || tool === 'gsed') return sedWriteTargets(args);
   const family = interpreterFamily(tool);
+  if (family === 'deno' && positionals(args)[0] === 'eval') return split(positionals(args).slice(1));
   return family ? interpreterBodyWords(family, args) : [];
 }
 const bodyHitsShellEnv = (tool, args, isShellEnv) => shellEnvBodyWords(tool, args).some((w) => isShellEnv(w) || CLAUDE_ENV_NAME.test(w));
@@ -3230,7 +3283,7 @@ function writesShellEnv(tool, args, words, dir, cdWords, envFile) {
   const plainTool = GNU_PREFIXED.has(tool) ? tool.slice(1) : tool;
   const isCopy = COPY_TOOLS.has(plainTool);
   if (writesTo(isShellEnv, isCopy ? '' : tool, args, words)) return true;
-  if (isCopy && copiesToShellEnv(plainTool, args, isShellEnv)) return true;
+  if (isCopy && copiesToShellEnv(plainTool, args, { isShellEnv, isEnvFileValue: envFileValueAt(dir, cdWords, envFile), isClaudeConfig: claudeConfigDirAt(dir, cdWords), dir })) return true;
   if (makesLinks(tool, args) && positionals(args).some((w) => isShellEnv(w) || CLAUDE_CONFIG_WORD.test(w))) return true;
   if (otherWrittenFiles(plainTool, args).some(isShellEnv) || bodyHitsShellEnv(tool, args, isShellEnv)) return true;
   const isTarget = extractionTargetAt(dir, cdWords);
@@ -3934,6 +3987,15 @@ function judgeSegment(words, ctx) {
   }
   if (['curl', 'wget', 'http', 'https'].includes(tool)) results.push(judgeHttpClient(tool, args, ctx.stdinContext));
   if (tool === 'eval') results.push(judgeBash(args.join(' '), nextCtx));
+  // coproc は後ろのコマンドをそのまま動かす（coproc tee -a …）。前置きとして外して掛け直す
+  if (tool === 'coproc') {
+    if (ctx.depth + 1 > MAX_DEPTH) results.push([ASK, DEEP_REASON]);
+    else results.push(...judgeSegment(concatWords(sliceWords(words, 0, ci), args), { ...ctx, envFrom: ci, depth: ctx.depth + 1 }));
+  }
+  // source と . は /dev/stdin を読むとき、ヒアストリングとヒアドキュメントの本文をこのシェルで動かす（パイプの本文は judgePipedScript が見る）
+  if ((tool === 'source' || tool === '.') && readsPipedScript(tool, args) === true) {
+    for (const body of heredocScripts(args)) results.push(judgeBash(body, nextCtx));
+  }
   if (SCRIPT_READERS.has(tool) || RUNNERS.has(tool) || INTERPRETERS.has(tool)) {
     const processSubstitution = (word) => /[<=]\(…\)/.test(word);
     if (positionals(args).some(processSubstitution) ||

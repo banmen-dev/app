@@ -47,8 +47,9 @@ export function resolveLinks(absolute) {
 // paths は書かれたパスと、リンクを解いたパス。git のリポジトリの外にあるので judgeFile とは別に見る。
 // envFile は起動元の環境の CLAUDE_ENV_FILE の値（無ければ undefined）。止めるものが無ければ null
 export function judgeShellEnvFile(paths, envFile) {
-  const target = typeof envFile === 'string' && path.isAbsolute(envFile) ? path.resolve(envFile).toLowerCase() : null;
-  const hits = (p) => SHELL_ENV_DIR.test(p.split(path.sep).join('/')) || (target !== null && path.resolve(p).toLowerCase() === target);
+  // 値のパスと、そのリンクを解いた実体の両方で比べる（/var が /private/var へのリンクの macOS では、リンクを解いたパスの綴りが違う）
+  const targets = typeof envFile === 'string' && path.isAbsolute(envFile) ? [...new Set([path.resolve(envFile), resolveLinks(path.resolve(envFile))])].map((t) => t.toLowerCase()) : [];
+  const hits = (p) => SHELL_ENV_DIR.test(p.split(path.sep).join('/')) || targets.includes(path.resolve(p).toLowerCase());
   return paths.some(hits) ? ['ask', SHELL_ENV_REASON] : null;
 }
 
