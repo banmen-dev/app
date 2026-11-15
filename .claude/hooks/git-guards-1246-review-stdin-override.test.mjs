@@ -48,3 +48,14 @@ describe('#1246: 読めない継承入力と起動オプションの確認', () 
   test('[完了条件・通す] --import は既知の値取りオプションで、指定ファイルへのstdinはデータ', () =>
     assert.equal(decision("echo x | bash -c 'node --import ./setup.mjs ./script.js'"), 'allow'));
 });
+// 継承するパイプの stderr と、グループ境界でも実行本文を素通りさせない。
+describe('#1246: パイプとグループ境界の標準入力の継承', () => {
+  for (const command of [
+    "echo 'wrangler deploy' |& bash -c 'bash'",
+    "{ echo 'wrangler deploy'; } | bash -c 'bash'",
+    "echo 'wrangler deploy' | { bash -c 'bash'; }",
+  ]) {
+    test(`[すり抜け・拒否か確認] ${command}`, () =>
+      assert.ok(['ask', 'deny'].includes(decision(command)), command));
+  }
+});
