@@ -2,6 +2,7 @@
 // 守る仕組みそのもの（.claude/settings*.json と、セッションが使っている .claude/hooks/）と、wrangler の設定の転送先（.wrangler/deploy/config.json）の書き換えには人の確認を挟む。
 // D1 の binding の判定は、ESLint の入口を守る規則（docs/development.md の「入口を守る規則」）が入るまでのつなぎ。
 import { lstatSync, readlinkSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 // Claude Code が各 Bash のコマンドの前に読む環境のファイル（CLAUDE_ENV_FILE。~/.claude/session-env/<セッション>/*.sh と ~/.claude/shell-snapshots/*.sh）。
@@ -13,6 +14,15 @@ export const SHELL_ENV_DIR_NAMES = ['session-env', 'shell-snapshots'];
 export const SHELL_ENV_DIR = new RegExp(`(^|/)(${SHELL_ENV_DIR_NAMES.join('|')})(/|$)`, 'i');
 export const SHELL_ENV_REASON =
   'Claude Code が各 Bash の前に読む環境のファイル（CLAUDE_ENV_FILE、~/.claude/session-env/、~/.claude/shell-snapshots/）への書き込みは、フックから見えない GIT_CONFIG_*、GH_REPO、PATH、関数の定義を以後のコマンドに付け、push の先や守りを替えうる。書き込みは人が確かめる';
+
+// HOME が無く passwd にも無いと os.homedir() は投げる。照合は止めずに、ホームを使う形だけ諦める
+export function homeOrNull() {
+  try {
+    return os.homedir();
+  } catch {
+    return null;
+  }
+}
 
 // リンクをたどる回数の上限（OS の ELOOP の上限と同じくらい）
 const MAX_LINK_HOPS = 40;

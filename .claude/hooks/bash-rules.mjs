@@ -17,7 +17,7 @@
 import { existsSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { SHELL_ENV_DIR, SHELL_ENV_DIR_NAMES, SHELL_ENV_REASON, resolveLinks } from './file-rules.mjs';
+import { SHELL_ENV_DIR, SHELL_ENV_DIR_NAMES, SHELL_ENV_REASON, homeOrNull, resolveLinks } from './file-rules.mjs';
 import {
   DYNAMIC,
   GLOB_GROUP,
@@ -3067,15 +3067,6 @@ function wordForms(word, dir, cdWords, oldCdWords = '') {
   });
 }
 
-// HOME が無く passwd にも無いと os.homedir() は投げる。照合は止めずに、ホームを使う形だけ諦める
-function homeOrNull() {
-  try {
-    return os.homedir();
-  } catch {
-    return null;
-  }
-}
-
 // 絶対パス（~ と $HOME は展開する。作業場所が分かれば相対パスも）の、ある親までリンクを解いた形。解く必要が無ければ null
 function linkedForm(word, dir) {
   if (GLOB_CHARS.test(word) || /[`$]/.test(word.replace(/^\$\{?HOME\}?(?=\/|$)/, ''))) return null;
@@ -3138,17 +3129,32 @@ const extractionTargetAt = (dir, cdWords, oldCdWords = '') =>
 // 戻った先がそのディレクトリでないと言い切れないので、相対の書き込みを環境のファイルとみなす
 const SHELL_ENV_UNKNOWN_CWD = '~/.claude/session-env/?';
 const namesShellEnvDir = (cdWords) => shellEnvFileAt(null, '', undefined)(cdWords);
+// cd の行き先の字面が決まらない（cd -、popd、cd ~1、cd "$OLDPWD/" の ?、cd * や cd s?/ の glob）か。
+// 変数（cd "$TMPDIR"）は、環境のファイルのディレクトリでない別の場所への移動として扱う（止めない）
+const cdWordsUnknown = (cdWords) => /[*?[{]/.test(cdWords);
 
 // リンクを作る道具（ln、link、cp -l、cp -s、cp -al）。別名を作ると、後でその別名に書ける。元も先も見る
 const LINK_TOOLS = new Set(['ln', 'gln', 'link']);
-function makesLinks(tool, args) {
-  if (LINK_TOOLS.has(tool)) return true;
-  if (tool !== 'cp' && tool !== 'gcp') return false;
-  return args.some((a) => {
+// ハードリンクで写す形（rsync --link-dest、cpio -pl、pax -rwl）も、元の側の語を見る。
+// 元と先の語を返す。リンクを作らなければ空
+function linkedOperands(tool, args) {
+  const pos = positionals(args);
+  if (LINK_TOOLS.has(tool)) return pos;
+  // --link-dest の先のファイルは、先にハードリンクで置かれる。元は rsync の位置引数の最後以外
+  if (tool === 'rsync') {
+    const linkDirectories = optionValues(args, '--link-dest', 6);
+    return linkDirectories.length > 0 ? [...linkDirectories, ...pos] : [];
+  }
+  // cpio の -p（パススルー）の -l と、pax の -l は、標準入力の一覧のファイルを作業場所から先へリンクする
+  if (tool === 'cpio') return args.some((a) => /^-[a-zA-Z]*p[a-zA-Z]*l|^-[a-zA-Z]*l[a-zA-Z]*p|^--link$/.test(a)) ? [...pos, '.'] : [];
+  if (tool === 'pax') return args.some((a) => /^-[a-zA-Z]*l/.test(a)) ? pos : [];
+  if (tool !== 'cp' && tool !== 'gcp') return [];
+  const links = args.some((a) => {
     const long = /^--([a-z-]+)(=|$)/.exec(a);
     if (long) return abbreviates(long[1], 'link') || (long[1].length >= 2 && abbreviates(long[1], 'symbolic-link'));
     return /^-[^-]*[ls]/.test(a);
   });
+  return links ? pos : [];
 }
 
 // コピーの宛先。-t のときは、位置引数は全部が元（cp -t /tmp ~/.claude/session-env/x/a.sh は元を読むだけ）で、宛先は必ずディレクトリ。
@@ -3209,14 +3215,26 @@ function awkParts(args) {
 }
 
 // sed の w コマンドと s///w フラグが書くファイル（sed -n 'w /x'）。スクリプトは -e の値か、最初の位置引数
-function sedWriteTargets(args) {
+function sedScripts(args) {
   const scripts = [];
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '-e' || args[i] === '--expression') scripts.push(args[++i] ?? '');
     else if (args[i].startsWith('--expression=')) scripts.push(args[i].slice('--expression='.length));
   }
   if (scripts.length === 0 && positionals(args).length > 0) scripts.push(positionals(args)[0]);
-  return scripts.flatMap((s) => [...s.matchAll(/(?:^|[^\w])[wW]\s*([^\s;}]+)/g)].map((m) => m[1]));
+  return scripts;
+}
+
+// e コマンド（行をコマンドとして実行）と s///e フラグ（置換した結果をコマンドとして実行）があるか
+const sedRunsCommands = (script) => /(^|[\s;{}!\d$/])e(\s|;|}|$)/.test(script) || /(^|[\s;{}])s(.).*?\2.*?\2[0-9gpiImM]*e/.test(script);
+
+// sed の本文で環境のファイルの名前を探す語。w の先に加え、e を使うスクリプトは何を実行するか読めないので、
+// 本文と引数の語も見る（スクリプトの中の区切りの \/ は外す）。awk の本文の見方と同じ
+function sedBodyWords(args) {
+  const scripts = sedScripts(args);
+  const writes = scripts.flatMap((s) => [...s.matchAll(/(?:^|[^\w])[wW]\s*([^\s;}]+)/g)].map((m) => m[1]));
+  if (!scripts.some(sedRunsCommands)) return writes;
+  return [...writes, ...[...scripts, ...args].flatMap((text) => text.replaceAll('\\', '').split(CODE_SEPARATORS).filter(Boolean))];
 }
 
 // 値を取るオプションの値を除いた位置引数。- は標準入力か標準出力を表す位置引数に数える（uniq - 出力）。
@@ -3421,7 +3439,7 @@ function shellEnvBodyWords(tool, args) {
     const { programs, assigns } = awkParts(args);
     return split([...programs, ...assigns]);
   }
-  if (tool === 'sed' || tool === 'gsed') return sedWriteTargets(args);
+  if (tool === 'sed' || tool === 'gsed') return sedBodyWords(args);
   if (tool === 'sqlite3') return sqliteOutputWords(args);
   const family = interpreterFamily(tool);
   if (family === 'deno' && positionals(args)[0] === 'eval') return split(positionals(args).slice(1));
@@ -3487,7 +3505,7 @@ function writesShellEnv(tool, args, words, where) {
   if (writesTo(isShellEnv, isCopy ? '' : tool, args, words)) return true;
   const copy = { isShellEnv, isEnvFileValue: envFileValueAt(dir, cdWords, envFile, oldCdWords), isClaudeConfig: claudeConfigDirAt(dir, cdWords, oldCdWords), dir };
   if (isCopy && copiesToShellEnv(plainTool, args, copy)) return true;
-  if (makesLinks(tool, args) && positionals(args).some((w) => isShellEnv(w) || CLAUDE_CONFIG_WORD.test(w))) return true;
+  if (linkedOperands(tool, args).some((w) => isShellEnv(w) || CLAUDE_CONFIG_WORD.test(w))) return true;
   if (otherWrittenFiles(plainTool, args).some(isShellEnv) || bodyHitsShellEnv(tool, args, isShellEnv)) return true;
   return extractionDirectories(plainTool, args).some(extractionTargetAt(dir, cdWords, oldCdWords));
 }
@@ -4471,9 +4489,12 @@ function pushingFunctions(command) {
 // cd -、popd、pushd +N のように行き先を字面から決められないものは、どの名前にも当たらない ? とする。
 // cd .. を重ねると .. が増え、つなぐたびに全体を正規化して2乗の時間になるので、長すぎる字面も ? とする
 const MAX_CD_WORDS_LENGTH = 1024;
+// 行き先がスタックと直前の作業場所を指す語（-、~-、~-/x、~1、+2、$OLDPWD/、${OLDPWD}/x）
+const CD_HISTORY_OPERAND = /^(-|[+-]\d+|~[-+](\/.*)?|~[-+]?\d+(\/.*)?|\$\{?OLDPWD\}?(\/.*)?)$/;
 function cdWordsAfter(words, ci, before) {
-  const operand = words.slice(ci + 1).find((w) => !/^-[LPn]+$/.test(w) && w !== '--');
-  if (words[ci] === 'popd' || operand === '-' || operand === '~-' || /^[+-]\d+$|^\$\{?OLDPWD\}?$/.test(operand ?? '')) return '?';
+  // cd のフラグは -L、-P、-e、-@（まとめた -Pe も）。-n は pushd の
+  const operand = words.slice(ci + 1).find((w) => !/^-[LPen@]+$/.test(w) && w !== '--');
+  if (words[ci] === 'popd' || CD_HISTORY_OPERAND.test(operand ?? '')) return '?';
   if (operand === undefined) return words[ci] === 'cd' ? '~' : '?';
   const joined = /^[/~$]/.test(operand) ? operand : path.posix.join(before, operand);
   return joined.length > MAX_CD_WORDS_LENGTH ? '?' : joined;
@@ -4555,7 +4576,8 @@ function judgeCommand(
   if (depth > MAX_DEPTH) return [ASK, DEEP_REASON];
   let dir = cwd;
   // 同じコマンドの中で（外側の cd も含めて）環境のファイルのディレクトリに入ったか。cd - で戻れるので、入ったことは忘れない
-  let inShellEnvDir = namesShellEnvDir(cdWords);
+  // フックの cwd が初めから環境のファイルのディレクトリの下にあるときも、入っているものとする（cd -、glob の cd の後を見るため）
+  let inShellEnvDir = namesShellEnvDir(cdWords) || (typeof cwd === 'string' && namesShellEnvDir(cwd));
   // 同じコマンドの中で checkout や switch をした後の push は、切り替えた先のブランチで判定する
   const switched = new Map();
   const currentBranch = (d) => (switched.has(d) ? switched.get(d) : branchOf(d));
@@ -4618,8 +4640,8 @@ function judgeCommand(
       cdWords = cdWordsAfter(words, ci, cdWords);
       // 環境のファイルのディレクトリに入った後に行き先が分からなくなったら（cd -、popd）、そこに戻ったものとして相対の書き込みを見る
       inShellEnvDir ||= namesShellEnvDir(cdWords);
-      if (cdWords === '?' && inShellEnvDir) cdWords = SHELL_ENV_UNKNOWN_CWD;
-      if (oldCdWords === '?' && inShellEnvDir) oldCdWords = SHELL_ENV_UNKNOWN_CWD;
+      if (inShellEnvDir && !namesShellEnvDir(cdWords) && cdWordsUnknown(cdWords)) cdWords = SHELL_ENV_UNKNOWN_CWD;
+      if (inShellEnvDir && cdWordsUnknown(oldCdWords)) oldCdWords = SHELL_ENV_UNKNOWN_CWD;
       const to = cdTarget(words, ci, segmentEnv);
       place = to === null || place === null ? null : to.startsWith('/') ? to : path.posix.join(place, to);
       continue;
