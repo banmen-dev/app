@@ -52,21 +52,31 @@
   async function save(action: () => Promise<ApiResult<unknown>>, area: string, restoreFocus = false) {
     if (busy) return;
     const version = navigationVersion;
+    const trigger = document.activeElement;
+    const submitted = { accountId, bootstrapSlug, bootstrapAccount };
     busy = true;
     actionArea = area;
     message = null;
     let restore = false;
     try {
       const result = await action();
-      if (version !== navigationVersion) return;
+      if (version !== navigationVersion) {
+        if (result.ok) await invalidateAll();
+        return;
+      }
       failed = !result.ok;
       if (!result.ok) {
         message = result.error?.code === 'rate_limited' ? 'billingRateLimited' : 'billingFailed';
+        restore = restoreFocus;
         return;
       }
       message = 'billingSaved';
-      if (area === 'invite') accountId = '';
-      if (area === 'bootstrap') {
+      if (area === 'invite' && accountId === submitted.accountId) accountId = '';
+      if (
+        area === 'bootstrap' &&
+        bootstrapSlug === submitted.bootstrapSlug &&
+        bootstrapAccount === submitted.bootstrapAccount
+      ) {
         bootstrapSlug = '';
         bootstrapAccount = '';
       }
@@ -87,7 +97,8 @@
       busy = false;
       if (restore && version === navigationVersion) {
         await tick();
-        if (focusIsFree()) document.getElementById(`billing-status-${area}`)?.focus();
+        if (focusIsFree() || document.activeElement === trigger)
+          document.getElementById(`billing-status-${area}`)?.focus();
       }
     }
   }

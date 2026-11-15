@@ -93,6 +93,7 @@ test('請求専用画面で本人承諾・指名・解除・履歴と失敗を�
     .getByRole('button', { name: t('billingRemove'), exact: true })
     .click();
   await expect(page.getByText(t('billingFailed'), { exact: true })).toBeVisible();
+  await expect(page.locator('#billing-status-administrators')).toBeFocused();
   await expect(page.getByText('星野 澪', { exact: true })).toBeVisible();
 });
 
@@ -233,4 +234,36 @@ test('指名に失敗した後の読込失敗を保存済みと案内しない',
   await page.getByRole('link', { name: organization.name, exact: true }).click();
   await expect(page.getByRole('heading', { name: t('loadFailedTitle') })).toBeVisible();
   await expect(page.getByText(t('billingRefreshFailed'), { exact: true })).toHaveCount(0);
+});
+
+test('送信中に書いた次の指名先を成功時に消さない', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'admin');
+  await mockOperation(page, myBillingOrganizations, {
+    account_id: accountId,
+    operator: false,
+    organizations: [organization],
+    invitations: [],
+  });
+  await mockOperation(page, billingAdminList, {
+    administrators: [{ id: accountId, account_id: accountId, name: '星野 澪', status: 'active' }],
+    events: [],
+  });
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await routeOperation(page, billingAdminInvite, async (call) => {
+    expect(call.input.account_id).toBe(nextId);
+    await pending;
+    await call.fulfill({ id: nominationId });
+  });
+  await page.goto('/auth/billing?organization=aoba');
+  await page.getByLabel(t('billingTargetAccount')).fill(nextId);
+  await page.getByRole('button', { name: t('billingInvite'), exact: true }).click();
+  await expect(page.locator('#billing-status-invite')).toHaveText(t('billingBusy'));
+  const draft = '019aa222-1111-7000-8000-000000000004';
+  await page.getByLabel(t('billingTargetAccount')).fill(draft);
+  release();
+  await expect(page.locator('#billing-status-invite')).toHaveText(t('billingSaved'));
+  await expect(page.getByLabel(t('billingTargetAccount'))).toHaveValue(draft);
 });

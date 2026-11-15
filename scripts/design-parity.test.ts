@@ -221,6 +221,25 @@ describe('見本との照合', () => {
     for (const name of names) assert.ok(name in arts, `${name} は線画の定義に無い`);
   });
 
+  test('見本の HTML が使う請求の辞書キーは、見本と本番の両方に存在する', () => {
+    const design = readKitDictionary();
+    const production: Record<string, string | undefined> = dictionary;
+    const references = readdirSync(new URL('../design/', import.meta.url))
+      .filter((file) => file.endsWith('.html'))
+      .flatMap((file) =>
+        [...read(file).matchAll(/\b(?:t|label|title)\(\s*(['"])(billing[A-Z][A-Za-z0-9]*)\1/g)].map(([, , key]) => ({
+          file,
+          key,
+        })),
+      );
+    assert.ok(references.length > 0, '見本の HTML に請求の辞書キーが見つからない');
+    for (const { file, key } of references) {
+      assert.ok(Object.hasOwn(design, key), `${file}: ${key} が見本の DICT に無い`);
+      assert.ok(Object.hasOwn(production, key), `${file}: ${key} が本番の辞書に無い`);
+      assert.equal(design[key], production[key], `${file}: ${key} の文言`);
+    }
+  });
+
   test('言葉の辞書は、見本の DICT の全キーについて、言葉が同じ', () => {
     const design = readKitDictionary();
     const keys = Object.keys(design);

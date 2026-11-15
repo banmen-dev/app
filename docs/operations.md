@@ -747,3 +747,46 @@ console.log(originalPositionFor(new TraceMap(readFileSync('build' + file + '.map
 承諾後の追加・解除は現在の請求管理者が同画面で行う。交代は新担当者の指名・本人承諾が済んでから元担当者を解除する。契約中の最後の担当者は解除できない。ベータ中のプラン変更・支払いの受付は既存の運用者の契約変更手順を使う。
 
 組織を消すSQLは `scripts/purge-organization-sql.ts` の最新版で生成する。請求の監査・権限行を organizations より先に消す。コードを戻してもスキーマは戻さず、古い版のpurge生成器は新しい請求の子行を知らないので使わない。古い版の組織作成失敗の補償削除が扱うのは請求行が無い作成直後の組織だけである。
+
+### 最新50件より前の請求管理者の履歴を調べる
+
+請求画面の「担当者の変更履歴」は最新50件だけを表示する。共通DBの `billing_admin_events` は、それより前の行も保持し、表示件数を超えたことや操作の回数制限を理由に消さない。組織の消去時に、その組織の履歴も消す。指名などが続いて調べたい操作が画面の50件から外れた場合は、次の読み取りで調べる。アプリの表示は今回も最新50件のままにする。
+
+この調査は人の運用者が行う。Cloudflare のダッシュボードで D1 の共通DB（現在は `scrum-guild`）の Console を開き、以下の `SELECT` だけを実行する。組織ごとにDBを分けた後も、業務用のDBでなく共通の表を持つDBを選ぶ。セッションは本番への問い合わせを実行しない。調査のために組織の中の表や認証情報を読む必要はない。
+
+1. 問い合わせの対象の組織名とslugを運用の画面で確かめる。slugは英小文字と数字で始まる英小文字・数字・ハイフンの2〜40字だけを使い、次の `<確認したslug>` を置き換える。返った名前とslugが問い合わせの対象であることを再確認し、組織のIDを控える。行が無い・別の組織なら先へ進まない。
+
+   ```sql
+   SELECT id, slug, name
+   FROM organizations
+   WHERE slug = '<確認したslug>'
+   LIMIT 1;
+   ```
+
+2. 返った小文字のUUIDを `<確認した組織のID>` に入れ、その組織の履歴だけを50件読む。`organization_id` の条件はどの回も外さない。必要な列だけを選び、日時とIDの降順にそろえる。共通の表の索引（`organization_id, created_at DESC, id DESC`）で読むため、全組織を走査せず小分けに調査できる。
+
+   ```sql
+   SELECT id, created_at, action, actor_account_id, target_account_id
+   FROM billing_admin_events
+   WHERE organization_id = '<確認した組織のID>'
+   ORDER BY created_at DESC, id DESC
+   LIMIT 50;
+   ```
+
+3. さらに前を見るときは、直前の結果の最後の行の `created_at` と `id` をそのまま控える。日時はDBのUTC表記（ミリ秒3桁の `YYYY-MM-DDTHH:mm:ss.sssZ`）、IDは小文字のUUIDであることを確かめ、次の2つの日時の欄に同じ値、IDの欄に控えたIDを入れる。画面に整形した日時へ置き換えず、SQLの文字列の引用符を含む値も入れない。
+
+   ```sql
+   SELECT id, created_at, action, actor_account_id, target_account_id
+   FROM billing_admin_events
+   WHERE organization_id = '<確認した組織のID>'
+     AND (
+       created_at < '<直前の最後の行のcreated_at>'
+       OR (created_at = '<直前の最後の行のcreated_at>' AND id < '<直前の最後の行のid>')
+     )
+   ORDER BY created_at DESC, id DESC
+   LIMIT 50;
+   ```
+
+   結果の最後の行で日時とIDを更新して繰り返し、結果が空になったら、最初に読んだ行より前の履歴まで読み終えている。同時刻の行もIDで続きを決めるため読み落とさず、新しく履歴が追加されても件数の位置を使うページングのように境目がずれない。調査中に追加された新しい行も必要なら、手順2から読み直す。
+
+調査結果にはアカウントIDが含まれる。問い合わせに必要な範囲で扱い、全件をIssueやチャットに貼らない。日時・操作・必要な対象だけを確認してから結果を伝える。更新・削除や、件数の上限を外した全件取得で代用しない。

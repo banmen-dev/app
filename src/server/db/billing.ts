@@ -288,7 +288,7 @@ export async function respondBillingInvitation(
         .where('b.id', '=', invitationId)
         .where('b.account_id', '=', accountId)
         .where((eb) => eb.or([eb('b.status', '!=', 'pending'), validInvitation('b')]))
-        .where((eb) => eb.or([eb('b.status', '!=', 'revoked'), eb('b.is_bootstrap', '=', 0)])),
+        .where('b.status', '!=', 'revoked'),
     ),
   );
   if (!row) throw new ApiError(404, 'not_found');
@@ -364,6 +364,18 @@ export async function removeBillingAdministrator(
         .where(retainsAdministrator),
     ),
     eventStatement(db, organization.id, accountId, target.account_id, 'removed', at),
+    // 解除された担当者が後で復帰しても、解除前の通常指名を復活させない。
+    // 解除イベントが保存できた場合だけ、その自動結果として未承諾の指名を恒久失効する。
+    db.statement((q) =>
+      q
+        .updateTable('billing_administrators')
+        .set({ status: 'revoked', updated_at: at.toISOString() })
+        .where('organization_id', '=', organization.id)
+        .where('invited_by', '=', target.account_id)
+        .where('status', '=', 'pending')
+        .where('is_bootstrap', '=', 0)
+        .where(previousStatementChanged),
+    ),
   ]);
   if (result.changes === 0) throw new ApiError(409, 'conflict');
 }
