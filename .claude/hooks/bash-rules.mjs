@@ -994,6 +994,26 @@ function echoedText(words) {
   return { text: text.replaceAll('\\n', '\n'), literal };
 }
 
+// スクリプト用のパイプでは printf の単純な %s も読める。書式の繰り返しまで確定する形だけを扱い、
+// ほかの書式、エスケープ、展開は本文を読めないものとする。gh/curl 用の判定は変えない。
+function pipedScriptText(words) {
+  const direct = echoedText(words);
+  if (direct) {
+    const ci = commandIndex(words);
+    direct.literal &&= !words.some((_, i) => i > ci && isUnresolved(words, i));
+    return direct;
+  }
+  const ci = words ? commandIndex(words) : -1;
+  if (ci === -1 || baseName(words[ci]) !== 'printf' || redirectsOf(words).some(isWriteRedirect)) return undefined;
+  const args = sliceWords(words, ci + 1);
+  const offset = args[0] === '--' ? 1 : 0;
+  const format = args[offset];
+  if (format !== '%s' && format !== '%s\\n') return undefined;
+  const values = args.slice(offset + 1);
+  const literal = !args.some((_, i) => isUnresolved(words, ci + 1 + i));
+  return { text: values.map((value) => value + (format === '%s' ? '' : '\n')).join(''), literal };
+}
+
 // グループ（{ …; }）とサブシェル（( … )）の構文があるか。引用符の外の ( ) と、単独の語の { } を見る。
 // 中の echo が gh や curl の標準入力に流れるとは限らず（cat b.json | { echo x; gh api … --input -; }）、
 // グループぜんたいへのリダイレクト（{ …; } < b.json）も区切りの語からは見えない
@@ -2710,6 +2730,136 @@ function interpreterBodyWords(tool, args) {
   return bodies.flatMap((b) => b.split(CODE_SEPARATORS).filter(Boolean));
 }
 
+// パイプを本文として読む起動だけを選ぶ。-c/-e とスクリプトのファイルに続く標準入力はデータなので判定しない。
+// /dev/stdin と /dev/fd/0 は、source/. でもパイプの本文を読む。
+const STDIN_SCRIPT = new Set(['-', '/dev/stdin', '/dev/fd/0', '/proc/self/fd/0']);
+const SCRIPT_OPTION_VALUES = {
+  bash: new Set(['-o', '+o', '-O', '+O', '--rcfile', '--init-file']),
+  sh: new Set(['-o', '+o']), zsh: new Set(['-o', '+o']), ksh: new Set(['-o', '+o']), mksh: new Set(['-o', '+o']),
+  node: new Set(['-r', '--require', '--import', '--loader', '--experimental-loader', '--input-type', '-C', '--conditions', '--title']),
+  python: new Set(['-W', '-X', '--check-hash-based-pycs']), python3: new Set(['-W', '-X', '--check-hash-based-pycs']),
+  ruby: new Set(['-r', '-I', '-C', '-E', '-F']), perl: new Set(['-I', '-M', '-m', '-F']),
+  php: new Set(['-c', '--php-ini', '-d', '--define']), osascript: new Set(['-l', '-s']),
+  fish: new Set(['-C', '--init-command']),
+};
+// 不明なフラグと展開を、後続の語がスクリプトのファイルだと決める根拠にしない（null は確認）。
+const SCRIPT_SWITCHES = {
+  node: /^[i]+$/,
+  python: /^[bBdEhiIOPqRsSuvVx]+$/, python3: /^[bBdEhiIOPqRsSuvVx]+$/,
+  ruby: /^[acdlvwnps]+$/, perl: /^[acCdlnpSTtUuvwx]+$/,
+  php: /^[ainqsvw]+$/, osascript: /^[i]+$/,
+};
+function readsPipedScript(tool, args) {
+  if (!SCRIPT_READERS.has(tool) && !INTERPRETERS.has(tool)) return false;
+  if (tool === 'source' || tool === '.') {
+    const at = args[0] === '--' ? 1 : 0;
+    return isUnresolved(args, at) ? null : args[at] !== '-' && STDIN_SCRIPT.has(args[at]);
+  }
+  const bodyFlags = SHELLS.has(tool) ? 'c' : (BODY_FLAGS[tool] ?? '');
+  let options = true;
+  let forceStdin = false;
+  let interactive = false;
+  let inline = false;
+  let uncertain = false;
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (isUnresolved(args, i)) return null;
+    if (options && arg === '--') { options = false; continue; }
+    if (options && ['--help', '--version'].includes(arg)) return false;
+    if (options && tool === 'node' && (arg === '--test' || arg.startsWith('--test=') || arg === '--run' || arg.startsWith('--run='))) return false;
+    if (options && tool === 'php' && (arg === '-f' || arg.startsWith('-f') || arg === '--file' || arg.startsWith('--file='))) {
+      const separate = arg === '-f' || arg === '--file';
+      const at = separate ? i + 1 : i;
+      if (args[at] === undefined || isUnresolved(args, at)) return null;
+      const file = separate ? args[at] : arg.startsWith('--file=') ? arg.slice('--file='.length) : arg.slice(2);
+      return STDIN_SCRIPT.has(file);
+    }
+    if (options && (arg === '-h' && ['node', 'python', 'python3', 'ruby', 'perl', 'php'].includes(tool) || arg === '-v' && ['node', 'perl', 'php'].includes(tool) || arg === '-V' && ['python', 'python3', 'perl'].includes(tool))) return false;
+    if (options && /^[+-]/.test(arg) && arg !== '-') {
+      if (tool === 'node' && arg === '--interactive') { interactive = true; continue; }
+      if (tool === 'node') {
+        // Node は -e の本文を取った後の -i も読む。本文内の文字をフラグに数えない。
+        const long = /^--(?:eval|print)(=|$)/.exec(arg);
+        const short = /^-(i*)([ep])(.*)$/.exec(arg);
+        if (long || short) {
+          inline = true;
+          if (short?.[1]) interactive = true;
+          const separate = long ? long[1] !== '=' : short[3] === '' || short[2] === 'p' && short[3] === 'e';
+          if (separate) i++;
+          continue;
+        }
+      }
+      if (/^--(?:eval|print|command)(?:=|$)/.test(arg)) return interactive;
+      const valueFlags = SCRIPT_OPTION_VALUES[tool] ?? new Set();
+      if (valueFlags.has(arg)) {
+        // 値の未引用展開や brace/glob は引数を増減し、追加された -s/- などが標準入力を実行させうる。
+        // 引用された単一の変数は shape が動的でも1引数なので、この値としてだけ消費できる。
+        if (args[i + 1] === undefined || expandsAt(args, i + 1)) return null;
+        i++;
+        continue;
+      }
+      if (SHELLS.has(tool) && /^[+-][a-zA-Z]+$/.test(arg)) {
+        const flags = arg.slice(1);
+        // シェルの -os/-eo は文字列の値を連結せず、o/O の値を次の1語で取る。
+        if (arg[0] === '-' && flags.includes('s')) forceStdin = true;
+        const takesValue = [...flags].some((flag) => valueFlags.has(`-${flag}`));
+        if (arg[0] === '-' && flags.includes('c')) return takesValue ? null : false;
+        if (takesValue) {
+          if (args[i + 1] === undefined || expandsAt(args, i + 1)) return null;
+          i++;
+        }
+        continue;
+      }
+      if ([...valueFlags].some((flag) => flag.startsWith('--') ? arg.startsWith(`${flag}=`) : /^-[^-]$/.test(flag) && arg.startsWith(flag))) continue;
+      if (['node', 'python', 'python3'].includes(tool) && /^-[a-zA-Z]*i[a-zA-Z]*$/.test(arg)) interactive = true;
+      if (/^-[^-]/.test(arg) && [...arg.slice(1)].some((c) => bodyFlags.includes(c))) return interactive;
+      if ((tool === 'python' || tool === 'python3') && /^-m/.test(arg)) return false;
+      if (/^-[^-]/.test(arg) && SCRIPT_SWITCHES[tool]?.test(arg.slice(1))) continue;
+      uncertain = true;
+      continue;
+    }
+    // deno/bun の run はサブコマンドで、次の - がスクリプトの標準入力を選ぶ。
+    if ((tool === 'deno' || tool === 'bun') && arg === 'run') continue;
+    if (uncertain) return null;
+    return forceStdin || interactive || !inline && STDIN_SCRIPT.has(arg);
+  }
+  return uncertain ? null : inline ? interactive : true;
+}
+
+function judgePipedScript(tool, args, ctx, nextCtx) {
+  const previous = ctx.stdinContext?.previous;
+  if (!['|', '|&'].includes(previous?.endOp)) return [];
+  const mode = readsPipedScript(tool, args);
+  if (mode === false) return [];
+  // fd 3 などの入力は fd 0 のパイプを置き換えない。既存の本文判定へ渡す入力だけを絞る。
+  const stdinArgs = sliceWords(args);
+  const redirects = redirectsOf(args);
+  Object.defineProperty(stdinArgs, 'redirects', { value: redirects.filter((r) => (r.fd ?? 0) === 0), configurable: true });
+  const body = stdinBody(stdinArgs, ctx.stdinContext);
+  const redirected = redirectsOf(stdinArgs).some((r) => isHeredocRedirect(r) || isReadRedirect(r));
+  if (!redirected && previous.some((_, i) => i > commandIndex(previous) && isUnresolved(previous, i))) {
+    for (const b of body.bodies) b.literal = false;
+  }
+  // リダイレクトがなければ単純な printf %s もここでだけ読める。
+  if (body.unreadable && !ctx.stdinContext.grouped && !redirected) {
+    const text = pipedScriptText(previous);
+    if (text) { body.bodies.push(text); body.unreadable = false; }
+  }
+  const results = [];
+  if (mode === null || redirects.stdinDuplicated || body.unreadable || body.bodies.some((b) => !b.literal)) {
+    results.push([ASK, 'パイプからシェルかインタープリタに渡す本文か、起動引数と標準入力の複製を字面で判定できない。人が確かめる']);
+  }
+  for (const { text } of body.bodies) {
+    if (SCRIPT_READERS.has(tool)) results.push(judgeBash(text, nextCtx));
+    else {
+      // 既存のヒアストリングと同じく、秘密の名前とインタープリタの本文の規則で見る。
+      if (mentionsSecret(text)) results.push([DENY, SECRET_FILE_REASON]);
+      results.push(judgeInterpreterBody(tool, ['--eval', text]));
+    }
+  }
+  return results.filter(Boolean);
+}
+
 // -c の位置を値の中から探さず、呼び出しのオプションを先頭から読む。
 const SHELL_LONG_VALUES = new Set(['--rcfile', '--init-file']);
 const SHELL_LONG_SWITCHES = new Set([
@@ -3488,6 +3638,7 @@ function judgeSegment(words, ctx) {
     else if (!isReader || xargsReadsFile(words.slice(xargs + 1, ci))) results.push([ASK, XARGS_REASON]);
   }
 
+  results.push(...judgePipedScript(tool, args, ctx, nextCtx));
   if (INTERPRETERS.has(tool)) results.push(judgeInterpreterBody(tool, args));
   if (unknownPrefixNeedsReview(words, ci, args, manager, ctx)) {
     results.push([ASK, '前置きの道具から git、シェル、インタープリタや名前を判定できない道具を動かすと、作業場所や追加の引数を判定できない。人が確かめる']);
