@@ -158,6 +158,18 @@ describe('record.mjs --check', () => {
     assert.match(result.stderr, message);
   };
 
+  test('markAfter は mark と同じ指し方を検査し、枠を見せる時間を足す', () => {
+    const step = { caption: '保存の結果', actions: [{ click: { css: '#save' } }] };
+    const before = check({ steps: [step] });
+    const after = check({ steps: [{ ...step, markAfter: { css: '#result' } }] });
+    assert.equal(before.status, 0, before.stderr);
+    assert.equal(after.status, 0, after.stderr);
+    assert.ok(Math.abs(seconds(after.stdout) - seconds(before.stdout) - 0.7) < 0.01);
+    for (const markAfter of [null, {}, { role: 'row' }, { css: '#r', typo: true }, { css: '#r', within: {} }]) {
+      rejected({ steps: [{ ...step, markAfter }] }, /markAfter/);
+    }
+  });
+
   test('見本の手順書は通り、見積もりを出す', () => {
     const result = spawnSync(process.execPath, [recordScript, '--check', join(skillDir, 'example-574.json')], {
       encoding: 'utf8',
@@ -1211,6 +1223,26 @@ console.log(JSON.stringify({ items, ran, results, lines: results.map(p.describeI
   test('入れ子の指し方と nth を、報告の 1 行に出す', () => {
     const nested = { steps: [{ mark: { within: { role: 'dialog', name: '延ばす' }, css: '[data-x]', nth: 1 } }] };
     assert.deepEqual(probe(nested).lines, ['mark role=dialog name="延ばす" の中の css=[data-x] nth=1']);
+  });
+
+  test('markAfter は全操作の後、次の場面の前に試し、失敗も報告する', () => {
+    const after = {
+      steps: [
+        { mark: button, actions: [{ click: button }, { pause: 10 }], markAfter: { css: '#result' } },
+        { markAfter: { css: '#still' } },
+      ],
+    };
+    const result = probe(after);
+    assert.deepEqual(result.ran, ['mark', 'click', 'markAfter', 'markAfter']);
+    assert.deepEqual(result.lines, [
+      'mark role=button name="押す"',
+      'click role=button name="押す"',
+      'markAfter css=#result',
+      'markAfter css=#still',
+    ]);
+    const failed = probe(after, { kind: 'markAfter', step: 1 });
+    assert.equal(failed.results[2].status, 'missing');
+    assert.equal(failed.results[3].status, 'skipped');
   });
 
   // 項目を実画面で実行する probeExec を、小さな HTML と HTTP サーバーで確かめる。Playwright はリポジトリの根のものを使う
