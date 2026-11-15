@@ -221,6 +221,25 @@ describe('見本との照合', () => {
     for (const name of names) assert.ok(name in arts, `${name} は線画の定義に無い`);
   });
 
+  test('見本の HTML の t・label・title が直接参照する billing の辞書キーは、見本と本番の両方に存在する', () => {
+    const design = readKitDictionary();
+    const production: Record<string, string | undefined> = dictionary;
+    const references = readdirSync(new URL('../design/', import.meta.url))
+      .filter((file) => file.endsWith('.html'))
+      .flatMap((file) =>
+        [...read(file).matchAll(/\b(?:t|label|title)\(\s*(['"])(billing[A-Z][A-Za-z0-9]*)\1/g)].map(([, , key]) => ({
+          file,
+          key,
+        })),
+      );
+    assert.ok(references.length > 0, '見本の HTML に請求の辞書キーが見つからない');
+    for (const { file, key } of references) {
+      assert.ok(Object.hasOwn(design, key), `${file}: ${key} が見本の DICT に無い`);
+      assert.ok(Object.hasOwn(production, key), `${file}: ${key} が本番の辞書に無い`);
+      assert.equal(design[key], production[key], `${file}: ${key} の文言`);
+    }
+  });
+
   test('言葉の辞書は、見本の DICT の全キーについて、言葉が同じ', () => {
     const design = readKitDictionary();
     const keys = Object.keys(design);
@@ -252,4 +271,23 @@ describe('見本との照合', () => {
       assert.notEqual(text, '', key);
     }
   });
+});
+
+test('組織作成のslug入力を、プラン変更の送信クリックとして扱わない', () => {
+  const source = read('kit.js');
+  const createDialog = source.slice(
+    source.indexOf('    createPersonalOrganization:'),
+    source.indexOf('    organizationCreated:'),
+  );
+  const slugId = /<label[^>]*for="([^"]+)"[^>]*>URL の名前（slug）/.exec(createDialog)?.[1];
+  const planDialog = source.slice(source.indexOf('    changePlan:'), source.indexOf('    suspendOrganization:'));
+  const submitId = /<button[^>]*id="([^"]+)"/.exec(planDialog)?.[1];
+  assert.ok(slugId, '組織作成のslug入力が見つからない');
+  assert.ok(submitId, 'プラン変更の送信ボタンが見つからない');
+  assert.notEqual(submitId, slugId, 'slug入力のクリックがプラン変更の送信に誤って入る');
+  assert.ok(source.includes(`ev.target.closest("#${submitId}")`), 'クリックの振り分けはプラン送信ボタンを指す');
+  const sendingText = /submit\.textContent = "([^"]+)"/.exec(
+    source.slice(source.indexOf(`ev.target.closest("#${submitId}")`)),
+  )?.[1];
+  assert.equal(sendingText, dictionary.operatorChanging, '送信中の文言は本番と同じ');
 });

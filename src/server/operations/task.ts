@@ -1,6 +1,12 @@
 import { generateKeyBetween } from 'fractional-indexing';
 import { monthIn, now, todayIn, weekRangeIn } from '../../shared/clock.ts';
-import { XP_HELP, XP_HELP_WEEKLY_LIMIT, XP_TASK_COMPLETED, XP_TASK_CREATED } from '../../shared/experience.ts';
+import {
+  XP_HELP,
+  XP_HELP_WEEKLY_LIMIT,
+  XP_TASK_COMPLETED,
+  XP_TASK_CREATED,
+  XP_TASK_DETAILED,
+} from '../../shared/experience.ts';
 import { backlogTree, taskComplete, taskCreate, taskMove } from '../../shared/operations/task/index.ts';
 import { searchWordsOf } from '../../shared/backlog-filter.ts';
 import { MIN_POINTS_FOR_EXPERIENCE } from '../../shared/task.ts';
@@ -27,6 +33,7 @@ import { taskAssigneePartyStatements } from './epic-party.ts';
 import { implement } from './implement.ts';
 import { sprintRefColumns, sprintRefOf, type SprintRefRow } from './sprint-refs.ts';
 import { openSprint } from './sprint.ts';
+import { detailedRecipient } from './task-detail-xp.ts';
 import { readUnfilled, unfilledExists } from './task-field.ts';
 import {
   MAX_TIES,
@@ -1043,12 +1050,12 @@ type CompletionParams = {
   at: string;
 };
 
-// 起票と完了の経験値の1行。ポイント、起票した人、担当は先に読まず、tasks の行から取る。
+// 起票、詳細と完了の経験値の1行。ポイント、起票した人、担当は先に読まず、tasks の行から取る。
 // 条件は、ポイントが 1 以上（完了にした時点の値）と、自分の完了の記録が入ったこと
 function grantStatement(
   db: OrganizationDb,
   params: CompletionParams,
-  grant: { id: string; action: 'task_created' | 'task_completed'; amount: number },
+  grant: { id: string; action: 'task_created' | 'task_completed' | 'task_detailed'; amount: number },
 ) {
   const { workspaceId, taskId, completionId, userId, at } = params;
   return db.statement((q) =>
@@ -1064,7 +1071,9 @@ function grantStatement(
             // 起票は作った人へ。完了は完了した時点の担当者へ、担当がいなければ完了にした人へ
             grant.action === 'task_created'
               ? eb.ref('tasks.created_by').as('user_id')
-              : eb.fn.coalesce('tasks.assignee_user_id', eb.val(userId)).as('user_id'),
+              : grant.action === 'task_detailed'
+                ? detailedRecipient(eb).as('user_id')
+                : eb.fn.coalesce('tasks.assignee_user_id', eb.val(userId)).as('user_id'),
             eb.val(grant.action).as('action'),
             'tasks.id as task_id',
             eb.val(completionId).as('completion_id'),
@@ -1090,7 +1099,9 @@ function grantStatement(
                     '=',
                     grant.action === 'task_created'
                       ? eb.ref('tasks.created_by')
-                      : eb.fn.coalesce('tasks.assignee_user_id', eb.val(userId)),
+                      : grant.action === 'task_detailed'
+                        ? detailedRecipient(eb)
+                        : eb.fn.coalesce('tasks.assignee_user_id', eb.val(userId)),
                   ),
               ),
               eb.exists(completionExists(q, workspaceId, completionId)),
@@ -1596,9 +1607,10 @@ function completeStatements(db: OrganizationDb, context: CompleteContext) {
             ),
         ),
     ),
-    // 3. xp_grants。起票と完了、続けてそのタスクの感謝1件につき手助け1行（感謝の順。上限は前の文の挿入を数えて守る）
+    // 3. xp_grants。起票、完了と詳細、続けてそのタスクの感謝1件につき手助け1行（感謝の順。上限は前の文の挿入を数えて守る）
     grantStatement(db, params, { id: uuidv7(at), action: 'task_created', amount: XP_TASK_CREATED }),
     grantStatement(db, params, { id: uuidv7(at), action: 'task_completed', amount: XP_TASK_COMPLETED }),
+    grantStatement(db, params, { id: uuidv7(at), action: 'task_detailed', amount: XP_TASK_DETAILED }),
     ...thankIds.map((thankId) => helpStatement(db, { ...params, weekStart, weekEnd }, { id: uuidv7(at), thankId })),
     // 4. change_logs。3 と同じく、自分の完了の記録が入ったときだけ
     db.statement((q) =>
