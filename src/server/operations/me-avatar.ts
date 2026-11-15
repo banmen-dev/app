@@ -125,10 +125,23 @@ export const meAvatarUploadOperation = implement(
       ]);
       applied = (result?.rows.length ?? 0) > 0;
     } catch (error) {
-      // D1 が書き込みを確定した後に応答だけが失われることがある。新しい ID の行が無いと確かめられたときだけ新しいファイルを消す
-      // （確かめられなければ消さない。どの行からも指されないファイルが残るほうが、行が指すファイルを消すより安全）
-      if ((await committedAvatarId(db, userId).catch(() => id)) !== id) await discardNew();
-      throw failure('プロフィール画像の行を書けなかった', requestId, error);
+      // D1 が書き込みを確定した後に応答だけが失われることがある。行を引き直して決める
+      // - 新しい ID の行がある: 書けている。成功として続け、前のファイルを消す
+      // - 無い: 書けていない。新しいファイルを消して 500
+      // - 引き直せない: 消さずに 500。行が指すファイルを消すより、どの行からも指されないファイルが残るほうが安全で、残りうる件数をログに出す
+      const committed = await committedAvatarId(db, userId).then(
+        (current) => current === id,
+        () => undefined,
+      );
+      if (committed === undefined) {
+        logUnresolvedObjects(requestId, previous === undefined ? 1 : 2);
+        throw failure('プロフィール画像の行を書けたか確かめられなかった', requestId, error);
+      }
+      if (!committed) {
+        await discardNew();
+        throw failure('プロフィール画像の行を書けなかった', requestId, error);
+      }
+      applied = true;
     }
     if (!applied) {
       // 別の差し替えか無効にする書き込みが先に済んだ。書いた新しいファイルはどの行からも指されないので消す
@@ -143,6 +156,20 @@ export const meAvatarUploadOperation = implement(
     return { avatar_url: avatarUrl(organization.slug, id) };
   },
 );
+
+// 書けたか確かめられず、消さずに残したファイル（新しいファイルと、あれば前のファイル）の件数だけをログに出す（キーは出さない）
+function logUnresolvedObjects(requestId: string, count: number): void {
+  console.error(
+    JSON.stringify({
+      level: 'error',
+      code: 'internal',
+      requestId,
+      operation: meAvatarUpload.name,
+      reason: '書けたか確かめられず、プロフィール画像のファイルを残した',
+      count,
+    }),
+  );
+}
 
 // 今その人の行が指す画像の ID（行が無ければ undefined）
 async function committedAvatarId(db: OrganizationDb, userId: string): Promise<string | undefined> {
