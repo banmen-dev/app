@@ -3,7 +3,7 @@
 // Kysely の型は categories の表で書き（asTable）、どの表でも同じ列だけを、表の名前を付けずに参照する（区分だけの列
 // is_billed_monthly は、区分のときだけ選ぶ）。どの文もワークスペースで絞る。
 // 数の上限は表ごと（spec.limit。区分とリポジトリは 50、決まった欄は 10）。決まった欄は、削除しても振っていた先を戻さない
-// （値の行は残し、削除した欄は未記入の判定から外れるだけ）ので、spec.items が空で、削除の文は定義の削除とその履歴の2つ
+// （値の行は残し、削除した欄は「詳細を書いた」の経験値の判定から外れるだけ）ので、spec.items が空で、削除の文は定義の削除とその履歴の2つ
 import { now } from '../../shared/clock.ts';
 import { DEFINITIONS_PER_WORKSPACE, DETAIL_FIELDS_PER_WORKSPACE } from '../../shared/definition.ts';
 import {
