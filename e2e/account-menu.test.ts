@@ -96,7 +96,7 @@ test.describe('アカウントのメニュー', () => {
           return { inside: box.left >= 0 && box.right <= window.innerWidth, height: box.height };
         }),
       );
-      expect(boxes).toHaveLength(3);
+      expect(boxes).toHaveLength(4);
       for (const box of boxes) {
         expect(box.inside).toBe(true);
         expect(box.height).toBeGreaterThanOrEqual(44);
