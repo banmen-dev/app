@@ -19,7 +19,7 @@ pnpm exec node scripts/today-loading-bench.ts --fixture-at 2026-11-15T02:40:00.0
 pnpm exec node scripts/today-loading-bench.ts --fixture-at 2026-11-15T02:40:00.000Z --reverse-modes
 ```
 
-`--runs` と `--port` も指定できる（既定20回・9742、デバッガー9743）。リポジトリのルートで実行する。既存の [全画面計測](loading-bench-results.md) と fixture・セッション投入・health の版照合・終了時のサーバー停止を共用する。同じ基準時刻の `loadingFixtureSql` と seed を投入し、5,000タスク・履歴・進行中スプリントなどのデータを保つ。セッションの有効期限は実行時に生成する。`--fixture-at` は Worker の時計を固定しないため、後日の再現では直近完了や持越日数の集計が当日と同じとは限らない。既存の手元 D1 と本番は使わない。
+`--runs` と `--port` も指定できる（既定20回・9742、デバッガー9743）。リポジトリのルートで実行する。既存の [全画面計測](loading-bench-results.md) と同じ方式で動かす。`loadingFixtureSql`、`sessionInserts`、`isBenchHealth`、`trackServer` は共用するが、Wrangler 設定生成・起動待ち・API 呼び出し・後片付けを組み立てる処理はこの比較器に複製している。既存の比較器の実行条件を変えないため、今回の差分では共通モジュールへの切り出しを行わない。同じ基準時刻の `loadingFixtureSql` と seed を投入し、5,000タスク・履歴・進行中スプリントなどのデータを保つ。セッションの有効期限は実行時に生成する。`--fixture-at` は Worker の時計を固定しないため、後日の再現では直近完了や持越日数の集計が当日と同じとは限らない。既存の手元 D1 と本番は使わない。
 
 | 条件 | 利用者と応答 | 作る条件 |
 | --- | --- | --- |
