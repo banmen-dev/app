@@ -14,6 +14,7 @@ import {
   type CreatePersonalOrganizationConflictReason,
 } from './create-personal-organization.ts';
 import { firstSteps } from './first-steps.ts';
+import { meAvatarDelete, meAvatarUpload, userAvatar } from './me-avatar.ts';
 import { meThemeUpdate } from './me-theme-update.ts';
 import { myOrganizations } from './my-organizations.ts';
 import { organizationInfo } from './organization.ts';
@@ -37,6 +38,8 @@ export {
   createPersonalOrganizationConflictReasons,
   type CreatePersonalOrganizationConflictReason,
   firstSteps,
+  meAvatarDelete,
+  meAvatarUpload,
   meThemeUpdate,
   myOrganizations,
   organizationHistory,
@@ -47,6 +50,7 @@ export {
   userAdminUpdate,
   userDisable,
   userEnable,
+  userAvatar,
   userList,
   today,
   recentActivity,
@@ -62,6 +66,9 @@ export const organizationOperations: readonly AnyOperationDefinition[] = [
   createPersonalOrganization,
   organizationInfo,
   meThemeUpdate,
+  meAvatarUpload,
+  meAvatarDelete,
+  userAvatar,
   organizationHolidayList,
   organizationHolidayAdd,
   organizationHolidayDelete,

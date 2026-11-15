@@ -48,25 +48,30 @@ export const userList = defineOperation({
 
 // 管理者に指名するか、解除する。同じ値なら書かずに今の値を返す。無効の人の指名は 409（disabled）、
 // 人数が上限に達していて、まだ人数に数えられていない人の指名は 409（member_limit）、
-// 最後の管理者の解除は 409（last_admin）。自分の解除は、最後の管理者でなければできる
+// 最後の管理者の解除は 409（last_admin）。自分の解除は、最後の管理者でなければできる。
+// 解除した人に今の所属が無ければ（組織に入れなくなる）、上げたプロフィール画像（行と R2 のファイル）も消す
 export const userAdminUpdate = defineOperation({
   name: 'user-admin-update',
   description:
-    'ユーザーを管理者に指名するか、管理者を解除し、組織の変更の履歴に残す。無効の人の指名と最後の管理者の解除は 409 の conflict',
+    'ユーザーを管理者に指名するか、管理者を解除し、組織の変更の履歴に残す。所属の無い人を解除すると組織に入れなくなるので、上げたプロフィール画像も消す。無効の人の指名と最後の管理者の解除は 409 の conflict',
   mode: 'write',
   permission: 'admin',
+  storage: 'attachments',
   input: z.object({ user_id: idSchema, is_admin: z.boolean() }),
   output: userState,
 });
 
-// ユーザーを無効にする。管理者なら同じ文で解除し、承諾待ちの招待を取り消し、閉じたものを含むすべてのワークスペースから外し、担当を外す。
+// ユーザーを無効にする。管理者なら同じ文で解除し、承諾待ちの招待を取り消し、閉じたものを含むすべてのワークスペースから外し、担当を外し、
+// 上げたプロフィール画像（行と R2 のファイル）を消す。
 // 自分は 409（self）、最後の管理者は 409（last_admin）。無効の人なら書かずに今の値を返す
 export const userDisable = defineOperation({
   name: 'user-disable',
   description:
-    'ユーザーを無効にする。管理者なら解除し、承諾待ちの招待を取り消し、すべてのワークスペースから外して未完了のタスクの担当を外し、変更の履歴に残す',
+    'ユーザーを無効にする。管理者なら解除し、承諾待ちの招待を取り消し、すべてのワークスペースから外して未完了のタスクの担当を外し、変更の履歴に残す。上げたプロフィール画像も消し、有効に戻しても戻らない',
   mode: 'write',
   permission: 'admin',
+  // その人のプロフィール画像（user_avatars の行）も消し、R2 のファイルを消す（有効に戻しても戻らない）
+  storage: 'attachments',
   input: z.object({ user_id: idSchema }),
   output: userState,
 });

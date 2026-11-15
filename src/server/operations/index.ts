@@ -47,6 +47,7 @@ import {
   invitationDeclineOperation,
   invitationListOperation,
 } from './invitation-response.ts';
+import { meAvatarDeleteOperation, meAvatarUploadOperation, userAvatarOperation } from './me-avatar.ts';
 import { meThemeUpdateOperation } from './me-theme.ts';
 import { membershipLeaveOperation, membershipRoleUpdateOperation } from './membership.ts';
 import { createOrganizationOperation, listOrganizationsOperation, resolveGithubUserOperation } from './operator.ts';
@@ -327,6 +328,9 @@ const listedOperations: readonly ImplementedOperation[] = [
   attachmentDownloadOperation,
   attachmentListOperation,
   attachmentDeleteOperation,
+  meAvatarUploadOperation,
+  meAvatarDeleteOperation,
+  userAvatarOperation,
 ];
 
 export const implementedOperations: readonly ImplementedOperation[] = [
