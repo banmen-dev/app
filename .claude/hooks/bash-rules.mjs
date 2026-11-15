@@ -3011,10 +3011,39 @@ function gitConfigFileAt(dir, cdWords, namesGitDir) {
     viaGitDir(word);
 }
 
+// Claude Code が各 Bash のコマンドの前に読む環境のファイル（CLAUDE_ENV_FILE。~/.claude/session-env/<セッション>/*.sh）。
+// 書き足すと、以後のすべての Bash に、フックからは見えない GIT_CONFIG_*、GH_REPO、PATH などが付く（guard-bash.mjs は自分の環境しか見ない）。
+// CLAUDE_CONFIG_DIR で ~/.claude の場所を替えても名前は session-env なので、名前で見る（大文字小文字は区別しない。APFS では同じ場所を指す）。
+// 変数の字面（"$CLAUDE_ENV_FILE"、${CLAUDE_ENV_FILE:-x}）と、起動元の環境の CLAUDE_ENV_FILE の値そのものも当てる
+const SESSION_ENV_FILE = /(^|\/)session-env(\/|$)|\$\{?CLAUDE_ENV_FILE\b/i;
+// glob の語（~/.claude/s*/x/y.sh、~/.c*/session-*/x/y.sh）は、隣り合う2つの区切りが .claude と session-env に当たるかで見る。
+// session-env だけに当たる glob（/tmp/*/x）まで止めないよう、親の .claude も求める
+function globHitsSessionEnv(word) {
+  const segments = word.split('/').map((s) => s.toLowerCase());
+  const hit = (pattern, name) => (GLOB_CHARS.test(pattern) ? !(name.startsWith('.') && /^[*?[]/.test(pattern)) && matchesGlob(name, pattern) : pattern === name);
+  return segments.some((s, k) => k + 1 < segments.length && hit(s, '.claude') && hit(segments[k + 1], 'session-env'));
+}
+const SESSION_ENV_REASON =
+  'Claude Code が各 Bash の前に読む環境のファイル（CLAUDE_ENV_FILE、~/.claude/session-env/）への書き込みは、フックから見えない GIT_CONFIG_*、GH_REPO、PATH を以後のコマンドに付け、push の先や守りを替えうる。書き込みは人が確かめる';
+
+// 語が環境のファイルに当たるか。書かれた語、正規化した語、作業場所から解決した絶対パス、cd の行き先の字面をつないだ語で見る（gitConfigFileAt と同じ）。
+// envFile は起動元の環境の CLAUDE_ENV_FILE の値（無ければ undefined）
+function sessionEnvFileAt(dir, cdWords, envFile) {
+  const real = typeof envFile === 'string' && path.isAbsolute(envFile) ? path.resolve(envFile).toLowerCase() : null;
+  const hitsOne = (w) =>
+    [w, withoutGlobGroup(w)].some((v) => SESSION_ENV_FILE.test(v) || (GLOB_CHARS.test(v) && globHitsSessionEnv(v)) || (real !== null && path.isAbsolute(v) && path.resolve(v).toLowerCase() === real));
+  const hits = (w) => expansionSize(w) > MAX_BRACE_EXPANSION || expandBraces(w).some(hitsOne);
+  return (word) =>
+    hits(word) ||
+    hits(path.posix.normalize(word)) ||
+    Boolean(dir && hits(path.resolve(dir, word))) ||
+    Boolean(cdWords && hits(path.posix.join(cdWords, word)));
+}
+
 // 道具の無い区切り（> f、exec > f）と cd、pushd のリダイレクトも見るので、tool を空、args を空にして呼べる。
 // dir は作業場所（分からなければ null）。wrangler の設定は相対パスを dir から解決しても見る。
 // cdWords は、これまでの cd の行き先の字面（~/.config/git）をつないだもの。namesGitDir は gitConfigFileAt を参照
-function judgeFileWrites(tool, args, words, dir = null, cdWords = '', namesGitDir = false) {
+function judgeFileWrites(tool, args, words, dir = null, cdWords = '', namesGitDir = false, envFile = undefined) {
   const results = [];
   const globRedirects = redirectsOf(words).filter((r) => !isHeredocRedirect(r) && r.expands);
   const redirectNames = globRedirects.map((r) => r.globPattern);
@@ -3046,6 +3075,15 @@ function judgeFileWrites(tool, args, words, dir = null, cdWords = '', namesGitDi
   const isGitConfig = gitConfigFileAt(dir, cdWords, namesGitDir);
   if (writesTo(isGitConfig, tool, args, words, { intoDirectory: { dir, names: GIT_CONFIG_NAMES, anywhere: true } }) || interpreterWords(tool, args).some((w) => expansionSize(w) <= MAX_BRACE_EXPANSION && isGitConfig(w))) {
     results.push([ASK, GIT_CONFIG_FILE_REASON]);
+  }
+  // ln は元も見る。環境のファイルのディレクトリへのリンク（ln -s ~/.claude/session-env /tmp/e）を作ると、後のリンク越しの書き込みを名前で見られない
+  const isSessionEnv = sessionEnvFileAt(dir, cdWords, envFile);
+  // インタープリタの本文は環境変数を $ を付けずに読む（process.env.CLAUDE_ENV_FILE、os.environ['CLAUDE_ENV_FILE']）ので、名前だけでも当てる
+  if (writesTo(isSessionEnv, tool, args, words, { intoDirectory: { dir, names: ['session-env'], anywhere: true } }) ||
+      // 展開の大きい本文の語（node x.ts {1..30000}）は BIG_GLOB_REASON が見るので、ここでは当てない（git の設定ファイルと同じ）
+      interpreterWords(tool, args).some((w) => expansionSize(w) <= MAX_BRACE_EXPANSION && (isSessionEnv(w) || /\bCLAUDE_ENV_FILE\b/i.test(w))) ||
+      (['ln', 'gln'].includes(tool) && positionals(args).some(isSessionEnv))) {
+    results.push([ASK, SESSION_ENV_REASON]);
   }
   return results;
 }
@@ -3560,7 +3598,7 @@ function judgeSegment(words, ctx) {
   if (ci !== -1) {
     ctx = { ...ctx, ...dirAfterEnv(words, ci, ctx.dir, ctx.envFrom ?? 0, ctx.place) };
   }
-  results.push(...judgeFileWrites(tool, args, words, ctx.dir, ctx.cdWords, ctx.namesGitDir));
+  results.push(...judgeFileWrites(tool, args, words, ctx.dir, ctx.cdWords, ctx.namesGitDir, ctx.env?.CLAUDE_ENV_FILE));
   const removal = judgeRemoval(tool, args, ctx);
   if (removal) results.push(removal);
   // 再帰 chmod は祖先の . を指定しても配下のフックの実行権限を外しうる。
@@ -4091,7 +4129,7 @@ function judgeCommand(
     if (ci !== -1 && ['cd', 'pushd', 'popd'].includes(words[ci])) {
       if (setsWorkersCi(words, ci)) results.push([DENY, WORKERS_CI_REASON]);
       // cd . > .dev.vars のようにリダイレクトを付けられる。道具として見ない（cd の引数は書き込み先ではない）
-      results.push(...judgeFileWrites('', [], words, dir, cdWords, namesGitDir));
+      results.push(...judgeFileWrites('', [], words, dir, cdWords, namesGitDir, segmentEnv.CLAUDE_ENV_FILE));
       dir = nextDir(words, ci, dir, segmentEnv);
       cdWords = cdWordsAfter(words, ci, cdWords);
       const to = cdTarget(words, ci, segmentEnv);

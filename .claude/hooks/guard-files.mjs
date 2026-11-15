@@ -3,6 +3,7 @@
 // 判定のモジュールは try の中で読み込む。静的に import すると、読み込みの失敗が exit 1（素通り）になる。
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 function writtenContents(toolName, toolInput) {
@@ -136,12 +137,41 @@ function existsOnMain(root, rel) {
 // 守る先は大文字小文字を区別せずに見る（file-rules.mjs と同じ）
 const startsWithFolded = (rel, prefix) => rel.toLowerCase().startsWith(prefix);
 
+// 書かれたパスと、あるところまでの親のリンクを解いたパス（/tmp/e が ~/.claude/session-env へのリンクのとき /tmp/e/x/y.sh も当てる）。
+// ~ は Write と Edit が展開しないが、名前で見るので展開した形も足す
+function writtenPaths(cwd, filePath) {
+  const expanded = filePath === '~' || filePath.startsWith('~/') ? path.join(os.homedir(), filePath.slice(1)) : filePath;
+  const absolute = path.resolve(cwd, expanded);
+  let dir = absolute;
+  while (!existsSync(dir) && dir !== path.dirname(dir)) dir = path.dirname(dir);
+  let real = absolute;
+  try {
+    real = path.join(realpathSync(dir), path.relative(dir, absolute));
+  } catch {
+    // 解けなければ書かれたパスだけで見る
+  }
+  return [filePath, absolute, real];
+}
+
 try {
-  const { judgeFile } = await import('./file-rules.mjs');
+  const { judgeFile, judgeSessionEnvFile } = await import('./file-rules.mjs');
   const input = JSON.parse(readFileSync(0, 'utf8'));
   const filePath = input.tool_input?.file_path;
-  const located = filePath && locate(path.resolve(input.cwd ?? process.cwd(), filePath));
-  if (located && !located.rel.startsWith('..')) {
+  const cwd = input.cwd ?? process.cwd();
+  // 環境のファイルは git のリポジトリの外にあるので、場所を引く前に見る
+  const envVerdict = typeof filePath === 'string' && filePath !== '' ? judgeSessionEnvFile(writtenPaths(cwd, filePath), process.env.CLAUDE_ENV_FILE) : null;
+  const located = !envVerdict && filePath && locate(path.resolve(cwd, filePath));
+  if (envVerdict) {
+    process.stdout.write(
+      JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: envVerdict[0],
+          permissionDecisionReason: `${envVerdict[1]}（.claude/hooks/file-rules.mjs）`,
+        },
+      }),
+    );
+  } else if (located && !located.rel.startsWith('..')) {
     const { root, rel, dir } = located;
     const verdict = judgeFile({
       rel,

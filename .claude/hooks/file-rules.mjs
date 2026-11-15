@@ -3,6 +3,19 @@
 // D1 の binding の判定は、ESLint の入口を守る規則（docs/development.md の「入口を守る規則」）が入るまでのつなぎ。
 import path from 'node:path';
 
+// Claude Code が各 Bash のコマンドの前に読む環境のファイル（CLAUDE_ENV_FILE。~/.claude/session-env/<セッション>/*.sh）への書き込みか。
+// 書き足すと、以後のすべての Bash に、フックからは見えない GIT_CONFIG_*、GH_REPO、PATH などが付く。git のリポジトリの外にあるので judgeFile とは別に、
+// 書かれたパスと、リンクを解いたパスの両方（paths）で見る。CLAUDE_CONFIG_DIR で ~/.claude の場所を替えても名前は session-env なので、名前で見る。
+// envFile は起動元の環境の CLAUDE_ENV_FILE の値（無ければ undefined）。止めるものが無ければ null
+export function judgeSessionEnvFile(paths, envFile) {
+  const target = typeof envFile === 'string' && path.isAbsolute(envFile) ? path.resolve(envFile).toLowerCase() : null;
+  const hits = (p) => /(^|\/)session-env(\/|$)/i.test(p.split(path.sep).join('/')) || (target !== null && path.resolve(p).toLowerCase() === target);
+  if (paths.some(hits)) {
+    return ['ask', 'Claude Code が各 Bash の前に読む環境のファイル（CLAUDE_ENV_FILE、~/.claude/session-env/）への書き込みは、フックから見えない GIT_CONFIG_*、GH_REPO、PATH を以後のコマンドに付け、push の先や守りを替えうる。書き込みは人が確かめる'];
+  }
+  return null;
+}
+
 // rel はリポジトリのルートからの相対パス。shippedOnMain は origin/main に同じパスがあるか（main を引けなければ undefined）
 // inWorktree は、セッションが使うフックのあるリポジトリとは別の、リンクされたワークツリーの中のファイルか
 // onMain は、ファイルのある作業コピーが main にいるか（本体の detached も含む）。ほかのどの判定より先に止める

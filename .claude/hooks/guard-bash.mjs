@@ -42,9 +42,10 @@ try {
   const command = input.tool_input?.command;
   if (typeof command === 'string') {
     // セッションの CDPATH は、相対の cd の行き先を cwd の外へ変える（judgeBash は空文字を無いものとする）。
-    // GH_REPO、GH_HOST、GIT_DIR、GIT_WORK_TREE、GIT_CONFIG_* は、gh が宛先と現在のブランチを決める元になるので、起動元の環境にあっても見る
+    // GH_REPO、GH_HOST、GIT_DIR、GIT_WORK_TREE、GIT_CONFIG_* は、gh が宛先と現在のブランチを決める元になるので、起動元の環境にあっても見る。
+    // CLAUDE_ENV_FILE は、Claude Code が各 Bash の前に読むファイルの場所。名前（session-env）に当たらない場所でも、書き込みを止めるのに使う
     const env = Object.fromEntries(
-      ['CDPATH', 'GH_REPO', 'GH_HOST', 'GIT_DIR', 'GIT_WORK_TREE', ...Object.keys(process.env).filter((name) => /^GIT_CONFIG_/.test(name))].map((name) => [name, process.env[name]]),
+      ['CDPATH', 'GH_REPO', 'GH_HOST', 'GIT_DIR', 'GIT_WORK_TREE', 'CLAUDE_ENV_FILE', ...Object.keys(process.env).filter((name) => /^GIT_CONFIG_/.test(name))].map((name) => [name, process.env[name]]),
     );
     const verdict = judgeBash(command, { cwd: input.cwd ?? process.cwd(), branchOf, scriptOf, packageDirOf, env });
     if (verdict) {
