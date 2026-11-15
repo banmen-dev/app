@@ -39,3 +39,32 @@ describe('#1246 CI: inline 本文から起動する道具へのパイプ入力',
   }
 });
 
+// HIGH 修正の第1反証: -c 以外の inline 呼び出しでも fd0 は継承する。
+describe('#1246 CI HIGH 反証1: fish/eval と標準入力の置換', () => {
+  for (const command of [
+    "echo 'wrangler deploy' | fish --command 'bash'",
+    "echo 'wrangler deploy' | fish --command='bash'",
+    "echo 'wrangler deploy' | fish -C 'bash' -c 'cat'",
+    "echo 'wrangler deploy' | eval 'bash'",
+    "cat x.sh | fish --command 'bash'",
+    "cat x.sh | eval 'bash'",
+  ]) {
+    test(`[すり抜け・確認] ${command}`, () => assert.equal(decision(command), 'ask', command));
+  }
+  for (const command of [
+    "echo 'wrangler deploy' | bash -c 'eval bash'",
+    "echo 'wrangler deploy' | bash -c 'env bash'",
+    "echo 'wrangler deploy' | bash -c 'bash -c bash'",
+  ]) {
+    test(`[すり抜け・確認] 継承した印は再帰する呼出しでも残る: ${command}`, () =>
+      assert.equal(decision(command), 'ask', command));
+  }
+  for (const command of [
+    "echo 'wrangler deploy' | bash -c 'bash' <<< 'ls'",
+    "echo 'wrangler deploy' | bash -c \"bash <<< 'ls'\"",
+    "echo 'wrangler deploy' | eval cat",
+    "echo 'wrangler deploy' | fish --command cat",
+  ]) {
+    test(`[完了条件・通す] ${command}`, () => assert.equal(decision(command), 'allow', command));
+  }
+});

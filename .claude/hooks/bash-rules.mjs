@@ -3540,7 +3540,13 @@ function judgeSegment(words, ctx) {
   const prefixes = prefixIndexes(words);
   // env -S の文字列は、道具の名前の位置に1語として見えるか、フラグに紛れて道具が見つからない。ci が -1 でも見る
   if (splitsString(words, prefixes, ci)) results.push([ASK, ENV_SPLIT_REASON]);
-  const nextCtx = { ...ctx, cwd: ctx.dir, depth: ctx.depth + 1 };
+  const inputRedirects = redirectsOf(args);
+  const input = inputRedirects.filter((r) => (r.fd ?? 0) === 0 && (isHeredocRedirect(r) || isReadRedirect(r))).at(-1);
+  // 再帰する inline/eval/fish も fd0 を引き継ぐが、明示された本文があれば元のパイプは置き換わる。
+  // stdinContext は gh/curl のデータ判定用なので変更せず、コード実行の可能性だけを別の印で渡す。
+  const inheritedScriptStdin = (ctx.inheritedScriptStdin || ['|', '|&'].includes(ctx.stdinContext?.previous?.endOp)) &&
+    !(!inputRedirects.stdinDuplicated && input && isHeredocRedirect(input));
+  const nextCtx = { ...ctx, cwd: ctx.dir, depth: ctx.depth + 1, inheritedScriptStdin };
   // script -qc "…"（util-linux）の文字列は、後ろに道具が無いので ci が -1 でも見る
   results.push(...prefixCommands(words).map((script) => judgeBash(script, nextCtx)).filter(Boolean));
   // npm_config_call='…' npx のように、道具の前の代入で npm exec にシェルの文字列を渡す。npx だけなら ci は -1 なので先に見る
@@ -3672,10 +3678,7 @@ function judgeSegment(words, ctx) {
     // bash -c "..."、bash -lc "..."、bash <<< "..."、bash <<EOF の中身も同じ規則で見る
     const script = shellCommandBody(tool, args);
     if (script.uncertain) results.push([ASK, 'シェルの -c の本文の位置をオプションと値から判定できない。人が確かめる']);
-    if (script.body) results.push(judgeBash(script.body, {
-      ...nextCtx,
-      inheritedScriptStdin: ctx.inheritedScriptStdin || ['|', '|&'].includes(ctx.stdinContext?.previous?.endOp),
-    }));
+    if (script.body) results.push(judgeBash(script.body, nextCtx));
     if (tool === 'fish') for (const body of fishCommands(args)) results.push(judgeBash(body, nextCtx));
     for (const body of heredocScripts(args)) results.push(judgeBash(body, nextCtx));
   }
