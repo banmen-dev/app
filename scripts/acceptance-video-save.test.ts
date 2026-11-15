@@ -132,3 +132,27 @@ try {
   assert.ifError(result.error);
   assert.equal(result.status, 0, result.stderr);
 });
+
+test('保存待ちと画面遷移待ちの報告・後続の中止は Chromium 無しでも検査する', () => {
+  const planUrl = JSON.stringify(new URL('../.claude/skills/acceptance-video/plan.mjs', import.meta.url).href);
+  const code = `
+import assert from 'node:assert/strict';
+import { NAVIGATION_WAIT_TIMEOUT, SAVE_WAIT_TIMEOUT, runProbe, formatProbeLine } from ${planUrl};
+for (const [code, verdict] of [[SAVE_WAIT_TIMEOUT, '保存待ちで中止'], [NAVIGATION_WAIT_TIMEOUT, '画面遷移待ちで中止']]) {
+  const results = await runProbe([
+    {step: 1, kind: 'goto', path: '/next'},
+    {step: 1, kind: 'markAfter', spec: {css: '#result'}},
+  ], async () => { throw Object.assign(new Error('timeout'), {code}); });
+  assert.ok(formatProbeLine(results[0]).includes(verdict + ': goto /next'));
+  assert.equal(results[1].status, 'skipped');
+  assert.ok(results[1].reason.includes(verdict));
+  assert.ok(!results[1].reason.includes('見つからず'));
+}
+`;
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', code], {
+    encoding: 'utf8',
+    timeout: 10_000,
+  });
+  assert.ifError(result.error);
+  assert.equal(result.status, 0, result.stderr);
+});
