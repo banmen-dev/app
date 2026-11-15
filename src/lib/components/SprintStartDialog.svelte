@@ -3,7 +3,7 @@
   import { sprintConflictReasonOf, sprintStart, type SprintPlan } from '../../shared/operations/sprint/index.ts';
   import { SPRINT_GOAL_MAX_LENGTH, normalizeSprintGoal, sprintGoalProblem } from '../../shared/sprint.ts';
   import { callOperation } from '../api.ts';
-  import { sprintLabel, sprintPeriod } from '../sprint-label.ts';
+  import { sprintLabelWithPeriod } from '../sprint-label.ts';
   import { showToast } from '../toast.svelte.ts';
   import { t } from '../vocabulary.svelte.ts';
   import Dialog from './Dialog.svelte';
@@ -162,8 +162,8 @@
     <form id={formId} class="form" onsubmit={submit} novalidate>
       <p>
         {t('sprintStartText', {
-          label: sprintLabel(target, t),
-          period: sprintPeriod(target, t),
+          sprint: t('sprint'),
+          label: sprintLabelWithPeriod(target, t),
           task: t('task'),
           count: target.tasks.length,
           points,

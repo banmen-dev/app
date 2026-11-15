@@ -47,12 +47,12 @@ async function startSprintWithCards(page: Page, titles: string[]) {
   await create.getByLabel('名前（任意）').fill('第9回');
   await create.getByRole('button', { name: '作る' }).click();
   await expect(create).toBeHidden();
-  await page.getByRole('button', { name: '始める: スプリント 第9回' }).click();
+  await page.getByRole('button', { name: '始める: スプリント「第9回」' }).click();
   const start = page.getByRole('dialog', { name: 'スプリントを始める' });
   await start.getByRole('button', { name: '始める' }).click();
   await expect(start).toBeHidden();
   await page.getByRole('link', { name: 'スプリント', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'スプリント 第9回' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: '第9回' })).toBeVisible();
   const input = page.getByRole('textbox', { name: 'タスクを足す: 未着手' });
   for (const title of titles) {
     await input.fill(title);
@@ -363,7 +363,7 @@ test('スプリントのカードを消した後のボードの読み直しが�
 
   await unroute();
   await retry.click();
-  await expect(page.getByRole('heading', { level: 1, name: 'スプリント 第9回' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: '第9回' })).toBeVisible();
   await expect(notice).toHaveCount(0);
   await expect(page.getByRole('link', { name: '残るカード', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: '読み直しに落ちるカード', exact: true })).toHaveCount(0);

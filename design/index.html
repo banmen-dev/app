@@ -193,7 +193,7 @@ function assistDemo() {
   const ai = (o) => ({ role: "ai", steps: [], text: "", ...o, step: o.step ?? (o.steps || []).length, shown: o.shown ?? (o.text || "").length });
   const msg = (m) => strip(SQ.assistMsg(m));
   const user = (text) => SQ.assistMsg({ role: "user", text });
-  const steps = [`${SQ.sprintLabel("sp14")}の${t("task")}を読んでいます`, `${t("due")}と${t("column")}を確かめています`];
+  const steps = [`${t("sprint")}「${SQ.sprintLabel("sp14")}」の${t("task")}を読んでいます`, `${t("due")}と${t("column")}を確かめています`];
   const rows = ["t4", "t5", "t9", "t13", "t3", "t8", "t1"].map((id, j) => {
     const x = SQ.task(id);
     return { id, field: t("assignee"), from: x.who ? SQ.user(x.who).name : "担当なし", to: "リン", on: j !== 2 };
@@ -207,7 +207,7 @@ function assistDemo() {
       <div class="cat-row"><button class="pill assist-launch" type="button" data-assist-open>${icon("spark")}<span>${t("assistant")}に頼む</span></button><span class="field-hint">押すと本物のパレットが開く。例の頼みごとを押して試せる</span></div>
       <div class="assist-sheet">
         <div class="assist-ask">${icon("spark")}<input class="assist-input" placeholder="${t("assistant")}に頼む" aria-label="見本の入力" tabindex="-1"><span class="icon-btn" aria-hidden="true">${icon("send")}</span></div>
-        <div class="assist-context"><span class="assist-ctx">${icon("board")}<span>${SQ.sprintLabel("sp14")}を見ています</span><button type="button" aria-label="開いている画面を前提から外す" tabindex="-1">${icon("x")}</button></span></div>
+        <div class="assist-context"><span class="assist-ctx">${icon("board")}<span>${t("sprint")}「${SQ.sprintLabel("sp14")}」を見ています</span><button type="button" aria-label="開いている画面を前提から外す" tabindex="-1">${icon("x")}</button></span></div>
         <div class="assist-body">${strip(SQ.assistSuggest())}</div>
         <div class="assist-foot"><span>送る先: ${SQ.PROVIDER.claude}・会話は保存しません</span><span><kbd class="kbd">Esc</kbd> 閉じる</span></div></div></div>
     <div class="two">
@@ -225,7 +225,7 @@ function assistDemo() {
     <div class="two">
       <div class="field"><span class="field-label">横の欄（パレットの「横の欄で続ける」で移る）</span>
         <aside class="assist-panel cat-panel" aria-label="横の欄の見本"><div class="assist-panel-head">${icon("spark")}<h3 class="assist-panel-title">${t("assistant")}</h3><span class="link-btn">会話を消す</span><span class="pill" aria-hidden="true">${icon("x")}</span></div>
-          <div class="assist-context"><span class="assist-ctx">${icon("board")}<span>${SQ.sprintLabel("sp14")}を見ています</span></span></div>
+          <div class="assist-context"><span class="assist-ctx">${icon("board")}<span>${t("sprint")}「${SQ.sprintLabel("sp14")}」を見ています</span></span></div>
           <div class="assist-thread">${user(`今の${t("sprint")}で遅れそうな${t("task")}は`)}${msg(late)}</div>
           <div class="assist-ask">${icon("spark")}<input class="assist-input" placeholder="${t("assistant")}に頼む" aria-label="見本の入力" tabindex="-1"><span class="icon-btn" aria-hidden="true">${icon("send")}</span></div>
           <p class="assist-foot">送る先: ${SQ.PROVIDER.claude}・会話は保存しません。画面を閉じると消えます</p></aside></div>
