@@ -4,6 +4,7 @@
   import { organizationStorageUpdate, type organizationContract } from '../../shared/operations/operator/index.ts';
   import { billingIntervals, contractLimits, type BillingInterval } from '../../shared/organization-plan.ts';
   import { callOperation } from '../api.ts';
+  import { needsCustomContractLimits } from '../plan-terms.ts';
   import { quotaSize } from '../format.ts';
   import { isUnauthenticated } from '../login-redirect.ts';
   import { t } from '../vocabulary.svelte.ts';
@@ -43,8 +44,9 @@
   );
   const next = $derived(
     contractLimits({
-      plan:
-        target?.contract?.plan === 'team' || target?.contract?.plan === 'business' ? target.contract.plan : 'personal',
+      plan: target?.contract?.plan ?? 'personal',
+      custom_member_limit: target?.contract?.custom_member_limit ?? null,
+      custom_attachment_quota_bytes: target?.contract?.custom_attachment_quota_bytes ?? null,
       extra_10gb_units: units10 ?? 0,
       extra_50gb_units: units50 ?? 0,
     }),
@@ -55,7 +57,7 @@
     return t(size.unit === 'gb' ? 'operatorQuotaSize' : 'operatorQuotaSizeMb', { size: size.size });
   }
   export function show(row: Target, trigger?: HTMLElement | null): void {
-    if (row.contract?.plan === 'custom') return;
+    if (needsCustomContractLimits(row.contract) || (row.kind === 'personal' && row.contract?.plan === 'custom')) return;
     generation++;
     target = { ...row };
     units10 = row.contract?.extra_10gb_units ?? 0;

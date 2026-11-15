@@ -15,7 +15,14 @@ test('契約のある組織は、契約、追加容量の口数、人数と添�
   const body = bodyOf({
     kind: 'team',
     plan: {
-      contract: { plan: 'team', billing_interval: 'monthly', extra_10gb_units: 2, extra_50gb_units: 1 },
+      contract: {
+        custom_member_limit: null,
+        custom_attachment_quota_bytes: null,
+        plan: 'team',
+        billing_interval: 'monthly',
+        extra_10gb_units: 2,
+        extra_50gb_units: 1,
+      },
       member_limit: 15,
       attachment_quota_bytes: 100 * GIB,
     },
@@ -32,7 +39,14 @@ test('追加容量の口数が無い契約は「なし」と出す', () => {
   const body = bodyOf({
     kind: 'team',
     plan: {
-      contract: { plan: 'business', billing_interval: 'yearly', extra_10gb_units: 0, extra_50gb_units: 0 },
+      contract: {
+        custom_member_limit: null,
+        custom_attachment_quota_bytes: null,
+        plan: 'business',
+        billing_interval: 'yearly',
+        extra_10gb_units: 0,
+        extra_50gb_units: 0,
+      },
       member_limit: 50,
       attachment_quota_bytes: 100 * GIB,
     },
@@ -73,7 +87,14 @@ test('追加容量のある自分用の組織はパーソナルの契約と口�
   const body = bodyOf({
     kind: 'personal',
     plan: {
-      contract: { plan: 'personal', billing_interval: 'monthly', extra_10gb_units: 1, extra_50gb_units: 0 },
+      contract: {
+        custom_member_limit: null,
+        custom_attachment_quota_bytes: null,
+        plan: 'personal',
+        billing_interval: 'monthly',
+        extra_10gb_units: 1,
+        extra_50gb_units: 0,
+      },
       member_limit: 1,
       attachment_quota_bytes: 11 * GIB,
     },
@@ -82,4 +103,26 @@ test('追加容量のある自分用の組織はパーソナルの契約と口�
   expect(body).toContain('+10 GB × 1 口');
   expect(body).toContain('11 GB');
   expect(body).toContain('1 人');
+});
+
+test('個別の契約は人数と追加容量を含む上限を示す', () => {
+  const body = bodyOf({
+    kind: 'team',
+    plan: {
+      contract: {
+        plan: 'custom',
+        billing_interval: 'yearly',
+        custom_member_limit: 80,
+        custom_attachment_quota_bytes: 200 * GIB,
+        extra_10gb_units: 0,
+        extra_50gb_units: 1,
+      },
+      member_limit: 80,
+      attachment_quota_bytes: 250 * GIB,
+    },
+  });
+  expect(body).toContain('個別・年払い');
+  expect(body).toContain('80 人');
+  expect(body).toContain('250 GB');
+  expect(body).toContain('+50 GB × 1 口');
 });

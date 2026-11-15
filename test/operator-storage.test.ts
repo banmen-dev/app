@@ -351,7 +351,7 @@ describe('追加容量の設定', () => {
     });
   });
 
-  test('個別契約customは変更せず409を返す', async () => {
+  test('個別の標準値が無い旧custom契約は変更せず409を返す', async () => {
     const { organization, operator } = await setup();
     const db = commonDb(env);
     await db.batch([
@@ -365,7 +365,14 @@ describe('追加容量の設定', () => {
         await update(
           organization.slug,
           operator,
-          { plan: 'custom', billing_interval: 'monthly', extra_10gb_units: 0, extra_50gb_units: 0 },
+          {
+            plan: 'custom',
+            billing_interval: 'monthly',
+            extra_10gb_units: 0,
+            extra_50gb_units: 0,
+            custom_member_limit: null,
+            custom_attachment_quota_bytes: null,
+          },
           1,
         )
       ).status,

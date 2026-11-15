@@ -143,7 +143,14 @@ describe('契約の変更', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       slug: organization.slug,
-      contract: { plan: 'team', billing_interval: 'monthly', extra_10gb_units: 0, extra_50gb_units: 0 },
+      contract: {
+        plan: 'team',
+        billing_interval: 'monthly',
+        extra_10gb_units: 0,
+        extra_50gb_units: 0,
+        custom_member_limit: null,
+        custom_attachment_quota_bytes: null,
+      },
       ...TEAM,
       trial_ends_on: null,
     });
@@ -162,6 +169,8 @@ describe('契約の変更', () => {
     };
     const item = listed.organizations.find((entry) => entry.slug === organization.slug);
     expect(item?.contract).toEqual({
+      custom_member_limit: null,
+      custom_attachment_quota_bytes: null,
       plan: 'team',
       billing_interval: 'monthly',
       extra_10gb_units: 0,
@@ -346,7 +355,14 @@ describe('契約の変更', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       slug: organization.slug,
-      contract: { plan: 'team', billing_interval: 'monthly', extra_10gb_units: 0, extra_50gb_units: 0 },
+      contract: {
+        plan: 'team',
+        billing_interval: 'monthly',
+        extra_10gb_units: 0,
+        extra_50gb_units: 0,
+        custom_member_limit: null,
+        custom_attachment_quota_bytes: null,
+      },
       ...TEAM,
       trial_ends_on: '2026-12-01',
     });

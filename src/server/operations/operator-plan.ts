@@ -1,4 +1,4 @@
-// 運用者の組織の契約の変更（docs/data-model.md の「書き込みの単位」の契約の変更）。
+// 運用者の組織の契約（個別の人数・標準容量を含む）の変更（docs/data-model.md の「書き込みの単位」の契約の変更）。
 // 共通の DB の organization_contracts と organizations を1回の batch() で書き（どちらも共通の表）、続けて組織の DB の change_logs に
 // 運用者の操作として残す。2つの DB への書き込みは別の batch() で書く。履歴を書けなくても成功として返す。
 // 運用者は組織の中に特権を持たない。応答に組織の中のデータを入れない
@@ -42,6 +42,8 @@ export async function readOrganizationWithContract(db: CommonDb, slug: string) {
           'organization_contracts.billing_interval',
           'organization_contracts.extra_10gb_units',
           'organization_contracts.extra_50gb_units',
+          'organization_contracts.custom_member_limit',
+          'organization_contracts.custom_attachment_quota_bytes',
         ])
         .where('organizations.slug', '=', slug),
     ),
@@ -56,7 +58,7 @@ export async function readOrganizationWithContract(db: CommonDb, slug: string) {
 // 2. 今の契約が画面の見ていた前の契約（expected。未契約なら null）と違えば 409（確認を開いた後に別の運用者が変えた）
 // 3. 共通の DB に1回の batch() で書く
 //    - 契約: 未契約なら行を足し（同時に足した別の運用者が先なら何も足さない）、契約があれば読んだ契約（プラン、支払いの周期、
-//      追加容量の口数）のままであることを条件に書き換える。どちらも、組織が読んだときの上限のままで、消す予定日を過ぎた解約の停止で
+//      追加容量の口数、個別の人数と標準容量）のままであることを条件に書き換える。どちらも、組織が読んだときの上限のままで、消す予定日を過ぎた解約の停止で
 //      ないことを条件にする。追加容量の口数は変えない
 //    - organizations: 人数と添付ファイルの上限を契約から決まる値にし、お試しの期限を空にする（有料のプランにしたらお試しを終える）。
 //      この batch() が書いた契約の行（プラン、支払いの周期、更新日時がこの値）があるときだけ書く。契約が書けずに 409 で返すときに、
@@ -71,7 +73,13 @@ export const organizationPlanUpdateOperation = implement(organizationPlanUpdate,
   if (due) throw new ApiError(409, 'purge_due');
   if (current.kind === 'personal') throw new ApiError(409, 'conflict', { reason: 'personal_organization' });
   const { contract } = current;
-  if (contract !== null && contract.plan === input.plan && contract.billing_interval === input.billing_interval) {
+  if (
+    contract !== null &&
+    contract.plan === input.plan &&
+    contract.billing_interval === input.billing_interval &&
+    contract.custom_member_limit === (input.custom_member_limit ?? null) &&
+    contract.custom_attachment_quota_bytes === (input.custom_attachment_quota_bytes ?? null)
+  ) {
     return {
       slug: input.slug,
       contract,
@@ -88,11 +96,15 @@ export const organizationPlanUpdateOperation = implement(organizationPlanUpdate,
         contract.plan === expected.plan &&
         contract.billing_interval === expected.billing_interval &&
         contract.extra_10gb_units === expected.extra_10gb_units &&
-        contract.extra_50gb_units === expected.extra_50gb_units;
+        contract.extra_50gb_units === expected.extra_50gb_units &&
+        contract.custom_member_limit === expected.custom_member_limit &&
+        contract.custom_attachment_quota_bytes === expected.custom_attachment_quota_bytes;
   if (!matchesExpected) throw new ApiError(409, 'conflict');
 
   const next = {
     plan: input.plan,
+    custom_member_limit: input.custom_member_limit ?? null,
+    custom_attachment_quota_bytes: input.custom_attachment_quota_bytes ?? null,
     billing_interval: input.billing_interval,
     extra_10gb_units: contract?.extra_10gb_units ?? 0,
     extra_50gb_units: contract?.extra_50gb_units ?? 0,
@@ -123,6 +135,8 @@ export const organizationPlanUpdateOperation = implement(organizationPlanUpdate,
               'billing_interval',
               'extra_10gb_units',
               'extra_50gb_units',
+              'custom_member_limit',
+              'custom_attachment_quota_bytes',
               'created_at',
               'updated_at',
             ])
@@ -135,6 +149,8 @@ export const organizationPlanUpdateOperation = implement(organizationPlanUpdate,
                   eb.val(next.billing_interval).as('billing_interval'),
                   eb.val(next.extra_10gb_units).as('extra_10gb_units'),
                   eb.val(next.extra_50gb_units).as('extra_50gb_units'),
+                  eb.val(next.custom_member_limit).as('custom_member_limit'),
+                  eb.val(next.custom_attachment_quota_bytes).as('custom_attachment_quota_bytes'),
                   eb.val(stamp).as('created_at'),
                   eb.val(stamp).as('updated_at'),
                 ])
@@ -145,12 +161,14 @@ export const organizationPlanUpdateOperation = implement(organizationPlanUpdate,
       : db.statement((q) =>
           q
             .updateTable('organization_contracts')
-            .set({ plan: next.plan, billing_interval: next.billing_interval, updated_at: stamp })
+            .set({ ...next, updated_at: stamp })
             .where('organization_id', '=', current.id)
             .where('plan', '=', contract.plan)
             .where('billing_interval', '=', contract.billing_interval)
             .where('extra_10gb_units', '=', contract.extra_10gb_units)
             .where('extra_50gb_units', '=', contract.extra_50gb_units)
+            .where('custom_member_limit', 'is', contract.custom_member_limit)
+            .where('custom_attachment_quota_bytes', 'is', contract.custom_attachment_quota_bytes)
             .where((eb) =>
               eb.exists(eb.selectFrom('organizations').select('organizations.id').where(organizationAsRead)),
             ),
@@ -189,6 +207,13 @@ export const organizationPlanUpdateOperation = implement(organizationPlanUpdate,
     plan: [contract?.plan ?? null, next.plan],
     billing_interval: [contract?.billing_interval ?? null, next.billing_interval],
   };
+  if (contract?.plan === 'custom' || next.plan === 'custom') {
+    changes.custom_member_limit = [contract?.custom_member_limit ?? null, next.custom_member_limit];
+    changes.custom_attachment_quota_bytes = [
+      contract?.custom_attachment_quota_bytes ?? null,
+      next.custom_attachment_quota_bytes,
+    ];
+  }
   if (current.member_limit !== limits.member_limit) changes.member_limit = [current.member_limit, limits.member_limit];
   if (current.attachment_quota_bytes !== limits.attachment_quota_bytes) {
     changes.attachment_quota_bytes = [current.attachment_quota_bytes, limits.attachment_quota_bytes];
