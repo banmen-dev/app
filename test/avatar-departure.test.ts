@@ -245,6 +245,27 @@ describe('この要求で入れなくなった人の画像だけを消す', () =
     await env.ATTACHMENTS.delete(stored!.object_key);
   });
 
+  test('読んでから書くまでに別の要求が先に解除したとき、後の解除は、その人に残っていた行を消さない', async () => {
+    const target = await createTarget();
+    const person = await createPerson({ organization: target.organization, admin: true });
+    let stored: Awaited<ReturnType<typeof storeAvatar>> | undefined;
+    // 後の要求が相手を読んだ直後に、先の要求が同じ人を解除し、行だけが残った状態を作る
+    const racing = envWithD1Hooks(testEnv, {
+      afterQuery: async (sql) => {
+        if (stored !== undefined || !sql.startsWith('select "id", "is_admin", "disabled_at", "login_provider"')) return;
+        expect((await setAdmin(target, person, false)).status, '先の解除').toBe(200);
+        stored = await storeAvatar(target.organization, person.userId!);
+      },
+    });
+    const res = await setAdmin(target, person, false, { env: racing });
+    expect(stored, '割り込ませた解除').toBeDefined();
+    // 先の解除が済んでいるので、後の要求は今の値を返す
+    expect(res.status).toBe(200);
+    expect(await avatarRowOf(target, person)).toMatchObject({ id: stored!.id });
+    expect(await objectBytes(stored!.object_key)).toEqual(stored!.bytes);
+    await env.ATTACHMENTS.delete(stored!.object_key);
+  });
+
   test('別の組織の画像は、離脱でも解除でも消さない', async () => {
     const target = await createTarget();
     const other = await createTarget();

@@ -274,19 +274,9 @@ export const userAdminUpdateOperation = implement(
 
     const at = now();
     const stamp = at.toISOString();
-    // 解除で組織に入れなくなった（今の所属が無い）ときだけ、プロフィール画像の行を消す。条件は「この要求で解除した」（#1273）
-    const removeAvatar =
-      next === 0
-        ? removeDepartedAvatarStatement(db, userId, (from) =>
-            from
-              .selectFrom('users as ru')
-              .select('ru.id')
-              .where('ru.id', '=', userId)
-              .where('ru.organization_id', '=', organizationId)
-              .where('ru.is_admin', '=', 0)
-              .where('ru.updated_at', '=', stamp),
-          )
-        : undefined;
+    // 解除で組織に入れなくなった（今の所属が無い）ときだけ、プロフィール画像の行を消す（#1273）。
+    // 「この要求で解除した」は、直前の記録の文が行を変えたことで見る（記録は users の文が行を変えたときだけ入る）
+    const removeAvatar = next === 0 ? removeDepartedAvatarStatement(db, userId, 'previous-statement') : undefined;
     const statements = [
       db.statement((q) =>
         q
@@ -304,6 +294,7 @@ export const userAdminUpdateOperation = implement(
           ),
       ),
       userChangeLog(db, { actorUserId, userId, changes: { is_admin: [current.is_admin, next] }, at }),
+      // 記録の直後に置く（previousStatementChanged で記録の文に結ぶ）
       ...(removeAvatar === undefined ? [] : [removeAvatar]),
     ];
     const results = await db.batch(statements);
