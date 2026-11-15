@@ -14,20 +14,22 @@ test(
     skip: !existsSync(chromium.executablePath()) && 'Playwright の chromium が無い',
   },
   async () => {
-    const marks: string[] = [];
+    const marks: { order: number; value: string }[] = [];
     const server = createServer((req, res) => {
       if (req.url?.startsWith('/mark?')) {
-        marks.push(new URL(req.url, 'http://localhost').searchParams.get('value') ?? '');
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        marks.push({ order: Number(params.get('order')), value: params.get('value') ?? '' });
         res.end('ok');
         return;
       }
       res.setHeader('content-type', 'text/html');
       res.end(`<button id="before" onclick="this.insertAdjacentHTML('afterend', '<p id=result>Saved</p>')">Save</button>
 <script>
+let order = 0;
 new MutationObserver(records => {
   for (const {target} of records) {
     if (!target.id) continue;
-    fetch('/mark?value=' + encodeURIComponent(target.id + ':' + Boolean(target.style.outline)));
+    fetch('/mark?order=' + order++ + '&value=' + encodeURIComponent(target.id + ':' + Boolean(target.style.outline)));
   }
 }).observe(document.body, {attributes: true, attributeFilter: ['style'], subtree: true});
 </script>`);
@@ -73,9 +75,12 @@ new MutationObserver(records => {
         child.on('close', (code) => resolve({ code, output }));
       });
       assert.equal(result.code, 0, result.output);
-      // outlineOffset の通知との重複を除く。markAfter を消す・前へ動かす・外さない変更で失敗する。
+      // ブラウザ内の連番で並べ、通信の到着順に依存させず outlineOffset の通知との重複を除く。markAfter を消す・前へ動かす・外さない変更で失敗する。
       assert.deepEqual(
-        marks.filter((value, i) => value !== marks[i - 1]),
+        marks
+          .sort((a, b) => a.order - b.order)
+          .map(({ value }) => value)
+          .filter((value, i, values) => value !== values[i - 1]),
         ['before:true', 'before:false', 'result:true', 'result:false', 'result:true', 'result:false'],
       );
       assert.ok(readFileSync(join(dir, 'video/recording.webm')).length > 0);
