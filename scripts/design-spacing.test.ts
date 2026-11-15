@@ -144,6 +144,9 @@ describe('余白の刻みの判定', () => {
 
   test('括弧が閉じていない CSS は、読み落とさずに止める', () => {
     assert.throws(() => found('.a { padding: calc(6px; } .b { padding: 7px; }'), /括弧が閉じていない/);
+    assert.throws(() => found('.a::before { content: "x; } .b { padding: 7px; }'), /文字列が閉じていない/);
+    assert.throws(() => found('.a { padding: 0; } /* .b { padding: 7px; }'), /コメントが閉じていない/);
+    assert.throws(() => found('.a { padding: 0; .b { padding: 7px; }'), /波括弧が閉じていない/);
   });
 
   test('components.css で余白の段を上書きする宣言は落とす', () => {
