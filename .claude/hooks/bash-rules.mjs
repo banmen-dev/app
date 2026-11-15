@@ -996,13 +996,7 @@ function echoedText(words) {
 
 // スクリプト用のパイプでは printf の単純な %s も読める。書式の繰り返しまで確定する形だけを扱い、
 // ほかの書式、エスケープ、展開は本文を読めないものとする。gh/curl 用の判定は変えない。
-function pipedScriptText(words) {
-  const direct = echoedText(words);
-  if (direct) {
-    const ci = commandIndex(words);
-    direct.literal &&= !words.some((_, i) => i > ci && isUnresolved(words, i));
-    return direct;
-  }
+function printfScriptText(words) {
   const ci = words ? commandIndex(words) : -1;
   if (ci === -1 || baseName(words[ci]) !== 'printf' || redirectsOf(words).some(isWriteRedirect)) return undefined;
   const args = sliceWords(words, ci + 1);
@@ -2732,7 +2726,9 @@ function interpreterBodyWords(tool, args) {
 
 // パイプを本文として読む起動だけを選ぶ。-c/-e とスクリプトのファイルに続く標準入力はデータなので判定しない。
 // /dev/stdin と /dev/fd/0 は、source/. でもパイプの本文を読む。
-const STDIN_SCRIPT = new Set(['-', '/dev/stdin', '/dev/fd/0', '/proc/self/fd/0']);
+const STDIN_SCRIPT = new Set(['-', '/dev/stdin', '/dev/fd/0', '/proc/self/fd/0', '/proc/thread-self/fd/0']);
+// /dev//stdin や /proc/self/fd/./0 も標準入力を読む同じパス。実体の解決やファイルの読み取りはしない。
+const isStdinScript = (file) => typeof file === 'string' && (file === '-' || path.posix.isAbsolute(file) && STDIN_SCRIPT.has(path.posix.normalize(file)));
 const SCRIPT_OPTION_VALUES = {
   bash: new Set(['-o', '+o', '-O', '+O', '--rcfile', '--init-file']),
   sh: new Set(['-o', '+o']), zsh: new Set(['-o', '+o']), ksh: new Set(['-o', '+o']), mksh: new Set(['-o', '+o']),
@@ -2753,7 +2749,7 @@ function readsPipedScript(tool, args) {
   if (!SCRIPT_READERS.has(tool) && !INTERPRETERS.has(tool)) return false;
   if (tool === 'source' || tool === '.') {
     const at = args[0] === '--' ? 1 : 0;
-    return isUnresolved(args, at) ? null : args[at] !== '-' && STDIN_SCRIPT.has(args[at]);
+    return isUnresolved(args, at) ? null : args[at] !== '-' && isStdinScript(args[at]);
   }
   const bodyFlags = SHELLS.has(tool) ? 'c' : (BODY_FLAGS[tool] ?? '');
   let options = true;
@@ -2772,7 +2768,7 @@ function readsPipedScript(tool, args) {
       const at = separate ? i + 1 : i;
       if (args[at] === undefined || isUnresolved(args, at)) return null;
       const file = separate ? args[at] : arg.startsWith('--file=') ? arg.slice('--file='.length) : arg.slice(2);
-      return STDIN_SCRIPT.has(file);
+      return isStdinScript(file);
     }
     if (options && (arg === '-h' && ['node', 'python', 'python3', 'ruby', 'perl', 'php'].includes(tool) || arg === '-v' && ['node', 'perl', 'php'].includes(tool) || arg === '-V' && ['python', 'python3', 'perl'].includes(tool))) return false;
     if (options && /^[+-]/.test(arg) && arg !== '-') {
@@ -2821,28 +2817,40 @@ function readsPipedScript(tool, args) {
     // deno/bun の run はサブコマンドで、次の - がスクリプトの標準入力を選ぶ。
     if ((tool === 'deno' || tool === 'bun') && arg === 'run') continue;
     if (uncertain) return null;
-    return forceStdin || interactive || !inline && STDIN_SCRIPT.has(arg);
+    return forceStdin || interactive || !inline && isStdinScript(arg);
   }
   return uncertain ? null : inline ? interactive : true;
 }
 
 function judgePipedScript(tool, args, ctx, nextCtx) {
   const previous = ctx.stdinContext?.previous;
-  if (!['|', '|&'].includes(previous?.endOp)) return [];
+  const piped = ['|', '|&'].includes(previous?.endOp);
+  if (!piped && !ctx.inheritedScriptStdin && !(ctx.inheritedInterpreterStdin && INTERPRETERS.has(tool))) return [];
   const mode = readsPipedScript(tool, args);
   if (mode === false) return [];
+  // -c の本文の道具は外側の標準入力を継承する。本文の先頭へパイプを付け直すと
+  // gh/curl のデータ入力まで変わるので、コードとして読む起動だけを確認に返す。
+  if (!piped) {
+    const redirects = redirectsOf(args);
+    const input = redirects.filter((r) => (r.fd ?? 0) === 0 && (isHeredocRedirect(r) || isReadRedirect(r))).at(-1);
+    // inheritedInterpreterStdin は親の明示本文でも届く。実行先が自分で本文を指定し直した場合は、
+    // この継承入力ではなく、そのインタープリタ自身の既存の本文規則で判定する。
+    if (!redirects.stdinDuplicated && input && isHeredocRedirect(input)) return [];
+    return [[ASK, 'inline の本文から標準入力をコードとして読む道具を起動する。継承した本文は人が確かめる']];
+  }
   // fd 3 などの入力は fd 0 のパイプを置き換えない。既存の本文判定へ渡す入力だけを絞る。
   const stdinArgs = sliceWords(args);
   const redirects = redirectsOf(args);
   Object.defineProperty(stdinArgs, 'redirects', { value: redirects.filter((r) => (r.fd ?? 0) === 0), configurable: true });
   const body = stdinBody(stdinArgs, ctx.stdinContext);
   const redirected = redirectsOf(stdinArgs).some((r) => isHeredocRedirect(r) || isReadRedirect(r));
-  if (!redirected && previous.some((_, i) => i > commandIndex(previous) && isUnresolved(previous, i))) {
+  const producerIndex = commandIndex(previous);
+  if (!redirected && previous.some((_, i) => i > producerIndex && isUnresolved(previous, i))) {
     for (const b of body.bodies) b.literal = false;
   }
   // リダイレクトがなければ単純な printf %s もここでだけ読める。
   if (body.unreadable && !ctx.stdinContext.grouped && !redirected) {
-    const text = pipedScriptText(previous);
+    const text = printfScriptText(previous);
     if (text) { body.bodies.push(text); body.unreadable = false; }
   }
   const results = [];
@@ -3563,6 +3571,18 @@ function judgeSegment(words, ctx) {
   const prefixes = prefixIndexes(words);
   // env -S の文字列は、道具の名前の位置に1語として見えるか、フラグに紛れて道具が見つからない。ci が -1 でも見る
   if (splitsString(words, prefixes, ci)) results.push([ASK, ENV_SPLIT_REASON]);
+  const inputRedirects = redirectsOf(words);
+  const input = inputRedirects.filter((r) => (r.fd ?? 0) === 0 && (isHeredocRedirect(r) || isReadRedirect(r))).at(-1);
+  // 再帰する inline/eval/fish も fd0 を引き継ぐが、明示された本文があれば元のパイプは置き換わる。
+  // stdinContext は gh/curl のデータ判定用なので変更せず、コード実行の可能性だけを別の印で渡す。
+  const inheritedScriptStdin = (ctx.inheritedScriptStdin || ['|', '|&'].includes(ctx.stdinContext?.previous?.endOp)) &&
+    !(!inputRedirects.stdinDuplicated && input && isHeredocRedirect(input));
+  // 親が明示本文をシェルとして判定しても、Ruby 等の本文規則を通したことにはならない。
+  // シェルへの安全な上書きは保持しつつ、継承先のインタープリタだけには再確認を残す。
+  const inheritedInterpreterStdin = ctx.inheritedInterpreterStdin ||
+    (!inputRedirects.stdinDuplicated && input && isHeredocRedirect(input));
+  // ctx から直接再帰する manager、Node --run、find にも同じ継承・上書き判定を渡す。
+  ctx = { ...ctx, inheritedScriptStdin, inheritedInterpreterStdin };
   const nextCtx = { ...ctx, cwd: ctx.dir, depth: ctx.depth + 1 };
   // script -qc "…"（util-linux）の文字列は、後ろに道具が無いので ci が -1 でも見る
   results.push(...prefixCommands(words).map((script) => judgeBash(script, nextCtx)).filter(Boolean));
@@ -3572,7 +3592,7 @@ function judgeSegment(words, ctx) {
   // 場所は npx より前の env -C までで決める。npx の後ろの入れ子の npx は、経由先に掛け直したときに見る
   const npx = prefixes.find((j) => ['npx', 'pnpx'].includes(prefixName(words[j])));
   if (npx !== undefined) {
-    const npxCtx = { ...outer, ...dirAfterEnv(words, npx, outer.dir, outer.envFrom ?? 0, outer.place) };
+    const npxCtx = { ...outer, ...dirAfterEnv(words, npx, outer.dir, outer.envFrom ?? 0, outer.place), inheritedScriptStdin, inheritedInterpreterStdin };
     results.push(...judgeNpx(prefixName(words[npx]), sliceWords(words, npx + 1), sliceWords(words, 0, npx), npxCtx));
   }
   if (ci === -1) return results;
@@ -4009,6 +4029,8 @@ function judgeCommand(
     place = '',
     cdWords = '',
     namesGitDir = false,
+    inheritedScriptStdin = false,
+    inheritedInterpreterStdin = false,
     findBudget = { left: MAX_FIND_COMMANDS, weight: MAX_FIND_WEIGHT },
   },
 ) {
@@ -4048,7 +4070,7 @@ function judgeCommand(
       const headTool = baseName(globHead[headCi] ?? '');
       if (SCRIPT_READERS.has(headTool) || RUNNERS.has(headTool) || INTERPRETERS.has(headTool)) {
         results.push(...judgeSegment(concatWords(globHead, sliceWords(words, words.length)), {
-          dir, branchOf: currentBranch, scriptOf, packageDirOf, depth, env, root, place, cdWords, namesGitDir, findBudget,
+          dir, branchOf: currentBranch, scriptOf, packageDirOf, depth, env, root, place, cdWords, namesGitDir, inheritedScriptStdin, inheritedInterpreterStdin, findBudget,
           segmentCount: segments.length, stdinContext: { previous, ...shapeOfStdin },
         }));
       }
@@ -4076,7 +4098,7 @@ function judgeCommand(
       place = to === null || place === null ? null : to.startsWith('/') ? to : path.posix.join(place, to);
       continue;
     }
-    results.push(...judgeSegment(words, { dir, branchOf: currentBranch, scriptOf, packageDirOf, depth, env: segmentEnv, root, place, cdWords, namesGitDir, findBudget, segmentCount: segments.length, stdinContext: { previous, ...shapeOfStdin } }));
+    results.push(...judgeSegment(words, { dir, branchOf: currentBranch, scriptOf, packageDirOf, depth, env: segmentEnv, root, place, cdWords, namesGitDir, inheritedScriptStdin, inheritedInterpreterStdin, findBudget, segmentCount: segments.length, stdinContext: { previous, ...shapeOfStdin } }));
     if (ci !== -1 && baseName(words[ci]) === 'git' && dir) {
       const branch = switchedBranch(words.slice(ci + 1));
       if (branch !== null) switched.set(dir, branch);
