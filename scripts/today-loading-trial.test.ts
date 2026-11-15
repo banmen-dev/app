@@ -6,7 +6,7 @@ import type { ReadResponse } from './loading-trial.ts';
 
 for (const mode of ['A', 'B', 'C'] satisfies TodayMode[]) {
   for (const reverse of [false, true]) {
-    test(`${mode}/${reverse}: 主と従の待ち、開始順、検証時点を区別する`, async () => {
+    test(`${mode}/${reverse}: 主と従の待ち、開始順、検証時点を区別する`, { timeout: 5000 }, async () => {
       let clock = 100;
       const called: boolean[] = [];
       const validated: number[] = [];
@@ -63,7 +63,7 @@ test('C: 従が先に終わっても主を待ち、追加待ちは0になる', a
   assert.deepEqual(result, { primary: 20, ready: 20, total: 20, wait: 0 });
 });
 
-test('C: 主の失敗後も従を回収してから失敗を返す', async () => {
+test('C: 主の失敗後も従を回収してから失敗を返す', { timeout: 5000 }, async () => {
   let finishSecondary!: (value: ReadResponse) => void;
   const running = todayTrial('C', false, (secondary) =>
     secondary
@@ -105,23 +105,27 @@ test('C: 従の取得失敗や出力検証の失敗を成功として集計し�
 });
 
 for (const failedSecondary of [false, true]) {
-  test(`B: ${failedSecondary ? '従' : '主'}が先に失敗しても残る応答を回収してから拒否する`, async () => {
-    let finishRemaining!: (value: ReadResponse) => void;
-    const running = todayTrial('B', false, (secondary) =>
-      secondary === failedSecondary
-        ? Promise.reject(new Error('request failed'))
-        : new Promise((resolve) => {
-            finishRemaining = resolve;
-          }),
-    );
-    let settled = false;
-    const checked = assert.rejects(running, /request failed/).then(() => {
-      settled = true;
-    });
-    await setImmediate();
-    assert.equal(settled, false);
-    finishRemaining({ ms: 0, finishedAt: 0, secondary: !failedSecondary, body: null, validate() {} });
-    await checked;
-    assert.equal(settled, true);
-  });
+  test(
+    `B: ${failedSecondary ? '従' : '主'}が先に失敗しても残る応答を回収してから拒否する`,
+    { timeout: 5000 },
+    async () => {
+      let finishRemaining!: (value: ReadResponse) => void;
+      const running = todayTrial('B', false, (secondary) =>
+        secondary === failedSecondary
+          ? Promise.reject(new Error('request failed'))
+          : new Promise((resolve) => {
+              finishRemaining = resolve;
+            }),
+      );
+      let settled = false;
+      const checked = assert.rejects(running, /request failed/).then(() => {
+        settled = true;
+      });
+      await setImmediate();
+      assert.equal(settled, false);
+      finishRemaining({ ms: 0, finishedAt: 0, secondary: !failedSecondary, body: null, validate() {} });
+      await checked;
+      assert.equal(settled, true);
+    },
+  );
 }
