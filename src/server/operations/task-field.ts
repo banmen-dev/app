@@ -1,6 +1,6 @@
 import { checkAttachments, attachmentChanges } from './attachment-save.ts';
 import { attachmentsReady, attachFilesStatement } from '../db/index.ts';
-// タスクの決まった欄の値（task_field_values）の書き込み（task-field-set）と、未記入の判定。
+// タスクの決まった欄の値（task_field_values）の読み（引き出し）と書き込み（task-field-set）。
 // docs/data-model.md の task_field_values と「書き込みの単位」の「決まった欄の値」
 import { now } from '../../shared/clock.ts';
 import { taskFieldSet } from '../../shared/operations/task/index.ts';
@@ -19,36 +19,6 @@ import { actorUserIdOf, changeLogColumns, openWorkspace, throwIfClosed } from '.
 type Tables = OrganizationTables;
 type From = Pick<QueryCreator<Tables>, 'selectFrom'>;
 
-// 削除していない決まった欄のうち、タスク（taskRef は呼ぶ側の文の tasks.id）に値の行が無いもの。1行でもあれば、そのタスクは未記入。
-// 呼ぶ側は eb.exists(...) で包み、完了していないことは自分の文の条件にする。ワークスペースで絞り、値は主キー
-// （task_id, field_id）で引く。削除した欄は数えない（値の行は残るが、判定から外れる）
-function unfilledFields(from: From, workspaceId: string, taskRef: 'tasks.id') {
-  return from
-    .selectFrom('detail_fields as f')
-    .select('f.id')
-    .where('f.workspace_id', '=', workspaceId)
-    .where('f.deleted_at', 'is', null)
-    .where((eb) =>
-      eb.not(
-        eb.exists(
-          eb
-            .selectFrom('task_field_values as v')
-            .select('v.field_id')
-            .whereRef('v.field_id', '=', 'f.id')
-            // taskRef は呼ぶ側の文の列（型の上では v の列として扱う）
-            .whereRef('v.task_id', '=', taskRef as unknown as 'v.task_id'),
-        ),
-      ),
-    );
-}
-
-// 未記入か、という条件の式。tasks を FROM に持つ文の select と where で使う（結んだ表で eb の型が変わるので、型は tasks だけの形にそろえる）。
-// 完了していないことは、呼ぶ側の文の条件にする
-export function unfilledExists<DB, TB extends keyof DB>(builder: ExpressionBuilder<DB, TB>, workspaceId: string) {
-  const eb = builder as unknown as ExpressionBuilder<Tables, never>;
-  return eb.exists(unfilledFields(eb, workspaceId, 'tasks.id'));
-}
-
 // 削除していない決まった欄と、そのタスクの値（無ければ null）。position の順
 export async function readTaskFields(db: OrganizationDb, workspaceId: string, taskId: string) {
   const rows = await db.rows(
@@ -66,24 +36,6 @@ export async function readTaskFields(db: OrganizationDb, workspaceId: string, ta
     ),
   );
   return rows.map((row) => ({ id: row.id, name: row.name, value_md: row.value_md }));
-}
-
-// 完了していないバックログ（tray = 'backlog'）のタスクで、値の行が無い決まった欄があるか（タスクが無ければ偽。
-// 受信箱とアーカイブのタスクは、印も件数も出さないので偽）
-export async function readUnfilled(db: OrganizationDb, workspaceId: string, taskId: string): Promise<boolean> {
-  const row = await db.first(
-    db.statement((q) =>
-      q
-        .selectFrom('tasks')
-        .select((eb) => unfilledExists(eb, workspaceId).as('unfilled'))
-        .where('tasks.id', '=', taskId)
-        .where('tasks.workspace_id', '=', workspaceId)
-        .where('tasks.tray', '=', 'backlog')
-        .where('tasks.deleted_at', 'is', null)
-        .where('tasks.completed_at', 'is', null),
-    ),
-  );
-  return Number(row?.unfilled ?? 0) === 1;
 }
 
 // 削除していないタスクと決まった欄の行。書く文の条件（EXISTS）と、落ちた理由の読みに使う。ワークスペースで必ず絞る
@@ -137,21 +89,18 @@ export const taskFieldSetOperation = implement(taskFieldSet, async ({ db, actor,
     throw new ApiError(404, 'not_found');
   }
 
-  // 書いた後（か、何も書かなかったとき）の値と、そのタスクが未記入か
+  // 書いた後（か、何も書かなかったとき）の値
   const respond = async () => {
-    const [stored, unfilled] = await Promise.all([
-      db.first(
-        db.statement((q) =>
-          q
-            .selectFrom('task_field_values')
-            .select('task_field_values.value_md')
-            .where('task_field_values.task_id', '=', taskId)
-            .where('task_field_values.field_id', '=', fieldId),
-        ),
+    const stored = await db.first(
+      db.statement((q) =>
+        q
+          .selectFrom('task_field_values')
+          .select('task_field_values.value_md')
+          .where('task_field_values.task_id', '=', taskId)
+          .where('task_field_values.field_id', '=', fieldId),
       ),
-      readUnfilled(db, workspaceId, taskId),
-    ]);
-    return { field: { id: field.id, name: field.name, value_md: stored?.value_md ?? null }, unfilled };
+    );
+    return { field: { id: field.id, name: field.name, value_md: stored?.value_md ?? null } };
   };
 
   // 読んだ値と同じ値を書くなら、何も書かない（履歴も残さない）。閉じたワークスペースは断る

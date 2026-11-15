@@ -46,7 +46,7 @@ describe('添付保存の反証', () => {
       );
   });
 
-  test('値の行が無いまま画像以外だけを保存でき、未記入の欄を作らない', async () => {
+  test('値の行が無いまま画像以外だけを保存でき、値の行を作らない', async () => {
     const target = await createTarget();
     const task = await createTask(target.organization, target.workspace.id, target.member.userId!);
     const field = await createDetailField(target.organization, target.workspace.id);

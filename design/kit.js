@@ -586,7 +586,6 @@
   function taskFlags(x) {
     const carried = x.todayOn && x.todayOn < D.today && !x.doneAt;
     return `${carried ? `<span class="chip is-carry">${icon("redo")}持ち越し</span>` : ""}
-      ${x.unfilled ? `<span class="chip is-todo">${icon("pen")}${t("detail")} 未記入</span>` : ""}
       ${x.srcDone && !x.doneAt ? `<span class="chip is-ok">${icon("check")}取り込み元で完了</span>` : ""}`;
   }
   const stamped = new Set();
@@ -1488,7 +1487,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   // 決まった欄（詳細・受け入れ条件）。本文と同じく、いつも書ける欄
   function drawerFieldsHtml(x) {
     const saved = fieldsText(x);
-    const label = `${icon("pen")} ${t("detail")}・${t("ac")} ${x.unfilled ? `<span class="chip is-todo">未記入</span>` : ""}`;
+    const label = `${icon("pen")} ${t("detail")}・${t("ac")}`;
     if (drawerReadOnly()) {
       return `<div class="field"><span class="field-label">${label}</span><div class="doc-box${saved ? "" : " is-empty"}">${saved ? mdBody(saved.split("\n")) : `まだ書かれていません。${t("task")}を完了にした時点ですべて埋まっていると、最後に書いた人に経験値が付きます。`}</div></div>`;
     }
@@ -1813,7 +1812,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     }
   }
   // ---- 自動保存。タイトル、リンク、本文、決まった欄 ----
-  const fieldsText = (x) => (x.unfilled ? "" : (x.fields ?? (x.story ? D.stories[x.story].ac.slice(0, 2) : ["結果を確かめる手順が書かれている"]).map((a) => `- ${a}`).join("\n")));
+  const fieldsText = (x) => (x.fieldsEmpty ? "" : (x.fields ?? (x.story ? D.stories[x.story].ac.slice(0, 2) : ["結果を確かめる手順が書かれている"]).map((a) => `- ${a}`).join("\n")));
   const savedFieldValue = (x, name) => name === "title" ? x.title : name === "link" ? x.link || "" : name === "body" ? (x.body || []).join("\n") : name === "ac" ? storyAcText(x) : fieldsText(x);
   const saveTimers = {};
   const SAVE_WAIT = 1500;
@@ -1848,7 +1847,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     syncMobilePageTools();
     drafts.forEach(([id, value]) => { const el = document.getElementById(id); if (el) el.value = value; });
   }
-  // 保存した欄に応じて、引き出しの見出し、リンクの「開く」、「未記入」の印だけを差し替える（書いている欄は作り直さない）
+  // 保存した欄に応じて、引き出しの見出しとリンクの「開く」だけを差し替える（書いている欄は作り直さない）
   function refreshDrawerView(x, name) {
     const root = document.getElementById("drawer");
     if (!root) return;
@@ -1857,11 +1856,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       const field = root.querySelector('[data-drawer-input="link"]')?.closest(".field");
       field?.parentElement.querySelectorAll("a[data-drawer-open]").forEach((a) => a.remove());
       if (x.link && field) field.insertAdjacentHTML("afterend", `<a class="btn is-sm" data-drawer-open href="${esc(x.link)}" target="_blank" rel="noopener noreferrer" aria-label="リンクを新しいタブで開く">開く</a>`);
-    }
-    if (name === "fields") {
-      const label = root.querySelector('label[for="drawer-edit-fields"]');
-      label?.querySelectorAll(".chip.is-todo").forEach((c) => c.remove());
-      if (x.unfilled && label) label.insertAdjacentHTML("beforeend", ` <span class="chip is-todo">未記入</span>`);
     }
   }
   function commitDrawerField(name) {
@@ -1879,7 +1873,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       x.link = value || null;
     } else if (name === "body") x.body = value ? value.split("\n") : null;
     else if (name === "ac") { x.acMd = value; x.ac = value.split("\n").map((l) => l.replace(/^\s*[-*]\s+/, "").trim()).filter(Boolean); }
-    else { x.fields = value; x.unfilled = !value; }
+    else { x.fields = value; x.fieldsEmpty = !value; }
     showDrawerError(name, "");
     delete drawer.drafts[name];
     showSaveState(name, "saved");
@@ -2126,7 +2120,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       toast(`${icon("check")}${t(kind === "new-epic" ? "epic" : "story")}を足しました: ${esc(title)}`);
       return;
     }
-    const x = { id: `n${++draftSeq}`, ws: "wa", title, story: kind === "story" ? key : null, sprint: kind === "col" ? "sp14" : null, col: kind === "col" ? key : null, who: null, pts: null, creator: D.me, unfilled: true };
+    const x = { id: `n${++draftSeq}`, ws: "wa", title, story: kind === "story" ? key : null, sprint: kind === "col" ? "sp14" : null, col: kind === "col" ? key : null, who: null, pts: null, creator: D.me, fieldsEmpty: true };
     D.tasks.push(x);
     // redraw() は値のある空の行を控えて戻すので、足した題が戻らないよう、描き直す前にこの欄だけ空にする
     input.value = "";
@@ -2837,7 +2831,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       const refs = tasksWhere((x) => x.sprint === "sp14" && !x.doneAt).flatMap((x) => {
         const d = dueOf(x);
         if (d && d.date < D.today) return [[x.id, () => `<span class="chip is-danger">${icon("alert")}${t("due")}切れ ${md(d.date)}</span>`]];
-        if (x.col === "c1" && (x.pts || 0) >= 3) return [[x.id, () => `<span class="chip is-warn">${icon("clock")}${x.pts} pt で${esc(colName(x))}</span>${x.unfilled ? `<span class="chip is-todo">${icon("pen")}${t("detail")} 未記入</span>` : ""}`]];
+        if (x.col === "c1" && (x.pts || 0) >= 3) return [[x.id, () => `<span class="chip is-warn">${icon("clock")}${x.pts} pt で${esc(colName(x))}</span>`]];
         return [];
       });
       return { ...base, steps: [() => `${esc(sprintLabel("sp14"))}の${t("task")}を読んでいます`, () => `${t("due")}と${t("column")}を確かめています`],

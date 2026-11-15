@@ -1,6 +1,6 @@
-// タスクの決まった欄の値（task_field_values）の書き込み（task-field-set）と、未記入の判定（task-detail、backlog-tree、task-create）。
-// 組織の分離と権限の種類ごとの許可と拒否は、一覧を回す test/operation-registry.test.ts が確かめる。
-// 計画の画面の未記入の件数（plan-summary）は test/plan-summary.test.ts
+// タスクの決まった欄の値（task_field_values）の書き込み（task-field-set）と、引き出しが読む欄と値（task-detail の fields）。
+// 未記入の印と件数は出さない（#1263）ので、backlog-tree、task-create、plan-summary、task-detail、task-field-set の出力に
+// 未記入の項目が無いことも確かめる。組織の分離と権限の種類ごとの許可と拒否は、一覧を回す test/operation-registry.test.ts が確かめる。
 import { env } from 'cloudflare:workers';
 import { describe, expect, test } from 'vitest';
 import type { AnyOperationDefinition } from '../src/shared/operations/define.ts';
@@ -16,9 +16,7 @@ import { detailFieldDelete, detailFieldList } from '../src/shared/operations/def
 import { planSummary } from '../src/shared/operations/sprint/index.ts';
 import { createApp } from '../src/server/app.ts';
 import { orgDb } from '../src/server/db/index.ts';
-import { queryPlanForTest } from '../src/server/db/testing.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
-import { unfilledCountStatement } from '../src/server/operations/task.ts';
 import {
   createBoardColumn,
   createDetailField,
@@ -33,7 +31,7 @@ import { createTarget, type Person, type Target } from './operations/world.ts';
 const app = createApp(implementedOperations);
 
 type ErrorBody = { error: { code: string; details?: { reason?: string } } };
-type SetBody = { field: { id: string; name: string; value_md: string | null }; unfilled: boolean };
+type SetBody = { field: { id: string; name: string; value_md: string | null } };
 
 async function call<T = Record<string, unknown>>(
   definition: AnyOperationDefinition,
@@ -113,9 +111,8 @@ describe('task-field-set', () => {
     const text = '- 影響する画面を挙げてある\n- 確かめる手順がある';
     const res = await setField(target, task.id, criteria.id, text, null);
     expect(res.status).toBe(200);
-    expect(res.body.field).toEqual({ id: criteria.id, name: '受け入れ基準', value_md: text });
-    // もう 1 つの欄が未記入のまま
-    expect(res.body.unfilled).toBe(true);
+    // 返すのは書いた後の欄だけ（未記入かは返さない）
+    expect(res.body).toEqual({ field: { id: criteria.id, name: '受け入れ基準', value_md: text } });
     expect(await storedValue(target, task.id, criteria.id)).toEqual({ value_md: text, updated_by: memberId });
 
     const logs = await taskLogs(target, task.id);
@@ -129,7 +126,7 @@ describe('task-field-set', () => {
     expect(logs[0]?.changes_json).not.toContain('影響する画面');
   });
 
-  test('読んだ値のままなら直せる。履歴は前後とも欄の名前だけ。全部の欄を書くと未記入でなくなる', async () => {
+  test('読んだ値のままなら直せる。履歴は前後とも欄の名前だけ', async () => {
     const { target, criteria, impact, task } = await world();
     await setField(target, task.id, criteria.id, '一次', null);
     const edited = await setField(target, task.id, criteria.id, '二次', '一次');
@@ -142,17 +139,16 @@ describe('task-field-set', () => {
       ],
     });
     const all = await setField(target, task.id, impact.id, '画面 A', null);
-    expect(all.body.unfilled).toBe(false);
+    expect(all.body.field.value_md).toBe('画面 A');
   });
 
-  test('空（空白だけを含む）か null にすると行を消して未記入に戻り、履歴は「あり → なし」', async () => {
+  test('空（空白だけを含む）か null にすると行を消して値が null に戻り、履歴は「あり → なし」', async () => {
     const { target, criteria, impact, task } = await world();
     await setField(target, task.id, criteria.id, '一次', null);
     await setField(target, task.id, impact.id, '画面 A', null);
     const cleared = await setField(target, task.id, criteria.id, '  \n \n', '一次');
     expect(cleared.status).toBe(200);
     expect(cleared.body.field.value_md).toBeNull();
-    expect(cleared.body.unfilled).toBe(true);
     expect(await storedValue(target, task.id, criteria.id)).toBeUndefined();
     expect((await taskLogs(target, task.id)).at(-1)?.changes).toEqual({
       field: [{ id: criteria.id, name: '受け入れ基準' }, null],
@@ -231,12 +227,12 @@ describe('task-field-set', () => {
     expect(await taskLogs(target, task.id)).toHaveLength(1);
   });
 
-  test('完了したタスクにも書ける。そのタスクは未記入にならない', async () => {
+  test('完了したタスクにも書ける', async () => {
     const { target, criteria, task } = await world();
     expect((await call(taskComplete, target, { task_id: task.id })).status).toBe(200);
     const res = await setField(target, task.id, criteria.id, '完了後に書いた', null);
     expect(res.status).toBe(200);
-    expect(res.body.unfilled).toBe(false);
+    expect(res.body.field.value_md).toBe('完了後に書いた');
   });
 
   test('削除した欄、無い欄、別のワークスペースと別の組織の欄とタスク、削除したタスクは 404', async () => {
@@ -294,8 +290,8 @@ describe('task-field-set', () => {
   });
 });
 
-describe('未記入の判定', () => {
-  test('task-detail は削除していない欄を並びの順に値つきで返し、値の無い欄があれば未記入。書いて全部そろえると偽になる', async () => {
+describe('欄と値の読み', () => {
+  test('task-detail は削除していない欄を並びの順に値つきで返す。書くと値が入り、未記入かは返さない', async () => {
     const { target, memberId, criteria, impact, task } = await world();
     const deleted = await createDetailField(target.organization, target.workspace.id, {
       name: '旧欄',
@@ -305,156 +301,101 @@ describe('未記入の判定', () => {
     await createTaskFieldValue(target.organization, task.id, deleted.id, memberId, { value_md: '旧欄の値' });
     await createTaskFieldValue(target.organization, task.id, criteria.id, memberId, { value_md: '基準を書いた' });
 
-    const partly = await call<{ fields: unknown[]; unfilled: boolean }>(taskDetail, target, { task_id: task.id });
+    const partly = await call<{ fields: unknown[] }>(taskDetail, target, { task_id: task.id });
     expect(partly.status).toBe(200);
     expect(partly.body.fields).toEqual([
       { id: criteria.id, name: '受け入れ基準', value_md: '基準を書いた' },
       { id: impact.id, name: '影響範囲', value_md: null },
     ]);
-    expect(partly.body.unfilled).toBe(true);
+    expect(partly.body).not.toHaveProperty('unfilled');
 
     await setField(target, task.id, impact.id, '画面 A', null);
-    const filled = await call<{ unfilled: boolean }>(taskDetail, target, { task_id: task.id });
-    expect(filled.body.unfilled).toBe(false);
+    const filled = await call<{ fields: { value_md: string | null }[] }>(taskDetail, target, { task_id: task.id });
+    expect(filled.body.fields.map((field) => field.value_md)).toEqual(['基準を書いた', '画面 A']);
   });
 
-  test('完了したタスクは値が無くても未記入にならない。欄が 1 つも無ければ未記入にならない', async () => {
+  test('完了したタスクも欄を返す。欄が 1 つも無ければ空', async () => {
     const { target, task } = await world();
     await call(taskComplete, target, { task_id: task.id });
-    const done = await call<{ unfilled: boolean; fields: unknown[] }>(taskDetail, target, { task_id: task.id });
-    expect(done.body.unfilled).toBe(false);
+    const done = await call<{ fields: unknown[] }>(taskDetail, target, { task_id: task.id });
     expect(done.body.fields).toHaveLength(2);
 
     const plain = await createTarget();
     const bare = await createTask(plain.organization, plain.workspace.id, plain.member.userId!);
-    const none = await call<{ unfilled: boolean; fields: unknown[] }>(taskDetail, plain, { task_id: bare.id });
-    expect(none.body).toMatchObject({ unfilled: false, fields: [] });
+    const none = await call<{ fields: unknown[] }>(taskDetail, plain, { task_id: bare.id });
+    expect(none.body.fields).toEqual([]);
   });
 
-  test('欄を削除すると、その欄は未記入の判定から外れる（値の行は残る）', async () => {
+  test('欄を削除すると、その欄は task-detail に出なくなる（値の行は残る）', async () => {
     const { target, memberId, criteria, impact, task } = await world();
-    await createTaskFieldValue(target.organization, task.id, criteria.id, memberId);
-    const before = await call<{ unfilled: boolean }>(taskDetail, target, { task_id: task.id });
-    expect(before.body.unfilled).toBe(true);
+    await createTaskFieldValue(target.organization, task.id, impact.id, memberId, { value_md: '画面 A' });
     expect((await call(detailFieldDelete, target, { field_id: impact.id }, target.leader)).status).toBe(200);
-    const after = await call<{ unfilled: boolean; fields: { id: string }[] }>(taskDetail, target, {
-      task_id: task.id,
-    });
-    expect(after.body.unfilled).toBe(false);
+    const after = await call<{ fields: { id: string }[] }>(taskDetail, target, { task_id: task.id });
     expect(after.body.fields.map((field) => field.id)).toEqual([criteria.id]);
+    expect(await storedValue(target, task.id, impact.id)).toEqual({ value_md: '画面 A', updated_by: memberId });
   });
 
-  test('backlog-tree は各タスクの未記入と、絞り込みに関わらないワークスペース全体の件数を返す。完了と削除したタスクは数えない', async () => {
-    const { target, memberId, criteria, impact, task } = await world();
+  test('backlog-tree、task-create、plan-summary は、欄が空のタスクがあっても未記入の項目を返さない', async () => {
+    const { target, memberId } = await world();
     const { organization } = target;
     const workspaceId = target.workspace.id;
     const story = await createStory(organization, workspaceId, memberId, { title: '決済の画面' });
-    const inStory = await createTask(organization, workspaceId, memberId, {
-      story_id: story.id,
-      title: '入力欄を作る',
-    });
-    const filled = await createTask(organization, workspaceId, memberId, { title: '書き終えた', position: 'a1' });
-    await createTaskFieldValue(organization, filled.id, criteria.id, memberId);
-    await createTaskFieldValue(organization, filled.id, impact.id, memberId);
+    await createTask(organization, workspaceId, memberId, { story_id: story.id, title: '入力欄を作る' });
+    const sprint = await createSprint(organization, workspaceId, { status: 'planned' });
+    const column = await createBoardColumn(organization, workspaceId);
     await createTask(organization, workspaceId, memberId, {
-      title: '終えた',
-      completed_at: '2026-10-21T00:00:00.000Z',
-      completed_by: memberId,
-    });
-    await createTask(organization, workspaceId, memberId, { title: '消した', deleted_at: '2026-10-21T00:00:00.000Z' });
-    await createTask(organization, target.otherWorkspace.id, target.bystander.userId!, { title: '別のワークスペース' });
-
-    type Tree = {
-      tasks: { id: string; unfilled: boolean }[];
-      stories: { tasks: { id: string; unfilled: boolean }[] }[];
-      unfilled_count: number;
-    };
-    const all = await call<Tree>(backlogTree, target, {});
-    expect(all.status).toBe(200);
-    const rows = Object.fromEntries(
-      [...all.body.tasks, ...all.body.stories.flatMap((s) => s.tasks)].map((row) => [row.id, row.unfilled]),
-    );
-    expect(rows[task.id]).toBe(true);
-    expect(rows[inStory.id]).toBe(true);
-    expect(rows[filled.id]).toBe(false);
-    expect(Object.keys(rows)).toHaveLength(3);
-    // 値の無いタスク 2 件。完了したタスク、削除したタスク、別のワークスペースのタスクは数えない
-    expect(all.body.unfilled_count).toBe(2);
-
-    // 絞り込みで行が減っても、件数はワークスペース全体のまま
-    const filteredOut = await call<Tree>(backlogTree, target, { query: '書き終えた' });
-    expect(filteredOut.body.tasks.map((row) => row.id)).toEqual([filled.id]);
-    expect(filteredOut.body.unfilled_count).toBe(2);
-
-    // 欄を全部削除すると、件数は 0 で、行の印も消える
-    await call(detailFieldDelete, target, { field_id: criteria.id }, target.leader);
-    await call(detailFieldDelete, target, { field_id: impact.id }, target.leader);
-    const noFields = await call<Tree>(backlogTree, target, {});
-    expect(noFields.body.unfilled_count).toBe(0);
-    expect(noFields.body.tasks.every((row) => !row.unfilled)).toBe(true);
-  });
-
-  test('task-create が返す行は、欄があれば未記入、無ければ未記入でない', async () => {
-    const { target } = await world();
-    const created = await call<{ task: { unfilled: boolean } }>(taskCreate, target, { title: '新しいタスク' });
-    expect(created.status).toBe(200);
-    expect(created.body.task.unfilled).toBe(true);
-
-    const plain = await createTarget();
-    const bare = await call<{ task: { unfilled: boolean } }>(taskCreate, plain, { title: '新しいタスク' });
-    expect(bare.body.task.unfilled).toBe(false);
-  });
-
-  test('別のワークスペースと別の組織の欄は、欄の一覧にも未記入の判定にも件数にも混ざらない', async () => {
-    const target = await createTarget();
-    const { organization } = target;
-    const memberId = target.member.userId!;
-    // 自分のワークスペースは欄が 0 件で、タスクが 1 件（スプリントに入っている）
-    const task = await createTask(organization, target.workspace.id, memberId);
-    const sprint = await createSprint(organization, target.workspace.id, { status: 'planned' });
-    const column = await createBoardColumn(organization, target.workspace.id);
-    await createTask(organization, target.workspace.id, memberId, {
       sprint_id: sprint.id,
       column_id: column.id,
       column_position: 'a0',
     });
+
+    const tree = await call<{ tasks: object[]; stories: { tasks: object[] }[] }>(backlogTree, target, {});
+    expect(tree.status).toBe(200);
+    expect(tree.body).not.toHaveProperty('unfilled_count');
+    const rows = [...tree.body.tasks, ...tree.body.stories.flatMap((s) => s.tasks)];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) expect(row).not.toHaveProperty('unfilled');
+
+    const created = await call<{ task: object }>(taskCreate, target, { title: '新しいタスク' });
+    expect(created.status).toBe(200);
+    expect(created.body.task).not.toHaveProperty('unfilled');
+
+    const plan = await call<{ lanes: object[] }>(planSummary, target, {});
+    expect(plan.status).toBe(200);
+    expect(plan.body.lanes).toHaveLength(1);
+    for (const lane of plan.body.lanes) expect(lane).not.toHaveProperty('unfilled_count');
+  });
+
+  test('別のワークスペースと別の組織の欄は、task-detail の欄にも欄の一覧にも混ざらない', async () => {
+    const target = await createTarget();
+    const { organization } = target;
+    const memberId = target.member.userId!;
+    // 自分のワークスペースは欄が 0 件で、タスクが 1 件
+    const task = await createTask(organization, target.workspace.id, memberId);
     // 別のワークスペースと別の組織に、欄を 1 件ずつ
     await createDetailField(organization, target.otherWorkspace.id, { name: '別のワークスペースの欄' });
     const stranger = await createTarget();
     await createDetailField(stranger.organization, stranger.workspace.id, { name: '別の組織の欄' });
 
-    const detail = await call<{ fields: unknown[]; unfilled: boolean }>(taskDetail, target, { task_id: task.id });
-    expect(detail.body).toMatchObject({ fields: [], unfilled: false });
+    const detail = await call<{ fields: unknown[] }>(taskDetail, target, { task_id: task.id });
+    expect(detail.body.fields).toEqual([]);
     const list = await call<{ fields: unknown[] }>(detailFieldList, target, {});
     expect(list.body.fields).toEqual([]);
-    const tree = await call<{ tasks: { unfilled: boolean }[]; unfilled_count: number }>(backlogTree, target, {});
-    expect(tree.body.unfilled_count).toBe(0);
-    expect(tree.body.tasks.every((row) => !row.unfilled)).toBe(true);
-    const plan = await call<{ lanes: { unfilled_count: number }[] }>(planSummary, target, {});
-    expect(plan.body.lanes.map((lane) => lane.unfilled_count)).toEqual([0]);
   });
 
-  test('印と件数の範囲は、完了していないバックログ（tray = backlog）のタスクだけ。受信箱のタスクは未記入にしない', async () => {
+  test('受信箱のタスクにも書け、task-detail はバックログのタスクかを返す', async () => {
     const { target, criteria, task } = await world();
     const inbox = await createTask(target.organization, target.workspace.id, target.member.userId!, {
       is_imported: 1,
       tray: 'inbox',
     });
-    const detail = await call<{ unfilled: boolean; in_backlog: boolean }>(taskDetail, target, { task_id: inbox.id });
-    expect(detail.body.unfilled).toBe(false);
-    // 引き出しの欄ごとの印も同じ範囲で決めるので、バックログのタスクかを返す
+    const detail = await call<{ in_backlog: boolean }>(taskDetail, target, { task_id: inbox.id });
     expect(detail.body.in_backlog).toBe(false);
     const backlogDetail = await call<{ in_backlog: boolean }>(taskDetail, target, { task_id: task.id });
     expect(backlogDetail.body.in_backlog).toBe(true);
-    // 受信箱のタスクにも書けるが、そのタスクは未記入にならない
     const set = await setField(target, inbox.id, criteria.id, '受信箱で書いた', null);
     expect(set.status).toBe(200);
-    expect(set.body.unfilled).toBe(false);
-    await setField(target, inbox.id, criteria.id, null, '受信箱で書いた');
-    // 件数はバックログのタスクだけ（world のバックログのタスク 1 件）
-    const tree = await call<{ unfilled_count: number }>(backlogTree, target, {});
-    expect(tree.body.unfilled_count).toBe(1);
-    expect(task.tray).toBe('backlog');
+    expect(set.body.field.value_md).toBe('受信箱で書いた');
   });
 
   test('成功した書き込みを再送しても 200 で今の値を返し、履歴は 1 件のまま', async () => {
@@ -477,12 +418,5 @@ describe('未記入の判定', () => {
     // 違う値が入っているときは、これまでどおり 409 の changed
     await setField(target, task.id, criteria.id, '別の人の値', null);
     expect((await setField(target, task.id, criteria.id, 'y', 'x')).status).toBe(409);
-  });
-
-  test('件数の文は、ワークスペースの未完了のタスクを tasks_workspace_tray で引く', async () => {
-    const { target } = await world();
-    const db = orgDb(env, target.organization.verified);
-    const plan = (await queryPlanForTest(env, unfilledCountStatement(db, target.workspace.id))).join('\n');
-    expect(plan).toMatch(/USING (COVERING )?INDEX tasks_workspace_tray/);
   });
 });

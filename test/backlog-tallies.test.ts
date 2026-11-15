@@ -6,14 +6,7 @@ import { queryPlanForTest } from '../src/server/db/testing.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
 import { backlogCountsStatement } from '../src/server/operations/task.ts';
 import { backlogTree } from '../src/shared/operations/task/index.ts';
-import {
-  createBoardColumn,
-  createDetailField,
-  createSprint,
-  createStory,
-  createTask,
-  createWorkspace,
-} from './factories.ts';
+import { createBoardColumn, createSprint, createStory, createTask, createWorkspace } from './factories.ts';
 import { post } from './operations/harness.ts';
 import { createTarget, type Target } from './operations/world.ts';
 
@@ -29,10 +22,9 @@ async function counts(target: Target, query?: string) {
 }
 
 describe('バックログの見出しの集計', () => {
-  test('空のワークスペースは4つとも0', async () => {
+  test('空のワークスペースは3つとも0', async () => {
     expect(await counts(await createTarget())).toMatchObject({
       open_count: 0,
-      unfilled_count: 0,
       unestimated_count: 0,
       unscheduled_count: 0,
     });
@@ -41,7 +33,6 @@ describe('バックログの見出しの集計', () => {
   test('未完了のバックログ全体を数える。親と絞り込みに左右されず、0ポイントは見積もり済み', async () => {
     const target = await createTarget();
     const { organization, workspace, member } = target;
-    await createDetailField(organization, workspace.id);
     const story = await createStory(organization, workspace.id, member.userId!);
     const sprint = await createSprint(organization, workspace.id);
     const column = await createBoardColumn(organization, workspace.id);
@@ -59,7 +50,7 @@ describe('バックログの見出しの集計', () => {
     });
     await createTask(organization, workspace.id, member.userId!, { deleted_at: '2026-11-01T00:00:00.000Z' });
     await createTask(organization, workspace.id, member.userId!, { tray: 'inbox', is_imported: 1 });
-    const expected = { open_count: 3, unfilled_count: 3, unestimated_count: 1, unscheduled_count: 2 };
+    const expected = { open_count: 3, unestimated_count: 1, unscheduled_count: 2 };
     expect(await counts(target)).toMatchObject(expected);
     expect(await counts(target, '検索に当たる')).toMatchObject(expected);
     expect(await counts(target, '存在しない題')).toMatchObject(expected);

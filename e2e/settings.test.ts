@@ -92,8 +92,8 @@ test.describe('リーダー（あおば開発のミナト）', () => {
       .click();
     await expect(row.getByRole('button', { name: '区分: 保守' })).toBeVisible();
 
-    // 新しいワークスペースには決まった欄が1つあり、書かれていないので「詳細 未記入」の印が並ぶ。リポジトリと区分は右端のチップに出る
-    await expect(row.locator('.entry-meta .chip')).toHaveText(['詳細 未記入']);
+    // 新しいワークスペースには決まった欄が1つあり、書かれていないが「詳細 未記入」の印は出さない（#1263）。リポジトリと区分は右端のチップに出る
+    await expect(row.locator('.entry-meta .chip')).toHaveCount(0);
     // 読み直しても出る
     await page.reload();
     await expect(row.getByRole('button', { name: 'リポジトリ: point-api' })).toBeVisible();
@@ -212,7 +212,7 @@ test.describe('リーダー（あおば開発のミナト）', () => {
       .click();
     await expect(task.getByRole('button', { name: 'リポジトリ: point-api' })).toBeVisible();
     await expect(task.getByRole('button', { name: '区分: 保守' })).toHaveAttribute('aria-disabled', 'true');
-    await expect(task.locator('.entry-meta .chip')).toHaveText(['詳細 未記入']);
+    await expect(task.locator('.entry-meta .chip')).toHaveCount(0);
 
     // 引き出しでは、引き継いだ区分を読み取り専用で出す
     await task.getByRole('link', { name: '残高の画面を作る' }).click();

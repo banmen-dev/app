@@ -29,35 +29,31 @@ test.beforeEach(async ({ context, baseURL }) => {
   await signIn(context, baseURL, 'admin');
 });
 
-test('4つの集計が見本の順に並び、起票と完了を反映し、絞っても全体の件数を出す', async ({ page }) => {
+test('3つの集計が見本の順に並び、起票と完了を反映し、絞っても全体の件数を出す', async ({ page }) => {
   await createWorkspace(page, '見出しの件数');
   const tallies = page.locator('.page-head .tally');
-  await expect(tallies.locator('dt')).toHaveText([
-    '未完了のタスク',
-    '詳細 未記入',
-    '未見積もり',
-    'スプリントに入っていない',
-  ]);
-  await expect(tallies.locator('dd')).toHaveText(['0', '0', '0', '0']);
+  // 「詳細 未記入」は出さない（#1263）
+  await expect(tallies.locator('dt')).toHaveText(['未完了のタスク', '未見積もり', 'スプリントに入っていない']);
+  await expect(tallies.locator('dd')).toHaveText(['0', '0', '0']);
   await expect(tallies.locator('.is-warn')).toHaveCount(0);
   await addTaskRow(page, '請求の確認');
   await addTaskRow(page, '手順を書く');
-  await expect(tallies.locator('dd')).toHaveText(['2', '2', '2', '2']);
-  await expect(tallies.locator('.is-warn dt')).toHaveText(['詳細 未記入', '未見積もり']);
+  await expect(tallies.locator('dd')).toHaveText(['2', '2', '2']);
+  await expect(tallies.locator('.is-warn dt')).toHaveText(['未見積もり']);
 
   await page.getByRole('searchbox', { name: 'タイトルで探す' }).fill('請求');
   await expect(page.locator('.tree .entry')).toHaveCount(1);
-  await expect(tallies.locator('dd')).toHaveText(['2', '2', '2', '2']);
+  await expect(tallies.locator('dd')).toHaveText(['2', '2', '2']);
   await expect(page.getByText('ポイントと件数は、絞る前の全体の値です')).toBeVisible();
   await page.getByRole('button', { name: '完了にする: 請求の確認', exact: true }).click();
-  await expect(tallies.locator('dd')).toHaveText(['1', '1', '1', '1']);
+  await expect(tallies.locator('dd')).toHaveText(['1', '1', '1']);
 });
 
 test('見積もりを保存できたら、木の読み直しを待つ間にも件数を直す', async ({ page }) => {
   await createWorkspace(page, '見積もりの件数');
   await addTaskRow(page, '見積もる作業');
   const tallies = page.locator('.page-head .tally dd');
-  await expect(tallies).toHaveText(['1', '1', '1', '1']);
+  await expect(tallies).toHaveText(['1', '1', '1']);
 
   const finishReading = await holdTree(page);
   try {
@@ -69,12 +65,12 @@ test('見積もりを保存できたら、木の読み直しを待つ間にも�
       .getByRole('menuitemradio', { name: '5 pt', exact: true })
       .click();
     await saved;
-    await expect(tallies).toHaveText(['1', '1', '0', '1']);
+    await expect(tallies).toHaveText(['1', '0', '1']);
   } finally {
     await finishReading();
   }
   await expect(page.locator('.entry').getByRole('button', { name: 'ポイント: 5 pt' })).toBeVisible();
-  await expect(tallies).toHaveText(['1', '1', '0', '1']);
+  await expect(tallies).toHaveText(['1', '0', '1']);
 });
 
 test('絞り込みに当たる行が0件でも、集計が全体の値であることを知らせる', async ({ page }) => {
@@ -82,7 +78,7 @@ test('絞り込みに当たる行が0件でも、集計が全体の値である�
   await addTaskRow(page, '請求の確認');
   await page.getByRole('searchbox', { name: 'タイトルで探す' }).fill('当たらない語');
   await expect(page.getByText('絞り込みに当たるものはありません', { exact: true })).toBeVisible();
-  await expect(page.locator('.page-head .tally dd')).toHaveText(['1', '1', '1', '1']);
+  await expect(page.locator('.page-head .tally dd')).toHaveText(['1', '1', '1']);
   await expect(page.getByText('ポイントと件数は、絞る前の全体の値です')).toBeVisible();
 });
 
@@ -103,7 +99,7 @@ test('計画でスプリントへ入れたタスクは、バックログに戻�
   await picker.getByRole('button', { name: '1 件入れる' }).click();
   await expect(picker).toBeHidden();
   await page.getByRole('link', { name: 'バックログ', exact: true }).click();
-  await expect(page.locator('.page-head .tally dd')).toHaveText(['1', '1', '1', '0']);
+  await expect(page.locator('.page-head .tally dd')).toHaveText(['1', '1', '0']);
 });
 
 test('絞り込みで隠れる起票も、木の応答が来る前から全体の件数に足す', async ({ page }) => {
@@ -123,11 +119,11 @@ test('絞り込みで隠れる起票も、木の応答が来る前から全体�
     const saved = waitForResponses(page, '/task-create');
     await input.press('Enter');
     await saved;
-    await expect(page.locator('.page-head .tally dd')).toHaveText(['2', '2', '2', '2']);
+    await expect(page.locator('.page-head .tally dd')).toHaveText(['2', '2', '2']);
     await expect(page.locator('.tree .entry')).toHaveCount(1);
   } finally {
     await finishReading();
   }
   await expect(page.getByText('作りました。絞り込みに当たらないので表示していません')).toBeVisible();
-  await expect(page.locator('.page-head .tally dd')).toHaveText(['2', '2', '2', '2']);
+  await expect(page.locator('.page-head .tally dd')).toHaveText(['2', '2', '2']);
 });
