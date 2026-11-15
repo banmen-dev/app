@@ -8,12 +8,13 @@ const SPACING_PROPERTY =
   /^(?:(?:padding|margin|scroll-margin|scroll-padding)(?:-[a-z-]+)?|(?:grid-)?(?:row-|column-)?gap)$/;
 // CSS の単位は大文字小文字を区別しないので、数の後ろの英字か % をすべて長さとして拾う（1e1px のような指数も含める）
 const LENGTH = /(?<![\w-])([+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)([a-z]+|%)/gi;
-const VAR_NAME = /var\(\s*(--[\w-]+)/g;
+// 関数名（var、env）は CSS で大文字小文字を区別しないので i を付ける。変数名そのものは区別されるが、i は字の種類にしか効かない
+const VAR_NAME = /var\(\s*(--[\w-]+)/gi;
 // 変数名と端末の安全領域の名前だけを外し、予備値は検査に残す（var(--space-2, 9px) の 9px を見るため）
-const VAR_HEAD = /var\(\s*--[\w-]+\s*,?/g;
-const ENV_HEAD = /env\(\s*[\w-]+\s*,?/g;
+const VAR_HEAD = /var\(\s*--[\w-]+\s*,?/gi;
+const ENV_HEAD = /env\(\s*[\w-]+\s*,?/gi;
 // 括弧を含まない予備値。中の長さは罫の例外を当てずに見る
-const FALLBACK = /(?:var\(\s*--[\w-]+|env\(\s*[\w-]+)\s*,([^()]*)\)/g;
+const FALLBACK = /(?:var\(\s*--[\w-]+|env\(\s*[\w-]+)\s*,([^()]*)\)/gi;
 
 const squash = (text: string) => text.replace(/\s+/g, ' ').trim();
 

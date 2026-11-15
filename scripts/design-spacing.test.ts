@@ -99,6 +99,16 @@ describe('余白の刻みの判定', () => {
     ]);
   });
 
+  test('プロパティ名と関数名の大文字小文字を区別しない', () => {
+    assert.deepEqual(found('.a { PADDING: 7px; Gap: 5px; }'), [
+      ['.a | padding: 7px', 1],
+      ['.a | gap: 5px', 1],
+    ]);
+    assert.equal(check('VAR(--nope)'), '余白の段でない変数 --nope');
+    assert.equal(check('Var(--space-2, 9px)'), '直書きの 9px');
+    assert.equal(check('ENV(safe-area-inset-left, 0px)'), null);
+  });
+
   test('grid-gap の古い名前も拾う', () => {
     assert.deepEqual(found('.a { grid-gap: 5px; grid-row-gap: 7px; }'), [
       ['.a | grid-gap: 5px', 1],
