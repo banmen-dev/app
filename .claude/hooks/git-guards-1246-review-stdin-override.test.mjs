@@ -59,3 +59,19 @@ describe('#1246: パイプとグループ境界の標準入力の継承', () => 
       assert.ok(['ask', 'deny'].includes(decision(command)), command));
   }
 });
+// Ruby の本文はシェルではない。外側で明示された fd0 も、実行する道具の本文規則で見る。
+describe('#1246: 明示入力を継承する Ruby の本文', () => {
+  for (const command of [
+    `echo x | bash -c 'ruby' <<< 'system "wrangler deploy"'`,
+    `echo x | bash -c 'ruby' <<'EOF'\nsystem "wrangler deploy"\nEOF`,
+  ]) {
+    test(`[すり抜け・拒否か確認] ${command}`, () =>
+      assert.ok(['ask', 'deny'].includes(decision(command)), command));
+  }
+  test('[すり抜け・確認] 直接パイプから読む Ruby 本文の wrangler は確認する', () =>
+    assert.equal(decision(`echo 'system "wrangler deploy"' | ruby`), 'ask'));
+  test('[すり抜け・確認] fd 3 の本文は継承した fd0 を置き換えない', () =>
+    assert.equal(decision(`echo x | bash -c 'ruby' 3<<< 'system "wrangler deploy"'`), 'ask'));
+  test('[完了条件・通す] 内側の Ruby 自身が安全な本文で fd0 を置き換える形は通す', () =>
+    assert.equal(decision(`echo x | bash -c 'ruby <<< "puts 1"'`), 'allow'));
+});

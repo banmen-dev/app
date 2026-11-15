@@ -2813,13 +2813,18 @@ function readsPipedScript(tool, args) {
 function judgePipedScript(tool, args, ctx, nextCtx) {
   const previous = ctx.stdinContext?.previous;
   const piped = ['|', '|&'].includes(previous?.endOp);
-  if (!piped && !ctx.inheritedScriptStdin) return [];
+  if (!piped && !ctx.inheritedScriptStdin && !(ctx.inheritedInterpreterStdin && INTERPRETERS.has(tool))) return [];
   const mode = readsPipedScript(tool, args);
   if (mode === false) return [];
   // -c の本文の道具は外側の標準入力を継承する。本文の先頭へパイプを付け直すと
   // gh/curl のデータ入力まで変わるので、コードとして読む起動だけを確認に返す。
   if (!piped) {
-    return [[ASK, 'inline の本文から標準入力をコードとして読む道具を起動する。継承したパイプの本文は人が確かめる']];
+    const redirects = redirectsOf(args);
+    const input = redirects.filter((r) => (r.fd ?? 0) === 0 && (isHeredocRedirect(r) || isReadRedirect(r))).at(-1);
+    // inheritedInterpreterStdin は親の明示本文でも届く。実行先が自分で本文を指定し直した場合は、
+    // この継承入力ではなく、そのインタープリタ自身の既存の本文規則で判定する。
+    if (!redirects.stdinDuplicated && input && isHeredocRedirect(input)) return [];
+    return [[ASK, 'inline の本文から標準入力をコードとして読む道具を起動する。継承した本文は人が確かめる']];
   }
   // fd 3 などの入力は fd 0 のパイプを置き換えない。既存の本文判定へ渡す入力だけを絞る。
   const stdinArgs = sliceWords(args);
@@ -3542,8 +3547,12 @@ function judgeSegment(words, ctx) {
   // stdinContext は gh/curl のデータ判定用なので変更せず、コード実行の可能性だけを別の印で渡す。
   const inheritedScriptStdin = (ctx.inheritedScriptStdin || ['|', '|&'].includes(ctx.stdinContext?.previous?.endOp)) &&
     !(!inputRedirects.stdinDuplicated && input && isHeredocRedirect(input));
+  // 親が明示本文をシェルとして判定しても、Ruby 等の本文規則を通したことにはならない。
+  // シェルへの安全な上書きは保持しつつ、継承先のインタープリタだけには再確認を残す。
+  const inheritedInterpreterStdin = ctx.inheritedInterpreterStdin ||
+    (!inputRedirects.stdinDuplicated && input && isHeredocRedirect(input));
   // ctx から直接再帰する manager、Node --run、find にも同じ継承・上書き判定を渡す。
-  ctx = { ...ctx, inheritedScriptStdin };
+  ctx = { ...ctx, inheritedScriptStdin, inheritedInterpreterStdin };
   const nextCtx = { ...ctx, cwd: ctx.dir, depth: ctx.depth + 1 };
   // script -qc "…"（util-linux）の文字列は、後ろに道具が無いので ci が -1 でも見る
   results.push(...prefixCommands(words).map((script) => judgeBash(script, nextCtx)).filter(Boolean));
@@ -3553,7 +3562,7 @@ function judgeSegment(words, ctx) {
   // 場所は npx より前の env -C までで決める。npx の後ろの入れ子の npx は、経由先に掛け直したときに見る
   const npx = prefixes.find((j) => ['npx', 'pnpx'].includes(prefixName(words[j])));
   if (npx !== undefined) {
-    const npxCtx = { ...outer, ...dirAfterEnv(words, npx, outer.dir, outer.envFrom ?? 0, outer.place), inheritedScriptStdin };
+    const npxCtx = { ...outer, ...dirAfterEnv(words, npx, outer.dir, outer.envFrom ?? 0, outer.place), inheritedScriptStdin, inheritedInterpreterStdin };
     results.push(...judgeNpx(prefixName(words[npx]), sliceWords(words, npx + 1), sliceWords(words, 0, npx), npxCtx));
   }
   if (ci === -1) return results;
@@ -3991,6 +4000,7 @@ function judgeCommand(
     cdWords = '',
     namesGitDir = false,
     inheritedScriptStdin = false,
+    inheritedInterpreterStdin = false,
     findBudget = { left: MAX_FIND_COMMANDS, weight: MAX_FIND_WEIGHT },
   },
 ) {
@@ -4030,7 +4040,7 @@ function judgeCommand(
       const headTool = baseName(globHead[headCi] ?? '');
       if (SCRIPT_READERS.has(headTool) || RUNNERS.has(headTool) || INTERPRETERS.has(headTool)) {
         results.push(...judgeSegment(concatWords(globHead, sliceWords(words, words.length)), {
-          dir, branchOf: currentBranch, scriptOf, packageDirOf, depth, env, root, place, cdWords, namesGitDir, inheritedScriptStdin, findBudget,
+          dir, branchOf: currentBranch, scriptOf, packageDirOf, depth, env, root, place, cdWords, namesGitDir, inheritedScriptStdin, inheritedInterpreterStdin, findBudget,
           segmentCount: segments.length, stdinContext: { previous, ...shapeOfStdin },
         }));
       }
@@ -4058,7 +4068,7 @@ function judgeCommand(
       place = to === null || place === null ? null : to.startsWith('/') ? to : path.posix.join(place, to);
       continue;
     }
-    results.push(...judgeSegment(words, { dir, branchOf: currentBranch, scriptOf, packageDirOf, depth, env: segmentEnv, root, place, cdWords, namesGitDir, inheritedScriptStdin, findBudget, segmentCount: segments.length, stdinContext: { previous, ...shapeOfStdin } }));
+    results.push(...judgeSegment(words, { dir, branchOf: currentBranch, scriptOf, packageDirOf, depth, env: segmentEnv, root, place, cdWords, namesGitDir, inheritedScriptStdin, inheritedInterpreterStdin, findBudget, segmentCount: segments.length, stdinContext: { previous, ...shapeOfStdin } }));
     if (ci !== -1 && baseName(words[ci]) === 'git' && dir) {
       const branch = switchedBranch(words.slice(ci + 1));
       if (branch !== null) switched.set(dir, branch);
