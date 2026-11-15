@@ -191,7 +191,7 @@
             /></label
           >
           <div class="form-actions">
-            <button class="btn is-primary" type="submit" aria-disabled={busy}>{t('billingInvite')}</button>
+            <button class="btn is-primary" type="submit" disabled={busy}>{t('billingInvite')}</button>
           </div>
           {@render operationStatus('invite')}
         </form>
@@ -292,7 +292,7 @@
               /></label
             >
             <div class="form-actions">
-              <button class="btn is-primary" type="submit" aria-disabled={busy}>{t('billingInvite')}</button>
+              <button class="btn is-primary" type="submit" disabled={busy}>{t('billingInvite')}</button>
             </div>
             {@render operationStatus('bootstrap')}
           </form>

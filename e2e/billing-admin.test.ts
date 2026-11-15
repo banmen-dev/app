@@ -263,6 +263,9 @@ test('送信中に書いた次の指名先を成功時に消さない', async ({
   await expect(page.locator('#billing-status-invite')).toHaveText(t('billingBusy'));
   const draft = '019aa222-1111-7000-8000-000000000004';
   await page.getByLabel(t('billingTargetAccount')).fill(draft);
+  await expect(page.getByRole('button', { name: t('billingInvite'), exact: true })).toBeDisabled();
+  await page.getByLabel(t('billingTargetAccount')).press('Enter');
+  await expect(page.locator('#billing-status-invite')).toHaveText(t('billingBusy'));
   release();
   await expect(page.locator('#billing-status-invite')).toHaveText(t('billingSaved'));
   await expect(page.getByLabel(t('billingTargetAccount'))).toHaveValue(draft);
