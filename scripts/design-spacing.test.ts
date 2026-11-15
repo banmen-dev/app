@@ -74,6 +74,8 @@ describe('余白の刻みの判定', () => {
   test('予備値の 1px は罫として通さない', () => {
     assert.equal(check('var(--space-2, 1px)'), '直書きの 1px');
     assert.equal(check('env(safe-area-inset-bottom, 1px)'), '直書きの 1px');
+    assert.equal(check('var(--space-2, calc(1px))'), '直書きの 1px');
+    assert.equal(check('var(--space-2, var(--space-4, 3px))'), '直書きの 3px');
   });
 
   test('余白の段でない変数は落とす', () => {
