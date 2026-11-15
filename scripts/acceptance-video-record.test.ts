@@ -34,7 +34,7 @@ new MutationObserver(records => {
 }).observe(document.body, {attributes: true, attributeFilter: ['style'], subtree: true});
 </script>`);
     });
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    await new Promise<void>((resolve) => server.listen(0, resolve));
     const address = server.address();
     assert.ok(address && typeof address === 'object');
     const dir = mkdtempSync(join(tmpdir(), 'acceptance-record-'));
