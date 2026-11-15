@@ -218,6 +218,7 @@ export function formatProbeLine(r) {
   if (r.status === 'found' && r.kind === 'wait' && ['hidden', 'detached'].includes(r.action.state)) {
     verdict = '通った（存在は未確認）';
   }
+  if (r.failure === 'save-wait') verdict = '保存待ちで中止';
   const tail = r.status === 'skipped' ? `（${r.reason}）` : r.detail ? `（${r.detail}）` : '';
   return `場面 ${r.step}: ${verdict}: ${describeItem(r)}${tail}`;
 }
@@ -255,8 +256,11 @@ export async function runProbe(items, exec) {
       await exec(item);
       results.push({ ...item, status: 'found' });
     } catch (err) {
-      results.push({ ...item, status: 'missing', detail: probeDetail(err.message) });
-      blockedBy = `場面 ${item.step} の ${describeItem(item)} が見つからず、次の goto までは画面の状態が分からない`;
+      const saveWait = err.code === 'SAVE_WAIT_TIMEOUT';
+      results.push({ ...item, status: 'missing', detail: probeDetail(err.message), ...(saveWait ? { failure: 'save-wait' } : {}) });
+      blockedBy = saveWait
+        ? `場面 ${item.step} の ${describeItem(item)} を保存待ちで中止したため、次の goto までは試せない`
+        : `場面 ${item.step} の ${describeItem(item)} が見つからず、次の goto までは画面の状態が分からない`;
     }
   }
   return results;

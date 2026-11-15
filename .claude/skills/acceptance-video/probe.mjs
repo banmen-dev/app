@@ -27,6 +27,7 @@ export function probeExec(page, base) {
   };
   page.on('requestfinished', finished);
   page.on('requestfailed', finished);
+  const saveTimeout = () => Object.assign(new Error('保存の要求が完了しないため goto を中止した'), { code: 'SAVE_WAIT_TIMEOUT' });
   const writesFinished = async () => {
     const deadline = Date.now() + timeout;
     for (;;) {
@@ -34,7 +35,7 @@ export function probeExec(page, base) {
       await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 0)));
       if (pending.size === 0) return;
       const remaining = deadline - Date.now();
-      if (remaining <= 0) throw new Error('保存の要求が完了しないため goto を中止した');
+      if (remaining <= 0) throw saveTimeout();
       await new Promise((resolve, reject) => {
         const notify = () => {
           clearTimeout(timer);
@@ -43,7 +44,7 @@ export function probeExec(page, base) {
         };
         const timer = setTimeout(() => {
           changed.delete(notify);
-          reject(new Error('保存の要求が完了しないため goto を中止した'));
+          reject(saveTimeout());
         }, remaining);
         changed.add(notify);
       });

@@ -19,7 +19,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { probeExec } from ${probeUrl};
-import { probePlan, runProbe } from ${planUrl};
+import { probePlan, runProbe, formatProbeLine } from ${planUrl};
 const { chromium } = createRequire(process.cwd() + '/package.json')('@playwright/test');
 let saved = '';
 let completed = 0;
@@ -54,7 +54,19 @@ try {
   await exec({kind: 'goto', path: '/'});
   // 応答しない書き込みはタイムアウトし、遷移を実行しない。
   await page.evaluate(() => { fetch('/stuck', {method: 'PUT'}); });
-  await assert.rejects(exec({kind: 'goto', path: '/result'}), /保存の要求が完了しない/);
+  let timeoutError;
+  await assert.rejects(exec({kind: 'goto', path: '/result'}), error => {
+    timeoutError = error;
+    return /保存の要求が完了しない/.test(error.message);
+  });
+  const stopped = await runProbe([
+    {step: 1, kind: 'goto', path: '/result'},
+    {step: 1, kind: 'markAfter', spec: {css: '#result'}},
+  ], async () => { throw timeoutError; });
+  assert.match(formatProbeLine(stopped[0]), /保存待ちで中止: goto/);
+  assert.equal(stopped[1].status, 'skipped');
+  assert.match(stopped[1].reason, /保存待ちで中止/);
+  assert.doesNotMatch(stopped[1].reason, /見つからず/);
   assert.equal(page.url(), base + '/');
   console.log('保存・失敗・タイムアウト・読み込み除外を確認');
 } finally {
