@@ -189,7 +189,7 @@ test('スプリントが 390px で横にはみ出さず、押せる要素が 44p
   await mockOperation(page, sprintBoard, { slug: 'aoba' }, SAMPLE_BOARD);
   await expectNarrowLayout(page, 'sprint', async (w) => {
     await page.goto(`${WORKSPACE}/sprint`);
-    await expect(page.getByRole('heading', { level: 1, name: '第14回' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: '第14回', exact: true })).toBeVisible();
     await expect(page.getByRole('article', { name: 'ポイント付与のバッチを作る' })).toBeVisible();
     await expectWorkspaceWords(page, w);
   });
