@@ -454,6 +454,8 @@ Wrangler の assets で本番ビルドを SPA として配り、ループバッ�
 
 ### 画面の読み込みを測る
 
+今日の画面だけの A/B/C 比較は `pnpm exec node scripts/today-loading-bench.ts --fixture-at 2026-11-15T02:40:00.000Z`、方式の順を逆にするときは `--reverse-modes` を付ける。条件・制約と結果は [今日の画面の A/B/C 追加計測](today-loading-results.md) を参照。
+
 `pnpm bench:loading`（`scripts/loading-bench.ts`）で、load を持つ各画面・枠の操作ごとの p50・p95、合計、従のデータを後回しにした場合の短縮見込みを Markdown の表で出す。既定は各 load・発行順ごとの温め2回と計測20回（正順と逆順で各20回）。`pnpm bench:loading --runs 50 --port 9742` で回数とポートを変えられる（デバッガーは指定ポート + 1）。Node と pnpm はこの文書の指定版を使う。他の build・テストや計測と同時に走らせず、2回以上比べる。
 
 組織の枠だけを測るときは `pnpm bench:loading --layout-only`、変更前の通知・招待件数も待つ順序を比較するときは `pnpm bench:loading --layout-only --layout-before` を使う。通常の計測では、組織の枠の2行で「枠を返せる時点」（主だけの最終完了）も出す。変更前の比較ではこの時点が全応答の最終完了になる。`--layout-before` は他画面には作用しない。条件と再計測の全値は [組織の枠の読み込みの変更と再計測](organization-shell-loading-results.md) を参照。
