@@ -125,3 +125,11 @@ export {
 } from './attachment-quota-warning.ts';
 
 export { attachmentFitsQuota } from './wiki.ts';
+
+export {
+  listBillingOrganizations,
+  listBillingAdministrators,
+  inviteBillingAdministrator,
+  respondBillingInvitation,
+  removeBillingAdministrator,
+} from './billing.ts';

@@ -1,3 +1,4 @@
+import { billingOperations } from './billing.ts';
 import {
   delegateeCreateOperation,
   delegateeDeleteOperation,
@@ -155,6 +156,7 @@ import {
 
 // 呼べる操作の一覧（operation-list）が載せる、ほかの操作
 const listedOperations: readonly ImplementedOperation[] = [
+  ...billingOperations,
   notificationListOperation,
   notificationReadOperation,
   favoriteListOperation,

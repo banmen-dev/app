@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Scrum Guild 請求管理者</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+</head>
+<body>
+<div id="app"></div>
+<script src="icons.js"></script>
+<script src="art.js"></script>
+<script src="sample-data.js"></script>
+<script src="kit.js"></script>
+<script>
+"use strict";
+// /auth/billing の見本。業務利用の組織の枠には入れず、共通の Gate / GateSheet と同じ紙を並べる。
+// ?state=empty / failed / saving / actionFailed / refreshFailed でデータと通知の状態を確認できる。
+// ?organization=aoba は担当者と履歴、?operator=1 は最初の指名を確認する。
+const { esc, icon } = SQ;
+const t = (key) => SQ.t(key).replaceAll("{organization}", SQ.t("organization")).replaceAll("{admin}", SQ.t("admin"));
+const params = new URLSearchParams(location.search);
+const state = params.get("state") || "ready";
+const selected = params.get("organization");
+const saving = state === "saving";
+const me = "019aa222-1111-7000-8000-000000000001";
+const next = "019aa222-1111-7000-8000-000000000002";
+const label = (key, name) => t(key).replace("{name}", name);
+const title = (key, name) => `<h2 class="dialog-title">${esc(name ? label(key, name) : t(key))}</h2>`;
+const actionStatus = (id) => `<p id="${id}" class="${state === "actionFailed" ? "field-error" : "field-hint"}" role="status" tabindex="-1">${saving ? t("billingBusy") : state === "actionFailed" ? t("billingFailed") : ""}</p>`;
+const accountField = (id) => `<label class="field"><span class="field-label">${t("billingTargetAccount")}</span><input class="input" id="${id}" required maxlength="36" aria-describedby="${id}-status" aria-invalid="${state === "actionFailed"}"></label>`;
+const form = (id, bootstrap = false) => `<form data-billing-form="${id}">
+  ${bootstrap ? `<label class="field"><span class="field-label">${t("billingSlug")}</span><input class="input" required maxlength="63" aria-describedby="${id}-status"></label>` : ""}
+  ${accountField(id)}
+  <div class="form-actions"><button class="btn is-primary" type="submit" aria-disabled="${saving}">${t("billingInvite")}</button></div>
+  ${actionStatus(`${id}-status`)}
+</form>`;
+
+SQ.mount("billing", () => `
+  <section class="gate-sheet">
+    <div class="gate-brand">${SQ.brandMark}<span class="visually-hidden">Scrum Guild</span></div>
+    <h1 class="gate-title">${t(state === "failed" ? "loadFailedTitle" : "billingTitle")}</h1>
+    ${state === "failed" ? `${SQ.emptyState("alert", t("loadFailedText"), "", `<a class="btn is-sm" href="billing.html">${t("retry")}</a>`)}` : `
+      <p>${t("billingLead")}</p>
+      <label class="field"><span class="field-label">${t("billingAccountId")}</span><input class="input" readonly value="${me}"></label>
+      <p class="field-hint">${t("billingAccountHint")}</p>
+      <div class="form-actions"><a class="btn is-sm" href="organizations.html">${t("organizationList")}</a><button class="btn is-sm is-quiet" type="button" data-toast="見本のため、ログアウトしません">${t("logout")}</button></div>
+    `}
+    <div class="form-actions"><button class="btn is-sm" type="button" data-billing-theme>${icon("moon")}<span data-theme-label></span></button></div>
+    <p class="gate-note">見本の状態:
+      <a href="billing.html">${t("billingTitle")}</a> · <a href="billing.html?state=empty">${t("billingEmpty")}</a> ·
+      <a href="billing.html?state=failed">${t("loadFailedTitle")}</a> · <a href="billing.html?organization=aoba&amp;state=saving">${t("billingBusy")}</a> ·
+      <a href="billing.html?organization=aoba&amp;state=actionFailed">${t("billingFailed")}</a> · <a href="billing.html?state=refreshFailed">${t("billingRefreshFailed")}</a> ·
+      <a href="billing.html?operator=1">${t("billingBootstrap")}</a>
+    </p>
+  </section>
+  ${state === "failed" ? "" : state === "refreshFailed" ? `<section class="gate-sheet"><p class="field-error" role="alert">${t("billingRefreshFailed")}</p><a class="btn is-sm" href="billing.html">${t("retry")}</a></section>` : selected ? `
+    <section class="gate-sheet">
+      ${title("billingAdministrators", "青葉工房")}
+      <div class="form-actions"><a class="btn" href="billing.html">${t("billingBack")}</a></div>
+      <p class="field-hint">${t("billingLastHint")}</p>
+      <div class="choice-list">
+        ${[["星野 澪", me, "billingActive"], ["白石 凪", next, "billingPending"]].map(([name, account, status], index) => `<div class="choice is-static"><div><b>${esc(name)}</b><span>${t(status)}</span><span class="field-hint">${account}</span><p id="remove-${index}-status" role="status" tabindex="-1"></p></div><div class="form-actions"><button class="btn" type="button" aria-disabled="${saving}" aria-label="${esc(label("billingRemoveFor", name))}" data-billing-action="remove-${index}-status">${t("billingRemove")}</button></div></div>`).join("")}
+      </div>
+      ${form("invite")}
+    </section>
+    <section class="gate-sheet">${title("billingHistory")}
+      ${state === "empty" ? `<p>${t("billingHistoryEmpty")}</p>` : `<div class="choice-list"><div class="choice is-static"><div><b>${t("billingEventAccepted")}</b><span class="mono">2026/11/15 09:00</span><span>${t("billingTarget")}: 星野 澪</span><span>${t("billingActor")}: 星野 澪</span></div></div></div>`}
+    </section>
+  ` : `
+    <section class="gate-sheet">${title("billingInvitations")}
+      ${state === "empty" ? `<p>${t("billingInvitationEmpty")}</p>` : `<div class="choice-list"><div class="choice is-static"><div><b>ひばり工房</b><p id="invitation-status" role="status" tabindex="-1"></p></div><div class="form-actions"><button class="btn is-primary" type="button" aria-label="${esc(label("billingAcceptFor", "ひばり工房"))}" data-billing-action="invitation-status">${t("billingAccept")}</button><button class="btn" type="button" aria-label="${esc(label("billingDeclineFor", "ひばり工房"))}" data-billing-action="invitation-status">${t("billingDecline")}</button></div></div></div>`}
+    </section>
+    <section class="gate-sheet">${title("billingOrganizations")}
+      ${state === "empty" ? `<p>${t("billingEmpty")}</p>` : `<div class="choice-list">${["青葉工房", "藤野工房"].map((name) => `<a class="choice" href="billing.html?organization=aoba"><div><b>${esc(name)}</b></div>${icon("chevron")}</a>`).join("")}</div>`}
+    </section>
+    ${params.has("operator") ? `<section class="gate-sheet">${title("billingBootstrap")}<p>${t("billingBootstrapHint")}</p>${form("bootstrap", true)}</section>` : ""}
+  `}
+`, { gate: true });
+
+document.querySelector("[data-billing-theme]").addEventListener("click", SQ.cycleTheme);
+// 見本は保存しない。押した場所に知らせを出し、紙の先頭へ離れて通知しない。
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("[data-billing-form]")) return;
+  event.preventDefault();
+  if (saving) return;
+  const status = document.getElementById(`${event.target.dataset.billingForm}-status`);
+  status.textContent = t("billingSaved");
+  event.target.reset();
+  status.focus();
+});
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-billing-action]");
+  if (!button || saving) return;
+  const status = document.getElementById(button.dataset.billingAction);
+  status.textContent = t("billingSaved");
+  status.focus();
+});
+</script>
+</body>
+</html>

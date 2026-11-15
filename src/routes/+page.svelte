@@ -119,6 +119,7 @@
         {#if data.operator}
           <a class="btn is-sm" href={resolve('/operator')}>{t('operatorOpen')}</a>
         {/if}
+        <a class="btn is-sm" href={resolve('/auth/billing')}>{t('billingOpen')}</a>
         <LogoutButton />
       </div>
     </GateSheet>

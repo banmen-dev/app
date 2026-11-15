@@ -19,6 +19,12 @@ export type Screen = {
 // 通常の管理者の成功経路。条件分岐は行を分ける。レイアウトはページと分けて測る。
 export const screens: Screen[] = [
   { route: '/', operations: [op('my-organizations', {}, false, true)] },
+  {
+    route: '/auth/billing',
+    operations: [op('my-billing-organizations', {}, false, true)],
+    after: [op('billing-admin-list', { slug: 'aoba' }, false, true)],
+    note: '担当組織を選択した経路。一覧取得後に担当者と履歴を取得する。',
+  },
   { route: '/auth/setup', operations: [op('onboarding-status', {}, false, true), op('me', {}, false, true)] },
   { route: '/operator', operator: true, operations: [op('list-organizations', {}, false, true)] },
   {

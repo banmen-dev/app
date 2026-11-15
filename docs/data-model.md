@@ -1,6 +1,6 @@
 # Scrum Guild データモデル
 
-状態: 確定。要件定義（`requirements.md`）を D1（SQLite）のテーブルに落としたもの。最初のマイグレーション（`migrations/0001_create_initial_tables.sql`）で、共通の6表と、一本道に要る組織の中の16表を作った。`organization_holidays` は `migrations/0004_add_organization_holidays.sql` で、`comments` は `migrations/0006_add_comments.sql` で、`sprint_entries` と `completions.previous_column_id` は `migrations/0008_add_sprint_entries.sql` で、`epic_party_members` と `thanks` は `migrations/0009_add_epic_party_members_and_thanks.sql` で、共通の表の `password_credentials` は `migrations/0010_add_password_credentials.sql`、`api_tokens` は `migrations/0012_add_api_tokens.sql`、`account_consents` は `migrations/0013_add_account_consents.sql` で足した（ここまでで共通の表は9表になった）。`account_profiles` は `migrations/0023_add_account_profiles.sql` で足した（共通の表は10表）。`organization_contracts` は `migrations/0028_add_organization_contracts.sql` で足した（共通の表は11表）。残りの表は、使う機能の Issue でマイグレーションを足して作る
+状態: 確定。要件定義（`requirements.md`）を D1（SQLite）のテーブルに落としたもの。最初のマイグレーション（`migrations/0001_create_initial_tables.sql`）で、共通の6表と、一本道に要る組織の中の16表を作った。`organization_holidays` は `migrations/0004_add_organization_holidays.sql` で、`comments` は `migrations/0006_add_comments.sql` で、`sprint_entries` と `completions.previous_column_id` は `migrations/0008_add_sprint_entries.sql` で、`epic_party_members` と `thanks` は `migrations/0009_add_epic_party_members_and_thanks.sql` で、共通の表の `password_credentials` は `migrations/0010_add_password_credentials.sql`、`api_tokens` は `migrations/0012_add_api_tokens.sql`、`account_consents` は `migrations/0013_add_account_consents.sql` で足した（ここまでで共通の表は9表になった）。`account_profiles` は `migrations/0023_add_account_profiles.sql` で足した（共通の表は10表）。`organization_contracts` は `migrations/0028_add_organization_contracts.sql` で足した（共通の表は11表）。請求管理者と監査の `billing_administrators`・`billing_admin_events` を #1240 で足した（共通の表は13表）。残りの表は、使う機能の Issue でマイグレーションを足して作る
 
 ## 決まりごと
 
@@ -57,7 +57,7 @@
 
 | 区分 | テーブル | 置き場所 |
 | --- | --- | --- |
-| 共通 | `accounts`、`account_profiles`、`account_logins`、`password_credentials`、`sessions`、`api_tokens`、`account_consents`、`oauth_states`、`rate_limits`、`organizations`、`organization_contracts` | 共通の DB に1つだけ |
+| 共通 | `accounts`、`account_profiles`、`account_logins`、`password_credentials`、`sessions`、`api_tokens`、`account_consents`、`oauth_states`、`rate_limits`、`organizations`、`organization_contracts`、`billing_administrators`、`billing_admin_events` | 共通の DB に1つだけ |
 | 組織の中 | それ以外のすべて | 組織が置かれた DB |
 
 添付ファイルの中身は D1 ではなく R2 に置く。`wrangler.jsonc` の binding は `ATTACHMENTS`、本番のバケット名は `scrum-guild-attachments`。R2 のキーの先頭は組織の ID なので、D1 を分けても R2 は分けずに済む。
@@ -313,6 +313,20 @@
 - 人数を数える関数は `src/server/db/seats.ts` の1つ（`seatHoldersIn`）に置く。組織の ID の束を受け、組織ごとの数える人（1人の見分け方 `personKey` の集合）を返す。どの文も `organization_id IN (...)` で組織に絞り、組織の ID は束縛の上限で区切る。招待の上限の検査と member-list の `seats` は、確かめた組織の入口だけを受ける `seatHoldersOf` から1つの組織で呼び、運用者の組織の一覧（`users` の節の、運用者の組織の一覧の集計の箇条書き）は組織をまたぐ入口ごとに組織の ID の束で呼ぶ。数え方は同じなので、同じ組織なら同じ数になる。
 - 解約した組織は、`purge_on` を過ぎたら運用の手順でこの組織の行をすべて消し、R2 の `<organization_id>/` で始まるファイルも消す。再開したら `suspended_at` と `purge_on` を空に戻し、お試しの期限 `trial_ends_on` も空にする。`purge_on` は、解約で停止した日時の UTC の日付の30日後（`YYYY-MM-DD`）。停止中に解約へ切り替えたときは、切り替えた日時の UTC の日付の30日後。`purge_on` が今日（UTC の日付）より前の組織は、再開も一時的な停止への切り替えもできない（409 の `purge_due`。消す SQL のガードと同じ境目で、予定日の当日まではできる。「書き込みの単位」の組織の停止と再開）。運用者の組織の一覧は、この組織に `purge_due` を真で返す。
 - 消す手順は `docs/operations.md` の「解約した組織のデータを消す」。消す SQL は `scripts/purge-organization.ts` が1行に1文で書き出し（組み立ては `scripts/purge-organization-sql.ts`）、運用者が1文ずつ流して、組織の中のすべての表と最後に `organizations` の行を、外部キーの子から順に消す。どの文も、その組織が解約で停止していて `purge_on` を過ぎている（`purge_on < date('now')`、UTC の日付）ことを条件にするので、一時的な停止と予定日の当日までの組織では何も消えない。共通の表のうち `accounts`、`account_profiles`、`account_logins`、`password_credentials`、`sessions`、`api_tokens`、`oauth_states`、`rate_limits` は消さない（アカウントをどうするかは #407。セッションと API トークンは、入れる組織を失ったことでは消えず、期限切れ、ログアウト、本人の取り消しでだけ消える）。この SQL は条件の確かめに共通の表の `organizations` を組織の中の表の文から引く（「データベースの分け方」の例外で、DB が1つの今だけ使える）。組織ごとに DB を分けるときは、確かめを共通の DB で先に行う形に直す。
+
+### billing_administrators・billing_admin_events（#1240）
+
+どちらも共通のDBに置く。組織内のusers・membershipsと結合せず、請求担当の追加や承諾でその行を作らない。請求専用の人は既存の人数集計に入らず、兼任は既存のusers/所属だけで数える。
+
+`billing_administrators` は `id`（UUIDv7、PK）、`organization_id`（organizationsへのFK）、`account_id`（accountsへのFK）、`status`（pending/active/declined/revokedのCHECK）、`is_bootstrap`（INTEGER NOT NULL、既定0、0/1のCHECK）、`invited_by`（指名したaccountsへのFK）、`created_at`、`updated_at`を持ち、組織とアカウントの組を一意にする。本人が承諾したactiveだけが請求担当で、pendingには管理権限がない。`is_bootstrap = 1` は運用者の初回指名で、承諾済み担当者がまだいない間だけ有効。通常の指名（0）は指名元が現在もactiveの間だけ有効。担当者の解除UPDATEとremoved監査の後、同じbatchでその人が出した通常pendingもrevokedにする。指名元を後に再指名しても旧指名は復活せず、自動失効はremovedイベントの結果として扱う。失敗した解除では他の指名を失効させない。運用者自身が担当者を兼任しても、残った初回指名を通常の指名として扱わない。最初の承諾のUPDATEとaccepted監査に続け、同じbatchで残りの初回pendingをrevokedにして失効を確定する。未契約組織で後に全員が解除されても旧指名は復活しない。未承諾にはまだ権限がないため、この自動失効はacceptedイベントの結果とし、removedイベントは追加しない。承諾が失敗した場合は自動失効も行わない。辞退・解除・指名元の失効・初回指名の失効した行を現在の担当者が再指名するとidを新しくし、古い指名への応答は無効にする。失効済みまたは消去予定日を過ぎたpendingは本人の指名一覧に出さない。失効済み・解除済み（revoked）への応答は404、読んだ後に失効した競合は409。承諾済み・辞退済みidへの再送は409。
+
+`billing_admin_events` は `id`（UUIDv7、PK）、`organization_id`（organizationsへのFK）、`actor_account_id`（操作者のaccountsへのFK）、`target_account_id`（対象者のaccountsへのFK）、`action`（invited/accepted/declined/removedのCHECK）、`created_at`を持つ。権限の変更直後に同じ共通DBのbatchで、直前の文が変更したときだけ挿入する。再送・拒否で架空の監査を足さない。組織ごとに日時/idの降順で最新50件を返す。50件より前もDBから削除しない。操作者・対象者のプロフィール名を添え、未設定ならアカウントIDで返す。ログインの手段の個人情報は引かない。
+
+一覧は、1担当者が管理する組織は数十件まで、1組織の請求担当者は数名〜数十名の想定で、現在は全件を返す。担当者の一覧を一度に比較して交代先を確認するため、人数の途中で切らない。担当組織は `account_id,status` の索引、担当者は一意索引の先頭の `organization_id` で絞り、他組織の全件を読まない。座席上限では件数を抑えないので、いずれかが千件を超えたとき、または一覧の応答・転送量・描画が遅くなったときにカーソルページングへ改める。監査は当初から最新50件に絞る。
+
+操作は組織外のlogin/cookieOnly（初回指名のみoperator）。共通DBの専用認可でslugと現在のactive担当を突き合わせ、第三者と存在しない組織は同じ404にする。指名・解除の書く文にも現在の担当のEXISTS条件を置く。本人応答はaccount_idと指名idとpendingを条件とし、契約のある組織の最後のactive解除は同じ書く文の中の人数条件で防ぐ。停止していても担当者を引き継げるが、消去予定日を過ぎた組織へは書かない。
+
+表の追加で既存行を書き換えない。解約組織の消去は監査と権限をorganizationsより先に消す。コードを戻してもスキーマは戻さないため、旧版のpurgeスクリプトで消去せず最新版の生成器を使う。既存の組織作成の補償削除には、この表の行がまだ存在しない。accountsの退会（#407）は未実装で、このFKと最後の担当者の保護を守る経路を作る。
 
 ### organization_contracts
 

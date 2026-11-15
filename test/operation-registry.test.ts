@@ -206,6 +206,7 @@ describe('本番の運用者の操作', () => {
     expect(operator).toEqual([
       'create-organization',
       'list-organizations',
+      'operator-billing-admin-invite',
       'organization-admin-reassign',
       'organization-plan-update',
       'organization-quota-update',

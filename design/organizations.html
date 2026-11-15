@@ -54,7 +54,7 @@ function render() {
       </div>
       <p class="gate-note">あとから、画面の左上（狭い幅では上の帯）の${t("organization")}の切り替えで選び直せます。</p>
       <div class="form-actions"><button class="btn is-sm" type="button" data-dialog="createMyOrganization">${t("organization")}を作る</button><button class="btn is-sm" type="button" data-dialog="createPersonalOrganization">自分用を作る</button></div>
-      <div class="form-actions"><button class="btn is-sm is-quiet" type="button" data-toast="見本のため、ログアウトしません">${t("logout")}</button></div>
+      <div class="form-actions"><a class="btn is-sm" href="billing.html">${t("billingOpen")}</a><button class="btn is-sm is-quiet" type="button" data-toast="見本のため、ログアウトしません">${t("logout")}</button></div>
     </section>
     ${invitationsSheet()}
     <section class="gate-sheet">
@@ -76,7 +76,7 @@ function render() {
       </div>
       <p class="gate-note">すべての${t("organization")}に届いた招待を、${t("organization")}ごとにまとめて出します。押すと、承諾するか辞退するかを選べます。</p>
       <div class="form-actions">${createActions(false)}</div>
-      <div class="form-actions"><button class="btn is-sm is-quiet" type="button" data-toast="見本のため、ログアウトしません">${t("logout")}</button></div>
+      <div class="form-actions"><a class="btn is-sm" href="billing.html">${t("billingOpen")}</a><button class="btn is-sm is-quiet" type="button" data-toast="見本のため、ログアウトしません">${t("logout")}</button></div>
       <p class="gate-note">入れる${t("organization")}が無く、届いた招待だけがある人。押す先の招待を最初に出し、「${t("organization")}を作る」は下の静かな大きさ（is-sm）にそろえる。本番はこの全体が1枚目の紙（見出し「${t("organization")}を選ぶ」）に入る。</p>
     </section>
     <section class="gate-sheet">
@@ -85,7 +85,7 @@ function render() {
         ${D.organizations.map((k) => `<a class="choice" href="today.html"><div><b>${esc(k.name)}</b><span class="mono">scrum-guild.dev/${esc(k.slug)}/</span></div>${icon("chevron")}</a>`).join("")}
       </div>
       <div class="form-actions">${createActions(false)}</div>
-      <div class="form-actions"><button class="btn is-sm is-quiet" type="button" data-toast="見本のため、ログアウトしません">${t("logout")}</button></div>
+      <div class="form-actions"><a class="btn is-sm" href="billing.html">${t("billingOpen")}</a><button class="btn is-sm is-quiet" type="button" data-toast="見本のため、ログアウトしません">${t("logout")}</button></div>
       <p class="gate-note">停止している${t("organization")}は入れる${t("organization")}の一覧に並べず、リンクにしない。組織の選択の紙の次（届いた招待の紙があればその次）に、別の紙で出す。</p>
     </section>
     ${suspendedSheet()}
@@ -95,7 +95,7 @@ function render() {
         ${D.organizations.map((k) => `<a class="choice" href="today.html"><div><b>${esc(k.name)}</b><span class="mono">scrum-guild.dev/${esc(k.slug)}/</span></div>${icon("chevron")}</a>`).join("")}
       </div>
       <div class="form-actions">${createActions(false)}</div>
-      <div class="form-actions"><a class="btn is-sm" href="operator.html">運用の画面へ</a><button class="btn is-sm is-quiet" type="button" data-toast="見本のため、ログアウトしません">${t("logout")}</button></div>
+      <div class="form-actions"><a class="btn is-sm" href="billing.html">${t("billingOpen")}</a><a class="btn is-sm" href="operator.html">運用の画面へ</a><button class="btn is-sm is-quiet" type="button" data-toast="見本のため、ログアウトしません">${t("logout")}</button></div>
       <p class="gate-note">運用者には、ログアウトの隣に「運用の画面へ」を出す（運用者でない人には出さない）。</p>
     </section>
     <section class="gate-sheet">
