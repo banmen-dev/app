@@ -88,6 +88,14 @@ describe('余白の刻みの判定', () => {
     assert.equal(spacingProblem('var(--clearance)', names), null);
   });
 
+  test('トークンの名前は、コメントの中を数えず、@media の中と最後の ; の無い宣言も読む', () => {
+    const names = spacingTokens(`
+      /* --space-9: 1px は注釈 */
+      :root { --space-1: 4px; --space-2: 8px }
+      @media (prefers-color-scheme: dark) { :root { --gap-dark: var(--space-2) } }`);
+    assert.deepEqual([...names].sort(), ['--gap-dark', '--space-1', '--space-2']);
+  });
+
   test('宣言に @ 規則とセレクタを添え、余白の属性だけを拾う', () => {
     const css = `
       /* gap: 3px は注釈 */
