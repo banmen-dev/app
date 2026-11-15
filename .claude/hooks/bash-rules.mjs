@@ -3750,6 +3750,33 @@ const NPM_CALL_SET_REASON =
 // 同じコマンドの中で設定した変数の値。値は読まないので、設定されたことだけを表す空でない文字列
 const SET_IN_COMMAND = '(このコマンドの中で設定)';
 
+// クラウドのセッション（claude.ai/code）の起動元が、すべての git に付ける GIT_CONFIG_COUNT、GIT_CONFIG_KEY_<n>、GIT_CONFIG_VALUE_<n> の組。
+// 認証の対話を切り、github.com の ssh の URL を https に読み替えるだけで、フック、push の先、ページャーや外部のコマンドを変えない。
+// 起動元の環境がこの組だけ（キーと値が完全に一致し、ほかの GIT_CONFIG_* が無い）のときに限り、無いものとする。
+// 1つでも違うキー、値、番号、変数があれば、組をまるごと残して従来どおり確認に回す
+const CLOUD_HARNESS_GIT_CONFIG = new Set([
+  'credential.interactive=false',
+  'url.https://github.com/.insteadOf=git@github.com:',
+  'url.https://github.com/.insteadOf=ssh://git@github.com/',
+]);
+
+export function withoutCloudHarnessGitConfig(env) {
+  const names = Object.keys(env).filter((name) => /^GIT_CONFIG_/.test(name) && env[name] !== undefined);
+  if (names.length === 0) return env;
+  const count = env.GIT_CONFIG_COUNT;
+  if (typeof count !== 'string' || !/^[1-9][0-9]?$/.test(count)) return env;
+  const n = Number(count);
+  const expected = new Set(['GIT_CONFIG_COUNT']);
+  for (let i = 0; i < n; i += 1) {
+    const key = env[`GIT_CONFIG_KEY_${i}`];
+    const value = env[`GIT_CONFIG_VALUE_${i}`];
+    if (typeof key !== 'string' || typeof value !== 'string' || !CLOUD_HARNESS_GIT_CONFIG.has(`${key}=${value}`)) return env;
+    expected.add(`GIT_CONFIG_KEY_${i}`).add(`GIT_CONFIG_VALUE_${i}`);
+  }
+  if (names.length !== expected.size || !names.every((name) => expected.has(name))) return env;
+  return Object.fromEntries(Object.entries(env).filter(([name]) => !expected.has(name)));
+}
+
 // 語に変数の名前があるか。zsh の cdpath は CDPATH と結び付いた配列（cdpath=(x)）
 const VARIABLE_MENTIONS = {
   GIT_CONFIG_ENV: /(^|[^\w])GIT_CONFIG_[A-Za-z0-9_]+([^\w]|$)/,
@@ -4009,7 +4036,8 @@ export function judgeBash(command, options) {
     rootCache.clear();
     // 起動元の実在の環境変数と、判定中に積む GIT_CONFIG_LOCATION 等の印を分ける。
     // 文字列を表示しただけで legacy の COUNT の印が付いても、git の設定を変更したとはしない。
-    const env = options.env ?? {};
+    // クラウドのセッションの起動元が決まって付ける組（cloudHarnessGitConfig）だけは、設定の差し替えとみなさない。
+    const env = withoutCloudHarnessGitConfig(options.env ?? {});
     const configured = Object.entries(env).some(([name, value]) => /^GIT_CONFIG_/.test(name) && value !== undefined);
     options = { ...options, env: { ...env, GIT_CONFIG_ENV: configured ? SET_IN_COMMAND : undefined } };
   }
