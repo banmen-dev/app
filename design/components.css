@@ -825,12 +825,12 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
 /* ===== 面（見出しと中身を持つ枠）とダッシュボードの並び =====
    .panel は数値と計器の面（ネオンで光る）。.pane は一覧や区分を載せる面で、光らせず、見出しの下に線を引く。
    中の節（.section）は一段小さい見出し（--text-lg）にし、面の見出しの下に入れ子で読める段にする */
-.pane { background: var(--surface-panel); border: 1px solid var(--color-line); border-radius: var(--radius-1); padding: var(--space-4); display: grid; gap: var(--space-3); min-width: 0; }
+.pane { background: var(--surface-panel); border: 1px solid var(--color-line); border-radius: var(--radius-1); padding: var(--space-6); display: grid; gap: var(--space-3); min-width: 0; }
 .pane-head { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; padding-bottom: var(--space-3); border-bottom: var(--rule-double); }
 .pane-title { font-family: var(--font-display); font-weight: var(--weight-display); font-size: var(--text-xl); line-height: var(--leading-tight); letter-spacing: 0.04em; min-width: 0; overflow-wrap: anywhere; }
 .pane-count { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-muted); }
 .pane-hint { font-size: var(--text-xs); color: var(--color-muted); }
-.pane-body { display: grid; gap: var(--space-4); min-width: 0; }
+.pane-body { display: grid; gap: var(--space-5); min-width: 0; }
 .pane .section-title { font-size: var(--text-lg); }
 /* 面の中の、押すと移る行の一覧（ワークスペース）。行の間は細い線で区切る */
 .pane-list { list-style: none; margin: 0; padding: 0; display: grid; }

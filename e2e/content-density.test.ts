@@ -13,15 +13,16 @@ test('今日の行は広い幅で横に並び、390pxでは折り返す（#1003�
   await expect(row).toBeVisible();
   for (const theme of A11Y_THEMES) {
     await applyTheme(page, theme);
-    for (const width of [1280, 900, 390]) {
+    for (const width of [1440, 900, 390]) {
       await page.setViewportSize({ width, height: 900 });
       const main = await row.locator('.entry-main').boundingBox();
       const end = await row.locator('.entry-end').boundingBox();
       expect(main).not.toBeNull();
       expect(end).not.toBeNull();
-      // 今日の行は、組織のホームの左の列（ダッシュボードの左3、右2の左）に入る。右の列の幅を空けるので、900px では左の列が
-      // 台帳の折り返しの境（一覧の幅が520px 以下）を下回り、操作が題の下へ折り返す。広い幅（1280px）で横に並ぶことを確かめる
-      if (width >= 1280) {
+      // 今日の行は、組織のホームの左の列（ダッシュボードの左3、右2の左。面の内側は --space-6）に入る。右の列の幅を空けるので、
+      // メニューを開いた状態では、幅が約 1284px を下回ると台帳の内側が折り返しの境（520px）を下回り、操作が題の下へ折り返す
+      // （1280px で 516px、1300px で 528px。1300px の余裕は 8px ほど）。横並びの確かめは余裕のある 1440px（612px）で行い、900px と 390px は折り返す
+      if (width >= 1440) {
         expect(end!.x, `${theme}/${width}: 操作が題の右に並ぶ`).toBeGreaterThanOrEqual(main!.x + main!.width);
         expect(end!.y).toBeLessThan(main!.y + main!.height);
       } else {

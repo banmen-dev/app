@@ -3,8 +3,11 @@
 // 終了して確かめるワークスペースは、管理の画面から作った専用のもの（seed のワークスペースを終了したままにしない）。
 // 作ったワークスペースは消せずに残るので、名前に繰り返し（--repeat-each）とやり直しの回を混ぜ、前の回の行に当たらないようにする
 import type { Page } from '@playwright/test';
+import { organizationInfo } from '../src/shared/operations/organization/index.ts';
+import { workspaceClose, workspaceList } from '../src/shared/operations/workspace/index.ts';
 import { expect, test } from './fixtures.ts';
 import { expectFocusReturned, signIn, watchViolations } from './helpers.ts';
+import { routeOperation, rewriteOperation } from './operations.ts';
 
 test.use({ timezoneId: 'Asia/Tokyo' });
 
@@ -635,6 +638,55 @@ test.describe('管理者（あおば開発のミナト）', () => {
     expect(hit.width).toBeGreaterThanOrEqual(44);
     expect(hit.height).toBeGreaterThanOrEqual(44);
     expect((await retry.boundingBox())!.height).toBeLessThan(44);
+  });
+});
+
+test.describe('管理者が開いているワークスペース1つにだけ所属している組織', () => {
+  test.beforeEach(async ({ context, baseURL }) => {
+    await signIn(context, baseURL, 'admin');
+  });
+
+  // 終了の状態は画面の上だけで持ち、組織の枠の応答（organization）と管理の一覧（workspace-list）に同じ状態を返す（seed を終了したままにしない）
+  test('管理の画面でワークスペースを終了してからホームへ戻ると、ワークスペースの面から外れ、所属が無い案内が出る', async ({
+    page,
+  }) => {
+    const workspace = { id: '019a0000-0000-7000-8000-000000000401', name: '受託開発チーム' };
+    let closedAt: string | null = null;
+    await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (output) => ({
+      ...output,
+      organization: { ...output.organization, has_workspaces: true },
+      workspaces: [{ ...workspace, role: 'leader' as const, closed_at: closedAt }],
+    }));
+    await routeOperation(page, workspaceList, { slug: 'aoba' }, (call) =>
+      call.fulfill({
+        workspaces: [{ ...workspace, member_count: 4, leader_count: 2, created_on: '2025-04-01', closed_at: closedAt }],
+      }),
+    );
+    await routeOperation(page, workspaceClose, { slug: 'aoba' }, (call) => {
+      closedAt = '2026-11-15T00:00:00.000Z';
+      return call.fulfill({ workspace_id: workspace.id, closed_at: closedAt });
+    });
+
+    await page.goto('/aoba');
+    const pane = page.locator('.pane').filter({ has: page.getByRole('heading', { level: 2, name: 'ワークスペース' }) });
+    await expect(pane.getByRole('link', { name: /受託開発チーム/ })).toBeVisible();
+
+    // 管理の画面で終了する。ページを読み直さず、画面内のリンクでホームへ戻る
+    await page.getByRole('button', { name: /アカウントのメニュー$/ }).click();
+    await page.locator('.account-menu-list').getByRole('link', { name: '組織の管理' }).click();
+    await expect(page).toHaveURL(/\/aoba\/admin$/);
+    const row = workspacesOf(page).locator('tbody tr', { hasText: workspace.name });
+    await row.getByRole('button', { name: `「${workspace.name}」を終了する` }).click();
+    await page
+      .getByRole('dialog', { name: `「${workspace.name}」を終了しますか？` })
+      .getByRole('button', { name: `「${workspace.name}」を終了する` })
+      .click();
+    await expect(page.getByRole('status').filter({ hasText: 'ワークスペースを終了しました' })).toBeVisible();
+    await page.locator('#app-nav').getByRole('link', { name: '今日やること', exact: true }).click();
+
+    await expect(page).toHaveURL(/\/aoba$/);
+    await expect(pane.getByText('どのワークスペースにも所属していません')).toBeVisible();
+    await expect(pane.getByRole('link', { name: /受託開発チーム/ })).toHaveCount(0);
   });
 });
 

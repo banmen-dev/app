@@ -345,7 +345,7 @@ test('広い幅では左の列にワークスペースと今日やることの�
   const todayPane = pane(page, '今日やること');
   await expect(workspaces).toBeVisible();
   await expect(todayPane).toBeVisible();
-  // 右の列は最近の更新の面を足すまで置かず、左の列が全幅になる
+  // 右の列は最近の更新の面を足すまで空の要素を置かず、右の列の幅だけが空く（左の列は全幅にならない）
   await expect(page.locator('.dashboard-side')).toHaveCount(0);
   const [workspacesBox, todayBox] = [await workspaces.boundingBox(), await todayPane.boundingBox()];
   expect(workspacesBox!.x).toBe(todayBox!.x);
@@ -546,6 +546,32 @@ test('所属するワークスペースが無い管理者には、ワークス�
   await expect(page.getByText('まだワークスペースがありません')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'ワークスペースを作る' })).toHaveCount(1);
   await expect(pane(page, '今日やること').locator('.empty a, .empty button')).toHaveCount(0);
+});
+
+test.describe('768px の指で押す画面（広げたメニューのまま）', () => {
+  test.use({ hasTouch: true, viewport: { width: 768, height: 1024 } });
+
+  test('全部の区分と長いワークスペース名の行を出しても、横にはみ出さない', async ({ page }) => {
+    const name = 'とても長いワークスペースの名前'.repeat(6);
+    await mockWorkspaces(page);
+    await mockOperation(
+      page,
+      today,
+      { slug: 'aoba' },
+      {
+        tasks: [...ALL_SECTIONS, row('長い名前の行', { today_on: TODAY, workspace_name: name })],
+        sprint_goals: [{ workspace_id: WORKSPACE_A.id, workspace_name: name, goal: '長い名前でも読める' }],
+      },
+    );
+    await page.goto('/aoba');
+    await expect(pane(page, '今日やること')).toBeVisible();
+    await expect(page.locator('.entry-meta .tag').filter({ hasText: name })).toBeVisible();
+    const overflow = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollWidth,
+      client: document.documentElement.clientWidth,
+    }));
+    expect(overflow.scroll).toBeLessThanOrEqual(overflow.client);
+  });
 });
 
 for (const width of [390, 1280]) {

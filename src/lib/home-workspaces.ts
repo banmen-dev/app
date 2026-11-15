@@ -19,3 +19,12 @@ export function homeEmptyKind(view: OrganizationView | null): HomeEmptyKind {
   if (!view.organization.has_workspaces) return 'firstWorkspace';
   return openWorkspaces(view.workspaces).length === 0 ? 'noMembership' : 'default';
 }
+
+export type TodayEmptyKind = 'withWorkspace' | 'noWorkspace' | 'unknown';
+
+// 今日やると決めたものの空の状態。組織の情報を読めなかったとき（null）は、所属の有無が分からないので 'unknown'（所属に触れない空にする）。
+// 読めて、閉じていない所属があれば 'withWorkspace'（バックログを開くボタン）、無ければ 'noWorkspace'（案内はワークスペースの面に出すので、短い1行だけ）
+export function todayEmptyKind(view: OrganizationView | null): TodayEmptyKind {
+  if (view === null) return 'unknown';
+  return openWorkspaces(view.workspaces).length > 0 ? 'withWorkspace' : 'noWorkspace';
+}

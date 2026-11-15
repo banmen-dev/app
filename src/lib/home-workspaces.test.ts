@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { homeEmptyKind, openWorkspaces } from './home-workspaces.ts';
+import { homeEmptyKind, openWorkspaces, todayEmptyKind } from './home-workspaces.ts';
 import type { OrganizationView } from './organization.svelte.ts';
 
 const open = { id: 'w-open', name: '架空の開発チーム', role: 'leader' as const, closed_at: null };
@@ -58,5 +58,19 @@ describe('homeEmptyKind', () => {
   test('管理者でない人と、組織を読めないときは default', () => {
     expect(homeEmptyKind(view({ is_admin: false, has_workspaces: true, workspaces: [] }))).toBe('default');
     expect(homeEmptyKind(null)).toBe('default');
+  });
+});
+
+describe('todayEmptyKind', () => {
+  test('組織の情報を読めなかったときは unknown（所属に触れない空）', () => {
+    expect(todayEmptyKind(null)).toBe('unknown');
+  });
+
+  test('閉じていない所属があれば withWorkspace、無ければ（閉じたものだけを含む）noWorkspace', () => {
+    expect(todayEmptyKind(view({ is_admin: false, has_workspaces: true, workspaces: [closed, open] }))).toBe(
+      'withWorkspace',
+    );
+    expect(todayEmptyKind(view({ is_admin: false, has_workspaces: true, workspaces: [closed] }))).toBe('noWorkspace');
+    expect(todayEmptyKind(view({ is_admin: true, has_workspaces: false, workspaces: [] }))).toBe('noWorkspace');
   });
 });

@@ -14,7 +14,7 @@
   import SprintGoalNotice from '../../lib/components/SprintGoalNotice.svelte';
   import TaskEntry from '../../lib/components/TaskEntry.svelte';
   import WorkspaceCreateDialog from '../../lib/components/WorkspaceCreateDialog.svelte';
-  import { homeEmptyKind, openWorkspaces } from '../../lib/home-workspaces.ts';
+  import { homeEmptyKind, openWorkspaces, todayEmptyKind } from '../../lib/home-workspaces.ts';
   import { organizationLabel } from '../../lib/organization-label.ts';
   import { completedMessage } from '../../lib/sprint-label.ts';
   import { showToast } from '../../lib/toast.svelte.ts';
@@ -39,6 +39,7 @@
   const emptyKind = $derived(homeEmptyKind(data.organization));
   // 次にやることのボタンの行き先（閉じていない所属の最初のワークスペースのバックログ）
   const firstWorkspace = $derived(workspaces[0] ?? null);
+  const todayKind = $derived(todayEmptyKind(data.organization));
   // today の読み込みの失敗（data.today が null）は、空の一覧と区別して失敗の画面を出す
   const sections = $derived(todaySections(data.today?.tasks ?? []));
   // 見出しの上の今日の日付。読み直す（data.today が替わる）たびに今の時刻から取り直し、日をまたいで開いたままでも、
@@ -294,7 +295,13 @@
 
 <!-- 今日やる区分が空のとき。ワークスペースが無いときの案内（最初のワークスペースを作る、所属が無い）はワークスペースの面に出すので、ここは線画の無い短い1行（.book-empty）だけにして案内を重ねない -->
 {#snippet todayEmpty()}
-  {#if firstWorkspace !== null}
+  {#if todayKind === 'noWorkspace'}
+    <div class="book">
+      <div class="book-empty">
+        {t('todayEmptyNoWorkspaceText', { workspace: t('workspace'), assignee: t('assignee'), task: t('task') })}
+      </div>
+    </div>
+  {:else if firstWorkspace !== null}
     <EmptyState
       icon="sun"
       art="sun"
@@ -308,11 +315,13 @@
         >{/snippet}
     </EmptyState>
   {:else}
-    <div class="book">
-      <div class="book-empty">
-        {t('todayEmptyNoWorkspaceText', { workspace: t('workspace'), assignee: t('assignee'), task: t('task') })}
-      </div>
-    </div>
+    <!-- 組織の情報を読めなかった（unknown）ときは所属の有無が分からないので、所属に触れない文にし、ボタンも置かない -->
+    <EmptyState
+      icon="sun"
+      art="sun"
+      title={t('todayEmptyTitle', { task: t('task') })}
+      text={t('todayEmptyText', { assignee: t('assignee'), task: t('task'), backlog: t('backlog') })}
+    />
   {/if}
 {/snippet}
 
@@ -420,7 +429,7 @@
 {/snippet}
 
 <!-- 最初にやることは2列の上に全幅で置く。その下がダッシュボード（.dashboard）で、左の列（.dashboard-main）にワークスペース、今日やること、
-     （ニュース）の面を上から並べる。右の列（.dashboard-side）は、面（最近の更新）を足すときにここへ置く。面が無い間は置かず、左の列が全幅になる -->
+     （ニュース）の面を上から並べる。右の列（.dashboard-side）は、面（最近の更新）を足すときにここへ置く。面が無い間は空の要素を置かず、右の列の幅だけが空く（広い幅は左3、右2の2列の枠） -->
 {#snippet main()}
   <!-- 最初にやること。手順が空（必須が済んだ、出す手順が無い）か読めなかったときは置かない -->
   {#if data.organization !== null && data.firstSteps !== null && data.firstSteps.role !== null && data.firstSteps.steps.length > 0 && (data.firstSteps.role !== 'admin' || data.organization.me.is_admin)}

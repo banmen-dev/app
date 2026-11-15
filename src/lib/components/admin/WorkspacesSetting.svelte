@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { invalidateAll } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { tick } from 'svelte';
@@ -88,6 +89,8 @@
       if (!section.isCurrent(token)) return;
       if (result.ok) {
         showToast(t('workspaceReopened', { workspace: t('workspace') }), 'check');
+        // 組織の枠のデータ（所属するワークスペースの closed_at）を読み直す。ホームのワークスペースの面が古いまま残らないように
+        void invalidateAll().catch(() => undefined);
       } else if (isUnauthenticated(result)) {
         window.location.assign(loginUrl(page.url));
         return;
@@ -145,6 +148,8 @@
     if (outcome === 'closed') {
       reopenRefusal = null;
       showToast(t('workspaceClosed', { workspace: t('workspace') }), 'check');
+      // 組織の枠のデータ（所属するワークスペースの closed_at）を読み直す。ホームのワークスペースの面が古いまま残らないように
+      void invalidateAll().catch(() => undefined);
     } else if (outcome === 'state_changed') showToast(t('workspaceStateChanged', { name }), 'alert');
     else showToast(t('workspaceUnavailable', { name }), 'alert');
     void section.load();

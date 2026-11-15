@@ -594,7 +594,7 @@ describe('organization', () => {
     ]);
   });
 
-  test('別の組織のワークスペース（閉じたものと開いたもの）に同じ利用者の所属の行があっても、この組織の workspaces に出ない', async () => {
+  test('別の組織のワークスペース（閉じたものと開いたもの）に、この組織の利用者の所属の行を直に挿しても、workspaces に出ない', async () => {
     const visitor = await createVisitor();
     const a = await createOrganization();
     const b = await createOrganization();
@@ -608,6 +608,9 @@ describe('organization', () => {
     await createMembership(a, mine.id, inA.id);
     await createMembership(b, otherOpen.id, inB.id);
     await createMembership(b, otherClosed.id, inB.id);
+    // 組織 a の利用者の ID の所属の行を、組織 b のワークスペースに直に挿す（w.organization_id の絞り込みを外すと、組織 a の一覧に混ざる）
+    await createMembership(b, otherOpen.id, inA.id);
+    await createMembership(b, otherClosed.id, inA.id);
 
     const result = await readOrganization(a.slug, visitor.token);
     expect(result.workspaces).toEqual([{ id: mine.id, name: 'この組織の進行中', role: 'member', closed_at: null }]);
