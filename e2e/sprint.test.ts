@@ -1085,3 +1085,39 @@ for (const [name, label] of [
     await expect(extend.locator('form > p').first()).toHaveText(name === null ? label : `${label}（10/13〜10/26）`);
   });
 }
+
+test('名前なしの開始・削除・終了では、文中に期間を一度だけ出す', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'admin');
+  const plan = { ...OVERDUE_PLAN, sprints: OVERDUE_PLAN.sprints.map((sprint) => ({ ...sprint, name: null })) };
+  await mockOperation(page, sprintList, { slug: 'aoba' }, plan);
+  await mockOperation(
+    page,
+    sprintBoard,
+    { slug: 'aoba' },
+    { ...SAMPLE_BOARD, sprint: { ...SAMPLE_BOARD.sprint!, name: null } },
+  );
+  await page.goto(`${AOBA_TEAM}/plan`);
+  await page.getByRole('button', { name: '始める: スプリント「10/27〜11/9」', exact: true }).click();
+  const start = page.getByRole('dialog', { name: 'スプリントを始める' });
+  await expect(
+    start.getByText('スプリント「10/27〜11/9」を始めます。入っているタスクは 0 件、0 pt です。', { exact: true }),
+  ).toBeVisible();
+  await start.getByRole('button', { name: 'やめる' }).click();
+  await page.getByRole('button', { name: '削除する: スプリント「10/27〜11/9」', exact: true }).click();
+  const remove = page.getByRole('dialog', { name: 'スプリントを削除する' });
+  await expect(
+    remove.getByText('スプリント「10/27〜11/9」を削除します。削除したものは画面から消え、この版では戻せません。', {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await remove.getByRole('button', { name: 'やめる' }).click();
+  await page.goto(`${AOBA_TEAM}/sprint`);
+  await page.getByRole('heading', { level: 1 }).getByText('10/13〜10/26', { exact: true }).waitFor();
+  await page.getByRole('button', { name: '終える: スプリント「10/13〜10/26」', exact: true }).click();
+  const close = page.getByRole('dialog', { name: 'スプリントを終える' });
+  await expect(
+    close.getByText('スプリント「10/13〜10/26」を終えます。終えたスプリントの期間と中身は、あとから変えられません。', {
+      exact: true,
+    }),
+  ).toBeVisible();
+});
