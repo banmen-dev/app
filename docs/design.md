@@ -619,7 +619,7 @@ Linear の提供画像7枚を参考に、登録 → プロフィール（個人�
 - 手元では `design/index.html` をブラウザで開く（ビルド不要）。開発者でない人には、見本の Worker の URL を渡す（`docs/development.md` の「見本の Worker」）。
 - 読み込む順は tokens.css、components.css、icons.js、art.js、sample-data.js、kit.js。
 - 画面に固有の CSS を書かない。足りない部品は components.css とカタログに先に足す。
-- components.css の余白（padding、margin、gap）は `--space-*` だけで書く。`scripts/design-spacing.test.ts`（`pnpm test:node`）が、刻みの外の値と、刻みに乗っていても直書きの値を落とす。今ある値は `scripts/design-spacing-allowlist.json` に凍結してあり、直したらリストからも消す（`DESIGN.md` の「余白」）。
+- components.css の余白（padding、margin、gap）は `--space-*`（と、`tokens.css` で余白の段から組んだ変数）だけで書く。`scripts/design-spacing.test.ts`（`pnpm test:node`）が、刻みの外の値と、刻みに乗っていても直書きの値を落とす。今ある値は `scripts/design-spacing-allowlist.json` に凍結してあり、直したらリストからも消す（`DESIGN.md` の「余白」）。
 - 本番の Svelte では、tokens.css と components.css をそのまま読み込み、kit.js の関数を1つずつコンポーネントにする（次の節）。
 - tokens.css と components.css は `src/routes/+layout.svelte` が `design/` から import する。複製しない。見本の Worker（`wrangler.design.jsonc`）の build watch paths が `design/*` なので、この2つを直すと見本も出し直される。
 

@@ -2,18 +2,21 @@
 // 検査は design-spacing.test.ts が、今ある値を凍結した design-spacing-allowlist.json と突き合わせて行う
 
 export type Declaration = { context: string; selector: string; property: string; value: string };
+export type SpacingEntry = { problem: string; count: number };
 
-const SPACING_PROPERTY = /^(?:padding|margin|gap|row-gap|column-gap|scroll-margin|scroll-padding)(?:-[a-z-]+)?$/;
-const LENGTH = /(?<![\w-])(-?(?:\d+\.?\d*|\.\d+))(px|rem|em|dvh|svh|lvh|vh|vw|vmin|vmax|ch|ex|%)/g;
-const VAR = /var\(\s*(--[\w-]+)\s*(?:,[^()]*)?\)/g;
-// 端末の安全領域（env(safe-area-inset-*, 0px)）は端末が決める値なので刻みに数えない
-const ENV = /env\([^()]*\)/g;
+const SPACING_PROPERTY =
+  /^(?:(?:padding|margin|scroll-margin|scroll-padding)(?:-[a-z-]+)?|(?:grid-)?(?:row-|column-)?gap)$/;
+// CSS の単位は大文字小文字を区別しないので、数の後ろの英字か % をすべて長さとして拾う（1e1px のような指数も含める）
+const LENGTH = /(?<![\w-])([+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)([a-z]+|%)/gi;
+const VAR_NAME = /var\(\s*(--[\w-]+)/g;
+// 変数名と端末の安全領域の名前だけを外し、予備値は検査に残す（var(--space-2, 9px) の 9px を見るため）
+const VAR_HEAD = /var\(\s*--[\w-]+\s*,?/g;
+const ENV_HEAD = /env\(\s*[\w-]+\s*,?/g;
 
-const stripComments = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 const squash = (text: string) => text.replace(/\s+/g, ' ').trim();
 
-// 波括弧の入れ子を追い、宣言ごとに外側の @ 規則とセレクタを添えて返す。文字列と括弧の中の ; { } は区切りに数えない
-// （content: "a;b" や url(data:…;base64,…) で宣言が切れないように）
+// 波括弧の入れ子を追い、宣言ごとに外側の @ 規則とセレクタを添えて返す。
+// 文字列（エスケープを含む）と括弧の中の ; { } と /* は区切りに数えない（content: "a;b" や url(data:…;base64,…) で宣言が切れないように）
 export function declarations(css: string): Declaration[] {
   const stack: string[] = [];
   const found: Declaration[] = [];
@@ -33,10 +36,16 @@ export function declarations(css: string): Declaration[] {
       value: squash(text.slice(colon + 1)),
     });
   };
-  for (const char of stripComments(css)) {
+  for (let i = 0; i < css.length; i++) {
+    const char = css[i];
     if (quote) {
       buffer += char;
-      if (char === quote) quote = '';
+      if (char === '\\') buffer += css[++i] ?? '';
+      else if (char === quote) quote = '';
+    } else if (char === '/' && css[i + 1] === '*') {
+      const end = css.indexOf('*/', i + 2);
+      if (end < 0) throw new Error('コメントが閉じていない');
+      i = end + 1;
     } else if (char === '"' || char === "'") {
       quote = char;
       buffer += char;
@@ -60,22 +69,39 @@ export function declarations(css: string): Declaration[] {
       buffer += char;
     }
   }
+  // 閉じ忘れたまま読み終えると、その後ろの宣言をすべて読み落とし、許可リストの全件が「残っている」と誤って案内される
+  if (quote) throw new Error('文字列が閉じていない');
+  if (parens !== 0) throw new Error('括弧が閉じていない');
+  if (stack.length > 0) throw new Error('波括弧が閉じていない');
   return found;
 }
 
 export function tokenNames(css: string): Set<string> {
-  return new Set([...stripComments(css).matchAll(/(--[\w-]+)\s*:/g)].map((match) => match[1]));
+  return new Set(
+    declarations(`:root{${css}}`)
+      .map(({ property }) => property)
+      .filter((property) => property.startsWith('--')),
+  );
+}
+
+// 1px を掛けたり割ったりすれば任意の長さを作れるので、±1px（罫）を通すのは乗除の外にあるときだけ
+function multiplied(text: string, start: number, end: number): boolean {
+  const before = text.slice(0, start).trimEnd().at(-1);
+  const after = text.slice(end).trimStart()[0];
+  return before === '*' || before === '/' || after === '*' || after === '/';
 }
 
 // 刻みの外なら理由を、刻みの中なら null を返す。通すのは tokens.css の変数、0、±1px（罫）、端末の安全領域、単位の無い数
 export function spacingProblem(value: string, tokens: Set<string>): string | null {
-  const unknown = [...value.matchAll(VAR)].map((match) => match[1]).filter((name) => !tokens.has(name));
+  const unknown = [...value.matchAll(VAR_NAME)].map((match) => match[1]).filter((name) => !tokens.has(name));
   if (unknown.length > 0) return `tokens.css に無い変数 ${unknown.join('、')}`;
-  const rest = value.replace(VAR, ' ').replace(ENV, ' ');
+  const rest = value.replace(VAR_HEAD, ' ').replace(ENV_HEAD, ' ');
   const raw = [...rest.matchAll(LENGTH)]
-    .filter(([, number, unit]) => {
-      const amount = Math.abs(Number(number));
-      return !(amount === 0 || (unit === 'px' && amount === 1));
+    .filter((match) => {
+      const amount = Math.abs(Number(match[1]));
+      if (amount === 0) return false;
+      const hairline = amount === 1 && match[2].toLowerCase() === 'px';
+      return !hairline || multiplied(rest, match.index, match.index + match[0].length);
     })
     .map((match) => match[0]);
   return raw.length > 0 ? `直書きの ${raw.join('、')}` : null;
@@ -84,13 +110,18 @@ export function spacingProblem(value: string, tokens: Set<string>): string | nul
 export const entryOf = ({ context, selector, property, value }: Declaration) =>
   `${context ? `${context} | ` : ''}${selector} | ${property}: ${value}`;
 
-// 刻みの外の余白を、許可リストの行（entryOf）から理由への対応で返す
-export function spacingEntries(css: string, tokens: Set<string>): Map<string, string> {
-  const entries = new Map<string, string>();
+// 刻みの外の余白を、許可リストの行（entryOf）ごとの理由と件数で返す。同じ行が2か所にあれば2と数える
+export function spacingEntries(css: string, tokens: Set<string>): Map<string, SpacingEntry> {
+  const entries = new Map<string, SpacingEntry>();
   for (const declaration of declarations(css)) {
-    if (!SPACING_PROPERTY.test(declaration.property)) continue;
-    const problem = spacingProblem(declaration.value, tokens);
-    if (problem) entries.set(entryOf(declaration), problem);
+    const problem = declaration.property.startsWith('--space-')
+      ? `tokens.css の段 ${declaration.property} を上書きしている`
+      : SPACING_PROPERTY.test(declaration.property)
+        ? spacingProblem(declaration.value, tokens)
+        : null;
+    if (!problem) continue;
+    const key = entryOf(declaration);
+    entries.set(key, { problem, count: (entries.get(key)?.count ?? 0) + 1 });
   }
   return entries;
 }
