@@ -4,7 +4,7 @@
 // 作ったワークスペースは消せずに残るので、名前に繰り返し（--repeat-each）とやり直しの回を混ぜ、前の回の行に当たらないようにする
 import type { Page } from '@playwright/test';
 import { organizationInfo } from '../src/shared/operations/organization/index.ts';
-import { workspaceClose, workspaceList } from '../src/shared/operations/workspace/index.ts';
+import { workspaceClose, workspaceList, workspaceReopen } from '../src/shared/operations/workspace/index.ts';
 import { expect, test } from './fixtures.ts';
 import { expectFocusReturned, signIn, watchViolations } from './helpers.ts';
 import { routeOperation, rewriteOperation } from './operations.ts';
@@ -641,52 +641,121 @@ test.describe('管理者（あおば開発のミナト）', () => {
   });
 });
 
-test.describe('管理者が開いているワークスペース1つにだけ所属している組織', () => {
+test.describe('管理者がワークスペース1つにだけ所属している組織（ホームのワークスペースの面）', () => {
   test.beforeEach(async ({ context, baseURL }) => {
     await signIn(context, baseURL, 'admin');
   });
 
-  // 終了の状態は画面の上だけで持ち、組織の枠の応答（organization）と管理の一覧（workspace-list）に同じ状態を返す（seed を終了したままにしない）
-  test('管理の画面でワークスペースを終了してからホームへ戻ると、ワークスペースの面から外れ、所属が無い案内が出る', async ({
-    page,
-  }) => {
-    const workspace = { id: '019a0000-0000-7000-8000-000000000401', name: '受託開発チーム' };
-    let closedAt: string | null = null;
+  const workspace = { id: '019a0000-0000-7000-8000-000000000401', name: '受託開発チーム' };
+
+  // 終了の状態は画面の上だけで持ち、組織の枠の応答（organization）と管理の一覧（workspace-list）に同じ状態を返す（seed を終了したままにしない）。
+  // closedAt を書き換えると、次の読み込みの応答が変わる
+  async function routeState(page: Page, initial: string | null) {
+    const state = { closedAt: initial };
     await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (output) => ({
       ...output,
       organization: { ...output.organization, has_workspaces: true },
-      workspaces: [{ ...workspace, role: 'leader' as const, closed_at: closedAt }],
+      workspaces: [{ ...workspace, role: 'leader' as const, closed_at: state.closedAt }],
     }));
     await routeOperation(page, workspaceList, { slug: 'aoba' }, (call) =>
       call.fulfill({
-        workspaces: [{ ...workspace, member_count: 4, leader_count: 2, created_on: '2025-04-01', closed_at: closedAt }],
+        workspaces: [
+          { ...workspace, member_count: 4, leader_count: 2, created_on: '2025-04-01', closed_at: state.closedAt },
+        ],
       }),
     );
-    await routeOperation(page, workspaceClose, { slug: 'aoba' }, (call) => {
-      closedAt = '2026-11-15T00:00:00.000Z';
-      return call.fulfill({ workspace_id: workspace.id, closed_at: closedAt });
-    });
+    return state;
+  }
 
-    await page.goto('/aoba');
-    const pane = page.locator('.pane').filter({ has: page.getByRole('heading', { level: 2, name: 'ワークスペース' }) });
-    await expect(pane.getByRole('link', { name: /受託開発チーム/ })).toBeVisible();
+  function workspacePane(page: Page) {
+    return page.locator('.pane').filter({ has: page.getByRole('heading', { level: 2, name: 'ワークスペース' }) });
+  }
 
-    // 管理の画面で終了する。ページを読み直さず、画面内のリンクでホームへ戻る
+  // ホームから管理の画面へ、アカウントのメニューで移る（ページは読み直さない）
+  async function openAdmin(page: Page) {
     await page.getByRole('button', { name: /アカウントのメニュー$/ }).click();
     await page.locator('.account-menu-list').getByRole('link', { name: '組織の管理' }).click();
     await expect(page).toHaveURL(/\/aoba\/admin$/);
-    const row = workspacesOf(page).locator('tbody tr', { hasText: workspace.name });
-    await row.getByRole('button', { name: `「${workspace.name}」を終了する` }).click();
+    return workspacesOf(page).locator('tbody tr', { hasText: workspace.name });
+  }
+
+  // 管理の画面から、画面内のリンクでホームへ戻る
+  async function backHome(page: Page) {
+    await page.locator('#app-nav').getByRole('link', { name: '今日やること', exact: true }).click();
+    await expect(page).toHaveURL(/\/aoba$/);
+  }
+
+  async function confirmClose(page: Page) {
     await page
       .getByRole('dialog', { name: `「${workspace.name}」を終了しますか？` })
       .getByRole('button', { name: `「${workspace.name}」を終了する` })
       .click();
-    await expect(page.getByRole('status').filter({ hasText: 'ワークスペースを終了しました' })).toBeVisible();
-    await page.locator('#app-nav').getByRole('link', { name: '今日やること', exact: true }).click();
+  }
 
-    await expect(page).toHaveURL(/\/aoba$/);
-    await expect(pane.getByText('どのワークスペースにも所属していません')).toBeVisible();
-    await expect(pane.getByRole('link', { name: /受託開発チーム/ })).toHaveCount(0);
+  test('管理の画面でワークスペースを終了してからホームへ戻ると、ワークスペースの面から外れ、所属が無い案内が出る', async ({
+    page,
+  }) => {
+    const state = await routeState(page, null);
+    await routeOperation(page, workspaceClose, { slug: 'aoba' }, (call) => {
+      state.closedAt = '2026-11-15T00:00:00.000Z';
+      return call.fulfill({ workspace_id: workspace.id, closed_at: state.closedAt });
+    });
+
+    await page.goto('/aoba');
+    await expect(workspacePane(page).getByRole('link', { name: /受託開発チーム/ })).toBeVisible();
+
+    const row = await openAdmin(page);
+    await row.getByRole('button', { name: `「${workspace.name}」を終了する` }).click();
+    await confirmClose(page);
+    await expect(page.getByRole('status').filter({ hasText: 'ワークスペースを終了しました' })).toBeVisible();
+    await backHome(page);
+
+    await expect(workspacePane(page).getByText('どのワークスペースにも所属していません')).toBeVisible();
+    await expect(workspacePane(page).getByRole('link', { name: /受託開発チーム/ })).toHaveCount(0);
+  });
+
+  test('別の管理者が先に終了していて、終了を断られた（状態が変わっていた）ときも、ホームのワークスペースの面から外れる', async ({
+    page,
+  }) => {
+    const state = await routeState(page, null);
+    await routeOperation(page, workspaceClose, { slug: 'aoba' }, (call) => {
+      state.closedAt = '2026-11-15T00:00:00.000Z';
+      return call.fail(409, 'workspace_closed');
+    });
+
+    await page.goto('/aoba');
+    await expect(workspacePane(page).getByRole('link', { name: /受託開発チーム/ })).toBeVisible();
+
+    const row = await openAdmin(page);
+    await row.getByRole('button', { name: `「${workspace.name}」を終了する` }).click();
+    await confirmClose(page);
+    await expect(page.getByRole('status').filter({ hasText: '状態が変わっていました' })).toBeVisible();
+    await backHome(page);
+
+    await expect(workspacePane(page).getByText('どのワークスペースにも所属していません')).toBeVisible();
+    await expect(workspacePane(page).getByRole('link', { name: /受託開発チーム/ })).toHaveCount(0);
+  });
+
+  test('終了したワークスペースにだけ所属する管理者が管理の画面で再開してからホームへ戻ると、ワークスペースの面にそのリンクが出て、所属が無い案内が消える', async ({
+    page,
+  }) => {
+    const state = await routeState(page, '2026-10-01T00:00:00.000Z');
+    await routeOperation(page, workspaceReopen, { slug: 'aoba' }, (call) => {
+      state.closedAt = null;
+      return call.fulfill({ workspace_id: workspace.id });
+    });
+
+    await page.goto('/aoba');
+    await expect(workspacePane(page).getByText('どのワークスペースにも所属していません')).toBeVisible();
+    await expect(workspacePane(page).getByRole('link')).toHaveCount(0);
+
+    const row = await openAdmin(page);
+    await row.getByRole('button', { name: `「${workspace.name}」を再開する` }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'ワークスペースを再開しました' })).toBeVisible();
+    await backHome(page);
+
+    await expect(workspacePane(page).getByRole('link', { name: /受託開発チーム/ })).toBeVisible();
+    await expect(workspacePane(page).getByText('どのワークスペースにも所属していません')).toHaveCount(0);
   });
 });
 

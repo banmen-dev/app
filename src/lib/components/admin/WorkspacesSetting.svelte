@@ -79,6 +79,16 @@
     },
   );
 
+  // 節の一覧を読み直し、組織の枠のデータ（`organization` の所属するワークスペースの closed_at）も読み直す。
+  // 一覧を読み直す分岐（成功、別の画面で先に変えられた、見つからない、上限で断られた、失敗）のすべてで呼ぶ。
+  // 別の管理者が先に状態を変えていても、ホームのワークスペースの面が古い closed_at のまま残らないため。
+  // invalidateAll の失敗は握りつぶす。ここで読み直すのは枠の表示の鮮度だけで、失敗しても管理の画面の操作の結果（トーストと一覧）を妨げず、
+  // 枠のデータは次の遷移の読み込みでやり直されるため（握りつぶさないと、読み直しの失敗が未処理の拒否になる）
+  async function reloadAll(): Promise<void> {
+    void invalidateAll().catch(() => undefined);
+    await section.load();
+  }
+
   async function reopen(workspace: Workspace): Promise<void> {
     if (reopeningId !== null) return;
     const token = section.token();
@@ -89,8 +99,6 @@
       if (!section.isCurrent(token)) return;
       if (result.ok) {
         showToast(t('workspaceReopened', { workspace: t('workspace') }), 'check');
-        // 組織の枠のデータ（所属するワークスペースの closed_at）を読み直す。ホームのワークスペースの面が古いまま残らないように
-        void invalidateAll().catch(() => undefined);
       } else if (isUnauthenticated(result)) {
         window.location.assign(loginUrl(page.url));
         return;
@@ -134,7 +142,7 @@
       } else {
         showToast(t('workspaceReopenFailed', { workspace: t('workspace') }), 'alert');
       }
-      await section.load();
+      await reloadAll();
     } finally {
       if (section.isCurrent(token)) reopeningId = null;
     }
@@ -148,11 +156,9 @@
     if (outcome === 'closed') {
       reopenRefusal = null;
       showToast(t('workspaceClosed', { workspace: t('workspace') }), 'check');
-      // 組織の枠のデータ（所属するワークスペースの closed_at）を読み直す。ホームのワークスペースの面が古いまま残らないように
-      void invalidateAll().catch(() => undefined);
     } else if (outcome === 'state_changed') showToast(t('workspaceStateChanged', { name }), 'alert');
     else showToast(t('workspaceUnavailable', { name }), 'alert');
-    void section.load();
+    void reloadAll();
   }
 
   function act(workspace: Workspace, trigger: HTMLElement): void {
