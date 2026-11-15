@@ -7699,8 +7699,8 @@ describe('最終修正の標準入力実行の追読回帰（#1246・3巡目）'
     assert.equal(decision(`echo '<?php echo file_get_contents(".env");' | php -f /dev/stdin`), 'deny'));
   test('[すり抜け・確認] PHP --file=/dev/fd/0 が読む不明な本文は確認する', () =>
     assert.equal(decision('cat x.php | php --file=/dev/fd/0'), 'ask'));
-  test('[すり抜け・拒否か確認] Node inline の後の -i も標準入力を対話実行する', () =>
-    assert.ok(['ask', 'deny'].includes(decision(`echo 'require("fs").readFileSync(".env")' | node -e 'void 0' -i`))));
+  test('[すり抜け・拒否] Node inline の後の -i も標準入力を対話実行する', () =>
+    assert.equal(decision(`echo 'require("fs").readFileSync(".env")' | node -e 'void 0' -i`), 'deny'));
   test('[すり抜け・確認] Node inline の後の -i が読む不明な本文は確認する', () =>
     assert.equal(decision(`cat x.js | node -e 'void 0' -i`), 'ask'));
 });
