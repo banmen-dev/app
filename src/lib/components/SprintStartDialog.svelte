@@ -162,6 +162,7 @@
     <form id={formId} class="form" onsubmit={submit} novalidate>
       <p>
         {t('sprintStartText', {
+          sprint: t('sprint'),
           label: sprintLabelWithPeriod(target, t),
           task: t('task'),
           count: target.tasks.length,

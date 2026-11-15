@@ -26,8 +26,8 @@
   <Icon name="alert" />
   <span>
     {canClose
-      ? t('sprintOverdueLeader', { label, end, task: t('task') })
-      : t('sprintOverdueMember', { label, end, leader: t('leader') })}
+      ? t('sprintOverdueLeader', { sprint: t('sprint'), label, end, task: t('task') })
+      : t('sprintOverdueMember', { sprint: t('sprint'), label, end, leader: t('leader') })}
   </span>
   {#if canClose}
     <div class="callout-actions">

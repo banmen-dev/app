@@ -505,7 +505,7 @@
     danger
   >
     {#if deleteTarget !== null}
-      <p>{t('sprintDeleteText', { label: sprintLabelWithPeriod(deleteTarget, t) })}</p>
+      <p>{t('sprintDeleteText', { sprint: t('sprint'), label: sprintLabelWithPeriod(deleteTarget, t) })}</p>
     {/if}
   </ConfirmDialog>
 {/if}
