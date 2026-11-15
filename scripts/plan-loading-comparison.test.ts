@@ -3,8 +3,36 @@ import { test } from 'node:test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { loadingFixtureSql, loadingWorkspace } from './loading-fixture.ts';
-import { emptyPlanSql, emptyPlanWorkspace, planConditions, readPlanComparison } from './plan-loading-comparison.ts';
+import {
+  emptyPlanSql,
+  emptyPlanWorkspace,
+  planConditions,
+  planComparisonOptions,
+  planTimingCell,
+  readPlanComparison,
+} from './plan-loading-comparison.ts';
 import type { ReadResponse } from './loading-trial.ts';
+
+test('計画比較の条件順と排他的オプションを確かめる', () => {
+  assert.deepEqual(planComparisonOptions([]), { enabled: false, conditions: ['A', 'B', 'C'] });
+  assert.deepEqual(planComparisonOptions(['--plan-compare']), { enabled: true, conditions: ['A', 'B', 'C'] });
+  assert.deepEqual(planComparisonOptions(['--plan-compare', '--comparison-reverse']), {
+    enabled: true,
+    conditions: ['C', 'B', 'A'],
+  });
+  for (const flag of ['--layout-only', '--layout-before']) {
+    assert.throws(() => planComparisonOptions(['--plan-compare', flag]), /併用できません/);
+  }
+  assert.throws(() => planComparisonOptions(['--comparison-reverse']), /必要です/);
+});
+
+test('集計列を取り違えずに nearest-rank の p50/p95 を出す', () => {
+  const samples = [1, 2, 20].map((n) => ({ primary: n, ready: n + 100, total: n + 200 }));
+  assert.equal(planTimingCell(samples, 'primary'), '2.00 / 20.00');
+  assert.equal(planTimingCell(samples, 'ready'), '102.00 / 120.00');
+  assert.equal(planTimingCell(samples, 'total'), '202.00 / 220.00');
+  assert.throws(() => planTimingCell([], 'ready'), /入力が不正/);
+});
 
 test('空の計画fixtureは既存の履歴を残し、同じ組織の管理者とメンバーだけを所属させる', () => {
   const db = new DatabaseSync(':memory:');

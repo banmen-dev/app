@@ -15,7 +15,13 @@ import { screens, type Reading } from './loading-screens.ts';
 import { comparison, percentile, trialTiming } from './loading-stats.ts';
 import { sessionInserts } from './seed.ts';
 import { readTrial } from './loading-trial.ts';
-import { emptyPlanSql, emptyPlanWorkspace, planConditions, readPlanComparison } from './plan-loading-comparison.ts';
+import {
+  emptyPlanSql,
+  emptyPlanWorkspace,
+  planComparisonOptions,
+  planTimingCell,
+  readPlanComparison,
+} from './plan-loading-comparison.ts';
 
 function option(name: string, fallback: number, max: number): number {
   const index = process.argv.indexOf(name);
@@ -23,6 +29,7 @@ function option(name: string, fallback: number, max: number): number {
   if (!Number.isSafeInteger(value) || value <= 0 || value > max) throw new Error(`${name} が範囲外です`);
   return value;
 }
+const planOptions = planComparisonOptions(process.argv.slice(2));
 const runs = option('--runs', 20, 10000);
 const port = option('--port', 9742, 65534);
 const origin = `http://127.0.0.1:${port}`;
@@ -76,7 +83,7 @@ function command(args: string[]) {
     throw new Error(`wrangler ${args.slice(0, 2).join(' ')} が失敗しました: ${result.stderr}`);
   return result.stdout;
 }
-async function call(reading: Reading, operator: boolean, member = false) {
+async function call(reading: Reading, actor: 'admin' | 'member' | 'operator') {
   if (interrupted) throw new Error('計測を中断しました');
   const definition = operations.find((op) => op.name === reading.name);
   if (
@@ -93,7 +100,7 @@ async function call(reading: Reading, operator: boolean, member = false) {
     headers: {
       'Content-Type': 'application/json',
       Origin: origin,
-      Cookie: `${sessionCookieName(origin)}=${operator ? SEED_SESSIONS.operator.token : member ? SEED_SESSIONS.member.token : SEED_SESSIONS.admin.token}`,
+      Cookie: `${sessionCookieName(origin)}=${SEED_SESSIONS[actor].token}`,
     },
     body: JSON.stringify(reading.input),
     signal: AbortSignal.timeout(30000),
@@ -111,81 +118,43 @@ async function call(reading: Reading, operator: boolean, member = false) {
     },
   };
 }
-try {
-  console.log(`使い捨て D1: ${dir}（終了時に削除）`);
-  command(['d1', 'migrations', 'apply', 'DB']);
-  // 空の D1 なので既存行の削除は不要。seed の固定行と期限付きセッションを入れる。
-  const file = path.join(dir, 'fixture.sql');
-  writeFileSync(
-    file,
-    readFileSync(path.join(root, 'seed/data.sql'), 'utf8') +
-      sessionInserts(Object.values(SEED_SESSIONS), new Date()) +
-      loadingFixtureSql() +
-      (process.argv.includes('--plan-compare') ? emptyPlanSql : ''),
-  );
-  command(['d1', 'execute', 'DB', '--file', file]);
-  server = spawn(
-    'wrangler',
-    [
-      'dev',
-      '--config',
-      config,
-      '--local',
-      '--persist-to',
-      dir,
-      '--port',
-      String(port),
-      '--inspector-port',
-      String(port + 1),
-    ],
-    { stdio: 'ignore', cwd: dir, detached: process.platform !== 'win32' },
-  );
-  tracked = trackServer(server, process.platform !== 'win32');
-  for (let i = 0; ; i++) {
-    if (interrupted || tracked.stopped || i >= 120) throw new Error('計測サーバーが立ち上がりません');
-    try {
-      const res = await fetch(`${origin}/api/health`, { signal: AbortSignal.timeout(500) });
-      if (res.ok && isBenchHealth(await res.json(), version)) break;
-    } catch {
-      /* 起動を待つ */
-    }
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
+async function reportPlanComparison() {
   console.log(
-    `Node ${process.version}、各画面・発行順ごと warmup 2 回 + ${runs} 回（正順・逆順）。時間は API 往復 ms。分位点は nearest-rank。`,
+    `Node ${process.version}、計画のデータ・利用者・発行順・条件ごと warmup 2 回 + ${runs} 回。時間は API 往復 ms。分位点は nearest-rank。`,
   );
-  if (process.argv.includes('--plan-compare')) {
-    console.log('| データ | 利用者 | 発行順 | 条件 | 主 p50/p95 | 返却モデル p50/p95 | 全応答 p50/p95 |');
-    console.log('| --- | --- | --- | --- | ---: | ---: | ---: |');
-    const conditions = process.argv.includes('--comparison-reverse') ? [...planConditions].reverse() : planConditions;
-    for (const workspaceId of [loadingWorkspace, emptyPlanWorkspace]) {
-      for (const member of [false, true]) {
-        for (const reverse of [false, true]) {
-          for (const condition of conditions) {
-            const read = () => readPlanComparison(condition, workspaceId, reverse, (op) => call(op, false, member));
-            await read();
-            await read();
-            const samples: Awaited<ReturnType<typeof readPlanComparison>>[] = [];
-            for (let i = 0; i < runs; i++) samples.push(await read());
-            const cell = (key: 'primary' | 'ready' | 'total') => {
-              const values = samples.map((sample) => sample[key]);
-              return `${percentile(values, 0.5).toFixed(2)} / ${percentile(values, 0.95).toFixed(2)}`;
-            };
-            console.log(
-              `| ${workspaceId === loadingWorkspace ? '履歴あり' : '空'} | ${member ? 'メンバー' : '管理者'} | ${reverse ? '逆順' : '正順'} | ${condition} | ${cell('primary')} | ${cell('ready')} | ${cell('total')} |`,
-            );
-          }
+  console.log('| データ | 利用者 | 発行順 | 条件 | 主 p50/p95 | 返却モデル p50/p95 | 全応答 p50/p95 |');
+  console.log('| --- | --- | --- | --- | ---: | ---: | ---: |');
+  for (const workspaceId of [loadingWorkspace, emptyPlanWorkspace]) {
+    for (const actor of ['admin', 'member'] as const) {
+      for (const reverse of [false, true]) {
+        for (const condition of planOptions.conditions) {
+          const read = () => readPlanComparison(condition, workspaceId, reverse, (op) => call(op, actor));
+          await read();
+          await read();
+          const samples: Awaited<ReturnType<typeof readPlanComparison>>[] = [];
+          for (let i = 0; i < runs; i++) samples.push(await read());
+          console.log(
+            `| ${workspaceId === loadingWorkspace ? '履歴あり' : '空'} | ${actor === 'member' ? 'メンバー' : '管理者'} | ${reverse ? '逆順' : '正順'} | ${condition} | ${planTimingCell(samples, 'primary')} | ${planTimingCell(samples, 'ready')} | ${planTimingCell(samples, 'total')} |`,
+          );
         }
       }
     }
   }
-  if (!process.argv.includes('--plan-compare')) {
-    console.log('| load | 操作（主/従） | p50 ms | p95 ms |');
-    console.log('| --- | --- | ---: | ---: |');
+}
+
+async function report() {
+  if (planOptions.enabled) {
+    await reportPlanComparison();
+    return;
   }
-  for (const screen of screens
-    .filter(() => !process.argv.includes('--plan-compare'))
-    .filter((screen) => !process.argv.includes('--layout-only') || screen.route.startsWith('/[slug]/+layout'))) {
+  console.log(
+    `Node ${process.version}、各画面・発行順ごと warmup 2 回 + ${runs} 回（正順・逆順）。時間は API 往復 ms。分位点は nearest-rank。`,
+  );
+  console.log('| load | 操作（主/従） | p50 ms | p95 ms |');
+  console.log('| --- | --- | ---: | ---: |');
+  for (const screen of screens.filter(
+    (screen) => !process.argv.includes('--layout-only') || screen.route.startsWith('/[slug]/+layout'),
+  )) {
     if (!screen.operations.length) {
       console.log(`| ${screen.route} | 操作なし | — | — |`);
       continue;
@@ -205,7 +174,7 @@ try {
           initial,
           screen.after ?? [],
           reverse,
-          (op) => call(op, screen.operator ?? false),
+          (op) => call(op, screen.operator ? 'operator' : 'admin'),
           undefined,
           (op) => !screen.deferSecondary || before || !op.secondary,
         );
@@ -250,6 +219,49 @@ try {
     console.log(`| ${screen.route} | ${assessments.join(' / ') || '従なし'} | — | — |`);
     if (screen.note) console.log(`\n${screen.route}: ${screen.note}\n`);
   }
+}
+
+try {
+  console.log(`使い捨て D1: ${dir}（終了時に削除）`);
+  command(['d1', 'migrations', 'apply', 'DB']);
+  // 空の D1 なので既存行の削除は不要。seed の固定行と期限付きセッションを入れる。
+  const file = path.join(dir, 'fixture.sql');
+  writeFileSync(
+    file,
+    readFileSync(path.join(root, 'seed/data.sql'), 'utf8') +
+      sessionInserts(Object.values(SEED_SESSIONS), new Date()) +
+      loadingFixtureSql() +
+      (planOptions.enabled ? emptyPlanSql : ''),
+  );
+  command(['d1', 'execute', 'DB', '--file', file]);
+  server = spawn(
+    'wrangler',
+    [
+      'dev',
+      '--config',
+      config,
+      '--local',
+      '--persist-to',
+      dir,
+      '--port',
+      String(port),
+      '--inspector-port',
+      String(port + 1),
+    ],
+    { stdio: 'ignore', cwd: dir, detached: process.platform !== 'win32' },
+  );
+  tracked = trackServer(server, process.platform !== 'win32');
+  for (let i = 0; ; i++) {
+    if (interrupted || tracked.stopped || i >= 120) throw new Error('計測サーバーが立ち上がりません');
+    try {
+      const res = await fetch(`${origin}/api/health`, { signal: AbortSignal.timeout(500) });
+      if (res.ok && isBenchHealth(await res.json(), version)) break;
+    } catch {
+      /* 起動を待つ */
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  await report();
 } finally {
   await tracked?.stop();
   process.off('SIGINT', stop);

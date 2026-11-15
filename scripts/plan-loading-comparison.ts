@@ -1,10 +1,27 @@
 import { loadingWorkspace } from './loading-fixture.ts';
 import type { Reading } from './loading-screens.ts';
 import { readTrial, type ReadResponse } from './loading-trial.ts';
-import { trialTiming } from './loading-stats.ts';
+import { percentile, trialTiming } from './loading-stats.ts';
 
 export const planConditions = ['A', 'B', 'C'] as const;
 export type PlanCondition = (typeof planConditions)[number];
+export function planComparisonOptions(args: readonly string[]) {
+  const enabled = args.includes('--plan-compare');
+  const reverse = args.includes('--comparison-reverse');
+  if (enabled && (args.includes('--layout-only') || args.includes('--layout-before'))) {
+    throw new Error('--plan-compare と layout の指定は併用できません');
+  }
+  if (reverse && !enabled) throw new Error('--comparison-reverse には --plan-compare が必要です');
+  return { enabled, conditions: reverse ? [...planConditions].reverse() : [...planConditions] };
+}
+
+export function planTimingCell(
+  samples: readonly { primary: number; ready: number; total: number }[],
+  key: 'primary' | 'ready' | 'total',
+): string {
+  const values = samples.map((sample) => sample[key]);
+  return `${percentile(values, 0.5).toFixed(2)} / ${percentile(values, 0.95).toFixed(2)}`;
+}
 export const emptyPlanWorkspace = '019b2000-0000-7000-8000-000000000001';
 
 // loadingFixtureSql と同じ組織・利用者の空のワークスペース。既存の D1 には適用しない。
