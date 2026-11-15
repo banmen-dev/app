@@ -155,6 +155,11 @@ describe('余白の刻みの判定', () => {
     assert.throws(() => found('.a { padding: 0; .b { padding: 7px; }'), /波括弧が閉じていない/);
   });
 
+  test('閉じていないものは、開いた位置の行と列を添えて止める', () => {
+    assert.throws(() => found('.a { gap: 0; }\n.b { padding: calc(6px; }'), /括弧が閉じていない（2 行 19 列で開いた）/);
+    assert.throws(() => found('.a { gap: 0; }\n\n/* 注釈'), /コメントが閉じていない（3 行 1 列で開いた）/);
+  });
+
   test('components.css で余白の段を上書きする宣言は落とす', () => {
     assert.deepEqual(found('.a { --space-2: 5px; padding: var(--space-2); }'), [['.a | --space-2: 5px', 1]]);
   });

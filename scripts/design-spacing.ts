@@ -25,7 +25,14 @@ export function declarations(css: string): Declaration[] {
   const found: Declaration[] = [];
   let buffer = '';
   let quote = '';
-  let parens = 0;
+  let quoteAt = 0;
+  // 開いた括弧と波括弧の位置。閉じ忘れたときに、どこで開いたかを示す
+  const parens: number[] = [];
+  const braces: number[] = [];
+  const unclosed = (what: string, index: number) => {
+    const before = css.slice(0, index).split('\n');
+    return new Error(`${what}が閉じていない（${before.length} 行 ${before.at(-1)!.length + 1} 列で開いた）`);
+  };
   const flush = () => {
     const text = buffer.trim();
     buffer = '';
@@ -47,37 +54,40 @@ export function declarations(css: string): Declaration[] {
       else if (char === quote) quote = '';
     } else if (char === '/' && css[i + 1] === '*') {
       const end = css.indexOf('*/', i + 2);
-      if (end < 0) throw new Error('コメントが閉じていない');
+      if (end < 0) throw unclosed('コメント', i);
       // CSS のコメントは字句の区切りなので空白に置き換える（0px/**/7px の 7px を 0px7px として見落とさないため）
       buffer += ' ';
       i = end + 1;
     } else if (char === '"' || char === "'") {
       quote = char;
+      quoteAt = i;
       buffer += char;
     } else if (char === '(') {
-      parens++;
+      parens.push(i);
       buffer += char;
     } else if (char === ')') {
-      parens--;
+      parens.pop();
       buffer += char;
-    } else if (parens > 0) {
+    } else if (parens.length > 0) {
       buffer += char;
     } else if (char === '{') {
       stack.push(squash(buffer));
+      braces.push(i);
       buffer = '';
     } else if (char === ';') {
       flush();
     } else if (char === '}') {
       flush();
       stack.pop();
+      braces.pop();
     } else {
       buffer += char;
     }
   }
   // 閉じ忘れたまま読み終えると、その後ろの宣言をすべて読み落とし、許可リストの全件が「残っている」と誤って案内される
-  if (quote) throw new Error('文字列が閉じていない');
-  if (parens !== 0) throw new Error('括弧が閉じていない');
-  if (stack.length > 0) throw new Error('波括弧が閉じていない');
+  if (quote) throw unclosed('文字列', quoteAt);
+  if (parens.length > 0) throw unclosed('括弧', parens[0]);
+  if (braces.length > 0) throw unclosed('波括弧', braces[0]);
   return found;
 }
 
