@@ -8,7 +8,7 @@ import path from 'node:path';
 import { after, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { judgeBash } from './bash-rules.mjs';
-import { judgeSessionEnvFile } from './file-rules.mjs';
+import { judgeShellEnvFile } from './file-rules.mjs';
 
 const ENV_FILE = '/home/u/.claude/session-env/0a1b/sessionstart-hook-0.sh';
 const context = (env = {}) => ({ cwd: '/repo', branchOf: () => '1270-session-env', env });
@@ -88,12 +88,12 @@ describe('Bash から環境のファイルへの書き込みは ask', () => {
 });
 
 describe('Write と Edit から環境のファイルへの書き込みは ask', () => {
-  test('judgeSessionEnvFile は名前と CLAUDE_ENV_FILE で見る', () => {
-    assert.equal(judgeSessionEnvFile([ENV_FILE])?.[0], 'ask');
-    assert.equal(judgeSessionEnvFile(['/root/.claude/Session-Env/x/y.sh'])?.[0], 'ask');
-    assert.equal(judgeSessionEnvFile(['/var/tmp/claude-env.sh'], '/var/tmp/claude-env.sh')?.[0], 'ask');
-    assert.equal(judgeSessionEnvFile(['/var/tmp/other.sh'], '/var/tmp/claude-env.sh'), null);
-    assert.equal(judgeSessionEnvFile(['/repo/docs/session-envy.md']), null);
+  test('judgeShellEnvFile は名前と CLAUDE_ENV_FILE で見る', () => {
+    assert.equal(judgeShellEnvFile([ENV_FILE])?.[0], 'ask');
+    assert.equal(judgeShellEnvFile(['/root/.claude/Session-Env/x/y.sh'])?.[0], 'ask');
+    assert.equal(judgeShellEnvFile(['/var/tmp/claude-env.sh'], '/var/tmp/claude-env.sh')?.[0], 'ask');
+    assert.equal(judgeShellEnvFile(['/var/tmp/other.sh'], '/var/tmp/claude-env.sh'), null);
+    assert.equal(judgeShellEnvFile(['/repo/docs/session-envy.md']), null);
   });
 
   const hooks = path.dirname(fileURLToPath(import.meta.url));

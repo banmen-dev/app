@@ -16,6 +16,15 @@ export function judgeSessionEnvFile(paths, envFile) {
   return null;
 }
 
+// TODO(#1270): テストを先に書くための仮の入れ物。実装で judgeSessionEnvFile をこちらに置き換える
+export const SHELL_ENV_DIR_NAMES = ['session-env', 'shell-snapshots'];
+export const SHELL_ENV_DIR = /(^|\/)(session-env|shell-snapshots)(\/|$)/i;
+export const SHELL_ENV_REASON =
+  'Claude Code が各 Bash の前に読む環境のファイル（CLAUDE_ENV_FILE、~/.claude/session-env/、~/.claude/shell-snapshots/）への書き込みは人が確かめる（仮）';
+export function judgeShellEnvFile(_paths, _envFile) {
+  throw new Error('未実装');
+}
+
 // rel はリポジトリのルートからの相対パス。shippedOnMain は origin/main に同じパスがあるか（main を引けなければ undefined）
 // inWorktree は、セッションが使うフックのあるリポジトリとは別の、リンクされたワークツリーの中のファイルか
 // onMain は、ファイルのある作業コピーが main にいるか（本体の detached も含む）。ほかのどの判定より先に止める
