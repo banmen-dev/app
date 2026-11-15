@@ -128,7 +128,7 @@ test('一般のメンバーが唯一のワークスペースを抜けると、�
       .getByRole('region', { name: 'ユーザー', exact: true })
       .getByRole('table', { name: '組織のユーザーの一覧' })
       .locator('tbody tr', { hasText: 'シオン' });
-    await expect(row.locator('.avatar')).toBeVisible();
+    await expect(row.locator('.avatar')).toHaveText('シ');
     await expect(row.locator('.avatar img')).toHaveCount(0);
   } finally {
     await restoreKumoAvatarLeaverMembership();
