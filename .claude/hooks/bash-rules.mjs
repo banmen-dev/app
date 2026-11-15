@@ -994,13 +994,7 @@ function echoedText(words) {
 
 // スクリプト用のパイプでは printf の単純な %s も読める。書式の繰り返しまで確定する形だけを扱い、
 // ほかの書式、エスケープ、展開は本文を読めないものとする。gh/curl 用の判定は変えない。
-function pipedScriptText(words) {
-  const direct = echoedText(words);
-  if (direct) {
-    const ci = commandIndex(words);
-    direct.literal &&= !words.some((_, i) => i > ci && isUnresolved(words, i));
-    return direct;
-  }
+function printfScriptText(words) {
   const ci = words ? commandIndex(words) : -1;
   if (ci === -1 || baseName(words[ci]) !== 'printf' || redirectsOf(words).some(isWriteRedirect)) return undefined;
   const args = sliceWords(words, ci + 1);
@@ -2842,7 +2836,7 @@ function judgePipedScript(tool, args, ctx, nextCtx) {
   }
   // リダイレクトがなければ単純な printf %s もここでだけ読める。
   if (body.unreadable && !ctx.stdinContext.grouped && !redirected) {
-    const text = pipedScriptText(previous);
+    const text = printfScriptText(previous);
     if (text) { body.bodies.push(text); body.unreadable = false; }
   }
   const results = [];
