@@ -55,7 +55,6 @@ export {
   type NewOrganization,
   type NewSelfCreatedOrganization,
 } from './create-organization.ts';
-export { VOCABULARY_COLUMN_VALUE } from './vocabulary-column.ts';
 // 組織の人数に数える人。組織の中の処理には、確かめた組織の入口だけを受ける seatHoldersOf を出す（組織の ID の束は受けない）
 export { hasSeatInvitationOfLogin, personKey, seatHoldersOf, seatHoldersOfWorkspaceInvitations } from './seats.ts';
 // 運用者の道具（operations/operator-tools.ts）だけが import できる（eslint.config.db-entry.js）
@@ -73,12 +72,11 @@ export {
   type AdminReassignmentResult,
 } from './operator-reassign-admin.ts';
 export {
+  readOrganizationPlanRow,
   readOrganizationRow,
   userAvatarsOf,
-  writeOrganizationSettings,
+  type OrganizationPlanRow,
   type OrganizationRow,
-  type OrganizationSettingsChange,
-  type OrganizationSettingsWrite,
 } from './organization-common.ts';
 export {
   // adminStatusesOf と organizationUsageOf は、運用者の道具（operations/operator-tools.ts）だけが import できる（eslint.config.db-entry.js）
@@ -127,3 +125,11 @@ export {
 } from './attachment-quota-warning.ts';
 
 export { attachmentFitsQuota } from './wiki.ts';
+
+export {
+  listBillingOrganizations,
+  listBillingAdministrators,
+  inviteBillingAdministrator,
+  respondBillingInvitation,
+  removeBillingAdministrator,
+} from './billing.ts';

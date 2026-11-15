@@ -7,7 +7,7 @@ import { devPorts, devPublicOrigin } from './dev-ports.ts';
 
 export type SeedWho = keyof typeof SEED_SESSIONS;
 
-export type DevOpenArgs = { preview: boolean; who: SeedWho; path: string };
+export type DevOpenArgs = { preview: boolean; who: SeedWho; path: string; remoteOrigin?: string };
 
 export type DevOpenTarget = DevOpenArgs & {
   origin: string;
@@ -21,7 +21,14 @@ type Failure = { ok: false; reason: string };
 export const DEFAULT_WHO: SeedWho = 'admin';
 export const DEFAULT_PATH = '/';
 
-// seed のトークンを送ってよいのは、手元で動かしているサーバーだけ
+// remote は本番と別のプレビューだけ。URL の正規化で別の表記になる値も断る。
+export function isPreviewOrigin(origin: string): boolean {
+  return (
+    /^https:\/\/pr-[1-9][0-9]*-scrum-guild-preview\.ucan-lab\.workers\.dev$/.test(origin) &&
+    new URL(origin).origin === origin
+  );
+}
+
 const LOCAL_HOSTNAMES: ReadonlySet<string> = new Set(['localhost', '127.0.0.1']);
 
 function whoChoices(): string {
@@ -37,13 +44,25 @@ function isSeedWho(value: string): value is SeedWho {
 // 位置でなく形で見分ける: `--preview` はフラグ、`/` で始まれば path、それ以外は who
 export function parseDevOpenArgs(argv: readonly string[]): ({ ok: true } & DevOpenArgs) | Failure {
   let preview = false;
+  let remoteOrigin: string | undefined;
   let who: string | undefined;
   let path: string | undefined;
-  for (const arg of argv) {
+  for (let index = 0; index < argv.length; index++) {
+    const arg = argv[index]!;
     if (arg === '--preview') {
       preview = true;
+    } else if (arg === '--origin') {
+      if (remoteOrigin !== undefined) return { ok: false, reason: '--origin は1回だけ指定する' };
+      const value = argv[++index];
+      if (!value || !isPreviewOrigin(value)) {
+        return {
+          ok: false,
+          reason: '--origin は https://pr-<番号>-scrum-guild-preview.ucan-lab.workers.dev の形で指定する',
+        };
+      }
+      remoteOrigin = value;
     } else if (arg.startsWith('--')) {
-      return { ok: false, reason: `知らないフラグ ${arg} がある。使えるのは --preview だけ` };
+      return { ok: false, reason: `知らないフラグ ${arg} がある。使えるのは --preview と --origin だけ` };
     } else if (arg.startsWith('/')) {
       if (path !== undefined) return { ok: false, reason: `path が2つある（${path} と ${arg}）。1回に開くのは1つ` };
       path = arg;
@@ -52,6 +71,7 @@ export function parseDevOpenArgs(argv: readonly string[]): ({ ok: true } & DevOp
       who = arg;
     }
   }
+  if (preview && remoteOrigin) return { ok: false, reason: '--preview と --origin は同時に指定できない' };
   const resolvedWho = who ?? DEFAULT_WHO;
   if (!isSeedWho(resolvedWho)) {
     return {
@@ -59,7 +79,7 @@ export function parseDevOpenArgs(argv: readonly string[]): ({ ok: true } & DevOp
       reason: `知らない who: ${resolvedWho}。選べるのは次のとおり（開く path は / で始める。完全な URL は受け付けない）\n${whoChoices()}`,
     };
   }
-  return { ok: true, preview, who: resolvedWho, path: path ?? DEFAULT_PATH };
+  return { ok: true, preview, who: resolvedWho, path: path ?? DEFAULT_PATH, ...(remoteOrigin ? { remoteOrigin } : {}) };
 }
 
 // 開く先を決める。ここを通った結果だけが、Cookie を置いて通信してよい先になる
@@ -69,7 +89,10 @@ export function resolveDevOpenTarget(
 ): ({ ok: true } & DevOpenTarget) | Failure {
   const args = parseDevOpenArgs(argv);
   if (!args.ok) return args;
-  const { preview, who, path } = args;
+  const { preview, who, path, remoteOrigin } = args;
+  if (remoteOrigin && (!env.CF_ACCESS_CLIENT_ID?.trim() || !env.CF_ACCESS_CLIENT_SECRET?.trim())) {
+    return { ok: false, reason: 'プレビューには CF_ACCESS_CLIENT_ID と CF_ACCESS_CLIENT_SECRET の両方が必要' };
+  }
 
   // ログイン後の戻り先と同じ基準。`/` への直しはしない
   if (safeReturnTo(path) !== path) {
@@ -81,16 +104,16 @@ export function resolveDevOpenTarget(
 
   let origin: string;
   try {
-    origin = devPublicOrigin(devPorts(env), preview);
+    origin = remoteOrigin ?? devPublicOrigin(devPorts(env), preview);
   } catch (err) {
     return { ok: false, reason: err instanceof Error ? err.message : String(err) };
   }
 
-  // 二重の守り: 解決した結果が path と変わらず、origin が手元のサーバーのときだけ進む。
+  // 二重の守り: 解決した結果が path と変わらず、ローカル指定が手元のサーバーのときだけ進む。
   // origin の検査は、devPublicOrigin が今は http の localhost しか返さないので通らないが、
   // dev-ports.ts の変更で別のホストを返すようになったときに、トークンを外へ送らないために残す
   const { protocol, hostname } = new URL(origin);
-  if (protocol !== 'http:' || !LOCAL_HOSTNAMES.has(hostname)) {
+  if (!remoteOrigin && (protocol !== 'http:' || !LOCAL_HOSTNAMES.has(hostname))) {
     return { ok: false, reason: `${origin} は手元のサーバーではないので、seed のトークンを送らない` };
   }
   if (resolvedReturnTo(path, origin) !== path) {
@@ -106,5 +129,6 @@ export function resolveDevOpenTarget(
     url: `${origin}${path}`,
     cookieName: sessionCookieName(origin),
     token: SEED_SESSIONS[who].token,
+    ...(remoteOrigin ? { remoteOrigin } : {}),
   };
 }

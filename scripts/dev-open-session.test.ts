@@ -98,3 +98,29 @@ describe('checkDevOpenSession', () => {
     assert.doesNotMatch(reasonOf(await checkDevOpenSession(preview, {}, refused)), /DEV_PORT_OFFSET/);
   });
 });
+
+test('プレビューの preflight は Access、secure Cookie、Origin を付け、リダイレクトを辿らない', async () => {
+  const origin = 'https://pr-374-scrum-guild-preview.ucan-lab.workers.dev';
+  const env = { CF_ACCESS_CLIENT_ID: 'test-id', CF_ACCESS_CLIENT_SECRET: 'test-secret' };
+  const remote = resolveDevOpenTarget(['--origin', origin, 'operator'], env);
+  assert.ok(remote.ok);
+  const calls: Call[] = [];
+  assert.deepEqual(await checkDevOpenSession(remote, env, respond(200, calls)), { ok: true });
+  const call = calls[0]!;
+  assert.equal(call.url, `${origin}/api/me`);
+  assert.equal(call.init?.redirect, 'manual');
+  const headers = new Headers(call.init?.headers);
+  assert.equal(headers.get('CF-Access-Client-Id'), 'test-id');
+  assert.equal(headers.get('CF-Access-Client-Secret'), 'test-secret');
+  assert.equal(headers.get('Origin'), origin);
+  assert.equal(headers.get('Cookie'), `__Host-sg_session=${SEED_SESSIONS.operator.token}`);
+  for (const status of [302, 401, 403, 500]) {
+    const reason = reasonOf(await checkDevOpenSession(remote, env, respond(status)));
+    assert.match(reason, /Workers Builds/);
+    assert.match(reason, /Cloudflare Access/);
+    assert.doesNotMatch(reason, /pnpm db:seed|pnpm dev|test-secret|test-id/);
+  }
+  const reason = reasonOf(await checkDevOpenSession(remote, env, fail(new Error('test-secret'))));
+  assert.match(reason, /Workers Builds/);
+  assert.doesNotMatch(reason, /pnpm dev|test-secret/);
+});

@@ -105,6 +105,8 @@ test.describe('組織の中（アカウントのメニュー）', () => {
       await page.keyboard.press('Tab');
       await expect(page.locator('.account-menu-list a').first()).toBeFocused();
       await page.keyboard.press('Tab');
+      await expect(page.locator('.account-menu-list').getByRole('link', { name: '組織の管理' })).toBeFocused();
+      await page.keyboard.press('Tab');
       await expect(page.locator('.account-menu-list a').last()).toBeFocused();
       await page.keyboard.press('Tab');
       await expect(logoutItem(page)).toBeFocused();
@@ -122,6 +124,8 @@ test.describe('組織の中（アカウントのメニュー）', () => {
       await button.click();
       await page.keyboard.press('Tab');
       await expect(page.locator('.account-menu-list a').first()).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(page.locator('.account-menu-list').getByRole('link', { name: '組織の管理' })).toBeFocused();
       await page.keyboard.press('Tab');
       await expect(page.locator('.account-menu-list a').last()).toBeFocused();
       await page.keyboard.press('Tab');

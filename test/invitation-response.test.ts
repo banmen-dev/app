@@ -140,8 +140,6 @@ describe('invitation-list', () => {
   test('この組織の、自分のログインに当たる承諾待ちの招待だけを、招待した日の順に返す', async () => {
     const { organization, owner, workspace } = await organizationWithOwner({
       name: 'ひばり工房',
-      vocabulary: 'scrum',
-      theme: 'medieval',
     });
     const closedWorkspace = await createWorkspace(organization, owner.id, {
       name: '旧サイト改修',
@@ -168,9 +166,11 @@ describe('invitation-list', () => {
     const res = await list(organization, invitee);
     expect(res.status).toBe(200);
     const listed = (await res.json()) as { organization: object };
+    // 言葉づかいと、廃止した組織の既定のテーマは返さない
     expect(listed.organization).not.toHaveProperty('vocabulary');
+    expect(listed.organization).not.toHaveProperty('theme');
     expect(listed).toEqual({
-      organization: { name: 'ひばり工房', theme: 'medieval' },
+      organization: { name: 'ひばり工房' },
       invitations: [
         {
           invitation_id: first.id,

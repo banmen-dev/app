@@ -7,7 +7,7 @@ import AccountMenu from './AccountMenu.svelte';
 const { page } = vi.hoisted(() => ({ page: { url: new URL('http://localhost/aoba') } }));
 vi.mock('$app/state', () => ({ page }));
 vi.mock('$app/paths', () => ({
-  resolve: (route: string, { slug }: { slug: string }) => route.replace('[slug]', slug),
+  resolve: (route: string, { slug }: { slug: string } = { slug: '' }) => route.replace('[slug]', slug),
 }));
 
 const props = { userId: 'user-1', name: 'ミナト', isAdmin: true, level: 3, slug: 'aoba', invitationCount: 0 };
@@ -19,13 +19,16 @@ beforeEach(() => {
   page.url = new URL('http://localhost/aoba');
 });
 
-test('管理者の項目はマイプロフィール、組織の管理、ログアウトの順で、現在の組織へのリンクになる', () => {
+test('管理者の項目はマイプロフィール、組織の管理、請求管理者、ログアウトの順で、現在の組織へのリンクになる', () => {
   const html = list(renderWith({ slug: 'sumire' }));
   expect(html).toMatch(/href="\/sumire\/me"/);
   expect(html).toMatch(/href="\/sumire\/admin"/);
   expect(html.indexOf('マイプロフィール')).toBeLessThan(html.indexOf('組織の管理'));
   expect(html.indexOf('組織の管理')).toBeLessThan(html.indexOf('ログアウト'));
-  expect(html.match(/<li>/g)).toHaveLength(3);
+  expect(html).toMatch(/href="\/auth\/billing"/);
+  expect(html.indexOf('組織の管理')).toBeLessThan(html.indexOf('請求管理者を管理する'));
+  expect(html.indexOf('請求管理者を管理する')).toBeLessThan(html.indexOf('ログアウト'));
+  expect(html.match(/<li>/g)).toHaveLength(4);
 });
 
 test('一般のユーザーには組織の管理を描かない', () => {
@@ -34,7 +37,8 @@ test('一般のユーザーには組織の管理を描かない', () => {
   expect(html).toContain('ログアウト');
   expect(html).not.toContain('組織の管理');
   expect(html).not.toContain('/aoba/admin');
-  expect(html.match(/<li>/g)).toHaveLength(2);
+  expect(html).toContain('請求管理者を管理する');
+  expect(html.match(/<li>/g)).toHaveLength(3);
 });
 
 test.each(['me', 'admin'])('%s を開いているときは、そのリンクだけに aria-current を付ける', (route) => {
