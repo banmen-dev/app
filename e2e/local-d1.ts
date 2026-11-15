@@ -320,3 +320,18 @@ export async function seedInboxTasks(workspaceId: string, ownerUserId: string, t
   });
   await executeLocalD1(statements);
 }
+
+// くもラボの保守（seed/data.sql）と、そこだけに所属する一般のシオン（seed/sessions.ts の avatarLeaver）の所属の行
+export const KUMO_WORKSPACE_ID = '019a0000-0000-7000-8000-000000000403';
+export const KUMO_AVATAR_LEAVER_USER_ID = '019a0000-0000-7000-8000-000000000317';
+const KUMO_AVATAR_LEAVER_MEMBERSHIP_ID = '019a0000-0000-7000-8000-000000000709';
+
+// e2e/profile-avatar.test.ts が保守を抜けさせたシオンの所属を、seed の状態（今の所属）へ戻す。離脱を戻す操作は無いので、手元の D1 に直に書く。
+// 離脱が書いた変更の履歴は残す（追記だけの記録で、くもラボの履歴を数えるテストは無い）。消えたプロフィール画像は戻さない（seed は画像を持たない）
+export async function restoreKumoAvatarLeaverMembership(): Promise<void> {
+  await executeLocalD1([
+    `UPDATE memberships SET left_on = NULL, left_at = NULL ` +
+      `WHERE id = '${KUMO_AVATAR_LEAVER_MEMBERSHIP_ID}' AND workspace_id = '${KUMO_WORKSPACE_ID}' ` +
+      `AND user_id = '${KUMO_AVATAR_LEAVER_USER_ID}';`,
+  ]);
+}
