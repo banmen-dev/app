@@ -2716,7 +2716,7 @@ function interpreterBodyWords(tool, args) {
 // /dev/stdin と /dev/fd/0 は、source/. でもパイプの本文を読む。
 const STDIN_SCRIPT = new Set(['-', '/dev/stdin', '/dev/fd/0', '/proc/self/fd/0']);
 // /dev//stdin や /proc/self/fd/./0 も標準入力を読む同じパス。実体の解決やファイルの読み取りはしない。
-const isStdinScript = (file) => typeof file === 'string' && STDIN_SCRIPT.has(path.posix.normalize(file));
+const isStdinScript = (file) => typeof file === 'string' && (file === '-' || path.posix.isAbsolute(file) && STDIN_SCRIPT.has(path.posix.normalize(file)));
 const SCRIPT_OPTION_VALUES = {
   bash: new Set(['-o', '+o', '-O', '+O', '--rcfile', '--init-file']),
   sh: new Set(['-o', '+o']), zsh: new Set(['-o', '+o']), ksh: new Set(['-o', '+o']), mksh: new Set(['-o', '+o']),

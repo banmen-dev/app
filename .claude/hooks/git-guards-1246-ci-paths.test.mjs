@@ -34,3 +34,15 @@ describe('#1246 CI: 標準入力のパスの表記ゆれ', () => {
   }
 });
 
+// 正規化で './-' が '-' になっても、名前 '-' の実ファイルと標準入力の指定は別物。
+describe('#1246 CI: 相対パスのダッシュと標準入力を区別する', () => {
+  for (const command of [
+    "echo 'wrangler deploy' | bash ./-",
+    "echo 'wrangler deploy' | source ./-",
+    `echo 'print(open(".env").read())' | python3 ./-`,
+  ]) {
+    test(`[完了条件・通す] ${command}`, () => assert.equal(decision(command), 'allow', command));
+  }
+  test('[すり抜け・拒否] シェルへ単独の - を渡す形は標準入力を読む', () =>
+    assert.equal(decision("echo 'wrangler deploy' | bash -"), 'deny'));
+});
