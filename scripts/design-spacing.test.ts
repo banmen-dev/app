@@ -59,6 +59,14 @@ describe('余白の刻みの判定', () => {
   test('1px を掛けたり割ったりして作った値は落とす', () => {
     assert.equal(check('calc(1px * 7)'), '直書きの 1px');
     assert.equal(check('calc(6 * 1px)'), '直書きの 1px');
+    assert.equal(check('calc((1px) * 7)'), '直書きの 1px');
+    assert.equal(check('calc(7 * (1px))'), '直書きの 1px');
+    assert.equal(check('calc(1px + 1px + 1px)'), '直書きの 1px、1px、1px');
+  });
+
+  test('予備値の 1px は罫として通さない', () => {
+    assert.equal(check('var(--space-2, 1px)'), '直書きの 1px');
+    assert.equal(check('env(safe-area-inset-bottom, 1px)'), '直書きの 1px');
   });
 
   test('tokens.css に無い変数は落とす', () => {

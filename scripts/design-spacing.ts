@@ -12,6 +12,8 @@ const VAR_NAME = /var\(\s*(--[\w-]+)/g;
 // 変数名と端末の安全領域の名前だけを外し、予備値は検査に残す（var(--space-2, 9px) の 9px を見るため）
 const VAR_HEAD = /var\(\s*--[\w-]+\s*,?/g;
 const ENV_HEAD = /env\(\s*[\w-]+\s*,?/g;
+// 括弧を含まない予備値。中の長さは罫の例外を当てずに見る
+const FALLBACK = /(?:var\(\s*--[\w-]+|env\(\s*[\w-]+)\s*,([^()]*)\)/g;
 
 const squash = (text: string) => text.replace(/\s+/g, ' ').trim();
 
@@ -84,27 +86,50 @@ export function tokenNames(css: string): Set<string> {
   );
 }
 
-// 1px を掛けたり割ったりすれば任意の長さを作れるので、±1px（罫）を通すのは乗除の外にあるときだけ
-function multiplied(text: string, start: number, end: number): boolean {
-  const before = text.slice(0, start).trimEnd().at(-1);
-  const after = text.slice(end).trimStart()[0];
-  return before === '*' || before === '/' || after === '*' || after === '/';
+// 括弧だけで包んだ長さ（(1px)）は、包みを外して隣の演算子を見えるようにする。calc( の括弧は前に名前があるので外さない
+const WRAPPED_LENGTH = /(?<![\w-])\(\s*([+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?(?:[a-z]+|%))\s*\)/gi;
+
+const unwrap = (text: string) => {
+  let current = text;
+  for (let previous = ''; previous !== current;) {
+    previous = current;
+    current = current.replace(WRAPPED_LENGTH, ' $1 ');
+  }
+  return current;
+};
+
+type Operator = 'multiply' | 'add' | 'none';
+
+// 長さの隣（空白を除く前後の1文字）の演算子。乗除を足し引きより先に見る
+function neighbor(text: string, start: number, end: number): Operator {
+  const sides = [text.slice(0, start).trimEnd().at(-1), text.slice(end).trimStart()[0]];
+  if (sides.some((char) => char === '*' || char === '/')) return 'multiply';
+  if (sides.some((char) => char === '+' || char === '-')) return 'add';
+  return 'none';
 }
 
-// 刻みの外なら理由を、刻みの中なら null を返す。通すのは tokens.css の変数、0、±1px（罫）、端末の安全領域、単位の無い数
+const nonZero = (match: RegExpMatchArray) => Math.abs(Number(match[1])) !== 0;
+
+// 刻みの外なら理由を、刻みの中なら null を返す。通すのは tokens.css の変数、0、±1px（罫）、端末の安全領域の名前、単位の無い数。
+// 1px を掛けたり割ったり足し合わせたりすれば任意の長さを作れるので、±1px を通すのは、乗除の隣に無く、足し引きに使うのが値の中で1つだけのとき。
+// 予備値（var(--space-2, 1px)、env(…, 1px)）には罫の例外を当てない
 export function spacingProblem(value: string, tokens: Set<string>): string | null {
   const unknown = [...value.matchAll(VAR_NAME)].map((match) => match[1]).filter((name) => !tokens.has(name));
   if (unknown.length > 0) return `tokens.css に無い変数 ${unknown.join('、')}`;
-  const rest = value.replace(VAR_HEAD, ' ').replace(ENV_HEAD, ' ');
-  const raw = [...rest.matchAll(LENGTH)]
-    .filter((match) => {
-      const amount = Math.abs(Number(match[1]));
-      if (amount === 0) return false;
-      const hairline = amount === 1 && match[2].toLowerCase() === 'px';
-      return !hairline || multiplied(rest, match.index, match.index + match[0].length);
-    })
-    .map((match) => match[0]);
-  return raw.length > 0 ? `直書きの ${raw.join('、')}` : null;
+  const fallbacks = [...value.matchAll(FALLBACK)].map((match) => match[1]);
+  const fallbackRaw = fallbacks.flatMap((text) => [...text.matchAll(LENGTH)].filter(nonZero).map((match) => match[0]));
+  const rest = unwrap(value.replace(FALLBACK, ' ').replace(VAR_HEAD, ' ').replace(ENV_HEAD, ' '));
+  const lengths = [...rest.matchAll(LENGTH)].filter(nonZero).map((match) => ({
+    text: match[0],
+    hairline: Math.abs(Number(match[1])) === 1 && match[2].toLowerCase() === 'px',
+    operator: neighbor(rest, match.index, match.index + match[0].length),
+  }));
+  const added = lengths.filter(({ hairline, operator }) => hairline && operator === 'add').length;
+  const raw = lengths
+    .filter(({ hairline, operator }) => !hairline || operator === 'multiply' || (operator === 'add' && added > 1))
+    .map(({ text }) => text);
+  const all = [...fallbackRaw, ...raw];
+  return all.length > 0 ? `直書きの ${all.join('、')}` : null;
 }
 
 export const entryOf = ({ context, selector, property, value }: Declaration) =>
