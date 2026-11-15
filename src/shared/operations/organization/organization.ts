@@ -64,6 +64,14 @@ export const organizationInfo = defineOperation({
         attachment_quota_bytes: z.number().int(),
       })
       .nullable(),
-    workspaces: z.array(z.object({ id: z.string(), name: z.string(), role: z.enum(['leader', 'member']) })),
+    // 所属するワークスペース。closed_at は閉じた日時（閉じていなければ null）。組織の枠のメニューは閉じたものも並べ、組織のホームのワークスペースの面だけが閉じたものを外す
+    workspaces: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        role: z.enum(['leader', 'member']),
+        closed_at: z.string().nullable(),
+      }),
+    ),
   }),
 });

@@ -3,12 +3,12 @@
 // 実行する日にも seed の日付にも依存しない。サーバーが返す行の範囲は test/today.test.ts が確かめる。
 // seed のセッション（seed/sessions.ts）の Cookie で開く。一般のユーザーはハルカ（あおば開発の受託開発チームに所属）
 import type { Locator, Page } from '@playwright/test';
-import { today } from '../src/shared/operations/organization/index.ts';
+import { firstSteps, organizationInfo, today } from '../src/shared/operations/organization/index.ts';
 import type { TodayTask } from '../src/shared/operations/organization/today.ts';
 import { taskComplete, taskReopen, taskTodayMark } from '../src/shared/operations/task/index.ts';
 import { expect, test } from './fixtures.ts';
 import { signIn } from './helpers.ts';
-import { failOperation, mockOperation, routeOperation } from './operations.ts';
+import { failOperation, mockOperation, rewriteOperation, routeOperation } from './operations.ts';
 
 test.beforeEach(async ({ context, baseURL }) => {
   await signIn(context, baseURL, 'member');
@@ -62,9 +62,14 @@ function region(page: Page, name: string): Locator {
   return page.getByRole('region', { name, exact: true });
 }
 
-// 区分の見出し。右の列の面（LevelPanel）の見出しは含めない
+// 区分の見出し。面（ワークスペース、今日やること）の見出しは h2、今日やることの面の中の区分は h3
 function sectionHeadings(page: Page): Locator {
-  return page.locator('.layout-main').getByRole('heading', { level: 2 });
+  return page.locator('.dashboard').getByRole('heading', { level: 3 });
+}
+
+// 面（.pane）。見出しの名前で選ぶ
+function pane(page: Page, name: string): Locator {
+  return page.locator('.pane').filter({ has: page.getByRole('heading', { level: 2, name, exact: true }) });
 }
 
 function tally(page: Page, label: string): Locator {
@@ -315,6 +320,260 @@ test('担当のタスクが無いときは今日やると決めたものだけ�
   await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();
 });
 
+// 所属するワークスペースの応答。先頭は seed の実在するワークスペース（押すとバックログへ移る）、2つ目は並びだけを見る
+const HOME_WORKSPACES = [
+  { id: WORKSPACE_A.id, name: WORKSPACE_A.name, role: 'leader' as const, closed_at: null },
+  { id: WORKSPACE_B.id, name: WORKSPACE_B.name, role: 'member' as const, closed_at: null },
+];
+
+async function mockWorkspaces(page: Page): Promise<void> {
+  await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (output) => ({
+    ...output,
+    workspaces: HOME_WORKSPACES,
+  }));
+}
+
+test('広い幅では左の列にワークスペースと今日やることの面が上下に並び、ワークスペースの面から名前とロールで選んでバックログへ移れる', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await mockWorkspaces(page);
+  await mockOperation(page, today, { slug: 'aoba' }, { tasks: ALL_SECTIONS, sprint_goals: [] });
+  await page.goto('/aoba');
+
+  const workspaces = pane(page, 'ワークスペース');
+  const todayPane = pane(page, '今日やること');
+  await expect(workspaces).toBeVisible();
+  await expect(todayPane).toBeVisible();
+  // 右の列は最近の更新の面を足すまで空の要素を置かず、右の列の幅だけが空く（左の列は全幅にならない）
+  await expect(page.locator('.dashboard-side')).toHaveCount(0);
+  const [workspacesBox, todayBox] = [await workspaces.boundingBox(), await todayPane.boundingBox()];
+  expect(workspacesBox!.x).toBe(todayBox!.x);
+  expect(workspacesBox!.width).toBe(todayBox!.width);
+  expect(workspacesBox!.y + workspacesBox!.height).toBeLessThanOrEqual(todayBox!.y);
+  // 今日やることの区分は、面の中に今までどおり出る
+  await expect(todayPane.getByRole('heading', { level: 3 })).toHaveCount(5);
+
+  const links = workspaces.getByRole('link');
+  await expect(links).toHaveCount(2);
+  await expect(links.nth(0)).toContainText('受託開発チーム');
+  await expect(links.nth(0)).toContainText('リーダー');
+  await expect(links.nth(1)).toContainText('ひばり班');
+  await expect(links.nth(1)).toContainText('メンバー');
+  await expect(links.nth(0)).toHaveAttribute('href', `/aoba/w/${WORKSPACE_A.id}`);
+  await links.nth(0).click();
+  await expect(page).toHaveURL(`/aoba/w/${WORKSPACE_A.id}`);
+  await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();
+});
+
+test('ワークスペースの面は閉じたワークスペースを並べず、件数も閉じていないものだけで数える', async ({ page }) => {
+  await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (output) => ({
+    ...output,
+    workspaces: [
+      ...HOME_WORKSPACES,
+      {
+        id: '019a0000-0000-7000-8000-0000000004fe',
+        name: '終了した旧チーム',
+        role: 'member' as const,
+        closed_at: '2026-10-01T00:00:00.000Z',
+      },
+    ],
+  }));
+  await mockOperation(page, today, { slug: 'aoba' }, { tasks: [], sprint_goals: [] });
+  await page.goto('/aoba');
+
+  const workspaces = pane(page, 'ワークスペース');
+  await expect(workspaces.getByRole('link')).toHaveCount(2);
+  await expect(workspaces.getByText('終了した旧チーム')).toHaveCount(0);
+  await expect(workspaces.locator('.pane-count')).toHaveText('2 件');
+});
+
+test('管理者が閉じたワークスペースにだけ所属しているときは、所属が無い案内を出し、最初のワークスペースを作る案内は出さない', async ({
+  page,
+}) => {
+  await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (output) => ({
+    ...output,
+    me: { ...output.me, is_admin: true },
+    organization: { ...output.organization, has_workspaces: true },
+    workspaces: [{ ...HOME_WORKSPACES[0], closed_at: '2026-10-01T00:00:00.000Z' }],
+  }));
+  await mockOperation(page, today, { slug: 'aoba' }, { tasks: [], sprint_goals: [] });
+  await page.goto('/aoba');
+
+  const workspaces = pane(page, 'ワークスペース');
+  await expect(workspaces.getByText('どのワークスペースにも所属していません')).toBeVisible();
+  await expect(workspaces.getByRole('link')).toHaveCount(0);
+  await expect(page.getByText('まだワークスペースがありません')).toHaveCount(0);
+  // 今日やることの面のボタンも、閉じたワークスペースへは案内しない
+  await expect(pane(page, '今日やること').getByRole('link', { name: 'バックログを開く' })).toHaveCount(0);
+});
+
+test('761px では左3、右2の2列の枠で右の列の幅が空き、760px では1列になる', async ({ page }) => {
+  await mockWorkspaces(page);
+  await mockOperation(page, today, { slug: 'aoba' }, { tasks: ALL_SECTIONS, sprint_goals: [] });
+  await page.setViewportSize({ width: 761, height: 900 });
+  await page.goto('/aoba');
+
+  // 右の列に面が無くても、左の列は全幅にならず、2列の枠の左3の幅に収まる
+  await expect(page.locator('.dashboard-side')).toHaveCount(0);
+  const dashboard = (await page.locator('.dashboard').boundingBox())!;
+  const wide = (await page.locator('.dashboard-main').boundingBox())!;
+  expect(wide.width / dashboard.width).toBeGreaterThan(0.5);
+  expect(wide.width / dashboard.width).toBeLessThan(0.65);
+  // 760px では左の列が全幅の1列
+  await page.setViewportSize({ width: 760, height: 900 });
+  await expect
+    .poll(
+      async () =>
+        (await page.locator('.dashboard-main').boundingBox())!.width /
+        (await page.locator('.dashboard').boundingBox())!.width,
+    )
+    .toBeGreaterThan(0.99);
+});
+
+test('右の列に面を足すと、761px では左の列の右に並び、760px では下に縦に並ぶ', async ({ page }) => {
+  await mockWorkspaces(page);
+  await mockOperation(page, today, { slug: 'aoba' }, { tasks: [], sprint_goals: [] });
+  await page.setViewportSize({ width: 761, height: 900 });
+  await page.goto('/aoba');
+  // 面の差し込み口の確かめ。#1262 が足す右の列を、画面の部品と同じクラスで足す
+  await page.locator('.dashboard').evaluate((element) => {
+    const side = document.createElement('div');
+    side.className = 'dashboard-side';
+    side.innerHTML =
+      '<section class="pane"><div class="pane-head"><h2 class="pane-title">差し込み</h2></div></section>';
+    element.append(side);
+  });
+  const main = page.locator('.dashboard-main');
+  const side = page.locator('.dashboard-side');
+  const [mainWide, sideWide] = [(await main.boundingBox())!, (await side.boundingBox())!];
+  expect(sideWide.x).toBeGreaterThan(mainWide.x + mainWide.width - 1);
+  expect(mainWide.width).toBeGreaterThan(sideWide.width);
+  await page.setViewportSize({ width: 760, height: 900 });
+  // 760px ではメニューが下のタブになるので、左の列の x も変わる。同じ x（1列）に揃うことを確かめる
+  await expect
+    .poll(async () => Math.round((await side.boundingBox())!.x) - Math.round((await main.boundingBox())!.x))
+    .toBe(0);
+  const [mainNarrow, sideNarrow] = [(await main.boundingBox())!, (await side.boundingBox())!];
+  expect(sideNarrow.y).toBeGreaterThanOrEqual(mainNarrow.y + mainNarrow.height);
+});
+
+test('一般のメンバーが閉じたワークスペースにだけ所属しているときは、ワークスペースの面に所属が無い案内を出し、作るボタンは出さない', async ({
+  page,
+}) => {
+  await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (output) => ({
+    ...output,
+    me: { ...output.me, is_admin: false },
+    organization: { ...output.organization, has_workspaces: true },
+    workspaces: [{ ...HOME_WORKSPACES[0], closed_at: '2026-10-01T00:00:00.000Z' }],
+  }));
+  await mockOperation(page, today, { slug: 'aoba' }, { tasks: [], sprint_goals: [] });
+  await page.goto('/aoba');
+
+  const workspaces = pane(page, 'ワークスペース');
+  await expect(workspaces.getByText('どのワークスペースにも所属していません')).toBeVisible();
+  await expect(workspaces.getByRole('link')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'ワークスペースを作る' })).toHaveCount(0);
+  // 案内を重ねず、今日やることの面の空は線画の無い短い1行
+  const todayPane = pane(page, '今日やること');
+  await expect(todayPane.locator('.empty')).toHaveCount(0);
+  await expect(todayPane.locator('.book-empty')).toContainText('ワークスペースに所属すると');
+});
+
+test('760px 以下では1列に縦に並び、ワークスペース、今日やることの順で、横にはみ出さない', async ({ page }) => {
+  await page.setViewportSize({ width: 760, height: 900 });
+  await mockWorkspaces(page);
+  await mockOperation(page, today, { slug: 'aoba' }, { tasks: ALL_SECTIONS, sprint_goals: [] });
+  await page.goto('/aoba');
+
+  const [workspacesBox, todayBox] = [
+    await pane(page, 'ワークスペース').boundingBox(),
+    await pane(page, '今日やること').boundingBox(),
+  ];
+  expect(workspacesBox!.x).toBe(todayBox!.x);
+  expect(workspacesBox!.y + workspacesBox!.height).toBeLessThanOrEqual(todayBox!.y);
+  const overflow = await page.evaluate(() => ({
+    scroll: document.documentElement.scrollWidth,
+    inner: window.innerWidth,
+  }));
+  expect(overflow.scroll).toBeLessThanOrEqual(overflow.inner);
+  // 指で押す幅では、ワークスペースの行は44px以上
+  const row = await pane(page, 'ワークスペース').getByRole('link').first().boundingBox();
+  expect(row!.height).toBeGreaterThanOrEqual(44);
+});
+
+test('2列の上に最初にやることが全幅で出て、その下にダッシュボードが続く', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await mockOperation(
+    page,
+    firstSteps,
+    { slug: 'aoba' },
+    {
+      role: 'member',
+      steps: [
+        { key: 'joined_workspace', done: true, optional: false, workspace: WORKSPACE_A },
+        { key: 'prepare_task', done: false, optional: false, workspace: WORKSPACE_A },
+      ],
+    },
+  );
+  await mockOperation(page, today, { slug: 'aoba' }, { tasks: [], sprint_goals: [] });
+  await page.goto('/aoba');
+
+  const steps = region(page, '最初にやること');
+  await expect(steps).toBeVisible();
+  const [stepsBox, workspacesBox] = [await steps.boundingBox(), await pane(page, 'ワークスペース').boundingBox()];
+  expect(stepsBox!.y + stepsBox!.height).toBeLessThanOrEqual(workspacesBox!.y);
+  expect(stepsBox!.x).toBe(workspacesBox!.x);
+  // 最初にやることは全幅、ワークスペースの面は2列の左の列に収まる
+  expect(stepsBox!.width).toBeGreaterThan(workspacesBox!.width);
+});
+
+test('所属するワークスペースが無い管理者には、ワークスペースの面に最初のワークスペースを作る案内が出て、今日やることの面には重ねない', async ({
+  page,
+}) => {
+  await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (output) => ({
+    ...output,
+    me: { ...output.me, is_admin: true },
+    organization: { ...output.organization, has_workspaces: false },
+    workspaces: [],
+  }));
+  await mockOperation(page, today, { slug: 'aoba' }, { tasks: [], sprint_goals: [] });
+  await page.goto('/aoba');
+
+  const workspaces = pane(page, 'ワークスペース');
+  await expect(workspaces.getByText('まだワークスペースがありません')).toBeVisible();
+  await expect(workspaces.getByRole('button', { name: 'ワークスペースを作る' })).toBeVisible();
+  await expect(page.getByText('まだワークスペースがありません')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'ワークスペースを作る' })).toHaveCount(1);
+  await expect(pane(page, '今日やること').locator('.empty a, .empty button')).toHaveCount(0);
+});
+
+test.describe('768px の指で押す画面（広げたメニューのまま）', () => {
+  test.use({ hasTouch: true, viewport: { width: 768, height: 1024 } });
+
+  test('全部の区分と長いワークスペース名の行を出しても、横にはみ出さない', async ({ page }) => {
+    const name = 'とても長いワークスペースの名前'.repeat(6);
+    await mockWorkspaces(page);
+    await mockOperation(
+      page,
+      today,
+      { slug: 'aoba' },
+      {
+        tasks: [...ALL_SECTIONS, row('長い名前の行', { today_on: TODAY, workspace_name: name })],
+        sprint_goals: [{ workspace_id: WORKSPACE_A.id, workspace_name: name, goal: '長い名前でも読める' }],
+      },
+    );
+    await page.goto('/aoba');
+    await expect(pane(page, '今日やること')).toBeVisible();
+    await expect(page.locator('.entry-meta .tag').filter({ hasText: name })).toBeVisible();
+    const overflow = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollWidth,
+      client: document.documentElement.clientWidth,
+    }));
+    expect(overflow.scroll).toBeLessThanOrEqual(overflow.client);
+  });
+});
+
 for (const width of [390, 1280]) {
   test(`今日やることは ${width}px でレベルの面を出さず経験値を読まない`, async ({ page }) => {
     const requests: string[] = [];
@@ -335,7 +594,7 @@ test('今日やることを読めなかったときは、空の一覧にせず�
 
   await expect(page.getByRole('heading', { level: 1, name: '読み込めませんでした' })).toBeVisible();
   await expect(page.getByText('今日やるタスクはまだありません')).toHaveCount(0);
-  await expect(page.getByRole('heading', { level: 2, name: '今日やると決めたもの' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: '今日やると決めたもの' })).toHaveCount(0);
 
   await unroute();
   await mockOperation(page, today, { slug: 'aoba' }, { tasks: [], sprint_goals: [] });

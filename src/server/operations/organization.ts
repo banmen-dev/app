@@ -45,7 +45,7 @@ export const organizationInfoOperation = implement(
           q
             .selectFrom('memberships as m')
             .innerJoin('workspaces as w', 'w.id', 'm.workspace_id')
-            .select(['w.id', 'w.name', 'm.role'])
+            .select(['w.id', 'w.name', 'w.closed_at', 'm.role'])
             .where('m.user_id', '=', userId)
             .where('m.left_at', 'is', null)
             .where('w.organization_id', '=', db.organizationId)
@@ -125,6 +125,7 @@ export const organizationInfoOperation = implement(
         id: row.id,
         name: row.name,
         role: row.role === 'leader' ? ('leader' as const) : ('member' as const),
+        closed_at: row.closed_at,
       })),
     };
   },
