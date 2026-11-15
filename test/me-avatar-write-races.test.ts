@@ -1,5 +1,5 @@
-// プロフィール画像（Issue #1265）の done-check のレビューで足したテスト。
-// batch() の応答だけが失われたとき、R2 に書いている間に無効にされたとき、HEAD で R2 の中身を読まないこと
+// プロフィール画像（Issue #1265）の書き込みの競合と失敗。batch() の応答だけが失われたとき、R2 に書いている間に無効にされたとき、
+// HEAD で R2 の中身を読まないこと
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { env } from 'cloudflare:workers';
 import { envWithD1Hooks } from '../src/server/db/testing.ts';
@@ -8,7 +8,6 @@ import { recordingBucket } from './attachment-helpers.ts';
 import { jpegImage, pngImage } from './avatar-images.ts';
 import {
   app,
-  avatarIdOf,
   avatarObjectKeys,
   avatarRowOf,
   captureLogs,
@@ -97,6 +96,8 @@ test('R2 に書いている間に管理者がその人を無効にすると、�
   const res = await uploadAvatar(target, person, pngImage(40, 40), { env: racing });
   expect(disabled?.status, '割り込ませた無効化').toBe(200);
   await expectError(res, 409, 'conflict');
+  expect(await avatarRowOf(target, person)).toBeUndefined();
+  expect(await avatarObjectKeys(target.organization.id, person.userId)).toEqual([]);
 });
 
 test('HEAD は R2 の中身を読まず（get を呼ばず）、ファイルの大きさを返す', async () => {
@@ -116,5 +117,4 @@ test('HEAD は R2 の中身を読まず（get を呼ばず）、ファイルの�
   expect(res.status).toBe(200);
   expect(res.headers.get('Content-Length')).toBe(String(bytes.byteLength));
   expect(calls.map((call) => call.method)).toEqual(['head']);
-  expect(avatarIdOf(target, url)).toBeTruthy();
 });
