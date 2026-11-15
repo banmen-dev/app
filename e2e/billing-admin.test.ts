@@ -322,6 +322,8 @@ for (const accept of [true, false]) {
 for (const navigate of [false, true]) {
   test(`初回指名の送信中の入力と画面移動を保持する navigate=${navigate}`, async ({ page, context, baseURL }) => {
     await signIn(context, baseURL, 'admin');
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
     let reads = 0;
     await routeOperation(page, myBillingOrganizations, async (call) => {
       reads++;
@@ -359,5 +361,6 @@ for (const navigate of [false, true]) {
       await expect(page.getByLabel(t('billingSlug'))).toHaveValue('wakaba');
       await expect(page.getByLabel(t('billingTargetAccount'))).toHaveValue(accountId);
     }
+    expect(errors).toEqual([]);
   });
 }

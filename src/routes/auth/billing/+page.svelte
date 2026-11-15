@@ -32,7 +32,7 @@
   let confirmRemove: ReturnType<typeof ConfirmDialog>;
   let navigationVersion = 0;
   afterNavigate(({ from, to }) => {
-    if (!from || !to || from.url.href === to.url.href) return;
+    if (!from?.url || !to?.url || from.url.href === to.url.href) return;
     navigationVersion++;
     message = null;
     failed = false;
