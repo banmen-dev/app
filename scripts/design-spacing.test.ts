@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
-import { declarations, spacingEntries, spacingProblem, tokenNames } from './design-spacing.ts';
+import { declarations, spacingEntries, spacingProblem, spacingTokens } from './design-spacing.ts';
 
 type AllowEntry = string | { entry: string; reason: string };
 
@@ -69,8 +69,23 @@ describe('余白の刻みの判定', () => {
     assert.equal(check('env(safe-area-inset-bottom, 1px)'), '直書きの 1px');
   });
 
-  test('tokens.css に無い変数は落とす', () => {
-    assert.equal(check('var(--row-indent)'), 'tokens.css に無い変数 --row-indent');
+  test('余白の段でない変数は落とす', () => {
+    assert.equal(check('var(--row-indent)'), '余白の段でない変数 --row-indent');
+  });
+
+  test('余白に使える変数は --space-* と、それを使って組んだ tokens.css の変数だけ', () => {
+    const names = spacingTokens(`
+      :root {
+        --space-1: 4px;
+        --radius-full: 999px;
+        --mobile-tab-size: 48px;
+        --bar: calc(var(--mobile-tab-size) + 2 * var(--space-1));
+        --clearance: calc(var(--bar) + var(--space-1));
+      }`);
+    assert.deepEqual([...names].sort(), ['--bar', '--clearance', '--space-1']);
+    assert.equal(spacingProblem('var(--radius-full)', names), '余白の段でない変数 --radius-full');
+    assert.equal(spacingProblem('var(--mobile-tab-size)', names), '余白の段でない変数 --mobile-tab-size');
+    assert.equal(spacingProblem('var(--clearance)', names), null);
   });
 
   test('宣言に @ 規則とセレクタを添え、余白の属性だけを拾う', () => {
@@ -123,7 +138,7 @@ describe('余白の刻みの判定', () => {
 });
 
 describe('design/components.css の余白', () => {
-  const tokens = tokenNames(read('../design/tokens.css'));
+  const tokens = spacingTokens(read('../design/tokens.css'));
   const found = spacingEntries(read('../design/components.css'), tokens);
   const list = JSON.parse(read('./design-spacing-allowlist.json')) as AllowEntry[];
   const allowed = new Map<string, number>();

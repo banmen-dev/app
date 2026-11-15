@@ -78,12 +78,18 @@ export function declarations(css: string): Declaration[] {
   return found;
 }
 
-export function tokenNames(css: string): Set<string> {
-  return new Set(
-    declarations(`:root{${css}}`)
-      .map(({ property }) => property)
-      .filter((property) => property.startsWith('--')),
-  );
+// 余白に使える変数。--space-* と、それ（またはそれで組んだ変数）を値に使う tokens.css の変数（--mobile-navigation-clearance など）。
+// 余白の段と関係の無い --radius-full や --mobile-tab-size は、長さでも余白に使わせない
+export function spacingTokens(css: string): Set<string> {
+  const definitions = declarations(css).filter(({ property }) => property.startsWith('--'));
+  const names = new Set(definitions.map(({ property }) => property).filter((name) => name.startsWith('--space-')));
+  for (let size = -1; size !== names.size;) {
+    size = names.size;
+    for (const { property, value } of definitions) {
+      if ([...value.matchAll(VAR_NAME)].some((match) => names.has(match[1]))) names.add(property);
+    }
+  }
+  return names;
 }
 
 // 括弧だけで包んだ長さ（(1px)）は、包みを外して隣の演算子を見えるようにする。calc( の括弧は前に名前があるので外さない
@@ -115,7 +121,7 @@ const nonZero = (match: RegExpMatchArray) => Math.abs(Number(match[1])) !== 0;
 // 予備値（var(--space-2, 1px)、env(…, 1px)）には罫の例外を当てない
 export function spacingProblem(value: string, tokens: Set<string>): string | null {
   const unknown = [...value.matchAll(VAR_NAME)].map((match) => match[1]).filter((name) => !tokens.has(name));
-  if (unknown.length > 0) return `tokens.css に無い変数 ${unknown.join('、')}`;
+  if (unknown.length > 0) return `余白の段でない変数 ${unknown.join('、')}`;
   const fallbacks = [...value.matchAll(FALLBACK)].map((match) => match[1]);
   const fallbackRaw = fallbacks.flatMap((text) => [...text.matchAll(LENGTH)].filter(nonZero).map((match) => match[0]));
   const rest = unwrap(value.replace(FALLBACK, ' ').replace(VAR_HEAD, ' ').replace(ENV_HEAD, ' '));
