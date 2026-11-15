@@ -14,11 +14,47 @@ export function locate(page, spec) {
 /** probePlan の 1 項目を実行する。見つからないとき（HTTP のエラーも）投げる */
 export function probeExec(page, base) {
   const timeout = PROBE_TIMEOUT_MS;
+  // GET の読み込みや長い接続を待たず、操作で始まった書き込みだけを追う。
+  // requestfinished は応答の本文まで届いた時点。失敗した要求も待ちから外す。
+  const pending = new Set();
+  const changed = new Set();
+  page.on('request', (request) => {
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method())) pending.add(request);
+  });
+  const finished = (request) => {
+    pending.delete(request);
+    for (const notify of changed) notify();
+  };
+  page.on('requestfinished', finished);
+  page.on('requestfailed', finished);
+  const writesFinished = async () => {
+    const deadline = Date.now() + timeout;
+    for (;;) {
+      // blur のハンドラーと直後のタスク、および Playwright の request 通知を先に通す。
+      await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 0)));
+      if (pending.size === 0) return;
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) throw new Error('保存の要求が完了しないため goto を中止した');
+      await new Promise((resolve, reject) => {
+        const notify = () => {
+          clearTimeout(timer);
+          changed.delete(notify);
+          resolve();
+        };
+        const timer = setTimeout(() => {
+          changed.delete(notify);
+          reject(new Error('保存の要求が完了しないため goto を中止した'));
+        }, remaining);
+        changed.add(notify);
+      });
+    }
+  };
   return async ({ kind, spec, action, path }) => {
     if (kind === 'goto') {
+      await writesFinished();
       const response = await page.goto(base + path, { timeout: PROBE_GOTO_TIMEOUT_MS });
       if (response && response.status() >= 400) throw new Error(`HTTP ${response.status()}`);
-    } else if (kind === 'mark') {
+    } else if (kind === 'mark' || kind === 'markAfter') {
       // 録画の mark は evaluate で、要素が付くまで待つ
       await locate(page, spec).waitFor({ state: 'attached', timeout });
     } else if (kind === 'click') {

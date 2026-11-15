@@ -23,7 +23,7 @@ const KEY_VERBS = ['press', 'hold'];
 const ACTION_EXTRA_KEYS = { select: ['label'], fill: ['text'], wait: ['state'], press: ['on'], hold: ['ms', 'on'] };
 const WAIT_STATES = ['visible', 'hidden', 'attached', 'detached'];
 const PLAN_KEYS = ['who', 'screen', 'steps'];
-const STEP_KEYS = ['caption', 'read', 'hold', 'mark', 'actions'];
+const STEP_KEYS = ['caption', 'read', 'hold', 'mark', 'markAfter', 'actions'];
 const TARGET_KEYS = ['css', 'role', 'label'];
 const LOCATOR_KEYS = [...TARGET_KEYS, 'name', 'exact', 'within', 'nth'];
 
@@ -95,7 +95,9 @@ function stepProblems(step, where) {
       problems.push(`${where}: caption が ${MAX_CAPTION_CHARS} 文字を超える（帯に収まらない）`);
     }
   }
-  if (step.mark !== undefined) problems.push(...locatorProblems(step.mark, `${where}.mark`));
+  for (const key of ['mark', 'markAfter']) {
+    if (step[key] !== undefined) problems.push(...locatorProblems(step[key], `${where}.${key}`));
+  }
   for (const key of ['read', 'hold']) {
     if (step[key] !== undefined && !isWait(step[key])) problems.push(`${where}: ${key} は 0 から ${MAX_WAIT_MS} のミリ秒`);
   }
@@ -173,7 +175,7 @@ export function describeLocator(spec) {
 
 /**
  * 録画せずに通す項目を、録画と同じ順に並べる。場面は 1 から数える。待ち（pause、read、hold）は含めない。
- * 各項目は { step, kind: goto|mark|click|check|select|fill|wait|press|hold, action?, spec?, path? }。
+ * 各項目は { step, kind: goto|mark|markAfter|click|check|select|fill|wait|press|hold, action?, spec?, path? }。
  * mark の spec は枠で示す要素、それ以外は action に手順書の操作がそのまま入る。press と hold の spec は on の要素（無ければ undefined）。
  */
 export function probePlan(plan) {
@@ -187,6 +189,7 @@ export function probePlan(plan) {
       const spec = KEY_VERBS.includes(kind) ? action.on : action[kind];
       items.push(kind === 'goto' ? { step: n, kind, path: action.goto } : { step: n, kind, action, spec });
     }
+    if (step.markAfter) items.push({ step: n, kind: 'markAfter', spec: step.markAfter });
   });
   return items;
 }
@@ -265,6 +268,7 @@ export function estimateSeconds(plan) {
   for (const step of plan.steps) {
     const actions = step.actions ?? [];
     if (step.mark) ms += MARK_MS;
+    if (step.markAfter) ms += MARK_MS;
     if (actions.length > 0) {
       if (step.caption) ms += step.read ?? READ_MS;
       actions.forEach((action, i) => {

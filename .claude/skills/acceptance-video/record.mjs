@@ -179,8 +179,18 @@ async function main(planPath, outArg) {
           if (pausesAfter(actions, i)) await wait(PAUSE_MS);
         }
         await unmark();
+        if (step.markAfter) {
+          await mark(step.markAfter);
+          await wait(MARK_MS);
+        }
         await wait(step.hold ?? HOLD_MS);
+        if (step.markAfter) await unmark();
       } else {
+        if (step.markAfter) {
+          await unmark();
+          await mark(step.markAfter);
+          await wait(MARK_MS);
+        }
         await wait(step.hold ?? RESULT_MS);
         await unmark();
       }
