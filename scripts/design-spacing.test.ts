@@ -5,9 +5,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
-import { declarations, spacingEntries, spacingProblem, spacingTokens } from './design-spacing.ts';
-
-type AllowEntry = string | { entry: string; reason: string };
+import { compareAllowlist, declarations, spacingEntries, spacingProblem, spacingTokens } from './design-spacing.ts';
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
 
@@ -162,29 +160,42 @@ describe('余白の刻みの判定', () => {
   });
 });
 
+describe('許可リストとの突き合わせ', () => {
+  const found = new Map([['.a | gap: 6px', { problem: '直書きの 6px', count: 2 }]]);
+
+  test('同じ組が許可リストの行の数より多ければ、新しく書いたものとして数える', () => {
+    assert.deepEqual(compareAllowlist(found, ['.a | gap: 6px']), {
+      broken: [],
+      added: ['.a | gap: 6px（直書きの 6px。2 か所）'],
+      stale: [],
+    });
+  });
+
+  test('許可リストの行の数が見つけた数より多ければ、残っているものとして数える', () => {
+    assert.deepEqual(compareAllowlist(found, ['.a | gap: 6px', '.a | gap: 6px', '.b | gap: 5px']), {
+      broken: [],
+      added: [],
+      stale: ['.b | gap: 5px'],
+    });
+  });
+
+  test('文字列でも、空でない理由を添えた形でもない行は、読み込みで止めずに不正な行として返す', () => {
+    const list = [null, { entry: '.a | gap: 6px' }, { entry: '.a | gap: 6px', reason: '押せる範囲' }, '.a | gap: 6px'];
+    assert.deepEqual(compareAllowlist(found, list).broken, [null, { entry: '.a | gap: 6px' }]);
+    assert.deepEqual(compareAllowlist(found, {}).broken, [{}]);
+  });
+});
+
 describe('design/components.css の余白', () => {
   const tokens = spacingTokens(read('../design/tokens.css'));
   const found = spacingEntries(read('../design/components.css'), tokens);
-  const list = JSON.parse(read('./design-spacing-allowlist.json')) as AllowEntry[];
-  const allowed = new Map<string, number>();
-  for (const item of list) {
-    const entry = typeof item === 'string' ? item : item.entry;
-    allowed.set(entry, (allowed.get(entry) ?? 0) + 1);
-  }
+  const { broken, added, stale } = compareAllowlist(found, JSON.parse(read('./design-spacing-allowlist.json')));
 
   test('許可リストの行は、文字列か、空でない理由を添えた形', () => {
-    const broken = list.filter(
-      (item) =>
-        typeof item !== 'string' &&
-        !(typeof item?.entry === 'string' && typeof item.reason === 'string' && item.reason.trim() !== ''),
-    );
     assert.deepEqual(broken, [], '許可リストの行は "<行>" か { "entry": "<行>", "reason": "<理由の節>" } で書く');
   });
 
   test('刻みの外の値を新しく書いていない', () => {
-    const added = [...found]
-      .filter(([entry, { count }]) => count > (allowed.get(entry) ?? 0))
-      .map(([entry, { problem, count }]) => `${entry}（${problem}。${count} か所）`);
     assert.deepEqual(
       added,
       [],
@@ -193,9 +204,6 @@ describe('design/components.css の余白', () => {
   });
 
   test('許可リストに、もう無い値が残っていない', () => {
-    const stale = [...allowed]
-      .filter(([entry, count]) => count > (found.get(entry)?.count ?? 0))
-      .map(([entry]) => entry);
     assert.deepEqual(
       stale,
       [],

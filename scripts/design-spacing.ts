@@ -159,3 +159,27 @@ export function spacingEntries(css: string, tokens: Set<string>): Map<string, Sp
   }
   return entries;
 }
+
+export type AllowlistResult = { broken: unknown[]; added: string[]; stale: string[] };
+
+// 許可リスト（JSON をそのまま渡す）と見つけた組を、件数で突き合わせる。
+// 行は "<行>" か { "entry": "<行>", "reason": "<空でない理由>" }。それ以外の行は読み込みで止めず broken に返し、検査の失敗として見せる
+export function compareAllowlist(found: Map<string, SpacingEntry>, list: unknown): AllowlistResult {
+  const broken: unknown[] = [];
+  const allowed = new Map<string, number>();
+  for (const item of Array.isArray(list) ? list : (broken.push(list), [])) {
+    const entry =
+      typeof item === 'string'
+        ? item
+        : typeof item?.entry === 'string' && typeof item.reason === 'string' && item.reason.trim() !== ''
+          ? item.entry
+          : null;
+    if (entry === null) broken.push(item);
+    else allowed.set(entry, (allowed.get(entry) ?? 0) + 1);
+  }
+  const added = [...found]
+    .filter(([entry, { count }]) => count > (allowed.get(entry) ?? 0))
+    .map(([entry, { problem, count }]) => `${entry}（${problem}。${count} か所）`);
+  const stale = [...allowed].filter(([entry, count]) => count > (found.get(entry)?.count ?? 0)).map(([entry]) => entry);
+  return { broken, added, stale };
+}
