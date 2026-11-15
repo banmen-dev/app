@@ -681,7 +681,7 @@ Wiki、お気に入り（`favorites`）、依頼先（`delegatees`）、組織�
    pnpm exec wrangler r2 object delete "scrum-guild-attachments/<キー>" --remote
    ```
 
-   Cloudflare のダッシュボードで R2 のバケット `scrum-guild-attachments` のオブジェクトの一覧を開き、`<組織の ID>/` の前方一致で絞る。残り（D1 に行の無いファイルを含む）があれば消し、一覧を再読み込みして残りが無いことを確かめる。wrangler 4.153 には R2 の一覧のコマンドが無いので、この最後の確認にはダッシュボードを使う。ここまで人が手元で行い、セッションは実行しない。
+   Cloudflare のダッシュボードで R2 のバケット `scrum-guild-attachments` のオブジェクトの一覧を開き、`<組織の ID>/` の前方一致で絞る。残り（D1 に行の無いファイルを含む）があれば消し、一覧を再読み込みして残りが無いことを確かめる。プロフィール画像のファイル（`<組織の ID>/avatars/` の下。行は手順 5 の `user_avatars` の削除で消え、手順 3 で書き出す添付の一覧には入らない）と、消せずに残ったファイルは、ここで接頭辞ごと消える。wrangler 4.153 には R2 の一覧のコマンドが無いので、この最後の確認にはダッシュボードを使う。ここまで人が手元で行い、セッションは実行しない。
 8. 消したことを #220 にコメントで残す。書くのは、消した日（UTC）と組織の ID。このリポジトリは公開なので、slug と組織の名前（顧客を表しうる）と、実在の個人名は書かない
 9. 書き出したファイル（`/tmp/purge-$id.sql`、`/tmp/purge-$id.before.json`、`/tmp/purge-$id.attachments.json`、残っていれば `/tmp/purge-$id.attachments.tmp`）を消す
 

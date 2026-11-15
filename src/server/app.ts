@@ -53,7 +53,13 @@ export function createApp(
     }
     const binary = c.get('binaryResponse') === true;
     c.res.headers.set('Content-Security-Policy', binary ? attachmentCsp : apiCsp);
-    c.res.headers.set('Cache-Control', binary ? attachmentCacheControl : apiCacheControl);
+    // 定義が指定した値は 200 の応答だけ（404、206、401 などは再検査できるよう private, no-store）。ハンドラーが付けた値は使わない
+    c.res.headers.set(
+      'Cache-Control',
+      binary
+        ? ((c.res.status === 200 ? c.get('binaryCacheControl') : undefined) ?? attachmentCacheControl)
+        : apiCacheControl,
+    );
   });
 
   // 運用者の一覧に形の合わない項目があれば、すべてのリクエストを 500 にする。運用者でない人に運用者の権限を渡さないため、

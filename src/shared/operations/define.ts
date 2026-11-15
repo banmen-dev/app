@@ -67,6 +67,9 @@ type Common<Input, Output> = {
   // ファイルを返す GET /api/<slug>/<name>/<id>。組織の直下の read だけ。
   // 入力はパスの id、応答は Response。CLI と MCP（JSON）からは呼べない。
   readonly response?: 'binary';
+  // 200 の応答の Cache-Control。response: 'binary' の操作だけで、private で始まる値だけ。
+  // 指定の無いバイナリの応答と 200 以外の応答は private, no-store
+  readonly cacheControl?: string;
 };
 
 // ワークスペースの下の操作は、入力に workspace_id を持つ。無いと型で落ちる
@@ -138,6 +141,17 @@ export function assertOperationDefinition(definition: AnyOperationDefinition): v
       definition.body !== undefined)
   ) {
     throw new Error(`操作 ${name} の response は、組織の直下の read の操作に 'binary' だけ付けられる`);
+  }
+  // 公開のキャッシュ（共有キャッシュ）に載せない値だけ。private で始め、後ろは印字できる文字だけで、
+  // 共有キャッシュに載せる指示（public、s-maxage）を後ろに足した値も断る
+  if (
+    definition.cacheControl !== undefined &&
+    (definition.response !== 'binary' ||
+      typeof definition.cacheControl !== 'string' ||
+      !/^private(?:,[\x20-\x7e]*)?$/.test(definition.cacheControl) ||
+      /(?:^|,)\s*(?:public|s-maxage)\b/i.test(definition.cacheControl))
+  ) {
+    throw new Error(`操作 ${name} の cacheControl は、ファイルを返す操作に private で始まる値だけ付けられる`);
   }
   if (
     definition.storage !== undefined &&
