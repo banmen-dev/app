@@ -3788,6 +3788,26 @@ const NPM_CALL_SET_REASON =
 // 同じコマンドの中で設定した変数の値。値は読まないので、設定されたことだけを表す空でない文字列
 const SET_IN_COMMAND = '(このコマンドの中で設定)';
 
+// クラウドのセッション（claude.ai/code）の起動元が、すべての git に付ける GIT_CONFIG_COUNT、GIT_CONFIG_KEY_<n>、GIT_CONFIG_VALUE_<n> の組。
+// 認証の対話を切り、github.com の ssh の URL を https の github.com に読み替えるだけで、フック、push の先、ページャーや外部のコマンドを変えない。
+// 起動元の環境がこの組と番号、キー、値まで完全に一致し、ほかの GIT_CONFIG_* が無いときだけ、git の設定の差し替えとみなさない。
+// 1つでも違えば（一部だけ、並べ替え、重複、大文字小文字の違いを含む）従来どおり確認に回す。起動元が組を変えたら、ここを直すまで確認が出る
+const CLOUD_HARNESS_GIT_CONFIG = [
+  ['credential.interactive', 'false'],
+  ['url.https://github.com/.insteadOf', 'git@github.com:'],
+  ['url.https://github.com/.insteadOf', 'ssh://git@github.com/'],
+];
+
+export function isCloudHarnessGitConfig(env) {
+  const names = Object.keys(env).filter((name) => /^GIT_CONFIG_/.test(name) && env[name] !== undefined);
+  const expected = { GIT_CONFIG_COUNT: String(CLOUD_HARNESS_GIT_CONFIG.length) };
+  CLOUD_HARNESS_GIT_CONFIG.forEach(([key, value], i) => {
+    expected[`GIT_CONFIG_KEY_${i}`] = key;
+    expected[`GIT_CONFIG_VALUE_${i}`] = value;
+  });
+  return names.length === Object.keys(expected).length && names.every((name) => Object.hasOwn(expected, name) && env[name] === expected[name]);
+}
+
 // 語に変数の名前があるか。zsh の cdpath は CDPATH と結び付いた配列（cdpath=(x)）
 const VARIABLE_MENTIONS = {
   GIT_CONFIG_ENV: /(^|[^\w])GIT_CONFIG_[A-Za-z0-9_]+([^\w]|$)/,
@@ -4047,8 +4067,10 @@ export function judgeBash(command, options) {
     rootCache.clear();
     // 起動元の実在の環境変数と、判定中に積む GIT_CONFIG_LOCATION 等の印を分ける。
     // 文字列を表示しただけで legacy の COUNT の印が付いても、git の設定を変更したとはしない。
+    // クラウドのセッションの起動元が決まって付ける組（isCloudHarnessGitConfig）だけは、設定の差し替えとみなさない。
+    // env は変えずに渡す（gh の宛先の判定は、組でも GIT_CONFIG_COUNT を起動元にあるものとして見る）
     const env = options.env ?? {};
-    const configured = Object.entries(env).some(([name, value]) => /^GIT_CONFIG_/.test(name) && value !== undefined);
+    const configured = !isCloudHarnessGitConfig(env) && Object.entries(env).some(([name, value]) => /^GIT_CONFIG_/.test(name) && value !== undefined);
     options = { ...options, env: { ...env, GIT_CONFIG_ENV: configured ? SET_IN_COMMAND : undefined } };
   }
   return judgeCommand(command, options);
