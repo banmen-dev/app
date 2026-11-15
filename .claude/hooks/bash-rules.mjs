@@ -35,7 +35,9 @@ import {
   prefixIndexes,
   prefixName,
   redirectsOf,
+  replaceWord,
   shapeAt,
+  substitutionsAt,
   sliceWords,
   splitSegments,
 } from './shell-words.mjs';
@@ -2150,6 +2152,13 @@ function redirectTexts(redirect) {
   return texts;
 }
 
+// 引数もリダイレクトの先と同じ語で補う。置換の無い変数だけの語は解決しない。
+function argumentTexts(args, i) {
+  const substitutions = substitutionsAt(args, i);
+  if (substitutions.length === 0) return [args[i]];
+  return redirectTexts({ target: args[i], shape: shapeAt(args, i), substitutions });
+}
+
 // 先の shape の DYNAMIC を、pieces と ${NAME:-既定値} の既定値と空文字（未設定の変数）で埋めた文字列。
 // 位置が1つだけで固定の文字を持たない先（"$(mktemp)"）は、中身がそのまま名前になるので埋めない。
 // 位置が複数あれば、位置ごとに別の語を割り当てた組み合わせを見る（$(echo .dev)$(echo .vars) は .dev と .vars をつないだ .dev.vars）。
@@ -2192,23 +2201,26 @@ const SECRET_FILE_REASON =
 function judgeSecretAccess(tool, args, words) {
   if (redirectsOf(words).some((r) => isReadRedirect(r) && redirectTexts(r).some(mentionsSecret))) return true;
   if (GNU_PREFIXED.has(tool)) tool = tool.slice(1);
+  const secretAt = (i) => argumentTexts(args, i).some(mentionsSecret);
   // 引数を実行しない道具以外は、引数のどれかに名前があれば止める（sqlite3 x.db '.output .dev.vars'、expect -c 'spawn cat .dev.vars'、
   // docker run --env-file .env x のように、表に無い道具の読み書きを列挙しきれないため）。pnpm test -- --grep .env のような止めすぎは人に任せる。
   // find は探すだけの形（find . -name .dev.vars）が多いので外し、-exec などと -fprint などの書き込み先（writesTo）で見る
-  if (!isNonExecuting(tool) && tool !== 'find' && args.some(mentionsSecret)) return true;
+  if (!isNonExecuting(tool) && tool !== 'find' && args.some((_, i) => secretAt(i))) return true;
   // 書き込み先（>）と、文書として流すヒアドキュメントの本文は args に入らないので、args は読み取りの引数として見てよい
   if (INTERPRETERS.has(tool)) return heredocBodies(args).some(mentionsSecret);
   if (SEARCHERS.has(tool)) {
     // 最初の位置の引数は探す文字列なので、grep ".dev.vars" docs のような検索は通す
-    const pos = positionals(args, SEARCH_FLAGS_WITH_VALUE);
+    const pos = positionalIndexes(args, SEARCH_FLAGS_WITH_VALUE);
     const files = args.some((a) => ['-e', '-f', '--regexp', '--file'].includes(a)) ? pos : pos.slice(1);
-    return files.some(mentionsSecret);
+    return files.some(secretAt);
   }
-  if (READERS.has(tool) || SHELLS.has(tool)) return args.some(mentionsSecret);
+  if (READERS.has(tool) || SHELLS.has(tool)) return args.some((_, i) => secretAt(i));
   if (COPY_TOOLS.has(tool)) {
     // ここで見るのはコピーの元。書き込み先は writesTo が見る（cp .dev.vars.example .dev.vars はそちらで止まる）
-    const pos = positionals(args);
-    return pos.slice(0, -1).some(mentionsSecret);
+    const pos = positionalIndexes(args);
+    const target = TARGET_DIRECTORY_TOOLS.has(tool) ? targetDirectoryOf(args, flagsWithValueOf(tool)) : null;
+    // -t で宛先を渡すと、最後の位置引数もコピーの元になる。
+    return (target ? pos.filter((i) => i !== target.valueAt) : pos.slice(0, -1)).some(secretAt);
   }
   return false;
 }
@@ -3132,6 +3144,11 @@ function removesRoot(word, dir, roots) {
 // find の起点。前に置くオプション（GNU の -H、-L、-P、-D の値、-O と、オプションの終わりの --。
 // BSD の -E、-X、-d、-s、-x（-Ex のようにまとめた形も）と、値を起点として取る -f path）の後ろから、- か ( か ! で始まる語の手前まで。無ければ .
 function findStartingPoints(args) {
+  return findStartingPointIndexes(args).map((i) => i === -1 ? '.' : args[i]);
+}
+
+// 起点の位置も残し、-exec の {} に置換の中身と shape を運ぶ。-1 は省略された起点 .。
+function findStartingPointIndexes(args) {
   const starts = [];
   let i = 0;
   for (; i < args.length; i++) {
@@ -3142,11 +3159,11 @@ function findStartingPoints(args) {
     }
     if (a === '-D') i++;
     else if (a === '-f') {
-      if (args[i + 1] !== undefined) starts.push(args[++i]);
+      if (args[i + 1] !== undefined) starts.push(++i);
     } else if (!/^-([HLPEXdsx]+|O\d*)$/.test(a)) break;
   }
-  for (; i < args.length && !/^[-(!),]/.test(args[i]); i++) starts.push(args[i]);
-  return starts.length > 0 ? starts : ['.'];
+  for (; i < args.length && !/^[-(!),]/.test(args[i]); i++) starts.push(i);
+  return starts.length > 0 ? starts : [-1];
 }
 
 const FIND_EXECS = new Set(['-exec', '-execdir', '-ok', '-okdir']);
@@ -3166,7 +3183,9 @@ const FIND_COMMANDS_REASON = [ASK, 'find の起点と -exec の入れ子が多�
 // 語の {a,b} の展開の数（{} に入る起点の展開も掛ける）の和の積
 const PROTECTED_SUBDIRS = ['.claude', '.claude/hooks', '.githooks', 'migrations', 'hooks'];
 function findCommands(args, holdsProtected) {
-  const starts = findStartingPoints(args);
+  const starts = findStartingPointIndexes(args).map((i) => i === -1
+    ? { target: '.', shape: '.', expands: false, substitutions: [] }
+    : { target: args[i], shape: shapeAt(args, i), expands: expandsAt(args, i), substitutions: substitutionsAt(args, i) });
   const execs = [];
   for (let i = 0; i < args.length; i++) {
     if (!FIND_EXECS.has(args[i])) continue;
@@ -3187,26 +3206,37 @@ function findCommands(args, holdsProtected) {
   const size = (word) => Math.min(expansionSize(word), MAX_BRACE_EXPANSION + 1);
   // -execdir 系は起点の展開ごとに守る先を含みうるかを見るので重い。重さの下限（展開ごとに作業場所 2 つ × 語の数）を先に見積もり、
   // 上限を超えるなら組み合わせを作らずに打ち切る
-  const leastWeight = execs.reduce((sum, { at, inDir }) => sum + (inDir ? starts.reduce((s, start) => s + size(start), 0) * 2 * at.length : 0), 0);
+  const leastWeight = execs.reduce((sum, { at, inDir }) => sum + (inDir ? starts.reduce((s, start) => s + size(start.target), 0) * 2 * at.length : 0), 0);
   if (leastWeight > MAX_FIND_WEIGHT) return { count, weight: Infinity, build: () => [], runsFound };
   // 掛け直す組み合わせ。{ at, placed, tos } の placed は {} に入れる語、tos は作業場所の候補
   const plans = execs.flatMap(({ at, inDir }) =>
     starts.flatMap((start) => {
       if (!inDir) return [{ at, placed: start, tos: [null] }];
-      if (expansionSize(start) > MAX_BRACE_EXPANSION) return [{ at, placed: start, tos: [], tooBig: true }];
-      return expandBraces(start).map((e) => ({
+      if (expansionSize(start.target) > MAX_BRACE_EXPANSION) return [{ at, placed: start, tos: [], tooBig: true }];
+      if (expansionSize(start.shape) > MAX_BRACE_EXPANSION) return [{ at, placed: start, tos: [], tooBig: true }];
+      const expanded = expandBraces(start.target);
+      const shapes = expandBraces(start.shape);
+      // target と shape は同じ brace の順に展開してから basename を取る。別候補の / で置換の印を切り落とさない。
+      // 変数の位置を印にしたことで候補数が違うときは、対応を断定せず shape の候補をすべて見る。
+      if (expanded.length !== shapes.length && expanded.length * shapes.length > MAX_FIND_COMMANDS) return [{ at, placed: start, tos: [], tooBig: true }];
+      return expanded.flatMap((e, i) => (expanded.length === shapes.length ? [shapes[i]] : shapes).map((shape) => ({
         at,
-        placed: `./${path.posix.basename(e)}`,
+        placed: {
+          ...start,
+          target: `./${path.posix.basename(e)}`,
+          shape: `./${path.posix.basename(shape)}`,
+          expands: start.expands && (shape.includes(DYNAMIC) || expandsAt([e], 0)),
+        },
         tos: [path.posix.dirname(e), e, ...(holdsProtected(e) ? PROTECTED_SUBDIRS.map((c) => path.posix.join(e, c)) : [])],
-      }));
+      })));
     }),
   );
   const weightOf = ({ at, placed, tos, tooBig }) =>
-    tooBig ? Infinity : tos.length * at.reduce((w, k) => w + 1 + (args[k].includes('{}') ? size(args[k].replaceAll('{}', '')) * size(placed) : size(args[k])), 0);
+    tooBig ? Infinity : tos.length * at.reduce((w, k) => w + 1 + (args[k].includes('{}') ? size(args[k].replaceAll('{}', '')) * size(placed.target) : size(args[k])), 0);
   const weight = plans.reduce((sum, plan) => sum + weightOf(plan), 0);
   const build = () =>
     plans.flatMap(({ at, placed, tos }) => {
-      const words = concatWords(...at.map((k) => (args[k].includes('{}') ? [args[k].replaceAll('{}', placed)] : sliceWords(args, k, k + 1))));
+      const words = concatWords(...at.map((k) => (args[k].includes('{}') ? replaceWord(args, k, '{}', placed) : sliceWords(args, k, k + 1))));
       return tos.map((to) => ({ words, to }));
     });
   return { count, weight, build, runsFound };

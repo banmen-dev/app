@@ -11,7 +11,7 @@
 // 終わりの印に引用符も \ も無いヒアドキュメントは、シェルが本文の置換を実行するので、本文の中身も substitutions に入れて別の区切りにする。
 // 終わりの印の行が見つからないヒアドキュメントの項目には unterminated を付ける（後ろのコマンドを全部本文に飲むので、判定の側が確認を挟む）
 // 完全なシェルの解釈ではない。判定に使うのは、各区切りで先頭に来る道具の名前と引数だけ。
-// 区切りの配列は、語ごとに2つの印を列挙されない属性に持つ。引用符を外した文字列だけでは、"a b?" と a\ b? や {a,--no-local}、
+// 区切りの配列は、語ごとの置換の中身（substitutions）と、2つの印を列挙されない属性に持つ。引用符を外した文字列だけでは、"a b?" と a\ b? や {a,--no-local}、
 // '$x' と "$x" を見分けられないため。
 // - expands: 語が展開で別の語に分かれるか、別の文字列になりうるか。引用符の外の変数、置換、brace、glob、zsh の括弧の glob、
 //   zsh の数値の glob（<->、<1-10>）、~名前 と、引用符の中の変数のうち QUOTED_PARAMETER に当たらないもの（"$@"、"${a[@]}"、"${(f)x}"、"$=x"、"$x[@]"）
@@ -38,10 +38,11 @@ const CASE_LABEL_REST = /^(\|[ \t]*[^\s;&|()<>]+[ \t]*)*\)/;
 // 記号だけでできた予約語と test の道具（{ … }、[ -f x ]、[[ … ]]）は展開しない
 const LITERAL_WORDS = new Set(['{', '}', '[', ']', '[[', ']]']);
 
-function withMarks(words, expands, shapes, redirects = []) {
+function withMarks(words, expands, shapes, redirects = [], substitutions = []) {
   Object.defineProperty(words, 'expands', { value: expands, configurable: true });
   Object.defineProperty(words, 'shapes', { value: shapes, configurable: true });
   Object.defineProperty(words, 'redirects', { value: redirects, configurable: true });
+  Object.defineProperty(words, 'substitutions', { value: substitutions, configurable: true });
   return words;
 }
 
@@ -61,6 +62,11 @@ export function expandsAt(words, i) {
 // i 番目の語の、実行時に決まる位置を DYNAMIC に置き換えた文字列。印の無い配列は、$ を全部実行時に決まるものとみなす
 export function shapeAt(words, i) {
   return words.shapes?.[i] ?? (words[i] ?? '').replaceAll('$', DYNAMIC);
+}
+
+// i 番目の語の中のコマンド置換。引用符を解いた語だけでは失われる中身を名前の照合に使う
+export function substitutionsAt(words, i) {
+  return words.substitutions?.[i] ?? [];
 }
 
 // 区切りが括弧の glob の閉じの ) の直後から始まったか。始まったなら、その語は前の区切りのコマンドの続き
@@ -87,6 +93,24 @@ export function sliceWords(words, start, end) {
     words.map((_, i) => expandsAt(words, i)).slice(start, end),
     words.map((_, i) => shapeAt(words, i)).slice(start, end),
     redirectsOf(words),
+    words.map((_, i) => substitutionsAt(words, i)).slice(start, end),
+  );
+}
+
+// 1語の固定部分を置き換え、元の展開とコマンド置換の印を保つ（find -exec の {}）。
+export function replaceWord(words, i, from, to) {
+  const replacement = typeof to === 'string'
+    ? { target: to, shape: shapeAt([to], 0), expands: expandsAt([to], 0), substitutions: [] }
+    : to;
+  const rest = words[i].replaceAll(from, '');
+  // {} 自体の brace の印は置換後には残さない。残りの展開と、置き込む起点の展開は維持する。
+  const expands = (expandsAt(words, i) && (EXPANSION_CHARS.test(rest) || shapeAt(words, i).includes(DYNAMIC))) || replacement.expands;
+  return withMarks(
+    [words[i].replaceAll(from, () => replacement.target)],
+    [expands],
+    [shapeAt(words, i).replaceAll(from, () => replacement.shape)],
+    redirectsOf(words),
+    [[...substitutionsAt(words, i), ...replacement.substitutions]],
   );
 }
 
@@ -99,6 +123,7 @@ export function concatWords(...parts) {
     parts.flatMap((p) => p.map((_, i) => expandsAt(p, i))),
     parts.flatMap((p) => p.map((_, i) => shapeAt(p, i))),
     redirects,
+    parts.flatMap((p) => p.map((_, i) => substitutionsAt(p, i))),
   );
 }
 
@@ -377,6 +402,11 @@ export function splitSegments(command) {
   let words = withMarks([], [], []);
   let word = '';
   let shape = '';
+  let wordSubstitutions = [];
+  const addSubstitutions = (...inner) => {
+    nested.push(...inner);
+    wordSubstitutions.push(...inner);
+  };
   let globPattern = '';
   let globClass = false;
   let globBraces = 0;
@@ -431,9 +461,11 @@ export function splitSegments(command) {
       words.push(word);
       words.expands.push(expands && !LITERAL_WORDS.has(word));
       words.shapes.push(shape);
+      words.substitutions.push(wordSubstitutions);
     }
     word = '';
     shape = '';
+    wordSubstitutions = [];
     globPattern = '';
     globClass = false;
     globBraces = 0;
@@ -472,7 +504,7 @@ export function splitSegments(command) {
       const { inner, end, expression, uncertain: ambiguous } = readSubstitution(command, i);
       uncertain ||= ambiguous;
       if (expression !== undefined) arithmetic.push(expression);
-      nested.push(...inner);
+      addSubstitutions(...inner);
       add(SUBSTITUTION, true);
       expands = true;
       i = end;
@@ -481,7 +513,7 @@ export function splitSegments(command) {
     if (c === '`') {
       const end = command.indexOf('`', i + 1);
       const stop = end === -1 ? command.length : end;
-      nested.push(command.slice(i + 1, stop));
+      addSubstitutions(command.slice(i + 1, stop));
       add(SUBSTITUTION, true);
       expands = true;
       i = stop;
@@ -508,7 +540,7 @@ export function splitSegments(command) {
           const { inner, end, expression, uncertain: ambiguous } = readSubstitution(command, j);
           uncertain ||= ambiguous;
           if (expression !== undefined) arithmetic.push(expression);
-          nested.push(...inner);
+          addSubstitutions(...inner);
           add(SUBSTITUTION, true);
           j = end + 1;
           continue;
@@ -516,14 +548,14 @@ export function splitSegments(command) {
         if (command[j] === '`') {
           const end = command.indexOf('`', j + 1);
           const stop = end === -1 ? command.length : end;
-          nested.push(command.slice(j + 1, stop));
+          addSubstitutions(command.slice(j + 1, stop));
           add(SUBSTITUTION, true);
           j = stop + 1;
           continue;
         }
         if (command[j] === '$') {
           const { end, substitutions } = readParameter(command, j);
-          nested.push(...substitutions);
+          addSubstitutions(...substitutions);
           const parameter = command.slice(j, end);
           if (parameter === '$' && !/[=~^]/.test(command[end] ?? '')) {
             // 名前の続かない $ は文字（"a $"）。zsh の $=x、$~x、$^x は語を分けるか glob にする
@@ -673,6 +705,7 @@ export function splitSegments(command) {
       if (label) {
         word = '';
         shape = '';
+        wordSubstitutions = [];
         globPattern = '';
         globClass = false;
         globBraces = 0;
@@ -753,7 +786,7 @@ export function splitSegments(command) {
     }
     if (c === '$') {
       const { end, substitutions } = readParameter(command, i);
-      nested.push(...substitutions);
+      addSubstitutions(...substitutions);
       add(command.slice(i, end), true);
       expands = true;
       i = end - 1;

@@ -32,6 +32,102 @@ const ctx = (branch) => ({ cwd: '/repo', branchOf: () => branch, scriptOf: (dir,
 const verdict = (command, branch = '21-claude-settings') => judgeBash(command, ctx(branch));
 const decision = (command, branch) => verdict(command, branch)?.[0] ?? 'allow';
 
+describe('#1247 引数の置換で組んだシークレットの名前', () => {
+  for (const secret of ['.dev.vars', '.env']) {
+    for (const command of [
+      `cat $(echo ${secret})`,
+      `cat "$(echo ${secret})"`,
+      `head $(printf %s ${secret})`,
+      `cp $(echo ${secret}) /tmp/x`,
+      `cp "$(echo ${secret})" /tmp/x`,
+      `cat \`echo ${secret}\``,
+      `cat "\`echo ${secret}\`"`,
+      `grep TOKEN "$(echo ${secret})"`,
+      `ghead "$(echo ${secret})"`,
+      `docker run --env-file="$(echo ${secret})" x`,
+    ]) {
+      test(`${command} は deny`, () => assert.equal(decision(command), 'deny', command));
+    }
+  }
+  for (const command of [
+    'cat "$(echo .dev).vars"',
+    'cat ".dev$(echo .vars)"',
+    'cat "$(echo .dev)$(echo .vars)"',
+    'cp "$(echo .en)v" /tmp/x',
+    'head "$(printf %s .)env"',
+    'cat "$(echo .en\'v\')"',
+    'cat "$(echo /tmp)/.env"',
+    'cat < "$(echo .dev.vars)"',
+    'echo x > "$(echo .env)"',
+  ]) {
+    test(`${command} は deny`, () => assert.equal(decision(command), 'deny', command));
+  }
+  for (const command of [
+    'cat "$(mktemp)"',
+    'ls $(pwd)',
+    'cat "$(mktemp -d)/out.log"',
+    'cat "$(echo .dev.vars.example)"',
+    'cp "$(echo .env.example)" /tmp/x',
+    'grep "$(echo .dev.vars)" docs/development.md',
+    'echo "$(echo .env)"',
+    'cat \`mktemp\`',
+  ]) {
+    test(`${command} は allow`, () => assert.equal(decision(command), 'allow', command));
+  }
+
+  const hooks = path.dirname(fileURLToPath(import.meta.url));
+  for (const secret of ['.dev.vars', '.env']) {
+    for (const command of [
+      `cat $(echo ${secret})`,
+      `cat "$(echo ${secret})"`,
+      `head $(printf %s ${secret})`,
+      `cp $(echo ${secret}) /tmp/x`,
+    ]) {
+      test(`入口: ${command} は deny`, () => {
+        const input = JSON.stringify({ tool_name: 'Bash', cwd: os.tmpdir(), tool_input: { command } });
+        const result = spawnSync(process.execPath, [path.join(hooks, 'guard-bash.mjs')], {
+          input, encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: '' },
+        });
+        assert.equal(result.status, 0, result.stderr);
+        assert.equal(JSON.parse(result.stdout || '{}').hookSpecificOutput?.permissionDecision, 'deny', command);
+      });
+    }
+  }
+});
+
+describe('#1247 宛先を指定したコピー元と find の引数の置換', () => {
+  for (const secret of ['.dev.vars', '.env']) {
+    for (const command of [
+      `cp -t /tmp "$(echo ${secret})"`,
+      `cp --target-directory=/tmp "$(echo ${secret})"`,
+      `find . -exec cat "{}/$(echo ${secret})" \\;`,
+      `find . -exec cat "{}$(echo /${secret})" \\;`,
+    ]) {
+      test(`${command} は deny`, () => assert.equal(decision(command), 'deny', command));
+    }
+  }
+  for (const command of [
+    'cp -t /tmp "$(mktemp)"',
+    'cp --target-directory=/tmp "$(echo .env.example)"',
+    'find . -exec cat "{}/$(mktemp)" \\;',
+  ]) {
+    test(`${command} は allow`, () => assert.equal(decision(command), 'allow', command));
+  }
+});
+
+describe('#1247 入れ子と語の境目、コピーと find の別の形', () => {
+  for (const [command, expected] of [
+    ['cat "$(echo "$(echo .dev)").vars"', 'deny'],
+    ['cp -t/tmp "$(echo .env)"', 'deny'],
+    ['cp -t /tmp -- "$(echo .env)"', 'deny'],
+    ['find . -execdir cat "{}/$(echo .env)" \\;', 'deny'],
+    ['echo "$(echo .env)"; cat "$(mktemp)"', 'allow'],
+    ['find . -exec grep "$(echo .env)" "{}/log" \\;', 'allow'],
+  ]) {
+    test(`${command} は ${expected}`, () => assert.equal(decision(command), expected, command));
+  }
+});
+
 describe('shell-words', () => {
   test('引用符の中の区切りは区切りにしない', () => {
     assert.deepEqual(splitSegments('grep "a; b" x && ls'), [['grep', 'a; b', 'x'], ['ls']]);
