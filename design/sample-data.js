@@ -34,8 +34,9 @@ window.SQ_DATA = (function () {
       u7: { name: "ツムギ", hue: 140, level: 1, role: "member", left: true },
     },
     workspaces: {
-      wa: { name: "受託開発チーム" },
-      wb: { name: "社内ツール" },
+      // role は自分（D.me）のロール。組織のホームのワークスペースの面に出る
+      wa: { name: "受託開発チーム", role: "leader" },
+      wb: { name: "社内ツール", role: "member" },
     },
     columns: [
       { id: "c1", name: "未着手" },

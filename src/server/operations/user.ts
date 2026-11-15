@@ -23,6 +23,7 @@ import { ApiError } from '../errors.ts';
 import { uuidv7 } from '../uuid.ts';
 import { implement } from './implement.ts';
 import { removeDepartedPartyMemberStatements } from './membership-party.ts';
+import { removeDepartedAvatarObjects, removeDepartedAvatarStatement } from './organization-departure.ts';
 import { readSeats } from './invitation.ts';
 import type { OrganizationTools } from './organization-tools.ts';
 import { createdOn } from './workspace.ts';
@@ -246,13 +247,15 @@ export const userListOperation = implement(userList, async ({ db, tools }) => {
 });
 
 // 指名と解除。users の文の条件は、読んだ is_admin のまま、指名なら無効でないこと、解除ならほかに管理者がいること、
-// 呼んだ人が今も無効でない管理者であること。記録（{"is_admin": [前, 後]}）は直前の文が行を変えたときだけ入れる
+// 呼んだ人が今も無効でない管理者であること。記録（{"is_admin": [前, 後]}）は直前の文が行を変えたときだけ入れる。
+// 解除した人に今の所属（閉じたワークスペースの所属を含む）が無ければ、組織に入れなくなるので、同じ batch でプロフィール画像の行を消し、
+// R2 のファイルは batch の後に消す（#1273。membership-leave と同じ。指名し直しても戻さない）
 // 指名では、管理者は組織の人数に数えるので、招待の作成と同じ関数（readSeats）で人数を数え、相手がまだ数えられておらず、
 // 人数が member_limit 以上なら 409（member_limit）で断る。招待の作成と同じく人数は書く文の条件に入れない
 // （数えてから書くまでの間に同時に指名か招待をして超えたときは、そのまま認める。超えるのは同時に送った数まで）
 export const userAdminUpdateOperation = implement(
   userAdminUpdate,
-  async ({ db, actor, organization, tools, input }) => {
+  async ({ db, actor, organization, tools, input, attachmentStorage }) => {
     // 自分用の組織は管理者が本人1人だけなので、指名も解除も（すでにその状態でも）断る。何も読まず、何も書かない。
     if (organization.kind === 'personal') throw conflict('personal_organization');
     const actorUserId = actorUserIdOf(actor);
@@ -271,7 +274,10 @@ export const userAdminUpdateOperation = implement(
 
     const at = now();
     const stamp = at.toISOString();
-    const results = await db.batch([
+    // 解除で組織に入れなくなった（今の所属が無い）ときだけ、プロフィール画像の行を消す（#1273）。
+    // 「この要求で解除した」は、直前の記録の文が行を変えたことで見る（記録は users の文が行を変えたときだけ入る）
+    const removeAvatar = next === 0 ? removeDepartedAvatarStatement(db, userId, 'previous-statement') : undefined;
+    const statements = [
       db.statement((q) =>
         q
           .updateTable('users')
@@ -288,7 +294,19 @@ export const userAdminUpdateOperation = implement(
           ),
       ),
       userChangeLog(db, { actorUserId, userId, changes: { is_admin: [current.is_admin, next] }, at }),
-    ]);
+      // 記録の直後に置く（previousStatementChanged で記録の文に結ぶ）
+      ...(removeAvatar === undefined ? [] : [removeAvatar]),
+    ];
+    const results = await db.batch(statements);
+    // 行が消えた後に R2 のファイルを消す（失敗は件数だけをログに出し、解除は成功にする）。
+    // 消す文の条件は users の文の成否と別なので（同じ時刻に別の要求が同じ人を解除したときなど）、断る前でも、消した行があれば消す
+    if (removeAvatar !== undefined) {
+      await removeDepartedAvatarObjects(
+        attachmentStorage,
+        results[statements.indexOf(removeAvatar)],
+        userAdminUpdate.name,
+      );
+    }
     if ((results[0]?.changes ?? 0) > 0)
       return { user_id: userId, is_admin: next === 1, disabled_at: current.disabled_at };
 

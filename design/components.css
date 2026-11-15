@@ -781,7 +781,7 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
 }
 
 /* ===== 貼り紙（スプリントゴール、レイド） ===== */
-.notice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-4); }
+.notice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: var(--space-4); }
 .notice {
   background: var(--surface-panel); border: 1px solid var(--color-line); border-top: var(--edge-top) solid var(--color-accent);
   box-shadow: var(--shadow-sheet); border-radius: var(--radius-1);
@@ -820,6 +820,34 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
 /* 題は b か、節の見出しにするときは h2（レベルの面。読み上げの見出しで辿れるようにする） */
 .panel-title b, .panel-title h2 { margin: 0; color: var(--color-fg); font-weight: 700; letter-spacing: 0.04em; font-size: var(--text-sm); }
 .panel-note { font-size: var(--text-xs); color: var(--color-muted); }
+
+/* ===== 面（見出しと中身を持つ枠）とダッシュボードの並び =====
+   .panel は数値と計器の面（ネオンで光る）。.pane は一覧や区分を載せる面で、光らせず、見出しの下に線を引く。
+   中の節（.section）は一段小さい見出し（--text-lg）にし、面の見出しの下に入れ子で読める段にする */
+.pane { background: var(--surface-panel); border: 1px solid var(--color-line); border-radius: var(--radius-1); padding: var(--space-6); display: grid; gap: var(--space-3); min-width: 0; }
+.pane-head { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; padding-bottom: var(--space-3); border-bottom: var(--rule-double); }
+.pane-title { font-family: var(--font-display); font-weight: var(--weight-display); font-size: var(--text-xl); line-height: var(--leading-tight); letter-spacing: 0.04em; min-width: 0; overflow-wrap: anywhere; }
+.pane-count { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-muted); }
+.pane-hint { font-size: var(--text-xs); color: var(--color-muted); }
+.pane-body { display: grid; gap: var(--space-5); min-width: 0; }
+.pane .section-title { font-size: var(--text-lg); }
+/* 面の中の、押すと移る行の一覧（ワークスペース）。行の間は細い線で区切る */
+.pane-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.pane-list > li + li { border-top: 1px solid var(--color-rule); }
+.pane-link { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-1); color: inherit; text-decoration: none; border-radius: var(--radius-1); }
+.pane-link > b { flex: 1; min-width: 0; font-size: var(--text-md); font-weight: 600; overflow-wrap: anywhere; }
+.pane-link > .chip { flex: none; }
+.pane-link > .ico { flex: none; color: var(--color-muted); }
+.pane-link:hover, .pane-link:focus-visible { background: var(--color-accent-soft); }
+.pane-link:hover > .ico, .pane-link:focus-visible > .ico { color: var(--color-accent); }
+@media (max-width: 760px), (pointer: coarse) { .pane-link { min-height: 44px; } }
+/* ダッシュボード: 761px 以上は左3、右2の2列。左の列（.dashboard-main）に面を上から並べ、右の列（.dashboard-side）は面を足すまで置かず、
+   列の幅だけを空けておく（空の要素は置かない）。右の列を置いたときは2番目の列に入る。760px 以下は1列で、左の列、右の列の順に縦に並べる */
+.dashboard { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-8); align-items: start; min-width: 0; }
+.dashboard-main, .dashboard-side { display: grid; gap: var(--space-8); align-content: start; min-width: 0; }
+@media (min-width: 761px) {
+  .dashboard { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+}
 
 .level { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3); align-items: center; }
 /* 紋章は縁（要素の背景）、線（::before）、面（::after）の3層。形は全レベルで同じ六角で、テーマの飾りが層の色と太さだけを変える。

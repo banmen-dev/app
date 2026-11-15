@@ -81,7 +81,7 @@
 <script>
 "use strict";
 const { D, t, icon, avatar, avatarOf, emblem, pts, dueChip, tier, book, sprintNotice, raidNotice, levelPanel, load, capacityRows,
-  board, treeEpic, treeStory, completedTasks, progress, pageHead, esc } = SQ;
+  board, treeEpic, treeStory, completedTasks, progress, pageHead, esc, pane, paneList, dashboard } = SQ;
 
 // ゲームの物のアイコン。[名前, 語, アイコンの色（icon の tone）, 色の役割]
 const GAME_ICONS = [
@@ -485,6 +485,19 @@ const SECTIONS = [
     `<div class="cat-row"><span class="field-hint">親なしの段が空のとき、行をつかんでいる間だけ出す落とし先（.tree-slot の中の .dropzone）。重ねると .is-over で囲み、離すと親なしの末尾に入る。つかんでいないときは出さない</span></div>`,
     ["つかむ場所は行の先頭のつまみ（.grip。飾りで aria-hidden）だけ。題の文字は選べ、ボタンを押すつもりで動き出さない。キーボードと読み上げの人は、行の「上へ」「下へ」と Alt と ↑ ↓ を使う。", "つまみの列は、書き込めるときだけ行（.entry、.tree-row）に .has-grip を付けて空ける。つかめない行（完了にした直後の行）は .grip.is-off で列だけ空ける。狭い幅（760px 以下）と指で押す画面（pointer: coarse）では、つまみを出さず、列も空けない。", "落とす位置は [data-drop] で示す。before と after は行と行の間の線（--color-accent の 2px と左端の小さな丸）で、その行の字下げ（--row-indent）から始める。into は親の行（タスクを運ぶときのストーリーの行、ストーリーを運ぶときのエピックの行）の囲みで、.dropzone.is-over と同じ --color-accent の枠と --color-accent-soft の地。落とせない場所には何も示さない。", "エピックは親を持たず、エピックの段（完了と中止したエピックも含む）の中で並べ替える。運ぶときはエピックの行の前後にだけ線を出し、線は配下を含めた塊（.tree-group）の上端と下端に、エピックの段の字下げから引く。エピックの行の真ん中に重ねても囲みは出さない（囲みはストーリーを運ぶときだけ）。ストーリー、タスク、折りたたみの行、親なしの段の落とし先には何も示さない。", "親なしの段（親なしのタスク、親のないストーリー）が空のときは、その種類の行をつかんでいる間だけ、段の場所に落とし先（.tree-slot の .dropzone）を出す。", "つかんだ行は元の位置で薄くする（.is-dragging）。落とした行は、背景を --color-accent-soft から地の色へ約 0.8 秒（--duration-flash）で戻し、--color-accent の 1px の枠も同じ長さで消して光らせる（.is-dropped。地と accent-soft の差が小さいテーマでも見えるように）。prefers-reduced-motion のときは光らせず、薄くするのも切り替えだけにする。", "並べ替えの案内（.action-note）のうち、つまみのドラッグに触れる文は .drag-note に入れ、つまみを出さない条件（狭い幅と指で押す画面）では隠す。", "色は既存のトークンだけで、4つのテーマに新しい色は足さない。"],
     ".grip .grip.is-off / .entry.has-grip .tree-row.has-grip / [data-drop=before] [data-drop=after] [data-drop=into] / .tree-slot .dropzone.is-over / .is-dragging .is-dropped / .action-note .drag-note")],
+  ["panes", "面とダッシュボード", () => block("panes", "面とダッシュボード", "組織のホームの形。見出しと中身を持つ枠（面）を、左の列に上から並べる。右の列は、面を足すときだけ置く。",
+    `${dashboard(
+      pane("pane-demo-workspaces", t("workspace"), paneList([{ href: "#panes", name: "受託開発チーム", role: "leader" }, { href: "#panes", name: "社内ツール", role: "member" }]), { count: 2, hint: t("workspacePaneHint").replace("{backlog}", t("backlog")) }) +
+      pane("pane-demo-today", "今日やること", SQ.section("pane-demo-section", "今日やると決めたもの", 1, book(SQ.tasksWhere((x) => x.who === D.me && !x.doneAt && x.todayOn).slice(0, 1), { showWs: true }), "", 3)),
+      pane("pane-demo-updates", "最近の更新", `<p class="panel-note">右の列に置く面の見本です。</p>`)
+    )}` +
+    `<div class="cat-row"><span class="field-hint">右の列に面が無いとき（今のホーム）は、右の列を置かず、幅だけが空く。所属するワークスペースが無いときは、ワークスペースの面に案内を出し、今日やることの面の空は線画の無い短い1行（.book-empty）にして重ねない</span></div>` +
+    dashboard(
+      pane("pane-demo-nomember", t("workspace"), SQ.emptyState("sun", `どの${t("workspace")}にも所属していません`, `${t("workspace")}に加わると、ここから使えます。`, "", undefined, "notice")) +
+      pane("pane-demo-today-empty", "今日やること", SQ.section("pane-demo-today-empty-section", "今日やると決めたもの", null, `<div class="book"><div class="book-empty">${t("workspace")}に所属すると、自分が担当する${t("task")}がここに並びます。</div></div>`, "", 3))
+    ),
+    ["面（.pane）は、一覧や区分を載せる枠。1px の線（--color-line）と、見出しの下の線で区切り、光らせない。数値と計器を載せる記録の面（.panel）とは使い分ける。", "見出しは h2（.pane-title）。見出しの横に件数（.pane-count）と補足（.pane-hint）を置ける。面の中の節（.section）の見出しは h3 にし、一段小さい字（--text-lg）で出す（section と foldedSection の level）。", "押すと移る行（.pane-link）は、名前、ロールの札（.chip）、行末の chevron を並べる。指で押す画面と760px 以下では、行を44px 以上にする。", "ダッシュボード（.dashboard）は、左の列（.dashboard-main）に面を上から並べる。広い幅（761px 以上）は左3、右2の2列で、右の列（.dashboard-side）は面を足すまで置かず、幅だけを空けておく（空の要素は置かない）。760px 以下は1列で、左の列、右の列の順に縦に並べる。", "「最初にやること」の面（.panel）は2列の上に全幅で置く（.layout-main の中、.dashboard の前）。", "面の見出しと枠は、テーマごとに値だけが変わる（線と地は tokens.css）。"],
+    ".pane .pane-head .pane-title .pane-count .pane-hint .pane-body / .pane-list .pane-link / .dashboard .dashboard-main .dashboard-side")],
   ["notices", "貼り紙", () => block("notices", "貼り紙", "掲示する物（スプリントゴール、エピック）は、上辺に太い線を引いた紙として見せる。エピックは金、クリア済みは完了の色。",
     `<div class="notice-grid">${sprintNotice("sp14")}${raidNotice("e1")}${raidNotice("e2", { cleared: true })}</div>`,
     ["クリアしたエピックには完了の印を付ける。", "スプリントゴールの文（.notice-title.is-goal）は、書いた改行を残し（white-space: pre-line）、長い語は折り返す。ゴールを書かずに始めたスプリントは、貼り紙を出さない。"], ".notice .is-raid .is-cleared / .notice-label .notice-title .notice-title.is-goal .notice-meta .notice-facts .notice-foot / .day-ticks / .progress")],

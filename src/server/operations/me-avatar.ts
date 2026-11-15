@@ -17,6 +17,7 @@ import type { OrganizationDb } from '../db/index.ts';
 import { ApiError } from '../errors.ts';
 import { uuidv7 } from '../uuid.ts';
 import { implement, type BinaryBody } from './implement.ts';
+import { cannotEnterOrganization } from './organization-departure.ts';
 import { actorUserIdOf } from './write-guards.ts';
 
 // 本文を、実際に読んだバイト数を数えながら全部読む（ヘッダーは全体を見て読むので、途中で切れない）。
@@ -82,8 +83,8 @@ export const meAvatarUploadOperation = implement(
 
     let applied: boolean;
     try {
-      // 1回の batch で、前のキーを条件にした UPSERT を送る。その人が組織に無効でなくいることも条件にする
-      // （無効にする batch と並んだときに、消した後に行が戻らない）
+      // 1回の batch で、前のキーを条件にした UPSERT を送る。その人が組織に無効でなくいて、今も組織に入れる
+      // （管理者か、今の所属がある）ことも条件にする（無効にする batch、組織に入れなくなる離脱や解除と並んだときに、消した後に行が戻らない）
       const [result] = await db.batch([
         db.statement((q) => {
           const insert = q
@@ -103,7 +104,9 @@ export const meAvatarUploadOperation = implement(
                 ])
                 .where('u.id', '=', userId)
                 .where('u.organization_id', '=', db.organizationId)
-                .where('u.disabled_at', 'is', null),
+                .where('u.disabled_at', 'is', null)
+                // 組織に今も入れる（管理者か、今の所属がある）。離脱や解除が先に確定した後に、消した行が戻らない（#1273）
+                .where((eb) => eb.not(eb.exists(cannotEnterOrganization(q, db.organizationId, userId)))),
             );
           return (
             previous === undefined
@@ -144,7 +147,7 @@ export const meAvatarUploadOperation = implement(
       applied = true;
     }
     if (!applied) {
-      // 別の差し替えか無効にする書き込みが先に済んだ。書いた新しいファイルはどの行からも指されないので消す
+      // 別の差し替えか、無効にする・組織に入れなくなる書き込みが先に済んだ。書いた新しいファイルはどの行からも指されないので消す
       await discardNew();
       throw new ApiError(409, 'conflict');
     }

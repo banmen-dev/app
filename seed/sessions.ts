@@ -86,7 +86,7 @@ export const SEED_SESSIONS = {
     accountId: '019a0000-0000-7000-8000-000000000104',
     description: 'operator と同じアカウントの2本目（e2e のログアウトが消す）',
   },
-  // くもラボ（e2e の自分のテーマが使う組織）の3人。ほかの組織には入らない
+  // くもラボ（e2e の自分のテーマが使う組織）の3人と、プロフィール画像の離脱を確かめる1人。ほかの組織には入らない
   lookAdmin: {
     token: 'dev-seed-look-admin-00000000000000000000000',
     accountId: '019a0000-0000-7000-8000-000000000105',
@@ -101,5 +101,11 @@ export const SEED_SESSIONS = {
     token: 'dev-seed-look-themed-0000000000000000000000',
     accountId: '019a0000-0000-7000-8000-000000000107',
     description: 'くもラボの一般のユーザーで、自分のテーマ（シンプル（ダーク））を選んでいる（コハル）',
+  },
+  avatarLeaver: {
+    token: 'dev-seed-avatar-leaver-00000000000000000000',
+    accountId: '019a0000-0000-7000-8000-000000000116',
+    description:
+      'くもラボの一般のユーザー（シオン）。e2e のプロフィール画像だけが、唯一のワークスペースを抜けて画像が消えることを確かめる',
   },
 } as const satisfies Record<string, SeedSession>;
