@@ -318,3 +318,46 @@ for (const accept of [true, false]) {
     });
   }
 }
+
+for (const navigate of [false, true]) {
+  test(`初回指名の送信中の入力と画面移動を保持する navigate=${navigate}`, async ({ page, context, baseURL }) => {
+    await signIn(context, baseURL, 'admin');
+    let reads = 0;
+    await routeOperation(page, myBillingOrganizations, async (call) => {
+      reads++;
+      await call.fulfill({ account_id: accountId, operator: true, organizations: [organization], invitations: [] });
+    });
+    await mockOperation(page, billingAdminList, {
+      administrators: [{ id: accountId, account_id: accountId, name: '星野 澪', status: 'active' }],
+      events: [],
+    });
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await routeOperation(page, operatorBillingAdminInvite, async (call) => {
+      await pending;
+      await call.fulfill({ id: nominationId });
+    });
+    await page.goto('/auth/billing');
+    await page.getByLabel(t('billingSlug')).fill('aoba');
+    await page.getByLabel(t('billingTargetAccount')).fill(nextId);
+    await page.getByRole('button', { name: t('billingInvite'), exact: true }).click();
+    await expect(page.locator('#billing-status-bootstrap')).toHaveText(t('billingBusy'));
+    if (navigate) {
+      await page.getByRole('link', { name: organization.name, exact: true }).click();
+      await expect(page.getByRole('heading', { name: t('billingHistory') })).toBeVisible();
+      const before = reads;
+      release();
+      await expect.poll(() => reads).toBeGreaterThan(before);
+      await expect(page.getByText(t('billingSaved'), { exact: true })).toHaveCount(0);
+    } else {
+      await page.getByLabel(t('billingSlug')).fill('wakaba');
+      await page.getByLabel(t('billingTargetAccount')).fill(accountId);
+      release();
+      await expect(page.locator('#billing-status-bootstrap')).toHaveText(t('billingSaved'));
+      await expect(page.getByLabel(t('billingSlug'))).toHaveValue('wakaba');
+      await expect(page.getByLabel(t('billingTargetAccount'))).toHaveValue(accountId);
+    }
+  });
+}
