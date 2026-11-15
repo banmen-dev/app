@@ -2816,9 +2816,19 @@ function readsPipedScript(tool, args) {
 
 function judgePipedScript(tool, args, ctx, nextCtx) {
   const previous = ctx.stdinContext?.previous;
-  if (!['|', '|&'].includes(previous?.endOp)) return [];
+  const piped = ['|', '|&'].includes(previous?.endOp);
+  if (!piped && !ctx.inheritedScriptStdin) return [];
   const mode = readsPipedScript(tool, args);
   if (mode === false) return [];
+  // -c の本文の道具は外側の標準入力を継承する。本文の先頭へパイプを付け直すと
+  // gh/curl のデータ入力まで変わるので、コードとして読む起動だけを確認に返す。
+  if (!piped) {
+    const redirects = redirectsOf(args);
+    const input = redirects.filter((r) => (r.fd ?? 0) === 0 && (isHeredocRedirect(r) || isReadRedirect(r))).at(-1);
+    // 明示された本文で fd0 を置き換えた場合は、従来のヒアドキュメントの判定に任せる。
+    if (!redirects.stdinDuplicated && input && isHeredocRedirect(input)) return [];
+    return [[ASK, 'inline の本文から標準入力をコードとして読む道具を起動する。継承したパイプの本文は人が確かめる']];
+  }
   // fd 3 などの入力は fd 0 のパイプを置き換えない。既存の本文判定へ渡す入力だけを絞る。
   const stdinArgs = sliceWords(args);
   const redirects = redirectsOf(args);
@@ -3665,7 +3675,10 @@ function judgeSegment(words, ctx) {
     // bash -c "..."、bash -lc "..."、bash <<< "..."、bash <<EOF の中身も同じ規則で見る
     const script = shellCommandBody(tool, args);
     if (script.uncertain) results.push([ASK, 'シェルの -c の本文の位置をオプションと値から判定できない。人が確かめる']);
-    if (script.body) results.push(judgeBash(script.body, nextCtx));
+    if (script.body) results.push(judgeBash(script.body, {
+      ...nextCtx,
+      inheritedScriptStdin: ctx.inheritedScriptStdin || ['|', '|&'].includes(ctx.stdinContext?.previous?.endOp),
+    }));
     if (tool === 'fish') for (const body of fishCommands(args)) results.push(judgeBash(body, nextCtx));
     for (const body of heredocScripts(args)) results.push(judgeBash(body, nextCtx));
   }
@@ -3979,6 +3992,7 @@ function judgeCommand(
     place = '',
     cdWords = '',
     namesGitDir = false,
+    inheritedScriptStdin = false,
     findBudget = { left: MAX_FIND_COMMANDS, weight: MAX_FIND_WEIGHT },
   },
 ) {
@@ -4018,7 +4032,7 @@ function judgeCommand(
       const headTool = baseName(globHead[headCi] ?? '');
       if (SCRIPT_READERS.has(headTool) || RUNNERS.has(headTool) || INTERPRETERS.has(headTool)) {
         results.push(...judgeSegment(concatWords(globHead, sliceWords(words, words.length)), {
-          dir, branchOf: currentBranch, scriptOf, packageDirOf, depth, env, root, place, cdWords, namesGitDir, findBudget,
+          dir, branchOf: currentBranch, scriptOf, packageDirOf, depth, env, root, place, cdWords, namesGitDir, inheritedScriptStdin, findBudget,
           segmentCount: segments.length, stdinContext: { previous, ...shapeOfStdin },
         }));
       }
@@ -4046,7 +4060,7 @@ function judgeCommand(
       place = to === null || place === null ? null : to.startsWith('/') ? to : path.posix.join(place, to);
       continue;
     }
-    results.push(...judgeSegment(words, { dir, branchOf: currentBranch, scriptOf, packageDirOf, depth, env: segmentEnv, root, place, cdWords, namesGitDir, findBudget, segmentCount: segments.length, stdinContext: { previous, ...shapeOfStdin } }));
+    results.push(...judgeSegment(words, { dir, branchOf: currentBranch, scriptOf, packageDirOf, depth, env: segmentEnv, root, place, cdWords, namesGitDir, inheritedScriptStdin, findBudget, segmentCount: segments.length, stdinContext: { previous, ...shapeOfStdin } }));
     if (ci !== -1 && baseName(words[ci]) === 'git' && dir) {
       const branch = switchedBranch(words.slice(ci + 1));
       if (branch !== null) switched.set(dir, branch);
