@@ -47,7 +47,7 @@ async function startSprintWithCards(page: Page, titles: string[]) {
   await create.getByLabel('名前（任意）').fill('第9回');
   await create.getByRole('button', { name: '作る' }).click();
   await expect(create).toBeHidden();
-  await page.getByRole('button', { name: '始める: 第9回' }).click();
+  await page.getByRole('button', { name: '始める: スプリント「第9回」' }).click();
   const start = page.getByRole('dialog', { name: 'スプリントを始める' });
   await start.getByRole('button', { name: '始める' }).click();
   await expect(start).toBeHidden();

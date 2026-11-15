@@ -438,7 +438,11 @@
                 class="btn is-sm"
                 type="button"
                 data-sprint-add={sprint.id}
-                aria-label={t('sprintTaskAddOpenLabel', { backlog: t('backlog'), label: labelOf(sprint) })}
+                aria-label={t('sprintTaskAddOpenLabel', {
+                  sprint: t('sprint'),
+                  backlog: t('backlog'),
+                  label: labelOf(sprint),
+                })}
                 onclick={(event) => openPicker(event, sprint)}
                 ><Icon name="plus" />{t('sprintTaskAddOpen', { backlog: t('backlog') })}</button
               >
@@ -448,7 +452,7 @@
                 <button
                   class="btn is-sm is-primary"
                   type="button"
-                  aria-label={t('sprintStartLabel', { label: labelOf(sprint) })}
+                  aria-label={t('sprintStartLabel', { sprint: t('sprint'), label: labelOf(sprint) })}
                   aria-disabled={deleting}
                   onclick={(event) => !deleting && openStart(event, sprint)}
                   ><Icon name="play" />{t('sprintStartAction')}</button
@@ -456,7 +460,7 @@
                 <button
                   class="btn is-sm"
                   type="button"
-                  aria-label={t('sprintEditLabel', { label: labelOf(sprint) })}
+                  aria-label={t('sprintEditLabel', { sprint: t('sprint'), label: labelOf(sprint) })}
                   aria-disabled={deleting}
                   onclick={(event) => !deleting && openEdit(event, sprint)}
                   ><Icon name="pen" />{t('sprintEditAction')}</button
@@ -464,7 +468,7 @@
                 <button
                   class="btn is-sm is-quiet is-danger"
                   type="button"
-                  aria-label={t('sprintDeleteLabel', { label: labelOf(sprint) })}
+                  aria-label={t('sprintDeleteLabel', { sprint: t('sprint'), label: labelOf(sprint) })}
                   aria-disabled={deleting}
                   onclick={(event) => void remove(event, sprint)}><Icon name="trash" />{t('sprintDeleteAction')}</button
                 >

@@ -26,7 +26,7 @@ async function startSprintWith(page: Page, name: string, startOn: string, titles
   await create.getByLabel('名前（任意）').fill(name);
   await create.getByRole('button', { name: '作る' }).click();
   await expect(create).toBeHidden();
-  await page.getByRole('button', { name: `バックログから入れる: ${name}` }).click();
+  await page.getByRole('button', { name: `バックログから入れる: スプリント「${name}」` }).click();
   const picker = page.getByRole('dialog', { name: `スプリント「${name}」に入れる` });
   for (const title of titles) {
     await picker
@@ -36,7 +36,7 @@ async function startSprintWith(page: Page, name: string, startOn: string, titles
   }
   await picker.getByRole('button', { name: `${titles.length} 件入れる` }).click();
   await expect(picker).toBeHidden();
-  await page.getByRole('button', { name: `始める: ${name}` }).click();
+  await page.getByRole('button', { name: `始める: スプリント「${name}」` }).click();
   const start = page.getByRole('dialog', { name: 'スプリントを始める' });
   await start.getByRole('button', { name: '始める' }).click();
   await expect(start).toBeHidden();

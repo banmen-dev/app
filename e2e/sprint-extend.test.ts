@@ -31,7 +31,7 @@ test('延長の予告どおり空きを吸収して後ろを押し出し、進�
   await createSprint(page, '2099-03-01', '第1回');
   await createSprint(page, '2099-03-16', '第2回');
   await createSprint(page, '2099-03-30', '第3回');
-  await page.getByRole('button', { name: '始める: 第1回' }).click();
+  await page.getByRole('button', { name: '始める: スプリント「第1回」' }).click();
   const start = page.getByRole('dialog', { name: 'スプリントを始める' });
   await start.getByRole('button', { name: '始める', exact: true }).click();
   await expect(start).toBeHidden();

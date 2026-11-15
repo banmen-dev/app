@@ -2302,9 +2302,9 @@ export const dictionary = defineDictionary({
   planLanesEmptyTitle: '先の{sprint}はありません',
   planLanesEmptyText: '{sprint}を作ると、ここに先の{sprint}が並び、入れた{points}をベロシティと見比べられます。',
   sprintEditAction: '直す',
-  sprintEditLabel: '直す: {label}',
+  sprintEditLabel: '直す: {sprint}「{label}」',
   sprintDeleteAction: '削除する',
-  sprintDeleteLabel: '削除する: {label}',
+  sprintDeleteLabel: '削除する: {sprint}「{label}」',
   sprintFieldStart: '開始日',
   sprintFieldLength: '長さ（日）',
   sprintFieldEnd: '最終日',
@@ -2339,7 +2339,7 @@ export const dictionary = defineDictionary({
   sprintTasksEmpty: 'まだ何も入っていません',
   sprintTasksSummary: '{count} 件・{points} pt',
   sprintTaskAddOpen: '{backlog}から入れる',
-  sprintTaskAddOpenLabel: '{backlog}から入れる: {label}',
+  sprintTaskAddOpenLabel: '{backlog}から入れる: {sprint}「{label}」',
   sprintTaskAddTitle: '{sprint}「{label}」に入れる',
   sprintTaskAddHint:
     '{story}を選ぶと、配下の未完了の{task}をまとめて入れます。ほかの{sprint}に入っている{task}は、こちらへ移します。',
@@ -2381,7 +2381,7 @@ export const dictionary = defineDictionary({
   sprintTaskPickNoMatch: '当てはまる{task}がありません',
   // スプリントを始めるダイアログ（kit.js の DIALOGS.sprintStart）と、計画の画面の進行中のスプリントのゴール
   sprintStartAction: '始める',
-  sprintStartLabel: '始める: {label}',
+  sprintStartLabel: '始める: {sprint}「{label}」',
   sprintStartTitle: '{sprint}を始める',
   sprintStartText: '{sprint}「{label}」を始めます。入っている{task}は {count} 件、{points} pt です。',
   sprintStartUnestimated: '未見積もりが {count} 件あります。始めることはできます。',
@@ -2427,7 +2427,7 @@ export const dictionary = defineDictionary({
   sprintEditGoalHint: '{max} 字まで。空にすると消えます',
   // スプリントを終えるダイアログ（kit.js の DIALOGS.sprintEnd）と、スプリントの画面の見出しの「終える」
   sprintCloseAction: '終える',
-  sprintCloseLabel: '終える: {label}',
+  sprintCloseLabel: '終える: {sprint}「{label}」',
   sprintCloseTitle: '{sprint}を終える',
   sprintCloseText: '{sprint}「{label}」を終えます。終えた{sprint}の期間と中身は、あとから変えられません。',
   // 名前のあるスプリントの呼び名に期間を添える。名前の無いスプリントは期間が名前なので、期間を重ねない（sprintLabelWithPeriod）

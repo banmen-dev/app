@@ -46,7 +46,7 @@ test('リーダーはスプリントを作り、直し、重なりを断られ�
   await expect(page.locator('.lane-title')).toHaveText(['1/4〜1/17', '新年の仕上げ']);
 
   // 1つ目を1日伸ばすと2つ目と重なり、ダイアログの中に理由が出て、開いたまま
-  await page.getByRole('button', { name: '直す: 1/4〜1/17' }).click();
+  await page.getByRole('button', { name: '直す: スプリント「1/4〜1/17」' }).click();
   const editDialog = page.getByRole('dialog', { name: 'スプリントを直す' });
   await expect(editDialog.getByLabel('開始日')).toHaveValue('2027-01-04');
   await editDialog.getByLabel('長さ（日）').fill('15');
@@ -66,7 +66,7 @@ test('リーダーはスプリントを作り、直し、重なりを断られ�
   await expect(page.locator('.lane-title')).toHaveText(['12/28〜1/17', '新年の仕上げ']);
 
   // 2つ目を削除する。確かめのダイアログを通す
-  await page.getByRole('button', { name: '削除する: 新年の仕上げ' }).click();
+  await page.getByRole('button', { name: '削除する: スプリント「新年の仕上げ」' }).click();
   const confirm = page.getByRole('dialog', { name: 'スプリントを削除する' });
   await expect(confirm).toContainText('スプリント「新年の仕上げ（1/18〜1/31）」を削除します。');
   await confirm.getByRole('button', { name: '削除する' }).click();
@@ -100,7 +100,7 @@ test('一般のメンバーには、スプリントと入っているタスク�
   await expect(page.locator('.lane').nth(1).locator('.lane-row a')).toHaveText(['回答までにかかる時間を測る']);
   await expect(page.locator('.lane-sub').first()).toContainText('1 件・2 pt');
   await expect(page.getByRole('button', { name: '外す: 回答までにかかる時間を測る' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'バックログから入れる: 年末の仕上げ' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'バックログから入れる: スプリント「年末の仕上げ」' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'スプリントを作る' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^直す/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^削除する/ })).toHaveCount(0);
@@ -134,7 +134,7 @@ test('スクラムの言葉: ストーリーごとと1件ずつ入れ、外し�
   await expect(page.locator('.lane .action-note')).toHaveText('まだ何も入っていません');
 
   // ストーリーごとと、親のないタスクを1件選んで入れる
-  const addButton = page.getByRole('button', { name: 'バックログから入れる: 第1回' });
+  const addButton = page.getByRole('button', { name: 'バックログから入れる: スプリント「第1回」' });
   await addButton.click();
   const picker = page.getByRole('dialog', { name: 'スプリント「第1回」に入れる' });
   const list = picker.getByRole('group', { name: '入れるタスク' });

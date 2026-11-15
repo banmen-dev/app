@@ -34,7 +34,7 @@
       <button
         class="btn is-sm"
         type="button"
-        aria-label={t('sprintCloseLabel', { label })}
+        aria-label={t('sprintCloseLabel', { sprint: t('sprint'), label })}
         onclick={(event) => onclose(event.currentTarget)}>{t('sprintCloseAction')}</button
       >
     </div>
