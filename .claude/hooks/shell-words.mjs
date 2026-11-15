@@ -106,9 +106,9 @@ export function replaceWord(words, i, from, to) {
   // {} 自体の brace の印は置換後には残さない。残りの展開と、置き込む起点の展開は維持する。
   const expands = (expandsAt(words, i) && (EXPANSION_CHARS.test(rest) || shapeAt(words, i).includes(DYNAMIC))) || replacement.expands;
   return withMarks(
-    [words[i].replaceAll(from, replacement.target)],
+    [words[i].replaceAll(from, () => replacement.target)],
     [expands],
-    [shapeAt(words, i).replaceAll(from, replacement.shape)],
+    [shapeAt(words, i).replaceAll(from, () => replacement.shape)],
     redirectsOf(words),
     [[...substitutionsAt(words, i), ...replacement.substitutions]],
   );
