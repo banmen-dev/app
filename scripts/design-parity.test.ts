@@ -291,3 +291,30 @@ test('組織作成のslug入力を、プラン変更の送信クリックとし�
   )?.[1];
   assert.equal(sendingText, dictionary.operatorChanging, '送信中の文言は本番と同じ');
 });
+
+test('スプリントの見本の開始と削除は、名前なしでも期間を重ねない', () => {
+  const source = read('kit.js');
+  const labels = source.slice(source.indexOf('  function sprintLabel('), source.indexOf('  function colName('));
+  for (const name of [null, 'スプリント 12']) {
+    const sprint = { name, start: '2099-01-04', end: '2099-01-17' };
+    const context = vm.createContext({
+      D: { sprints: { sp15: sprint, sp16: sprint } },
+      s: sprint,
+      md: (value: string) => `${Number(value.slice(5, 7))}/${Number(value.slice(8))}`,
+      t: (key: string) => ({ sprint: 'スプリント', task: 'タスク' })[key],
+      esc: (value: string) => value,
+    });
+    vm.runInContext(labels, context);
+    for (const [dialog, next, action] of [
+      ['deleteSprint', 'sprintStart', '削除します'],
+      ['sprintStart', 'sprintExtend', '始めます'],
+    ]) {
+      const block = source.slice(source.indexOf(`    ${dialog}:`), source.indexOf(`    ${next}:`));
+      const html = /<p>(.*?)<\/p>/s.exec(block.slice(block.indexOf('openDialog(')))?.[1];
+      assert.ok(html, `${dialog} の冒頭が見つからない`);
+      const rendered = vm.runInContext('`' + html + '`', context) as string;
+      const label = name === null ? '1/4〜1/17' : `${name}（1/4〜1/17）`;
+      assert.ok(rendered.startsWith(`スプリント「${label}」を${action}`), rendered);
+    }
+  }
+});

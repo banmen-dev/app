@@ -456,6 +456,12 @@
     if (!s) return "";
     return s.name || `${md(s.start)}〜${md(s.end)}`;
   }
+  function sprintLabelWithPeriod(id) {
+    const s = D.sprints[id];
+    if (!s) return "";
+    const label = sprintLabel(id);
+    return s.name ? `${label}（${md(s.start)}〜${md(s.end)}）` : label;
+  }
   function colName(x) {
     if (x.colName) return x.colName;
     const c = D.columns.find((c) => c.id === x.col);
@@ -2391,9 +2397,8 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     sprintEdit: () => sprintDialog("sp16"),
     // 始まる前のスプリントの削除（本番は ConfirmDialog）。計画の画面の先のスプリントの「削除する」から開く
     deleteSprint: () => {
-      const s = D.sprints.sp16;
       openDialog(`${t("sprint")}を削除する`,
-        `<p>${t("sprint")}「${esc(sprintLabel("sp16"))}（${md(s.start)}〜${md(s.end)}）」を削除します。削除したものは画面から消え、この版では戻せません。</p>`,
+        `<p>${t("sprint")}「${esc(sprintLabelWithPeriod("sp16"))}」を削除します。削除したものは画面から消え、この版では戻せません。</p>`,
         `<button class="btn is-primary" type="button" data-close-dialog>やめる</button><button class="btn is-danger" type="button" data-close-dialog data-toast="${t("sprint")}を削除しました">削除する</button>`);
       document.querySelector(".dialog-sheet").classList.add("is-danger");
     },
@@ -2438,7 +2443,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       const submitError = state === "ended"
         ? `<div class="callout is-danger" role="alert">${icon("alert")}<span>この${sprint}は最終日を過ぎているので、始められません。期間を直すか、削除して作り直してください</span></div>` : "";
       openDialog(`${sprint}を始める`,
-        `<p>${t("sprint")}「${sprintLabel("sp15")}（${md(D.sprints.sp15.start)}〜${md(D.sprints.sp15.end)}）」を始めます。入っている${t("task")}は 3 件、11 pt です。</p>
+        `<p>${t("sprint")}「${sprintLabelWithPeriod("sp15")}」を始めます。入っている${t("task")}は 3 件、11 pt です。</p>
          ${lead}
          <label class="field${state === "toolong" ? " is-invalid" : ""}" for="d-goal"><span class="field-label">${t("sprintGoal")}</span><textarea class="textarea" id="d-goal" placeholder="この${sprint}で何ができるようになるか" aria-describedby="d-goal-hint${goalError ? " d-goal-error" : ""}"${state === "toolong" ? ` aria-invalid="true"` : ""}></textarea>${goalError}<span class="field-hint" id="d-goal-hint">空でも始められます。200 字まで書け、${t("plan")}と${sprint}の画面に出ます。</span></label>
          ${submitError}`,
@@ -2475,10 +2480,10 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
         `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="${t("sprint")}を保存しました">保存する</button>`);
     },
     sprintEnd: () => openDialog(`${t("sprint")}を終える`,
-      `<p>${t("sprint")}「${sprintLabel("sp14")}」を終えます。終えた${t("sprint")}の期間と中身は、あとから変えられません。</p>
+      `<p>${t("sprint")}「${sprintLabelWithPeriod("sp14")}」を終えます。終えた${t("sprint")}の期間と中身は、あとから変えられません。</p>
        <fieldset class="field" style="border:0;padding:0;margin:0"><legend class="field-label">終わらなかった${t("task")} 7 件の行き先</legend>
          <div class="choice-list">
-           <label class="choice"><input type="radio" name="d-carry" checked><div><b>${t("sprint")}「${sprintLabel("sp15")}」へ持ち越す</b><span>同じ${t("task")}をそのまま移します。</span></div></label>
+           <label class="choice"><input type="radio" name="d-carry" checked><div><b>${t("sprint")}「${sprintLabelWithPeriod("sp15")}」へ持ち越す</b><span>同じ${t("task")}をそのまま移します。</span></div></label>
            <label class="choice"><input type="radio" name="d-carry"><div><b>${t("backlog")}へ戻す</b><span>どの${t("sprint")}にも入っていない状態にします。</span></div></label>
          </div></fieldset>
        <div class="field"><span class="field-label">${t("sprintGoal")}は達成できましたか</span>
