@@ -2819,10 +2819,6 @@ function judgePipedScript(tool, args, ctx, nextCtx) {
   // -c の本文の道具は外側の標準入力を継承する。本文の先頭へパイプを付け直すと
   // gh/curl のデータ入力まで変わるので、コードとして読む起動だけを確認に返す。
   if (!piped) {
-    const redirects = redirectsOf(args);
-    const input = redirects.filter((r) => (r.fd ?? 0) === 0 && (isHeredocRedirect(r) || isReadRedirect(r))).at(-1);
-    // 明示された本文で fd0 を置き換えた場合は、従来のヒアドキュメントの判定に任せる。
-    if (!redirects.stdinDuplicated && input && isHeredocRedirect(input)) return [];
     return [[ASK, 'inline の本文から標準入力をコードとして読む道具を起動する。継承したパイプの本文は人が確かめる']];
   }
   // fd 3 などの入力は fd 0 のパイプを置き換えない。既存の本文判定へ渡す入力だけを絞る。
