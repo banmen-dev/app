@@ -31,8 +31,16 @@ export function probeExec(page, base) {
   const writesFinished = async () => {
     const deadline = Date.now() + timeout;
     for (;;) {
+      if (Date.now() >= deadline) throw saveTimeout();
       // blur のハンドラーと直後のタスク、および Playwright の request 通知を先に通す。
-      await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 0)));
+      try {
+        await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 0)));
+      } catch (error) {
+        if (!/Execution context was destroyed/.test(error.message)) throw error;
+        // 直前の click などが全体遷移を始めていた場合は、新しい画面で追跡を続ける。
+        await page.waitForLoadState('domcontentloaded', { timeout: Math.max(1, deadline - Date.now()) });
+        continue;
+      }
       if (pending.size === 0) return;
       const remaining = deadline - Date.now();
       if (remaining <= 0) throw saveTimeout();

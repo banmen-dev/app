@@ -85,3 +85,33 @@ try {
     assert.match(result.stdout, /保存・失敗・タイムアウト・読み込み除外を確認/);
   },
 );
+
+test('試しは直前の操作が全体遷移を始めていても、読み込み後に保存待ちをやり直す', () => {
+  const probeUrl = JSON.stringify(new URL('../.claude/skills/acceptance-video/probe.mjs', import.meta.url).href);
+  const code = `
+import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
+import { probeExec } from ${probeUrl};
+const page = new EventEmitter();
+const calls = [];
+let first = true;
+page.evaluate = async () => {
+  calls.push('evaluate');
+  if (first) { first = false; throw new Error('Execution context was destroyed, most likely because of a navigation'); }
+};
+page.waitForLoadState = async (state, options) => {
+  assert.equal(state, 'domcontentloaded');
+  assert.ok(options.timeout > 0 && options.timeout <= 5000);
+  calls.push('loaded');
+};
+page.goto = async () => { calls.push('goto'); return {status: () => 200}; };
+await probeExec(page, 'http://localhost')({kind: 'goto', path: '/next'});
+assert.deepEqual(calls, ['evaluate', 'loaded', 'evaluate', 'goto']);
+`;
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', code], {
+    encoding: 'utf8',
+    timeout: 10_000,
+  });
+  assert.ifError(result.error);
+  assert.equal(result.status, 0, result.stderr);
+});
