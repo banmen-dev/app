@@ -7,6 +7,7 @@
   import FirstSteps from '../../lib/components/FirstSteps.svelte';
   import Icon from '../../lib/components/Icon.svelte';
   import LoadFailed from '../../lib/components/LoadFailed.svelte';
+  import NewsPane from '../../lib/components/NewsPane.svelte';
   import Pane from '../../lib/components/Pane.svelte';
   import PageHead, { type Tally } from '../../lib/components/PageHead.svelte';
   import { formatTodayLabel } from '../../lib/format-datetime.ts';
@@ -15,6 +16,7 @@
   import TaskEntry from '../../lib/components/TaskEntry.svelte';
   import WorkspaceCreateDialog from '../../lib/components/WorkspaceCreateDialog.svelte';
   import { homeEmptyKind, openWorkspaces, todayEmptyKind } from '../../lib/home-workspaces.ts';
+  import { latestNews } from '../../lib/news.ts';
   import { organizationLabel } from '../../lib/organization-label.ts';
   import { completedMessage } from '../../lib/sprint-label.ts';
   import { showToast } from '../../lib/toast.svelte.ts';
@@ -34,6 +36,8 @@
   let { data }: PageProps = $props();
   let createDialog = $state<ReturnType<typeof WorkspaceCreateDialog>>();
   // ホームのワークスペースの面に並べるのは、閉じていない所属だけ（`organization` の closed_at）
+  // ニュースの面は画面のコードの一覧から出す。読み込みも組織も要らない（どの組織でも同じ）
+  const news = latestNews();
   const workspaces = $derived(openWorkspaces(data.organization?.workspaces ?? []));
   // 管理者でワークスペースが無い、または閉じていない所属が無いときの案内。ほかは 'default'
   const emptyKind = $derived(homeEmptyKind(data.organization));
@@ -427,7 +431,7 @@
 {/snippet}
 
 <!-- 最初にやることは2列の上に全幅で置く。その下がダッシュボード（.dashboard）で、左の列（.dashboard-main）にワークスペース、今日やること、
-     （ニュース）の面を上から並べる。右の列（.dashboard-side）は、面（最近の更新）を足すときにここへ置く。面が無い間は空の要素を置かず、右の列の幅だけが空く（広い幅は左3、右2の2列の枠） -->
+     ニュース（Scrum Guild のニュース。画面のコードの一覧で、どの組織でも同じ。1件も無ければ置かない）の面を上から並べる。右の列（.dashboard-side）は、面（最近の更新）を足すときにここへ置く。面が無い間は空の要素を置かず、右の列の幅だけが空く（広い幅は左3、右2の2列の枠） -->
 {#snippet main()}
   <!-- 最初にやること。手順が空（必須が済んだ、出す手順が無い）か読めなかったときは置かない -->
   {#if data.organization !== null && data.firstSteps !== null && data.firstSteps.role !== null && data.firstSteps.steps.length > 0 && (data.firstSteps.role !== 'admin' || data.organization.me.is_admin)}
@@ -444,6 +448,7 @@
     <div class="dashboard-main">
       {#if data.organization !== null}{@render workspacePane()}{/if}
       {@render todayPane()}
+      <NewsPane items={news} />
     </div>
   </div>
 {/snippet}
