@@ -11,7 +11,6 @@ const row: BacklogTask = {
   category: null,
   repository: null,
   sprint: null,
-  unfilled: false,
   can_delete: true,
 };
 const category = { id: 'c', name: '保守' };

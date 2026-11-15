@@ -1,7 +1,7 @@
 /*
  * Scrum Guild の部品
  * tokens.css の変数だけを使う。画面ごとの CSS は持たず、足りない部品はここへ足す。
- * 状態は is-* の修飾で表す（is-danger、is-warn、is-ok、is-todo、is-done など）。
+ * 状態は is-* の修飾で表す（is-danger、is-warn、is-ok、is-done など）。
  */
 
 /* ===== 土台 ===== */
@@ -646,7 +646,6 @@ a.breadcrumb-item:hover { color: var(--color-fg); text-decoration: underline; }
 }
 .chip.is-danger { color: var(--color-danger); background: var(--color-danger-soft); border-color: var(--chip-state-edge); }
 .chip.is-warn { color: var(--color-warn); background: var(--color-warn-soft); border-color: var(--chip-state-edge); }
-.chip.is-todo { color: var(--color-warn); border-color: currentColor; border-style: dashed; }
 .chip.is-ok { color: var(--color-ok); background: var(--color-ok-soft); border-color: var(--chip-state-edge); }
 /* 完了とクリアの印。完了の印（.hanko）と同じ役の色で、テーマが変える。地は色を混ぜず --color-surface のままにする。
    混ぜない地での比は、シンプル 5.37、シンプル（ダーク）8.54、ネオン 11.82 */
