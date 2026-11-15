@@ -609,6 +609,8 @@ Bash の判定を `permissions.deny` に置かないのは、規則が前方一�
 
 #### パイプで実行する本文
 
+対象は `SHELLS`（bash、sh、zsh、dash、ksh、mksh、csh、tcsh、fish）、`source`・`.` と、`INTERPRETERS`（node、python、python3、ruby、perl、deno、bun、osascript、php、tclsh）の名前に限る。`nodejs`・`tsx`・`ts-node`、`python3.12` のような版付き名、`pwsh`・`ash` はこのパイプ本文の判定の対象外であり、別名の起動まで守る保証はない。
+
 パイプ（`|`、`|&`）からシェル、`source`、`.`、インタープリタが本文を読む形は、直前の `echo` と `printf` の字面を既存の本文の規則で判定する。単純な `printf %s` と `%s\n` も読み、ほかの書式・展開・ファイルや別の道具の出力など、本文を読めない形は確認を挟む。
 
 スクリプトのファイルや `-c`・`-e` などで実行する本文を指定しているとき、help・version 表示や Node の `--test`・`--run`、PHP の `-f`・`--file` に通常のファイルを指定する形は、パイプをコードとして判定しない。PHP のファイル指定が `/dev/stdin` などなら本文を判定し、指定先が展開で決まるなら確認を挟む。Python と Node の `-i` で本文実行後も対話を続ける形は、パイプの本文も判定する。Node は inline 本文の後ろの `-i` も起動引数として読み、本文の中の文字とは区別する。`source` と `.` の `-` はファイル名で、標準入力を読む `/dev/stdin` などと区別する。
