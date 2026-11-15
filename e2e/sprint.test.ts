@@ -1057,7 +1057,7 @@ for (const [name, label] of [
   ['新年の仕上げ', '新年の仕上げ'],
   [null, '10/13〜10/26'],
 ] as const) {
-  test(`見出しとタブの題名には名前をそのまま出す: ${name}`, async ({ page, context, baseURL }) => {
+  test(`見出しとタブの題名には名前をそのまま出す: ${name ?? '名前なし'}`, async ({ page, context, baseURL }) => {
     await signIn(context, baseURL, 'admin');
     await mockOperation(
       page,
@@ -1074,7 +1074,8 @@ for (const [name, label] of [
       { slug: 'aoba' },
       {
         ...OVERDUE_PLAN,
-        sprints: OVERDUE_PLAN.sprints.map((sprint, index) => (index === 0 ? { ...sprint, name } : sprint)),
+        // ボードと一覧へ同じスプリントを明示的に渡す。fixture 同士の ID の一致には頼らない。
+        sprints: [{ ...SAMPLE_BOARD.sprint!, name, tasks: [] }, ...OVERDUE_PLAN.sprints.slice(1)],
       },
     );
     await page.goto(`${AOBA_TEAM}/sprint`);
@@ -1082,7 +1083,7 @@ for (const [name, label] of [
     await expect(page).toHaveTitle(`${label}・受託開発チーム - Scrum Guild`);
     await page.getByRole('button', { name: '延長する', exact: true }).click();
     const extend = page.getByRole('dialog', { name: 'スプリントを延ばす' });
-    await expect(extend.locator('form > p').first()).toHaveText(name === null ? label : `${label}（10/13〜10/26）`);
+    await expect(extend.getByText(name === null ? label : `${label}（10/13〜10/26）`, { exact: true })).toBeVisible();
   });
 }
 
@@ -1112,7 +1113,7 @@ test('名前なしの開始・削除・終了では、文中に期間を一度�
   ).toBeVisible();
   await remove.getByRole('button', { name: 'やめる' }).click();
   await page.goto(`${AOBA_TEAM}/sprint`);
-  await page.getByRole('heading', { level: 1 }).getByText('10/13〜10/26', { exact: true }).waitFor();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('10/13〜10/26');
   await page.getByRole('button', { name: '終える: スプリント「10/13〜10/26」', exact: true }).click();
   const close = page.getByRole('dialog', { name: 'スプリントを終える' });
   await expect(
