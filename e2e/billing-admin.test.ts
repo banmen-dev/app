@@ -270,3 +270,51 @@ test('送信中に書いた次の指名先を成功時に消さない', async ({
   await expect(page.locator('#billing-status-invite')).toHaveText(t('billingSaved'));
   await expect(page.getByLabel(t('billingTargetAccount'))).toHaveValue(draft);
 });
+
+for (const accept of [true, false]) {
+  for (const moveFocus of [true, false]) {
+    test(`指名の応答失敗 accept=${accept} は通知を読み上げ、別欄へ移ったフォーカスを奪わない move=${moveFocus}`, async ({
+      page,
+      context,
+      baseURL,
+    }) => {
+      await signIn(context, baseURL, 'admin');
+      await mockOperation(page, myBillingOrganizations, {
+        account_id: accountId,
+        operator: false,
+        organizations: [],
+        invitations: [{ ...organization, id: nominationId }],
+      });
+      let release!: () => void;
+      const pending = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await routeOperation(page, billingInvitationRespond, async (call) => {
+        await pending;
+        await call.fail(409, 'conflict');
+      });
+      await page.goto('/auth/billing');
+      await page
+        .getByRole('button', {
+          name: t(accept ? 'billingAcceptFor' : 'billingDeclineFor', {
+            name: `${organization.name}（${organization.slug}）`,
+          }),
+          exact: true,
+        })
+        .click();
+      await expect(page.locator('#billing-status-invitations')).toHaveText(t('billingBusy'));
+      if (moveFocus) await page.getByLabel(t('billingAccountId')).focus();
+      else await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
+      release();
+      await expect(page.locator('#billing-status-invitations')).toHaveText(t('billingFailed'));
+      if (moveFocus) await expect(page.getByLabel(t('billingAccountId'))).toBeFocused();
+      else await expect(page.locator('#billing-status-invitations')).toBeFocused();
+      await expect(
+        page.getByRole('button', {
+          name: t('billingAcceptFor', { name: `${organization.name}（${organization.slug}）` }),
+          exact: true,
+        }),
+      ).toBeVisible();
+    });
+  }
+}
