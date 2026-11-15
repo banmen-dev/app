@@ -2831,7 +2831,8 @@ function judgePipedScript(tool, args, ctx, nextCtx) {
   Object.defineProperty(stdinArgs, 'redirects', { value: redirects.filter((r) => (r.fd ?? 0) === 0), configurable: true });
   const body = stdinBody(stdinArgs, ctx.stdinContext);
   const redirected = redirectsOf(stdinArgs).some((r) => isHeredocRedirect(r) || isReadRedirect(r));
-  if (!redirected && previous.some((_, i) => i > commandIndex(previous) && isUnresolved(previous, i))) {
+  const producerIndex = commandIndex(previous);
+  if (!redirected && previous.some((_, i) => i > producerIndex && isUnresolved(previous, i))) {
     for (const b of body.bodies) b.literal = false;
   }
   // リダイレクトがなければ単純な printf %s もここでだけ読める。
