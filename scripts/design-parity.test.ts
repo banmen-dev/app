@@ -253,3 +253,22 @@ describe('見本との照合', () => {
     }
   });
 });
+
+test('組織作成のslug入力を、プラン変更の送信クリックとして扱わない', () => {
+  const source = read('kit.js');
+  const createDialog = source.slice(
+    source.indexOf('    createPersonalOrganization:'),
+    source.indexOf('    organizationCreated:'),
+  );
+  const slugId = /<label[^>]*for="([^"]+)"[^>]*>URL の名前（slug）/.exec(createDialog)?.[1];
+  const planDialog = source.slice(source.indexOf('    changePlan:'), source.indexOf('    suspendOrganization:'));
+  const submitId = /<button[^>]*id="([^"]+)"/.exec(planDialog)?.[1];
+  assert.ok(slugId, '組織作成のslug入力が見つからない');
+  assert.ok(submitId, 'プラン変更の送信ボタンが見つからない');
+  assert.notEqual(submitId, slugId, 'slug入力のクリックがプラン変更の送信に誤って入る');
+  assert.ok(source.includes(`ev.target.closest("#${submitId}")`), 'クリックの振り分けはプラン送信ボタンを指す');
+  const sendingText = /submit\.textContent = "([^"]+)"/.exec(
+    source.slice(source.indexOf(`ev.target.closest("#${submitId}")`)),
+  )?.[1];
+  assert.equal(sendingText, dictionary.operatorChanging, '送信中の文言は本番と同じ');
+});

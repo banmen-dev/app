@@ -2,12 +2,12 @@
 // 値は docs/business.md の「基本プラン」「追加容量」。DB の列挙（organization_contracts.plan と billing_interval）と同じ値を持つ
 const GIB = 1024 ** 3;
 
-// custom は51人以上の個別の契約。DB の CHECK には先に入れてあるが、書くのは後の版（#1192）。上限の導き方もそのときに足す
+// custom は人数と標準容量を個別に決める契約。51人以上には限らない
 export const organizationPlans = ['personal', 'team', 'business', 'custom'] as const;
 export type OrganizationPlan = (typeof organizationPlans)[number];
 
 // チーム用の組織が選べるプラン。自分用の組織（kind が personal）はパーソナルに固定で、運用者はプランを選ばない
-export const teamPlans = ['team', 'business'] as const;
+export const teamPlans = ['team', 'business', 'custom'] as const;
 export type TeamPlan = (typeof teamPlans)[number];
 
 export const billingIntervals = ['monthly', 'yearly'] as const;
@@ -28,7 +28,9 @@ export const EXTRA_10GB_BYTES = 10 * GIB;
 export const EXTRA_50GB_BYTES = 50 * GIB;
 
 export type ContractLimitsInput = {
-  plan: Exclude<OrganizationPlan, 'custom'>;
+  plan: OrganizationPlan;
+  custom_member_limit?: number | null;
+  custom_attachment_quota_bytes?: number | null;
   extra_10gb_units: number;
   extra_50gb_units: number;
 };
@@ -39,7 +41,11 @@ export function contractLimits(contract: ContractLimitsInput): {
   member_limit: number;
   attachment_quota_bytes: number;
 } {
-  const base = PLAN_LIMITS[contract.plan];
+  const base =
+    contract.plan === 'custom'
+      ? { member_limit: contract.custom_member_limit, attachment_quota_bytes: contract.custom_attachment_quota_bytes }
+      : PLAN_LIMITS[contract.plan];
+  if (base.member_limit == null || base.attachment_quota_bytes == null) throw new Error('個別契約の標準値が無い');
   return {
     member_limit: base.member_limit,
     attachment_quota_bytes:

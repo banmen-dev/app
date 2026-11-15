@@ -110,6 +110,8 @@ export const commonTableColumns = {
   // migrations/0028_add_organization_contracts.sql で足した。組織と1対1の契約。行が無い組織は未契約
   organization_contracts: {
     organization_id: text,
+    custom_member_limit: integerOrNull,
+    custom_attachment_quota_bytes: integerOrNull,
     plan: text,
     billing_interval: text,
     extra_10gb_units: integerDefault,

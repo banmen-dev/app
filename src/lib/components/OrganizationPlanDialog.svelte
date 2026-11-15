@@ -1,6 +1,12 @@
 <script lang="ts">
   import type { z } from 'zod';
-  import { organizationPlanUpdate, type organizationContract } from '../../shared/operations/operator/index.ts';
+  import {
+    ATTACHMENT_QUOTA_MAX_BYTES,
+    MEMBER_LIMIT_MAX,
+    QUOTA_GIB,
+    organizationPlanUpdate,
+    type organizationContract,
+  } from '../../shared/operations/operator/index.ts';
   import {
     billingIntervals,
     contractLimits,
@@ -14,6 +20,7 @@
   import { invalidateAll } from '$app/navigation';
   import { formatCount, quotaSize } from '../format.ts';
   import { isUnauthenticated } from '../login-redirect.ts';
+  import { initialCustomQuotaGb } from '../custom-plan.ts';
   import { planLabel } from '../plan-terms.ts';
   import { t } from '../vocabulary.svelte.ts';
   import Dialog from './Dialog.svelte';
@@ -50,6 +57,12 @@
   let target = $state<Target | null>(null);
   let plan = $state<TeamPlan>('team');
   let interval = $state<BillingInterval>('monthly');
+  let members = $state<number | null>(null);
+  let sizeGb = $state<number | null>(null);
+  let errors = $state<{ members?: string; size?: string }>({});
+  const SIZE_MAX_GB = Math.floor(ATTACHMENT_QUOTA_MAX_BYTES / QUOTA_GIB);
+  const isWhole = (value: number | null, max: number): value is number =>
+    typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= max;
   let submitting = $state(false);
   let submitError = $state<string | null>(null);
   // 書かれたか分からない失敗の後は、閉じたときに一覧を読み直す
@@ -61,6 +74,7 @@
   const planLabelId = `${ids}-plan`;
   const intervalLabelId = `${ids}-interval`;
   const unchangedHintId = `${ids}-unchanged`;
+  const fieldIds = { members: `${ids}-members`, size: `${ids}-size` } as const;
 
   $effect(() => {
     return () => {
@@ -78,6 +92,7 @@
 
   // 選び直したら、前の失敗の文は今の選択に当たらないので消す
   function choose(): void {
+    errors = {};
     submitError = null;
   }
 
@@ -124,6 +139,9 @@
       plan = organization.seats.limit >= PLAN_LIMITS.business.member_limit ? 'business' : 'team';
       interval = contract?.billing_interval ?? 'monthly';
     }
+    members = (contract?.plan === 'custom' ? contract.custom_member_limit : null) ?? organization.seats.limit;
+    sizeGb = initialCustomQuotaGb(contract, organization.attachment_quota_bytes);
+    errors = {};
     reloadOnClose = false;
     submitting = false;
     submitError = null;
@@ -131,23 +149,48 @@
   }
 
   // 変えた後の上限。追加容量の口数は今の契約のまま
+  const customValues = $derived(
+    plan === 'custom'
+      ? isWhole(members, MEMBER_LIMIT_MAX) && isWhole(sizeGb, SIZE_MAX_GB)
+        ? { custom_member_limit: members, custom_attachment_quota_bytes: sizeGb * QUOTA_GIB }
+        : null
+      : { custom_member_limit: null, custom_attachment_quota_bytes: null },
+  );
   const next = $derived(
-    contractLimits({
-      plan,
-      extra_10gb_units: target?.contract?.extra_10gb_units ?? 0,
-      extra_50gb_units: target?.contract?.extra_50gb_units ?? 0,
-    }),
+    customValues === null
+      ? null
+      : contractLimits({
+          plan,
+          ...customValues,
+          extra_10gb_units: target?.contract?.extra_10gb_units ?? 0,
+          extra_50gb_units: target?.contract?.extra_50gb_units ?? 0,
+        }),
   );
   const unchanged = $derived(
     target !== null &&
       target.contract !== null &&
+      customValues !== null &&
       target.contract.plan === plan &&
-      target.contract.billing_interval === interval,
+      target.contract.billing_interval === interval &&
+      target.contract.custom_member_limit === customValues.custom_member_limit &&
+      target.contract.custom_attachment_quota_bytes === customValues.custom_attachment_quota_bytes,
   );
 
   async function submit(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     if (target === null || submitting || unchanged) return;
+    errors = {};
+    if (plan === 'custom') {
+      if (!isWhole(members, MEMBER_LIMIT_MAX))
+        errors.members = t('operatorQuotaMembersInvalid', { max: formatCount(MEMBER_LIMIT_MAX) });
+      if (!isWhole(sizeGb, SIZE_MAX_GB)) errors.size = t('operatorQuotaSizeInvalid', { max: formatCount(SIZE_MAX_GB) });
+    }
+    const firstInvalid = (['members', 'size'] as const).find((field) => errors[field] !== undefined);
+    if (firstInvalid !== undefined) {
+      document.getElementById(fieldIds[firstInvalid])?.focus();
+      return;
+    }
+    if (customValues === null) return;
     const mine = generation;
     submitting = true;
     submitError = null;
@@ -157,6 +200,7 @@
         slug: target.slug,
         plan,
         billing_interval: interval,
+        ...(plan === 'custom' ? customValues : {}),
         expected: contract,
       });
       if (mine !== generation) return;
@@ -201,7 +245,7 @@
           storage: usageText(target.attachment_used_bytes),
         }),
   );
-  const planNames = $derived({ team: t('planTeam'), business: t('planBusiness') });
+  const planNames = $derived({ team: t('planTeam'), business: t('planBusiness'), custom: t('planCustom') });
   const intervalNames = $derived({ monthly: t('billingMonthly'), yearly: t('billingYearly') });
 </script>
 
@@ -218,16 +262,74 @@
               <input type="radio" name="{ids}-plan" {value} bind:group={plan} onchange={choose} />
               <div>
                 <b>{planNames[value]}</b><span
-                  >{t('operatorQuotaTierValue', {
-                    members: PLAN_LIMITS[value].member_limit,
-                    quota: sizeText(PLAN_LIMITS[value].attachment_quota_bytes),
-                  })}</span
+                  >{value === 'custom'
+                    ? t('operatorPlanCustomHint')
+                    : t('operatorQuotaTierValue', {
+                        members: PLAN_LIMITS[value].member_limit,
+                        quota: sizeText(PLAN_LIMITS[value].attachment_quota_bytes),
+                      })}</span
                 >
               </div>
             </label>
           {/each}
         </div>
       </div>
+      {#if plan === 'custom'}
+        <div class="form-row is-start">
+          <div class="field" class:is-invalid={errors.members !== undefined}>
+            <label class="field-label" for={fieldIds.members}>{t('operatorQuotaMembersLabel')}</label>
+            <input
+              class="input"
+              id={fieldIds.members}
+              type="number"
+              inputmode="numeric"
+              min="1"
+              max={MEMBER_LIMIT_MAX}
+              step="1"
+              readonly={submitting}
+              bind:value={members}
+              oninput={() => {
+                errors.members = undefined;
+                submitError = null;
+              }}
+              aria-invalid={errors.members !== undefined}
+              aria-describedby={`${fieldIds.members}-hint${errors.members ? ` ${fieldIds.members}-error` : ''}`}
+            />
+            <span class="field-hint" id="{fieldIds.members}-hint"
+              >{t('operatorPlanCustomMembersHint', { max: formatCount(MEMBER_LIMIT_MAX) })}</span
+            >
+            {#if errors.members}<span class="field-error" id="{fieldIds.members}-error" role="alert"
+                ><Icon name="alert" />{errors.members}</span
+              >{/if}
+          </div>
+          <div class="field" class:is-invalid={errors.size !== undefined}>
+            <label class="field-label" for={fieldIds.size}>{t('operatorPlanCustomSizeLabel')}</label>
+            <input
+              class="input"
+              id={fieldIds.size}
+              type="number"
+              inputmode="numeric"
+              min="1"
+              max={SIZE_MAX_GB}
+              step="1"
+              readonly={submitting}
+              bind:value={sizeGb}
+              oninput={() => {
+                errors.size = undefined;
+                submitError = null;
+              }}
+              aria-invalid={errors.size !== undefined}
+              aria-describedby={`${fieldIds.size}-hint${errors.size ? ` ${fieldIds.size}-error` : ''}`}
+            />
+            <span class="field-hint" id="{fieldIds.size}-hint"
+              >{t('operatorPlanCustomSizeHint', { max: formatCount(SIZE_MAX_GB) })}</span
+            >
+            {#if errors.size}<span class="field-error" id="{fieldIds.size}-error" role="alert"
+                ><Icon name="alert" />{errors.size}</span
+              >{/if}
+          </div>
+        </div>
+      {/if}
       <div class="field">
         <span class="field-label" id={intervalLabelId}>{t('operatorPlanIntervalChoices')}</span>
         <div class="choice-list" role="radiogroup" aria-labelledby={intervalLabelId}>
@@ -239,32 +341,37 @@
           {/each}
         </div>
       </div>
-      {#if unchanged}
-        <span class="field-hint" id={unchangedHintId}>{t('operatorPlanUnchangedHint')}</span>
-      {:else}
-        <p class="field-hint">
-          {t('operatorPlanAfter', { members: next.member_limit, quota: sizeText(next.attachment_quota_bytes) })}
-        </p>
-      {/if}
-      {#if target !== null && target.contract === null && (next.member_limit < target.member_limit || next.attachment_quota_bytes < target.attachment_quota_bytes)}
-        <div class="callout is-warn">
-          <Icon name="alert" /><span
-            >{t('operatorPlanLimitsLower', {
-              members: target.member_limit,
-              quota: sizeText(target.attachment_quota_bytes),
-            })}</span
-          >
-        </div>
-      {/if}
-      {#if target !== null && !unchanged && target.used > next.member_limit}
-        <div class="callout is-warn">
-          <Icon name="alert" /><span>{t('operatorPlanSeatsOver', { used: target.used, limit: next.member_limit })}</span
-          >
-        </div>
-      {/if}
-      {#if target !== null && !unchanged && next.attachment_quota_bytes < target.attachment_used_bytes}
-        <div class="callout is-warn"><Icon name="alert" /><span>{t('operatorStorageBelowUsage')}</span></div>
-      {/if}
+      <div class="form-fields" aria-live="polite" aria-atomic="false">
+        {#if unchanged}
+          <span class="field-hint" id={unchangedHintId}>{t('operatorPlanUnchangedHint')}</span>
+        {:else if next !== null}
+          <p class="field-hint">
+            {t('operatorPlanAfter', { members: next.member_limit, quota: sizeText(next.attachment_quota_bytes) })}
+          </p>
+        {:else}
+          <p class="field-hint">{t('operatorPlanCustomInvalidHint')}</p>
+        {/if}
+        {#if target !== null && next !== null && target.contract === null && (next.member_limit < target.member_limit || next.attachment_quota_bytes < target.attachment_quota_bytes)}
+          <div class="callout is-warn">
+            <Icon name="alert" /><span
+              >{t('operatorPlanLimitsLower', {
+                members: target.member_limit,
+                quota: sizeText(target.attachment_quota_bytes),
+              })}</span
+            >
+          </div>
+        {/if}
+        {#if target !== null && next !== null && !unchanged && target.used > next.member_limit}
+          <div class="callout is-warn">
+            <Icon name="alert" /><span
+              >{t('operatorPlanSeatsOver', { used: target.used, limit: next.member_limit })}</span
+            >
+          </div>
+        {/if}
+        {#if target !== null && next !== null && !unchanged && next.attachment_quota_bytes < target.attachment_used_bytes}
+          <div class="callout is-warn"><Icon name="alert" /><span>{t('operatorStorageBelowUsage')}</span></div>
+        {/if}
+      </div>
       {#if target?.trial && !unchanged}
         <p class="field-hint">{t('operatorPlanTrialNote')}</p>
       {/if}

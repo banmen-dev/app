@@ -49,7 +49,14 @@ describe('organization の契約と上限', () => {
 
     await changePlan(organization.slug, { plan: 'team', billing_interval: 'monthly' }, null);
     expect((await read(organization.slug, admin.token)).plan).toEqual({
-      contract: { plan: 'team', billing_interval: 'monthly', extra_10gb_units: 0, extra_50gb_units: 0 },
+      contract: {
+        plan: 'team',
+        billing_interval: 'monthly',
+        extra_10gb_units: 0,
+        extra_50gb_units: 0,
+        custom_member_limit: null,
+        custom_attachment_quota_bytes: null,
+      },
       ...PLAN_LIMITS.team,
     });
 
@@ -60,7 +67,14 @@ describe('organization の契約と上限', () => {
     );
     const after = await read(organization.slug, admin.token);
     expect(after.plan).toEqual({
-      contract: { plan: 'business', billing_interval: 'yearly', extra_10gb_units: 0, extra_50gb_units: 0 },
+      contract: {
+        plan: 'business',
+        billing_interval: 'yearly',
+        extra_10gb_units: 0,
+        extra_50gb_units: 0,
+        custom_member_limit: null,
+        custom_attachment_quota_bytes: null,
+      },
       ...PLAN_LIMITS.business,
     });
     // 有料のプランにした時点でお試しは終わる
@@ -93,7 +107,14 @@ describe('organization の契約と上限', () => {
       ),
     ]);
     expect((await read(organization.slug, admin.token)).plan).toEqual({
-      contract: { plan: 'custom', billing_interval: 'yearly', extra_10gb_units: 2, extra_50gb_units: 1 },
+      contract: {
+        plan: 'custom',
+        billing_interval: 'yearly',
+        extra_10gb_units: 2,
+        extra_50gb_units: 1,
+        custom_member_limit: null,
+        custom_attachment_quota_bytes: null,
+      },
       member_limit: 80,
       attachment_quota_bytes: 200 * GIB,
     });
