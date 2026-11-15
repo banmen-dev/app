@@ -137,6 +137,24 @@ function enclosing(text: string, index: number): number {
   return -1;
 }
 
+// 開き括弧に対応する閉じ括弧の位置（閉じていなければ末尾）
+function closing(text: string, open: number): number {
+  let depth = 0;
+  for (let i = open; i < text.length; i++) {
+    if (text[i] === '(') depth++;
+    else if (text[i] === ')' && --depth === 0) return i;
+  }
+  return text.length;
+}
+
+// 位置を包む括弧のどれかが、まるごと掛けたり割ったりされているか（calc(2 * (var(--space-1) + 1px)) の 1px）
+function insideMultiplied(text: string, index: number): boolean {
+  for (let open = enclosing(text, index); open >= 0; open = enclosing(text, open)) {
+    if (neighbor(text, open, closing(text, open) + 1) === 'multiply') return true;
+  }
+  return false;
+}
+
 const nonZero = (match: RegExpMatchArray) => Math.abs(Number(match[1])) !== 0;
 
 // var() と env() を、対応する閉じ括弧まで丸ごと空白に置き換え、予備値（最初の , の後ろ）を取り出す。
@@ -177,7 +195,9 @@ export function spacingProblem(value: string, tokens: Set<string>): string | nul
   const lengths = [...rest.matchAll(LENGTH)].filter(nonZero).map((match) => ({
     text: match[0],
     hairline: Math.abs(Number(match[1])) === 1 && match[2].toLowerCase() === 'px',
-    operator: neighbor(rest, match.index, match.index + match[0].length),
+    operator: insideMultiplied(rest, match.index)
+      ? ('multiply' as const)
+      : neighbor(rest, match.index, match.index + match[0].length),
     group: enclosing(rest, match.index),
   }));
   const added = new Map<number, number>();

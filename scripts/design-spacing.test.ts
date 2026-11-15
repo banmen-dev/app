@@ -62,6 +62,13 @@ describe('余白の刻みの判定', () => {
     assert.equal(check('calc(1px + 1px + 1px)'), '直書きの 1px、1px、1px');
   });
 
+  test('括弧ごと掛けたり割ったりした 1px は落とし、段の変数に数を掛けるのは通す', () => {
+    assert.equal(check('calc(2 * (var(--space-1) + 1px))'), '直書きの 1px');
+    assert.equal(check('calc((var(--space-1) - 1px) / 2)'), '直書きの 1px');
+    assert.equal(check('calc(-1 * var(--space-2))'), null);
+    assert.equal(check('calc(2 * var(--space-4))'), null);
+  });
+
   test('足し引きの 1px は括弧の中ごとに数え、符号の - は演算子と読まない', () => {
     assert.equal(check('calc(var(--space-2) - 1px)'), null);
     assert.equal(check('calc(var(--space-2) - 1px) calc(var(--space-4) - 1px)'), null);
