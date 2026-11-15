@@ -9,6 +9,7 @@
 | 要件 | `docs/requirements.md` |
 | 誰が何をできるか（ユースケース図） | `docs/use-cases.md` |
 | 表と列 | `docs/data-model.md` |
+| 見た目の刻みと禁止（余白、文字、角、影）。画面と部品を作る前に読む | `DESIGN.md` |
 | 画面とデザインの決まり | `docs/design.md`、見本は `design/`（`design/index.html` をブラウザで開く。人に見せるときは `docs/development.md` の「見本の Worker」） |
 | 過去のレビューで繰り返された確認項目 | `REVIEW.md`（集計方法は `docs/review-history.md`） |
 | ブランチ、PR、CI/CD、スキルの使い分け | `docs/development.md` |
