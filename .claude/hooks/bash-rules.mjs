@@ -2721,6 +2721,8 @@ function interpreterBodyWords(tool, args) {
 // パイプを本文として読む起動だけを選ぶ。-c/-e とスクリプトのファイルに続く標準入力はデータなので判定しない。
 // /dev/stdin と /dev/fd/0 は、source/. でもパイプの本文を読む。
 const STDIN_SCRIPT = new Set(['-', '/dev/stdin', '/dev/fd/0', '/proc/self/fd/0']);
+// /dev//stdin や /proc/self/fd/./0 も標準入力を読む同じパス。実体の解決やファイルの読み取りはしない。
+const isStdinScript = (file) => typeof file === 'string' && STDIN_SCRIPT.has(path.posix.normalize(file));
 const SCRIPT_OPTION_VALUES = {
   bash: new Set(['-o', '+o', '-O', '+O', '--rcfile', '--init-file']),
   sh: new Set(['-o', '+o']), zsh: new Set(['-o', '+o']), ksh: new Set(['-o', '+o']), mksh: new Set(['-o', '+o']),
@@ -2741,7 +2743,7 @@ function readsPipedScript(tool, args) {
   if (!SCRIPT_READERS.has(tool) && !INTERPRETERS.has(tool)) return false;
   if (tool === 'source' || tool === '.') {
     const at = args[0] === '--' ? 1 : 0;
-    return isUnresolved(args, at) ? null : args[at] !== '-' && STDIN_SCRIPT.has(args[at]);
+    return isUnresolved(args, at) ? null : args[at] !== '-' && isStdinScript(args[at]);
   }
   const bodyFlags = SHELLS.has(tool) ? 'c' : (BODY_FLAGS[tool] ?? '');
   let options = true;
@@ -2760,7 +2762,7 @@ function readsPipedScript(tool, args) {
       const at = separate ? i + 1 : i;
       if (args[at] === undefined || isUnresolved(args, at)) return null;
       const file = separate ? args[at] : arg.startsWith('--file=') ? arg.slice('--file='.length) : arg.slice(2);
-      return STDIN_SCRIPT.has(file);
+      return isStdinScript(file);
     }
     if (options && (arg === '-h' && ['node', 'python', 'python3', 'ruby', 'perl', 'php'].includes(tool) || arg === '-v' && ['node', 'perl', 'php'].includes(tool) || arg === '-V' && ['python', 'python3', 'perl'].includes(tool))) return false;
     if (options && /^[+-]/.test(arg) && arg !== '-') {
@@ -2809,7 +2811,7 @@ function readsPipedScript(tool, args) {
     // deno/bun の run はサブコマンドで、次の - がスクリプトの標準入力を選ぶ。
     if ((tool === 'deno' || tool === 'bun') && arg === 'run') continue;
     if (uncertain) return null;
-    return forceStdin || interactive || !inline && STDIN_SCRIPT.has(arg);
+    return forceStdin || interactive || !inline && isStdinScript(arg);
   }
   return uncertain ? null : inline ? interactive : true;
 }
