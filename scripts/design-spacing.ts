@@ -47,6 +47,8 @@ export function declarations(css: string): Declaration[] {
     } else if (char === '/' && css[i + 1] === '*') {
       const end = css.indexOf('*/', i + 2);
       if (end < 0) throw new Error('コメントが閉じていない');
+      // CSS のコメントは字句の区切りなので空白に置き換える（0px/**/7px の 7px を 0px7px として見落とさないため）
+      buffer += ' ';
       i = end + 1;
     } else if (char === '"' || char === "'") {
       quote = char;

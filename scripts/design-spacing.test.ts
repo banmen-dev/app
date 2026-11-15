@@ -124,6 +124,10 @@ describe('余白の刻みの判定', () => {
     ]);
   });
 
+  test('コメントは字句の区切りとして扱い、前後をつなげない', () => {
+    assert.deepEqual(found('.a { padding: 0px/**/7px; }'), [['.a | padding: 0px 7px', 1]]);
+  });
+
   test('入れ子のセレクタは外側から順につなぐ', () => {
     assert.deepEqual(found('.a { &:hover { padding: 7px; } }'), [['.a &:hover | padding: 7px', 1]]);
   });
