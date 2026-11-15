@@ -14,6 +14,8 @@ import {
 } from '../src/shared/operations/task/index.ts';
 import { detailFieldDelete, detailFieldList } from '../src/shared/operations/definition/index.ts';
 import { planSummary } from '../src/shared/operations/sprint/index.ts';
+import { planLaneSchema } from '../src/shared/operations/sprint/plan-summary.ts';
+import { backlogTaskSchema } from '../src/shared/operations/task/backlog-tree.ts';
 import { createApp } from '../src/server/app.ts';
 import { orgDb } from '../src/server/db/index.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
@@ -335,7 +337,18 @@ describe('欄と値の読み', () => {
     expect(await storedValue(target, task.id, impact.id)).toEqual({ value_md: '画面 A', updated_by: memberId });
   });
 
-  test('backlog-tree、task-create、plan-summary は、欄が空のタスクがあっても未記入の項目を返さない', async () => {
+  // 応答は出力のスキーマで parse され、知らない項目は捨てられる。応答だけを見ても、スキーマから外したことしか分からないので、
+  // スキーマの項目も確かめる（足し戻すと落ちる）
+  test('出力のスキーマに未記入の項目（unfilled、unfilled_count）が無い', () => {
+    expect(Object.keys(backlogTaskSchema.shape)).not.toContain('unfilled');
+    expect(Object.keys(backlogTree.output.shape)).not.toContain('unfilled_count');
+    expect(Object.keys(taskCreate.output.shape)).toEqual(['task']);
+    expect(Object.keys(taskDetail.output.shape)).not.toContain('unfilled');
+    expect(Object.keys(taskFieldSet.output.shape)).toEqual(['field']);
+    expect(Object.keys(planLaneSchema.shape)).not.toContain('unfilled_count');
+  });
+
+  test('backlog-tree、task-create、plan-summary の応答は、欄が空のタスクがあっても未記入の項目を含まない', async () => {
     const { target, memberId } = await world();
     const { organization } = target;
     const workspaceId = target.workspace.id;

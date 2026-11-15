@@ -218,6 +218,7 @@ test('スクラムの言葉: ストーリーごとと1件ずつ入れ、外し�
     'スプリント：第1回',
   ]);
   // スプリントから外した「ヘルプを書く」には、印が1つも無い
+  await expect(page.locator('.entry', { hasText: 'ヘルプを書く' })).toHaveCount(1);
   await expect(page.locator('.entry', { hasText: 'ヘルプを書く' }).locator('.entry-meta .chip')).toHaveCount(0);
   expect(await collect()).toEqual([]);
 });

@@ -94,10 +94,11 @@ test.describe('リーダー（あおば開発のミナト）', () => {
 
     // 新しいワークスペースには決まった欄が1つあり、書かれていないが「詳細 未記入」の印は出さない（#1263）。リポジトリと区分は右端のチップに出る
     await expect(row.locator('.entry-meta .chip')).toHaveCount(0);
-    // 読み直しても出る
+    // 読み直しても、右端のチップは出て、印は出ない
     await page.reload();
     await expect(row.getByRole('button', { name: 'リポジトリ: point-api' })).toBeVisible();
     await expect(row.getByRole('button', { name: '区分: 保守' })).toBeVisible();
+    await expect(row.locator('.entry-meta .chip')).toHaveCount(0);
 
     // 引き出しでリポジトリを直す
     await row.getByRole('link', { name: 'ポイントの失効を直す' }).click();
