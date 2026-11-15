@@ -6336,3 +6336,396 @@ describe('production と Release: 宛先と ref を読めない形', () => {
     test(`${command} は ${expected}`, () => assert.equal(decision(command), expected, command));
   }
 });
+
+// パイプで実行する本文も、-c とヒアストリングと同じ判定に掛ける（#1246）。
+// すべて字面の判定だけを呼び、本文のコマンドやインタープリタは実行しない。
+describe('パイプからシェルとインタープリタに流す本文（#1246）', () => {
+  for (const shell of ['bash', 'sh', 'zsh', 'dash', 'ksh', 'mksh', 'csh', 'tcsh', 'fish']) {
+    test(`[完了条件・拒否] echo の本番操作を ${shell} に流すと deny`, () =>
+      assert.equal(decision(`echo 'wrangler deploy' | ${shell}`), 'deny'));
+  }
+
+  for (const command of [
+    "printf 'wrangler deploy' | sh",
+    "echo 'git push origin main' | bash",
+    "echo 'cat .dev.vars' | bash",
+    "printf '%s' 'cat .env' | sh",
+    "echo 'wrangler deploy' | source /dev/stdin",
+    "echo 'wrangler deploy' | . /dev/stdin",
+    `echo 'print(open(".dev.vars").read())' | python3`,
+    `echo 'print(open(".env").read())' | python`,
+    `echo '<?php echo file_get_contents(".env");' | php`,
+    `echo 'puts [read [open ".env"]]' | tclsh`,
+    `echo 'require("fs").readFileSync(".env")' | node`,
+    `echo 'puts File.read(".env")' | ruby`,
+    `echo 'open F, "<.env"; print <F>;' | perl`,
+    `echo 'Deno.readTextFileSync(".env")' | deno run -`,
+    `echo 'await Bun.file(".env").text()' | bun run -`,
+    `echo 'do shell script "cat .env"' | osascript`,
+  ]) {
+    test(`[完了条件・拒否] ${command}`, () => assert.equal(decision(command), 'deny', command));
+  }
+
+  for (const command of [
+    'cat x.sh | bash',
+    'curl https://example.test/x | sh',
+    'cat x.py | python3',
+    'cat x.php | php',
+    'cat x.tcl | tclsh',
+    'cat x.sh | source /dev/stdin',
+    'cat x.sh | . /dev/stdin',
+    'cat x.sh |& bash',
+  ]) {
+    test(`[完了条件・確認] ${command}`, () => assert.equal(decision(command), 'ask', command));
+  }
+
+  for (const command of [
+    "echo 'wrangler deploy' |& bash",
+    "printf '%s' 'cat .env' |& python3",
+    "echo 'wrangler deploy' | env bash",
+    "printf '%s' 'wrangler deploy' | pnpm exec bash",
+    "echo 'wrangler deploy' | bash -s -- argument",
+    "echo 'cat .env' | bash -",
+    "echo 'cat .env' | bash | cat",
+  ]) {
+    test(`[すり抜け・拒否] ${command}`, () => assert.equal(decision(command), 'deny', command));
+  }
+
+  for (const command of [
+    'echo ls | bash',
+    "printf 'print(1)' | python3",
+    "printf 'a\\n' | python3 -c 'import sys; print(sys.stdin.read())'",
+    'ls | grep x',
+    "echo 'wrangler deploy' | cat",
+    "echo 'wrangler deploy' | bash x.sh",
+    "echo 'wrangler deploy' | bash -c 'cat'",
+    "echo 'wrangler deploy' | source x.sh",
+    "echo 'wrangler deploy' | . x.sh",
+    "echo 'print(open(\".env\").read())' | python3 x.py",
+    "echo 'print(open(\".env\").read())' | python3 -c 'import sys; print(sys.stdin.read())'",
+    'cat x.txt | bash x.sh',
+    'cat x.txt | python3 x.py',
+    "echo 'wrangler deploy' | bash <<< 'ls'",
+  ]) {
+    test(`[完了条件・通す] ${command}`, () => assert.equal(decision(command), 'allow', command));
+  }
+});
+
+// 崩す役の1巡目: オプションを無効化する + と、値を別の語で取るオプション。
+// 本文はすべて judgeBash にだけ渡し、危険なコマンドは実行しない。
+describe('パイプの本文の反証（#1246・1巡目）', () => {
+  for (const command of [
+    "echo 'wrangler deploy' | bash +x",
+    "echo 'wrangler deploy' | sh +e",
+    `echo 'print(open(".env").read())' | python3 --check-hash-based-pycs always`,
+    `echo 'require("fs").readFileSync(".env")' | node --conditions development`,
+  ]) {
+    test(`[すり抜け・拒否] ${command}`, () => assert.equal(decision(command), 'deny', command));
+  }
+  for (const command of [
+    'cat x.sh | bash +x',
+    'cat x.sh | sh +e',
+    'cat x.py | python3 --check-hash-based-pycs always',
+    'cat x.js | node --conditions development',
+  ]) {
+    test(`[すり抜け・確認] ${command}`, () => assert.equal(decision(command), 'ask', command));
+  }
+  for (const command of [
+    "echo 'wrangler deploy' | bash +x x.sh",
+    "echo 'wrangler deploy' | sh +e x.sh",
+    `echo 'print(open(".env").read())' | python3 --check-hash-based-pycs always x.py`,
+    `echo 'require("fs").readFileSync(".env")' | node --conditions development x.js`,
+    "printf '%s' 'wrangler ' 'deploy' | bash <<< 'ls'",
+    "printf '%s' 'ls' | bash",
+  ]) {
+    test(`[完了条件・通す] ${command}`, () => assert.equal(decision(command), 'allow', command));
+  }
+  test('[すり抜け・拒否] printf %s の複数引数の間には空白が補われない', () =>
+    assert.equal(decision("printf '%s' 'wrangler ' 'deploy' | bash"), 'deny'));
+  test('[断る場合・確認] 読めない printf の書式を本文として実行させない', () =>
+    assert.equal(decision("printf '%b' 'ls' | bash"), 'ask'));
+});
+
+// fd 3 の入力は fd 0 のパイプを置き換えない。help/version/test の標準入力はコードではない。
+describe('パイプの本文の反証の追加（#1246・1巡目）', () => {
+  for (const command of [
+    "echo 'wrangler deploy' | bash 3<<< 'ls'",
+    "echo 'wrangler deploy' | bash 3<<'EOF'\nls\nEOF",
+  ]) {
+    test(`[すり抜け・拒否] ${command}`, () => assert.equal(decision(command), 'deny', command));
+  }
+  for (const command of [
+    "cat x.sh | bash 3<<< 'ls'",
+    "cat x.sh | bash 3<<'EOF'\nls\nEOF",
+  ]) {
+    test(`[すり抜け・確認] ${command}`, () => assert.equal(decision(command), 'ask', command));
+  }
+  for (const command of [
+    "echo 'cat .env' | bash --version",
+    "echo 'cat .env' | python3 --help",
+    "echo 'cat .env' | node --test",
+    'cat data.txt | node --test',
+  ]) {
+    test(`[完了条件・通す] ${command}`, () => assert.equal(decision(command), 'allow', command));
+  }
+});
+
+// 変数の値が -s や空なら標準入力を実行するため、固定のスクリプトファイルとは判定できない。
+describe('パイプの動的な起動モードの反証（#1246・1巡目）', () => {
+  test('[すり抜け・確認] 展開された引数が本文の読み方を変えうる', () =>
+    assert.ok(['ask', 'deny'].includes(decision(`echo 'wrangler deploy' | bash "$FLAGS"`))));
+  test('[すり抜け・確認] 不明な本文と動的な起動引数は人が確かめる', () =>
+    assert.equal(decision('cat x.sh | bash "$FLAGS"'), 'ask'));
+});
+
+// 標準入力を置き換えるリダイレクトと、別の記述子のリダイレクトを区別する（#1246）。
+describe('リダイレクトの記述子を非列挙の fd に残す（#1246）', () => {
+  for (const [command, fd, op, target, shape = target] of [
+    ['bash 3<<< ls', 3, '<<<', 'ls'],
+    ['bash 0<<< ls', 0, '<<<', 'ls'],
+    ['bash <<< ls', 0, '<<<', 'ls'],
+    ["bash 3<<'EOF'\nls\nEOF", 3, '<<', 'ls', ''],
+    ["bash 0<<'EOF'\nls\nEOF", 0, '<<', 'ls', ''],
+    ["bash <<'EOF'\nls\nEOF", 0, '<<', 'ls', ''],
+    ['bash 3<file', 3, '<', 'file'],
+    ['bash 0<file', 0, '<', 'file'],
+    ['bash <file', 0, '<', 'file'],
+    ['echo x 2>err', 2, '>', 'err'],
+    ['echo x >out', 1, '>', 'out'],
+    ['echo x 3>>out', 3, '>>', 'out'],
+    ['bash 3<>file', 3, '<>', 'file'],
+  ]) {
+    test(`[完了条件・parser] ${command} の記述子は ${fd}`, () => {
+      const [redirect] = redirectsOf(splitSegments(command)[0]);
+      assert.equal(redirect.fd, fd);
+      assert.equal(Object.getOwnPropertyDescriptor(redirect, 'fd').enumerable, false);
+      assert.deepEqual(Object.keys(redirect), ['op', 'target', 'shape', 'substitutions']);
+      assert.deepEqual(redirect, { op, target, shape, substitutions: [] });
+    });
+  }
+
+  test('[すり抜け・parser] 同じ区切りの fd 3 と fd 0 を別々に残す', () => {
+    const redirects = redirectsOf(splitSegments('bash 3<<< auxiliary 0<<< stdin')[0]);
+    assert.deepEqual(redirects.map((redirect) => redirect.fd), [3, 0]);
+    assert.deepEqual(redirects, [
+      { op: '<<<', target: 'auxiliary', shape: 'auxiliary', substitutions: [] },
+      { op: '<<<', target: 'stdin', shape: 'stdin', substitutions: [] },
+    ]);
+  });
+});
+
+// fd 0 の複製や閉鎖があれば、字面の本文が実際の標準入力とは限らない（#1246）。
+describe('標準入力の複製をリダイレクト配列の非列挙属性に残す（#1246）', () => {
+  for (const suffix of ['<&3', '0<&3', '0<&-', '<&-', '0>&3', '0>&-']) {
+    test(`[完了条件・parser] ${suffix} は標準入力を変更する`, () => {
+      const redirects = redirectsOf(splitSegments(`bash <<< ls ${suffix}`)[0]);
+      assert.equal(redirects.stdinDuplicated, true);
+      assert.equal(Object.getOwnPropertyDescriptor(redirects, 'stdinDuplicated').enumerable, false);
+      assert.deepEqual(Object.keys(redirects), ['0']);
+      assert.deepEqual(redirects, [{ op: '<<<', target: 'ls', shape: 'ls', substitutions: [] }]);
+    });
+  }
+
+  test('[すり抜け・parser] 本文の前で標準入力を複製しても印を保持する', () => {
+    const redirects = redirectsOf(splitSegments('bash 0<&3 <<< ls')[0]);
+    assert.equal(redirects.stdinDuplicated, true);
+    assert.deepEqual(redirects, [{ op: '<<<', target: 'ls', shape: 'ls', substitutions: [] }]);
+  });
+
+  for (const suffix of ['2>&1', '3<&0', '>&3', '2>&-']) {
+    test(`[完了条件・通す] ${suffix} は標準入力の複製としない`, () => {
+      const redirects = redirectsOf(splitSegments(`bash <<< ls ${suffix}`)[0]);
+      assert.ok(redirects.stdinDuplicated === false || redirects.stdinDuplicated === undefined);
+      assert.deepEqual(Object.keys(redirects), ['0']);
+      assert.deepEqual(redirects, [{ op: '<<<', target: 'ls', shape: 'ls', substitutions: [] }]);
+    });
+  }
+});
+
+// parser の変更と独立して、呼び出し先へ語を渡すときにも記述子の情報を失わない。
+describe('sliceWords と concatWords が記述子の情報を保持する（#1246）', () => {
+  const markedWords = ({ fd = 0, duplicated = false, redirect = true } = {}) => {
+    const words = ['env', 'bash'];
+    const redirects = [];
+    if (redirect) {
+      const input = { op: '<<<', target: 'ls', shape: 'ls', substitutions: [] };
+      Object.defineProperty(input, 'fd', { value: fd });
+      redirects.push(input);
+    }
+    Object.defineProperty(redirects, 'stdinDuplicated', { value: duplicated });
+    Object.defineProperty(words, 'redirects', { value: redirects });
+    return words;
+  };
+
+  test('[完了条件・parser] sliceWords は fd 3 を fd 0 に変えない', () => {
+    const redirects = redirectsOf(sliceWords(markedWords({ fd: 3 }), 1));
+    assert.equal(redirects[0].fd, 3);
+    assert.equal(Object.getOwnPropertyDescriptor(redirects[0], 'fd').enumerable, false);
+  });
+
+  test('[完了条件・parser] sliceWords は標準入力を複製した印を保持する', () => {
+    const redirects = redirectsOf(sliceWords(markedWords({ duplicated: true }), 1));
+    assert.equal(redirects.stdinDuplicated, true);
+    assert.equal(Object.getOwnPropertyDescriptor(redirects, 'stdinDuplicated').enumerable, false);
+  });
+
+  test('[完了条件・parser] concatWords は各リダイレクトの fd を保持する', () => {
+    const redirects = redirectsOf(concatWords(markedWords({ fd: 3 }), markedWords({ fd: 0 })));
+    assert.deepEqual(redirects.map((redirect) => redirect.fd), [3, 0]);
+    assert.ok(redirects.every((redirect) => !Object.getOwnPropertyDescriptor(redirect, 'fd').enumerable));
+  });
+
+  test('[すり抜け・parser] 切り出した語をつなぎ直しても複製の印を失わずリダイレクトを重ねない', () => {
+    const words = markedWords({ duplicated: true });
+    const redirects = redirectsOf(concatWords(sliceWords(words, 0, 1), sliceWords(words, 1)));
+    assert.equal(redirects.stdinDuplicated, true);
+    assert.equal(Object.getOwnPropertyDescriptor(redirects, 'stdinDuplicated').enumerable, false);
+    assert.equal(redirects.length, 1);
+    assert.deepEqual(Object.keys(redirects), ['0']);
+    assert.deepEqual(redirects, [{ op: '<<<', target: 'ls', shape: 'ls', substitutions: [] }]);
+  });
+
+  test('[すり抜け・parser] リダイレクトの項目が空でも複製だけの印を保持する', () => {
+    const redirects = redirectsOf(concatWords(['bash'], markedWords({ duplicated: true, redirect: false })));
+    assert.equal(redirects.stdinDuplicated, true);
+    assert.equal(Object.getOwnPropertyDescriptor(redirects, 'stdinDuplicated').enumerable, false);
+    assert.deepEqual(redirects, []);
+  });
+
+  for (const reversed of [false, true]) {
+    test(`[すり抜け・parser] 複製の印は一方にだけあっても保持する（逆順=${reversed}）`, () => {
+      const parts = [markedWords({ duplicated: false }), markedWords({ duplicated: true })];
+      const redirects = redirectsOf(concatWords(...(reversed ? parts.reverse() : parts)));
+      assert.equal(redirects.stdinDuplicated, true);
+      assert.deepEqual(Object.keys(redirects), ['0', '1']);
+    });
+  }
+});
+
+// 値を取るフラグの値も、引用しない展開で起動モードや引数の数を変えうる。
+// FLAGS=xtrace\ -s / utf8\ - / dev\ - なら、末尾のファイル名は標準入力コードの引数になる。
+// 危険な本文は judgeBash の字面判定にだけ渡し、実行しない。
+describe('値取りオプションの値と標準入力の反証（#1246・2巡目）', () => {
+  for (const command of [
+    `echo 'cat .env' | bash -o $FLAGS x.sh`,
+    `echo 'print(open(".env").read())' | python3 -X $FLAGS x.py`,
+    `echo 'require("fs").readFileSync(".env")' | node --conditions $FLAGS x.js`,
+    `echo 'wrangler deploy' | bash -o {xtrace,-s} x.sh`,
+  ]) {
+    test(`[すり抜け・拒否か確認] ${command}`, () =>
+      assert.ok(['ask', 'deny'].includes(decision(command)), command));
+  }
+  for (const command of [
+    'cat x.sh | bash -o $FLAGS x.sh',
+    'cat x.py | python3 -X $FLAGS x.py',
+    'cat x.js | node --conditions $FLAGS x.js',
+    'cat x.sh | bash -o {xtrace,-s} x.sh',
+  ]) {
+    test(`[すり抜け・確認] ${command}`, () => assert.equal(decision(command), 'ask', command));
+  }
+  for (const command of [
+    `echo 'cat .env' | bash -o "$FLAGS" x.sh`,
+    `echo 'print(open(".env").read())' | python3 -X "$FLAGS" x.py`,
+    `echo 'require("fs").readFileSync(".env")' | node --conditions "$FLAGS" x.js`,
+  ]) {
+    test(`[完了条件・通す] 引用された値は引数を増やさない: ${command}`, () =>
+      assert.equal(decision(command), 'allow', command));
+  }
+});
+
+// 記述子の印は、包む道具から実行先に渡した後も本文の選択へ効く。
+describe('記述子を渡した実行の反証（#1246・2巡目）', () => {
+  for (const command of [
+    `echo 'ls' | bash <<< 'pwd' 0<&3`,
+    `cat x.sh | bash 0<&3 <<< 'ls'`,
+    `echo 'ls' | env bash 0<&3`,
+  ]) {
+    test(`[すり抜け・確認] ${command}`, () => assert.equal(decision(command), 'ask', command));
+  }
+  test('[すり抜け・拒否] env の後ろの fd 3 は標準入力を置き換えない', () =>
+    assert.equal(decision(`echo 'wrangler deploy' | env bash 3<<< 'ls'`), 'deny'));
+  test('[完了条件・通す] fd 3 への複製はパイプの標準入力を変えない', () =>
+    assert.equal(decision(`echo 'ls' | bash 3<&0`), 'allow'));
+});
+
+// bash の -o と -s をまとめても、-o の値の後ろはスクリプトファイルではなく標準入力本文の引数になる。
+// 危険本文は判定関数にだけ渡し、コマンドそのものは実行しない。
+describe('まとめた起動オプションとパイプ本文の反証（#1246・3巡目）', () => {
+  test('[すり抜け・拒否] -os は値を消費しながら標準入力を実行する', () =>
+    assert.equal(decision("echo 'wrangler deploy' | bash -os xtrace x.sh"), 'deny'));
+  test('[すり抜け・確認] -os が読む不明な標準入力を通さない', () =>
+    assert.equal(decision('cat x.sh | bash -os xtrace x.sh'), 'ask'));
+  test('[完了条件・通す] -s のない組合せで指定したファイルへの標準入力はデータ', () =>
+    assert.equal(decision("echo 'wrangler deploy' | bash -ox xtrace x.sh"), 'allow'));
+  test('[完了条件・通す] -os でも安全な本文は通す', () =>
+    assert.equal(decision("echo 'ls' | bash -os xtrace argument"), 'allow'));
+  for (const command of [
+    "echo 'wrangler deploy' | bash {input}<<< 'ls'",
+    "cat x.sh | bash {input}<<< 'ls'",
+  ]) {
+    test(`[すり抜け・確認] 名前で割り当てる記述子を標準入力の上書きと断定しない: ${command}`, () =>
+      assert.ok(['ask', 'deny'].includes(decision(command)), command));
+  }
+  test('[すり抜け・拒否] printf %s\\n の繰り返しは改行を保って読む', () =>
+    assert.equal(decision("printf '%s\\n' 'echo safe' 'wrangler deploy' | bash"), 'deny'));
+});
+
+// source/. の '-' は標準入力の指定ではなく、その名前のファイルを読む。
+describe('source の実ファイル名とパイプ本文の反証（#1246・3巡目）', () => {
+  for (const tool of ['source', '.']) {
+    test(`[完了条件・通す] ${tool} - の標準入力は本文ではない`, () =>
+      assert.equal(decision(`echo 'cat .env' | ${tool} -`), 'allow'));
+  }
+});
+
+// 最終の独立レビューで確定した起動モード境界を回帰として残す。
+describe('独立レビューの起動モードの反証（#1246・3巡目）', () => {
+  test('[すり抜け・拒否] bash -eo の値をスクリプト名と誤認しない', () =>
+    assert.equal(decision("echo 'wrangler deploy' | bash -eo posix"), 'deny'));
+  test('[すり抜け・確認] bash -eO の値をスクリプト名と誤認しない', () =>
+    assert.equal(decision('cat x.sh | bash -eO extglob'), 'ask'));
+  for (const command of [
+    `echo 'print(open(".env").read())' | python3 -i -c 'pass'`,
+    `echo 'require("fs").readFileSync(".env")' | node -i -e 'void 0'`,
+  ]) {
+    test(`[すり抜け・拒否] inline の後の対話継続で本文を実行する: ${command}`, () =>
+      assert.equal(decision(command), 'deny', command));
+  }
+  for (const command of [
+    `cat x.py | python3 -i -c 'pass'`,
+    `cat x.js | node -i -e 'void 0'`,
+  ]) {
+    test(`[すり抜け・確認] inline の後の対話継続で読む本文は不明: ${command}`, () =>
+      assert.equal(decision(command), 'ask', command));
+  }
+  for (const command of [
+    'cat data.txt | node --run pretest',
+    "echo 'cat .env' | node --run pretest",
+  ]) {
+    test(`[完了条件・通す] package script が受け取る標準入力は本文ではない: ${command}`, () =>
+      assert.equal(decision(command), 'allow', command));
+  }
+});
+
+// PHP のファイル指定では、パイプは指定したファイルのデータ入力になる。
+describe('PHP のファイル指定とパイプ本文の反証（#1246・3巡目）', () => {
+  for (const command of [
+    "echo 'cat .env' | php -f x.php",
+    "echo 'cat .env' | php --file=x.php",
+    'cat data.txt | php --file x.php',
+  ]) {
+    test(`[完了条件・通す] ${command}`, () => assert.equal(decision(command), 'allow', command));
+  }
+});
+
+// 最終修正の追読で確定した、ファイル指定と inline 後の起動モード境界。
+describe('最終修正の標準入力実行の追読回帰（#1246・3巡目）', () => {
+  test('[すり抜け・拒否] PHP -f /dev/stdin は指定した標準入力本文を実行する', () =>
+    assert.equal(decision(`echo '<?php echo file_get_contents(".env");' | php -f /dev/stdin`), 'deny'));
+  test('[すり抜け・確認] PHP --file=/dev/fd/0 が読む不明な本文は確認する', () =>
+    assert.equal(decision('cat x.php | php --file=/dev/fd/0'), 'ask'));
+  test('[すり抜け・拒否か確認] Node inline の後の -i も標準入力を対話実行する', () =>
+    assert.ok(['ask', 'deny'].includes(decision(`echo 'require("fs").readFileSync(".env")' | node -e 'void 0' -i`))));
+  test('[すり抜け・確認] Node inline の後の -i が読む不明な本文は確認する', () =>
+    assert.equal(decision(`cat x.js | node -e 'void 0' -i`), 'ask'));
+});

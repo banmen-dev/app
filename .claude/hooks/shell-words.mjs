@@ -3,6 +3,7 @@
 // $(...) と `...` は（二重引用符の中でも）実行されるので、別の区切りとして取り出す。
 // コメントは捨てる。語の並びには、シェルが道具に渡す argv だけを残す。
 // リダイレクト、ヒアドキュメント、ヒアストリングは、区切りに付けた列挙されない属性 redirects に { op, target, shape, substitutions } で持つ。
+// 各項目の非列挙属性 fd は記述子。redirects 配列の非列挙属性 stdinDuplicated は fd 0 の複製・閉鎖がある印。
 // 語の並びに混ぜると、引用符の中の ">.dev.vars" と見分けられず、argv の位置を数える判定が取り違えるため。
 // op は > >> < << <<< &> >| >>&| などの記号（記述子の番号と zsh の ! は含めない）、target は引数の位置と同じ読み方で引用符と \ を解いた先
 // （ヒアドキュメントは本文）、shape は語の shapes と同じ作りの先（実行時に決まる位置が DYNAMIC）、
@@ -44,6 +45,9 @@ function withMarks(words, expands, shapes, redirects = []) {
   return words;
 }
 
+// 既存のリダイレクトの列挙形を変えず、標準入力の出どころを選ぶための記述子を残す。
+const withFd = (redirect, fd) => Object.defineProperty(redirect, 'fd', { value: fd });
+
 // 区切りのリダイレクト。印の無い配列（splitSegments を通っていない語）は持たない
 export function redirectsOf(words) {
   return words.redirects ?? [];
@@ -77,11 +81,13 @@ export function sliceWords(words, start, end) {
 
 // 語と印を一緒につなぐ。切り出した部分をつなぎ直すと同じリダイレクトが重なるので、同じ項目は1つにする
 export function concatWords(...parts) {
+  const redirects = [...new Set(parts.flatMap(redirectsOf))];
+  if (parts.some((p) => redirectsOf(p).stdinDuplicated)) Object.defineProperty(redirects, 'stdinDuplicated', { value: true });
   return withMarks(
     parts.flatMap((p) => [...p]),
     parts.flatMap((p) => p.map((_, i) => expandsAt(p, i))),
     parts.flatMap((p) => p.map((_, i) => shapeAt(p, i))),
-    [...new Set(parts.flatMap(redirectsOf))],
+    redirects,
   );
 }
 
@@ -259,13 +265,13 @@ export function splitSegments(command) {
   // 先の語が来なかったリダイレクト（echo x >; …）は、空の先で閉じる
   const closeRedirect = () => {
     if (!openRedirect) return;
-    words.redirects.push({ op: openRedirect.op, target: '', shape: '', substitutions: [] });
+    words.redirects.push(withFd({ op: openRedirect.op, target: '', shape: '', substitutions: [] }, openRedirect.fd));
     openRedirect = null;
   };
   const endWord = () => {
     if (inWord && openRedirect) {
       // 先の中の $(…) と `…` の中身は、nested に積んだ分から取る（別の区切りとしても判定される）
-      words.redirects.push({ op: openRedirect.op, target: word, shape, substitutions: nested.slice(openRedirect.nestedFrom) });
+      words.redirects.push(withFd({ op: openRedirect.op, target: word, shape, substitutions: nested.slice(openRedirect.nestedFrom) }, openRedirect.fd));
       openRedirect = null;
     } else if (inWord) {
       words.push(word);
@@ -438,6 +444,7 @@ export function splitSegments(command) {
     }
     const isRedirect = c === '<' || c === '>' || (c === '&' && command[i + 1] === '>');
     if (isRedirect) {
+      const fd = !openRedirect && inWord && /^\d+$/.test(word) ? Number(word) : c === '<' ? 0 : 1;
       // 2>&1 の 2 のような番号は語に残さない。先を待っているリダイレクトの後ろ（> 2>x）の数字は先なので残す
       if (!openRedirect && inWord && /^\d+$/.test(word)) {
         word = '';
@@ -447,7 +454,7 @@ export function splitSegments(command) {
       endWord();
       closeRedirect();
       if (command.startsWith('<<<', i)) {
-        openRedirect = { op: '<<<', nestedFrom: nested.length };
+        openRedirect = { op: '<<<', fd, nestedFrom: nested.length };
         i += 2;
         continue;
       }
@@ -455,7 +462,7 @@ export function splitSegments(command) {
         const start = command[i + 2] === '-' ? i + 3 : i + 2;
         const [delimiter, next, quoted] = readDelimiter(start);
         // 本文は改行の後で読み、この項目の target に足す。<<- も同じ op（タブを外す違いは、本文の行を trim して照合するので区別しない）
-        const redirect = { op: '<<', target: '', shape: '', substitutions: [] };
+        const redirect = withFd({ op: '<<', target: '', shape: '', substitutions: [] }, fd);
         words.redirects.push(redirect);
         heredocs.push({ delimiter, redirect, quoted });
         i = next - 1;
@@ -470,11 +477,12 @@ export function splitSegments(command) {
       const op = command.slice(i, j).replace(/!$/, '');
       // 記述子の複製と閉じ（2>&1、>&2、<&0、>&-）は、書き込み先にも読み込み元にも数えない
       if (op.endsWith('&') && /[\d-]/.test(command[j] ?? '')) {
+        if (fd === 0) Object.defineProperty(words.redirects, 'stdinDuplicated', { value: true, configurable: true });
         while (/[\d-]/.test(command[j] ?? '')) j++;
         i = j - 1;
         continue;
       }
-      openRedirect = { op, nestedFrom: nested.length };
+      openRedirect = { op, fd, nestedFrom: nested.length };
       i = j - 1;
       continue;
     }
