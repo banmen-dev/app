@@ -2,9 +2,15 @@
 // 本番と同じ配り方（CSP の img-src、キャッシュのヘッダー）で通す。上げる画面はまだ無い（次のタスク）。
 // 画像は組織ごとなので、並べて走るほかのテストが見ないひばり工房のリン（seed の otherOrg）で上げ、テストの終わりに外して戻す。
 // ほかのファイルの e2e にひばり工房の一覧を開いて画像の読み込みを見るものは無い（リンの名前を見るのは organizations.test.ts の上の欄だけ）
-import { meAvatarDelete, meAvatarUpload } from '../src/shared/operations/organization/me-avatar.ts';
+// #1273: 一般のメンバーが唯一のワークスペースを抜けて組織に入れなくなると、画像が消えて前の URL が 404 になる。
+// 抜けるのは、この e2e だけが使うくもラボのシオン（seed の avatarLeaver）で、テストの前後に手元の D1 で所属を戻す（e2e/local-d1.ts）
+import { meAvatarDelete, meAvatarUpload, userList } from '../src/shared/operations/organization/index.ts';
+import { membershipLeave } from '../src/shared/operations/workspace/index.ts';
+import { sessionCookieName } from '../src/shared/session-cookie.ts';
+import { SEED_SESSIONS } from '../seed/sessions.ts';
 import { expect, test } from './fixtures.ts';
 import { signIn } from './helpers.ts';
+import { KUMO_AVATAR_LEAVER_USER_ID, KUMO_WORKSPACE_ID, restoreKumoAvatarLeaverMembership } from './local-d1.ts';
 
 // 1px の PNG（e2e/members.test.ts と同じ）
 const PIXEL = Buffer.from(
@@ -65,4 +71,71 @@ test('上げた画像が管理のユーザー一覧に出て、外すと前の U
   const gone = await page.request.get(avatarUrl);
   expect(gone.status()).toBe(404);
   expect(gone.headers()['cache-control']).toBe('private, no-store');
+});
+
+test('一般のメンバーが唯一のワークスペースを抜けると、画像が消えて前の URL は 404 になり、一覧は頭文字の円に戻る。戻っても画像は戻らない', async ({
+  page,
+  context,
+  request,
+  baseURL,
+}) => {
+  if (baseURL === undefined) throw new Error('baseURL が無い');
+  const origin = new URL(baseURL).origin;
+  const cookieOf = (who: 'avatarLeaver' | 'lookAdmin') => `${sessionCookieName(baseURL)}=${SEED_SESSIONS[who].token}`;
+  const leaver = { Origin: origin, Cookie: cookieOf('avatarLeaver') };
+  // 前の回か繰り返しが途中で落ちて、抜けたまま残っていても始められるように戻しておく
+  await restoreKumoAvatarLeaverMembership();
+  await signIn(context, baseURL, 'lookAdmin');
+
+  let avatarUrl: string | undefined;
+  try {
+    const uploaded = await request.post(`/api/kumo/${meAvatarUpload.name}`, {
+      headers: {
+        ...leaver,
+        'X-Operation-Input': encodeURIComponent(JSON.stringify({})),
+        'Content-Type': 'image/png',
+      },
+      data: PIXEL,
+    });
+    expect(uploaded.status()).toBe(200);
+    avatarUrl = meAvatarUpload.output.parse(await uploaded.json()).avatar_url;
+    // 同じ組織の管理者（カイ）から読める
+    expect((await page.request.get(avatarUrl)).status()).toBe(200);
+
+    const left = await request.post(`/api/kumo/${membershipLeave.name}`, {
+      headers: leaver,
+      data: { workspace_id: KUMO_WORKSPACE_ID, user_id: KUMO_AVATAR_LEAVER_USER_ID },
+    });
+    expect(left.status()).toBe(200);
+
+    // 抜けた後の前の URL は、同じ組織の管理者から 404 で、キャッシュさせない
+    const gone = await page.request.get(avatarUrl);
+    expect(gone.status()).toBe(404);
+    expect(gone.headers()['cache-control']).toBe('private, no-store');
+
+    // 管理のユーザー一覧の avatar_url は空（seed のシオンはログインの手段のアイコンを持たない）で、画面は頭文字の円になる
+    const users = await page.request.post(`/api/kumo/${userList.name}`, {
+      headers: { Origin: origin, 'Content-Type': 'application/json' },
+      data: {},
+    });
+    expect(users.status()).toBe(200);
+    const shion = userList.output
+      .parse(await users.json())
+      .users.find((user) => user.id === KUMO_AVATAR_LEAVER_USER_ID);
+    expect(shion?.avatar_url).toBeNull();
+    await page.goto('/kumo/admin');
+    const row = page
+      .getByRole('region', { name: 'ユーザー', exact: true })
+      .getByRole('table', { name: '組織のユーザーの一覧' })
+      .locator('tbody tr', { hasText: 'シオン' });
+    await expect(row.locator('.avatar')).toHaveText('シ');
+    await expect(row.locator('.avatar img')).toHaveCount(0);
+  } finally {
+    await restoreKumoAvatarLeaverMembership();
+  }
+
+  // 所属を戻しても（招待を受けて戻ったのと同じ）、画像は戻らない。本人からも 404
+  if (avatarUrl === undefined) throw new Error('上げた画像の URL が無い');
+  const back = await request.get(avatarUrl, { headers: { Cookie: cookieOf('avatarLeaver') } });
+  expect(back.status()).toBe(404);
 });

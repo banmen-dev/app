@@ -14,6 +14,11 @@ import { ApiError } from '../errors.ts';
 import { uuidv7 } from '../uuid.ts';
 import { implement } from './implement.ts';
 import { removeDepartedPartyMemberStatements } from './membership-party.ts';
+import {
+  cannotEnterOrganization,
+  removeDepartedAvatarObjects,
+  removeDepartedAvatarStatement,
+} from './organization-departure.ts';
 import { actorUserIdOf, changeLogColumns, openWorkspace, throwIfClosed } from './write-guards.ts';
 import { createdOn } from './workspace.ts';
 
@@ -149,8 +154,11 @@ export const membershipRoleUpdateOperation = implement(
 // タスクの2文は「この要求で所属が終わった（その所属の行の left_at がこの要求の時刻）」を条件にし、履歴を UPDATE より先に置く
 // （区分の削除の、振っていた行を戻す書き方と同じ。件数によらず文の数は決まっている）。
 // 完了したタスク、完了の記録（completions）、経験値（xp_grants）は変えない。
-// 討伐隊の履歴と削除も同じ batch に入れる。接続（connections）は #67 で足す
-export const membershipLeaveOperation = implement(membershipLeave, async ({ db, actor, workspace, input }) => {
+// 討伐隊の履歴と削除も同じ batch に入れる。接続（connections）は #67 で足す。
+// 最後に、この要求で組織に入れなくなった（管理者でなく、閉じたワークスペースを含めてほかに今の所属が無い）ときだけ、
+// その人のプロフィール画像の行（user_avatars）を消し、R2 のファイルは batch の後に消す（#1273。所属し直しても戻さない）
+export const membershipLeaveOperation = implement(membershipLeave, async (context) => {
+  const { db, actor, workspace, input, attachmentStorage } = context;
   const actorUserId = actorUserIdOf(actor);
   const organizationId = db.organizationId;
   const workspaceId = workspace.workspaceId;
@@ -192,7 +200,10 @@ export const membershipLeaveOperation = implement(membershipLeave, async ({ db, 
       .where('em.workspace_id', '=', workspaceId)
       .where('em.left_at', '=', leftAt);
 
-  const results = await db.batch([
+  // この要求で所属が終わり、組織に入れなくなった（管理者でなく、ほかに今の所属が無い）ときだけ、プロフィール画像の行を消す。
+  // 結果は文の位置で読む
+  const removeAvatar = removeDepartedAvatarStatement(db, userId, endedHere);
+  const statements = [
     db.statement((q) =>
       q
         .updateTable('memberships')
@@ -331,25 +342,17 @@ export const membershipLeaveOperation = implement(membershipLeave, async ({ db, 
               }))
               .where('id', '=', userId)
               .where('organization_id', '=', organizationId)
-              .where('is_admin', '=', 0)
               .where((eb) => eb.exists(endedHere(q)))
-              .where((eb) =>
-                eb.not(
-                  eb.exists(
-                    q
-                      .selectFrom('memberships as remaining')
-                      .innerJoin('workspaces as rw', 'rw.id', 'remaining.workspace_id')
-                      .select('remaining.id')
-                      .where('rw.organization_id', '=', organizationId)
-                      .where('remaining.user_id', '=', userId)
-                      .where('remaining.left_at', 'is', null),
-                  ),
-                ),
-              ),
+              .where((eb) => eb.exists(cannotEnterOrganization(q, organizationId, userId))),
           ),
         ]
       : []),
-  ]);
+    removeAvatar,
+  ];
+  const results = await db.batch(statements);
+  // 行が消えた後に R2 のファイルを消す（失敗は件数だけをログに出し、離脱は成功にする）。
+  // 消す文の条件は所属の文の成否と別なので（同じ時刻に別の要求が同じ所属を終えたときなど）、断る前でも、消した行があれば消す
+  await removeDepartedAvatarObjects(attachmentStorage, results[statements.indexOf(removeAvatar)], membershipLeave.name);
 
   if ((results[0]?.changes ?? 0) === 0) {
     // 読んでから書くまでに、閉じたか、先に抜けた（外された）か、他人を外す人が権限を失った
