@@ -428,7 +428,8 @@
 {/snippet}
 
 <!-- 最初にやることは2列の上に全幅で置く。その下がダッシュボード（.dashboard）で、左の列（.dashboard-main）にワークスペース、今日やること、
-     （ニュース）の面を上から並べる。右の列（.dashboard-side）に最近の更新の面を置く（広い幅は左3、右2の2列。760px 以下は左の列の下に続く） -->
+     （ニュース）の面を上から並べる。右の列（.dashboard-side）に最近の更新の面を置く（広い幅は左3、右2の2列。760px 以下は左の列の下に続く）。
+     最近の更新の面は、ホームの load には入れず、面が自分で読む（今日やることの操作でホームを読み直しても、続きを消さない） -->
 {#snippet main()}
   <!-- 最初にやること。手順が空（必須が済んだ、出す手順が無い）か読めなかったときは置かない -->
   {#if data.organization !== null && data.firstSteps !== null && data.firstSteps.role !== null && data.firstSteps.steps.length > 0 && (data.firstSteps.role !== 'admin' || data.organization.me.is_admin)}
@@ -447,7 +448,7 @@
       {@render todayPane()}
     </div>
     <div class="dashboard-side">
-      <RecentActivity slug={data.slug} first={data.recentActivity} onRetry={() => void invalidate('app:today')} />
+      <RecentActivity slug={data.slug} />
     </div>
   </div>
 {/snippet}

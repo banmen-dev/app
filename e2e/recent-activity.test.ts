@@ -3,7 +3,9 @@
 // 返す行の範囲（所属、権限、消した行、カーソルの境目）は test/recent-activity.test.ts が確かめる。
 // seed のセッション（seed/sessions.ts）の Cookie で開く。あおば開発の管理者はミナト
 import type { Locator, Page } from '@playwright/test';
+import { today } from '../src/shared/operations/organization/index.ts';
 import { recentActivity, type RecentActivityEntry } from '../src/shared/operations/organization/recent-activity.ts';
+import { taskTodayMark } from '../src/shared/operations/task/index.ts';
 import { expect, test } from './fixtures.ts';
 import { addTaskRow, createWorkspace, signIn } from './helpers.ts';
 import { failOperation, mockOperation, routeOperation } from './operations.ts';
@@ -157,15 +159,177 @@ test('更新が 1 件も無いときは、面に空の案内を出す', async ({
   await expect(pane.getByRole('button', { name: 'さらに読む' })).toHaveCount(0);
 });
 
-test('最近の更新を読めなかったときは、面だけに失敗の案内を出し、ホームのほかの面は出したままにする', async ({
+test('最近の更新を読めなかったときは、面だけに失敗の案内を出し、「もう一度試す」で面だけを読み直せる', async ({
   page,
 }) => {
-  await failOperation(page, recentActivity, { slug: 'aoba' }, 500, 'internal');
+  let failing = true;
+  let calls = 0;
+  await routeOperation(page, recentActivity, { slug: 'aoba' }, async (call) => {
+    calls++;
+    if (failing) await call.fail(500, 'internal');
+    else await call.fulfill({ entries: [entry(1)], next: null });
+  });
   await page.goto('/aoba');
   const pane = activityPane(page);
   await expect(pane.getByText('最近の更新を読み込めませんでした。')).toBeVisible();
-  await expect(pane.getByRole('button', { name: 'もう一度試す' })).toBeVisible();
   await expect(page.getByRole('heading', { level: 2, name: '今日やること', exact: true })).toBeVisible();
+  // 失敗の文だけが role="alert"。ボタンはその外にあり、状態は常設の role="status" が伝える
+  await expect(pane.getByRole('alert')).toHaveText('最近の更新を読み込めませんでした。');
+  const retry = pane.getByRole('button', { name: 'もう一度試す' });
+  await expect(retry).not.toHaveAttribute('role', 'alert');
+  // また失敗したら、状態に「まだ読み込めませんでした」を出し、ボタンは残る
+  await retry.click();
+  await expect(pane.getByRole('status')).toHaveText('まだ読み込めませんでした');
+  expect(calls).toBe(2);
+  // 読めれば、面だけが入れ替わる（ホームのほかの面は読み直さない）
+  failing = false;
+  await retry.click();
+  await expect(pane.locator('.activity-row')).toHaveCount(1);
+  await expect(pane.getByText('最近の更新を読み込めませんでした。')).toHaveCount(0);
+  expect(calls).toBe(3);
+});
+
+test('読み込み中は面だけに骨組みと「読み込んでいます」を出し、ホームのほかの面は待たずに出る', async ({ page }) => {
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  await routeOperation(page, recentActivity, { slug: 'aoba' }, async (call) => {
+    await gate;
+    await call.fulfill({ entries: [entry(1)], next: null });
+  });
+  await page.goto('/aoba');
+  const pane = activityPane(page);
+  await expect(pane.locator('.skeleton .skeleton-line')).toHaveCount(3);
+  await expect(pane.getByRole('status')).toHaveText('読み込んでいます');
+  // ホームのほかの面は、最近の更新を待たずに出ている
+  await expect(page.getByRole('heading', { level: 2, name: '今日やること', exact: true })).toBeVisible();
+  release();
+  await expect(pane.locator('.activity-row')).toHaveCount(1);
+  await expect(pane.locator('.skeleton')).toHaveCount(0);
+  await expect(pane.getByRole('status')).toHaveText('');
+});
+
+test('今日やることの操作でホームを読み直しても、最近の更新に足した続きは消えず、読み直さない', async ({ page }) => {
+  let activityCalls = 0;
+  await routeOperation(page, recentActivity, { slug: 'aoba' }, async (call) => {
+    activityCalls++;
+    if (call.input.before === undefined) {
+      const entries = Array.from({ length: 20 }, (_, index) => entry(index + 1));
+      await call.fulfill({ entries, next: { created_at: entries[19]!.created_at, id: entries[19]!.id } });
+    } else {
+      await call.fulfill({ entries: [entry(21), entry(22)], next: null });
+    }
+  });
+  let todayCalls = 0;
+  const task = {
+    id: '019a0000-0000-7000-8000-000000000999',
+    title: 'あとでやる',
+    points: null,
+    due_on: '2026-11-06',
+    today_on: null as string | null,
+    completed_at: null,
+    workspace_id: WORKSPACE.id,
+    workspace_name: WORKSPACE.name,
+    today: '2026-11-04',
+    week_start: 1,
+    position: 'a0',
+    carry_days: 0,
+    sprint_active: false,
+    is_today_completed: false,
+    reopenable: false,
+    assignee: null,
+    delegatee: null,
+    repository: null,
+    sprint: null,
+  };
+  await routeOperation(page, today, { slug: 'aoba' }, (call) => {
+    todayCalls++;
+    return call.fulfill({ tasks: [task], sprint_goals: [] });
+  });
+  await routeOperation(page, taskTodayMark, { slug: 'aoba' }, (call) => {
+    task.today_on = call.input.marked ? '2026-11-04' : null;
+    return call.fulfill({ task_id: task.id, today_on: task.today_on });
+  });
+  await page.goto('/aoba');
+  const pane = activityPane(page);
+  await pane.getByRole('button', { name: 'さらに読む' }).click();
+  await expect(pane.locator('.activity-row')).toHaveCount(22);
+  expect(activityCalls).toBe(2);
+
+  await page.getByRole('button', { name: '今日やる: あとでやる' }).click();
+  await expect(page.getByRole('status').filter({ hasText: '今日やると決めました' })).toBeVisible();
+  expect(todayCalls).toBe(2);
+  await expect(pane.locator('.activity-row')).toHaveCount(22);
+  expect(activityCalls).toBe(2);
+});
+
+test('続きの失敗の案内は、面を読み直すと消え、足した行が無かったときのフォーカスは最後の行へ戻る', async ({ page }) => {
+  let mode: 'fail' | 'duplicate' = 'fail';
+  let first = true;
+  await routeOperation(page, recentActivity, { slug: 'aoba' }, async (call) => {
+    if (call.input.before === undefined) {
+      const entries = Array.from({ length: 20 }, (_, index) => entry(index + 1));
+      await call.fulfill({
+        entries,
+        next: first ? { created_at: entries[19]!.created_at, id: entries[19]!.id } : null,
+      });
+      first = false;
+    } else if (mode === 'fail') {
+      await call.fail(500, 'internal');
+    } else {
+      // 先頭に足された行がずれて、読んだ行と重なった続き（足す行が 0 件）
+      await call.fulfill({ entries: [entry(20)], next: null });
+    }
+  });
+  await page.goto('/aoba');
+  const pane = activityPane(page);
+  const more = pane.getByRole('button', { name: 'さらに読む' });
+  await more.click();
+  await expect(pane.getByRole('alert')).toHaveText('続きを読み込めませんでした。もう一度試してください。');
+  mode = 'duplicate';
+  await more.click();
+  await expect(pane.getByRole('alert')).toHaveCount(0);
+  await expect(pane.locator('.activity-row')).toHaveCount(20);
+  await expect(more).toHaveCount(0);
+  // 足す行が無かったときは、最後の行へフォーカスを戻す（押したボタンは消える）
+  await expect(pane.locator('.activity-row').last()).toBeFocused();
+});
+
+test('「さらに読む」と「もう一度試す」は、狭い幅で 44px 以上で、長いワークスペース名で右の列からはみ出さない', async ({
+  page,
+}) => {
+  const longName = '受託開発チームの第二期・保守と追加案件をまとめて見るための長い名前のワークスペース';
+  await routeOperation(page, recentActivity, { slug: 'aoba' }, async (call) => {
+    const entries = Array.from({ length: 20 }, (_, index) =>
+      entry(index + 1, { workspace: { id: WORKSPACE.id, name: longName } }),
+    );
+    await call.fulfill({ entries, next: { created_at: entries[19]!.created_at, id: entries[19]!.id } });
+  });
+  for (const width of [761, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/aoba');
+    const pane = activityPane(page);
+    await expect(pane.locator('.activity-row')).toHaveCount(20);
+    const paneBox = (await pane.boundingBox())!;
+    for (const tag of await pane.locator('.activity-meta .tag').all()) {
+      const box = (await tag.boundingBox())!;
+      expect(box.x + box.width, `幅 ${width}px`).toBeLessThanOrEqual(paneBox.x + paneBox.width);
+    }
+    const overflow = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollWidth,
+      inner: window.innerWidth,
+    }));
+    expect(overflow.scroll, `幅 ${width}px`).toBeLessThanOrEqual(overflow.inner);
+    if (width === 390) {
+      expect((await pane.getByRole('button', { name: 'さらに読む' }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      expect((await pane.locator('.activity-row').first().boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+  }
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+  await failOperation(page, recentActivity, { slug: 'aoba' }, 500, 'internal');
+  await page.goto('/aoba');
+  const retry = activityPane(page).getByRole('button', { name: 'もう一度試す' });
+  await expect(retry).toBeVisible();
+  expect((await retry.boundingBox())!.height).toBeGreaterThanOrEqual(44);
 });
 
 test('続きを読めなかったときは、読んだ分を残して知らせ、もう一度押せる', async ({ page }) => {

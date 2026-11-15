@@ -17,7 +17,6 @@ import { orgDb, verifyWorkspace } from '../src/server/db/index.ts';
 import { queryPlanForTest } from '../src/server/db/testing.ts';
 import {
   commentDeleteOperation,
-  commentCountStatement,
   commentPageStatement,
   commentUpdateOperation,
 } from '../src/server/operations/comment.ts';
@@ -317,14 +316,6 @@ describe('comment-list', () => {
       expect(plan).toMatch(/SEARCH comments USING INDEX comments_task \(task_id=\?/);
       expect(plan).not.toMatch(/SCAN comments\b/);
     }
-  });
-
-  test('件数の文も comments_task の索引で引く（ワークスペースの索引 comments_workspace_created を使わない）', async () => {
-    const target = await createTarget();
-    const db = orgDb(env, target.organization.verified);
-    const plan = (await queryPlanForTest(env, commentCountStatement(db, target.workspace.id, 'x'))).join('\n');
-    expect(plan).toMatch(/SEARCH comments USING (COVERING )?INDEX comments_task \(task_id=\?/);
-    expect(plan).not.toMatch(/comments_workspace_created/);
   });
 });
 

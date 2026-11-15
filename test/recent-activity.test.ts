@@ -7,13 +7,19 @@ import type { OutputOf } from '../src/shared/operations/define.ts';
 import {
   RECENT_ACTIVITY_BODY_LENGTH,
   RECENT_ACTIVITY_PAGE_SIZE,
+  RECENT_ACTIVITY_WORKSPACE_LIMIT,
   recentActivity,
 } from '../src/shared/operations/organization/recent-activity.ts';
 import { createApp } from '../src/server/app.ts';
 import { orgDb } from '../src/server/db/index.ts';
-import { queryPlanForTest } from '../src/server/db/testing.ts';
+import { queryPlanForTest, runStatementsForTest } from '../src/server/db/testing.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
-import { recentChangesStatement, recentCommentsStatement } from '../src/server/operations/recent-activity.ts';
+import {
+  cutBody,
+  readMemberWorkspaces,
+  recentChangesStatement,
+  recentCommentsStatement,
+} from '../src/server/operations/recent-activity.ts';
 import {
   createChangeLog,
   createComment,
@@ -21,6 +27,7 @@ import {
   createMembership,
   createStory,
   createTask,
+  createWorkspace,
   uuidv7,
 } from './factories.ts';
 import { errorCodeOf, post } from './operations/harness.ts';
@@ -440,15 +447,342 @@ describe('recent-activity', () => {
     }
   });
 
-  test('ワークスペースごとの文は、索引で新しい順に読み、並べ替えを持たない', async () => {
+  test('「今日やる」の印だけを付け外しした行は出さず、ほかの欄も一緒に変えた行は出す', async () => {
+    const target = await createTarget();
+    const { organization, workspace } = target;
+    const task = await createTask(organization, workspace.id, target.leader.userId!);
+    const story = await createStory(organization, workspace.id, target.leader.userId!);
+    await log({ target, entityId: task.id, changes: { today_on: [null, '2030-01-01'] }, at: minutesLater(1) });
+    await log({ target, entityId: task.id, changes: { today_on: ['2030-01-01', null] }, at: minutesLater(2) });
+    await log({
+      target,
+      entityType: 'story',
+      entityId: story.id,
+      changes: { today_on: [null, 'x'] },
+      at: minutesLater(3),
+    });
+    await log({
+      target,
+      entityId: task.id,
+      changes: { today_on: [null, '2030-01-01'], title: ['前', '後'] },
+      at: minutesLater(4),
+    });
+    await log({ target, entityId: task.id, changes: { due_on: [null, '2030-01-02'] }, at: minutesLater(5) });
+    // 印の行はほかの action（create）では除かない
+    await log({ target, entityId: task.id, action: 'create', changes: { today_on: [null, 'x'] }, at: minutesLater(6) });
+
+    const result = await read(target, target.member);
+    expect(result.entries.map((entry) => [entry.created_at, entry.event])).toEqual([
+      [minutesLater(6), { kind: 'create' }],
+      [minutesLater(5), { kind: 'update', fields: ['due_on'] }],
+      [minutesLater(4), { kind: 'update', fields: ['today_on', 'title'] }],
+    ]);
+  });
+
+  test('印だけの行が続いても、20 件の数えは崩れず、続きを重なりも抜けも無く読める', async () => {
+    const target = await createTarget();
+    const task = await createTask(target.organization, target.workspace.id, target.leader.userId!);
+    const shown: string[] = [];
+    for (let i = 0; i < 30; i++) {
+      // 印だけの行（出さない）を、出す行の間に 2 つずつ挟む
+      await log({ target, entityId: task.id, changes: { today_on: [null, 'x'] }, at: minutesLater(i * 3) });
+      await log({ target, entityId: task.id, changes: { today_on: ['x', null] }, at: minutesLater(i * 3 + 1) });
+      shown.unshift((await log({ target, entityId: task.id, at: minutesLater(i * 3 + 2) })).id);
+    }
+    const seen: string[] = [];
+    let before: Cursor | undefined;
+    const sizes: number[] = [];
+    for (let page = 0; page < 5; page++) {
+      const result = await read(target, target.member, before);
+      sizes.push(result.entries.length);
+      seen.push(...result.entries.map((entry) => entry.id));
+      if (result.next === null) break;
+      before = result.next;
+    }
+    expect(sizes).toEqual([20, 10]);
+    expect(seen).toEqual(shown);
+  });
+
+  test('所属するワークスペースは新しく作った順に 50 個までで、50 個目まで出て 51 個目は出ない', async () => {
+    const target = await createTarget();
+    const { organization } = target;
+    const person = await createPerson({ organization });
+    const base = Date.UTC(2031, 0, 1);
+    const names: string[] = [];
+    // i が大きいほど新しく作ったワークスペース（id の時刻が後）。51 個に所属し、それぞれに変更を1件持つ
+    for (let i = 0; i <= RECENT_ACTIVITY_WORKSPACE_LIMIT; i++) {
+      const workspace = await createWorkspace(organization, target.admin.userId!, {
+        id: uuidv7(base + i * 1000),
+        name: `作った順 ${i}`,
+      });
+      await createMembership(organization, workspace.id, person.userId!);
+      const task = await createTask(organization, workspace.id, target.admin.userId!, { title: `作業 ${i}` });
+      await log({ target, workspaceId: workspace.id, entityId: task.id, at: minutesLater(i) });
+      names.push(workspace.name);
+    }
+    // 51 個に所属するので、最も古い 1 つ（i = 0）は読まない。残り 50 個は新しい更新の順に、20 件ずつ読める
+    const seen: string[] = [];
+    let before: Cursor | undefined;
+    for (let page = 0; page < 5; page++) {
+      const result = await read(target, person, before);
+      seen.push(...result.entries.map((entry) => entry.workspace.name));
+      if (result.next === null) break;
+      before = result.next;
+    }
+    expect(seen).toEqual(names.slice(1).reverse());
+    expect(seen).toHaveLength(RECENT_ACTIVITY_WORKSPACE_LIMIT);
+    expect(seen).not.toContain('作った順 0');
+
+    // 所属を 1 つ抜けて 50 個にすると、最も古い 1 つ（i = 0）が入る
+    const db = orgDb(env, organization.verified);
+    await db.run(
+      db.statement((q) =>
+        q
+          .updateTable('memberships')
+          .set({ left_at: minutesLater(999), left_on: '2031-01-01' })
+          .where('user_id', '=', person.userId!)
+          .where('workspace_id', '=', (eb) =>
+            eb
+              .selectFrom('workspaces')
+              .select('id')
+              .where('name', '=', '作った順 50')
+              .where('organization_id', '=', organization.id),
+          ),
+      ),
+    );
+    const names2: string[] = [];
+    before = undefined;
+    for (let page = 0; page < 5; page++) {
+      const result = await read(target, person, before);
+      names2.push(...result.entries.map((entry) => entry.workspace.name));
+      if (result.next === null) break;
+      before = result.next;
+    }
+    expect(names2).toEqual(names.slice(0, 50).reverse());
+    expect(names2).toContain('作った順 0');
+  });
+
+  test('2つのワークスペースに所属すると、変更もコメントも両方から読み、ワークスペース名を取り違えない', async () => {
+    const target = await createTarget();
+    const { organization } = target;
+    await createMembership(organization, target.otherWorkspace.id, target.member.userId!);
+    const first = await createTask(organization, target.workspace.id, target.leader.userId!, { title: '青葉の作業' });
+    const second = await createTask(organization, target.otherWorkspace.id, target.leader.userId!, {
+      title: '別チームの作業',
+    });
+    await log({ target, entityId: first.id, at: minutesLater(1) });
+    await createComment(organization, target.workspace.id, first.id, target.leader.userId!, {
+      created_at: minutesLater(2),
+    });
+    await log({ target, workspaceId: target.otherWorkspace.id, entityId: second.id, at: minutesLater(3) });
+    await createComment(organization, target.otherWorkspace.id, second.id, target.leader.userId!, {
+      created_at: minutesLater(4),
+    });
+
+    const result = await read(target, target.member);
+    expect(
+      result.entries.map((entry) => [
+        entry.created_at,
+        entry.event.kind,
+        entry.workspace.id === target.workspace.id,
+        entry.workspace.name,
+        entry.target.title,
+      ]),
+    ).toEqual([
+      [minutesLater(4), 'comment', false, '青葉チーム', '別チームの作業'],
+      [minutesLater(3), 'update', false, '青葉チーム', '別チームの作業'],
+      [minutesLater(2), 'comment', true, '青葉チーム', '青葉の作業'],
+      [minutesLater(1), 'update', true, '青葉チーム', '青葉の作業'],
+    ]);
+  });
+
+  test('2つのワークスペースに 21 件ずつ（変更とコメント）あっても、20 件ずつ読んで重なりも抜けも無い', async () => {
+    const target = await createTarget();
+    const { organization } = target;
+    await createMembership(organization, target.otherWorkspace.id, target.member.userId!);
+    const leaderId = target.leader.userId!;
+    const expected: { id: string; created_at: string }[] = [];
+    let minute = 0;
+    for (const workspaceId of [target.workspace.id, target.otherWorkspace.id]) {
+      const task = await createTask(organization, workspaceId, leaderId);
+      for (let i = 0; i < 21; i++) {
+        expected.push(await log({ target, workspaceId, entityId: task.id, at: minutesLater(minute++) }));
+        expected.push(
+          await createComment(organization, workspaceId, task.id, leaderId, { created_at: minutesLater(minute++) }),
+        );
+      }
+    }
+    const order = [...expected].sort((a, b) => (a.created_at < b.created_at ? 1 : -1)).map((row) => row.id);
+    const seen: string[] = [];
+    const sizes: number[] = [];
+    let before: Cursor | undefined;
+    for (let page = 0; page < 6; page++) {
+      const result = await read(target, target.member, before);
+      sizes.push(result.entries.length);
+      seen.push(...result.entries.map((entry) => entry.id));
+      if (result.next === null) break;
+      before = result.next;
+    }
+    expect(sizes).toEqual([20, 20, 20, 20, 4]);
+    expect(seen).toEqual(order);
+  });
+
+  test('別のワークスペースの対象を指す変更と、別のワークスペースのタスクを指すコメントは出さない', async () => {
+    const target = await createTarget();
+    const { organization } = target;
+    const leaderId = target.leader.userId!;
+    const mine = await createTask(organization, target.workspace.id, leaderId, { title: '自分のタスク' });
+    const foreign = await createTask(organization, target.otherWorkspace.id, leaderId, {
+      title: '別のワークスペースのタスク',
+    });
+    const foreignStory = await createStory(organization, target.otherWorkspace.id, leaderId, {
+      title: '別のストーリー',
+    });
+    await log({ target, entityId: mine.id, at: minutesLater(1) });
+    // 自分のワークスペースの行として書いたが、対象は別のワークスペースにある
+    await log({ target, entityId: foreign.id, at: minutesLater(2) });
+    await log({ target, entityType: 'story', entityId: foreignStory.id, at: minutesLater(3) });
+    await createComment(organization, target.workspace.id, foreign.id, leaderId, { created_at: minutesLater(4) });
+    await createComment(organization, target.workspace.id, mine.id, leaderId, { created_at: minutesLater(5) });
+
+    const result = await read(target, target.member);
+    expect(result.entries.map((entry) => [entry.target.title, entry.event.kind])).toEqual([
+      ['自分のタスク', 'comment'],
+      ['自分のタスク', 'update'],
+    ]);
+    expect(JSON.stringify(result)).not.toContain('別の');
+  });
+
+  test('コメントの本文は、書記素（国旗、結合文字、ZWJ の絵文字）を割らず、200 コードポイント以内で切る', async () => {
+    const flag = '🇯🇵';
+    const family = '👨‍👩‍👧‍👦';
+    const accent = 'e\u0301';
+    const a = (count: number) => 'あ'.repeat(count);
+    const cases: [string, string, boolean][] = [
+      [a(198) + flag, a(198) + flag, false],
+      [a(199) + flag, a(199), true],
+      [a(196) + family + 'い', a(196), true],
+      [a(198) + accent + 'い', a(198) + accent, true],
+      [a(199) + accent, a(199), true],
+      [a(200) + 'い', a(200), true],
+      [a(200), a(200), false],
+      ['', '', false],
+    ];
+    for (const [text, body, truncated] of cases) {
+      expect(cutBody(text), JSON.stringify(text)).toEqual({ body, truncated });
+    }
+    // 1つの書記素だけで 200 コードポイントを超えるとき（結合文字が続く）は、コードポイントで切る
+    const stacked = 'a' + '\u0301'.repeat(300);
+    const cut = cutBody(stacked);
+    expect(Array.from(cut.body)).toHaveLength(RECENT_ACTIVITY_BODY_LENGTH);
+    expect(cut.truncated).toBe(true);
+
+    // 応答でも同じ（200 コードポイントの境目をまたぐ国旗）
+    const target = await createTarget();
+    const task = await createTask(target.organization, target.workspace.id, target.leader.userId!);
+    await createComment(target.organization, target.workspace.id, task.id, target.leader.userId!, {
+      body_md: a(199) + flag,
+      created_at: minutesLater(1),
+    });
+    expect((await read(target, target.member)).entries[0]!.event).toEqual({
+      kind: 'comment',
+      body: a(199),
+      truncated: true,
+    });
+  });
+
+  test('未ログインは 401、組織に入れない人は 404', async () => {
+    const target = await createTarget();
+    const anonymous = await post(app, recentActivity, { slug: target.slug, body: {} });
+    expect(anonymous.status).toBe(401);
+    expect(await errorCodeOf(anonymous)).toBe('unauthenticated');
+    const outsider = await createPerson();
+    const res = await call(target, outsider);
+    expect(res.status).toBe(404);
+    // 承諾待ちの招待だけの人は、組織の中のデータを読めない
+    expect((await call(target, target.invitee)).status).toBe(404);
+  });
+
+  test('変更の文とコメントの文は、部分索引で新しい順に読み、1ページ目も2ページ目も並べ替えを持たない', async () => {
     const target = await createTarget();
     const db = orgDb(env, target.organization.verified);
+    const [workspace] = await readMemberWorkspaces(db, target.member.userId!);
     for (const before of [undefined, { created_at: minutesLater(0), id: uuidv7() }]) {
-      const changes = (await queryPlanForTest(env, recentChangesStatement(db, target.workspace.id, before))).join('\n');
-      expect(changes, changes).toMatch(/SEARCH cl USING INDEX change_logs_workspace \(workspace_id=\?/);
-      const comments = (await queryPlanForTest(env, recentCommentsStatement(db, target.workspace.id, before))).join(
-        '\n',
+      const changes = (await queryPlanForTest(env, recentChangesStatement(db, workspace!, before))).join('\n');
+      expect(changes, changes).toMatch(/SEARCH cl USING INDEX change_logs_recent_activity \(workspace_id=\?/);
+      expect(changes, changes).not.toMatch(/TEMP B-TREE/);
+      expect(changes, changes).not.toMatch(/^SCAN cl\b/m);
+      const comments = (await queryPlanForTest(env, recentCommentsStatement(db, workspace!, before))).join('\n');
+      expect(comments, comments).toMatch(
+        /SEARCH c USING (COVERING )?INDEX comments_workspace_created \(workspace_id=\?/,
       );
+      expect(comments, comments).not.toMatch(/TEMP B-TREE/);
+      expect(comments, comments).not.toMatch(/^SCAN c\b/m);
+      // 2ページ目は、カーソルの日時を索引の範囲にする
+      if (before !== undefined) {
+        expect(changes, changes).toMatch(/created_at<\?/);
+        expect(comments, comments).toMatch(/created_at<\?/);
+      }
+    }
+  });
+
+  test('前の版の comment-list の一覧と件数の文は、新しい部分索引に取られず comments_task を使う', async () => {
+    const target = await createTarget();
+    const db = orgDb(env, target.organization.verified);
+    const workspaceId = target.workspace.id;
+    // main の版（この Issue の前）の comment-list の文。一覧は消したコメントも返し、件数は deleted_at IS NULL を持つ
+    const list = db.statement((q) =>
+      q
+        .selectFrom('comments')
+        .innerJoin('tasks', (join) =>
+          join
+            .onRef('tasks.id', '=', 'comments.task_id')
+            .on('tasks.workspace_id', '=', workspaceId)
+            .on('tasks.deleted_at', 'is', null),
+        )
+        .select(['comments.id', 'comments.body_md', 'comments.created_at'])
+        .where('comments.workspace_id', '=', workspaceId)
+        .where('comments.task_id', '=', 'x')
+        .orderBy('comments.created_at', 'desc')
+        .orderBy('comments.id', 'desc')
+        .limit(51),
+    );
+    const count = db.statement((q) =>
+      q
+        .selectFrom('comments')
+        .select((eb) => eb.fn.countAll<number>().as('count'))
+        .where('comments.task_id', '=', 'x')
+        .where('comments.workspace_id', '=', workspaceId)
+        .where('comments.deleted_at', 'is', null),
+    );
+    for (const statement of [list, count]) {
+      const plan = (await queryPlanForTest(env, statement)).join('\n');
+      expect(plan, plan).toMatch(/SEARCH comments USING (COVERING )?INDEX comments_task \(task_id=\?/);
+      expect(plan, plan).not.toMatch(/comments_workspace_created/);
+    }
+  });
+
+  test('行を入れて ANALYZE した後も、変更とコメントの文は同じ部分索引を使う', async () => {
+    const target = await createTarget();
+    const { organization, workspace } = target;
+    const leaderId = target.leader.userId!;
+    // タスクが多く、コメントはいろいろなタスクに付く（実際のワークスペースの形）
+    const tasks = [];
+    for (let i = 0; i < 40; i++) tasks.push(await createTask(organization, workspace.id, leaderId));
+    for (let i = 0; i < 120; i++) {
+      const task = tasks[i % tasks.length]!;
+      await log({ target, entityId: task.id, at: minutesLater(i) });
+      await log({ target, entityType: 'sprint', entityId: uuidv7(), at: minutesLater(i) });
+      await createComment(organization, workspace.id, task.id, leaderId, { created_at: minutesLater(i) });
+    }
+    await runStatementsForTest(env, ['ANALYZE']);
+    const db = orgDb(env, organization.verified);
+    const [member] = await readMemberWorkspaces(db, target.member.userId!);
+    for (const before of [undefined, { created_at: minutesLater(30), id: uuidv7() }]) {
+      const changes = (await queryPlanForTest(env, recentChangesStatement(db, member!, before))).join('\n');
+      expect(changes, changes).toMatch(/SEARCH cl USING INDEX change_logs_recent_activity \(workspace_id=\?/);
+      expect(changes, changes).not.toMatch(/TEMP B-TREE/);
+      const comments = (await queryPlanForTest(env, recentCommentsStatement(db, member!, before))).join('\n');
       expect(comments, comments).toMatch(
         /SEARCH c USING (COVERING )?INDEX comments_workspace_created \(workspace_id=\?/,
       );

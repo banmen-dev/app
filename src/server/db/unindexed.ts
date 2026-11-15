@@ -7,11 +7,8 @@ import { sql, type RawBuilder } from 'kysely';
 // 例: 完了した親のないタスクの読み取りで story_id の IS NULL に tasks_story を使わせないため。ANALYZE の後は、
 // SQLite が NULL を別々の値と数えて tasks_story を選び、全組織の親のないタスクを読む計画になる
 // 例: バックログの木を依頼先で絞るとき、担当と同じ理由で tasks_delegatee_completed を選ばせない（#907）
-// 例: コメントの一覧（comment-list）で workspace_id に comments_workspace_created（#1262）を使わせないため。task_id の comments_task と同じ
-// 費用に見え、後から作った索引が選ばれて、ワークスペースの全コメントを新しい順に読んでタスクで絞る計画になる
 // 列は、使う列の名前（別名つき）だけを受ける（任意の文字列を SQL の参照にしない）
-export type UnindexedColumn =
-  'tasks.assignee_user_id' | 'tasks.delegatee_id' | 'tasks.story_id' | 'comments.workspace_id';
+export type UnindexedColumn = 'tasks.assignee_user_id' | 'tasks.delegatee_id' | 'tasks.story_id';
 
 export function unindexed(column: UnindexedColumn): RawBuilder<unknown> {
   return sql`+${sql.ref(column)}`;

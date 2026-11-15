@@ -49,7 +49,7 @@ export const screens: Screen[] = [
     after: [op('invitation-list', {}, true)],
     note: '主の群の完了後に招待件数を開始し、通知・件数の完了は枠の表示を待たせない。招待だけの人の一覧は主として待つ別経路。',
   },
-  { route: '/[slug]', operations: [op('today'), op('first-steps', {}, true), op('recent-activity', {}, true)] },
+  { route: '/[slug]', operations: [op('today'), op('first-steps', {}, true)] },
   { route: '/[slug]/admin', operations: [], note: 'parent() の権限確認だけ。節の部品の読み込みは load 外。' },
   {
     route: '/[slug]/invitations',

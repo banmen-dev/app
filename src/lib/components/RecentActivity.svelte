@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { callOperation } from '../api.ts';
@@ -13,42 +13,101 @@
   import Icon from './Icon.svelte';
   import Pane from './Pane.svelte';
 
-  // kit.js の activity（最近の更新の面。組織のホームの右の列）。first は最初の 20 件（読めなかったときは null）。
-  // 「さらに読む」は続きを足す。first が替わったとき（ホームの読み直し）は、足した続きを捨てて先頭から並べ直す。
+  // kit.js の activity（最近の更新の面。組織のホームの右の列）。ホームの load には入れず、この面が開いたときに自分で読む
+  // （今日やることの操作でホームを読み直しても、足した続きを消さず、ホーム全体の表示を待たせない）。新しい更新を自動では読み直さない。
+  // 状態は、読み込み中（骨組み）、読めた（行か空の案内）、読めなかった（失敗の案内と「もう一度試す」）。続きの読み込みと失敗は、読めた状態の中で出す。
+  // 読み込みの状態は、常に置いた role="status" の領域の文字だけを替えて伝える（LoadFailed と同じ）。
   // 行は押すと、対象のワークスペースのバックログに `?task=` `?story=` `?epic_id=` を付けて移り、詳細の引き出しが開く
   type Listing = OutputOf<typeof recentActivity>;
-  let { slug, first, onRetry }: { slug: string; first: Listing | null; onRetry: () => void } = $props();
+  let { slug }: { slug: string } = $props();
 
-  // 足した続き。source は、どの first に続けたか（first が替わっていたら使わない）。source を === で比べるので、
-  // 深いリアクティブな値（プロキシ）にせず、そのまま持つ（$state.raw）
-  let more = $state.raw<{ source: Listing | null; entries: RecentActivityEntry[]; next: Listing['next'] } | null>(null);
-  let loading = $state(false);
+  let phase = $state<'loading' | 'ready' | 'failed'>('loading');
+  let entries = $state.raw<RecentActivityEntry[]>([]);
+  let next = $state.raw<Listing['next']>(null);
+  // 「もう一度試す」で先頭を読み直している間と、読み直しがまた失敗したか
+  let retrying = $state(false);
+  let retryFailed = $state(false);
+  let loadingMore = $state(false);
   let moreFailed = $state(false);
+  // 読み込みの世代。組織が替わった（slug が替わった）後に戻った応答を捨てる
+  let generation = 0;
 
-  const current = $derived(more !== null && more.source === first ? more : null);
-  const entries = $derived(appendEntries(first?.entries ?? [], current?.entries ?? []));
-  const next = $derived(current !== null ? current.next : (first?.next ?? null));
   const days = $derived(groupByDay(entries));
+  const status = $derived(
+    phase === 'loading' || loadingMore ? t('loading') : retrying ? t('retrying') : retryFailed ? t('retryFailed') : '',
+  );
 
-  // 行のリンク。タスクは引き出しの開き方（横、真ん中、ページ全体、新しいタブ）に従い、ストーリーとエピックは引き出しだけ
-  function href(entry: RecentActivityEntry): string {
-    const base = resolve('/[slug]/w/[id]', { slug, id: entry.workspace.id });
-    const link = `${base}${targetQuery(entry.target)}`;
-    return entry.target.kind === 'task' ? taskDetailHref(link) : link;
+  function toLogin(): void {
+    window.location.assign(loginUrl(page.url));
   }
 
+  // 先頭の 20 件を読む。読めたら、足した続きも失敗の知らせも捨てて置き直す
+  async function loadFirst(): Promise<void> {
+    const token = generation;
+    const result = await callOperation(recentActivity, {}, { slug });
+    if (token !== generation) return;
+    if (isUnauthenticated(result)) {
+      toLogin();
+      return;
+    }
+    if (!result.ok) {
+      phase = 'failed';
+      return;
+    }
+    entries = result.data.entries;
+    next = result.data.next;
+    moreFailed = false;
+    phase = 'ready';
+  }
+
+  $effect(() => {
+    void slug;
+    untrack(() => {
+      generation++;
+      phase = 'loading';
+      entries = [];
+      next = null;
+      retrying = false;
+      retryFailed = false;
+      loadingMore = false;
+      moreFailed = false;
+      void loadFirst();
+    });
+    return () => {
+      generation++;
+    };
+  });
+
+  async function retry(): Promise<void> {
+    if (retrying) return;
+    retrying = true;
+    retryFailed = false;
+    try {
+      await loadFirst();
+    } finally {
+      retrying = false;
+      // 読み直しが終わっても失敗の案内が残っていれば、また失敗したということ（読めれば面ごと入れ替わる）
+      if (phase === 'failed') retryFailed = true;
+    }
+  }
+
+  function focusRow(id: string | undefined): void {
+    if (id === undefined) return;
+    document.querySelector<HTMLElement>(`[data-activity-id="${CSS.escape(id)}"]`)?.focus();
+  }
+
+  // 続きを読む。足した最初の行へフォーカスを移す（押したボタンは位置が下がるため）。足した行が無かったときは最後の行へ戻す
   async function loadMore(): Promise<void> {
     const before = next;
-    if (loading || before === null) return;
-    const source = first;
-    loading = true;
+    if (loadingMore || before === null) return;
+    const token = generation;
+    loadingMore = true;
     moreFailed = false;
     try {
       const result = await callOperation(recentActivity, { before }, { slug });
-      // 読んでいる間にホームが読み直された（先頭が替わった）ときは、この続きを使わない
-      if (source !== first) return;
+      if (token !== generation) return;
       if (isUnauthenticated(result)) {
-        window.location.assign(loginUrl(page.url));
+        toLogin();
         return;
       }
       if (!result.ok) {
@@ -57,24 +116,35 @@
       }
       const shown = new Set(entries.map((entry) => entry.id));
       const added = result.data.entries.filter((entry) => !shown.has(entry.id));
-      more = { source, entries: [...(current?.entries ?? []), ...added], next: result.data.next };
-      // 押したボタンは位置が下がるので、足した最初の行へフォーカスを移す
+      entries = appendEntries(entries, result.data.entries);
+      next = result.data.next;
       await tick();
-      const firstAdded = added[0];
-      if (firstAdded !== undefined) {
-        document.querySelector<HTMLElement>(`[data-activity-id="${CSS.escape(firstAdded.id)}"]`)?.focus();
-      }
+      focusRow(added[0]?.id ?? entries.at(-1)?.id);
     } finally {
-      loading = false;
+      if (token === generation) loadingMore = false;
     }
+  }
+
+  // 行のリンク。タスクは引き出しの開き方（横、真ん中、ページ全体、新しいタブ）に従い、ストーリーとエピックは引き出しだけ
+  function href(entry: RecentActivityEntry): string {
+    const base = resolve('/[slug]/w/[id]', { slug, id: entry.workspace.id });
+    const link = `${base}${targetQuery(entry.target)}`;
+    return entry.target.kind === 'task' ? taskDetailHref(link) : link;
   }
 </script>
 
 <Pane id="p-activity" title={t('paneActivity')}>
-  {#if first === null}
-    <div class="callout is-warn" role="alert">
-      <Icon name="alert" /><span>{t('activityLoadFailed')}</span>
-      <button class="btn is-sm" type="button" onclick={onRetry}>{t('retry')}</button>
+  <span class={phase === 'failed' ? 'field-hint' : 'visually-hidden'} role="status">{status}</span>
+  {#if phase === 'loading'}
+    <div class="skeleton" aria-hidden="true">
+      <span class="skeleton-line is-block"></span>
+      <span class="skeleton-line is-block"></span>
+      <span class="skeleton-line is-block"></span>
+    </div>
+  {:else if phase === 'failed'}
+    <div class="callout is-warn"><Icon name="alert" /><span role="alert">{t('activityLoadFailed')}</span></div>
+    <div class="form-actions activity-actions">
+      <button class="btn" type="button" aria-disabled={retrying} onclick={() => void retry()}>{t('retry')}</button>
     </div>
   {:else if entries.length === 0}
     <EmptyState
@@ -100,7 +170,7 @@
                 >
                   <b class="activity-title">{entry.target.title}</b>
                   <span class="activity-text">{activitySentence(entry, t)}</span>
-                  {#if entry.event.kind === 'comment'}
+                  {#if entry.event.kind === 'comment' && entry.event.body !== ''}
                     <span class="activity-body">{entry.event.body}{entry.event.truncated ? '…' : ''}</span>
                   {/if}
                   <span class="activity-meta">
@@ -117,11 +187,11 @@
       {/each}
     </div>
     {#if moreFailed}
-      <div class="callout is-warn" role="alert"><Icon name="alert" /><span>{t('activityMoreFailed')}</span></div>
+      <div class="callout is-warn"><Icon name="alert" /><span role="alert">{t('activityMoreFailed')}</span></div>
     {/if}
     {#if next !== null}
-      <div class="form-actions">
-        <button class="btn is-sm" type="button" aria-disabled={loading} onclick={() => void loadMore()}
+      <div class="form-actions activity-actions">
+        <button class="btn" type="button" aria-disabled={loadingMore} onclick={() => void loadMore()}
           >{t('activityMore')}</button
         >
       </div>

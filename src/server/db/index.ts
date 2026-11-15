@@ -20,6 +20,7 @@ export { jsonLookup } from './json-lookup.ts';
 export { previousStatementChanged } from './previous-statement.ts';
 export { apiTokenSeenAt } from './api-token-seen-at.ts';
 export { organizationHistoryRowFilter } from './organization-history-filter.ts';
+export { notTodayMarkOnlyRowFilter, recentChangeRowFilter, recentCommentRowFilter } from './recent-activity-filter.ts';
 export { activeSprintRowFilter } from './active-sprint-filter.ts';
 export { pendingEmailInvitationRowFilter } from './pending-email-invitation-filter.ts';
 export { uuidv7Sql } from './uuid-sql.ts';

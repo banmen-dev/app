@@ -809,15 +809,16 @@
   }
   // 最近の更新の面の中身（.activity）。days は { label, rows } の配列（日付ごとの区分。新しい順）。
   // rows は { href, title, text, body, truncated, kind, ws, time, at } の配列。text はした人とした内容の文、body はコメントの本文の先頭（あるときだけ）、
-  // kind は task、story、epic、at は ISO の日時。more が真なら「さらに読む」を出す。空の案内は呼び出し側が emptyState で置く
-  function activity(days, { more = false } = {}) {
+  // kind は task、story、epic、at は ISO の日時。more が真なら「さらに読む」を出し、moreFailed が真ならその上に続きを読めなかった案内を出す。
+  // 空の案内、読み込み中の骨組み、失敗の案内は呼び出し側が置く（カタログの「面とダッシュボード」）
+  function activity(days, { more = false, moreFailed = false } = {}) {
     const row = (r) => `<li><a class="activity-row" href="${esc(r.href)}">
         <b class="activity-title">${esc(r.title)}</b>
         <span class="activity-text">${esc(r.text)}</span>
         ${r.body ? `<span class="activity-body">${esc(r.body)}${r.truncated ? "…" : ""}</span>` : ""}
         <span class="activity-meta"><span class="chip">${esc(t(r.kind))}</span><span class="tag">${esc(r.ws)}</span><time datetime="${esc(r.at)}">${esc(r.time)}</time></span>
       </a></li>`;
-    return `<div class="activity">${days.map((d) => `<section class="activity-day"><h3 class="activity-date">${esc(d.label)}</h3><ul class="activity-list">${d.rows.map(row).join("")}</ul></section>`).join("")}</div>${more ? `<div class="form-actions"><button class="btn is-sm" type="button">${t("activityMore")}</button></div>` : ""}`;
+    return `<div class="activity">${days.map((d) => `<section class="activity-day"><h3 class="activity-date">${esc(d.label)}</h3><ul class="activity-list">${d.rows.map(row).join("")}</ul></section>`).join("")}</div>${moreFailed ? `<div class="callout is-warn">${icon("alert")}<span role="alert">${t("activityMoreFailed")}</span></div>` : ""}${more ? `<div class="form-actions activity-actions"><button class="btn" type="button">${t("activityMore")}</button></div>` : ""}`;
   }
   // ---- Wiki ----
   // ページの木（左の欄の nav の中身）。nodes は { id, title, children } の木、current は今開いているページの ID、
