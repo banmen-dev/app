@@ -2741,7 +2741,7 @@ export const dictionary = defineDictionary({
   detailFieldsLimitReached:
     '{kind}は {max} 件に達しているため、これ以上は足せません。使わないものを削除すると足せます。',
   detailFieldDeleteText:
-    '削除した欄は{task}の{detail}に出なくなり、「{detail}を書いた」の経験値の判定からも外れます。元には戻せません。',
+    '削除した欄は{task}の{detail}に出なくなり、{detail}の経験値の判定からも外れます。元には戻せません。',
   fieldValueEmpty: 'まだ書かれていません。',
   // 決まった欄の「書く」ボタン。本文の「編集」と、読み上げの名前も文字も重ならないようにする
   fieldValueWrite: '書く',

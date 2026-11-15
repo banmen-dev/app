@@ -96,11 +96,11 @@ test('設定で欄を足す → 欄が空でも木と見出しに未記入は出
   await drawer.getByRole('button', { name: '閉じる' }).click();
   await expect(drawer).toBeHidden();
 
-  // 欄を削除すると、その欄は引き出しに出なくなる。確認の文は「詳細を書いた」の経験値の判定から外れることを伝える
+  // 欄を削除すると、その欄は引き出しに出なくなる。確認の文は、詳細の経験値の判定から外れることを伝える
   await openSettings(page);
   await page.getByRole('button', { name: '削除: 受け入れ基準' }).click();
   const confirm = page.getByRole('dialog', { name: '「受け入れ基準」を削除する' });
-  await expect(confirm).toContainText('「詳細を書いた」の経験値の判定からも外れます');
+  await expect(confirm).toContainText('詳細の経験値の判定からも外れます');
   await expect(confirm.getByText(/未記入/)).toHaveCount(0);
   await confirm.getByRole('button', { name: '削除する' }).click();
   await expect(fields.locator('li')).toHaveText([/影響範囲/]);
