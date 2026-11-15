@@ -54,3 +54,8 @@ export function judgeFile({ rel, contents, shippedOnMain, inWorktree = false, on
   }
   return null;
 }
+
+// Issue #1270 の入れ物。filePath（絶対パス）が session-env の下か、起動元の CLAUDE_ENV_FILE（envFile）が指すファイルなら ['ask', 理由]、ほかは null
+export function judgeSessionEnvWrite(filePath, { envFile } = {}) {
+  throw new Error('未実装');
+}
