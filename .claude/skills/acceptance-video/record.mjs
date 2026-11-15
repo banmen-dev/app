@@ -107,7 +107,11 @@ async function probe(planPath) {
   }
   for (const r of results) console.log(formatProbeLine(r));
   const count = (status) => results.filter((r) => r.status === status).length;
-  console.log(`試した ${count('found') + count('missing')}、見つからない ${count('missing')}、試せなかった ${count('skipped')}`);
+  const saveWait = results.filter((r) => r.failure === 'save-wait').length;
+  const navigationWait = results.filter((r) => r.failure === 'navigation-wait').length;
+  const missing = count('missing') - saveWait - navigationWait;
+  const stopped = saveWait || navigationWait ? `、保存待ちで中止 ${saveWait}、画面遷移待ちで中止 ${navigationWait}` : '';
+  console.log(`試した ${count('found') + count('missing')}、見つからない ${missing}${stopped}、試せなかった ${count('skipped')}`);
   if (count('missing') > 0) process.exit(1);
 }
 
@@ -179,8 +183,18 @@ async function main(planPath, outArg) {
           if (pausesAfter(actions, i)) await wait(PAUSE_MS);
         }
         await unmark();
+        if (step.markAfter) {
+          await mark(step.markAfter);
+          await wait(MARK_MS);
+        }
         await wait(step.hold ?? HOLD_MS);
+        if (step.markAfter) await unmark();
       } else {
+        if (step.markAfter) {
+          await unmark();
+          await mark(step.markAfter);
+          await wait(MARK_MS);
+        }
         await wait(step.hold ?? RESULT_MS);
         await unmark();
       }

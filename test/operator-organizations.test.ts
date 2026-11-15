@@ -178,10 +178,15 @@ describe('組織の作成', () => {
     const user = githubUser('minato-aoba');
     github.addUser(user);
     const slug = newSlug();
+    const writes: string[] = [];
     const res = await post(app, create, {
       token: await operatorToken(),
       body: { slug, name: ' さくら開発 ', admin: adminOf(user) },
+      env: envWithD1Hooks(testEnv, { beforeBatch: (sqls) => void writes.push(...sqls) }),
     });
+    const inserts = writes.filter((sql) => sql.startsWith('insert into "organizations"'));
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0]).not.toMatch(/vocabulary/i);
     expect(res.status).toBe(200);
     // 応答は組織の表示名、slug、指名した人の GitHub のユーザー名だけ。招待の URL は Google の指名だけ
     expect(await res.json()).toEqual({
@@ -195,8 +200,6 @@ describe('組織の作成', () => {
     expect(organization).toMatchObject({
       slug,
       name: 'さくら開発',
-      vocabulary: 'scrum',
-      theme: 'simple',
       suspended_at: null,
       member_limit: 15,
       attachment_quota_bytes: 32212254720,
@@ -593,6 +596,8 @@ describe('組織の一覧', () => {
       self_created: false,
       trial_ends_on: null,
       trial_expired: false,
+      // 未契約
+      contract: null,
     });
   });
 
@@ -840,6 +845,7 @@ describe('組織ごとの集計', () => {
       'admin_status',
       'attachment_quota_bytes',
       'attachment_used_bytes',
+      'contract',
       'created_at',
       'kind',
       'last_used_at',

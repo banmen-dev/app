@@ -5,6 +5,29 @@ import { historyActorName, historyEventText, type HistoryEntry } from './organiz
 const t = (key: DictionaryKey, params?: TemplateParams) => word(key, params);
 
 describe('historyEventText', () => {
+  test('個別の契約の標準の値を前後で示す', () => {
+    expect(
+      historyEventText(
+        {
+          kind: 'organization_plan_changed',
+          from: {
+            plan: 'custom',
+            billing_interval: 'yearly',
+            custom_member_limit: 80,
+            custom_attachment_quota_bytes: 200 * 1024 ** 3,
+          },
+          to: {
+            plan: 'custom',
+            billing_interval: 'yearly',
+            custom_member_limit: 90,
+            custom_attachment_quota_bytes: 300 * 1024 ** 3,
+          },
+        },
+        t,
+      ),
+    ).toBe('プランを個別・年払い（80 人・標準 200 GB）から個別・年払い（90 人・標準 300 GB）に変更しました');
+  });
+
   test('種類ごとに、辞書の文を作る', () => {
     const cases: [HistoryEntry['event'], string][] = [
       [{ kind: 'organization_created', name: 'あおば開発' }, '組織「あおば開発」を作りました'],
@@ -18,6 +41,38 @@ describe('historyEventText', () => {
       ],
       [{ kind: 'organization_suspension_changed', purge_on: null }, '停止の理由を一時的な停止に切り替えました'],
       [{ kind: 'organization_settings_changed' }, '組織の設定を変更しました'],
+      [
+        {
+          kind: 'organization_plan_changed',
+          from: null,
+          to: { plan: 'team', billing_interval: 'monthly' },
+        },
+        'プランをチーム・月払いにしました',
+      ],
+      [
+        {
+          kind: 'organization_plan_changed',
+          from: { plan: 'team', billing_interval: 'monthly' },
+          to: { plan: 'business', billing_interval: 'yearly' },
+        },
+        'プランをチーム・月払いからビジネス・年払いに変更しました',
+      ],
+      [
+        {
+          kind: 'organization_storage_changed',
+          from: { extra_10gb_units: 0, extra_50gb_units: 0, billing_interval: 'monthly' },
+          to: { extra_10gb_units: 2, extra_50gb_units: 1, billing_interval: 'yearly' },
+        },
+        '追加容量を+10\u00a0GB 0\u00a0口・+50\u00a0GB 0\u00a0口（月払い）から+10\u00a0GB 2\u00a0口・+50\u00a0GB 1\u00a0口（年払い）に変更しました',
+      ],
+      [
+        {
+          kind: 'organization_storage_changed',
+          from: { extra_10gb_units: 0, extra_50gb_units: 0, billing_interval: null },
+          to: { extra_10gb_units: 1, extra_50gb_units: 0, billing_interval: 'monthly' },
+        },
+        '追加容量を+10\u00a0GB 0\u00a0口・+50\u00a0GB 0\u00a0口（未契約）から+10\u00a0GB 1\u00a0口・+50\u00a0GB 0\u00a0口（月払い）に変更しました',
+      ],
       [{ kind: 'admin_designated', name: 'ミナト' }, 'ミナトを管理者に指名しました'],
       [{ kind: 'admin_designated', name: null }, 'Google で招待した人を管理者に指名しました'],
       [{ kind: 'admin_login_linked', name: 'ハルカ' }, 'ハルカが Google でログインし、管理者の指名を受けました'],

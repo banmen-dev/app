@@ -55,6 +55,119 @@ describe('容量通知のスキーマ', () => {
   });
 });
 
+describe('0032_add_custom_contract_limits', () => {
+  async function contract() {
+    const org = await createOrganization();
+    await run(
+      'INSERT INTO organization_contracts (organization_id, plan, billing_interval, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+      org.id,
+      'custom',
+      'yearly',
+      AT,
+      AT,
+    );
+    return org.id;
+  }
+
+  test('個別の標準値はNULLと整数の上下限を受け付け、旧版のプラン変更も妨げない', async () => {
+    const orgId = await contract();
+    for (const [members, quota] of [
+      [1, 1024 ** 3],
+      [10000, 100 * 1024 ** 4],
+      [null, null],
+    ]) {
+      await run(
+        'UPDATE organization_contracts SET custom_member_limit = ?, custom_attachment_quota_bytes = ? WHERE organization_id = ?',
+        members,
+        quota,
+        orgId,
+      );
+      expect(
+        await env.DB.prepare(
+          'SELECT custom_member_limit, custom_attachment_quota_bytes FROM organization_contracts WHERE organization_id = ?',
+        )
+          .bind(orgId)
+          .first(),
+      ).toEqual({ custom_member_limit: members, custom_attachment_quota_bytes: quota });
+    }
+    await run(
+      'UPDATE organization_contracts SET custom_member_limit = ?, custom_attachment_quota_bytes = ? WHERE organization_id = ?',
+      80,
+      200 * 1024 ** 3,
+      orgId,
+    );
+    await run('UPDATE organization_contracts SET plan = ? WHERE organization_id = ?', 'team', orgId);
+  });
+
+  test.each([0, -1, 10001, 1.5, 'invalid'])('個別の人数 %s はCHECKで拒否する', async (members) => {
+    const orgId = await contract();
+    await expect(
+      run('UPDATE organization_contracts SET custom_member_limit = ? WHERE organization_id = ?', members, orgId),
+    ).rejects.toThrow(/CHECK/);
+  });
+
+  test.each([0, -1, 1024 ** 3 - 1, 1024 ** 3 + 1, 100 * 1024 ** 4 + 1024 ** 3, 1024 ** 3 + 0.5, 'invalid'])(
+    '個別の標準容量 %s はCHECKで拒否する',
+    async (quota) => {
+      const orgId = await contract();
+      await expect(
+        run(
+          'UPDATE organization_contracts SET custom_attachment_quota_bytes = ? WHERE organization_id = ?',
+          quota,
+          orgId,
+        ),
+      ).rejects.toThrow(/CHECK/);
+    },
+  );
+});
+
+describe('0031_drop_vocabulary', () => {
+  test('組織とワークスペースに vocabulary 列を持たない', async () => {
+    for (const table of ['organizations', 'workspaces']) {
+      const columns = await env.DB.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
+      expect(columns.results.map((column) => column.name)).not.toContain('vocabulary');
+    }
+  });
+});
+
+describe('0029_drop_organization_theme', () => {
+  test('組織のテーマの列を持たず、ユーザーのテーマの列は残す', async () => {
+    const organizationColumns = await env.DB.prepare('PRAGMA table_info(organizations)').all<{ name: string }>();
+    const userColumns = await env.DB.prepare('PRAGMA table_info(users)').all<{ name: string }>();
+
+    expect(organizationColumns.results.map((column) => column.name)).not.toContain('theme');
+    expect(userColumns.results.map((column) => column.name)).toContain('theme');
+  });
+});
+
+describe('0027_remove_medieval_theme', () => {
+  // 前の版で書かれた行を作ってから、0027 の SQL を当て直す（テストの D1 には全マイグレーションが当て済み）
+  test('中世風（medieval）を選んでいた行だけを NULL に戻し、ほかのテーマと NULL の行は変えない', async () => {
+    const migration = env.TEST_MIGRATIONS.find((m) => m.name.startsWith('0027_'));
+    expect(migration).toBeDefined();
+    const organization = await createOrganization();
+    const other = await createOrganization();
+    const medieval = [
+      await createUser(organization, { theme: 'medieval' }),
+      await createUser(other, { theme: 'medieval' }),
+    ];
+    const kept = await Promise.all(
+      (['simple', 'simple_light', 'simple_dark', 'modern', null] as const).map(async (theme) => ({
+        theme,
+        user: await createUser(organization, { theme }),
+      })),
+    );
+    const themeOf = async (userId: string) =>
+      (await env.DB.prepare('SELECT theme FROM users WHERE id = ?').bind(userId).first<{ theme: string | null }>())!
+        .theme;
+
+    await env.DB.batch(migration!.queries.map((query) => env.DB.prepare(query)));
+
+    for (const user of medieval) expect(await themeOf(user.id)).toBeNull();
+    for (const { theme, user } of kept) expect(await themeOf(user.id)).toBe(theme);
+  });
+});
+
 function id(): string {
   return crypto.randomUUID();
 }
@@ -138,6 +251,13 @@ function googlePending() {
 }
 
 describe('外部キー', () => {
+  test('0030 で削除した xp_grants_user_workspace は残っていない', async () => {
+    const { results } = await env.DB.prepare(
+      `SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'xp_grants_user_workspace'`,
+    ).all();
+    expect(results).toEqual([]);
+  });
+
   test('D1 は外部キーを検査する', async () => {
     await expect(insertUser(id()).result).rejects.toThrow(/FOREIGN KEY/);
   });
@@ -160,6 +280,13 @@ describe('外部キー', () => {
       .all<{ detail: string }>();
     const details = plan.map((row) => row.detail);
 
+    expect(details).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(
+          /^SEARCH xp_grants USING (COVERING )?INDEX xp_grants_user_(workspace_amount|confirmed) \(user_id=\?\)$/,
+        ),
+      ]),
+    );
     expect(details.filter((detail) => detail.startsWith('SCAN '))).toEqual([]);
     // その場で作る索引（AUTOMATIC）でなく、張った索引で引くこと
     expect(details.filter((detail) => !/^SEARCH \w+ USING (COVERING )?INDEX \w+ /.test(detail))).toEqual([]);
@@ -1871,5 +1998,81 @@ describe('delegatees と tasks.delegatee_id', () => {
       .bind(id())
       .all<{ detail: string }>();
     expect(plan.results.some((row) => row.detail.includes('USING INDEX delegatees_organization_name'))).toBe(true);
+  });
+});
+
+describe('0033 請求管理者のスキーマ', () => {
+  test('組織とアカウントの組は一意で、状態・日時・外部キーを検査する', async () => {
+    const org = await organization();
+    const account = id();
+    await run('INSERT INTO accounts (id, created_at, updated_at) VALUES (?, ?, ?)', account, AT, AT);
+    const insert = (rowId: string, status = 'pending', at = AT, organizationId = org, accountId = account) =>
+      run(
+        'INSERT INTO billing_administrators (id, organization_id, account_id, status, invited_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        rowId,
+        organizationId,
+        accountId,
+        status,
+        account,
+        at,
+        at,
+      );
+    await expect(insert(id(), 'admin')).rejects.toThrow(/CHECK/);
+    await expect(insert(id(), 'pending', '2026-11-15')).rejects.toThrow(/CHECK/);
+    await expect(insert(id(), 'pending', AT, id())).rejects.toThrow(/FOREIGN KEY/);
+    await expect(insert(id(), 'pending', AT, org, id())).rejects.toThrow(/FOREIGN KEY/);
+    await insert(id());
+    await expect(insert(id())).rejects.toThrow(/UNIQUE/);
+  });
+
+  test('請求監査は決まった操作とUTCミリ秒の日時だけを受け付ける', async () => {
+    const org = await organization();
+    const account = id();
+    await run('INSERT INTO accounts (id, created_at, updated_at) VALUES (?, ?, ?)', account, AT, AT);
+    const insert = (action: string, at = AT) =>
+      run(
+        'INSERT INTO billing_admin_events (id, organization_id, actor_account_id, target_account_id, action, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        id(),
+        org,
+        account,
+        account,
+        action,
+        at,
+      );
+    await insert('invited');
+    await expect(insert('changed')).rejects.toThrow(/CHECK/);
+    await expect(insert('accepted', '2026-11-15')).rejects.toThrow(/CHECK/);
+  });
+});
+
+describe('請求管理者の初回指名の区分', () => {
+  test('初回指名の印は省略時0で、0と1以外やNULLを受け付けない', async () => {
+    const org = await organization();
+    const account = id();
+    await run('INSERT INTO accounts (id, created_at, updated_at) VALUES (?, ?, ?)', account, AT, AT);
+    const rowId = id();
+    await run(
+      'INSERT INTO billing_administrators (id, organization_id, account_id, status, invited_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      rowId,
+      org,
+      account,
+      'pending',
+      account,
+      AT,
+      AT,
+    );
+    const read = () =>
+      env.DB.prepare('SELECT is_bootstrap FROM billing_administrators WHERE id = ?')
+        .bind(rowId)
+        .first<{ is_bootstrap: number }>();
+    expect((await read())?.is_bootstrap).toBe(0);
+    await run('UPDATE billing_administrators SET is_bootstrap = 1 WHERE id = ?', rowId);
+    expect((await read())?.is_bootstrap).toBe(1);
+    await expect(run('UPDATE billing_administrators SET is_bootstrap = 2 WHERE id = ?', rowId)).rejects.toThrow(
+      /CHECK/,
+    );
+    await expect(run('UPDATE billing_administrators SET is_bootstrap = NULL WHERE id = ?', rowId)).rejects.toThrow(
+      /NOT NULL/,
+    );
   });
 });
