@@ -142,7 +142,8 @@ const startsWithFolded = (rel, prefix) => rel.toLowerCase().startsWith(prefix);
 function writtenPaths(cwd, filePath, resolveLinks) {
   const expanded = filePath === '~' || filePath.startsWith('~/') ? path.join(os.homedir(), filePath.slice(1)) : filePath;
   const absolute = path.resolve(cwd, expanded);
-  return [filePath, absolute, resolveLinks(absolute)];
+  // リンクは .. を畳む前の字面で辿る（deep/../x.sh は、deep がリンクならその向き先の親）
+  return [filePath, absolute, resolveLinks(path.isAbsolute(expanded) ? expanded : `${cwd}/${expanded}`)];
 }
 
 const answer = (decision, reason) =>

@@ -1,7 +1,7 @@
 // Write と Edit の判定。CLAUDE.md の「守ること」のうち、書いた内容で判定できるものを止め、
 // 守る仕組みそのもの（.claude/settings*.json と、セッションが使っている .claude/hooks/）と、wrangler の設定の転送先（.wrangler/deploy/config.json）の書き換えには人の確認を挟む。
 // D1 の binding の判定は、ESLint の入口を守る規則（docs/development.md の「入口を守る規則」）が入るまでのつなぎ。
-import { lstatSync, readlinkSync, realpathSync } from 'node:fs';
+import { lstatSync, readlinkSync } from 'node:fs';
 import path from 'node:path';
 
 // Claude Code が各 Bash のコマンドの前に読む環境のファイル（CLAUDE_ENV_FILE。~/.claude/session-env/<セッション>/*.sh と ~/.claude/shell-snapshots/*.sh）。
@@ -14,32 +14,39 @@ export const SHELL_ENV_DIR = new RegExp(`(^|/)(${SHELL_ENV_DIR_NAMES.join('|')})
 export const SHELL_ENV_REASON =
   'Claude Code が各 Bash の前に読む環境のファイル（CLAUDE_ENV_FILE、~/.claude/session-env/、~/.claude/shell-snapshots/）への書き込みは、フックから見えない GIT_CONFIG_*、GH_REPO、PATH、関数の定義を以後のコマンドに付け、push の先や守りを替えうる。書き込みは人が確かめる';
 
-const lexists = (p) => {
-  try {
-    lstatSync(p);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
 // リンクをたどる回数の上限（OS の ELOOP の上限と同じくらい）
 const MAX_LINK_HOPS = 40;
 
-// まだ無いファイルの絶対パスを、リンクを解いて実体の側に直す。存在する一番近い祖先（lstat。向き先の無いリンクも存在とみなす）がリンクなら
-// 向き先に置き換えて繰り返し、リンクでなければ realpath でそれより上の親のリンクを解く。解けなければ書かれたパスのまま返す。
-// Write の先がまだ無い session-env のファイルを指すリンクや、/tmp/e -> ~/.claude/session-env の下のファイルを、名前で見るために使う
+// 絶対パスを、OS と同じく名前を左から 1 つずつ辿って実体の側に直す。リンクは向き先に置き換え（向き先の無いリンクも）、
+// .. は直前の実体の親として解く（deep/.. は、deep がリンクならその向き先の親。字面で畳んでから解くと別の場所になる）。
+// 無い名前は字面のまま。Write の先がまだ無い session-env のファイルを指すリンクや、/tmp/e -> ~/.claude/session-env の下のファイルを、名前で見るために使う。
+// .. を畳んでいない字面（deep/../x.sh）を渡すこと（path.resolve と path.join は先に畳む）
 export function resolveLinks(absolute) {
-  let current = absolute;
-  for (let hop = 0; hop < MAX_LINK_HOPS; hop++) {
-    let dir = current;
-    while (!lexists(dir) && dir !== path.dirname(dir)) dir = path.dirname(dir);
-    try {
-      if (!lstatSync(dir).isSymbolicLink()) return path.join(realpathSync(dir), path.relative(dir, current));
-      current = path.join(path.resolve(path.dirname(dir), readlinkSync(dir)), path.relative(dir, current));
-    } catch {
-      return current;
+  const queue = absolute.split('/').filter((segment) => segment !== '');
+  let current = '/';
+  let hops = 0;
+  while (queue.length > 0) {
+    const segment = queue.shift();
+    if (segment === '.') continue;
+    if (segment === '..') {
+      current = path.dirname(current);
+      continue;
     }
+    const next = path.join(current, segment);
+    let target;
+    try {
+      if (lstatSync(next).isSymbolicLink()) target = readlinkSync(next);
+    } catch {
+      // 無い名前は字面のまま辿る
+    }
+    if (target === undefined) {
+      current = next;
+      continue;
+    }
+    // 輪になったリンクは、ここから先を辿らず字面のまま返す
+    if (++hops > MAX_LINK_HOPS) return path.join(next, ...queue);
+    if (path.isAbsolute(target)) current = '/';
+    queue.unshift(...target.split('/').filter((s) => s !== ''));
   }
   return current;
 }
