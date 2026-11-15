@@ -221,7 +221,7 @@ describe('見本との照合', () => {
     for (const name of names) assert.ok(name in arts, `${name} は線画の定義に無い`);
   });
 
-  test('見本の HTML が使う請求の辞書キーは、見本と本番の両方に存在する', () => {
+  test('見本の HTML の t・label・title が直接参照する billing の辞書キーは、見本と本番の両方に存在する', () => {
     const design = readKitDictionary();
     const production: Record<string, string | undefined> = dictionary;
     const references = readdirSync(new URL('../design/', import.meta.url))
