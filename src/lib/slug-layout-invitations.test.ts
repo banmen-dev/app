@@ -20,7 +20,7 @@ const organization: Reply = {
   status: 200,
   body: {
     organization: { name: 'あおば開発', has_workspaces: true },
-    me: { id: 'u1', name: 'ミナト', is_admin: false, theme: 'simple', level: 1 },
+    me: { id: 'u1', name: 'ミナト', is_admin: false, theme: 'simple', level: 1, avatar_url: null },
     workspaces: [],
   },
 };

@@ -571,7 +571,14 @@ describe('organization', () => {
       has_workspaces: true,
     });
     expect(result.organization).not.toHaveProperty('vocabulary');
-    expect(result.me).toEqual({ id: person.userId, name: '星野 澪', is_admin: false, theme: 'simple', level: 1 });
+    expect(result.me).toEqual({
+      id: person.userId,
+      name: '星野 澪',
+      is_admin: false,
+      theme: 'simple',
+      level: 1,
+      avatar_url: null,
+    });
     expect(result.workspaces).toEqual([
       { id: first.id, name: 'あ開発', role: 'member' },
       { id: second.id, name: 'う開発', role: 'leader' },

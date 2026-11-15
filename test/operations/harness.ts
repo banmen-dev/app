@@ -11,6 +11,7 @@ import {
 import { sessionCookieName } from '../../src/shared/session-cookie.ts';
 import { createApp } from '../../src/server/app.ts';
 import type { ImplementedOperation } from '../../src/server/operations/implement.ts';
+import { pngImage } from '../avatar-images.ts';
 import { bearerFor, type TokenScope } from './api-token.ts';
 import {
   admitElsewhere,
@@ -95,8 +96,9 @@ type PostOptions = {
   executionCtx?: ExecutionContext;
 };
 
-// body: 'binary' の操作の一覧の検査で送る小さなファイル（PNG の先頭の8バイトと4バイト）
-export const SMALL_FILE = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+// body: 'binary' の操作の一覧の検査で送る小さなファイル。1×1 の PNG（IHDR、IDAT、IEND）で、
+// ヘッダーを読んで縦横を確かめる操作（me-avatar-upload）にも通る
+export const SMALL_FILE = pngImage(1, 1);
 
 // 入力のヘッダーの値（body: 'binary' の操作）
 export function operationInputHeader(input: unknown): string {

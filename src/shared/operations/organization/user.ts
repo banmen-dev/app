@@ -59,14 +59,17 @@ export const userAdminUpdate = defineOperation({
   output: userState,
 });
 
-// ユーザーを無効にする。管理者なら同じ文で解除し、承諾待ちの招待を取り消し、閉じたものを含むすべてのワークスペースから外し、担当を外す。
+// ユーザーを無効にする。管理者なら同じ文で解除し、承諾待ちの招待を取り消し、閉じたものを含むすべてのワークスペースから外し、担当を外し、
+// 上げたプロフィール画像（行と R2 のファイル）を消す。
 // 自分は 409（self）、最後の管理者は 409（last_admin）。無効の人なら書かずに今の値を返す
 export const userDisable = defineOperation({
   name: 'user-disable',
   description:
-    'ユーザーを無効にする。管理者なら解除し、承諾待ちの招待を取り消し、すべてのワークスペースから外して未完了のタスクの担当を外し、変更の履歴に残す',
+    'ユーザーを無効にする。管理者なら解除し、承諾待ちの招待を取り消し、すべてのワークスペースから外して未完了のタスクの担当を外し、変更の履歴に残す。上げたプロフィール画像も消し、有効に戻しても戻らない',
   mode: 'write',
   permission: 'admin',
+  // その人のプロフィール画像（user_avatars の行）も消し、R2 のファイルを消す（有効に戻しても戻らない）
+  storage: 'attachments',
   input: z.object({ user_id: idSchema }),
   output: userState,
 });

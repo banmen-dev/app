@@ -4,6 +4,7 @@
 // 共通の表と組織の中の表は結合せず、1回の batch() に混ぜない（docs/data-model.md の「データベースの分け方」）
 import { commonDb, type OrganizationDb } from './entries.ts';
 import type { LoginId } from './enter-organization.ts';
+import { avatarUrl } from '../avatars/url.ts';
 import { MAX_BOUND_PARAMETERS } from './send.ts';
 
 // 組織の行のうち、入るときに引かず、使う操作だけが読むもの
@@ -79,19 +80,23 @@ export async function readOrganizationPlanRow(env: Env, db: OrganizationDb): Pro
   return row;
 }
 
-// 自分の組織の users の ID ごとのアバターの URL。組織の中の表（users）を organization_id で絞ってアカウントとログインの手段と ID を引き、
-// 共通の表（account_logins）を別の問い合わせで引いて、アプリで合わせる。account_logins の行は、users の行に結んだアカウントの
-// ものだけを使う（アカウントに結ばれる前の行は null。手段と ID だけで引くと、管理者が任意の GitHub の人に Scrum Guild の
-// アカウントがあるかを知れてしまう）。ログインしたことの無い人と、アバターの無い人も null。別の組織の ID と、存在しない ID はキーを持たない
+// 自分の組織の users の ID ごとのアバターの URL。上げた画像（user_avatars。組織の中の表）があれば配る URL（/api/<slug>/user-avatar/<画像の ID>）、
+// 無ければログインの手段のアイコン（account_logins.avatar_url。共通の表）。組織の中の表（users と user_avatars）を organization_id で絞って
+// 1回の batch で引き、共通の表（account_logins）を別の問い合わせで引いて、アプリで合わせる（結合しない）。
+// account_logins の行は、users の行に結んだアカウントのものだけを使う（アカウントに結ばれる前の行は null。手段と ID だけで引くと、
+// 管理者が任意の GitHub の人に Scrum Guild のアカウントがあるかを知れてしまう）。ログインしたことの無い人と、アバターの無い人も null。
+// 別の組織の ID と、存在しない ID はキーを持たない
 export async function userAvatarsOf(
   env: Env,
   db: OrganizationDb,
   userIds: readonly string[],
+  slug: string,
 ): Promise<Map<string, string | null>> {
   const users: { id: string; linked: LinkedLogin | null }[] = [];
+  const uploaded = new Map<string, string>();
   // 組織の ID も束縛するので、users の ID は上限より1つ少なく区切る
   for (const chunk of chunksOf([...new Set(userIds)], MAX_BOUND_PARAMETERS - 1)) {
-    const rows = await db.rows(
+    const [userRows, avatarRows] = await db.batch([
       db.statement((q) =>
         q
           .selectFrom('users')
@@ -99,8 +104,15 @@ export async function userAvatarsOf(
           .where('organization_id', '=', db.organizationId)
           .where('id', 'in', chunk),
       ),
-    );
-    for (const row of rows) {
+      db.statement((q) =>
+        q
+          .selectFrom('user_avatars')
+          .select(['user_id', 'id'])
+          .where('organization_id', '=', db.organizationId)
+          .where('user_id', 'in', chunk),
+      ),
+    ] as const);
+    for (const row of userRows.rows) {
       // login_subject が空の行は、Google の指名で待っている人（まだログインしていない）
       users.push({
         id: row.id,
@@ -110,6 +122,7 @@ export async function userAvatarsOf(
             : { accountId: row.account_id, provider: row.login_provider, subject: row.login_subject },
       });
     }
+    for (const row of avatarRows.rows) uploaded.set(row.user_id, avatarUrl(slug, row.id));
   }
   const logins = await accountLoginsOf(
     env,
@@ -117,6 +130,8 @@ export async function userAvatarsOf(
   );
   return new Map(
     users.map((user) => {
+      const own = uploaded.get(user.id);
+      if (own !== undefined) return [user.id, own];
       if (user.linked === null) return [user.id, null];
       const login = logins.get(loginKey(user.linked));
       return [user.id, login !== undefined && login.accountId === user.linked.accountId ? login.avatarUrl : null];
