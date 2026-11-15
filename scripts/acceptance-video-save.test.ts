@@ -95,9 +95,10 @@ import { probeExec } from ${probeUrl};
 const page = new EventEmitter();
 const calls = [];
 let first = true;
+let failureMessage = 'Execution context was destroyed, most likely because of a navigation';
 page.evaluate = async () => {
   calls.push('evaluate');
-  if (first) { first = false; throw new Error('Execution context was destroyed, most likely because of a navigation'); }
+  if (first) { first = false; throw new Error(failureMessage); }
 };
 page.waitForLoadState = async (state, options) => {
   assert.equal(state, 'domcontentloaded');
@@ -107,6 +108,12 @@ page.waitForLoadState = async (state, options) => {
 page.goto = async () => { calls.push('goto'); return {status: () => 200}; };
 await probeExec(page, 'http://localhost')({kind: 'goto', path: '/next'});
 assert.deepEqual(calls, ['evaluate', 'loaded', 'evaluate', 'goto']);
+first = true;
+failureMessage = 'Cannot find context with specified id';
+calls.length = 0;
+await probeExec(page, 'http://localhost')({kind: 'goto', path: '/next'});
+assert.deepEqual(calls, ['evaluate', 'loaded', 'evaluate', 'goto']);
+
 // 閉じたページなど、遷移以外の evaluate の失敗はそのまま返す。
 page.evaluate = async () => { throw new Error('Target page, context or browser has been closed'); };
 await assert.rejects(probeExec(page, 'http://localhost')({kind: 'goto', path: '/next'}), /has been closed/);

@@ -37,7 +37,7 @@ export function probeExec(page, base) {
       try {
         await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 0)));
       } catch (error) {
-        if (!/Execution context was destroyed/.test(error.message)) throw error;
+        if (!/Execution context was destroyed|Cannot find context with specified id/.test(error.message)) throw error;
         // 直前の click などが全体遷移を始めていた場合は、新しい画面で追跡を続ける。
         try {
           await page.waitForLoadState('domcontentloaded', { timeout: Math.max(1, deadline - Date.now()) });
