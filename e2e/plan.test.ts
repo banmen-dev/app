@@ -34,7 +34,7 @@ test('リーダーはスプリントを作り、直し、重なりを断られ�
   await expect(createDialog).toBeHidden();
   await expect(page.getByRole('status').filter({ hasText: 'スプリントを作りました' })).toBeVisible();
   // 名前の無いスプリントは、期間を名前として出す
-  await expect(page.locator('.lane-title')).toHaveText(['スプリント 1/4〜1/17']);
+  await expect(page.locator('.lane-title')).toHaveText(['1/4〜1/17']);
 
   // 2つ目の初期値は、前のスプリントの最終日の翌日と同じ長さ
   await page.getByRole('button', { name: 'スプリントを作る' }).click();
@@ -43,10 +43,10 @@ test('リーダーはスプリントを作り、直し、重なりを断られ�
   await createDialog.getByLabel('名前（任意）').fill('新年の仕上げ');
   await createDialog.getByRole('button', { name: '作る' }).click();
   await expect(createDialog).toBeHidden();
-  await expect(page.locator('.lane-title')).toHaveText(['スプリント 1/4〜1/17', 'スプリント 新年の仕上げ']);
+  await expect(page.locator('.lane-title')).toHaveText(['1/4〜1/17', '新年の仕上げ']);
 
   // 1つ目を1日伸ばすと2つ目と重なり、ダイアログの中に理由が出て、開いたまま
-  await page.getByRole('button', { name: '直す: スプリント 1/4〜1/17' }).click();
+  await page.getByRole('button', { name: '直す: 1/4〜1/17' }).click();
   const editDialog = page.getByRole('dialog', { name: 'スプリントを直す' });
   await expect(editDialog.getByLabel('開始日')).toHaveValue('2027-01-04');
   await editDialog.getByLabel('長さ（日）').fill('15');
@@ -63,21 +63,21 @@ test('リーダーはスプリントを作り、直し、重なりを断られ�
   await editDialog.getByRole('button', { name: '保存する' }).click();
   await expect(editDialog).toBeHidden();
   await expect(page.getByRole('status').filter({ hasText: 'スプリントを保存しました' })).toBeVisible();
-  await expect(page.locator('.lane-title')).toHaveText(['スプリント 12/28〜1/17', 'スプリント 新年の仕上げ']);
+  await expect(page.locator('.lane-title')).toHaveText(['12/28〜1/17', '新年の仕上げ']);
 
   // 2つ目を削除する。確かめのダイアログを通す
-  await page.getByRole('button', { name: '削除する: スプリント 新年の仕上げ' }).click();
+  await page.getByRole('button', { name: '削除する: 新年の仕上げ' }).click();
   const confirm = page.getByRole('dialog', { name: 'スプリントを削除する' });
-  await expect(confirm).toContainText('「スプリント 新年の仕上げ」（1/18〜1/31）を削除します。');
+  await expect(confirm).toContainText('スプリント「新年の仕上げ（1/18〜1/31）」を削除します。');
   await confirm.getByRole('button', { name: '削除する' }).click();
   await expect(confirm).toBeHidden();
   await expect(page.getByRole('status').filter({ hasText: 'スプリントを削除しました' })).toBeVisible();
-  await expect(page.locator('.lane-title')).toHaveText(['スプリント 12/28〜1/17']);
+  await expect(page.locator('.lane-title')).toHaveText(['12/28〜1/17']);
   await expect(page.getByRole('heading', { level: 1, name: '計画' })).toBeFocused();
 
   // 読み直しても残る
   await page.reload();
-  await expect(page.locator('.lane-title')).toHaveText(['スプリント 12/28〜1/17']);
+  await expect(page.locator('.lane-title')).toHaveText(['12/28〜1/17']);
   // 重なりで断られた応答（409）は、ブラウザがコンソールに出す。それ以外の違反とエラーは無い
   const problems = await collect();
   expect(problems.filter((problem) => !problem.includes('status of 409'))).toEqual([]);
@@ -91,7 +91,7 @@ test('一般のメンバーには、スプリントと入っているタスク�
   await signIn(context, baseURL, 'member');
   await page.goto(AOBA_TEAM);
   await expect(page.getByRole('heading', { level: 1, name: '計画' })).toBeVisible();
-  await expect(page.locator('.lane-title')).toHaveText(['スプリント 11/2〜11/15', 'スプリント 年末の仕上げ']);
+  await expect(page.locator('.lane-title')).toHaveText(['11/2〜11/15', '年末の仕上げ']);
   await expect(page.locator('.lane-sub').first()).toContainText('14 日');
   // seed の先のスプリントには、ストーリーの下のタスクが1件ずつ入っている
   await expect(page.locator('.lane').first().locator('.lane-row a')).toHaveText([
@@ -100,7 +100,7 @@ test('一般のメンバーには、スプリントと入っているタスク�
   await expect(page.locator('.lane').nth(1).locator('.lane-row a')).toHaveText(['回答までにかかる時間を測る']);
   await expect(page.locator('.lane-sub').first()).toContainText('1 件・2 pt');
   await expect(page.getByRole('button', { name: '外す: 回答までにかかる時間を測る' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'バックログから入れる: スプリント 年末の仕上げ' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'バックログから入れる: 年末の仕上げ' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'スプリントを作る' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^直す/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^削除する/ })).toHaveCount(0);
@@ -130,13 +130,13 @@ test('スクラムの言葉: ストーリーごとと1件ずつ入れ、外し�
   await createDialog.getByLabel('名前（任意）').fill('第1回');
   await createDialog.getByRole('button', { name: '作る' }).click();
   await expect(createDialog).toBeHidden();
-  await expect(page.locator('.lane-title')).toHaveText(['スプリント 第1回']);
+  await expect(page.locator('.lane-title')).toHaveText(['第1回']);
   await expect(page.locator('.lane .action-note')).toHaveText('まだ何も入っていません');
 
   // ストーリーごとと、親のないタスクを1件選んで入れる
-  const addButton = page.getByRole('button', { name: 'バックログから入れる: スプリント 第1回' });
+  const addButton = page.getByRole('button', { name: 'バックログから入れる: 第1回' });
   await addButton.click();
-  const picker = page.getByRole('dialog', { name: 'スプリント 第1回 に入れる' });
+  const picker = page.getByRole('dialog', { name: 'スプリント「第1回」に入れる' });
   const list = picker.getByRole('group', { name: '入れるタスク' });
   // ストーリーの見出しと、その下の2件、親のないタスクの1件。同じタスクを二度描かない
   await expect(list.getByRole('checkbox')).toHaveCount(4);
@@ -200,13 +200,13 @@ test('スクラムの言葉: ストーリーごとと1件ずつ入れ、外し�
   // 行から詳細を開くと、入っているスプリントが出る。完了にすると、始まっていないスプリントから外れてバックログに戻る
   await page.locator('.lane-row').getByRole('link', { name: 'フォームを置く' }).click();
   const drawer = page.getByRole('dialog', { name: 'フォームを置く' });
-  await expect(drawer.locator('.props')).toContainText('スプリント 第1回');
+  await expect(drawer.locator('.props')).toContainText('第1回');
   await expect(drawer.locator('.props')).toContainText('計画の画面で出し入れします');
   await drawer.getByRole('button', { name: '完了にする' }).click();
   await expect(
     page.getByRole('status').filter({ hasText: 'タスクを完了にしました。始まっていないスプリントから外れました' }),
   ).toBeVisible();
-  await expect(drawer.locator('.props')).not.toContainText('スプリント 第1回');
+  await expect(drawer.locator('.props')).not.toContainText('第1回');
   await expect(page.locator('.lane-row a')).toHaveText(['送信を確かめる']);
   await page.keyboard.press('Escape');
   await expect(drawer).toBeHidden();
@@ -306,7 +306,7 @@ test('スクラムの言葉: スプリントが無いときは空の状態を出
 });
 
 // seed の受託開発チームには、終了したスプリントが4つある（夏の仕上げ 6 pt、延長した 9月の追い込み 13 pt、秋の準備 8 pt、秋の立ち上げ 7 pt）。
-// 延長した回を除いた新しい3つの平均は 7 pt。先のスプリントは「スプリント 11/2〜11/15」（2 pt）と「年末の仕上げ」（未見積もり 1 件）
+// 延長した回を除いた新しい3つの平均は 7 pt。先のスプリントは「11/2〜11/15」（2 pt）と「年末の仕上げ」（未見積もり 1 件）
 test('ベロシティは延長した回を除いた直近3回の平均で、先のスプリントの棒と未見積もりの件数、エピックごとの残りが並ぶ', async ({
   page,
   context,
@@ -409,7 +409,7 @@ test('集計だけ読めなかったときは、スプリントの一覧を出�
     else await call.passThrough();
   });
   await page.goto('/hibari/w/019a0000-0000-7000-8000-000000000404/plan');
-  await expect(page.locator('.lane-title')).toHaveText(['スプリント 第3回']);
+  await expect(page.locator('.lane-title')).toHaveText(['第3回']);
   await expect(
     page.getByRole('alert').filter({ hasText: 'ベロシティとエピックごとの残りを読み込めませんでした。' }),
   ).toBeVisible();

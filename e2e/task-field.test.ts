@@ -148,10 +148,10 @@ test('計画の画面の先のスプリントとスプリントに入れるダ�
   await createDialog.getByLabel('名前（任意）').fill('第1回');
   await createDialog.getByRole('button', { name: '作る' }).click();
   await expect(createDialog).toBeHidden();
-  await expect(page.locator('.lane-title')).toHaveText(['スプリント 第1回']);
+  await expect(page.locator('.lane-title')).toHaveText(['第1回']);
 
-  await page.getByRole('button', { name: 'バックログから入れる: スプリント 第1回' }).click();
-  const picker = page.getByRole('dialog', { name: 'スプリント 第1回 に入れる' });
+  await page.getByRole('button', { name: 'バックログから入れる: 第1回' }).click();
+  const picker = page.getByRole('dialog', { name: 'スプリント「第1回」に入れる' });
   const list = picker.getByRole('group', { name: '入れるタスク' });
   const checkbox = list.getByRole('checkbox', { name: /^書いていないタスク/ });
   await checkbox.check();

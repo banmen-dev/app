@@ -86,11 +86,11 @@ test('行のチップの選択の窓（リポジトリのメニューと期日�
 
 test('スプリントに入れるダイアログ（SprintTaskPicker）を開いた状態に axe の違反が無い', async ({ page }) => {
   await page.goto(`${WORKSPACE}/plan`);
-  const open = page.getByRole('button', { name: 'バックログから入れる: スプリント 年末の仕上げ' });
+  const open = page.getByRole('button', { name: 'バックログから入れる: 年末の仕上げ' });
   await expect(open).toBeVisible();
   await waitForSettled(page);
   await open.click();
-  const dialog = page.getByRole('dialog', { name: 'スプリント 年末の仕上げ に入れる' });
+  const dialog = page.getByRole('dialog', { name: 'スプリント「年末の仕上げ」に入れる' });
   await expect(dialog.getByRole('group', { name: '入れるタスク' })).toBeVisible();
   await expect(page.locator('[aria-busy="true"]:visible')).toHaveCount(0);
   await expectNoA11yViolationsInThemes(page, 'sprint-task-picker');
@@ -98,7 +98,7 @@ test('スプリントに入れるダイアログ（SprintTaskPicker）を開い�
 
 test('スプリントを始めるダイアログ（SprintStartDialog）を開いた状態に axe の違反が無い', async ({ page }) => {
   await page.goto(`${WORKSPACE}/plan`);
-  const open = page.getByRole('button', { name: '始める: スプリント 11/2〜11/15' });
+  const open = page.getByRole('button', { name: '始める: 11/2〜11/15' });
   await expect(open).toBeVisible();
   await waitForSettled(page);
   await open.click();

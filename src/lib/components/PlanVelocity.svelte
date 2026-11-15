@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { PlanVelocity } from '../../shared/operations/sprint/index.ts';
   import { formatPoints, velocityBarShape } from '../plan-summary.ts';
-  import { sprintShortName } from '../sprint-label.ts';
+  import { sprintLabel } from '../sprint-label.ts';
   import { t } from '../vocabulary.svelte.ts';
 
   // design/plan.html の velocity。延長していない終了したスプリントの新しい 3 つの完了ポイントの平均と、各回の棒。
@@ -25,7 +25,7 @@
     velocity.sprints
       .map(
         (item) =>
-          t('velocityBarItem', { label: sprintShortName(item, t), points: item.points }) +
+          t('velocityBarItem', { label: sprintLabel(item, t), points: item.points }) +
           (item.counted ? '' : t('velocityBarExcluded')),
       )
       .join('、'),
@@ -62,7 +62,7 @@
         <div class="bars-labels">
           {#each velocity.sprints as item (item.id)}
             <span
-              >{sprintShortName(item, t)}{#if !item.counted}<small
+              >{sprintLabel(item, t)}{#if !item.counted}<small
                   >{t('velocityExcludedLabel', { days: item.extended_days })}</small
                 >{/if}</span
             >

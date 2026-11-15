@@ -22,7 +22,7 @@
   import { focusPageHeading } from '../../../../../lib/focus-heading.ts';
   import { isUnauthenticated, loginUrl } from '../../../../../lib/login-redirect.ts';
   import { formatPoints, isOverVelocity } from '../../../../../lib/plan-summary.ts';
-  import { sprintLabel, sprintPeriod } from '../../../../../lib/sprint-label.ts';
+  import { sprintLabel, sprintLabelWithPeriod, sprintPeriod } from '../../../../../lib/sprint-label.ts';
   import { trackTaskOrder } from '../../../../../lib/task-order.ts';
   import { showToast } from '../../../../../lib/toast.svelte.ts';
   import { t } from '../../../../../lib/vocabulary.svelte.ts';
@@ -505,7 +505,7 @@
     danger
   >
     {#if deleteTarget !== null}
-      <p>{t('sprintDeleteText', { label: labelOf(deleteTarget), period: periodOf(deleteTarget) })}</p>
+      <p>{t('sprintDeleteText', { label: sprintLabelWithPeriod(deleteTarget, t) })}</p>
     {/if}
   </ConfirmDialog>
 {/if}

@@ -36,8 +36,8 @@ function overdueNotice(id) {
   const end = SQ.md(D.sprints[id].end);
   const canClose = SQ.user(D.me).role === "leader";
   return `<div class="callout is-warn">${icon("alert")}<span>${canClose
-    ? `${label}は最終日（${end}）を過ぎています。終わらなかった${t("task")}の行き先を決めて、終えてください。`
-    : `${label}は最終日（${end}）を過ぎています。終えるのは${t("leader")}です。`}</span>${canClose
+    ? `${t("sprint")}「${label}」は最終日（${end}）を過ぎています。終わらなかった${t("task")}の行き先を決めて、終えてください。`
+    : `${t("sprint")}「${label}」は最終日（${end}）を過ぎています。終えるのは${t("leader")}です。`}</span>${canClose
     ? `<div class="callout-actions"><button class="btn is-sm" type="button" data-dialog="sprintEnd" aria-label="終える: ${label}">終える</button></div>` : ""}</div>`;
 }
 

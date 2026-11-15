@@ -16,7 +16,7 @@
   import type { DropRow } from '../backlog-drop.ts';
   import type { BacklogDnd } from '../backlog-dnd.svelte.ts';
   import { taskDetailHref, taskLinkAttrs } from '../drawer.svelte.ts';
-  import { sprintShortName } from '../sprint-label.ts';
+  import { sprintLabel } from '../sprint-label.ts';
   import { t } from '../vocabulary.svelte.ts';
   import AttrChip from './AttrChip.svelte';
   import Avatar from './Avatar.svelte';
@@ -583,7 +583,7 @@
       <span class="entry-meta">
         {#if workspaceName !== undefined}<span class="tag">{workspaceName}</span>{/if}
         {#if task.sprint !== null}
-          <DefinitionChip kind="sprint" name={sprintShortName(task.sprint, t)} mono={task.sprint.name === null} />
+          <DefinitionChip kind="sprint" name={sprintLabel(task.sprint, t)} mono={task.sprint.name === null} />
         {/if}
         <!-- チップのある行（attrs）は、リポジトリと区分を右端のチップが出す -->
         {#if attrs === undefined && task.repository !== null}
