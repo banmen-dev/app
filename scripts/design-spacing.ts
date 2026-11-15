@@ -10,11 +10,7 @@ const SPACING_PROPERTY =
 const LENGTH = /(?<![\w-])([+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)([a-z]+|%)/gi;
 // 関数名（var、env）は CSS で大文字小文字を区別しないので i を付ける。変数名そのものは区別されるが、i は字の種類にしか効かない
 const VAR_NAME = /var\(\s*(--[\w-]+)/gi;
-// 変数名と端末の安全領域の名前だけを外し、予備値は検査に残す（var(--space-2, 9px) の 9px を見るため）
-const VAR_HEAD = /var\(\s*--[\w-]+\s*,?/gi;
-const ENV_HEAD = /env\(\s*[\w-]+\s*,?/gi;
-// 括弧を含まない予備値。中の長さは罫の例外を当てずに見る
-const FALLBACK = /(?:var\(\s*--[\w-]+|env\(\s*[\w-]+)\s*,([^()]*)\)/gi;
+const CALL_HEAD = /(?<![\w-])(?:var|env)\(/gi;
 
 const squash = (text: string) => text.replace(/\s+/g, ' ').trim();
 
@@ -119,15 +115,53 @@ const unwrap = (text: string) => {
 
 type Operator = 'multiply' | 'add' | 'none';
 
-// 長さの隣（空白を除く前後の1文字）の演算子。乗除を足し引きより先に見る
+// 長さの隣（空白を除く前後の1文字）の演算子。乗除を足し引きより先に見る。
+// calc() の + と - は両側に空白が要るので、後ろの - に空白が続かなければ次の値の符号（1px -1px）と読む
 function neighbor(text: string, start: number, end: number): Operator {
-  const sides = [text.slice(0, start).trimEnd().at(-1), text.slice(end).trimStart()[0]];
-  if (sides.some((char) => char === '*' || char === '/')) return 'multiply';
-  if (sides.some((char) => char === '+' || char === '-')) return 'add';
+  const before = text.slice(0, start).trimEnd().at(-1);
+  const rest = text.slice(end).trimStart();
+  const after = rest[0];
+  if ([before, after].some((char) => char === '*' || char === '/')) return 'multiply';
+  if (before === '+' || before === '-') return 'add';
+  if ((after === '+' || after === '-') && /^\s/.test(rest.slice(1))) return 'add';
   return 'none';
 }
 
+// 位置を包むいちばん内側の括弧の開きの位置（包む括弧が無ければ -1）。足し引きの 1px は、この括弧の中ごとに数える
+function enclosing(text: string, index: number): number {
+  let depth = 0;
+  for (let i = index - 1; i >= 0; i--) {
+    if (text[i] === ')') depth++;
+    else if (text[i] === '(' && depth-- === 0) return i;
+  }
+  return -1;
+}
+
 const nonZero = (match: RegExpMatchArray) => Math.abs(Number(match[1])) !== 0;
+
+// var() と env() を、対応する閉じ括弧まで丸ごと空白に置き換え、予備値（最初の , の後ろ）を取り出す。
+// 名前だけを外すと、残った ) が外側の calc( を閉じたように読め、括弧ごとの数え方が狂うため
+function stripCalls(value: string): { rest: string; fallbacks: string[] } {
+  const fallbacks: string[] = [];
+  let rest = value;
+  for (let match = CALL_HEAD.exec(rest); match; match = CALL_HEAD.exec(rest)) {
+    const open = match.index + match[0].length - 1;
+    let depth = 0;
+    let comma = -1;
+    let close = rest.length;
+    for (let i = open; i < rest.length; i++) {
+      if (rest[i] === '(') depth++;
+      else if (rest[i] === ')' && --depth === 0) {
+        close = i;
+        break;
+      } else if (rest[i] === ',' && depth === 1 && comma < 0) comma = i;
+    }
+    if (comma >= 0) fallbacks.push(rest.slice(comma + 1, close));
+    rest = `${rest.slice(0, match.index)} ${rest.slice(close + 1)}`;
+    CALL_HEAD.lastIndex = 0;
+  }
+  return { rest, fallbacks };
+}
 
 // 刻みの外なら理由を、刻みの中なら null を返す。通すのは tokens.css の変数、0、±1px（罫）、端末の安全領域の名前、単位の無い数。
 // 1px を掛けたり割ったり足し合わせたりすれば任意の長さを作れるので、±1px を通すのは、乗除の隣に無く、足し引きに使うのが値の中で1つだけのとき。
@@ -135,17 +169,26 @@ const nonZero = (match: RegExpMatchArray) => Math.abs(Number(match[1])) !== 0;
 export function spacingProblem(value: string, tokens: Set<string>): string | null {
   const unknown = [...value.matchAll(VAR_NAME)].map((match) => match[1]).filter((name) => !tokens.has(name));
   if (unknown.length > 0) return `余白の段でない変数 ${unknown.join('、')}`;
-  const fallbacks = [...value.matchAll(FALLBACK)].map((match) => match[1]);
-  const fallbackRaw = fallbacks.flatMap((text) => [...text.matchAll(LENGTH)].filter(nonZero).map((match) => match[0]));
-  const rest = unwrap(value.replace(FALLBACK, ' ').replace(VAR_HEAD, ' ').replace(ENV_HEAD, ' '));
+  const stripped = stripCalls(value);
+  const fallbackRaw = stripped.fallbacks.flatMap((text) =>
+    [...text.matchAll(LENGTH)].filter(nonZero).map((match) => match[0]),
+  );
+  const rest = unwrap(stripped.rest);
   const lengths = [...rest.matchAll(LENGTH)].filter(nonZero).map((match) => ({
     text: match[0],
     hairline: Math.abs(Number(match[1])) === 1 && match[2].toLowerCase() === 'px',
     operator: neighbor(rest, match.index, match.index + match[0].length),
+    group: enclosing(rest, match.index),
   }));
-  const added = lengths.filter(({ hairline, operator }) => hairline && operator === 'add').length;
+  const added = new Map<number, number>();
+  for (const { hairline, operator, group } of lengths) {
+    if (hairline && operator === 'add') added.set(group, (added.get(group) ?? 0) + 1);
+  }
   const raw = lengths
-    .filter(({ hairline, operator }) => !hairline || operator === 'multiply' || (operator === 'add' && added > 1))
+    .filter(
+      ({ hairline, operator, group }) =>
+        !hairline || operator === 'multiply' || (operator === 'add' && (added.get(group) ?? 0) > 1),
+    )
     .map(({ text }) => text);
   const all = [...fallbackRaw, ...raw];
   return all.length > 0 ? `直書きの ${all.join('、')}` : null;
