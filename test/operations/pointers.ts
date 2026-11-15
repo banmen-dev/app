@@ -35,6 +35,7 @@ import {
   createUser,
   createWorkspace,
 } from '../factories.ts';
+import { storeAvatar } from '../me-avatar-helpers.ts';
 import { insertApiToken } from './api-token.ts';
 import type { Pointers } from './harness.ts';
 import { SUSPENDED_AT, type Person, type Target } from './world.ts';
@@ -378,6 +379,16 @@ export const pointers: Pointers = {
   }),
   // 呼んだ人自身の users.theme を書く。入力は組織の中の行を指さない（人は ID でなく呼んだ人で決まる）
   'me-theme-update': { noReference: { theme: 'modern' } },
+  // 自分のプロフィール画像（Issue #1265）。上げる・外す操作は入力に人の ID を持たず、呼んだ人の行だけを触る。
+  // 上げる本文は一覧の検査の SMALL_FILE（1×1 の PNG）。外す操作は画像が無くても成功する
+  'me-avatar-upload': { noReference: {} },
+  'me-avatar-delete': { noReference: {} },
+  // 呼ぶたびに、対象の組織に別の人を作り、その人の画像の行と R2 のファイルを置く（1人1行なので人を分ける）。
+  // 別の組織の対象を渡すと、その組織の画像の ID になり、自分の組織では 404
+  'user-avatar': async (target) => {
+    const user = await createUser(target.organization);
+    return { id: (await storeAvatar(target.organization, user.id)).id };
+  },
   'organization-holiday-list': { noReference: {} },
   // 日付は組織の中の行を指さない（登録済みなら飛ばすだけで成功する）
   'organization-holiday-add': { noReference: { holidays: [{ holiday_on: '2026-11-03', name: '文化の日' }] } },

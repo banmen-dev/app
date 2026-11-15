@@ -67,6 +67,9 @@ type Common<Input, Output> = {
   // ファイルを返す GET /api/<slug>/<name>/<id>。組織の直下の read だけ。
   // 入力はパスの id、応答は Response。CLI と MCP（JSON）からは呼べない。
   readonly response?: 'binary';
+  // 200 の応答の Cache-Control。response: 'binary' の操作だけで、private で始まる値だけ。
+  // 指定の無いバイナリの応答と 200 以外の応答は private, no-store
+  readonly cacheControl?: string;
 };
 
 // ワークスペースの下の操作は、入力に workspace_id を持つ。無いと型で落ちる
