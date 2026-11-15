@@ -46,3 +46,21 @@ describe('#1246 CI: 相対パスのダッシュと標準入力を区別する', 
   test('[すり抜け・拒否] シェルへ単独の - を渡す形は標準入力を読む', () =>
     assert.equal(decision("echo 'wrangler deploy' | bash -"), 'deny'));
 });
+// Linux の thread-self も、実行中のスレッドの標準入力を開く別名。
+describe('#1246: thread-self の標準入力の別名', () => {
+  for (const command of [
+    "echo 'wrangler deploy' | bash /proc/thread-self/fd/0",
+    "echo 'wrangler deploy' | bash /proc/thread-self//fd/./0",
+    "echo 'wrangler deploy' | source /proc/thread-self/fd/0",
+    `echo '<?php file_get_contents(".env");' | php -f /proc/thread-self/fd/0`,
+    `echo '<?php file_get_contents(".env");' | php --file=/proc/thread-self//fd/./0`,
+  ]) {
+    test(`[すり抜け・拒否] ${command}`, () => assert.equal(decision(command), 'deny', command));
+  }
+  for (const command of [
+    'cat script.sh | bash /proc/thread-self/fd/0',
+    'cat script.php | php -f /proc/thread-self//fd/./0',
+  ]) {
+    test(`[すり抜け・確認] ${command}`, () => assert.equal(decision(command), 'ask', command));
+  }
+});

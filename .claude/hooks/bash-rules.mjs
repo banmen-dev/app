@@ -2714,7 +2714,7 @@ function interpreterBodyWords(tool, args) {
 
 // パイプを本文として読む起動だけを選ぶ。-c/-e とスクリプトのファイルに続く標準入力はデータなので判定しない。
 // /dev/stdin と /dev/fd/0 は、source/. でもパイプの本文を読む。
-const STDIN_SCRIPT = new Set(['-', '/dev/stdin', '/dev/fd/0', '/proc/self/fd/0']);
+const STDIN_SCRIPT = new Set(['-', '/dev/stdin', '/dev/fd/0', '/proc/self/fd/0', '/proc/thread-self/fd/0']);
 // /dev//stdin や /proc/self/fd/./0 も標準入力を読む同じパス。実体の解決やファイルの読み取りはしない。
 const isStdinScript = (file) => typeof file === 'string' && (file === '-' || path.posix.isAbsolute(file) && STDIN_SCRIPT.has(path.posix.normalize(file)));
 const SCRIPT_OPTION_VALUES = {
