@@ -3205,16 +3205,22 @@ function findCommands(args, holdsProtected) {
     starts.flatMap((start) => {
       if (!inDir) return [{ at, placed: start, tos: [null] }];
       if (expansionSize(start.target) > MAX_BRACE_EXPANSION) return [{ at, placed: start, tos: [], tooBig: true }];
-      return expandBraces(start.target).map((e) => ({
+      if (expansionSize(start.shape) > MAX_BRACE_EXPANSION) return [{ at, placed: start, tos: [], tooBig: true }];
+      const expanded = expandBraces(start.target);
+      const shapes = expandBraces(start.shape);
+      // target と shape は同じ brace の順に展開してから basename を取る。別候補の / で置換の印を切り落とさない。
+      // 変数の位置を印にしたことで候補数が違うときは、対応を断定せず shape の候補をすべて見る。
+      if (expanded.length !== shapes.length && expanded.length * shapes.length > MAX_FIND_COMMANDS) return [{ at, placed: start, tos: [], tooBig: true }];
+      return expanded.flatMap((e, i) => (expanded.length === shapes.length ? [shapes[i]] : shapes).map((shape) => ({
         at,
         placed: {
           ...start,
           target: `./${path.posix.basename(e)}`,
-          shape: `./${path.posix.basename(start.shape)}`,
-          expands: start.expands && (start.shape.includes(DYNAMIC) || expandsAt([e], 0)),
+          shape: `./${path.posix.basename(shape)}`,
+          expands: start.expands && (shape.includes(DYNAMIC) || expandsAt([e], 0)),
         },
         tos: [path.posix.dirname(e), e, ...(holdsProtected(e) ? PROTECTED_SUBDIRS.map((c) => path.posix.join(e, c)) : [])],
-      }));
+      })));
     }),
   );
   const weightOf = ({ at, placed, tos, tooBig }) =>
