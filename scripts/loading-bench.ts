@@ -1,4 +1,5 @@
-// pnpm bench:loading [--runs 20] [--port 9742] [--layout-only] [--layout-before]。本番・既存のローカル D1 は使わない。
+// pnpm bench:loading [--runs 20] [--port 9742] [--layout-only] [--layout-before]
+// 計画の比較: --plan-compare [--comparison-reverse]。本番・既存のローカル D1 は使わない。
 import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { isBenchHealth, trackServer } from './loading-server.ts';
@@ -9,11 +10,12 @@ import { SEED_OPERATOR_LOGIN_ID, SEED_SESSIONS } from '../seed/sessions.ts';
 import { sessionCookieName } from '../src/shared/session-cookie.ts';
 import { operations } from '../src/shared/operations/index.ts';
 import { isOutsideOperation } from '../src/shared/operations/define.ts';
-import { loadingFixtureSql } from './loading-fixture.ts';
+import { loadingFixtureSql, loadingWorkspace } from './loading-fixture.ts';
 import { screens, type Reading } from './loading-screens.ts';
 import { comparison, percentile, trialTiming } from './loading-stats.ts';
 import { sessionInserts } from './seed.ts';
 import { readTrial } from './loading-trial.ts';
+import { emptyPlanSql, emptyPlanWorkspace, planConditions, readPlanComparison } from './plan-loading-comparison.ts';
 
 function option(name: string, fallback: number, max: number): number {
   const index = process.argv.indexOf(name);
@@ -74,7 +76,7 @@ function command(args: string[]) {
     throw new Error(`wrangler ${args.slice(0, 2).join(' ')} が失敗しました: ${result.stderr}`);
   return result.stdout;
 }
-async function call(reading: Reading, operator: boolean) {
+async function call(reading: Reading, operator: boolean, member = false) {
   if (interrupted) throw new Error('計測を中断しました');
   const definition = operations.find((op) => op.name === reading.name);
   if (
@@ -91,7 +93,7 @@ async function call(reading: Reading, operator: boolean) {
     headers: {
       'Content-Type': 'application/json',
       Origin: origin,
-      Cookie: `${sessionCookieName(origin)}=${operator ? SEED_SESSIONS.operator.token : SEED_SESSIONS.admin.token}`,
+      Cookie: `${sessionCookieName(origin)}=${operator ? SEED_SESSIONS.operator.token : member ? SEED_SESSIONS.member.token : SEED_SESSIONS.admin.token}`,
     },
     body: JSON.stringify(reading.input),
     signal: AbortSignal.timeout(30000),
@@ -118,7 +120,8 @@ try {
     file,
     readFileSync(path.join(root, 'seed/data.sql'), 'utf8') +
       sessionInserts(Object.values(SEED_SESSIONS), new Date()) +
-      loadingFixtureSql(),
+      loadingFixtureSql() +
+      (process.argv.includes('--plan-compare') ? emptyPlanSql : ''),
   );
   command(['d1', 'execute', 'DB', '--file', file]);
   server = spawn(
@@ -151,11 +154,38 @@ try {
   console.log(
     `Node ${process.version}、各画面・発行順ごと warmup 2 回 + ${runs} 回（正順・逆順）。時間は API 往復 ms。分位点は nearest-rank。`,
   );
-  console.log('| load | 操作（主/従） | p50 ms | p95 ms |');
-  console.log('| --- | --- | ---: | ---: |');
-  for (const screen of screens.filter(
-    (screen) => !process.argv.includes('--layout-only') || screen.route.startsWith('/[slug]/+layout'),
-  )) {
+  if (process.argv.includes('--plan-compare')) {
+    console.log('| データ | 利用者 | 発行順 | 条件 | 主 p50/p95 | 返却モデル p50/p95 | 全応答 p50/p95 |');
+    console.log('| --- | --- | --- | --- | ---: | ---: | ---: |');
+    const conditions = process.argv.includes('--comparison-reverse') ? [...planConditions].reverse() : planConditions;
+    for (const workspaceId of [loadingWorkspace, emptyPlanWorkspace]) {
+      for (const member of [false, true]) {
+        for (const reverse of [false, true]) {
+          for (const condition of conditions) {
+            const read = () => readPlanComparison(condition, workspaceId, reverse, (op) => call(op, false, member));
+            await read();
+            await read();
+            const samples: Awaited<ReturnType<typeof readPlanComparison>>[] = [];
+            for (let i = 0; i < runs; i++) samples.push(await read());
+            const cell = (key: 'primary' | 'ready' | 'total') => {
+              const values = samples.map((sample) => sample[key]);
+              return `${percentile(values, 0.5).toFixed(2)} / ${percentile(values, 0.95).toFixed(2)}`;
+            };
+            console.log(
+              `| ${workspaceId === loadingWorkspace ? '履歴あり' : '空'} | ${member ? 'メンバー' : '管理者'} | ${reverse ? '逆順' : '正順'} | ${condition} | ${cell('primary')} | ${cell('ready')} | ${cell('total')} |`,
+            );
+          }
+        }
+      }
+    }
+  }
+  if (!process.argv.includes('--plan-compare')) {
+    console.log('| load | 操作（主/従） | p50 ms | p95 ms |');
+    console.log('| --- | --- | ---: | ---: |');
+  }
+  for (const screen of screens
+    .filter(() => !process.argv.includes('--plan-compare'))
+    .filter((screen) => !process.argv.includes('--layout-only') || screen.route.startsWith('/[slug]/+layout'))) {
     if (!screen.operations.length) {
       console.log(`| ${screen.route} | 操作なし | — | — |`);
       continue;
