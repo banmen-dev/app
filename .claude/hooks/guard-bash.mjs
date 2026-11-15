@@ -43,7 +43,8 @@ try {
   if (typeof command === 'string') {
     // セッションの CDPATH は、相対の cd の行き先を cwd の外へ変える（judgeBash は空文字を無いものとする）。
     // GH_REPO、GH_HOST、GIT_DIR、GIT_WORK_TREE、GIT_CONFIG_* は、gh が宛先と現在のブランチを決める元になるので、起動元の環境にあっても見る。
-    // CLAUDE_ENV_FILE は、Claude Code が各 Bash の前に読むファイルの場所。名前（session-env）に当たらない場所でも、書き込みを止めるのに使う
+    // CLAUDE_ENV_FILE は、Claude Code が各 Bash の前に読むファイルの場所。PreToolUse のフックの環境にはふつう無い（SessionStart のフックだけが持つ）ので、
+    // 守りの本体は名前（session-env、shell-snapshots）で、これは名前に当たらない場所に置かれていたときの補助
     const env = Object.fromEntries(
       ['CDPATH', 'GH_REPO', 'GH_HOST', 'GIT_DIR', 'GIT_WORK_TREE', 'CLAUDE_ENV_FILE', ...Object.keys(process.env).filter((name) => /^GIT_CONFIG_/.test(name))].map((name) => [name, process.env[name]]),
     );

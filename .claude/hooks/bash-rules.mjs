@@ -10,13 +10,14 @@
 // e2e を走らせるコマンドは、フック自身の環境がクラウドを示すときだけ許可する。
 // gh pr merge は、<番号>-… の作業ブランチの中で打つ --squash --match-head-commit <40桁の SHA> の固定の形だけを判定せず（.claude/settings.json の許可ルールに任せる）、ほかの形は deny にする。非対話の実行は確認に回す。
 // git の設定の場所を変える環境変数（GIT_CONFIG_*、HOME、XDG_CONFIG_HOME）を付けた git push、git config -e、git の設定ファイルへの書き込み、
-// 名前を展開かファイルの変数で渡す GraphQL の createRef は確認に回す。
+// 名前を展開かファイルの変数で渡す GraphQL の createRef、Claude Code が各 Bash の前に読む環境のファイル（session-env、shell-snapshots）への書き込みは確認に回す。
 // find の -exec 系は {} を起点に置き換えて同じ規則に掛け直す（docs/development.md の「Claude の設定とフック」）。
 // permissions.deny の前方一致では npx wrangler や pnpm exec wrangler の言い換えを取りこぼすので、語に分けて判定する。
 // 踏み線であって守りの本体ではない。変数の中身と、パイプで sh に流す中身は見えない。
 import { existsSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { SHELL_ENV_DIR, SHELL_ENV_DIR_NAMES, SHELL_ENV_REASON, resolveLinks } from './file-rules.mjs';
 import {
   DYNAMIC,
   GLOB_GROUP,
@@ -2863,6 +2864,8 @@ function judgePipedScript(tool, args, ctx, nextCtx) {
       // 既存のヒアストリングと同じく、秘密の名前とインタープリタの本文の規則で見る。
       if (mentionsSecret(text)) results.push([DENY, SECRET_FILE_REASON]);
       results.push(judgeInterpreterBody(tool, ['--eval', text]));
+      // パイプで渡した本文も、環境のファイルの名前と CLAUDE_ENV_FILE を見る
+      if (bodyHitsShellEnv(tool, ['--eval', text], shellEnvFileAt(ctx.dir, ctx.cdWords, ctx.env?.CLAUDE_ENV_FILE))) results.push([ASK, SHELL_ENV_REASON]);
     }
   }
   return results.filter(Boolean);
@@ -3011,33 +3014,227 @@ function gitConfigFileAt(dir, cdWords, namesGitDir) {
     viaGitDir(word);
 }
 
-// Claude Code が各 Bash のコマンドの前に読む環境のファイル（CLAUDE_ENV_FILE。~/.claude/session-env/<セッション>/*.sh）。
-// 書き足すと、以後のすべての Bash に、フックからは見えない GIT_CONFIG_*、GH_REPO、PATH などが付く（guard-bash.mjs は自分の環境しか見ない）。
-// CLAUDE_CONFIG_DIR で ~/.claude の場所を替えても名前は session-env なので、名前で見る（大文字小文字は区別しない。APFS では同じ場所を指す）。
-// 変数の字面（"$CLAUDE_ENV_FILE"、${CLAUDE_ENV_FILE:-x}）と、起動元の環境の CLAUDE_ENV_FILE の値そのものも当てる
-const SESSION_ENV_FILE = /(^|\/)session-env(\/|$)|\$\{?CLAUDE_ENV_FILE\b/i;
-// glob の語（~/.claude/s*/x/y.sh、~/.c*/session-*/x/y.sh）は、隣り合う2つの区切りが .claude と session-env に当たるかで見る。
-// session-env だけに当たる glob（/tmp/*/x）まで止めないよう、親の .claude も求める
-function globHitsSessionEnv(word) {
-  const segments = word.split('/').map((s) => s.toLowerCase());
-  const hit = (pattern, name) => (GLOB_CHARS.test(pattern) ? !(name.startsWith('.') && /^[*?[]/.test(pattern)) && matchesGlob(name, pattern) : pattern === name);
-  return segments.some((s, k) => k + 1 < segments.length && hit(s, '.claude') && hit(segments[k + 1], 'session-env'));
-}
-const SESSION_ENV_REASON =
-  'Claude Code が各 Bash の前に読む環境のファイル（CLAUDE_ENV_FILE、~/.claude/session-env/）への書き込みは、フックから見えない GIT_CONFIG_*、GH_REPO、PATH を以後のコマンドに付け、push の先や守りを替えうる。書き込みは人が確かめる';
+// Claude Code が各 Bash のコマンドの前に読む環境のファイル（file-rules.mjs の SHELL_ENV_DIR。session-env と shell-snapshots）への書き込み。
+// 守りの本体は名前（CLAUDE_CONFIG_DIR で ~/.claude の場所を替えても名前は同じ）。$CLAUDE_ENV_FILE の字面と起動元の値の照合は補助で、
+// CLAUDE_ENV_FILE は PreToolUse のフックと Bash の環境にふつう無い（SessionStart のフックだけが持つ）
+const CLAUDE_ENV_VAR = /\$\{?CLAUDE_ENV_FILE\b/i;
+// インタープリタと awk の本文は環境変数を $ を付けずに読む（process.env.CLAUDE_ENV_FILE、ENVIRON["CLAUDE_ENV_FILE"]）
+const CLAUDE_ENV_NAME = /\bCLAUDE_ENV_FILE\b/i;
+// ~/.claude そのものか、その場所を替える変数。ここへのリンクと展開は、中の環境のファイルに届く
+const CLAUDE_CONFIG_WORD = /(^|\/)\.claude\/?$|\$\{?CLAUDE_CONFIG_DIR\}?\/?$/i;
+// 親の .claude の無い glob（/opt/cfg/se*-env/x）を当てる、区切りの固定の文字数。/tmp/*/x と /tmp/s*/x は通す
+const MIN_LITERAL_CHARS = 4;
 
-// 語が環境のファイルに当たるか。書かれた語、正規化した語、作業場所から解決した絶対パス、cd の行き先の字面をつないだ語で見る（gitConfigFileAt と同じ）。
-// envFile は起動元の環境の CLAUDE_ENV_FILE の値（無ければ undefined）
-function sessionEnvFileAt(dir, cdWords, envFile) {
+const literalCount = (segment) => segment.replace(/\[[^\]]*\]|[*?{}()!+@,|]/g, '').length;
+// .claude の名前に当たる区切りか。dotglob と GLOBIGNORE では * と ? が先頭の点にも当たるので、点を _ に替えた名前でも照合する
+const namesClaudeDir = (segment) => (GLOB_CHARS.test(segment) ? matchesGlob('.claude', segment) || matchesGlob('_claude', segment) : segment === '.claude');
+
+// glob の語の区切りが、環境のファイルのディレクトリの名前に当たるか。親の区切りが .claude なら何にでも当たる glob（~/.claude/s*）も、
+// 親が無い glob は固定の文字が MIN_LITERAL_CHARS 以上のものだけ止める
+function globHitsShellEnv(word) {
+  const segments = word.split('/').map((s) => s.toLowerCase());
+  const namesEnvDir = (s) => GLOB_CHARS.test(s) && SHELL_ENV_DIR_NAMES.some((name) => matchesGlob(name, s));
+  return segments.some((s, k) => namesEnvDir(s) && (literalCount(s) >= MIN_LITERAL_CHARS || (k > 0 && namesClaudeDir(segments[k - 1]))));
+}
+
+// 語から照合する形を作る。{a,b} を展開した語ごとに、書かれた形、zsh の括弧の glob を外した形、正規化した形、作業場所から解決した絶対パス、
+// cd の行き先の字面をつないだ形（絶対パス、~、変数で始まる語には付けない。付けると cd の後の > /dev/null まで当たる）、
+// リンクを解いた形（ln -s ~/.claude/session-env /tmp/e の後の /tmp/e/x/a.sh）。展開が大きすぎるときは null（当たるものとして扱う。protectedAt と同じ）
+function wordForms(word, dir, cdWords) {
+  if (expansionSize(word) > MAX_BRACE_EXPANSION) return null;
+  return expandBraces(word).flatMap((w) => {
+    const forms = [w, withoutGlobGroup(w), path.posix.normalize(w)];
+    if (dir) forms.push(path.resolve(dir, w));
+    if (cdWords && !/^[/~$]/.test(w)) forms.push(path.posix.join(cdWords, w));
+    const linked = linkedForm(w, dir);
+    return linked === null ? forms : [...forms, linked];
+  });
+}
+
+// HOME が無く passwd にも無いと os.homedir() は投げる。照合は止めずに、ホームを使う形だけ諦める
+function homeOrNull() {
+  try {
+    return os.homedir();
+  } catch {
+    return null;
+  }
+}
+
+// 絶対パス（~ と $HOME は展開する。作業場所が分かれば相対パスも）の、ある親までリンクを解いた形。解く必要が無ければ null
+function linkedForm(word, dir) {
+  if (GLOB_CHARS.test(word) || /[`$]/.test(word.replace(/^\$\{?HOME\}?(?=\/|$)/, ''))) return null;
+  const home = homeOrNull();
+  if (home === null && /^(~|\$\{?HOME\}?)(\/|$)/.test(word)) return null;
+  const expanded = word.replace(/^(~|\$\{?HOME\}?)(?=\/|$)/, home ?? '');
+  const absolute = path.isAbsolute(expanded) ? expanded : dir && path.resolve(dir, expanded);
+  const linked = absolute && resolveLinks(absolute);
+  return linked && linked !== absolute ? linked : null;
+}
+
+// 語が環境のファイルに当たるか。envFile は起動元の環境の CLAUDE_ENV_FILE の値（無ければ undefined）
+function shellEnvFileAt(dir, cdWords, envFile) {
   const real = typeof envFile === 'string' && path.isAbsolute(envFile) ? path.resolve(envFile).toLowerCase() : null;
-  const hitsOne = (w) =>
-    [w, withoutGlobGroup(w)].some((v) => SESSION_ENV_FILE.test(v) || (GLOB_CHARS.test(v) && globHitsSessionEnv(v)) || (real !== null && path.isAbsolute(v) && path.resolve(v).toLowerCase() === real));
-  const hits = (w) => expansionSize(w) > MAX_BRACE_EXPANSION || expandBraces(w).some(hitsOne);
-  return (word) =>
-    hits(word) ||
-    hits(path.posix.normalize(word)) ||
-    Boolean(dir && hits(path.resolve(dir, word))) ||
-    Boolean(cdWords && hits(path.posix.join(cdWords, word)));
+  const hitsOne = (v) =>
+    SHELL_ENV_DIR.test(v) || CLAUDE_ENV_VAR.test(v) || (GLOB_CHARS.test(v) && globHitsShellEnv(v)) || (real !== null && path.isAbsolute(v) && path.resolve(v).toLowerCase() === real);
+  return (word) => {
+    const forms = wordForms(word, dir, cdWords);
+    return forms === null || forms.some(hitsOne);
+  };
+}
+
+// 書庫を展開する先として止める語（環境のファイルのディレクトリ、.claude、ホーム）。展開した中身が環境のファイルや .claude の下に届く
+function extractionTargetAt(dir, cdWords) {
+  const home = homeOrNull();
+  const isHome = (v) => /^(~|\$\{?HOME\}?)\/?$/.test(v) || (home !== null && path.isAbsolute(v) && path.normalize(v).replace(/(.)\/$/, '$1') === home);
+  const hitsOne = (v) => SHELL_ENV_DIR.test(v) || CLAUDE_CONFIG_WORD.test(v) || isHome(v);
+  return (word) => {
+    const forms = wordForms(word, dir, cdWords);
+    return forms === null || forms.some(hitsOne);
+  };
+}
+
+// 同じコマンドの中で環境のファイルのディレクトリに入った後に、cd - と popd で行き先が分からなくなったとき、相対の語につなぐ字面。
+// 戻った先がそのディレクトリでないと言い切れないので、相対の書き込みを環境のファイルとみなす
+const SHELL_ENV_UNKNOWN_CWD = '~/.claude/session-env/?';
+const namesShellEnvDir = (cdWords) => shellEnvFileAt(null, '', undefined)(cdWords);
+
+// リンクを作る道具（ln、link、cp -l、cp -s、cp -al）。別名を作ると、後でその別名に書ける。元も先も見る
+const LINK_TOOLS = new Set(['ln', 'gln', 'link']);
+function makesLinks(tool, args) {
+  if (LINK_TOOLS.has(tool)) return true;
+  if (tool !== 'cp' && tool !== 'gcp') return false;
+  return args.some((a) => {
+    const long = /^--([a-z-]+)(=|$)/.exec(a);
+    if (long) return abbreviates(long[1], 'link') || (long[1].length >= 2 && abbreviates(long[1], 'symbolic-link'));
+    return /^-[^-]*[ls]/.test(a);
+  });
+}
+
+// コピーの宛先。-t のときは、位置引数は全部が元（cp -t /tmp ~/.claude/session-env/x/a.sh は元を読むだけ）
+function copyDestinations(tool, args) {
+  const target = TARGET_DIRECTORY_TOOLS.has(tool) ? targetDirectoryOf(args, flagsWithValueOf(tool)) : null;
+  if (target) return [target.dir];
+  return [positionals(args).at(-1), copyOperands(args, flagsWithValueOf(tool)).at(-1)].filter((w) => w !== undefined);
+}
+
+// コピーが環境のファイルへ書くか。宛先だけを見る（cp "$CLAUDE_ENV_FILE" /tmp/backup/ は読むだけ）。
+// 環境のファイルのディレクトリの名前で .claude に置く形（cp -r /tmp/session-env ~/.claude/）は、元の名前も見る
+function copiesToShellEnv(tool, args, isShellEnv) {
+  const destinations = copyDestinations(tool, args);
+  if (destinations.some(isShellEnv)) return true;
+  const sources = positionals(args).filter((w) => !destinations.includes(w));
+  return destinations.some((d) => CLAUDE_CONFIG_WORD.test(d)) && sources.some((w) => SHELL_ENV_DIR_NAMES.includes(path.posix.basename(w).toLowerCase()));
+}
+
+// awk の標準のフラグのうち値を取るもの（-F、-v、-f、-i、-l）。プログラムは -e と --source の値か、最初の位置引数
+const AWKS = new Set(['awk', 'gawk', 'mawk', 'nawk']);
+function awkParts(args) {
+  const programs = [];
+  const rest = [];
+  let inPlace = false;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    const long = /^--([a-z-]+)(=([\s\S]*))?$/.exec(a);
+    const value = () => (long?.[2] === undefined ? args[++i] : long[3]);
+    if (a === '--') rest.push(...args.slice(i + 1));
+    if (a === '--') break;
+    if (a === '-e' || long?.[1] === 'source') programs.push(value() ?? '');
+    else if (a === '-i' || long?.[1] === 'include') inPlace ||= /^inplace/.test(value() ?? '');
+    else if (['-F', '-v', '-f', '-l'].includes(a) || ['field-separator', 'assign', 'file', 'load'].includes(long?.[1])) value();
+    else if (!a.startsWith('-')) rest.push(a);
+  }
+  if (programs.length === 0 && rest.length > 0) programs.push(rest.shift());
+  return { programs, files: rest, inPlace };
+}
+
+// sed の w コマンドと s///w フラグが書くファイル（sed -n 'w /x'）。スクリプトは -e の値か、最初の位置引数
+function sedWriteTargets(args) {
+  const scripts = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '-e' || args[i] === '--expression') scripts.push(args[++i] ?? '');
+    else if (args[i].startsWith('--expression=')) scripts.push(args[i].slice('--expression='.length));
+  }
+  if (scripts.length === 0 && positionals(args).length > 0) scripts.push(positionals(args)[0]);
+  return scripts.flatMap((s) => [...s.matchAll(/(?:^|[^\w])[wW]\s*([^\s;}]+)/g)].map((m) => m[1]));
+}
+
+// 表（writesTo）に無い道具が書くファイル。sort -o、openssl -out、split の出力の接頭辞、zip の書庫、yq -i、gawk -i inplace
+function otherWrittenFiles(tool, args) {
+  const pos = positionals(args);
+  if (tool === 'sort' || tool === 'gsort') {
+    const { found } = flagValues(args, 'o', (name) => name === 'output', ['output']);
+    return valuesOf(found, 'o', 'output');
+  }
+  if (tool === 'openssl') return args.flatMap((a, i) => (['-out', '-keyout'].includes(a) && args[i + 1] !== undefined ? [args[i + 1]] : []));
+  if (tool === 'split') return pos.length >= 2 ? [pos.at(-1)] : [];
+  if (tool === 'zip') return pos.slice(0, 1);
+  if (tool === 'yq') return args.some((a) => a === '--inplace' || /^-[a-zA-Z]*i/.test(a)) ? pos : [];
+  if (AWKS.has(tool)) {
+    const { files, inPlace } = awkParts(args);
+    return inPlace ? files : [];
+  }
+  return [];
+}
+
+// 本文の語（-e、-c、ヒアドキュメントなど）の道具の分類。python3.12 などの版付きの名前、nodejs、tsx、ts-node も本文を読む
+function interpreterFamily(tool) {
+  if (INTERPRETERS.has(tool)) return tool;
+  if (/^(nodejs|tsx|ts-node(-\w+)?)$/.test(tool)) return 'node';
+  const versioned = /^(python|ruby|perl|php)(\d+(\.\d+)*)$/.exec(tool);
+  return versioned ? (versioned[1] === 'python' ? 'python3' : versioned[1]) : null;
+}
+
+// 環境のファイルの名前を探す本文の語。インタープリタの本文（スクリプトのファイルの引数は本文ではない）、awk のプログラム、sed の w の先
+function shellEnvBodyWords(tool, args) {
+  if (AWKS.has(tool)) return awkParts(args).programs.flatMap((p) => p.split(CODE_SEPARATORS).filter(Boolean));
+  if (tool === 'sed' || tool === 'gsed') return sedWriteTargets(args);
+  const family = interpreterFamily(tool);
+  return family ? interpreterBodyWords(family, args) : [];
+}
+const bodyHitsShellEnv = (tool, args, isShellEnv) => shellEnvBodyWords(tool, args).some((w) => isShellEnv(w) || CLAUDE_ENV_NAME.test(w));
+
+// 書庫を展開する先（-C、-d、-o の値。無ければ作業場所の '.'）。tar と bsdtar の x、unzip（一覧と表示は除く）、cpio -i、7z の x と e
+function extractionDirectories(tool, args) {
+  const here = ['.'];
+  if (['tar', 'gtar', 'bsdtar'].includes(tool)) {
+    const { directories, modes } = tarOperands(args);
+    return modes.size === 0 || modes.has('x') ? (directories.length > 0 ? directories : here) : [];
+  }
+  if (tool === 'unzip') {
+    const { found } = flagValues(args, 'dxP', () => false);
+    if (found.some((f) => ['l', 'p', 't', 'v', 'z'].includes(f.name))) return [];
+    const target = valuesOf(found, 'd');
+    return target.length > 0 ? target : here;
+  }
+  if (tool === 'cpio') {
+    const { found } = flagValues(args, 'DEFHIMORC', (name) => name === 'directory', ['directory']);
+    // -i（コピーイン）は作業場所か -D の先へ展開し、-p（パススルー）は最後の位置引数へ書く
+    const directories = valuesOf(found, 'D', 'directory');
+    if (found.some((f) => f.name === 'i' || f.name === 'extract')) return directories.length > 0 ? directories : here;
+    return found.some((f) => f.name === 'p') ? positionals(args).slice(-1) : [];
+  }
+  if (/^7z[a-z]?$|^7zz$/.test(tool)) {
+    const [subcommand] = positionals(args);
+    if (!['x', 'e'].includes(subcommand)) return [];
+    const outputs = args.filter((a) => a.startsWith('-o')).map((a) => a.slice(2));
+    return outputs.length > 0 ? outputs : here;
+  }
+  return [];
+}
+
+// 環境のファイルへの書き込みか。writesTo の表（リダイレクト、tee、sed -i、dd、curl -o、tar -f と -C）と、
+// コピー（宛先だけ）、リンクを作る道具（元も先も）、表に無い道具、本文の語、書庫の展開で見る。busybox の後ろの名前は道具として見る
+function writesShellEnv(tool, args, words, dir, cdWords, envFile) {
+  if (tool === 'busybox' && args.length > 0) return writesShellEnv(baseName(args[0]), sliceWords(args, 1), words, dir, cdWords, envFile);
+  const isShellEnv = shellEnvFileAt(dir, cdWords, envFile);
+  const plainTool = GNU_PREFIXED.has(tool) ? tool.slice(1) : tool;
+  const isCopy = COPY_TOOLS.has(plainTool);
+  if (writesTo(isShellEnv, isCopy ? '' : tool, args, words)) return true;
+  if (isCopy && copiesToShellEnv(plainTool, args, isShellEnv)) return true;
+  if (makesLinks(tool, args) && positionals(args).some((w) => isShellEnv(w) || CLAUDE_CONFIG_WORD.test(w))) return true;
+  if (otherWrittenFiles(plainTool, args).some(isShellEnv) || bodyHitsShellEnv(tool, args, isShellEnv)) return true;
+  const isTarget = extractionTargetAt(dir, cdWords);
+  return extractionDirectories(tool, args).some(isTarget);
 }
 
 // 道具の無い区切り（> f、exec > f）と cd、pushd のリダイレクトも見るので、tool を空、args を空にして呼べる。
@@ -3076,15 +3273,7 @@ function judgeFileWrites(tool, args, words, dir = null, cdWords = '', namesGitDi
   if (writesTo(isGitConfig, tool, args, words, { intoDirectory: { dir, names: GIT_CONFIG_NAMES, anywhere: true } }) || interpreterWords(tool, args).some((w) => expansionSize(w) <= MAX_BRACE_EXPANSION && isGitConfig(w))) {
     results.push([ASK, GIT_CONFIG_FILE_REASON]);
   }
-  // ln は元も見る。環境のファイルのディレクトリへのリンク（ln -s ~/.claude/session-env /tmp/e）を作ると、後のリンク越しの書き込みを名前で見られない
-  const isSessionEnv = sessionEnvFileAt(dir, cdWords, envFile);
-  // インタープリタの本文は環境変数を $ を付けずに読む（process.env.CLAUDE_ENV_FILE、os.environ['CLAUDE_ENV_FILE']）ので、名前だけでも当てる
-  if (writesTo(isSessionEnv, tool, args, words, { intoDirectory: { dir, names: ['session-env'], anywhere: true } }) ||
-      // 展開の大きい本文の語（node x.ts {1..30000}）は BIG_GLOB_REASON が見るので、ここでは当てない（git の設定ファイルと同じ）
-      interpreterWords(tool, args).some((w) => expansionSize(w) <= MAX_BRACE_EXPANSION && (isSessionEnv(w) || /\bCLAUDE_ENV_FILE\b/i.test(w))) ||
-      (['ln', 'gln'].includes(tool) && positionals(args).some(isSessionEnv))) {
-    results.push([ASK, SESSION_ENV_REASON]);
-  }
+  if (writesShellEnv(tool, args, words, dir, cdWords, envFile)) results.push([ASK, SHELL_ENV_REASON]);
   return results;
 }
 
@@ -3525,8 +3714,9 @@ function judgeDeployScript(words, ci, dir) {
 // env -C <dir> と env --chdir=<dir> は、その後ろのコマンドの作業場所を変える。GNU の env は長いオプションを一意な省略形でも
 // 受け付けるので、--c、--ch、--c=<dir> も --chdir と読む。
 // ~ か $ で始まる値と、展開の印のある値は判定できない（null）とする。
-// { dir, place } を返し、place（書かれた行き先）は cd と同じく作業場所が分からなくても値をつなぐ（env -C .claude rm -rf hooks）
-function dirAfterEnv(words, ci, dir, from, place) {
+// { dir, place, cdWords } を返し、place（書かれた行き先）は cd と同じく作業場所が分からなくても値をつなぐ（env -C .claude rm -rf hooks）。
+// cdWords は cd の行き先の字面（cdWordsAfter）で、~ や変数で始まる値もつなぐ
+function dirAfterEnv(words, ci, dir, from, place, cdWords = '') {
   for (let i = from; i < ci; i++) {
     if (prefixName(words[i]) !== 'env') continue;
     for (let j = i + 1; j < ci; j++) {
@@ -3547,9 +3737,11 @@ function dirAfterEnv(words, ci, dir, from, place) {
       // 絶対パスの値は、前の作業場所が分からなくても行き先が決まる（nextDir と同じ）
       dir = unknown ? null : path.isAbsolute(value) ? path.resolve(value) : dir && path.resolve(dir, value);
       place = place == null || unknown ? null : path.posix.isAbsolute(value) ? value : path.posix.join(place, value);
+      // 行き先の字面は、~ や変数で始まる値も cd と同じくつなぐ（cdWordsAfter）。env -C の後ろのコマンドの相対パスを環境のファイルの名前と照らすのに使う
+      cdWords = !value ? '?' : /^[/~$]/.test(value) ? value : path.posix.join(cdWords, value);
     }
   }
-  return { dir, place };
+  return { dir, place, cdWords };
 }
 
 // env の -S、--split-string、--split-string=…、-S"…"、-iS のようにまとめた短いフラグ。env -S は文字列をシェルと違う規則で分けて
@@ -3596,7 +3788,7 @@ function judgeSegment(words, ctx) {
   // env -C は後ろのコマンドの作業場所を変える。経由先に掛け直すとき（envFrom）は、前置きの env の分を解決済みなので重ねない
   // 字面の行き先（place）も、env -C の値をつないで追う
   if (ci !== -1) {
-    ctx = { ...ctx, ...dirAfterEnv(words, ci, ctx.dir, ctx.envFrom ?? 0, ctx.place) };
+    ctx = { ...ctx, ...dirAfterEnv(words, ci, ctx.dir, ctx.envFrom ?? 0, ctx.place, ctx.cdWords) };
   }
   results.push(...judgeFileWrites(tool, args, words, ctx.dir, ctx.cdWords, ctx.namesGitDir, ctx.env?.CLAUDE_ENV_FILE));
   const removal = judgeRemoval(tool, args, ctx);
@@ -3630,7 +3822,7 @@ function judgeSegment(words, ctx) {
   // 場所は npx より前の env -C までで決める。npx の後ろの入れ子の npx は、経由先に掛け直したときに見る
   const npx = prefixes.find((j) => ['npx', 'pnpx'].includes(prefixName(words[j])));
   if (npx !== undefined) {
-    const npxCtx = { ...outer, ...dirAfterEnv(words, npx, outer.dir, outer.envFrom ?? 0, outer.place), inheritedScriptStdin, inheritedInterpreterStdin };
+    const npxCtx = { ...outer, ...dirAfterEnv(words, npx, outer.dir, outer.envFrom ?? 0, outer.place, outer.cdWords), inheritedScriptStdin, inheritedInterpreterStdin };
     results.push(...judgeNpx(prefixName(words[npx]), sliceWords(words, npx + 1), sliceWords(words, 0, npx), npxCtx));
   }
   if (ci === -1) return results;
@@ -4096,6 +4288,8 @@ function judgeCommand(
 ) {
   if (depth > MAX_DEPTH) return [ASK, DEEP_REASON];
   let dir = cwd;
+  // 同じコマンドの中で（外側の cd も含めて）環境のファイルのディレクトリに入ったか。cd - で戻れるので、入ったことは忘れない
+  let inShellEnvDir = namesShellEnvDir(cdWords);
   // 同じコマンドの中で checkout や switch をした後の push は、切り替えた先のブランチで判定する
   const switched = new Map();
   const currentBranch = (d) => (switched.has(d) ? switched.get(d) : branchOf(d));
@@ -4154,6 +4348,9 @@ function judgeCommand(
       results.push(...judgeFileWrites('', [], words, dir, cdWords, namesGitDir, segmentEnv.CLAUDE_ENV_FILE));
       dir = nextDir(words, ci, dir, segmentEnv);
       cdWords = cdWordsAfter(words, ci, cdWords);
+      // 環境のファイルのディレクトリに入った後に行き先が分からなくなったら（cd -、popd）、そこに戻ったものとして相対の書き込みを見る
+      inShellEnvDir ||= namesShellEnvDir(cdWords);
+      if (cdWords === '?' && inShellEnvDir) cdWords = SHELL_ENV_UNKNOWN_CWD;
       const to = cdTarget(words, ci, segmentEnv);
       place = to === null || place === null ? null : to.startsWith('/') ? to : path.posix.join(place, to);
       continue;

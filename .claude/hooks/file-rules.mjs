@@ -1,28 +1,55 @@
 // Write と Edit の判定。CLAUDE.md の「守ること」のうち、書いた内容で判定できるものを止め、
 // 守る仕組みそのもの（.claude/settings*.json と、セッションが使っている .claude/hooks/）と、wrangler の設定の転送先（.wrangler/deploy/config.json）の書き換えには人の確認を挟む。
 // D1 の binding の判定は、ESLint の入口を守る規則（docs/development.md の「入口を守る規則」）が入るまでのつなぎ。
+import { lstatSync, readlinkSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
-// Claude Code が各 Bash のコマンドの前に読む環境のファイル（CLAUDE_ENV_FILE。~/.claude/session-env/<セッション>/*.sh）への書き込みか。
-// 書き足すと、以後のすべての Bash に、フックからは見えない GIT_CONFIG_*、GH_REPO、PATH などが付く。git のリポジトリの外にあるので judgeFile とは別に、
-// 書かれたパスと、リンクを解いたパスの両方（paths）で見る。CLAUDE_CONFIG_DIR で ~/.claude の場所を替えても名前は session-env なので、名前で見る。
-// envFile は起動元の環境の CLAUDE_ENV_FILE の値（無ければ undefined）。止めるものが無ければ null
-export function judgeSessionEnvFile(paths, envFile) {
-  const target = typeof envFile === 'string' && path.isAbsolute(envFile) ? path.resolve(envFile).toLowerCase() : null;
-  const hits = (p) => /(^|\/)session-env(\/|$)/i.test(p.split(path.sep).join('/')) || (target !== null && path.resolve(p).toLowerCase() === target);
-  if (paths.some(hits)) {
-    return ['ask', 'Claude Code が各 Bash の前に読む環境のファイル（CLAUDE_ENV_FILE、~/.claude/session-env/）への書き込みは、フックから見えない GIT_CONFIG_*、GH_REPO、PATH を以後のコマンドに付け、push の先や守りを替えうる。書き込みは人が確かめる'];
+// Claude Code が各 Bash のコマンドの前に読む環境のファイル（CLAUDE_ENV_FILE。~/.claude/session-env/<セッション>/*.sh と ~/.claude/shell-snapshots/*.sh）。
+// 書き足すと、以後のすべての Bash に、フックからは見えない GIT_CONFIG_*、GH_REPO、PATH、関数の定義などが付く。
+// CLAUDE_CONFIG_DIR で ~/.claude の場所を替えても名前は変わらないので、守りの本体は名前（大文字小文字は区別しない。APFS では同じ場所を指す）。
+// CLAUDE_ENV_FILE は PreToolUse のフックと Bash の環境にふつう無い（SessionStart のフックだけが持つ）ので、$CLAUDE_ENV_FILE の字面と起動元の値の照合は補助。
+// bash-rules.mjs もこの名前と理由を使う（重ねて持つと片方だけ直る）
+export const SHELL_ENV_DIR_NAMES = ['session-env', 'shell-snapshots'];
+export const SHELL_ENV_DIR = new RegExp(`(^|/)(${SHELL_ENV_DIR_NAMES.join('|')})(/|$)`, 'i');
+export const SHELL_ENV_REASON =
+  'Claude Code が各 Bash の前に読む環境のファイル（CLAUDE_ENV_FILE、~/.claude/session-env/、~/.claude/shell-snapshots/）への書き込みは、フックから見えない GIT_CONFIG_*、GH_REPO、PATH、関数の定義を以後のコマンドに付け、push の先や守りを替えうる。書き込みは人が確かめる';
+
+const lexists = (p) => {
+  try {
+    lstatSync(p);
+    return true;
+  } catch {
+    return false;
   }
-  return null;
+};
+
+// リンクをたどる回数の上限（OS の ELOOP の上限と同じくらい）
+const MAX_LINK_HOPS = 40;
+
+// まだ無いファイルの絶対パスを、リンクを解いて実体の側に直す。存在する一番近い祖先（lstat。向き先の無いリンクも存在とみなす）がリンクなら
+// 向き先に置き換えて繰り返し、リンクでなければ realpath でそれより上の親のリンクを解く。解けなければ書かれたパスのまま返す。
+// Write の先がまだ無い session-env のファイルを指すリンクや、/tmp/e -> ~/.claude/session-env の下のファイルを、名前で見るために使う
+export function resolveLinks(absolute) {
+  let current = absolute;
+  for (let hop = 0; hop < MAX_LINK_HOPS; hop++) {
+    let dir = current;
+    while (!lexists(dir) && dir !== path.dirname(dir)) dir = path.dirname(dir);
+    try {
+      if (!lstatSync(dir).isSymbolicLink()) return path.join(realpathSync(dir), path.relative(dir, current));
+      current = path.join(path.resolve(path.dirname(dir), readlinkSync(dir)), path.relative(dir, current));
+    } catch {
+      return current;
+    }
+  }
+  return current;
 }
 
-// TODO(#1270): テストを先に書くための仮の入れ物。実装で judgeSessionEnvFile をこちらに置き換える
-export const SHELL_ENV_DIR_NAMES = ['session-env', 'shell-snapshots'];
-export const SHELL_ENV_DIR = /(^|\/)(session-env|shell-snapshots)(\/|$)/i;
-export const SHELL_ENV_REASON =
-  'Claude Code が各 Bash の前に読む環境のファイル（CLAUDE_ENV_FILE、~/.claude/session-env/、~/.claude/shell-snapshots/）への書き込みは人が確かめる（仮）';
-export function judgeShellEnvFile(_paths, _envFile) {
-  throw new Error('未実装');
+// paths は書かれたパスと、リンクを解いたパス。git のリポジトリの外にあるので judgeFile とは別に見る。
+// envFile は起動元の環境の CLAUDE_ENV_FILE の値（無ければ undefined）。止めるものが無ければ null
+export function judgeShellEnvFile(paths, envFile) {
+  const target = typeof envFile === 'string' && path.isAbsolute(envFile) ? path.resolve(envFile).toLowerCase() : null;
+  const hits = (p) => SHELL_ENV_DIR.test(p.split(path.sep).join('/')) || (target !== null && path.resolve(p).toLowerCase() === target);
+  return paths.some(hits) ? ['ask', SHELL_ENV_REASON] : null;
 }
 
 // rel はリポジトリのルートからの相対パス。shippedOnMain は origin/main に同じパスがあるか（main を引けなければ undefined）
