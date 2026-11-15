@@ -20,6 +20,8 @@ test('計画比較の条件順と排他的オプションを確かめる', () =>
     enabled: true,
     conditions: ['C', 'B', 'A'],
   });
+  assert.deepEqual(planComparisonOptions(['--plan-compare']).conditions, ['A', 'B', 'C']);
+  assert.deepEqual(planConditions, ['A', 'B', 'C'], '反転後も共有の条件配列を変えない');
   for (const flag of ['--layout-only', '--layout-before']) {
     assert.throws(() => planComparisonOptions(['--plan-compare', flag]), /併用できません/);
   }
@@ -31,6 +33,16 @@ test('集計列を取り違えずに nearest-rank の p50/p95 を出す', () => 
   assert.equal(planTimingCell(samples, 'primary'), '2.00 / 20.00');
   assert.equal(planTimingCell(samples, 'ready'), '102.00 / 120.00');
   assert.equal(planTimingCell(samples, 'total'), '202.00 / 220.00');
+  const unordered = [20, 1, 19, 2, 18, 3, 17, 4, 16, 5, 15, 6, 14, 7, 13, 8, 12, 9, 11, 10];
+  const many = unordered.map((n) => ({ primary: n, ready: n + 100, total: n + 200 }));
+  assert.equal(planTimingCell(many, 'primary'), '10.00 / 19.00');
+  assert.equal(planTimingCell(many, 'ready'), '110.00 / 119.00');
+  assert.equal(planTimingCell(many, 'total'), '210.00 / 219.00');
+  assert.deepEqual(
+    many.map((sample) => sample.primary),
+    unordered,
+    '集計で入力を並べ替えない',
+  );
   assert.throws(() => planTimingCell([], 'ready'), /入力が不正/);
 });
 
