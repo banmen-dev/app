@@ -38,12 +38,14 @@ function columnProblems(table: string, spec: Readonly<Record<string, ColumnSpec>
 const allTables = { ...commonTableColumns, ...organizationTableColumns };
 
 describe('表の一覧', () => {
-  test('共通の表は docs/data-model.md の11表', () => {
+  test('共通の表は docs/data-model.md の13表', () => {
     expect(Object.keys(commonTableColumns).sort()).toEqual(
       [
         'account_logins',
         'account_profiles',
         'accounts',
+        'billing_administrators',
+        'billing_admin_events',
         'api_tokens',
         'account_consents',
         'oauth_states',

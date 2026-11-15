@@ -13,6 +13,24 @@ import {
 } from './column-spec.ts';
 
 export const commonTableColumns = {
+  billing_administrators: {
+    id: text,
+    organization_id: text,
+    account_id: text,
+    status: text,
+    invited_by: text,
+    is_bootstrap: integerDefault,
+    created_at: text,
+    updated_at: text,
+  },
+  billing_admin_events: {
+    id: text,
+    organization_id: text,
+    actor_account_id: text,
+    target_account_id: text,
+    action: text,
+    created_at: text,
+  },
   accounts: { id: text, last_login_at: textOrNull, created_at: text, updated_at: text },
   account_profiles: { account_id: text, name: text, title: text, created_at: text, updated_at: text },
   account_logins: {
