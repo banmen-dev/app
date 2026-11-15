@@ -3540,13 +3540,15 @@ function judgeSegment(words, ctx) {
   const prefixes = prefixIndexes(words);
   // env -S の文字列は、道具の名前の位置に1語として見えるか、フラグに紛れて道具が見つからない。ci が -1 でも見る
   if (splitsString(words, prefixes, ci)) results.push([ASK, ENV_SPLIT_REASON]);
-  const inputRedirects = redirectsOf(args);
+  const inputRedirects = redirectsOf(words);
   const input = inputRedirects.filter((r) => (r.fd ?? 0) === 0 && (isHeredocRedirect(r) || isReadRedirect(r))).at(-1);
   // 再帰する inline/eval/fish も fd0 を引き継ぐが、明示された本文があれば元のパイプは置き換わる。
   // stdinContext は gh/curl のデータ判定用なので変更せず、コード実行の可能性だけを別の印で渡す。
   const inheritedScriptStdin = (ctx.inheritedScriptStdin || ['|', '|&'].includes(ctx.stdinContext?.previous?.endOp)) &&
     !(!inputRedirects.stdinDuplicated && input && isHeredocRedirect(input));
-  const nextCtx = { ...ctx, cwd: ctx.dir, depth: ctx.depth + 1, inheritedScriptStdin };
+  // ctx から直接再帰する manager、Node --run、find にも同じ継承・上書き判定を渡す。
+  ctx = { ...ctx, inheritedScriptStdin };
+  const nextCtx = { ...ctx, cwd: ctx.dir, depth: ctx.depth + 1 };
   // script -qc "…"（util-linux）の文字列は、後ろに道具が無いので ci が -1 でも見る
   results.push(...prefixCommands(words).map((script) => judgeBash(script, nextCtx)).filter(Boolean));
   // npm_config_call='…' npx のように、道具の前の代入で npm exec にシェルの文字列を渡す。npx だけなら ci は -1 なので先に見る
@@ -3555,7 +3557,7 @@ function judgeSegment(words, ctx) {
   // 場所は npx より前の env -C までで決める。npx の後ろの入れ子の npx は、経由先に掛け直したときに見る
   const npx = prefixes.find((j) => ['npx', 'pnpx'].includes(prefixName(words[j])));
   if (npx !== undefined) {
-    const npxCtx = { ...outer, ...dirAfterEnv(words, npx, outer.dir, outer.envFrom ?? 0, outer.place) };
+    const npxCtx = { ...outer, ...dirAfterEnv(words, npx, outer.dir, outer.envFrom ?? 0, outer.place), inheritedScriptStdin };
     results.push(...judgeNpx(prefixName(words[npx]), sliceWords(words, npx + 1), sliceWords(words, 0, npx), npxCtx));
   }
   if (ci === -1) return results;
