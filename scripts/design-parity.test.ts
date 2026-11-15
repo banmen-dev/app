@@ -316,5 +316,11 @@ test('スプリントの見本の開始と削除は、名前なしでも期間�
       const label = name === null ? '1/4〜1/17' : `${name}（1/4〜1/17）`;
       assert.ok(rendered.startsWith(`スプリント「${label}」を${action}`), rendered);
     }
+    const closing = source.slice(source.indexOf('    sprintEnd:'), source.indexOf('    createTask:'));
+    const carry = /<b>([^<]*へ持ち越す)<\/b>/s.exec(closing)?.[1];
+    assert.ok(carry, 'sprintEnd の持ち越し先が見つからない');
+    const renderedCarry = vm.runInContext('`' + carry + '`', context) as string;
+    const label = name === null ? '1/4〜1/17' : `${name}（1/4〜1/17）`;
+    assert.equal(renderedCarry, `スプリント「${label}」へ持ち越す`);
   }
 });

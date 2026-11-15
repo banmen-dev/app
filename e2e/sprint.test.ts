@@ -1116,6 +1116,7 @@ test('名前なしの開始・削除・終了では、文中に期間を一度�
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('10/13〜10/26');
   await page.getByRole('button', { name: '終える: スプリント「10/13〜10/26」', exact: true }).click();
   const close = page.getByRole('dialog', { name: 'スプリントを終える' });
+  await expect(close.getByRole('radio', { name: /^スプリント「10\/27〜11\/9」へ持ち越す/ })).toBeVisible();
   await expect(
     close.getByText('スプリント「10/13〜10/26」を終えます。終えたスプリントの期間と中身は、あとから変えられません。', {
       exact: true,
