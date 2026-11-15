@@ -17,9 +17,10 @@ test('一覧が空なら、面を置かない', () => {
   expect(body).not.toContain('Scrum Guild のニュース');
 });
 
-test('面の見出しは h2 で、日付と題と本文を一覧の順に出す', () => {
+test('面の見出しは h2、各件の題は h3 で、日付と題と本文を一覧の順に出す', () => {
   const { body } = render(NewsPane, { props: { items: [plain, linked] } });
   expect(body).toMatch(/<h2[^>]*>Scrum Guild のニュース<\/h2>/);
+  expect(body.match(/<h3 class="news-title">/g)).toHaveLength(2);
   expect(body).toContain('<time class="news-date" datetime="2026-11-15">2026-11-15</time>');
   expect(body.indexOf('架空の知らせ')).toBeLessThan(body.indexOf('架空のリンク付きの知らせ'));
   expect(body).toContain('架空の本文です。');
@@ -28,7 +29,7 @@ test('面の見出しは h2 で、日付と題と本文を一覧の順に出す'
 test('リンクの無い知らせの題は、リンクにしない', () => {
   const { body } = render(NewsPane, { props: { items: [plain] } });
   expect(body).not.toContain('<a');
-  expect(body).toContain('<b class="news-title">架空の知らせ</b>');
+  expect(body).toMatch(/<h3 class="news-title">(<!--\[-1-->)?\s*架空の知らせ\s*(<!--\]-->)?<\/h3>/);
 });
 
 test('リンクのある知らせの題は、新しいタブで開き、external の印と読み上げの補足を添える', () => {
@@ -39,6 +40,24 @@ test('リンクのある知らせの題は、新しいタブで開き、external
   expect(body).toContain('#i-external');
   expect(body).toContain('新しいタブで開きます');
 });
+
+test('リンクは h3 の中の a で、external の印は題の文字と同じ要素の末尾に付く', () => {
+  const { body } = render(NewsPane, { props: { items: [linked] } });
+  expect(body).toMatch(
+    /<h3 class="news-title">[\s\S]*<a class="news-link"[\s\S]*架空のリンク付きの知らせ<svg class="ico"[\s\S]*<\/a>[\s\S]*<\/h3>/,
+  );
+});
+
+test.each(['javascript:alert(1)', 'http://example.com/a', '//example.com/a', 'https://u:p@example.com/', ''])(
+  '使えない形のリンク %j はリンクにせず、題だけを出す',
+  (href) => {
+    const { body } = render(NewsPane, { props: { items: [{ ...linked, href }] } });
+    expect(body).not.toContain('<a');
+    expect(body).not.toContain('target="_blank"');
+    expect(body).not.toContain('#i-external');
+    expect(body).toContain('架空のリンク付きの知らせ');
+  },
+);
 
 test('題と本文は書いたまま出す（HTML として解釈しない）', () => {
   const { body } = render(NewsPane, {

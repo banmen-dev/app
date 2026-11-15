@@ -402,7 +402,7 @@
     wikiRestoreFailed: "戻せませんでした。もう一度試してください。",
 
     workspaceSwitchLabel: "{workspace} {name}。切り替える", workspaceSwitchListLabel: "所属する{workspace}",
-    workspacePaneHint: "押すと{backlog}を開きます", paneNews: "Scrum Guild のニュース",
+    workspacePaneHint: "押すと{backlog}を開きます", paneNews: "{app} のニュース", appName: "Scrum Guild",
     workspace: "ワークスペース", inbox: "受信箱", backlog: "バックログ", sprint: "スプリント", plan: "計画", epic: "エピック", story: "ストーリー",
     menuCollapse: "メニューを畳む", menuExpand: "メニューを広げる", breadcrumb: "パンくず", organizationMoving: "移っています",
     personalOrganizationName: "自分用", createPersonalOrganizationAction: "自分用を作る",
@@ -801,14 +801,20 @@
     return `<ul class="pane-list">${rows.map((r) => `<li><a class="pane-link" href="${esc(r.href)}"><b>${esc(r.name)}</b><span class="chip">${esc(t(r.role))}</span>${icon("chevron")}</a></li>`).join("")}</ul>`;
   }
   // 面の中の、ニュースの一覧。items は { date, title, body, href? } の配列で、新しい順に5件まで出す（本番は src/lib/news.ts の latestNews）。
-  // href は https:// で始まるものだけ。題を新しいタブで開き、external の印を添える。日付、題、本文は書いたまま出す（esc する）
+  // 題は h3。href は src/lib/news.ts の isNewsHref と同じ形（https:// で始まり、正規化しても変わらず、ユーザー情報が無い）のときだけリンクにし、
+  // 新しいタブで開いて、題の文字の末尾に external の印を添える。日付、題、本文は書いたまま出す（esc する）
+  function isNewsHref(href) {
+    if (typeof href !== "string" || !href.startsWith("https://")) return false;
+    try { const u = new URL(href); return u.href === href && u.username === "" && u.password === ""; } catch { return false; }
+  }
   function newsList(items) {
+    // 5 は src/lib/news.ts の NEWS_LIMIT と同じ値
     const rows = [...items].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)).slice(0, 5);
-    return `<ul class="news-list">${rows.map((n) => `<li class="news-item"><time class="news-date" datetime="${esc(n.date)}">${esc(n.date)}</time>${
-      n.href && n.href.startsWith("https://")
-        ? `<a class="news-title news-link" href="${esc(n.href)}" target="_blank" rel="external noopener noreferrer"><span>${esc(n.title)}</span>${icon("external")}<span class="visually-hidden"> ${t("markdownNewTab")}</span></a>`
-        : `<b class="news-title">${esc(n.title)}</b>`
-    }<p class="news-body">${esc(n.body)}</p></li>`).join("")}</ul>`;
+    return `<ul class="news-list">${rows.map((n) => `<li class="news-item"><time class="news-date" datetime="${esc(n.date)}">${esc(n.date)}</time><h3 class="news-title">${
+      isNewsHref(n.href)
+        ? `<a class="news-link" href="${esc(n.href)}" target="_blank" rel="external noopener noreferrer"><span>${esc(n.title)}${icon("external")}</span><span class="visually-hidden"> ${t("markdownNewTab")}</span></a>`
+        : esc(n.title)
+    }</h3><p class="news-body">${esc(n.body)}</p></li>`).join("")}</ul>`;
   }
   // ダッシュボード。main は左の列の面、side は右の列の面（空なら右の列を置かない。広い幅では右の列の幅だけが空く）
   function dashboard(main, side = "") {

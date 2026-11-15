@@ -36,14 +36,14 @@
   let { data }: PageProps = $props();
   let createDialog = $state<ReturnType<typeof WorkspaceCreateDialog>>();
   // ホームのワークスペースの面に並べるのは、閉じていない所属だけ（`organization` の closed_at）
-  // ニュースの面は画面のコードの一覧から出す。読み込みも組織も要らない（どの組織でも同じ）
-  const news = latestNews();
   const workspaces = $derived(openWorkspaces(data.organization?.workspaces ?? []));
   // 管理者でワークスペースが無い、または閉じていない所属が無いときの案内。ほかは 'default'
   const emptyKind = $derived(homeEmptyKind(data.organization));
   // 次にやることのボタンの行き先（閉じていない所属の最初のワークスペースのバックログ）
   const firstWorkspace = $derived(workspaces[0] ?? null);
   const todayKind = $derived(todayEmptyKind(data.organization));
+  // ニュースの面は画面のコードの一覧から出す。読み込みも組織も要らない（どの組織でも同じ）
+  const news = latestNews();
   // today の読み込みの失敗（data.today が null）は、空の一覧と区別して失敗の画面を出す
   const sections = $derived(todaySections(data.today?.tasks ?? []));
   // 見出しの上の今日の日付。読み直す（data.today が替わる）たびに今の時刻から取り直し、日をまたいで開いたままでも、

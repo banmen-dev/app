@@ -1,45 +1,113 @@
 import { describe, expect, test } from 'vitest';
-import { NEWS_LIMIT, latestNews, newsItems, type NewsItem } from './news.ts';
+import {
+  NEWS_BODY_MAX,
+  NEWS_LIMIT,
+  NEWS_TITLE_MAX,
+  isNewsHref,
+  latestNews,
+  newsItemProblems,
+  newsItems,
+  type NewsItem,
+} from './news.ts';
 
 const item = (date: string, title = `題 ${date}`): NewsItem => ({ date, title, body: '本文' });
 
-// 実在の暦の日付か（2026-02-30 のような存在しない日を弾く）
-function isCalendarDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const at = new Date(`${value}T00:00:00Z`);
-  return !Number.isNaN(at.getTime()) && at.toISOString().slice(0, 10) === value;
-}
+// テストを走らせた日（UTC）の YYYY-MM-DD。日付の上限はこの翌日
+const TODAY = new Date().toISOString().slice(0, 10);
+const good: NewsItem = { date: '2026-11-15', title: '架空の知らせ', body: '架空の本文です。' };
+// 検査の日を固定して、日付の境を確かめる
+const FIXED_TODAY = '2026-11-15';
 
 describe('ニュースの一覧（src/lib/news.ts に書いたもの）の形', () => {
   test('1件以上ある', () => {
     expect(newsItems.length).toBeGreaterThan(0);
   });
 
-  test('日付は実在する YYYY-MM-DD', () => {
-    for (const news of newsItems) expect(isCalendarDate(news.date), news.date).toBe(true);
-  });
-
-  test('題と本文は空でない（空白だけも不可）。題は1行', () => {
-    for (const news of newsItems) {
-      expect(news.title.trim(), `${news.date} の題`).not.toBe('');
-      expect(news.body.trim(), `${news.date} の本文`).not.toBe('');
-      expect(news.title, `${news.date} の題`).not.toMatch(/[\r\n]/);
-    }
-  });
-
-  test('リンクは https:// で始まり、URL として読め、ユーザー情報を含まない', () => {
-    for (const news of newsItems) {
-      if (news.href === undefined) continue;
-      expect(news.href.startsWith('https://'), news.href).toBe(true);
-      const url = new URL(news.href);
-      expect(url.protocol).toBe('https:');
-      expect(url.username + url.password, news.href).toBe('');
-    }
+  test('どの件も newsItemProblems の検査を通る（今日は走らせた日）', () => {
+    for (const news of newsItems) expect(newsItemProblems(news, TODAY), `${news.date} ${news.title}`).toEqual([]);
   });
 
   test('同じ日付と題の組は重ならない', () => {
     const keys = newsItems.map((news) => `${news.date}\n${news.title}`);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+});
+
+describe('newsItemProblems: 日付', () => {
+  test('良い日付は通る。範囲の端（2026-01-01 と検査の日の翌日）も通る', () => {
+    for (const date of ['2026-01-01', '2026-11-15', '2026-11-16']) {
+      expect(newsItemProblems({ ...good, date }, FIXED_TODAY), date).toEqual([]);
+    }
+  });
+
+  test.each([
+    ['2026-02-30', '存在しない日'],
+    ['2026-13-01', '存在しない月'],
+    ['2026-1-1', '桁が足りない'],
+    ['2026/11/15', '区切りが違う'],
+    ['2026-11-15T00:00:00Z', '時刻が付く'],
+    ['', '空'],
+    ['2062-11-15', '年の打ち間違い（先の年）'],
+    ['0000-01-01', '年の打ち間違い（古い年）'],
+    ['2025-12-31', '2026-01-01 より前'],
+    ['2026-11-17', '検査の日の翌日より後'],
+  ])('悪い日付 %s（%s）は落とす', (date) => {
+    expect(newsItemProblems({ ...good, date }, FIXED_TODAY), date).not.toEqual([]);
+  });
+});
+
+describe('newsItemProblems: 題と本文', () => {
+  test('題は40字まで、本文は120字まで（コードポイントで数える）', () => {
+    expect(NEWS_TITLE_MAX).toBe(40);
+    expect(NEWS_BODY_MAX).toBe(120);
+    expect(newsItemProblems({ ...good, title: 'あ'.repeat(40), body: 'い'.repeat(120) }, FIXED_TODAY)).toEqual([]);
+    // サロゲートペアの文字は1字と数える
+    expect(newsItemProblems({ ...good, title: '𠮷'.repeat(40) }, FIXED_TODAY)).toEqual([]);
+    expect(newsItemProblems({ ...good, title: 'あ'.repeat(41) }, FIXED_TODAY)).not.toEqual([]);
+    expect(newsItemProblems({ ...good, body: 'い'.repeat(121) }, FIXED_TODAY)).not.toEqual([]);
+  });
+
+  test.each([
+    ['題が空', { title: '' }],
+    ['題が空白だけ', { title: '  　 ' }],
+    ['題が2行', { title: '一行目\n二行目' }],
+    ['題が長すぎる', { title: 'あ'.repeat(41) }],
+    ['本文が空', { body: '' }],
+    ['本文が空白だけ', { body: ' \n ' }],
+    ['本文が長すぎる', { body: 'い'.repeat(121) }],
+  ])('%s は落とす', (_name, override) => {
+    expect(newsItemProblems({ ...good, ...override }, FIXED_TODAY)).not.toEqual([]);
+  });
+});
+
+describe('newsItemProblems と isNewsHref: リンク', () => {
+  test('リンクは任意（無くてよい）', () => {
+    expect(newsItemProblems(good, FIXED_TODAY)).toEqual([]);
+  });
+
+  test('良いリンクは通る', () => {
+    for (const href of ['https://example.com/a', 'https://example.com/', 'https://example.com/a?b=1#c']) {
+      expect(isNewsHref(href), href).toBe(true);
+      expect(newsItemProblems({ ...good, href }, FIXED_TODAY), href).toEqual([]);
+    }
+  });
+
+  test.each([
+    'javascript:alert(1)',
+    'http://example.com',
+    '//example.com',
+    'https://',
+    'https://u:p@example.com',
+    '',
+    'https:///evil.example/x',
+    'https://:@example.com',
+    'https://example.com/ a',
+    'https://example.com',
+    'HTTPS://example.com/a',
+    'data:text/html,x',
+  ])('悪いリンク %j は落とす', (href) => {
+    expect(isNewsHref(href), href).toBe(false);
+    expect(newsItemProblems({ ...good, href }, FIXED_TODAY), href).not.toEqual([]);
   });
 });
 
@@ -86,6 +154,6 @@ describe('latestNews', () => {
   });
 
   test('引数なしは、書いた一覧から出す', () => {
-    expect(latestNews()).toEqual(latestNews(newsItems, NEWS_LIMIT));
+    expect(latestNews()).toEqual(latestNews(newsItems));
   });
 });

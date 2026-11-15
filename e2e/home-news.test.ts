@@ -1,13 +1,16 @@
 // 組織のホームの「Scrum Guild のニュース」の面。一覧は画面のコード（src/lib/news.ts）に置いてあり、API も DB も通らないので、
-// どの組織でも同じものが出る。ここでは面の出方（見出し、新しい順、日付と題と本文、リンクの開き方）と、左の列で今日やることの下に並ぶことを確かめる。
-// 一覧の形そのものは src/lib/news.test.ts、リンクと空の一覧の描画は src/lib/components/NewsPane.test.ts が確かめる。
+// どの組織でも同じものが出る。ここでは、今の一覧が面に出ること（見出し、日付と題と本文）と、左の列で今日やることの下に並ぶことを確かめる。
+// 並びと上限、一覧の形は src/lib/news.test.ts、リンクの属性（新しいタブ、external の印）、リンクにしない形、空の一覧は
+// src/lib/components/NewsPane.test.ts が確かめる。今の一覧にリンク付きの件が無い間は、画面でのリンクの検査は未実施（テストは skip と注記で示す）。
 // seed のセッション（seed/sessions.ts）の Cookie で開く。一般のユーザーはハルカ（あおば開発）、ひばり工房の管理者はリン
 import type { Page } from '@playwright/test';
 import { latestNews } from '../src/lib/news.ts';
+import { word } from '../src/shared/vocabulary.ts';
 import { expect, test } from './fixtures.ts';
 import { NARROW_VIEWPORT, signIn } from './helpers.ts';
 
-const NEWS = 'Scrum Guild のニュース';
+// 面の見出しは辞書から作る（製品名は appName）
+const NEWS = word('paneNews', { app: word('appName') });
 
 async function openNews(page: Page, slug: string) {
   await page.goto(`/${slug}`);
@@ -17,7 +20,7 @@ async function openNews(page: Page, slug: string) {
   return pane;
 }
 
-test('組織のホームに、ニュースの面が h2 の見出し付きで出て、新しい順に日付と題と本文が並ぶ', async ({
+test('組織のホームに、ニュースの面が h2 の見出し付きで出て、今の一覧の日付と題（h3）と本文が出る', async ({
   page,
   context,
   baseURL,
@@ -33,31 +36,26 @@ test('組織のホームに、ニュースの面が h2 の見出し付きで出�
     const item = items.nth(index);
     await expect(item.locator('time')).toHaveText(news.date);
     await expect(item.locator('time')).toHaveAttribute('datetime', news.date);
-    await expect(item).toContainText(news.title);
+    await expect(item.getByRole('heading', { level: 3, name: news.title })).toBeVisible();
     await expect(item).toContainText(news.body);
   }
 });
 
-test('リンクのあるニュースは、題が新しいタブで開くリンクで、external の印と読み上げの補足が付く。リンクの無いものはリンクにしない', async ({
-  page,
-  context,
-  baseURL,
-}) => {
+// 今の一覧にリンク付きの件が無いと、画面でのリンクの検査は1行も走らない。その間は skip にして未実施と分かるようにする
+// （リンクの属性は src/lib/components/NewsPane.test.ts が確かめる）
+const LINKED = latestNews().filter((news) => news.href !== undefined);
+test('リンク付きのニュースの題が、新しいタブで開くリンクになっている', async ({ page, context, baseURL }) => {
+  test.skip(
+    LINKED.length === 0,
+    '今の一覧にリンク付きのニュースが無いので、画面でのリンクの検査は未実施（属性は NewsPane.test.ts）',
+  );
   await signIn(context, baseURL, 'member');
   const pane = await openNews(page, 'aoba');
-  const items = pane.getByRole('listitem');
-  for (const [index, news] of latestNews().entries()) {
-    const item = items.nth(index);
-    if (news.href === undefined) {
-      await expect(item.getByRole('link')).toHaveCount(0);
-      continue;
-    }
-    const link = item.getByRole('link');
-    await expect(link).toHaveAttribute('href', news.href);
+  for (const news of LINKED) {
+    const link = pane.getByRole('link', { name: news.title });
+    await expect(link).toHaveAttribute('href', news.href!);
     await expect(link).toHaveAttribute('target', '_blank');
     await expect(link).toHaveAttribute('rel', /noopener/);
-    await expect(link).toContainText(news.title);
-    await expect(link).toContainText('新しいタブで開きます');
     await expect(link.locator('svg use')).toHaveAttribute('href', '#i-external');
   }
 });
