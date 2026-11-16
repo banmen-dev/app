@@ -199,6 +199,8 @@ describe('resolveSprintDrop: 完了の列から', () => {
   test('戻せないカードは未完了の列とカードへ落とすと拒否計画を返し、元の配列を変えない', () => {
     const before = ids(columns);
     expect(resolveSprintDrop(columns, 'x', onColumn('c1'), 'into')?.plan).toEqual({ kind: 'reopen-blocked' });
+    expect(resolveSprintDrop(columns, 'x', onColumn('c1'), 'into')?.mark).toBeNull();
+    expect(resolveSprintDrop(columns, 'x', onCard('a'), 'before')?.mark).toBeNull();
     expect(resolveSprintDrop(columns, 'x', onCard('a'), 'before')?.plan).toEqual({ kind: 'reopen-blocked' });
     expect(resolveSprintDrop(columns, 'x', onColumn('done'), 'into')).toBeNull();
     expect(ids(columns)).toEqual(before);

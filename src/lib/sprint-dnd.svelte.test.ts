@@ -172,3 +172,20 @@ describe('SprintDnd のドラッグの取りやめ', () => {
     expect(dnd.taskId).toBeNull();
   });
 });
+
+test('戻せないカードの拒否計画はhoverで印を出さず、離したとき1回だけ画面へ渡す', () => {
+  const locked: SprintBoardColumn[] = [
+    columns[0]!,
+    { id: 'done', name: null, is_done: true, tasks: [{ ...card('x'), completed_at: '2026-10-20T00:00:00Z' }] },
+  ];
+  const onDrop = vi.fn();
+  const dnd = new SprintDnd({ columns: () => locked, enabled: () => true, onDrop, onStale: vi.fn() });
+  const drop = resolveSprintDrop(locked, 'x', { kind: 'column', id: 'c1' }, 'into');
+  expect(drop?.plan.kind).toBe('reopen-blocked');
+  dnd.grab('x');
+  dnd.hover(drop);
+  expect(dnd.mark).toBeNull();
+  expect(onDrop).not.toHaveBeenCalled();
+  dnd.release(drop);
+  expect(onDrop).toHaveBeenCalledExactlyOnceWith(drop);
+});

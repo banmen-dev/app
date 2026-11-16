@@ -43,7 +43,8 @@ export type SprintDropPlan =
 export type SprintDrop = {
   // つかんだカード
   taskId: string;
-  mark: SprintDropMark;
+  // 戻せないカードは落とせる印を出さず、離したときの拒否計画だけ返す
+  mark: SprintDropMark | null;
   plan: SprintDropPlan;
 };
 
@@ -96,7 +97,7 @@ export function resolveSprintDrop(
     : { target: { kind: 'column', id: dest.id }, operation: 'into' };
 
   if (source.is_done) {
-    if (!card.reopenable) return { taskId, mark, plan: { kind: 'reopen-blocked' } };
+    if (!card.reopenable) return { taskId, mark: null, plan: { kind: 'reopen-blocked' } };
     return {
       taskId,
       mark,
