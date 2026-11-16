@@ -2,7 +2,7 @@ import { organizationInfo } from '../src/shared/operations/organization/index.ts
 import { sprintBoard, sprintList } from '../src/shared/operations/sprint/index.ts';
 import { workspaceInfo } from '../src/shared/operations/workspace/index.ts';
 import { expect, test } from './fixtures.ts';
-import { signIn, waitForSettled } from './helpers.ts';
+import { expectFocusReturned, signIn, waitForSettled } from './helpers.ts';
 import { mockOperation, rewriteOperation } from './operations.ts';
 import { OVERDUE_PLAN, SAMPLE_BOARD } from './sprint-fixture.ts';
 
@@ -28,22 +28,28 @@ for (const today of ['2026-10-20', '2026-10-26', '2026-10-27']) {
     await expect(head.getByRole('menuitem')).toHaveText(['延長する', '終える']);
     await page.keyboard.press('Escape');
     await expect(menu).toBeFocused();
-    await head.getByRole('button', { name: 'スプリントを編集: 第14回' }).click();
+    const editTrigger = head.getByRole('button', { name: 'スプリントを編集: 第14回' });
+    await editTrigger.click();
     const edit = page.getByRole('dialog', { name: 'スプリントを直す' });
     await expect(edit.getByLabel('名前（任意）')).toHaveValue('第14回');
     await expect(edit.getByLabel('スプリントゴール', { exact: true })).toHaveValue(SAMPLE_BOARD.sprint!.goal!);
     await edit.getByRole('button', { name: 'やめる' }).click();
+    await expect(edit).toBeHidden();
+    // dialogの非同期closeイベントによる編集ボタンへの復帰を終えてから、次の操作へ進む。
+    await expectFocusReturned(page, editTrigger);
     for (const [action, title] of [
       ['延長する', 'スプリントを延ばす'],
       ['終える', 'スプリントを終える'],
     ]) {
       await menu.focus();
-      await page.keyboard.press('ArrowDown');
+      await menu.press('ArrowDown');
+      await expect(menu).toHaveAttribute('aria-expanded', 'true');
       await head.getByRole('menuitem', { name: action, exact: true }).click();
       const dialog = page.getByRole('dialog', { name: title });
       await expect(dialog).toBeVisible();
       await dialog.getByRole('button', { name: 'やめる' }).click();
-      await expect(menu).toBeFocused();
+      await expect(dialog).toBeHidden();
+      await expectFocusReturned(page, menu);
       await expect(menu).toHaveAttribute('aria-expanded', 'false');
     }
     await waitForSettled(page);
