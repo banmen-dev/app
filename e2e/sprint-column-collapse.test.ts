@@ -49,7 +49,7 @@ test('列を畳んで再読み込みしても保存され、別のワークス�
   // 同じ列IDの応答を新しいワークスペースにも返し、列IDだけで保存していないことを確かめる。
   await createWorkspace(page, '開閉を分ける見張り番');
   expect(new URL(page.url()).pathname).not.toContain('000000000401');
-  await page.getByRole('link', { name: 'スプリント', exact: true }).click();
+  await page.goto(`${new URL(page.url()).pathname.replace(/\/$/, '')}/sprint`);
   await expect(page.getByRole('button', { name: '完了の開閉' })).toHaveAttribute('aria-expanded', 'true');
   expect(await collect()).toEqual([]);
 });
