@@ -148,8 +148,8 @@ export function summarizeToday(value: unknown) {
             C_p95: c.p95,
             saving_ms: saving,
             saving_pct: pct,
-            pass: saving >= 100 && pct >= 10,
-            bad: -saving >= 100 && -pct >= 10,
+            pass: saving >= 100 && saving * 100 >= b.p95 * 10,
+            bad: -saving >= 100 && -saving * 100 >= b.p95 * 10,
           });
           readyLines.push(
             `| ${round} | ${names[condition]} | ${order} | ${entryNames[route]} | ${formatted(b)} | ${formatted(c)} | ${saving.toFixed(2)} (${pct.toFixed(1)}%) |`,
