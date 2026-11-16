@@ -555,7 +555,11 @@
           await invalidate('app:sprint-board');
           // 押した「戻す」は消えるので、戻した列に出たカードへフォーカスを移す（動かせるカードは選べる）
           await tick();
-          focusTaskOrCollapsedColumn(task.id, `[data-card-id="${CSS.escape(task.id)}"]`, result.data.column_id);
+          focusTaskOrCollapsedColumn(
+            task.id,
+            `[data-card-id="${CSS.escape(task.id)}"]`,
+            result.data.column_id ?? undefined,
+          );
         }
       } else if (result.status === 401) {
         await invalidateAll();
