@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cropSquare, encodeAvatar, isAvatarSource, drawCrop } from './image-crop.ts';
+import {
+  AVATAR_SOURCE_MAX_BYTES,
+  avatarSourceError,
+  cropSquare,
+  encodeAvatar,
+  isAvatarSource,
+  drawCrop,
+} from './image-crop.ts';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -90,4 +97,11 @@ it('MIMEが空でもPNG・JPEG・WebPの署名が合えば受け付ける', asyn
     expect(await isAvatarSource(new File([bytes], 'image'))).toBe(true);
   }
   expect(await isAvatarSource(new File(['<svg/>'], 'image'))).toBe(false);
+});
+
+it('元画像の20MiBちょうどを受け付け、1バイト超過を拒む', () => {
+  expect(avatarSourceError({ type: 'image/png', size: AVATAR_SOURCE_MAX_BYTES })).toBeNull();
+  expect(avatarSourceError({ type: '', size: AVATAR_SOURCE_MAX_BYTES })).toBeNull();
+  expect(avatarSourceError({ type: 'image/png', size: AVATAR_SOURCE_MAX_BYTES + 1 })).toBe('size');
+  expect(avatarSourceError({ type: 'image/svg+xml', size: 1 })).toBe('type');
 });

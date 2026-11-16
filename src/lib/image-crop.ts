@@ -10,6 +10,10 @@ export function cropSquare(width: number, height: number, zoom: number, x: numbe
 }
 export const AVATAR_SOURCE_MAX_BYTES = 20 * 1024 * 1024;
 export const avatarImageTypes = ['image/png', 'image/jpeg', 'image/webp'];
+export function avatarSourceError(file: Pick<File, 'type' | 'size'>): 'type' | 'size' | null {
+  if (file.type !== '' && !avatarImageTypes.includes(file.type)) return 'type';
+  return file.size > AVATAR_SOURCE_MAX_BYTES ? 'size' : null;
+}
 export function canvasBlob(canvas: HTMLCanvasElement, type: string): Promise<Blob> {
   return new Promise((resolve, reject) =>
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('encode'))), type, 0.9),
