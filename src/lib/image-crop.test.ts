@@ -22,23 +22,28 @@ describe('画像の切り抜き', () => {
       }
   });
   it('WebP非対応ならPNGを送らずJPEGにする', async () => {
-    const toBlob = vi.fn((callback: BlobCallback, type: string) =>
-      callback(new Blob(['encoded'], { type: type === 'image/webp' ? 'image/png' : type })),
-    );
+    const sourceToBlob = vi.fn((callback: BlobCallback) => callback(new Blob(['original'], { type: 'image/png' })));
+    const fallbackToBlob = vi.fn((callback: BlobCallback) => callback(new Blob(['flattened'], { type: 'image/jpeg' })));
     const calls: string[] = [];
     const context = {
       fillStyle: '',
       fillRect: vi.fn(() => calls.push('white')),
       drawImage: vi.fn(() => calls.push('image')),
     };
-    const fallback = { width: 0, height: 0, getContext: () => context, toBlob };
+    const fallback = { width: 0, height: 0, getContext: () => context, toBlob: fallbackToBlob };
     vi.stubGlobal('document', { createElement: () => fallback });
-    const result = await encodeAvatar({ width: 256, height: 256, toBlob } as unknown as HTMLCanvasElement);
+    const source = { width: 256, height: 256, toBlob: sourceToBlob } as unknown as HTMLCanvasElement;
+    const result = await encodeAvatar(source);
     expect(context.fillStyle).toBe('#ffffff');
     expect(context.fillRect).toHaveBeenCalledWith(0, 0, 256, 256);
     expect(calls).toEqual(['white', 'image']);
     expect(result.type).toBe('image/jpeg');
-    expect(toBlob.mock.calls.map((call) => call[1])).toEqual(['image/webp', 'image/jpeg']);
+    expect(sourceToBlob).toHaveBeenCalledTimes(1);
+    expect(sourceToBlob).toHaveBeenCalledWith(expect.any(Function), 'image/webp', 0.9);
+    expect(fallbackToBlob).toHaveBeenCalledTimes(1);
+    expect(fallbackToBlob).toHaveBeenCalledWith(expect.any(Function), 'image/jpeg', 0.9);
+    expect(context.drawImage).toHaveBeenCalledWith(source, 0, 0);
+    expect(await result.text()).toBe('flattened');
   });
   it('再エンコードに失敗したら送信せず拒否する', async () => {
     await expect(
