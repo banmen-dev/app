@@ -121,3 +121,10 @@ test('Cだけの操作開始時点が0でも採用根拠にせず拒否する', 
   for (const sample of p.browser) if (sample.variant === 'C') sample.ready = 0;
   assert.throws(() => summarizeToday(p));
 });
+
+for (const condition of [2, 3])
+  test(`リーダー条件case${condition}の短縮を一般メンバーの採用根拠にしない`, () => {
+    const p = fixture();
+    improve(p, condition);
+    assert.equal(summarizeToday(p).eligible, false);
+  });
