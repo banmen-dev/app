@@ -12,6 +12,7 @@ import { sessionCookieName } from '../src/shared/session-cookie.ts';
 import { today, firstSteps } from '../src/shared/operations/organization/index.ts';
 import { sessionInserts } from './seed.ts';
 import { todayTrial } from './today-loading-trial.ts';
+import { TEST_CREDENTIAL_KEYS } from './test-credential-keys.ts';
 import { finishTodayBenchmark, preserveTodayBuild, TodayBrowserChecks } from './today-loading-support.ts';
 import { isBenchHealth, trackServer } from './loading-server.ts';
 import { bootProxy } from './boot-proxy.ts';
@@ -88,7 +89,7 @@ function configuration(assets: string) {
         PUBLIC_ORIGIN: origin,
         APP_VERSION: version,
         OPERATOR_LOGIN_IDS: SEED_OPERATOR_LOGIN_ID,
-        CONNECTION_CREDENTIAL_KEYS: JSON.stringify({ 1: Buffer.alloc(32).toString('base64') }),
+        CONNECTION_CREDENTIAL_KEYS: TEST_CREDENTIAL_KEYS,
       },
       d1_databases: [
         {
@@ -158,7 +159,6 @@ async function read(slug: string, name: 'today' | 'first-steps') {
   const finished = performance.now();
   const schema = name === 'today' ? today.output : firstSteps.output;
   return {
-    finished,
     body,
     finishedAt: finished,
     ms: 0,
