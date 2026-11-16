@@ -672,3 +672,31 @@ test('新しい同期状態のレビューカーソルを旧版のresume.cursor�
   expect(value.resume).toBeUndefined(); // 旧版はresumeが無ければIssue走査を最初から始める。
   expect(value.position).toMatchObject({ phase: 'reviews', cursor: 'review-history' });
 });
+
+async function connectionRow(ctx: Awaited<ReturnType<typeof setup>>) {
+  return (await ctx.db.first(
+    ctx.db.statement((q) => q.selectFrom('connections').selectAll().where('id', '=', ctx.connection.id)),
+  ))!;
+}
+
+test('Issueだけの途中保存と完走でレビュー失敗の記録を消さない', async () => {
+  const ctx = await setup();
+  const f = fake();
+  await createConnectionScope(ctx.organization, ctx.connection.id, { source_id: '502', source_name: 'fake/second' });
+  f.state.failure = 'forbidden';
+  await sync(ctx, f.source);
+  const failed = await connectionRow(ctx);
+  expect(failed).toMatchObject({ status: 'error', consecutive_failures: 1 });
+  for (let i = 0; i < 2; i++) {
+    expect(await sync(ctx, f.source, 1)).toMatchObject({ outcome: 'success', more: true });
+    expect(await connectionRow(ctx)).toMatchObject({
+      status: 'error',
+      consecutive_failures: 1,
+      last_error_message: failed.last_error_message,
+      last_error_at: failed.last_error_at,
+      last_success_at: failed.last_success_at,
+    });
+  }
+  await sync(ctx, f.source);
+  expect(await connectionRow(ctx)).toMatchObject({ status: 'error', consecutive_failures: 2 });
+});

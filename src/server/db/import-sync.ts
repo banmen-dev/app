@@ -342,6 +342,7 @@ export function importTaskStatements(db: OrganizationDb, task: ImportedTask, at:
 // 同期の結果として接続に書く値。成功は続きの位置（なければ空の状態）まで、失敗は種別ごと
 export type SyncOutcome =
   | { kind: 'success'; syncStateJson: string }
+  | { kind: 'progress'; syncStateJson: string }
   | { kind: 'auth_failed'; message: string; syncStateJson?: string }
   | { kind: 'error'; message: string; syncStateJson?: string };
 
@@ -356,34 +357,36 @@ export function syncOutcomeStatement(
   return db.statement((q) => {
     const base = q.updateTable('connections');
     const set =
-      outcome.kind === 'success'
-        ? base.set({
-            status: 'active',
-            stopped_reason: null,
-            sync_state_json: outcome.syncStateJson,
-            last_success_at: at,
-            consecutive_failures: 0,
-            last_error_message: null,
-            last_error_at: null,
-            updated_at: at,
-          })
-        : outcome.kind === 'auth_failed'
+      outcome.kind === 'progress'
+        ? base.set({ sync_state_json: outcome.syncStateJson, updated_at: at })
+        : outcome.kind === 'success'
           ? base.set({
-              status: 'stopped',
-              stopped_reason: 'auth_failed',
-              ...(outcome.syncStateJson === undefined ? {} : { sync_state_json: outcome.syncStateJson }),
-              last_error_message: outcome.message,
-              last_error_at: at,
+              status: 'active',
+              stopped_reason: null,
+              sync_state_json: outcome.syncStateJson,
+              last_success_at: at,
+              consecutive_failures: 0,
+              last_error_message: null,
+              last_error_at: null,
               updated_at: at,
             })
-          : base.set((eb) => ({
-              status: 'error',
-              ...(outcome.syncStateJson === undefined ? {} : { sync_state_json: outcome.syncStateJson }),
-              consecutive_failures: eb('connections.consecutive_failures', '+', 1),
-              last_error_message: outcome.message,
-              last_error_at: at,
-              updated_at: at,
-            }));
+          : outcome.kind === 'auth_failed'
+            ? base.set({
+                status: 'stopped',
+                stopped_reason: 'auth_failed',
+                ...(outcome.syncStateJson === undefined ? {} : { sync_state_json: outcome.syncStateJson }),
+                last_error_message: outcome.message,
+                last_error_at: at,
+                updated_at: at,
+              })
+            : base.set((eb) => ({
+                status: 'error',
+                ...(outcome.syncStateJson === undefined ? {} : { sync_state_json: outcome.syncStateJson }),
+                consecutive_failures: eb('connections.consecutive_failures', '+', 1),
+                last_error_message: outcome.message,
+                last_error_at: at,
+                updated_at: at,
+              }));
     return set
       .where('connections.id', '=', connection.id)
       .$if(connection.credential !== undefined, (qb) =>
