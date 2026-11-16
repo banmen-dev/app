@@ -105,6 +105,15 @@
   </div>
   <label class="field" for="{ids}-zoom"
     ><span class="field-label">{t('avatarCropZoom')}</span>
-    <input id="{ids}-zoom" type="range" min="1" max="4" step="0.05" bind:value={zoom} {disabled} />
+    <input
+      id="{ids}-zoom"
+      type="range"
+      min="1"
+      max="4"
+      step="0.05"
+      aria-valuetext={t('avatarCropZoomValue', { value: zoom.toFixed(2) })}
+      bind:value={zoom}
+      {disabled}
+    />
   </label>
 </div>

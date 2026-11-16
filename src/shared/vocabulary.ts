@@ -28,6 +28,7 @@ export const dictionary = defineDictionary({
   avatarCropUp: '上へ',
   avatarCropDown: '下へ',
   avatarCropZoom: '拡大率',
+  avatarCropZoomValue: '{value}倍',
   avatarTypeInvalid: 'PNG、JPEG、WebP の画像を選んでください。SVG、GIF や画像でないファイルは使えません。',
   avatarSourceTooLarge: '元の画像は20MiB以下にしてください。',
   avatarDecodeFailed: '画像を読み込めませんでした。別の画像を選んでください。',
