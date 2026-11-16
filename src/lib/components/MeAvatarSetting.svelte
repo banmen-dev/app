@@ -130,10 +130,9 @@
 <Setting title={t('avatarTitle')} description={t('avatarDescription')}>
   <Avatar {userId} {name} {image} large />
   <input
-    class="visually-hidden"
+    hidden
     type="file"
     accept="image/png,image/jpeg,image/webp"
-    tabindex="-1"
     aria-label={t('avatarChoose')}
     bind:this={picker}
     onchange={() => void select()}

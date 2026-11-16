@@ -81,6 +81,7 @@ test.describe('プロフィール画像', () => {
   test('390pxで範囲をドラッグ・矢印キー・移動ボタン・拡大率で変え、やめると送らない', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/aoba/me');
+    await expect(section(page).getByRole('button', { name: '画像を選ぶ', exact: true })).toHaveCount(1);
     let uploads = 0;
     page.on('request', (request) => {
       if (request.url().endsWith('/me-avatar-upload')) uploads++;
