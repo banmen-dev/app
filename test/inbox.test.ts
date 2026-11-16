@@ -91,6 +91,7 @@ describe('inbox-list', () => {
     const connection = await connect(target);
     const old = await arrive(target, connection.id, '2026-10-19T00:00:00.000Z', {}, 'aoba/shop#1');
     const newer = await arrive(target, connection.id, '2026-10-20T00:00:00.000Z', {}, 'aoba/shop#2');
+    const ordinaryOlder = await arrive(target, connection.id, '2026-10-18T00:00:00.000Z', {}, 'aoba/shop#3');
     const db = orgDb(env, target.organization.verified);
     await db.run(
       db.statement((q) =>
@@ -101,7 +102,7 @@ describe('inbox-list', () => {
       ),
     );
     const body = (await (await list(target)).json()) as ListBody;
-    expect(body.tasks.map((t) => t.id)).toEqual([old.id, newer.id]);
+    expect(body.tasks.map((t) => t.id)).toEqual([old.id, newer.id, ordinaryOlder.id]);
     expect(body.tasks[0]?.arrived_at).toBe('2026-11-17T00:00:00.000Z');
     expect((await rowOf(target, old.id))?.created_at).toBe('2026-10-19T00:00:00.000Z');
   });
@@ -164,6 +165,25 @@ describe('inbox-list', () => {
 });
 
 describe('inbox-to-backlog', () => {
+  test('再到着を含む複数タスクも実際の到着日時の古い順でバックログへ入れる', async () => {
+    const target = await createTarget();
+    const connection = await connect(target);
+    const again = await arrive(target, connection.id, '2026-10-19T00:00:00.000Z', {}, 'aoba/shop#1');
+    const normal = await arrive(target, connection.id, '2026-10-20T00:00:00.000Z', {}, 'aoba/shop#2');
+    const db = orgDb(env, target.organization.verified);
+    await db.run(
+      db.statement((q) =>
+        q
+          .updateTable('task_sources')
+          .set({ last_received_at: '2026-11-17T00:00:00.000Z' })
+          .where('task_id', '=', again.id),
+      ),
+    );
+    const response = await move(target, [{ task_id: again.id }, { task_id: normal.id }]);
+    expect(response.status).toBe(200);
+    expect((await rowOf(target, normal.id))!.position < (await rowOf(target, again.id))!.position).toBe(true);
+  });
+
   test('選んだタスクをバックログの親のない末尾へ、届いた順のまま移し、履歴を残す', async () => {
     const target = await createTarget();
     const connection = await connect(target);

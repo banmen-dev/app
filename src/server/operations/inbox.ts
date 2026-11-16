@@ -304,11 +304,16 @@ export const inboxToBacklogOperation = implement(inboxToBacklog, async ({ db, ac
         .from(
           q
             .selectFrom('tasks as t')
+            .leftJoin('task_sources as s', (join) =>
+              join.onRef('s.task_id', '=', 't.id').on('s.workspace_id', '=', workspaceId),
+            )
             .select((eb) => [
               't.id as id',
               tailPosition(
                 lastTaskPosition(q, workspaceId, 'backlog'),
-                eb.fn.agg<number>('row_number').over((ob) => ob.orderBy('t.created_at').orderBy('t.id')),
+                eb.fn
+                  .agg<number>('row_number')
+                  .over((ob) => ob.orderBy(eb.fn.coalesce('s.last_received_at', 't.created_at')).orderBy('t.id')),
                 eb.fn.countAll<number>().over(),
               ).as('position'),
             ])
