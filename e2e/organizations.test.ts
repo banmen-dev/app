@@ -663,6 +663,7 @@ test('枠の外からダッシュボードへの遅い移動で、広い紙と2�
   await expect(page.locator('.loading-overlay .binding')).toHaveCount(0);
   const loadingBox = await shownBox(loadingPaper);
   await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
+  await expect(page.locator('.loading-overlay')).toHaveCount(0);
   const loadedBox = await shownBox(page.locator('.gate-sheet'));
   expect(loadingBox.width).toBe(loadedBox.width);
   expect(loadingBox.x).toBe(loadedBox.x);
@@ -689,6 +690,7 @@ for (const width of [1280, 390]) {
       release();
     }
     await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
+    await expect(page.locator('.loading-overlay')).toHaveCount(0);
     const loadedBox = await shownBox(page.locator('.gate-sheet'));
     expect(loadingBox.width).toBe(loadedBox.width);
     expect(loadingBox.x).toBe(loadedBox.x);
