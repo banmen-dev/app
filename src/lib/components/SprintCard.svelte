@@ -150,7 +150,7 @@
 </script>
 
 <!-- キーは中のリンクとボタンから届く。書き込めるカードは完了カードも選べる（tabindex は 0 か未指定だけ） -->
-<!-- 選んだときは題を名前に、ポイントと担当の要約と動かし方の案内を説明に読む（中の印は role="img" で、選んだだけでは読まれないため） -->
+<!-- 選んだときは題を名前に、ポイントと担当の要約と動かし方の見えない説明を読む（中の印は role="img" で、選んだだけでは読まれないため） -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <article
