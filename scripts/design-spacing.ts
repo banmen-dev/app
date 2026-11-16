@@ -1,5 +1,5 @@
 // 余白の刻みの判定（DESIGN.md の「余白」）。design/components.css の padding、margin、gap に、tokens.css の変数を通さない値が無いかを見る。
-// 検査は design-spacing.test.ts が、今ある値を凍結した design-spacing-allowlist.json と突き合わせて行う
+// 検査は design-spacing.test.ts が、押せる範囲の例外と理由の節を載せた design-spacing-allowlist.json と突き合わせて行う
 
 export type Declaration = { context: string; selector: string; property: string; value: string };
 export type SpacingEntry = { problem: string; count: number };

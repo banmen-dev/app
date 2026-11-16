@@ -48,3 +48,12 @@ test('行の詰め（台帳の行の min-height: 48px）は、761px 以上でタ
     '台帳の行を詰める規則が、その @media の外にもある',
   );
 });
+
+test('ナビゲーションは既定8px、マウスだけの広い画面では4pxに詰める', () => {
+  const base = /(?:^|\n)\.nav-item\s*\{([^}]+)\}/.exec(components)?.[1];
+  assert.ok(base, 'ナビゲーションの既定の規則が無い');
+  assert.match(base, /padding:\s*var\(--space-2\)(?:\s+var\(--space-2\))?\s*;/);
+  const dense = fineBlocks.filter(({ body }) => /\.nav-item\s*\{[^}]*padding-block:\s*var\(--space-1\)/.test(body));
+  assert.equal(dense.length, 1);
+  assert.match(dense[0].condition, /\(min-width:\s*761px\)/);
+});

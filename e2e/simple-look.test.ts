@@ -149,7 +149,7 @@ test.describe('今日やることの画面', () => {
       await page.setViewportSize({ width, height: 900 });
       await expect(entry, `${width}px`).toHaveCSS('padding-top', '12px');
       await expect(entry, `${width}px`).toHaveCSS('min-height', '60px');
-      await expect(navItem, `${width}px`).toHaveCSS('padding-top', '6px');
+      await expect(navItem, `${width}px`).toHaveCSS('padding-top', '8px');
       await expect(navItem, `${width}px`).toHaveCSS('min-height', '44px');
     }
   });
@@ -169,6 +169,7 @@ test.describe('指で押す 1024px の端末', () => {
     await expect(entry).toBeVisible();
     await expect(entry).toHaveCSS('padding-top', '12px');
     await expect(entry).toHaveCSS('min-height', '60px');
+    await expect(page.locator('.nav-item[aria-current="page"]')).toHaveCSS('padding-top', '8px');
     await expect(page.locator('.nav-item[aria-current="page"]')).toHaveCSS('min-height', '44px');
   });
 });

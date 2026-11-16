@@ -1,5 +1,5 @@
 // 余白の刻み（DESIGN.md の「余白」）。design/components.css の padding、margin、gap には tokens.css の変数だけを書く。
-// 今ある刻みの外の値は design-spacing-allowlist.json に凍結し、新しく足した値と、直したのにリストに残った値で落とす。
+// 押せる範囲の例外だけを design-spacing-allowlist.json に理由付きで残し、新しい値と、直したのにリストに残った値で落とす。
 // リストの行は文字列か、理由を添えた { "entry": …, "reason": … }（押せる範囲などで刻みの外を残すとき）。
 // 同じ組が2か所にあれば、リストにも同じ行を2つ書く
 import assert from 'node:assert/strict';
@@ -212,8 +212,34 @@ describe('許可リストとの突き合わせ', () => {
 
 describe('design/components.css の余白', () => {
   const tokens = spacingTokens(read('../design/tokens.css'));
-  const found = spacingEntries(read('../design/components.css'), tokens);
-  const { broken, added, stale } = compareAllowlist(found, JSON.parse(read('./design-spacing-allowlist.json')));
+  const css = read('../design/components.css');
+  // 行の階層と帯の高さは components.css 内の局所変数で共有する。全定義を検査し、
+  // どれも既存の段だけで組まれている場合に限り、余白でも使えるものとする。
+  const aliases = ['--row-indent', '--header-height'];
+  const definitions = declarations(css).filter(({ property }) => aliases.includes(property));
+
+  test('字下げと帯の高さの全定義は、余白の段だけで組む', () => {
+    for (const name of aliases) {
+      const values = definitions.filter(({ property }) => property === name);
+      assert.ok(values.length > 0, `${name} の定義が無い`);
+      for (const { value } of values) assert.equal(spacingProblem(value, tokens), null, `${name}: ${value}`);
+    }
+  });
+
+  const found = spacingEntries(css, new Set([...tokens, ...aliases]));
+  const allowlist = JSON.parse(read('./design-spacing-allowlist.json'));
+  const { broken, added, stale } = compareAllowlist(found, allowlist);
+
+  test('例外には docs/design.md の理由の節を添える', () => {
+    const headings = [...read('../docs/design.md').matchAll(/^#+ (.+)$/gm)].map((match) => match[1]);
+    for (const item of allowlist) {
+      assert.equal(typeof item, 'object', '凍結した文字列の行を残さず、押せる範囲の理由を添える');
+      assert.ok(item.reason.startsWith('docs/design.md「'));
+      for (const [, heading] of item.reason.matchAll(/「([^」]+)」/g)) {
+        assert.ok(headings.includes(heading), `理由の節が無い: ${heading}`);
+      }
+    }
+  });
 
   test('許可リストの行は、文字列か、空でない理由を添えた形', () => {
     assert.deepEqual(broken, [], '許可リストの行は "<行>" か { "entry": "<行>", "reason": "<理由の節>" } で書く');
