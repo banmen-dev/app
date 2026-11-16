@@ -33,6 +33,8 @@ function fixture() {
     timeline: [[request()]] as unknown[][],
     failure: 0,
     missingFirst: 0,
+    missingPath: '',
+    missingStatus: 404,
     mutate: false,
     others: [] as Record<string, unknown>[],
     timelines: {} as Record<string, unknown[][]>,
@@ -43,6 +45,7 @@ function fixture() {
     const url = request.url;
     calls.push({ url, init });
     const parsed = new URL(url);
+    if (data.missingPath === parsed.pathname) return new Response('', { status: data.missingStatus });
     if (data.missingFirst && parsed.pathname.includes('/issues/7/timeline'))
       return new Response('', { status: data.missingFirst });
     if (data.failure && parsed.pathname.endsWith('/timeline')) return new Response('', { status: data.failure });
@@ -188,9 +191,7 @@ describe('レビュー依頼の取得', () => {
       cursor = result.next;
     }
     expect(JSON.parse(cursor!).historyPage).toBe(2);
-    expect(await f.drain({ target }, JSON.parse(JSON.stringify(cursor)))).toEqual([
-      expect.objectContaining({ isDone: true }),
-    ]);
+    expect(await f.drain({ target }, cursor)).toEqual([expect.objectContaining({ isDone: true })]);
   });
   test.each([401, 403, 422, 429, 500])('履歴の失敗 %s では項目を返さず、同じカーソルで再試行できる', async (status) => {
     const f = fixture();
@@ -334,7 +335,6 @@ describe('レビュー依頼の取得', () => {
       if (cursor === null) break;
       const state = JSON.parse(cursor);
       if (state.phase === 'pull') restarts.push(state.restarts);
-      cursor = JSON.parse(JSON.stringify(cursor));
     }
     expect(restarts).toEqual([1, 2]);
     expect(cursor).toBeNull();
@@ -353,6 +353,23 @@ describe('レビュー依頼の取得', () => {
     f.data.timeline = [[request(), { event: 'reviewed', user: 'invalid' }, review()]];
     f.data.pull.requested_reviewers = [];
     expect(await f.drain()).toEqual([expect.objectContaining({ isDone: true })]);
+  });
+  test.each([404, 410])('一覧と個別詳細の %s は段階ごとに扱いを分ける', async (status) => {
+    for (const phase of ['list', 'pull', 'finish']) {
+      const f = fixture();
+      const extra = phase === 'pull' ? { target } : {};
+      let result = await f.page(null, extra);
+      while (JSON.parse(result.next!).phase !== phase) result = await f.page(result.next, extra);
+      f.data.missingPath = phase === 'list' ? '/repositories/1001/pulls' : '/repositories/1001/pulls/7';
+      f.data.missingStatus = status;
+      if (phase === 'finish') {
+        const skipped = await f.page(result.next, extra);
+        expect(skipped.items).toEqual([]);
+        expect(JSON.parse(skipped.next!).page).toBe(2);
+      } else {
+        await expect(f.page(result.next, extra)).rejects.toBeInstanceOf(ImportSourceError);
+      }
+    }
   });
   test('PAT は固定ホストの Authorization だけに送り、リダイレクトしない', async () => {
     const f = fixture();
