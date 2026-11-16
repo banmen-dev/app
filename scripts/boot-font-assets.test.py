@@ -12,6 +12,19 @@ def variations(font):
             for selector, entries in table.uvsDict.items()}
 
 
+def referenced_names(font):
+    ids = {a.axisNameID for a in font['fvar'].axes}
+    for instance in font['fvar'].instances:
+        ids.add(instance.subfamilyNameID)
+        if instance.postscriptNameID != 0xFFFF:
+            ids.add(instance.postscriptNameID)
+    stat = font['STAT'].table
+    ids.update(a.AxisNameID for a in stat.DesignAxisRecord.Axis)
+    ids.update(v.ValueNameID for v in stat.AxisValueArray.AxisValue)
+    ids.add(stat.ElidedFallbackNameID)
+    return ids
+
+
 def outline(font, name, weight):
     glyphs = font.getGlyphSet(location={'wght': weight})
     pen = DecomposingRecordingPen(glyphs)
@@ -37,7 +50,10 @@ class FontCoverage(unittest.TestCase):
                             old = glyph or source.getBestCmap()[codepoint]
                             new = b[selector][codepoint] or target.getBestCmap()[codepoint]
                             self.assertEqual(outline(source, old, weight), outline(target, new, weight))
-                for name_id in [0, 13, 14]:
+                self.assertEqual(referenced_names(source), referenced_names(target))
+                for name_id in referenced_names(target):
+                    self.assertTrue(any(n.nameID == name_id for n in target['name'].names))
+                for name_id in {0, 13, 14} | referenced_names(target):
                     original = {(n.platformID, n.platEncID, n.langID, n.toUnicode())
                                 for n in source['name'].names if n.nameID == name_id}
                     optimized = {(n.platformID, n.platEncID, n.langID, n.toUnicode())
