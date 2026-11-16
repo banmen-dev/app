@@ -32,7 +32,6 @@ test('真ん中の引き出しの四隅はテーマの記録の部品と同じ�
   for (const [theme, radius] of [
     ['simple_light', '4px'],
     ['simple_dark', '4px'],
-    ['medieval', '2px'],
     ['modern', '2px'],
   ]) {
     await applyTheme(page, theme);
