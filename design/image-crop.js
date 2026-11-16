@@ -73,7 +73,16 @@
 
   function refreshSetting(id) {
     const root = document.querySelector(`[data-avatar-setting="${id}"]`);
-    if (root) root.outerHTML = avatarSettingHtml(id);
+    if (!root) return;
+    const focused = document.activeElement;
+    const restore = root.contains(focused);
+    const selector = focused?.matches("[data-avatar-remove]") ? "[data-avatar-remove]" : "[data-avatar-choose]";
+    root.outerHTML = avatarSettingHtml(id);
+    // この節にあったフォーカスだけを戻す。復号待ちの間などに別の欄へ移った人からは奪わない。
+    if (restore && (document.activeElement === document.body || document.activeElement === null)) {
+      const replacement = document.querySelector(`[data-avatar-setting="${id}"]`);
+      (replacement?.querySelector(selector) || replacement?.querySelector("[data-avatar-choose]"))?.focus();
+    }
   }
   function release() {
     current?.observer?.disconnect(); current?.source?.close?.(); current = null;
@@ -137,7 +146,7 @@
         if (state.options.syncAccount) SQ.user(SQ.D.me).avatar_url = null;
         refreshSetting(id); if (state.options.syncAccount) SQ.redraw();
         document.querySelector(`[data-avatar-setting="${id}"] [data-avatar-choose]`)?.focus();
-        SQ.toast(t("avatarRemoved"));
+        SQ.toast(`${icon("check")}${esc(t("avatarRemoved"))}`);
       }
       return;
     }
@@ -158,7 +167,7 @@
         if (state.options.syncAccount) SQ.user(SQ.D.me).avatar_url = image;
         SQ.closeDialog(); release(); refreshSetting(pending.id); if (state.options.syncAccount) SQ.redraw();
         document.querySelector(`[data-avatar-setting="${pending.id}"] [data-avatar-choose]`)?.focus();
-        SQ.toast(t("avatarSaved"));
+        SQ.toast(`${icon("check")}${esc(t("avatarSaved"))}`);
       } catch {
         setBusy(false);
         const error = pending.dialog.querySelector("[data-avatar-crop-error]");

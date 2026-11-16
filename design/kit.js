@@ -71,6 +71,8 @@
     avatarTypeInvalid: "PNG、JPEG、WebP の画像を選んでください。SVG、GIF や画像でないファイルは使えません。",
     avatarSourceTooLarge: "元の画像は{max}MiB以下にしてください。",
     avatarDecodeFailed: "画像を読み込めませんでした。別の画像を選んでください。",
+    avatarOutputTooLarge: "切り抜いた画像が{max}KiBを超えました。別の画像を選んでください。",
+    avatarRejected: "画像を上げられませんでした。PNG、JPEG、WebP の静止画で、{bytes}KiB・縦横{pixels}px以下の画像が使えます。",
     avatarSaveFailed: "プロフィール画像を変更できませんでした。もう一度試してください。",
     avatarSaving: "画像を変更しています", avatarReading: "画像を読み込んでいます",
     avatarSaved: "プロフィール画像を上げました。", avatarRemoved: "プロフィール画像を外しました。",

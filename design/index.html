@@ -769,7 +769,11 @@ const SECTIONS = [
       <div><h4>切り抜きの通常の状態</h4>${SQ.imageCropHtml("catalog-crop")}</div>
       <div><h4>送信中の状態</h4>${SQ.imageCropHtml("catalog-crop-busy", { disabled: true })}<span role="status">${t("avatarSaving")}</span></div>
     </div>
-    <div class="settings">${SQ.avatarSettingHtml("catalog-avatar-error", { image: SQ.SAMPLE_PHOTO, error: t("avatarSaveFailed") })}</div>`,
+    <div class="settings">
+      ${SQ.avatarSettingHtml("catalog-avatar-error", { image: SQ.SAMPLE_PHOTO, error: t("avatarSaveFailed") })}
+      ${SQ.avatarSettingHtml("catalog-avatar-too-large", { error: t("avatarOutputTooLarge").replace("{max}", "512") })}
+      ${SQ.avatarSettingHtml("catalog-avatar-rejected", { error: t("avatarRejected").replace("{bytes}", "512").replace("{pixels}", "512") })}
+    </div>`,
     ["画像を選ぶと本番と同じ構造のダイアログを開く。見本は通信せず、この画面の表示だけを替える。", "ドラッグは画像をつかむ向きに動かし、移動ボタンとその矢印キーは切り抜きの範囲を動かす。", "送信中は閉じる操作と二重送信を止める。390pxでも枠と操作を収める。"], ".image-crop .image-crop-preview / .setting")],
   ["settings", "設定の節と並べ替え", () => block("settings", "設定の節と並べ替え", "設定の画面は、左に説明、右に入力を置く節を縦に並べる。並べ替えられる一覧は、ドラッグの他に上下のボタンを持つ。",
     `<div class="settings"><section class="setting"><div class="setting-head"><h3 class="setting-title">${t("column")}</h3><p class="setting-desc">名前は付けたままで、訳しません。</p></div><div class="setting-body">
