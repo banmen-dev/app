@@ -276,6 +276,28 @@ describe('スプリント命名のAPI', () => {
     ]);
   });
 
+  test('スプリント作成で番号だけ進んでも読み直し、履歴は実際の番号3から5への変更になる', async () => {
+    const target = await createTarget();
+    expect((await update(target, '{n}', 2)).status).toBe(200);
+    const reads: number[] = [];
+    const result = await updateWithRace(target, '{n}', 5, async (n) => {
+      reads.push(n);
+      if (n !== 1) return;
+      const created = await post(app, sprintCreate, {
+        slug: target.slug,
+        token: target.admin.token,
+        body: { workspace_id: target.workspace.id, start_on: '2027-01-04', length: 7, name: null },
+      });
+      expect(created.status).toBe(200);
+    });
+    expect(reads).toEqual([1, 2]);
+    expect(result).toEqual({ sprint_name_template: '{n}', sprint_number_next: 5 });
+    const workspaceLogs = (await logs(target)).filter((log) => log.entity_type === 'workspace');
+    expect(workspaceLogs).toHaveLength(2);
+    expect(JSON.parse(workspaceLogs[1]!.changes_json)).toEqual({ sprint_number_next: [3, 5] });
+    expect((await list(target)).defaults).toMatchObject({ sprint_name_template: '{n}', sprint_number_next: 5 });
+  });
+
   test('INSERTが0件の後で番号が直っていても、作成したことにせず409 conflictで返す', async () => {
     const target = await createTarget();
     expect((await update(target, '{n}', Number.MAX_SAFE_INTEGER)).status).toBe(200);
