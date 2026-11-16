@@ -41,6 +41,8 @@ export type ImportItem = {
   kind: 'issue' | 'pull_request' | 'review_request';
   sourceId: string;
   reviewerSourceId: string;
+  // レビュー依頼の回を表す不透明な不変識別子。属性の更新では変わらない。
+  reviewCycle?: string;
   key: string;
   url: string;
   title: string;
@@ -63,6 +65,11 @@ export type FetchPageInput = {
   cursor: string | null;
 };
 
+// 保存済み項目の照合では、不変 ID と現在の表示キーを渡す。番号だけで一致と判断しない。
+export type ReviewRequestPageInput = FetchPageInput & {
+  target?: { sourceId: string; key: string };
+};
+
 // items は未完了のものも完了したものも含んでよい（同期の仕組みが完了を除く）。next が null なら、この範囲は終わり
 export type FetchPageResult = { items: ImportItem[]; next: string | null };
 
@@ -81,4 +88,7 @@ export interface ImportSource {
   listScopeCandidates(credential: string, fetcher: typeof fetch): Promise<ScopeCandidate[]>;
   // 範囲の項目を1頁取る。失敗は ImportSourceError で投げる（unauthorized は接続を止め、ほかは次の同期で再試行する）
   fetchPage(input: FetchPageInput): Promise<FetchPageResult>;
+  // 任意のレビュー依頼取得口。1呼び出し1要求。履歴の途中は空の items と next を返す。
+  // 同期への接続・依頼回の保存は別工程。既存の fetchPage には混ぜない。
+  fetchReviewRequestsPage?(input: ReviewRequestPageInput): Promise<FetchPageResult>;
 }
