@@ -49,7 +49,7 @@
     class="image-crop-preview"
     aria-label={t('avatarCropArea')}
     aria-describedby="{ids}-hint {ids}-position"
-    aria-disabled={disabled}
+    data-disabled={disabled}
     onpointerdown={(event) => {
       if (disabled || !event.isPrimary || event.button !== 0) return;
       event.currentTarget.setPointerCapture(event.pointerId);

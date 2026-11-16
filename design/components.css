@@ -2810,4 +2810,4 @@ body.has-assist .toasts { right: calc(400px + var(--space-4)); }
 .image-crop .form-actions { flex-wrap: wrap; }
 .image-crop .btn { min-width: 44px; min-height: 44px; }
 
-.image-crop-preview[aria-disabled="true"] { opacity: .55; cursor: default; }
+.image-crop-preview[data-disabled="true"] { opacity: .55; cursor: default; }
