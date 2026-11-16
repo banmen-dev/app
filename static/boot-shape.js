@@ -92,6 +92,15 @@
   } catch {
     return;
   }
+  // ダッシュボードは枠の外のまま、広い紙と2列の面を先に出す。
+  if (parts.length === 0) {
+    document.documentElement.dataset.bootDashboard = 'true';
+    var paper = document.querySelector('#boot-loading .boot-skeleton');
+    if (paper)
+      paper.innerHTML =
+        '<i></i><span class="boot-dashboard"><span class="boot-pane"><i></i><i></i><i></i></span><span class="boot-pane"><i></i><i></i><i></i></span></span>';
+    return;
+  }
   var shape = shapeOf(parts);
   if (shape === null) return;
   var root = document.documentElement;

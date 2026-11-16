@@ -133,6 +133,26 @@
 #boot-loading .boot-skeleton i:nth-child(3) {
   height: 2.5em;
 }
+/* 全組織のダッシュボードは Gate wide と同じ幅、面は760px以下で1列。 */
+html[data-boot-dashboard] #boot-loading .boot-skeleton {
+  width: min(1200px, calc(100% - 32px));
+}
+#boot-loading .boot-dashboard {
+  display: grid;
+  gap: 32px;
+}
+#boot-loading .boot-pane {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid #d6d6da;
+  border-radius: 4px;
+}
+@media (min-width: 761px) {
+  #boot-loading .boot-dashboard {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
 /* 行き先が組織の枠のとき（static/boot-shape.js が html に data-boot="<形>" を付ける）は、紙ではなく枠の形の骨組みを画面いっぱいに出す。
    左のメニューの幅（240px、畳んだ列は 64px）、上の帯の高さ（60px）、本文の余白は design/components.css の .app、.binding、.topbar、
    .content と同じにし、本文は行き先の画面の組み（形は src/lib/loading-shape.ts と同じ。2列は .layout-aside の 320px、.layout-wiki、

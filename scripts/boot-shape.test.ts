@@ -15,22 +15,31 @@ import {
 const script = readFileSync(new URL('../static/boot-shape.js', import.meta.url), 'utf8');
 const routesDir = fileURLToPath(new URL('../src/routes', import.meta.url));
 
-type BootDataset = { boot?: string; bootNav?: string };
+type BootDataset = { boot?: string; bootNav?: string; bootDashboard?: string };
 type FakeContent = { innerHTML: string };
 
 // 最初の読み込みの骨組みの先当て（static/boot-shape.js）を、偽の location と localStorage と document で動かす
-function runBootShape(pathname: string, stored: string | null = null): { dataset: BootDataset; content: FakeContent } {
+function runBootShape(
+  pathname: string,
+  stored: string | null = null,
+): { dataset: BootDataset; content: FakeContent; paper: FakeContent } {
   const dataset: BootDataset = {};
   const content: FakeContent = { innerHTML: '' };
+  const paper: FakeContent = { innerHTML: '' };
   vm.runInNewContext(script, {
     location: { pathname },
     localStorage: { getItem: (key: string) => (key === 'sg-nav-collapsed' ? stored : null) },
     document: {
       documentElement: { dataset },
-      querySelector: (selector: string) => (selector === '#boot-loading .boot-content' ? content : null),
+      querySelector: (selector: string) =>
+        selector === '#boot-loading .boot-content'
+          ? content
+          : selector === '#boot-loading .boot-skeleton'
+            ? paper
+            : null,
     },
   });
-  return { dataset, content };
+  return { dataset, content, paper };
 }
 
 // src/routes の +page.svelte から、画面の route.id（/[slug]/w/[id] など）を集める
@@ -48,6 +57,14 @@ function routeIds(dir = routesDir): string[] {
 const samplePath = (routeId: string) => routeId.replaceAll(/\[([^\]]+)\]/g, (_, name: string) => `sample-${name}`);
 
 describe('最初の読み込みの骨組みの形（static/boot-shape.js）', () => {
+  test('/ の骨組みは広いダッシュボードにし、ほかの枠の外の画面には当てない', () => {
+    const root = runBootShape('/');
+    assert.equal(root.dataset.bootDashboard, 'true');
+    assert.equal((root.paper.innerHTML.match(/class="boot-pane"/g) ?? []).length, 2);
+    assert.equal(runBootShape('/login').dataset.bootDashboard, undefined);
+    assert.equal(runBootShape('/aoba').dataset.bootDashboard, undefined);
+  });
+
   test('通知は初回の読み込みも画面の移動も、知らせの行に近い一覧の骨組みを使う', () => {
     assert.equal(loadingShape('/[slug]/notifications'), 'list');
     assert.equal(runBootShape('/aoba/notifications').dataset.boot, 'list');

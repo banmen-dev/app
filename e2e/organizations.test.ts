@@ -616,6 +616,27 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
   });
 });
 
+test('ダッシュボードへの遅い移動でも、枠の外の広い紙と2列の骨組みを出す', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'member');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/aoba');
+  await routeOperation(page, myOrganizations, async (call) => {
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await call.passThrough();
+  });
+  await menuButton(page).click();
+  await menuLinks(page).last().click();
+  const loadingPaper = page.locator('.loading-overlay .gate.is-wide .gate-sheet');
+  await expect(loadingPaper).toBeVisible();
+  await expect(loadingPaper.locator('.dashboard')).toBeVisible();
+  await expect(page.locator('.loading-overlay .binding')).toHaveCount(0);
+  const loadingBox = await shownBox(loadingPaper);
+  await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
+  const loadedBox = await shownBox(page.locator('.gate-sheet'));
+  expect(loadingBox.width).toBe(loadedBox.width);
+  expect(loadingBox.x).toBe(loadedBox.x);
+});
+
 for (const width of [1280, 390]) {
   test(`全組織のダッシュボードは ${width}px で面を並べ、組織の中を読まない`, async ({ page, context, baseURL }) => {
     await signIn(context, baseURL, 'member');
