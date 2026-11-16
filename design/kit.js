@@ -59,6 +59,7 @@
 
   // ---- 言葉の辞書（各キーはスクラムの言葉の文字列1つ） ----
   const DICT = {
+    brandName: "スクラムギルド",
   delegateeEmptyText: 'タスクの引き出しで新しい名前を入力すると、名簿に追加できます。',
   delegateeAssignFailed: '依頼先を変更できませんでした。タスクの状態や名簿を確認し、もう一度選んでください。',
   delegateeAssignUnavailable: '依頼先またはタスクの状態が変わった可能性があります。名簿とタスクを確認して、もう一度試してください。',
@@ -444,7 +445,7 @@
   // ---- 部品 ----
   // 提供された横組みロゴとマーク。名前は隣の視覚的に隠した文字で1回だけ読ませる。
   // 枠の外の紙では白い下地の箱の左端を本文とそろえる。BrandMark.svelte と共通。
-  const brandMark = `<span class="brand-art" aria-hidden="true"><img class="brand-name" src="brand/header/logo-transparent-600.png" srcset="brand/header/logo-transparent-600.png 600w, brand/header/logo-transparent-1200.png 1200w" sizes="240px" width="600" height="200" alt=""><img class="brand-mark" src="brand/master/symbol.png" width="629" height="678" alt=""></span>`;
+  const brandMark = `<span class="brand-art" aria-hidden="true"><img class="brand-mark" src="brand/master/symbol.png" width="629" height="678" alt=""><span class="brand-name">${t('brandName')}</span></span>`;
   // 左上の角のマスのマーク単体。白い下地の枠の中に置く。BrandSymbol.svelte と共通
   const brandSymbol = `<span class="brand-art is-symbol" aria-hidden="true"><img class="brand-mark" src="brand/master/symbol.png" width="629" height="678" alt=""></span>`;
   // Google の G のロゴ。Google のブランドの決まりの公式の SVG で、形も4色も変えない（本番は GoogleMark.svelte）

@@ -78,7 +78,7 @@ const readTags = (source: string) => [...source.matchAll(/<([a-zA-Z][\w-]*)\b/g)
 describe('見本との照合', () => {
   // 横組みのロゴ（枠の外の画面）と、左上の角のマスのマーク単体
   for (const { name, file, count, wrapper } of [
-    { name: 'brandMark', file: 'BrandMark.svelte', count: 2, wrapper: /<span class="brand-art" aria-hidden="true">/ },
+    { name: 'brandMark', file: 'BrandMark.svelte', count: 1, wrapper: /<span class="brand-art" aria-hidden="true">/ },
     {
       name: 'brandSymbol',
       file: 'BrandSymbol.svelte',
