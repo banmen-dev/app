@@ -76,17 +76,22 @@
     </div>
   {:else}
     {#if today.omitted_organizations > 0}
-      <p class="gate-note">{t('myTodayOmitted', { count: today.omitted_organizations })}</p>
+      <div class="callout is-info">
+        <Icon name="info" /><span>{t('myTodayOmitted', { count: today.omitted_organizations })}</span>
+      </div>
     {/if}
-    {#each today.failed_organizations as organization (organization.slug)}
-      <p class="gate-note">
-        <a href={resolve('/[slug]', { slug: organization.slug })}>
-          {t('myTodayFailedOrganization', { name: organizationLabel(organization) })}
-        </a>
-      </p>
-    {/each}
+    {#if today.failed_organizations.length > 0}
+      <div class="choice-list">
+        {#each today.failed_organizations as organization (organization.slug)}
+          <a class="choice" href={resolve('/[slug]', { slug: organization.slug })}>
+            <div><b>{organizationLabel(organization)}</b><span>{t('myTodayFailedOrganization')}</span></div>
+            <Icon name="chevron" />
+          </a>
+        {/each}
+      </div>
+    {/if}
     {#if today.tasks.length === 0 && today.failed_organizations.length === 0}
-      <p class="book-empty">{t('myTodayEmpty')}</p>
+      <p class="book-empty">{t(today.omitted_organizations > 0 ? 'myTodayShownEmpty' : 'myTodayEmpty')}</p>
     {/if}
     {#each groups as group (group.key)}
       {#if group.tasks.length > 0}

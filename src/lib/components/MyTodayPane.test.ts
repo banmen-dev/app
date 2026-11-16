@@ -63,7 +63,8 @@ test('上限と部分失敗を空の案内と区別し、失敗した組織へ�
     },
   });
   expect(body).toContain('ほか 2 組織');
-  expect(body).toContain('今日やることを読めませんでした：青葉工房');
+  expect(body).toContain('今日やることを読めませんでした');
+  expect(body).toContain('青葉工房');
   expect(body).toContain('href="/aoba"');
   expect(body).not.toContain('今日やることはまだありません');
 });
@@ -79,4 +80,31 @@ test('読取失敗は再試行を出し、空の案内を出さない', () => {
   expect(body).toContain('<button');
   expect(body).toContain('もう一度試す');
   expect(body).not.toContain('今日やることはまだありません');
+});
+
+test('未取得の初回は面の中だけ骨組みを出す', () => {
+  const { body } = render(MyTodayPane);
+  expect(body).toContain('aria-busy="true"');
+  expect(body).toContain('class="skeleton"');
+  expect(body).not.toContain('今日やることはまだありません');
+});
+
+test('上限を超えた空は未取得を明示し、全組織が空とは言わない', () => {
+  const { body } = render(MyTodayPane, { props: { today: { ...empty, omitted_organizations: 3 } } });
+  expect(body).toContain('ほか 3 組織は読み込んでいません');
+  expect(body).toContain('読み込んだ組織には今日やることがありません');
+  expect(body).not.toContain('今日やることはまだありません');
+});
+
+test('失敗は警告の形と固有文、組織への入口はchoiceで表示する', () => {
+  const failed = render(MyTodayPane, { props: { today: null } }).body;
+  expect(failed).toContain('callout is-warn');
+  expect(failed).toContain('role="alert"');
+  expect(failed).toContain('今日やることを読み込めませんでした');
+  const partial = render(MyTodayPane, {
+    props: { today: { ...empty, failed_organizations: [{ slug: 'aoba', name: '<架空の組織>', kind: 'team' }] } },
+  }).body;
+  expect(partial).toContain('class="choice"');
+  expect(partial).toContain('&lt;架空の組織>');
+  expect(partial).toContain('href="/aoba"');
 });
