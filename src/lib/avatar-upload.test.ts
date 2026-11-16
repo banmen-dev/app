@@ -28,4 +28,15 @@ describe('プロフィール画像を上げる', () => {
     fetcher.mockResolvedValueOnce(Response.json({ unexpected: true }));
     expect(await uploadAvatar(new Blob(), 'aoba', fetcher)).toMatchObject({ ok: false });
   });
+  it.each([401, 413])('画像送信の%sを呼び出し側へ返す', async (status) => {
+    const code = status === 401 ? 'unauthenticated' : 'invalid_input';
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(Response.json({ error: { code, message: 'invalid' } }, { status }));
+    expect(await uploadAvatar(new Blob(), 'aoba', fetcher)).toEqual({
+      ok: false,
+      status,
+      error: { code, message: 'invalid' },
+    });
+  });
 });

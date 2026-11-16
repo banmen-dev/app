@@ -182,16 +182,32 @@ test.describe('プロフィール画像', () => {
     await section(page)
       .getByLabel('画像を選ぶ', { exact: true })
       .setInputFiles(await photo(page));
-    await page.route(
-      '**/api/aoba/me-avatar-upload',
-      (route) => route.fulfill({ status: 400, json: { error: { code: 'invalid_input', message: 'invalid' } } }),
-      { times: 1 },
-    );
     const dialog = page.getByRole('dialog', { name: 'プロフィール画像を切り抜く' });
-    await dialog.getByRole('button', { name: '上げる', exact: true }).click();
-    await expect(dialog.getByRole('alert')).toContainText('512KiB');
+    for (const status of [400, 413]) {
+      await page.route(
+        '**/api/aoba/me-avatar-upload',
+        (route) => route.fulfill({ status, json: { error: { code: 'invalid_input', message: 'invalid' } } }),
+        { times: 1 },
+      );
+      const rejected = page.waitForResponse(
+        (response) => response.url().endsWith('/api/aoba/me-avatar-upload') && response.status() === status,
+      );
+      await dialog.getByRole('button', { name: '上げる', exact: true }).click();
+      await rejected;
+      await expect(dialog.getByRole('alert')).toContainText('512KiB');
+    }
     await dialog.getByRole('button', { name: '上げる', exact: true }).click();
     await expect(dialog).not.toBeVisible();
     await expect(section(page).getByRole('button', { name: '外す', exact: true })).toBeVisible();
+    await page.route(
+      '**/api/aoba/me-avatar-delete',
+      (route) => route.fulfill({ status: 500, json: { error: { code: 'internal_error', message: 'invalid' } } }),
+      { times: 1 },
+    );
+    await section(page).getByRole('button', { name: '外す', exact: true }).click();
+    await expect(section(page).getByRole('alert')).toContainText('プロフィール画像を変更できませんでした');
+    await expect(section(page).locator('.avatar img')).toBeVisible();
+    await section(page).getByRole('button', { name: '外す', exact: true }).click();
+    await expect(section(page).getByRole('button', { name: '外す', exact: true })).toHaveCount(0);
   });
 });
