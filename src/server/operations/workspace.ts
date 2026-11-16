@@ -6,6 +6,7 @@ import {
   workspaceClose,
   workspaceCreate,
   workspaceDodUpdate,
+  workspaceSprintNamingUpdate,
   workspaceInfo,
   workspaceLeaderCandidates,
   workspaceList,
@@ -336,7 +337,7 @@ export const workspaceInfoOperation = implement(workspaceInfo, async ({ db, work
     db.statement((q) =>
       q
         .selectFrom('workspaces')
-        .select(['name', 'closed_at', 'definition_of_done_md'])
+        .select(['name', 'closed_at', 'definition_of_done_md', 'sprint_name_template', 'sprint_number_next'])
         .where('id', '=', workspace.workspaceId)
         .where('organization_id', '=', workspace.organizationId),
     ),
@@ -347,6 +348,8 @@ export const workspaceInfoOperation = implement(workspaceInfo, async ({ db, work
     closed_at: row.closed_at,
     // 書く操作は空を null にそろえるが、空の文字列の行があっても、画面には「空」として渡す
     definition_of_done_md: row.definition_of_done_md === '' ? null : row.definition_of_done_md,
+    sprint_name_template: row.sprint_name_template,
+    sprint_number_next: row.sprint_number_next,
     role: workspace.actorRole,
   };
 });
@@ -583,5 +586,87 @@ export const workspaceReopenOperation = implement(
     if (max !== null) await throwIfWorkspaceLimitReached(db, max);
     await writeClosedState(db, actor, workspace.workspaceId, { action: 'reopen', closedAt: row.closed_at }, max);
     return { workspace_id: workspace.workspaceId };
+  },
+);
+
+// 命名ルールと次の番号を一緒に変える。読んだ両方の値を WHERE に含め、作成による加算とも競合を検出する。
+export const workspaceSprintNamingUpdateOperation = implement(
+  workspaceSprintNamingUpdate,
+  async ({ db, actor, workspace, input }) => {
+    const actorUserId = actorUserIdOf(actor);
+    const organizationId = db.organizationId;
+    const workspaceId = workspace.workspaceId;
+    const next = { sprint_name_template: input.sprint_name_template, sprint_number_next: input.sprint_number_next };
+
+    for (let attempt = 0; attempt < DOD_MAX_ATTEMPTS; attempt++) {
+      const row = await db.first(
+        db.statement((q) =>
+          q
+            .selectFrom('workspaces')
+            .select(['sprint_name_template', 'sprint_number_next'])
+            .where('id', '=', workspaceId)
+            .where('organization_id', '=', organizationId),
+        ),
+      );
+      if (row === undefined) throw new ApiError(404, 'not_found');
+      const before = row;
+      if (
+        before.sprint_name_template === next.sprint_name_template &&
+        before.sprint_number_next === next.sprint_number_next
+      ) {
+        await throwIfClosed(db, workspaceId);
+        return next;
+      }
+
+      const at = now();
+      const stamp = at.toISOString();
+      const results = await db.batch([
+        db.statement((q) =>
+          q
+            .updateTable('workspaces')
+            .set({ ...next, updated_at: stamp })
+            .where('id', '=', workspaceId)
+            .where('organization_id', '=', organizationId)
+            .where('closed_at', 'is', null)
+            .where('sprint_name_template', 'is', before.sprint_name_template)
+            .where('sprint_number_next', '=', before.sprint_number_next),
+        ),
+        db.statement((q) =>
+          q
+            .insertInto('change_logs')
+            .columns(changeLogColumns)
+            .expression(
+              q
+                .selectNoFrom((eb) => [
+                  eb.val(uuidv7(at)).as('id'),
+                  eb.val(organizationId).as('organization_id'),
+                  eb.val(workspaceId).as('workspace_id'),
+                  eb.val(actorUserId).as('actor_user_id'),
+                  eb.val('workspace').as('entity_type'),
+                  eb.val(workspaceId).as('entity_id'),
+                  eb.val('update').as('action'),
+                  // 変わった欄だけ、前後の値を残す（ルールは100字まで）。
+                  eb
+                    .val(
+                      JSON.stringify({
+                        ...(before.sprint_name_template === next.sprint_name_template
+                          ? {}
+                          : { sprint_name_template: [before.sprint_name_template, next.sprint_name_template] }),
+                        ...(before.sprint_number_next === next.sprint_number_next
+                          ? {}
+                          : { sprint_number_next: [before.sprint_number_next, next.sprint_number_next] }),
+                      }),
+                    )
+                    .as('changes_json'),
+                  eb.val(stamp).as('created_at'),
+                ])
+                .where(previousStatementChanged),
+            ),
+        ),
+      ]);
+      if ((results[0]?.changes ?? 0) > 0) return next;
+      await throwIfClosed(db, workspaceId);
+    }
+    throw new ApiError(409, 'conflict');
   },
 );

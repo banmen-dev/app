@@ -16,6 +16,8 @@ export const workspaceInfo = defineOperation({
     name: z.string(),
     closed_at: z.string().nullable(),
     definition_of_done_md: z.string().nullable(),
+    sprint_name_template: z.string().nullable(),
+    sprint_number_next: z.number().int(),
     role: z.enum(['leader', 'member']).nullable(),
   }),
 });

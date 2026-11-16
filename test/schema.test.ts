@@ -2193,3 +2193,47 @@ describe('user_avatars', () => {
     },
   );
 });
+
+describe('ワークスペースのスプリント命名のスキーマ', () => {
+  test('次の番号は既定1、0・負数・NULLを断り、ルールは100字まで', async () => {
+    const organization = await createOrganization();
+    const user = await createUser(organization);
+    const workspace = await createWorkspace(organization, user.id);
+    const db = orgDb(env, organization.verified);
+    const row = await db.first(
+      db.statement((q) =>
+        q
+          .selectFrom('workspaces')
+          .select(['sprint_name_template', 'sprint_number_next'])
+          .where('id', '=', workspace.id)
+          .where('organization_id', '=', organization.id),
+      ),
+    );
+    expect(row).toEqual({ sprint_name_template: null, sprint_number_next: 1 });
+    for (const value of [0, -1, null]) {
+      await expect(
+        env.DB.prepare('UPDATE workspaces SET sprint_number_next = ? WHERE id = ? AND organization_id = ?')
+          .bind(value, workspace.id, organization.id)
+          .run(),
+      ).rejects.toThrow();
+    }
+    await expect(
+      env.DB.prepare('UPDATE workspaces SET sprint_name_template = ? WHERE id = ? AND organization_id = ?')
+        .bind('a'.repeat(101), workspace.id, organization.id)
+        .run(),
+    ).rejects.toThrow();
+    await env.DB.prepare('UPDATE workspaces SET sprint_name_template = ? WHERE id = ? AND organization_id = ?')
+      .bind('😀'.repeat(100), workspace.id, organization.id)
+      .run();
+    const stored = await db.first(
+      db.statement((q) =>
+        q
+          .selectFrom('workspaces')
+          .select('sprint_name_template')
+          .where('id', '=', workspace.id)
+          .where('organization_id', '=', organization.id),
+      ),
+    );
+    expect(stored?.sprint_name_template).toBe('😀'.repeat(100));
+  });
+});

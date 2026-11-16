@@ -159,6 +159,8 @@ describe('workspace-create', () => {
       timezone: 'Asia/Tokyo',
       week_start: 1,
       definition_of_done_md: null,
+      sprint_name_template: null,
+      sprint_number_next: 1,
       closed_at: null,
       created_by: target.admin.userId,
       created_at: '2026-10-25T03:00:00.000Z',
@@ -258,6 +260,8 @@ describe('workspace-create', () => {
       name: '保守チーム',
       closed_at: null,
       definition_of_done_md: null,
+      sprint_name_template: null,
+      sprint_number_next: 1,
       role: null,
     });
     // 所属しない一般のユーザーは入れない
@@ -700,6 +704,8 @@ describe('workspace', () => {
       name: '社内ツール',
       closed_at: '2026-10-22T00:00:00.000Z',
       definition_of_done_md: null,
+      sprint_name_template: null,
+      sprint_number_next: 1,
     };
     expect(await (await read(target, target.member, workspace.id)).json()).toEqual({ ...expected, role: 'member' });
     expect(await (await read(target, target.leader, workspace.id)).json()).toEqual({ ...expected, role: 'leader' });

@@ -123,7 +123,12 @@ export const sprintListOperation = implement(sprintList, async ({ db, workspace 
     db.statement((q) =>
       q
         .selectFrom('workspaces')
-        .select(['workspaces.timezone', 'workspaces.week_start'])
+        .select([
+          'workspaces.timezone',
+          'workspaces.week_start',
+          'workspaces.sprint_name_template',
+          'workspaces.sprint_number_next',
+        ])
         .where('workspaces.id', '=', workspaceId)
         .where('workspaces.organization_id', '=', organizationId),
     ),
@@ -205,7 +210,11 @@ export const sprintListOperation = implement(sprintList, async ({ db, workspace 
   }
   return {
     sprints: sprintsResult.rows.map((row) => ({ ...summaryOf(row), tasks: tasksBySprint.get(row.id) ?? [] })),
-    defaults: sprintDefaults(previousResult.rows[0] ?? null, today, settings.week_start),
+    defaults: {
+      ...sprintDefaults(previousResult.rows[0] ?? null, today, settings.week_start),
+      sprint_name_template: settings.sprint_name_template,
+      sprint_number_next: settings.sprint_number_next,
+    },
     today,
   };
 });
@@ -247,13 +256,28 @@ export const sprintCreateOperation = implement(sprintCreate, async ({ db, actor,
             ])
             .where((eb) =>
               eb.and([
-                eb.exists(openWorkspace(eb, organizationId, workspaceId)),
+                eb.exists(
+                  openWorkspace(eb, organizationId, workspaceId).where(
+                    'workspaces.sprint_number_next',
+                    '<',
+                    Number.MAX_SAFE_INTEGER,
+                  ),
+                ),
                 eb.not(eb.exists(overlapping(eb, workspaceId, input.start_on, endOn, null))),
               ]),
             ),
         ),
     ),
-    // 直前の INSERT が行を入れたときだけ履歴を書く（docs/data-model.md の「直前の文に結ぶ」）
+    // INSERT が成功したときだけ次の番号を進める。名前に {n} を使うかどうかにはよらない。
+    db.statement((q) =>
+      q
+        .updateTable('workspaces')
+        .set((eb) => ({ sprint_number_next: eb('sprint_number_next', '+', 1), updated_at: createdAt }))
+        .where('id', '=', workspaceId)
+        .where('organization_id', '=', organizationId)
+        .where(previousStatementChanged),
+    ),
+    // 直前の番号の UPDATE が行を変えたときだけ履歴を書く（docs/data-model.md の「直前の文に結ぶ」）
     db.statement((q) =>
       q
         .insertInto('change_logs')
@@ -277,9 +301,21 @@ export const sprintCreateOperation = implement(sprintCreate, async ({ db, actor,
   ]);
 
   if ((results[0]?.changes ?? 0) === 0) {
-    // 読んでから書くまでに閉じたら 409 の workspace_closed。重なれば overlap。どちらでもなければ（ワークスペースが消えた）404
+    // 閉じたら workspace_closed、重なれば overlap。番号の上限は conflict、ワークスペースが消えたら404。
     await throwIfClosed(db, workspaceId);
     if (await overlapExists(db, workspaceId, input.start_on, endOn, null)) throw conflict('overlap');
+    // 上限で INSERT を止めた後に設定が変わっていても、存在するワークスペースなら競合。
+    // 次の番号を設定で直せば再試行できる。何も入れなかった要求では番号も履歴も書かれない。
+    const current = await db.first(
+      db.statement((q) =>
+        q
+          .selectFrom('workspaces')
+          .select('id')
+          .where('id', '=', workspaceId)
+          .where('organization_id', '=', organizationId),
+      ),
+    );
+    if (current !== undefined) throw new ApiError(409, 'conflict');
     throw new ApiError(404, 'not_found');
   }
   return {
