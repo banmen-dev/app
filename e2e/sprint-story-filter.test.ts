@@ -11,7 +11,7 @@ import {
 import { storyGet } from '../src/shared/operations/story/story-get.ts';
 import { mockOperation, routeOperation } from './operations.ts';
 import { sprintBoard, taskColumnMove } from '../src/shared/operations/sprint/index.ts';
-import { taskCreate } from '../src/shared/operations/task/index.ts';
+import { taskComplete, taskCreate } from '../src/shared/operations/task/index.ts';
 import { SAMPLE_BOARD } from './sprint-fixture.ts';
 
 const PATH = '/aoba/w/019a0000-0000-7000-8000-000000000401/sprint';
@@ -157,6 +157,32 @@ test('絞ったカードをキーとドラッグで移動し、隠れたカー�
   await dragTo(page, first, page.locator('.board-col').nth(2).locator('.board-col-head'), 'middle');
   await expect.poll(() => inputs.length).toBe(2);
   expect(inputs[1]!.column_id).toBe(board.columns[2]!.id);
+  await expect(page.locator('.card')).toHaveCount(3);
+});
+
+test('絞り込み中も完了の丸を出さず、最後の未完了列からキーで完了にする', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'admin');
+  const board = sample();
+  const task = board.columns[0]!.tasks.shift()!;
+  board.columns[2]!.tasks.push(task);
+  await routeOperation(page, sprintBoard, { slug: 'aoba' }, (call) => call.fulfill(board));
+  let completed = 0;
+  await routeOperation(page, taskComplete, { slug: 'aoba' }, async (call) => {
+    expect(call.input.task_id).toBe(task.id);
+    completed++;
+    board.columns[2]!.tasks = [];
+    task.completed_at = '2026-10-20T00:00:00.000Z';
+    board.columns[3]!.tasks.push(task);
+    await call.fulfill({ task_id: task.id, completed_at: task.completed_at, left_sprint: false, xp_granted: 0 });
+  });
+  await page.goto(`${PATH}?story=${STORY.id}`);
+  await expect(page.locator('.card')).toHaveCount(3);
+  await expect(page.locator('.card .done-btn')).toHaveCount(0);
+  await page.locator(`[data-card-id="${task.id}"]`).press('Alt+ArrowRight');
+  await expect.poll(() => completed).toBe(1);
+  await expect(page.locator('.board-col.is-done').locator('.card')).toHaveCount(2);
+  await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
+  await expect(page).toHaveURL(new RegExp(`story=${STORY.id}`));
   await expect(page.locator('.card')).toHaveCount(3);
 });
 
