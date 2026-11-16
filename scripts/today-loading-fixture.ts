@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 // 使い捨て D1 にだけ追加する架空データ。seed の公開セッション（member）で全条件を読む。
 export const todayCases = [
   { role: 'member', pending: true },
@@ -44,7 +46,9 @@ SELECT printf('019d${i}600-0000-7000-8000-%012d', i), '${ws}', 0, 'backlog', '�
 }
 
 export function todayFixtureAt(value: string): Date {
-  const at = new Date(value);
+  const parsed = z.iso.datetime({ offset: true }).safeParse(value);
+  if (!parsed.success) throw new Error('--fixture-at にタイムゾーン付きの有効なISO日時を指定してください');
+  const at = new Date(parsed.data);
   if (!Number.isFinite(at.getTime())) throw new Error('--fixture-at に有効なISO日時を指定してください');
   return at;
 }
