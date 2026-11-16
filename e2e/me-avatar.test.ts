@@ -110,7 +110,10 @@ test.describe('プロフィール画像', () => {
     await page.mouse.down();
     await page.mouse.move(bounds!.x + 120, bounds!.y + 110);
     await page.mouse.up();
-    await expect(position).not.toHaveText(beforeDrag!);
+    const horizontalCenter = (text: string) => Number(text.match(/横 (\d+)%/)![1]);
+    await expect
+      .poll(async () => horizontalCenter((await position.textContent())!))
+      .toBeLessThan(horizontalCenter(beforeDrag!));
     expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await dialog.getByRole('button', { name: 'やめる', exact: true }).click();
     expect(uploads).toBe(0);

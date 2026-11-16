@@ -59,7 +59,7 @@
     onpointermove={(event) => {
       if (dragging?.id !== event.pointerId) return;
       const scale = crop.size / event.currentTarget.getBoundingClientRect().width;
-      move((event.clientX - dragging.x) * scale, (event.clientY - dragging.y) * scale);
+      move((dragging.x - event.clientX) * scale, (dragging.y - event.clientY) * scale);
       dragging = { id: event.pointerId, x: event.clientX, y: event.clientY };
     }}
     onpointerup={() => (dragging = null)}

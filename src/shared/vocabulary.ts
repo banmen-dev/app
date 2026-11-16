@@ -18,7 +18,8 @@ export const dictionary = defineDictionary({
   avatarUpload: '上げる',
   avatarCancel: 'やめる',
   avatarCropTitle: 'プロフィール画像を切り抜く',
-  avatarCropHint: '正方形の枠の中が上がります。ドラッグか矢印キー、移動ボタンで範囲を動かせます。',
+  avatarCropHint:
+    '正方形の枠の中が上がります。画像をドラッグして位置を合わせます。移動ボタンにフォーカスすると矢印キーでも範囲を動かせます。',
   avatarCropArea: '切り抜きの範囲',
   avatarCropPosition: '中心の位置: 横 {x}%、縦 {y}%',
   avatarCropMove: '切り抜きの範囲を動かす',
