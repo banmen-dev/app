@@ -1,0 +1,118 @@
+{
+  "base": "ab2588b250ee4ffc13a876b30216cfe68c6ae22d",
+  "files": [
+    {
+      "file": "design/brand/master/symbol.webp",
+      "sha256": "e2177770ecf71121c3d7cda8bb74071154db4250125a4e395c9fc8b7b238d921"
+    },
+    {
+      "file": "design/fonts/LICENSE",
+      "sha256": "18aabf190848725e2576eefb5c29ba06aac1029d02132252a7f312eac2e50cf3"
+    },
+    {
+      "file": "design/fonts/README.md",
+      "sha256": "af0d1ab24119df46ad2daf4c860ab2a1da10fa012308e34e84bb948975f8a4b3"
+    },
+    {
+      "file": "design/fonts/manifest.json",
+      "sha256": "55a47bda004c93d6c15aa3f94222c3526aed51aca48a70a25d639703a339a70e"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-109-wght-normal.woff2",
+      "sha256": "14e3c5df598893ac3de41e4f807ce3d5833e208aa27cbf3074e5415b476f5598"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-110-wght-normal.woff2",
+      "sha256": "9eff967b94d207853c1a80ffbe6766c57067a97c14cfc6914cce91f2c658ffaf"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-111-wght-normal.woff2",
+      "sha256": "b866c60c3e9e523df46b1e4a5101ecd494044c2aa82ae6b9a63e6a8c4f941b6f"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-112-wght-normal.woff2",
+      "sha256": "dab040bd14f681ed5a9a74c3d708e54af4bbec3d3ba5ffb3f4153397580d1ec7"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-113-wght-normal.woff2",
+      "sha256": "210be2fcb8f00b92a996b67496597b547e1fe25d715951d7a239e90733782daa"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-114-wght-normal.woff2",
+      "sha256": "9fb57af3d723af5122631ebdf44d1d515a99f022d41a0844a6cf48bf51382b14"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-115-wght-normal.woff2",
+      "sha256": "5b13ff45018be86162ff296024d4dfabf95a015ee26167ae3ad434e83dccf471"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-116-wght-normal.woff2",
+      "sha256": "69b8a9e81a8aca6520c6e68cacfc0dbf587b1bb47e60bd0face0ccdf792b610c"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-117-wght-normal.woff2",
+      "sha256": "64387bdab205daa202e02b287b1a55330040424a101b49a67e36dce164dd874a"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-118-wght-normal.woff2",
+      "sha256": "c73e85586edec916ef680c51f2a27f7cce9d2fcd0920bbbd0f86e7ce44022677"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-119-wght-normal.woff2",
+      "sha256": "1aaa71f21c6c96dbf9bb11d2232ee38acaac73c11172d787efc5bea1a3bce0f5"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-latin-wght-normal.woff2",
+      "sha256": "368b4f7487e8d03c81e159fcf84134cce0d94443bd39644811d8d8e8597387b1"
+    },
+    {
+      "file": "design/kit.js",
+      "sha256": "cd996de0b6378cb9a5f9ccb11762aea01da27088a8ea51430b617aa4937b7fcd"
+    },
+    {
+      "file": "e2e/brand.test.ts",
+      "sha256": "e26b21148968b624f220f227325b7f7d647eddfce5ad175683bdfc5690fb2497"
+    },
+    {
+      "file": "scripts/boot-font-assets.test.ts",
+      "sha256": "66f1fbe011a184e4c91cc4ab2fd44173f993e1aaff90058c40062c93934867fb"
+    },
+    {
+      "file": "scripts/client-operation-metadata.test.ts",
+      "sha256": "b2793cafb8f6b96a2a67aa081f331efc08707061a62ae77c2ddb9dc18a08d8bc"
+    },
+    {
+      "file": "scripts/client-operation-metadata.ts",
+      "sha256": "35b3971a80057904b00c6be023bfa95a981ac8cce011504825427601498f64fe"
+    },
+    {
+      "file": "scripts/design-parity.test.ts",
+      "sha256": "8fcef06f4b3d08ce7e431d7151fe55ff9130a76c802b3f7bdc8b74453dc27688"
+    },
+    {
+      "file": "scripts/fontsource-woff2.test.ts",
+      "sha256": "dff63bb4f802b50a1e06301bf66f74b08a1cb06f315a0fa86d4cb9f4f54007a0"
+    },
+    {
+      "file": "scripts/fontsource-woff2.ts",
+      "sha256": "a17c7ad8b2933553a1d959273c79dd41415685440af7344fe07c81881191711c"
+    },
+    {
+      "file": "scripts/generate-boot-assets.py",
+      "sha256": "c0d082a29f75b90104d250e74e792edf8d5aa28e1b2601cdbd61000a092d4fcd"
+    },
+    {
+      "file": "src/lib/components/BrandMark.svelte",
+      "sha256": "5880f05e9e22ced84ba21b4d49fdceae0ec7a555ecaacb8610a2665512e9eb6e"
+    },
+    {
+      "file": "src/lib/components/BrandSymbol.svelte",
+      "sha256": "0cb7000489aa9f78ab006dfbbc77b79e816182abea3d1bd08868721eb900322b"
+    },
+    {
+      "file": "vite.config.ts",
+      "sha256": "e298cc47cde9457d36c73d5db1ab261257ceb8caf26c137a775b4dc671299d6a"
+    }
+  ],
+  "archiveSha256": "b3e024a82677352edc5fc4957f3b466d040451ec832887a65a713dd7ec985c8e"
+}

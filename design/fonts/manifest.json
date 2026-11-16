@@ -1,0 +1,66 @@
+{
+  "fontsourceVersion": "5.3.1",
+  "fonttoolsVersion": "4.61.1",
+  "fonts": [
+    {
+      "file": "noto-sans-jp-109-wght-normal.woff2",
+      "sourceSha256": "f5861b584d084262ffbca3f362a9c3b5b27b477e3e33f1de340ca61fa4f624b1",
+      "sha256": "14e3c5df598893ac3de41e4f807ce3d5833e208aa27cbf3074e5415b476f5598"
+    },
+    {
+      "file": "noto-sans-jp-110-wght-normal.woff2",
+      "sourceSha256": "d264b7fb4eb86901d0800d80d069b6940b6686f9929dd14909354d39d47205ad",
+      "sha256": "9eff967b94d207853c1a80ffbe6766c57067a97c14cfc6914cce91f2c658ffaf"
+    },
+    {
+      "file": "noto-sans-jp-111-wght-normal.woff2",
+      "sourceSha256": "add77686e5062903172d2ecbfa58a30c5bc3fabe23c7ea23723a5ded26353e45",
+      "sha256": "b866c60c3e9e523df46b1e4a5101ecd494044c2aa82ae6b9a63e6a8c4f941b6f"
+    },
+    {
+      "file": "noto-sans-jp-112-wght-normal.woff2",
+      "sourceSha256": "1a41a1e026f03712cf0bcd3f80e24eb3cdbeec72e6fad8eed8b25f1bdb8628a2",
+      "sha256": "dab040bd14f681ed5a9a74c3d708e54af4bbec3d3ba5ffb3f4153397580d1ec7"
+    },
+    {
+      "file": "noto-sans-jp-113-wght-normal.woff2",
+      "sourceSha256": "030dfa6fc4f0b364ea1a0eb7142f5d9139bea82c77b0c355d6005871f0f5be95",
+      "sha256": "210be2fcb8f00b92a996b67496597b547e1fe25d715951d7a239e90733782daa"
+    },
+    {
+      "file": "noto-sans-jp-114-wght-normal.woff2",
+      "sourceSha256": "ce324843172afe1f1fd37760edd73c97e5c5611fe985402735b91e1f5341e859",
+      "sha256": "9fb57af3d723af5122631ebdf44d1d515a99f022d41a0844a6cf48bf51382b14"
+    },
+    {
+      "file": "noto-sans-jp-115-wght-normal.woff2",
+      "sourceSha256": "5a2b7c813f0122dc0180fd0752420cec278fa663158691458666bd987a7e241a",
+      "sha256": "5b13ff45018be86162ff296024d4dfabf95a015ee26167ae3ad434e83dccf471"
+    },
+    {
+      "file": "noto-sans-jp-116-wght-normal.woff2",
+      "sourceSha256": "30425125bb740642a2e23f4eafc507988e7005f2a3de2efd70b2c4d6d44e2fe2",
+      "sha256": "69b8a9e81a8aca6520c6e68cacfc0dbf587b1bb47e60bd0face0ccdf792b610c"
+    },
+    {
+      "file": "noto-sans-jp-117-wght-normal.woff2",
+      "sourceSha256": "a4cb052e82a4e5b2bdbd73a24771971e46013e76adb24c433ada6d20782702be",
+      "sha256": "64387bdab205daa202e02b287b1a55330040424a101b49a67e36dce164dd874a"
+    },
+    {
+      "file": "noto-sans-jp-118-wght-normal.woff2",
+      "sourceSha256": "df20f01d9fa1c1d10485d4a6aea5dba2c9601c9c4cf6d7c4419c34da7ba7e463",
+      "sha256": "c73e85586edec916ef680c51f2a27f7cce9d2fcd0920bbbd0f86e7ce44022677"
+    },
+    {
+      "file": "noto-sans-jp-119-wght-normal.woff2",
+      "sourceSha256": "2c0a698f3f840c00421ab992d6415841bc551258e3bfe227b30145a886f6ef42",
+      "sha256": "1aaa71f21c6c96dbf9bb11d2232ee38acaac73c11172d787efc5bea1a3bce0f5"
+    },
+    {
+      "file": "noto-sans-jp-latin-wght-normal.woff2",
+      "sourceSha256": "b3f23a841571a12f26a2611c0a54503b29db4a861ed23070f97279dd0d8debba",
+      "sha256": "368b4f7487e8d03c81e159fcf84134cce0d94443bd39644811d8d8e8597387b1"
+    }
+  ]
+}

@@ -450,6 +450,12 @@ vite の転送先も同じ値から作るので、画面は自分のワークツ
 
 `pnpm bench:backlog`（`scripts/backlog-bench.ts`）は、使い捨ての場所（`--persist-to` の一時ディレクトリ）の D1 に全マイグレーションと seed と 5 万件のタスクのワークスペース（現実の形と最悪の形）を入れ、その D1 で `wrangler dev`（API はポート 9700、デバッガーは 9701。デバッガーは常に `--port` + 1。`--port` を上の範囲の中に替えると、そのオフセットのワークツリーと重なりうるので、替える側が空きを選ぶ。既定の 2 つは、ワークツリーが使う範囲（画面 5173〜5614、API 8787〜9228、デバッガー 9229〜9670）の外に固定してあるので、どのオフセットの開発用のサーバーや `pnpm e2e` を立てたままでも重ならない。`scripts/dev-ports.ts` の `BENCH_PORTS`）を立てて、`backlog-tree` を絞らない、担当、検索などの読み方ごとに測る（#165）。手元の開発用の D1 と本番には触らない。`--runs` で回数（既定 10）を替える。`--prepare-only <場所>` は、その場所の D1 に入れて終える（測らず、消さない）ので、遅い文を `wrangler d1 execute DB --local --persist-to <場所> --command "EXPLAIN QUERY PLAN ..."` で見るのに使う。測った数と結論は `docs/data-model.md` の `tasks` の節。木を読む文、索引、絞り込みを変えたら流し直し、数が変わったら書き直す。
 
+### ブラウザに配る操作の定義
+
+`vite.config.ts` の `clientOperationMetadata` は client 環境だけで、操作の定義を呼び出しに必要な名前・権限の範囲・mode・workspace・clientTimeoutMs・binary の属性へ縮める。入力と通常の応答はサーバーで検証し、ブラウザへスキーマやサーバー用の説明・制限設定を配らない。Worker・SSR・CLI・ユニットテストには適用しない。
+
+`me-avatar-upload` と `attachment-upload` は画面側も応答を検証するため output を残す。画面でほかの操作の input/output を読む場合は、この出力方針と `scripts/client-operation-metadata.test.ts` を同時に更新する。操作の型は元の定義から推論し、URL の組み立てと待ち上限は従来の共通関数を使う。不要になった Zod のスキーマ生成には PURE の注記を付けるが、`z.config` の CSP 用の jitless 設定は残す。
+
 ### URL を直接開く最初の読み込みを測る
 
 JavaScriptの本数の削減、チャンクの分け方と起票シートの遅延読み込みの比較は [初回表示のJavaScript](boot-javascript-results.md) に記録する。

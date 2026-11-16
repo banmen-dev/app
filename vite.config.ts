@@ -5,6 +5,7 @@ import { defineConfig } from 'vite';
 import { devPorts } from './scripts/dev-ports.ts';
 import { devWatchIgnored } from './scripts/dev-watch.ts';
 import { fontsourceWoff2Only } from './scripts/fontsource-woff2.ts';
+import { clientOperationMetadata } from './scripts/client-operation-metadata.ts';
 import { decodeNamedCharacterReferenceFile } from './scripts/markdown-worker-entities.ts';
 import { pageCspDirectives } from './src/shared/security-headers.ts';
 
@@ -13,6 +14,7 @@ const root = fileURLToPath(new URL('.', import.meta.url));
 
 export default defineConfig({
   plugins: [
+    clientOperationMetadata(),
     fontsourceWoff2Only(),
     sveltekit({
       compilerOptions: {

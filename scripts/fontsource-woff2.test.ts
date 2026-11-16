@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
-import { dropWoff, fontsourceWoff2Only } from './fontsource-woff2.ts';
+import { dropWoff, fontAssetUrl, fontsourceWoff2Only } from './fontsource-woff2.ts';
 
 const face = `@font-face {
   font-family: 'Noto Sans JP';
@@ -11,6 +11,9 @@ const face = `@font-face {
 }`;
 
 describe('fontsource の woff を外す', () => {
+  test('空白・括弧・引用符を含む作業場所でも有効な CSS の URL にする', () => {
+    assert.equal(fontAssetUrl('C:\\My Project (ui)\\font"name.woff2'), 'url("C:/My Project (ui)/font\\"name.woff2")');
+  });
   test('src から woff だけを外し、woff2 と unicode-range を残す', () => {
     const out = dropWoff(face);
     assert.match(out, /src: url\(\.\/files\/noto-sans-jp-0-400-normal\.woff2\) format\('woff2'\);/);
@@ -31,11 +34,16 @@ describe('fontsource の woff を外す', () => {
       assert.match(face, /font-family: 'Noto Sans JP';/);
       assert.match(face, /font-weight: 100 900;/);
       assert.match(face, /font-display: swap;/);
-      assert.match(face, /\.woff2\) format\('woff2-variations'\)/);
+      assert.match(face, /\.woff2"?\) format\('woff2-variations'\)/);
       assert.match(face, /unicode-range: U\+/);
     }
     assert.deepEqual(out.match(/unicode-range:[^;]+;/g), css.match(/unicode-range:[^;]+;/g));
-    assert.deepEqual(out.match(/src:[^;]+;/g), css.match(/src:[^;]+;/g));
+    // 共通の日本語と Latin は横書き用の生成物へ向ける。ほかの文字範囲は元のまま。
+    assert.equal((out.match(/design\/fonts\/noto-sans-jp-/g) ?? []).length, 12);
+    assert.deepEqual(
+      [...out.matchAll(/noto-sans-jp-([\w-]+)\.woff2/g)].map((m) => m[1]),
+      [...css.matchAll(/noto-sans-jp-([\w-]+)\.woff2/g)].map((m) => m[1]),
+    );
     assert.doesNotMatch(out, /Noto Sans JP Variable|\.woff\)/);
     // 別の可変書体を誤って同じ名前へ変えない。
     assert.equal(transform(css, '/repo/node_modules/@fontsource-variable/other/index.css'), null);
