@@ -579,11 +579,11 @@
     <a
       class="entry-title"
       bind:this={titleLink}
-      href={organization === undefined
-        ? taskDetailHref(`${taskHref}${taskQuery}${encodeURIComponent(task.id)}`)
-        : `${taskHref}?task=${encodeURIComponent(task.id)}`}
+      href={taskDetailHref(
+        `${taskHref}${organization === undefined ? taskQuery : '?task='}${encodeURIComponent(task.id)}`,
+      )}
       data-task-id={task.id}
-      {...organization === undefined ? taskLinkAttrs() : {}}>{task.title}</a
+      {...taskLinkAttrs()}>{task.title}</a
     >
     <!-- eslint-enable svelte/no-navigation-without-resolve -->
     {#if organization !== undefined || workspaceName !== undefined || (attrs === undefined && (task.repository !== null || category !== null)) || task.sprint !== null || metaChip !== undefined || metaText !== undefined}

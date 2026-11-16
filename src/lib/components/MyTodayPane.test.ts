@@ -2,6 +2,7 @@ import { render } from 'svelte/server';
 import { expect, test, vi } from 'vitest';
 import type { OutputOf } from '../../shared/operations/define.ts';
 import type { myToday } from '../../shared/operations/organization/my-today.ts';
+import * as drawer from '../drawer.svelte.ts';
 import MyTodayPane from './MyTodayPane.svelte';
 
 vi.mock('$app/navigation', () => ({ invalidateAll: vi.fn() }));
@@ -107,4 +108,21 @@ test('失敗は警告の形と固有文、組織への入口はchoiceで表示�
   expect(partial).toContain('class="choice"');
   expect(partial).toContain('&lt;架空の組織>');
   expect(partial).toContain('href="/aoba"');
+});
+
+test('組織の指定があっても、タスク詳細の開き方の設定を使う', () => {
+  const href = vi.spyOn(drawer, 'taskDetailHref').mockReturnValue('/preferred/detail');
+  const attrs = vi.spyOn(drawer, 'taskLinkAttrs').mockReturnValue({ target: '_blank', rel: 'noopener noreferrer' });
+  try {
+    const { body } = render(MyTodayPane, {
+      props: { today: { ...empty, tasks: [row('設定の確認', { slug: 'aoba', name: '青葉工房', kind: 'team' })] } },
+    });
+    expect(href).toHaveBeenCalledWith('/aoba/w/w1?task=%E8%A8%AD%E5%AE%9A%E3%81%AE%E7%A2%BA%E8%AA%8D');
+    expect(attrs).toHaveBeenCalled();
+    expect(body).toContain('href="/preferred/detail"');
+    expect(body).toContain('target="_blank"');
+  } finally {
+    href.mockRestore();
+    attrs.mockRestore();
+  }
 });
