@@ -1,7 +1,8 @@
 import { env } from 'cloudflare:workers';
 import { describe, expect, test } from 'vitest';
 import { createApp } from '../src/server/app.ts';
-import { orgDb } from '../src/server/db/index.ts';
+import { orgDb, verifyWorkspace } from '../src/server/db/index.ts';
+import { workspaceSprintNamingUpdateOperation } from '../src/server/operations/workspace.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
 import {
   workspaceInfo,
@@ -46,6 +47,38 @@ async function logs(target: Target) {
         .where('workspace_id', '=', target.workspace.id),
     ),
   );
+}
+
+// 実際の値を読んだ直後に、別の要求を割り込ませる（workspace-dodの競合テストと同じ入口）。
+async function updateWithRace(target: Target, template: string, next: number, race: (n: number) => Promise<void>) {
+  const db = orgDb(env, target.organization.verified);
+  const actor = {
+    accountId: target.leader.accountId,
+    userId: target.leader.userId,
+    isAdmin: false,
+    invitedOnly: false,
+  };
+  const workspace = await verifyWorkspace(db, actor, target.workspace.id);
+  let reads = 0;
+  const racing = new Proxy(db, {
+    get(base, key) {
+      const method = Reflect.get(base, key, base);
+      if (typeof method !== 'function') return method;
+      if (key !== 'first') return method.bind(base);
+      return async (...args: unknown[]) => {
+        const result = await (method as (...args: unknown[]) => Promise<unknown>).apply(base, args);
+        if (typeof result === 'object' && result !== null && 'sprint_name_template' in result) await race(++reads);
+        return result;
+      };
+    },
+  });
+  return workspaceSprintNamingUpdateOperation.handler({
+    db: racing,
+    actor,
+    workspace,
+    input: { workspace_id: target.workspace.id, sprint_name_template: template, sprint_number_next: next },
+    defer: () => {},
+  } as never);
 }
 
 describe('スプリント命名のAPI', () => {
@@ -149,6 +182,32 @@ describe('スプリント命名のAPI', () => {
     expect(res.status).toBe(409);
     expect(await errorCodeOf(res)).toBe('workspace_closed');
     expect((await list(target)).defaults.sprint_number_next).toBe(2);
+    const before = await logs(target);
+    const different = await update(target, '{yyyy}', 5);
+    expect(different.status).toBe(409);
+    expect(await errorCodeOf(different)).toBe('workspace_closed');
+    expect((await list(target)).defaults).toMatchObject({ sprint_name_template: '{n}', sprint_number_next: 2 });
+    expect(await logs(target)).toEqual(before);
+  });
+
+  test('値を読んだ後に閉じたら、異なる値のUPDATEも拒否し、番号と履歴を変更しない', async () => {
+    const target = await createTarget();
+    expect((await update(target, '{n}', 2)).status).toBe(200);
+    let afterClosing: Awaited<ReturnType<typeof logs>> = [];
+    await expect(
+      updateWithRace(target, '{yyyy}', 5, async (n) => {
+        expect(n).toBe(1);
+        const closed = await post(app, workspaceClose, {
+          slug: target.slug,
+          token: target.admin.token,
+          body: { workspace_id: target.workspace.id },
+        });
+        expect(closed.status).toBe(200);
+        afterClosing = await logs(target);
+      }),
+    ).rejects.toMatchObject({ status: 409, code: 'workspace_closed' });
+    expect((await list(target)).defaults).toMatchObject({ sprint_name_template: '{n}', sprint_number_next: 2 });
+    expect(await logs(target)).toEqual(afterClosing);
   });
 
   test.each([
