@@ -28,6 +28,16 @@ test('列を畳んで再読み込みしても保存され、別のワークス�
   await expect(page.locator('.draft-row input[aria-keyshortcuts]')).toHaveCount(1);
   await todoToggle.click();
   await expect(draft).toHaveValue('書きかけの札');
+  await draft.fill('あ'.repeat(201));
+  await draft.press('Enter');
+  const draftError = page.getByRole('alert').filter({ hasText: 'タイトルは 200 字までです' });
+  await expect(draftError).toBeVisible();
+  await todoToggle.click();
+  await expect(draftError).toBeHidden();
+  await todoToggle.click();
+  await expect(draftError).toBeVisible();
+  await expect(draft).toHaveValue('あ'.repeat(201));
+  await draft.fill('書きかけの札');
   const tally = await done.locator('.board-col-n').textContent();
   const points = await done.locator('.board-col-pts').textContent();
   await toggle.click();
