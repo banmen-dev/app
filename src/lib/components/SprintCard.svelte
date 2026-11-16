@@ -29,7 +29,15 @@
     dnd,
     onmove,
     ondelete,
+    highlightedStory = null,
+    onstoryhover,
+    onstoryfocus,
+    onstoryfilter,
   }: {
+    highlightedStory?: string | null;
+    onstoryhover?: (id: string | null) => void;
+    onstoryfocus?: (id: string | null) => void;
+    onstoryfilter?: (id: string) => void;
     task: SprintBoardTask;
     href: string;
     // ドラッグの配線。書き込めないときは渡さず、つかめず落とし先にもならない
@@ -156,6 +164,8 @@
 <article
   class="card"
   class:is-done={done}
+  class:is-story-highlighted={highlightedStory !== null && task.story?.id === highlightedStory}
+  class:is-story-dimmed={highlightedStory !== null && task.story?.id !== highlightedStory}
   class:is-reopen-blocked={done && writable && !task.reopenable}
   class:is-dragging={dnd?.isDragging(task.id)}
   class:is-dropped={dnd?.isFlashing(task.id)}
@@ -171,7 +181,17 @@
 >
   {#if selectable}<span class="visually-hidden" id={summaryId}>{summary}</span>{/if}
   {#if task.story !== null}
-    <span class="card-parent"><Icon name="flag" /> {task.story.title}</span>
+    <button
+      class="card-parent is-action"
+      data-story-filter={task.story.id}
+      type="button"
+      aria-label={t('sprintStoryFilterLabel', { story: t('story'), title: task.story.title })}
+      onpointerenter={() => onstoryhover?.(task.story!.id)}
+      onpointerleave={() => onstoryhover?.(null)}
+      onfocus={() => onstoryfocus?.(task.story!.id)}
+      onblur={() => onstoryfocus?.(null)}
+      onclick={() => onstoryfilter?.(task.story!.id)}><Icon name="flag" /> {task.story.title}</button
+    >
   {/if}
   <!-- 横と真ん中のときは、押しても、フォーカスとスクロールの位置は動かさない（引き出しが閉じたとき、data-task-id で探してフォーカスを戻す）。ページ全体の既定では taskLinkAttrs が reset を外し、先頭から表示する -->
   <!-- eslint-disable svelte/no-navigation-without-resolve -- href は画面が resolve した経路に ?task=<ID> を足したもの、またはその詳細ページ -->

@@ -46,6 +46,7 @@
   // ページ全体（tasks/[taskId]）は、ルートが TaskDrawer を置くので、ここでは引き出しを重ねない
   // 引き出しの帯に、前後のタスクへ移るボタンを出す。順は開いた画面が置く（バックログ、計画、スプリント。画面の見えている行の順で、端で止まる）。
   // 移るときは `?task=` を置き換え（履歴は積まない）、引き出しは置き直される。閉じたときのフォーカスは、最後に表示したタスクの行へ戻る（下の shownTaskId）
+  // スプリントだけは ?story をボードの絞り込み専用にし、詳細を開かない。タスクを閉じても絞り込みは残す。
   // ストーリーの引き出し（StoryDrawer）は、URL の `?story=<ID>` が付いている間、同じ形で置く。タスクの引き出しと同時には開かない
   // （行のリンクが、もう一方の問い合わせを外す。両方が付いた URL は、タスクの方だけを開く）。開き方は横か真ん中だけ（ページ全体は無い）。
   // 閉じるときは `story` だけを外し、開いた行の題（data-story-id）へフォーカスを戻す。前後のストーリーへは、バックログが置いた木のストーリーの順（storyOrder）で移る。
@@ -70,7 +71,11 @@
   const code = $derived(data.workspaceFailure?.code);
   const unavailable = $derived((status === 404 && code === 'not_found') || (status === 403 && code === 'forbidden'));
   const taskId = $derived(page.params.taskId ? null : page.url.searchParams.get('task'));
-  const storyId = $derived(page.params.taskId || taskId !== null ? null : page.url.searchParams.get('story'));
+  // スプリントでは ?story= はボードの絞り込み。ほかの画面では従来の詳細の引き出し。
+  const sprintStoryFilter = $derived(page.route.id === '/[slug]/w/[id]/sprint');
+  const storyId = $derived(
+    page.params.taskId || taskId !== null || sprintStoryFilter ? null : page.url.searchParams.get('story'),
+  );
   // エピックの引き出しも、タスクとストーリーの引き出しと同時には開かない（付いていれば、そちらを開く）
   const epicId = $derived(
     page.params.taskId || taskId !== null || storyId !== null ? null : page.url.searchParams.get('epic_id'),
@@ -113,11 +118,11 @@
   }
 
   // 今の URL から `task` を外した画面。開いた画面（バックログ、メンバーなど）のまま、ほかのクエリも残す。
-  // `story` も一緒に外す（両方が付いた URL はタスクの方だけが開いているので、`story` を残すと、閉じた途端にストーリーの引き出しが開く）
+  // ほかの画面は story も外す（閉じた途端にストーリーの引き出しを開かない）。スプリントの story 絞り込みは残す。
   const withoutTask = () => {
     const rest = new SvelteURLSearchParams(page.url.search);
     rest.delete('task');
-    rest.delete('story');
+    if (!sprintStoryFilter) rest.delete('story');
     rest.delete('epic_id');
     const query = rest.size > 0 ? `?${rest}` : '';
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- 今の画面の経路（page.url.pathname）に、残すクエリだけを足している

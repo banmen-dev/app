@@ -2517,6 +2517,16 @@ export const dictionary = defineDictionary({
     '{sprint}「{label}」は最終日（{end}）を過ぎています。終わらなかった{task}の行き先を決めて、終えてください。',
   sprintOverdueMember: '{sprint}「{label}」は最終日（{end}）を過ぎています。終えるのは{leader}です。',
   // スプリントの画面（design/sprint.html）。見出しは進行中のスプリントの名前、小見出しは期間と何日目か
+  sprintStoryFilterLabel: '{story}で絞り込む: {title}',
+  sprintStoryFilterActive: '{story}: {title}',
+  sprintStoryFilterApplied: '{story}「{title}」で絞り込みました',
+  sprintStoryFilterCleared: '{story}の絞り込みを外しました',
+  sprintStoryFilterInvalid: '絞り込み対象の{story}が現在のボードにないため、絞り込みを外しました',
+  sprintStoryFilterClearFailed: '絞り込みを外せませんでした。もう一度試してください',
+  sprintStoryTotalsNote: '見出しは全体、列の件数と{points}は絞り込み後の値です',
+  sprintStoryCreateUnder: '絞り込んだ{story}の下に追加します',
+  sprintBoardAddStoryGone:
+    'この{story}か{sprint}か{column}が見つかりません。{task}は作られていません。一覧を読み直します',
   sprintBoardPageName: '{name}・{workspace}',
   sprintBoardEyebrow: '{period}・{length} 日のうち {day} 日目',
   sprintBoardRegion: '{sprint}の{column}とカード',

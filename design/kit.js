@@ -59,6 +59,10 @@
 
   // ---- 言葉の辞書（各キーはスクラムの言葉の文字列1つ） ----
   const DICT = {
+    sprintStoryFilterLabel: '{story}で絞り込む: {title}',
+    sprintStoryFilterActive: '{story}: {title}',
+    sprintStoryTotalsNote: '見出しは全体、列の件数と{points}は絞り込み後の値です',
+    sprintStoryCreateUnder: '絞り込んだ{story}の下に追加します',
     sprintNamingTitle: '{sprint}の命名ルール',
     sprintNamingDesc: '新しく作る{sprint}の名前の初期値。過去の名前は変わりません。',
     sprintNamingTemplate: '命名ルール',
@@ -965,6 +969,9 @@
   // キーボードでは、選んで Alt と ← → で隣の列、Alt と ↑ ↓ で列の中を動かす（本番の SprintBoard）。完了の列のカードは Alt と ← と「⋯」で戻す
   // ドラッグ（本番の SprintCard）: つかめるカードは draggable="true" を持ち、カード全体をつかむ（opts.grab を false にするとつかめないカード）。
   // opts.mark はドラッグの状態: { drop: "before" | "after", state: "is-dragging" | "is-dropped" }（dropAttr と同じ形。into は列に付ける）
+  function storyFilterText(key, title = "") {
+    return t(key).replaceAll("{story}", t("story")).replaceAll("{points}", t("points")).replaceAll("{title}", () => title);
+  }
   function card(x, order, opts = {}) {
     const mark = opts.mark || {};
     const selectable = Boolean(order || x.doneAt);
@@ -973,12 +980,13 @@
     // 同じ画面に同じ盤を並べる（カタログ）ときの id の重なりを避ける接頭辞
     const k = opts.key ? `${opts.key}-` : "";
     const parent = x.story ? D.stories[x.story].title : null;
+    const storyState = opts.highlightStory ? (x.story === opts.highlightStory ? " is-story-highlighted" : " is-story-dimmed") : "";
     // 選べるカードは、題を名前に、ポイントと担当の要約と見えない動かし方の説明（#board-key-hint）を説明に読む
     const who = x.who ? user(x.who).name : null;
     const summary = `${x.pts == null ? "未見積もり" : `${t("points")} ${x.pts}`}、${who ? `${t("assignee")}は${esc(who)}` : `${t("assignee")}なし`}${blocked ? `、${t("done")}を戻せません` : ""}`;
-    return `<article class="card ${x.doneAt ? "is-done" : ""}${blocked ? " is-reopen-blocked" : ""}${mark.state ? ` ${mark.state}` : ""}"${grab ? ` draggable="true"` : ""}${dropAttr(mark)}${selectable ? ` tabindex="0" aria-labelledby="card-${k}${x.id}-title" aria-describedby="card-${k}${x.id}-summary board-key-hint"` : ""}>
+    return `<article data-story-id="${esc(x.story || "")}" class="card ${x.doneAt ? "is-done" : ""}${storyState}${blocked ? " is-reopen-blocked" : ""}${mark.state ? ` ${mark.state}` : ""}"${grab ? ` draggable="true"` : ""}${dropAttr(mark)}${selectable ? ` tabindex="0" aria-labelledby="card-${k}${x.id}-title" aria-describedby="card-${k}${x.id}-summary board-key-hint"` : ""}>
       ${selectable ? `<span class="visually-hidden" id="card-${k}${x.id}-summary">${summary}</span>` : ""}
-      ${parent ? `<span class="card-parent">${icon("flag")} ${esc(parent)}</span>` : ""}
+      ${parent ? `<button class="card-parent is-action" type="button" aria-label="${esc(storyFilterText("sprintStoryFilterLabel", parent))}" data-story-filter="${esc(x.story)}">${icon("flag")} ${esc(parent)}</button>` : ""}
       <a class="card-title" id="card-${k}${x.id}-title" href="#" data-task="${x.id}" draggable="false">${titleOf(x)}</a>
       <div class="card-meta">${repoTag(x)}${sourceKey(x)}${taskFlags(x)}${taskDue(x)}</div>
       <div class="card-foot">${order ? attrChip(x, "pts", { bare: true }) : pts(x.pts)}${order ? attrChip(x, "who", { bare: true }) : avatarOf(x.who)}<span class="card-end">${order ? rowMenu(x.title, [
@@ -991,9 +999,9 @@
   // opts.key: カードの id の接頭辞、opts.cardMarks: (x, i, c) => card のドラッグの状態、opts.columnMarks: (c) => 列の囲み（{ drop: "into" }）、opts.grab: (x) => つかめるか（既定は完了カードを含むすべて）
   const boardCollapsed = new Map();
   function board(sprintId, opts = {}) {
-    const list = tasksWhere((x) => x.sprint === sprintId);
+    const list = tasksWhere((x) => x.sprint === sprintId && (!opts.story || x.story === opts.story));
     const open = D.columns.filter((c) => !c.done);
-    return `<div class="board-wrap"><div class="board" style="--board-cols:${D.columns.length}">${D.columns.map((c) => {
+    return `<div class="story-board" data-board-story="${esc(opts.story || "")}" data-board-sprint="${sprintId}" data-board-key="${opts.key || ""}" data-board-draft="${!!opts.draft}">${opts.story ? `<div class="story-filter-band"><div class="story-filter-summary"><span>${icon("flag")}${esc(storyFilterText("sprintStoryFilterActive", D.stories[opts.story].title))}</span><span class="action-note">${storyFilterText("sprintStoryTotalsNote")}</span></div><button class="btn is-sm is-quiet" type="button" data-story-clear>${icon("x")}${t("filterClear")}</button></div>` : ""}<div class="board-wrap"><div class="board" style="--board-cols:${D.columns.length}">${D.columns.map((c) => {
       const name = c.done ? t("done") : (opts.columnName ? opts.columnName(c) : c.name);
       const items = list.filter((x) => (c.done ? x.doneAt : !x.doneAt && x.col === c.id));
       const collapseKey = `${opts.key || sprintId}-${c.id}`;
@@ -1004,10 +1012,10 @@
       return `<section class="board-col ${c.done ? "is-done" : ""} ${collapsed ? "is-collapsed" : ""}"${dropAttr(opts.columnMarks && opts.columnMarks(c))} aria-label="${esc(name)}">
         <div class="board-col-head"><button class="board-col-toggle" type="button" aria-label="${esc(name)}の開閉" aria-expanded="${!collapsed}" data-column-collapse="${esc(collapseKey)}">${icon("chevron")}</button>${c.done ? icon("check") : ""}<span class="board-col-name">${esc(name)}</span><span class="board-col-n">${items.length}</span><span class="board-col-pts">${sumPts(items)} pt</span></div>
         ${collapsed ? "" : `${c.done && D.definitionOfDone.length ? `<details class="dod"><summary>${t("dod")}</summary>${dodDoc()}</details>` : ""}
-        ${items.map((x, i) => card(x, c.done ? undefined : orderOf(i), { mark: opts.cardMarks && opts.cardMarks(x, i, c), grab: opts.grab ? opts.grab(x) : true, key: opts.key })).join("") || `<p class="board-empty">なし</p>`}
-        ${opts.draft && !c.done ? `<div class="board-col-draft">${draftRow("col", c.id, `${t("task")}を足す: ${c.name}`, `${t("task")}を足す`)}</div>` : ""}` }
+        ${items.map((x, i) => card(x, c.done ? undefined : orderOf(i), { mark: opts.cardMarks && opts.cardMarks(x, i, c), grab: opts.grab ? opts.grab(x) : true, key: opts.key, highlightStory: opts.highlightStory })).join("") || `<p class="board-empty">なし</p>`}
+        ${opts.draft && !c.done ? `<div class="board-col-draft">${draftRow("col", c.id, `${t("task")}を足す: ${c.name}`, `${t("task")}を足す`)}${opts.story ? `<p class="action-note">${storyFilterText("sprintStoryCreateUnder")}</p>` : ""}</div>` : ""}` }
       </section>`;
-    }).join("")}</div></div>`;
+    }).join("")}</div></div></div>`;
   }
 
   document.addEventListener("click", (event) => {
@@ -1015,7 +1023,9 @@
     if (!button) return;
     const key = button.dataset.columnCollapse;
     boardCollapsed.set(key, button.getAttribute("aria-expanded") === "true");
-    redrawAll();
+    const root = button.closest(".story-board");
+    if (root?.dataset.boardStory) root.outerHTML = board(root.dataset.boardSprint, { key: root.dataset.boardKey, story: root.dataset.boardStory, draft: root.dataset.boardDraft === "true" });
+    else redrawAll();
     [...document.querySelectorAll("[data-column-collapse]")].find((item) => item.dataset.columnCollapse === key)?.focus();
   });
 
@@ -3948,6 +3958,27 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   }
   document.addEventListener("input", (ev) => { if (ev.target.closest("[data-storage-choice]")) syncStorageDialog(); });
 
+
+  // ストーリーの親名の操作も、カードの見本の範囲だけで働く。
+  function highlightStoryExample(event, active) {
+    const trigger = event.target.closest?.("[data-story-filter]");
+    if (!trigger || (event.relatedTarget && trigger.contains(event.relatedTarget))) return;
+    const board = trigger.closest(".story-board");
+    board?.querySelectorAll(".card").forEach((card) => {
+      card.classList.toggle("is-story-highlighted", active && card.dataset.storyId === trigger.dataset.storyFilter);
+      card.classList.toggle("is-story-dimmed", active && card.dataset.storyId !== trigger.dataset.storyFilter);
+    });
+  }
+  document.addEventListener("pointerover", (event) => highlightStoryExample(event, true));
+  document.addEventListener("pointerout", (event) => highlightStoryExample(event, false));
+  document.addEventListener("focusin", (event) => highlightStoryExample(event, true));
+  document.addEventListener("focusout", (event) => highlightStoryExample(event, false));
+  document.addEventListener("click", (event) => {
+    const trigger = event.target.closest?.("[data-story-filter], [data-story-clear]");
+    const root = trigger?.closest(".story-board");
+    if (!root) return;
+    root.outerHTML = board(root.dataset.boardSprint, { key: root.dataset.boardKey, story: trigger.dataset.storyFilter, draft: root.dataset.boardDraft === "true" });
+  });
 
   // ---- 操作（見本の中だけで動き、保存はしない） ----
   document.addEventListener("change", (ev) => {
