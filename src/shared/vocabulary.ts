@@ -2512,10 +2512,13 @@ export const dictionary = defineDictionary({
   // スプリントの画面（design/sprint.html）。見出しは進行中のスプリントの名前、小見出しは期間と何日目か
   sprintStoryFilterLabel: '{story}で絞り込む: {title}',
   sprintStoryFilterActive: '{story}: {title}',
+  sprintStoryFilterApplied: '{story}「{title}」で絞り込みました',
+  sprintStoryFilterCleared: '{story}の絞り込みを外しました',
+  sprintStoryFilterInvalid: '指定された{story}が現在のボードにないため、絞り込みを外しました',
+  sprintStoryTotalsNote: '見出しは全体、列の件数とポイントは絞り込み後の値です',
   sprintStoryCreateUnder: '絞り込んだ{story}の下に追加します',
   sprintBoardAddStoryGone:
     'この{story}か{sprint}か{column}が見つかりません。{task}は作られていません。一覧を読み直します',
-  sprintStoryTotalsNote: '見出しは全体、列の件数とポイントは絞り込み後の値です',
   sprintBoardPageName: '{name}・{workspace}',
   sprintBoardEyebrow: '{period}・{length} 日のうち {day} 日目',
   sprintBoardTallyDone: '{done}（pt）',

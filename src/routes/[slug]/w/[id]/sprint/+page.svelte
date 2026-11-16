@@ -124,7 +124,9 @@
   $effect(() => {
     if (board !== null && requestedStoryId !== null && filteredStory === null) {
       // eslint-disable-next-line svelte/no-navigation-without-resolve -- 現在の経路のstory問い合わせだけを除く
-      void goto(storyHref(page.url, null), { replace: true, reset: false });
+      void goto(storyHref(page.url, null), { replace: true, reset: false }).then(() =>
+        announce(t('sprintStoryFilterInvalid', { story: t('story') })),
+      );
     }
   });
   const visibleColumns = $derived(storyColumns(columns, storyId));
@@ -133,10 +135,19 @@
   const highlightedStory = $derived(hoveredStory ?? focusedStory);
   async function filterStory(id: string | null): Promise<void> {
     const previous = storyId;
+    const title =
+      id === null
+        ? null
+        : columns.flatMap((column) => column.tasks).find((task) => task.story?.id === id)?.story?.title;
     hoveredStory = null;
     focusedStory = null;
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- 現在の経路のstory問い合わせだけを替える
     await goto(storyHref(page.url, id), { reset: false });
+    await announce(
+      id === null
+        ? t('sprintStoryFilterCleared', { story: t('story') })
+        : t('sprintStoryFilterApplied', { story: t('story'), title: title ?? '' }),
+    );
     if (id === null && previous !== null) {
       await tick();
       document.querySelector<HTMLElement>(`[data-story-filter="${CSS.escape(previous)}"]`)?.focus();
