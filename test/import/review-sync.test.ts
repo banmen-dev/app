@@ -566,7 +566,7 @@ test('取得中にPATを替えたら旧本人の新規依頼も保存しない',
     );
     return { items: [item()], next: null };
   };
-  expect(await sync(ctx, f.source)).toEqual({ outcome: 'stopped' });
+  expect(await sync(ctx, f.source)).toMatchObject({ outcome: 'error' });
   expect(await rows(ctx)).toEqual([]);
   expect(await sources(ctx)).toEqual([]);
 });
@@ -606,17 +606,6 @@ test('除外モードは候補一覧が10頁を超えても列挙位置と現在
   expect(candidates[10]).toBe('11');
   expect(requests).toBeLessThanOrEqual(10);
   expect(await rows(ctx)).toHaveLength(1);
-});
-
-test('新しい同期状態のレビューカーソルを旧版のresume.cursorへ出さない', async () => {
-  const ctx = await setup();
-  const f = fake();
-  f.state.page = () => ({ items: [], next: 'review-history' });
-  await sync(ctx, f.source, 2);
-  const connection = (await readSyncConnection(ctx.db, ctx.workspace.id, ctx.connection.id))!.connection;
-  const value = JSON.parse(connection.sync_state_json);
-  expect(value.resume).toBeUndefined(); // 旧版はresumeが無ければIssue走査を最初から始める。
-  expect(value.position).toMatchObject({ phase: 'reviews', cursor: 'review-history' });
 });
 
 test('レビューの403はその回を止め、次の同期では後ろの範囲のIssueも取り込める', async () => {
@@ -671,4 +660,15 @@ test('再依頼の到着日時だけを進め、初回の作成日時と同じ�
     now: () => new Date('2026-11-19T00:00:00.000Z'),
   });
   expect((await sources(ctx))[0]).toMatchObject({ last_received_at: later });
+});
+
+test('新しい同期状態のレビューカーソルを旧版のresume.cursorへ出さない', async () => {
+  const ctx = await setup();
+  const f = fake();
+  f.state.page = () => ({ items: [], next: 'review-history' });
+  await sync(ctx, f.source, 2);
+  const connection = (await readSyncConnection(ctx.db, ctx.workspace.id, ctx.connection.id))!.connection;
+  const value = JSON.parse(connection.sync_state_json);
+  expect(value.resume).toBeUndefined(); // 旧版はresumeが無ければIssue走査を最初から始める。
+  expect(value.position).toMatchObject({ phase: 'reviews', cursor: 'review-history' });
 });

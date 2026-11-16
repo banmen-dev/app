@@ -309,6 +309,13 @@ export async function syncConnection(
           itemsOnly,
           reviewRetry: reviewRetry === null ? null : progressValue(reviewRetry),
         });
+  // 保存条件が変わった場合も、認証情報の差し替えを「停止」とは報告しない。
+  const interrupted = async (): Promise<SyncResult> => {
+    const latest = await readSyncConnection(db, workspaceId, connectionId);
+    return latest === undefined || latest.connection.status === 'stopped'
+      ? { outcome: 'stopped' }
+      : { outcome: 'error', imported };
+  };
   // 状態の文が通らなかった（同期の最中に接続が止まった、削除された）ときは false
   const finish = async (outcome: SyncOutcome): Promise<boolean> => {
     const result = await db.run(
@@ -342,7 +349,7 @@ export async function syncConnection(
       if (pagedCandidates && scopeBatch === null) {
         if (requests >= requestLimit || pages >= maxPages) {
           // 候補一覧だけで上限に達しても、その続きの位置から再開する。
-          if (!(await finish({ kind: 'success', syncStateJson: stateJson() }))) return { outcome: 'stopped' };
+          if (!(await finish({ kind: 'success', syncStateJson: stateJson() }))) return interrupted();
           return { outcome: 'success', imported, more: true };
         }
         pages++;
@@ -375,7 +382,7 @@ export async function syncConnection(
         while (true) {
           resume = current;
           if (pages >= maxPages || requests >= requestLimit) {
-            if (!(await finish({ kind: 'success', syncStateJson: stateJson() }))) return { outcome: 'stopped' };
+            if (!(await finish({ kind: 'success', syncStateJson: stateJson() }))) return interrupted();
             return { outcome: 'success', imported, more: true };
           }
           const input = { credential, fetcher, settings, scope, cursor: current.cursor };
@@ -466,15 +473,15 @@ export async function syncConnection(
       ({ resume, scopeBatch, candidateCursor } = reviewRetry);
       reviewRetry = null;
       itemsOnly = false;
-      if (!(await finish({ kind: 'success', syncStateJson: stateJson() }))) return { outcome: 'stopped' };
+      if (!(await finish({ kind: 'success', syncStateJson: stateJson() }))) return interrupted();
       return { outcome: 'success', imported, more: true };
     }
     resume = null;
-    if (!(await finish({ kind: 'success', syncStateJson: '{}' }))) return { outcome: 'stopped' };
+    if (!(await finish({ kind: 'success', syncStateJson: '{}' }))) return interrupted();
     return { outcome: 'success', imported, more: false };
   } catch (error) {
     if (budgetReached && (resume !== null || candidateCursor !== null || scopeBatch !== null)) {
-      if (!(await finish({ kind: 'success', syncStateJson: stateJson() }))) return { outcome: 'stopped' };
+      if (!(await finish({ kind: 'success', syncStateJson: stateJson() }))) return interrupted();
       return { outcome: 'success', imported, more: true };
     }
     // 403/429の回は直ちに止める。失敗したレビューの位置を保持し、次回はIssueだけを全範囲へ通す。
@@ -493,10 +500,11 @@ export async function syncConnection(
     const failure = failureOf(error);
     // 認証の失敗（取り込み元が受け付けない、保存した認証情報が使えない形）は接続を止める。ほかは止めず、次の同期で再試行する
     if (failure.stop) {
-      await finish({ kind: 'auth_failed', message: failure.message, syncStateJson: stateJson() });
+      if (!(await finish({ kind: 'auth_failed', message: failure.message, syncStateJson: stateJson() })))
+        return interrupted();
       return { outcome: 'auth_failed', imported };
     }
-    await finish({ kind: 'error', message: failure.message, syncStateJson: stateJson() });
+    if (!(await finish({ kind: 'error', message: failure.message, syncStateJson: stateJson() }))) return interrupted();
     return { outcome: 'error', imported };
   }
 }
