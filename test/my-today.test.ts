@@ -112,6 +112,33 @@ describe('my-today: 全組織の本人の今日やること', () => {
     expect(listed.failed_organizations).toEqual([]);
   });
 
+  test('my-today はスプリントゴールの問い合わせを送らず、組織内 today は引き続き読む', async () => {
+    const person = await createPerson();
+    const { organization, workspace } = await organizationFor(person);
+    await createSprint(organization, workspace.id, { status: 'active', goal: '今週の目標' });
+    const queries: string[] = [];
+    const env = envWithD1Hooks(testEnv, {
+      beforeBatch: (sqls) => {
+        queries.push(...sqls);
+      },
+    });
+    const isGoalQuery = (sql: string) => sql.includes('from "sprints" as "s"') && sql.includes('"s"."goal"');
+
+    const view = await read(person, env);
+    expect(view.tasks).toHaveLength(1);
+    expect(queries.some((sql) => sql.includes('"tasks" as "t"'))).toBe(true);
+    expect(queries.filter(isGoalQuery)).toEqual([]);
+
+    queries.length = 0;
+    const response = await post(app, today, { token: person.token, slug: organization.slug, env });
+    expect(response.status).toBe(200);
+    const localView = today.output.parse(await response.json());
+    expect(localView.sprint_goals).toEqual([
+      { workspace_id: workspace.id, workspace_name: workspace.name, goal: '今週の目標' },
+    ]);
+    expect(queries.filter(isGoalQuery)).toHaveLength(1);
+  });
+
   test('2組織の別々の本人 userId を使い、組織名・種類・ワークスペース名を付ける', async () => {
     const person = await createPerson();
     const team = await organizationFor(person, { name: '青葉工房' });

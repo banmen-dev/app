@@ -1015,7 +1015,11 @@ function taskReadErrorKind(error: unknown): 'Error' | 'TypeError' | 'RangeError'
   if (typeof error !== 'object' || error === null) return 'UnknownError';
   try {
     // 取り消された Proxy では instanceof 自体も投げるため、既知エラーの判定もこの中に閉じる。
-    if (error instanceof ApiError) return null;
+    if (error instanceof ApiError) {
+      // 想定した認可拒否だけを無ログにし、障害などの API エラーは安全な固定語で観測する。
+      const status = error.status;
+      return status === 401 || status === 403 || status === 404 ? null : 'UnknownError';
+    }
     const prototype = Object.getPrototypeOf(error);
     const name = Object.getOwnPropertyDescriptor(error, 'name');
     const kind =

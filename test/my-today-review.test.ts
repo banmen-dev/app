@@ -114,6 +114,25 @@ describe('my-today: レビューで見つかった組織読み取りの境界と
     expectSafeLog(error.mock.calls, target.organization.id, 'UnknownError');
   });
 
+  test('503 の障害も安全な種類と組織IDだけをログに残し、ほかの組織は読んで返す', async () => {
+    const person = await createPerson();
+    const failedTarget = await organizationFor(person, 'あ障害の工房');
+    const ordinaryTarget = await organizationFor(person, 'い継続中の工房');
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const result = await readAccountTaskOrganizations(testEnv, accountOf(person), async (db) => {
+      if (db.organizationId === failedTarget.organization.id) {
+        throw new ApiError(503, 'unavailable', { secret: SECRET });
+      }
+      return { title: '表示する仕事' };
+    });
+    expect(result.organizations).toEqual([
+      { organization: reference(ordinaryTarget), data: { title: '表示する仕事' } },
+    ]);
+    expect(result.failed_organizations).toEqual([reference(failedTarget)]);
+    expect(result.omitted_organizations).toBe(0);
+    expectSafeLog(error.mock.calls, failedTarget.organization.id, 'UnknownError');
+  });
+
   test.each([
     new ApiError(401, 'organization_reauth_required', { secret: SECRET }),
     new ApiError(403, 'organization_suspended', { secret: SECRET }),
