@@ -284,7 +284,7 @@
     let completed = false;
     const sent = moves.send(
       async () => {
-        completed = await complete(task, true);
+        completed = await complete(task);
         if (completed && dropped) flashAfterReload = task.id;
         return completed ? ({ ok: true, data: null } as const) : ({ ok: false, status: 0, error: null } as const);
       },
@@ -396,7 +396,8 @@
 
   // 完了にできたら true（別の画面で先に完了にされていたときも）。queued が真のとき（MoveQueue の中で呼ぶとき）は、通っても
   // 読み直さず、フォーカスも動かさない（列が空になった後に、呼んだ側の reloadOnSuccess が読み直す）。断られたときの扱いは同じ
-  async function complete(task: SprintBoardTask, queued = false): Promise<boolean> {
+  // 完了はすべて queueComplete から呼ぶ。成功時の読み直しとフォーカスは待ち行列側が扱う。
+  async function complete(task: SprintBoardTask): Promise<boolean> {
     if (workspace === null || refusedWhileBusy()) return false;
     completingId = task.id;
     const workspaceId = workspace.id;
@@ -413,12 +414,6 @@
           : t('taskAlreadyDone', { task: t('task'), done: t('done') });
         // トーストが読み上げる
         showToast(message, 'check');
-        if (!queued) {
-          await invalidate('app:sprint-board');
-          // 完了の列のカードは選べない。同じカードの題のリンクへフォーカスを移す
-          await tick();
-          document.querySelector<HTMLElement>(`a[data-task-id="${CSS.escape(task.id)}"]`)?.focus();
-        }
       } else if (result.status === 401) {
         await invalidateAll();
       } else if (result.status === 404) {
