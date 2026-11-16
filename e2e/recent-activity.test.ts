@@ -216,7 +216,7 @@ test('読み込み中は面だけに骨組みと「読み込んでいます」�
   await expect(pane.getByRole('status')).toHaveText('');
 });
 
-test('今日やることの操作でホームを読み直しても、最近の更新に足した続きは消えず、読み直さない', async ({ page }) => {
+async function expectContinuationSurvivesTodayReload(page: Page, options: { preload: boolean }): Promise<void> {
   let activityCalls = 0;
   await routeOperation(page, recentActivity, { slug: 'aoba' }, async (call) => {
     activityCalls++;
@@ -263,12 +263,30 @@ test('今日やることの操作でホームを読み直しても、最近の�
   await expect(pane.locator('.activity-row')).toHaveCount(22);
   expect(activityCalls).toBe(2);
 
+  if (options.preload) {
+    // マウスが行のリンクの上を通ると、ワークスペースの画面を先読みする（src/app.html の data-sveltekit-preload-data="hover"）。
+    // 先読みの読み込みが走っている間に、今日やるの操作でホームを読み直す
+    const preloaded = page.waitForRequest((request) => request.url().endsWith('/api/aoba/backlog-tree'));
+    await page.locator('.pane-link').first().hover();
+    await preloaded;
+  }
   await page.getByRole('button', { name: '今日やる: あとでやる' }).click();
   await expect(page.getByRole('status').filter({ hasText: '今日やると決めました' })).toBeVisible();
   // 通ったら今日の読み取りだけを読み直す（トーストは読み直しの前に出る）
   await expect.poll(() => todayCalls).toBe(2);
+  await expect(page.getByRole('button', { name: '今日やる: あとでやる' })).toHaveAttribute('aria-pressed', 'true');
   await expect(pane.locator('.activity-row')).toHaveCount(22);
   expect(activityCalls).toBe(2);
+}
+
+test('今日やることの操作でホームを読み直しても、最近の更新に足した続きは消えず、読み直さない', async ({ page }) => {
+  await expectContinuationSurvivesTodayReload(page, { preload: false });
+});
+
+test('ワークスペースの画面の先読みが走っている間に、今日やることの操作でホームを読み直しても、最近の更新は読み直されない', async ({
+  page,
+}) => {
+  await expectContinuationSurvivesTodayReload(page, { preload: true });
 });
 
 test('続きの失敗の案内は、面を読み直すと消え、足した行が無かったときのフォーカスは最後の行へ戻る', async ({ page }) => {

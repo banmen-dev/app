@@ -19,7 +19,11 @@
   // 読み込みの状態は、常に置いた role="status" の領域の文字だけを替えて伝える（LoadFailed と同じ）。
   // 行は押すと、対象のワークスペースのバックログに `?task=` `?story=` `?epic_id=` を付けて移り、詳細の引き出しが開く
   type Listing = OutputOf<typeof recentActivity>;
-  let { slug }: { slug: string } = $props();
+  let { slug: slugProp }: { slug: string } = $props();
+  // 親は `slug={data.slug}` で渡す。この prop の読み出しは data（ページの load の結果）を直に読むので、ホームを読み直して data が
+  // 新しい値に置き換わるたびに、slug の値が同じでも effect が走り直す（今日やることの操作のたびに、足した続きを捨てて先頭から読み直していた）。
+  // $derived にすると値の比較が入り、値が替わったとき（別の組織へ移ったとき）だけ、依存する effect が走り直る
+  const slug = $derived(slugProp);
 
   let phase = $state<'loading' | 'ready' | 'failed'>('loading');
   let entries = $state.raw<RecentActivityEntry[]>([]);
