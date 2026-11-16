@@ -1,7 +1,7 @@
-import { sprintBoard } from '../src/shared/operations/sprint/index.ts';
+import { sprintBoard, taskColumnMove } from '../src/shared/operations/sprint/index.ts';
 import { expect, test } from './fixtures.ts';
 import { createWorkspace, dragTo, signIn, waitForSettled, watchViolations } from './helpers.ts';
-import { mockOperation } from './operations.ts';
+import { mockOperation, routeOperation } from './operations.ts';
 import { SAMPLE_BOARD } from './sprint-fixture.ts';
 
 const TEAM = '/aoba/w/019a0000-0000-7000-8000-000000000401';
@@ -150,3 +150,54 @@ test('畳んだ列へドラッグすると末尾に入り、キー移動も隣�
   await page.reload();
   await expect(review.locator('.card-title')).toHaveText(['先の札', '動かす札']);
 });
+
+for (const collapsed of [true, false]) {
+  for (const succeeds of [true, false]) {
+    test(`列が${collapsed ? '畳まれた' : '開いた'}ドラッグで、応答が${succeeds ? '成功' : '失敗'}のときだけ結果を通知する`, async ({
+      page,
+      context,
+      baseURL,
+    }) => {
+      await signIn(context, baseURL, 'admin');
+      await mockOperation(page, sprintBoard, { slug: 'aoba' }, SAMPLE_BOARD);
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let sent = false;
+      await routeOperation(page, taskColumnMove, { slug: 'aoba' }, async (call) => {
+        sent = true;
+        await gate;
+        if (succeeds) await call.fulfill({ task_id: call.input.task_id, column_id: call.input.column_id });
+        else await call.fail(500, 'internal');
+      });
+      await page.goto(`${TEAM}/sprint`);
+      const title = SAMPLE_BOARD.columns[0].tasks[0].title;
+      const target = page.getByRole('region', { name: 'レビュー', exact: true });
+      if (collapsed) await target.getByRole('button', { name: 'レビューの開閉' }).click();
+      const moved = page.locator('.toast').filter({ hasText: new RegExp(`${title}をレビューの`) });
+      try {
+        await dragTo(
+          page,
+          page.getByRole('link', { name: title, exact: true }),
+          target.locator('.board-col-head'),
+          'middle',
+        );
+        await expect.poll(() => sent).toBe(true);
+        await expect(moved).toHaveCount(0);
+        release();
+        if (!succeeds) {
+          await expect(page.locator('.toast', { hasText: '動かせませんでした。一覧を読み直します' })).toBeVisible();
+          await expect(moved).toHaveCount(0);
+        } else if (collapsed) {
+          await expect(moved).toBeVisible();
+        } else {
+          await expect(page.getByRole('status').filter({ hasText: new RegExp(`${title}をレビューの`) })).toHaveCount(1);
+          await expect(moved).toHaveCount(0);
+        }
+      } finally {
+        release();
+      }
+    });
+  }
+}

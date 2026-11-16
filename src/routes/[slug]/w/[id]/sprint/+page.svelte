@@ -379,12 +379,16 @@
     local = plan.columns;
     void restoreFocus(saved);
     if (flash) dnd.flash(task.id);
-    if (flash && collapsedColumns.isCollapsed(plan.column.id)) showToast(movedMessage(task, plan), 'check');
-    else void announce(movedMessage(task, plan));
+    const hiddenDrop = flash && collapsedColumns.isCollapsed(plan.column.id);
+    if (!hiddenDrop) void announce(movedMessage(task, plan));
     const workspaceId = workspace.id;
     const input = columnMoveInput(workspaceId, task, plan.column.id, plan.afterTaskId);
     void moves.send(
-      () => callOperation(taskColumnMove, input, { slug }),
+      async () => {
+        const result = await callOperation(taskColumnMove, input, { slug });
+        if (result.ok && hiddenDrop && workspaceId === page.params.id) showToast(movedMessage(task, plan), 'check');
+        return result;
+      },
       (result) => moveRefused(workspaceId, result),
     );
   }
