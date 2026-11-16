@@ -816,6 +816,7 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
 .progress.is-detailed { flex-wrap: wrap; }
 .progress.is-detailed .progress-bar { flex-basis: 120px; }
 .progress.is-detailed .progress-num { white-space: normal; overflow-wrap: anywhere; }
+.progress-legend { flex-basis: 100%; font-size: var(--text-xs); color: var(--color-muted); }
 .progress-summary { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3) var(--space-6); }
 .progress-summary .progress { flex-basis: 280px; }
 .progress-remaining { font-size: var(--text-sm); color: var(--color-muted); white-space: nowrap; }

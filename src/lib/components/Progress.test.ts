@@ -32,3 +32,8 @@ test.each([-10, 0, 100, 110])('目盛り %s は棒の両端に収める', (marke
   expect(html).toContain(`left: ${Math.max(0, Math.min(100, markerPercent))}%`);
   expect(html).toContain('width: 100%');
 });
+
+test('経過の意味を読み上げだけでなく可視の凡例としても出す', () => {
+  const html = body({ done: 8, all: 31, detailed: true, markerPercent: 57, markerLabel: '経過 8 / 14 日（57%）' });
+  expect(html).toContain('<span class="progress-legend">経過 8 / 14 日（57%）</span>');
+});

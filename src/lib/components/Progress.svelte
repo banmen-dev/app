@@ -40,4 +40,5 @@
     {/if}
   </span>
   <span class="progress-num">{value}</span>
+  {#if marker !== undefined && markerLabel}<span class="progress-legend">{markerLabel}</span>{/if}
 </span>

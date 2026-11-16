@@ -1150,6 +1150,7 @@ test('進み具合は完了ポイントと経過日数を1本の棒で示し、�
   await expect(page.locator('.progress-num')).toHaveText('完了 2 / 10 pt（20%）');
   await expect(gauge).toHaveAccessibleName('完了 2 / 10 pt（20%）、経過 8 / 14 日（57%）');
   await expect(page.locator('.progress-remaining')).toHaveText('残り 7 日');
+  await expect(page.locator('.progress-legend')).toHaveText('経過 8 / 14 日（57%）');
   await expect(page.locator('.progress-fill')).not.toHaveCSS('width', '0px');
   await expect(page.locator('.progress-marker')).toHaveAttribute('style', /left: 57\.142/);
   await dragTo(
