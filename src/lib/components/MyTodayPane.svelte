@@ -63,6 +63,7 @@
 
 <Pane id="p-my-today" title={t('paneMyToday')} busy={today === undefined || retrying}>
   {#if today === undefined}
+    <span class="visually-hidden" role="status">{t('loading')}</span>
     <div class="skeleton" aria-hidden="true">
       <span class="skeleton-line is-block"></span>
       <span class="skeleton-line is-block"></span>
@@ -77,7 +78,7 @@
   {:else}
     {#if today.omitted_organizations > 0}
       <div class="callout is-info">
-        <Icon name="alert" /><span>{t('myTodayOmitted', { count: today.omitted_organizations })}</span>
+        <Icon name="list-bullet" /><span>{t('myTodayOmitted', { count: today.omitted_organizations })}</span>
       </div>
     {/if}
     {#if today.failed_organizations.length > 0}
