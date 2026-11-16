@@ -56,7 +56,7 @@
       dragging = { id: event.pointerId, x: event.clientX, y: event.clientY };
     }}
     onpointermove={(event) => {
-      if (dragging?.id !== event.pointerId) return;
+      if (disabled || dragging?.id !== event.pointerId) return;
       const scale = crop.size / event.currentTarget.getBoundingClientRect().width;
       move((dragging.x - event.clientX) * scale, (dragging.y - event.clientY) * scale);
       dragging = { id: event.pointerId, x: event.clientX, y: event.clientY };
