@@ -1073,6 +1073,7 @@ export const dictionary = defineDictionary({
   progressValue: '{value} / {all} pt',
   progressCompleted: '{done} {value} / {all} pt',
   progressCompletedPercent: '{done} {value} / {all} pt（{percent}%）',
+  progressPercent: '（{percent}%）',
   progressElapsed: '経過 {day} / {length} 日（{percent}%）',
   sprintBoardRemaining: '残り {days} 日',
   epicPageNotFoundTitle: '{epic}が見つかりません',

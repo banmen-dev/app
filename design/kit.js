@@ -1133,7 +1133,8 @@
     const value = detailed ? `${t("done")} ${done} / ${all} pt${all > 0 ? `（${pct}%）` : ""}` : `${done} / ${all} pt`;
     const label = detailed ? value : `${t("done")} ${done} / ${all} ${t("points")}`;
     const marker = markerPercent === undefined ? "" : `<i class="progress-marker" style="left:${Math.max(0, Math.min(100, markerPercent))}%" aria-hidden="true"></i>`;
-    return `<span class="progress${detailed ? " is-detailed" : ""}"><span class="progress-bar${marker ? " has-marker" : ""}" role="img" aria-label="${esc(label + (marker && markerLabel ? `、${markerLabel}` : ""))}"><span class="progress-fill" style="width:${pct}%"></span>${marker}</span><span class="progress-num">${esc(value)}</span>${marker && markerLabel ? `<span class="progress-legend">${esc(markerLabel)}</span>` : ""}</span>`;
+    const visibleValue = detailed ? `${esc(t("done"))} <span class="progress-value">${done} / ${all} pt</span>${all > 0 ? `<span class="progress-value">（${pct}%）</span>` : ""}` : esc(value);
+    return `<span class="progress${detailed ? " is-detailed" : ""}"><span class="progress-bar${marker ? " has-marker" : ""}" role="img" aria-label="${esc(label + (marker && markerLabel ? `、${markerLabel}` : ""))}"><span class="progress-fill" style="width:${pct}%"></span>${marker}</span><span class="progress-num">${visibleValue}</span>${marker && markerLabel ? `<span class="progress-legend">${esc(markerLabel)}</span>` : ""}</span>`;
   }
 
   // レベルの面

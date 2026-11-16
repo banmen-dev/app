@@ -40,6 +40,11 @@
       <i class="progress-marker" style:left={`${marker}%`} aria-hidden="true"></i>
     {/if}
   </span>
-  <span class="progress-num">{value}</span>
+  <span class="progress-num"
+    >{#if detailed}<span>{t('done')}</span>
+      <span class="progress-value">{t('progressValue', { value: done, all })}</span>{#if all > 0}<span
+          class="progress-value">{t('progressPercent', { percent })}</span
+        >{/if}{:else}{value}{/if}</span
+  >
   {#if marker !== undefined && markerLabel}<span class="progress-legend">{markerLabel}</span>{/if}
 </span>
