@@ -163,9 +163,19 @@ describe('sprint-list', () => {
   test('前のスプリントが無ければ、初期値は今日より後で最初の週の始まりと 14 日', async () => {
     const target = await createTarget();
     // 今日（月曜）が週の始まりでも、今日ではなく次の週の始まり
-    expect(((await (await list(target)).json()) as ListBody).defaults).toEqual({ start_on: '2026-11-02', length: 14 });
+    expect(((await (await list(target)).json()) as ListBody).defaults).toEqual({
+      start_on: '2026-11-02',
+      length: 14,
+      sprint_name_template: null,
+      sprint_number_next: 1,
+    });
     await setWeekStart(target, 0);
-    expect(((await (await list(target)).json()) as ListBody).defaults).toEqual({ start_on: '2026-11-01', length: 14 });
+    expect(((await (await list(target)).json()) as ListBody).defaults).toEqual({
+      start_on: '2026-11-01',
+      length: 14,
+      sprint_name_template: null,
+      sprint_number_next: 1,
+    });
     // 別のワークスペースのスプリントと、削除したスプリントは前のスプリントに数えない
     await createSprint(target.organization, target.otherWorkspace.id, { start_on: '2026-12-01', end_on: '2026-12-07' });
     await createSprint(target.organization, target.workspace.id, {
@@ -173,7 +183,12 @@ describe('sprint-list', () => {
       end_on: '2026-12-07',
       deleted_at: '2026-10-21T00:00:00.000Z',
     });
-    expect(((await (await list(target)).json()) as ListBody).defaults).toEqual({ start_on: '2026-11-01', length: 14 });
+    expect(((await (await list(target)).json()) as ListBody).defaults).toEqual({
+      start_on: '2026-11-01',
+      length: 14,
+      sprint_name_template: null,
+      sprint_number_next: 1,
+    });
   });
 
   test('前のスプリントがあれば、最終日がいちばん後のもの（終了したものも含む）の翌日と同じ長さ', async () => {
@@ -184,7 +199,12 @@ describe('sprint-list', () => {
       end_on: '2026-11-11',
       status: 'closed',
     });
-    expect(((await (await list(target)).json()) as ListBody).defaults).toEqual({ start_on: '2026-11-12', length: 10 });
+    expect(((await (await list(target)).json()) as ListBody).defaults).toEqual({
+      start_on: '2026-11-12',
+      length: 10,
+      sprint_name_template: null,
+      sprint_number_next: 1,
+    });
   });
 
   test('閉じたワークスペースでも読める', async () => {
