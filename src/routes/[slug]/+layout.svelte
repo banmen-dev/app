@@ -119,6 +119,7 @@
     {/if}
     <AccountMenu
       userId={organization.me.id}
+      image={organization.me.avatar_url}
       name={organization.me.name}
       isAdmin={organization.me.is_admin}
       level={organization.me.level}

@@ -2801,3 +2801,13 @@ body.has-assist .toasts { right: calc(400px + var(--space-4)); }
     background: var(--color-accent-soft); border-color: var(--color-accent); color: var(--color-accent);
   }
 }
+
+/* 画像の切り抜き。正方形の枠の中を256pxに再描画する。 */
+.image-crop { display: grid; gap: var(--space-3); min-width: 0; }
+.image-crop-preview { display: block; width: min(100%, 256px); aspect-ratio: 1; padding: 0; overflow: hidden; border: 1px solid var(--color-line); border-radius: var(--radius-1); background: var(--color-bg); touch-action: none; cursor: move; }
+.image-crop-preview canvas { display: block; width: 100%; height: auto; pointer-events: none; }
+.image-crop input[type="range"] { width: 100%; min-height: 44px; accent-color: var(--color-accent); }
+.image-crop .form-actions { flex-wrap: wrap; }
+.image-crop .btn { min-width: 44px; min-height: 44px; }
+
+.image-crop-preview[data-disabled="true"] { opacity: 0.45; cursor: not-allowed; }

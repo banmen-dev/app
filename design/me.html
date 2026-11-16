@@ -16,6 +16,7 @@
 <script src="art.js"></script>
 <script src="sample-data.js"></script>
 <script src="kit.js"></script>
+<script src="image-crop.js"></script>
 <script>
 "use strict";
 // マイプロフィール: 届いた招待（この組織のワークスペースへの招待。本文の先頭に囲みの知らせで）、稼働の基準、休み、テーマ、API トークン、全ワークスペースの積載量、経験値の明細。
@@ -57,6 +58,7 @@ SQ.mount("me", () => `
         ${setting("月の基準の上書き", `按分では合わない月だけ、その月の基準を時間で決めます。`, `
           <ul class="party-list">${M.overrides.map(([m, h]) => `<li><span class="mono">${m}</span><span>${h} 時間</span><button class="icon-btn is-danger" type="button" aria-label="${m} の上書きを消す" style="margin-left:auto">${icon("trash")}</button></li>`).join("")}</ul>
           <div class="form-row"><label class="field" for="om"><span class="field-label">月</span><input class="input" id="om" placeholder="2027-01"></label><label class="field" for="oh"><span class="field-label">時間</span><input class="input" id="oh" type="number"></label><button class="btn" type="button">足す</button></div>`)}
+        ${SQ.avatarSettingHtml("me-avatar", { syncAccount: true })}
         ${setting("テーマ", `画面の見た目。選ぶとすぐに変わります。自分だけに効きます。`, `
           <div class="choice-list">
             ${SQ.THEMES.map((v) => `<label class="choice"><input type="radio" name="my-theme" value="${v}" data-pick-theme><div><b>${SQ.THEME_LABEL[v]}</b><span>${SQ.THEME_NOTE[v]}</span></div></label>`).join("")}

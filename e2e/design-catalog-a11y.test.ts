@@ -17,6 +17,7 @@ test.beforeEach(async ({ page }) => {
     'art.js': 'text/javascript',
     'sample-data.js': 'text/javascript',
     'kit.js': 'text/javascript',
+    'image-crop.js': 'text/javascript',
   };
   await page.route('**/__design-catalog/**', async (route) => {
     const name = new URL(route.request().url()).pathname.split('/').pop()!;

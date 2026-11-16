@@ -60,6 +60,23 @@
   // ---- 言葉の辞書（各キーはスクラムの言葉の文字列1つ） ----
   const DICT = {
     organizationList: "ダッシュボード",
+    avatarTitle: "プロフィール画像",
+    avatarDescription: "この組織だけで使う画像。PNG、JPEG、WebP を選び、正方形に切り抜いて上げます。",
+    avatarChoose: "画像を選ぶ", avatarRemove: "外す", avatarUpload: "上げる", avatarCancel: "やめる",
+    avatarCropTitle: "プロフィール画像を切り抜く",
+    avatarCropHint: "正方形の枠の中が上がります。画像をドラッグして位置を合わせます。移動ボタンにフォーカスすると矢印キーでも範囲を動かせます。",
+    avatarCropArea: "切り抜きの範囲", avatarCropPosition: "中心の位置: 横 {x}%、縦 {y}%",
+    avatarCropMove: "切り抜きの範囲を動かす",
+    avatarCropLeft: "範囲を左へ", avatarCropRight: "範囲を右へ", avatarCropUp: "範囲を上へ", avatarCropDown: "範囲を下へ",
+    avatarCropZoom: "拡大率", avatarCropZoomValue: "{value}倍",
+    avatarTypeInvalid: "PNG、JPEG、WebP の画像を選んでください。SVG、GIF や画像でないファイルは使えません。",
+    avatarSourceTooLarge: "元の画像は{max}MiB以下にしてください。",
+    avatarDecodeFailed: "画像を読み込めませんでした。別の画像を選んでください。",
+    avatarOutputTooLarge: "切り抜いた画像が{max}KiBを超えました。別の画像を選んでください。",
+    avatarRejected: "画像を上げられませんでした。PNG、JPEG、WebP の静止画で、{bytes}KiB・縦横{pixels}px以下の画像が使えます。",
+    avatarSaveFailed: "プロフィール画像を変更できませんでした。もう一度試してください。",
+    avatarSaving: "画像を変更しています", avatarReading: "画像を読み込んでいます",
+    avatarSaved: "プロフィール画像を上げました。", avatarRemoved: "プロフィール画像を外しました。",
     sprintStoryFilterLabel: '{story}で絞り込む: {title}',
     sprintStoryFilterActive: '{story}: {title}',
     sprintStoryTotalsNote: '見出しは全体、列の件数と{points}は絞り込み後の値です',
@@ -3583,7 +3600,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const name = user(D.me).name;
     const badge = admin ? t("admin") : "";
     // 名前、管理者の札、紋章は .me-detail にまとめ、760px 以下ではアバターだけにする
-    const who = `${avatarOf(D.me)} <span class="me-detail">${esc(name)}${admin ? ` <span class="chip">${t("admin")}</span>` : ""} ${emblem(user(D.me).level, true)}</span>`;
+    const who = `${avatarOf(D.me, { image: user(D.me).avatar_url })} <span class="me-detail">${esc(name)}${admin ? ` <span class="chip">${t("admin")}</span>` : ""} ${emblem(user(D.me).level, true)}</span>`;
     // 見えている頭文字、名前、管理者の札、レベルの数字を、表示順に名前へ含める。
     const label = t("accountMenuLabel").replace("{name}", `${[...name][0]} ${name}${badge ? ` ${badge}` : ""} ${user(D.me).level}`);
     const count = invitationCount;
