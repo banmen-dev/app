@@ -224,6 +224,8 @@ export async function createWorkspace(
     timezone: 'Asia/Tokyo',
     week_start: 1,
     definition_of_done_md: null,
+    sprint_name_template: null,
+    sprint_number_next: 1,
     closed_at: null,
     created_by: createdBy,
     created_at: AT,

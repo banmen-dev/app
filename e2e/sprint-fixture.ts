@@ -126,6 +126,6 @@ export const OVERDUE_PLAN: Plan = {
     },
     { ...NEXT_SPRINT, tasks: [] },
   ],
-  defaults: { start_on: '2026-11-10', length: 14 },
+  defaults: { start_on: '2026-11-10', length: 14, sprint_name_template: null, sprint_number_next: 1 },
   today: OVERDUE_TODAY,
 };

@@ -419,6 +419,11 @@ export const pointers: Pointers = {
   workspace: async (target) => ({ workspace_id: target.workspace.id }),
   'member-list': async (target) => ({ workspace_id: target.workspace.id }),
   // 同じ値を続けて送っても、書かずに成功する
+  'workspace-sprint-naming-update': async (target) => ({
+    workspace_id: target.workspace.id,
+    sprint_name_template: 'スプリント{n}',
+    sprint_number_next: 1,
+  }),
   'workspace-dod-update': async (target) => ({
     workspace_id: target.workspace.id,
     definition_of_done_md: '- レビューを通した',
