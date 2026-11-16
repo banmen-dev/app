@@ -521,7 +521,7 @@
   // 絞り込みに左右されない全体の件数に、画面で起票・完了・見積もりした分を足し引きする。
   const tallies = $derived(
     backlogTallies(
-      tree ?? { open_count: 0, unfilled_count: 0, unestimated_count: 0, unscheduled_count: 0 },
+      tree ?? { open_count: 0, unestimated_count: 0, unscheduled_count: 0 },
       tree === null ? [] : [...treeStories(tree).flatMap((story) => story.tasks), ...tree.tasks],
       [...added, ...tallyAdded].map((entry) => entry.task),
       completedIds,
@@ -1475,7 +1475,6 @@
     focusable
     tallies={[
       { icon: 'board', label: t('backlogTallyOpen', { task: t('task') }), count: tallies.open_count },
-      { tone: 'warn', icon: 'pen', label: t('unfilledChip', { detail: t('detail') }), count: tallies.unfilled_count },
       { tone: 'warn', label: t('pointsUnsetTitle'), count: tallies.unestimated_count },
       { label: t('backlogTallyUnscheduled', { sprint: t('sprint') }), count: tallies.unscheduled_count },
     ]}

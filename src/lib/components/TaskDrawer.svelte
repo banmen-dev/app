@@ -69,8 +69,8 @@
   // タスクの詳細の引き出しの中身（kit.js の drawerHtml）。`?task=<ID>` が付いている間、画面の枠（/[slug]/w/[id] のレイアウト）が置く。
   // 開いたら task-detail で1件を読む（本文は長いので、木には載せない）。読んでいる間は読み込み中を出し、読めなければ
   // （404 以外）もう一度試すを出す（フォーカスもそこへ置く）。404 は、トーストで知らせて閉じ、画面が木を読み直す（onremoved）。
-  // ワークスペースの決まった欄は、属性の下、本文の前に欄ごとに並べる（TaskFieldValues。値は Markdown で、書かれていなければ
-  // 完了していないタスクだけ「未記入」の印を添える。task-detail の fields を読み、保存は task-field-set で、読んだ値のままなら書き、
+  // ワークスペースの決まった欄は、属性の下、本文の前に欄ごとに並べる（TaskFieldValues。値は Markdown で、
+  // task-detail の fields を読み、保存は task-field-set で、読んだ値のままなら書き、
   // 同時に直されていれば断って読み直す）。
   // 欄ごとに、その場で直す。ポイントと期日は選んだら保存し、タイトル、リンク、本文は AutoSaveEdit で確定する（本文は Markdown の部品で描く）。
   // 送る欄は、今の値と違うものだけ。保存したら、その欄だけを応答で入れ替える。担当とポイントは共有状態から行と集計も直し、それ以外は木を読み直す（onchanged）。
@@ -259,7 +259,7 @@
   let clock = $state<{ today: string; weekStart: number } | null>(null);
   // 削除していない決まった欄と値（task-detail の fields。書かれていなければ value_md が null）
   let fields = $state<TaskFieldValue[]>([]);
-  // バックログのタスクか。受信箱とアーカイブのタスクには、欄ごとの「未記入」の印を出さない（木の行と件数と同じ範囲）
+  // バックログのタスクか。受信箱とアーカイブのタスクには、今日やるの印を付けられず、依頼先も直せない
   let inBacklog = $state(false);
   const todayDisabledReason = $derived(
     !canWrite
@@ -1755,7 +1755,7 @@
             <span>{t('sprintNone', { backlog: t('backlog') })}</span>
           {:else if task.sprint.name === null}
             <!-- 名前の無いスプリントは、期間を等幅で出す -->
-            <span>{t('sprint')} <span class="mono">{sprintPeriod(task.sprint, t)}</span></span>
+            <span class="mono">{sprintPeriod(task.sprint, t)}</span>
           {:else}
             <span>{sprintLabel(task.sprint, t)}</span>
           {/if}
@@ -1921,7 +1921,6 @@
       {workspaceId}
       {taskId}
       {fields}
-      marksUnfilled={inBacklog && task.completed_at === null}
       {canWrite}
       onsaved={fieldSaved}
       onrefresh={async () => (await refresh()) !== null}
@@ -1982,7 +1981,7 @@
           <span class="done-bar-done">
             <!-- tabindex="-1" は、完了にした後にフォーカスを置くため（キーボードの Tab 順には入らない） -->
             <span class="hanko" role="img" aria-label={t('done')} tabindex="-1" bind:this={doneMark}
-              ><Icon name="check" /><b>{t('doneStamp')}</b></span
+              ><Icon name="check" /></span
             >
             <time datetime={task.completed_at}
               >{t('taskCompletedAt', { done: t('done'), at: formatDateTime(task.completed_at) })}</time

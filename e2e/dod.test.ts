@@ -40,7 +40,7 @@ test('完成の定義を書く → バックログと引き出しに出る → �
   await expect(page.locator('.settings .setting-title', { hasText: '完成の定義' })).toHaveCount(1);
   const field = page.getByRole('textbox', { name: 'Markdown' });
   await expect(field).toHaveValue('');
-  const save = page.getByRole('button', { name: '保存する' });
+  const save = page.getByRole('region', { name: '完成の定義', exact: true }).getByRole('button', { name: '保存する' });
   // 変えていないうちは押しても送らない
   await expect(save).toHaveAttribute('aria-disabled', 'true');
   await field.fill(`\n${DOD}\n\n`);
@@ -90,7 +90,7 @@ test('完成の定義を書く → バックログと引き出しに出る → �
   // 空にして保存すると、どこにも出さない
   await openSettings(page);
   await page.getByRole('textbox', { name: 'Markdown' }).fill('   \n  ');
-  await page.getByRole('button', { name: '保存する' }).click();
+  await page.getByRole('region', { name: '完成の定義', exact: true }).getByRole('button', { name: '保存する' }).click();
   await expect(page.getByRole('status').filter({ hasText: '完成の定義を空にしました' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Markdown' })).toHaveValue('');
   await page.locator('.nav-item', { hasText: 'バックログ' }).click();
@@ -113,7 +113,7 @@ test('完成の定義が長すぎると、送らずに欄の下に理由を出�
     sent = true;
     return route.continue();
   });
-  await page.getByRole('button', { name: '保存する' }).click();
+  await page.getByRole('region', { name: '完成の定義', exact: true }).getByRole('button', { name: '保存する' }).click();
   await expect(page.getByRole('alert').filter({ hasText: '完成の定義は 100,000 字までです' })).toBeVisible();
   await expect(field).toBeFocused();
   await expect(field).toHaveAttribute('aria-invalid', 'true');

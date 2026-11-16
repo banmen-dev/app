@@ -283,7 +283,7 @@ export const taskDetailOperation = implement(taskDetail, async ({ db, actor, wor
     task.completed_at !== null
       ? columns.find((c) => c.is_done === 1)
       : (columns.find((c) => c.id === task.column_id) ?? columns.find((c) => c.is_done === 0));
-  // 削除していない決まった欄と値。未記入は、完了していないタスクで、値の無い欄があるとき（backlog-tree の unfilled と同じ判定）
+  // 削除していない決まった欄と値
   const fields = await readTaskFields(db, workspace.workspaceId, task.id);
   return {
     task: await detailOf(db, task, actor, workspace),
@@ -293,7 +293,6 @@ export const taskDetailOperation = implement(taskDetail, async ({ db, actor, wor
       parent?.epic_id == null || parent.epic_title === null ? null : { id: parent.epic_id, title: parent.epic_title },
     today_on: task.today_on,
     fields,
-    unfilled: task.tray === 'backlog' && task.completed_at === null && fields.some((field) => field.value_md === null),
     in_backlog: task.tray === 'backlog',
     today: todayIn(settings.timezone),
     week_start: settings.week_start,

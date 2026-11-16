@@ -17,9 +17,12 @@
     create,
     keyshortcut,
     placeholder,
+    describedby,
   }: {
     // 外から `c` などでフォーカスを移せるときの、そのキー（aria-keyshortcuts で読み上げに伝える。フォーカスが移る先の欄に付ける）
     keyshortcut?: string;
+    // 入力の補足説明があるときの要素ID。検査エラーの説明と併用する。
+    describedby?: string;
     // 行に見える文（「<ストーリー>を足す」など）
     label: string;
     // 欄の案内文。省けば label に「（題を打って Enter）」を添える。列幅が狭い欄（スプリントの列）は、切れない短い文を渡す
@@ -102,7 +105,7 @@
     placeholder={placeholder ?? t('draftPlaceholder', { label })}
     readonly={sending}
     aria-invalid={error !== null}
-    aria-describedby={error === null ? undefined : errorId}
+    aria-describedby={[describedby, error === null ? undefined : errorId].filter(Boolean).join(' ') || undefined}
     oninput={() => (error = null)}
     onkeydown={keydown}
   />

@@ -345,8 +345,8 @@ test('絞り込みで木から外れたストーリーと、バックログ以�
   await expect(filtered.getByRole('img', { name: '完了' })).toBeFocused();
   await expect(filtered.getByRole('button', { name: /完了を取り消す/ })).toBeVisible();
 
-  // バックログ以外の画面（スプリント）で開いても、帯が出る
-  await page.goto(`${url.pathname}/sprint?story=${id}`);
+  // バックログ以外の画面（計画）で開いても、帯が出る（スプリントのstoryは絞り込み専用）
+  await page.goto(`${url.pathname}/plan?story=${id}`);
   const elsewhere = page.getByRole('dialog', { name: '外れるストーリー', exact: true });
   await expect(elsewhere).toBeVisible();
   await expect(elsewhere.getByRole('img', { name: '完了' })).toBeVisible();

@@ -3,6 +3,7 @@
 import { SEED_OPERATOR_LOGIN_ID } from '../seed/sessions.ts';
 import { operationPath } from '../src/shared/operations/define.ts';
 import { me } from '../src/shared/operations/session/index.ts';
+import { accessHeaders } from './dev-open-access.ts';
 import type { DevOpenTarget } from './dev-open-target.ts';
 
 export const REQUEST_TIMEOUT_MS = 10_000;
@@ -14,6 +15,7 @@ export async function checkDevOpenSession(
   env: Record<string, string | undefined>,
   fetcher: typeof fetch = fetch,
 ): Promise<SessionCheck> {
+  const remoteHint = 'Workers Builds のビルド結果、プレビューの seed と Cloudflare Access の設定を確かめる';
   const serve = target.preview ? 'pnpm preview' : 'pnpm dev';
   // 付けるのは環境変数で渡されたときだけ。.dev-port-offset とワークツリーの名前から決まった値は、立てる側でも同じに決まる
   const offset = env.DEV_PORT_OFFSET;
@@ -24,6 +26,7 @@ export async function checkDevOpenSession(
     res = await fetcher(`${target.origin}${operationPath(me)}`, {
       method: 'POST',
       headers: {
+        ...accessHeaders(target.origin, target, env),
         'Content-Type': 'application/json',
         Origin: target.origin,
         Cookie: `${target.cookieName}=${target.token}`,
@@ -42,11 +45,16 @@ export async function checkDevOpenSession(
     }
     return {
       ok: false,
-      reason: `${target.origin} につながらない。別の端末で ${serveCommand} を立ててから、もう一度打つ`,
+      reason: target.remoteOrigin
+        ? `${target.origin} につながらない。${remoteHint}`
+        : `${target.origin} につながらない。別の端末で ${serveCommand} を立ててから、もう一度打つ`,
     };
   }
   // 見るのは状態コードだけ。本文を読まずに閉じ、接続を残さない
   await res.body?.cancel().catch(() => undefined);
+  if (target.remoteOrigin && !res.ok) {
+    return { ok: false, reason: `${target.origin} の me が ${res.status} を返した。${remoteHint}` };
+  }
   if (res.status === 401) {
     // 運用者は OPERATOR_LOGIN_IDS で決まる。.dev.vars の置き方と直し先（本体へのリンク、リンクの無いワークツリー、独立したファイル）は docs にだけ書く
     const operatorHint =

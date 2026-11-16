@@ -1,11 +1,12 @@
 import { now } from '../../shared/clock.ts';
 import { levelOf } from '../../shared/experience.ts';
 import { myOrganizations, organizationInfo } from '../../shared/operations/organization/index.ts';
-import type { Theme } from '../../shared/theme.ts';
+import { themeOf } from '../../shared/theme.ts';
 import { ApiError } from '../errors.ts';
 import { readOrganizationStorageUsage } from '../db/index.ts';
 import { amountOf, userExperienceTotalStatement } from './experience.ts';
 import { implement } from './implement.ts';
+import { contractOf } from './organization-contract.ts';
 
 // users.last_seen_at を書き直す間隔。組織の枠を開くたびに書かないための上限
 const LAST_SEEN_INTERVAL_MS = 60 * 60 * 1000;
@@ -30,31 +31,35 @@ export const organizationInfoOperation = implement(
     const staleBefore = new Date(at.getTime() - LAST_SEEN_INTERVAL_MS).toISOString();
 
     // 画面に返す値を読む。書き込みは混ぜず、書き込みが失敗しても画面は開く
-    const [userResult, workspaceResult, anyWorkspaceResult, experienceResult] = await db.batch([
-      db.statement((q) =>
-        q
-          .selectFrom('users')
-          .select(['id', 'name', 'theme'])
-          .where('id', '=', userId)
-          .where('organization_id', '=', db.organizationId),
-      ),
-      db.statement((q) =>
-        q
-          .selectFrom('memberships as m')
-          .innerJoin('workspaces as w', 'w.id', 'm.workspace_id')
-          .select(['w.id', 'w.name', 'm.role'])
-          .where('m.user_id', '=', userId)
-          .where('m.left_at', 'is', null)
-          .where('w.organization_id', '=', db.organizationId)
-          .orderBy('w.name')
-          .orderBy('w.id'),
-      ),
-      db.statement((q) =>
-        q.selectFrom('workspaces').select('id').where('organization_id', '=', db.organizationId).limit(1),
-      ),
-      // アカウントのメニューの紋章に出すレベルの元。合計そのものは返さない
-      userExperienceTotalStatement(db, userId),
-    ] as const);
+    // アバターは共通の表（account_logins）も引くので、組織の中の表の batch とは別の問い合わせにして、並べて待つ
+    const [[userResult, workspaceResult, anyWorkspaceResult, experienceResult], avatars] = await Promise.all([
+      db.batch([
+        db.statement((q) =>
+          q
+            .selectFrom('users')
+            .select(['id', 'name', 'theme'])
+            .where('id', '=', userId)
+            .where('organization_id', '=', db.organizationId),
+        ),
+        db.statement((q) =>
+          q
+            .selectFrom('memberships as m')
+            .innerJoin('workspaces as w', 'w.id', 'm.workspace_id')
+            .select(['w.id', 'w.name', 'w.closed_at', 'm.role'])
+            .where('m.user_id', '=', userId)
+            .where('m.left_at', 'is', null)
+            .where('w.organization_id', '=', db.organizationId)
+            .orderBy('w.name')
+            .orderBy('w.id'),
+        ),
+        db.statement((q) =>
+          q.selectFrom('workspaces').select('id').where('organization_id', '=', db.organizationId).limit(1),
+        ),
+        // アカウントのメニューの紋章に出すレベルの元。合計そのものは返さない
+        userExperienceTotalStatement(db, userId),
+      ] as const),
+      tools.avatarsOf([userId]),
+    ]);
 
     const user = userResult.rows[0];
     if (user === undefined) throw new ApiError(404, 'not_found');
@@ -81,22 +86,32 @@ export const organizationInfoOperation = implement(
           }
         : null;
 
+    // 契約は、管理画面のプランの節が明示した管理者の呼び出しでだけ読む。組織の枠とメンバーの呼び出しでは契約の表を引かない
+    const planRow = actor.isAdmin && input.include_plan === true ? await tools.readOrganizationPlan() : null;
+    const plan =
+      planRow === null
+        ? null
+        : {
+            contract: contractOf(planRow),
+            member_limit: planRow.member_limit,
+            attachment_quota_bytes: planRow.attachment_quota_bytes,
+          };
+
     return {
       storage,
-      // theme の形は出力のスキーマ（z.enum）が検証する
+      plan,
       organization: {
         name: organization.name,
         kind: organization.kind,
-        theme: organization.theme,
         has_workspaces: anyWorkspaceResult.rows.length > 0,
       },
       me: {
         id: user.id,
         name: user.name,
         is_admin: actor.isAdmin,
-        // 列の CHECK が守る値（組織の theme と同じ列挙）
-        theme: user.theme as Theme | null,
+        theme: themeOf(user.theme),
         level: levelOf(amountOf(experienceResult.rows[0]?.total)),
+        avatar_url: avatars.get(userId) ?? null,
       },
       trial:
         actor.isAdmin && organization.trial_ends_on !== null
@@ -110,6 +125,7 @@ export const organizationInfoOperation = implement(
         id: row.id,
         name: row.name,
         role: row.role === 'leader' ? ('leader' as const) : ('member' as const),
+        closed_at: row.closed_at,
       })),
     };
   },

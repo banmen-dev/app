@@ -592,7 +592,7 @@ describe('レベル（member-list と organization）', () => {
     expect(res.status).toBe(200);
     const info = (await res.json()) as { me: Record<string, unknown> };
     expect(info.me.level).toBe(3);
-    expect(Object.keys(info.me).sort()).toEqual(['id', 'is_admin', 'level', 'name', 'theme']);
+    expect(Object.keys(info.me).sort()).toEqual(['avatar_url', 'id', 'is_admin', 'level', 'name', 'theme']);
     const numbers = numbersIn(info);
     for (const value of [70, 250, 320, 98765, 5000]) expect(numbers).not.toContain(value);
   });

@@ -47,7 +47,7 @@
       ? [{ who: D.me, role: "leader", joined: "2026-10-20", alloc: null }]
       : [{ who: "u2", role: "leader", joined: "2026-10-16", alloc: null }, { who: D.me, role: "member", joined: "2026-10-20", alloc: null }];
     // 人数は、この見本ではワークスペースの所属だけで数える
-    return { ...common, users: { ...D.users, [D.me]: me }, workspaces: { wa: D.workspaces.wa }, members,
+    return { ...common, users: { ...D.users, [D.me]: me }, workspaces: { wa: { ...D.workspaces.wa, role: role === "leader" ? "leader" : "member" } }, members,
       seats: { ...D.seats, used: members.length } };
   }
   if (first) Object.assign(D, freshData(first));
@@ -59,6 +59,106 @@
 
   // ---- 言葉の辞書（各キーはスクラムの言葉の文字列1つ） ----
   const DICT = {
+    organizationList: "ダッシュボード",
+    avatarTitle: "プロフィール画像",
+    avatarDescription: "この組織だけで使う画像。PNG、JPEG、WebP を選び、正方形に切り抜いて上げます。",
+    avatarChoose: "画像を選ぶ", avatarRemove: "外す", avatarUpload: "上げる", avatarCancel: "やめる",
+    avatarCropTitle: "プロフィール画像を切り抜く",
+    avatarCropHint: "正方形の枠の中が上がります。画像をドラッグして位置を合わせます。移動ボタンにフォーカスすると矢印キーでも範囲を動かせます。",
+    avatarCropArea: "切り抜きの範囲", avatarCropPosition: "中心の位置: 横 {x}%、縦 {y}%",
+    avatarCropMove: "切り抜きの範囲を動かす",
+    avatarCropLeft: "範囲を左へ", avatarCropRight: "範囲を右へ", avatarCropUp: "範囲を上へ", avatarCropDown: "範囲を下へ",
+    avatarCropZoom: "拡大率", avatarCropZoomValue: "{value}倍",
+    avatarTypeInvalid: "PNG、JPEG、WebP の画像を選んでください。SVG、GIF や画像でないファイルは使えません。",
+    avatarSourceTooLarge: "元の画像は{max}MiB以下にしてください。",
+    avatarDecodeFailed: "画像を読み込めませんでした。別の画像を選んでください。",
+    avatarOutputTooLarge: "切り抜いた画像が{max}KiBを超えました。別の画像を選んでください。",
+    avatarRejected: "画像を上げられませんでした。PNG、JPEG、WebP の静止画で、{bytes}KiB・縦横{pixels}px以下の画像が使えます。",
+    avatarSaveFailed: "プロフィール画像を変更できませんでした。もう一度試してください。",
+    avatarSaving: "画像を変更しています", avatarReading: "画像を読み込んでいます",
+    avatarSaved: "プロフィール画像を上げました。", avatarRemoved: "プロフィール画像を外しました。",
+    sprintStoryFilterLabel: '{story}で絞り込む: {title}',
+    sprintStoryFilterActive: '{story}: {title}',
+    sprintStoryTotalsNote: '見出しは全体、列の件数と{points}は絞り込み後の値です',
+    sprintStoryCreateUnder: '絞り込んだ{story}の下に追加します',
+    sprintNamingTitle: '{sprint}の命名ルール',
+    sprintNamingDesc: '新しく作る{sprint}の名前の初期値。過去の名前は変わりません。',
+    sprintNamingTemplate: '命名ルール',
+    sprintNamingNumber: '次の番号',
+    sprintNamingHint: '空なら名前を自動入力しません。',
+    sprintNamingVariableN: '{n}: 次の番号',
+    sprintNamingVariableYyyy: '{yyyy}: 開始日の年（4桁）',
+    sprintNamingVariableYy: '{yy}: 開始日の年（下2桁）',
+    sprintNamingVariableMm: '{mm}: 開始日の月（2桁）',
+    sprintNamingVariableM: '{m}: 開始日の月',
+    sprintNamingVariableDd: '{dd}: 開始日の日（2桁）',
+    sprintNamingVariableD: '{d}: 開始日の日',
+    sprintNamingVariableW: '{w}: 月の中の週（1〜7日が1、8〜14日が2）',
+    sprintNamingVariables:
+      '{n}: 次の番号、{yyyy}/{yy}: 年（4桁/2桁）、{mm}/{m}: 月（2桁/そのまま）、{dd}/{d}: 日（2桁/そのまま）、{w}: 月の中の週（1〜7日が1、8〜14日が2）。日付は開始日から取ります。',
+    sprintNamingExample: '次の名前の例（{date}）: {name}',
+    sprintNamingEmpty: '名前なし',
+    sprintNamingUnknown: '使えない変数があります。使える変数の一覧を確認してください。',
+    sprintNamingNumberInvalid: '次の番号は1以上の整数で入れてください。',
+    sprintNamingTooLong: '命名ルールは{max}字以内で入れてください。',
+    sprintNamingInvalidCharacter: '命名ルールに使えない文字が含まれています。',
+    sprintNamingExpansionFailed:
+      '名前の初期値が{max}字を超えます。名前を入力するか、開始日や命名ルールを変えてください。',
+    sprintNamingExpansionWarning: '次の開始日の名前が{max}字を超えるため、自動入力できません。このルールは保存できます。必要ならルールを短くしてください。',
+    sprintNamingNumberRefreshed: '次の番号を最新の値（{number}）に更新しました。',
+    sprintNamingUnchanged: '保存した内容から変わっていません。',
+    sprintNamingUnavailable: '保存できませんでした。操作できない状態のため、画面を読み直します。',
+    sprintNamingLoadFailed: '命名ルールを読み込めませんでした。もう一度試してください。',
+    sprintNamingSave: '保存する',
+    sprintNamingSaving: '保存しています',
+    sprintNamingSaved: '{sprint}の命名ルールを保存しました。',
+    sprintNamingFailed: '命名ルールを保存できませんでした。入力を残してあります。もう一度試してください。',
+
+    billingTitle: '請求管理者',
+    billingRemoveFor: '{name}の請求管理者を解除する',
+    billingAcceptFor: '{name}の請求管理者の指名を承諾する',
+    billingDeclineFor: '{name}の請求管理者の指名を辞退する',
+    billingInvitationEmpty: '届いた請求の指名はありません。',
+    billingNominationHint: '指名元の権限が解除された指名や、最初の担当者が承諾した後に残った初回指名は、同じアカウントIDで指名し直してください。',
+    billingHistoryEmpty: '担当者の変更履歴はまだありません。',
+    billingRateLimited: '操作が続いたため、しばらく待ってからもう一度試してください。',
+
+    billingLead: '業務利用とは別に、請求の担当者を管理します。ベータ中の契約変更・支払いは運用者に連絡してください。',
+    billingAccountId: 'あなたのアカウントID',
+    billingAccountHint: '指名する人にこのIDを伝えてください。指名は本人が承諾するまで有効になりません。',
+    billingInvitations: '届いた請求の指名',
+    billingOrganizations: '担当する組織',
+    billingEmpty: '担当する組織はまだありません。',
+    billingAccept: '承諾する',
+    billingDecline: '辞退する',
+    billingInvite: '指名する',
+    billingTargetAccount: '指名する人のアカウントID',
+    billingAdministrators: '{name}の請求管理者',
+    billingRemove: '解除する',
+    billingRemoveTitle: '請求管理者の指名を解除しますか',
+    billingRemoveText: '{name}の請求管理権限または承諾待ちの指名を解除します。利用権限や契約は残ります。',
+    billingLastHint: '契約中は最後の承諾済み担当者を解除できません。新しい担当者の承諾を待ってから解除してください。',
+    billingPending: '承諾待ち',
+    billingActive: '承諾済み',
+    billingFailed:
+      '操作できませんでした。権限や指名の状態、アカウントIDを確認してください。契約中の最後の担当者は解除できません。',
+    billingRefreshFailed: '変更は保存しましたが、一覧を更新できませんでした。画面を読み直してください。',
+    billingSaved: '変更を保存しました。',
+    billingBusy: '保存しています',
+    billingHistory: '担当者の変更履歴（最新50件）',
+    billingEventInvited: '指名',
+    billingEventAccepted: '承諾',
+    billingEventDeclined: '辞退',
+    billingEventRemoved: '解除',
+    billingBootstrap: '最初の請求管理者を指名',
+    billingBootstrapHint:
+      '運用者だけの操作です。承諾済みの請求管理者がいない組織に、利用する組織管理者とは別に指名します。',
+    billingSlug: '組織のslug',
+    billingBack: '担当する組織の一覧へ',
+    billingTarget: '対象アカウント',
+    billingActor: '操作したアカウント',
+    billingOpen: '請求管理者を管理する',
+
   delegateeEmptyText: 'タスクの引き出しで新しい名前を入力すると、名簿に追加できます。',
   delegateeAssignFailed: '依頼先を変更できませんでした。タスクの状態や名簿を確認し、もう一度選んでください。',
   delegateeAssignUnavailable: '依頼先またはタスクの状態が変わった可能性があります。名簿とタスクを確認して、もう一度試してください。',
@@ -104,6 +204,7 @@
     dueClear: "クリア",
     storyTitlePlaceholder: "どこまで進めば区切りか",
     createSheet: "起票",
+    createSheetOpenFailed: "起票を開けませんでした。画面を読み直して、もう一度試してください。",
     markdownToolbar: "本文の書式", slashBullet: "箇条書き", slashTodo: "チェックリスト", slashCode: "コード", slashQuote: "引用",
     createSheetReloadFailed: "作成済みですが、一覧を読み直せませんでした。画面を開き直してください。",
     createKind: "作る種類",
@@ -133,13 +234,13 @@
   onboardingPersonalUrlSaved: "作成済みの個人用URLです。あとから変更できません。",
   onboardingBlockedTitle: "利用開始を再開できません",
   onboardingPersonalUrlLiveHint: "自分だけで使う場所のURLです。半角の英小文字・数字・ハイフンで2〜40文字。あとから変更できません。",
-  onboardingTeamUnavailable: "このチームの利用開始を再開できません。組織の選択に戻り、権限とワークスペースを確認してください。",
+  onboardingTeamUnavailable: "このチームの利用開始を再開できません。ダッシュボードに戻り、権限とワークスペースを確認してください。",
   onboardingWorkspaceFailed: "チームは作成済みですが、招待先のワークスペースを作れませんでした。もう一度試してください。",
   onboardingEmailsInvalid: "Googleでログインするメールアドレスを、カンマか改行で区切って1〜20件入力してください。",
   onboardingInvitationsFailed: "一部の招待を作成できませんでした。作成済みのリンクは残しています。入力を確認してもう一度試してください。",
   onboardingCopyFailed: "コピーできませんでした。表示されたURLを選択してコピーしてください。",
-  onboardingPersonalUnavailable: "作成済みの自分用の組織に入れません。組織の選択画面で状態を確認してください。",
-  onboardingReturnOrganizations: "組織の選択に戻る",
+  onboardingPersonalUnavailable: "作成済みの自分用の組織に入れません。ダッシュボードで状態を確認してください。",
+  onboardingReturnOrganizations: "ダッシュボードに戻る",
   onboardingInviteChoiceLiveNote: "個人用はこのまま使い始められます。チームで使う場合は、組織と招待先のワークスペースを作ります。チーム利用はあとからでも始められます。",
   onboardingStartPersonal: "個人用で使い始める",
   onboardingTeamCreateNote: "チームの{organization}は30日間のお試しで作成します。招待先として「チームのタスク」というワークスペースも作ります。",
@@ -353,6 +454,10 @@
     wikiRestoreFailed: "戻せませんでした。もう一度試してください。",
 
     workspaceSwitchLabel: "{workspace} {name}。切り替える", workspaceSwitchListLabel: "所属する{workspace}",
+    workspacePaneHint: "押すと{backlog}を開きます", paneNews: "{app} のニュース", appName: "Scrum Guild",
+    paneActivity: "最近の更新", activityEmptyTitle: "まだ更新はありません", activityEmptyText: "所属する{workspace}の{task}、{story}、{epic}の変更とコメントが、ここに新しい順に並びます。", activityEmptyNoWorkspaceText: "{workspace}に所属すると、{task}、{story}、{epic}の更新がここに並びます。",
+    activityCreated: "{actor}が作成した", activityUpdated: "{actor}が{fields}を変更した", activityChanged: "{actor}が変更した", activityCompleted: "{actor}が{done}にした", activityReopened: "{actor}が{done}を戻した", activityCommented: "{actor}がコメントした",
+    activityMore: "さらに読む", activityLoadFailed: "最近の更新を読み込めませんでした。", activityMoreFailed: "続きを読み込めませんでした。もう一度試してください。",
     workspace: "ワークスペース", inbox: "受信箱", backlog: "バックログ", sprint: "スプリント", plan: "計画", epic: "エピック", story: "ストーリー",
     menuCollapse: "メニューを畳む", menuExpand: "メニューを広げる", breadcrumb: "パンくず", organizationMoving: "移っています",
     personalOrganizationName: "自分用", createPersonalOrganizationAction: "自分用を作る",
@@ -361,10 +466,11 @@
     doneToday: "今日の完了", complete: "完了にする", requester: "作成者", party: "参加者", accept: "参加する", leave: "参加をやめる",
     historyCreated: "作成した", historyUpdated: "変更した", reward: "クリア報酬", clear: "エピックを完了にする", create: "起票", leader: "リーダー",
     member: "メンバー", dod: "完成の定義", organization: "組織", admin: "管理者", assistant: "アシスタント",
-    epicPageRequest: "概要", epicPagePartyEmpty: "参加者はまだいません。", accountMenuLabel: "{name}。アカウントのメニュー", pageToday: "今日やること", pageMe: "マイプロフィール", pageOrgAdmin: "組織の管理", navInvitationsBadge: "招待 {count}", navInvitationsLabel: "、届いた招待 {count}件", logout: "ログアウト",
+    epicPageRequest: "概要", epicPagePartyEmpty: "参加者はまだいません。", accountMenuLabel: "{name}。アカウントのメニュー", pageToday: "今日やること", pageMe: "マイプロフィール", pageOrgAdmin: "組織の管理", navInvitationsBadge: "招待 {count}", navInvitationsLabel: "、届いた招待 {count}件", logout: "ログアウト", invitationCountLoading: "招待の件数を読み込んでいます", invitationCountFailed: "招待の件数を読み込めませんでした。",
     logoutMoving: "ログアウトしています", loggedOut: "ログアウトしました。", logoutFailed: "ログアウトできませんでした。時間をおいてもう一度試してください。",
     markdownPlainNote: "整形せずに表示しています", markdownNewTab: "新しいタブで開きます", markdownCodeRegion: "コード",
     termsTitle: "利用規約", privacyTitle: "プライバシーポリシー", retry: "もう一度試す", retrying: "読み込んでいます", retryFailed: "まだ読み込めませんでした",
+    reloadPage: "画面を読み直す",
     consentTitle: "同意の確認", consentLead: "{app} を使うには、利用規約とプライバシーポリシーを確認してください。", consentVersion: "版: {version}",
     consentCheckLabel: "利用規約とプライバシーポリシーを確認し、同意します", consentSubmit: "同意して進む", consentContinue: "進む",
     consentUpdated: "規約が更新されました。内容を確認し直してください。", consentCurrent: "現在の版に同意しています。",
@@ -403,7 +509,13 @@
   function sprintLabel(id) {
     const s = D.sprints[id];
     if (!s) return "";
-    return s.name ? `${t("sprint")} ${s.name}` : `${t("sprint")} ${md(s.start)}〜${md(s.end)}`;
+    return s.name || `${md(s.start)}〜${md(s.end)}`;
+  }
+  function sprintLabelWithPeriod(id) {
+    const s = D.sprints[id];
+    if (!s) return "";
+    const label = sprintLabel(id);
+    return s.name ? `${label}（${md(s.start)}〜${md(s.end)}）` : label;
   }
   function colName(x) {
     if (x.colName) return x.colName;
@@ -525,7 +637,7 @@
   // 区分の選択欄（本番のエピック、ストーリー、起票のダイアログと、引き出し）。先頭が「区分なし」
   function categorySelect(id, current, readOnly) {
     if (readOnly) return `<span>${current ? esc(D.categories[current].name) : `${t("category")}なし`}</span>`;
-    return `<select class="select" id="${id}"><option>${t("category")}なし</option>${Object.entries(D.categories).map(([cid, c]) => `<option ${cid === current ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select>`;
+    return `<select class="select" id="${id}"><option value="">${t("category")}なし</option>${Object.entries(D.categories).map(([cid, c]) => `<option value="${cid}" ${cid === current ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select>`;
   }
   function repoPicker(name, current, opts = {}) {
     const ids = Object.keys(D.repositories);
@@ -536,15 +648,14 @@
   function taskFlags(x) {
     const carried = x.todayOn && x.todayOn < D.today && !x.doneAt;
     return `${carried ? `<span class="chip is-carry">${icon("redo")}持ち越し</span>` : ""}
-      ${x.unfilled ? `<span class="chip is-todo">${icon("pen")}${t("detail")} 未記入</span>` : ""}
       ${x.srcDone && !x.doneAt ? `<span class="chip is-ok">${icon("check")}取り込み元で完了</span>` : ""}`;
   }
   const stamped = new Set();
-  function doneControl(x) {
+  function doneControl(x, opts = {}) {
     return x.doneAt
-      ? `<span class="hanko ${stamped.has(x.id) ? "is-new" : ""}" role="img" aria-label="${t("done")}">${icon("check")}<b>完</b></span>
-         <button class="link-btn" type="button" data-undo="${x.id}" aria-label="${t("done")}を戻す: ${esc(x.title)}" aria-disabled="false">戻す</button>`
-      : `<button class="done-btn" type="button" data-done="${x.id}" aria-label="${t("complete")}" title="${t("complete")}">${icon("check")}</button>`;
+      ? `<span class="hanko ${stamped.has(x.id) ? "is-new" : ""}" role="img" aria-label="${t("done")}">${icon("check")}</span>${opts.card ? "" : `
+         <button class="link-btn" type="button" data-undo="${x.id}" aria-label="${t("done")}を戻す: ${esc(x.title)}" aria-disabled="false">戻す</button>`}`
+      : opts.card ? "" : `<button class="done-btn" type="button" data-done="${x.id}" aria-label="${t("complete")}" title="${t("complete")}">${icon("check")}</button>`;
   }
 
   // 行の「⋯」のメニュー（.row-menu）。完了の丸のほかの操作（今日やる、並べ替え、親を移す、削除）をまとめる。
@@ -728,14 +839,76 @@
       ${hint ? `<p class="panel-note">${hint}</p>` : ""}
     </section>`;
   }
-  function section(id, title, count, body, hint = "") {
+  // level は見出しの段（既定は 2。面の中に置く節は 3）
+  function section(id, title, count, body, hint = "", level = 2) {
     return `<section class="section" aria-labelledby="${id}">
-      <div class="section-head"><h2 class="section-title" id="${id}">${title}</h2>${count != null ? `<span class="section-count">${count} 件</span>` : ""}${hint ? `<span class="section-hint">${hint}</span>` : ""}</div>
+      <div class="section-head"><h${level} class="section-title" id="${id}">${title}</h${level}>${count != null ? `<span class="section-count">${count} 件</span>` : ""}${hint ? `<span class="section-hint">${hint}</span>` : ""}</div>
       ${body}
     </section>`;
   }
-  function foldedSection(id, title, count, body) {
-    return `<details class="section is-folded"><summary class="section-head"><h2 class="section-title" id="${id}">${title}</h2><span class="section-count">${count} 件</span><span class="section-hint">開くと一覧を表示</span></summary>${body}</details>`;
+  function foldedSection(id, title, count, body, level = 2) {
+    return `<details class="section is-folded"><summary class="section-head"><h${level} class="section-title" id="${id}">${title}</h${level}><span class="section-count">${count} 件</span><span class="section-hint">開くと一覧を表示</span></summary>${body}</details>`;
+  }
+  // 面（.pane。見出しと中身を持つ枠）。id は見出しと結ぶ（aria-labelledby）。count は見出しの横の件数、hint は補足、busy は中身を読み込んでいる間の aria-busy。
+  // title と hint は HTML として埋め込むので、辞書の文言だけを渡す（利用者のデータは入れない）。body は呼び出し側で esc してから渡す
+  function pane(id, title, body, { count = null, hint = "", busy = false } = {}) {
+    return `<section class="pane" aria-labelledby="${id}">
+      <div class="pane-head"><h2 class="pane-title" id="${id}" tabindex="-1">${title}</h2>${count != null ? `<span class="pane-count">${count} 件</span>` : ""}${hint ? `<span class="pane-hint">${hint}</span>` : ""}</div>
+      <div class="pane-body"${busy ? ' aria-busy="true"' : ""}>${body}</div>
+    </section>`;
+  }
+  // 面の中の、押すと移る行の一覧。rows は { href, name, role } の配列（role は leader か member）
+  function paneList(rows) {
+    return `<ul class="pane-list">${rows.map((r) => `<li><a class="pane-link" href="${esc(r.href)}"><b>${esc(r.name)}</b><span class="chip">${esc(t(r.role))}</span>${icon("chevron")}</a></li>`).join("")}</ul>`;
+  }
+  // 面の中の、ニュースの一覧。items は { date, title, body, href? } の配列で、新しい順に5件まで出す（本番は src/lib/news.ts の latestNews）。
+  // 題は h3。href は src/lib/news.ts の isNewsHref と同じ形（https:// で始まり、正規化しても変わらず、ユーザー情報が無い）のときだけリンクにし、
+  // 新しいタブで開いて、題の文字の末尾に external の印を添える。日付、題、本文は書いたまま出す（esc する）
+  function isNewsHref(href) {
+    if (typeof href !== "string" || !href.startsWith("https://")) return false;
+    try { const u = new URL(href); return u.href === href && u.username === "" && u.password === ""; } catch { return false; }
+  }
+  function newsList(items) {
+    // 5 は src/lib/news.ts の NEWS_LIMIT と同じ値
+    const rows = [...items].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)).slice(0, 5);
+    return `<ul class="news-list">${rows.map((n) => `<li class="news-item"><time class="news-date" datetime="${esc(n.date)}">${esc(n.date)}</time><h3 class="news-title">${
+      isNewsHref(n.href)
+        ? `<a class="news-link" href="${esc(n.href)}" target="_blank" rel="external noopener noreferrer"><span>${esc(n.title)}${icon("external")}</span><span class="visually-hidden"> ${t("markdownNewTab")}</span></a>`
+        : esc(n.title)
+    }</h3><p class="news-body">${esc(n.body)}</p></li>`).join("")}</ul>`;
+  }
+  // ダッシュボード。main は左の列の面、side は右の列の面（空なら右の列を置かない。広い幅では右の列の幅だけが空く）
+  function dashboard(main, side = "") {
+    return `<div class="dashboard"><div class="dashboard-main">${main}</div>${side ? `<div class="dashboard-side">${side}</div>` : ""}</div>`;
+  }
+  // 最近の更新の面の中身（.activity）。days は { label, rows } の配列（日付ごとの区分。新しい順）。
+  // rows は { href, title, text, body, truncated, kind, ws, time, at } の配列。text はした人とした内容の文、body はコメントの本文の先頭（あるときだけ）、
+  // kind は task、story、epic、at は ISO の日時。more が真なら「さらに読む」を出し、moreFailed が真ならその上に続きを読めなかった案内を出す。
+  // 空の案内、読み込み中の骨組み、失敗の案内は呼び出し側が置く（カタログの「面とダッシュボード」）
+  function activity(days, { more = false, moreFailed = false } = {}) {
+    const row = (r) => `<li><a class="activity-row" href="${esc(r.href)}">
+        <b class="activity-title">${esc(r.title)}</b>
+        <span class="activity-text">${esc(r.text)}</span>
+        ${r.body ? `<span class="activity-body">${esc(r.body)}${r.truncated ? "…" : ""}</span>` : ""}
+        <span class="activity-meta"><span class="chip">${esc(t(r.kind))}</span><span class="tag">${esc(r.ws)}</span><time datetime="${esc(r.at)}">${esc(r.time)}</time></span>
+      </a></li>`;
+    return `<div class="activity">${days.map((d) => `<section class="activity-day"><h3 class="activity-date">${esc(d.label)}</h3><ul class="activity-list">${d.rows.map(row).join("")}</ul></section>`).join("")}</div>${moreFailed ? `<div class="callout is-warn">${icon("alert")}<span role="alert">${t("activityMoreFailed")}</span></div>` : ""}${more ? `<div class="form-actions activity-actions"><button class="btn" type="button">${t("activityMore")}</button></div>` : ""}`;
+  }
+  // 最近の更新の面の、読み込み中の骨組み。呼び出し側は pane に busy: true を渡す（面の中身の aria-busy）。
+  // 文は空から始める（本番は続きと読み直しのときだけ role="status" に文を出す）
+  function activityLoading() {
+    return `<span class="visually-hidden" role="status"></span><div class="skeleton" aria-hidden="true"><span class="skeleton-line is-block"></span><span class="skeleton-line is-block"></span><span class="skeleton-line is-block"></span></div>`;
+  }
+  // 最近の更新の面の、所属する閉じていないワークスペースが無いときの空。案内はワークスペースの面に出すので、線画の無い短い1行にする
+  function activityEmptyNoWorkspace() {
+    const text = t("activityEmptyNoWorkspaceText").replace("{workspace}", t("workspace")).replace("{task}", t("task")).replace("{story}", t("story")).replace("{epic}", t("epic"));
+    return `<div class="book"><div class="book-empty">${esc(text)}</div></div>`;
+  }
+  // 最近の更新の面の、読めなかったときの案内。失敗の文だけが role="alert"、「もう一度試す」と状態（role="status"）は .activity-actions に並べる。
+  // 状態の領域（role="status"）は、失敗の案内の中ではボタンの横の1つだけ（本番と同じ）。
+  // status は、最初の失敗では空、読み直してまた失敗したときは「まだ読み込めませんでした」
+  function activityFailed({ status = "" } = {}) {
+    return `<div class="callout is-warn">${icon("alert")}<span role="alert">${t("activityLoadFailed")}</span></div><div class="form-actions activity-actions"><button class="btn" type="button">${t("retry")}</button><span class="field-hint" role="status">${esc(status)}</span></div>`;
   }
   // ---- Wiki ----
   // ページの木（左の欄の nav の中身）。nodes は { id, title, children } の木、current は今開いているページの ID、
@@ -777,6 +950,13 @@
     const id = `narrow-disclosure-${++narrowDisclosureId}`;
     return `<div class="narrow-disclosure" data-open="false"><button class="btn is-sm is-quiet narrow-disclosure-toggle" type="button" aria-expanded="false" aria-controls="${id}">${icon("chevron")}<span>${esc(label)}</span></button><div class="narrow-disclosure-body" id="${id}">${body}</div></div>`;
   }
+  document.addEventListener("keydown", (event) => {
+    if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.key !== "ArrowLeft") return;
+    const card = event.target.closest?.(".card.is-done");
+    if (!card || event.target.closest?.('[role="menu"]')) return;
+    event.preventDefault(); if (event.repeat) return;
+    card.querySelector("[data-card-reopen]")?.click();
+  });
   document.addEventListener("click", (event) => {
     const button = event.target.closest && event.target.closest(".narrow-disclosure-toggle");
     if (!button) return;
@@ -804,47 +984,68 @@
 
   // スプリントのカード（列の中）
   // order を渡したカード（完了していないカード）は tabindex="0" で選べ、移す操作を「⋯」のメニュー（.row-menu）に持つ。
-  // キーボードでは、選んで Alt と ← → で隣の列、Alt と ↑ ↓ で列の中を動かす（本番の SprintBoard）。完了の列のカードは動かさない
+  // キーボードでは、選んで Alt と ← → で隣の列、Alt と ↑ ↓ で列の中を動かす（本番の SprintBoard）。完了の列のカードは Alt と ← と「⋯」で戻す
   // ドラッグ（本番の SprintCard）: つかめるカードは draggable="true" を持ち、カード全体をつかむ（opts.grab を false にするとつかめないカード）。
   // opts.mark はドラッグの状態: { drop: "before" | "after", state: "is-dragging" | "is-dropped" }（dropAttr と同じ形。into は列に付ける）
+  function storyFilterText(key, title = "") {
+    return t(key).replaceAll("{story}", t("story")).replaceAll("{points}", t("points")).replaceAll("{title}", () => title);
+  }
   function card(x, order, opts = {}) {
     const mark = opts.mark || {};
+    const selectable = Boolean(order || x.doneAt);
+    const blocked = Boolean(x.doneAt && x.story && D.stories[x.story]?.doneAt);
     const grab = opts.grab !== false;
     // 同じ画面に同じ盤を並べる（カタログ）ときの id の重なりを避ける接頭辞
     const k = opts.key ? `${opts.key}-` : "";
     const parent = x.story ? D.stories[x.story].title : null;
-    // 選べるカードは、題を名前に、ポイントと担当の要約と画面の下の動かし方の案内（#board-key-hint）を説明に読む
+    const storyState = opts.highlightStory ? (x.story === opts.highlightStory ? " is-story-highlighted" : " is-story-dimmed") : "";
+    // 選べるカードは、題を名前に、ポイントと担当の要約と見えない動かし方の説明（#board-key-hint）を説明に読む
     const who = x.who ? user(x.who).name : null;
-    const summary = `${x.pts == null ? "未見積もり" : `${t("points")} ${x.pts}`}、${who ? `${t("assignee")}は${esc(who)}` : `${t("assignee")}なし`}`;
-    return `<article class="card ${x.doneAt ? "is-done" : ""}${mark.state ? ` ${mark.state}` : ""}"${grab ? ` draggable="true"` : ""}${dropAttr(mark)}${order ? ` tabindex="0" aria-labelledby="card-${k}${x.id}-title" aria-describedby="card-${k}${x.id}-summary board-key-hint"` : ""}>
-      ${order ? `<span class="visually-hidden" id="card-${k}${x.id}-summary">${summary}</span>` : ""}
-      ${parent ? `<span class="card-parent">${icon("flag")} ${esc(parent)}</span>` : ""}
+    const summary = `${x.pts == null ? "未見積もり" : `${t("points")} ${x.pts}`}、${who ? `${t("assignee")}は${esc(who)}` : `${t("assignee")}なし`}${blocked ? `、${t("done")}を戻せません` : ""}`;
+    return `<article data-story-id="${esc(x.story || "")}" class="card ${x.doneAt ? "is-done" : ""}${storyState}${blocked ? " is-reopen-blocked" : ""}${mark.state ? ` ${mark.state}` : ""}"${grab ? ` draggable="true"` : ""}${dropAttr(mark)}${selectable ? ` tabindex="0" aria-labelledby="card-${k}${x.id}-title" aria-describedby="card-${k}${x.id}-summary board-key-hint"` : ""}>
+      ${selectable ? `<span class="visually-hidden" id="card-${k}${x.id}-summary">${summary}</span>` : ""}
+      ${parent ? `<button class="card-parent is-action" type="button" aria-label="${esc(storyFilterText("sprintStoryFilterLabel", parent))}" data-story-filter="${esc(x.story)}">${icon("flag")} ${esc(parent)}</button>` : ""}
       <a class="card-title" id="card-${k}${x.id}-title" href="#" data-task="${x.id}" draggable="false">${titleOf(x)}</a>
       <div class="card-meta">${repoTag(x)}${sourceKey(x)}${taskFlags(x)}${taskDue(x)}</div>
       <div class="card-foot">${order ? attrChip(x, "pts", { bare: true }) : pts(x.pts)}${order ? attrChip(x, "who", { bare: true }) : avatarOf(x.who)}<span class="card-end">${order ? rowMenu(x.title, [
         { attr: `data-sun="${x.id}"`, label: x.todayOn === D.today ? "今日やるを外す" : "今日やる", icon: "sun" },
         ...orderItems(order),
         { attr: `data-task-delete="${x.id}"`, label: `この${t("task")}を削除する`, icon: "trash", danger: true },
-      ], x.id) : ""}${doneControl(x)}</span></div>
+      ], x.id) : x.doneAt ? rowMenu(x.title, [{ attr: `data-card-reopen="${x.id}"`, label: `前の${t("column")}へ（${t("done")}を戻す）`, icon: "left" }], x.id) : ""}${doneControl(x, { card: true })}</span></div>
     </article>`;
   }
-  // opts.key: カードの id の接頭辞、opts.cardMarks: (x, i, c) => card のドラッグの状態、opts.columnMarks: (c) => 列の囲み（{ drop: "into" }）、opts.grab: (x) => つかめるか（既定は完了していないカードだけ。完了の列のカードは、本番では戻せるもの（reopenable）だけがつかめる）
+  // opts.key: カードの id の接頭辞、opts.cardMarks: (x, i, c) => card のドラッグの状態、opts.columnMarks: (c) => 列の囲み（{ drop: "into" }）、opts.grab: (x) => つかめるか（既定は完了カードを含むすべて）
+  const boardCollapsed = new Map();
   function board(sprintId, opts = {}) {
-    const list = tasksWhere((x) => x.sprint === sprintId);
+    const list = tasksWhere((x) => x.sprint === sprintId && (!opts.story || x.story === opts.story));
     const open = D.columns.filter((c) => !c.done);
-    return `<div class="board-wrap"><div class="board" style="--board-cols:${D.columns.length}">${D.columns.map((c) => {
+    return `<div class="story-board" data-board-story="${esc(opts.story || "")}" data-board-sprint="${sprintId}" data-board-key="${opts.key || ""}" data-board-draft="${!!opts.draft}">${opts.story ? `<div class="story-filter-band"><div class="story-filter-summary"><span>${icon("flag")}${esc(storyFilterText("sprintStoryFilterActive", D.stories[opts.story].title))}</span><span class="action-note">${storyFilterText("sprintStoryTotalsNote")}</span></div><button class="btn is-sm is-quiet" type="button" data-story-clear>${icon("x")}${t("filterClear")}</button></div>` : ""}<div class="board-wrap"><div class="board" style="--board-cols:${D.columns.length}">${D.columns.map((c) => {
+      const name = c.done ? t("done") : (opts.columnName ? opts.columnName(c) : c.name);
       const items = list.filter((x) => (c.done ? x.doneAt : !x.doneAt && x.col === c.id));
+      const collapseKey = `${opts.key || sprintId}-${c.id}`;
+      const collapsed = boardCollapsed.has(collapseKey) ? boardCollapsed.get(collapseKey) : Boolean(opts.collapsed && opts.collapsed(c));
       const at = open.indexOf(c);
       // 最後の完了でない列の「次の列へ」は、完了の列へ移す代わりに完了にする（本番は task-complete を呼ぶ）ので、押せる
       const orderOf = (i) => ({ first: i === 0, last: i === items.length - 1, across: { first: at === 0, last: false } });
-      return `<section class="board-col ${c.done ? "is-done" : ""}"${dropAttr(opts.columnMarks && opts.columnMarks(c))} aria-label="${c.done ? t("done") : esc(c.name)}">
-        <div class="board-col-head">${c.done ? icon("check") : ""}<span class="board-col-name">${c.done ? t("done") : esc(c.name)}</span><span class="board-col-n">${items.length}</span><span class="board-col-pts">${sumPts(items)} pt</span></div>
-        ${c.done && D.definitionOfDone.length ? `<details class="dod"><summary>${t("dod")}</summary>${dodDoc()}</details>` : ""}
-        ${items.map((x, i) => card(x, c.done ? undefined : orderOf(i), { mark: opts.cardMarks && opts.cardMarks(x, i, c), grab: opts.grab ? opts.grab(x) : !x.doneAt, key: opts.key })).join("") || `<p class="board-empty">なし</p>`}
-        ${opts.draft && !c.done ? draftRow("col", c.id, `${t("task")}を足す: ${c.name}`, `${t("task")}を足す`) : ""}
+      return `<section class="board-col ${c.done ? "is-done" : ""} ${collapsed ? "is-collapsed" : ""}"${dropAttr(opts.columnMarks && opts.columnMarks(c))} aria-label="${esc(name)}">
+        <div class="board-col-head"><button class="board-col-toggle" type="button" aria-label="${esc(name)}の開閉" aria-expanded="${!collapsed}" data-column-collapse="${esc(collapseKey)}">${icon("chevron")}</button>${c.done ? icon("check") : ""}<span class="board-col-name">${esc(name)}</span><span class="board-col-n">${items.length}</span><span class="board-col-pts">${sumPts(items)} pt</span></div>
+        ${collapsed ? "" : `${c.done && D.definitionOfDone.length ? `<details class="dod"><summary>${t("dod")}</summary>${dodDoc()}</details>` : ""}
+        ${items.map((x, i) => card(x, c.done ? undefined : orderOf(i), { mark: opts.cardMarks && opts.cardMarks(x, i, c), grab: opts.grab ? opts.grab(x) : true, key: opts.key, highlightStory: opts.highlightStory })).join("") || `<p class="board-empty">なし</p>`}
+        ${opts.draft && !c.done ? `<div class="board-col-draft">${draftRow("col", c.id, `${t("task")}を足す: ${c.name}`, `${t("task")}を足す`)}${opts.story ? `<p class="action-note">${storyFilterText("sprintStoryCreateUnder")}</p>` : ""}</div>` : ""}` }
       </section>`;
-    }).join("")}</div></div>`;
+    }).join("")}</div></div></div>`;
   }
+
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest && event.target.closest("[data-column-collapse]");
+    if (!button) return;
+    const key = button.dataset.columnCollapse;
+    boardCollapsed.set(key, button.getAttribute("aria-expanded") === "true");
+    const root = button.closest(".story-board");
+    if (root?.dataset.boardStory) root.outerHTML = board(root.dataset.boardSprint, { key: root.dataset.boardKey, story: root.dataset.boardStory, draft: root.dataset.boardDraft === "true" });
+    else redrawAll();
+    [...document.querySelectorAll("[data-column-collapse]")].find((item) => item.dataset.columnCollapse === key)?.focus();
+  });
 
   // ストーリーの完了の操作（本番の TreeStory）。完了したストーリーは完了の印と「取り消す」。完了していなければ「完了にする」で、
   // 配下の未完了のタスクが残るあいだは aria-disabled にして、横に「残り N 件」を添える
@@ -853,7 +1054,7 @@
   function storyDoneControl(key, st, remaining, blocked) {
     if (st.doneAt) {
       const reason = blocked ? `<span class="tree-note" id="tree-${key}-blocked">${t("done")}か中止した${t("epic")}の下の${t("story")}は取り消せません</span>` : "";
-      return `<span class="hanko" role="img" aria-label="${esc(st.title)}: ${t("done")}">${icon("check")}<b>完</b></span>
+      return `<span class="hanko" role="img" aria-label="${esc(st.title)}: ${t("done")}">${icon("check")}</span>
         ${reason}<button class="btn is-sm is-quiet" type="button" aria-label="${t("done")}を取り消す: ${esc(st.title)}"${blocked ? ` aria-disabled="true" aria-describedby="tree-${key}-blocked"` : ` data-toast="${t("story")}の${t("done")}を取り消しました"`}>取り消す</button>`;
     }
     if (blocked) {
@@ -963,8 +1164,8 @@
       <div class="tree-row is-epic${opts.order ? " has-grip" : ""}${mark.state === "is-dropped" ? " is-dropped" : ""}"${into ? dropAttr(mark) : ""}>
         ${opts.order ? gripCell(false) : ""}${treeCaret(`tree-${key}`, e.title)}
         <span class="kind is-epic" title="${t("epic")}">${icon("flag")}</span>
-        <span class="tree-title"><a class="tree-link" href="epic.html">${esc(e.title)}</a> ${categoryTag(e.cat)} ${state} ${dueChip(e.due, { done: finished })}</span>
-        <span class="tree-end"><span class="tree-ratio" title="完了 / 全体">${t("done")} ${p.done} / ${p.all} pt</span>${epicOrder ? rowMenu(e.title, [...orderItems({ first: epicOrder.first, last: epicOrder.last }), { attr: `data-dialog="deleteEpic" data-tree-delete-id="${eid}"`, label: `この${t("epic")}を削除`, icon: "trash", danger: true }]) : ""}</span>
+        <span class="tree-title"><a class="tree-link" href="?epic_id=${encodeURIComponent(eid)}" data-epic-id="${eid}">${esc(e.title)}</a> ${categoryTag(e.cat)} ${state} ${dueChip(e.due, { done: finished })}</span>
+        <span class="tree-end"><span class="tree-ratio" title="完了 / 全体">${t("done")} ${p.done} / ${p.all} pt</span>${epicOrder ? rowMenu(e.title, orderItems({ first: epicOrder.first, last: epicOrder.last })) : ""}</span>
       </div>
       <div class="tree-children" id="tree-${key}">${stories.map((s, i) => treeStory(s, false, {
         key: `${key}-${s}`,
@@ -995,23 +1196,27 @@
     const joined = q.party.includes(D.me);
     const pct = p.all ? Math.round((p.done / p.all) * 100) : 0;
     return `<article class="notice is-raid ${cleared ? "is-cleared" : ""}">
-      <span class="notice-label"><span class="orn-medieval">依 頼 書</span><span class="orn-plain">${t("epic")}</span>　·　${esc(D.categories[q.cat].name)}</span>
+      <span class="notice-label">${t("epic")}　·　${esc(D.categories[q.cat].name)}</span>
       <a class="notice-title notice-link" href="epic.html">${esc(q.title)}</a>
       <dl class="notice-facts">
-        <div><dt>${t("requester")}</dt><dd>${avatarOf(q.requester)}${esc(user(q.requester).name)}<span class="seal" aria-hidden="true">印</span></dd></div>
+        <div><dt>${t("requester")}</dt><dd>${avatarOf(q.requester)}${esc(user(q.requester).name)}</dd></div>
         <div><dt>${t("reward")}</dt><dd>${tier(q.tier)}</dd></div>
         <div><dt>${t("due")}</dt><dd>${dueChip(q.due) || "なし"}</dd></div>
         <div><dt>${t("party")}</dt><dd><span class="avatar-stack">${q.party.map((u) => avatarOf(u)).join("")}</span>${q.party.length}人</dd></div>
       </dl>
       <div class="notice-foot">
         ${progress(p.done, p.all)}
-        ${cleared ? `<span class="hanko" role="img" aria-label="完了">${icon("check")}<b>済</b></span>` : `<button class="btn ${joined ? "" : "is-primary"} is-sm" type="button" data-join="${eid}">${joined ? t("leave") : t("accept")}</button>`}
+        ${cleared ? `<span class="hanko" role="img" aria-label="完了">${icon("check")}</span>` : `<button class="btn ${joined ? "" : "is-primary"} is-sm" type="button" data-join="${eid}">${joined ? t("leave") : t("accept")}</button>`}
       </div>
     </article>`;
   }
-  function progress(done, all) {
-    const pct = all ? Math.round((done / all) * 100) : 0;
-    return `<span class="progress"><span class="progress-bar" role="img" aria-label="完了 ${done} / ${all} ${t("points")}"><span style="width:${pct}%"></span></span><span class="progress-num">${done} / ${all} pt</span></span>`;
+  function progress(done, all, { markerPercent, markerLabel, detailed = false } = {}) {
+    const pct = all > 0 ? Math.min(100, Math.round(done / all * 100)) : 0;
+    const value = detailed ? `${t("done")} ${done} / ${all} pt${all > 0 ? `（${pct}%）` : ""}` : `${done} / ${all} pt`;
+    const label = detailed ? value : `${t("done")} ${done} / ${all} ${t("points")}`;
+    const marker = markerPercent === undefined ? "" : `<i class="progress-marker" style="left:${Math.max(0, Math.min(100, markerPercent))}%" aria-hidden="true"></i>`;
+    const visibleValue = detailed ? `${esc(t("done"))} <span class="progress-value">${done} / ${all} pt</span>${all > 0 ? `<span class="progress-value">（${pct}%）</span>` : ""}` : esc(value);
+    return `<span class="progress${detailed ? " is-detailed" : ""}"><span class="progress-bar${marker ? " has-marker" : ""}" role="img" aria-label="${esc(label + (marker && markerLabel ? `、${markerLabel}` : ""))}"><span class="progress-fill" style="width:${pct}%"></span>${marker}</span><span class="progress-num">${visibleValue}</span>${marker && markerLabel ? `<span class="progress-legend">${esc(markerLabel)}</span>` : ""}</span>`;
   }
 
   // レベルの面
@@ -1100,7 +1305,7 @@
     return `<span class="file-art ${f.type === "video" ? "is-video" : ""}" aria-hidden="true">${icon(f.type === "video" ? "play" : "image")}${f.length ? `<span class="file-art-time">${f.length}</span>` : ""}</span>`;
   }
   function fileThumb(f) {
-    return `<button class="file-thumb" type="button" data-file="${f.id}" aria-label="${esc(f.name)}（${FILE_KIND[f.type]}、${f.size}）を開く">${fileArt(f)}<span class="file-thumb-label"><b>${esc(f.name)}</b><span>${f.size}</span></span></button>`;
+    return `<button class="file-thumb" type="button" data-file="${f.id}" aria-label="${f.length ? `${f.length} ` : ""}${esc(f.name)} ${f.size}（${FILE_KIND[f.type]}）を開く">${fileArt(f)} <span class="file-thumb-label"><b>${esc(f.name)}</b> <span>${f.size}</span></span></button>`;
   }
   // 1行。f.state が uploading なら進み、error なら理由を出す
   function fileRow(f, opts = {}) {
@@ -1268,30 +1473,32 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     // 見本の状態の切り替え（カタログの drawerDemo が使う）。commentsView はコメントの読み込み（loading、failed、reloadFailed）
     // adjacent は前後のタスク（{ prev, next }。順を渡さない画面は null）。undefined なら画面の行から求める（drawerAdjacent）
     commentsView: null, commentViewer: null, commentBlocked: null, adjacent: undefined,
-    // kind は開いているものの種類（task、story）。ストーリーの引き出し（本番の StoryDrawer）は id にストーリーの id を持ち、
+    // kind は開いているものの種類（task、story、epic）。ストーリーの引き出し（本番の StoryDrawer）は id にストーリーの id を持ち、
     // 開き方は横と真ん中だけ。canDelete は削除できる人か（偽なら「⋯」に削除を出さず、理由を本文の下に出す）、
     // parentFinished は親のエピックが完了か中止している（ストーリーの完了と取り消しを押せなくする）見本の状態
     kind: "task", canDelete: true, parentFinished: false, remaining: null };
   const drawerReadOnly = () => drawer.view === "readonly";
   const isStoryDrawer = () => drawer.kind === "story";
-  const drawerNoun = () => (isStoryDrawer() ? t("story") : t("task"));
+  const isEpicDrawer = () => drawer.kind === "epic";
+  const isTreeDrawer = () => isStoryDrawer() || isEpicDrawer();
+  const drawerNoun = () => t(drawer.kind);
   function readDrawerMode() {
     try { const mode = localStorage.getItem("sq-design-task-open-mode"); return ["side", "center", "page", "tab"].includes(mode) ? mode : "side"; }
     catch { return "side"; }
   }
   // ストーリーの引き出しは横と真ん中だけ（ページ全体と新しいタブは、タスクの画面があるタスクの形）
   function shownDrawerMode() {
-    if (isStoryDrawer() && (drawer.mode === "page" || drawer.mode === "tab")) return "side";
+    if (isTreeDrawer() && (drawer.mode === "page" || drawer.mode === "tab")) return "side";
     return drawer.mode === "center" && matchMedia("(max-width: 620px)").matches ? "side" : drawer.mode;
   }
   // 今描いている形。ページ全体の見本（task.html）はページ全体、それ以外は横か真ん中（狭い幅の真ん中は横）
-  function renderedDrawerMode() { return location.pathname.endsWith("/task.html") && !isStoryDrawer() ? "page" : shownDrawerMode() === "center" ? "center" : "side"; }
+  function renderedDrawerMode() { return location.pathname.endsWith("/task.html") && !isTreeDrawer() ? "page" : shownDrawerMode() === "center" ? "center" : "side"; }
   // 開き方は押した時点で実行するボタンの組。select にすると、矢印キーを押すだけで確認なしに遷移してしまう
   function drawerModeButtons() {
     const narrow = matchMedia("(max-width: 620px)").matches, now = renderedDrawerMode();
     // 中身はアイコンだけで、名前は aria-label と title に持つ（前後のボタンと同じ形）
     const buttons = [["side", "横", "panel"], ["center", "真ん中", "centered"], ["page", "ページ全体", "maximize"], ["tab", "新しいタブ", "external"]]
-      .filter(([v]) => (v !== "center" || !narrow) && (!isStoryDrawer() || v === "side" || v === "center"))
+      .filter(([v]) => (v !== "center" || !narrow) && (!isTreeDrawer() || v === "side" || v === "center"))
       .map(([v, label, glyph]) => `<button class="pill" type="button" data-drawer-mode="${v}" aria-label="${label}" title="${label}" aria-pressed="${now === v}">${icon(glyph)}</button>`).join("");
     // 選べる形が1つだけ（ストーリーの狭い幅）なら、切り替えの組ごと出さない（本番の Drawer と同じ）
     return buttons.length < 2 ? "" : `<span class="drawer-mode" role="group" aria-label="開き方">${buttons}</span>`;
@@ -1300,6 +1507,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   // 畳んだ枝の中（[hidden]）と、引き出しやアシスタントの中の行は数えない。端では null で、ボタンは aria-disabled。
   // 順に無いとき、ページ全体、画面が順を渡さないときは null を返し、ボタンを出さない。drawer.adjacent は見本の状態の切り替え（カタログの drawerDemo が使う）
   function drawerAdjacent() {
+    if (isEpicDrawer()) return null;
     if (drawer.adjacent !== undefined) return drawer.adjacent;
     if (renderedDrawerMode() === "page") return null;
     // ストーリーの引き出しは、画面に見えているストーリーの題のリンク（data-story）の並びで前後を決める
@@ -1365,7 +1573,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       return;
     }
     if (location.pathname.endsWith("/task.html")) { location.href = `backlog.html?task=${encodeURIComponent(id)}`; return; }
-    const kind = drawer.kind, shown = { canDelete: drawer.canDelete };
+    const kind = drawer.kind, shown = { canDelete: drawer.canDelete, view: drawer.view };
     closeDrawer(true); openDrawer(id, drawer.opener, false, null, kind);
     // 見本の状態（削除できない人）は、開き方を替えても持ち越す
     if (drawer.id === id) { Object.assign(drawer, shown); renderDrawer(); document.querySelector("#drawer [data-close-drawer]")?.focus(); }
@@ -1435,7 +1643,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   // 決まった欄（詳細・受け入れ条件）。本文と同じく、いつも書ける欄
   function drawerFieldsHtml(x) {
     const saved = fieldsText(x);
-    const label = `${icon("pen")} ${t("detail")}・${t("ac")} ${x.unfilled ? `<span class="chip is-todo">未記入</span>` : ""}`;
+    const label = `${icon("pen")} ${t("detail")}・${t("ac")}`;
     if (drawerReadOnly()) {
       return `<div class="field"><span class="field-label">${label}</span><div class="doc-box${saved ? "" : " is-empty"}">${saved ? mdBody(saved.split("\n")) : `まだ書かれていません。${t("task")}を完了にした時点ですべて埋まっていると、最後に書いた人に経験値が付きます。`}</div></div>`;
     }
@@ -1502,6 +1710,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   });
   // 2つのタブの中身は描いたまま隠す（本番は書きかけのコメントを、タブを切り替えても保つ）。左右の矢印キーでタブを移る
   function drawerHtml() {
+    if (isEpicDrawer()) return epicDrawerHtml();
     if (isStoryDrawer()) return storyDrawerHtml();
     const x = task(drawer.id);
     const parent = x.story ? D.stories[x.story] : null;
@@ -1551,7 +1760,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
         ${attachments(x.id)}
       </div>
       <div class="done-bar">
-        ${x.doneAt ? `<span class="done-bar-done"><span class="hanko" role="img" aria-label="${t("done")}">${icon("check")}<b>完</b></span><span>${t("done")} ${esc(x.doneAt)}</span><button class="link-btn" type="button" data-undo="${x.id}" aria-label="${t("done")}を戻す: ${esc(x.title)}" aria-disabled="false">戻す</button></span>`
+        ${x.doneAt ? `<span class="done-bar-done"><span class="hanko" role="img" aria-label="${t("done")}">${icon("check")}</span><span>${t("done")} ${esc(x.doneAt)}</span><button class="link-btn" type="button" data-undo="${x.id}" aria-label="${t("done")}を戻す: ${esc(x.title)}" aria-disabled="false">戻す</button></span>`
           : `<button class="btn is-primary" type="button" data-done="${x.id}">${icon("check")}${t("complete")}</button>`}
         ${D.definitionOfDone.length ? `<div class="done-bar-dod"><h3 class="done-bar-dod-title" id="drawer-dod">${t("dod")}</h3><div class="done-bar-dod-body" tabindex="0" role="region" aria-labelledby="drawer-dod">${dodDoc()}</div></div>` : ""}
       </div>
@@ -1620,7 +1829,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     if (st.doneAt) {
       const note = blocked && !ro ? `<span class="props-note" id="${ids.blocked}">${t("done")}か中止した${t("epic")}の下の${t("story")}は取り消せません</span>` : "";
       const undo = ro ? "" : `<button class="link-btn" type="button" data-story-reopen aria-label="${t("done")}を取り消す: ${esc(st.title)}"${blocked ? ` aria-disabled="true" aria-describedby="${ids.blocked}"` : ` aria-disabled="false"`}>取り消す</button>`;
-      return `<div class="done-bar"><span class="done-bar-done"><span class="hanko" role="img" aria-label="${t("done")}" tabindex="-1">${icon("check")}<b>完</b></span><span>${t("done")} ${esc(st.doneAt)}</span>${note}${undo}</span></div>`;
+      return `<div class="done-bar"><span class="done-bar-done"><span class="hanko" role="img" aria-label="${t("done")}" tabindex="-1">${icon("check")}</span><span>${t("done")} ${esc(st.doneAt)}</span>${note}${undo}</span></div>`;
     }
     if (ro) return "";
     const note = blocked ? `<span class="props-note" id="${ids.blocked}">${t("done")}か中止した${t("epic")}の下の${t("story")}は${t("done")}にできません</span>`
@@ -1657,6 +1866,21 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       ${storyDoneBarHtml(st, remaining)}
       ${!ro && !drawer.canDelete ? `<div class="form-actions"><span class="field-hint">削除できるのは作った人と${t("leader")}です。</span></div>` : ""}`;
   }
+  // エピックは共通の引き出しで編集する。完了・親の移動・前後の操作は持たない。
+  function epicDrawerHtml() {
+    const e = D.epics[drawer.id], ro = drawerReadOnly();
+    const menu = !ro && drawer.canDelete ? rowMenu(e.title, [{ attr: `data-dialog="deleteEpic" data-tree-delete-id="${drawer.id}"`, label: `この${t("epic")}を削除する`, icon: "trash", danger: true }]) : "";
+    return `<div class="drawer-top"><span class="chip">${icon("flag")}${t("epic")}</span>${menu}
+      <span class="drawer-tools">${drawerModeButtons()}</span><button class="pill drawer-close" type="button" data-close-drawer aria-label="閉じる">${icon("x")}</button></div>
+      ${ro ? `<div class="callout is-info">${icon("shield")}<span>終了した${t("workspace")}の${t("epic")}は、読み取りだけできます</span></div>` : ""}
+      ${drawerTitleHtml(e)}
+      <dl class="props"><div><dt>${t("due")}</dt><dd>${storyDueHtml(e)}</dd></div>
+        <div><dt>${ro ? t("category") : `<label for="drawer-cat">${t("category")}</label>`}</dt><dd>${categorySelect("drawer-cat", e.cat || null, ro)}</dd></div>
+        <div><dt>リンク</dt><dd>${drawerLinkHtml(e)}</dd></div></dl>
+      ${drawerBodyHtml(e)}
+      ${!ro && !drawer.canDelete ? `<p class="field-hint">削除できるのは作った人と${t("leader")}です。</p>` : ""}
+      ${location.pathname.endsWith("/epic.html") ? "" : `<a class="btn" data-epic-page="${drawer.id}" href="epic.html?epic=${encodeURIComponent(drawer.id)}">${t("epic")}の画面を開く</a>`}`;
+  }
   // 引き出しの見本の状態。読み込み中と、読めなかったとき（もう一度試す）は、見出しと文だけ
   function drawerStateHtml() {
     const top = `<div class="drawer-top">${isStoryDrawer() ? `<span class="chip">${icon("check")}${t("story")}</span>` : ""}<span class="drawer-tools">${drawerStepButtons()}${drawerModeButtons()}</span><button class="pill drawer-close" type="button" data-close-drawer aria-label="閉じる">${icon("x")}</button></div>
@@ -1672,7 +1896,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     if (!force && drawer.id && drawerHasDraft()) {
       if (drawer.id !== id || drawer.kind !== kind) { askDiscardDraft({ kind: "open", id, opener, before, drawerKind: kind }); return; }
       before?.();
-      if (!isStoryDrawer() && drawer.tab !== "comments") setDrawerTab("comments");
+      if (!isTreeDrawer() && drawer.tab !== "comments") setDrawerTab("comments");
       document.querySelector("#drawer [data-close-drawer]")?.focus();
       return;
     }
@@ -1685,6 +1909,11 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     }
 
     resetDrawerFor(id, opener, kind);
+    if (kind === "epic") {
+      const url = new URL(location.href); url.searchParams.delete("task"); url.searchParams.delete("story"); url.searchParams.set("epic_id", id); history.replaceState(null, "", url);
+    } else {
+      const url = new URL(location.href); url.searchParams.delete("epic_id"); history.replaceState(null, "", url);
+    }
     renderDrawer();
     document.querySelector("#drawer [data-close-drawer]")?.focus();
   }
@@ -1693,6 +1922,8 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   // keep は前後へ移るとき。見本の状態（削除できない人）を、移った先にも持ち越す
   function resetDrawerFor(id, opener, kind = "task", keep = false) {
     if (!keep) drawer.canDelete = true;
+    drawer.view = kind === "epic" && opener instanceof HTMLElement && opener.dataset.epicReadonly === "true" ? "readonly" : null;
+    if (kind === "epic" && opener instanceof HTMLElement) drawer.canDelete = opener.dataset.epicCanDelete !== "false";
     drawer.kind = kind; drawer.id = id; drawer.tab = "comments"; drawer.thanked = new Set(); drawer.opener = opener || null; drawer.errors = {}; drawer.drafts = {}; drawer.commentEditing = null;
     document.getElementById("drawer")?.replaceChildren();
   }
@@ -1704,12 +1935,12 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     if (edit) drawer.drafts.commentEdit = edit.value;
   }
   // 書きかけ: 直している途中で、入力が保存した値と違う欄（保存と同じく前後の空白は除いて比べる）
-  const drawerItem = () => (isStoryDrawer() ? D.stories[drawer.id] : task(drawer.id));
+  const drawerItem = () => (isEpicDrawer() ? D.epics[drawer.id] : isStoryDrawer() ? D.stories[drawer.id] : task(drawer.id));
   function drawerHasDraft() {
     const x = drawerItem();
     if (!x) return false;
     captureDrafts();
-    const saved = { title: x.title, link: x.link || "", body: (x.body || []).join("\n"), ...(isStoryDrawer() ? { ac: storyAcText(x) } : { fields: fieldsText(x) }) };
+    const saved = { title: x.title, link: x.link || "", body: (x.body || []).join("\n"), ...(isStoryDrawer() ? { ac: storyAcText(x) } : isEpicDrawer() ? {} : { fields: fieldsText(x) }) };
     // コメントは、新しいコメントの欄に文字があるときと、直している途中で直す前の本文と違うとき
     const editingComment = drawer.commentEditing !== null ? (D.comments[x.id] || [])[drawer.commentEditing] : null;
     if ((drawer.drafts.comment ?? "").trim() !== "") return true;
@@ -1724,13 +1955,20 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       const back = sessionStorage.getItem("sq-design-task-return"); sessionStorage.removeItem("sq-design-task-return");
       location.href = back || "backlog.html"; return;
     }
+    if (isEpicDrawer()) {
+      const url = new URL(location.href); url.searchParams.delete("epic_id"); history.replaceState(null, "", url);
+    }
     drawer.id = null; drawer.errors = {}; drawer.drafts = {}; drawer.commentEditing = null;
     renderDrawer();
-    const back = drawer.opener instanceof HTMLElement ? drawer.opener : drawer.opener && document.querySelector(`[${isStoryDrawer() ? "data-story" : "data-task"}="${drawer.opener}"]`);
-    if (back) back.focus();
+    const back = drawer.opener instanceof HTMLElement ? drawer.opener : drawer.opener && document.querySelector(`[${isEpicDrawer() ? "data-epic-id" : isStoryDrawer() ? "data-story" : "data-task"}="${drawer.opener}"]`);
+    if (back?.isConnected) back.focus();
+    else if (isEpicDrawer()) {
+      const target = drawer.opener instanceof HTMLElement ? document.querySelector(`[data-epic-id="${drawer.opener.dataset.epicId}"]`) : document.querySelector("#content h1");
+      if (target) { target.tabIndex = -1; target.focus(); }
+    }
   }
   // ---- 自動保存。タイトル、リンク、本文、決まった欄 ----
-  const fieldsText = (x) => (x.unfilled ? "" : (x.fields ?? (x.story ? D.stories[x.story].ac.slice(0, 2) : ["結果を確かめる手順が書かれている"]).map((a) => `- ${a}`).join("\n")));
+  const fieldsText = (x) => (x.fieldsEmpty ? "" : (x.fields ?? (x.story ? D.stories[x.story].ac.slice(0, 2) : ["結果を確かめる手順が書かれている"]).map((a) => `- ${a}`).join("\n")));
   const savedFieldValue = (x, name) => name === "title" ? x.title : name === "link" ? x.link || "" : name === "body" ? (x.body || []).join("\n") : name === "ac" ? storyAcText(x) : fieldsText(x);
   const saveTimers = {};
   const SAVE_WAIT = 1500;
@@ -1765,7 +2003,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     syncMobilePageTools();
     drafts.forEach(([id, value]) => { const el = document.getElementById(id); if (el) el.value = value; });
   }
-  // 保存した欄に応じて、引き出しの見出し、リンクの「開く」、「未記入」の印だけを差し替える（書いている欄は作り直さない）
+  // 保存した欄に応じて、引き出しの見出しとリンクの「開く」だけを差し替える（書いている欄は作り直さない）
   function refreshDrawerView(x, name) {
     const root = document.getElementById("drawer");
     if (!root) return;
@@ -1774,11 +2012,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       const field = root.querySelector('[data-drawer-input="link"]')?.closest(".field");
       field?.parentElement.querySelectorAll("a[data-drawer-open]").forEach((a) => a.remove());
       if (x.link && field) field.insertAdjacentHTML("afterend", `<a class="btn is-sm" data-drawer-open href="${esc(x.link)}" target="_blank" rel="noopener noreferrer" aria-label="リンクを新しいタブで開く">開く</a>`);
-    }
-    if (name === "fields") {
-      const label = root.querySelector('label[for="drawer-edit-fields"]');
-      label?.querySelectorAll(".chip.is-todo").forEach((c) => c.remove());
-      if (x.unfilled && label) label.insertAdjacentHTML("beforeend", ` <span class="chip is-todo">未記入</span>`);
     }
   }
   function commitDrawerField(name) {
@@ -1796,7 +2029,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       x.link = value || null;
     } else if (name === "body") x.body = value ? value.split("\n") : null;
     else if (name === "ac") { x.acMd = value; x.ac = value.split("\n").map((l) => l.replace(/^\s*[-*]\s+/, "").trim()).filter(Boolean); }
-    else { x.fields = value; x.unfilled = !value; }
+    else { x.fields = value; x.fieldsEmpty = !value; }
     showDrawerError(name, "");
     delete drawer.drafts[name];
     showSaveState(name, "saved");
@@ -1837,6 +2070,10 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   });
   // ポイントと期日は、選んだら保存する（保存のボタンは無い）
   document.addEventListener("change", (ev) => {
+    if (ev.target.id === "drawer-cat" && isEpicDrawer() && drawer.id && !drawerReadOnly()) {
+      drawerItem().cat = ev.target.value || null;
+      redrawContent(); toast(`${icon("check")}保存しました`); return;
+    }
     if (ev.target.name === "d-del") { const b = document.querySelector("[data-delete-needs-choice]"); b?.setAttribute("aria-disabled", "false"); b?.removeAttribute("aria-describedby"); }
     const el = ev.target.closest && ev.target.closest("[data-drawer-pts], [data-drawer-due]");
     if (!el || !drawer.id) return;
@@ -1879,6 +2116,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   let dialogOpener = null;
   // 値を二度と出せないダイアログ（API トークンの発行直後）は、Esc と背景では閉じず、「閉じる」と × だけで閉じる（本番の Dialog の outsideDismiss={false}）
   let dialogOnlyButtons = false;
+  let planSubmitting = false;
   function openDialog(title, body, foot, onlyButtons = false) {
     dialogOnlyButtons = onlyButtons;
     dialogOpener = document.activeElement;
@@ -1893,6 +2131,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     (el.querySelector("input, textarea, select, .btn.is-primary") || el.querySelector("[data-close-dialog]")).focus();
   }
   function closeDialog() {
+    if (planSubmitting) return false;
     const el = document.getElementById("dialog");
     if (!el || el.hidden) return false;
     el.hidden = true; el.innerHTML = ""; dialogOnlyButtons = false; pendingDrawer = null;
@@ -2026,14 +2265,18 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const title = input.value.trim();
     if (!title) return;
     const [kind, key] = input.dataset.draft.split(":");
-    // エピックとストーリーの空の行。見本は木を組み替えず、足したことだけ知らせて、同じ欄に戻る
+    // エピックとストーリーも題だけで作り、同じ空の行へ戻る
     if (kind === "new-epic" || kind === "new-story") {
+      const id = `sample-${++draftSeq}`;
+      if (kind === "new-epic") D.epics[id] = { title, cat: null, body: null, due: null, link: null, party: [], requester: D.me, tier: "small" };
+      else D.stories[id] = { title, epic: key === "root" ? null : key, cat: null, ac: [], body: null, due: null, link: null };
       input.value = "";
-      input.focus();
+      redrawAll();
+      document.getElementById(input.id)?.focus();
       toast(`${icon("check")}${t(kind === "new-epic" ? "epic" : "story")}を足しました: ${esc(title)}`);
       return;
     }
-    const x = { id: `n${++draftSeq}`, ws: "wa", title, story: kind === "story" ? key : null, sprint: kind === "col" ? "sp14" : null, col: kind === "col" ? key : null, who: null, pts: null, creator: D.me, unfilled: true };
+    const x = { id: `n${++draftSeq}`, ws: "wa", title, story: kind === "story" ? key : null, sprint: kind === "col" ? "sp14" : null, col: kind === "col" ? key : null, who: null, pts: null, creator: D.me, fieldsEmpty: true };
     D.tasks.push(x);
     // redraw() は値のある空の行を控えて戻すので、足した題が戻らないよう、描き直す前にこの欄だけ空にする
     input.value = "";
@@ -2214,20 +2457,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="${t("sprint")}を${s ? "保存しました" : "作りました"}">${s ? "保存する" : "作る"}</button>`);
   }
 
-  // ストーリーを作るダイアログ。本番には無い（本番は木の空の行で題だけ作る）、見本だけに残るもの（Issue #895 が残すと決めた。
-  // 外すのは別の Issue）。直すのは引き出し（storyDrawerHtml）なので、ここは作るだけ
-  function storyDialog(title) {
-    openDialog(title,
-      `<label class="field" for="d-st"><span class="field-label">タイトル</span><input class="input" id="d-st" placeholder="どこまで進めば区切りか"></label>
-       <label class="field" for="d-sa"><span class="field-label">${t("ac")}</span><textarea class="textarea" id="d-sa"></textarea></label>
-       <label class="field" for="d-sb"><span class="field-label">本文</span><textarea class="textarea" id="d-sb"></textarea></label>
-       <div class="field"><label class="field-label" for="d-sc">${t("category")}</label>${categorySelect("d-sc", null, false)}</div>
-       <div class="form-row is-start">
-         <label class="field" for="d-sd"><span class="field-label">${t("due")}</span><input class="input" id="d-sd" type="date"></label>
-         <div class="field"><label class="field-label" for="d-sl">リンク</label><input class="input" id="d-sl" type="url" placeholder="https://"></div>
-       </div>`,
-      `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="${t("story")}を作りました">作る</button>`);
-  }
   // 親の選択欄のストーリーの候補（本番の src/lib/parent-options.ts）。木の順（エピックの下、親のないもの）に並べ、
   // エピックの下の候補があるときだけ、親のエピックごとの optgroup にまとめ、親のないストーリーは「親なしの<ストーリー>」にまとめる
   function storyOptions(sids) {
@@ -2237,21 +2466,13 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     if (!groups.some((g) => g.eid !== null)) return options(sids);
     return groups.map((g) => `<optgroup label="${g.eid === null ? `親なしの${t("story")}` : esc(D.epics[g.eid].title)}">${options(g.sids)}</optgroup>`).join("");
   }
-  // エピックのダイアログの下の削除の行。削除できない人（作った人でもリーダーでもない）には、ボタンの代わりに削除できる人を出す
-  // （ストーリーは引き出しの「⋯」から削除し、削除できない人には本文の下に同じ理由を出す）
-  function treeDeleteActions(canDelete) {
-    return `<div class="form-actions">${canDelete
-      ? `<button class="btn is-sm is-quiet is-danger" type="button" data-dialog="deleteEpic">${icon("trash")}この${t("epic")}を削除する</button>`
-      : `<span class="field-hint">削除できるのは作った人と${t("leader")}です。</span>`}</div>`;
-  }
   // エピックとストーリーの削除の確認（本番の TreeDeleteDialog）。kind は "epic" か "story"。
   // opts.empty は配下の無い形（選択肢を出さない）、opts.leaderOnly は「まとめて削除する」を選べない形（リーダーでない人で、他の人の作った配下がある）。
   // opts.cleared はクリア済みで配下のあるエピックの形（配下なしの opts.empty とは組み合わせない。見本の e1 は未完了だが、クリア済みのつもりで見る）。
   // 「配下を親なしで残す」は最初から選べず（disabled）、理由を選択肢の下の .field-hint に出す（サーバーは 409 の epic_finished で断るが、確認を開く時点で止める）。
   // 取り消せない「配下もまとめて削除する」は既定で選ばず（どちらも未選択）、選ぶまで「削除する」は aria-disabled で押せない（理由の .field-hint を aria-describedby で結ぶ）。
   // まとめて削除できない人（opts.leaderOnly）は、どちらも選べず、依頼主かリーダーに完了の取り消しを頼む文を出し、「削除する」は押せないまま。
-  // 見本は1枠のダイアログなので、元のエピックのダイアログを置き換えて開く。ストーリーは引き出しの「⋯」から、引き出しの上に開く。
-  // 本番は元のダイアログの上に重ねて開き、開いたときに get を読み直して件数と可否を差し替える
+  // 両方とも引き出しの「⋯」から、引き出しの上に開く。
   function treeDeleteDialog(kind, id, opts = {}) {
     const item = kind === "epic" ? D.epics[id] : D.stories[id];
     const stories = opts.empty ? 0 : kind === "epic" ? Object.keys(D.stories).filter((sid) => D.stories[sid].epic === id).length : 0;
@@ -2278,31 +2499,8 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
        <p class="field-hint">完了の記録と経験値は残ります。</p>`,
       `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button>${opts.cleared
         ? `<button class="btn is-danger" type="button" aria-disabled="true" aria-describedby="d-del-cleared"${opts.leaderOnly ? "" : " data-delete-needs-choice"}>削除する</button>`
-        : `<button class="btn is-danger" type="button" data-close-dialog${kind === "story" ? ` data-close-story-drawer="${id}"` : ""} data-toast="${t(kind)}を削除しました">削除する</button>`}`);
+        : `<button class="btn is-danger" type="button" data-close-dialog${` data-close-tree-drawer="${kind}:${id}"`} data-toast="${t(kind)}を削除しました">削除する</button>`}`);
     document.querySelector(".dialog-sheet").classList.add("is-danger");
-  }
-  // エピックの作成と変更のダイアログ（本番の EpicDialog）。欄はストーリーのダイアログから受け入れ基準を除いたもの。
-  // 見本のカタログ（「ダイアログと演出」）と、木のエピックの行の題から開く（本番には無く、木の空の行で作り、引き出しで直す）。依頼主、クリア報酬、討伐隊はエピックの画面（#65）で直す。
-  // 直すときは、欄の下に「この<エピック>を削除する」を置く（ストーリーのダイアログと同じ）
-  function epicDialog(title, e, readOnly = false, canDelete = true) {
-    const link = e && e.link ? e.link : "";
-    const ro = readOnly ? " readonly" : "";
-    openDialog(title,
-      `${readOnly ? `<div class="callout is-info">${icon("shield")}<span>終了した${t("workspace")}の${t("epic")}は、読み取りだけできます。</span></div>` : ""}
-       <label class="field" for="d-et"><span class="field-label">タイトル</span><input class="input" id="d-et" placeholder="何を成し遂げるか" value="${e ? esc(e.title) : ""}"${ro}></label>
-       <label class="field" for="d-eb"><span class="field-label">本文</span><textarea class="textarea" id="d-eb"${ro}>${e ? esc((e.body || []).join("\n\n")) : ""}</textarea></label>
-       <div class="field">${readOnly ? `<span class="field-label">${t("category")}</span>` : `<label class="field-label" for="d-ec">${t("category")}</label>`}${categorySelect("d-ec", e ? e.cat : null, readOnly)}</div>
-       <div class="form-row is-start">
-         <label class="field" for="d-ed"><span class="field-label">${t("due")}</span>${readOnly
-           ? `<input class="input" id="d-ed" type="text" readonly value="${e && e.due ? e.due : ""}">`
-           : `<input class="input" id="d-ed" type="date" value="${e && e.due ? e.due : ""}">`}</label>
-         <div class="field"><label class="field-label" for="d-el">リンク</label>
-           <span class="input-row"><input class="input" id="d-el" type="url" placeholder="https://" value="${esc(link)}"${ro}>${link ? `<a class="btn" href="${esc(link)}" target="_blank" rel="noopener noreferrer" aria-label="リンクを新しいタブで開く">開く</a>` : ""}</span></div>
-       </div>
-       ${e && !readOnly ? treeDeleteActions(canDelete) : ""}`,
-      readOnly
-        ? `<button class="btn is-primary" type="button" data-close-dialog>閉じる</button>`
-        : `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="${e ? `${t("epic")}を保存しました` : `${t("epic")}を作りました`}">${e ? "保存する" : "作る"}</button>`);
   }
   const DIALOGS = {
     // 先のスプリントに入れる（本番の SprintTaskPicker）。計画の画面の「<バックログ>から入れる」から開く。
@@ -2314,8 +2512,8 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
         .filter((g) => g.list.length);
       const roots = tasksWhere((x) => open(x) && !x.story);
       const picked = (groups[0]?.list.length ?? 0) + (groups[1] ? 1 : 0);
-      const row = (x, checked) => `<label class="pick-row is-child"><input type="checkbox" ${checked ? "checked" : ""}><span>${esc(x.title)}<span class="pick-meta">${x.pts == null ? "未見積もり" : `${x.pts} pt`}${x.sprint ? `・${esc(sprintLabel(x.sprint))} から移します` : ""}</span></span></label>`;
-      openDialog(`${esc(sprintLabel("sp16"))} に入れる`,
+      const row = (x, checked) => `<label class="pick-row is-child"><input type="checkbox" ${checked ? "checked" : ""}><span>${esc(x.title)}<span class="pick-meta">${x.pts == null ? "未見積もり" : `${x.pts} pt`}${x.sprint ? `・${t("sprint")}「${esc(sprintLabel(x.sprint))}」から移します` : ""}</span></span></label>`;
+      openDialog(`${t("sprint")}「${esc(sprintLabel("sp16"))}」に入れる`,
         `<p class="field-hint" id="d-pick-hint">${t("story")}を選ぶと、配下の未完了の${t("task")}をまとめて入れます。ほかの${t("sprint")}に入っている${t("task")}は、こちらへ移します。</p>
          <label class="search">${icon("search")}<input type="search" aria-label="${t("task")}と${t("story")}のタイトルで絞る" placeholder="タイトルで絞る"></label>
          <div class="pick-list" role="group" aria-label="入れる${t("task")}" aria-describedby="d-pick-hint">
@@ -2331,9 +2529,8 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     sprintEdit: () => sprintDialog("sp16"),
     // 始まる前のスプリントの削除（本番は ConfirmDialog）。計画の画面の先のスプリントの「削除する」から開く
     deleteSprint: () => {
-      const s = D.sprints.sp16;
       openDialog(`${t("sprint")}を削除する`,
-        `<p>「${esc(sprintLabel("sp16"))}」（${md(s.start)}〜${md(s.end)}）を削除します。削除したものは画面から消え、この版では戻せません。</p>`,
+        `<p>${t("sprint")}「${esc(sprintLabelWithPeriod("sp16"))}」を削除します。削除したものは画面から消え、この版では戻せません。</p>`,
         `<button class="btn is-primary" type="button" data-close-dialog>やめる</button><button class="btn is-danger" type="button" data-close-dialog data-toast="${t("sprint")}を削除しました">削除する</button>`);
       document.querySelector(".dialog-sheet").classList.add("is-danger");
     },
@@ -2378,7 +2575,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       const submitError = state === "ended"
         ? `<div class="callout is-danger" role="alert">${icon("alert")}<span>この${sprint}は最終日を過ぎているので、始められません。期間を直すか、削除して作り直してください</span></div>` : "";
       openDialog(`${sprint}を始める`,
-        `<p>${sprintLabel("sp15")}（${md(D.sprints.sp15.start)}〜${md(D.sprints.sp15.end)}）を始めます。入っている${t("task")}は 3 件、11 pt です。</p>
+        `<p>${t("sprint")}「${sprintLabelWithPeriod("sp15")}」を始めます。入っている${t("task")}は 3 件、11 pt です。</p>
          ${lead}
          <label class="field${state === "toolong" ? " is-invalid" : ""}" for="d-goal"><span class="field-label">${t("sprintGoal")}</span><textarea class="textarea" id="d-goal" placeholder="この${sprint}で何ができるようになるか" aria-describedby="d-goal-hint${goalError ? " d-goal-error" : ""}"${state === "toolong" ? ` aria-invalid="true"` : ""}></textarea>${goalError}<span class="field-hint" id="d-goal-hint">空でも始められます。200 字まで書け、${t("plan")}と${sprint}の画面に出ます。</span></label>
          ${submitError}`,
@@ -2391,7 +2588,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       const id = none ? "spb" : "sp14";
       const s = D.sprints[id];
       const period = `<span class="mono">${md(s.start)}〜${md(s.end)}</span>`;
-      const head = s.name ? `${sprintLabel(id)}（${period}）` : `${t("sprint")} ${period}`;
+      const head = s.name ? `${sprintLabel(id)}（${period}）` : period;
       const shift = (to, before, after) => `<div class="field"><span class="field-label">${sprintLabel(to)}</span><span><span class="mono">${before} → ${after}</span> <span>（2 日）</span></span></div>`;
       const preview = none
         ? `<p class="props-note">後ろの${t("sprint")}は動きません</p>`
@@ -2415,24 +2612,16 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
         `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="${t("sprint")}を保存しました">保存する</button>`);
     },
     sprintEnd: () => openDialog(`${t("sprint")}を終える`,
-      `<p>${sprintLabel("sp14")} を終えます。終えた${t("sprint")}の期間と中身は、あとから変えられません。</p>
+      `<p>${t("sprint")}「${sprintLabelWithPeriod("sp14")}」を終えます。終えた${t("sprint")}の期間と中身は、あとから変えられません。</p>
        <fieldset class="field" style="border:0;padding:0;margin:0"><legend class="field-label">終わらなかった${t("task")} 7 件の行き先</legend>
          <div class="choice-list">
-           <label class="choice"><input type="radio" name="d-carry" checked><div><b>次の ${sprintLabel("sp15")} へ持ち越す</b><span>同じ${t("task")}をそのまま移します。</span></div></label>
+           <label class="choice"><input type="radio" name="d-carry" checked><div><b>${t("sprint")}「${sprintLabelWithPeriod("sp15")}」へ持ち越す</b><span>同じ${t("task")}をそのまま移します。</span></div></label>
            <label class="choice"><input type="radio" name="d-carry"><div><b>${t("backlog")}へ戻す</b><span>どの${t("sprint")}にも入っていない状態にします。</span></div></label>
          </div></fieldset>
        <div class="field"><span class="field-label">${t("sprintGoal")}は達成できましたか</span>
          <p class="props-note">${esc(D.sprints.sp14.goal)}</p>
          <div class="segmented" role="radiogroup"><label><input type="radio" name="d-goal" checked><span>達成した</span></label><label><input type="radio" name="d-goal"><span>達成していない</span></label></div></div>`,
-      `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="${sprintLabel("sp14")} を終えました">終える</button>`),
-    // ストーリーを作るダイアログは見本だけに残るもの（本番は木の空の行で作る）。見本のカタログ（「ダイアログと演出」）から開く。
-    // 直すのは題のリンクで開く引き出し（storyDrawerHtml。自動保存。削除は引き出しの帯の「⋯」）で、ダイアログは無い
-    createStory: () => storyDialog(`${t("story")}を作る`),
-    createEpic: () => epicDialog(`${t("epic")}を作る`, null),
-    editEpic: () => epicDialog(t("epic"), D.epics.e1),
-    viewEpic: () => epicDialog(t("epic"), D.epics.e1, true),
-    // 作った人でもリーダーでもない人が開いたとき。削除のボタンの代わりに削除できる人を出す
-    editEpicNotOwner: () => epicDialog(t("epic"), D.epics.e1, false, false),
+      `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="${t("sprint")}「${sprintLabel("sp14")}」を終えました">終える</button>`),
     createTask: () => openDialog(`${t("create")}`,
       `<label class="field" for="d-title"><span class="field-label">タイトル</span><input class="input" id="d-title" placeholder="何をするか"></label>
        <div class="form-row is-start">
@@ -2449,11 +2638,14 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
        <div class="field"><span class="field-label">添付ファイル</span>${attachments("new", { button: true })}
          <span class="field-hint">保存せずに閉じると、上げたファイルは 1 日で消えます。</span></div>`,
       `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="${t("backlog")}の末尾に足しました">${t("create")}</button>`),
-    // ショートカットの一覧（本番の ShortcutHelp）。? で開く。今の画面のキーを上に、どの画面でも効くキーをその下に並べる。足元の操作は無く、Esc、×、背景で閉じる。この見本はスプリントの画面で開いた形（今いる画面へ移る g s は出ない）。本番は登録の helpOrder の順（検索、画面を移るキー、?）に並べる
+    // ショートカットの一覧（本番の ShortcutHelp）。? で開く。今の画面のキーを上に、どの画面でも効くキーをその下に並べる。カタログはスプリントの例。画面の見本では、その画面のカード操作だけを追加する。
     shortcutHelp: () => {
       const group = (title, rows) => `<section class="shortcut-group"><h3 class="shortcut-group-title">${title}</h3><dl class="shortcut-list">${rows.map(([name, key]) => `<div class="shortcut-row"><dt>${name}</dt><dd><kbd class="kbd">${key}</kbd></dd></div>`).join("")}</dl></section>`;
+      const sprintRows = (page?.current === "sprint" || (location.pathname.split("/").pop() || "index.html") === "index.html") && D.sprints.sp14
+        ? [[`選んだカードを隣の${t("column")}へ（${t("done")}のカードは左で戻す）`, "Alt + ← →"], [`選んだ未完了カードを${t("column")}の中で動かす`, "Alt + ↑ ↓"], [`${t("column")}の末尾の空の行に題を打ち、${t("task")}を足す`, "Enter"]]
+        : [];
       openDialog("ショートカットの一覧",
-        group("この画面", [[`${t("task")}を書く`, "c"]]) +
+        group("この画面", [[`${t("task")}を書く`, "c"], ...sprintRows]) +
         group("どの画面でも", [["画面とタスクを探す", keyHints.mac ? "⌘K" : "Ctrl K"], [`${t("backlog")}へ移る`, "g b"], [`${t("pageToday")}へ移る`, "g t"], ["ショートカットの一覧", "?"]]),
         "");
     },
@@ -2627,6 +2819,57 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
        <p class="field-hint">容量の上限を今の合計より小さくすると、合計が下がるまで新しく添付できません。上限を上げて合計が80%を下回ると、次に80%を超えたときに管理者へまた通知します。</p>
        <p class="field-hint">上限の変更は${t("organization")}の変更の履歴に、運用者の操作として残ります。</p>`,
       `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" id="d-qs" aria-disabled="true" aria-describedby="d-qu">変える</button>`),
+    // 契約（プランと支払いの周期）の変更（本番の OrganizationPlanDialog）。見本は「くもラボ」（ビジネス・月払い、停止もお試しもしていない）の状態。
+    // 今の契約を選んだ状態で開き、選び直すと変えた後の上限（d-pa）と、今の人数や合計が超えるときの注意を出す。
+    // 未契約の組織の上限が下がる注意（d-pl2）、お試しが終わる注記（d-pt）、停止したままの注記（d-pp）、未契約の組織の注記（d-pn）は、
+    // 本番では組織の状態で出す。見本の「くもラボ」は契約済みで停止もお試しもしていないので、どれも hidden で置く
+    changeStorage: (trigger) => {
+      const d = trigger.dataset;
+      const personal = d.storagePersonal === "true";
+      const units10 = Number(d.storage10 || 0), units50 = Number(d.storage50 || 0);
+      const interval = d.storageInterval || "monthly";
+      openDialog("追加容量を変える",
+        `<p class="wrap-anywhere">「${esc(d.storageName || "くもラボ")}」の追加容量の口数を変えます。</p>
+         <div class="field"><label class="field-label" for="d-storage10">＋10 GB の口数</label><input class="input" id="d-storage10" data-storage-choice data-base="${d.storageBase || 100}" data-current="${d.storageCurrent || 100}" data-used="${d.storageUsed || 0}" data-personal="${personal}" data-contracted="${d.storageContracted !== "false"}" data-initial10="${units10}" data-initial50="${units50}" data-interval="${interval}" type="number" min="0" max="100" step="1" value="${units10}" aria-describedby="d-storage-hint"></div>
+         <div class="field"><label class="field-label" for="d-storage50">＋50 GB の口数</label><input class="input" id="d-storage50" data-storage-choice type="number" min="0" max="100" step="1" value="${units50}" aria-describedby="d-storage-hint"></div>
+         <p class="field-hint" id="d-storage-hint">それぞれ 0〜100 の整数で入力してください。</p>
+         ${personal ? `<div class="field"><span class="field-label" id="d-storage-interval-label">支払いの周期</span><div class="choice-list" role="radiogroup" aria-labelledby="d-storage-interval-label">${[["monthly", "月払い"], ["yearly", "年払い"]].map(([value, label]) => `<label class="choice"><input type="radio" name="d-storage-interval" value="${value}" data-storage-choice ${interval === value ? "checked" : ""}><div><b>${label}</b></div></label>`).join("")}</div></div><p class="field-hint">プランはパーソナルのままです。追加容量の料金だけを請求します。人数とワークスペースの上限は変わりません。</p>` : `<p class="field-hint">追加容量は基本プランと同じ支払いの周期で、まとめて請求します。</p>`}
+         <p class="field-hint" id="d-storage-after" role="status"></p>
+         <div class="callout is-warn" id="d-storage-lower" hidden>${icon("alert")}<span></span></div>
+         <div class="callout is-warn" id="d-storage-over" hidden>${icon("alert")}<span>選んだ上限は今の合計より小さいため、合計が下がるまで新しく添付できなくなります。</span></div>
+         ${d.storageSuspended === "true" ? `<p class="field-hint">追加容量を変えても停止したままです。使えるようにするには、続けて再開してください。</p>` : ""}
+         <p class="field-hint">変更の履歴に運用者の操作として前後の口数が残ります。</p>`,
+        `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" id="d-storage-submit" aria-disabled="true">変える</button>`);
+      syncStorageDialog();
+    },
+    changePlan: () => openDialog("プランを変える",
+      `<p class="wrap-anywhere">「くもラボ」のプランを変えます。今はビジネス・月払いで、人数 38&nbsp;人（上限 50&nbsp;人）、添付ファイルと Wiki の合計 42&nbsp;GB（上限 100&nbsp;GB）です。</p>
+       <div class="field"><span class="field-label" id="d-pl">プラン</span>
+         <div class="choice-list" role="radiogroup" aria-labelledby="d-pl">
+           <label class="choice"><input type="radio" name="d-p" value="team" data-plan-choice><div><b>チーム</b><span>15&nbsp;人・30&nbsp;GB</span></div></label>
+           <label class="choice"><input type="radio" name="d-p" value="business" data-plan-choice checked><div><b>ビジネス</b><span>50&nbsp;人・100&nbsp;GB</span></div></label>
+           <label class="choice"><input type="radio" name="d-p" value="custom" data-plan-choice><div><b>個別</b><span>相談して決めた人数と標準の容量</span></div></label>
+         </div></div>
+       <div class="form-row is-start" id="d-p-custom" hidden>
+         <div class="field"><label class="field-label" for="d-p-members">人数の上限（人）</label><input class="input" id="d-p-members" type="number" inputmode="numeric" min="1" max="10000" step="1" value="50" aria-describedby="d-p-members-hint"><span class="field-hint" id="d-p-members-hint">1〜10,000 人の整数で入力してください。</span><span class="field-error" id="d-p-members-error" role="alert" hidden>${icon("alert")}人数の上限は 1〜10,000 の整数で入れてください。</span></div>
+         <div class="field"><label class="field-label" for="d-p-size">標準の添付容量（GB）</label><input class="input" id="d-p-size" type="number" inputmode="numeric" min="1" max="102400" step="1" value="100" aria-describedby="d-p-size-hint"><span class="field-hint" id="d-p-size-hint">1〜102,400 GB の整数で入力してください。追加容量の口数は、この標準容量に足します。</span><span class="field-error" id="d-p-size-error" role="alert" hidden>${icon("alert")}添付ファイルの上限は 1〜102,400 の整数（GB）で入れてください。</span></div>
+       </div>
+       <div class="field"><span class="field-label" id="d-pil">支払いの周期</span>
+         <div class="choice-list" role="radiogroup" aria-labelledby="d-pil">
+           <label class="choice"><input type="radio" name="d-pi" value="monthly" data-plan-choice checked><div><b>月払い</b></div></label>
+           <label class="choice"><input type="radio" name="d-pi" value="yearly" data-plan-choice><div><b>年払い</b></div></label>
+         </div></div>
+       <p class="field-hint" id="d-pu">今の契約です。別のプランか支払いの周期を選ぶと変えられます。</p>
+       <p class="field-hint" id="d-p-invalid" hidden>人数と標準の添付容量を範囲内の整数で入力すると、変更後の上限と超過の注意を確認できます。</p>
+       <p class="field-hint" id="d-pa" hidden>変えた後の上限は 50&nbsp;人・100&nbsp;GB です。</p>
+       <div class="callout is-warn" id="d-pl2" hidden>${icon("alert")}<span>今の上限（120&nbsp;人・500&nbsp;GB）より下がります。契約を付けると、上限を「人数と容量の上限を変える」で値に戻せなくなります。</span></div>
+       <div class="callout is-warn" id="d-po" hidden>${icon("alert")}<span>今の人数（38&nbsp;人）が、変えた後の上限（15&nbsp;人）を超えます。今いる人はそのまま残り、上限を下回るまで新しい人の招待と管理者への指名だけを止めます。</span></div>
+       <div class="callout is-warn" id="d-pq" hidden>${icon("alert")}<span>選んだ上限は今の合計より小さいため、合計が下がるまで新しく添付できなくなります。</span></div>
+       <p class="field-hint" id="d-pt" hidden>お試しはここで終わり、期限で止まらなくなります。</p>
+       <p class="field-hint" id="d-pp" hidden>停止中の${t("organization")}は、契約しても停止したままです。使えるようにするには、続けて再開してください。</p>
+       <p class="field-hint" id="d-pn" hidden>人数と添付ファイルの上限はプランの値になり、「人数と容量の上限を変える」では変えられなくなります。</p>
+       <p class="field-hint">プランの変更は${t("organization")}の変更の履歴に、運用者の操作として残ります。</p>`,
+      `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" id="d-plan-submit" aria-disabled="true" aria-describedby="d-pu">変える</button>`),
     suspendOrganization: () => {
       openDialog(`${t("organization")}を停止する`,
       `<p>ひばり工房を停止します。停止すると誰も入れなくなり、取り込みと日をまたぐ処理も止まります。データは残り、再開すれば元どおりに使えます。</p>
@@ -2746,10 +2989,10 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       const refs = tasksWhere((x) => x.sprint === "sp14" && !x.doneAt).flatMap((x) => {
         const d = dueOf(x);
         if (d && d.date < D.today) return [[x.id, () => `<span class="chip is-danger">${icon("alert")}${t("due")}切れ ${md(d.date)}</span>`]];
-        if (x.col === "c1" && (x.pts || 0) >= 3) return [[x.id, () => `<span class="chip is-warn">${icon("clock")}${x.pts} pt で${esc(colName(x))}</span>${x.unfilled ? `<span class="chip is-todo">${icon("pen")}${t("detail")} 未記入</span>` : ""}`]];
+        if (x.col === "c1" && (x.pts || 0) >= 3) return [[x.id, () => `<span class="chip is-warn">${icon("clock")}${x.pts} pt で${esc(colName(x))}</span>`]];
         return [];
       });
-      return { ...base, steps: [() => `${esc(sprintLabel("sp14"))}の${t("task")}を読んでいます`, () => `${t("due")}と${t("column")}を確かめています`],
+      return { ...base, steps: [() => `${t("sprint")}「${esc(sprintLabel("sp14"))}」の${t("task")}を読んでいます`, () => `${t("due")}と${t("column")}を確かめています`],
         text: () => (refs.length ? `残り ${left} 日で、気になるのは ${refs.length} 件です。${t("due")}を過ぎたものと、${t("points")}が大きいのにまだ手を付けていないものを挙げました。` : `残り ${left} 日で、遅れそうな${t("task")}は見当たりません。`),
         refs };
     }
@@ -2986,7 +3229,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     rows.forEach((r) => { const x = task(r.id); x.sprint = "sp14"; x.col = "c1"; });
     c.state = "done";
     redrawAll(); renderThread(false);
-    toast(`${icon("check")}${rows.length} 件を${esc(sprintLabel("sp14"))}に入れました`);
+    toast(`${icon("check")}${rows.length} 件を${t("sprint")}「${esc(sprintLabel("sp14"))}」に入れました`);
     document.querySelector(`#assist-input-${assist.open}`)?.focus();
   }
   // パレットを開ける画面か。画面の見本（運用者の画面を除く）とカタログで開く。ログインと組織の選択では開かない
@@ -3255,7 +3498,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   function mobileTabsHtml(current, { live = true } = {}) {
     const tabs = [["today", "sun", "pageToday", "today.html"], ["favorites", "star", "favorites", "favorites.html"],
       ...(Object.keys(D.workspaces).length ? [["backlog", "board", "backlog", `backlog.html?workspace=${encodeURIComponent(D.workspace)}`]] : [])];
-    return `<div class="mobile-navigation"><nav class="mobile-tabs" aria-label="${t("mobileTabs")}">${tabs.map(([id, ic, key, href]) => `<a class="mobile-tab" href="${firstHref(href)}" aria-label="${t(key)}" ${current === id ? 'aria-current="page"' : ""}>${icon(ic)}</a>`).join("")}<button class="mobile-tab" type="button" aria-label="${t("mobileMenu")}" aria-haspopup="dialog" aria-expanded="false" ${live ? 'data-mobile-menu-open aria-controls="mobile-menu"' : ""}><span class="mobile-menu-arrows" aria-hidden="true">${icon("chevron")}${icon("chevron")}</span></button></nav><div class="mobile-create-slot">${Object.keys(D.workspaces).length > 0 ? `<button class="mobile-create" type="button" aria-label="${t("createSheet")}" data-create-sheet-open>${icon("plus")}</button>` : ""}</div></div>`;
+    return `<div class="mobile-navigation"><nav class="mobile-tabs" aria-label="${t("mobileTabs")}">${tabs.map(([id, ic, key, href]) => `<a class="mobile-tab" href="${firstHref(href)}" aria-label="${t(key)}" ${current === id ? 'aria-current="page" data-selected' : ""}>${icon(ic)}</a>`).join("")}<button class="mobile-tab" type="button" aria-label="${t("mobileMenu")}" aria-haspopup="dialog" aria-expanded="false" ${live ? 'data-mobile-menu-open aria-controls="mobile-menu"' : ""}><span class="mobile-menu-arrows" aria-hidden="true">${icon("chevron")}${icon("chevron")}</span></button></nav><div class="mobile-create-slot">${Object.keys(D.workspaces).length > 0 ? `<button class="mobile-create" type="button" aria-label="${t("createSheet")}" data-create-sheet-open>${icon("plus")}</button>` : ""}</div></div>`;
   }
   // 中身を複製せず、狭い幅では同じ組織切り替えと nav をダイアログに移す。
   // 広い幅に戻すときは、組織切り替えを角のマスの開閉のボタンの前へ、nav を左のメニューへ戻す（本番の AppShell と同じ位置）
@@ -3292,9 +3535,9 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     } else if (event.target.closest("[data-mobile-menu-close]") || (dialog.open && event.target.closest(".mobile-menu a[href], .mobile-menu [data-dialog]"))) closeMobileMenu();
   });
   // 組織の切り替え。開閉するメニューで、中は各組織へのリンクと、組織の選択の画面へ戻るリンクと、最後に「組織を作る」（ダイアログを開く）。
-  // 戻るリンクは、入れる組織が2つ以上、または届いた招待があるときだけ出す（1組織でも招待があれば、一覧へ戻る道が要る）。
-  // 「組織を作る」は常に出す（入れる組織が1つで招待が無い人は、/ を開くと今の組織へ移り、組織の選択の画面に届かない）。
-  // 続けて「自分用を作る」を、自分用を持たない人にだけ出す（同じ理由で、ここが入口になる）。
+  // 戻るリンク「ダッシュボード」は、組織の数や招待によらず出す。
+  // 「組織を作る」は、組織の中からも作れる入口。
+  // 続けて「自分用を作る」を、自分用を持たない人にだけ出す。
   // select にしないのは、矢印キーで選んだだけで画面が移らないようにするため。
   // 閉じるのは、ボタン、外を押す、Tab で外へ出る、リンクを押す、Esc。メニューの中にフォーカスがあるときに閉じたら、ボタンへ戻す
   let orgMenuOpen = false;
@@ -3303,16 +3546,13 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   // moving は別の組織へ移っている最中（本番の OrganizationSwitcher の moving）。名前の欄と札に「移っています」を出す
   // 自分用の組織（kind が personal）は、名前の代わりに辞書の「自分用」で出す。
   // 「自分用を作る」は、入れる組織（orgs）にも停止した組織（suspended）にも自分用が無い人にだけ出す（canCreatePersonal）。
-  // 入れる組織が1つで招待が無い人は組織の選択の画面に届かないので、ここも「自分用を作る」の入口になる
   const orgName = (k) => (k.kind === "personal" ? t("personalOrganizationName") : k.name);
   function orgMenuHtml({ open = orgMenuOpen, id = "org-menu-list", live = true, orgs = D.organizations, suspended = [], invited = (D.receivedInvites || []).length > 0, moving = false, canCreatePersonal = ![...orgs, ...suspended].some((k) => k.kind === "personal") } = {}) {
-    // 入れる組織が1つで招待が無い人は、/ を開くと今の組織へ移るので、一覧へ戻る行を出さない（「組織を作る」の入口は残す）
-    const hasList = orgs.length > 1 || invited;
     const current = orgs.find((k) => k.slug === D.organization) || orgs[0];
-    const label = `${orgName(current)}。${t("organization")}を切り替える${invited ? "。届いた招待あり" : ""}`;
+    const label = `${t("organization")}${moving ? t("organizationMoving") : orgName(current)}${invited ? "届いた招待あり" : ""}。${t("organization")}を切り替える`;
     const shown = moving ? t("organizationMoving") : esc(orgName(current));
     return `<div class="org-menu"><button class="org-menu-button" type="button" aria-expanded="${open}" aria-controls="${id}" aria-label="${esc(label)}" ${moving ? 'data-moving="true"' : ""} ${live ? "data-org-menu" : ""}><span class="org-menu-label">${t("organization")}</span><b>${shown}</b>${invited ? '<span class="chip">届いた招待あり</span>' : ""}${invited ? '<span class="org-menu-invite" aria-hidden="true"></span>' : ""}${brandSymbol}${icon("chevron")}<span class="nav-tip" aria-hidden="true">${shown}${invited && !moving ? "<small>届いた招待あり</small>" : ""}</span></button><span class="visually-hidden" role="status">${moving ? t("organizationMoving") : ""}</span>
-      <ul class="org-menu-list" id="${id}" aria-label="入れる${t("organization")}" ${open ? "" : "hidden"}>${orgs.map((k) => `<li><a href="today.html"${k.slug === current.slug ? ' aria-current="page"' : ""}><span class="org-menu-name">${esc(orgName(k))}</span>${k.slug === current.slug ? icon("check") : ""}</a></li>`).join("")}${hasList ? `<li class="is-aside"><a href="organizations.html"><span class="org-menu-name">${t("organization")}の一覧へ</span>${invited ? '<span class="org-menu-note">招待が届いています</span>' : ""}</a></li>` : ""}<li class="is-aside"><button type="button" ${live ? 'data-dialog="createMyOrganization"' : ""}><span class="org-menu-name">${t("organization")}を作る</span></button></li>${canCreatePersonal ? `<li class="is-aside"><button type="button" ${live ? 'data-dialog="createPersonalOrganization"' : ""}><span class="org-menu-name">${t("createPersonalOrganizationAction")}</span></button></li>` : ""}</ul></div>`;
+      <ul class="org-menu-list" id="${id}" aria-label="入れる${t("organization")}" ${open ? "" : "hidden"}>${orgs.map((k) => `<li><a href="today.html"${k.slug === current.slug ? ' aria-current="page"' : ""}><span class="org-menu-name">${esc(orgName(k))}</span>${k.slug === current.slug ? icon("check") : ""}</a></li>`).join("")}<li class="is-aside"><a href="organizations.html"><span class="org-menu-name">${t("organizationList")}</span>${invited ? '<span class="org-menu-note">招待が届いています</span>' : ""}</a></li><li class="is-aside"><button type="button" ${live ? 'data-dialog="createMyOrganization"' : ""}><span class="org-menu-name">${t("organization")}を作る</span></button></li>${canCreatePersonal ? `<li class="is-aside"><button type="button" ${live ? 'data-dialog="createPersonalOrganization"' : ""}><span class="org-menu-name">${t("createPersonalOrganizationAction")}</span></button></li>` : ""}</ul></div>`;
   }
   function setOrgMenu(open, focus) {
     orgMenuOpen = open;
@@ -3356,17 +3596,20 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   let accountMenuOpen = false;
   // busy は、ログアウトを押して結果を待っている間（項目を aria-disabled にして文言を替え、読み上げの領域に伝える）。
   // admin は管理者の印を出し、読み上げの名前にも含める
-  function accountMenuHtml({ open = accountMenuOpen, id = "account-menu-list", live = true, busy = false, admin = !!D.organizations.find((org) => org.slug === D.organization)?.admin, invitationCount = (D.receivedInvites || []).length } = {}) {
+  function accountMenuHtml({ invitationState = "ready", open = accountMenuOpen, id = "account-menu-list", live = true, busy = false, admin = !!D.organizations.find((org) => org.slug === D.organization)?.admin, invitationCount = (D.receivedInvites || []).length } = {}) {
     const name = user(D.me).name;
     const badge = admin ? t("admin") : "";
     // 名前、管理者の札、紋章は .me-detail にまとめ、760px 以下ではアバターだけにする
-    const who = `${avatarOf(D.me)}<span class="me-detail">${esc(name)}${admin ? `<span class="chip">${t("admin")}</span>` : ""}${emblem(user(D.me).level, true)}</span>`;
-    const label = t("accountMenuLabel").replace("{name}", badge ? `${name}（${badge}）` : name);
+    const who = `${avatarOf(D.me, { image: user(D.me).avatar_url })} <span class="me-detail">${esc(name)}${admin ? ` <span class="chip">${t("admin")}</span>` : ""} ${emblem(user(D.me).level, true)}</span>`;
+    // 見えている頭文字、名前、管理者の札、レベルの数字を、表示順に名前へ含める。
+    const label = t("accountMenuLabel").replace("{name}", `${[...name][0]} ${name}${badge ? ` ${badge}` : ""} ${user(D.me).level}`);
     const count = invitationCount;
-    const items = `<li><a href="${firstHref("me.html")}" ${page && page.current === "me" ? 'aria-current="page"' : ""} ${live ? "data-account-link" : ""}><span class="org-menu-name">${t("pageMe")}</span>${count > 0 ? `<span class="account-menu-badge" aria-hidden="true">${t("navInvitationsBadge").replace("{count}", count)}</span><span class="visually-hidden">${t("navInvitationsLabel").replace("{count}", count)}</span>` : ""}</a></li>${admin ? `<li><a href="${firstHref("admin.html")}" ${page && page.current === "admin" ? 'aria-current="page"' : ""} ${live ? "data-account-link" : ""}><span class="org-menu-name">${t("pageOrgAdmin")}</span></a></li>` : ""}`;
+    const pending = invitationState === "loading" || invitationState === "retrying";
+    const status = invitationState === "ready" ? "" : `<li class="account-menu-status"><span role="${pending ? "status" : "alert"}">${t(pending ? "invitationCountLoading" : "invitationCountFailed")}</span>${invitationState === "loading" ? "" : `<button class="btn is-sm" type="button" ${pending ? 'aria-disabled="true"' : ""} ${live ? 'data-toast="見本のため、招待件数は読み直しません"' : ""}>${t(pending ? "retrying" : "retry")}</button>`}</li>`;
+    const items = `<li><a href="${firstHref("me.html")}" ${page && page.current === "me" ? 'aria-current="page"' : ""} ${live ? "data-account-link" : ""}><span class="org-menu-name">${t("pageMe")}</span>${count > 0 ? `<span class="account-menu-badge" aria-hidden="true">${t("navInvitationsBadge").replace("{count}", count)}</span><span class="visually-hidden">${t("navInvitationsLabel").replace("{count}", count)}</span>` : ""}</a></li>${admin ? `<li><a href="${firstHref("admin.html")}" ${page && page.current === "admin" ? 'aria-current="page"' : ""} ${live ? "data-account-link" : ""}><span class="org-menu-name">${t("pageOrgAdmin")}</span></a></li>` : ""}<li><a href="billing.html" ${live ? "data-account-link" : ""}><span class="org-menu-name">${t("billingOpen")}</span></a></li>`;
     return `<div class="account-menu"><button class="account-menu-button" type="button" aria-expanded="${open}" aria-controls="${id}" aria-label="${esc(label)}" ${live ? "data-account-menu" : ""}><span class="me">${who}</span>${count > 0 ? '<span class="account-menu-invite" aria-hidden="true"></span>' : ""}${icon("chevron")}</button>
       <span class="visually-hidden" role="status">${busy ? t("logoutMoving") : ""}</span>
-      <ul class="account-menu-list" id="${id}" aria-label="${esc(label)}" ${open ? "" : "hidden"}>${items}<li><button type="button" ${busy ? 'aria-disabled="true"' : ""} ${live ? 'data-toast="見本のため、ログアウトしません"' : ""}><span class="org-menu-name">${busy ? t("logoutMoving") : t("logout")}</span></button></li></ul></div>`;
+      <ul class="account-menu-list" id="${id}" aria-label="${esc(label)}" ${open ? "" : "hidden"}>${items}${status}<li><button type="button" ${busy ? 'aria-disabled="true"' : ""} ${live ? 'data-toast="見本のため、ログアウトしません"' : ""}><span class="org-menu-name">${busy ? t("logoutMoving") : t("logout")}</span></button></li></ul></div>`;
   }
   function setAccountMenu(open, focus) {
     accountMenuOpen = open;
@@ -3497,11 +3740,12 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   // 画面の見本を組み立てる。render は中身の HTML を返す関数。
   // opts.operator なら運用者の画面の枠にする。本番の /operator と同じく、左のメニューと上の帯を置かず、
   // 幅の広い紙（.gate.is-wide）1枚に組む。render は紙の中身を返す
+  // opts.gate は請求などの組織の枠の外の画面。render が返す複数の紙を .gate-stack に入れる
   function mount(current, render, opts = {}) {
-    page = { current, render, operator: !!opts.operator };
+    page = { current, render, operator: !!opts.operator || !!opts.gate };
     if (page.operator) {
       document.getElementById("app").innerHTML = `
-    <main class="gate is-wide"><div class="gate-stack"><section class="gate-sheet" id="content"></section></div></main>
+    ${opts.gate ? '<main class="gate"><div class="gate-stack" id="content"></div></main>' : '<main class="gate is-wide"><div class="gate-stack"><section class="gate-sheet" id="content"></section></div></main>'}
     <div class="dialog" id="dialog" hidden></div>
     <div class="toasts" id="toasts" aria-live="polite"></div>`;
       applyTheme();
@@ -3566,8 +3810,10 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     applyTheme();
     redraw();
     const storyId = new URLSearchParams(location.search).get("story");
-    const openStory = storyId && Object.hasOwn(D.stories, storyId) && !location.pathname.endsWith("/task.html");
+    const openStory = !new URLSearchParams(location.search).get("task") && storyId && Object.hasOwn(D.stories, storyId) && !location.pathname.endsWith("/task.html");
     if (openStory) openDrawer(storyId, null, false, null, "story");
+    const epicId = new URLSearchParams(location.search).get("epic_id");
+    if (!openStory && !new URLSearchParams(location.search).get("task") && epicId && Object.hasOwn(D.epics, epicId)) openDrawer(epicId, null, false, null, "epic");
     const taskId = openStory ? null : new URLSearchParams(location.search).get("task");
     if (taskId) {
       if (location.pathname.endsWith("/task.html")) {
@@ -3666,7 +3912,88 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     }
   };
   document.addEventListener("change", (ev) => { if (ev.target.closest("[data-quota-choice]")) syncQuotaDialog(); });
-  document.addEventListener("input", (ev) => { if (ev.target.closest("#d-qm, #d-qg")) syncQuotaDialog(); });
+
+  // 契約の変更のダイアログ: 見本の今の契約（ビジネス・月払い）を選んでいる間は「変える」を aria-disabled にし、理由（d-pu）を添える。
+  // チームを選ぶと、今の人数（38 人）が上限を超える注意と、今の合計が上限を超える注意を出す（本番の OrganizationPlanDialog と同じ）
+  const syncPlanDialog = () => {
+    const plan = document.querySelector('input[name="d-p"]:checked');
+    const interval = document.querySelector('input[name="d-pi"]:checked');
+    const submit = document.getElementById("d-plan-submit");
+    if (!plan || !interval || !submit) return;
+    const custom = plan.value === "custom";
+    document.getElementById("d-p-custom").hidden = !custom;
+    const members = custom ? Number(document.getElementById("d-p-members").value) : plan.value === "team" ? 15 : 50;
+    const size = custom ? Number(document.getElementById("d-p-size").value) : plan.value === "team" ? 30 : 100;
+    const valid = Number.isInteger(members) && members >= 1 && members <= 10000 && Number.isInteger(size) && size >= 1 && size <= 102400;
+    const same = plan.value === "business" && interval.value === "monthly";
+    submit.setAttribute("aria-disabled", String(same));
+    document.getElementById("d-p-invalid").hidden = valid;
+    document.getElementById("d-pu").hidden = !same;
+    const after = document.getElementById("d-pa");
+    after.hidden = same || !valid;
+    after.textContent = `変えた後の上限は ${members} 人・${size} GB です。`;
+    document.getElementById("d-po").hidden = !valid || members >= 38;
+    document.querySelector("#d-po span").textContent = `今の人数（38 人）が、変えた後の上限（${members} 人）を超えます。今いる人はそのまま残り、上限を下回るまで新しい人の招待と管理者への指名だけを止めます。`;
+    document.getElementById("d-pq").hidden = !valid || size >= 42;
+    submit.removeAttribute("data-close-dialog");
+    submit.removeAttribute("data-toast");
+    if (same) submit.setAttribute("aria-describedby", "d-pu");
+    else submit.removeAttribute("aria-describedby");
+  };
+  document.addEventListener("change", (ev) => { if (ev.target.closest("[data-plan-choice]")) syncPlanDialog(); });
+  document.addEventListener("input", (ev) => { if (ev.target.closest("#d-qm, #d-qg")) syncQuotaDialog(); if (ev.target.closest("#d-p-members, #d-p-size")) {
+    const input = ev.target;
+    input.setAttribute("aria-invalid", "false");
+    input.setAttribute("aria-describedby", `${input.id}-hint`);
+    input.closest(".field").classList.remove("is-invalid");
+    document.getElementById(`${input.id}-error`).hidden = true;
+    syncPlanDialog();
+  } });
+  function syncStorageDialog() {
+    const first = document.getElementById("d-storage10"), second = document.getElementById("d-storage50");
+    if (!first || !second) return;
+    const valid = [first, second].every((input) => input.value !== "" && input.validity.valid);
+    const interval = document.querySelector('input[name="d-storage-interval"]:checked')?.value || first.dataset.interval;
+    const same = first.dataset.contracted === "true" && Number(first.value) === Number(first.dataset.initial10) && Number(second.value) === Number(first.dataset.initial50) && interval === first.dataset.interval;
+    const submit = document.getElementById("d-storage-submit");
+    submit.setAttribute("aria-disabled", String(!valid || same));
+    const next = Number(first.dataset.base) + Number(first.value) * 10 + Number(second.value) * 50;
+    document.getElementById("d-storage-after").textContent = valid ? `変えた後の添付ファイルと Wiki の上限は ${next} GB です。${same ? "今と同じ口数と支払いの周期です。" : ""}` : "それぞれ 0〜100 の整数で入力してください。";
+    document.getElementById("d-storage-over").hidden = !valid || next >= Number(first.dataset.used);
+    const lower = document.getElementById("d-storage-lower");
+    lower.hidden = !valid || first.dataset.personal !== "true" || first.dataset.contracted === "true" || next >= Number(first.dataset.current);
+    lower.querySelector("span").textContent = `現在の上限 ${first.dataset.current} GB は、パーソナルの標準容量と追加口数から決まる ${next} GB に下がります。既存のファイルは残ります。`;
+    if (valid && !same) {
+      submit.setAttribute("data-close-dialog", "");
+      submit.setAttribute("data-toast", "追加容量を変えました");
+    } else {
+      submit.removeAttribute("data-close-dialog");
+      submit.removeAttribute("data-toast");
+    }
+  }
+  document.addEventListener("input", (ev) => { if (ev.target.closest("[data-storage-choice]")) syncStorageDialog(); });
+
+
+  // ストーリーの親名の操作も、カードの見本の範囲だけで働く。
+  function highlightStoryExample(event, active) {
+    const trigger = event.target.closest?.("[data-story-filter]");
+    if (!trigger || (event.relatedTarget && trigger.contains(event.relatedTarget))) return;
+    const board = trigger.closest(".story-board");
+    board?.querySelectorAll(".card").forEach((card) => {
+      card.classList.toggle("is-story-highlighted", active && card.dataset.storyId === trigger.dataset.storyFilter);
+      card.classList.toggle("is-story-dimmed", active && card.dataset.storyId !== trigger.dataset.storyFilter);
+    });
+  }
+  document.addEventListener("pointerover", (event) => highlightStoryExample(event, true));
+  document.addEventListener("pointerout", (event) => highlightStoryExample(event, false));
+  document.addEventListener("focusin", (event) => highlightStoryExample(event, true));
+  document.addEventListener("focusout", (event) => highlightStoryExample(event, false));
+  document.addEventListener("click", (event) => {
+    const trigger = event.target.closest?.("[data-story-filter], [data-story-clear]");
+    const root = trigger?.closest(".story-board");
+    if (!root) return;
+    root.outerHTML = board(root.dataset.boardSprint, { key: root.dataset.boardKey, story: trigger.dataset.storyFilter, draft: root.dataset.boardDraft === "true" });
+  });
 
   // ---- 操作（見本の中だけで動き、保存はしない） ----
   document.addEventListener("change", (ev) => {
@@ -3776,6 +4103,12 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       document.querySelector(`#content [data-undo="${x.id}"]`)?.focus();
       return;
     }
+    if ((el = hit("data-card-reopen"))) {
+      const x = task(el.dataset.cardReopen);
+      if (x.story && D.stories[x.story]?.doneAt) { toast(`${t("done")}した${t("story")}の下の${t("task")}は戻せません。先に${t("story")}の${t("done")}を取り消してください。一覧を読み直します`); redrawAll(); return; }
+      x.doneAt = null; x.col = x.prevCol || "c3";
+      redrawAll(); document.querySelector(`#content [data-task="${x.id}"]`)?.closest(".card")?.focus(); return;
+    }
     if ((el = hit("data-undo"))) {
       const x = task(el.dataset.undo);
       x.doneAt = null; if (x.col === "done") x.col = x.prevCol || "c3";
@@ -3839,6 +4172,16 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       st.doneAt = done ? "10/20 10:12" : null;
       redrawAll(); toast(`${icon("check")}${t("story")}の${t("done")}を${done ? "記録しました" : "取り消しました"}`);
       document.querySelector(done ? "#drawer .hanko" : "#drawer [data-story-done]")?.focus(); return;
+    }
+    if ((el = hit("data-epic-page"))) {
+      try { sessionStorage.setItem("sq-design-epic-preview", JSON.stringify({ id: el.dataset.epicPage, epic: D.epics[el.dataset.epicPage] })); } catch { /* 保存できない場合は既存の見本を開く */ }
+      return;
+    }
+    if ((el = hit("data-epic-id"))) {
+      if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button !== 0) return;
+      ev.preventDefault();
+      openDrawer(el.dataset.epicId, el, false, null, "epic");
+      return;
     }
     // バックログの木のストーリーの題（?story=<ID> のリンク）は、タスクと同じ引き出しをストーリーの形で開く
     // カタログの入口（data-story-can-delete="false"）は、削除できない人の形で開く
@@ -3970,10 +4313,37 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       const e = D.epics[el.dataset.celebrate];
       celebrate(e.title, `${t("party")}の ${e.party.length} 人に ${{ small: 100, medium: 300, large: 600 }[e.tier]} XP`); return;
     }
+    if (ev.target.closest("#d-plan-submit")) {
+      const submit = document.getElementById("d-plan-submit");
+      if (planSubmitting || submit.getAttribute("aria-disabled") === "true") return;
+      const custom = document.querySelector('input[name="d-p"]:checked')?.value === "custom";
+      let firstInvalid = null;
+      for (const id of ["d-p-members", "d-p-size"]) {
+        const input = document.getElementById(id);
+        const invalid = custom && (input.value === "" || !input.validity.valid);
+        input.setAttribute("aria-invalid", String(invalid));
+        input.setAttribute("aria-describedby", `${id}-hint${invalid ? ` ${id}-error` : ""}`);
+        input.closest(".field").classList.toggle("is-invalid", invalid);
+        document.getElementById(`${id}-error`).hidden = !invalid;
+        if (invalid && !firstInvalid) firstInvalid = input;
+      }
+      if (firstInvalid) { firstInvalid.focus(); return; }
+      // 見本は通信をしない。短い疑似送信で、本番と同じ読み取り専用の入力と閉じられない状態を示す。
+      planSubmitting = true;
+      for (const input of document.querySelectorAll("#d-p-members, #d-p-size")) input.readOnly = true;
+      for (const button of document.querySelectorAll("#dialog button")) button.setAttribute("aria-disabled", "true");
+      submit.textContent = "変えています";
+      setTimeout(() => {
+        planSubmitting = false;
+        closeDialog();
+        toast(`${icon("check")}「くもラボ」のプランを変えました`);
+      }, 400);
+      return;
+    }
     if ((el = hit("data-close-dialog")) || (ev.target.id === "dialog" && !dialogOnlyButtons)) {
       const msg = el && el.dataset.toast; closeDialog(); if (msg) toast(`${icon("check")}${esc(msg)}`);
       // ストーリーの引き出しの「⋯」から削除したら、引き出しも閉じる（本番の deleteFinished）
-      if (el && isStoryDrawer() && drawer.id && el.dataset.closeStoryDrawer === drawer.id) closeDrawer(true);
+      if (el && isTreeDrawer() && drawer.id && el.dataset.closeTreeDrawer === `${drawer.kind}:${drawer.id}`) closeDrawer(true);
       return;
     }
     if ((el = hit("data-toast"))) {
@@ -4011,7 +4381,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     if (askAssist(input.value)) input.value = "";
   });
   document.addEventListener("change", (ev) => {
-    if (ev.target.matches("[data-pick-theme]")) setTheme(ev.target.value || null);
+    if (ev.target.matches("[data-pick-theme]")) setTheme(ev.target.value);
     if (ev.target.matches("[data-assist-row]")) {
       const [i, j] = ev.target.dataset.assistRow.split(":").map(Number);
       assist.msgs[i].confirm.rows[j].on = ev.target.checked;
@@ -4196,16 +4566,15 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   const extraRedraws = [];
   function redrawAll() { redraw(); extraRedraws.forEach((fn) => fn()); if (assist.open) renderAssist(); }
 
-  // ---- テーマの切り替え（シンプル（自動）→ シンプル（ライト）→ シンプル（ダーク）→ 中世風 → 現代風） ----
-  // 値は DB の列挙と同じ。null は自分で選んでいない状態で、見本では組織の既定のシンプル（自動）として出す。
-  // 本番では、ユーザーが選んだテーマか組織の既定を data-theme に入れる
-  const THEMES = ["simple", "simple_light", "simple_dark", "medieval", "modern"];
-  const THEME_LABEL = { simple: "シンプル（自動）", simple_light: "シンプル（ライト）", simple_dark: "シンプル（ダーク）", medieval: "中世風", modern: "現代風" };
+  // ---- テーマの切り替え（シンプル（自動）→ シンプル（ライト）→ シンプル（ダーク）→ ネオン） ----
+  // 値は DB の列挙と同じ。null は自分で選んでいない状態で、シンプル（自動）として出す。
+  // 本番では、ユーザーが選んだテーマを data-theme に入れる
+  const THEMES = ["simple", "simple_light", "simple_dark", "modern"];
+  const THEME_LABEL = { simple: "シンプル（自動）", simple_light: "シンプル（ライト）", simple_dark: "シンプル（ダーク）", modern: "ネオン" };
   const THEME_NOTE = {
     simple: "業務の道具として落ち着いた見た目。OS のライトとダークに合わせる",
     simple_light: "業務の道具として落ち着いた見た目。いつも明るい地",
     simple_dark: "業務の道具として落ち着いた見た目。いつも暗い地",
-    medieval: "冒険者ギルドの帳簿。紙と墨、完了に朱の判子",
     modern: "近未来の端末のウィンドウ。暗い地に光る枠",
   };
   let theme = null;
@@ -4215,10 +4584,9 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     if (theme) document.documentElement.dataset.theme = theme;
     else delete document.documentElement.dataset.theme;
     document.querySelectorAll("[data-theme-label]").forEach((el) => (el.textContent = `テーマ: ${THEME_LABEL[theme || "simple"]}`));
-    // 「組織の既定に従う」（値が空）の選択肢がない並びでは、選んでいない状態をシンプル（自動）として示す
+    // 選んでいない状態はシンプル（自動）として示す
     document.querySelectorAll("[data-pick-theme]").forEach((el) => {
-      const hasDefault = !!document.querySelector(`[data-pick-theme][name="${el.name}"][value=""]`);
-      el.checked = el.value === (theme || (hasDefault ? "" : "simple"));
+      el.checked = el.value === (theme || "simple");
     });
   }
   function cycleTheme() { setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]); }
@@ -4310,7 +4678,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     D, t, brandMark, brandSymbol, googleMark, githubMark, THEMES, THEME_LABEL, THEME_NOTE, esc, icon, md, sumPts, cycleTheme, setTheme, applyTheme, mount,
     onRedraw: (fn) => extraRedraws.push(fn), openDrawer, drawerHtml, drawerState: drawer, flashRow,
     user, task, tasksWhere, repoTag, categoryTag, sprintTag, repoPicker, sprintLabel, colName, categoryOf, storyPts, epicPts, dueOf,
-    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, emblem, pts, dueChip, taskDue, tier, sourceKey, entry, rowMenu, orderItems, draftRow, attrChip, book, section, foldedSection, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
+    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, emblem, pts, dueChip, taskDue, tier, sourceKey, entry, rowMenu, orderItems, draftRow, attrChip, book, section, foldedSection, pane, paneList, newsList, dashboard, activity, activityLoading, activityFailed, activityEmptyNoWorkspace, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
     narrowDisclosure, card, board, treeStory, treeEpic, completedTasks, sprintNotice, raidNotice, progress, levelPanel, teamXp, xpDelta, load, capacityRows,
     openDialog, closeDialog, toast, celebrate, miniCap, redraw: () => redrawAll(), DIALOGS, loginTarget, orgMenuHtml, workspaceMenuHtml, accountMenuHtml, breadcrumbHtml,
     filesOf, fileThumb, fileRow, dropzone, attachments, markdownEditor, markdownToolbarHtml, mdBody, markdownSample, meter, storageBytes,

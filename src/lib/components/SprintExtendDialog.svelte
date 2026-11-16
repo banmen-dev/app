@@ -205,7 +205,7 @@
     {:else}
       <!-- 名前の無いスプリントは期間が名前なので、期間を重ねて出さない -->
       {#if current.name === null}
-        <p>{t('sprint')} <span class="mono">{sprintPeriod(current, t)}</span></p>
+        <p><span class="mono">{sprintPeriod(current, t)}</span></p>
       {:else}
         <p>{sprintLabel(current, t)}（<span class="mono">{sprintPeriod(current, t)}</span>）</p>
       {/if}

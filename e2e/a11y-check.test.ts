@@ -47,6 +47,17 @@ test('アイコンだけのボタンとコントラストの足りない文字�
   await expect(expectNoA11yViolations(page, 'today')).rejects.toThrow(/- color-contrast: p\n {2}Elements must/);
 });
 
+test('違反の詳細結果を絞っても WCAG のタグを保ち、best-practice の規則は走らせない', async ({ page }) => {
+  await page.setContent(BROKEN.replace('</main>', '</main><p id="outside-landmark">Outside landmark</p>'));
+  // この要素は best-practice の region に違反する。仕込みが効くことも確かめる。
+  const baseline = await new AxeBuilder({ page }).withRules(['region']).analyze();
+  expect(baseline.violations.flatMap((violation) => violation.nodes.flatMap((node) => node.target))).toContain(
+    '#outside-landmark',
+  );
+  const violations = await findA11yViolations(page);
+  expect(violations.map((violation) => violation.rule).sort()).toEqual(['button-name', 'color-contrast']);
+});
+
 // 日本語の書体が無い環境では、axe は日本語の文字のコントラストを測らずに通す。本物の画面の日本語の見出しが
 // color-contrast の判定（合格、違反、保留のどれか）に入ることを確かめ、測れていない環境で走らせたことに気づく
 test('本物の画面の日本語の見出しを、axe が文字のコントラストの判定にかける', async ({ page, context, baseURL }) => {
@@ -96,13 +107,13 @@ test('除外は、その規則の当たった要素だけを外し、当たら�
   expect(staleExclusions('today', isAxeCheck, used, list)).toEqual([otherRule, missing]);
 });
 
-test('画面のテストの入口は、4つのテーマで出た違反をまとめて落ち、当たらなくなった除外だけでも落ちる', async ({
+test('画面のテストの入口は、3つのテーマで出た違反をまとめて落ち、当たらなくなった除外だけでも落ちる', async ({
   page,
 }) => {
   await page.setContent(BROKEN);
   // 除外が無ければ、2つの違反を出たテーマとともに並べて落ちる
   await expect(expectNoA11yViolationsInThemes(page, 'today', [])).rejects.toThrow(
-    /- button-name: button（simple_light、simple_dark、medieval、modern）/,
+    /- button-name: button（simple_light、simple_dark、modern）/,
   );
   await expect(expectNoA11yViolationsInThemes(page, 'today', [])).rejects.toThrow(/- color-contrast: p（/);
   // 違反をすべて除外で外しても、どれにも当たらない除外が残れば落ちる

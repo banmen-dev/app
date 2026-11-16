@@ -2,9 +2,9 @@
 // 共通の表と合わせて読む組織の中の表。
 // どの関数も、確かめた組織の入口（OrganizationDb）を受け取り、その organizationId で絞る（組織の ID を引数に取らない）。
 // 共通の表と組織の中の表は結合せず、1回の batch() に混ぜない（docs/data-model.md の「データベースの分け方」）
-import type { Theme } from '../../shared/theme.ts';
 import { commonDb, type OrganizationDb } from './entries.ts';
 import type { LoginId } from './enter-organization.ts';
+import { avatarUrl } from '../avatars/url.ts';
 import { MAX_BOUND_PARAMETERS } from './send.ts';
 
 // 組織の行のうち、入るときに引かず、使う操作だけが読むもの
@@ -13,11 +13,6 @@ export type OrganizationRow = {
   readonly memberLimit: number;
   readonly attachmentQuotaBytes: number;
   readonly attachmentQuotaNeedsCheck: boolean;
-};
-
-// 組織の設定のうち、管理者が変えるもの。先に読んだ値（from）と書く値（to）を持つ。渡した項目だけを書く
-export type OrganizationSettingsChange = {
-  readonly theme?: { readonly from: Theme; readonly to: Theme };
 };
 
 // 自分の組織の行。入ってから読むまでに消えることは無いが、無ければ投げる（組織は消さず停止するだけ）
@@ -48,53 +43,60 @@ export async function readOrganizationRow(env: Env, db: OrganizationDb): Promise
   };
 }
 
-// 組織の設定を書いた結果。written は書けた（書く項目が無かったときも）、suspended は入ってから書くまでに組織が停止された、
-// conflict は読んでから書くまでに別の要求が値を変えていた
-export type OrganizationSettingsWrite = 'written' | 'conflict' | 'suspended';
+// 自分の組織の契約（organization_contracts）と、今効いている人数と添付ファイルの上限。どちらも共通の表で、組織の行に契約の行を左結合する。
+// 契約の行が無い組織（未契約）は契約の列が null
+export type OrganizationPlanRow = {
+  readonly plan: string | null;
+  readonly billing_interval: string | null;
+  readonly extra_10gb_units: number | null;
+  readonly extra_50gb_units: number | null;
+  readonly custom_member_limit: number | null;
+  readonly custom_attachment_quota_bytes: number | null;
+  readonly member_limit: number;
+  readonly attachment_quota_bytes: number;
+};
 
-// 自分の組織の既定のテーマを、停止しておらず、読んだ値のままなら、という条件つきで書く
-// （`suspended_at IS NULL` と、`theme IS :読んだ値`）。
-// 共通の表だけの batch() で送る（変更の記録は組織の中の表なので、呼び出し側が書けたときだけ別の batch() で書く）。
-// 同じ batch() の後ろで組織の行を読み直し（書く文と同じ時点の状態）、行が変わらなければ、停止していれば suspended、
-// そうでなければ conflict。書く項目が無ければ何も書かず written
-export async function writeOrganizationSettings(
-  env: Env,
-  db: OrganizationDb,
-  change: OrganizationSettingsChange,
-  now: Date,
-): Promise<OrganizationSettingsWrite> {
-  const { theme } = change;
-  if (theme === undefined) return 'written';
+export async function readOrganizationPlanRow(env: Env, db: OrganizationDb): Promise<OrganizationPlanRow> {
   const common = commonDb(env);
-  const [result, read] = await common.batch([
+  const row = await common.first(
     common.statement((q) =>
       q
-        .updateTable('organizations')
-        .set({ theme: theme.to, updated_at: now.toISOString() })
-        .where('id', '=', db.organizationId)
-        .where('suspended_at', 'is', null)
-        .where('theme', 'is', theme.from),
+        .selectFrom('organizations')
+        .leftJoin('organization_contracts', 'organization_contracts.organization_id', 'organizations.id')
+        .select([
+          'organizations.member_limit',
+          'organizations.attachment_quota_bytes',
+          'organization_contracts.plan',
+          'organization_contracts.billing_interval',
+          'organization_contracts.extra_10gb_units',
+          'organization_contracts.extra_50gb_units',
+          'organization_contracts.custom_member_limit',
+          'organization_contracts.custom_attachment_quota_bytes',
+        ])
+        .where('organizations.id', '=', db.organizationId),
     ),
-    common.statement((q) => q.selectFrom('organizations').select('suspended_at').where('id', '=', db.organizationId)),
-  ] as const);
-  if (result.changes > 0) return 'written';
-  const row = read.rows[0];
-  return row !== undefined && row.suspended_at !== null ? 'suspended' : 'conflict';
+  );
+  if (row === undefined) throw new Error('入った組織の行が無い');
+  return row;
 }
 
-// 自分の組織の users の ID ごとのアバターの URL。組織の中の表（users）を organization_id で絞ってアカウントとログインの手段と ID を引き、
-// 共通の表（account_logins）を別の問い合わせで引いて、アプリで合わせる。account_logins の行は、users の行に結んだアカウントの
-// ものだけを使う（アカウントに結ばれる前の行は null。手段と ID だけで引くと、管理者が任意の GitHub の人に Scrum Guild の
-// アカウントがあるかを知れてしまう）。ログインしたことの無い人と、アバターの無い人も null。別の組織の ID と、存在しない ID はキーを持たない
+// 自分の組織の users の ID ごとのアバターの URL。上げた画像（user_avatars。組織の中の表）があれば配る URL（/api/<slug>/user-avatar/<画像の ID>）、
+// 無ければログインの手段のアイコン（account_logins.avatar_url。共通の表）。組織の中の表（users と user_avatars）を organization_id で絞って
+// 1回の batch で引き、共通の表（account_logins）を別の問い合わせで引いて、アプリで合わせる（結合しない）。
+// account_logins の行は、users の行に結んだアカウントのものだけを使う（アカウントに結ばれる前の行は null。手段と ID だけで引くと、
+// 管理者が任意の GitHub の人に Scrum Guild のアカウントがあるかを知れてしまう）。ログインしたことの無い人と、アバターの無い人も null。
+// 別の組織の ID と、存在しない ID はキーを持たない
 export async function userAvatarsOf(
   env: Env,
   db: OrganizationDb,
   userIds: readonly string[],
+  slug: string,
 ): Promise<Map<string, string | null>> {
   const users: { id: string; linked: LinkedLogin | null }[] = [];
+  const uploaded = new Map<string, string>();
   // 組織の ID も束縛するので、users の ID は上限より1つ少なく区切る
   for (const chunk of chunksOf([...new Set(userIds)], MAX_BOUND_PARAMETERS - 1)) {
-    const rows = await db.rows(
+    const [userRows, avatarRows] = await db.batch([
       db.statement((q) =>
         q
           .selectFrom('users')
@@ -102,8 +104,15 @@ export async function userAvatarsOf(
           .where('organization_id', '=', db.organizationId)
           .where('id', 'in', chunk),
       ),
-    );
-    for (const row of rows) {
+      db.statement((q) =>
+        q
+          .selectFrom('user_avatars')
+          .select(['user_id', 'id'])
+          .where('organization_id', '=', db.organizationId)
+          .where('user_id', 'in', chunk),
+      ),
+    ] as const);
+    for (const row of userRows.rows) {
       // login_subject が空の行は、Google の指名で待っている人（まだログインしていない）
       users.push({
         id: row.id,
@@ -113,6 +122,7 @@ export async function userAvatarsOf(
             : { accountId: row.account_id, provider: row.login_provider, subject: row.login_subject },
       });
     }
+    for (const row of avatarRows.rows) uploaded.set(row.user_id, avatarUrl(slug, row.id));
   }
   const logins = await accountLoginsOf(
     env,
@@ -120,6 +130,8 @@ export async function userAvatarsOf(
   );
   return new Map(
     users.map((user) => {
+      const own = uploaded.get(user.id);
+      if (own !== undefined) return [user.id, own];
       if (user.linked === null) return [user.id, null];
       const login = logins.get(loginKey(user.linked));
       return [user.id, login !== undefined && login.accountId === user.linked.accountId ? login.avatarUrl : null];

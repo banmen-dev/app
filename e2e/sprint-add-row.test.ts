@@ -36,16 +36,24 @@ test('スプリントの各列の末尾の空の行に題を打って Enter で�
   await create.getByLabel('名前（任意）').fill('第7回');
   await create.getByRole('button', { name: '作る' }).click();
   await expect(create).toBeHidden();
-  await page.getByRole('button', { name: '始める: スプリント 第7回' }).click();
+  await page.getByRole('button', { name: '始める: スプリント「第7回」' }).click();
   const start = page.getByRole('dialog', { name: 'スプリントを始める' });
   await start.getByRole('button', { name: '始める' }).click();
   await expect(start).toBeHidden();
 
   await page.getByRole('link', { name: 'スプリント', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'スプリント 第7回' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: '第7回' })).toBeVisible();
 
   // 完了の列には空の行が無い。ほかの列には、場所の分かる名前で1つずつある
-  await expect(page.locator('.board-col > .draft-row')).toHaveCount(3);
+  await expect(page.locator('.board-col > .board-col-draft > .draft-row')).toHaveCount(3);
+  const rowStyle = await page
+    .locator('.board-col > .board-col-draft > .draft-row')
+    .first()
+    .evaluate((node) => {
+      const style = getComputedStyle(node);
+      return [style.paddingLeft, style.paddingRight, style.borderTopWidth];
+    });
+  expect(rowStyle).toEqual(['0px', '0px', '0px']);
   await expect(page.getByRole('region', { name: '完了', exact: true }).locator('.draft-row')).toHaveCount(0);
 
   // `c` で、完了でない最初の列（未着手）の空の行へフォーカスが移る。キーは、その行だけが読み上げに伝える
@@ -56,8 +64,8 @@ test('スプリントの各列の末尾の空の行に題を打って Enter で�
   await expect(todoRow).toBeFocused();
   await expect(todoRow).toHaveValue('');
 
-  // 空の行の案内は、カードの説明に結ぶ動かし方の案内とは別の注記にある
-  await expect(page.locator('.action-note', { hasText: '空の行に題を打って Enter を押すと' })).toBeVisible();
+  // 空の行の案内は近道一覧へ移したため、ボード下には常設しない（一覧の項目は専用E2Eで検査）
+  await expect(page.locator('.action-note', { hasText: '空の行に題を打って Enter を押すと' })).toHaveCount(0);
 
   const todoInput = page.getByRole('textbox', { name: 'タスクを足す: 未着手' });
   await expect(todoInput).toHaveAttribute('placeholder', 'タスクを足す');
@@ -90,7 +98,7 @@ test('スプリントの各列の末尾の空の行に題を打って Enter で�
 
   // 読み直しても同じ列と並び
   await page.reload();
-  await expect(page.getByRole('heading', { level: 1, name: 'スプリント 第7回' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: '第7回' })).toBeVisible();
   await expect(titlesIn(page, '未着手')).toHaveText(['見積もりを送る', '請求書を出す']);
   await expect(titlesIn(page, '作業中')).toHaveText(['障害の連絡手順を書く']);
 

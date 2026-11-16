@@ -1,6 +1,6 @@
 <script lang="ts" module>
   // userId が null なら担当なしで、名前を持たない。userId があるときは名前を必須にする。
-  // image はログインの手段の側のアバターの画像の URL（運用者が指名する人を確かめるときなど）。無ければ頭文字の円。
+  // image はアバターの画像の URL（上げたプロフィール画像か、ログインの手段の側のアイコン。運用者が指名する人を確かめるときなど）。無ければ頭文字の円。
   // decorative は、横に同じ名前を読む要素（選択欄など）があるときに、読み上げから外す（title は残す）
   export type AvatarProps =
     | { userId: null; name?: undefined; large?: boolean; left?: undefined; image?: undefined; decorative?: boolean }

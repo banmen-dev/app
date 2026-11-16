@@ -15,12 +15,14 @@ test('組織の中のパス変更だけを本文の待ちにする', () => {
     expect(navigationLoadingKind(from, target(path))).toBeNull();
   }
   expect(navigationLoadingKind(from, target('/login', '/login'))).toBeNull();
+  expect(navigationLoadingKind(from, target('/', '/'))).toBeNull();
   expect(navigationLoadingKind(from, null)).toBeNull();
 });
 
 test('枠の外からは既存の読み込みの紙を使う', () => {
   expect(navigationLoadingKind(target('/', '/'), target('/aoba'))).toBe('outside');
   expect(navigationLoadingKind(null, target('/aoba'))).toBe('outside');
+  expect(navigationLoadingKind(target('/terms', '/terms'), target('/', '/'))).toBe('outside');
 });
 
 for (const kind of ['inside', 'outside'] as const) {

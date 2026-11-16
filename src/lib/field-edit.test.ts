@@ -3,7 +3,7 @@ import { EditBases } from './field-edit.ts';
 
 test('編集を始めた時点の値を保存まで持ち、直している間に欄の値が替わっても読んだ値は変わらない', () => {
   const bases = new EditBases();
-  // 始めたときは未記入（null）。直している間に引き出しが読み直し、別の人の値が欄に入った
+  // 始めたときは値が無い（null）。直している間に引き出しが読み直し、別の人の値が欄に入った
   bases.begin('f1', null);
   expect(bases.readFor('f1', '別の人の値')).toBeNull();
   // 始めた値があれば、保存はそれを読んだ値として送る

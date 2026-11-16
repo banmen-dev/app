@@ -54,3 +54,8 @@ export const loadingShapeCounts = {
   taskFields: 6,
   listRows: 6,
 } as const;
+
+// 枠の外の紙のうち、/ だけはダッシュボードの広い2列にする。
+export function loadingDashboard(routeId: string | null | undefined): boolean {
+  return routeId === '/';
+}

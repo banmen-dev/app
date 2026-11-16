@@ -104,7 +104,12 @@ test('所属が複数の一覧で、矢印キーを押しただけでは移ら�
     ...body,
     workspaces: [
       ...body.workspaces.filter((workspace) => workspace.id === workspaceId),
-      { id: '019a0000-0000-7000-8000-000000009001', name: '架空の切り替え先 A', role: 'member' as const },
+      {
+        id: '019a0000-0000-7000-8000-000000009001',
+        name: '架空の切り替え先 A',
+        role: 'member' as const,
+        closed_at: null,
+      },
     ],
   }));
   await page.goto(backlog);
@@ -229,6 +234,7 @@ for (const width of [1280, 1024]) {
       id: `019a0000-0000-7000-8000-${String(8000 + i).padStart(12, '0')}`,
       name: `架空の開発チーム ${i}・長いワークスペースの名前も折り返して表示する`,
       role: 'member' as const,
+      closed_at: null,
     }));
     await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (body) => ({
       ...body,

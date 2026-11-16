@@ -3,8 +3,16 @@
 // 終了して確かめるワークスペースは、管理の画面から作った専用のもの（seed のワークスペースを終了したままにしない）。
 // 作ったワークスペースは消せずに残るので、名前に繰り返し（--repeat-each）とやり直しの回を混ぜ、前の回の行に当たらないようにする
 import type { Page } from '@playwright/test';
+import { organizationInfo } from '../src/shared/operations/organization/index.ts';
+import {
+  workspaceClose,
+  workspaceInfo,
+  workspaceList,
+  workspaceReopen,
+} from '../src/shared/operations/workspace/index.ts';
 import { expect, test } from './fixtures.ts';
 import { expectFocusReturned, signIn, watchViolations } from './helpers.ts';
+import { failOperation, mockOperation, routeOperation, rewriteOperation } from './operations.ts';
 
 test.use({ timezoneId: 'Asia/Tokyo' });
 
@@ -121,10 +129,10 @@ test.describe('管理者（あおば開発のミナト）', () => {
     const name = `二重送信の確認ワークスペース ${runMark()}`;
     await createWorkspace(page, name);
     let requests = 0;
-    await page.route('**/api/aoba/workspace-close', async (route) => {
+    await routeOperation(page, workspaceClose, { slug: 'aoba' }, async (call) => {
       requests++;
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      await route.continue();
+      await call.passThrough();
     });
     await page.goto('/aoba/admin');
     const row = workspacesOf(page).locator('tbody tr', { hasText: name });
@@ -159,9 +167,9 @@ test.describe('管理者（あおば開発のミナト）', () => {
     await page.goto('/aoba/admin');
     const row = workspacesOf(page).locator('tbody tr', { hasText: name });
 
-    await page.route('**/api/aoba/workspace-close', (route) =>
-      route.fulfill({ status: 500, json: { error: { code: 'internal', message: 'x' } } }),
-    );
+    const removeFailure = await failOperation(page, workspaceClose, { slug: 'aoba' }, 500, 'internal', {
+      message: 'x',
+    });
     await row.getByRole('button', { name: `「${name}」を終了する` }).click();
     const dialog = page.getByRole('dialog', { name: `「${name}」を終了しますか？` });
     await dialog.getByRole('button', { name: `「${name}」を終了する` }).click();
@@ -175,13 +183,13 @@ test.describe('管理者（あおば開発のミナト）', () => {
     await expect(row.locator('.chip')).toHaveCount(0);
 
     // 別の画面で先に終了されていた（409）
-    await page.unroute('**/api/aoba/workspace-close');
-    await page.route('**/api/aoba/workspace-close', async (route) => {
+    await removeFailure();
+    const removeConcurrentClose = await routeOperation(page, workspaceClose, { slug: 'aoba' }, async (call) => {
       await page.request.post('/api/aoba/workspace-close', {
         headers: { Origin: new URL(page.url()).origin },
-        data: JSON.parse(route.request().postData() ?? '{}'),
+        data: call.input,
       });
-      await route.continue();
+      await call.passThrough();
     });
     await dialog.getByRole('button', { name: `「${name}」を終了する` }).click();
     await expect(dialog).toBeHidden();
@@ -189,7 +197,7 @@ test.describe('管理者（あおば開発のミナト）', () => {
     await expect(page.getByRole('status').filter({ hasText: `「${name}」の状態が変わっていました` })).toBeVisible();
     await expect(row.locator('.chip')).toHaveText(/^終了 /);
 
-    await page.unroute('**/api/aoba/workspace-close');
+    await removeConcurrentClose();
     await row.getByRole('button', { name: `「${name}」を再開する` }).click();
     await expect(row.locator('.chip')).toHaveCount(0);
   });
@@ -198,17 +206,16 @@ test.describe('管理者（あおば開発のミナト）', () => {
   const SEED_NAME = '受託開発チーム';
   async function showSeedWorkspaceClosed(page: Page, onList: (call: number) => 'real' | 'fail') {
     let calls = 0;
-    await page.route('**/api/aoba/workspace-list', async (route) => {
+    await routeOperation(page, workspaceList, { slug: 'aoba' }, async (call) => {
       calls++;
       if (onList(calls) === 'fail') {
-        return route.fulfill({ status: 500, json: { error: { code: 'internal', message: 'x' } } });
+        return call.fail(500, 'internal', { message: 'x' });
       }
-      const response = await route.fetch();
-      const body = (await response.json()) as { workspaces: { name: string; closed_at: string | null }[] };
+      const body = await call.fetch();
       for (const workspace of body.workspaces) {
         if (workspace.name === SEED_NAME) workspace.closed_at = '2026-10-22T00:00:00.000Z';
       }
-      return route.fulfill({ response, json: body });
+      return call.fulfill(body);
     });
     return () => calls;
   }
@@ -238,9 +245,7 @@ test.describe('管理者（あおば開発のミナト）', () => {
     const name = `${'W'.repeat(50 - mark.length)}${mark}`;
     await createWorkspace(page, name);
     await page.setViewportSize({ width: 390, height: 800 });
-    await page.route('**/api/aoba/workspace-close', (route) =>
-      route.fulfill({ status: 404, json: { error: { code: 'not_found', message: 'x' } } }),
-    );
+    await failOperation(page, workspaceClose, { slug: 'aoba' }, 404, 'not_found', { message: 'x' });
     await page.goto('/aoba/admin');
     const row = workspacesOf(page).locator('tbody tr', { hasText: name });
     await row.getByRole('button', { name: `「${name}」を終了する` }).scrollIntoViewIfNeeded();
@@ -259,13 +264,11 @@ test.describe('管理者（あおば開発のミナト）', () => {
   });
 
   test('終了の確認で 404 を受けたら、理由を出してダイアログを閉じ、一覧を読み直す', async ({ page }) => {
-    await page.route('**/api/aoba/workspace-close', (route) =>
-      route.fulfill({ status: 404, json: { error: { code: 'not_found', message: 'x' } } }),
-    );
+    await failOperation(page, workspaceClose, { slug: 'aoba' }, 404, 'not_found', { message: 'x' });
     let listCalls = 0;
-    await page.route('**/api/aoba/workspace-list', (route) => {
+    await routeOperation(page, workspaceList, { slug: 'aoba' }, (call) => {
       listCalls++;
-      return route.continue();
+      return call.passThrough();
     });
     await page.goto('/aoba/admin');
     const row = workspacesOf(page).locator('tbody tr', { hasText: SEED_NAME });
@@ -280,9 +283,7 @@ test.describe('管理者（あおば開発のミナト）', () => {
 
   test('再開が 409 の conflict になったら、状態が変わっていたことを知らせて読み直す', async ({ page }) => {
     const listCalls = await showSeedWorkspaceClosed(page, () => 'real');
-    await page.route('**/api/aoba/workspace-reopen', (route) =>
-      route.fulfill({ status: 409, json: { error: { code: 'conflict', message: 'x' } } }),
-    );
+    await failOperation(page, workspaceReopen, { slug: 'aoba' }, 409, 'conflict', { message: 'x' });
     await page.goto('/aoba/admin');
     const row = workspacesOf(page).locator('tbody tr', { hasText: SEED_NAME });
     await row.getByRole('button', { name: `「${SEED_NAME}」を再開する` }).click();
@@ -306,11 +307,13 @@ test.describe('管理者（あおば開発のミナト）', () => {
     test(`${width}px: 再開が個数上限で断られると、利用中の数と枠を空ける方法が残り、再試行できる`, async ({ page }) => {
       await page.setViewportSize({ width, height: 800 });
       const listCalls = await showSeedWorkspaceClosed(page, () => 'real');
-      await page.route('**/api/aoba/workspace-reopen', (route) =>
-        route.fulfill({
-          status: 409,
-          json: { error: { code: 'workspace_limit_reached', message: 'x', details: { used: 3, limit: 3 } } },
-        }),
+      const removeRefusal = await failOperation(
+        page,
+        workspaceReopen,
+        { slug: 'aoba' },
+        409,
+        'workspace_limit_reached',
+        { message: 'x', details: { used: 3, limit: 3 } },
       );
       await page.goto('/aoba/admin');
       const row = workspacesOf(page).locator('tbody tr', { hasText: SEED_NAME });
@@ -327,14 +330,14 @@ test.describe('管理者（あおば開発のミナト）', () => {
       await expect(button).not.toHaveAttribute('aria-disabled', 'true');
       expect(await refusal.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
       // 空きができた後の再試行を成功として返す。次の再開で理由が消える。
-      await page.unroute('**/api/aoba/workspace-reopen');
+      await removeRefusal();
       let release!: () => void;
       const pending = new Promise<void>((resolve) => {
         release = resolve;
       });
-      await page.route('**/api/aoba/workspace-reopen', async (route) => {
+      await routeOperation(page, workspaceReopen, { slug: 'aoba' }, async (call) => {
         await pending;
-        await route.fulfill({ status: 200, json: { workspace_id: 'reopened' } });
+        await call.fulfill({ workspace_id: 'reopened' });
       });
       await button.click();
       try {
@@ -349,12 +352,7 @@ test.describe('管理者（あおば開発のミナト）', () => {
 
   test('再開の個数上限に details が無いときも、利用中の上限と枠を空ける方法を示す', async ({ page }) => {
     await showSeedWorkspaceClosed(page, () => 'real');
-    await page.route('**/api/aoba/workspace-reopen', (route) =>
-      route.fulfill({
-        status: 409,
-        json: { error: { code: 'workspace_limit_reached', message: 'x' } },
-      }),
-    );
+    await failOperation(page, workspaceReopen, { slug: 'aoba' }, 409, 'workspace_limit_reached', { message: 'x' });
     await page.goto('/aoba/admin');
     await workspacesOf(page)
       .locator('tbody tr', { hasText: SEED_NAME })
@@ -369,12 +367,10 @@ test.describe('管理者（あおば開発のミナト）', () => {
     page,
   }) => {
     const listCalls = await showSeedWorkspaceClosed(page, () => 'real');
-    await page.route('**/api/aoba/workspace-reopen', (route) =>
-      route.fulfill({
-        status: 409,
-        json: { error: { code: 'member_limit_reached', message: 'x', details: { used: 14, limit: 15, adding: 2 } } },
-      }),
-    );
+    const removeRefusal = await failOperation(page, workspaceReopen, { slug: 'aoba' }, 409, 'member_limit_reached', {
+      message: 'x',
+      details: { used: 14, limit: 15, adding: 2 },
+    });
     await page.goto('/aoba/admin');
     const row = workspacesOf(page).locator('tbody tr', { hasText: SEED_NAME });
     await row.getByRole('button', { name: `「${SEED_NAME}」を再開する` }).click();
@@ -403,9 +399,12 @@ test.describe('管理者（あおば開発のミナト）', () => {
     await expect(refusal).toBeVisible();
 
     // 次に「再開する」を押すと消える（成功すれば、そのままトーストで知らせる）
-    await page.unroute('**/api/aoba/workspace-reopen');
-    await page.route('**/api/aoba/workspace-reopen', (route) =>
-      route.fulfill({ json: { workspace_id: '019a0000-0000-7000-8000-000000000401' } }),
+    await removeRefusal();
+    await mockOperation(
+      page,
+      workspaceReopen,
+      { slug: 'aoba' },
+      { workspace_id: '019a0000-0000-7000-8000-000000000401' },
     );
     await row.getByRole('button', { name: `「${SEED_NAME}」を再開する` }).click();
     await expect(refusal).toHaveCount(0);
@@ -413,9 +412,7 @@ test.describe('管理者（あおば開発のミナト）', () => {
 
   test('details の無い 409 の member_limit_reached は、数なしの理由を同じ場所に残して読み直す', async ({ page }) => {
     const listCalls = await showSeedWorkspaceClosed(page, () => 'real');
-    await page.route('**/api/aoba/workspace-reopen', (route) =>
-      route.fulfill({ status: 409, json: { error: { code: 'member_limit_reached', message: 'x' } } }),
-    );
+    await failOperation(page, workspaceReopen, { slug: 'aoba' }, 409, 'member_limit_reached', { message: 'x' });
     await page.goto('/aoba/admin');
     const row = workspacesOf(page).locator('tbody tr', { hasText: SEED_NAME });
     await row.getByRole('button', { name: `「${SEED_NAME}」を再開する` }).click();
@@ -436,21 +433,17 @@ test.describe('管理者（あおば開発のミナト）', () => {
     // 名前の上限（50字）いっぱいに、空白を入れない
     const longName = 'W'.repeat(50);
     await page.setViewportSize({ width: 390, height: 800 });
-    await page.route('**/api/aoba/workspace-list', async (route) => {
-      const response = await route.fetch();
-      const body = (await response.json()) as { workspaces: { name: string; closed_at: string | null }[] };
+    await rewriteOperation(page, workspaceList, { slug: 'aoba' }, (body) => {
       for (const workspace of body.workspaces) {
         if (workspace.name === SEED_NAME)
           Object.assign(workspace, { name: longName, closed_at: '2026-10-22T00:00:00.000Z' });
       }
-      return route.fulfill({ response, json: body });
+      return body;
     });
-    await page.route('**/api/aoba/workspace-reopen', (route) =>
-      route.fulfill({
-        status: 409,
-        json: { error: { code: 'member_limit_reached', message: 'x', details: { used: 14, limit: 15, adding: 2 } } },
-      }),
-    );
+    await failOperation(page, workspaceReopen, { slug: 'aoba' }, 409, 'member_limit_reached', {
+      message: 'x',
+      details: { used: 14, limit: 15, adding: 2 },
+    });
     await page.goto('/aoba/admin');
     const button = workspacesOf(page)
       .locator('tbody tr', { hasText: longName })
@@ -471,8 +464,11 @@ test.describe('管理者（あおば開発のミナト）', () => {
   test('操作の後の読み直しに失敗したら、一覧を残したまま知らせ、「もう一度試す」で読み直せる', async ({ page }) => {
     // 2回目（操作の後の読み直し）だけ失敗させる
     await showSeedWorkspaceClosed(page, (call) => (call === 2 ? 'fail' : 'real'));
-    await page.route('**/api/aoba/workspace-reopen', (route) =>
-      route.fulfill({ json: { workspace_id: '019a0000-0000-7000-8000-000000000401' } }),
+    await mockOperation(
+      page,
+      workspaceReopen,
+      { slug: 'aoba' },
+      { workspace_id: '019a0000-0000-7000-8000-000000000401' },
     );
     await page.goto('/aoba/admin');
     const row = workspacesOf(page).locator('tbody tr', { hasText: SEED_NAME });
@@ -494,8 +490,11 @@ test.describe('管理者（あおば開発のミナト）', () => {
   test('「もう一度試す」を押していない読み込みの結果では、「まだ読み込めませんでした」を出さない', async ({ page }) => {
     // 2、3、5 回目を失敗させる: 操作の後の読み直しが失敗 → 「もう一度試す」も失敗 → 別の操作の読み直しが成功 → また別の操作の読み直しが失敗
     await showSeedWorkspaceClosed(page, (call) => ([2, 3, 5].includes(call) ? 'fail' : 'real'));
-    await page.route('**/api/aoba/workspace-reopen', (route) =>
-      route.fulfill({ json: { workspace_id: '019a0000-0000-7000-8000-000000000401' } }),
+    await mockOperation(
+      page,
+      workspaceReopen,
+      { slug: 'aoba' },
+      { workspace_id: '019a0000-0000-7000-8000-000000000401' },
     );
     await page.goto('/aoba/admin');
     const row = workspacesOf(page).locator('tbody tr', { hasText: SEED_NAME });
@@ -521,22 +520,22 @@ test.describe('管理者（あおば開発のミナト）', () => {
     let calls = 0;
     let staleDone: () => void = () => {};
     const staleSent = new Promise<void>((resolve) => (staleDone = resolve));
-    await page.route('**/api/aoba/workspace-list', async (route) => {
+    await routeOperation(page, workspaceList, { slug: 'aoba' }, async (call) => {
       calls++;
-      if (calls !== 2) return route.continue();
-      const response = await route.fetch();
-      const body = (await response.json()) as { workspaces: { name: string; closed_at: string | null }[] };
+      if (calls !== 2) return call.passThrough();
+      const body = await call.fetch();
       for (const workspace of body.workspaces) {
         if (workspace.name === SEED_NAME) workspace.closed_at = '2026-10-22T00:00:00.000Z';
       }
       await new Promise((resolve) => setTimeout(resolve, 2500));
-      await route.fulfill({ response, json: body });
+      await call.fulfill(body);
       staleDone();
     });
-    await page.route('**/api/aoba/workspace-close', (route) =>
-      route.fulfill({
-        json: { workspace_id: '019a0000-0000-7000-8000-000000000401', closed_at: '2026-10-26T00:00:00.000Z' },
-      }),
+    await mockOperation(
+      page,
+      workspaceClose,
+      { slug: 'aoba' },
+      { workspace_id: '019a0000-0000-7000-8000-000000000401', closed_at: '2026-10-26T00:00:00.000Z' },
     );
     await page.goto('/aoba/admin');
     const row = workspacesOf(page).locator('tbody tr', { hasText: SEED_NAME });
@@ -561,10 +560,10 @@ test.describe('管理者（あおば開発のミナト）', () => {
 
   test('一覧を読み込めないときは節の中に知らせ、「もう一度試す」で読み直せる。ほかの部分は出る', async ({ page }) => {
     let calls = 0;
-    await page.route('**/api/aoba/workspace-list', (route) => {
+    await routeOperation(page, workspaceList, { slug: 'aoba' }, (call) => {
       calls++;
-      if (calls === 1) return route.fulfill({ status: 500, json: { error: { code: 'internal', message: 'x' } } });
-      return route.continue();
+      if (calls === 1) return call.fail(500, 'internal', { message: 'x' });
+      return call.passThrough();
     });
     await page.goto('/aoba/admin');
     // 見出しと節の見出しは出ている
@@ -601,9 +600,9 @@ test.describe('管理者（あおば開発のミナト）', () => {
         }
       }).observe(document, { childList: true, subtree: true, characterData: true });
     });
-    await page.route('**/api/aoba/workspace-list', async (route) => {
+    await routeOperation(page, workspaceList, { slug: 'aoba' }, async (call) => {
       await new Promise((resolve) => setTimeout(resolve, 3000));
-      await route.continue();
+      await call.passThrough();
     });
     await page.goto('/aoba/admin', { waitUntil: 'commit' });
     // ワークスペースの節の領域（ほかの節も同じ領域を持つ）
@@ -620,9 +619,7 @@ test.describe('管理者（あおば開発のミナト）', () => {
 
   test('狭い幅でも、節の「もう一度試す」は押せる範囲が 44px 四方以上ある', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 });
-    await page.route('**/api/aoba/workspace-list', (route) =>
-      route.fulfill({ status: 500, json: { error: { code: 'internal', message: 'x' } } }),
-    );
+    await failOperation(page, workspaceList, { slug: 'aoba' }, 500, 'internal', { message: 'x' });
     await page.goto('/aoba/admin');
     const retry = page.getByRole('button', { name: 'もう一度試す' });
     await expect(retry).toBeVisible();
@@ -638,6 +635,124 @@ test.describe('管理者（あおば開発のミナト）', () => {
   });
 });
 
+test.describe('管理者がワークスペース1つにだけ所属している組織（ホームのワークスペースの面）', () => {
+  test.beforeEach(async ({ context, baseURL }) => {
+    await signIn(context, baseURL, 'admin');
+  });
+
+  const workspace = { id: '019a0000-0000-7000-8000-000000000401', name: '受託開発チーム' };
+
+  // 終了の状態は画面の上だけで持ち、組織の枠の応答（organization）と管理の一覧（workspace-list）に同じ状態を返す（seed を終了したままにしない）。
+  // closedAt を書き換えると、次の読み込みの応答が変わる
+  async function routeState(page: Page, initial: string | null) {
+    const state = { closedAt: initial };
+    await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (output) => ({
+      ...output,
+      organization: { ...output.organization, has_workspaces: true },
+      workspaces: [{ ...workspace, role: 'leader' as const, closed_at: state.closedAt }],
+    }));
+    await routeOperation(page, workspaceList, { slug: 'aoba' }, (call) =>
+      call.fulfill({
+        workspaces: [
+          { ...workspace, member_count: 4, leader_count: 2, created_on: '2025-04-01', closed_at: state.closedAt },
+        ],
+      }),
+    );
+    return state;
+  }
+
+  function workspacePane(page: Page) {
+    return page.locator('.pane').filter({ has: page.getByRole('heading', { level: 2, name: 'ワークスペース' }) });
+  }
+
+  // ホームから管理の画面へ、アカウントのメニューで移る（ページは読み直さない）
+  async function openAdmin(page: Page) {
+    await page.getByRole('button', { name: /アカウントのメニュー$/ }).click();
+    await page.locator('.account-menu-list').getByRole('link', { name: '組織の管理' }).click();
+    await expect(page).toHaveURL(/\/aoba\/admin$/);
+    return workspacesOf(page).locator('tbody tr', { hasText: workspace.name });
+  }
+
+  // 管理の画面から、画面内のリンクでホームへ戻る
+  async function backHome(page: Page) {
+    await page.locator('#app-nav').getByRole('link', { name: '今日やること', exact: true }).click();
+    await expect(page).toHaveURL(/\/aoba$/);
+  }
+
+  async function confirmClose(page: Page) {
+    await page
+      .getByRole('dialog', { name: `「${workspace.name}」を終了しますか？` })
+      .getByRole('button', { name: `「${workspace.name}」を終了する` })
+      .click();
+  }
+
+  test('管理の画面でワークスペースを終了してからホームへ戻ると、ワークスペースの面から外れ、所属が無い案内が出る', async ({
+    page,
+  }) => {
+    const state = await routeState(page, null);
+    await routeOperation(page, workspaceClose, { slug: 'aoba' }, (call) => {
+      state.closedAt = '2026-11-15T00:00:00.000Z';
+      return call.fulfill({ workspace_id: workspace.id, closed_at: state.closedAt });
+    });
+
+    await page.goto('/aoba');
+    await expect(workspacePane(page).getByRole('link', { name: /受託開発チーム/ })).toBeVisible();
+
+    const row = await openAdmin(page);
+    await row.getByRole('button', { name: `「${workspace.name}」を終了する` }).click();
+    await confirmClose(page);
+    await expect(page.getByRole('status').filter({ hasText: 'ワークスペースを終了しました' })).toBeVisible();
+    await backHome(page);
+
+    await expect(workspacePane(page).getByText('どのワークスペースにも所属していません')).toBeVisible();
+    await expect(workspacePane(page).getByRole('link', { name: /受託開発チーム/ })).toHaveCount(0);
+  });
+
+  test('別の管理者が先に終了していて、終了を断られた（状態が変わっていた）ときも、ホームのワークスペースの面から外れる', async ({
+    page,
+  }) => {
+    const state = await routeState(page, null);
+    await routeOperation(page, workspaceClose, { slug: 'aoba' }, (call) => {
+      state.closedAt = '2026-11-15T00:00:00.000Z';
+      return call.fail(409, 'workspace_closed');
+    });
+
+    await page.goto('/aoba');
+    await expect(workspacePane(page).getByRole('link', { name: /受託開発チーム/ })).toBeVisible();
+
+    const row = await openAdmin(page);
+    await row.getByRole('button', { name: `「${workspace.name}」を終了する` }).click();
+    await confirmClose(page);
+    await expect(page.getByRole('status').filter({ hasText: '状態が変わっていました' })).toBeVisible();
+    await backHome(page);
+
+    await expect(workspacePane(page).getByText('どのワークスペースにも所属していません')).toBeVisible();
+    await expect(workspacePane(page).getByRole('link', { name: /受託開発チーム/ })).toHaveCount(0);
+  });
+
+  test('終了したワークスペースにだけ所属する管理者が管理の画面で再開してからホームへ戻ると、ワークスペースの面にそのリンクが出て、所属が無い案内が消える', async ({
+    page,
+  }) => {
+    const state = await routeState(page, '2026-10-01T00:00:00.000Z');
+    await routeOperation(page, workspaceReopen, { slug: 'aoba' }, (call) => {
+      state.closedAt = null;
+      return call.fulfill({ workspace_id: workspace.id });
+    });
+
+    await page.goto('/aoba');
+    await expect(workspacePane(page).getByText('どのワークスペースにも所属していません')).toBeVisible();
+    await expect(workspacePane(page).getByRole('link')).toHaveCount(0);
+
+    const row = await openAdmin(page);
+    await row.getByRole('button', { name: `「${workspace.name}」を再開する` }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'ワークスペースを再開しました' })).toBeVisible();
+    await backHome(page);
+
+    await expect(workspacePane(page).getByRole('link', { name: /受託開発チーム/ })).toBeVisible();
+    await expect(workspacePane(page).getByText('どのワークスペースにも所属していません')).toHaveCount(0);
+  });
+});
+
 test.describe('一般のユーザー（あおば開発のハルカ）', () => {
   test.beforeEach(async ({ context, baseURL }) => {
     await signIn(context, baseURL, 'member');
@@ -645,11 +760,9 @@ test.describe('一般のユーザー（あおば開発のハルカ）', () => {
 
   test('終了したワークスペースの帯は出るが、組織の管理へのリンクは出ない', async ({ page }) => {
     // 受託開発チームを、画面の上だけで終了した状態にする（seed のワークスペースを終了しない）
-    await page.route('**/api/aoba/workspace', async (route) => {
-      const response = await route.fetch();
-      const body = (await response.json()) as { closed_at: string | null };
+    await rewriteOperation(page, workspaceInfo, { slug: 'aoba' }, (body) => {
       body.closed_at = '2026-10-22T00:00:00.000Z';
-      await route.fulfill({ response, json: body });
+      return body;
     });
     await page.goto('/aoba/w/019a0000-0000-7000-8000-000000000401');
     await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();

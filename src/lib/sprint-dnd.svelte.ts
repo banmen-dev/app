@@ -127,7 +127,7 @@ export class SprintDnd {
     return this.#options.busy?.(taskId) === true;
   }
 
-  // つかめるか。書き込めて、つかめるカード（sprint-drop.ts の isGrabbable）で、完了か戻しを送っている最中でないとき
+  // つかめるか。完了カードもすべて対象で、戻せない場合は落とした計画の reopen-blocked を画面へ渡す。書き込めず、または送信中ならつかめない
   canGrab(taskId: string): boolean {
     if (!this.#options.enabled() || this.#options.busy?.(taskId) === true) return false;
     return isGrabbable(this.#options.columns(), taskId);

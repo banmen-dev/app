@@ -4,15 +4,23 @@
 // 鍵と値の組を1つの値で渡して式で引く jsonPairLookup と、変更の履歴に残すスプリントの値 sprintLogRefSql と sprintLeftLogSql と、行ごとの ID を SQL の中で作る uuidv7Sql と、部分索引に合わせた組織の変更の履歴の条件 organizationHistoryRowFilter と進行中のスプリントの条件 activeSprintRowFilter と、
 // メールアドレスで待つ承諾待ちの招待の条件 pendingEmailInvitationRowFilter と、複数の行を1つの文で並びの末尾に振る tailPosition と、タイトルの検索の条件 titleContainsAll と、列に索引を使わせない unindexed だけを出す）。
 // 照合用の値はテストの口（testing.ts）から出す
-export type { ExpressionBuilder, Insertable, QueryCreator, Selectable } from 'kysely';
+export type { Expression, ExpressionBuilder, Insertable, QueryCreator, Selectable } from 'kysely';
 export type { Statement } from './entry.ts';
 export { commonDb, orgDb, type CommonDb, type OrganizationDb } from './entries.ts';
 export { DatabaseUnavailableError, pingDatabase } from './ping.ts';
-export { jsonList, jsonPairLookup, jsonPairRows, sprintLeftLogSql, sprintLogRefSql } from './json-list.ts';
+export {
+  changedColumnsSql,
+  jsonList,
+  jsonPairLookup,
+  jsonPairRows,
+  sprintLeftLogSql,
+  sprintLogRefSql,
+} from './json-list.ts';
 export { jsonLookup } from './json-lookup.ts';
 export { previousStatementChanged } from './previous-statement.ts';
 export { apiTokenSeenAt } from './api-token-seen-at.ts';
 export { organizationHistoryRowFilter } from './organization-history-filter.ts';
+export { notTodayMarkOnlyRowFilter, recentChangeRowFilter, recentCommentRowFilter } from './recent-activity-filter.ts';
 export { activeSprintRowFilter } from './active-sprint-filter.ts';
 export { pendingEmailInvitationRowFilter } from './pending-email-invitation-filter.ts';
 export { uuidv7Sql } from './uuid-sql.ts';
@@ -55,7 +63,6 @@ export {
   type NewOrganization,
   type NewSelfCreatedOrganization,
 } from './create-organization.ts';
-export { VOCABULARY_COLUMN_VALUE } from './vocabulary-column.ts';
 // 組織の人数に数える人。組織の中の処理には、確かめた組織の入口だけを受ける seatHoldersOf を出す（組織の ID の束は受けない）
 export { hasSeatInvitationOfLogin, personKey, seatHoldersOf, seatHoldersOfWorkspaceInvitations } from './seats.ts';
 // 運用者の道具（operations/operator-tools.ts）だけが import できる（eslint.config.db-entry.js）
@@ -73,12 +80,11 @@ export {
   type AdminReassignmentResult,
 } from './operator-reassign-admin.ts';
 export {
+  readOrganizationPlanRow,
   readOrganizationRow,
   userAvatarsOf,
-  writeOrganizationSettings,
+  type OrganizationPlanRow,
   type OrganizationRow,
-  type OrganizationSettingsChange,
-  type OrganizationSettingsWrite,
 } from './organization-common.ts';
 export {
   // adminStatusesOf と organizationUsageOf は、運用者の道具（operations/operator-tools.ts）だけが import できる（eslint.config.db-entry.js）
@@ -127,3 +133,11 @@ export {
 } from './attachment-quota-warning.ts';
 
 export { attachmentFitsQuota } from './wiki.ts';
+
+export {
+  listBillingOrganizations,
+  listBillingAdministrators,
+  inviteBillingAdministrator,
+  respondBillingInvitation,
+  removeBillingAdministrator,
+} from './billing.ts';

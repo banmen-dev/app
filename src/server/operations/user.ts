@@ -18,9 +18,12 @@ import {
   type OrganizationTables,
   type QueryCreator,
 } from '../db/index.ts';
+import { removeAvatarObjects } from '../avatars/remove.ts';
 import { ApiError } from '../errors.ts';
 import { uuidv7 } from '../uuid.ts';
 import { implement } from './implement.ts';
+import { removeDepartedPartyMemberStatements } from './membership-party.ts';
+import { removeDepartedAvatarObjects, removeDepartedAvatarStatement } from './organization-departure.ts';
 import { readSeats } from './invitation.ts';
 import type { OrganizationTools } from './organization-tools.ts';
 import { createdOn } from './workspace.ts';
@@ -95,7 +98,7 @@ function stateOf(row: { id: string; is_admin: number; disabled_at: string | null
 // ユーザーの変更の記録（entity_type: user、action: update、workspace_id は空）。直前の文が行を変えたときだけ入れる
 function userChangeLog(
   db: OrganizationDb,
-  log: { actorUserId: string; userId: string; changes: Record<string, unknown>; at: Date },
+  log: { actorUserId: string; userId: string; changes: Record<string, unknown>; at: Date; id?: string },
 ) {
   return db.statement((q) =>
     q
@@ -104,7 +107,7 @@ function userChangeLog(
       .expression(
         q
           .selectNoFrom((eb) => [
-            eb.val(uuidv7(log.at)).as('id'),
+            eb.val(log.id ?? uuidv7(log.at)).as('id'),
             eb.val(db.organizationId).as('organization_id'),
             eb.val<string | null>(null).as('workspace_id'),
             eb.val(log.actorUserId).as('actor_user_id'),
@@ -198,7 +201,7 @@ function revokeInvitationStatements(
 // 有効な人を先に、無効の人を後ろに、それぞれ名前、ID の順に全部。件数で区切らない: 読むのはその組織の users の行
 // （抜けた人と無効の人も消さずに残るので、member_limit では抑えられない。想定は数十〜数百）で、索引（users_organization_login の先頭の
 // organization_id）の上で1組織の行だけを読み、画面は全員を1つの表で見て指名と無効化を選ぶため。所属の数は閉じていないワークスペースの今の所属。
-// アバターは共通の表なので、組織の道具で別に引く
+// アバター（上げたプロフィール画像、無ければ共通の表のログインの手段のアイコン）は、組織の道具で別に引く
 export const userListOperation = implement(userList, async ({ db, tools }) => {
   const organizationId = db.organizationId;
   const rows = await db.rows(
@@ -244,13 +247,15 @@ export const userListOperation = implement(userList, async ({ db, tools }) => {
 });
 
 // 指名と解除。users の文の条件は、読んだ is_admin のまま、指名なら無効でないこと、解除ならほかに管理者がいること、
-// 呼んだ人が今も無効でない管理者であること。記録（{"is_admin": [前, 後]}）は直前の文が行を変えたときだけ入れる
+// 呼んだ人が今も無効でない管理者であること。記録（{"is_admin": [前, 後]}）は直前の文が行を変えたときだけ入れる。
+// 解除した人に今の所属（閉じたワークスペースの所属を含む）が無ければ、組織に入れなくなるので、同じ batch でプロフィール画像の行を消し、
+// R2 のファイルは batch の後に消す（#1273。membership-leave と同じ。指名し直しても戻さない）
 // 指名では、管理者は組織の人数に数えるので、招待の作成と同じ関数（readSeats）で人数を数え、相手がまだ数えられておらず、
 // 人数が member_limit 以上なら 409（member_limit）で断る。招待の作成と同じく人数は書く文の条件に入れない
 // （数えてから書くまでの間に同時に指名か招待をして超えたときは、そのまま認める。超えるのは同時に送った数まで）
 export const userAdminUpdateOperation = implement(
   userAdminUpdate,
-  async ({ db, actor, organization, tools, input }) => {
+  async ({ db, actor, organization, tools, input, attachmentStorage }) => {
     // 自分用の組織は管理者が本人1人だけなので、指名も解除も（すでにその状態でも）断る。何も読まず、何も書かない。
     if (organization.kind === 'personal') throw conflict('personal_organization');
     const actorUserId = actorUserIdOf(actor);
@@ -269,7 +274,10 @@ export const userAdminUpdateOperation = implement(
 
     const at = now();
     const stamp = at.toISOString();
-    const results = await db.batch([
+    // 解除で組織に入れなくなった（今の所属が無い）ときだけ、プロフィール画像の行を消す（#1273）。
+    // 「この要求で解除した」は、直前の記録の文が行を変えたことで見る（記録は users の文が行を変えたときだけ入る）
+    const removeAvatar = next === 0 ? removeDepartedAvatarStatement(db, userId, 'previous-statement') : undefined;
+    const statements = [
       db.statement((q) =>
         q
           .updateTable('users')
@@ -286,7 +294,19 @@ export const userAdminUpdateOperation = implement(
           ),
       ),
       userChangeLog(db, { actorUserId, userId, changes: { is_admin: [current.is_admin, next] }, at }),
-    ]);
+      // 記録の直後に置く（previousStatementChanged で記録の文に結ぶ）
+      ...(removeAvatar === undefined ? [] : [removeAvatar]),
+    ];
+    const results = await db.batch(statements);
+    // 行が消えた後に R2 のファイルを消す（失敗は件数だけをログに出し、解除は成功にする）。
+    // 消す文の条件は users の文の成否と別なので（同じ時刻に別の要求が同じ人を解除したときなど）、断る前でも、消した行があれば消す
+    if (removeAvatar !== undefined) {
+      await removeDepartedAvatarObjects(
+        attachmentStorage,
+        results[statements.indexOf(removeAvatar)],
+        userAdminUpdate.name,
+      );
+    }
     if ((results[0]?.changes ?? 0) > 0)
       return { user_id: userId, is_admin: next === 1, disabled_at: current.disabled_at };
 
@@ -314,9 +334,10 @@ export const userAdminUpdateOperation = implement(
 // 8. memberships（left_on はワークスペースのタイムゾーンの今日、left_at）
 // 3〜8 は閉じたワークスペースも含めたすべてのワークスペースに当て、「この要求で無効になった（disabled_at がこの要求の時刻）」を条件にする。
 // 記録はどれも、変える文より前に置く（変えた後では対象の行を選べない）。行の ID は SQL の中で作るので、件数によらず文の数は決まっている。
-// 完了したタスク、完了の記録、経験値は変えない。討伐隊（epic_party_members）と接続（connections）は、表を足す Issue（#267、#67）で
-// この batch に文を足す
-export const userDisableOperation = implement(userDisable, async ({ db, actor, input }) => {
+// 完了したタスク、完了の記録、経験値は変えない。討伐隊の履歴と削除も同じ batch に入れる。接続は #67 で足す。
+// 最後に、その人のプロフィール画像の行（user_avatars）を同じ条件で消す（変更の履歴は残さない）。R2 のファイルは batch の後に消し、
+// 失敗は件数だけをログに出す。有効に戻しても画像は戻さない
+export const userDisableOperation = implement(userDisable, async ({ db, actor, input, attachmentStorage }) => {
   const actorUserId = actorUserIdOf(actor);
   const organizationId = db.organizationId;
   const userId = input.user_id;
@@ -328,6 +349,7 @@ export const userDisableOperation = implement(userDisable, async ({ db, actor, i
 
   const at = now();
   const stamp = at.toISOString();
+  const disableLogId = uuidv7(at);
 
   // 離脱日はワークスペースのタイムゾーンの今日。SQLite はタイムゾーンを扱えないので、今の所属のワークスペースのタイムゾーンを先に読み、
   // ワークスペースの ID ごとの日付を1つの JSON の値で文に渡す（文の数も束縛の数も、所属の数で増えない）。
@@ -362,7 +384,17 @@ export const userDisableOperation = implement(userDisable, async ({ db, actor, i
   const changes: Record<string, unknown> =
     current.is_admin === 1 ? { disabled_at: [null, stamp], is_admin: [1, 0] } : { disabled_at: [null, stamp] };
 
-  const results = await db.batch([
+  // その人のプロフィール画像の行。この要求で無効になったときだけ消し、有効に戻しても戻さない。R2 のファイルは書いた後に消す。
+  // 結果は文の位置で読むので、後ろに文を足しても別の文の結果を読まない
+  const removeAvatar = db.statement((q) =>
+    q
+      .deleteFrom('user_avatars')
+      .where('user_id', '=', userId)
+      .where('organization_id', '=', organizationId)
+      .where((eb) => eb.exists(disabledHere(q)))
+      .returning('object_key'),
+  );
+  const statements = [
     // 1
     db.statement((q) =>
       q
@@ -390,7 +422,7 @@ export const userDisableOperation = implement(userDisable, async ({ db, actor, i
         ),
     ),
     // 2
-    userChangeLog(db, { actorUserId, userId, changes, at }),
+    userChangeLog(db, { actorUserId, userId, changes, at, id: disableLogId }),
     // 3, 4. 招待の取り消しの記録と invitations
     ...revokeInvitationStatements(db, { userId, login: current, actorUserId, at, disabling: true }),
     // 5. 所属の終わり。離脱（membership-leave）と同じ {"user": [{"id", "name"}, null], "role": [前のロール, null]}
@@ -516,7 +548,10 @@ export const userDisableOperation = implement(userDisable, async ({ db, actor, i
           ]),
         ),
     ),
-  ]);
+    ...removeDepartedPartyMemberStatements(db, { userId, actorUserId, successLogId: disableLogId, at }),
+    removeAvatar,
+  ];
+  const results = await db.batch(statements);
 
   if ((results[0]?.changes ?? 0) === 0) {
     // 読んでから書くまでに、相手が変わったか、呼んだ人が権限を失った
@@ -530,6 +565,12 @@ export const userDisableOperation = implement(userDisable, async ({ db, actor, i
     if (after.disabled_at !== null) return stateOf(after);
     throw new ApiError(409, 'conflict');
   }
+  // 行が消えた後に R2 のファイルを消す（失敗は件数だけをログに出し、無効にする操作は成功にする）
+  await removeAvatarObjects(
+    attachmentStorage,
+    (results[statements.indexOf(removeAvatar)]?.rows ?? []).map((row) => (row as { object_key: string }).object_key),
+    { operation: userDisable.name },
+  );
   return { user_id: userId, is_admin: false, disabled_at: stamp };
 });
 

@@ -12,14 +12,19 @@ import { sprintPlanSchema } from './sprint.ts';
 export const sprintList = defineOperation({
   name: 'sprint-list',
   description:
-    '先のスプリントと進行中のスプリントを、入っているタスクと一緒に開始日の順に返し、作るときの初期値（開始日と長さ）を添える',
+    '先のスプリントと進行中のスプリントを、入っているタスクと一緒に開始日の順に返し、作るときの初期値（開始日、長さ、命名ルールと次の番号）を添える',
   mode: 'read',
   permission: 'member',
   workspace: true,
   input: z.object({ workspace_id: idSchema }),
   output: z.object({
     sprints: z.array(sprintPlanSchema),
-    defaults: z.object({ start_on: z.string(), length: z.number().int() }),
+    defaults: z.object({
+      start_on: z.string(),
+      length: z.number().int(),
+      sprint_name_template: z.string().nullable(),
+      sprint_number_next: z.number().int(),
+    }),
     today: z.string(),
   }),
 });
