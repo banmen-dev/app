@@ -98,8 +98,21 @@ async function createAfterRejectedBatch(target: Target, race: (db: ReturnType<ty
       if (typeof method !== 'function') return method;
       if (key !== 'batch') return method.bind(base);
       return async (...args: unknown[]) => {
+        const beforeLogs = await logs(target);
         const result = await (method as (...args: unknown[]) => Promise<{ changes: number }[]>).apply(base, args);
-        expect(result[0]?.changes).toBe(0);
+        // 割り込みによる上書きや削除が、失敗batchの副作用を隠す前に3文すべてを確かめる。
+        expect(result.map((row) => row.changes)).toEqual([0, 0, 0]);
+        const stored = await db.first(
+          db.statement((q) =>
+            q
+              .selectFrom('workspaces')
+              .select('sprint_number_next')
+              .where('organization_id', '=', target.organization.id)
+              .where('id', '=', target.workspace.id),
+          ),
+        );
+        expect(stored?.sprint_number_next).toBe(Number.MAX_SAFE_INTEGER);
+        expect(await logs(target)).toEqual(beforeLogs);
         await race(db);
         return result;
       };
