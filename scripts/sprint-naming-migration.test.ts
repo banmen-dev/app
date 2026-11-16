@@ -16,7 +16,12 @@ test('既存の次番号は削除していない全状態のスプリント数�
       .sort()) {
       db.exec(readFileSync(new URL(name, migrations), 'utf8'));
     }
-    db.exec(readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8'));
+    // 現行seedのうち0038で追加された依頼回だけを除き、対象の旧スキーマへ入れる。
+    db.exec(
+      readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8')
+        .replace(/^UPDATE task_sources SET review_cycle = .*;$/m, '')
+        .replace(/INSERT INTO review_request_cycles[^;]*;/, ''),
+    );
     // seed の全スプリントを外して、状態と削除を明示する。
     // seed の関連行の外部キーを保つため、行を消すのではなく新しいworkspaceへ追加する。
     const source = db
