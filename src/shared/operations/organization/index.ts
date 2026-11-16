@@ -17,6 +17,7 @@ import { firstSteps } from './first-steps.ts';
 import { meAvatarDelete, meAvatarUpload, userAvatar } from './me-avatar.ts';
 import { meThemeUpdate } from './me-theme-update.ts';
 import { myOrganizations } from './my-organizations.ts';
+import { myToday } from './my-today.ts';
 import { organizationInfo } from './organization.ts';
 import { organizationHistory } from './organization-history.ts';
 import { organizationHolidayAdd, organizationHolidayDelete, organizationHolidayList } from './organization-holiday.ts';
@@ -42,6 +43,7 @@ export {
   meAvatarUpload,
   meThemeUpdate,
   myOrganizations,
+  myToday,
   organizationHistory,
   organizationHolidayAdd,
   organizationHolidayDelete,
@@ -62,6 +64,7 @@ export const organizationOperations: readonly AnyOperationDefinition[] = [
   delegateeList,
   delegateeUpdate,
   myOrganizations,
+  myToday,
   createMyOrganization,
   createPersonalOrganization,
   organizationInfo,

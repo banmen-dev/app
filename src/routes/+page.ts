@@ -16,5 +16,9 @@ export const load: PageLoad = async ({ fetch, url }) => {
   const landing = landingFor(result.data);
   if (landing.to === 'operator') redirect(307, resolve('/operator'));
   // suspended は、応答が持たないとき（古い応答、差し替えた応答）は無いものとする
-  return { failed: false as const, ...result.data, suspended: result.data.suspended ?? [] };
+  return {
+    failed: false as const,
+    ...result.data,
+    suspended: result.data.suspended ?? [],
+  };
 };

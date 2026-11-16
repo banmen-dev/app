@@ -57,7 +57,10 @@ describe('同期の項目取得予算', () => {
     const row = await t.db.first(
       t.db.statement((q) => q.selectFrom('connections').select('sync_state_json').where('id', '=', connection.id)),
     );
-    expect(JSON.parse(row!.sync_state_json)).toEqual({ resume: { scope: PULL_SCOPE.id, cursor: null } });
+    expect(JSON.parse(row!.sync_state_json)).toMatchObject({
+      version: 2,
+      position: { scope: PULL_SCOPE.id, cursor: null },
+    });
   });
 
   test('Issueの取得で60秒に達したらPRを開始せず、次回そのPR段階から再開する', async () => {
@@ -90,7 +93,7 @@ describe('同期の項目取得予算', () => {
       imported: 1,
       more: false,
     });
-    expect(f.calls.length - before).toBe(1);
+    expect(f.calls.length - before).toBe(3); // PR1要求＋レビュー本人照会・空の全走査2要求
     expect(new URL(f.calls.at(-1)!.url).pathname).toBe('/repositories/1001/pulls');
     expect(await t.tasks()).toHaveLength(2);
   });

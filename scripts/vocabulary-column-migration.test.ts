@@ -16,7 +16,15 @@ function oldDatabase() {
   for (const file of migrationFiles.filter((name) => name <= '0030_\uffff')) {
     db.exec(readFileSync(new URL(file, migrations), 'utf8'));
   }
-  db.exec(readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8'));
+  // 現行seedのうち0038で追加された依頼回だけを除き、対象の旧スキーマへ入れる。
+  const seed = readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8');
+  const legacySeed = seed
+    .replace(/^UPDATE task_sources SET review_cycle = .*;$/m, '')
+    .replace(/INSERT INTO review_request_cycles[^;]*;/, '');
+  assert.notEqual(legacySeed, seed, '0038のseedを旧スキーマ用に除いている');
+  assert.ok(!legacySeed.includes('UPDATE task_sources SET review_cycle ='));
+  assert.ok(!legacySeed.includes('INSERT INTO review_request_cycles'));
+  db.exec(legacySeed);
   for (const table of targetTables) {
     // 廃止前の値と、書き込み停止後の既定値のどちらが残っていても移行できる。
     db.exec(`UPDATE ${table} SET vocabulary = CASE WHEN rowid % 2 = 0 THEN 'game' ELSE 'scrum' END`);

@@ -142,10 +142,11 @@ export function taskPageHref(slug: string, workspaceId: string, taskId: string):
 }
 
 // 行のタイトルのリンクに付ける属性。新しいタブの既定だけ別タブで開く。
+// 別の画面へ移る行は preservePosition=false とし、target/relだけを残して位置とフォーカスをリセットする。
 // 横と真ん中は同じ画面の上に重ねるので一覧のスクロールを保つ。ページ全体は別の画面へ移るので、先頭から読む（保つと一覧の位置が持ち越される）
-export function taskLinkAttrs(): Record<string, string> {
+export function taskLinkAttrs(preservePosition = true): Record<string, string> {
   if (drawerState.mode === 'tab') return { target: '_blank', rel: 'noopener noreferrer' };
-  if (drawerState.mode === 'page') return {};
+  if (drawerState.mode === 'page' || !preservePosition) return {};
   return { 'data-sveltekit-reset': 'false' };
 }
 

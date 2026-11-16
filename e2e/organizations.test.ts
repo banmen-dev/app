@@ -663,6 +663,7 @@ test('枠の外からダッシュボードへの遅い移動で、広い紙と2�
   await expect(page.locator('.loading-overlay .binding')).toHaveCount(0);
   const loadingBox = await shownBox(loadingPaper);
   await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
+  await expect(page.locator('.loading-overlay')).toHaveCount(0);
   const loadedBox = await shownBox(page.locator('.gate-sheet'));
   expect(loadingBox.width).toBe(loadedBox.width);
   expect(loadingBox.x).toBe(loadedBox.x);
@@ -689,6 +690,7 @@ for (const width of [1280, 390]) {
       release();
     }
     await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
+    await expect(page.locator('.loading-overlay')).toHaveCount(0);
     const loadedBox = await shownBox(page.locator('.gate-sheet'));
     expect(loadingBox.width).toBe(loadedBox.width);
     expect(loadingBox.x).toBe(loadedBox.x);
@@ -696,7 +698,11 @@ for (const width of [1280, 390]) {
 }
 
 for (const width of [1280, 390]) {
-  test(`全組織のダッシュボードは ${width}px で面を並べ、組織の中を読まない`, async ({ page, context, baseURL }) => {
+  test(`全組織のダッシュボードは ${width}px で面を並べ、組織ごとの操作を個別に呼ばない`, async ({
+    page,
+    context,
+    baseURL,
+  }) => {
     await signIn(context, baseURL, 'member');
     await page.setViewportSize({ width, height: 900 });
     await mockOperation(page, myOrganizations, {
@@ -714,6 +720,7 @@ for (const width of [1280, 390]) {
       '入れる組織',
       '届いた招待',
       '停止している組織',
+      '全組織の今日やること',
       'Scrum Guild のニュース',
     ]);
     await expect(page.locator('.nav, .topbar')).toHaveCount(0);

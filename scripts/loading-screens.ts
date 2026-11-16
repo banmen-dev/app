@@ -18,7 +18,13 @@ export type Screen = {
 };
 // 通常の管理者の成功経路。条件分岐は行を分ける。レイアウトはページと分けて測る。
 export const screens: Screen[] = [
-  { route: '/', operations: [op('my-organizations', {}, false, true)] },
+  {
+    route: '/',
+    deferSecondary: true,
+    operations: [op('my-organizations', {}, false, true)],
+    after: [op('my-today', {}, true, true)],
+    note: '今日やることは面を描いてから読み、組織の入口の表示を待たせない。',
+  },
   {
     route: '/auth/billing',
     operations: [op('my-billing-organizations', {}, false, true)],

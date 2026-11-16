@@ -212,7 +212,13 @@ describe('取り込みの同期', () => {
   test('同じ頁の中の同じ項目も1件にまとめ、レビュー依頼はレビュアーごとに分ける', async () => {
     const { workspace, connection, db } = await setup();
     const review = (reviewer: string) =>
-      item(9, { kind: 'review_request', reviewerSourceId: reviewer, sourceId: 'pr-9', key: 'fake/box#9' });
+      item(9, {
+        kind: 'review_request',
+        reviewerSourceId: reviewer,
+        reviewCycle: 'cycle-1',
+        sourceId: 'pr-9',
+        key: 'fake/box#9',
+      });
     const { source } = fakeSource({
       '501': [{ items: [item(1), item(1), review('u1'), review('u2'), review('u1')], next: null }],
     });
@@ -267,8 +273,8 @@ describe('取り込みの同期', () => {
     const r1 = await syncConnection(env, db, workspace.id, connection.id, { source: first.source, maxPages: 2 });
     expect(r1).toEqual({ outcome: 'success', imported: 3, more: true });
     expect(first.calls.map((call) => call.cursor)).toEqual([null, '1']);
-    expect(JSON.parse((await connectionOf(db, connection.id)).sync_state_json)).toEqual({
-      resume: { scope: '501', cursor: '2' },
+    expect(JSON.parse((await connectionOf(db, connection.id)).sync_state_json)).toMatchObject({
+      position: { scope: '501', cursor: '2' },
     });
 
     const second = fakeSource(pages);

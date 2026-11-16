@@ -89,6 +89,7 @@
     taskQuery = '?task=',
     workspaceId,
     workspaceName,
+    organization,
     metaChip,
     metaText,
     attrs,
@@ -115,6 +116,8 @@
     taskQuery?: string;
     workspaceId?: string;
     workspaceName?: string;
+    // 全組織のダッシュボードでは、この組織のバックログへ移る（操作は渡さない）。
+    organization?: { slug: string; name: string };
     metaChip?: string;
     metaText?: string;
     attrs?: RowAttrs;
@@ -492,7 +495,9 @@
   // タイトルのリンクは、今のワークスペースの画面に `?task=<ID>` を付ける。絞り込みの問い合わせ（assignee、q など）は残す。
   // 問い合わせの前半（taskQuery。`?...&task=` か `?task=`）は画面が1回だけ組んで渡し、行は ID だけを足す
   const taskHref = $derived(
-    resolve('/[slug]/w/[id]', { slug: page.params.slug ?? '', id: workspaceId ?? page.params.id ?? '' }),
+    organization === undefined
+      ? resolve('/[slug]/w/[id]', { slug: page.params.slug ?? '', id: workspaceId ?? page.params.id ?? '' })
+      : resolve('/[slug]/w/[id]', { slug: organization.slug, id: workspaceId ?? '' }),
   );
 
   export function focusMark(): void {
@@ -574,13 +579,16 @@
     <a
       class="entry-title"
       bind:this={titleLink}
-      href={taskDetailHref(`${taskHref}${taskQuery}${encodeURIComponent(task.id)}`)}
+      href={taskDetailHref(
+        `${taskHref}${organization === undefined ? taskQuery : '?task='}${encodeURIComponent(task.id)}`,
+      )}
       data-task-id={task.id}
-      {...taskLinkAttrs()}>{task.title}</a
+      {...taskLinkAttrs(organization === undefined)}>{task.title}</a
     >
     <!-- eslint-enable svelte/no-navigation-without-resolve -->
-    {#if workspaceName !== undefined || (attrs === undefined && (task.repository !== null || category !== null)) || task.sprint !== null || metaChip !== undefined || metaText !== undefined}
+    {#if organization !== undefined || workspaceName !== undefined || (attrs === undefined && (task.repository !== null || category !== null)) || task.sprint !== null || metaChip !== undefined || metaText !== undefined}
       <span class="entry-meta">
+        {#if organization !== undefined}<span class="tag">{organization.name}</span>{/if}
         {#if workspaceName !== undefined}<span class="tag">{workspaceName}</span>{/if}
         {#if task.sprint !== null}
           <DefinitionChip kind="sprint" name={sprintLabel(task.sprint, t)} mono={task.sprint.name === null} />
