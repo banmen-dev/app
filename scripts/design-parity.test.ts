@@ -104,6 +104,8 @@ describe('見本との照合', () => {
         const textName = /<span class="brand-name">\$?\{t\('([^']+)'\)\}<\/span>/;
         for (const source of [kit, component]) {
           assert.equal(textName.exec(source)?.[1], 'brandName');
+          const brand = source.slice(source.indexOf('<span class="brand-art"'));
+          assert.deepEqual(readTags(brand), ['span', 'img', 'span'], 'マークの後に名前を並べる');
         }
       }
       for (const source of [kit, normalized]) {

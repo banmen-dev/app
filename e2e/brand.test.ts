@@ -59,7 +59,7 @@ test('可逆 WebP のマークは PNG の寸法・透過・合成後の色を保
   expect(comparison.maxCompositedDifference).toBeLessThanOrEqual(1);
 });
 
-async function expectHorizontalBrand(page: Page): Promise<void> {
+async function expectHorizontalBrand(page: Page, singleLine = false): Promise<void> {
   const art = page.locator('.brand-art');
   const name = art.locator('.brand-name');
   const logo = art.locator('.brand-mark');
@@ -107,6 +107,10 @@ async function expectHorizontalBrand(page: Page): Promise<void> {
   expect(box.x + box.width).toBeLessThanOrEqual(parent.x + parent.width + 1);
   expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
   const nameBox = (await name.boundingBox())!;
+  if (singleLine) {
+    const lineHeight = await name.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
+    expect(nameBox.height).toBeLessThanOrEqual(lineHeight + 1);
+  }
   expect(nameBox.x).toBeGreaterThanOrEqual(box.x + box.width);
   const inner = await art.evaluate((el) => {
     const rect = el.getBoundingClientRect();
@@ -138,10 +142,18 @@ test('文字を拡大してもロゴの名前が白い下地に収まる', async
       await page.setViewportSize({ width, height: 900 });
       for (const theme of themes) {
         await page.evaluate((value) => (document.documentElement.dataset.theme = value), theme);
-        await page.locator('.brand-name').evaluate((el) => {
-          (el as HTMLElement).style.fontSize = '36px';
-        });
-        await expectHorizontalBrand(page);
+        for (const mode of ['name', 'root']) {
+          await page.evaluate((value) => {
+            document.documentElement.style.fontSize = value === 'root' ? '24px' : '16px';
+            const name = document.querySelector<HTMLElement>('.brand-name')!;
+            name.style.fontSize = value === 'name' ? '36px' : '';
+          }, mode);
+          const fontSize = await page
+            .locator('.brand-name')
+            .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+          expect(fontSize).toBeGreaterThanOrEqual(24);
+          await expectHorizontalBrand(page);
+        }
       }
     }
   }
@@ -200,7 +212,7 @@ for (const screen of [
         } else if (screen.path.startsWith('/aoba')) {
           await expectCornerSymbol(page);
         } else {
-          await expectHorizontalBrand(page);
+          await expectHorizontalBrand(page, true);
         }
       }
     }
