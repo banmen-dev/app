@@ -25,7 +25,7 @@ const reportSchema = z.object({
       variant: z.enum(['B', 'C']),
       entry,
       secondary: ms,
-      ready: ms,
+      ready: ms.positive(),
       shell: ms,
       hasTask: z.boolean(),
     }),

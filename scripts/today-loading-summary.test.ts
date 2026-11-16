@@ -115,3 +115,9 @@ test('保存済みの正式生データから文書の全表と保留判断を�
   const doc = readFileSync(new URL('../docs/today-loading-browser-results.md', import.meta.url), 'utf8');
   assert.equal(doc.slice(doc.indexOf('## API')).trim(), r.markdown.trim());
 });
+
+test('Cだけの操作開始時点が0でも採用根拠にせず拒否する', () => {
+  const p = fixture();
+  for (const sample of p.browser) if (sample.variant === 'C') sample.ready = 0;
+  assert.throws(() => summarizeToday(p));
+});
