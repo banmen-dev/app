@@ -50,11 +50,14 @@ it('透過画像を動かす前に前の画素を消し、枠の外の残像を�
   const calls: string[] = [];
   const clearRect = vi.fn(() => calls.push('clear'));
   const drawImage = vi.fn(() => calls.push('draw'));
-  drawCrop({ clearRect, drawImage } as unknown as CanvasRenderingContext2D, {} as ImageBitmap, {
+  const context = { clearRect, drawImage, imageSmoothingEnabled: false, imageSmoothingQuality: 'low' };
+  drawCrop(context as unknown as CanvasRenderingContext2D, {} as ImageBitmap, {
     x: 100,
     y: 50,
     size: 200,
   });
+  expect(context.imageSmoothingEnabled).toBe(true);
+  expect(context.imageSmoothingQuality).toBe('high');
   expect(clearRect).toHaveBeenCalledWith(0, 0, 256, 256);
   expect(calls).toEqual(['clear', 'draw']);
   expect(drawImage).toHaveBeenCalledWith(expect.anything(), 100, 50, 200, 200, 0, 0, 256, 256);

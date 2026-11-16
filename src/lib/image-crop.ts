@@ -34,6 +34,8 @@ export async function isAvatarSource(file: File): Promise<boolean> {
 }
 
 export function drawCrop(context: CanvasRenderingContext2D, image: CanvasImageSource, crop: Crop): void {
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = 'high';
   context.clearRect(0, 0, 256, 256);
   context.drawImage(image, crop.x, crop.y, crop.size, crop.size, 0, 0, 256, 256);
 }
