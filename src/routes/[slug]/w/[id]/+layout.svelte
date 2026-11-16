@@ -70,7 +70,11 @@
   const code = $derived(data.workspaceFailure?.code);
   const unavailable = $derived((status === 404 && code === 'not_found') || (status === 403 && code === 'forbidden'));
   const taskId = $derived(page.params.taskId ? null : page.url.searchParams.get('task'));
-  const storyId = $derived(page.params.taskId || taskId !== null ? null : page.url.searchParams.get('story'));
+  // スプリントでは ?story= はボードの絞り込み。ほかの画面では従来の詳細の引き出し。
+  const sprintStoryFilter = $derived(page.route.id === '/[slug]/w/[id]/sprint');
+  const storyId = $derived(
+    page.params.taskId || taskId !== null || sprintStoryFilter ? null : page.url.searchParams.get('story'),
+  );
   // エピックの引き出しも、タスクとストーリーの引き出しと同時には開かない（付いていれば、そちらを開く）
   const epicId = $derived(
     page.params.taskId || taskId !== null || storyId !== null ? null : page.url.searchParams.get('epic_id'),
@@ -113,11 +117,11 @@
   }
 
   // 今の URL から `task` を外した画面。開いた画面（バックログ、メンバーなど）のまま、ほかのクエリも残す。
-  // `story` も一緒に外す（両方が付いた URL はタスクの方だけが開いているので、`story` を残すと、閉じた途端にストーリーの引き出しが開く）
+  // ほかの画面は story も外す（閉じた途端にストーリーの引き出しを開かない）。スプリントの story 絞り込みは残す。
   const withoutTask = () => {
     const rest = new SvelteURLSearchParams(page.url.search);
     rest.delete('task');
-    rest.delete('story');
+    if (!sprintStoryFilter) rest.delete('story');
     rest.delete('epic_id');
     const query = rest.size > 0 ? `?${rest}` : '';
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- 今の画面の経路（page.url.pathname）に、残すクエリだけを足している
