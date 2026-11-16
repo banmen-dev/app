@@ -20,8 +20,8 @@ const MESSAGES: Record<ImportSourceFailure, string> = {
   unavailable: 'GitHub に届かないか、応答が想定と違う',
 };
 
-// 個別項目が消えた場合だけ、一覧取得の失敗と区別する。外へ返す failure と文言は従来どおり。
-export class GithubItemMissing extends ImportSourceError {
+// 全呼び出しの404・410応答を区別する。項目と一覧の扱いは呼び出し側が決める。failure と文言は従来どおり。
+export class GithubResourceMissing extends ImportSourceError {
   constructor() {
     super('unavailable', MESSAGES.unavailable);
   }
@@ -66,7 +66,7 @@ export async function getJson(url: string, credential: string, fetcher: typeof f
   }
   if (!res.ok) {
     await discard(res);
-    if (res.status === 404 || res.status === 410) throw new GithubItemMissing();
+    if (res.status === 404 || res.status === 410) throw new GithubResourceMissing();
     if (res.status === 401) throw fail('unauthorized');
     if (res.status === 403 || res.status === 429) throw fail('forbidden');
     throw fail('unavailable');
