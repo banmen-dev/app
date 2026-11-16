@@ -870,6 +870,7 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
    「さらに読む」と「もう一度試す」（.activity-actions）は、指で押す画面と 760px 以下で 44px 以上にする */
 .activity { display: grid; gap: var(--space-5); min-width: 0; }
 .activity-day { display: grid; gap: var(--space-2); min-width: 0; }
+.activity-actions { align-items: center; }
 .activity-date { padding-inline: var(--space-1); font-size: var(--text-md); font-weight: 700; color: var(--color-muted); letter-spacing: var(--tracking-label); }
 .activity-list { list-style: none; margin: 0; padding: 0; display: grid; }
 .activity-list > li + li { border-top: 1px solid var(--color-rule); }

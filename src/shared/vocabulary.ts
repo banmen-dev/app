@@ -562,6 +562,8 @@ export const dictionary = defineDictionary({
   paneActivity: '最近の更新',
   activityEmptyTitle: 'まだ更新はありません',
   activityEmptyText: '所属する{workspace}の{task}、{story}、{epic}の変更とコメントが、ここに新しい順に並びます。',
+  // 所属する閉じていないワークスペースが無いとき。案内はワークスペースの面に出すので、ここは線画の無い短い1行にして案内を重ねない
+  activityEmptyNoWorkspaceText: '{workspace}に所属すると、{task}、{story}、{epic}の更新がここに並びます。',
   activityCreated: '{actor}が作成した',
   activityUpdated: '{actor}が{fields}を変更した',
   activityChanged: '{actor}が変更した',

@@ -5,7 +5,14 @@
   import { callOperation } from '../api.ts';
   import { taskDetailHref, taskLinkAttrs } from '../drawer.svelte.ts';
   import { isUnauthenticated, loginUrl } from '../login-redirect.ts';
-  import { activitySentence, appendEntries, formatActivityTime, groupByDay, targetQuery } from '../recent-activity.ts';
+  import {
+    RECENT_ACTIVITY_PANE_ID,
+    activitySentence,
+    appendEntries,
+    formatActivityTime,
+    groupByDay,
+    targetQuery,
+  } from '../recent-activity.ts';
   import { t } from '../vocabulary.svelte.ts';
   import { recentActivity, type RecentActivityEntry } from '../../shared/operations/organization/recent-activity.ts';
   import type { OutputOf } from '../../shared/operations/define.ts';
@@ -19,7 +26,9 @@
   // 読み込みの状態は、常に置いた role="status" の領域の文字だけを替えて伝える（LoadFailed と同じ）。
   // 行は押すと、対象のワークスペースのバックログに `?task=` `?story=` `?epic_id=` を付けて移り、詳細の引き出しが開く
   type Listing = OutputOf<typeof recentActivity>;
-  let { slug: slugProp }: { slug: string } = $props();
+  // noWorkspace は、今所属する閉じていないワークスペースが無いこと（ホームの todayEmptyKind が 'noWorkspace'）。
+  // 空の案内はワークスペースの面に出すので、ここは線画の無い短い1行にする。組織を読めなかったとき（unknown）は、今の空の案内のまま
+  let { slug: slugProp, noWorkspace = false }: { slug: string; noWorkspace?: boolean } = $props();
   // 親は `slug={data.slug}` で渡す。この prop の読み出しは data（ページの load の結果）を直に読むので、ホームを読み直して data が
   // 新しい値に置き換わるたびに、slug の値が同じでも effect が走り直す（今日やることの操作のたびに、足した続きを捨てて先頭から読み直していた）。
   // $derived にすると値の比較が入り、値が替わったとき（別の組織へ移ったとき）だけ、依存する effect が走り直る
@@ -37,14 +46,15 @@
   let generation = 0;
 
   const days = $derived(groupByDay(entries));
-  // 読み込みの状態の文。初回の読み込み中は骨組みだけで、文は空から始める（LoadFailed と同じ。マウント時に文字を持った領域は読み上げられない恐れがあるため）。
-  // 続きの読み込み中と「もう一度試す」の読み直し中、また失敗したときだけ文を出す
-  const statusText = $derived(
-    retrying ? t('retrying') : retryFailed ? t('retryFailed') : loadingMore ? t('loading') : '',
+  // 読み込みの状態の文。初回の読み込み中は骨組みだけ（Pane の aria-busy）で、文は空から始める
+  // （LoadFailed と同じ。マウント時に文字を持った領域は読み上げられない恐れがあるため）。
+  // 文を出すのは、続きの読み込み中、失敗の案内での読み直し中、また失敗したときだけ。
+  // 失敗の案内の中では、ボタンの横に出す（見える文）。ほかの状態では、見えない領域に出す。どちらも、その状態の間は常に置き、文字だけを替える。
+  // 失敗の案内の外で retrying を見ない（読み直しが成功した瞬間に、見えない領域へ「読み込んでいます」が入らないように）
+  const failedStatus = $derived(
+    phase === 'failed' ? (retrying ? t('retrying') : retryFailed ? t('retryFailed') : '') : '',
   );
-  // 失敗の案内の中では、ボタンの横に出す（見える文）。ほかの状態では、見えない領域に出す。どちらも常に置き、文字だけを替える
-  const failedStatus = $derived(phase === 'failed' ? statusText : '');
-  const hiddenStatus = $derived(phase === 'failed' ? '' : statusText);
+  const hiddenStatus = $derived(phase !== 'failed' && loadingMore ? t('loading') : '');
 
   function toLogin(): void {
     window.location.assign(loginUrl(page.url));
@@ -90,6 +100,8 @@
   async function retry(): Promise<void> {
     if (retrying) return;
     const token = generation;
+    // 押したときのフォーカス。読み直している間に、利用者が別の場所へ移したときは、その人のフォーカスを奪わない
+    const focused = document.activeElement;
     retrying = true;
     retryFailed = false;
     try {
@@ -102,11 +114,13 @@
         if (phase === 'failed') retryFailed = true;
       }
     }
-    // 読めたら、押したボタンが消えるので、先頭の行（空なら面の見出し）へフォーカスを移す
+    // 読めたら、押したボタンが消えるので、フォーカスがそのボタンか body に残っているときだけ、先頭の行（空なら面の見出し）へ移す
     if (token === generation && phase === 'ready') {
       await tick();
+      const now = document.activeElement;
+      if (now !== focused && now !== document.body && now !== null) return;
       if (entries.length > 0) focusRow(entries[0]!.id);
-      else document.getElementById('p-activity')?.focus();
+      else document.getElementById(RECENT_ACTIVITY_PANE_ID)?.focus();
     }
   }
 
@@ -152,8 +166,8 @@
   }
 </script>
 
-<Pane id="p-activity" title={t('paneActivity')}>
-  <span class="visually-hidden" role="status">{hiddenStatus}</span>
+<Pane id={RECENT_ACTIVITY_PANE_ID} title={t('paneActivity')} busy={phase === 'loading'}>
+  {#if phase !== 'failed'}<span class="visually-hidden" role="status">{hiddenStatus}</span>{/if}
   {#if phase === 'loading'}
     <div class="skeleton" aria-hidden="true">
       <span class="skeleton-line is-block"></span>
@@ -165,6 +179,18 @@
     <div class="form-actions activity-actions">
       <button class="btn" type="button" aria-disabled={retrying} onclick={() => void retry()}>{t('retry')}</button>
       <span class="field-hint" role="status">{failedStatus}</span>
+    </div>
+  {:else if entries.length === 0 && noWorkspace}
+    <!-- 所属が無い人には、案内をワークスペースの面に出す。ここは線画の無い短い1行にして、案内を重ねない -->
+    <div class="book">
+      <div class="book-empty">
+        {t('activityEmptyNoWorkspaceText', {
+          workspace: t('workspace'),
+          task: t('task'),
+          story: t('story'),
+          epic: t('epic'),
+        })}
+      </div>
     </div>
   {:else if entries.length === 0}
     <EmptyState

@@ -453,7 +453,7 @@
       <NewsPane items={news} />
     </div>
     <div class="dashboard-side">
-      <RecentActivity slug={data.slug} />
+      <RecentActivity slug={data.slug} noWorkspace={todayKind === 'noWorkspace'} />
     </div>
   </div>
 {/snippet}

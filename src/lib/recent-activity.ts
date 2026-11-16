@@ -5,6 +5,9 @@ import type { DictionaryKey, TemplateParams } from '../shared/vocabulary.ts';
 import { historyFieldLabel } from './task-history.ts';
 import { formatTodayLabel } from './format-datetime.ts';
 
+// 最近の更新の面の見出しの ID。面（Pane の id）と、読み直しの後にフォーカスを移す先（面の見出し）で共有する
+export const RECENT_ACTIVITY_PANE_ID = 'p-activity';
+
 export type Translate = (key: DictionaryKey, params?: TemplateParams) => string;
 
 // 変えた欄の名前を辞書の言葉にする。ストーリーの受け入れ基準のほかは、タスクの履歴と同じ表（historyFieldLabel）。

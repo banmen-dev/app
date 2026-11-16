@@ -403,7 +403,7 @@
 
     workspaceSwitchLabel: "{workspace} {name}。切り替える", workspaceSwitchListLabel: "所属する{workspace}",
     workspacePaneHint: "押すと{backlog}を開きます", paneNews: "{app} のニュース", appName: "Scrum Guild",
-    paneActivity: "最近の更新", activityEmptyTitle: "まだ更新はありません", activityEmptyText: "所属する{workspace}の{task}、{story}、{epic}の変更とコメントが、ここに新しい順に並びます。",
+    paneActivity: "最近の更新", activityEmptyTitle: "まだ更新はありません", activityEmptyText: "所属する{workspace}の{task}、{story}、{epic}の変更とコメントが、ここに新しい順に並びます。", activityEmptyNoWorkspaceText: "{workspace}に所属すると、{task}、{story}、{epic}の更新がここに並びます。",
     activityCreated: "{actor}が作成した", activityUpdated: "{actor}が{fields}を変更した", activityChanged: "{actor}が変更した", activityCompleted: "{actor}が{done}にした", activityReopened: "{actor}が{done}を戻した", activityCommented: "{actor}がコメントした",
     activityMore: "さらに読む", activityLoadFailed: "最近の更新を読み込めませんでした。", activityMoreFailed: "続きを読み込めませんでした。もう一度試してください。",
     workspace: "ワークスペース", inbox: "受信箱", backlog: "バックログ", sprint: "スプリント", plan: "計画", epic: "エピック", story: "ストーリー",
@@ -797,12 +797,12 @@
   function foldedSection(id, title, count, body, level = 2) {
     return `<details class="section is-folded"><summary class="section-head"><h${level} class="section-title" id="${id}">${title}</h${level}><span class="section-count">${count} 件</span><span class="section-hint">開くと一覧を表示</span></summary>${body}</details>`;
   }
-  // 面（.pane。見出しと中身を持つ枠）。id は見出しと結ぶ（aria-labelledby）。count は見出しの横の件数、hint は補足。
+  // 面（.pane。見出しと中身を持つ枠）。id は見出しと結ぶ（aria-labelledby）。count は見出しの横の件数、hint は補足、busy は中身を読み込んでいる間の aria-busy。
   // title と hint は HTML として埋め込むので、辞書の文言だけを渡す（利用者のデータは入れない）。body は呼び出し側で esc してから渡す
-  function pane(id, title, body, { count = null, hint = "" } = {}) {
+  function pane(id, title, body, { count = null, hint = "", busy = false } = {}) {
     return `<section class="pane" aria-labelledby="${id}">
       <div class="pane-head"><h2 class="pane-title" id="${id}" tabindex="-1">${title}</h2>${count != null ? `<span class="pane-count">${count} 件</span>` : ""}${hint ? `<span class="pane-hint">${hint}</span>` : ""}</div>
-      <div class="pane-body">${body}</div>
+      <div class="pane-body"${busy ? ' aria-busy="true"' : ""}>${body}</div>
     </section>`;
   }
   // 面の中の、押すと移る行の一覧。rows は { href, name, role } の配列（role は leader か member）
@@ -842,14 +842,21 @@
       </a></li>`;
     return `<div class="activity">${days.map((d) => `<section class="activity-day"><h3 class="activity-date">${esc(d.label)}</h3><ul class="activity-list">${d.rows.map(row).join("")}</ul></section>`).join("")}</div>${moreFailed ? `<div class="callout is-warn">${icon("alert")}<span role="alert">${t("activityMoreFailed")}</span></div>` : ""}${more ? `<div class="form-actions activity-actions"><button class="btn" type="button">${t("activityMore")}</button></div>` : ""}`;
   }
-  // 最近の更新の面の、読み込み中の骨組み。文は空から始める（本番は続きと読み直しのときだけ role="status" に文を出す）
+  // 最近の更新の面の、読み込み中の骨組み。呼び出し側は pane に busy: true を渡す（面の中身の aria-busy）。
+  // 文は空から始める（本番は続きと読み直しのときだけ role="status" に文を出す）
   function activityLoading() {
     return `<span class="visually-hidden" role="status"></span><div class="skeleton" aria-hidden="true"><span class="skeleton-line is-block"></span><span class="skeleton-line is-block"></span><span class="skeleton-line is-block"></span></div>`;
   }
+  // 最近の更新の面の、所属する閉じていないワークスペースが無いときの空。案内はワークスペースの面に出すので、線画の無い短い1行にする
+  function activityEmptyNoWorkspace() {
+    const text = t("activityEmptyNoWorkspaceText").replace("{workspace}", t("workspace")).replace("{task}", t("task")).replace("{story}", t("story")).replace("{epic}", t("epic"));
+    return `<div class="book"><div class="book-empty">${esc(text)}</div></div>`;
+  }
   // 最近の更新の面の、読めなかったときの案内。失敗の文だけが role="alert"、「もう一度試す」と状態（role="status"）は .activity-actions に並べる。
+  // 状態の領域（role="status"）は、失敗の案内の中ではボタンの横の1つだけ（本番と同じ）。
   // status は、最初の失敗では空、読み直してまた失敗したときは「まだ読み込めませんでした」
   function activityFailed({ status = "" } = {}) {
-    return `<span class="visually-hidden" role="status"></span><div class="callout is-warn">${icon("alert")}<span role="alert">${t("activityLoadFailed")}</span></div><div class="form-actions activity-actions"><button class="btn" type="button">${t("retry")}</button><span class="field-hint" role="status">${esc(status)}</span></div>`;
+    return `<div class="callout is-warn">${icon("alert")}<span role="alert">${t("activityLoadFailed")}</span></div><div class="form-actions activity-actions"><button class="btn" type="button">${t("retry")}</button><span class="field-hint" role="status">${esc(status)}</span></div>`;
   }
   // ---- Wiki ----
   // ページの木（左の欄の nav の中身）。nodes は { id, title, children } の木、current は今開いているページの ID、
@@ -4560,7 +4567,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     D, t, brandMark, brandSymbol, googleMark, githubMark, THEMES, THEME_LABEL, THEME_NOTE, esc, icon, md, sumPts, cycleTheme, setTheme, applyTheme, mount,
     onRedraw: (fn) => extraRedraws.push(fn), openDrawer, drawerHtml, drawerState: drawer, flashRow,
     user, task, tasksWhere, repoTag, categoryTag, sprintTag, repoPicker, sprintLabel, colName, categoryOf, storyPts, epicPts, dueOf,
-    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, emblem, pts, dueChip, taskDue, tier, sourceKey, entry, rowMenu, orderItems, draftRow, attrChip, book, section, foldedSection, pane, paneList, newsList, dashboard, activity, activityLoading, activityFailed, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
+    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, emblem, pts, dueChip, taskDue, tier, sourceKey, entry, rowMenu, orderItems, draftRow, attrChip, book, section, foldedSection, pane, paneList, newsList, dashboard, activity, activityLoading, activityFailed, activityEmptyNoWorkspace, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
     narrowDisclosure, card, board, treeStory, treeEpic, completedTasks, sprintNotice, raidNotice, progress, levelPanel, teamXp, xpDelta, load, capacityRows,
     openDialog, closeDialog, toast, celebrate, miniCap, redraw: () => redrawAll(), DIALOGS, loginTarget, orgMenuHtml, workspaceMenuHtml, accountMenuHtml, breadcrumbHtml,
     filesOf, fileThumb, fileRow, dropzone, attachments, markdownEditor, markdownToolbarHtml, mdBody, markdownSample, meter, storageBytes,

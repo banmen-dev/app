@@ -3,12 +3,12 @@
 // 返す行の範囲（所属、権限、消した行、カーソルの境目）は test/recent-activity.test.ts が確かめる。
 // seed のセッション（seed/sessions.ts）の Cookie で開く。あおば開発の管理者はミナト
 import type { Locator, Page } from '@playwright/test';
-import { today } from '../src/shared/operations/organization/index.ts';
+import { organizationInfo, today } from '../src/shared/operations/organization/index.ts';
 import { recentActivity, type RecentActivityEntry } from '../src/shared/operations/organization/recent-activity.ts';
 import { taskTodayMark } from '../src/shared/operations/task/index.ts';
 import { expect, test } from './fixtures.ts';
 import { addTaskRow, createWorkspace, signIn } from './helpers.ts';
-import { failOperation, mockOperation, routeOperation } from './operations.ts';
+import { failOperation, mockOperation, rewriteOperation, routeOperation } from './operations.ts';
 
 test.use({ timezoneId: 'Asia/Tokyo' });
 
@@ -20,6 +20,14 @@ function activityPane(page: Page): Locator {
   return page.locator('.dashboard-side .pane').filter({
     has: page.getByRole('heading', { level: 2, name: '最近の更新', exact: true }),
   });
+}
+
+// 応答を返した後に、ページが応答を処理し終えるのを待つ（固定の待ちを置かない）。
+// ネットワークの応答が届いた後、ページの中の続き（promise の解決、状態の更新、描画）は、2つの描画フレームのうちに済む
+async function settle(page: Page): Promise<void> {
+  await page.evaluate(
+    () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+  );
 }
 
 const WORKSPACE = { id: '019a0000-0000-7000-8000-000000000401', name: '受託開発チーム' };
@@ -177,11 +185,12 @@ test('最近の更新を読めなかったときは、面だけに失敗の案�
   await expect(pane.getByRole('alert')).toHaveText('最近の更新を読み込めませんでした。');
   const retry = pane.getByRole('button', { name: 'もう一度試す' });
   await expect(retry).not.toHaveAttribute('role', 'alert');
-  // 最初の失敗では状態の文は空で、案内の上に隙間を作らない（状態の文はボタンの横にある）
+  // 最初の失敗では状態の文は空で、案内の上に隙間を作らない。状態の文はボタンの横にあり、見えない領域は無い（案内が面の中身の先頭）
   await expect(pane.locator('.activity-actions [role="status"]')).toHaveText('');
-  const alertBox = (await pane.getByRole('alert').boundingBox())!;
-  const headBox = (await pane.locator('.pane-head').boundingBox())!;
-  expect(alertBox.y - (headBox.y + headBox.height)).toBeLessThan(40);
+  await expect(pane.getByRole('status')).toHaveCount(1);
+  const bodyBox = (await pane.locator('.pane-body').boundingBox())!;
+  const calloutBox = (await pane.locator('.callout').boundingBox())!;
+  expect(calloutBox.y).toBeCloseTo(bodyBox.y, 0);
   // また失敗したら、状態に「まだ読み込めませんでした」を出し、ボタンは残る
   await retry.click();
   await expect(pane.locator('.activity-actions [role="status"]')).toHaveText('まだ読み込めませんでした');
@@ -206,13 +215,15 @@ test('読み込み中は面だけに骨組みと「読み込んでいます」�
   await page.goto('/aoba');
   const pane = activityPane(page);
   await expect(pane.locator('.skeleton .skeleton-line')).toHaveCount(3);
-  // 初回の読み込み中は骨組みだけで、状態の文は空から始める（続きと読み直しのときだけ文を出す）
+  // 初回の読み込み中は骨組みと aria-busy だけで、状態の文は空から始める（続きと読み直しのときだけ文を出す）
+  await expect(pane.locator('.pane-body')).toHaveAttribute('aria-busy', 'true');
   await expect(pane.getByRole('status')).toHaveText('');
   // ホームのほかの面は、最近の更新を待たずに出ている
   await expect(page.getByRole('heading', { level: 2, name: '今日やること', exact: true })).toBeVisible();
   release();
   await expect(pane.locator('.activity-row')).toHaveCount(1);
   await expect(pane.locator('.skeleton')).toHaveCount(0);
+  await expect(pane.locator('.pane-body')).not.toHaveAttribute('aria-busy', /.*/);
   await expect(pane.getByRole('status')).toHaveText('');
 });
 
@@ -400,6 +411,8 @@ test('読み直して空だったときは、面の見出しへフォーカス�
 test('続きの読み込み中に別の組織へ移ると、前の組織の行は新しい面に混ざらない', async ({ page }) => {
   let release: () => void = () => {};
   const gate = new Promise<void>((resolve) => (release = resolve));
+  let answered: () => void = () => {};
+  const stale = new Promise<void>((resolve) => (answered = resolve));
   await routeOperation(page, recentActivity, { slug: 'aoba' }, async (call) => {
     if (call.input.before === undefined) {
       const entries = Array.from({ length: 20 }, (_, index) => entry(index + 1));
@@ -414,6 +427,7 @@ test('続きの読み込み中に別の組織へ移ると、前の組織の行�
       ],
       next: null,
     });
+    answered();
   });
   await routeOperation(page, recentActivity, { slug: 'hibari' }, (call) =>
     call.fulfill({
@@ -435,8 +449,119 @@ test('続きの読み込み中に別の組織へ移ると、前の組織の行�
 
   // 止めていた前の組織の続きが戻っても、新しい面には混ざらず、読み込み中の表示も残らない
   release();
-  await page.waitForTimeout(500);
+  await stale;
+  await settle(page);
   await expect(pane.locator('.activity-row')).toHaveCount(1);
   await expect(pane.getByText('あおばの続き')).toHaveCount(0);
   await expect(pane.getByRole('status')).toHaveText('');
+});
+
+test('読み直しの途中で別の組織へ移ると、新しい組織の面の「もう一度試す」が効き、前の読み直しの状態の文は残らない', async ({
+  page,
+}) => {
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  let answered: () => void = () => {};
+  const stale = new Promise<void>((resolve) => (answered = resolve));
+  let aobaCalls = 0;
+  await routeOperation(page, recentActivity, { slug: 'aoba' }, async (call) => {
+    aobaCalls++;
+    // 1回目（最初の読み込み）は失敗。2回目（「もう一度試す」）は、別の組織へ移った後まで止めて、また失敗にする
+    if (aobaCalls === 2) await gate;
+    await call.fail(500, 'internal');
+    if (aobaCalls === 2) answered();
+  });
+  let hibariFailing = true;
+  await routeOperation(page, recentActivity, { slug: 'hibari' }, (call) =>
+    hibariFailing
+      ? call.fail(500, 'internal')
+      : call.fulfill({
+          entries: [
+            entry(1, { target: { kind: 'task', id: '019a0000-0000-7000-8000-000000000b01', title: 'ひばりの更新' } }),
+          ],
+          next: null,
+        }),
+  );
+  await page.goto('/aoba');
+  const pane = activityPane(page);
+  const status = pane.locator('.activity-actions [role="status"]');
+  await expect(pane.getByRole('alert')).toBeVisible();
+  await pane.getByRole('button', { name: 'もう一度試す' }).click();
+  await expect(status).toHaveText('読み込んでいます');
+
+  await page.locator('.org-menu-button').click();
+  await page.locator('.org-menu-list a', { hasText: 'ひばり工房' }).click();
+  await expect(page).toHaveURL(/\/hibari$/);
+  // 新しい組織の面は、読み直し中の状態を引き継がない（effect が retrying と retryFailed を初期化する）。ひばりの最初の読み込みは失敗
+  await expect(pane.getByRole('alert')).toBeVisible();
+  await expect(status).toHaveText('');
+  await expect(pane.getByRole('button', { name: 'もう一度試す' })).not.toHaveAttribute('aria-disabled', 'true');
+
+  // 止めていた前の組織の読み直しが（失敗で）戻っても、新しい面の状態の文は変わらない
+  release();
+  await stale;
+  await settle(page);
+  await expect(status).toHaveText('');
+
+  // 新しい組織の面の「もう一度試す」が効く
+  hibariFailing = false;
+  await pane.getByRole('button', { name: 'もう一度試す' }).click();
+  await expect(pane.locator('.activity-row')).toHaveText([/ひばりの更新/]);
+});
+
+test('読み直しの途中で利用者が別の場所へフォーカスを移したときは、読み直しが成功してもフォーカスを奪わない', async ({
+  page,
+}) => {
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  let calls = 0;
+  await routeOperation(page, recentActivity, { slug: 'aoba' }, async (call) => {
+    calls++;
+    if (calls === 1) {
+      await call.fail(500, 'internal');
+      return;
+    }
+    // 「もう一度試す」の読み込みは、フォーカスを移した後まで止める
+    await gate;
+    await call.fulfill({ entries: [entry(1)], next: null });
+  });
+  await page.goto('/aoba');
+  const pane = activityPane(page);
+  await expect(pane.getByRole('alert')).toBeVisible();
+  await pane.getByRole('button', { name: 'もう一度試す' }).click();
+  await expect(pane.locator('.activity-actions [role="status"]')).toHaveText('読み込んでいます');
+  const other = page.getByRole('heading', { level: 2, name: '今日やること', exact: true });
+  await other.focus();
+  await expect(other).toBeFocused();
+  release();
+  await expect(pane.locator('.activity-row')).toHaveCount(1);
+  await settle(page);
+  await expect(other).toBeFocused();
+  await expect(pane.locator('.activity-row').first()).not.toBeFocused();
+});
+
+test('所属する閉じていないワークスペースが無いときは、最近の更新の空を線画の無い短い1行にして、案内を重ねない', async ({
+  page,
+}) => {
+  await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (output) => ({
+    ...output,
+    organization: { ...output.organization, has_workspaces: true },
+    workspaces: [],
+  }));
+  await mockOperation(page, today, { slug: 'aoba' }, { tasks: [], sprint_goals: [] });
+  await mockOperation(page, recentActivity, { slug: 'aoba' }, { entries: [], next: null });
+  await page.goto('/aoba');
+  const pane = activityPane(page);
+  await expect(pane.locator('.book > .book-empty')).toContainText(
+    'ワークスペースに所属すると、タスク、ストーリー、エピックの更新がここに並びます。',
+  );
+  await expect(pane.locator('.empty')).toHaveCount(0);
+  await expect(pane.getByText('まだ更新はありません')).toHaveCount(0);
+  // 案内はワークスペースの面にだけ出る
+  await expect(
+    page
+      .locator('.pane')
+      .filter({ has: page.getByRole('heading', { level: 2, name: 'ワークスペース', exact: true }) })
+      .locator('.empty'),
+  ).toHaveCount(1);
 });
