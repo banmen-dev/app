@@ -623,7 +623,14 @@
       }
       if (result.status === 404) {
         void reloadBoard();
-        return t('sprintBoardAddGone', { sprint: t('sprint'), column: t('column'), task: t('task') });
+        return sentStoryId === null
+          ? t('sprintBoardAddGone', { sprint: t('sprint'), column: t('column'), task: t('task') })
+          : t('sprintBoardAddStoryGone', {
+              story: t('story'),
+              sprint: t('sprint'),
+              column: t('column'),
+              task: t('task'),
+            });
       }
       return t('taskCreateFailed');
     }
@@ -820,6 +827,9 @@
                   problem={cardTitleProblem}
                   create={(title) => addCard(column, title)}
                 />
+                {#if storyId !== null}<p class="action-note">
+                    {t('sprintStoryCreateUnder', { story: t('story') })}
+                  </p>{/if}
               {/if}
             </section>
           {/each}

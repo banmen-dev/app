@@ -63,6 +63,7 @@
     sprintStoryFilterLabel: '{story}で絞り込む: {title}',
     sprintStoryFilterActive: '{story}: {title}',
     sprintStoryTotalsNote: '見出しは全体、列の件数とポイントは絞り込み後の値です',
+    sprintStoryCreateUnder: '絞り込んだ{story}の下に追加します',
     sprintNamingTitle: '{sprint}の命名ルール',
     sprintNamingDesc: '新しく作る{sprint}の名前の初期値。過去の名前は変わりません。',
     sprintNamingTemplate: '命名ルール',
@@ -1000,7 +1001,7 @@
         <div class="board-col-head">${c.done ? icon("check") : ""}<span class="board-col-name">${c.done ? t("done") : esc(c.name)}</span><span class="board-col-n">${items.length}</span><span class="board-col-pts">${sumPts(items)} pt</span></div>
         ${c.done && D.definitionOfDone.length ? `<details class="dod"><summary>${t("dod")}</summary>${dodDoc()}</details>` : ""}
         ${items.map((x, i) => card(x, c.done ? undefined : orderOf(i), { mark: opts.cardMarks && opts.cardMarks(x, i, c), grab: opts.grab ? opts.grab(x) : !x.doneAt, key: opts.key, highlightStory: opts.highlightStory })).join("") || `<p class="board-empty">なし</p>`}
-        ${opts.draft && !c.done ? draftRow("col", c.id, `${t("task")}を足す: ${c.name}`, `${t("task")}を足す`) : ""}
+        ${opts.draft && !c.done ? draftRow("col", c.id, `${t("task")}を足す: ${c.name}`, `${t("task")}を足す`) + (opts.story ? `<p class="action-note">${storyFilterText("sprintStoryCreateUnder")}</p>` : "") : ""}
       </section>`;
     }).join("")}</div></div></div>`;
   }
