@@ -270,6 +270,7 @@ test('絞り込みと列の畳み・保存・下書き・移動先フォーカ�
     call.fulfill({ task_id: call.input.task_id, column_id: call.input.column_id }),
   );
   await page.goto(`${PATH}?story=${STORY.id}`);
+  await expect(page.locator('.page-head .tally dd')).toHaveCount(3);
   const totals = await page.locator('.page-head .tally dd').allTextContents();
   const todo = page.locator('.board-col').first();
   const draft = todo.getByRole('textbox');
