@@ -10,6 +10,7 @@
 import type { Page } from '@playwright/test';
 import { sprintBoard, sprintClose, sprintList, taskColumnMove } from '../src/shared/operations/sprint/index.ts';
 import { taskComplete, taskReopen } from '../src/shared/operations/task/index.ts';
+import { workspaceInfo } from '../src/shared/operations/workspace/workspace.ts';
 import { expect, test } from './fixtures.ts';
 import {
   addTaskRow,
@@ -23,7 +24,7 @@ import {
   waitForSettled,
   watchViolations,
 } from './helpers.ts';
-import { failOperation, mockOperation, routeOperation } from './operations.ts';
+import { failOperation, mockOperation, rewriteOperation, routeOperation } from './operations.ts';
 import { OVERDUE_BOARD, OVERDUE_PLAN, SAMPLE_BOARD } from './sprint-fixture.ts';
 
 test.use({ timezoneId: 'Asia/Tokyo' });
@@ -195,6 +196,7 @@ test('リーダーはゴールを書いてスプリントを始め、2つ目は�
   await expect(status('タスクを完了にしました')).toBeVisible();
   await expect(titlesIn(page, '完了')).toHaveText(['C札']);
   await expect(titlesIn(page, 'レビュー')).toHaveText([]);
+  await expect(titlesIn(page, '完了').filter({ hasText: 'C札' })).toBeFocused();
   // 完了の列のカードは、完了の印の横に「戻す」を持つ。戻すと完了の前の列（レビュー）へ戻り、フォーカスはそのカードへ移る
   await page.getByRole('button', { name: '完了を戻す: C札' }).click();
   await expect(status('「C札」の完了を戻し、レビューへ移しました')).toBeVisible();
@@ -234,6 +236,7 @@ test('リーダーはゴールを書いてスプリントを始め、2つ目は�
   await expect(status('タスクを完了にしました')).toBeVisible();
   await expect(titlesIn(page, '完了')).toHaveText(['C札']);
   await expect(titlesIn(page, 'レビュー')).toHaveText([]);
+  await expect(titlesIn(page, '完了').filter({ hasText: 'C札' })).toBeFocused();
   await expect(
     page.getByRole('region', { name: '完了', exact: true }).getByRole('img', { name: 'C札: 完了' }),
   ).toBeVisible();
@@ -1132,7 +1135,40 @@ test('名前なしの開始・削除・終了では、文中に期間を一度�
 test.describe('390px の指の画面のカード', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
 
-  test('完了の丸がなく、題と操作メニューを押せ、完了の印は残る', async ({ page, context, baseURL }) => {
+  for (const closed of [false, true]) {
+    test(`メンバーの${closed ? '読み取り専用' : '書き込める'}カードには完了の丸がなく、操作メニューは${closed ? '出ない' : '使える'}`, async ({
+      page,
+      context,
+      baseURL,
+    }) => {
+      await signIn(context, baseURL, 'member');
+      await mockOperation(page, sprintBoard, { slug: 'aoba' }, SAMPLE_BOARD);
+      if (closed) {
+        await rewriteOperation(page, workspaceInfo, { slug: 'aoba' }, (output) => ({
+          ...output,
+          closed_at: '2026-10-20T00:00:00.000Z',
+        }));
+      }
+      await page.goto(`${AOBA_TEAM}/sprint`);
+      await expect(page.locator('.card')).toHaveCount(4);
+      await expect(page.locator('.card .done-btn')).toHaveCount(0);
+      if (closed) {
+        await expect(page.locator('.card .row-menu-btn')).toHaveCount(0);
+      } else {
+        const title = SAMPLE_BOARD.columns[0]!.tasks[0]!.title;
+        await rowMenuToggle(page, title).tap();
+        await expect(page.getByRole('menu', { name: `操作: ${title}`, exact: true })).toBeVisible();
+      }
+    });
+  }
+
+  test('題のタップで詳細が開き、完了の丸はなく、完了印と44pxの「⋯」・「戻す」が見える', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    // ワークスペースと実在タスクの準備も行うため、CIの並行実行でも待てる時間を取る
+    test.setTimeout(90_000);
     await signIn(context, baseURL, 'admin');
     await createWorkspace(page, '指でカードを選ぶ');
     const task = SAMPLE_BOARD.columns.find((column) => !column.is_done && column.tasks.length > 0)!.tasks[0]!;
@@ -1168,6 +1204,7 @@ test.describe('390px の指の画面のカード', () => {
     await menu.tap();
     await expect(page.getByRole('menu', { name: `操作: ${task.title}` })).toBeVisible();
     await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu', { name: `操作: ${task.title}`, includeHidden: true })).toBeHidden();
     await card.locator('.card-title').tap();
     const drawer = page.getByRole('dialog', { name: task.title, exact: true });
     await expect(drawer).toBeVisible();
