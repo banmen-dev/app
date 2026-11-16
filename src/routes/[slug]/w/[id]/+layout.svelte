@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick, type Snippet } from 'svelte';
   import { SvelteURLSearchParams } from 'svelte/reactivity';
-  import { goto, invalidate } from '$app/navigation';
+  import { beforeNavigate, goto, invalidate } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import Icon from '../../../../lib/components/Icon.svelte';
@@ -27,7 +27,7 @@
   import { focusFirstTaskRow, focusIsFree, focusPageHeading } from '../../../../lib/focus-heading.ts';
   import { formatLocalDate } from '../../../../lib/format.ts';
   import { focusToastAction, resumeToast } from '../../../../lib/toast.svelte.ts';
-  import { invalidateAfterDrawerNavigation, trackDrawerNavigation } from '../../../../lib/drawer-navigation.ts';
+  import { invalidateAfterNavigation, trackNavigation } from '../../../../lib/navigation-settled.ts';
   import { settleListReload } from '../../../../lib/task-reload-failure.svelte.ts';
   import { epicFinishedOf, parentChoicesOf, storyTreeOf } from '../../../../lib/story-drawer.ts';
   import { t } from '../../../../lib/vocabulary.svelte.ts';
@@ -56,16 +56,17 @@
   let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
   const workspace = $derived(data.workspace);
+  // 移動（引き出しを閉じる、前後へ移る、リンク、戻る／進む）を覚え、保存した後の読み直しは invalidateAfterNavigation で、
+  // 移動が終わってから始める（移動の途中に始めた読み直しは SvelteKit が捨てるため。#1331）
+  beforeNavigate(trackNavigation);
   // バックログは保存した欄だけを反映する。それ以外の画面は、従来どおり読み直す。
   // 引き出しが閉じてから返った応答も、今いる画面に反映する。
-  // 引き出しの移動（閉じる、前後へ移る）は trackDrawerNavigation で覚え、保存した後の読み直しは invalidateAfterDrawerNavigation で、移動が終わってから始める
-  // （移動の途中に始めた読み直しは SvelteKit が捨てるため。#1331）
   $effect(() => {
     const slug = data.slug;
     const workspaceId = workspace?.id;
     return onTaskAttributeSaved((saved) => {
       if (saved.slug === slug && saved.workspaceId === workspaceId && page.route.id !== '/[slug]/w/[id]') {
-        void invalidateAfterDrawerNavigation('app:backlog-tree');
+        void invalidateAfterNavigation('app:backlog-tree');
       }
     });
   });
@@ -117,7 +118,7 @@
     const query = new SvelteURLSearchParams(page.url.search);
     query.set('task', id);
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- 今の画面の経路（page.url.pathname）に、残すクエリと task だけを足している
-    return trackDrawerNavigation(goto(`${page.url.pathname}?${query}`, { replace: true, reset: false }));
+    return goto(`${page.url.pathname}?${query}`, { replace: true, reset: false });
   }
 
   // 今の URL から `task` を外した画面。開いた画面（バックログ、メンバーなど）のまま、ほかのクエリも残す。
@@ -129,7 +130,10 @@
     rest.delete('epic_id');
     const query = rest.size > 0 ? `?${rest}` : '';
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- 今の画面の経路（page.url.pathname）に、残すクエリだけを足している
-    return trackDrawerNavigation(goto(page.url.pathname + query, { replace: true, reset: false }));
+    return goto(page.url.pathname + query, {
+      replace: true,
+      reset: false,
+    });
   };
 
   // 閉じたら、開いた行の題（data-task-id を持つリンクか、バックログの完了した行の題のボタン）へフォーカスを戻す。
@@ -230,7 +234,7 @@
     const query = new SvelteURLSearchParams(page.url.search);
     query.set('story', id);
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- 今の画面の経路（page.url.pathname）に、残すクエリと story だけを足している
-    return trackDrawerNavigation(goto(`${page.url.pathname}?${query}`, { replace: true, reset: false }));
+    return goto(`${page.url.pathname}?${query}`, { replace: true, reset: false });
   }
 
   // 今の URL から `story` だけを外した画面
@@ -240,7 +244,7 @@
     rest.delete('epic_id');
     const query = rest.size > 0 ? `?${rest}` : '';
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- 今の画面の経路（page.url.pathname）に、残すクエリだけを足している
-    return trackDrawerNavigation(goto(page.url.pathname + query, { replace: true, reset: false }));
+    return goto(page.url.pathname + query, { replace: true, reset: false });
   };
 
   // 閉じたら、開いた行の題（data-story-id を持つリンク）へフォーカスを戻す。行が無ければ（畳んだ枝の中も含む）画面の見出しへ移す。
@@ -290,13 +294,13 @@
     rest.delete('epic_id');
     const query = rest.size > 0 ? `?${rest}` : '';
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- 今の画面の経路（page.url.pathname）に、残すクエリだけを足している
-    return trackDrawerNavigation(goto(page.url.pathname + query, { replace: true, reset: false }));
+    return goto(page.url.pathname + query, { replace: true, reset: false });
   };
 
   // 木とエピックの画面の値を読み直す（欄を保存した）。引き出しの書きかけを失わないため、枠は読み直さない。
   // 保存の応答が閉じる移動と重なっても、移動が終わってから読み直す（エピックの画面が読み直しの失敗を知らせるため）
   async function reloadEpic(): Promise<void> {
-    await invalidateAfterDrawerNavigation('app:backlog-tree', 'app:epic-detail');
+    await invalidateAfterNavigation('app:backlog-tree', 'app:epic-detail');
   }
 
   // 閉じたら、開いた題（data-epic-id を持つリンクかボタン）へフォーカスを戻す。無ければ（畳んだ枝の中も含む）画面の見出しへ移す。
@@ -365,7 +369,7 @@
         workspaceClosed={workspace.closedAt !== null}
         definitionOfDone={workspace.definitionOfDone}
         onclose={() => void withoutTask()}
-        onchanged={() => void invalidateAfterDrawerNavigation('app:backlog-tree')}
+        onchanged={() => void invalidateAfterNavigation('app:backlog-tree')}
         onstale={() => void invalidate('app:workspace')}
         onremoved={(toastId, cause) => void removed(toastId, cause)}
         onrestored={restored}
@@ -388,7 +392,7 @@
         clock={storyClock}
         parents={storyParents}
         onclose={() => void withoutStory()}
-        onchanged={() => invalidateAfterDrawerNavigation('app:backlog-tree')}
+        onchanged={() => invalidateAfterNavigation('app:backlog-tree')}
         onstale={() => void invalidate('app:workspace')}
         onremoved={() => void removedStory()}
       />

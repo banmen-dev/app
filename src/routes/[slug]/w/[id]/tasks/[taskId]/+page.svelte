@@ -12,6 +12,7 @@
   } from '../../../../../../lib/drawer.svelte.ts';
   import { focusFirstTaskRow, focusIsFree, focusPageHeading } from '../../../../../../lib/focus-heading.ts';
   import { focusToastAction, resumeToast } from '../../../../../../lib/toast.svelte.ts';
+  import { invalidateAfterNavigation } from '../../../../../../lib/navigation-settled.ts';
   import { t } from '../../../../../../lib/vocabulary.svelte.ts';
   import type { PageData } from './$types';
 
@@ -134,7 +135,7 @@
       workspaceClosed={workspace.closedAt !== null}
       definitionOfDone={workspace.definitionOfDone}
       onclose={() => void close()}
-      onchanged={() => void invalidate('app:backlog-tree')}
+      onchanged={() => void invalidateAfterNavigation('app:backlog-tree')}
       onstale={() => void invalidate('app:workspace')}
       onremoved={(toastId) => void close(true, toastId)}
       onrestored={restored}
