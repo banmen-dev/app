@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { tick } from 'svelte';
-  import { invalidateAll } from '$app/navigation';
+  import { onMount, tick, untrack } from 'svelte';
   import { resolve } from '$app/paths';
   import type { OutputOf } from '../../shared/operations/define.ts';
-  import type { myToday } from '../../shared/operations/organization/my-today.ts';
+  import { myToday } from '../../shared/operations/organization/my-today.ts';
+  import { callOperation } from '../api.ts';
   import { organizationLabel } from '../organization-label.ts';
   import { todaySections } from '../today-sections.ts';
   import { t } from '../vocabulary.svelte.ts';
@@ -11,7 +11,22 @@
   import Section from './Section.svelte';
   import TaskEntry from './TaskEntry.svelte';
 
-  let { today }: { today: OutputOf<typeof myToday> | null } = $props();
+  // initial の値は見本・単体テストでも使える。実画面は面の中で取得し、組織の入口を待たせない。
+  let { today: initialToday }: { today?: OutputOf<typeof myToday> | null } = $props();
+  let today = $state<OutputOf<typeof myToday> | null | undefined>(untrack(() => initialToday));
+  let generation = 0;
+  onMount(() => {
+    void load();
+    return () => {
+      generation++;
+    };
+  });
+  async function load(): Promise<void> {
+    const token = ++generation;
+    const result = await callOperation(myToday, {});
+    if (token !== generation) return;
+    today = result.ok ? result.data : null;
+  }
   const sections = $derived(todaySections(today?.tasks ?? []));
   const groups = $derived([
     { key: 'overdue', title: t('overdue'), tasks: sections.overdue },
@@ -29,20 +44,30 @@
     retrying = true;
     retryFailed = false;
     try {
-      await invalidateAll();
+      await load();
     } finally {
       retrying = false;
       retryFailed = today === null;
     }
     await tick();
-    if (today !== null && (document.activeElement === focused || document.activeElement === document.body)) {
+    if (
+      today !== null &&
+      today !== undefined &&
+      (document.activeElement === focused || document.activeElement === document.body)
+    ) {
       document.getElementById('p-my-today')?.focus();
     }
   }
 </script>
 
-<Pane id="p-my-today" title={t('paneMyToday')}>
-  {#if today === null}
+<Pane id="p-my-today" title={t('paneMyToday')} busy={today === undefined || retrying}>
+  {#if today === undefined}
+    <div class="skeleton" aria-hidden="true">
+      <span class="skeleton-line is-block"></span>
+      <span class="skeleton-line is-block"></span>
+      <span class="skeleton-line is-block"></span>
+    </div>
+  {:else if today === null}
     <p>{t('loadFailedText')}</p>
     <span class="field-hint" role="status">{retrying ? t('retrying') : retryFailed ? t('retryFailed') : ''}</span>
     <button class="btn is-sm" type="button" aria-disabled={retrying} onclick={retry}>

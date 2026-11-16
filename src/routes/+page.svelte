@@ -142,7 +142,7 @@
             </Pane>
           {/if}
         </div>
-        <div class="dashboard-side"><MyTodayPane today={data.today} /><NewsPane items={news} /></div>
+        <div class="dashboard-side"><MyTodayPane /><NewsPane items={news} /></div>
       </div>
       <div class="form-actions">
         {#if data.operator}

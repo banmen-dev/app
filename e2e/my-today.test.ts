@@ -6,7 +6,7 @@ import { taskCreate, taskDelete, taskTodayMark } from '../src/shared/operations/
 import { workspaceCreate, workspaceClose } from '../src/shared/operations/workspace/index.ts';
 import { expect, test } from './fixtures.ts';
 import { findA11yViolations, signIn } from './helpers.ts';
-import { failOperation, mockOperation } from './operations.ts';
+import { failOperation, mockOperation, routeOperation } from './operations.ts';
 
 const pane = (page: import('@playwright/test').Page) =>
   page.getByRole('region', { name: '全組織の今日やること', exact: true });
@@ -121,12 +121,87 @@ test('上限と読み取れなかった組織を伝え、失敗を空の一覧�
     failed_organizations: [{ slug: 'hibari', name: 'ひばり工房', kind: 'team' }],
   });
   await page.goto('/');
-  await expect(pane(page)).toContainText('ほか 2 組織');
-  await expect(pane(page).getByRole('link', { name: '今日やることを読めませんでした：ひばり工房' })).toHaveAttribute(
+  await expect(pane(page)).toContainText('ほか 2 組織は読み込んでいません');
+  await expect(pane(page).getByRole('link', { name: /^ひばり工房 今日やることを読めませんでした$/ })).toHaveAttribute(
     'href',
     '/hibari',
   );
   await expect(pane(page)).not.toContainText('今日やることはまだありません');
+});
+
+test('読めなかった組織の長い名前も、狭い幅で折り返す押せる行にする', async ({ page }) => {
+  const name = 'ひばり工房の長い名前'.repeat(15);
+  await mockOperation(page, myToday, {
+    ...empty,
+    failed_organizations: [{ slug: 'hibari', name, kind: 'team' }],
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const link = pane(page).getByRole('link', { name: `${name} 今日やることを読めませんでした`, exact: true });
+  await expect(link).toHaveAttribute('href', '/hibari');
+  await expect(link).toHaveClass(/choice/);
+  const box = await link.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.height).toBeGreaterThanOrEqual(44);
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+  expect(overflow).toBe(false);
+});
+
+test('上限の先が未読のときは、全組織に今日やることが無いと言い切らない', async ({ page }) => {
+  await mockOperation(page, myToday, { ...empty, omitted_organizations: 2 });
+  await page.goto('/');
+  await expect(pane(page)).toContainText('ほか 2 組織は読み込んでいません');
+  await expect(pane(page)).toContainText('読み込んだ組織には今日やることがありません');
+  await expect(pane(page)).not.toContainText('今日やることはまだありません');
+});
+
+test('今日の応答が遅くても組織とニュースを先に出し、面だけ骨組みで待つ', async ({ page }) => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const task: OutputOf<typeof myToday>['tasks'][number] = {
+    id: '019a0000-0000-7000-8000-000000000801',
+    title: '応答を待ってから現れる今日の仕事',
+    points: null,
+    due_on: null,
+    today_on: '2026-11-04',
+    completed_at: null,
+    workspace_id: '019a0000-0000-7000-8000-000000000401',
+    workspace_name: '受託開発チーム',
+    today: '2026-11-04',
+    week_start: 1,
+    position: 'a0',
+    carry_days: 0,
+    sprint_active: false,
+    is_today_completed: false,
+    reopenable: false,
+    assignee: { id: '019a0000-0000-7000-8000-000000000301', name: 'ミナト' },
+    delegatee: null,
+    repository: null,
+    sprint: null,
+    organization: { slug: 'aoba', name: 'あおば開発', kind: 'team' },
+  };
+  await routeOperation(page, myToday, async (call) => {
+    await gate;
+    await call.fulfill({ ...empty, tasks: [task] });
+  });
+  try {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('region', { name: '入れる組織', exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Scrum Guild のニュース', exact: true })).toBeVisible();
+    await expect(pane(page).locator('.pane-body')).toHaveAttribute('aria-busy', 'true');
+    await expect(pane(page).locator('.skeleton')).toBeVisible();
+    await expect(pane(page).getByRole('link', { name: task.title, exact: true })).toHaveCount(0);
+    release();
+    await expect(pane(page).getByRole('link', { name: task.title, exact: true })).toBeVisible();
+    await expect(pane(page).locator('.pane-body')).not.toHaveAttribute('aria-busy', 'true');
+    await expect(pane(page).locator('.skeleton')).toHaveCount(0);
+  } finally {
+    release();
+  }
 });
 
 test('操作全体が失敗しても組織とニュースを残し、面内で再試行できる', async ({ page }) => {
@@ -135,6 +210,8 @@ test('操作全体が失敗しても組織とニュースを残し、面内で�
   await expect(pane(page).getByRole('button', { name: 'もう一度試す', exact: true })).toBeVisible();
   await expect(page.getByRole('region', { name: '入れる組織', exact: true })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Scrum Guild のニュース', exact: true })).toBeVisible();
+  await expect(pane(page).getByRole('alert')).toHaveText('今日やることを読み込めませんでした');
+  await expect(pane(page).locator('.callout.is-warn')).toBeVisible();
   const retry = pane(page).getByRole('button', { name: 'もう一度試す', exact: true });
   await retry.focus();
   await page.keyboard.press('Enter');
