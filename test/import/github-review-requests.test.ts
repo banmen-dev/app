@@ -199,6 +199,24 @@ describe('レビュー依頼の取得', () => {
     f.data.pull.requested_reviewers = [];
     expect(await f.drain()).toEqual([]);
   });
+  test('依頼解除後に閉じた PR を完了済みの依頼として返さない', async () => {
+    const f = fixture();
+    f.data.timeline = [[request(), { event: 'review_request_removed', requested_reviewer: { id: 42 } }]];
+    f.data.pull.requested_reviewers = [];
+    f.data.pull.state = 'closed';
+    expect(await f.drain()).toEqual([]);
+  });
+  test('依頼解除後に再依頼されたら新しい回として返す', async () => {
+    const f = fixture();
+    f.data.timeline = [[request(), { event: 'review_request_removed', requested_reviewer: { id: 42 } }, request(303)]];
+    expect(await f.drain()).toEqual([expect.objectContaining({ reviewCycle: '303', isDone: false })]);
+  });
+  test('本人のレビュー後に依頼が外れても提出の証拠を残す', async () => {
+    const f = fixture();
+    f.data.timeline = [[request(), review(), { event: 'review_request_removed', requested_reviewer: { id: 42 } }]];
+    f.data.pull.requested_reviewers = [];
+    expect(await f.drain()).toEqual([expect.objectContaining({ reviewCycle: '101', isDone: true })]);
+  });
   test('PAT は固定ホストの Authorization だけに送り、リダイレクトしない', async () => {
     const f = fixture();
     await f.drain();

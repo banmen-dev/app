@@ -135,13 +135,19 @@ export async function fetchReviewRequestsPage(input: ReviewRequestPageInput): Pr
     let { cycle, reviewed } = position;
     for (const event of raw) {
       if (!isRecord(event) || typeof event.event !== 'string') throw fail('unavailable');
-      if (event.event === 'review_requested') {
+      if (event.event === 'review_requested' || event.event === 'review_request_removed') {
         // チーム宛ては展開しない。
         if (event.requested_reviewer === undefined || event.requested_reviewer === null) continue;
         if (!isRecord(event.requested_reviewer)) throw fail('unavailable');
         if (idOf(event.requested_reviewer.id) === position.user) {
-          cycle = idOf(event.id);
-          reviewed = false;
+          if (event.event === 'review_requested') {
+            cycle = idOf(event.id);
+            reviewed = false;
+          } else if (!reviewed) {
+            // 未提出の依頼解除は、後の PR 終了をレビュー完了にしない。
+            // 提出後に依頼が外れた場合は、実際の提出の証拠を残す。
+            cycle = null;
+          }
         }
       } else if (event.event === 'reviewed') {
         if (!isRecord(event.user)) throw fail('unavailable');
