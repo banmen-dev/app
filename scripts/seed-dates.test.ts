@@ -88,6 +88,35 @@ function checkSeededAt(db: DatabaseSync, now: Date): void {
       assert.ok(row.start_on <= on && on <= row.end_on, `${label}: 完了 ${row.completed_at} がスプリントの外`);
     }
 
+    // 同じ出来事の日時の組は、どの日に流しても揃う（タスクの完了を戻す処理は tasks と completions の完了の日時で結ぶ。
+    // 終えたスプリントの closed_at と閉じた行の ended_at、持ち越した行の ended_at と先のスプリントの開いた行の added_at は同じ）
+    const pairs = db
+      .prepare(
+        `SELECT
+          (SELECT count(*) FROM completions c JOIN tasks t ON t.id = c.task_id
+            WHERE t.completed_at IS NOT c.completed_at) AS completion_mismatch,
+          (SELECT count(*) FROM sprint_entries e JOIN sprints s ON s.id = e.sprint_id
+            WHERE s.status = 'closed' AND e.ended_at IS NOT s.closed_at) AS closed_mismatch,
+          (SELECT count(*) FROM sprint_entries e WHERE e.ended_at < e.added_at) AS reversed_entries,
+          (SELECT count(*) FROM sprint_entries carried JOIN sprint_entries next
+            ON next.task_id = carried.task_id AND next.ended_at IS NULL
+            WHERE carried.outcome = 'carried_over' AND next.added_at IS NOT carried.ended_at) AS carried_mismatch,
+          (SELECT count(*) FROM completions c JOIN sprints s ON s.id = c.sprint_id
+            WHERE c.completed_at < s.started_at) AS completed_before_start`,
+      )
+      .get();
+    assert.deepEqual(
+      { ...pairs },
+      {
+        completion_mismatch: 0,
+        closed_mismatch: 0,
+        reversed_entries: 0,
+        carried_mismatch: 0,
+        completed_before_start: 0,
+      },
+      label,
+    );
+
     // 動かした日時はどれも流した日時より後にならない
     const times = db
       .prepare(
