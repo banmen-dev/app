@@ -36,8 +36,21 @@ function scriptOf(dir, name) {
   return scripts && Object.hasOwn(scripts, name) && typeof scripts[name] === 'string' ? scripts[name] : undefined;
 }
 
+// 次の Bash が読む環境のファイルの状態（shell-env-state.mjs）を、コマンドの字面と関係なく確かめて判定に重ねる。
+// deny はそのまま。外れていれば ask にし、字面の判定の ask と重なれば理由を並べる
+function withShellEnvState(verdict, sessionId, { shellEnvStateProblems, shellEnvStateReason, homeOrNull }) {
+  if (verdict?.[0] === 'deny') return verdict;
+  const home = homeOrNull();
+  const configDir = process.env.CLAUDE_CONFIG_DIR || (home && path.join(home, '.claude'));
+  const problems = shellEnvStateProblems({ configDir, sessionId });
+  if (problems.length === 0) return verdict;
+  const reason = shellEnvStateReason(problems);
+  return ['ask', verdict ? `${verdict[1]}。${reason}` : reason];
+}
+
 try {
   const { judgeBash } = await import('./bash-rules.mjs');
+  const stateCheck = { ...(await import('./shell-env-state.mjs')), homeOrNull: (await import('./file-rules.mjs')).homeOrNull };
   const input = JSON.parse(readFileSync(0, 'utf8'));
   const command = input.tool_input?.command;
   if (typeof command === 'string') {
@@ -48,7 +61,7 @@ try {
     const env = Object.fromEntries(
       ['CDPATH', 'GH_REPO', 'GH_HOST', 'GIT_DIR', 'GIT_WORK_TREE', 'CLAUDE_ENV_FILE', ...Object.keys(process.env).filter((name) => /^GIT_CONFIG_/.test(name))].map((name) => [name, process.env[name]]),
     );
-    const verdict = judgeBash(command, { cwd: input.cwd ?? process.cwd(), branchOf, scriptOf, packageDirOf, env });
+    const verdict = withShellEnvState(judgeBash(command, { cwd: input.cwd ?? process.cwd(), branchOf, scriptOf, packageDirOf, env }), input.session_id, stateCheck);
     if (verdict) {
       const [decision, reason] = verdict;
       process.stdout.write(
