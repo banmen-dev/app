@@ -1113,6 +1113,58 @@ test.describe('カードのドラッグ', () => {
     await unrouteMove();
   });
 
+  test('ドラッグの戻しが送信待ちの同じ完了カードは、キーとメニューで重ねて戻さない', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await signIn(context, baseURL, 'member');
+    await mockOperation(page, sprintBoard, { slug: 'aoba' }, SAMPLE_BOARD);
+    const done = SAMPLE_BOARD.columns.find((column) => column.is_done)!.tasks[0]!;
+    const moving = SAMPLE_BOARD.columns[0]!.tasks[0]!;
+    const events: string[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await routeOperation(page, taskColumnMove, { slug: 'aoba' }, async (call) => {
+      if (call.input.task_id === moving.id) {
+        events.push('move-start');
+        await gate;
+        events.push('move-released');
+      } else events.push('reopen-move');
+      await call.fulfill({ task_id: call.input.task_id, column_id: call.input.column_id });
+    });
+    await routeOperation(page, taskReopen, { slug: 'aoba' }, async (call) => {
+      events.push('reopen');
+      await call.fulfill({
+        task_id: done.id,
+        sprint_id: SAMPLE_BOARD.sprint!.id,
+        column_id: SAMPLE_BOARD.columns[2]!.id,
+      });
+    });
+    await page.goto(`${AOBA_TEAM}/sprint`);
+    await waitForSettled(page);
+    await cardOf(page, moving.title).press('Alt+ArrowRight');
+    await expect.poll(() => events).toEqual(['move-start']);
+    try {
+      await dragTo(page, grabOf(page, done.title), headOf(page, '作業中'), 'middle');
+      await cardOf(page, done.title).press('Alt+ArrowLeft');
+      await expect(
+        page.getByText('完了を戻しています。終わってからもう一度試してください。', { exact: true }),
+      ).toBeAttached();
+      await rowMenuToggle(page, done.title).click();
+      await page.getByRole('menuitem', { name: '前の列へ（完了を戻す）', exact: true }).click();
+      await expect(
+        page.getByText('完了を戻しています。終わってからもう一度試してください。', { exact: true }),
+      ).toBeAttached();
+      expect(events).toEqual(['move-start']);
+    } finally {
+      release();
+    }
+    await expect.poll(() => events).toEqual(['move-start', 'move-released', 'reopen', 'reopen-move']);
+  });
+
   test('完了から落として戻しが通っても、列の移動が断られたら理由を知らせる。戻したトーストは出さない', async ({
     page,
     context,

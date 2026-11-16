@@ -306,6 +306,11 @@
     if (task.completed_at !== null) {
       if (direction === 'left') {
         reopenKey.start(repeat);
+        // ドラッグの戻しが送信待ちの間も、同じカードをキーやメニューから重ねて送らない。
+        if (sendingIds.includes(task.id)) {
+          void announce(t('sprintCardBusyReopening', { done: t('done') }));
+          return;
+        }
         void reopen(task);
       }
       return;
