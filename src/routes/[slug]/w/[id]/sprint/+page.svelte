@@ -67,6 +67,7 @@
   // 完了の列へ落としたら、完了の操作と同じく task-complete を積む（画面の並びは替えない）。
   // 完了の列から落としたら、task-reopen で戻してから、落とした列と位置へ task-column-move を続ける（同じ待ち行列で順に送る）。
   // 画面を読み直したら、つかんでいるドラッグは取りやめ、離しても送らず、トーストで知らせる。落としたカードは光らせ、フォーカスは動かさない。
+  // 列の開閉はワークスペースごとに端末へ保存する。畳んだ列も移動先に残し、空の行の書きかけは隠して保つ。
   // 進行中のスプリントが無いときは、見本の空の状態をロールで文を分けて出す。
   // 各列（完了の列を除く）の末尾に、タスクを足す空の行（DraftRow）を置く。書き込めるとき（終了していないワークスペース）だけ出す。
   // 題を打って Enter で、そのスプリントのその列の末尾に task-create で作る（作成と入れ込みは1回の書き込み）。作れたら読み直し、
@@ -93,7 +94,7 @@
   const isLeader = $derived(workspace !== null && (workspace.role === 'leader' || isAdmin));
   const isClosed = $derived(workspace !== null && workspace.closedAt !== null);
   const canWrite = $derived(workspace !== null && !isClosed);
-  // `c` で、完了でない最初の列の空の行へフォーカスを移す。行が無い（書き込めない、列が無い）間は働かない
+  // `c` で、開いている完了でない最初の列の空の行へフォーカスを移す。行が無い（書き込めない、列が無い）間は働かない
   // bind:this は、部品が外れると null に戻る
   let draftRows = $state<Record<string, DraftRow | null | undefined>>({});
   const firstDraftRow = (): DraftRow | null | undefined =>
@@ -805,7 +806,7 @@
                   problem={cardTitleProblem}
                   create={(title) => addCard(column, title)}
                 />
-              {/if}
+              </div>
             {/if}
           </section>
         {/each}
