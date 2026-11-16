@@ -210,7 +210,7 @@ describe('レビュー依頼の取得', () => {
   test('表示番号が同じでも不変 ID の違う PR を返さない', async () => {
     const f = fixture();
     f.data.pull.id = 9002;
-    expect(await f.drain({ target })).toEqual([]);
+    await expect(f.drain({ target })).rejects.toBeInstanceOf(ImportSourceError);
   });
   test('依頼解除で一覧から消えただけなら完了と推測しない', async () => {
     const f = fixture();
@@ -277,6 +277,16 @@ describe('レビュー依頼の取得', () => {
     f.data.pull.title = '題'.repeat(length);
     const items = await f.drain();
     expect(items).toHaveLength(length === 256 ? 1 : 0);
+  });
+  test('既存依頼の不整合を依頼なしとして返さず再試行できる', async () => {
+    const f = fixture();
+    f.data.pull.title = '';
+    await expect(f.drain({ target })).rejects.toBeInstanceOf(ImportSourceError);
+  });
+  test('既存依頼の読み直し上限は依頼なしと区別する', async () => {
+    const f = fixture();
+    f.data.mutate = true;
+    await expect(f.drain({ target })).rejects.toBeInstanceOf(ImportSourceError);
   });
   test('PAT は固定ホストの Authorization だけに送り、リダイレクトしない', async () => {
     const f = fixture();

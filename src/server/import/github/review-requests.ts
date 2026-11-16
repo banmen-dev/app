@@ -98,6 +98,10 @@ function next(position: Position): FetchPageResult {
   if (cursor.length > 2000) throw fail('unavailable');
   return { items: [], next: cursor };
 }
+function defer(position: Position, input: ReviewRequestPageInput): FetchPageResult {
+  if (input.target) throw fail('unavailable');
+  return advance(position, input);
+}
 function advance(position: Position, input: ReviewRequestPageInput, items: ImportItem[] = []): FetchPageResult {
   if (input.target) return { items, next: null };
   return {
@@ -197,7 +201,7 @@ async function readPage(input: ReviewRequestPageInput, parsed: Position | null):
   const current = pullOf(raw, pull);
   // 履歴取得中に PR が変わったら古い回で完了判定せず、上限を守りながら読み直す。
   if (current.updatedAt !== pull.updatedAt) {
-    if (position.restarts >= MAX_RESTARTS) return advance(position, input);
+    if (position.restarts >= MAX_RESTARTS) return defer(position, input);
     return next({
       ...position,
       phase: 'pull',
@@ -259,7 +263,7 @@ export async function fetchReviewRequestsPage(input: ReviewRequestPageInput): Pr
     // PR 単位の不整合は判定を返さず進む。通信・認証の失敗は呼び出し側に返し、同じ位置で再試行する。
     if (error instanceof InvalidPull) {
       if (position === null) throw fail('unavailable');
-      return advance(position, input);
+      return defer(position, input);
     }
     throw error;
   }
