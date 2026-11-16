@@ -93,3 +93,29 @@ test('後片付けも失敗したとき、計測の元のエラーを失わな�
       error instanceof AggregateError && error.errors.includes(original) && error.errors.includes(cleanup),
   );
 });
+
+test('計測だけが失敗し後片付けが成功した場合は元のエラーをそのまま返す', async () => {
+  const original = new Error('measurement failed');
+  const calls: string[] = [];
+  await assert.rejects(
+    async () => {
+      try {
+        throw original;
+      } finally {
+        await finishTodayBenchmark(
+          () => {
+            calls.push('save');
+          },
+          [
+            () => {
+              calls.push('stop');
+            },
+          ],
+          original,
+        );
+      }
+    },
+    (error: unknown) => error === original,
+  );
+  assert.deepEqual(calls, ['save', 'stop']);
+});

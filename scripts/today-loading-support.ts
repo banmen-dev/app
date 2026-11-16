@@ -18,7 +18,10 @@ export async function finishTodayBenchmark(
   if (errors.length)
     throw new AggregateError(
       originalError === undefined ? errors : [originalError, ...errors],
-      '計測結果の保存または後片付けに失敗しました',
+      originalError === undefined
+        ? '計測結果の保存または後片付けに失敗しました'
+        : '計測に失敗し、結果の保存または後片付けにも失敗しました',
+      { cause: originalError },
     );
 }
 
