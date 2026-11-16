@@ -11,6 +11,40 @@ export function defineDictionary<const T extends Record<string, string>>(entries
 }
 
 export const dictionary = defineDictionary({
+  sprintNamingTitle: '{sprint}の命名ルール',
+  sprintNamingDesc: '新しく作る{sprint}の名前の初期値。過去の名前は変わりません。',
+  sprintNamingTemplate: '命名ルール',
+  sprintNamingNumber: '次の番号',
+  sprintNamingHint: '空なら名前を自動入力しません。',
+  sprintNamingVariableN: '{n}: 次の番号',
+  sprintNamingVariableYyyy: '{yyyy}: 開始日の年（4桁）',
+  sprintNamingVariableYy: '{yy}: 開始日の年（下2桁）',
+  sprintNamingVariableMm: '{mm}: 開始日の月（2桁）',
+  sprintNamingVariableM: '{m}: 開始日の月',
+  sprintNamingVariableDd: '{dd}: 開始日の日（2桁）',
+  sprintNamingVariableD: '{d}: 開始日の日',
+  sprintNamingVariableW: '{w}: 月の中の週（1〜7日が1、8〜14日が2）',
+  sprintNamingVariables:
+    '{n}: 次の番号、{yyyy}/{yy}: 年（4桁/2桁）、{mm}/{m}: 月（2桁/そのまま）、{dd}/{d}: 日（2桁/そのまま）、{w}: 月の中の週（1〜7日が1、8〜14日が2）。日付は開始日から取ります。',
+  sprintNamingExample: '次の名前の例（{date}）: {name}',
+  sprintNamingEmpty: '名前なし',
+  sprintNamingUnknown: '使えない変数があります。使える変数の一覧を確認してください。',
+  sprintNamingNumberInvalid: '次の番号は1以上の整数で入れてください。',
+  sprintNamingTooLong: '命名ルールは{max}字以内で入れてください。',
+  sprintNamingInvalidCharacter: '命名ルールに使えない文字が含まれています。',
+  sprintNamingExpansionFailed:
+    '名前の初期値が{max}字を超えます。名前を入力するか、開始日や命名ルールを変えてください。',
+  sprintNamingExpansionWarning:
+    '次の開始日の名前が{max}字を超えるため、自動入力できません。このルールは保存できます。必要ならルールを短くしてください。',
+  sprintNamingNumberRefreshed: '次の番号を最新の値（{number}）に更新しました。',
+  sprintNamingUnchanged: '保存した内容から変わっていません。',
+  sprintNamingUnavailable: '保存できませんでした。操作できない状態のため、画面を読み直します。',
+  sprintNamingLoadFailed: '命名ルールを読み込めませんでした。もう一度試してください。',
+  sprintNamingSave: '保存する',
+  sprintNamingSaving: '保存しています',
+  sprintNamingSaved: '{sprint}の命名ルールを保存しました。',
+  sprintNamingFailed: '命名ルールを保存できませんでした。入力を残してあります。もう一度試してください。',
+
   billingTitle: '請求管理者',
   billingRemoveFor: '{name}の請求管理者を解除する',
   billingAcceptFor: '{name}の請求管理者の指名を承諾する',

@@ -20,6 +20,7 @@
     weekdayOf,
   } from '../../shared/sprint.ts';
   import type { DictionaryKey } from '../../shared/vocabulary.ts';
+  import { SprintNameDraft } from '../sprint-name-draft.svelte.ts';
   import { callOperation } from '../api.ts';
   import { showToast } from '../toast.svelte.ts';
   import { t } from '../vocabulary.svelte.ts';
@@ -27,7 +28,7 @@
   import Icon from './Icon.svelte';
 
   // スプリントの作成と変更のダイアログ（kit.js の DIALOGS.sprintCreate）。欄は開始日、長さ（日）、最終日（開始日と長さから決まる。曜日を添える）、
-  // 名前（任意。空なら期間を名前にする）。進行中は名前とゴールだけを直す。作るときは、画面が渡す初期値（sprint-list の defaults）で開く。
+  // 名前（任意。作るときは命名ルールから初期値を入れ、空なら期間を名前にする）。進行中は名前とゴールだけを直す。作るときは、画面が渡す初期値（sprint-list の defaults）で開く。
   // 直すときは、開いたときの値と比べて変えた欄だけを送り、変えた欄が無ければ何も送らずに閉じる。
   // 期間がほかのスプリントと重なったとき（409 の overlap）は、ダイアログの中に理由を出して開いたままにする。
   // 始まっていた（started）、見つからない（404）ときは、トーストで知らせて閉じ、画面が一覧を読み直す（ongone）。
@@ -75,7 +76,9 @@
   let startOn = $state('');
   // number の入力は、空や途中の値で null か NaN になる
   let length = $state<number | null>(null);
-  let name = $state('');
+  let nameDraft = $state(new SprintNameDraft(null, 1));
+  let name = $derived(nameDraft.value(startOn));
+  const nameGenerationFailed = $derived(editing === null && isCalendarDate(startOn) && nameDraft.failed(startOn));
   let goal = $state('');
   const active = $derived(editing?.status === 'active');
   let errors = $state<Partial<Record<FieldName, string>>>({});
@@ -108,19 +111,20 @@
   export function show(
     trigger: HTMLElement | null,
     target: SprintSummary | null,
-    defaults: { start_on: string; length: number },
+    defaults: { start_on: string; length: number; sprint_name_template: string | null; sprint_number_next: number },
   ): void;
   export function show(
     trigger: HTMLElement | null,
     target: SprintSummary | null,
-    defaults?: { start_on: string; length: number },
+    defaults?: { start_on: string; length: number; sprint_name_template: string | null; sprint_number_next: number },
   ): void {
     generation++;
     reloadOnClose = false;
     editing = target;
     startOn = target?.start_on ?? defaults?.start_on ?? '';
     length = target?.length ?? defaults?.length ?? null;
-    name = target?.name ?? '';
+    nameDraft = new SprintNameDraft(defaults?.sprint_name_template ?? null, defaults?.sprint_number_next ?? 1);
+    if (target !== null) nameDraft.manual = target.name ?? '';
     goal = target?.goal ?? '';
     errors = {};
     submitError = null;
@@ -150,6 +154,7 @@
       found.length = t('sprintEndOutOfRange');
     }
     const problem = sprintNameProblem(normalizeSprintName(name));
+    if (nameGenerationFailed) found.name = t('sprintNamingExpansionFailed', { max: SPRINT_NAME_MAX_LENGTH });
     if (problem === 'too_long') found.name = t('sprintNameTooLong', { max: SPRINT_NAME_MAX_LENGTH });
     if (problem === 'invalid_character') found.name = t('sprintNameInvalidCharacter');
     if (active) {
@@ -278,7 +283,10 @@
               type="date"
               bind:this={startInput}
               bind:value={startOn}
-              oninput={() => (errors.start = undefined)}
+              oninput={() => {
+                errors.start = undefined;
+                if (nameDraft.manual === null) errors.name = undefined;
+              }}
               aria-invalid={errors.start !== undefined}
               aria-describedby={errors.start !== undefined ? `${fieldIds.start}-error` : undefined}
             />
@@ -307,18 +315,30 @@
           </div>
         </div>
       {/if}
-      <div class="field" class:is-invalid={errors.name !== undefined}>
+      <div class="field" class:is-invalid={errors.name !== undefined || nameGenerationFailed}>
         <label class="field-label" for={fieldIds.name}>{t('sprintFieldName')}</label>
         <input
           class="input"
           id={fieldIds.name}
-          bind:value={name}
-          oninput={() => (errors.name = undefined)}
+          value={name}
+          oninput={(event) => {
+            nameDraft.manual = event.currentTarget.value;
+            errors.name = undefined;
+          }}
           placeholder={t('sprintNamePlaceholder')}
           autocomplete="off"
-          aria-invalid={errors.name !== undefined}
-          aria-describedby={errors.name !== undefined ? `${fieldIds.name}-error` : undefined}
+          aria-invalid={errors.name !== undefined || nameGenerationFailed}
+          aria-describedby={errors.name !== undefined
+            ? `${fieldIds.name}-error`
+            : nameGenerationFailed
+              ? `${fieldIds.name}-generation`
+              : undefined}
         />
+        {#if nameGenerationFailed && errors.name === undefined}
+          <p class="field-error" id="{fieldIds.name}-generation" role="alert">
+            {t('sprintNamingExpansionFailed', { max: SPRINT_NAME_MAX_LENGTH })}
+          </p>
+        {/if}
         {@render error('name')}
       </div>
       {#if active}
