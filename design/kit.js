@@ -66,7 +66,7 @@
     avatarCropHint: "正方形の枠の中が上がります。画像をドラッグして位置を合わせます。移動ボタンにフォーカスすると矢印キーでも範囲を動かせます。",
     avatarCropArea: "切り抜きの範囲", avatarCropPosition: "中心の位置: 横 {x}%、縦 {y}%",
     avatarCropMove: "切り抜きの範囲を動かす",
-    avatarCropLeft: "左へ", avatarCropRight: "右へ", avatarCropUp: "上へ", avatarCropDown: "下へ",
+    avatarCropLeft: "範囲を左へ", avatarCropRight: "範囲を右へ", avatarCropUp: "範囲を上へ", avatarCropDown: "範囲を下へ",
     avatarCropZoom: "拡大率", avatarCropZoomValue: "{value}倍",
     avatarTypeInvalid: "PNG、JPEG、WebP の画像を選んでください。SVG、GIF や画像でないファイルは使えません。",
     avatarSourceTooLarge: "元の画像は{max}MiB以下にしてください。",
