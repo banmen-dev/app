@@ -2512,6 +2512,7 @@ export const dictionary = defineDictionary({
   // スプリントの画面（design/sprint.html）。見出しは進行中のスプリントの名前、小見出しは期間と何日目か
   sprintStoryFilterLabel: '{story}で絞り込む: {title}',
   sprintStoryFilterActive: '{story}: {title}',
+  sprintStoryTotalsNote: '見出しは全体、列の件数とポイントは絞り込み後の値です',
   sprintBoardPageName: '{name}・{workspace}',
   sprintBoardEyebrow: '{period}・{length} 日のうち {day} 日目',
   sprintBoardTallyDone: '{done}（pt）',

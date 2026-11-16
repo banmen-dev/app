@@ -9,7 +9,7 @@ const source = readFileSync(new URL('../design/kit.js', import.meta.url), 'utf8'
 const ast = ts.createSourceFile('kit.js', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
 const functions: string[] = [];
 function visit(node: ts.Node): void {
-  if (ts.isFunctionDeclaration(node) && ['card', 'board'].includes(node.name?.text ?? ''))
+  if (ts.isFunctionDeclaration(node) && ['storyFilterText', 'card', 'board'].includes(node.name?.text ?? ''))
     functions.push(node.getText(ast));
   else ts.forEachChild(node, visit);
 }

@@ -59,6 +59,10 @@
 
   // ---- 言葉の辞書（各キーはスクラムの言葉の文字列1つ） ----
   const DICT = {
+    filterClear: '絞り込みを外す',
+    sprintStoryFilterLabel: '{story}で絞り込む: {title}',
+    sprintStoryFilterActive: '{story}: {title}',
+    sprintStoryTotalsNote: '見出しは全体、列の件数とポイントは絞り込み後の値です',
     sprintNamingTitle: '{sprint}の命名ルール',
     sprintNamingDesc: '新しく作る{sprint}の名前の初期値。過去の名前は変わりません。',
     sprintNamingTemplate: '命名ルール',
@@ -958,6 +962,9 @@
   // キーボードでは、選んで Alt と ← → で隣の列、Alt と ↑ ↓ で列の中を動かす（本番の SprintBoard）。完了の列のカードは動かさない
   // ドラッグ（本番の SprintCard）: つかめるカードは draggable="true" を持ち、カード全体をつかむ（opts.grab を false にするとつかめないカード）。
   // opts.mark はドラッグの状態: { drop: "before" | "after", state: "is-dragging" | "is-dropped" }（dropAttr と同じ形。into は列に付ける）
+  function storyFilterText(key, title = "") {
+    return t(key).replaceAll("{story}", t("story")).replaceAll("{title}", () => title);
+  }
   function card(x, order, opts = {}) {
     const mark = opts.mark || {};
     const grab = opts.grab !== false;
@@ -970,7 +977,7 @@
     const summary = `${x.pts == null ? "未見積もり" : `${t("points")} ${x.pts}`}、${who ? `${t("assignee")}は${esc(who)}` : `${t("assignee")}なし`}`;
     return `<article data-story-id="${esc(x.story || "")}" class="card ${x.doneAt ? "is-done" : ""}${storyState}${mark.state ? ` ${mark.state}` : ""}"${grab ? ` draggable="true"` : ""}${dropAttr(mark)}${order ? ` tabindex="0" aria-labelledby="card-${k}${x.id}-title" aria-describedby="card-${k}${x.id}-summary board-key-hint"` : ""}>
       ${order ? `<span class="visually-hidden" id="card-${k}${x.id}-summary">${summary}</span>` : ""}
-      ${parent ? `<button class="card-parent is-action" type="button" aria-label="${t("story")}で絞り込む: ${esc(parent)}" data-story-filter="${x.story}">${icon("flag")} ${esc(parent)}</button>` : ""}
+      ${parent ? `<button class="card-parent is-action" type="button" aria-label="${esc(storyFilterText("sprintStoryFilterLabel", parent))}" data-story-filter="${x.story}">${icon("flag")} ${esc(parent)}</button>` : ""}
       <a class="card-title" id="card-${k}${x.id}-title" href="#" data-task="${x.id}" draggable="false">${titleOf(x)}</a>
       <div class="card-meta">${repoTag(x)}${sourceKey(x)}${taskFlags(x)}${taskDue(x)}</div>
       <div class="card-foot">${order ? attrChip(x, "pts", { bare: true }) : pts(x.pts)}${order ? attrChip(x, "who", { bare: true }) : avatarOf(x.who)}<span class="card-end">${order ? rowMenu(x.title, [
@@ -984,7 +991,7 @@
   function board(sprintId, opts = {}) {
     const list = tasksWhere((x) => x.sprint === sprintId && (!opts.story || x.story === opts.story));
     const open = D.columns.filter((c) => !c.done);
-    return `<div class="story-board" data-board-sprint="${sprintId}" data-board-key="${opts.key || ""}" data-board-draft="${!!opts.draft}">${opts.story ? `<div class="story-filter-band"><span>${icon("flag")}${t("story")}: ${esc(D.stories[opts.story].title)}</span><button class="btn is-sm is-quiet" type="button" data-story-clear>${icon("x")}絞り込みを外す</button></div>` : ""}<div class="board-wrap"><div class="board" style="--board-cols:${D.columns.length}">${D.columns.map((c) => {
+    return `<div class="story-board" data-board-sprint="${sprintId}" data-board-key="${opts.key || ""}" data-board-draft="${!!opts.draft}">${opts.story ? `<div class="story-filter-band"><div class="story-filter-summary"><span>${icon("flag")}${esc(storyFilterText("sprintStoryFilterActive", D.stories[opts.story].title))}</span><span>${t("sprintStoryTotalsNote")}</span></div><button class="btn is-sm is-quiet" type="button" data-story-clear>${icon("x")}${t("filterClear")}</button></div>` : ""}<div class="board-wrap"><div class="board" style="--board-cols:${D.columns.length}">${D.columns.map((c) => {
       const items = list.filter((x) => (c.done ? x.doneAt : !x.doneAt && x.col === c.id));
       const at = open.indexOf(c);
       // 最後の完了でない列の「次の列へ」は、完了の列へ移す代わりに完了にする（本番は task-complete を呼ぶ）ので、押せる
