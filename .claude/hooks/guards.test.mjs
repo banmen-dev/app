@@ -8,6 +8,7 @@ import { after, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { judgeBash } from './bash-rules.mjs';
 import { judgeFile } from './file-rules.mjs';
+import { HOOK_SESSION_ID } from './hook-test-session.mjs';
 import { commandIndex, concatWords, followsGlobGroup, prefixCommands, prefixIndexes, redirectsOf, sliceWords, splitSegments } from './shell-words.mjs';
 
 // 最初の区切りのリダイレクトを [op, target] で返す
@@ -84,7 +85,7 @@ describe('#1247 引数の置換で組んだシークレットの名前', () => {
       `cp $(echo ${secret}) /tmp/x`,
     ]) {
       test(`入口: ${command} は deny`, () => {
-        const input = JSON.stringify({ tool_name: 'Bash', cwd: os.tmpdir(), tool_input: { command } });
+        const input = JSON.stringify({ tool_name: 'Bash', session_id: HOOK_SESSION_ID, cwd: os.tmpdir(), tool_input: { command } });
         const result = spawnSync(process.execPath, [path.join(hooks, 'guard-bash.mjs')], {
           input, encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: '' },
         });
@@ -4270,7 +4271,7 @@ describe('入口', () => {
 
   const run = (script, input) =>
     spawnSync(process.execPath, [script], { input, encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: '' } });
-  const bashInput = (command) => JSON.stringify({ tool_name: 'Bash', cwd: tmp, tool_input: { command } });
+  const bashInput = (command) => JSON.stringify({ tool_name: 'Bash', session_id: HOOK_SESSION_ID, cwd: tmp, tool_input: { command } });
 
   test('止めるときは deny の JSON を返す', () => {
     const result = run(path.join(hooks, 'guard-bash.mjs'), bashInput('npx wrangler deploy'));
@@ -4291,7 +4292,7 @@ describe('入口', () => {
     writeFileSync(path.join(pkg, 'scripts', 'deploy-production.ts'), '');
     writeFileSync(path.join(pkg, 'package.json'), JSON.stringify({ scripts: { test: 'node --test scripts/*.test.ts' } }));
     const fromDeep = (command) =>
-      run(path.join(hooks, 'guard-bash.mjs'), JSON.stringify({ tool_name: 'Bash', cwd: path.join(pkg, 'src', 'deep'), tool_input: { command } }));
+      run(path.join(hooks, 'guard-bash.mjs'), JSON.stringify({ tool_name: 'Bash', session_id: HOOK_SESSION_ID, cwd: path.join(pkg, 'src', 'deep'), tool_input: { command } }));
     assert.equal(JSON.parse(fromDeep(`pnpm test '*/deploy-production.ts'`).stdout).hookSpecificOutput.permissionDecision, 'deny');
     assert.equal(fromDeep(`pnpm test '*/x.test.ts'`).stdout, '');
   });
@@ -4423,7 +4424,7 @@ describe('入口', () => {
 
     test('Bash の判定は、同名のタグがあっても main のブランチを見分ける', () => {
       const bash = (command, cwd) => {
-        const input = JSON.stringify({ tool_name: 'Bash', cwd, tool_input: { command } });
+        const input = JSON.stringify({ tool_name: 'Bash', session_id: HOOK_SESSION_ID, cwd, tool_input: { command } });
         const result = spawnSync(process.execPath, [path.join(hooks, 'guard-bash.mjs')], { input, encoding: 'utf8', env: cleanEnv });
         return result.stdout ? JSON.parse(result.stdout).hookSpecificOutput.permissionDecision : 'allow';
       };
@@ -4442,7 +4443,7 @@ describe('入口', () => {
 
     test('Bash の判定は、フックのプロセスの環境の CDPATH を見る', () => {
       const bash = (command, cwd, cdpath) => {
-        const input = JSON.stringify({ tool_name: 'Bash', cwd, tool_input: { command } });
+        const input = JSON.stringify({ tool_name: 'Bash', session_id: HOOK_SESSION_ID, cwd, tool_input: { command } });
         const env = { ...cleanEnv, CDPATH: cdpath };
         const result = spawnSync(process.execPath, [path.join(hooks, 'guard-bash.mjs')], { input, encoding: 'utf8', env });
         assert.equal(result.status, 0, result.stderr);
@@ -4458,7 +4459,7 @@ describe('入口', () => {
     test('Bash の判定は、フックのプロセスの環境の GH_REPO、GH_HOST、GIT_DIR などを見て gh pr merge を止める', () => {
       const reasonOf = (env) => {
         const command = `gh pr merge --squash --match-head-commit ${'a'.repeat(40)}`;
-        const input = JSON.stringify({ tool_name: 'Bash', cwd: worktree, tool_input: { command } });
+        const input = JSON.stringify({ tool_name: 'Bash', session_id: HOOK_SESSION_ID, cwd: worktree, tool_input: { command } });
         const result = spawnSync(process.execPath, [path.join(hooks, 'guard-bash.mjs')], { input, encoding: 'utf8', env: { ...cleanEnv, ...env } });
         assert.equal(result.status, 0, result.stderr);
         return result.stdout ? JSON.parse(result.stdout).hookSpecificOutput.permissionDecisionReason : '';
@@ -4630,7 +4631,7 @@ describe('bash-rules: #341 のレビューの指摘', () => {
     try {
       writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ scripts: { test: 'echo ok' } }));
       for (const command of ['pnpm constructor', 'pnpm run toString', 'yarn hasOwnProperty', 'npm run valueOf']) {
-        const input = JSON.stringify({ tool_name: 'Bash', cwd: dir, tool_input: { command } });
+        const input = JSON.stringify({ tool_name: 'Bash', session_id: HOOK_SESSION_ID, cwd: dir, tool_input: { command } });
         const result = spawnSync(process.execPath, [path.join(hooks, 'guard-bash.mjs')], { input, encoding: 'utf8' });
         assert.equal(result.status, 0, command);
         assert.equal(result.stdout, '', command);
@@ -4875,7 +4876,7 @@ describe('bash-rules: #356 npx と pnpx を npm exec と pnpm dlx として読�
     try {
       writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ scripts: { test: 'echo ok' } }));
       const decide = (command) => {
-        const input = JSON.stringify({ tool_name: 'Bash', cwd: dir, tool_input: { command } });
+        const input = JSON.stringify({ tool_name: 'Bash', session_id: HOOK_SESSION_ID, cwd: dir, tool_input: { command } });
         const result = spawnSync(process.execPath, [path.join(hooks, 'guard-bash.mjs')], {
           input,
           encoding: 'utf8',
@@ -6568,7 +6569,7 @@ describe('#1180: 設定ファイル、環境変数、GraphQL の変数、refs/ �
     test('[通す] 起動元の環境に HOME と XDG_CONFIG_HOME があっても git push origin 21-x は allow', () => {
       const hooks = path.dirname(fileURLToPath(import.meta.url));
       const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_') && !['CLAUDE_CODE_REMOTE', 'GH_REPO', 'GH_HOST', 'CI', 'GITHUB_ACTIONS'].includes(key)));
-      const input = JSON.stringify({ tool_name: 'Bash', cwd: os.tmpdir(), tool_input: { command: PUSH } });
+      const input = JSON.stringify({ tool_name: 'Bash', session_id: HOOK_SESSION_ID, cwd: os.tmpdir(), tool_input: { command: PUSH } });
       const result = spawnSync(process.execPath, [path.join(hooks, 'guard-bash.mjs')], { input, encoding: 'utf8', env: { ...env, HOME: '/tmp/h', XDG_CONFIG_HOME: '/tmp/x' } });
       assert.equal(result.status, 0, result.stderr);
       assert.equal(result.stdout ? JSON.parse(result.stdout).hookSpecificOutput.permissionDecision : 'allow', 'allow');

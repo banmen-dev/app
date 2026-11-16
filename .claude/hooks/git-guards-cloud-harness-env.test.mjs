@@ -6,6 +6,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { isCloudHarnessGitConfig, judgeBash } from './bash-rules.mjs';
+import { HOOK_SESSION_ID } from './hook-test-session.mjs';
 
 const context = { cwd: '/repo', branchOf: () => '21-x' };
 const decision = (command, env) => judgeBash(command, { ...context, env })?.[0] ?? 'allow';
@@ -88,7 +89,7 @@ test('guard-bash.mjs は起動元の組では git を通し、組から外れれ
   const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
   const base = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^GIT_CONFIG_/.test(name)));
   const run = (env) => {
-    const input = JSON.stringify({ tool_input: { command: 'git log --oneline -1' }, cwd: repo });
+    const input = JSON.stringify({ tool_input: { command: 'git log --oneline -1' }, session_id: HOOK_SESSION_ID, cwd: repo });
     const result = spawnSync(process.execPath, [hook], { input, env: { ...base, ...env }, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);
     return result.stdout ? JSON.parse(result.stdout).hookSpecificOutput.permissionDecision : 'allow';
