@@ -21,6 +21,7 @@ import { organizationInfo } from './organization.ts';
 import { organizationHistory } from './organization-history.ts';
 import { organizationHolidayAdd, organizationHolidayDelete, organizationHolidayList } from './organization-holiday.ts';
 import { userAdminUpdate, userDisable, userEnable, userList } from './user.ts';
+import { recentActivity } from './recent-activity.ts';
 import { today } from './today.ts';
 
 export {
@@ -52,6 +53,7 @@ export {
   userAvatar,
   userList,
   today,
+  recentActivity,
 };
 
 export const organizationOperations: readonly AnyOperationDefinition[] = [
@@ -76,5 +78,6 @@ export const organizationOperations: readonly AnyOperationDefinition[] = [
   userDisable,
   userEnable,
   today,
+  recentActivity,
   firstSteps,
 ];

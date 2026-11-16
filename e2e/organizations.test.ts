@@ -318,7 +318,9 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
       (window as unknown as { __seen: typeof seen }).__seen = seen;
       document.addEventListener('click', () => (seen.clickedAt ??= performance.now()), true);
       new MutationObserver(() => {
-        if (seen.shownAt === null && document.querySelector('.skeleton') !== null) {
+        // 画面を移るときの読み込み中の表示（ルートの .loading-overlay）だけを見る。ホームの面（最近の更新）が自分の読み込み中に出す骨組みは、
+        // 正しい表示なので数えない
+        if (seen.shownAt === null && document.querySelector('.loading-overlay .skeleton') !== null) {
           seen.shownAt = performance.now();
         }
       }).observe(document.body, { childList: true, subtree: true, characterData: true });

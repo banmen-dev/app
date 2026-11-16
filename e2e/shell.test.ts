@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { myOrganizations } from '../src/shared/operations/organization/index.ts';
+import { myOrganizations, recentActivity } from '../src/shared/operations/organization/index.ts';
 import { tokenCreate } from '../src/shared/operations/session/index.ts';
 import { expect, test } from './fixtures.ts';
 import { failOperation, mockOperation } from './operations.ts';
@@ -887,6 +887,8 @@ for (const width of [390, 672]) {
   test(`幅 ${width}px で本文が短くても、上に旧メニューの空きが出ない`, async ({ page }) => {
     const height = 2000;
     await page.setViewportSize({ width, height });
+    // 最近の更新の面は、ほかのテストが作った行で長さが決まる。この確かめは本文が短いときの枠の組みなので、空にする
+    await mockOperation(page, recentActivity, { slug: 'aoba' }, { entries: [], next: null });
     await page.goto(today);
     await expect(page.getByRole('heading', { level: 1, name: '今日やること' })).toBeVisible();
     const pageHeight = await page.evaluate(() => document.documentElement.scrollHeight);

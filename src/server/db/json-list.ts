@@ -41,3 +41,12 @@ export function sprintLogRefSql(alias: string): RawBuilder<string | null> {
     string | null
   >`json(case when ${ref('id')} is null then null else json_object('id', ${ref('id')}, 'name', coalesce(${ref('name')}, ${ref('start_on')} || ${'〜'} || ${ref('end_on')})) end)`;
 }
+
+// 変更の履歴の changes_json（{"列": [前, 後]}。json_valid の CHECK がある）の、変えた列の名前の一覧（JSON の配列。保存した順）。
+// 値は読まない（本文の値は長いので、Worker へ運ばない）。update の行だけで評価し、ほかの action は NULL（JSON を読まない）。
+// alias は change_logs の別名。最近の更新（recent-activity）が使う
+export function changedColumnsSql(alias: string): RawBuilder<string | null> {
+  return sql<
+    string | null
+  >`(case when ${sql.ref(`${alias}.action`)} = 'update' then (select json_group_array(key) from json_each(${sql.ref(`${alias}.changes_json`)})) end)`;
+}

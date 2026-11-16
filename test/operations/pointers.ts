@@ -350,6 +350,7 @@ export const pointers: Pointers = {
     return { id };
   },
   today: { noReference: {} },
+  'recent-activity': { noReference: {} },
   'first-steps': { noReference: {} },
   // 最初のリーダーに、対象の組織の管理者を指す。別の組織の管理者を指すと 404
   'onboarding-workspace-prepare': {

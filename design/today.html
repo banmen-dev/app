@@ -19,8 +19,9 @@
 <script>
 "use strict";
 // 今日やること（組織のホーム）: 2列のダッシュボード。左の列に、所属するワークスペースの面と、自分が担当するタスクの面（今日やること）、Scrum Guild のニュースの面を上から並べる。
-// 右の列（.dashboard-side）は面（最近の更新）を足すまで置かない。広い幅では右の列の幅だけが空く（左3、右2）
-const { D, t, book, section, foldedSection, pageHead, sprintNotice, pane, paneList, newsList, dashboard } = SQ;
+// 右の列（.dashboard-side）に、最近の更新の面（所属するワークスペースのタスク、ストーリー、エピックの変更とコメントを、日付ごとに新しい順）を置く。
+// 広い幅は左3、右2の2列。760px 以下は左の列の下に続く
+const { D, t, book, section, foldedSection, pageHead, sprintNotice, pane, paneList, newsList, dashboard, activity } = SQ;
 
 SQ.mount("today", () => {
   const mine = SQ.tasksWhere((x) => x.who === D.me);
@@ -67,6 +68,23 @@ SQ.mount("today", () => {
         ${part("s-done", t("doneToday"), doneList)}`);
   // ニュースの面。新しい順に5件まで。1件も無いときは面を置かない
   const newsPane = D.news.length ? pane("p-news", t("paneNews").replace("{app}", t("appName")), newsList(D.news)) : "";
+  // 最近の更新の面。1件の文は辞書の activity*（{actor} がした人、{fields} が変えた欄）。行を押すと、対象の詳細（見本ではバックログ）へ移る
+  const say = (key, p) => t(key).replace(/\{(\w+)\}/g, (_, k) => p[k] ?? "");
+  const wsName = (id) => D.workspaces[id].name;
+  const backlogOf = (ws, query) => `backlog.html?workspace=${encodeURIComponent(ws)}&${query}`;
+  const taskT = (id) => D.tasks.find((x) => x.id === id);
+  const updates = [
+    { label: D.todayLabel, rows: [
+      { href: backlogOf("wa", "task=t1"), title: taskT("t1").title, kind: "task", ws: wsName("wa"), at: "2026-10-20T05:05:00.000Z", time: "14:05", text: say("activityCommented", { actor: D.users.u2.name }), body: "確認しました。夜間のまとめ処理から進めます。" },
+      { href: backlogOf("wa", "story=s1"), title: D.stories.s1.title, kind: "story", ws: wsName("wa"), at: "2026-10-20T02:30:00.000Z", time: "11:30", text: say("activityUpdated", { actor: D.users.u3.name, fields: `${t("fieldTitle")}、${t("due")}` }) },
+      { href: backlogOf("wa", "task=t7"), title: taskT("t7").title, kind: "task", ws: wsName("wa"), at: "2026-10-20T00:12:00.000Z", time: "09:12", text: say("activityCompleted", { actor: D.users.u4.name, done: t("done") }) },
+    ] },
+    { label: "2026年10月19日（月）", rows: [
+      { href: backlogOf("wa", "epic_id=e1"), title: D.epics.e1.title, kind: "epic", ws: wsName("wa"), at: "2026-10-19T08:40:00.000Z", time: "17:40", text: say("activityCreated", { actor: D.users.u2.name }) },
+      { href: backlogOf("wa", "task=t4"), title: taskT("t4").title, kind: "task", ws: wsName("wa"), at: "2026-10-19T01:03:00.000Z", time: "10:03", text: say("activityReopened", { actor: D.users.u1.name, done: t("done") }) },
+    ] },
+  ];
+  const activityPane = pane("p-activity", t("paneActivity"), activity(updates, { more: true }));
   // 見出しと「最初にやること」を全幅で置き、その下にダッシュボード。積載量は #66 で今日やるの近くに足す。
   return `${pageHead(D.todayLabel, "今日やること", [
         ["", "sun", "今日やると決めたもの", todayList.length],
@@ -77,7 +95,7 @@ SQ.mount("today", () => {
       ])}
     <div class="layout-main">
       ${SQ.first ? SQ.firstSteps(SQ.first) : ""}
-      ${dashboard(workspacePane + todayPane + newsPane)}
+      ${dashboard(workspacePane + todayPane + newsPane, activityPane)}
     </div>
   `;
 });
