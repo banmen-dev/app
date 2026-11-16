@@ -26,15 +26,15 @@
   <Icon name="alert" />
   <span>
     {canClose
-      ? t('sprintOverdueLeader', { label, end, task: t('task') })
-      : t('sprintOverdueMember', { label, end, leader: t('leader') })}
+      ? t('sprintOverdueLeader', { sprint: t('sprint'), label, end, task: t('task') })
+      : t('sprintOverdueMember', { sprint: t('sprint'), label, end, leader: t('leader') })}
   </span>
   {#if canClose}
     <div class="callout-actions">
       <button
         class="btn is-sm"
         type="button"
-        aria-label={t('sprintCloseLabel', { label })}
+        aria-label={t('sprintCloseLabel', { sprint: t('sprint'), label })}
         onclick={(event) => onclose(event.currentTarget)}>{t('sprintCloseAction')}</button
       >
     </div>

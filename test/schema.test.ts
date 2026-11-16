@@ -55,6 +55,119 @@ describe('容量通知のスキーマ', () => {
   });
 });
 
+describe('0032_add_custom_contract_limits', () => {
+  async function contract() {
+    const org = await createOrganization();
+    await run(
+      'INSERT INTO organization_contracts (organization_id, plan, billing_interval, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+      org.id,
+      'custom',
+      'yearly',
+      AT,
+      AT,
+    );
+    return org.id;
+  }
+
+  test('個別の標準値はNULLと整数の上下限を受け付け、旧版のプラン変更も妨げない', async () => {
+    const orgId = await contract();
+    for (const [members, quota] of [
+      [1, 1024 ** 3],
+      [10000, 100 * 1024 ** 4],
+      [null, null],
+    ]) {
+      await run(
+        'UPDATE organization_contracts SET custom_member_limit = ?, custom_attachment_quota_bytes = ? WHERE organization_id = ?',
+        members,
+        quota,
+        orgId,
+      );
+      expect(
+        await env.DB.prepare(
+          'SELECT custom_member_limit, custom_attachment_quota_bytes FROM organization_contracts WHERE organization_id = ?',
+        )
+          .bind(orgId)
+          .first(),
+      ).toEqual({ custom_member_limit: members, custom_attachment_quota_bytes: quota });
+    }
+    await run(
+      'UPDATE organization_contracts SET custom_member_limit = ?, custom_attachment_quota_bytes = ? WHERE organization_id = ?',
+      80,
+      200 * 1024 ** 3,
+      orgId,
+    );
+    await run('UPDATE organization_contracts SET plan = ? WHERE organization_id = ?', 'team', orgId);
+  });
+
+  test.each([0, -1, 10001, 1.5, 'invalid'])('個別の人数 %s はCHECKで拒否する', async (members) => {
+    const orgId = await contract();
+    await expect(
+      run('UPDATE organization_contracts SET custom_member_limit = ? WHERE organization_id = ?', members, orgId),
+    ).rejects.toThrow(/CHECK/);
+  });
+
+  test.each([0, -1, 1024 ** 3 - 1, 1024 ** 3 + 1, 100 * 1024 ** 4 + 1024 ** 3, 1024 ** 3 + 0.5, 'invalid'])(
+    '個別の標準容量 %s はCHECKで拒否する',
+    async (quota) => {
+      const orgId = await contract();
+      await expect(
+        run(
+          'UPDATE organization_contracts SET custom_attachment_quota_bytes = ? WHERE organization_id = ?',
+          quota,
+          orgId,
+        ),
+      ).rejects.toThrow(/CHECK/);
+    },
+  );
+});
+
+describe('0031_drop_vocabulary', () => {
+  test('組織とワークスペースに vocabulary 列を持たない', async () => {
+    for (const table of ['organizations', 'workspaces']) {
+      const columns = await env.DB.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
+      expect(columns.results.map((column) => column.name)).not.toContain('vocabulary');
+    }
+  });
+});
+
+describe('0029_drop_organization_theme', () => {
+  test('組織のテーマの列を持たず、ユーザーのテーマの列は残す', async () => {
+    const organizationColumns = await env.DB.prepare('PRAGMA table_info(organizations)').all<{ name: string }>();
+    const userColumns = await env.DB.prepare('PRAGMA table_info(users)').all<{ name: string }>();
+
+    expect(organizationColumns.results.map((column) => column.name)).not.toContain('theme');
+    expect(userColumns.results.map((column) => column.name)).toContain('theme');
+  });
+});
+
+describe('0027_remove_medieval_theme', () => {
+  // 前の版で書かれた行を作ってから、0027 の SQL を当て直す（テストの D1 には全マイグレーションが当て済み）
+  test('中世風（medieval）を選んでいた行だけを NULL に戻し、ほかのテーマと NULL の行は変えない', async () => {
+    const migration = env.TEST_MIGRATIONS.find((m) => m.name.startsWith('0027_'));
+    expect(migration).toBeDefined();
+    const organization = await createOrganization();
+    const other = await createOrganization();
+    const medieval = [
+      await createUser(organization, { theme: 'medieval' }),
+      await createUser(other, { theme: 'medieval' }),
+    ];
+    const kept = await Promise.all(
+      (['simple', 'simple_light', 'simple_dark', 'modern', null] as const).map(async (theme) => ({
+        theme,
+        user: await createUser(organization, { theme }),
+      })),
+    );
+    const themeOf = async (userId: string) =>
+      (await env.DB.prepare('SELECT theme FROM users WHERE id = ?').bind(userId).first<{ theme: string | null }>())!
+        .theme;
+
+    await env.DB.batch(migration!.queries.map((query) => env.DB.prepare(query)));
+
+    for (const user of medieval) expect(await themeOf(user.id)).toBeNull();
+    for (const { theme, user } of kept) expect(await themeOf(user.id)).toBe(theme);
+  });
+});
+
 function id(): string {
   return crypto.randomUUID();
 }
@@ -138,6 +251,13 @@ function googlePending() {
 }
 
 describe('外部キー', () => {
+  test('0030 で削除した xp_grants_user_workspace は残っていない', async () => {
+    const { results } = await env.DB.prepare(
+      `SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'xp_grants_user_workspace'`,
+    ).all();
+    expect(results).toEqual([]);
+  });
+
   test('D1 は外部キーを検査する', async () => {
     await expect(insertUser(id()).result).rejects.toThrow(/FOREIGN KEY/);
   });
@@ -160,6 +280,13 @@ describe('外部キー', () => {
       .all<{ detail: string }>();
     const details = plan.map((row) => row.detail);
 
+    expect(details).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(
+          /^SEARCH xp_grants USING (COVERING )?INDEX xp_grants_user_(workspace_amount|confirmed) \(user_id=\?\)$/,
+        ),
+      ]),
+    );
     expect(details.filter((detail) => detail.startsWith('SCAN '))).toEqual([]);
     // その場で作る索引（AUTOMATIC）でなく、張った索引で引くこと
     expect(details.filter((detail) => !/^SEARCH \w+ USING (COVERING )?INDEX \w+ /.test(detail))).toEqual([]);
@@ -1871,5 +1998,242 @@ describe('delegatees と tasks.delegatee_id', () => {
       .bind(id())
       .all<{ detail: string }>();
     expect(plan.results.some((row) => row.detail.includes('USING INDEX delegatees_organization_name'))).toBe(true);
+  });
+});
+
+describe('0033 請求管理者のスキーマ', () => {
+  test('組織とアカウントの組は一意で、状態・日時・外部キーを検査する', async () => {
+    const org = await organization();
+    const account = id();
+    await run('INSERT INTO accounts (id, created_at, updated_at) VALUES (?, ?, ?)', account, AT, AT);
+    const insert = (rowId: string, status = 'pending', at = AT, organizationId = org, accountId = account) =>
+      run(
+        'INSERT INTO billing_administrators (id, organization_id, account_id, status, invited_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        rowId,
+        organizationId,
+        accountId,
+        status,
+        account,
+        at,
+        at,
+      );
+    await expect(insert(id(), 'admin')).rejects.toThrow(/CHECK/);
+    await expect(insert(id(), 'pending', '2026-11-15')).rejects.toThrow(/CHECK/);
+    await expect(insert(id(), 'pending', AT, id())).rejects.toThrow(/FOREIGN KEY/);
+    await expect(insert(id(), 'pending', AT, org, id())).rejects.toThrow(/FOREIGN KEY/);
+    await insert(id());
+    await expect(insert(id())).rejects.toThrow(/UNIQUE/);
+  });
+
+  test('請求監査は決まった操作とUTCミリ秒の日時だけを受け付ける', async () => {
+    const org = await organization();
+    const account = id();
+    await run('INSERT INTO accounts (id, created_at, updated_at) VALUES (?, ?, ?)', account, AT, AT);
+    const insert = (action: string, at = AT) =>
+      run(
+        'INSERT INTO billing_admin_events (id, organization_id, actor_account_id, target_account_id, action, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        id(),
+        org,
+        account,
+        account,
+        action,
+        at,
+      );
+    await insert('invited');
+    await expect(insert('changed')).rejects.toThrow(/CHECK/);
+    await expect(insert('accepted', '2026-11-15')).rejects.toThrow(/CHECK/);
+  });
+});
+
+describe('請求管理者の初回指名の区分', () => {
+  test('初回指名の印は省略時0で、0と1以外やNULLを受け付けない', async () => {
+    const org = await organization();
+    const account = id();
+    await run('INSERT INTO accounts (id, created_at, updated_at) VALUES (?, ?, ?)', account, AT, AT);
+    const rowId = id();
+    await run(
+      'INSERT INTO billing_administrators (id, organization_id, account_id, status, invited_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      rowId,
+      org,
+      account,
+      'pending',
+      account,
+      AT,
+      AT,
+    );
+    const read = () =>
+      env.DB.prepare('SELECT is_bootstrap FROM billing_administrators WHERE id = ?')
+        .bind(rowId)
+        .first<{ is_bootstrap: number }>();
+    expect((await read())?.is_bootstrap).toBe(0);
+    await run('UPDATE billing_administrators SET is_bootstrap = 1 WHERE id = ?', rowId);
+    expect((await read())?.is_bootstrap).toBe(1);
+    await expect(run('UPDATE billing_administrators SET is_bootstrap = 2 WHERE id = ?', rowId)).rejects.toThrow(
+      /CHECK/,
+    );
+    await expect(run('UPDATE billing_administrators SET is_bootstrap = NULL WHERE id = ?', rowId)).rejects.toThrow(
+      /NOT NULL/,
+    );
+  });
+});
+
+// プロフィール画像（Issue #1265）。組織の中の表で1人1行。organization_id には外部キーを張らず、object_key の形を CHECK で揃える
+describe('user_avatars', () => {
+  async function setup() {
+    const org = await createOrganization();
+    const user = await createUser(org);
+    function avatar(
+      columns: {
+        user_id?: string;
+        id?: string;
+        organization_id?: string | null;
+        object_key?: string | null;
+        content_type?: string | null;
+        size_bytes?: number | string | null;
+        created_at?: string | null;
+      } = {},
+    ) {
+      const avatarId = columns.id ?? id();
+      const userId = columns.user_id ?? user.id;
+      const organizationId = columns.organization_id === undefined ? org.id : columns.organization_id;
+      return run(
+        'INSERT INTO user_avatars (user_id, id, organization_id, object_key, content_type, size_bytes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        userId,
+        avatarId,
+        organizationId,
+        columns.object_key === undefined ? `${organizationId}/avatars/${userId}/${avatarId}` : columns.object_key,
+        columns.content_type === undefined ? 'image/png' : columns.content_type,
+        columns.size_bytes === undefined ? 1 : columns.size_bytes,
+        columns.created_at === undefined ? AT : columns.created_at,
+      );
+    }
+    return { org, user, avatar };
+  }
+
+  test.each(['image/png', 'image/jpeg', 'image/webp'])('種類 %s は保存できる', async (content_type) => {
+    const { avatar } = await setup();
+    await expect(avatar({ content_type })).resolves.toBeTruthy();
+  });
+
+  test.each(['image/gif', 'image/svg+xml', 'IMAGE/PNG', 'image/png ', 'application/octet-stream', ''])(
+    '種類 %j は CHECK で断る',
+    async (content_type) => {
+      const { avatar } = await setup();
+      await expect(avatar({ content_type })).rejects.toThrow(/CHECK/);
+    },
+  );
+
+  test.each([1, 524288])('size_bytes の境界 %i は保存できる', async (size_bytes) => {
+    const { avatar } = await setup();
+    await expect(avatar({ size_bytes })).resolves.toBeTruthy();
+  });
+
+  test.each([0, -1, 524289, 1.5, 'invalid'])('size_bytes %j は CHECK で断る', async (size_bytes) => {
+    const { avatar } = await setup();
+    await expect(avatar({ size_bytes })).rejects.toThrow(/CHECK/);
+  });
+
+  test('object_key は <organization_id>/avatars/<user_id>/<id> だけを受け付ける', async () => {
+    const { org, user, avatar } = await setup();
+    const avatarId = id();
+    const otherOrg = id();
+    for (const object_key of [
+      `${otherOrg}/avatars/${user.id}/${avatarId}`,
+      `${org.id}/avatars/${id()}/${avatarId}`,
+      `${org.id}/avatars/${user.id}/${id()}`,
+      `${org.id}/avatars/${user.id}/${avatarId}/x`,
+      `${org.id}/avatar/${user.id}/${avatarId}`,
+      `${org.id}/${id()}/${avatarId}`,
+      `/${org.id}/avatars/${user.id}/${avatarId}`,
+      '',
+    ]) {
+      await expect(avatar({ id: avatarId, object_key }), object_key).rejects.toThrow(/CHECK/);
+    }
+    await expect(avatar({ id: avatarId })).resolves.toBeTruthy();
+  });
+
+  test('1人1行（user_id が主キー）', async () => {
+    const { avatar } = await setup();
+    await avatar();
+    await expect(avatar()).rejects.toThrow(/UNIQUE|PRIMARY KEY/);
+  });
+
+  test('画像の id は一意（別の人でも同じ id は断る）', async () => {
+    const { org, avatar } = await setup();
+    const another = await createUser(org);
+    const avatarId = id();
+    await avatar({ id: avatarId });
+    await expect(avatar({ id: avatarId, user_id: another.id })).rejects.toThrow(/UNIQUE/);
+  });
+
+  test('user_id は users を指す。organization_id には外部キーを張らない', async () => {
+    const { user, avatar } = await setup();
+    await expect(avatar({ user_id: id() })).rejects.toThrow(/FOREIGN KEY/);
+    const { results } = await env.DB.prepare(
+      `SELECT "table" AS parent, "from" AS column FROM pragma_foreign_key_list('user_avatars')`,
+    ).all<{
+      parent: string;
+      column: string;
+    }>();
+    expect(results).toEqual([{ parent: 'users', column: 'user_id' }]);
+    // 組織の行が無い organization_id でも、外部キーでは断らない（キーの形の CHECK だけが揃える）
+    await expect(avatar({ user_id: user.id, organization_id: id() })).resolves.toBeTruthy();
+  });
+
+  test.each(['2026-11-15', '2026-11-15T00:00:00Z', 'invalid'])('created_at %j は CHECK で断る', async (created_at) => {
+    const { avatar } = await setup();
+    await expect(avatar({ created_at })).rejects.toThrow(/CHECK/);
+  });
+
+  test.each(['organization_id', 'object_key', 'content_type', 'size_bytes', 'created_at'] as const)(
+    '%s は空にできない',
+    async (column) => {
+      const { avatar } = await setup();
+      await expect(avatar({ [column]: null })).rejects.toThrow(/NOT NULL|CHECK/);
+    },
+  );
+});
+
+describe('ワークスペースのスプリント命名のスキーマ', () => {
+  test('次の番号は既定1、0・負数・NULLを断り、ルールは100字まで', async () => {
+    const organization = await createOrganization();
+    const user = await createUser(organization);
+    const workspace = await createWorkspace(organization, user.id);
+    const db = orgDb(env, organization.verified);
+    const row = await db.first(
+      db.statement((q) =>
+        q
+          .selectFrom('workspaces')
+          .select(['sprint_name_template', 'sprint_number_next'])
+          .where('id', '=', workspace.id)
+          .where('organization_id', '=', organization.id),
+      ),
+    );
+    expect(row).toEqual({ sprint_name_template: null, sprint_number_next: 1 });
+    for (const value of [0, -1, null]) {
+      await expect(
+        env.DB.prepare('UPDATE workspaces SET sprint_number_next = ? WHERE id = ? AND organization_id = ?')
+          .bind(value, workspace.id, organization.id)
+          .run(),
+      ).rejects.toThrow();
+    }
+    await expect(
+      env.DB.prepare('UPDATE workspaces SET sprint_name_template = ? WHERE id = ? AND organization_id = ?')
+        .bind('a'.repeat(101), workspace.id, organization.id)
+        .run(),
+    ).rejects.toThrow();
+    await env.DB.prepare('UPDATE workspaces SET sprint_name_template = ? WHERE id = ? AND organization_id = ?')
+      .bind('😀'.repeat(100), workspace.id, organization.id)
+      .run();
+    const stored = await db.first(
+      db.statement((q) =>
+        q
+          .selectFrom('workspaces')
+          .select('sprint_name_template')
+          .where('id', '=', workspace.id)
+          .where('organization_id', '=', organization.id),
+      ),
+    );
+    expect(stored?.sprint_name_template).toBe('😀'.repeat(100));
   });
 });

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { shortcutHelpGroups } from './shortcut-help.ts';
 import type { Shortcut } from './shortcuts.svelte.ts';
 
-const shortcut = (id: string, extra: Partial<Shortcut> = {}): Shortcut => ({
+const shortcut = (id: string, extra: Partial<Extract<Shortcut, { helpOnly?: false }>> = {}): Shortcut => ({
   id,
   keys: 'c',
   label: () => id,
@@ -11,6 +11,21 @@ const shortcut = (id: string, extra: Partial<Shortcut> = {}): Shortcut => ({
 });
 
 describe('shortcutHelpGroups', () => {
+  test('一覧専用項目も enabled と登録順に従って出し、ほかの画面で解除された項目は残さない', () => {
+    let enabled = true;
+    const entry: Shortcut = {
+      id: 'card-order',
+      keys: 'Alt + ↑ ↓',
+      label: () => '列の中で動かす',
+      helpOnly: true,
+      enabled: () => enabled,
+    };
+    expect(shortcutHelpGroups([entry]).screen).toEqual([entry]);
+    enabled = false;
+    expect(shortcutHelpGroups([entry]).screen).toEqual([]);
+    expect(shortcutHelpGroups([]).screen).toEqual([]);
+  });
+
   test('global を付けたものを「どの画面でも」に、それ以外を「この画面」に、登録の順で分ける', () => {
     const groups = shortcutHelpGroups([
       shortcut('search', { global: true }),

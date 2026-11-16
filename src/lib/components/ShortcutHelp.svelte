@@ -43,7 +43,7 @@
         {#each list as shortcut (shortcut.id)}
           <div class="shortcut-row">
             <dt>{shortcut.label()}</dt>
-            <dd><kbd class="kbd">{hintText(shortcut.keys, mac)}</kbd></dd>
+            <dd><kbd class="kbd">{shortcut.helpOnly ? shortcut.keys : hintText(shortcut.keys, mac)}</kbd></dd>
           </div>
         {/each}
       </dl>

@@ -33,7 +33,6 @@ export function pendingBacklogPoints(
 
 export type BacklogCounts = {
   open_count: number;
-  unfilled_count: number;
   unestimated_count: number;
   unscheduled_count: number;
 };
@@ -58,7 +57,6 @@ export function backlogTallies(
     const change = points[row.id];
     const estimated = change === undefined ? row.points : change.value;
     result.open_count += after - before;
-    result.unfilled_count += Number(row.unfilled) * (after - before);
     result.unestimated_count += Number(estimated === null) * after - Number(row.points === null) * before;
     result.unscheduled_count += Number(row.sprint === null) * (after - before);
   }

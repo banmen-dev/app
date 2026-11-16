@@ -6,11 +6,12 @@
 // - 1文を1行に書く。行は手順書の `--command "<文>"` にそのまま入るよう、`"`、`$`、`` ` ``、`\`、`!` を含めない（scripts/purge-organization.test.ts）
 // - どの文にも「その組織が解約で停止していて、消す予定日を過ぎている」の EXISTS を付ける。一時的な停止、停止していない組織、
 //   予定日の当日より前の組織、無い ID では何も消えない
-// - 外部キーの子から順に消し、organizations の行を最後に消す。途中で止まっても、同じ順で流し直せば続きから消える
+// - 外部キーの子から順に消す。組織の中の行の後に、共通の billing_admin_events、billing_administrators、organization_contracts、
+//   organizations の順で消す。途中で止まっても、同じ順で流し直せば続きから消える
 // - favorites と Wiki は先頭の専用の文で消し、残りは TABLES の順で消す。Wiki の2表は TABLES に含めず別に件数を照合する
-// - 共通の表のうち消すのは organizations の行だけ。accounts、account_logins、sessions、api_tokens、oauth_states、rate_limits は消さない
+// - 共通の表のうち消すのは billing_admin_events、billing_administrators、organization_contracts（組織の契約）と organizations の行だけ。accounts、account_logins、sessions、api_tokens、oauth_states、rate_limits は消さない
 //   （アカウントはほかの組織でも使う。アカウントをどうするかは #407。セッションと API トークンはアカウントに結ぶ。入れる組織を失った人の
-//   セッションとトークンは、その人の次のリクエストか期限切れで消える）
+//   セッションとトークンは、入れる組織を失っても残り、本人のログアウト・取り消しか期限切れで消える）
 // - 共通の表（organizations）を組織の中の表の文から引く。DB を1つにしている今だけの書き方で、組織ごとに DB を分けるときは
 //   ガードの確かめを共通の DB で先に行う形に直す（docs/data-model.md の「データベースの分け方」）
 // - 組織の中の表を足したら、ここに消す文を足す。足し忘れると test/purge-organization.test.ts が落ちる
@@ -54,7 +55,14 @@ const TABLES: readonly (readonly [table: string, scope: Scope])[] = [
   ['memberships', 'workspace'],
   ['workspace_point_rates', 'workspace'],
   ['workspaces', 'organization'],
+  // プロフィール画像のメタデータ。users を指すので users より前に消す。R2 のファイルは <組織の ID>/avatars/ の下にあり、
+  // 組織の接頭辞ごと消す（docs/operations.md の手順 7）
+  ['user_avatars', 'user'],
   ['users', 'organization'],
+  // 共通の表の組織の契約。organizations を指すので、organizations の行の直前に消す
+  ['billing_admin_events', 'organization'],
+  ['billing_administrators', 'organization'],
+  ['organization_contracts', 'organization'],
 ];
 
 function quotedId(organizationId: string): string {

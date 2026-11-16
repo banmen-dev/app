@@ -1,6 +1,8 @@
 // 手順書（steps の JSON）の形の検査と、録画の長さの見積もり。ブラウザを使わないので、録画の前に何度でも回せる。
 // 待ちの値は record.mjs と同じものを使う（字幕を読む時間を削ると、字幕が変わるのと画面が動くのが重なって見づらくなる）
 
+export const SAVE_WAIT_TIMEOUT = 'SAVE_WAIT_TIMEOUT';
+export const NAVIGATION_WAIT_TIMEOUT = 'NAVIGATION_WAIT_TIMEOUT';
 export const READ_MS = 2000; // 字幕を出してから、画面を動かすまで。人が読む時間
 export const PAUSE_MS = 1000; // 見える操作と見える操作の間
 export const HOLD_MS = 1000; // 操作のあと、結果を見せる時間
@@ -23,7 +25,7 @@ const KEY_VERBS = ['press', 'hold'];
 const ACTION_EXTRA_KEYS = { select: ['label'], fill: ['text'], wait: ['state'], press: ['on'], hold: ['ms', 'on'] };
 const WAIT_STATES = ['visible', 'hidden', 'attached', 'detached'];
 const PLAN_KEYS = ['who', 'screen', 'steps'];
-const STEP_KEYS = ['caption', 'read', 'hold', 'mark', 'actions'];
+const STEP_KEYS = ['caption', 'read', 'hold', 'mark', 'markAfter', 'actions'];
 const TARGET_KEYS = ['css', 'role', 'label'];
 const LOCATOR_KEYS = [...TARGET_KEYS, 'name', 'exact', 'within', 'nth'];
 
@@ -95,7 +97,9 @@ function stepProblems(step, where) {
       problems.push(`${where}: caption が ${MAX_CAPTION_CHARS} 文字を超える（帯に収まらない）`);
     }
   }
-  if (step.mark !== undefined) problems.push(...locatorProblems(step.mark, `${where}.mark`));
+  for (const key of ['mark', 'markAfter']) {
+    if (step[key] !== undefined) problems.push(...locatorProblems(step[key], `${where}.${key}`));
+  }
   for (const key of ['read', 'hold']) {
     if (step[key] !== undefined && !isWait(step[key])) problems.push(`${where}: ${key} は 0 から ${MAX_WAIT_MS} のミリ秒`);
   }
@@ -173,7 +177,7 @@ export function describeLocator(spec) {
 
 /**
  * 録画せずに通す項目を、録画と同じ順に並べる。場面は 1 から数える。待ち（pause、read、hold）は含めない。
- * 各項目は { step, kind: goto|mark|click|check|select|fill|wait|press|hold, action?, spec?, path? }。
+ * 各項目は { step, kind: goto|mark|markAfter|click|check|select|fill|wait|press|hold, action?, spec?, path? }。
  * mark の spec は枠で示す要素、それ以外は action に手順書の操作がそのまま入る。press と hold の spec は on の要素（無ければ undefined）。
  */
 export function probePlan(plan) {
@@ -187,6 +191,7 @@ export function probePlan(plan) {
       const spec = KEY_VERBS.includes(kind) ? action.on : action[kind];
       items.push(kind === 'goto' ? { step: n, kind, path: action.goto } : { step: n, kind, action, spec });
     }
+    if (step.markAfter) items.push({ step: n, kind: 'markAfter', spec: step.markAfter });
   });
   return items;
 }
@@ -215,6 +220,8 @@ export function formatProbeLine(r) {
   if (r.status === 'found' && r.kind === 'wait' && ['hidden', 'detached'].includes(r.action.state)) {
     verdict = '通った（存在は未確認）';
   }
+  if (r.failure === 'save-wait') verdict = '保存待ちで中止';
+  if (r.failure === 'navigation-wait') verdict = '画面遷移待ちで中止';
   const tail = r.status === 'skipped' ? `（${r.reason}）` : r.detail ? `（${r.detail}）` : '';
   return `場面 ${r.step}: ${verdict}: ${describeItem(r)}${tail}`;
 }
@@ -252,8 +259,12 @@ export async function runProbe(items, exec) {
       await exec(item);
       results.push({ ...item, status: 'found' });
     } catch (err) {
-      results.push({ ...item, status: 'missing', detail: probeDetail(err.message) });
-      blockedBy = `場面 ${item.step} の ${describeItem(item)} が見つからず、次の goto までは画面の状態が分からない`;
+      const failure = err.code === SAVE_WAIT_TIMEOUT ? 'save-wait' : err.code === NAVIGATION_WAIT_TIMEOUT ? 'navigation-wait' : null;
+      results.push({ ...item, status: 'missing', detail: probeDetail(err.message), ...(failure ? { failure } : {}) });
+      const stopped = failure === 'save-wait' ? '保存待ちで中止' : '画面遷移待ちで中止';
+      blockedBy = failure
+        ? `場面 ${item.step} の ${describeItem(item)} を${stopped}したため、次の goto までは試せない`
+        : `場面 ${item.step} の ${describeItem(item)} が見つからず、次の goto までは画面の状態が分からない`;
     }
   }
   return results;
@@ -265,6 +276,7 @@ export function estimateSeconds(plan) {
   for (const step of plan.steps) {
     const actions = step.actions ?? [];
     if (step.mark) ms += MARK_MS;
+    if (step.markAfter) ms += MARK_MS;
     if (actions.length > 0) {
       if (step.caption) ms += step.read ?? READ_MS;
       actions.forEach((action, i) => {

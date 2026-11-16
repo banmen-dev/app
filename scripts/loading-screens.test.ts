@@ -39,7 +39,7 @@ test('全 load の操作が計測表にあり、load の変更時に追従漏れ
       ),
     ];
     // 組織の枠の招待だけは通常経路で呼ばない。追加の行で測る。
-    const measured = screen.operations.map((o) => o.name);
+    const measured = [...screen.operations, ...(screen.after ?? [])].map((o) => o.name);
     if (route === '/[slug]/+layout') {
       const invited = screens.find((s) => s.route === '/[slug]/+layout（招待あり）');
       assert.ok(invited);

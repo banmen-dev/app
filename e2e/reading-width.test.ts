@@ -54,11 +54,13 @@ for (const state of [
     const part = section.locator(state.part);
     await expect(part).toBeVisible();
     const head = (await page.locator('.page-head').boundingBox())!;
+    const paneHead = (await page.locator('.pane').filter({ has: section }).locator('.pane-head').boundingBox())!;
     const box = (await part.boundingBox())!;
     // 本文は上限を持たないので、見出しは 1200px を超えて広がる（止まっていたら、部品の上限を確かめたことにならない）
     expect(head.width).toBeGreaterThan(READING_MAX);
     expect(box.width).toBeLessThanOrEqual(READING_MAX);
-    expect(Math.round(box.x)).toBe(Math.round(head.x));
+    // 台帳は面の中にあるので、左端は面の見出し（.pane-head）と揃う。画面の見出し（.page-head）とは面の枠と余白の分だけずれる
+    expect(Math.round(box.x)).toBe(Math.round(paneHead.x));
   });
 }
 
@@ -70,8 +72,12 @@ test('節の補足は見出しの行の右端へ離れず、件数のすぐ後�
   const hint = section.locator('.section-hint');
   await expect(count).toHaveText('1 件');
   await expect(hint).toBeVisible();
-  const countBox = (await count.boundingBox())!;
-  const hintBox = (await hint.boundingBox())!;
+  await page.evaluate(() => document.fonts.ready);
+  // 書体の読み込みで幅が変わるので、同じ描画時点の座標をまとめて取る。
+  const { countBox, hintBox } = await section.evaluate((element) => ({
+    countBox: element.querySelector('.section-count')!.getBoundingClientRect().toJSON(),
+    hintBox: element.querySelector('.section-hint')!.getBoundingClientRect().toJSON(),
+  }));
   // 件数と補足の間は見出しの行の間（12px）だけで、同じ行に並ぶ
   expect(hintBox.x - (countBox.x + countBox.width)).toBeLessThanOrEqual(16);
   expect(Math.abs(hintBox.y + hintBox.height - (countBox.y + countBox.height))).toBeLessThanOrEqual(4);

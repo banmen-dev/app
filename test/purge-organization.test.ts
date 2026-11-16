@@ -1,7 +1,7 @@
 // 解約した組織のデータを消す SQL（scripts/purge-organization-sql.ts、docs/operations.md の「解約した組織のデータを消す」）を、
 // 人が1文ずつ `wrangler d1 execute --command` で流すのと同じく、テストの D1 に1文ずつ順に流して確かめる
 import { env } from 'cloudflare:workers';
-import { orgDb, insertWikiPage } from '../src/server/db/index.ts';
+import { commonDb, orgDb, insertWikiPage } from '../src/server/db/index.ts';
 import { describe, expect, test } from 'vitest';
 import { purgeOrganizationCountSql, purgeOrganizationSql } from '../scripts/purge-organization-sql.ts';
 import {
@@ -48,6 +48,7 @@ import {
   createXpGrant,
   uuidv7,
 } from './factories.ts';
+import { storeAvatar } from './me-avatar-helpers.ts';
 
 // 消さない共通の表。organizations は組織の行を最後に消す
 const KEPT_COMMON_TABLES = [
@@ -147,6 +148,44 @@ async function fillOrganization(organization: Awaited<ReturnType<typeof createOr
   });
   await createChangeLog(organization);
   await createOrganizationHoliday(organization, admin.id);
+  // プロフィール画像（行と R2 のファイル。R2 は組織の接頭辞ごと消す手順で消える）
+  await storeAvatar(organization, member.id);
+  // 組織の契約（共通の表）。organizations を指すので、organizations の行より先に消える
+  const common = commonDb(env);
+  await common.batch([
+    common.statement((q) =>
+      q.insertInto('billing_administrators').values({
+        id: uuidv7(),
+        organization_id: organization.id,
+        account_id: admin.account_id!,
+        status: 'active',
+        invited_by: admin.account_id!,
+        created_at: AT,
+        updated_at: AT,
+      }),
+    ),
+    common.statement((q) =>
+      q.insertInto('billing_admin_events').values({
+        id: uuidv7(),
+        organization_id: organization.id,
+        actor_account_id: admin.account_id!,
+        target_account_id: admin.account_id!,
+        action: 'accepted',
+        created_at: AT,
+      }),
+    ),
+    common.statement((q) =>
+      q.insertInto('organization_contracts').values({
+        organization_id: organization.id,
+        plan: 'team',
+        billing_interval: 'monthly',
+        extra_10gb_units: 1,
+        extra_50gb_units: 0,
+        created_at: AT,
+        updated_at: AT,
+      }),
+    ),
+  ]);
   const wikiDb = orgDb(env, organization.verified);
   await wikiDb.batch([
     wikiDb.statement((q) =>

@@ -1,6 +1,12 @@
 import { generateKeyBetween } from 'fractional-indexing';
 import { monthIn, now, todayIn, weekRangeIn } from '../../shared/clock.ts';
-import { XP_HELP, XP_HELP_WEEKLY_LIMIT, XP_TASK_COMPLETED, XP_TASK_CREATED } from '../../shared/experience.ts';
+import {
+  XP_HELP,
+  XP_HELP_WEEKLY_LIMIT,
+  XP_TASK_COMPLETED,
+  XP_TASK_CREATED,
+  XP_TASK_DETAILED,
+} from '../../shared/experience.ts';
 import { backlogTree, taskComplete, taskCreate, taskMove } from '../../shared/operations/task/index.ts';
 import { searchWordsOf } from '../../shared/backlog-filter.ts';
 import { MIN_POINTS_FOR_EXPERIENCE } from '../../shared/task.ts';
@@ -27,7 +33,7 @@ import { taskAssigneePartyStatements } from './epic-party.ts';
 import { implement } from './implement.ts';
 import { sprintRefColumns, sprintRefOf, type SprintRefRow } from './sprint-refs.ts';
 import { openSprint } from './sprint.ts';
-import { readUnfilled, unfilledExists } from './task-field.ts';
+import { detailedRecipient } from './task-detail-xp.ts';
 import {
   MAX_TIES,
   moveConflict,
@@ -399,8 +405,6 @@ export const taskCreateOperation = implement(taskCreate, async ({ db, actor, wor
       category,
       repository,
       sprint: target?.ref ?? null,
-      // 作った直後は値の行が無いので、削除していない欄が1つでもあれば未記入
-      unfilled: await readUnfilled(db, workspaceId, taskId),
       // 作った人は自分で、手で作ったタスクなので、削除できる
       can_delete: true,
     },
@@ -500,8 +504,6 @@ export function openStoryTasksStatement(db: OrganizationDb, workspaceId: string,
         'repositories.name as repository_name',
         ...sprintRefColumns,
       ])
-      // 決まった欄が未記入か（削除していない欄に、値の行が無いものがある）。この文は完了していないタスクだけを読む
-      .select((eb) => unfilledExists(eb, workspaceId).as('unfilled'))
       .where('tasks.completed_at', 'is', null)
       .$if(assignee !== undefined, (qb) =>
         qb.where(unindexed('tasks.assignee_user_id'), assignee === null ? 'is' : '=', assignee!),
@@ -604,7 +606,6 @@ export function rootOpenTasksStatement(db: OrganizationDb, workspaceId: string, 
         'repositories.name as repository_name',
         ...sprintRefColumns,
       ])
-      .select((eb) => unfilledExists(eb, workspaceId).as('unfilled'))
       .where('tasks.completed_at', 'is', null)
       .$if(assignee !== undefined, (qb) =>
         qb.where('tasks.assignee_user_id', assignee === null ? 'is' : '=', assignee!),
@@ -629,21 +630,6 @@ export function rootCompletedCountStatement(db: OrganizationDb, workspaceId: str
     backlogTasksUnder(q, workspaceId, null)
       .select((eb) => eb.fn.countAll<number>().as('count'))
       .where('tasks.completed_at', 'is not', null),
-  );
-}
-
-// 決まった欄が未記入の、完了していない（削除していないバックログの）タスクの件数。絞り込みに関わらず、ワークスペース全体で数える
-// （バックログの見出しの集計）。削除していない欄が無ければ、どのタスクも未記入にならず 0
-export function unfilledCountStatement(db: OrganizationDb, workspaceId: string) {
-  return db.statement((q) =>
-    q
-      .selectFrom('tasks')
-      .select((eb) => eb.fn.countAll<number>().as('count'))
-      .where('tasks.workspace_id', '=', workspaceId)
-      .where('tasks.tray', '=', 'backlog')
-      .where('tasks.deleted_at', 'is', null)
-      .where('tasks.completed_at', 'is', null)
-      .where((eb) => unfilledExists(eb, workspaceId)),
   );
 }
 
@@ -711,7 +697,6 @@ export const backlogTreeOperation = implement(backlogTree, async ({ db, actor, w
     totalsResult,
     rootOpenResult,
     rootDoneResult,
-    unfilledResult,
     countsResult,
     assigneesResult,
   ] = await db.batch([
@@ -800,7 +785,6 @@ export const backlogTreeOperation = implement(backlogTree, async ({ db, actor, w
     ),
     rootOpenTasksStatement(db, workspaceId, filter),
     rootCompletedCountStatement(db, workspaceId),
-    unfilledCountStatement(db, workspaceId),
     backlogCountsStatement(db, workspaceId),
     // 担当の絞り込みの選択肢。今所属している人（担当にできる人と同じ条件）と、未完了のバックログのタスクの担当に残っている人
     db.statement((q) =>
@@ -844,7 +828,6 @@ export const backlogTreeOperation = implement(backlogTree, async ({ db, actor, w
     is_imported: number;
     repository_ref_id: string | null;
     repository_name: string | null;
-    unfilled: unknown;
   } & SprintRefRow;
   type Ref = { id: string; name: string } | null;
   // category は引き継ぎを解いた区分（親のないタスクは自身の区分、ストーリーの下のタスクは親の区分）
@@ -858,7 +841,6 @@ export const backlogTreeOperation = implement(backlogTree, async ({ db, actor, w
     category,
     repository: refOf(row.repository_ref_id, row.repository_name),
     sprint: sprintRefOf(row),
-    unfilled: Number(row.unfilled) === 1,
     // task-detail の can_delete と同じ判定。取り込んだタスクは削除できない
     can_delete: row.is_imported === 0 && mayDeleteOwned(row.created_by, actor, workspace),
   });
@@ -974,7 +956,6 @@ export const backlogTreeOperation = implement(backlogTree, async ({ db, actor, w
     tasks: rootOpenResult.rows.map((row) => taskOf(row, refOf(row.category_ref_id, row.category_name))),
     // 絞っているときは出さない（画面は折りたたみの1行を出さない）
     completed_count: filtering ? null : Number(rootDoneResult.rows[0]?.count ?? 0),
-    unfilled_count: Number(unfilledResult.rows[0]?.count ?? 0),
     open_count: Number(countsResult.rows[0]?.open_count ?? 0),
     unestimated_count: Number(countsResult.rows[0]?.unestimated_count ?? 0),
     unscheduled_count: Number(countsResult.rows[0]?.unscheduled_count ?? 0),
@@ -1043,12 +1024,12 @@ type CompletionParams = {
   at: string;
 };
 
-// 起票と完了の経験値の1行。ポイント、起票した人、担当は先に読まず、tasks の行から取る。
+// 起票、詳細と完了の経験値の1行。ポイント、起票した人、担当は先に読まず、tasks の行から取る。
 // 条件は、ポイントが 1 以上（完了にした時点の値）と、自分の完了の記録が入ったこと
 function grantStatement(
   db: OrganizationDb,
   params: CompletionParams,
-  grant: { id: string; action: 'task_created' | 'task_completed'; amount: number },
+  grant: { id: string; action: 'task_created' | 'task_completed' | 'task_detailed'; amount: number },
 ) {
   const { workspaceId, taskId, completionId, userId, at } = params;
   return db.statement((q) =>
@@ -1064,7 +1045,9 @@ function grantStatement(
             // 起票は作った人へ。完了は完了した時点の担当者へ、担当がいなければ完了にした人へ
             grant.action === 'task_created'
               ? eb.ref('tasks.created_by').as('user_id')
-              : eb.fn.coalesce('tasks.assignee_user_id', eb.val(userId)).as('user_id'),
+              : grant.action === 'task_detailed'
+                ? detailedRecipient(eb).as('user_id')
+                : eb.fn.coalesce('tasks.assignee_user_id', eb.val(userId)).as('user_id'),
             eb.val(grant.action).as('action'),
             'tasks.id as task_id',
             eb.val(completionId).as('completion_id'),
@@ -1090,7 +1073,9 @@ function grantStatement(
                     '=',
                     grant.action === 'task_created'
                       ? eb.ref('tasks.created_by')
-                      : eb.fn.coalesce('tasks.assignee_user_id', eb.val(userId)),
+                      : grant.action === 'task_detailed'
+                        ? detailedRecipient(eb)
+                        : eb.fn.coalesce('tasks.assignee_user_id', eb.val(userId)),
                   ),
               ),
               eb.exists(completionExists(q, workspaceId, completionId)),
@@ -1596,9 +1581,10 @@ function completeStatements(db: OrganizationDb, context: CompleteContext) {
             ),
         ),
     ),
-    // 3. xp_grants。起票と完了、続けてそのタスクの感謝1件につき手助け1行（感謝の順。上限は前の文の挿入を数えて守る）
+    // 3. xp_grants。起票、完了と詳細、続けてそのタスクの感謝1件につき手助け1行（感謝の順。上限は前の文の挿入を数えて守る）
     grantStatement(db, params, { id: uuidv7(at), action: 'task_created', amount: XP_TASK_CREATED }),
     grantStatement(db, params, { id: uuidv7(at), action: 'task_completed', amount: XP_TASK_COMPLETED }),
+    grantStatement(db, params, { id: uuidv7(at), action: 'task_detailed', amount: XP_TASK_DETAILED }),
     ...thankIds.map((thankId) => helpStatement(db, { ...params, weekStart, weekEnd }, { id: uuidv7(at), thankId })),
     // 4. change_logs。3 と同じく、自分の完了の記録が入ったときだけ
     db.statement((q) =>

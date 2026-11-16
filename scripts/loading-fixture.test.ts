@@ -28,6 +28,12 @@ test('読み取り計測fixtureは実スキーマで最近の完了・経験値�
           )
           .get(loadingWorkspace)?.n,
       );
+    assert.equal(
+      db
+        .prepare("SELECT count(*) AS n FROM billing_administrators WHERE organization_id=? AND status='active'")
+        .get('019a0000-0000-7000-8000-000000000201')?.n,
+      1,
+    );
     assert.equal(count('tasks'), 5000);
     assert.equal(count('epics'), 10);
     assert.equal(count('stories'), 100);

@@ -20,14 +20,13 @@ import {
 } from './shortcut-keys.ts';
 import { modalState } from './toast.svelte.ts';
 
-export interface Shortcut {
+interface ShortcutDefinition {
   // 画面や部品をまたいで一意の名前（衝突の知らせと、一覧の鍵に使う）
   id: string;
   // `Mod+K`、`[`、`c` の形（書き方は shortcut-keys.ts）
   keys: string;
   // 一覧に出す名前。辞書（t）を通した文字を返す
   label: () => string;
-  run: (event: KeyboardEvent) => void;
   // false の間は働かない。キーが押された時点で読む
   enabled?: () => boolean;
   // 文字を打つ場所でも働くか（既定は働かない）
@@ -44,10 +43,14 @@ export interface Shortcut {
   hintAnchor?: () => HTMLElement | null | undefined;
 }
 
+// カードや入力欄自身が受けるキーは、一覧だけへ登録する。表示専用のキー文字列は解析せず、そのまま一覧に出す。
+export type Shortcut = ShortcutDefinition &
+  ({ helpOnly: true; run?: never } | { helpOnly?: false; run: (event: KeyboardEvent) => void });
+
 interface Entry {
   shortcut: Shortcut;
-  parsed: ParsedKeys;
-  normalized: string;
+  parsed: ParsedKeys | null;
+  normalized: string | null;
 }
 
 // 開いているダイアログ（native の dialog と role="dialog"）があるか。DOM が無い実行では閉じている扱い
@@ -67,18 +70,21 @@ export class ShortcutRegistry {
   #pending: { prefix: string; at: number } | null = null;
 
   register(shortcut: Shortcut): () => void {
-    const normalized = normalizeKeys(shortcut.keys);
-    const parsed = parseKeys(shortcut.keys);
+    const normalized = shortcut.helpOnly ? null : normalizeKeys(shortcut.keys);
+    const parsed = shortcut.helpOnly ? null : parseKeys(shortcut.keys);
     // 同じキーのほか、単独のキーと続けて押すキーの1つ目が同じ（`g` と `g b`）ものも重なり
-    const clash = this.#entries.find(
-      (entry) =>
-        entry.normalized === normalized ||
-        (parsed.prefix === undefined && !parsed.mod && entry.parsed.prefix === parsed.key) ||
-        (parsed.prefix !== undefined &&
-          !entry.parsed.mod &&
-          entry.parsed.prefix === undefined &&
-          entry.parsed.key === parsed.prefix),
-    );
+    const clash =
+      parsed !== null &&
+      this.#entries.find(
+        (entry) =>
+          entry.parsed !== null &&
+          (entry.normalized === normalized ||
+            (parsed.prefix === undefined && !parsed.mod && entry.parsed.prefix === parsed.key) ||
+            (parsed.prefix !== undefined &&
+              !entry.parsed.mod &&
+              entry.parsed.prefix === undefined &&
+              entry.parsed.key === parsed.prefix)),
+      );
     if (clash) {
       const message = `ショートカットのキー ${shortcut.keys} が重なっています: ${clash.shortcut.id} と ${shortcut.id}`;
       if (import.meta.env.DEV) throw new Error(message);
@@ -95,6 +101,7 @@ export class ShortcutRegistry {
 
   // 今、そのキーを押せば働く状況か（文字を打つ場所、ダイアログ、enabled。振り分けとヒントが同じ判定を使う）
   isAvailable(shortcut: Shortcut, target: EventTarget | null): boolean {
+    if (shortcut.helpOnly) return false;
     if (!shortcut.inTyping && isTypingTarget(target)) return false;
     if (!shortcut.inModal && isDialogOpen()) return false;
     if (shortcut.enabled && !shortcut.enabled()) return false;
@@ -109,16 +116,19 @@ export class ShortcutRegistry {
     this.#pending = null;
     if (event.defaultPrevented || isComposingKey(event)) return false;
     const waiting = pending !== null && Date.now() - pending.at <= CHORD_TIMEOUT_MS ? pending.prefix : null;
-    const entry = this.#entries.find(({ parsed }) =>
-      waiting === null
-        ? parsed.prefix === undefined && matchesKeys(parsed, event)
-        : parsed.prefix === waiting && matchesKeys(parsed, event),
+    const entry = this.#entries.find(
+      ({ parsed }) =>
+        parsed !== null &&
+        (waiting === null
+          ? parsed.prefix === undefined && matchesKeys(parsed, event)
+          : parsed.prefix === waiting && matchesKeys(parsed, event)),
     );
     if (!entry) {
       // 続けて押すキーの1つ目なら待ちに入る（働く条件を満たす続きが1つでもあるときだけ）
       if (waiting === null && !event.repeat) {
         const starts = this.#entries.some(
           ({ parsed, shortcut }) =>
+            parsed !== null &&
             parsed.prefix !== undefined &&
             matchesKeys({ mod: false, key: parsed.prefix }, event) &&
             this.isAvailable(shortcut, event.target),
@@ -132,6 +142,7 @@ export class ShortcutRegistry {
       return false;
     }
     const { shortcut } = entry;
+    if (entry.parsed === null || shortcut.helpOnly) return false;
     if (!this.isAvailable(shortcut, event.target)) return false;
     // 押しっぱなしの繰り返しは働かせない。Ctrl/⌘ 付きのキーだけは奪う（Ctrl+K の長押しで、ブラウザの標準の Ctrl+K が動かないように）
     if (event.repeat && !shortcut.repeat) {

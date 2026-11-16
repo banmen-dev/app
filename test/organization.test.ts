@@ -486,9 +486,9 @@ describe('my-organizations の suspended', () => {
 });
 
 type Info = {
-  organization: { name: string; theme: string; has_workspaces: boolean };
-  me: { id: string; name: string; is_admin: boolean; theme: string | null };
-  workspaces: { id: string; name: string; role: string }[];
+  organization: { name: string; has_workspaces: boolean };
+  me: { id: string; name: string; is_admin: boolean; theme: string };
+  workspaces: { id: string; name: string; role: string; closed_at: string | null }[];
 };
 
 async function readOrganization(slug: string, token: string): Promise<Info> {
@@ -551,8 +551,8 @@ function watchUserUpdates(
 }
 
 describe('organization', () => {
-  test('組織の名前、言葉づかい、既定のテーマと、この組織での自分と所属するワークスペースを返す', async () => {
-    const organization = await createOrganization({ name: '青葉工房', vocabulary: 'scrum', theme: 'medieval' });
+  test('組織の名前と、この組織での自分と所属するワークスペースを返す。言葉づかいと組織の既定のテーマは返さない', async () => {
+    const organization = await createOrganization({ name: '青葉工房' });
     const person = await createPerson({ organization });
     const owner = await createUser(organization, { is_admin: 1 });
     const second = await createWorkspace(organization, owner.id, { name: 'う開発' });
@@ -568,14 +568,63 @@ describe('organization', () => {
     expect(result.organization).toEqual({
       name: '青葉工房',
       kind: 'team',
-      theme: 'medieval',
       has_workspaces: true,
     });
     expect(result.organization).not.toHaveProperty('vocabulary');
-    expect(result.me).toEqual({ id: person.userId, name: '星野 澪', is_admin: false, theme: null, level: 1 });
+    expect(result.me).toEqual({
+      id: person.userId,
+      name: '星野 澪',
+      is_admin: false,
+      theme: 'simple',
+      level: 1,
+      avatar_url: null,
+    });
     expect(result.workspaces).toEqual([
-      { id: first.id, name: 'あ開発', role: 'member' },
-      { id: second.id, name: 'う開発', role: 'leader' },
+      { id: first.id, name: 'あ開発', role: 'member', closed_at: null },
+      { id: second.id, name: 'う開発', role: 'leader', closed_at: null },
+    ]);
+  });
+
+  test('閉じたワークスペースも所属に含め、閉じた日時を closed_at で返す（閉じていなければ null）', async () => {
+    const organization = await createOrganization();
+    const person = await createPerson({ organization });
+    const owner = await createUser(organization, { is_admin: 1 });
+    const active = await createWorkspace(organization, owner.id, { name: 'あ進行中' });
+    const closed = await createWorkspace(organization, owner.id, { name: 'い終了', closed_at: AT });
+    await createMembership(organization, active.id, person.userId!);
+    await createMembership(organization, closed.id, person.userId!, { role: 'leader' });
+
+    const result = await readOrganization(organization.slug, person.token);
+    expect(result.workspaces).toEqual([
+      { id: active.id, name: 'あ進行中', role: 'member', closed_at: null },
+      { id: closed.id, name: 'い終了', role: 'leader', closed_at: AT },
+    ]);
+  });
+
+  test('別の組織のワークスペース（閉じたものと開いたもの）に、この組織の利用者の所属の行を直に挿しても、workspaces に出ない', async () => {
+    const visitor = await createVisitor();
+    const a = await createOrganization();
+    const b = await createOrganization();
+    const inA = await visitor.join(a, { name: 'ミナト' });
+    const inB = await visitor.join(b, { name: 'ミナト' });
+    const ownerA = await createUser(a, { is_admin: 1 });
+    const ownerB = await createUser(b, { is_admin: 1 });
+    const mine = await createWorkspace(a, ownerA.id, { name: 'この組織の進行中' });
+    const otherOpen = await createWorkspace(b, ownerB.id, { name: '別の組織の進行中' });
+    const otherClosed = await createWorkspace(b, ownerB.id, { name: '別の組織の終了', closed_at: AT });
+    await createMembership(a, mine.id, inA.id);
+    await createMembership(b, otherOpen.id, inB.id);
+    await createMembership(b, otherClosed.id, inB.id);
+    // 組織 a の利用者の ID の所属の行を、組織 b のワークスペースに直に挿す（w.organization_id の絞り込みを外すと、組織 a の一覧に混ざる）
+    await createMembership(b, otherOpen.id, inA.id);
+    await createMembership(b, otherClosed.id, inA.id);
+
+    const result = await readOrganization(a.slug, visitor.token);
+    expect(result.workspaces).toEqual([{ id: mine.id, name: 'この組織の進行中', role: 'member', closed_at: null }]);
+    const other = await readOrganization(b.slug, visitor.token);
+    expect(other.workspaces).toEqual([
+      { id: otherClosed.id, name: '別の組織の終了', role: 'member', closed_at: AT },
+      { id: otherOpen.id, name: '別の組織の進行中', role: 'member', closed_at: null },
     ]);
   });
 
@@ -601,21 +650,20 @@ describe('organization', () => {
 
   test('管理者の印と自分のテーマは、組織ごとに別の値を返す', async () => {
     const visitor = await createVisitor();
-    const a = await createOrganization({ theme: 'modern' });
-    const b = await createOrganization({ theme: 'simple_dark' });
-    await visitor.join(a, { is_admin: 1, name: 'ミナト', theme: 'medieval' });
+    const a = await createOrganization();
+    const b = await createOrganization();
+    await visitor.join(a, { is_admin: 1, name: 'ミナト', theme: 'simple_light' });
     const bUser = await visitor.join(b, { name: 'ミナ' });
     const owner = await createUser(b, { is_admin: 1 });
     const workspace = await createWorkspace(b, owner.id);
     await createMembership(b, workspace.id, bUser.id);
 
     const inA = await readOrganization(a.slug, visitor.token);
-    expect(inA.me).toMatchObject({ name: 'ミナト', is_admin: true, theme: 'medieval' });
-    expect(inA.organization.theme).toBe('modern');
+    expect(inA.me).toMatchObject({ name: 'ミナト', is_admin: true, theme: 'simple_light' });
     expect(inA.workspaces).toEqual([]);
     const inB = await readOrganization(b.slug, visitor.token);
-    expect(inB.me).toMatchObject({ name: 'ミナ', is_admin: false, theme: null });
-    expect(inB.organization.theme).toBe('simple_dark');
+    // 自分で選んでいなければシンプル（自動）
+    expect(inB.me).toMatchObject({ name: 'ミナ', is_admin: false, theme: 'simple' });
   });
 
   test('定義の説明に、last_seen_at を書くことがある', () => {

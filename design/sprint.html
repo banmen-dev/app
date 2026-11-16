@@ -19,11 +19,14 @@
 <script>
 "use strict";
 // スプリント: 進行中のスプリントの列とカード
-const { D, t, icon, pageHead, sprintNotice, board, capacityRows, sumPts } = SQ;
+const { D, t, icon, pageHead, sprintNotice, board, capacityRows, sumPts, progress } = SQ;
 
 // ?overdue は、最終日を過ぎた進行中のスプリントの状態。ふだんの見本の最終日（10/26）の前に今日があるので、期間を1週間前へずらして今日が最終日より後になる形にする。
 // 本番は SprintOverdueNotice.svelte で、進行中で、ワークスペースの今日が最終日より後のときに出す（スプリントの画面と計画の画面）
-const overdue = new URLSearchParams(location.search).has("overdue");
+const params = new URLSearchParams(location.search);
+const overdue = params.has("overdue");
+const lastDay = params.has("last-day");
+if (lastDay && D.sprints.sp14) D.sprints.sp14.dayIndex = D.sprints.sp14.days - 1;
 if (overdue && D.sprints.sp14) {
   // 延長の注記と次のスプリントの期間も、ずらした期間に合わせる
   Object.assign(D.sprints.sp14, { start: "2026-10-06", end: "2026-10-19", dayIndex: D.sprints.sp14.days, extended: 0 });
@@ -36,9 +39,9 @@ function overdueNotice(id) {
   const end = SQ.md(D.sprints[id].end);
   const canClose = SQ.user(D.me).role === "leader";
   return `<div class="callout is-warn">${icon("alert")}<span>${canClose
-    ? `${label}は最終日（${end}）を過ぎています。終わらなかった${t("task")}の行き先を決めて、終えてください。`
-    : `${label}は最終日（${end}）を過ぎています。終えるのは${t("leader")}です。`}</span>${canClose
-    ? `<div class="callout-actions"><button class="btn is-sm" type="button" data-dialog="sprintEnd" aria-label="終える: ${label}">終える</button></div>` : ""}</div>`;
+    ? `${t("sprint")}「${label}」は最終日（${end}）を過ぎています。終わらなかった${t("task")}の行き先を決めて、終えてください。`
+    : `${t("sprint")}「${label}」は最終日（${end}）を過ぎています。終えるのは${t("leader")}です。`}</span>${canClose
+    ? `<div class="callout-actions"><button class="btn is-sm" type="button" data-dialog="sprintEnd" aria-label="終える: ${t("sprint")}「${label}」">終える</button></div>` : ""}</div>`;
 }
 
 SQ.mount("sprint", () => {
@@ -58,21 +61,20 @@ SQ.mount("sprint", () => {
   }
   const list = SQ.tasksWhere((x) => x.sprint === "sp14");
   const done = sumPts(list.filter((x) => x.doneAt)), all = sumPts(list);
-  const actions = `<button class="btn" type="button" data-dialog="sprintEditActive">名前と${t("sprintGoal")}を変更</button>
-    <button class="btn" type="button" data-dialog="sprintExtend">延長する</button>
-    <button class="btn" type="button" data-dialog="sprintEnd" aria-label="終える: ${SQ.sprintLabel("sp14")}">終える</button>`;
+  const actions = SQ.user(D.me).role === "leader" ? `<button class="btn" type="button" data-dialog="sprintEditActive" aria-label="${t("sprint")}を編集: ${SQ.esc(SQ.sprintLabel("sp14"))}">編集</button>
+    ${SQ.rowMenu(SQ.sprintLabel("sp14"), [
+      { attr: 'data-dialog="sprintExtend"', label: "延長する", icon: "clock" },
+      { attr: 'data-dialog="sprintEnd"', label: "終える", icon: "check" },
+    ])}
+    ${lastDay || overdue ? `<button class="btn" type="button" data-dialog="sprintEnd" aria-label="終える: ${t("sprint")}「${SQ.esc(SQ.sprintLabel("sp14"))}」">終える</button>` : ""}` : "";
   return `
-    ${pageHead(`${SQ.md(s.start)}〜${SQ.md(s.end)}・${s.days} 日のうち ${Math.min(s.dayIndex + 1, s.days)} 日目`, SQ.sprintLabel("sp14"), [
-      ["", "check", `${t("done")}（pt）`, done],
-      ["", "", "合計（pt）", all],
-      ["", "clock", "残り（日）", s.days - s.dayIndex],
-    ], actions)}
+    ${pageHead(`${SQ.md(s.start)}〜${SQ.md(s.end)}・${s.days} 日のうち ${Math.min(s.dayIndex + 1, s.days)} 日目`, SQ.sprintLabel("sp14"), [], actions,
+      `<div class="progress-summary">${progress(done, all, { markerPercent: Math.min(s.dayIndex + 1, s.days) / s.days * 100, markerLabel: `経過 ${Math.min(s.dayIndex + 1, s.days)} / ${s.days} 日（${Math.round(Math.min(s.dayIndex + 1, s.days) / s.days * 100)}%）`, detailed: true })}<span class="progress-remaining">残り ${Math.max(0, s.days - s.dayIndex)} 日</span></div>`)}
     ${s.extended ? `<p class="action-note">延長 ${s.extended} 日</p>` : ""}
     ${overdue ? overdueNotice("sp14") : ""}
     ${sprintNotice("sp14", { showWs: false })}
-    ${board("sp14", { draft: true })}
-    <p class="action-note" id="board-key-hint">カードは別の${t("column")}へドラッグして移せます。キーボードでは、カードを選んで Alt と ← → で隣の${t("column")}、Alt と ↑ ↓ で${t("column")}の中を動かせます。カードの「⋯」のメニューでも同じです。</p>
-    <p class="action-note">${t("column")}の末尾の空の行に題を打って Enter を押すと、その${t("column")}に${t("task")}が足されます。</p>
+    ${board("sp14", { draft: true, collapsed: (c) => c.done && new URLSearchParams(location.search).has("collapsed") })}
+    <span class="visually-hidden" id="board-key-hint">カードを別の${t("column")}へドラッグして移すか、カードを選んで Alt と ← → で隣の${t("column")}、Alt と ↑ ↓ で${t("column")}の中を動かせます。カードの「⋯」のメニューでも同じです。${t("done")}の${t("column")}の手前の${t("column")}から次へ送ると、${t("done")}になります。${t("done")}のカードは Alt と ← か「⋯」で戻せます。戻せないときは理由を知らせます。</span>
     <section class="section" aria-labelledby="cap">
       <div class="section-head"><h2 class="section-title" id="cap">この${t("sprint")}の${t("capacity")}</h2><span class="section-hint">1 ${t("points")} = ${D.hoursPerPoint} 時間・許容幅 ±12.5%</span></div>
       <div class="panel"><div class="grid-2">${capacityRows()}</div></div>

@@ -11,6 +11,86 @@ export function defineDictionary<const T extends Record<string, string>>(entries
 }
 
 export const dictionary = defineDictionary({
+  sprintNamingTitle: '{sprint}の命名ルール',
+  sprintNamingDesc: '新しく作る{sprint}の名前の初期値。過去の名前は変わりません。',
+  sprintNamingTemplate: '命名ルール',
+  sprintNamingNumber: '次の番号',
+  sprintNamingHint: '空なら名前を自動入力しません。',
+  sprintNamingVariableN: '{n}: 次の番号',
+  sprintNamingVariableYyyy: '{yyyy}: 開始日の年（4桁）',
+  sprintNamingVariableYy: '{yy}: 開始日の年（下2桁）',
+  sprintNamingVariableMm: '{mm}: 開始日の月（2桁）',
+  sprintNamingVariableM: '{m}: 開始日の月',
+  sprintNamingVariableDd: '{dd}: 開始日の日（2桁）',
+  sprintNamingVariableD: '{d}: 開始日の日',
+  sprintNamingVariableW: '{w}: 月の中の週（1〜7日が1、8〜14日が2）',
+  sprintNamingVariables:
+    '{n}: 次の番号、{yyyy}/{yy}: 年（4桁/2桁）、{mm}/{m}: 月（2桁/そのまま）、{dd}/{d}: 日（2桁/そのまま）、{w}: 月の中の週（1〜7日が1、8〜14日が2）。日付は開始日から取ります。',
+  sprintNamingExample: '次の名前の例（{date}）: {name}',
+  sprintNamingEmpty: '名前なし',
+  sprintNamingUnknown: '使えない変数があります。使える変数の一覧を確認してください。',
+  sprintNamingNumberInvalid: '次の番号は1以上の整数で入れてください。',
+  sprintNamingTooLong: '命名ルールは{max}字以内で入れてください。',
+  sprintNamingInvalidCharacter: '命名ルールに使えない文字が含まれています。',
+  sprintNamingExpansionFailed:
+    '名前の初期値が{max}字を超えます。名前を入力するか、開始日や命名ルールを変えてください。',
+  sprintNamingExpansionWarning:
+    '次の開始日の名前が{max}字を超えるため、自動入力できません。このルールは保存できます。必要ならルールを短くしてください。',
+  sprintNamingNumberRefreshed: '次の番号を最新の値（{number}）に更新しました。',
+  sprintNamingUnchanged: '保存した内容から変わっていません。',
+  sprintNamingUnavailable: '保存できませんでした。操作できない状態のため、画面を読み直します。',
+  sprintNamingLoadFailed: '命名ルールを読み込めませんでした。もう一度試してください。',
+  sprintNamingSave: '保存する',
+  sprintNamingSaving: '保存しています',
+  sprintNamingSaved: '{sprint}の命名ルールを保存しました。',
+  sprintNamingFailed: '命名ルールを保存できませんでした。入力を残してあります。もう一度試してください。',
+
+  billingTitle: '請求管理者',
+  billingRemoveFor: '{name}の請求管理者を解除する',
+  billingAcceptFor: '{name}の請求管理者の指名を承諾する',
+  billingDeclineFor: '{name}の請求管理者の指名を辞退する',
+  billingInvitationEmpty: '届いた請求の指名はありません。',
+  billingNominationHint:
+    '指名元の権限が解除された指名や、最初の担当者が承諾した後に残った初回指名は、同じアカウントIDで指名し直してください。',
+  billingHistoryEmpty: '担当者の変更履歴はまだありません。',
+  billingRateLimited: '操作が続いたため、しばらく待ってからもう一度試してください。',
+
+  billingLead: '業務利用とは別に、請求の担当者を管理します。ベータ中の契約変更・支払いは運用者に連絡してください。',
+  billingAccountId: 'あなたのアカウントID',
+  billingAccountHint: '指名する人にこのIDを伝えてください。指名は本人が承諾するまで有効になりません。',
+  billingInvitations: '届いた請求の指名',
+  billingOrganizations: '担当する組織',
+  billingEmpty: '担当する組織はまだありません。',
+  billingAccept: '承諾する',
+  billingDecline: '辞退する',
+  billingInvite: '指名する',
+  billingTargetAccount: '指名する人のアカウントID',
+  billingAdministrators: '{name}の請求管理者',
+  billingRemove: '解除する',
+  billingRemoveTitle: '請求管理者の指名を解除しますか',
+  billingRemoveText: '{name}の請求管理権限または承諾待ちの指名を解除します。利用権限や契約は残ります。',
+  billingLastHint: '契約中は最後の承諾済み担当者を解除できません。新しい担当者の承諾を待ってから解除してください。',
+  billingPending: '承諾待ち',
+  billingActive: '承諾済み',
+  billingFailed:
+    '操作できませんでした。権限や指名の状態、アカウントIDを確認してください。契約中の最後の担当者は解除できません。',
+  billingRefreshFailed: '変更は保存しましたが、一覧を更新できませんでした。画面を読み直してください。',
+  billingSaved: '変更を保存しました。',
+  billingBusy: '保存しています',
+  billingHistory: '担当者の変更履歴（最新50件）',
+  billingEventInvited: '指名',
+  billingEventAccepted: '承諾',
+  billingEventDeclined: '辞退',
+  billingEventRemoved: '解除',
+  billingBootstrap: '最初の請求管理者を指名',
+  billingBootstrapHint:
+    '運用者だけの操作です。承諾済みの請求管理者がいない組織に、利用する組織管理者とは別に指名します。',
+  billingSlug: '組織のslug',
+  billingBack: '担当する組織の一覧へ',
+  billingTarget: '対象アカウント',
+  billingActor: '操作したアカウント',
+  billingOpen: '請求管理者を管理する',
+
   delegateeEmptyText: 'タスクの引き出しで新しい名前を入力すると、名簿に追加できます。',
   delegateeAssignFailed: '依頼先を変更できませんでした。タスクの状態や名簿を確認し、もう一度選んでください。',
   delegateeAssignUnavailable:
@@ -38,6 +118,7 @@ export const dictionary = defineDictionary({
   delegateeInvalid: '名前は1〜50文字で入力してください。改行や制御文字は使えません。',
 
   createSheet: '起票',
+  createSheetOpenFailed: '起票を開けませんでした。画面を読み直して、もう一度試してください。',
   createSheetReloadFailed: '作成済みですが、一覧を読み直せませんでした。画面を開き直してください。',
   createKind: '作る種類',
   createSheetCreated: '{kind}「{title}」を作りました',
@@ -474,10 +555,15 @@ export const dictionary = defineDictionary({
   loadFailedTitle: '読み込めませんでした',
   loadFailedText: 'しばらくしてから、もう一度試してください。',
   retry: 'もう一度試す',
+  reloadPage: '画面を読み直す',
   retrying: '読み込んでいます',
   // 読み直しに失敗したときの、もう一度試すボタンの横の知らせ
   retryFailed: 'まだ読み込めませんでした',
   loading: '読み込んでいます',
+  invitationCountLoading: '招待の件数を読み込んでいます',
+  invitationCountFailed: '招待の件数を読み込めませんでした。',
+  // 全画面の右下に出す、読み込んだ画面の版（本番は Release のタグ vX.Y.Z）の前に、読み上げにだけ添える名前
+  appVersionLabel: '版',
 
   // メニューの項目と見出し。ワークスペースの外の画面は organization
   pageToday: '今日やること',
@@ -492,6 +578,8 @@ export const dictionary = defineDictionary({
   groupManage: '管理',
 
   // 今日やること
+  // 組織のホームの、自分のタスクの面の見出し。画面の見出し（pageToday）と文言は同じだが、役目が違うので分ける
+  paneToday: '今日やること',
   sectionToday: '今日やると決めたもの',
   sectionTodayHint: '印を付けた日が過ぎても、完了にするか印を外すまで残ります',
   // 今日やると決めたものが空のとき。ワークスペースに所属していれば、自分の担当を探せる{backlog}を案内する
@@ -499,6 +587,26 @@ export const dictionary = defineDictionary({
   todayEmptyText: '自分が{assignee}の{task}は、{backlog}から探せます。',
   todayEmptyAction: '{backlog}を開く',
   todayEmptyNoWorkspaceText: '{workspace}に所属すると、自分が{assignee}する{task}がここに並びます。',
+  // 組織のホームのワークスペースの面（見出しは辞書の {workspace}）。行を押すとそのワークスペースの{backlog}へ移る。見本は design/kit.js の DICT
+  workspacePaneHint: '押すと{backlog}を開きます',
+  // 組織のホームのニュースの面の見出し。ニュースの日付、題、本文は src/lib/news.ts に書いたまま出す（辞書を通さない）
+  paneNews: '{app} のニュース',
+  // 組織のホームの最近の更新の面（右の列）。1件の文は、した人（{actor}。分からないときは historyActorSystem）と内容の種類で決まる。
+  // 押すと対象（{task}、{story}、{epic}）の詳細を開く。見本は design/kit.js の DICT
+  paneActivity: '最近の更新',
+  activityEmptyTitle: 'まだ更新はありません',
+  activityEmptyText: '所属する{workspace}の{task}、{story}、{epic}の変更とコメントが、ここに新しい順に並びます。',
+  // 所属する閉じていないワークスペースが無いとき。案内はワークスペースの面に出すので、ここは線画の無い短い1行にして案内を重ねない
+  activityEmptyNoWorkspaceText: '{workspace}に所属すると、{task}、{story}、{epic}の更新がここに並びます。',
+  activityCreated: '{actor}が作成した',
+  activityUpdated: '{actor}が{fields}を変更した',
+  activityChanged: '{actor}が変更した',
+  activityCompleted: '{actor}が{done}にした',
+  activityReopened: '{actor}が{done}を戻した',
+  activityCommented: '{actor}がコメントした',
+  activityMore: 'さらに読む',
+  activityLoadFailed: '最近の更新を読み込めませんでした。',
+  activityMoreFailed: '続きを読み込めませんでした。もう一度試してください。',
   sectionOpen: '開くと一覧を表示',
   // 依頼先（自分用の組織）の付いた、自分が担当の未完了のタスク。人に振ったものを期日の早い順に確かめる
   sectionDelegated: '依頼中',
@@ -692,8 +800,6 @@ export const dictionary = defineDictionary({
   taskGone: 'この{task}は見つかりません。一覧を読み直します',
   pointsUnsetMark: '未',
   pointsUnsetTitle: '未見積もり',
-  // 完了の印の判子の文字。中世風のテーマだけが見せる
-  doneStamp: '完',
   // 完了の操作の読み上げの名前。同じ名前のボタンが並ぶので、どのタスクかを添える
   taskCompleteLabel: '{complete}: {title}',
   taskCompletedXp: '+{amount} {unit}',
@@ -892,6 +998,23 @@ export const dictionary = defineDictionary({
   epicPartyGone: '{epic}が見つからないか、{workspace}に所属していないため、{party}を変えられません',
   epicPartyFailed: '{party}を更新できませんでした。もう一度試してください',
   // エピックの完了と取り消し。操作は作成者とリーダーだけに出す。完了にできない理由は、押せない操作の横に出す
+  epicCancelPanel: '{epic}の中止',
+  epicCancel: '{epic}を中止する',
+  epicUncancel: '中止を取り消す',
+  epicCancelSubmit: '中止する',
+  epicCancelNote: '中止すると、{reward}は入りません。すでに確定した経験値は残ります。',
+  epicUncancelNote: '中止を取り消すと、受注や割り振り、完了の操作を再開できます。',
+  epicCancelConfirm:
+    'この{epic}を中止しますか。{reward}は入りませんが、すでに確定した経験値は残ります。中止は後で取り消せます。',
+  epicCancelUpdating: '中止の状態を更新しています',
+  epicCanceledToast: '{epic}を中止しました',
+  epicUncanceledToast: '{epic}の中止を取り消しました',
+  epicCancelForbidden: '中止と取り消しができるのは、{requester}と{leader}だけです',
+  epicCancelFinished: '完了した{epic}は中止できません。最新の内容を表示しています',
+  epicCancelConflict: 'ほかの画面で状態が変わりました。最新の内容を表示しています',
+  epicCancelGone: '{epic}が見つからないか、{workspace}に所属していないため、中止も取り消しもできません',
+  epicCancelFailed: '中止できませんでした。もう一度試してください',
+  epicUncancelFailed: '中止を取り消せませんでした。もう一度試してください',
   epicClearPanel: '{epic}の{done}',
   epicClearNoteOpen: '未完了の{story}が {count} 件残っているあいだは、{done}にできません。',
   epicClearNoteEmpty: '{story}が1件も無い{epic}は、{done}にできません。{story}を足して、すべて{done}にすると押せます。',
@@ -964,6 +1087,11 @@ export const dictionary = defineDictionary({
   // 進み具合の棒の読み上げ（kit.js の progress の aria-label）と、棒の横の数
   progressLabel: '{done} {value} / {all} {points}',
   progressValue: '{value} / {all} pt',
+  progressCompleted: '{done} {value} / {all} pt',
+  progressCompletedPercent: '{done} {value} / {all} pt（{percent}%）',
+  progressPercent: '（{percent}%）',
+  progressElapsed: '経過 {day} / {length} 日（{percent}%）',
+  sprintBoardRemaining: '残り {days} 日',
   epicPageNotFoundTitle: '{epic}が見つかりません',
   epicPageNotFoundText: '削除されたか、この{workspace}にない{epic}です。',
   // クリア報酬の段階の呼び名。額は経験値の定数（XP_EPIC_REWARD）から出す
@@ -1230,6 +1358,80 @@ export const dictionary = defineDictionary({
   // 書かれたか分からない失敗（5xx、通信の切れ）。閉じると一覧を読み直す
   operatorQuotaFailedUnknown:
     '上限を変えられませんでした。変わっていることもあるので、閉じた後の一覧で確かめてからもう一度試してください。',
+  // プラン（organization_contracts）。運用者の画面と組織の変更の履歴で使う。組織の種類の「チーム用」（operatorKindTeam）とは別の語
+  planPersonal: 'パーソナル',
+  planTeam: 'チーム',
+  planBusiness: 'ビジネス',
+  planCustom: '個別',
+  operatorPlanCustomHint: '相談して決めた人数と標準の容量',
+  operatorPlanCustomSizeLabel: '標準の添付容量（GB）',
+  operatorPlanCustomMembersHint: '1〜{max} 人の整数で入力してください。',
+  operatorPlanCustomSizeHint: '1〜{max} GB の整数で入力してください。追加容量の口数は、この標準容量に足します。',
+  operatorPlanCustomInvalidHint:
+    '人数と標準の添付容量を範囲内の整数で入力すると、変更後の上限と超過の注意を確認できます。',
+  planCustomLimits: '{terms}（{members} 人・標準 {quota} GB）',
+  operatorPlanCustomBase: '標準 {members} 人・{quota} GB',
+  billingMonthly: '月払い',
+  billingYearly: '年払い',
+  // 契約の表示。{plan} はプランの名前、{interval} は支払いの周期
+  planTerms: '{plan}・{interval}',
+  orgHistoryStorageChanged:
+    '追加容量を+10\u00a0GB {from10}\u00a0口・+50\u00a0GB {from50}\u00a0口（{fromInterval}）から+10\u00a0GB {to10}\u00a0口・+50\u00a0GB {to50}\u00a0口（{toInterval}）に変更しました',
+  operatorStorageSuspendedNote: '追加容量を変えても停止したままです。使えるようにするには、続けて再開してください。',
+  operatorStorageUnitsError: '0〜100 の整数で入力してください。',
+  operatorStoragePersonalLower:
+    '現在の上限 {current} は、パーソナルの標準容量と追加口数から決まる {next} に下がります。既存のファイルは残ります。',
+  operatorStorageTitle: '追加容量を変える',
+  operatorStorageLabel: '「{name}」の追加容量を変える',
+  operatorStorageText: '「{name}」の追加容量の口数を変えます。',
+  operatorStorage10: '＋10 GB の口数',
+  operatorStorage50: '＋50 GB の口数',
+  operatorStorageUnitsHint: 'それぞれ 0〜100 の整数で入力してください。',
+  operatorStorageAfter: '変えた後の添付ファイルと Wiki の上限は {quota} です。',
+  operatorStoragePersonalNote:
+    'プランはパーソナルのままです。追加容量の料金だけを請求します。人数とワークスペースの上限は変わりません。',
+  operatorStorageTeamNote: '追加容量は基本プランと同じ支払いの周期で、まとめて請求します。',
+  operatorStorageUnchanged: '今と同じ口数と支払いの周期です。',
+  operatorStorageHistoryNote: '変更の履歴に運用者の操作として前後の口数が残ります。',
+  operatorStorageDone: '「{name}」の追加容量を変えました',
+  operatorStoragePurgeDue: '「{name}」は消す予定日を過ぎたので、追加容量を変えられません',
+  operatorStoragePlanRequired: '追加容量を付けるには、先にプランを決めてください。',
+  operatorStorageCustomLimitsRequired:
+    '追加容量を変えるには、先に「プランを変える」で個別の人数と標準の添付容量を設定してください。',
+  operatorStorageFailed: '追加容量を変えられませんでした。もう一度試してください。',
+  operatorStorageFailedUnknown:
+    '追加容量を変えられませんでした。変わっていることもあるので、閉じた後の一覧で確かめてください。',
+  operatorPlanNone: '未契約',
+  // 一覧の契約の印の前に、読み上げだけで添える語
+  operatorPlanChipPrefix: 'プラン: ',
+  operatorPlanAction: 'プランを変える',
+  operatorPlanLabel: '「{name}」のプランを変える',
+  operatorPlanTitle: 'プランを変える',
+  // {terms} は今の契約（planTerms か operatorPlanNone）、{used} は人数、{limit} は人数の上限、{storage} は添付ファイルと Wiki の合計、{quota} は添付ファイルの上限
+  operatorPlanText:
+    '「{name}」のプランを変えます。今は{terms}で、人数 {used} 人（上限 {limit} 人）、添付ファイルと Wiki の合計 {storage}（上限 {quota}）です。',
+  operatorPlanChoices: 'プラン',
+  operatorPlanIntervalChoices: '支払いの周期',
+  operatorPlanUnchangedHint: '今の契約です。別のプランか支払いの周期を選ぶと変えられます。',
+  // {members} は変えた後の人数の上限、{quota} は変えた後の添付ファイルの上限（追加容量を足した値）
+  operatorPlanAfter: '変えた後の上限は {members} 人・{quota} です。',
+  // 未契約の組織で、今の上限より下がるとき。{members} と {quota} は今の上限
+  operatorPlanLimitsLower:
+    '今の上限（{members} 人・{quota}）より下がります。契約を付けると、上限を「人数と容量の上限を変える」で値に戻せなくなります。',
+  operatorPlanNote:
+    '人数と添付ファイルの上限はプランの値になり、「人数と容量の上限を変える」では変えられなくなります。',
+  // {used} は今の人数、{limit} は変えた後の人数の上限
+  operatorPlanSeatsOver:
+    '今の人数（{used} 人）が、変えた後の上限（{limit} 人）を超えます。今いる人はそのまま残り、上限を下回るまで新しい人の招待と管理者への指名だけを止めます。',
+  operatorPlanTrialNote: 'お試しはここで終わり、期限で止まらなくなります。',
+  operatorPlanSuspendedNote:
+    '停止中の{organization}は、契約しても停止したままです。使えるようにするには、続けて再開してください。',
+  operatorPlanHistoryNote: 'プランの変更は{organization}の変更の履歴に、運用者の操作として残ります。',
+  operatorPlanDone: '「{name}」のプランを変えました',
+  operatorPlanPurgeDue: '「{name}」は消す予定日を過ぎたので、プランを変えられません',
+  operatorPlanFailed: 'プランを変えられませんでした。もう一度試してください。',
+  operatorPlanFailedUnknown:
+    'プランを変えられませんでした。変わっていることもあるので、閉じた後の一覧で確かめてからもう一度試してください。',
 
   // 組織の作成のダイアログ
   operatorCreateTitle: '{organization}を作る',
@@ -1631,13 +1833,11 @@ export const dictionary = defineDictionary({
   themeSimple: 'シンプル（自動）',
   themeSimpleLight: 'シンプル（ライト）',
   themeSimpleDark: 'シンプル（ダーク）',
-  themeMedieval: '中世風',
-  themeModern: '現代風',
+  themeModern: 'ネオン',
   // テーマの説明。見本の design/kit.js の THEME_NOTE と同じ文（src/shared/theme.ts の themeNoteKeys）
   themeNoteSimple: '業務の道具として落ち着いた見た目。OS のライトとダークに合わせる',
   themeNoteSimpleLight: '業務の道具として落ち着いた見た目。いつも明るい地',
   themeNoteSimpleDark: '業務の道具として落ち着いた見た目。いつも暗い地',
-  themeNoteMedieval: '冒険者ギルドの帳簿。紙と墨、完了に朱の判子',
   themeNoteModern: '近未来の端末のウィンドウ。暗い地に光る枠',
 
   // お試しの期限（組織の管理の画面。期限の日付は運用者の一覧も使う）
@@ -1650,19 +1850,25 @@ export const dictionary = defineDictionary({
   // 期限を過ぎた組織の印。管理者の画面（days_left が負。「残り -1 日」と出さない）と運用者の一覧が同じ文を使う
   trialExpired: 'お試しの期限を過ぎています',
 
-  // 組織の既定のテーマ（組織の管理の画面）
-  orgThemeTitle: '既定のテーマ',
-  orgThemeDesc: '画面の見た目の既定。自分で選んでいないユーザーに効きます。会社で使うならシンプルが無難です。',
-  // 節ごとの「保存する」。選んだ値が今の値と違うときだけ押せる
-  orgSettingsSave: '保存する',
-  orgSettingsSaving: '保存しています',
-  orgThemeChanged: '既定のテーマを「{label}」に変えました',
-  // ほかの管理者が先に同じ項目を変えていた（409）。読み直した値を見てもらう
-  orgSettingsConflict: 'ほかの{admin}が先に変えていました。今の値を読み直したので、確かめてから選び直してください',
-  // 見つからない、または操作できない（404、403。管理者でなくなったなど）。読み直した画面を見てもらう
-  orgSettingsUnavailable: '保存できませんでした。操作できない状態です。画面を読み直しました。',
-  // 通信の失敗と 5xx。選んだ値は残すので、そのまま押し直せる
-  orgSettingsFailed: '保存できませんでした。もう一度「保存する」を押してください。',
+  // プランの節（組織の管理の画面）。契約の語は運用者の画面と同じ（planTerms、operatorPlanNone）。見るだけで、変えるのは運用者
+  orgPlanTitle: 'プラン',
+  orgPlanDesc: '今の契約と、人数と容量の上限です。',
+  orgPlanLoadFailed: 'プランを読み込めませんでした',
+  orgPlanRefreshFailed: 'プランを更新できませんでした。表示は前に読み込んだ値です。もう一度試してください。',
+  orgPlanTermsLabel: '契約',
+  orgPlanExtraLabel: '追加容量',
+  // 追加容量の口数。{size} は1口の容量（GB）、{units} は口数
+  orgPlanExtraUnits: '+{size} GB × {units} 口',
+  orgPlanExtraNone: 'なし',
+  orgPlanMemberLimitLabel: '人数の上限',
+  orgPlanMemberLimit: '{count} 人',
+  orgPlanQuotaLabel: '容量の上限',
+  // 未契約の組織（契約の行が無い）。上限は運用者が組織を作ったときか「人数と容量の上限を変える」で決めた値
+  orgPlanNoneNote: 'まだ契約していません。上限は運用者が決めた値です。',
+  orgPlanContact: 'プラン、支払いの周期、追加容量を変えるときは、運用者に問い合わせてください。',
+  // 自分用の組織。プランはパーソナルに固定で、運用者も変えない（organization-plan-update は 409）。追加容量だけは足せる（docs/business.md の「追加容量」）
+  orgPlanPersonalNote: '自分用の{organization}は、人数が本人1人のパーソナルに決まっています。',
+  orgPlanContactPersonal: '容量を足すときは、運用者に問い合わせてください。',
 
   // ワークスペースを終了する、再開する（組織の管理の画面。API の操作の名前は workspace-close と workspace-reopen のまま）。
   // {workspace} は、辞書の言葉を画面が渡す。{name} はワークスペースの名前
@@ -1829,6 +2035,9 @@ export const dictionary = defineDictionary({
   orgHistorySuspensionChanged: '停止の理由を解約に切り替えました（消す予定日 {date}）',
   orgHistorySuspensionChangedTemporary: '停止の理由を一時的な停止に切り替えました',
   orgHistoryOrganizationSettingsChanged: '{organization}の設定を変更しました',
+  // {from} と {to} は契約（planTerms）
+  orgHistoryPlanChanged: 'プランを{from}から{to}に変更しました',
+  orgHistoryPlanStarted: 'プランを{to}にしました',
   orgHistoryAdminDesignated: '{name}を{admin}に指名しました',
   // Google の招待で指名し、本人がまだログインしていない（名前はメールアドレスなので出さない）
   orgHistoryAdminDesignatedGoogle: 'Google で招待した人を{admin}に指名しました',
@@ -2136,9 +2345,6 @@ export const dictionary = defineDictionary({
   planSummaryRetrying: '{velocity}と{epic}ごとの残りを読み直しています。',
   sprintCreate: '{sprint}を作る',
   sprintEdit: '{sprint}を直す',
-  // 名前のあるスプリントは名前を、無いものは期間を名前として出す（kit.js の sprintLabel）
-  sprintLabelNamed: '{sprint} {name}',
-  sprintLabelPeriod: '{sprint} {start}〜{end}',
   sprintPeriod: '{start}〜{end}',
   sprintLengthDays: '{length} 日',
   sprintActive: '進行中',
@@ -2153,9 +2359,9 @@ export const dictionary = defineDictionary({
   planLanesEmptyTitle: '先の{sprint}はありません',
   planLanesEmptyText: '{sprint}を作ると、ここに先の{sprint}が並び、入れた{points}をベロシティと見比べられます。',
   sprintEditAction: '直す',
-  sprintEditLabel: '直す: {label}',
+  sprintEditLabel: '直す: {sprint}「{label}」',
   sprintDeleteAction: '削除する',
-  sprintDeleteLabel: '削除する: {label}',
+  sprintDeleteLabel: '削除する: {sprint}「{label}」',
   sprintFieldStart: '開始日',
   sprintFieldLength: '長さ（日）',
   sprintFieldEnd: '最終日',
@@ -2181,7 +2387,7 @@ export const dictionary = defineDictionary({
   sprintSaved: '{sprint}を保存しました',
   sprintSaveFailed: '保存できませんでした。もう一度試してください',
   sprintDeleteTitle: '{sprint}を削除する',
-  sprintDeleteText: '「{label}」（{period}）を削除します。削除したものは画面から消え、この版では戻せません。',
+  sprintDeleteText: '{sprint}「{label}」を削除します。削除したものは画面から消え、この版では戻せません。',
   sprintDeleting: '削除しています',
   sprintDeleted: '{sprint}を削除しました',
   sprintDeleteStarted: 'この{sprint}はもう始まっているので、削除できません。一覧を読み直します',
@@ -2190,13 +2396,13 @@ export const dictionary = defineDictionary({
   sprintTasksEmpty: 'まだ何も入っていません',
   sprintTasksSummary: '{count} 件・{points} pt',
   sprintTaskAddOpen: '{backlog}から入れる',
-  sprintTaskAddOpenLabel: '{backlog}から入れる: {label}',
-  sprintTaskAddTitle: '{label} に入れる',
+  sprintTaskAddOpenLabel: '{backlog}から入れる: {sprint}「{label}」',
+  sprintTaskAddTitle: '{sprint}「{label}」に入れる',
   sprintTaskAddHint:
     '{story}を選ぶと、配下の未完了の{task}をまとめて入れます。ほかの{sprint}に入っている{task}は、こちらへ移します。',
   sprintTaskAddStoryMeta: '未完了の{task} {count} 件',
   sprintTaskAddRootTasks: '親のない{task}',
-  sprintTaskAddInSprint: '{label} から移します',
+  sprintTaskAddInSprint: '{sprint}「{label}」から移します',
   sprintTaskAddNothing: '入れられる未完了の{task}がありません。{backlog}で起票してください。',
   sprintTaskAddSubmit: '{count} 件入れる',
   sprintTaskAddNoneSelected: '入れる{task}か{story}を選んでください',
@@ -2232,9 +2438,9 @@ export const dictionary = defineDictionary({
   sprintTaskPickNoMatch: '当てはまる{task}がありません',
   // スプリントを始めるダイアログ（kit.js の DIALOGS.sprintStart）と、計画の画面の進行中のスプリントのゴール
   sprintStartAction: '始める',
-  sprintStartLabel: '始める: {label}',
+  sprintStartLabel: '始める: {sprint}「{label}」',
   sprintStartTitle: '{sprint}を始める',
-  sprintStartText: '{label}（{period}）を始めます。入っている{task}は {count} 件、{points} pt です。',
+  sprintStartText: '{sprint}「{label}」を始めます。入っている{task}は {count} 件、{points} pt です。',
   sprintStartUnestimated: '未見積もりが {count} 件あります。始めることはできます。',
   sprintStartGoalPlaceholder: 'この{sprint}で何ができるようになるか',
   sprintStartGoalHint: '空でも始められます。{max} 字まで書け、{plan}と{sprint}の画面に出ます。',
@@ -2250,7 +2456,7 @@ export const dictionary = defineDictionary({
   sprintStartEnded: 'この{sprint}は最終日を過ぎているので、始められません。期間を直すか、削除して作り直してください',
   sprintStartAlreadyStarted: 'この{sprint}はもう始まっています。一覧を読み直します',
   sprintStartForbidden: '{sprint}を始めるのは{leader}です',
-  // 進行中のスプリントを延ばすダイアログ（kit.js の DIALOGS.sprintExtend）と、スプリントの画面の見出しの「延長する」と「名前とゴールを変更」
+  // 進行中のスプリントを延ばすダイアログ（kit.js の DIALOGS.sprintExtend）と、見出しの「編集」・「⋯」の延長メニュー
   sprintExtendAction: '延長する',
   sprintExtendSubmit: '{days} 日延長する',
   sprintExtendTitle: '{sprint}を延ばす',
@@ -2274,18 +2480,20 @@ export const dictionary = defineDictionary({
   sprintExtendFailed: '延長できませんでした。もう一度試してください。',
   sprintExtendNotActive: 'この{sprint}は進行中ではありません。画面を読み直しました。',
   sprintExtendChanged: '期間が変わりました。新しい期間を確かめて、もう一度試してください。',
+  sprintHeaderEditAction: '編集',
+  sprintHeaderEditLabel: '{sprint}を編集: {label}',
   sprintEditActive: '名前と{sprintGoal}を変更',
   sprintEditGoalHint: '{max} 字まで。空にすると消えます',
-  // スプリントを終えるダイアログ（kit.js の DIALOGS.sprintEnd）と、スプリントの画面の見出しの「終える」
+  // 終了のダイアログ（kit.js の DIALOGS.sprintEnd）と、見出しの「⋯」の終了メニュー・最終日から表に出す「終える」
   sprintCloseAction: '終える',
-  sprintCloseLabel: '終える: {label}',
+  sprintCloseLabel: '終える: {sprint}「{label}」',
   sprintCloseTitle: '{sprint}を終える',
-  sprintCloseText: '{label}を終えます。終えた{sprint}の期間と中身は、あとから変えられません。',
+  sprintCloseText: '{sprint}「{label}」を終えます。終えた{sprint}の期間と中身は、あとから変えられません。',
   // 名前のあるスプリントの呼び名に期間を添える。名前の無いスプリントは期間が名前なので、期間を重ねない（sprintLabelWithPeriod）
   sprintLabelWithPeriod: '{label}（{period}）',
   sprintCloseLoadFailed: '{sprint}の状態を読み込めませんでした。もう一度試してください',
   sprintCloseCarryLegend: '終わらなかった{task} {count} 件の行き先',
-  sprintCloseCarryTo: '{label}へ持ち越す',
+  sprintCloseCarryTo: '{sprint}「{label}」へ持ち越す',
   sprintCloseCarryToNote: '同じ{task}をそのまま移します。',
   sprintCloseCarryBacklog: '{backlog}へ戻す',
   sprintCloseCarryBacklogNote: 'どの{sprint}にも入っていない状態にします。',
@@ -2296,37 +2504,48 @@ export const dictionary = defineDictionary({
   sprintCloseGoalMissed: '達成していない',
   sprintCloseSubmit: '終える',
   sprintClosing: '終えています',
-  sprintClosedNone: '{label}を終えました',
-  sprintClosedToSprint: '{label}を終えました。{task} {count} 件を{target}へ持ち越しました',
-  sprintClosedToBacklog: '{label}を終えました。{task} {count} 件を{backlog}へ戻しました',
+  sprintClosedNone: '{sprint}「{label}」を終えました',
+  sprintClosedToSprint: '{sprint}「{label}」を終えました。{task} {count} 件を{sprint}「{target}」へ持ち越しました',
+  sprintClosedToBacklog: '{sprint}「{label}」を終えました。{task} {count} 件を{backlog}へ戻しました',
   sprintCloseNotActive: 'この{sprint}は進行中ではありません（もう終わっています）。読み直します',
   sprintCloseCarryTarget: '持ち越し先が使えなくなりました。選び直してください',
   sprintCloseChanged: '終える間に{task}が変わりました。読み直したので、行き先を確かめてもう一度押してください',
   sprintCloseForbidden: '{sprint}を終えるのは{leader}です',
   sprintCloseFailed: '終えられませんでした。もう一度試してください',
   // 最終日を過ぎた進行中のスプリントの知らせ（スプリントの画面と計画の画面）。終えるのはリーダー
-  sprintOverdueLeader: '{label}は最終日（{end}）を過ぎています。終わらなかった{task}の行き先を決めて、終えてください。',
-  sprintOverdueMember: '{label}は最終日（{end}）を過ぎています。終えるのは{leader}です。',
+  sprintOverdueLeader:
+    '{sprint}「{label}」は最終日（{end}）を過ぎています。終わらなかった{task}の行き先を決めて、終えてください。',
+  sprintOverdueMember: '{sprint}「{label}」は最終日（{end}）を過ぎています。終えるのは{leader}です。',
   // スプリントの画面（design/sprint.html）。見出しは進行中のスプリントの名前、小見出しは期間と何日目か
+  sprintStoryFilterLabel: '{story}で絞り込む: {title}',
+  sprintStoryFilterActive: '{story}: {title}',
+  sprintStoryFilterApplied: '{story}「{title}」で絞り込みました',
+  sprintStoryFilterCleared: '{story}の絞り込みを外しました',
+  sprintStoryFilterInvalid: '絞り込み対象の{story}が現在のボードにないため、絞り込みを外しました',
+  sprintStoryFilterClearFailed: '絞り込みを外せませんでした。もう一度試してください',
+  sprintStoryTotalsNote: '見出しは全体、列の件数と{points}は絞り込み後の値です',
+  sprintStoryCreateUnder: '絞り込んだ{story}の下に追加します',
+  sprintBoardAddStoryGone:
+    'この{story}か{sprint}か{column}が見つかりません。{task}は作られていません。一覧を読み直します',
   sprintBoardPageName: '{name}・{workspace}',
   sprintBoardEyebrow: '{period}・{length} 日のうち {day} 日目',
-  sprintBoardTallyDone: '{done}（pt）',
-  sprintBoardTallyTotal: '合計（pt）',
-  sprintBoardTallyRemaining: '残り（日）',
   sprintBoardRegion: '{sprint}の{column}とカード',
   sprintBoardColumnEmpty: 'なし',
   sprintBoardAddTask: '{task}を足す',
-  // 列の中の欄の案内。列は狭く（4列の 1280px と 390px で）、「（題を打って Enter）」まで入らないので、短く言い切る。Enter の案内は列の下の注（sprintBoardDraftHint）に任せる
+  // 列の中の欄の案内。列は狭いので短く言い切り、Enter の案内はショートカットの一覧に置く
   sprintBoardAddTaskPlaceholder: '{task}を足す',
   sprintBoardAddTaskIn: '{task}を足す: {column}',
   sprintBoardTaskAdded: '「{title}」を{column}に足しました',
   sprintBoardAddGone: 'この{sprint}か{column}が見つかりません。{task}は作られていません。一覧を読み直します',
   sprintBoardAddNotActive: 'この{sprint}はもう進行中ではないので、{task}は作られていません。一覧を読み直します',
   sprintBoardAddDoneColumn: '{done}の{column}には{task}を足せないので、作られていません。一覧を読み直します',
-  sprintBoardDraftHint: '{column}の末尾の空の行に題を打って Enter を押すと、その{column}に{task}が足されます。',
+  shortcutSprintCardColumns: '選んだカードを隣の{column}へ（{done}のカードは左で戻す）',
+  shortcutSprintCardOrder: '選んだ未完了カードを{column}の中で動かす',
+  shortcutSprintColumnAdd: '{column}の末尾の空の行に題を打ち、{task}を足す',
+  sprintBoardColumnToggle: '{column}の開閉',
   sprintBoardColumnPoints: '{points} pt',
   sprintBoardKeyHint:
-    'カードを別の{column}へドラッグして移すか、カードを選んで Alt と ← → で隣の{column}、Alt と ↑ ↓ で{column}の中を動かせます。カードの「⋯」のメニューでも同じです。{done}の{column}の手前の{column}から次へ送ると、{done}になります。',
+    'カードを別の{column}へドラッグして移すか、カードを選んで Alt と ← → で隣の{column}、Alt と ↑ ↓ で{column}の中を動かせます。カードの「⋯」のメニューでも同じです。{done}の{column}の手前の{column}から次へ送ると、{done}になります。{done}のカードは Alt と ← か「⋯」で戻せます。戻せないときは理由を知らせます。',
   sprintBoardEmptyTitle: '進行中の{sprint}はありません',
   sprintBoardEmptyLeaderText:
     '{plan}の画面で{sprint}を作り、{backlog}から{task}を入れてから始めます。始めると、ここに{column}とカードが並びます。',
@@ -2337,12 +2556,14 @@ export const dictionary = defineDictionary({
   sprintBoardOpenBacklog: '{backlog}を開く',
   // カードの移動。カードの「⋯」のメニューの項目（メニューの名前が題を持つので、項目には題を添えない）
   moveColumnPrev: '前の{column}へ',
+  moveColumnReopen: '前の{column}へ（{done}を戻す）',
   moveColumnNext: '次の{column}へ',
   // 最後の完了でない列のカードの「次の列へ」。完了の列へ移す代わりに完了にする
   moveColumnComplete: '{done}の{column}へ（{complete}）',
   // 選んだカードの説明（aria-describedby）。{points} はポイントか未見積もりの文
   sprintCardSummary: '{points}、{assignee}は{name}',
   sprintCardSummaryUnassigned: '{points}、{unassigned}',
+  sprintCardReopenBlockedSummary: '{summary}、{done}を戻せません',
   // 動かした後の読み上げ。{index} は移した先の{column}の中で何番目か、{total} はその件数
   sprintCardMoved: '「{title}」を{column}の {index} 番目に移しました（{total} 件中）',
   sprintCardNoPrevColumn: 'これより前の{column}はありません',
@@ -2397,14 +2618,10 @@ export const dictionary = defineDictionary({
   // 画面は出さない（開発の状況の説明になるため）。積載量の欄が入る（#66）ときに言い方を決め直す
   meOtherSettingsNote:
     '今は経験値、API トークン、テーマ、届いた招待を扱えます。1日の基準、稼働期間、休み、月の基準の上書き、積載量の合計は、これから足します。',
-  // 自分のテーマ（マイプロフィールの節。選んだ瞬間に保存する）。{admin} は管理者、{organization} は組織、{label} はテーマの名前
-  meThemeDesc:
-    '画面の見た目。選ぶとすぐに変わります。自分で選ばなければ、{admin}が決めた{organization}の既定に従います。',
-  meThemeFollow: '{organization}の既定に従う',
-  meThemeFollowNote: '今は{label}',
+  // 自分のテーマ（マイプロフィールの節。選んだ瞬間に保存する）。{label} はテーマの名前
+  meThemeDesc: '画面の見た目。選ぶとすぐに変わります。自分だけに効きます。',
   meThemeSaving: 'テーマを保存しています',
   meThemeChanged: 'テーマを「{label}」に変えました',
-  meThemeFollowed: 'テーマを{organization}の既定に戻しました',
   meThemeFailed: 'テーマを変えられませんでした。もう一度試してください。',
   // マイプロフィールの「届いた招待」（この組織のワークスペースへの招待。別の組織の招待は組織の切り替えから）。文は invitationLine
   meInvitationsFailed: '届いた招待を読み込めませんでした',
@@ -2589,18 +2806,15 @@ export const dictionary = defineDictionary({
   categoryHasParent: '親のある{task}には{category}を振れません。親の{category}を引き継ぎます。',
   definitionRefGone: '選んだ{kind}は削除されています。選び直してください',
 
-  // タスクの決まった欄（#173。設定の節、引き出しの欄、未記入の印と件数）。リーダーが付けた欄の名前は辞書を通さず、そのまま出す
+  // タスクの決まった欄（#173。設定の節、引き出しの欄）。リーダーが付けた欄の名前は辞書を通さず、そのまま出す
   detailFieldKind: '決まった欄',
   detailFieldsTitle: '{detail}の決まった欄',
-  detailFieldsDesc:
-    '{task}ごとに書いてほしい欄。名前は付けたままで、訳しません。完了していない{task}で書かれていない欄があるものには「{detail} 未記入」の印が付きます。',
+  detailFieldsDesc: '{task}ごとに書いてほしい欄。名前は付けたままで、訳しません。',
   detailFieldsLimitNote: '{kind}は {max} 件まで足せます（いま {count} 件）。',
   detailFieldsLimitReached:
     '{kind}は {max} 件に達しているため、これ以上は足せません。使わないものを削除すると足せます。',
   detailFieldDeleteText:
-    '削除した欄は{task}の{detail}に出なくなり、「{detail} 未記入」の判定からも外れます。元には戻せません。',
-  unfilledChip: '{detail} 未記入',
-  unfilledMark: '未記入',
+    '削除した欄は{task}の{detail}に出なくなり、{detail}の経験値の判定からも外れます。元には戻せません。',
   fieldValueEmpty: 'まだ書かれていません。',
   // 決まった欄の「書く」ボタン。本文の「編集」と、読み上げの名前も文字も重ならないようにする
   fieldValueWrite: '書く',
@@ -2612,9 +2826,6 @@ export const dictionary = defineDictionary({
   fieldValueRefreshFailed:
     'ほかの人が先にこの欄を直しましたが、最新の内容を読み直せませんでした。しばらくしてから、もう一度試してください。',
   fieldValueGone: 'この欄は削除されています。画面を読み直します',
-  planUnfilled: '{detail} 未記入 {count} 件',
-  sprintTaskPickUnfilled: '（うち{detail} 未記入 {count} 件）',
-  sprintTaskPickRowUnfilled: '{detail} 未記入',
   historyDetailWritten: '「{name}」を書いた',
   historyDetailEdited: '「{name}」を直した',
   historyDetailCleared: '「{name}」を空にした',

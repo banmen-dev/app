@@ -14,13 +14,14 @@ import {
   type CreatePersonalOrganizationConflictReason,
 } from './create-personal-organization.ts';
 import { firstSteps } from './first-steps.ts';
+import { meAvatarDelete, meAvatarUpload, userAvatar } from './me-avatar.ts';
 import { meThemeUpdate } from './me-theme-update.ts';
 import { myOrganizations } from './my-organizations.ts';
 import { organizationInfo } from './organization.ts';
 import { organizationHistory } from './organization-history.ts';
 import { organizationHolidayAdd, organizationHolidayDelete, organizationHolidayList } from './organization-holiday.ts';
-import { organizationSettingsUpdate } from './organization-settings.ts';
 import { userAdminUpdate, userDisable, userEnable, userList } from './user.ts';
+import { recentActivity } from './recent-activity.ts';
 import { today } from './today.ts';
 
 export {
@@ -37,6 +38,8 @@ export {
   createPersonalOrganizationConflictReasons,
   type CreatePersonalOrganizationConflictReason,
   firstSteps,
+  meAvatarDelete,
+  meAvatarUpload,
   meThemeUpdate,
   myOrganizations,
   organizationHistory,
@@ -44,12 +47,13 @@ export {
   organizationHolidayDelete,
   organizationHolidayList,
   organizationInfo,
-  organizationSettingsUpdate,
   userAdminUpdate,
   userDisable,
   userEnable,
+  userAvatar,
   userList,
   today,
+  recentActivity,
 };
 
 export const organizationOperations: readonly AnyOperationDefinition[] = [
@@ -62,15 +66,18 @@ export const organizationOperations: readonly AnyOperationDefinition[] = [
   createPersonalOrganization,
   organizationInfo,
   meThemeUpdate,
+  meAvatarUpload,
+  meAvatarDelete,
+  userAvatar,
   organizationHolidayList,
   organizationHolidayAdd,
   organizationHolidayDelete,
-  organizationSettingsUpdate,
   organizationHistory,
   userList,
   userAdminUpdate,
   userDisable,
   userEnable,
   today,
+  recentActivity,
   firstSteps,
 ];
