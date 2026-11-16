@@ -1804,10 +1804,10 @@ dialog.dialog::backdrop { background: none; }
   /* 開き方と前後のボタンと閉じるボタンは、隣と押せる範囲が重ならないよう、見た目ごと 44px 四方にする */
   .drawer-steps .pill, .drawer-mode .pill, .drawer-close { min-width: 44px; min-height: 44px; justify-content: center; }
   .tree-end { row-gap: 0; }
-  /* ボタンだけの段（ratio も note も無い段）も 44px にする。広げた範囲が次の段に重ならない */
+  /* ボタンだけの段（ratio も note も無い段）も 44px 以上にする。広げた範囲が次の段に重ならない */
   .tree-row .tree-end .btn.is-sm { margin-block: var(--space-2); }
-  /* 右端の段は、どの段も 44px の高さにする（「完了 / 全体」と残りの件数の文字を 44px の箱に入れ、ボタンは段の中央に置く）。
-     段が 44px なので、段の間に余白が要らず、ボタンの広げた範囲も隣の段に重ならない。題の広げた範囲（下へ約 11px）は、
+  /* 右端の段は、どの段も 44px 以上の高さにする（「完了 / 全体」と残りの件数の文字を 44px の箱に入れ、ボタンは段の中央に置く）。
+     小ボタンは上下4pxの内側と8pxの外側で約46pxになり、段が 44px 以上なので、段の間に余白が要らず、ボタンの広げた範囲も隣の段に重ならない。題の広げた範囲（下へ約 11px）は、
      段の上の余白（約 8px）と題の下の間（--space-3。ボタンの広げた範囲も上へ約 8px 出るので、11.5 + 8 を 8 + 12 が超える）に収まる（e2e/layout-narrow-workspace.test.ts で確かめる） */
   .tree-ratio, .tree-note { display: inline-flex; align-items: center; min-height: 44px; }
   .tree-row { row-gap: var(--space-3); }
