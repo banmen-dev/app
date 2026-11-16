@@ -1078,7 +1078,7 @@
 | completion_id | TEXT | FK completions | その回の完了への参照。#1314 は NULL だけを書き、接続と経験値の処理は #1315 |
 | created_at | TEXT | NOT NULL、UTC ミリ秒の日時 | 初めて処理した日時 |
 
-- 主キーは `(task_id, review_cycle)`。`completion_id` に索引を持つ。過去の完了と経験値を消さず、組織の消去では completions / tasks より先に消す。旧版が扱う親の通常削除は論理削除で、#1314 は completion_id を常に NULL とするため、旧版へのコードの戻しを妨げない。
+- 主キーは `(task_id, review_cycle)`。`completion_id` に索引を持つ。過去の完了と経験値を消さず、組織の消去では completions / tasks より先に消す。旧版が扱う親の通常削除は論理削除で、#1314 は completion_id を常に NULL とするため、旧版へのコードの戻しを妨げない。#1315 で完了参照を接続する前に、通常の task-reopen が completions を物理削除する操作との整合を設計する。
 
 ### task_source_payloads
 
