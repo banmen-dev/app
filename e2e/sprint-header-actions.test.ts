@@ -1,5 +1,6 @@
 import { organizationInfo } from '../src/shared/operations/organization/index.ts';
 import { sprintBoard, sprintList } from '../src/shared/operations/sprint/index.ts';
+import { workspaceInfo } from '../src/shared/operations/workspace/index.ts';
 import { expect, test } from './fixtures.ts';
 import { signIn, waitForSettled } from './helpers.ts';
 import { mockOperation, rewriteOperation } from './operations.ts';
@@ -57,6 +58,12 @@ for (const state of ['member', 'closed'] as const) {
   }) => {
     await signIn(context, baseURL, state === 'member' ? 'member' : 'admin');
     if (state === 'closed') {
+      // 組織のメニューと、画面がcanLeadを決めるワークスペースの枠の両方へ同じ終了状態を返す。
+      // organizationだけを替えると、後から届いたworkspace-infoの開いた状態で操作が再表示される。
+      await rewriteOperation(page, workspaceInfo, { slug: 'aoba' }, (output) => ({
+        ...output,
+        closed_at: '2026-10-20T00:00:00.000Z',
+      }));
       await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (output) => ({
         ...output,
         workspaces: output.workspaces.map((workspace) => ({ ...workspace, closed_at: '2026-10-20T00:00:00.000Z' })),
@@ -65,6 +72,12 @@ for (const state of ['member', 'closed'] as const) {
     await mockOperation(page, sprintBoard, { slug: 'aoba' }, { ...SAMPLE_BOARD, today: '2026-10-26' });
     await page.goto(PATH);
     await expect(page.getByRole('heading', { level: 1, name: '第14回' })).toBeVisible();
+    await waitForSettled(page);
+    if (state === 'closed') {
+      await expect(
+        page.locator('.callout.is-info', { hasText: '2026-10-20 に終了しました。読み取り専用です。' }),
+      ).toBeVisible();
+    }
     await expect(page.locator('.page-actions').getByRole('button')).toHaveCount(0);
     await expect(page.getByRole('menuitem', { name: '終える', exact: true })).toHaveCount(0);
   });
