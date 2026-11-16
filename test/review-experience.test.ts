@@ -313,11 +313,20 @@ describe('レビュー依頼の回ごとの経験値', () => {
     expect(summary.workspaces.find((w) => w.id === s.target.workspace.id)?.prospective).toBe(0);
   });
 
-  test('保存済み依頼回の行が欠けていたら完了せず409で断り、記録も経験値も書かない', async () => {
+  test.each([false, true])('現在の依頼回の行が欠けていたら409で何も書かない（旧回の行=%s）', async (oldCycle) => {
     const s = await setup();
     await s.db.run(s.db.statement((q) => q.deleteFrom('review_request_cycles').where('task_id', '=', s.task.id)));
+    if (oldCycle)
+      await s.db.run(
+        s.db.statement((q) =>
+          q
+            .insertInto('review_request_cycles')
+            .values({ task_id: s.task.id, review_cycle: 'request-old', completion_id: null, created_at: AT }),
+        ),
+      );
     const response = await call(s.target, s.task.id);
     expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ error: { code: 'conflict' } });
     expect(await completions(s)).toEqual([]);
     expect(await grants(s)).toEqual([]);
     const row = await s.db.first(
@@ -346,14 +355,18 @@ describe('レビュー依頼の回ごとの経験値', () => {
   );
 
   test.each(['planned', 'active'] as const)(
-    '%sスプリント内のレビューを完了・取り消しすると配置と依頼回と経験値を戻す',
+    '%sスプリントのレビュー完了・取消で、進行中の配置だけを復元し予定の所属は外したままにする',
     async (status) => {
       const s = await setup();
       const column = await createBoardColumn(s.target.organization, s.target.workspace.id, {
         name: '作業中',
         position: 'a0',
       });
-      await createBoardColumn(s.target.organization, s.target.workspace.id, { name: null, is_done: 1, position: 'a1' });
+      const done = await createBoardColumn(s.target.organization, s.target.workspace.id, {
+        name: null,
+        is_done: 1,
+        position: 'a1',
+      });
       const sprint = await createSprint(s.target.organization, s.target.workspace.id, { status });
       await createSprintEntry(
         s.target.organization,
@@ -380,14 +393,44 @@ describe('レビュー依頼の回ごとの経験値', () => {
           previous_column_id: status === 'active' ? column.id : null,
         },
       ]);
+      const completedTask = await s.db.first(
+        s.db.statement((q) =>
+          q
+            .selectFrom('tasks')
+            .select(['sprint_id', 'column_id', 'column_position'])
+            .where('id', '=', s.task.id)
+            .where('workspace_id', '=', s.target.workspace.id),
+        ),
+      );
+      expect(completedTask).toMatchObject({
+        sprint_id: status === 'active' ? sprint.id : null,
+        column_id: status === 'active' ? done.id : null,
+        column_position: status === 'active' ? expect.any(String) : null,
+      });
+      const entries = () =>
+        s.db.rows(
+          s.db.statement((q) =>
+            q
+              .selectFrom('sprint_entries')
+              .select(['ended_at', 'outcome'])
+              .where('workspace_id', '=', s.target.workspace.id)
+              .where('task_id', '=', s.task.id),
+          ),
+        );
+      expect(await entries()).toEqual([
+        { ended_at: status === 'active' ? null : AT, outcome: status === 'active' ? null : 'removed' },
+      ]);
       expect((await call(s.target, s.task.id, taskReopen)).status).toBe(200);
+      expect(await entries()).toEqual([
+        { ended_at: status === 'active' ? null : AT, outcome: status === 'active' ? null : 'removed' },
+      ]);
       expect(await completions(s)).toEqual([]);
       expect((await grants(s)).reduce((sum, r) => sum + r.amount, 0)).toBe(0);
       const row = await s.db.first(
         s.db.statement((q) =>
           q
             .selectFrom('tasks')
-            .select(['completed_at', 'sprint_id', 'column_id'])
+            .select(['completed_at', 'sprint_id', 'column_id', 'column_position'])
             .where('id', '=', s.task.id)
             .where('workspace_id', '=', s.target.workspace.id),
         ),
@@ -396,6 +439,7 @@ describe('レビュー依頼の回ごとの経験値', () => {
         completed_at: null,
         sprint_id: status === 'active' ? sprint.id : null,
         column_id: status === 'active' ? column.id : null,
+        column_position: status === 'active' ? expect.any(String) : null,
       });
       const cycle = await s.db.first(
         s.db.statement((q) =>
@@ -413,10 +457,12 @@ describe('レビュー依頼の回ごとの経験値', () => {
   test('完了対象の読み取り後に依頼回の版が進んだら読み直して完了し二重付与しない', async () => {
     const s = await setup();
     let changed = false;
+    let reads = 0;
     const requestEnv = envWithD1Hooks(clock, {
       afterQuery: async (sql) => {
-        if (changed || !sql.includes('"tasks"') || !sql.includes('"task_sources"') || !sql.includes('"sprints"'))
-          return;
+        if (!sql.includes('as "sprint_deleted_at"') || !sql.includes('left join "task_sources"')) return;
+        reads++;
+        if (changed) return;
         changed = true;
         await s.db.run(
           s.db.statement((q) =>
@@ -436,10 +482,82 @@ describe('レビュー依頼の回ごとの経験値', () => {
       env: requestEnv,
     });
     expect(changed).toBe(true);
+    expect(reads).toBeGreaterThanOrEqual(2);
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ xp_granted: 30 });
     expect(await completions(s)).toHaveLength(1);
     expect(await grants(s)).toMatchObject([{ action: 'review', amount: 30 }]);
+    expect((await call(s.target, s.task.id)).status).toBe(409);
+    expect(await grants(s)).toHaveLength(1);
+  });
+
+  test('読み取り後に新しい依頼回へ変わったら次回だけに完了を接続し、再送にも二重付与しない', async () => {
+    const s = await setup();
+    let changed = false;
+    let reads = 0;
+    const requestEnv = envWithD1Hooks(clock, {
+      afterQuery: async (sql) => {
+        if (!sql.includes('as "sprint_deleted_at"') || !sql.includes('left join "task_sources"')) return;
+        reads++;
+        if (changed) return;
+        changed = true;
+        await s.db.batch([
+          s.db.statement((q) =>
+            q
+              .updateTable('task_sources')
+              .set({ review_cycle: 'request-2', review_revision: 1 })
+              .where('workspace_id', '=', s.target.workspace.id)
+              .where('task_id', '=', s.task.id),
+          ),
+          s.db.statement((q) =>
+            q
+              .insertInto('review_request_cycles')
+              .values({ task_id: s.task.id, review_cycle: 'request-2', completion_id: null, created_at: AT }),
+          ),
+        ]);
+      },
+    });
+    const response = await post(app, taskComplete, {
+      slug: s.target.slug,
+      token: s.target.member.token,
+      body: { workspace_id: s.target.workspace.id, task_id: s.task.id },
+      env: requestEnv,
+    });
+    expect(changed).toBe(true);
+    expect(reads).toBeGreaterThanOrEqual(2);
+    expect(response.status).toBe(200);
+    const records = await completions(s);
+    expect(records).toHaveLength(1);
+    const cycles = await s.db.rows(
+      s.db.statement((q) =>
+        q
+          .selectFrom('review_request_cycles')
+          .select(['review_cycle', 'completion_id'])
+          .where('task_id', '=', s.task.id)
+          .orderBy('review_cycle'),
+      ),
+    );
+    expect(cycles).toEqual([
+      { review_cycle: 'request-1', completion_id: null },
+      { review_cycle: 'request-2', completion_id: records[0].id },
+    ]);
+    expect((await call(s.target, s.task.id)).status).toBe(409);
+    expect(await grants(s)).toMatchObject([{ action: 'review', amount: 30 }]);
+  });
+
+  test('別組織のレビュー依頼のIDは404で、元タスクの完了記録も経験値も作らない', async () => {
+    const s = await setup();
+    const other = await createTarget();
+    const response = await post(app, taskComplete, {
+      slug: other.slug,
+      token: other.member.token,
+      body: { workspace_id: other.workspace.id, task_id: s.task.id },
+      env: clock,
+    });
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ error: { code: 'not_found' } });
+    expect(await completions(s)).toEqual([]);
+    expect(await grants(s)).toEqual([]);
   });
 
   test('PR の完了は従来どおり task_completed を付ける', async () => {
