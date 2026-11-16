@@ -122,6 +122,17 @@ test('畳んだ列へドラッグすると末尾に入り、キー移動も隣�
   await expect(working.locator('.card')).toHaveCount(0);
   await workingToggle.click();
   await expect(working.locator('.card-title')).toHaveText(['キーの札']);
+  const doneToggle = page.getByRole('button', { name: '完了の開閉' });
+  await doneToggle.click();
+  await page.getByRole('button', { name: '完了にする: 動かす札', exact: true }).click();
+  await expect(doneToggle).toBeFocused();
+  await expect(doneToggle).toHaveAttribute('aria-expanded', 'false');
+  await doneToggle.click();
+  await toggle.click();
+  await page.getByRole('button', { name: '完了を戻す: 動かす札', exact: true }).click();
+  await expect(toggle).toBeFocused();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await toggle.click();
   await page.reload();
   await expect(review.locator('.card-title')).toHaveText(['先の札', '動かす札']);
 });

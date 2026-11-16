@@ -232,16 +232,29 @@
     );
     if (card === undefined) {
       // キーで畳んだ列へ送ったときは、消えたカードの代わりに列の開閉へ移る。
-      const column = columns.find((candidate) => candidate.tasks.some((task) => task.id === saved.id));
-      if (column && collapsedColumns.isCollapsed(column.id)) {
-        [...document.querySelectorAll<HTMLButtonElement>('[data-column-toggle]')]
-          .find((button) => button.dataset.columnToggle === column.id)
-          ?.focus();
-      }
+      focusCollapsedColumn(saved.id);
       return;
     }
     const control = saved.index === -1 ? card : card.querySelectorAll<HTMLElement>('a, button')[saved.index];
     (control ?? card).focus();
+  }
+
+  function focusCollapsedColumn(taskId: string, columnId?: string): void {
+    const column =
+      columnId === undefined
+        ? columns.find((candidate) => candidate.tasks.some((task) => task.id === taskId))
+        : columns.find((candidate) => candidate.id === columnId);
+    if (column && collapsedColumns.isCollapsed(column.id)) {
+      [...document.querySelectorAll<HTMLButtonElement>('[data-column-toggle]')]
+        .find((button) => button.dataset.columnToggle === column.id)
+        ?.focus();
+    }
+  }
+
+  function focusTaskOrCollapsedColumn(taskId: string, selector: string, columnId?: string): void {
+    const control = document.querySelector<HTMLElement>(selector);
+    if (control) control.focus();
+    else focusCollapsedColumn(taskId, columnId);
   }
 
   function edgeMessage(edge: MoveEdge): string {
@@ -311,7 +324,7 @@
     void sent.then(async () => {
       if (!completed) return;
       await tick();
-      document.querySelector<HTMLElement>(`a[data-task-id="${CSS.escape(task.id)}"]`)?.focus();
+      focusTaskOrCollapsedColumn(task.id, `a[data-task-id="${CSS.escape(task.id)}"]`);
     });
   }
 
@@ -432,7 +445,7 @@
           await invalidate('app:sprint-board');
           // 完了の列のカードは選べない。同じカードの題のリンクへフォーカスを移す
           await tick();
-          document.querySelector<HTMLElement>(`a[data-task-id="${CSS.escape(task.id)}"]`)?.focus();
+          focusTaskOrCollapsedColumn(task.id, `a[data-task-id="${CSS.escape(task.id)}"]`);
         }
       } else if (result.status === 401) {
         await invalidateAll();
@@ -536,7 +549,7 @@
           await invalidate('app:sprint-board');
           // 押した「戻す」は消えるので、戻した列に出たカードへフォーカスを移す（動かせるカードは選べる）
           await tick();
-          document.querySelector<HTMLElement>(`[data-card-id="${CSS.escape(task.id)}"]`)?.focus();
+          focusTaskOrCollapsedColumn(task.id, `[data-card-id="${CSS.escape(task.id)}"]`, result.data.column_id);
         }
       } else if (result.status === 401) {
         await invalidateAll();
