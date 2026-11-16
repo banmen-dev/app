@@ -264,7 +264,7 @@ test('全クライアントのスキーマ参照は、保持する操作の outp
   for (const entry of readdirSync(path.join(root, 'src'), { recursive: true, withFileTypes: true })) {
     if (!entry.isFile() || !/\.(ts|svelte)$/.test(entry.name) || /\.test\.|\.typecheck\./.test(entry.name)) continue;
     const file = path.join(entry.parentPath, entry.name);
-    if (/(^|[/\\])(server|shared)[/\\]/.test(path.relative(path.join(root, 'src'), file))) continue;
+    if (/^(?:server[/\\]|shared[/\\]operations[/\\])/.test(path.relative(path.join(root, 'src'), file))) continue;
     const code = readFileSync(file, 'utf8');
     sources[file.endsWith('.svelte') ? `${file}.ts` : file] = file.endsWith('.svelte') ? componentCode(code) : code;
   }
