@@ -151,7 +151,7 @@ async function readPage(input: ReviewRequestPageInput, parsed: Position | null):
   if (position.phase === 'list') {
     // 1件ずつ読むことで、履歴を読む間の一覧全体をカーソルに保存しない。
     const raw = await get(`${base}/pulls?state=all&sort=created&direction=asc&per_page=1&page=${position.page}`);
-    if (!Array.isArray(raw) || raw.length > 1) throw new InvalidPull();
+    if (!Array.isArray(raw) || raw.length > 1) throw fail('unavailable');
     if (raw.length === 0) return { items: [], next: null };
     return next({ ...position, pull: pullOf(raw[0]), phase: 'timeline' });
   }

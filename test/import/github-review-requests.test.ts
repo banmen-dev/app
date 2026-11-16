@@ -32,15 +32,19 @@ function fixture() {
     },
     timeline: [[request()]] as unknown[][],
     failure: 0,
+    missingFirst: 0,
     mutate: false,
     others: [] as Record<string, unknown>[],
     timelines: {} as Record<string, unknown[][]>,
+    listResponse: undefined as unknown,
   };
   const fetcher: typeof fetch = async (input, init) => {
     const request = new Request(input, init);
     const url = request.url;
     calls.push({ url, init });
     const parsed = new URL(url);
+    if (data.missingFirst && parsed.pathname.includes('/issues/7/timeline'))
+      return new Response('', { status: data.missingFirst });
     if (data.failure && parsed.pathname.endsWith('/timeline')) return new Response('', { status: data.failure });
     if (parsed.pathname === '/user') return Response.json({ type: 'User', id: 42, login: 'fake-ranger' });
     if (parsed.pathname.endsWith('/timeline'))
@@ -49,13 +53,15 @@ function fixture() {
           Number(parsed.searchParams.get('page')) - 1
         ] ?? [],
       );
-    if (parsed.pathname.endsWith('/pulls'))
+    if (parsed.pathname.endsWith('/pulls')) {
+      if (data.listResponse !== undefined) return Response.json(data.listResponse);
       return Response.json(
         [data.pull, ...data.others].slice(
           Number(parsed.searchParams.get('page')) - 1,
           Number(parsed.searchParams.get('page')),
         ),
       );
+    }
     if (/\/pulls\/\d+$/.test(parsed.pathname)) {
       if (data.mutate && parsed.pathname.endsWith('/7')) {
         data.pull.updated_at = new Date(Date.parse(data.pull.updated_at) + 1000).toISOString();
@@ -287,6 +293,12 @@ describe('レビュー依頼の取得', () => {
     const f = fixture();
     f.data.mutate = true;
     await expect(f.drain({ target })).rejects.toBeInstanceOf(ImportSourceError);
+  });
+  test.each([{}, [1, 2]])('一覧自体の不正応答はカーソルを進めず失敗する', async (response) => {
+    const f = fixture();
+    f.data.listResponse = response;
+    const first = await f.page(null);
+    await expect(f.page(first.next)).rejects.toBeInstanceOf(ImportSourceError);
   });
   test('PAT は固定ホストの Authorization だけに送り、リダイレクトしない', async () => {
     const f = fixture();
