@@ -2,7 +2,7 @@
 // DB には書かない。保存と同期への組み込みは #1314 が受け持つ。
 // 人が差分を読む領域（docs/development.md の「マージの判定」）
 import type { FetchPageResult, ImportItem, ReviewRequestPageInput } from '../source.ts';
-import { FULL_NAME_PATTERN, PAGE_SIZE, fail, getJson, isRecord } from './client.ts';
+import { FULL_NAME_PATTERN, PAGE_SIZE, GithubItemMissing, fail, getJson, isRecord } from './client.ts';
 
 const ID = /^[1-9][0-9]{0,15}$/;
 const MAX_PAGE = 100_000;
@@ -261,6 +261,9 @@ export async function fetchReviewRequestsPage(input: ReviewRequestPageInput): Pr
     return await readPage(input, position);
   } catch (error) {
     // PR 単位の不整合は判定を返さず進む。通信・認証の失敗は呼び出し側に返し、同じ位置で再試行する。
+    if (error instanceof GithubItemMissing && position !== null && position.phase !== 'list') {
+      return defer(position, input);
+    }
     if (error instanceof InvalidPull) {
       if (position === null) throw fail('unavailable');
       return defer(position, input);

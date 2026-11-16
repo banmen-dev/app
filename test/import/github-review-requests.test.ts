@@ -300,6 +300,14 @@ describe('レビュー依頼の取得', () => {
     const first = await f.page(null);
     await expect(f.page(first.next)).rejects.toBeInstanceOf(ImportSourceError);
   });
+  test.each([404, 410])('個別 PR の履歴の %s は後続の PR を塞がない', async (status) => {
+    const f = fixture();
+    f.data.others = [{ ...f.data.pull, id: 9002, number: 8, html_url: `https://github.com/${scope.name}/pull/8` }];
+    f.data.timelines['8'] = [[request(202)]];
+    f.data.missingFirst = status;
+    expect(await f.drain()).toEqual([expect.objectContaining({ sourceId: '9002' })]);
+    await expect(f.drain({ target })).rejects.toBeInstanceOf(ImportSourceError);
+  });
   test('PAT は固定ホストの Authorization だけに送り、リダイレクトしない', async () => {
     const f = fixture();
     await f.drain();
