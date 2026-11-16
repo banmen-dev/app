@@ -8,6 +8,7 @@ export function cropSquare(width: number, height: number, zoom: number, x: numbe
     size,
   };
 }
+export const AVATAR_SOURCE_MAX_BYTES = 20 * 1024 * 1024;
 export const avatarImageTypes = ['image/png', 'image/jpeg', 'image/webp'];
 export function canvasBlob(canvas: HTMLCanvasElement, type: string): Promise<Blob> {
   return new Promise((resolve, reject) =>

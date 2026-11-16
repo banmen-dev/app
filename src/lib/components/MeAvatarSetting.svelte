@@ -3,10 +3,10 @@
   import { invalidate } from '$app/navigation';
   import { page } from '$app/state';
   import { meAvatarDelete, organizationInfo } from '../../shared/operations/organization/index.ts';
-  import { AVATAR_MAX_BYTES } from '../../shared/operations/organization/me-avatar.ts';
+  import { AVATAR_MAX_BYTES, AVATAR_MAX_PIXELS } from '../../shared/operations/organization/me-avatar.ts';
   import { operationPath } from '../../shared/operations/define.ts';
   import { callOperation } from '../api.ts';
-  import { avatarImageTypes, isAvatarSource } from '../image-crop.ts';
+  import { AVATAR_SOURCE_MAX_BYTES, avatarImageTypes, isAvatarSource } from '../image-crop.ts';
   import { uploadAvatar } from '../avatar-upload.ts';
   import { isUnauthenticated, loginUrl } from '../login-redirect.ts';
   import { showToast } from '../toast.svelte.ts';
@@ -53,8 +53,8 @@
       return;
     }
     // 巨大な写真を復号してタブを止めないため、元ファイルも20MiBまでに限る。
-    if (file.size > 20 * 1024 * 1024) {
-      error = t('avatarSourceTooLarge');
+    if (file.size > AVATAR_SOURCE_MAX_BYTES) {
+      error = t('avatarSourceTooLarge', { max: AVATAR_SOURCE_MAX_BYTES / 1024 / 1024 });
       return;
     }
     const selectedSlug = slug;
@@ -93,7 +93,7 @@
     try {
       const blob = remove ? null : await cropper!.encode();
       if (blob && blob.size > AVATAR_MAX_BYTES) {
-        cropError = t('avatarOutputTooLarge');
+        cropError = t('avatarOutputTooLarge', { max: AVATAR_MAX_BYTES / 1024 });
         return;
       }
       if (!alive || sentSlug !== slug) return;
@@ -106,7 +106,10 @@
           window.location.assign(loginUrl(page.url));
           return;
         }
-        const message = result.status === 400 || result.status === 413 ? t('avatarRejected') : t('avatarSaveFailed');
+        const message =
+          result.status === 400 || result.status === 413
+            ? t('avatarRejected', { bytes: AVATAR_MAX_BYTES / 1024, pixels: AVATAR_MAX_PIXELS })
+            : t('avatarSaveFailed');
         if (remove) error = message;
         else cropError = message;
         return;
