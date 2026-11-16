@@ -112,6 +112,28 @@
   }));
   const canLead = $derived(isLeader && !isClosed);
   const sprint = $derived(board?.sprint ?? null);
+  // カードと空の行自身が受けるキー。中央の振り分けへ操作を増やさず、一覧だけに出す。
+  useShortcut(() => ({
+    id: 'sprint-card-columns',
+    keys: 'Alt + ← →',
+    label: () => t('shortcutSprintCardColumns', { column: t('column'), done: t('done') }),
+    helpOnly: true,
+    enabled: () => canWrite && sprint !== null,
+  }));
+  useShortcut(() => ({
+    id: 'sprint-card-order',
+    keys: 'Alt + ↑ ↓',
+    label: () => t('shortcutSprintCardOrder', { column: t('column') }),
+    helpOnly: true,
+    enabled: () => canWrite && sprint !== null,
+  }));
+  useShortcut(() => ({
+    id: 'sprint-column-add',
+    keys: 'Enter',
+    label: () => t('shortcutSprintColumnAdd', { task: t('task'), column: t('column') }),
+    helpOnly: true,
+    enabled: () => canWrite && sprint !== null,
+  }));
   // 日付は YYYY-MM-DD なので、文字列の比較が日付の前後と一致する。終了したワークスペースでは、誰も終えられないので促さない
   const overdue = $derived(!isClosed && sprint !== null && board !== null && board.today > sprint.end_on);
   let editDialog = $state<ReturnType<typeof SprintDialog>>();
@@ -181,7 +203,7 @@
   const firstOpenColumnId = $derived(
     columns.find((item) => !item.is_done && !collapsedColumns.isCollapsed(item.id))?.id,
   );
-  // 動かし方の案内。動かせるカード（書き込めるときだけ）の説明に結ぶので、案内も書き込めるときだけ出す
+  // 動かし方の見えない説明。書き込めるカードの aria-describedby に結ぶ
   const KEY_HINT_ID = 'sprint-board-key-hint';
   const moves = new MoveQueue<ApiResult<unknown>>({
     reload: reloadBoard,
@@ -976,11 +998,9 @@
       </div>
     </div>
     {#if canWrite}
-      <p class="action-note" id={KEY_HINT_ID}>
+      <span class="visually-hidden" id={KEY_HINT_ID}>
         {t('sprintBoardKeyHint', { column: t('column'), done: t('done') })}
-      </p>
-      <!-- 空の行の案内。カードの説明（KEY_HINT_ID）に混ぜず、別の注記にする -->
-      <p class="action-note">{t('sprintBoardDraftHint', { column: t('column'), task: t('task') })}</p>
+      </span>
     {/if}
   {/if}
   {#key workspace.id}

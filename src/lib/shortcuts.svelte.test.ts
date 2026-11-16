@@ -33,6 +33,38 @@ function make(overrides: Partial<Shortcut> = {}): Shortcut & { run: ReturnType<t
 }
 
 describe('登録と振り分け', () => {
+  test('一覧だけの登録は解析しない表記も持て、キーやヒントを奪わず解除できる', () => {
+    const registry = new ShortcutRegistry();
+    const definition: Shortcut = {
+      id: 'card-columns',
+      keys: 'Alt + ← →',
+      label: () => 'カードを隣の列へ',
+      helpOnly: true,
+    };
+    const unregister = registry.register(definition);
+    expect(registry.items).toEqual([definition]);
+    for (const event of [keyEvent({ key: 'ArrowLeft', altKey: true }), keyEvent({ key: 'Enter' })]) {
+      expect(registry.handle(event)).toBe(false);
+      expect(event.preventDefault).not.toHaveBeenCalled();
+    }
+    expect(registry.isAvailable(definition, null)).toBe(false);
+    unregister();
+    expect(registry.items).toEqual([]);
+  });
+
+  test('一覧だけのキーは実行する登録と衝突せず、続けて押すキーの待ちも作らない', () => {
+    const registry = new ShortcutRegistry();
+    registry.register({ id: 'listed-c', keys: 'c', label: () => '案内', helpOnly: true });
+    const action = make({ id: 'working-c', keys: 'c' });
+    registry.register(action);
+    expect(registry.handle(keyEvent({ key: 'c' }))).toBe(true);
+    expect(action.run).toHaveBeenCalledTimes(1);
+    registry.register({ id: 'listed-chord', keys: 'g b', label: () => '案内', helpOnly: true });
+    const first = keyEvent({ key: 'g' });
+    expect(registry.handle(first)).toBe(false);
+    expect(first.preventDefault).not.toHaveBeenCalled();
+  });
+
   test('当たるキーで run を呼び、preventDefault する', () => {
     const registry = new ShortcutRegistry();
     const shortcut = make();

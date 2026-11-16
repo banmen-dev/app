@@ -981,7 +981,7 @@
     const k = opts.key ? `${opts.key}-` : "";
     const parent = x.story ? D.stories[x.story].title : null;
     const storyState = opts.highlightStory ? (x.story === opts.highlightStory ? " is-story-highlighted" : " is-story-dimmed") : "";
-    // 選べるカードは、題を名前に、ポイントと担当の要約と画面の下の動かし方の案内（#board-key-hint）を説明に読む
+    // 選べるカードは、題を名前に、ポイントと担当の要約と見えない動かし方の説明（#board-key-hint）を説明に読む
     const who = x.who ? user(x.who).name : null;
     const summary = `${x.pts == null ? "未見積もり" : `${t("points")} ${x.pts}`}、${who ? `${t("assignee")}は${esc(who)}` : `${t("assignee")}なし`}${blocked ? `、${t("done")}を戻せません` : ""}`;
     return `<article data-story-id="${esc(x.story || "")}" class="card ${x.doneAt ? "is-done" : ""}${storyState}${blocked ? " is-reopen-blocked" : ""}${mark.state ? ` ${mark.state}` : ""}"${grab ? ` draggable="true"` : ""}${dropAttr(mark)}${selectable ? ` tabindex="0" aria-labelledby="card-${k}${x.id}-title" aria-describedby="card-${k}${x.id}-summary board-key-hint"` : ""}>
@@ -2620,11 +2620,14 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
        <div class="field"><span class="field-label">添付ファイル</span>${attachments("new", { button: true })}
          <span class="field-hint">保存せずに閉じると、上げたファイルは 1 日で消えます。</span></div>`,
       `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="${t("backlog")}の末尾に足しました">${t("create")}</button>`),
-    // ショートカットの一覧（本番の ShortcutHelp）。? で開く。今の画面のキーを上に、どの画面でも効くキーをその下に並べる。足元の操作は無く、Esc、×、背景で閉じる。この見本はスプリントの画面で開いた形（今いる画面へ移る g s は出ない）。本番は登録の helpOrder の順（検索、画面を移るキー、?）に並べる
+    // ショートカットの一覧（本番の ShortcutHelp）。? で開く。今の画面のキーを上に、どの画面でも効くキーをその下に並べる。カタログはスプリントの例。画面の見本では、その画面のカード操作だけを追加する。
     shortcutHelp: () => {
       const group = (title, rows) => `<section class="shortcut-group"><h3 class="shortcut-group-title">${title}</h3><dl class="shortcut-list">${rows.map(([name, key]) => `<div class="shortcut-row"><dt>${name}</dt><dd><kbd class="kbd">${key}</kbd></dd></div>`).join("")}</dl></section>`;
+      const sprintRows = (page?.current === "sprint" || (location.pathname.split("/").pop() || "index.html") === "index.html") && D.sprints.sp14
+        ? [[`選んだカードを隣の${t("column")}へ（${t("done")}のカードは左で戻す）`, "Alt + ← →"], [`選んだ未完了カードを${t("column")}の中で動かす`, "Alt + ↑ ↓"], [`${t("column")}の末尾の空の行に題を打ち、${t("task")}を足す`, "Enter"]]
+        : [];
       openDialog("ショートカットの一覧",
-        group("この画面", [[`${t("task")}を書く`, "c"]]) +
+        group("この画面", [[`${t("task")}を書く`, "c"], ...sprintRows]) +
         group("どの画面でも", [["画面とタスクを探す", keyHints.mac ? "⌘K" : "Ctrl K"], [`${t("backlog")}へ移る`, "g b"], [`${t("pageToday")}へ移る`, "g t"], ["ショートカットの一覧", "?"]]),
         "");
     },

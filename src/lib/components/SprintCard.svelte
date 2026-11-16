@@ -42,7 +42,7 @@
     href: string;
     // ドラッグの配線。書き込めないときは渡さず、つかめず落とし先にもならない
     dnd?: SprintDnd;
-    // 動かし方の案内（画面の下の .action-note）の id。選んだカードの説明に結ぶ
+    // 動かし方の見えない説明の id。選んだカードの説明に結ぶ
     hintId?: string;
     // 期日の印を決める今日（ワークスペースのタイムゾーン）と週の始まり。API の値を渡す
     clock: { today: string; weekStart: number };
@@ -158,7 +158,7 @@
 </script>
 
 <!-- キーは中のリンクとボタンから届く。書き込めるカードは完了カードも選べる（tabindex は 0 か未指定だけ） -->
-<!-- 選んだときは題を名前に、ポイントと担当の要約と動かし方の案内を説明に読む（中の印は role="img" で、選んだだけでは読まれないため） -->
+<!-- 選んだときは題を名前に、ポイントと担当の要約と動かし方の見えない説明を読む（中の印は role="img" で、選んだだけでは読まれないため） -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <article

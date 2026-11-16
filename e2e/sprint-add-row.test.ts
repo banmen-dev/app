@@ -64,8 +64,8 @@ test('スプリントの各列の末尾の空の行に題を打って Enter で�
   await expect(todoRow).toBeFocused();
   await expect(todoRow).toHaveValue('');
 
-  // 空の行の案内は、カードの説明に結ぶ動かし方の案内とは別の注記にある
-  await expect(page.locator('.action-note', { hasText: '空の行に題を打って Enter を押すと' })).toBeVisible();
+  // 空の行の案内は近道一覧へ移したため、ボード下には常設しない（一覧の項目は専用E2Eで検査）
+  await expect(page.locator('.action-note', { hasText: '空の行に題を打って Enter を押すと' })).toHaveCount(0);
 
   const todoInput = page.getByRole('textbox', { name: 'タスクを足す: 未着手' });
   await expect(todoInput).toHaveAttribute('placeholder', 'タスクを足す');
