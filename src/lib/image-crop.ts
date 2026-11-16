@@ -22,14 +22,19 @@ export async function encodeAvatar(canvas: HTMLCanvasElement): Promise<Blob> {
 
 // ファイル選択のMIMEだけではSVG/GIFなどの偽装を見分けられないため、先頭も照合する。
 export async function isAvatarSource(file: File): Promise<boolean> {
-  if (!avatarImageTypes.includes(file.type)) return false;
+  if (file.type !== '' && !avatarImageTypes.includes(file.type)) return false;
   const bytes = new Uint8Array(await file.slice(0, 12).arrayBuffer());
-  if (file.type === 'image/png') return [137, 80, 78, 71, 13, 10, 26, 10].every((byte, i) => bytes[i] === byte);
-  if (file.type === 'image/jpeg') return bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
-  return (
+  const png = [137, 80, 78, 71, 13, 10, 26, 10].every((byte, i) => bytes[i] === byte);
+  const jpeg = bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
+  const webp =
     bytes.length === 12 &&
     new TextDecoder().decode(bytes.slice(0, 4)) === 'RIFF' &&
-    new TextDecoder().decode(bytes.slice(8, 12)) === 'WEBP'
+    new TextDecoder().decode(bytes.slice(8, 12)) === 'WEBP';
+  return (
+    (file.type === '' && (png || jpeg || webp)) ||
+    (file.type === 'image/png' && png) ||
+    (file.type === 'image/jpeg' && jpeg) ||
+    (file.type === 'image/webp' && webp)
   );
 }
 

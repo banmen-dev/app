@@ -62,3 +62,14 @@ it('透過画像を動かす前に前の画素を消し、枠の外の残像を�
   expect(calls).toEqual(['clear', 'draw']);
   expect(drawImage).toHaveBeenCalledWith(expect.anything(), 100, 50, 200, 200, 0, 0, 256, 256);
 });
+
+it('MIMEが空でもPNG・JPEG・WebPの署名が合えば受け付ける', async () => {
+  for (const bytes of [
+    new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+    new Uint8Array([255, 216, 255]),
+    new TextEncoder().encode('RIFF0000WEBP'),
+  ]) {
+    expect(await isAvatarSource(new File([bytes], 'image'))).toBe(true);
+  }
+  expect(await isAvatarSource(new File(['<svg/>'], 'image'))).toBe(false);
+});

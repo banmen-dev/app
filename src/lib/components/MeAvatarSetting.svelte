@@ -48,7 +48,7 @@
     picker.value = '';
     if (!file || busy || reading) return;
     error = null;
-    if (!avatarImageTypes.includes(file.type)) {
+    if (file.type !== '' && !avatarImageTypes.includes(file.type)) {
       error = t('avatarTypeInvalid');
       return;
     }
