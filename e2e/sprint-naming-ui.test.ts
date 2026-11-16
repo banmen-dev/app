@@ -1,6 +1,6 @@
 import { workspaceInfo, workspaceSprintNamingUpdate } from '../src/shared/operations/workspace/index.ts';
 import { sprintCreate, sprintList } from '../src/shared/operations/sprint/index.ts';
-import { failOperation } from './operations.ts';
+import { failOperation, routeOperation } from './operations.ts';
 import { expect, test } from './fixtures.ts';
 import { createWorkspace, signIn } from './helpers.ts';
 
@@ -91,11 +91,21 @@ test('命名の読み取り失敗はほかの設定を隠さず、再試行で�
   await signIn(context, baseURL, 'admin');
   await createWorkspace(page, '命名節の読み取り失敗');
   const workspaceId = new URL(page.url()).pathname.split('/')[3]!;
-  const restore = await failOperation(page, sprintList, { slug: 'aoba' }, 500, 'internal');
+  const gate = Promise.withResolvers<void>();
+  let reads = 0;
+  const restore = await routeOperation(page, sprintList, { slug: 'aoba' }, async (call) => {
+    reads++;
+    if (reads > 1) await gate.promise;
+    await call.fail(500, 'internal');
+  });
   await page.goto(`/aoba/w/${workspaceId}/settings`);
   await expect(page.getByRole('region', { name: '完成の定義', exact: true })).toBeVisible();
   const setting = page.getByRole('region', { name: 'スプリントの命名ルール', exact: true });
   await expect(setting.getByRole('alert')).toContainText('読み込めませんでした');
+  await setting.getByRole('button', { name: 'もう一度試す', exact: true }).click();
+  await expect(setting.getByRole('status')).toHaveText('読み込んでいます');
+  gate.resolve();
+  await expect(setting.getByRole('status')).toHaveText('まだ読み込めませんでした');
   await restore();
   await setting.getByRole('button', { name: 'もう一度試す', exact: true }).click();
   await expect(setting.getByLabel('命名ルール', { exact: true })).toBeVisible();
@@ -118,18 +128,53 @@ test('ルールだけの保存は別タブの作成で進んだ番号を巻き�
     data: { workspace_id: workspaceId, start_on: '2099-01-01', length: 14, name: '別の画面で作成' },
   });
   expect(created.status()).toBe(200);
+  const category = page.getByRole('region', { name: '区分', exact: true });
+  await category.getByLabel('新しい区分の名前', { exact: true }).fill('番号の確認');
+  await category.getByRole('button', { name: '区分を足す', exact: true }).click();
+  await expect(setting.getByLabel('次の番号', { exact: true })).toHaveValue('2');
+  await expect(setting.getByLabel('命名ルール', { exact: true })).toHaveValue('次{n}');
+  const second = await page.request.post(`/api/aoba/${sprintCreate.name}`, {
+    headers,
+    data: { workspace_id: workspaceId, start_on: '2099-01-15', length: 14, name: '別の画面でもう1本' },
+  });
+  expect(second.status()).toBe(200);
   const saved = page.waitForResponse((response) =>
     response.url().endsWith(`/api/aoba/${workspaceSprintNamingUpdate.name}`),
   );
   await setting.getByRole('button', { name: '保存する' }).click();
   expect((await saved).status()).toBe(200);
-  await expect(setting.getByLabel('次の番号', { exact: true })).toHaveValue('2');
+  await expect(setting.getByLabel('次の番号', { exact: true })).toHaveValue('3');
+  await expect(setting).toContainText('次の番号を最新の値（3）に更新しました。');
+  await expect(setting.getByRole('button', { name: '保存する' })).toBeEnabled();
   await setting.getByRole('button', { name: '保存する' }).click();
   await expect(setting.getByRole('status')).toHaveText('保存した内容から変わっていません。');
   await setting.getByLabel('命名ルール', { exact: true }).fill('書きかけ{n}');
+  let updates = 0;
+  page.on('request', (request) => {
+    if (request.url().endsWith(`/api/aoba/${workspaceSprintNamingUpdate.name}`)) updates++;
+  });
   const restore = await failOperation(page, workspaceInfo, { slug: 'aoba' }, 500, 'internal');
   await setting.getByRole('button', { name: '保存する' }).click();
   await expect(setting.getByRole('alert')).toContainText('保存できませんでした');
   await expect(setting.getByLabel('命名ルール', { exact: true })).toHaveValue('書きかけ{n}');
+  expect(updates).toBe(0);
   await restore();
+});
+
+test('展開超過は設定用の警告を出し、有効なルールの保存は止めない', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'admin');
+  await createWorkspace(page, '長い命名ルール');
+  const workspaceId = new URL(page.url()).pathname.split('/')[3]!;
+  await page.goto(`/aoba/w/${workspaceId}/settings`);
+  const setting = page.getByRole('region', { name: 'スプリントの命名ルール', exact: true });
+  const template = setting.getByLabel('命名ルール', { exact: true });
+  await template.fill('あ'.repeat(97) + '{n}');
+  await setting.getByLabel('次の番号', { exact: true }).fill('1000');
+  await expect(setting.getByRole('note')).toContainText('このルールは保存できます');
+  await expect(template).toHaveAttribute('aria-invalid', 'false');
+  const saved = page.waitForResponse((response) =>
+    response.url().endsWith(`/api/aoba/${workspaceSprintNamingUpdate.name}`),
+  );
+  await setting.getByRole('button', { name: '保存する' }).click();
+  expect((await saved).status()).toBe(200);
 });

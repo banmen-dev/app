@@ -204,6 +204,7 @@
           <button class="btn is-sm" type="button" aria-disabled={retrying} onclick={() => void retry()}
             >{t('retry')}</button
           >
+          <span class="field-hint" role="status">{retrying ? t('retrying') : retryFailed ? t('retryFailed') : ''}</span>
         </Setting>
       {:else}
         <SprintNamingSetting
@@ -214,6 +215,7 @@
           refreshFailed={data.naming === null}
           onretry={retry}
           {retrying}
+          retryFailed={retryFailed && data.naming === null}
           {canWrite}
           onsaved={reload}
           onstale={stale}
