@@ -1,9 +1,26 @@
 // 組織の休日。管理者が貼り付けて登録し（形の合わない行は理由を出す）、一覧で確かめ、消す。
 // seed のセッション（seed/sessions.ts）の Cookie で開く。あおば開発の管理者はミナト、一般のユーザーはハルカ。
-// 登録して消すのは 2027 年の日付で、seed の休日（2026 年）とは重ねない
+// seed の休日は流した日の週の月曜（W）から 15、35、71 日（月曜か火曜）。登録して消すのは、それより後の W+101（木曜）と
+// W+107（水曜）で、seed の休日と重ねず、一覧の先頭も seed の休日のままにする
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures.ts';
 import { mockSeedAdminLists, signIn, watchViolations } from './helpers.ts';
+import { seedWeek } from './seed-dates.ts';
+
+// テストの中で呼ぶ（playwright test --list は global setup を通らず、seed の日時が無い）
+function holidayDates() {
+  const added = seedWeek(101);
+  const addedLater = seedWeek(107);
+  return {
+    seedFirst: seedWeek(15),
+    seedSecond: seedWeek(35),
+    added,
+    addedLater,
+    // 暦に無い日（2/30）と、スラッシュの形（2027/2/23 のような形）
+    missing: `${added.slice(0, 4)}-02-30`,
+    addedLaterSlash: addedLater.split('-').map(Number).join('/'),
+  };
+}
 
 function sectionOf(page: Page) {
   return page.getByRole('region', { name: '組織の休日' });
@@ -18,26 +35,27 @@ test.describe('管理者（あおば開発のミナト）', () => {
   test('貼り付けて登録すると、正しい行だけが入り、形の合わない行は理由とともに残る。消すと一覧から外れる', async ({
     page,
   }) => {
+    const { seedFirst, added, addedLater, missing, addedLaterSlash } = holidayDates();
     const collect = await watchViolations(page);
     await page.goto('/aoba/admin');
     const section = sectionOf(page);
     const list = section.getByRole('list', { name: '登録した休日' });
     // seed の休日が、日付の古い順に出る
-    await expect(list.getByRole('listitem').first()).toContainText('2026-11-03');
+    await expect(list.getByRole('listitem').first()).toContainText(seedFirst);
     await expect(list).toContainText('文化の日');
 
     const paste = section.getByLabel('貼り付けて登録');
-    await paste.fill('2027-02-11 建国記念の日\n2027-02-30 無い日\n2027/2/23,天皇誕生日');
+    await paste.fill(`${added} 建国記念の日\n${missing} 無い日\n${addedLaterSlash},天皇誕生日`);
     await section.getByRole('button', { name: '登録する' }).click();
 
     await expect(page.getByRole('status').filter({ hasText: '2 日を登録しました' })).toBeVisible();
-    await expect(list.getByRole('listitem').filter({ hasText: '2027-02-11' })).toContainText('建国記念の日');
-    await expect(list.getByRole('listitem').filter({ hasText: '2027-02-23' })).toContainText('天皇誕生日');
+    await expect(list.getByRole('listitem').filter({ hasText: added })).toContainText('建国記念の日');
+    await expect(list.getByRole('listitem').filter({ hasText: addedLater })).toContainText('天皇誕生日');
     // 欄には直す行だけが残り、行の番号と理由を欄に結んで出す
-    await expect(paste).toHaveValue('2027-02-30 無い日');
+    await expect(paste).toHaveValue(`${missing} 無い日`);
     await expect(paste).toHaveAttribute('aria-invalid', 'true');
     const problems = section.getByRole('list', { name: '登録しない行' });
-    await expect(problems.getByRole('listitem')).toHaveText(['1 行目「2027-02-30 無い日」: 暦に無い日付です']);
+    await expect(problems.getByRole('listitem')).toHaveText([`1 行目「${missing} 無い日」: 暦に無い日付です`]);
     // 欄に結ぶのは要約（読み上げの領域）で、行ごとの一覧はその領域の外に置く
     const describedBy = (await paste.getAttribute('aria-describedby')) ?? '';
     const summary = section.locator(`[id="${describedBy.split(' ')[0]!}"]`);
@@ -46,23 +64,23 @@ test.describe('管理者（あおば開発のミナト）', () => {
     await expect(summary.getByRole('list')).toHaveCount(0);
 
     // 登録済みの日付は飛ばし、名前も書き換えない
-    await paste.fill('2027-02-11 書き換えた名前');
+    await paste.fill(`${added} 書き換えた名前`);
     await expect(paste).toHaveAttribute('aria-invalid', 'false');
     await section.getByRole('button', { name: '登録する' }).click();
     await expect(page.getByRole('status').filter({ hasText: '0 日を登録しました（1 日は登録済み）' })).toBeVisible();
-    await expect(list.getByRole('listitem').filter({ hasText: '2027-02-11' })).toContainText('建国記念の日');
+    await expect(list.getByRole('listitem').filter({ hasText: added })).toContainText('建国記念の日');
     await expect(list).not.toContainText('書き換えた名前');
     await expect(paste).toHaveValue('');
 
     // 消す。確かめのダイアログは挟まず、同じ位置の次の行の削除ボタンへフォーカスが移る
-    await section.getByRole('button', { name: '2027-02-11 を消す' }).click();
-    await expect(page.getByRole('status').filter({ hasText: '2027-02-11（建国記念の日）を消しました' })).toBeVisible();
-    await expect(list.getByRole('listitem').filter({ hasText: '2027-02-11' })).toHaveCount(0);
-    await expect(section.getByRole('button', { name: '2027-02-23 を消す' })).toBeFocused();
+    await section.getByRole('button', { name: `${added} を消す` }).click();
+    await expect(page.getByRole('status').filter({ hasText: `${added}（建国記念の日）を消しました` })).toBeVisible();
+    await expect(list.getByRole('listitem').filter({ hasText: added })).toHaveCount(0);
+    await expect(section.getByRole('button', { name: `${addedLater} を消す` })).toBeFocused();
 
     // 後片付け（seed の休日だけに戻す）
-    await section.getByRole('button', { name: '2027-02-23 を消す' }).click();
-    await expect(list.getByRole('listitem').filter({ hasText: '2027-02-23' })).toHaveCount(0);
+    await section.getByRole('button', { name: `${addedLater} を消す` }).click();
+    await expect(list.getByRole('listitem').filter({ hasText: addedLater })).toHaveCount(0);
     expect(await collect()).toEqual([]);
   });
 
@@ -121,6 +139,7 @@ test.describe('管理者（あおば開発のミナト）', () => {
   });
 
   test('消すときに、別の画面で先に消されていた（404）なら、見つからなかったと知らせて読み直す', async ({ page }) => {
+    const { seedSecond } = holidayDates();
     await page.route('**/api/aoba/organization-holiday-delete', (route) =>
       route.fulfill({ status: 404, json: { error: { code: 'not_found', message: 'x' } } }),
     );
@@ -131,16 +150,17 @@ test.describe('管理者（あおば開発のミナト）', () => {
     });
     await page.goto('/aoba/admin');
     const section = sectionOf(page);
-    await section.getByRole('button', { name: '2026-11-23 を消す' }).click();
+    await section.getByRole('button', { name: `${seedSecond} を消す` }).click();
     await expect(
-      page.getByRole('status').filter({ hasText: '2026-11-23 は見つかりませんでした。一覧を確かめてください' }),
+      page.getByRole('status').filter({ hasText: `${seedSecond} は見つかりませんでした。一覧を確かめてください` }),
     ).toBeVisible();
     await expect.poll(() => listCalls).toBe(2);
     // 実際には消していないので、行は残る
-    await expect(section.getByRole('list', { name: '登録した休日' })).toContainText('2026-11-23');
+    await expect(section.getByRole('list', { name: '登録した休日' })).toContainText(seedSecond);
   });
 
   test('消す応答を待つ間に貼り付けの欄へ移っていたら、応答の後もフォーカスを欄に残す', async ({ page }) => {
+    const { seedSecond } = holidayDates();
     let release: () => void = () => {};
     const released = new Promise<void>((resolve) => (release = resolve));
     // seed の行を消さないよう、応答は 404 に差し替える（フォーカスを移す処理は成功と同じ道を通る）
@@ -150,12 +170,12 @@ test.describe('管理者（あおば開発のミナト）', () => {
     });
     await page.goto('/aoba/admin');
     const section = sectionOf(page);
-    await section.getByRole('button', { name: '2026-11-23 を消す' }).click();
+    await section.getByRole('button', { name: `${seedSecond} を消す` }).click();
     const paste = section.getByLabel('貼り付けて登録');
     await paste.focus();
     release();
-    await expect(page.getByRole('status').filter({ hasText: '2026-11-23 は見つかりませんでした' })).toBeVisible();
-    await expect(section.getByRole('button', { name: '2026-11-23 を消す' })).toBeEnabled();
+    await expect(page.getByRole('status').filter({ hasText: `${seedSecond} は見つかりませんでした` })).toBeVisible();
+    await expect(section.getByRole('button', { name: `${seedSecond} を消す` })).toBeEnabled();
     await expect(paste).toBeFocused();
   });
 
@@ -184,10 +204,11 @@ test.describe('管理者（あおば開発のミナト）', () => {
   });
 
   test('320px の幅でも、節は横にはみ出さず、削除のボタンは右端に見える', async ({ page }) => {
+    const { seedFirst } = holidayDates();
     await page.setViewportSize({ width: 320, height: 800 });
     await page.goto('/aoba/admin');
     const section = sectionOf(page);
-    const button = section.getByRole('button', { name: '2026-11-03 を消す' });
+    const button = section.getByRole('button', { name: `${seedFirst} を消す` });
     await button.scrollIntoViewIfNeeded();
     await expect(button).toBeInViewport({ ratio: 1 });
     // 狭い幅では、指で押す画面でなくても押せる範囲を 44px 四方にする

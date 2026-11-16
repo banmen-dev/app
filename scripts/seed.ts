@@ -1,6 +1,7 @@
 // seed（pnpm db:seed）の SQL を組み立てる。流すのは scripts/db-seed.ts
 import { createHash } from 'node:crypto';
 import type { SeedSession } from '../seed/sessions.ts';
+import { fillSeedDates } from './seed-dates.ts';
 
 const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -30,14 +31,15 @@ export function sessionInserts(sessions: readonly SeedSession[], now: Date): str
 
 // 全部の表の行を消してから入れる。手で足した行も消える。消す順は外部キーの検査を先送りして問わない。
 // 先送りは消す文の間だけにする。= false は先送りした違反を数えずに通すので、入れる文まで含めると、
-// 親の無い行を入れても黙って成功してしまう。表が空になった後なら、入れる文はその場で検査される
+// 親の無い行を入れても黙って成功してしまう。表が空になった後なら、入れる文はその場で検査される。
+// data.sql の日付の印は now から埋める（scripts/seed-dates.ts）
 export function seedSql(tables: readonly string[], data: string, sessions: readonly SeedSession[], now: Date): string {
   const deletes = seedTables(tables).map((name) => `DELETE FROM "${name.replaceAll('"', '""')}";`);
   return [
     'PRAGMA defer_foreign_keys = true;',
     ...deletes,
     'PRAGMA defer_foreign_keys = false;',
-    data.trimEnd(),
+    fillSeedDates(data, now).trimEnd(),
     sessionInserts(sessions, now).trimEnd(),
     '',
   ].join('\n');

@@ -8,6 +8,7 @@ import { chromium, type Browser } from '@playwright/test';
 import { SEED_OPERATOR_LOGIN_ID, SEED_SESSIONS } from '../seed/sessions.ts';
 import { sessionCookieName } from '../src/shared/session-cookie.ts';
 import { sessionInserts } from './seed.ts';
+import { fillSeedDates } from './seed-dates.ts';
 import { isBenchHealth, trackServer } from './loading-server.ts';
 import { percentile } from './loading-stats.ts';
 import {
@@ -130,7 +131,8 @@ try {
   const fixture = path.join(dir, 'fixture.sql');
   writeFileSync(
     fixture,
-    readFileSync(path.join(root, 'seed/data.sql'), 'utf8') + sessionInserts(Object.values(SEED_SESSIONS), new Date()),
+    fillSeedDates(readFileSync(path.join(root, 'seed/data.sql'), 'utf8'), new Date()) +
+      sessionInserts(Object.values(SEED_SESSIONS), new Date()),
   );
   wrangler(['d1', 'execute', 'DB', '--file', fixture]);
   const child = spawn(

@@ -96,6 +96,8 @@ describe('needsDevBuild', () => {
     'scripts/test-credential-keys.ts',
     'scripts/write-headers.ts',
     'scripts/db-seed.ts',
+    'scripts/seed.ts',
+    'scripts/seed-dates.ts',
     'scripts/local-d1-retry.ts',
     'scripts/headers.ts',
     '.github/actions/setup/action.yml',

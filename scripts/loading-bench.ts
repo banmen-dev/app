@@ -14,6 +14,7 @@ import { loadingFixtureSql, loadingWorkspace } from './loading-fixture.ts';
 import { screens, type Reading } from './loading-screens.ts';
 import { comparison, percentile, trialTiming } from './loading-stats.ts';
 import { sessionInserts } from './seed.ts';
+import { fillSeedDates } from './seed-dates.ts';
 import { readTrial } from './loading-trial.ts';
 import {
   emptyPlanSql,
@@ -228,7 +229,7 @@ try {
   const file = path.join(dir, 'fixture.sql');
   writeFileSync(
     file,
-    readFileSync(path.join(root, 'seed/data.sql'), 'utf8') +
+    fillSeedDates(readFileSync(path.join(root, 'seed/data.sql'), 'utf8'), new Date()) +
       sessionInserts(Object.values(SEED_SESSIONS), new Date()) +
       loadingFixtureSql() +
       (planOptions.enabled ? emptyPlanSql : ''),
