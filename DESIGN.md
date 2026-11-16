@@ -85,9 +85,9 @@
 
 押せる範囲 44px のために決まった値（見た目は変えず範囲だけを広げる余白、並んだボタンの間の 14px など）は、刻みと別の理屈で決まっていて、`docs/design.md` に理由がある。このような例外を足すときは、先に理由の節を書く。
 
-今ある刻みの外の値は、`scripts/design-spacing-allowlist.json` に記録して凍結している。新しく書いた値と、刻みに直したのにリストに残した値では、`scripts/design-spacing.test.ts` が落ちる。
+押せる範囲のために残す刻みの外の値は、`scripts/design-spacing-allowlist.json` に理由の節を添える。新しく書いた値と、刻みに直したのにリストに残した値では、`scripts/design-spacing.test.ts` が落ちる。
 
-- 凍結した値（`.btn` の `padding: 6px 14px` など）と、`docs/design.md` に値で書いた余白は、刻みに寄せる前のもの。新しい部品の手本にしない。刻みに寄せるのは #1256
+- 行の字下げ（`--row-indent`）と帯の高さ（`--header-height`）は、部品の位置を共有する局所変数。すべての定義が余白の段か 0 で組まれていることを同じテストで確かめ、例外に数えない
 - 検査が見るのは `components.css` だけ。`design/*.html` と `kit.js` の `style=""` や `<style>` は検査しないが、同じ決まりに従う
 
 ## 角

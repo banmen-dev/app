@@ -212,8 +212,34 @@ describe('許可リストとの突き合わせ', () => {
 
 describe('design/components.css の余白', () => {
   const tokens = spacingTokens(read('../design/tokens.css'));
-  const found = spacingEntries(read('../design/components.css'), tokens);
-  const { broken, added, stale } = compareAllowlist(found, JSON.parse(read('./design-spacing-allowlist.json')));
+  const css = read('../design/components.css');
+  // 行の階層と帯の高さは components.css 内の局所変数で共有する。全定義を検査し、
+  // どれも既存の段だけで組まれている場合に限り、余白でも使えるものとする。
+  const aliases = ['--row-indent', '--header-height'];
+  const definitions = declarations(css).filter(({ property }) => aliases.includes(property));
+
+  test('字下げと帯の高さの全定義は、余白の段だけで組む', () => {
+    for (const name of aliases) {
+      const values = definitions.filter(({ property }) => property === name);
+      assert.ok(values.length > 0, `${name} の定義が無い`);
+      for (const { value } of values) assert.equal(spacingProblem(value, tokens), null, `${name}: ${value}`);
+    }
+  });
+
+  const found = spacingEntries(css, new Set([...tokens, ...aliases]));
+  const allowlist = JSON.parse(read('./design-spacing-allowlist.json'));
+  const { broken, added, stale } = compareAllowlist(found, allowlist);
+
+  test('例外には docs/design.md の理由の節を添える', () => {
+    const headings = [...read('../docs/design.md').matchAll(/^#+ (.+)$/gm)].map((match) => match[1]);
+    for (const item of allowlist) {
+      assert.equal(typeof item, 'object', '凍結した文字列の行を残さず、押せる範囲の理由を添える');
+      assert.ok(item.reason.startsWith('docs/design.md「'));
+      for (const [, heading] of item.reason.matchAll(/「([^」]+)」/g)) {
+        assert.ok(headings.includes(heading), `理由の節が無い: ${heading}`);
+      }
+    }
+  });
 
   test('許可リストの行は、文字列か、空でない理由を添えた形', () => {
     assert.deepEqual(broken, [], '許可リストの行は "<行>" か { "entry": "<行>", "reason": "<理由の節>" } で書く');

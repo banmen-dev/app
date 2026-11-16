@@ -56,6 +56,19 @@ for (const width of [1280, 1024, 761, 760, 390, 320]) {
     for (const theme of THEMES) {
       await test.step(theme, async () => {
         await pickTheme(theme);
+        // 余白の段を実際に描き、入力欄とラベルが同じ刻みで配置されることを幅・テーマごとに確かめる。
+        const spacing = page.locator('#space .space-row');
+        await expect(spacing).toHaveCount(9);
+        expect(
+          await spacing.locator('i').evaluateAll((bars) => bars.map((bar) => bar.getBoundingClientRect().width)),
+        ).toEqual([2, 4, 8, 12, 16, 20, 24, 32, 40]);
+        const field = page.locator('#forms .field').filter({ has: page.locator('#f1') });
+        await expect(field).toHaveCSS('gap', '4px');
+        await expect(page.locator('#f1')).toHaveCSS('padding-top', '8px');
+        await expect(page.locator('#f1')).toHaveCSS('padding-left', '12px');
+        const smallButton = page.locator('#buttons .btn.is-sm').first();
+        await expect(smallButton).toHaveCSS('padding-top', '4px');
+        await expect(smallButton).toHaveCSS('padding-left', '12px');
         const loadingCode = page.locator('pre').filter({ hasText: 'LoadingSheet の中身' });
         await expect(loadingCode).toBeVisible();
         const codeBox = await loadingCode.boundingBox();
