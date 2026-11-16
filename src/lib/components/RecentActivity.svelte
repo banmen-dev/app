@@ -168,6 +168,12 @@
         moreFailed = true;
         return;
       }
+      // 続きで読めなかった組織も面の上に足す（その組織の、この境目より古い行は欠けるので、知らせずに並べない）
+      const failedSlugs = new Set(failedOrganizations.map((organization) => organization.slug));
+      const newlyFailed = result.data.failed_organizations.filter(
+        (organization) => !failedSlugs.has(organization.slug),
+      );
+      if (newlyFailed.length > 0) failedOrganizations = [...failedOrganizations, ...newlyFailed];
       const shown = new Set(entries.map((entry) => entry.id));
       const added = result.data.entries.filter((entry) => !shown.has(entry.id));
       entries = appendEntries(entries, result.data.entries);
@@ -237,6 +243,9 @@
     </div>
   {:else if entries.length === 0 && failedOrganizations.length > 0}
     <!-- 全組織の面で、読めた組織に更新が無く、読めなかった組織がある。空の案内は出さない（読めなかった組織に更新があるかもしれない） -->
+  {:else if entries.length === 0 && omittedOrganizations > 0}
+    <!-- 読まなかった組織がある。全組織に更新が無いとは言い切らない -->
+    <div class="book"><div class="book-empty">{t('activityShownEmpty')}</div></div>
   {:else if entries.length === 0}
     <EmptyState
       icon="clock"

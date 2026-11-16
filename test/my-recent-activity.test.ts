@@ -179,6 +179,89 @@ describe('my-recent-activity: 全組織の最近の更新', () => {
     expect(view.entries.map((entry) => entry.id)).not.toContain(outside.log.id);
   });
 
+  test('前の組織で上限を使い切り、1つも読めなくなった組織は、読まなかった組織に数える', async () => {
+    const person = await createPerson();
+    const a = await organizationFor(person, { name: 'あ工房' });
+    for (let index = 1; index < RECENT_ACTIVITY_WORKSPACE_LIMIT; index++) {
+      const workspace = await createWorkspace(a.organization, a.user.id);
+      await createMembership(a.organization, workspace.id, a.user.id);
+    }
+    const b = await organizationFor(person, { name: 'い工房' });
+    const hidden = await taskChange(b.organization, b.workspace.id, b.user.id, minutesLater(1));
+    const view = await read(person);
+    expect(view.entries.map((entry) => entry.id)).not.toContain(hidden.log.id);
+    expect(view.omitted_organizations).toBe(1);
+    expect(view.failed_organizations).toEqual([]);
+  });
+
+  test('組織の再認証が要る資格情報では、その組織を読めなかった組織として返し、ほかの組織の分は返す', async () => {
+    const person = await createPerson({ sessionOverrides: { created_at: '2026-10-31T23:59:59.999Z' } });
+    const protectedTarget = await organizationFor(person, {
+      name: 'あ再認証の工房',
+      credentialsNotBefore: '2026-11-01T00:00:00.000Z',
+    });
+    await taskChange(
+      protectedTarget.organization,
+      protectedTarget.workspace.id,
+      protectedTarget.user.id,
+      minutesLater(2),
+    );
+    const ordinary = await organizationFor(person, { name: 'い継続中の工房' });
+    const shown = await taskChange(ordinary.organization, ordinary.workspace.id, ordinary.user.id, minutesLater(1));
+    const view = await read(person);
+    expect(view.entries.map((entry) => entry.id)).toEqual([shown.log.id]);
+    expect(view.failed_organizations).toEqual([organizationRef(protectedTarget.organization)]);
+  });
+
+  test('所属するワークスペースを読めなかった組織（1段目の失敗）も、読めなかった組織として返す', async () => {
+    const person = await createPerson();
+    const first = await organizationFor(person, { name: 'あ工房' });
+    const second = await organizationFor(person, { name: 'い工房' });
+    const firstLog = await taskChange(first.organization, first.workspace.id, first.user.id, minutesLater(1));
+    const secondLog = await taskChange(second.organization, second.workspace.id, second.user.id, minutesLater(2));
+    let failures = 0;
+    const env = envWithD1Hooks(testEnv, {
+      afterQuery: async (sql) => {
+        if (failures === 0 && sql.includes('"w"."closed_at" is null') && sql.includes('order by "w"."id" desc')) {
+          failures++;
+          throw new Error('架空の読み取りエラー');
+        }
+      },
+    });
+    const view = await read(person, undefined, env);
+    expect(failures).toBe(1);
+    expect(view.failed_organizations).toHaveLength(1);
+    const failedSlug = view.failed_organizations[0]!.slug;
+    const expected = failedSlug === first.organization.slug ? secondLog : firstLog;
+    expect(view.entries.map((entry) => entry.id)).toEqual([expected.log.id]);
+  });
+
+  test('続きのページで読めなかった組織も返す（その組織の行は、そのページに出ない）', async () => {
+    const person = await createPerson();
+    const a = await organizationFor(person, { name: 'あ工房' });
+    const b = await organizationFor(person, { name: 'い工房' });
+    for (let index = 0; index < 15; index++) {
+      await taskChange(a.organization, a.workspace.id, a.user.id, minutesLater(index * 2));
+      await taskChange(b.organization, b.workspace.id, b.user.id, minutesLater(index * 2 + 1));
+    }
+    const first = await read(person);
+    expect(first.failed_organizations).toEqual([]);
+    let failures = 0;
+    const env = envWithD1Hooks(testEnv, {
+      beforeBatch: (sqls) => {
+        if (failures === 0 && sqls.some((sql) => sql.includes('from "change_logs" as "cl"'))) {
+          failures++;
+          throw new Error('架空の読み取りエラー');
+        }
+      },
+    });
+    const second = await read(person, first.next!, env);
+    expect(failures).toBe(1);
+    expect(second.failed_organizations).toHaveLength(1);
+    const failedSlug = second.failed_organizations[0]!.slug;
+    expect(second.entries.every((entry) => entry.organization.slug !== failedSlug)).toBe(true);
+  });
+
   test('1組織の変更とコメントの読み取りに失敗しても、ほかの組織の分と、読めなかった組織を返す', async () => {
     const person = await createPerson();
     const first = await organizationFor(person, { name: 'あ工房' });

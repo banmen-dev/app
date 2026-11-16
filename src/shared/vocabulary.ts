@@ -645,6 +645,8 @@ export const dictionary = defineDictionary({
   // 全組織のダッシュボード（/）の最近の更新。読む組織の上限を超えた数と、読めなかった組織の行
   activityOmitted: 'ほか {count} 組織は読み込んでいません',
   activityFailedOrganization: '最近の更新を読めませんでした',
+  // 読まなかった組織があり、読んだ組織には更新が無いとき（全組織の更新が無いとは言い切らない）
+  activityShownEmpty: '読み込んだ組織には更新がありません。',
   sectionOpen: '開くと一覧を表示',
   // 依頼先（自分用の組織）の付いた、自分が担当の未完了のタスク。人に振ったものを期日の早い順に確かめる
   sectionDelegated: '依頼中',
@@ -1171,6 +1173,9 @@ export const dictionary = defineDictionary({
   // 全組織のダッシュボード（/）の組織の面の見出し。組織ごとのまとまりに、その組織で所属する{workspace}を並べる
   paneOrganizations: '組織',
   dashboardWorkspacesLoadFailed: '{workspace}を読み込めませんでした。',
+  dashboardWorkspacesRefreshFailed: '{workspace}の一覧を新しくできませんでした。前に読んだ一覧を出しています。',
+  // 組織ごとのワークスペースの一覧の読み上げの名前。{organization} は組織の名前（自分用は「自分用」）
+  dashboardWorkspaceListLabel: '{organization}で所属する{workspace}',
   dashboardWorkspacesFailedOrganization: '{workspace}を読み込めませんでした。組織のホームから開けます。',
   dashboardWorkspacesOmitted: '{workspace}は読み込んでいません。組織のホームから開けます。',
   dashboardNoWorkspace: '所属する{workspace}はありません。',

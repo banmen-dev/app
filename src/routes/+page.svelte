@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import EmptyState from '../lib/components/EmptyState.svelte';
@@ -49,8 +49,11 @@
     personalOrganization !== undefined || (teamOrganizations.length > 0 && canCreatePersonal),
   );
 
-  // 組織ごとのワークスペース。undefined は読んでいる間、null は読めなかった
-  let workspaces = $state<MyWorkspacesView | null | undefined>(undefined);
+  // 組織ごとのワークスペース。最後に読めた答えを持ち、読み直しが失敗しても消さない（workspacesError で失敗だけを知らせる）。
+  // 一度も読めずに失敗したときだけ、行の位置に何も出さない（面の先頭の警告と「もう一度試す」だけにする）
+  let workspaces = $state<MyWorkspacesView>();
+  let workspacesError = $state(false);
+  const workspacesView = $derived(workspaces ?? (workspacesError ? null : undefined));
   let workspacesGeneration = 0;
   let workspacesRetrying = $state(false);
   // 自分用での自分のユーザーの ID（ワークスペースを作るダイアログの、最初のリーダーの既定）。一度読めたら持ち続け、
@@ -60,15 +63,26 @@
     const token = ++workspacesGeneration;
     const result = await callOperation(myWorkspaces, {});
     if (token !== workspacesGeneration) return;
-    workspaces = result.ok ? result.data : null;
-    const personal = workspaces?.organizations.find((entry) => entry.organization.kind === 'personal');
+    if (!result.ok) {
+      workspacesError = true;
+      return;
+    }
+    workspaces = result.data;
+    workspacesError = false;
+    const personal = result.data.organizations.find((entry) => entry.organization.kind === 'personal');
     if (personal !== undefined) personalMeId = personal.me_id;
   }
-  onMount(() => {
-    if (!data.failed && data.organizations.length > 0) void loadWorkspaces();
-    return () => {
-      workspacesGeneration++;
-    };
+  // 入れる組織の並び（slug）が変わったときに読む。最初の表示、組織を読めなかった画面からの「もう一度試す」、
+  // 組織を作った後の読み直し（invalidateAll）で組織が増えたときに当たる。並びが同じ読み直しでは読まない
+  const organizationKey = $derived(
+    data.failed ? '' : data.organizations.map((organization) => organization.slug).join(' '),
+  );
+  $effect(() => {
+    if (organizationKey === '') return;
+    untrack(() => void loadWorkspaces());
+  });
+  onMount(() => () => {
+    workspacesGeneration++;
   });
   async function retryWorkspaces(): Promise<void> {
     if (workspacesRetrying) return;
@@ -79,15 +93,15 @@
       workspacesRetrying = false;
     }
     // 読めたら押したボタンが消えるので、フォーカスがボタンか body に残っていれば、面の見出しへ移す
-    if (workspaces !== null) {
+    if (!workspacesError) {
       await tick();
       if (document.activeElement === document.body || document.activeElement === null) {
-        document.getElementById(teamOrganizations.length > 0 ? 'p-organizations' : 'p-personal')?.focus();
+        document.getElementById(personalOrganization !== undefined ? 'p-personal' : 'p-organizations')?.focus();
       }
     }
   }
   const personalWorkspaces = $derived(
-    personalOrganization === undefined ? undefined : dashboardWorkspacesOf(workspaces, personalOrganization.slug),
+    personalOrganization === undefined ? undefined : dashboardWorkspacesOf(workspacesView, personalOrganization.slug),
   );
 </script>
 
@@ -126,11 +140,17 @@
   </div>
 {/snippet}
 
-<!-- ワークスペースの全体が読めなかったときの案内と「もう一度試す」。自分用の面か組織の面の、先に出る1か所にだけ置く -->
-{#snippet workspacesFailed()}
-  {#if workspaces === null}
+<!-- ワークスペースの読み込みの状態。常に置いた role="status" の文字だけを替えて読み込み中を伝え、全体が読めなかったときは
+     案内と「もう一度試す」を出す。自分用の面（自分用に入れる人）か組織の面の、先に出る1か所にだけ置く -->
+{#snippet workspacesStatus()}
+  <span class="visually-hidden" role="status">{workspacesView === undefined ? t('loading') : ''}</span>
+  {#if workspacesError}
     <div class="callout is-warn">
-      <Icon name="alert" /><span role="alert">{t('dashboardWorkspacesLoadFailed', { workspace: t('workspace') })}</span>
+      <Icon name="alert" /><span role="alert"
+        >{t(workspaces === undefined ? 'dashboardWorkspacesLoadFailed' : 'dashboardWorkspacesRefreshFailed', {
+          workspace: t('workspace'),
+        })}</span
+      >
     </div>
     <div class="form-actions">
       <button class="btn is-sm" type="button" aria-disabled={workspacesRetrying} onclick={() => void retryWorkspaces()}
@@ -142,9 +162,12 @@
 {/snippet}
 
 <!-- 1つの組織の、所属するワークスペースの行。押すとそのワークスペースのバックログへ移る。読んでいる間は骨組み、読めないときは短い案内 -->
-{#snippet workspaceRows(slug: string)}
-  {@const state = dashboardWorkspacesOf(workspaces, slug)}
-  {#if state.kind === 'loading'}
+{#snippet workspaceRows(organization: { slug: string; name: string; kind: 'team' | 'personal' })}
+  {@const slug = organization.slug}
+  {@const state = dashboardWorkspacesOf(workspacesView, slug)}
+  {#if state.kind === 'unavailable'}
+    <!-- 全体が読めなかった。案内は面の先頭の1か所だけに出し、組織ごとには繰り返さない -->
+  {:else if state.kind === 'loading'}
     <div class="skeleton" aria-hidden="true"><span class="skeleton-line is-block"></span></div>
   {:else if state.kind === 'failed'}
     <p class="workspace-note">{t('dashboardWorkspacesFailedOrganization', { workspace: t('workspace') })}</p>
@@ -153,7 +176,13 @@
   {:else if state.entry.workspaces.length === 0}
     <p class="workspace-note">{t('dashboardNoWorkspace', { workspace: t('workspace') })}</p>
   {:else}
-    <ul class="pane-list" aria-label={t('workspaceSwitchListLabel', { workspace: t('workspace') })}>
+    <ul
+      class="pane-list"
+      aria-label={t('dashboardWorkspaceListLabel', {
+        organization: organizationLabel(organization),
+        workspace: t('workspace'),
+      })}
+    >
       {#each state.entry.workspaces as workspace (workspace.id)}
         <li>
           <a class="pane-link" href={resolve('/[slug]/w/[id]', { slug, id: workspace.id })}>
@@ -181,8 +210,17 @@
           {#if showPersonalPane}
             <Pane id="p-personal" title={t('personalOrganizationName')} busy={personalWorkspaces?.kind === 'loading'}>
               {#if personalOrganization !== undefined}
-                {#if teamOrganizations.length === 0}{@render workspacesFailed()}{/if}
-                {@render workspaceRows(personalOrganization.slug)}
+                {@render workspacesStatus()}
+                <div class="org-block">
+                  <a class="choice" href={resolve('/[slug]', { slug: personalOrganization.slug })}>
+                    <div>
+                      <b>{organizationLabel(personalOrganization)}</b>
+                      <span class="mono">{page.url.host}/{personalOrganization.slug}/</span>
+                    </div>
+                    <Icon name="chevron" />
+                  </a>
+                  <div class="org-block-body">{@render workspaceRows(personalOrganization)}</div>
+                </div>
                 {#if personalWorkspaces?.kind === 'ready'}
                   <div class="form-actions">
                     <button
@@ -210,7 +248,7 @@
             busy={teamOrganizations.length > 0 && workspaces === undefined}
           >
             {#if teamOrganizations.length > 0}
-              {@render workspacesFailed()}
+              {#if personalOrganization === undefined}{@render workspacesStatus()}{/if}
               <div class="org-blocks">
                 {#each teamOrganizations as organization (organization.slug)}
                   <div class="org-block">
@@ -221,7 +259,7 @@
                       </div>
                       <Icon name="chevron" />
                     </a>
-                    <div class="org-block-body">{@render workspaceRows(organization.slug)}</div>
+                    <div class="org-block-body">{@render workspaceRows(organization)}</div>
                   </div>
                 {/each}
               </div>

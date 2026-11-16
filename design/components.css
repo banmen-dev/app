@@ -857,7 +857,9 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
    まとまりの間（.org-blocks）は面の中の並びと同じ --space-3 */
 .org-blocks { display: grid; gap: var(--space-3); min-width: 0; }
 .org-block { display: grid; border: 1px solid var(--color-line); border-radius: var(--radius-1); background: var(--color-surface); min-width: 0; }
-.org-block > a.choice { border: 0; background: transparent; }
+.org-block > a.choice { border: 0; border-radius: var(--radius-1) var(--radius-1) 0 0; background: transparent; }
+/* 組織の名前は、下に並ぶワークスペースの名前（.pane-link > b）と同じ大きさにし、親が子より小さく見えないようにする */
+.org-block > a.choice b { font-size: var(--text-md); }
 .org-block > a.choice:hover, .org-block > a.choice:focus-visible { background: var(--color-accent-soft); }
 .org-block-body { display: grid; gap: var(--space-2); padding: var(--space-2) var(--space-3); border-top: 1px solid var(--color-rule); min-width: 0; }
 .workspace-note { margin: 0; padding: var(--space-1); font-size: var(--text-xs); color: var(--color-muted); overflow-wrap: anywhere; }

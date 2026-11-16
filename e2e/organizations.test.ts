@@ -728,11 +728,14 @@ for (const width of [1280, 390]) {
     });
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
+    // 左の列は自分用（チーム用だけの人には作る入口）、組織、今日やること、招待、停止。右の列は最近の更新とニュース
     await expect(page.locator('.pane-title')).toHaveText([
-      '入れる組織',
+      '自分用',
+      '組織',
+      '全組織の今日やること',
       '届いた招待',
       '停止している組織',
-      '全組織の今日やること',
+      '最近の更新',
       'Scrum Guild のニュース',
     ]);
     await expect(page.locator('.nav, .topbar')).toHaveCount(0);

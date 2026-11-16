@@ -7,10 +7,14 @@ import { myToday } from '../src/shared/operations/organization/my-today.ts';
 import { myWorkspaces } from '../src/shared/operations/organization/my-workspaces.ts';
 import { organizationInfo } from '../src/shared/operations/organization/organization.ts';
 import { taskCreate, taskDelete } from '../src/shared/operations/task/index.ts';
-import { workspaceClose, workspaceCreate } from '../src/shared/operations/workspace/index.ts';
+import {
+  workspaceClose,
+  workspaceCreate,
+  workspaceLeaderCandidates,
+} from '../src/shared/operations/workspace/index.ts';
 import { expect, test } from './fixtures.ts';
 import { findA11yViolations, findOverflowViolations, NARROW_VIEWPORT, signIn } from './helpers.ts';
-import { failOperation, mockOperation } from './operations.ts';
+import { failOperation, mockOperation, routeOperation } from './operations.ts';
 
 const aoba = { slug: 'aoba', name: 'あおば開発', kind: 'team' as const };
 const hibari = { slug: 'hibari', name: 'ひばり工房', kind: 'team' as const };
@@ -168,6 +172,105 @@ test('ワークスペースを読めないときも組織の行は押せ、も�
   await organizations.getByRole('button', { name: 'もう一度試す', exact: true }).click();
   await expect(organizations.getByRole('link', { name: /受託開発チーム/ })).toBeVisible();
   await expect(organizations.getByRole('alert')).toHaveCount(0);
+});
+
+test('自分用の面に自分用のホームへの行を置き、自分用だけで招待がある人は組織の面に招待を出して、招待の面を重ねない', async ({
+  page,
+}) => {
+  await mockOperation(page, myOrganizations, {
+    organizations: [personal],
+    invitations: [{ slug: 'hibari', organization_name: 'ひばり工房' }],
+    suspended: [],
+    operator: false,
+  });
+  await mockOperation(page, myWorkspaces, { ...workspaces, organizations: [workspaces.organizations[0]!] });
+  await page.goto('/');
+  const personalPane = page.getByRole('region', { name: '自分用', exact: true });
+  await expect(personalPane.locator('.org-block > a.choice')).toHaveAttribute('href', '/mio-solo');
+  await expect(personalPane.getByRole('list', { name: '自分用で所属するワークスペース', exact: true })).toBeVisible();
+  const organizations = page.getByRole('region', { name: '組織', exact: true });
+  await expect(organizations.getByRole('link', { name: /ひばり工房/ })).toHaveAttribute('href', '/hibari/invitations');
+  await expect(page.getByRole('region', { name: '届いた招待', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '自分用を作る', exact: true })).toHaveCount(0);
+});
+
+test('自分用が停止していてチーム用に入れる人には、自分用の面も「自分用を作る」も出さない', async ({ page }) => {
+  await mockOperation(page, myOrganizations, {
+    organizations: [aoba],
+    invitations: [],
+    suspended: [{ ...personal, slug: 'mio-stopped' }],
+    operator: false,
+  });
+  await mockOperation(page, myWorkspaces, { ...workspaces, organizations: [workspaces.organizations[1]!] });
+  await page.goto('/');
+  await expect(
+    page.getByRole('region', { name: '組織', exact: true }).getByRole('link', { name: /受託開発チーム/ }),
+  ).toBeVisible();
+  await expect(page.getByRole('region', { name: '自分用', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '自分用を作る', exact: true })).toHaveCount(0);
+});
+
+test('組織を読めなかった画面から「もう一度試す」で戻ると、ワークスペースも読む', async ({ page }) => {
+  const restore = await failOperation(page, myOrganizations, 500, 'internal');
+  await mockOperation(page, myWorkspaces, { ...workspaces, organizations: [workspaces.organizations[1]!] });
+  await page.goto('/');
+  const retry = page.getByRole('button', { name: 'もう一度試す', exact: true });
+  await expect(retry).toBeVisible();
+  await restore();
+  await mockOperation(page, myOrganizations, {
+    organizations: [aoba],
+    invitations: [],
+    suspended: [],
+    operator: false,
+  });
+  await retry.click();
+  await expect(
+    page.getByRole('region', { name: '組織', exact: true }).getByRole('link', { name: /受託開発チーム/ }),
+  ).toBeVisible();
+});
+
+test('自分用にワークスペースを作った後の読み直しが失敗しても、前に読んだ一覧を残して知らせる', async ({ page }) => {
+  await mockOperation(page, myOrganizations, {
+    organizations: [aoba, personal],
+    invitations: [],
+    suspended: [],
+    operator: false,
+  });
+  let reads = 0;
+  await routeOperation(page, myWorkspaces, async (call) => {
+    reads++;
+    if (reads === 1) await call.fulfill({ ...workspaces, organizations: workspaces.organizations.slice(0, 2) });
+    else await call.fail(500, 'internal');
+  });
+  await mockOperation(
+    page,
+    workspaceLeaderCandidates,
+    { slug: personal.slug },
+    {
+      users: [{ id: workspaces.organizations[0]!.me_id, name: 'ミナト' }],
+    },
+  );
+  await mockOperation(
+    page,
+    workspaceCreate,
+    { slug: personal.slug },
+    { workspace_id: '019a0000-0000-7000-8000-000000000a30' },
+  );
+  await page.goto('/');
+  const personalPane = page.getByRole('region', { name: '自分用', exact: true });
+  await personalPane.getByRole('button', { name: 'ワークスペースを作る', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('名前').fill('家の用事');
+  await dialog.getByRole('button', { name: 'ワークスペースを作る', exact: true }).click();
+  await expect(dialog.getByText('ワークスペースを作りました')).toBeVisible();
+  await expect.poll(() => reads).toBe(2);
+  await expect(personalPane.getByRole('alert')).toHaveText(
+    'ワークスペースの一覧を新しくできませんでした。前に読んだ一覧を出しています。',
+  );
+  await expect(personalPane.getByRole('link', { name: /読書の記録/ })).toBeVisible();
+  await expect(
+    page.getByRole('region', { name: '組織', exact: true }).getByRole('link', { name: /受託開発チーム/ }),
+  ).toBeVisible();
 });
 
 test('2組織に作ったワークスペースが組織ごとに並び、最近の更新に組織の名前つきで出て、押すと詳細が開く', async ({

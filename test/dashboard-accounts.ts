@@ -17,6 +17,7 @@ export type DashboardOrganizationOptions = {
   join?: boolean;
   personal?: boolean;
   workspaceName?: string;
+  credentialsNotBefore?: string | null;
 };
 
 // 本人のユーザーと、本人が所属するワークスペースを1つ持つ組織
@@ -34,6 +35,7 @@ export async function organizationFor(person: Person, options: DashboardOrganiza
     login_subject: person.login.subject,
     is_admin: options.admin ? 1 : 0,
     disabled_at: options.disabled ? '2026-11-01T00:00:00.000Z' : null,
+    credentials_not_before: options.credentialsNotBefore ?? null,
   });
   const workspace = await createWorkspace(organization, user.id, {
     name: options.workspaceName ?? `${organization.name}の班`,

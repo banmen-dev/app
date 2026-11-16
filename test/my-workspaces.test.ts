@@ -114,6 +114,34 @@ describe('my-workspaces: 組織ごとの自分のワークスペース', () => {
     expect(view.organizations.map((entry) => entry.organization)).toEqual([organizationRef(successful.organization)]);
   });
 
+  test('自分用は名前によらず先に読み、残りを名前の順に 10 組織まで読んで、超えた数を返す', async () => {
+    const person = await createPerson();
+    const teams = [];
+    for (let index = 0; index < 11; index++) {
+      teams.push(await organizationFor(person, { name: `${String(index).padStart(2, '0')} 工房` }));
+    }
+    // 「自分用」は名前の順では 11 のチーム用の後ろに並ぶ
+    const personal = await organizationFor(person, { name: '自分用', personal: true, admin: true });
+    const view = await read(person);
+    expect(view.organizations.map((entry) => entry.organization.slug)).toEqual([
+      personal.organization.slug,
+      ...teams.slice(0, 9).map((team) => team.organization.slug),
+    ]);
+    expect(view.omitted_organizations).toBe(2);
+  });
+
+  test('組織の再認証が要る資格情報では、その組織を読めなかった組織として返し、ほかの組織は返す', async () => {
+    const person = await createPerson({ sessionOverrides: { created_at: '2026-10-31T23:59:59.999Z' } });
+    const protectedTarget = await organizationFor(person, {
+      name: 'あ再認証の工房',
+      credentialsNotBefore: '2026-11-01T00:00:00.000Z',
+    });
+    const ordinary = await organizationFor(person, { name: 'い継続中の工房' });
+    const view = await read(person);
+    expect(view.organizations.map((entry) => entry.organization)).toEqual([organizationRef(ordinary.organization)]);
+    expect(view.failed_organizations).toEqual([organizationRef(protectedTarget.organization)]);
+  });
+
   test('入れる組織が無い人は、空で成功する', async () => {
     const person = await createPerson();
     expect(await read(person)).toEqual({ organizations: [], omitted_organizations: 0, failed_organizations: [] });

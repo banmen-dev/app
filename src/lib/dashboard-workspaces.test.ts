@@ -12,7 +12,7 @@ const view: MyWorkspacesView = {
 describe('dashboardWorkspacesOf', () => {
   test('読んでいる間、全体の失敗、組織の失敗、読まなかった組織、読めた組織を分ける', () => {
     expect(dashboardWorkspacesOf(undefined, 'aoba')).toEqual({ kind: 'loading' });
-    expect(dashboardWorkspacesOf(null, 'aoba')).toEqual({ kind: 'failed' });
+    expect(dashboardWorkspacesOf(null, 'aoba')).toEqual({ kind: 'unavailable' });
     expect(dashboardWorkspacesOf(view, 'kaede')).toEqual({ kind: 'failed' });
     expect(dashboardWorkspacesOf(view, 'sakura')).toEqual({ kind: 'omitted' });
     expect(dashboardWorkspacesOf(view, 'aoba')).toEqual({ kind: 'ready', entry: view.organizations[0] });

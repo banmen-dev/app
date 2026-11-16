@@ -965,8 +965,12 @@ export async function readAccountTaskOrganizations<T>(
     crossOrganizationEntries(env),
     organizationIds,
   );
-  // 既に名前・同名は slug の順。組織内の読み取りを始める前に上限を掛ける。
-  const selected = listed.organizations.slice(0, 10);
+  // 既に名前・同名は slug の順。自分用（1アカウントに1つ）は名前によらず先に選び、残りを名前の順に並べてから、
+  // 組織内の読み取りを始める前に上限を掛ける（ダッシュボードの自分用の面が、上限の外で読めなくならないように）。
+  const selected = [
+    ...listed.organizations.filter((organization) => organization.kind === 'personal'),
+    ...listed.organizations.filter((organization) => organization.kind !== 'personal'),
+  ].slice(0, 10);
   const results = await Promise.allSettled(
     selected.map(async (organization) => {
       const entered = await enterOrganization(env, organization.slug, {
