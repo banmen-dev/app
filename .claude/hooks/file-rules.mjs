@@ -7,7 +7,8 @@ import path from 'node:path';
 
 // Claude Code が各 Bash のコマンドの前に読む環境のファイル（CLAUDE_ENV_FILE。~/.claude/session-env/<セッション>/*.sh と ~/.claude/shell-snapshots/*.sh）。
 // 書き足すと、以後のすべての Bash に、フックからは見えない GIT_CONFIG_*、GH_REPO、PATH、関数の定義などが付く。
-// CLAUDE_CONFIG_DIR で ~/.claude の場所を替えても名前は変わらないので、守りの本体は名前（大文字小文字は区別しない。APFS では同じ場所を指す）。
+// 書く前に止める早めの案内で、守りの本体は毎回の Bash の前の状態の確かめ（shell-env-state.mjs）。
+// CLAUDE_CONFIG_DIR で ~/.claude の場所を替えても名前は変わらないので、字面の判定の中心は名前（大文字小文字は区別しない。APFS では同じ場所を指す）。
 // CLAUDE_ENV_FILE は PreToolUse のフックと Bash の環境にふつう無い（SessionStart のフックだけが持つ）ので、$CLAUDE_ENV_FILE の字面と起動元の値の照合は補助。
 // bash-rules.mjs もこの名前と理由を使う（重ねて持つと片方だけ直る）
 export const SHELL_ENV_DIR_NAMES = ['session-env', 'shell-snapshots'];

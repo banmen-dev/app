@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { after, beforeEach, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { SNAPSHOT_GRACE_MS, sessionEnvLineAllowed, shellEnvStateProblems, snapshotProblem } from './shell-env-state.mjs';
+import { SNAPSHOT_GRACE_MS, sessionEnvLineAllowed, shellEnvStateProblems, shellEnvStateReason, snapshotProblem } from './shell-env-state.mjs';
 
 const hooks = path.dirname(fileURLToPath(import.meta.url));
 
@@ -46,6 +46,8 @@ describe('session-env の行', () => {
     "export CLAUDE_PLUGIN_DATA='x'\r",
     " export CLAUDE_PLUGIN_DATA='x'",
     "export claude_plugin_data='x'",
+    "export CLAUDE_PLUGIN_DATA='a\\b'",
+    "export CLAUDE_PLUGIN_DATA='a\x7fb'",
     'alias git=/tmp/git',
     '# コメント',
   ]) {
@@ -67,6 +69,11 @@ describe('shell-snapshots のファイル', () => {
   test('猶予は snapshot を書くシェルの打ち切り（10 秒）に近く取る', () => {
     assert.ok(SNAPSHOT_GRACE_MS >= 10_000 && SNAPSHOT_GRACE_MS <= 15_000);
   });
+  test('名前の時刻より前の ctime は 1 秒まで許す', () => {
+    assert.equal(snapshotProblem(name, stat(at - 1_000)), null);
+    assert.match(snapshotProblem(name, stat(at - 1_001)), /ctime/);
+    assert.match(snapshotProblem(name, stat(at + SNAPSHOT_GRACE_MS + 1)), /ctime/);
+  });
   test('猶予を超えて ctime が動いたら外す', () => {
     assert.match(snapshotProblem(name, stat(at + SNAPSHOT_GRACE_MS + 1)), /ctime/);
     assert.match(snapshotProblem(name, stat(at - 5_000)), /ctime/);
@@ -75,7 +82,7 @@ describe('shell-snapshots のファイル', () => {
     assert.match(snapshotProblem(name, stat(at, 'link')), /リンク/);
     assert.match(snapshotProblem(name, stat(at, 'dir')), /通常のファイルでない/);
   });
-  for (const bad of ['x.sh', `snapshot-zsh-${at}-mzfo83.sh.bak`, `snapshot-zsh-${at}.sh`, `.DS_Store`, `snapshot-zsh-abc-x.sh`]) {
+  for (const bad of ['x.sh', `snapshot-zsh-${at}-mzfo83.sh.bak`, `snapshot-zsh-${at}.sh`, `prefix-snapshot-zsh-${at}-a.sh`, `.DS_Store`, `snapshot-zsh-abc-x.sh`]) {
     test(`名前の形が違う: ${bad}`, () => assert.match(snapshotProblem(bad, stat(at)), /名前/));
   }
 });
@@ -172,6 +179,25 @@ describe('一時の設定の場所で確かめる', () => {
     renameSync(dir, path.join(configDir, 'snaps'));
     symlinkSync(path.join(configDir, 'snaps'), dir);
     assert.equal(decision(), 'ask');
+  });
+
+  test('Finder の .DS_Store は見ない', () => {
+    writeFileSync(path.join(configDir, 'shell-snapshots', '.DS_Store'), '\0\0\0\x01Bud1');
+    writeFileSync(path.join(path.dirname(envFile), '.DS_Store'), '\0\0\0\x01Bud1');
+    assert.equal(decision(), 'allow');
+  });
+  test('大きすぎる session-env のファイルは読まずに ask', () => {
+    writeFileSync(path.join(path.dirname(envFile), 'sessionstart-hook-2.sh'), '\n'.repeat(64 * 1024 + 1));
+    assert.match(run('ls').permissionDecisionReason, /大きすぎる/);
+  });
+  test('理由の文は制御文字を替え、6 件目からは数だけ出す', () => {
+    const problems = ['a\nfake: ok', 'b', 'c', 'd', 'e', 'f', 'g'];
+    const reason = shellEnvStateReason(problems);
+    assert.ok(!reason.includes('\n'));
+    assert.match(reason, /a\?fake: ok/);
+    assert.match(reason, /ほか 2 件/);
+    assert.ok(!reason.includes('、f'));
+    assert.ok(shellEnvStateReason(['x'.repeat(1000)]).length < 1000);
   });
 
   test('session_id が無いか形が違えば ask', () => {

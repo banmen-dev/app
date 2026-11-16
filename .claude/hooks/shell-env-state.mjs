@@ -24,6 +24,13 @@ const SNAPSHOT_EARLY_MS = 1_000;
 // session_id は場所を引くのに使うので、.. や / を含むものは引かない
 const SESSION_ID = /^[A-Za-z0-9_-]+$/;
 
+// Finder がディレクトリを開くと作り直すファイル。Claude Code は読まないので見ない（見ると、消しても Finder が戻し、全部の Bash で確認が出続ける）
+const IGNORED_NAMES = new Set(['.DS_Store']);
+// session-env の形で書くファイルの大きさの上限。正当なものは数百バイト。超えたら読まずに外れとする（毎回の Bash で巨大なファイルを読まない）
+const ENV_FILE_MAX_BYTES = 64 * 1024;
+// 理由の文に入れる問題 1 件の長さの上限
+const PROBLEM_MAX_CHARS = 300;
+
 // session-env の 1 行が許す形か。空行も許す
 export function sessionEnvLineAllowed(line) {
   if (line === '' || NODE_PATH_LINE.test(line)) return true;
@@ -57,6 +64,7 @@ function envFileProblem(file) {
   const stat = lstatOrNull(file);
   if (stat === null) return null;
   if (!stat.isFile()) return `${file}: 通常のファイルでない（リンクを含む）`;
+  if (stat.size > ENV_FILE_MAX_BYTES) return `${file}: 大きすぎる（${stat.size} バイト）`;
   const lines = readFileSync(file, 'utf8').split('\n');
   const bad = lines.findIndex((line) => !sessionEnvLineAllowed(line));
   return bad === -1 ? null : `${file}: ${bad + 1} 行目が許した形でない`;
@@ -67,6 +75,7 @@ function sessionEnvProblems(dir) {
   if (stat === null) return [];
   if (!stat.isDirectory()) return [`${dir}: ディレクトリでない（リンクを含む）`];
   return readdirSync(dir)
+    .filter((name) => !IGNORED_NAMES.has(name))
     .map((name) => envFileProblem(path.join(dir, name)))
     .filter((problem) => problem !== null);
 }
@@ -77,6 +86,7 @@ function snapshotsProblems(dir) {
   if (!stat.isDirectory()) return [`${dir}: ディレクトリでない（リンクを含む）`];
   const problems = [];
   for (const name of readdirSync(dir)) {
+    if (IGNORED_NAMES.has(name)) continue;
     const file = path.join(dir, name);
     // 読み出しの間に Claude Code が古いものを消したなら、次の Bash は読まない
     const fileStat = lstatOrNull(file);
@@ -112,9 +122,13 @@ export function shellEnvStateProblems({ configDir, sessionId, envFile }) {
   return problems;
 }
 
-// 理由の文。外れたファイルの名前と直し方を入れる
+// 理由の文。外れたファイルの名前と直し方を入れる。ファイルの名前は同じ権限で付けられるので、
+// 制御文字（改行で確認の画面の文を偽る）を ? に替え、1 件ずつ長さを切る
 export function shellEnvStateReason(problems) {
-  const shown = problems.slice(0, 5).join('、');
+  const shown = problems
+    .slice(0, 5)
+    .map((problem) => problem.replace(/[\x00-\x1f\x7f]/g, '?').slice(0, PROBLEM_MAX_CHARS))
+    .join('、');
   const more = problems.length > 5 ? ` ほか ${problems.length - 5} 件` : '';
   return (
     `Claude Code が各 Bash の前に読む環境のファイルが、許した形から外れている（${shown}${more}）。` +

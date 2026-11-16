@@ -51,31 +51,23 @@ describe('崩す 2: 一時の設定の場所で guard-bash.mjs を起動する',
     assert.equal(outcome(), 'allow');
   });
 
-  // 欠陥: Claude Code（2.1.325 の sPs）は `readFile(CLAUDE_ENV_FILE)` で読むので、相対の値は Claude Code のプロセスの cwd から解かれる。
-  // Claude Code のプロセスの cwd は起動した場所のまま動かない（このセッションで lsof を当てると、Bash の cwd がワークツリーに移っても、
-  // claude のプロセスの cwd は起動した app/ のままだった）。一方フックは入力の cwd（n.cwd）で起動され、shell-env-state.mjs は
-  // `path.resolve(envFile)` でフックの cwd から解く。起動元が `CLAUDE_ENV_FILE=.claude-env.sh claude` のように相対で渡すと、
-  // Claude Code が毎回の Bash の前に流すファイルと、フックが確かめるファイルが別になり、Bash が cd した後は無いファイルを見て通す。
-  // 完了条件 1（書いた手段に関わらず次の Bash が ask）と 4（確かめられないときは素通りにしない）、docs の
-  // 「起動元の環境の CLAUDE_ENV_FILE が指すファイル」を見るという記述に反する。docs の弱点にも無い
-  test('相対の CLAUDE_ENV_FILE は、フックの cwd が起動した場所と違っても素通りにしない', () => {
+  // Claude Code（2.1.325 の sPs）は `readFile(CLAUDE_ENV_FILE)` で読むので、相対の値は Claude Code のプロセスの cwd（起動した場所。
+  // Bash の cd では動かない）から解かれる。フックは入力の cwd で起動されるので同じファイルを引けず、値が相対なら中身を見ずに ask にする
+  test('相対の CLAUDE_ENV_FILE は、確かめられないので ask', () => {
     const launchDir = path.join(tmp, `launch-${round}`);
     const workDir = path.join(tmp, `work-${round}`);
     mkdirSync(launchDir);
     mkdirSync(workDir);
     // Claude Code が読むのは起動した場所から解いたこちら
     writeFileSync(path.join(launchDir, 'claude-env.sh'), BAD_LINES);
-    assert.notEqual(outcome({}, { env: { CLAUDE_ENV_FILE: 'claude-env.sh' }, cwd: workDir }), 'allow');
+    assert.equal(outcome({}, { env: { CLAUDE_ENV_FILE: 'claude-env.sh' }, cwd: workDir }), 'ask');
   });
 
-  // 欠陥: guard-bash.mjs は `typeof command === 'string'` の中でだけ状態を確かめる。tool_input.command が無いか文字列でない入力は、
-  // session-env に許さない行があっても、何も出さずに exit 0（素通り）になる。完了条件 4 は「確かめが失敗したとき
-  // （読めない、壊れた入力）は、素通りにせず ask か deny」で、壊れた入力を名指ししている。break-1 は入力全体が null の
-  // ときの exit 2 と session_id の型だけを見ていて、tool_input の形が壊れた入力は見ていない
+  // 字面を読めない入力（tool_input.command が無いか文字列でない）でも、状態の確かめは飛ばさない（完了条件 4 の壊れた入力）
   for (const toolInput of [{}, { command: ['git', 'push'] }, { command: null }]) {
     test(`tool_input が壊れていれば、汚れた session-env を素通りにしない: ${JSON.stringify(toolInput)}`, () => {
       writeFileSync(path.join(envDir, 'sessionstart-hook-1.sh'), BAD_LINES);
-      assert.notEqual(outcome({ tool_input: toolInput }), 'allow');
+      assert.equal(outcome({ tool_input: toolInput }), 'ask');
     });
   }
 });

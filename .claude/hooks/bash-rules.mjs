@@ -3026,7 +3026,8 @@ function gitConfigFileAt(dir, cdWords, namesGitDir) {
 }
 
 // Claude Code が各 Bash のコマンドの前に読む環境のファイル（file-rules.mjs の SHELL_ENV_DIR。session-env と shell-snapshots）への書き込み。
-// 守りの本体は名前（CLAUDE_CONFIG_DIR で ~/.claude の場所を替えても名前は同じ）。$CLAUDE_ENV_FILE の字面と起動元の値の照合は補助で、
+// 書く前に止める早めの案内で、守りの本体は毎回の Bash の前の状態の確かめ（shell-env-state.mjs）。
+// 字面の判定の中心は名前（CLAUDE_CONFIG_DIR で ~/.claude の場所を替えても名前は同じ）。$CLAUDE_ENV_FILE の字面と起動元の値の照合は補助で、
 // CLAUDE_ENV_FILE は PreToolUse のフックと Bash の環境にふつう無い（SessionStart のフックだけが持つ）
 const CLAUDE_ENV_VAR = /\$\{?CLAUDE_ENV_FILE\b/i;
 // インタープリタと awk の本文は環境変数を $ を付けずに読む（process.env.CLAUDE_ENV_FILE、ENVIRON["CLAUDE_ENV_FILE"]）

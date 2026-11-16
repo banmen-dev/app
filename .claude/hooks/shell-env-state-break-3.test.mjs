@@ -47,28 +47,21 @@ describe('崩す 3: 設定の場所の決め方のずれ', () => {
     assert.equal(outcome({ CLAUDE_CONFIG_DIR: path.join(home, '.claude') }), 'allow');
   });
 
-  // 欠陥: Claude Code（2.1.325）は設定の場所を `Ge = (process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude")).normalize("NFC")` で決める
-  // （`??` なので、空文字の CLAUDE_CONFIG_DIR はそのまま "" になる）。session-env は `join(Ge(), "session-env", G())`（sPs の E）、
-  // snapshot は `join(Ge(), "shell-snapshots")`（_4n）で、どちらも Claude Code のプロセスの cwd（起動した場所）から解いた
-  // 相対の `session-env/<session_id>/`、`shell-snapshots/` になる。Claude Code は空の設定の場所を想定している（IDE のロックファイルを探す lNr は
-  // `e.trim()===""` のときに ~/.claude/ide も足す）。一方 guard-bash.mjs は `process.env.CLAUDE_CONFIG_DIR || join(home, ".claude")` と `||` で決めるので、
-  // 空文字では ~/.claude を見て、Claude Code が各 Bash の前に流すファイルを一度も見ない。
-  // `CLAUDE_CONFIG_DIR="${ALT_DIR}" claude` のように未設定の変数から渡すと起きる。
-  // 完了条件 1（書いた手段に関わらず次の Bash が ask）と 4（確かめられないときは素通りにしない）に反する。
-  // docs の「設定の場所は CLAUDE_CONFIG_DIR、無ければ ~/.claude」は空文字の扱いを書いておらず、弱点にも挙がっていない
-  test('空文字の CLAUDE_CONFIG_DIR で、起動した場所の session-env に許さない行があれば素通りにしない', () => {
+  // Claude Code（2.1.325）は設定の場所を `(CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude")).normalize("NFC")` で決めるので、
+  // 空文字はそのまま使われ、session-env と shell-snapshots は Claude Code を起動した場所からの相対になる（`CLAUDE_CONFIG_DIR="${ALT_DIR}" claude`
+  // で ALT_DIR が未設定のとき）。フックからは同じ場所を引けないので、~/.claude に倒さず、中身を見ずに ask にする
+  test('空文字の CLAUDE_CONFIG_DIR は、起動した場所の session-env を確かめられないので ask', () => {
     const envDir = path.join(launchDir, 'session-env', sid);
     mkdirSync(envDir, { recursive: true });
     writeFileSync(path.join(envDir, 'sessionstart-hook-0.sh'), BAD_LINES);
-    assert.notEqual(outcome({ CLAUDE_CONFIG_DIR: '' }), 'allow');
+    assert.equal(outcome({ CLAUDE_CONFIG_DIR: '' }), 'ask');
   });
 
-  // 欠陥: 上と同じずれ。snapshot も Claude Code は起動した場所の相対の shell-snapshots/ に作って毎回 source するが、フックは ~/.claude を見る。
-  // 名前の時刻から 1 分後に書き換えた snapshot（完了条件 2 で ask になるべき形）を素通りにする
-  test('空文字の CLAUDE_CONFIG_DIR で、起動した場所の書き換えた snapshot を素通りにしない', () => {
+  // 上と同じく、snapshot も起動した場所の相対の shell-snapshots/ に作られるので、中身を見ずに ask にする
+  test('空文字の CLAUDE_CONFIG_DIR は、起動した場所の snapshot を確かめられないので ask', () => {
     const snapDir = path.join(launchDir, 'shell-snapshots');
     mkdirSync(snapDir, { recursive: true });
     writeFileSync(path.join(snapDir, `snapshot-zsh-${Date.now() - 60_000}-k9x2.sh`), BAD_LINES);
-    assert.notEqual(outcome({ CLAUDE_CONFIG_DIR: '' }), 'allow');
+    assert.equal(outcome({ CLAUDE_CONFIG_DIR: '' }), 'ask');
   });
 });

@@ -42,8 +42,9 @@ function withShellEnvState(verdict, sessionId, { shellEnvStateProblems, shellEnv
   if (verdict?.[0] === 'deny') return verdict;
   const home = homeOrNull();
   // Claude Code と同じく ?? で決める。空文字は Claude Code が起動した場所からの相対として使うので、フックからは引けず ask に倒れる
-  const configDir = process.env.CLAUDE_CONFIG_DIR ?? (home && path.join(home, '.claude'));
-  const problems = shellEnvStateProblems({ configDir, sessionId, envFile: process.env.CLAUDE_ENV_FILE });
+  // Claude Code は設定の場所を NFC にそろえる。正規化を区別するファイルシステム（Linux）で同じ場所を引くため、フックもそろえる
+  const configDir = (process.env.CLAUDE_CONFIG_DIR ?? (home && path.join(home, '.claude')))?.normalize('NFC');
+  const problems = shellEnvStateProblems({ configDir, sessionId, envFile: process.env.CLAUDE_ENV_FILE?.normalize('NFC') });
   if (problems.length === 0) return verdict;
   const reason = shellEnvStateReason(problems);
   return ['ask', verdict ? `${verdict[1]}。${reason}` : reason];

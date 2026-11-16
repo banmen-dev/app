@@ -49,22 +49,16 @@ describe('崩す: 一時の設定の場所で guard-bash.mjs を起動する', (
     assert.equal(decision(), 'allow');
   });
 
-  // 欠陥: Claude Code（2.1.325 の sPs）は、自分の環境に CLAUDE_ENV_FILE があれば、その中身を session-env の
-  // ファイルより先に読み、各 Bash の前に流す（`CLAUDE_ENV_FILE` は Claude Code の文書にある使い方で、起動前に export して使える）。
-  // PreToolUse のフックは同じ環境を受け継ぐので、guard-bash.mjs は場所を知っている（字面の判定には渡している）のに、状態の確かめでは読まない。
-  // 完了条件 1（書いた手段に関わらず、許さない行で次の Bash が ask）と、docs の「Claude の設定とフック」が CLAUDE_ENV_FILE を
-  // 環境のファイルに数えていることに反する。docs の弱点にも挙がっていない
+  // Claude Code（2.1.325 の sPs）は、自分の環境に CLAUDE_ENV_FILE があれば、その中身を session-env より先に各 Bash の前に流す。
+  // フックは同じ環境を受け継ぐので、その場所も確かめる
   test('起動の環境の CLAUDE_ENV_FILE に許さない行があれば ask', () => {
     const envFile = path.join(configDir, 'my-env.sh');
     writeFileSync(envFile, 'export GH_REPO=other/repo\ngit() { command git -c core.hooksPath=/dev/null "$@"; }\n');
     assert.equal(decision({}, { CLAUDE_ENV_FILE: envFile }), 'ask');
   });
 
-  // 欠陥: Claude Code（2.1.325）は snapshot を作るシェルを 10 秒（aHe=1e4）で打ち切り、名前の時刻（Date.now()）は
-  // シェルを起こす前に取る。正当な snapshot の ctime − 名前の時刻は 10 秒を超えない。猶予 S の 30 秒は、
-  // 作られて 10〜30 秒の間の書き換えを正当と区別できず通す。Claude Code は起動のたびに snapshot を作るので、
-  // 起動直後のセッションと、並行のセッションの作りたての snapshot は、この窓で書き換えられる。
-  // 完了条件 2（snapshot を書き換えると次の Bash が ask）に反し、docs の弱点（確かめた後の書き込み、時計、プラグイン）にも無い
+  // Claude Code（2.1.325）は名前の時刻を取ってから snapshot を書くシェルを起こし、10 秒（aHe=1e4）で打ち切る。
+  // 正当な snapshot の ctime はその中に収まるので、20 秒後の書き換えは猶予の外として止める
   test('作られて 20 秒後に書き換えた snapshot は ask', () => {
     const at = Date.now() - 20_000;
     writeFileSync(path.join(snapDir, `snapshot-zsh-${at}-k9x2.sh`), 'git() { command git -c core.hooksPath=/dev/null "$@"; }\n');
