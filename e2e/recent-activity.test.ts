@@ -177,9 +177,14 @@ test('最近の更新を読めなかったときは、面だけに失敗の案�
   await expect(pane.getByRole('alert')).toHaveText('最近の更新を読み込めませんでした。');
   const retry = pane.getByRole('button', { name: 'もう一度試す' });
   await expect(retry).not.toHaveAttribute('role', 'alert');
+  // 最初の失敗では状態の文は空で、案内の上に隙間を作らない（状態の文はボタンの横にある）
+  await expect(pane.locator('.activity-actions [role="status"]')).toHaveText('');
+  const alertBox = (await pane.getByRole('alert').boundingBox())!;
+  const headBox = (await pane.locator('.pane-head').boundingBox())!;
+  expect(alertBox.y - (headBox.y + headBox.height)).toBeLessThan(40);
   // また失敗したら、状態に「まだ読み込めませんでした」を出し、ボタンは残る
   await retry.click();
-  await expect(pane.getByRole('status')).toHaveText('まだ読み込めませんでした');
+  await expect(pane.locator('.activity-actions [role="status"]')).toHaveText('まだ読み込めませんでした');
   expect(calls).toBe(2);
   // 読めれば、面だけが入れ替わる（ホームのほかの面は読み直さない）
   failing = false;
@@ -187,6 +192,8 @@ test('最近の更新を読めなかったときは、面だけに失敗の案�
   await expect(pane.locator('.activity-row')).toHaveCount(1);
   await expect(pane.getByText('最近の更新を読み込めませんでした。')).toHaveCount(0);
   expect(calls).toBe(3);
+  // 押したボタンが消えても、フォーカスは body に落ちず、先頭の行へ移る
+  await expect(pane.locator('.activity-row').first()).toBeFocused();
 });
 
 test('読み込み中は面だけに骨組みと「読み込んでいます」を出し、ホームのほかの面は待たずに出る', async ({ page }) => {
@@ -199,7 +206,8 @@ test('読み込み中は面だけに骨組みと「読み込んでいます」�
   await page.goto('/aoba');
   const pane = activityPane(page);
   await expect(pane.locator('.skeleton .skeleton-line')).toHaveCount(3);
-  await expect(pane.getByRole('status')).toHaveText('読み込んでいます');
+  // 初回の読み込み中は骨組みだけで、状態の文は空から始める（続きと読み直しのときだけ文を出す）
+  await expect(pane.getByRole('status')).toHaveText('');
   // ホームのほかの面は、最近の更新を待たずに出ている
   await expect(page.getByRole('heading', { level: 2, name: '今日やること', exact: true })).toBeVisible();
   release();
@@ -257,7 +265,8 @@ test('今日やることの操作でホームを読み直しても、最近の�
 
   await page.getByRole('button', { name: '今日やる: あとでやる' }).click();
   await expect(page.getByRole('status').filter({ hasText: '今日やると決めました' })).toBeVisible();
-  expect(todayCalls).toBe(2);
+  // 通ったら今日の読み取りだけを読み直す（トーストは読み直しの前に出る）
+  await expect.poll(() => todayCalls).toBe(2);
   await expect(pane.locator('.activity-row')).toHaveCount(22);
   expect(activityCalls).toBe(2);
 });
@@ -353,4 +362,63 @@ test('続きを読めなかったときは、読んだ分を残して知らせ�
   await pane.getByRole('button', { name: 'さらに読む' }).click();
   await expect(pane.locator('.activity-row')).toHaveCount(21);
   await expect(pane.getByText('続きを読み込めませんでした。')).toHaveCount(0);
+});
+
+test('読み直して空だったときは、面の見出しへフォーカスを移す', async ({ page }) => {
+  let failing = true;
+  await routeOperation(page, recentActivity, { slug: 'aoba' }, async (call) => {
+    if (failing) await call.fail(500, 'internal');
+    else await call.fulfill({ entries: [], next: null });
+  });
+  await page.goto('/aoba');
+  const pane = activityPane(page);
+  await expect(pane.getByText('最近の更新を読み込めませんでした。')).toBeVisible();
+  failing = false;
+  await pane.getByRole('button', { name: 'もう一度試す' }).click();
+  await expect(pane.getByText('まだ更新はありません')).toBeVisible();
+  await expect(pane.getByRole('heading', { level: 2, name: '最近の更新' })).toBeFocused();
+});
+
+test('続きの読み込み中に別の組織へ移ると、前の組織の行は新しい面に混ざらない', async ({ page }) => {
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  await routeOperation(page, recentActivity, { slug: 'aoba' }, async (call) => {
+    if (call.input.before === undefined) {
+      const entries = Array.from({ length: 20 }, (_, index) => entry(index + 1));
+      await call.fulfill({ entries, next: { created_at: entries[19]!.created_at, id: entries[19]!.id } });
+      return;
+    }
+    // 続きの応答は、別の組織へ移った後まで止める
+    await gate;
+    await call.fulfill({
+      entries: [
+        entry(21, { target: { kind: 'task', id: '019a0000-0000-7000-8000-000000000a21', title: 'あおばの続き' } }),
+      ],
+      next: null,
+    });
+  });
+  await routeOperation(page, recentActivity, { slug: 'hibari' }, (call) =>
+    call.fulfill({
+      entries: [
+        entry(1, { target: { kind: 'task', id: '019a0000-0000-7000-8000-000000000b01', title: 'ひばりの更新' } }),
+      ],
+      next: null,
+    }),
+  );
+  await page.goto('/aoba');
+  const pane = activityPane(page);
+  await pane.getByRole('button', { name: 'さらに読む' }).click();
+  await expect(pane.getByRole('status')).toHaveText('読み込んでいます');
+
+  await page.locator('.org-menu-button').click();
+  await page.locator('.org-menu-list a', { hasText: 'ひばり工房' }).click();
+  await expect(page).toHaveURL(/\/hibari$/);
+  await expect(pane.locator('.activity-row')).toHaveText([/ひばりの更新/]);
+
+  // 止めていた前の組織の続きが戻っても、新しい面には混ざらず、読み込み中の表示も残らない
+  release();
+  await page.waitForTimeout(500);
+  await expect(pane.locator('.activity-row')).toHaveCount(1);
+  await expect(pane.getByText('あおばの続き')).toHaveCount(0);
+  await expect(pane.getByRole('status')).toHaveText('');
 });

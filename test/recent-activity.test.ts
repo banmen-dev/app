@@ -10,6 +10,8 @@ import {
   RECENT_ACTIVITY_WORKSPACE_LIMIT,
   recentActivity,
 } from '../src/shared/operations/organization/recent-activity.ts';
+import { organizationHistoryStatement } from '../src/server/operations/organization-history.ts';
+import { taskHistoryStatement } from '../src/server/operations/task-history.ts';
 import { createApp } from '../src/server/app.ts';
 import { orgDb } from '../src/server/db/index.ts';
 import { queryPlanForTest, runStatementsForTest } from '../src/server/db/testing.ts';
@@ -718,11 +720,6 @@ describe('recent-activity', () => {
       );
       expect(comments, comments).not.toMatch(/TEMP B-TREE/);
       expect(comments, comments).not.toMatch(/^SCAN c\b/m);
-      // 2ページ目は、カーソルの日時を索引の範囲にする
-      if (before !== undefined) {
-        expect(changes, changes).toMatch(/created_at<\?/);
-        expect(comments, comments).toMatch(/created_at<\?/);
-      }
     }
   });
 
@@ -762,31 +759,126 @@ describe('recent-activity', () => {
     }
   });
 
-  test('行を入れて ANALYZE した後も、変更とコメントの文は同じ部分索引を使う', async () => {
+  test('行を入れて ANALYZE した後も、ワークスペースの行数が偏っていても、変更とコメントの文は同じ部分索引を使い、ほかの文は取られない', async () => {
     const target = await createTarget();
-    const { organization, workspace } = target;
+    const { organization } = target;
     const leaderId = target.leader.userId!;
-    // タスクが多く、コメントはいろいろなタスクに付く（実際のワークスペースの形）
-    const tasks = [];
-    for (let i = 0; i < 40; i++) tasks.push(await createTask(organization, workspace.id, leaderId));
-    for (let i = 0; i < 120; i++) {
-      const task = tasks[i % tasks.length]!;
-      await log({ target, entityId: task.id, at: minutesLater(i) });
-      await log({ target, entityType: 'sprint', entityId: uuidv7(), at: minutesLater(i) });
-      await createComment(organization, workspace.id, task.id, leaderId, { created_at: minutesLater(i) });
+    // 2つのワークスペース。行数を偏らせる（一方は多く、一方は少ない）。タスクが多く、コメントはいろいろなタスクに付く（実際の形）
+    await createMembership(organization, target.otherWorkspace.id, target.member.userId!);
+    const tasks: Awaited<ReturnType<typeof createTask>>[] = [];
+    for (const [workspaceId, rows] of [
+      [target.workspace.id, 120],
+      [target.otherWorkspace.id, 6],
+    ] as const) {
+      const own = [];
+      for (let i = 0; i < 40; i++) own.push(await createTask(organization, workspaceId, leaderId));
+      tasks.push(...own);
+      for (let i = 0; i < rows; i++) {
+        const task = own[i % own.length]!;
+        await log({ target, workspaceId, entityId: task.id, at: minutesLater(i) });
+        await log({ target, workspaceId, entityType: 'sprint', entityId: uuidv7(), at: minutesLater(i) });
+        await createComment(organization, workspaceId, task.id, leaderId, { created_at: minutesLater(i) });
+      }
     }
     await runStatementsForTest(env, ['ANALYZE']);
     const db = orgDb(env, organization.verified);
-    const [member] = await readMemberWorkspaces(db, target.member.userId!);
-    for (const before of [undefined, { created_at: minutesLater(30), id: uuidv7() }]) {
-      const changes = (await queryPlanForTest(env, recentChangesStatement(db, member!, before))).join('\n');
-      expect(changes, changes).toMatch(/SEARCH cl USING INDEX change_logs_recent_activity \(workspace_id=\?/);
-      expect(changes, changes).not.toMatch(/TEMP B-TREE/);
-      const comments = (await queryPlanForTest(env, recentCommentsStatement(db, member!, before))).join('\n');
-      expect(comments, comments).toMatch(
-        /SEARCH c USING (COVERING )?INDEX comments_workspace_created \(workspace_id=\?/,
-      );
-      expect(comments, comments).not.toMatch(/TEMP B-TREE/);
+    const members = await readMemberWorkspaces(db, target.member.userId!);
+    expect(members).toHaveLength(2);
+    for (const member of members) {
+      for (const before of [undefined, { created_at: minutesLater(30), id: uuidv7() }]) {
+        const changes = (await queryPlanForTest(env, recentChangesStatement(db, member, before))).join('\n');
+        expect(changes, changes).toMatch(/SEARCH cl USING INDEX change_logs_recent_activity \(workspace_id=\?/);
+        expect(changes, changes).not.toMatch(/TEMP B-TREE/);
+        const comments = (await queryPlanForTest(env, recentCommentsStatement(db, member, before))).join('\n');
+        expect(comments, comments).toMatch(
+          /SEARCH c USING (COVERING )?INDEX comments_workspace_created \(workspace_id=\?/,
+        );
+        expect(comments, comments).not.toMatch(/TEMP B-TREE/);
+      }
     }
+
+    // 前の版の comment-list の一覧と件数の文は、ANALYZE の後も comments_task を使う
+    const workspaceId = target.workspace.id;
+    const taskId = tasks[0]!.id;
+    const list = db.statement((q) =>
+      q
+        .selectFrom('comments')
+        .innerJoin('tasks', (join) =>
+          join
+            .onRef('tasks.id', '=', 'comments.task_id')
+            .on('tasks.workspace_id', '=', workspaceId)
+            .on('tasks.deleted_at', 'is', null),
+        )
+        .select(['comments.id', 'comments.body_md', 'comments.created_at'])
+        .where('comments.workspace_id', '=', workspaceId)
+        .where('comments.task_id', '=', taskId)
+        .orderBy('comments.created_at', 'desc')
+        .orderBy('comments.id', 'desc')
+        .limit(51),
+    );
+    const count = db.statement((q) =>
+      q
+        .selectFrom('comments')
+        .select((eb) => eb.fn.countAll<number>().as('count'))
+        .where('comments.task_id', '=', taskId)
+        .where('comments.workspace_id', '=', workspaceId)
+        .where('comments.deleted_at', 'is', null),
+    );
+    for (const statement of [list, count]) {
+      const plan = (await queryPlanForTest(env, statement)).join('\n');
+      expect(plan, plan).toMatch(/SEARCH comments USING (COVERING )?INDEX comments_task \(task_id=\?/);
+      expect(plan, plan).not.toMatch(/comments_workspace_created/);
+    }
+
+    // task-history と organization-history の文は、新しい部分索引に取られない
+    for (const statement of [
+      taskHistoryStatement(db, workspaceId, taskId),
+      taskHistoryStatement(db, workspaceId, taskId, { created_at: minutesLater(30), id: uuidv7() }),
+      organizationHistoryStatement(db, null),
+      organizationHistoryStatement(db, { created_at: minutesLater(30), id: uuidv7() }),
+    ]) {
+      const plan = (await queryPlanForTest(env, statement)).join('\n');
+      expect(plan, plan).not.toMatch(/change_logs_recent_activity/);
+    }
+  });
+
+  test('閉じたワークスペースは 50 個の枠を使わない', async () => {
+    const target = await createTarget();
+    const { organization } = target;
+    const person = await createPerson({ organization });
+    const base = Date.UTC(2031, 0, 1);
+    const names: string[] = [];
+    // 開いた 50 個（古い）。それぞれに変更を 1 件持つ
+    for (let i = 0; i < RECENT_ACTIVITY_WORKSPACE_LIMIT; i++) {
+      const workspace = await createWorkspace(organization, target.admin.userId!, {
+        id: uuidv7(base + i * 1000),
+        name: `開いた ${i}`,
+      });
+      await createMembership(organization, workspace.id, person.userId!);
+      const task = await createTask(organization, workspace.id, target.admin.userId!);
+      await log({ target, workspaceId: workspace.id, entityId: task.id, at: minutesLater(i) });
+      names.push(workspace.name);
+    }
+    // それより新しい、閉じたワークスペース 2 個。所属しているが、枠を使わない
+    for (let i = 0; i < 2; i++) {
+      const closed = await createWorkspace(organization, target.admin.userId!, {
+        id: uuidv7(base + (100 + i) * 1000),
+        name: `閉じた ${i}`,
+        closed_at: minutesLater(500),
+      });
+      await createMembership(organization, closed.id, person.userId!);
+      const task = await createTask(organization, closed.id, target.admin.userId!);
+      await log({ target, workspaceId: closed.id, entityId: task.id, at: minutesLater(600 + i) });
+    }
+    const seen: string[] = [];
+    let before: Cursor | undefined;
+    for (let page = 0; page < 5; page++) {
+      const result = await read(target, person, before);
+      seen.push(...result.entries.map((entry) => entry.workspace.name));
+      if (result.next === null) break;
+      before = result.next;
+    }
+    expect(seen).toEqual(names.reverse());
+    expect(seen.some((name) => name.startsWith('閉じた'))).toBe(false);
   });
 });

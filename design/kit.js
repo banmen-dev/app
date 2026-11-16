@@ -795,7 +795,7 @@
   // title と hint は HTML として埋め込むので、辞書の文言だけを渡す（利用者のデータは入れない）。body は呼び出し側で esc してから渡す
   function pane(id, title, body, { count = null, hint = "" } = {}) {
     return `<section class="pane" aria-labelledby="${id}">
-      <div class="pane-head"><h2 class="pane-title" id="${id}">${title}</h2>${count != null ? `<span class="pane-count">${count} 件</span>` : ""}${hint ? `<span class="pane-hint">${hint}</span>` : ""}</div>
+      <div class="pane-head"><h2 class="pane-title" id="${id}" tabindex="-1">${title}</h2>${count != null ? `<span class="pane-count">${count} 件</span>` : ""}${hint ? `<span class="pane-hint">${hint}</span>` : ""}</div>
       <div class="pane-body">${body}</div>
     </section>`;
   }
@@ -819,6 +819,15 @@
         <span class="activity-meta"><span class="chip">${esc(t(r.kind))}</span><span class="tag">${esc(r.ws)}</span><time datetime="${esc(r.at)}">${esc(r.time)}</time></span>
       </a></li>`;
     return `<div class="activity">${days.map((d) => `<section class="activity-day"><h3 class="activity-date">${esc(d.label)}</h3><ul class="activity-list">${d.rows.map(row).join("")}</ul></section>`).join("")}</div>${moreFailed ? `<div class="callout is-warn">${icon("alert")}<span role="alert">${t("activityMoreFailed")}</span></div>` : ""}${more ? `<div class="form-actions activity-actions"><button class="btn" type="button">${t("activityMore")}</button></div>` : ""}`;
+  }
+  // 最近の更新の面の、読み込み中の骨組み。文は空から始める（本番は続きと読み直しのときだけ role="status" に文を出す）
+  function activityLoading() {
+    return `<span class="visually-hidden" role="status"></span><div class="skeleton" aria-hidden="true"><span class="skeleton-line is-block"></span><span class="skeleton-line is-block"></span><span class="skeleton-line is-block"></span></div>`;
+  }
+  // 最近の更新の面の、読めなかったときの案内。失敗の文だけが role="alert"、「もう一度試す」と状態（role="status"）は .activity-actions に並べる。
+  // status は、最初の失敗では空、読み直してまた失敗したときは「まだ読み込めませんでした」
+  function activityFailed({ status = "" } = {}) {
+    return `<span class="visually-hidden" role="status"></span><div class="callout is-warn">${icon("alert")}<span role="alert">${t("activityLoadFailed")}</span></div><div class="form-actions activity-actions"><button class="btn" type="button">${t("retry")}</button><span class="field-hint" role="status">${esc(status)}</span></div>`;
   }
   // ---- Wiki ----
   // ページの木（左の欄の nav の中身）。nodes は { id, title, children } の木、current は今開いているページの ID、
@@ -4530,7 +4539,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     D, t, brandMark, brandSymbol, googleMark, githubMark, THEMES, THEME_LABEL, THEME_NOTE, esc, icon, md, sumPts, cycleTheme, setTheme, applyTheme, mount,
     onRedraw: (fn) => extraRedraws.push(fn), openDrawer, drawerHtml, drawerState: drawer, flashRow,
     user, task, tasksWhere, repoTag, categoryTag, sprintTag, repoPicker, sprintLabel, colName, categoryOf, storyPts, epicPts, dueOf,
-    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, emblem, pts, dueChip, taskDue, tier, sourceKey, entry, rowMenu, orderItems, draftRow, attrChip, book, section, foldedSection, pane, paneList, dashboard, activity, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
+    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, emblem, pts, dueChip, taskDue, tier, sourceKey, entry, rowMenu, orderItems, draftRow, attrChip, book, section, foldedSection, pane, paneList, dashboard, activity, activityLoading, activityFailed, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
     narrowDisclosure, card, board, treeStory, treeEpic, completedTasks, sprintNotice, raidNotice, progress, levelPanel, teamXp, xpDelta, load, capacityRows,
     openDialog, closeDialog, toast, celebrate, miniCap, redraw: () => redrawAll(), DIALOGS, loginTarget, orgMenuHtml, workspaceMenuHtml, accountMenuHtml, breadcrumbHtml,
     filesOf, fileThumb, fileRow, dropzone, attachments, markdownEditor, markdownToolbarHtml, mdBody, markdownSample, meter, storageBytes,

@@ -15,7 +15,11 @@
 -- change_logs_recent_activity: 既にある change_logs_workspace (workspace_id, created_at) は id を持たず、種類や action を後から捨てるので、
 -- 最近の更新に出ない行（権限、配分、接続などと、削除の行）が続くと、21件を集めるまで長く読む。出す行（task、story、epic の削除でない行）だけを持つ。
 -- 既存の索引は消さない（task-history などの問い合わせは change_logs_entity などを使い続ける）。
--- 条件の式は src/server/operations/recent-activity.ts の文と同じ形に書く（SQLite は、問い合わせの条件が索引の条件と同じ式だと示せたときだけ部分索引を使う）。
+-- 条件の式は、問い合わせ側の式の持ち主 src/server/db/recent-activity-filter.ts と同じ形に書く（SQLite は、問い合わせの条件が索引の条件と同じ式だと示せたときだけ部分索引を使う）。
+--
+-- 費用の見立て: CREATE INDEX は表の既存の全行を1回読む（change_logs と comments の行数に比例。条件に当たる行だけが索引に入る）。
+-- 以後、条件に当たる行の INSERT のたびに書く索引が1つ増える（change_logs はタスク、ストーリー、エピックの変更ごとに1行、comments はコメントごとに1行）。
+-- 行を書き換える文は無い。
 
 CREATE INDEX comments_workspace_created ON comments (workspace_id, created_at, id) WHERE body_md <> '';
 

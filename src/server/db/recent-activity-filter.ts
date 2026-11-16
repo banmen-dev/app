@@ -1,7 +1,7 @@
 import { sql, type RawBuilder } from 'kysely';
 
 // 組織のホームの「最近の更新」（recent-activity）が読む行の条件。部分索引の WHERE と同じ式にする
-// （migrations/0035_add_comments_workspace_index.sql）。SQLite は、問い合わせの条件が索引の条件を含むと示せたときだけ部分索引を使い、
+// （migrations/0035_add_recent_activity_indexes.sql）。SQLite は、問い合わせの条件が索引の条件を含むと示せたときだけ部分索引を使い、
 // 束縛の値（?）の入った式からは示せない。そのため、値は束縛せず文字のまま書く（organization-history-filter.ts と同じ）。
 // alias は問い合わせで表に付けた別名
 

@@ -33,9 +33,14 @@
   let generation = 0;
 
   const days = $derived(groupByDay(entries));
-  const status = $derived(
-    phase === 'loading' || loadingMore ? t('loading') : retrying ? t('retrying') : retryFailed ? t('retryFailed') : '',
+  // 読み込みの状態の文。初回の読み込み中は骨組みだけで、文は空から始める（LoadFailed と同じ。マウント時に文字を持った領域は読み上げられない恐れがあるため）。
+  // 続きの読み込み中と「もう一度試す」の読み直し中、また失敗したときだけ文を出す
+  const statusText = $derived(
+    retrying ? t('retrying') : retryFailed ? t('retryFailed') : loadingMore ? t('loading') : '',
   );
+  // 失敗の案内の中では、ボタンの横に出す（見える文）。ほかの状態では、見えない領域に出す。どちらも常に置き、文字だけを替える
+  const failedStatus = $derived(phase === 'failed' ? statusText : '');
+  const hiddenStatus = $derived(phase === 'failed' ? '' : statusText);
 
   function toLogin(): void {
     window.location.assign(loginUrl(page.url));
@@ -80,14 +85,24 @@
 
   async function retry(): Promise<void> {
     if (retrying) return;
+    const token = generation;
     retrying = true;
     retryFailed = false;
     try {
       await loadFirst();
     } finally {
-      retrying = false;
-      // 読み直しが終わっても失敗の案内が残っていれば、また失敗したということ（読めれば面ごと入れ替わる）
-      if (phase === 'failed') retryFailed = true;
+      // 組織が替わった後に戻った古い読み直しは、新しい面の状態を書き換えない
+      if (token === generation) {
+        retrying = false;
+        // 読み直しが終わっても失敗の案内が残っていれば、また失敗したということ（読めれば面ごと入れ替わる）
+        if (phase === 'failed') retryFailed = true;
+      }
+    }
+    // 読めたら、押したボタンが消えるので、先頭の行（空なら面の見出し）へフォーカスを移す
+    if (token === generation && phase === 'ready') {
+      await tick();
+      if (entries.length > 0) focusRow(entries[0]!.id);
+      else document.getElementById('p-activity')?.focus();
     }
   }
 
@@ -134,7 +149,7 @@
 </script>
 
 <Pane id="p-activity" title={t('paneActivity')}>
-  <span class={phase === 'failed' ? 'field-hint' : 'visually-hidden'} role="status">{status}</span>
+  <span class="visually-hidden" role="status">{hiddenStatus}</span>
   {#if phase === 'loading'}
     <div class="skeleton" aria-hidden="true">
       <span class="skeleton-line is-block"></span>
@@ -145,6 +160,7 @@
     <div class="callout is-warn"><Icon name="alert" /><span role="alert">{t('activityLoadFailed')}</span></div>
     <div class="form-actions activity-actions">
       <button class="btn" type="button" aria-disabled={retrying} onclick={() => void retry()}>{t('retry')}</button>
+      <span class="field-hint" role="status">{failedStatus}</span>
     </div>
   {:else if entries.length === 0}
     <EmptyState
