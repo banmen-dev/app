@@ -3,7 +3,7 @@
 // seed のセッション（seed/sessions.ts）の Cookie で開く。あおば開発の管理者はミナト
 import type { Locator, Page } from '@playwright/test';
 import { expect, test } from './fixtures.ts';
-import { addTaskRow, createWorkspace, settledScrollY, signIn, waitForSettled } from './helpers.ts';
+import { addTaskRow, applyTheme, createWorkspace, settledScrollY, signIn, waitForSettled } from './helpers.ts';
 
 test.use({ timezoneId: 'Asia/Tokyo' });
 
@@ -20,6 +20,26 @@ function modeButton(scope: Page | Locator, name: string): Locator {
 function storedMode(page: Page): Promise<string | null> {
   return page.evaluate(() => localStorage.getItem('task-open-mode'));
 }
+
+test('真ん中の引き出しの四隅はテーマの記録の部品と同じ角になる', async ({ page }) => {
+  await createWorkspace(page, '角のワークスペース');
+  await addTaskRow(page, '真ん中で読む');
+  await page.getByRole('link', { name: '真ん中で読む', exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: '真ん中で読む' });
+  await modeButton(drawer, '真ん中').click();
+  await expect(drawer).toHaveClass(/is-center/);
+
+  for (const [theme, radius] of [
+    ['simple_light', '4px'],
+    ['simple_dark', '4px'],
+    ['modern', '2px'],
+  ]) {
+    await applyTheme(page, theme);
+    for (const corner of ['top-left', 'top-right', 'bottom-left', 'bottom-right']) {
+      await expect(drawer).toHaveCSS(`border-${corner}-radius`, radius);
+    }
+  }
+});
 
 test('ページ全体は一覧を重ねず、アプリ内から来た画面へ閉じ、直接開いたらバックログへ閉じる', async ({ page }) => {
   await createWorkspace(page, '詳細ページワークスペース');
