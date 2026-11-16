@@ -104,7 +104,13 @@ describe('isNotable', () => {
 });
 
 describe('startStallProbe', () => {
-  for (const origin of ['http://127.0.0.1:9876', 'http://[::1]:9876', 'http://example.test:9876']) {
+  for (const origin of [
+    'http://127.0.0.1:9876',
+    'http://[::1]:9876',
+    'http://example.test:9876',
+    'http://localhost.:9876',
+    'http://foo.localhost:9876',
+  ]) {
     test(`${origin} の接続先は置き換えない`, async () => {
       const urls: string[] = [];
       const probe = startStallProbe(
