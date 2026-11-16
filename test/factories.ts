@@ -714,6 +714,7 @@ export async function createTaskSource(
     reviewer_source_id: '',
     review_cycle: null,
     review_revision: 0,
+    last_received_at: null,
     source_key: 'aoba/shop#12',
     source_url: 'https://github.com/aoba/shop/issues/12',
     source_container_id: '1001',

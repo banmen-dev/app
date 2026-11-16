@@ -457,6 +457,7 @@ export function reviewUpdateStatements(
       .updateTable('task_sources')
       .set((eb) => ({
         review_revision: eb('review_revision', '+', 1),
+        ...(reopen ? { last_received_at: at } : {}),
         review_cycle: item.reviewCycle!,
         is_source_done: item.isDone ? 1 : 0,
         source_updated_at: new Date(item.updatedAt).toISOString(),

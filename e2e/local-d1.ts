@@ -342,7 +342,8 @@ export async function seedInboxReviewStates(workspaceId: string, ownerUserId: st
   await seedInboxTasks(workspaceId, ownerUserId, ['提出済みのレビュー', '再依頼されたレビュー']);
   await executeLocalD1([
     `UPDATE task_sources SET source_kind = 'review_request', reviewer_source_id = '42', review_cycle = 'seed-cycle-2', ` +
-      `is_source_done = CASE WHEN source_key = 'aoba/e2e#1' THEN 1 ELSE 0 END ` +
+      `is_source_done = CASE WHEN source_key = 'aoba/e2e#1' THEN 1 ELSE 0 END, ` +
+      `last_received_at = CASE WHEN source_key = 'aoba/e2e#2' THEN '2026-11-17T00:00:00.000Z' ELSE NULL END ` +
       `WHERE workspace_id = '${workspaceId}';`,
   ]);
 }

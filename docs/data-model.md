@@ -1046,6 +1046,7 @@
 | reviewer_source_id | TEXT | NOT NULL、既定 `''` | レビュー依頼のレビュアーの取り込み元での ID。他の種別は空文字（`CHECK ((source_kind = 'review_request') = (reviewer_source_id <> ''))`） |
 | review_cycle | TEXT | | 現在のレビュー依頼回の不透明な識別子。旧版の行は NULL |
 | review_revision | INTEGER | NOT NULL、既定 0 | target 照合の更新ごとに増やす CAS 用の版。同時刻でも古い読取から更新しない |
+| last_received_at | TEXT | UTCミリ秒の日時かNULL | 再依頼で受信箱へ戻った日時。NULLの初回行は tasks.created_at を到着日時に使う |
 | source_key | TEXT | NOT NULL | 課題キーや `owner/repo#12` など、取り込み元での表示用のキー。移動で変わるので検索と表示にだけ使う |
 | source_url | TEXT | NOT NULL | |
 | source_container_id | TEXT | NOT NULL | Backlog のプロジェクトや GitHub のリポジトリなど、取り込み元で項目が入る先の ID。絞り込みに使う |
@@ -1063,7 +1064,7 @@
 - 接続が削除されても行は残す。続けて同期する接続がなくなるだけ。
 
 - レビュー依頼の既存行は target 付き照合の結果だけで更新する。発見の全走査で出ない行は変更しない。提出・PR 終了は `is_source_done` だけを変え、自動完了も経験値付与もしない。
-- 既存行の新しい依頼回では、すでに提出・終了していても同じタスクの `completed_at` / `completed_by` を空にして受信箱へ戻し、`story_id`、`sprint_id`、`column_id` / `column_position`、`today_on` を空にする。開いている `sprint_entries` は `removed` で閉じる。通常の `task-reopen` は呼ばず、`completions` / `xp_grants` を保持する。同じ回では復帰しない。初めて依頼回を付ける旧版の NULL 行も初回復帰の対象にせず、以後の回から適用する。
+- 既存行の新しい依頼回では、すでに提出・終了していても同じタスクの `completed_at` / `completed_by` を空にして受信箱へ戻し、`story_id`、`sprint_id`、`column_id` / `column_position`、`today_on` を空にする。開いている `sprint_entries` は `removed` で閉じる。アーカイブにあるタスクも再依頼なら戻す。初回の `tasks.created_at` は保持し、`last_received_at` で再到着の日時と受信箱の並びを決める。同じ回の再同期では到着日時も進めない。通常の `task-reopen` は呼ばず、`completions` / `xp_grants` を保持する。同じ回では復帰しない。初めて依頼回を付ける旧版の NULL 行も初回復帰の対象にせず、以後の回から適用する。
 - 状態の照合、タスクの復帰、所属記録、依頼回の記録は、組織・ワークスペース・接続・認証情報・読んだ版を条件にした同一 batch で保存する。古い取り込み元更新日時と処理済みの別の回は反映しない。
 
 ### review_request_cycles

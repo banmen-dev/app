@@ -323,6 +323,7 @@ export const organizationTableColumns = {
     reviewer_source_id: textDefault,
     review_cycle: textOrNull,
     review_revision: integerDefault,
+    last_received_at: textOrNull,
     source_key: text,
     source_url: text,
     source_container_id: text,

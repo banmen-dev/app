@@ -56,6 +56,7 @@ export const inboxListOperation = implement(inboxList, async ({ db, workspace })
             'tasks.created_at',
             's.source_key',
             's.is_source_done',
+            's.last_received_at',
             's.source_url',
             's.source_container_name',
             'c.name as connection_name',
@@ -64,7 +65,7 @@ export const inboxListOperation = implement(inboxList, async ({ db, workspace })
             'u.id as assignee_id',
             'u.name as assignee_name',
           ])
-          .orderBy('tasks.created_at', 'desc')
+          .orderBy((eb) => eb.fn.coalesce('s.last_received_at', 'tasks.created_at'), 'desc')
           .orderBy('tasks.id', 'desc')
           .limit(INBOX_LIST_LIMIT),
       ),
@@ -121,7 +122,7 @@ export const inboxListOperation = implement(inboxList, async ({ db, workspace })
       connection_name: row.connection_name,
       repository: row.repository_id === null ? null : { id: row.repository_id, name: row.repository_name ?? '' },
       assignee: row.assignee_id === null ? null : { id: row.assignee_id, name: row.assignee_name ?? '' },
-      arrived_at: row.created_at,
+      arrived_at: row.last_received_at ?? row.created_at,
     })),
     total: Number(totalRow?.n ?? 0),
     connection_count: Number(connectionRow?.n ?? 0),

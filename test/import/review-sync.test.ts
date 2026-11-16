@@ -652,3 +652,23 @@ test('レビューの403はその回を止め、次の同期では後ろの範�
   expect(await sync(ctx, f.source)).toMatchObject({ outcome: 'error' });
   expect(f.calls).toHaveLength(2);
 });
+
+test('再依頼の到着日時だけを進め、初回の作成日時と同じ回の再同期では到着日時を保つ', async () => {
+  const ctx = await setup();
+  const f = fake();
+  await sync(ctx, f.source);
+  const [original] = await rows(ctx);
+  const later = '2026-11-18T00:00:00.000Z';
+  f.state.target = [item({ reviewCycle: 'cycle-2', updatedAt: later })];
+  await syncConnection(env, ctx.db, ctx.workspace.id, ctx.connection.id, {
+    source: f.source,
+    now: () => new Date(later),
+  });
+  expect((await rows(ctx))[0]!.created_at).toBe(original!.created_at);
+  expect((await sources(ctx))[0]).toMatchObject({ last_received_at: later });
+  await syncConnection(env, ctx.db, ctx.workspace.id, ctx.connection.id, {
+    source: f.source,
+    now: () => new Date('2026-11-19T00:00:00.000Z'),
+  });
+  expect((await sources(ctx))[0]).toMatchObject({ last_received_at: later });
+});
