@@ -1,4 +1,4 @@
-import type { ExpressionBuilder, OrganizationTables } from '../db/index.ts';
+import type { Expression, ExpressionBuilder, OrganizationTables, QueryCreator } from '../db/index.ts';
 
 // tasks を持つ文から呼ぶ。付与と見込みで同じ条件を使い、書き込み時点の値から受取人を選ぶ。
 // 候補の値が1件も無ければ NULL になるので、欄が0件の場合にも経験値は付かない。
@@ -36,4 +36,33 @@ export function detailedRecipient<DB, TB extends keyof DB>(builder: ExpressionBu
     .orderBy('detail_value.updated_at', 'desc')
     .orderBy('detail_value.field_id', 'desc')
     .limit(1);
+}
+
+// 再依頼で過去の完了を保持しても、起票・詳細や同じ感謝を重ねて付けない。
+export function activeTaskGrant(
+  from: Pick<QueryCreator<OrganizationTables>, 'selectFrom'>,
+  workspaceId: string | Expression<string>,
+  taskId: string | Expression<string>,
+  action: string,
+  thankId?: string,
+) {
+  return from
+    .selectFrom('xp_grants as prior')
+    .select('prior.id')
+    .where('prior.workspace_id', '=', workspaceId)
+    .where('prior.task_id', '=', taskId)
+    .where('prior.action', '=', action)
+    .where('prior.amount', '>', 0)
+    .$if(thankId !== undefined, (qb) => qb.where('prior.thank_id', '=', thankId!))
+    .where((eb) =>
+      eb.not(
+        eb.exists(
+          eb
+            .selectFrom('xp_grants as reversed')
+            .select('reversed.id')
+            .where('reversed.workspace_id', '=', workspaceId)
+            .whereRef('reversed.reverses_grant_id', '=', 'prior.id'),
+        ),
+      ),
+    );
 }

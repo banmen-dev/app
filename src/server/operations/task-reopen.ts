@@ -4,6 +4,7 @@ import { now } from '../../shared/clock.ts';
 import { taskReopen, type TaskReopenConflictReason } from '../../shared/operations/task/index.ts';
 import {
   previousStatementChanged,
+  type ExpressionBuilder,
   type OrganizationDb,
   type OrganizationTables,
   type QueryCreator,
@@ -18,6 +19,46 @@ type From = Pick<QueryCreator<OrganizationTables>, 'selectFrom'>;
 
 function reopenConflict(reason: TaskReopenConflictReason): ApiError {
   return new ApiError(409, 'conflict', { reason });
+}
+
+// 現在の依頼回の記録、または依頼回との接続前の旧記録だけを戻す。
+// 固定時計で過去回と現在回の完了日時が同じでも、過去回の参照を選ばない。
+function currentCompletion(
+  eb: Pick<
+    ExpressionBuilder<OrganizationTables, keyof OrganizationTables>,
+    'or' | 'and' | 'not' | 'exists' | 'selectFrom'
+  >,
+  workspaceId: string,
+  taskId: string,
+) {
+  const current = eb
+    .selectFrom('review_request_cycles as cycle')
+    .innerJoin('task_sources as source', (join) =>
+      join
+        .onRef('source.task_id', '=', 'cycle.task_id')
+        .onRef('source.review_cycle', '=', 'cycle.review_cycle')
+        .on('source.workspace_id', '=', workspaceId),
+    )
+    .select('cycle.task_id')
+    .where('cycle.task_id', '=', taskId);
+  return eb.or([
+    eb.and([
+      eb.not(eb.exists(current.where('cycle.completion_id', 'is not', null))),
+      eb.not(
+        eb.exists(
+          eb
+            .selectFrom('review_request_cycles as linked')
+            .innerJoin('tasks as linked_task', (join) =>
+              join.onRef('linked_task.id', '=', 'linked.task_id').on('linked_task.workspace_id', '=', workspaceId),
+            )
+            .select('linked.task_id')
+            .where('linked.task_id', '=', taskId)
+            .whereRef('linked.completion_id', '=', 'completions.id'),
+        ),
+      ),
+    ]),
+    eb.exists(current.whereRef('cycle.completion_id', '=', 'completions.id')),
+  ]);
 }
 
 // 完了を戻せない理由。戻せるなら null。task-reopen の断りと、task-detail と sprint-board の reopenable が同じ判定を使う。
@@ -104,6 +145,7 @@ async function readReopenTarget(db: OrganizationDb, workspaceId: string, taskId:
         .select(['completions.id', 'previous.id as previous_column_id', 'previous.name as previous_column_name'])
         .where('completions.task_id', '=', taskId)
         .where('completions.workspace_id', '=', workspaceId)
+        .where((eb) => currentCompletion(eb, workspaceId, taskId))
         .orderBy('completions.id', 'desc')
         .limit(1),
     ),
@@ -309,7 +351,8 @@ export const taskReopenOperation = implement(taskReopen, async ({ db, actor, wor
                     .selectFrom('completions')
                     .select('completions.id')
                     .where('completions.id', '=', completion.id)
-                    .where('completions.workspace_id', '=', workspaceId),
+                    .where('completions.workspace_id', '=', workspaceId)
+                    .where((cb) => currentCompletion(cb, workspaceId, taskId)),
                 ),
             eb.not(
               eb.exists(
@@ -401,6 +444,21 @@ export const taskReopenOperation = implement(taskReopen, async ({ db, actor, wor
     ...(completion === null
       ? []
       : [
+          db.statement((q) =>
+            q
+              .updateTable('review_request_cycles')
+              .set({ completion_id: null })
+              .where('task_id', '=', taskId)
+              .where('completion_id', '=', completion.id)
+              .where((eb) =>
+                eb.and([
+                  eb.exists(ownLog(q, workspaceId, logId)),
+                  eb.exists(
+                    q.selectFrom('tasks').select('id').where('id', '=', taskId).where('workspace_id', '=', workspaceId),
+                  ),
+                ]),
+              ),
+          ),
           db.statement((q) =>
             q
               .deleteFrom('completions')

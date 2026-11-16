@@ -345,5 +345,7 @@ export async function seedInboxReviewStates(workspaceId: string, ownerUserId: st
       `is_source_done = CASE WHEN source_key = 'aoba/e2e#1' THEN 1 ELSE 0 END, ` +
       `last_received_at = CASE WHEN source_key = 'aoba/e2e#2' THEN '2026-11-17T00:00:00.000Z' ELSE NULL END ` +
       `WHERE workspace_id = '${workspaceId}';`,
+    `INSERT INTO review_request_cycles (task_id, review_cycle, created_at) ` +
+      `SELECT task_id, review_cycle, created_at FROM task_sources WHERE workspace_id = '${workspaceId}';`,
   ]);
 }
