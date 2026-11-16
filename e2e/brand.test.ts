@@ -169,6 +169,11 @@ for (const screen of [
       await page.setViewportSize({ width, height: 900 });
       for (const theme of themes) {
         await page.evaluate((value) => (document.documentElement.dataset.theme = value), theme);
+        // 折り畳まれた組織メニューのBrandSymbolも、同じ配信用素材を読み込む。
+        for (const mark of await page.locator('.brand-art .brand-mark').all()) {
+          await expect(mark).toHaveAttribute('src', /\/brand\/master\/symbol\.webp$/);
+          await expect.poll(() => mark.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBe(629);
+        }
         if (screen.path.startsWith('/aoba') && width <= 760) {
           // 角のマスは出さない。残るマークは浮きメニューの中の組織の切り替えのもので、見えない
           await expect(page.locator('.binding-head')).toHaveCount(0);
