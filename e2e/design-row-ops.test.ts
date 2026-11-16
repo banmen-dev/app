@@ -34,6 +34,26 @@ async function openSample(page: Page, name: 'backlog.html' | 'sprint.html' | 'in
   return errors;
 }
 
+test('見本の近道一覧はスプリントとカタログだけにカードの3項目を出し、バックログへ混ぜない', async ({ page }) => {
+  const labels = [
+    '選んだカードを隣の列へ（完了のカードは左で戻す）',
+    '選んだ未完了カードを列の中で動かす',
+    '列の末尾の空の行に題を打ち、タスクを足す',
+  ];
+  for (const name of ['sprint.html', 'backlog.html', 'index.html'] as const) {
+    const errors = await openSample(page, name);
+    await page.locator('body').click({ position: { x: 1, y: 1 } });
+    await page.keyboard.press('?');
+    const dialog = page.locator('#dialog');
+    await expect(dialog).toBeVisible();
+    for (const label of labels) {
+      if (name === 'backlog.html') await expect(dialog.getByText(label, { exact: true })).toHaveCount(0);
+      else await expect(dialog.getByText(label, { exact: true })).toBeVisible();
+    }
+    expect(errors).toEqual([]);
+  }
+});
+
 test('見本のバックログ: 空の行に題を打って Enter で足し、続けて打てる。Esc では作らない', async ({ page }) => {
   const errors = await openSample(page, 'backlog.html');
   const draft = page.locator('input[data-draft="root:backlog"]');

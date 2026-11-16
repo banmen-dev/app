@@ -2522,14 +2522,16 @@ export const dictionary = defineDictionary({
   sprintBoardRegion: '{sprint}の{column}とカード',
   sprintBoardColumnEmpty: 'なし',
   sprintBoardAddTask: '{task}を足す',
-  // 列の中の欄の案内。列は狭く（4列の 1280px と 390px で）、「（題を打って Enter）」まで入らないので、短く言い切る。Enter の案内は列の下の注（sprintBoardDraftHint）に任せる
+  // 列の中の欄の案内。列は狭いので短く言い切り、Enter の案内はショートカットの一覧に置く
   sprintBoardAddTaskPlaceholder: '{task}を足す',
   sprintBoardAddTaskIn: '{task}を足す: {column}',
   sprintBoardTaskAdded: '「{title}」を{column}に足しました',
   sprintBoardAddGone: 'この{sprint}か{column}が見つかりません。{task}は作られていません。一覧を読み直します',
   sprintBoardAddNotActive: 'この{sprint}はもう進行中ではないので、{task}は作られていません。一覧を読み直します',
   sprintBoardAddDoneColumn: '{done}の{column}には{task}を足せないので、作られていません。一覧を読み直します',
-  sprintBoardDraftHint: '{column}の末尾の空の行に題を打って Enter を押すと、その{column}に{task}が足されます。',
+  shortcutSprintCardColumns: '選んだカードを隣の{column}へ（{done}のカードは左で戻す）',
+  shortcutSprintCardOrder: '選んだ未完了カードを{column}の中で動かす',
+  shortcutSprintColumnAdd: '{column}の末尾の空の行に題を打ち、{task}を足す',
   sprintBoardColumnToggle: '{column}の開閉',
   sprintBoardColumnPoints: '{points} pt',
   sprintBoardKeyHint:
