@@ -992,15 +992,7 @@ export async function readAccountTaskOrganizations<T>(
     if (result.status === 'fulfilled') organizations.push({ organization, data: result.value });
     else {
       failed_organizations.push(organization);
-      const error = taskReadErrorKind(result.reason);
-      if (error !== null) {
-        console.error(
-          JSON.stringify({
-            error,
-            organizationId: organizationIds.get(organization.slug)!,
-          }),
-        );
-      }
+      reportOrganizationReadFailure(organizationIds.get(organization.slug)!, result.reason);
     }
   }
   return {
@@ -1008,6 +1000,14 @@ export async function readAccountTaskOrganizations<T>(
     failed_organizations,
     omitted_organizations: Math.max(0, listed.organizations.length - selected.length),
   };
+}
+
+// 組織ごとの読み取りの失敗をログに残す。既知の認可エラー（401、403、404 の ApiError）は残さない。
+// 残すのは固定の種類と組織 ID だけ（本文、題、認証情報、例外の message と stack は出さない）。
+// readAccountTaskOrganizations の callback が返した続きの読み取り（全組織の最近の更新の2段目）の失敗にも使う
+export function reportOrganizationReadFailure(organizationId: string, reason: unknown): void {
+  const error = taskReadErrorKind(reason);
+  if (error !== null) console.error(JSON.stringify({ error, organizationId }));
 }
 
 // 任意の name・message・stack をログへ流さず、組み込みの型だけを固定語に分類する。

@@ -144,4 +144,4 @@ export {
   removeBillingAdministrator,
 } from './billing.ts';
 
-export { readAccountTaskOrganizations } from './cross-organization.ts';
+export { readAccountTaskOrganizations, reportOrganizationReadFailure } from './cross-organization.ts';

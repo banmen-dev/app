@@ -21,7 +21,8 @@
 <script>
 "use strict";
 
-// 全組織のダッシュボード。組織が1つでもログインの直後に出す。
+// 全組織のダッシュボード。組織が1つでもログインの直後に出す。左の列は自分用、組織（組織ごとのワークスペース）、全組織の今日やること、
+// 届いた招待、停止している組織。右の列は全組織の最近の更新とニュース。
 const { D, t, esc, icon, pane, newsList, entry, section, foldedSection } = SQ;
 // 届いた招待の紙。承諾待ちの招待がある人に出す。入れる組織の分も含め、組織ごとに1件
 const invitationsSheet = () => pane("p-invitations", "届いた招待", `
@@ -41,6 +42,38 @@ const suspendedSheet = () => pane("p-suspended", `停止している${t("organiz
       <p class="gate-note">停止している${t("organization")}には、停止している間は入れません。再開については、運用者に問い合わせてください。</p>
     `);
 const createActions = (primary) => `<button class="btn ${primary ? "is-primary" : "is-sm"}" type="button" data-dialog="createMyOrganization">${t("organization")}を作る</button><button class="btn is-sm" type="button" data-dialog="createPersonalOrganization">自分用を作る</button>`;
+// 組織ごとのワークスペースの行（組織のホームのワークスペースの面と同じ .pane-list と .pane-link）。押すとバックログへ移る
+const workspaceRows = (rows) => rows.length === 0
+  ? `<p class="workspace-note">所属する${t("workspace")}はありません。</p>`
+  : `<ul class="pane-list" aria-label="所属する${t("workspace")}">${rows.map((w) => `<li><a class="pane-link" href="backlog.html"><b>${esc(w.name)}</b><span class="chip">${t(w.role)}</span>${icon("chevron")}</a></li>`).join("")}</ul>`;
+// 組織ごとの、自分が所属する閉じていないワークスペース（見本の値）
+const dashboardWorkspaces = {
+  aoba: [{ name: "受託開発チーム", role: "leader" }, { name: "社内ツール", role: "member" }],
+  hibari: [],
+};
+// 自分用の面。自分用のワークスペースを並べ、最後に「ワークスペースを作る」を置く
+const personalSheet = () => pane("p-personal", t("personalOrganizationName"), `
+      ${workspaceRows([{ name: "読書の記録", role: "leader" }, { name: "家の用事", role: "leader" }])}
+      <div class="form-actions"><button class="btn is-sm" type="button" data-toast="見本のため、作りません">${icon("plus")}${t("workspace")}を作る</button></div>
+    `);
+// 組織の面。組織ごとの枠（.org-block）に、組織の行と、所属するワークスペースを並べる。読めなかった組織は短い案内にする
+const organizationsSheet = () => pane("p-organizations", t("organization"), `
+      <div class="org-blocks">
+        ${D.organizations.map((k) => `<div class="org-block"><a class="choice" href="today.html"><div><b>${esc(k.name)}</b><span class="mono">scrum-guild.dev/${esc(k.slug)}/</span></div>${icon("chevron")}</a><div class="org-block-body">${k.slug in dashboardWorkspaces ? workspaceRows(dashboardWorkspaces[k.slug]) : `<p class="workspace-note">${t("workspace")}を読み込めませんでした。組織のホームから開けます。</p>`}</div></div>`).join("")}
+      </div>
+      <p class="gate-note">あとから、画面の左上（狭い幅では上の帯）の${t("organization")}の切り替えで選び直せます。</p>
+      <div class="form-actions"><button class="btn is-sm" type="button" data-dialog="createMyOrganization">${t("organization")}を作る</button></div>
+    `);
+// 全組織の最近の更新。行に組織の名前（自分用は「自分用」）の札を添え、押すとその組織の詳細へ移る
+const activitySheet = () => pane("p-activity", t("paneActivity"), SQ.activity([
+  { label: "2026年11月16日（月）", rows: [
+    { href: "backlog.html", title: "第3章を読む", text: "ミナトがコメントした", body: "半分まで読んだ。続きは週末に。", kind: "task", org: t("personalOrganizationName"), ws: "読書の記録", at: "2026-11-16T03:00:00.000Z", time: "12:00" },
+    { href: "backlog.html", title: "見積もりを整える", text: "ハルカが期日を変更した", kind: "story", org: "あおば開発", ws: "受託開発チーム", at: "2026-11-16T02:00:00.000Z", time: "11:00" },
+  ] },
+  { label: "2026年11月15日（日）", rows: [
+    { href: "backlog.html", title: "問い合わせの窓口を決める", text: "リンが作成した", kind: "task", org: "ひばり工房", ws: "社内ツール", at: "2026-11-15T08:00:00.000Z", time: "17:00" },
+  ] },
+], { more: true }));
 // 本人の全組織の今日やること。行は閲覧だけで、その組織のバックログの詳細へ移る。
 const myTodayEntry = (task, note = "") => {
   const organizationName = task.organization.kind === "personal" ? t("personalOrganizationName") : task.organization.name;
@@ -93,17 +126,12 @@ function render() {
       <div class="gate-brand">${SQ.brandMark}<span class="visually-hidden">Scrum Guild</span></div>
       <h1 class="gate-title">${t("organizationList")}</h1>
       <div class="dashboard"><div class="dashboard-main">
-      ${pane("p-organizations", `入れる${t("organization")}`, `
-      <p>入れる${t("organization")}が ${D.organizations.length} つあります。名前や稼働の設定は${t("organization")}ごとに別です。</p>
-      <div class="choice-list">
-        ${D.organizations.map((k) => `<a class="choice" href="today.html"><div><b>${esc(k.name)}</b><span class="mono">scrum-guild.dev/${esc(k.slug)}/</span></div>${icon("chevron")}</a>`).join("")}
-      </div>
-      <p class="gate-note">あとから、画面の左上（狭い幅では上の帯）の${t("organization")}の切り替えで選び直せます。</p>
-      <div class="form-actions"><button class="btn is-sm" type="button" data-dialog="createMyOrganization">${t("organization")}を作る</button><button class="btn is-sm" type="button" data-dialog="createPersonalOrganization">自分用を作る</button></div>
-      `)}
+      ${personalSheet()}
+      ${organizationsSheet()}
+      ${myTodaySheet()}
       ${invitationsSheet()}
       ${suspendedSheet()}
-      </div><div class="dashboard-side">${myTodaySheet()}${D.news.length ? pane("p-news", t("paneNews").replace("{app}", t("appName")), newsList(D.news)) : ""}</div></div>
+      </div><div class="dashboard-side">${activitySheet()}${D.news.length ? pane("p-news", t("paneNews").replace("{app}", t("appName")), newsList(D.news)) : ""}</div></div>
       <div class="form-actions"><a class="btn is-sm" href="billing.html">${t("billingOpen")}</a><button class="btn is-sm is-quiet" type="button" data-toast="見本のため、ログアウトしません">${t("logout")}</button></div>
     </section>
     <section class="gate-sheet">
@@ -147,13 +175,9 @@ function render() {
       <p class="gate-note">運用者には、ログアウトの隣に「運用の画面へ」を出す（運用者でない人には出さない）。</p>
     </section>
     <section class="gate-sheet">
-      <h2 class="dialog-title">自分用の${t("organization")}を持つ人</h2>
-      <div class="choice-list">
-        <a class="choice" href="today.html"><div><b>${t("personalOrganizationName")}</b><span class="mono">scrum-guild.dev/mio-solo/</span></div>${icon("chevron")}</a>
-        ${D.organizations.map((k) => `<a class="choice" href="today.html"><div><b>${esc(k.name)}</b><span class="mono">scrum-guild.dev/${esc(k.slug)}/</span></div>${icon("chevron")}</a>`).join("")}
-      </div>
-      <div class="form-actions"><button class="btn is-sm" type="button" data-dialog="createMyOrganization">${t("organization")}を作る</button></div>
-      <p class="gate-note">自分用の${t("organization")}（1アカウントに1つ）は、名前の代わりに「自分用」と出して、チーム用の${t("organization")}と並べて選べるようにする。持つ人には「自分用を作る」を出さない（入れる${t("organization")}にも停止している${t("organization")}にも、自分用が無い人にだけ出す）。どちらの一覧にも出ない自分用を持つ人（その${t("organization")}で無効にされた人など）には出し、押すと 409 の <code>personal_limit</code> で断って、ダイアログが伝える。</p>
+      <h2 class="dialog-title">自分用の${t("organization")}を持たない人</h2>
+      ${pane("p-personal-missing", t("personalOrganizationName"), `<p>自分だけで使う${t("workspace")}を置く「${t("personalOrganizationName")}」を作れます。期限はなく無料です。</p><div class="form-actions"><button class="btn is-sm" type="button" data-dialog="createPersonalOrganization">自分用を作る</button></div>`)}
+      <p class="gate-note">チーム用の${t("organization")}に入れて、自分用を持たない人には、自分用の面に作る入口を置く（組織の面の下には「${t("organization")}を作る」だけ）。自分用（1アカウントに1つ）を持つ人には、自分用の面に自分用の${t("workspace")}と「${t("workspace")}を作る」を出し、「自分用を作る」は出さない（入れる${t("organization")}にも停止している${t("organization")}にも、自分用が無い人にだけ出す）。どちらの一覧にも出ない自分用を持つ人（その${t("organization")}で無効にされた人など）には出し、押すと 409 の <code>personal_limit</code> で断って、ダイアログが伝える。</p>
     </section>
     ${myTodayStates()}
     <p class="gate-note" style="text-align:center"><a href="index.html">デザインシステムのカタログへ戻る</a></p>

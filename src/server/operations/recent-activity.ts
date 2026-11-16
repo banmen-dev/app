@@ -248,17 +248,17 @@ function newer(a: Cursor, b: Cursor): number {
   return a.id < b.id ? 1 : a.id > b.id ? -1 : 0;
 }
 
-export const recentActivityOperation = implement(recentActivity, async ({ db, actor, input }) => {
-  const userId = actor.userId;
-  if (userId === null) return { entries: [], next: null };
-
-  const workspaces = await readMemberWorkspaces(db, userId);
-  if (workspaces.length === 0) return { entries: [], next: null };
-
-  // 文は、変更（ワークスペースの数だけ）、コメント（同じ数）の順に並べて1回で送る
+// 所属するワークスペースの変更とコメントを読み、新しい順に並べて返す（ワークスペースごとに 21 件まで。ページに切るのは呼ぶ側）。
+// 文は、変更（ワークスペースの数だけ）、コメント（同じ数）の順に並べて1回で送る。組織のホームと全組織のダッシュボード（my-recent-activity）が使う
+export async function readRecentActivityEntries(
+  db: OrganizationDb,
+  workspaces: readonly MemberWorkspace[],
+  before: Cursor | undefined,
+): Promise<RecentActivityEntry[]> {
+  if (workspaces.length === 0) return [];
   const results = await db.batch([
-    ...workspaces.map((workspace) => recentChangesStatement(db, workspace, input.before)),
-    ...workspaces.map((workspace) => recentCommentsStatement(db, workspace, input.before)),
+    ...workspaces.map((workspace) => recentChangesStatement(db, workspace, before)),
+    ...workspaces.map((workspace) => recentCommentsStatement(db, workspace, before)),
   ]);
 
   const found: RecentActivityEntry[] = [];
@@ -285,15 +285,27 @@ export const recentActivityOperation = implement(recentActivity, async ({ db, ac
       });
     }
   });
+  return found.sort(newer);
+}
 
-  found.sort(newer);
-  const page = found.slice(0, RECENT_ACTIVITY_PAGE_SIZE);
+// 新しい順に並べた行から、先頭の 20 件と続きの位置を決める。続きは、21 件目があるときだけ（最後に返した行を次の before にする）
+export function pageOfEntries<T extends Cursor>(found: readonly T[]): { entries: T[]; next: Cursor | null } {
+  const sorted = [...found].sort(newer);
+  const page = sorted.slice(0, RECENT_ACTIVITY_PAGE_SIZE);
   const last = page.at(-1);
   return {
     entries: page,
     next:
-      found.length > RECENT_ACTIVITY_PAGE_SIZE && last !== undefined
+      sorted.length > RECENT_ACTIVITY_PAGE_SIZE && last !== undefined
         ? { created_at: last.created_at, id: last.id }
         : null,
   };
+}
+
+export const recentActivityOperation = implement(recentActivity, async ({ db, actor, input }) => {
+  const userId = actor.userId;
+  if (userId === null) return { entries: [], next: null };
+
+  const workspaces = await readMemberWorkspaces(db, userId);
+  return pageOfEntries(await readRecentActivityEntries(db, workspaces, input.before));
 });

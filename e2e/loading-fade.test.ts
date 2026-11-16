@@ -137,7 +137,10 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
         seen.contentTop = heading.getBoundingClientRect().top;
       }).observe(document.body, { subtree: true, childList: true, attributes: true });
     });
-    await page.getByRole('link', { name: /あおば開発/ }).click();
+    await page
+      .getByRole('region', { name: '組織', exact: true })
+      .getByRole('link', { name: /あおば開発/ })
+      .click();
     await expect(page.locator('.loading-overlay .skeleton-frame')).toBeVisible();
     let before = { background: '', pageBackground: '', scrollTop: 0 };
     if (reducedMotion === 'no-preference') {
@@ -263,7 +266,10 @@ test('移動中に行き先の形が変わっても骨組みを消して出し�
     await gate;
     await call.passThrough();
   });
-  await page.getByRole('link', { name: /あおば開発/ }).click();
+  await page
+    .getByRole('region', { name: '組織', exact: true })
+    .getByRole('link', { name: /あおば開発/ })
+    .click();
   await expect(page.locator('.loading-overlay .skeleton-frame')).toHaveAttribute('data-shape', 'today');
   await page.evaluate(() => {
     const original = document.querySelector('.loading-overlay')!;

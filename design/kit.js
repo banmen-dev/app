@@ -882,6 +882,7 @@
     return `<div class="dashboard"><div class="dashboard-main">${main}</div>${side ? `<div class="dashboard-side">${side}</div>` : ""}</div>`;
   }
   // 最近の更新の面の中身（.activity）。days は { label, rows } の配列（日付ごとの区分。新しい順）。
+  // 行の org は全組織のダッシュボード（/）だけで渡す組織の名前（自分用は「自分用」）。種類の札とワークスペースの名前の間に札で出す。
   // rows は { href, title, text, body, truncated, kind, ws, time, at } の配列。text はした人とした内容の文、body はコメントの本文の先頭（あるときだけ）、
   // kind は task、story、epic、at は ISO の日時。more が真なら「さらに読む」を出し、moreFailed が真ならその上に続きを読めなかった案内を出す。
   // 空の案内、読み込み中の骨組み、失敗の案内は呼び出し側が置く（カタログの「面とダッシュボード」）
@@ -890,7 +891,7 @@
         <b class="activity-title">${esc(r.title)}</b>
         <span class="activity-text">${esc(r.text)}</span>
         ${r.body ? `<span class="activity-body">${esc(r.body)}${r.truncated ? "…" : ""}</span>` : ""}
-        <span class="activity-meta"><span class="chip">${esc(t(r.kind))}</span><span class="tag">${esc(r.ws)}</span><time datetime="${esc(r.at)}">${esc(r.time)}</time></span>
+        <span class="activity-meta"><span class="chip">${esc(t(r.kind))}</span>${r.org ? `<span class="tag">${esc(r.org)}</span>` : ""}<span class="tag">${esc(r.ws)}</span><time datetime="${esc(r.at)}">${esc(r.time)}</time></span>
       </a></li>`;
     return `<div class="activity">${days.map((d) => `<section class="activity-day"><h3 class="activity-date">${esc(d.label)}</h3><ul class="activity-list">${d.rows.map(row).join("")}</ul></section>`).join("")}</div>${moreFailed ? `<div class="callout is-warn">${icon("alert")}<span role="alert">${t("activityMoreFailed")}</span></div>` : ""}${more ? `<div class="form-actions activity-actions"><button class="btn" type="button">${t("activityMore")}</button></div>` : ""}`;
   }

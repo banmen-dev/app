@@ -102,7 +102,10 @@ test('入れる組織が1つの会員は、組織の切り替えのメニュー�
 }) => {
   await signIn(context, baseURL, 'member');
   await page.goto('/');
-  await page.getByRole('link', { name: /あおば開発/ }).click();
+  await page
+    .getByRole('region', { name: '組織', exact: true })
+    .getByRole('link', { name: /あおば開発/ })
+    .click();
   await expect(page).toHaveURL(/\/aoba$/);
   const menuButton = page.getByRole('button', { name: 'あおば開発。組織を切り替える' });
   await menuButton.click();
@@ -128,7 +131,10 @@ test('入れる組織が1つの会員は、組織の切り替えのメニュー�
 }) => {
   await signIn(context, baseURL, 'member');
   await page.goto('/');
-  await page.getByRole('link', { name: /あおば開発/ }).click();
+  await page
+    .getByRole('region', { name: '組織', exact: true })
+    .getByRole('link', { name: /あおば開発/ })
+    .click();
   await expect(page).toHaveURL(/\/aoba$/);
   const menuButton = page.getByRole('button', { name: 'あおば開発。組織を切り替える' });
   await menuButton.click();
@@ -253,12 +259,20 @@ test.describe('組織の選択の「自分用を作る」の出し分け', () =>
   const team = { slug: 'aoba', name: 'あおば開発', kind: 'team' as const };
   const personal = { slug: 'mio-solo', name: '自分用', kind: 'personal' as const };
 
-  test('自分用を持つ人には出さず、自分用はチーム用と並んで「自分用」と出る', async ({ context, baseURL, page }) => {
+  test('自分用を持つ人には出さず、自分用はチーム用の組織の面と別の「自分用」の面に出る', async ({
+    context,
+    baseURL,
+    page,
+  }) => {
     await signIn(context, baseURL, 'createOrg');
     await rewriteOperation(page, myOrganizations, (output) => ({ ...output, organizations: [team, personal] }));
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
-    await expect(page.locator('.choice')).toHaveText([/あおば開発/, /自分用/]);
+    // 自分用は組織の面に並べず、左の列の先頭の「自分用」の面に出す
+    await expect(page.getByRole('region', { name: '組織', exact: true }).locator('a.choice')).toHaveText([
+      /あおば開発/,
+    ]);
+    await expect(page.getByRole('region', { name: '自分用', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: word('createMyOrganizationAction') })).toBeVisible();
     await expect(page.getByRole('button', { name: word('createPersonalOrganizationAction') })).toHaveCount(0);
   });

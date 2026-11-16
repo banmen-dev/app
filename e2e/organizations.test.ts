@@ -45,7 +45,10 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Scrum Guild のニュース' })).toBeVisible();
-    await page.getByRole('link', { name: /あおば開発/ }).click();
+    await page
+      .getByRole('region', { name: '組織', exact: true })
+      .getByRole('link', { name: /あおば開発/ })
+      .click();
     await expect(page).toHaveURL(/\/aoba$/);
     await expect(page.getByRole('heading', { level: 1, name: '今日やること' })).toBeVisible();
     await expect(page.locator('.me')).toContainText('ハルカ');
@@ -290,7 +293,10 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
       const output = await call.fetch();
       await call.fulfill({ ...output, me: { ...output.me, theme: 'modern' } });
     });
-    await page.getByRole('link', { name: /あおば開発/ }).click();
+    await page
+      .getByRole('region', { name: '組織', exact: true })
+      .getByRole('link', { name: /あおば開発/ })
+      .click();
     // 少し遅れて、見出しと題名を持つ読み込み中の表示を出す。読み上げの領域は常に置いてあり、文字だけが替わる
     await expect(page.getByRole('heading', { level: 1, name: '読み込んでいます' })).toBeVisible();
     await expect(page).toHaveTitle('読み込んでいます - Scrum Guild');
@@ -335,7 +341,10 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
         }
       }).observe(document.body, { childList: true, subtree: true, characterData: true });
     });
-    await page.getByRole('link', { name: /あおば開発/ }).click();
+    await page
+      .getByRole('region', { name: '組織', exact: true })
+      .getByRole('link', { name: /あおば開発/ })
+      .click();
     await expect(page.getByRole('heading', { level: 1, name: '今日やること' })).toBeVisible();
     const seen = await page.evaluate(
       () => (window as unknown as { __seen: { clickedAt: number | null; shownAt: number | null } }).__seen,
@@ -361,7 +370,10 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
     await expect(page.locator('a.choice > svg.ico')).toHaveCount(2);
     await expect(page.locator('.choice.is-static svg.ico')).toHaveCount(0);
 
-    await page.getByRole('link', { name: /あおば開発/ }).click();
+    await page
+      .getByRole('region', { name: '組織', exact: true })
+      .getByRole('link', { name: /あおば開発/ })
+      .click();
     await expect(page).toHaveURL(/\/aoba$/);
     await expect(page.getByRole('heading', { level: 1, name: '今日やること' })).toBeVisible();
     expect(await collect()).toEqual([]);

@@ -642,6 +642,9 @@ export const dictionary = defineDictionary({
   activityMore: 'さらに読む',
   activityLoadFailed: '最近の更新を読み込めませんでした。',
   activityMoreFailed: '続きを読み込めませんでした。もう一度試してください。',
+  // 全組織のダッシュボード（/）の最近の更新。読む組織の上限を超えた数と、読めなかった組織の行
+  activityOmitted: 'ほか {count} 組織は読み込んでいません',
+  activityFailedOrganization: '最近の更新を読めませんでした',
   sectionOpen: '開くと一覧を表示',
   // 依頼先（自分用の組織）の付いた、自分が担当の未完了のタスク。人に振ったものを期日の早い順に確かめる
   sectionDelegated: '依頼中',
@@ -1165,7 +1168,16 @@ export const dictionary = defineDictionary({
   storyReopenFailed: '取り消せませんでした。もう一度試してください。',
 
   // 組織の選択と、枠の外の画面（組織の切り替え、見つからない、運用の仮の画面）
-  organizationChooseLead: '入れる組織が {count} つあります。名前や稼働の設定は組織ごとに別です。',
+  // 全組織のダッシュボード（/）の組織の面の見出し。組織ごとのまとまりに、その組織で所属する{workspace}を並べる
+  paneOrganizations: '組織',
+  dashboardWorkspacesLoadFailed: '{workspace}を読み込めませんでした。',
+  dashboardWorkspacesFailedOrganization: '{workspace}を読み込めませんでした。組織のホームから開けます。',
+  dashboardWorkspacesOmitted: '{workspace}は読み込んでいません。組織のホームから開けます。',
+  dashboardNoWorkspace: '所属する{workspace}はありません。',
+  // 自分用の面。自分用の{organization}がまだ無い人に、作る入口と一緒に出す
+  dashboardPersonalMissing: '自分だけで使う{workspace}を置く「{personal}」を作れます。期限はなく無料です。',
+  // チーム用の{organization}が無く、自分用だけに入れる人の組織の面
+  dashboardNoTeamOrganization: 'チームで使う{organization}はまだありません。管理者から招待が届くと、ここに出ます。',
   organizationChooseNote: 'あとから、画面の左上（狭い幅では上の帯）の組織の切り替えで選び直せます。',
   createMyOrganizationAction: '組織を作る',
   createMyOrganizationTitle: '自分の組織を作る',
