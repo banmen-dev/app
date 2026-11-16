@@ -25,6 +25,7 @@ export class SprintColumnCollapse {
 
   constructor(workspaceId: string) {
     this.key = sprintColumnCollapseKey(workspaceId);
+    if (workspaceId === '') return;
     try {
       this.ids = parse(storage()?.getItem(this.key) ?? null) ?? [];
     } catch {
@@ -37,6 +38,7 @@ export class SprintColumnCollapse {
   }
 
   toggle(id: string): void {
+    if (this.key === sprintColumnCollapseKey('')) return;
     this.ids = this.isCollapsed(id) ? this.ids.filter((current) => current !== id) : [...this.ids, id];
     try {
       storage()?.setItem(this.key, JSON.stringify(this.ids));

@@ -14,6 +14,14 @@ function storage() {
 }
 
 describe('スプリントの列の開閉', () => {
+  test('ワークスペースが無い間は保存領域を読まず、書かない', () => {
+    const store = storage();
+    const state = new SprintColumnCollapse('');
+    state.toggle('done');
+    expect(store.getItem).not.toHaveBeenCalled();
+    expect(store.setItem).not.toHaveBeenCalled();
+    expect(state.ids).toEqual([]);
+  });
   test('再作成しても記憶し、別のワークスペースには及ばず、開くと保存を外す', () => {
     storage();
     const state = new SprintColumnCollapse('a');
