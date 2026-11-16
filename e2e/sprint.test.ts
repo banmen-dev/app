@@ -591,6 +591,8 @@ test('リーダーはスプリントを終え、終わらなかったタスク�
   const taskDrawer = page.getByRole('dialog', { name: 'A札' });
   await taskDrawer.locator('.done-bar').getByRole('button', { name: '完了にする', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'タスクを完了にしました' })).toBeVisible();
+  // トーストは詳細の再読込より先に出る。完了処理の終端（印へのフォーカス）を待ってから閉じる
+  await expect(taskDrawer.locator('.done-bar').getByRole('img', { name: '完了', exact: true })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(taskDrawer).toBeHidden();
   await expect(titlesIn(page, '完了')).toHaveText(['A札']);
