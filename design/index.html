@@ -489,7 +489,7 @@ const SECTIONS = [
     `${dashboard(
       pane("pane-demo-workspaces", t("workspace"), paneList([{ href: "#panes", name: "受託開発チーム", role: "leader" }, { href: "#panes", name: "社内ツール", role: "member" }]), { count: 2, hint: t("workspacePaneHint").replace("{backlog}", t("backlog")) }) +
       pane("pane-demo-today", "今日やること", SQ.section("pane-demo-section", "今日やると決めたもの", 1, book(SQ.tasksWhere((x) => x.who === D.me && !x.doneAt && x.todayOn).slice(0, 1), { showWs: true }), "", 3)) +
-      pane("pane-demo-news", t("paneNews").replace("{app}", t("appName")), SQ.newsList(D.news.concat([{ date: "2026-10-05", title: "狭い幅で何行にも折り返す長めの題をリンクにした知らせの見本です。印は文字の末尾に付く", body: "リンク付きで題が長いとき、external の印が行の中央に浮かず、題の最後の文字に続くことを確かめる。", href: "https://example.com/news/long-title" }]))),
+      pane("pane-demo-news", t("paneNews").replace("{app}", t("appName")), SQ.newsList(D.news.concat([{ date: "2026-10-05", title: "狭い幅で折り返す長めの題。external の印は文字の末尾に付く知らせの見本", body: "リンク付きで題が長いとき、external の印が行の中央に浮かず、題の最後の文字に続くことを確かめる。", href: "https://example.com/news/long-title" }]))),
       pane("pane-demo-updates", "最近の更新", `<p class="panel-note">右の列に置く面の見本です。</p>`)
     )}` +
     `<div class="cat-row"><span class="field-hint">右の列に面が無いとき（今のホーム）は、右の列を置かず、幅だけが空く。所属するワークスペースが無いときは、ワークスペースの面に案内を出し、今日やることの面の空は線画の無い短い1行（.book-empty）にして重ねない</span></div>` +

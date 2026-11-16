@@ -63,6 +63,8 @@ describe('newsItemProblems: 題と本文', () => {
     expect(newsItemProblems({ ...good, title: 'あ'.repeat(40), body: 'い'.repeat(120) }, FIXED_TODAY)).toEqual([]);
     // サロゲートペアの文字は1字と数える
     expect(newsItemProblems({ ...good, title: '𠮷'.repeat(40) }, FIXED_TODAY)).toEqual([]);
+    expect(newsItemProblems({ ...good, body: '𠮷'.repeat(120) }, FIXED_TODAY)).toEqual([]);
+    expect(newsItemProblems({ ...good, body: '𠮷'.repeat(121) }, FIXED_TODAY)).not.toEqual([]);
     expect(newsItemProblems({ ...good, title: 'あ'.repeat(41) }, FIXED_TODAY)).not.toEqual([]);
     expect(newsItemProblems({ ...good, body: 'い'.repeat(121) }, FIXED_TODAY)).not.toEqual([]);
   });
@@ -71,6 +73,13 @@ describe('newsItemProblems: 題と本文', () => {
     ['題が空', { title: '' }],
     ['題が空白だけ', { title: '  　 ' }],
     ['題が2行', { title: '一行目\n二行目' }],
+    ['題が U+2028 で2行', { title: '一行目\u{2028}二行目' }],
+    ['題が U+2029 で2行', { title: '一行目\u{2029}二行目' }],
+    ['題が U+0085 で2行', { title: '一行目\u{85}二行目' }],
+    ['題がゼロ幅のスペースだけ', { title: '\u{200B}' }],
+    ['題が空白とゼロ幅の文字だけ', { title: ' \u{200B}\u{FEFF}\u{2060} ' }],
+    ['本文がゼロ幅のスペースだけ', { body: '\u{200B}\u{200B}' }],
+    ['本文が空白とゼロ幅の文字だけ', { body: '\u{3000}\u{200B}\n\u{FEFF}' }],
     ['題が長すぎる', { title: 'あ'.repeat(41) }],
     ['本文が空', { body: '' }],
     ['本文が空白だけ', { body: ' \n ' }],
