@@ -192,6 +192,7 @@ export function summarizeBacklog(value: unknown) {
         }
       }
   const qualifyingPaths = [];
+  // 合意した独立2巡以上での再現を判定する。悪化は下で全巡・全条件を調べる。
   for (let condition = 0; condition < backlogCases.length; condition++)
     for (const entry of backlogEntries)
       if (comparisons.filter((x) => x.case === condition && x.entry === entry && !x.reverse && x.pass).length >= 2)

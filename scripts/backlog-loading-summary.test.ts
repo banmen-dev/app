@@ -86,6 +86,31 @@ function improve(p: BacklogReport, condition = 0, entry = 'direct', round?: numb
       x.ready = 900;
 }
 
+test('3巡中2巡の再現を採用し、全巡の悪化を検査する', () => {
+  const report = fixture();
+  report.rounds = 3;
+  report.api.push(...report.api.filter((sample) => sample.round === 1).map((sample) => ({ ...sample, round: 3 })));
+  report.browser.push(
+    ...report.browser.filter((sample) => sample.round === 1).map((sample) => ({ ...sample, round: 3 })),
+  );
+  improve(report, 0, 'direct', 1);
+  improve(report, 0, 'direct', 2);
+  const result = summarizeBacklog(report);
+  assert.equal(result.eligible, true);
+  assert.deepEqual(result.qualifyingPaths, [{ case: 0, entry: 'direct' }]);
+  assert.equal(result.comparisons.length, 120);
+  for (const sample of report.browser)
+    if (
+      sample.round === 3 &&
+      sample.case === 0 &&
+      !sample.reverse &&
+      sample.entry === 'direct' &&
+      sample.variant === 'C'
+    )
+      sample.ready = 1100;
+  assert.equal(summarizeBacklog(report).eligible, false);
+});
+
 test('全5条件・4経路・正逆2順・2巡をnearest-rankで集計する', () => {
   const report = fixture();
   const result = summarizeBacklog(report);
