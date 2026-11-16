@@ -22,7 +22,7 @@
 
 ## 生データと再集計
 
-正式生データを [backlog-loading-samples.json.gz](backlog-loading-samples.json.gz) に、採否とセルごとの分位点を [backlog-loading-decision.json](backlog-loading-decision.json) に保存した。展開後の生データの SHA-256 は `d4cda2c9226ba943615aad64536ebb9e883a7588ba0316dd13bfc7d602b6e14c`。架空の計測データ・版・条件・計測器の入力ハッシュを含み、セッションのトークンや環境変数は含めない。計測時の実行コードは未コミットで、基準コミットと `inputHashes` で識別する。後から追加する結果再現テストは計測器の実行コードを変えない。
+正式生データを [backlog-loading-samples.json.gz](backlog-loading-samples.json.gz) に、採否とセルごとの分位点を [backlog-loading-decision.json](backlog-loading-decision.json) に保存した。展開後の生データの SHA-256 は `d4cda2c9226ba943615aad64536ebb9e883a7588ba0316dd13bfc7d602b6e14c`。架空の計測データ・版・条件・計測器の入力ハッシュを含み、セッションのトークンや環境変数は含めない。計測に使ったコードは基準コミットと `inputHashes` で識別する。
 
 ```sh
 pnpm exec node scripts/backlog-loading-summary.ts docs/backlog-loading-samples.json.gz /tmp/backlog-summary
@@ -84,18 +84,6 @@ API の主・各従は JSON 読み取り完了まで。応答のスキーマ検�
 
 C は成功経路の性能試作であり、製品の認証・失敗表示・再試行・古い401の処理を実装済みとは扱わない。追加の製品実装は合意した採用基準を満たす場合だけ行う。測定不能や通信失敗は正常試行に混ぜず、未完了の報告は再集計器が拒否する。
 
-
-## 検証と残件
-
-この検証欄は最終点検後の結果追記で、独立点検は受けていない。点検対象の計測コード・生データ・結果本文・全表には、その後の変更はない。
-
-- 正式計測前に `pnpm check`（Svelte 0 errors / 0 warnings、Worker tsc）、`pnpm lint`、`pnpm format:check`、通常の `pnpm build` が成功。
-- 全 Node テストは2,582件成功、既存25件 skip。その後に追加した正式データ再現テストを含む関連94テスト、対象 lint・整形も成功した。正式計測中はこれらを再実行していない。
-- コード・反証・安全性/DB・UIの独立点検を2巡実施。並行する選択肢待ちの失敗回収、Bの従待ち時系列検査、空作業場の指標説明を修正した。最終点検の指摘は無し。独立した Python の nearest-rank 集計でも3経路・10組・保留を再現した。
-- 使い捨てD1等の一時領域が残っていないこと、復元した通常buildに計測用の目印が含まれないことを確認した。生データと結果は上記のリポジトリ内成果物として残す。
-- 製品フローを変えていないため製品E2Eは追加・実行していない。Workersの全テストとCIも未実施。計測器のブラウザ実行を製品E2E suiteの実行成功には数えない。
-- コミット・push・PR作成は未実施。並行 #1238・#1236・#1307・#1312、既存計測器、`docs/development.md`、製品ソースは変更していない。
-- 元の「従が遅くても主の操作を開始できる」「従の失敗・再試行・古い応答を扱う」製品の受け入れ条件は未達のまま。採用基準を満たす追加根拠が得られたときだけ、合意した方式で製品実装する。
 
 ## API（ms、p50 / p95）
 
