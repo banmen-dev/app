@@ -454,7 +454,11 @@ vite の転送先も同じ値から作るので、画面は自分のワークツ
 
 `vite.config.ts` の `clientOperationMetadata` は client 環境だけで、操作の定義を呼び出しに必要な名前・権限の範囲・mode・workspace・clientTimeoutMs・binary の属性へ縮める。入力と通常の応答はサーバーで検証し、ブラウザへスキーマやサーバー用の説明・制限設定を配らない。Worker・SSR・CLI・ユニットテストには適用しない。
 
-`me-avatar-upload` と `attachment-upload` は画面側も応答を検証するため output を残す。画面でほかの操作の input/output を読む場合は、この出力方針と `scripts/client-operation-metadata.test.ts` を同時に更新する。操作の型は元の定義から推論し、URL の組み立てと待ち上限は従来の共通関数を使う。不要になった Zod のスキーマ生成には PURE の注記を付けるが、`z.config` の CSP 用の jitless 設定は残す。
+`me-avatar-upload` と `attachment-upload` は画面側も応答を検証するため output を残す。同じZod 4のMiniでobject/string/numberの応答スキーマを元の定義から組み、safeParseの判定と変換は元のスキーマと比較する。未対応のスキーマへの変更はビルドで止める。画面でほかの操作の input/output を読む場合は、この出力方針と `scripts/client-operation-metadata.test.ts` を同時に更新する。操作の型は元の定義から推論し、URL の組み立てと待ち上限は従来の共通関数を使う。不要になった Zod のスキーマ生成には PURE の注記を付けるが、`z.config` の CSP 用の jitless 設定は残す。
+
+### 初回に配る素材を再生成する
+
+Fontsource を更新したら `python -m pip install 'fonttools[woff]==4.61.1' 'Pillow==13.0.0'` で生成用の依存を用意し、`python scripts/generate-boot-assets.py`、`python scripts/boot-font-assets.test.py`、`pnpm exec node scripts/generate-favicon.ts` を順に実行する。Pythonは通常のbuildには不要。文字範囲・異体字セレクタ・`.notdef`・ライセンス情報と横書きの描画を保ち、元より小さくなるフォントだけ差し替える。`pnpm bench:boot --runs 2` で転送量と表示時間も確認する。原本とハッシュは `design/fonts/README.md` を参照する。
 
 ### URL を直接開く最初の読み込みを測る
 

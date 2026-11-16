@@ -5,6 +5,29 @@ import type { Plugin } from 'vite';
 
 export const clientOutputOperationNames = new Set(['me-avatar-upload', 'attachment-upload']);
 
+// この2操作の応答は object/string/number だけ。元の定義から同じスキーマを
+// Miniで組み、Classicのメソッド群を配らない。未対応の変更はビルドで止める。
+function miniOutput(node: ts.Expression, source: ts.SourceFile): string {
+  if (
+    ts.isCallExpression(node) &&
+    ts.isPropertyAccessExpression(node.expression) &&
+    ts.isIdentifier(node.expression.expression) &&
+    node.expression.expression.text === 'z'
+  ) {
+    const method = node.expression.name.text;
+    if (['string', 'number'].includes(method) && node.arguments.length === 0) return `__sgClientOutputZod.${method}()`;
+    if (method === 'object' && node.arguments.length === 1 && ts.isObjectLiteralExpression(node.arguments[0])) {
+      const fields = node.arguments[0].properties.map((property) => {
+        if (!ts.isPropertyAssignment(property) || ts.isComputedPropertyName(property.name))
+          throw new Error('client output の属性を直接書いてください');
+        return `${property.name.getText(source)}: ${miniOutput(property.initializer, source)}`;
+      });
+      return `__sgClientOutputZod.object({${fields.join(',')}})`;
+    }
+  }
+  throw new Error(`${source.fileName}: client output の Mini 対応と比較テストを更新してください`);
+}
+
 export function clientOperationMetadata(): Plugin {
   return {
     name: 'client-operation-metadata',
@@ -15,6 +38,7 @@ export function clientOperationMetadata(): Plugin {
       if (!file.includes('/src/shared/') || !file.endsWith('.ts')) return null;
       const source = ts.createSourceFile(file, code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
       const edits: { start: number; end: number; text: string }[] = [];
+      let usesMini = false;
       function visit(node: ts.Node) {
         if (
           file.includes('/src/shared/operations/') &&
@@ -43,12 +67,19 @@ export function clientOperationMetadata(): Plugin {
               (key === 'output' && keepOutput)
             );
           });
+          const fields = kept.map((property) => {
+            if (property.name?.getText(source) === 'output' && ts.isPropertyAssignment(property)) {
+              usesMini = true;
+              return `output: ${miniOutput(property.initializer, source)}`;
+            }
+            return property.getText(source);
+          });
           edits.push({
             start: node.getStart(source),
             end: node.end,
             // 未使用の操作では output の生成もまとめて除ける。定義自体の検査は
             // Worker とテストで行い、ブラウザには縮めたオブジェクトだけを配る。
-            text: `/* @__PURE__ */ (() => ({${kept.map((p) => p.getText(source)).join(',')}}))()`,
+            text: `/* @__PURE__ */ (() => ({${fields.join(',')}}))()`,
           });
           return;
         }
@@ -77,6 +108,7 @@ export function clientOperationMetadata(): Plugin {
       for (const edit of edits.sort((a, b) => b.start - a.start)) {
         code = code.slice(0, edit.start) + edit.text + code.slice(edit.end);
       }
+      if (usesMini) code = `import * as __sgClientOutputZod from 'zod/mini';\n${code}`;
       return { code, map: null };
     },
   };

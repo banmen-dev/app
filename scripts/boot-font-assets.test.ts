@@ -20,6 +20,8 @@ test('共通フォントの原本と生成物のハッシュが一致し、転�
       'noto-sans-jp-latin-wght-normal.woff2',
     ],
   );
+  let sourceBytes = 0;
+  let optimizedBytes = 0;
   for (const { file, sourceSha256, sha256 } of manifest.fonts) {
     const source = readFileSync(new URL(`files/${file}`, fontsource));
     const output = readFileSync(new URL(`../design/fonts/${file}`, import.meta.url));
@@ -30,6 +32,9 @@ test('共通フォントの原本と生成物のハッシュが一致し、転�
     );
     assert.equal(createHash('sha256').update(output).digest('hex'), sha256, `${file}: 生成物が変わった`);
     assert.equal(output.toString('ascii', 0, 4), 'wOF2');
-    assert.ok(output.length < source.length, file);
+    assert.ok(output.length <= source.length, file);
+    sourceBytes += source.length;
+    optimizedBytes += output.length;
   }
+  assert.ok(optimizedBytes < sourceBytes);
 });

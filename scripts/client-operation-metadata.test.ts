@@ -25,6 +25,18 @@ test('スキーマを省くのは client 環境だけ（Worker・SSR に適用�
   assert.equal(meAvatarUpload.output.safeParse({ avatar_url: 42 }).success, false);
 });
 
+test('Miniに未対応の応答スキーマへ変わったらビルドで止める', () => {
+  const transform = clientOperationMetadata().transform as (code: string, file: string) => unknown;
+  assert.throws(
+    () =>
+      transform(
+        `const upload = defineOperation({name: 'me-avatar-upload', output: z.object({avatar_url: z.string().nullable()})});`,
+        '/repo/src/shared/operations/organization/me-avatar.ts',
+      ),
+    /Mini 対応/,
+  );
+});
+
 test('実際のブラウザの束でも URL・待ち上限・アップロード応答の検証を保つ', async () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'sg-client-operations-'));
   try {
@@ -67,11 +79,13 @@ test('実際のブラウザの束でも URL・待ち上限・アップロード�
       assert.equal('description' in browser, false);
       if (!clientOutputOperationNames.has(definition.name)) assert.equal('output' in browser, false);
     }
-    for (const value of [null, {}, { avatar_url: 42 }, { avatar_url: '/avatar' }]) {
+    for (const value of [undefined, null, [], {}, { avatar_url: 42 }, { avatar_url: '/avatar', extra: '捨てる' }]) {
       assert.equal(
         client.meAvatarUpload.output.safeParse(value).success,
         meAvatarUpload.output.safeParse(value).success,
       );
+      const parsed = client.meAvatarUpload.output.safeParse(value);
+      if (parsed.success) assert.deepEqual(parsed.data, meAvatarUpload.output.parse(value));
     }
     const uploaded = {
       id: 'file',
@@ -81,11 +95,20 @@ test('実際のブラウザの束でも URL・待ち上限・アップロード�
       created_at: '2026-11-17T00:00:00Z',
     };
     assert.equal(client.attachmentUpload.output.safeParse(uploaded).success, true);
-    for (const value of [null, {}, { id: 42 }, uploaded]) {
+    for (const value of [
+      null,
+      {},
+      { id: 42 },
+      uploaded,
+      { ...uploaded, extra: '捨てる' },
+      ...[NaN, Infinity, -Infinity, '10', null, -1, 0].map((size_bytes) => ({ ...uploaded, size_bytes })),
+    ]) {
       assert.equal(
         client.attachmentUpload.output.safeParse(value).success,
         attachmentUpload.output.safeParse(value).success,
       );
+      const parsed = client.attachmentUpload.output.safeParse(value);
+      if (parsed.success) assert.deepEqual(parsed.data, attachmentUpload.output.parse(value));
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });
