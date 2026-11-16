@@ -120,6 +120,7 @@
     columns.flatMap((column) => column.tasks).find((task) => task.story?.id === requestedStoryId)?.story ?? null,
   );
   const storyId = $derived(filteredStory?.id ?? null);
+  const cardStoryQuery = $derived(storyId === null ? '' : `&story=${encodeURIComponent(storyId)}`);
   // 存在しない親を指すURLは解除し、帯に題を出せない空の絞り込みを残さない。
   $effect(() => {
     if (board !== null && requestedStoryId !== null && filteredStory === null) {
@@ -812,7 +813,7 @@
                   onstoryhover={(id) => (hoveredStory = id)}
                   onstoryfocus={(id) => (focusedStory = id)}
                   onstoryfilter={(id) => void filterStory(id)}
-                  href={storyHref(new URL(`${sprintHref}?task=${encodeURIComponent(task.id)}`, page.url.href), storyId)}
+                  href="{sprintHref}?task={encodeURIComponent(task.id)}{cardStoryQuery}"
                   edges={canWrite ? edgesOf(visibleColumns, task.id) : null}
                   canComplete={canWrite}
                   canReopen={canWrite && task.reopenable}

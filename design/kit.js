@@ -978,7 +978,7 @@
     const summary = `${x.pts == null ? "未見積もり" : `${t("points")} ${x.pts}`}、${who ? `${t("assignee")}は${esc(who)}` : `${t("assignee")}なし`}`;
     return `<article data-story-id="${esc(x.story || "")}" class="card ${x.doneAt ? "is-done" : ""}${storyState}${mark.state ? ` ${mark.state}` : ""}"${grab ? ` draggable="true"` : ""}${dropAttr(mark)}${order ? ` tabindex="0" aria-labelledby="card-${k}${x.id}-title" aria-describedby="card-${k}${x.id}-summary board-key-hint"` : ""}>
       ${order ? `<span class="visually-hidden" id="card-${k}${x.id}-summary">${summary}</span>` : ""}
-      ${parent ? `<button class="card-parent is-action" type="button" aria-label="${esc(storyFilterText("sprintStoryFilterLabel", parent))}" data-story-filter="${x.story}">${icon("flag")} ${esc(parent)}</button>` : ""}
+      ${parent ? `<button class="card-parent is-action" type="button" aria-label="${esc(storyFilterText("sprintStoryFilterLabel", parent))}" data-story-filter="${esc(x.story)}">${icon("flag")} ${esc(parent)}</button>` : ""}
       <a class="card-title" id="card-${k}${x.id}-title" href="#" data-task="${x.id}" draggable="false">${titleOf(x)}</a>
       <div class="card-meta">${repoTag(x)}${sourceKey(x)}${taskFlags(x)}${taskDue(x)}</div>
       <div class="card-foot">${order ? attrChip(x, "pts", { bare: true }) : pts(x.pts)}${order ? attrChip(x, "who", { bare: true }) : avatarOf(x.who)}<span class="card-end">${order ? rowMenu(x.title, [
