@@ -394,9 +394,7 @@
     else applyMove(task, drop.plan, true);
   }
 
-  // 完了にできたら true（別の画面で先に完了にされていたときも）。queued が真のとき（MoveQueue の中で呼ぶとき）は、通っても
-  // 読み直さず、フォーカスも動かさない（列が空になった後に、呼んだ側の reloadOnSuccess が読み直す）。断られたときの扱いは同じ
-  // 完了はすべて queueComplete から呼ぶ。成功時の読み直しとフォーカスは待ち行列側が扱う。
+  // 完了にできたら true（別の画面で先に完了にされていたときも）。queueComplete から呼び、成功時の読み直しとフォーカスは待ち行列側が扱う。
   async function complete(task: SprintBoardTask): Promise<boolean> {
     if (workspace === null || refusedWhileBusy()) return false;
     completingId = task.id;
