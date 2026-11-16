@@ -5,7 +5,19 @@ import { fakePull, ownPullFixture, PULL_LOGIN, PULL_PAT, PULL_SCOPE } from './fa
 const source = importSourceOf('github');
 const firstPull = `v1:pulls:${PULL_LOGIN}:1`;
 
-function page(f: ReturnType<typeof ownPullFixture>, cursor: string | null = firstPull) {
+async function page(f: ReturnType<typeof ownPullFixture>, cursor: string | null = firstPull) {
+  if (cursor === firstPull) {
+    const migration = await source.fetchPage({
+      credential: PULL_PAT,
+      fetcher: f.fetcher,
+      scope: PULL_SCOPE,
+      settings: {},
+      cursor,
+    });
+    expect(migration.items).toEqual([]);
+    expect(migration.next).not.toBeNull();
+    cursor = migration.next;
+  }
   return source.fetchPage({ credential: PULL_PAT, fetcher: f.fetcher, scope: PULL_SCOPE, settings: {}, cursor });
 }
 
@@ -39,7 +51,7 @@ describe('反証: PR の範囲と頁境界', () => {
       url: 'https://github.com/guild-fake/renamed/pull/1',
       containerId: '1001',
     });
-    expect(new URL(f.calls[0]!.url).pathname).toBe('/repositories/1001/pulls');
+    expect(new URL(f.calls[1]!.url).pathname).toBe('/repositories/1001/pulls');
   });
 
   test('閉じたPRだけの満杯頁でも終わらず、後続の未完了PRへ進む', async () => {
@@ -80,8 +92,9 @@ describe('反証: PR の範囲と頁境界', () => {
     const retry = await page(f, first.next);
     expect(retry.items.map((item) => item.sourceId)).toEqual(['800101']);
     expect(retry.next).toBeNull();
-    expect(f.calls.map((call) => new URL(call.url).searchParams.get('page'))).toEqual(['1', '2', '2']);
-    expect(f.calls.every((call) => new URL(call.url).pathname.endsWith('/pulls'))).toBe(true);
+    const pulls = f.calls.filter((call) => new URL(call.url).pathname.endsWith('/pulls'));
+    expect(pulls.map((call) => new URL(call.url).searchParams.get('page'))).toEqual(['1', '2', '2']);
+    expect(f.calls.filter((call) => new URL(call.url).pathname === '/user')).toHaveLength(1);
   });
 });
 

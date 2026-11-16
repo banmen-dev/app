@@ -5,14 +5,28 @@ export const PULL_PAT = fakePat('OwnPulls');
 export const PULL_SCOPE = { id: '1001', name: 'guild-fake/alpha' };
 export const PULL_LOGIN = 'fake-ranger';
 
+// 本物の GitHub の作者・担当者には不変の id がある。login だけを指定した旧 fixture も同じ形にする。
+// id の明示指定は undefined や不正値も保持し、異常応答の検査を弱めない。
+function withUserId<T>(value: T): T {
+  if (typeof value !== 'object' || value === null || Array.isArray(value) || 'id' in value) return value;
+  if (!('login' in value) || typeof value.login !== 'string') return value;
+  return { ...value, id: value.login.toLowerCase() === PULL_LOGIN ? 42 : 99 };
+}
+
 export function fakePull(n: number, patch: Record<string, unknown> = {}) {
-  return {
+  const pull = {
     ...fakeIssue(PULL_SCOPE.name, n, { id: 800_000 + n, assignees: [] }),
     user: { id: 42, login: PULL_LOGIN },
     html_url: `https://github.com/${PULL_SCOPE.name}/pull/${n}`,
     created_at: new Date(Date.UTC(2026, 0, 1) + n * 60_000).toISOString(),
     base: { repo: { id: 1001, full_name: PULL_SCOPE.name } },
     ...patch,
+  };
+  return {
+    ...pull,
+    user: withUserId(pull.user),
+    assignee: withUserId(pull.assignee),
+    assignees: Array.isArray(pull.assignees) ? pull.assignees.map(withUserId) : pull.assignees,
   };
 }
 

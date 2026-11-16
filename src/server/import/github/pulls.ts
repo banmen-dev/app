@@ -6,8 +6,13 @@ import { PAGE_SIZE, fail, getJson, idOf, isRecord } from './client.ts';
 const MAX_PAGE = 1_000_000;
 const PULL_PATH = /^\/[A-Za-z0-9_.-]{1,80}\/[A-Za-z0-9_.-]{1,100}\/pull\/[1-9][0-9]{0,15}$/;
 
-function sameLogin(value: unknown, login: string): boolean {
-  return typeof value === 'string' && value.toLowerCase() === login.toLowerCase();
+export type GithubOwner = { id: string; login: string };
+
+// login は改名・再取得できる。本人の判定には不変 ID だけを使う。
+function isOwner(value: unknown, owner: GithubOwner): boolean {
+  if (value === null || value === undefined) return false;
+  if (!isRecord(value)) throw fail('unavailable');
+  return idOf(value.id) === owner.id;
 }
 
 function isoOf(value: unknown): string {
@@ -15,13 +20,12 @@ function isoOf(value: unknown): string {
   return new Date(value).toISOString();
 }
 
-function convert(raw: unknown, input: FetchPageInput, login: string): ImportItem | null {
+function convert(raw: unknown, input: FetchPageInput, owner: GithubOwner): ImportItem | null {
   if (!isRecord(raw) || (raw.state !== 'open' && raw.state !== 'closed')) throw fail('unavailable');
   if (raw.state !== 'open') return null;
-  const authored = isRecord(raw.user) && sameLogin(raw.user.login, login);
+  const authored = isOwner(raw.user, owner);
   const assigned =
-    (isRecord(raw.assignee) && sameLogin(raw.assignee.login, login)) ||
-    (Array.isArray(raw.assignees) && raw.assignees.some((a) => isRecord(a) && sameLogin(a.login, login)));
+    isOwner(raw.assignee, owner) || (Array.isArray(raw.assignees) && raw.assignees.some((a) => isOwner(a, owner)));
   if (!authored && !assigned) return null;
 
   // 一覧の範囲を応答の base.repo でも確かめる。フォーク元（head.repo）とは比べない。
@@ -47,7 +51,7 @@ function convert(raw: unknown, input: FetchPageInput, login: string): ImportItem
   ) {
     throw fail('unavailable');
   }
-  const [, owner, repo, , urlNumber] = url.pathname.split('/');
+  const [, repositoryOwner, repo, , urlNumber] = url.pathname.split('/');
   if (urlNumber !== number) throw fail('unavailable');
   let dueOn: string | null = null;
   if (isRecord(raw.milestone) && raw.milestone.due_on != null) dueOn = isoOf(raw.milestone.due_on).slice(0, 10);
@@ -55,8 +59,8 @@ function convert(raw: unknown, input: FetchPageInput, login: string): ImportItem
     kind: 'pull_request',
     sourceId,
     reviewerSourceId: '',
-    key: `${owner}/${repo}#${number}`,
-    url: `https://github.com/${owner}/${repo}/pull/${number}`,
+    key: `${repositoryOwner}/${repo}#${number}`,
+    url: `https://github.com/${repositoryOwner}/${repo}/pull/${number}`,
     title: raw.title,
     containerId: input.scope.id,
     containerName: input.scope.name,
@@ -67,7 +71,11 @@ function convert(raw: unknown, input: FetchPageInput, login: string): ImportItem
   };
 }
 
-export async function fetchOwnPullsPage(input: FetchPageInput, login: string, page: number): Promise<FetchPageResult> {
+export async function fetchOwnPullsPage(
+  input: FetchPageInput,
+  owner: GithubOwner,
+  page: number,
+): Promise<FetchPageResult> {
   if (!Number.isSafeInteger(page) || page < 1 || page > MAX_PAGE) throw new TypeError('PR の続きの位置が不正');
   const query = new URLSearchParams({
     state: 'all',
@@ -84,9 +92,12 @@ export async function fetchOwnPullsPage(input: FetchPageInput, login: string, pa
   if (!Array.isArray(body) || body.length > PAGE_SIZE) throw fail('unavailable');
   const found = new Map<string, ImportItem>();
   for (const raw of body as unknown[]) {
-    const item = convert(raw, input, login);
+    const item = convert(raw, input, owner);
     if (item !== null) found.set(item.sourceId, item);
   }
   if (body.length === PAGE_SIZE && page === MAX_PAGE) throw fail('unavailable');
-  return { items: [...found.values()], next: body.length < PAGE_SIZE ? null : `v1:pulls:${login}:${page + 1}` };
+  return {
+    items: [...found.values()],
+    next: body.length < PAGE_SIZE ? null : `v2:pulls:${owner.id}:${owner.login}:${page + 1}`,
+  };
 }
