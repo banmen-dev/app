@@ -66,7 +66,10 @@ async function expectHorizontalBrand(page: Page): Promise<void> {
   await expect(art).toHaveAttribute('aria-hidden', 'true');
   await expect(logo).toBeVisible();
   await expect(logo).toHaveAttribute('alt', '');
-  await expect(art.locator('.brand-mark')).toBeHidden();
+  const symbol = art.locator('.brand-mark');
+  await expect(symbol).toBeHidden();
+  await expect(symbol).toHaveAttribute('src', /\/brand\/master\/symbol\.webp$/);
+  await expect.poll(() => symbol.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBe(629);
   await expect(art).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect.poll(() => logo.evaluate((img) => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   await expect
