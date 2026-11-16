@@ -355,7 +355,7 @@ export const workspaceInfoOperation = implement(workspaceInfo, async ({ db, work
 });
 
 // 同時の更新に負けたときにやり直す回数の上限。超えたら 409 の conflict
-const DOD_MAX_ATTEMPTS = 3;
+const WORKSPACE_UPDATE_MAX_ATTEMPTS = 3;
 
 // 履歴に残す完成の定義の字数（コードポイントで数える。字数の上限と同じ数え方）。空（null）は 0
 function lengthOf(value: string | null): number {
@@ -371,7 +371,7 @@ export const workspaceDodUpdateOperation = implement(workspaceDodUpdate, async (
   const workspaceId = workspace.workspaceId;
   const next = input.definition_of_done_md;
 
-  for (let attempt = 0; attempt < DOD_MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 0; attempt < WORKSPACE_UPDATE_MAX_ATTEMPTS; attempt++) {
     const row = await db.first(
       db.statement((q) =>
         q
@@ -598,7 +598,7 @@ export const workspaceSprintNamingUpdateOperation = implement(
     const workspaceId = workspace.workspaceId;
     const next = { sprint_name_template: input.sprint_name_template, sprint_number_next: input.sprint_number_next };
 
-    for (let attempt = 0; attempt < DOD_MAX_ATTEMPTS; attempt++) {
+    for (let attempt = 0; attempt < WORKSPACE_UPDATE_MAX_ATTEMPTS; attempt++) {
       const row = await db.first(
         db.statement((q) =>
           q
