@@ -88,8 +88,8 @@ function parseSyncState(json: string): SyncState {
   const empty = { resume: null, credential: null, scopeBatch: null, candidateCursor: null };
   try {
     const value = JSON.parse(json);
-    if (typeof value !== 'object' || value === null) return empty;
-    const r = value.resume;
+    if (typeof value !== 'object' || value === null || value.version !== 2) return empty;
+    const r = value.position;
     const resume: Resume | null =
       r &&
       typeof r.scope === 'string' &&
@@ -292,7 +292,7 @@ export async function syncConnection(
   const stateJson = () =>
     resume === null && scopeBatch === null && candidateCursor === null
       ? '{}'
-      : JSON.stringify({ resume, credential: credentialStamp, scopeBatch, candidateCursor });
+      : JSON.stringify({ version: 2, position: resume, credential: credentialStamp, scopeBatch, candidateCursor });
   // 状態の文が通らなかった（同期の最中に接続が止まった、削除された）ときは false
   const finish = async (outcome: SyncOutcome): Promise<boolean> => {
     const result = await db.run(

@@ -601,3 +601,14 @@ test('除外モードは候補一覧が10頁を超えても列挙位置と現在
   expect(requests).toBeLessThanOrEqual(10);
   expect(await rows(ctx)).toHaveLength(1);
 });
+
+test('新しい同期状態のレビューカーソルを旧版のresume.cursorへ出さない', async () => {
+  const ctx = await setup();
+  const f = fake();
+  f.state.page = () => ({ items: [], next: 'review-history' });
+  await sync(ctx, f.source, 2);
+  const connection = (await readSyncConnection(ctx.db, ctx.workspace.id, ctx.connection.id))!.connection;
+  const value = JSON.parse(connection.sync_state_json);
+  expect(value.resume).toBeUndefined(); // 旧版はresumeが無ければIssue走査を最初から始める。
+  expect(value.position).toMatchObject({ phase: 'reviews', cursor: 'review-history' });
+});

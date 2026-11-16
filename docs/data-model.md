@@ -779,7 +779,7 @@
 | credential_ciphertext | TEXT | | 暗号化した認証情報。退会で消す |
 | credential_key_version | INTEGER | | 暗号化に使った鍵の版 |
 | credential_last4 | TEXT | | 画面に出す末尾4文字 |
-| sync_state_json | TEXT | NOT NULL、既定 `'{}'`、`json_valid` | 上限で止めたときの続きの位置。`{"resume": {"scope": 範囲の取り込み元の ID, "cursor": 取り込み元が返した続きの位置か null}}`、続きが無ければ `{}`。前回成功した時点は `last_success_at` が持つ |
+| sync_state_json | TEXT | NOT NULL、既定 `'{}'`、`json_valid` | 続きが無ければ `{}`。版2は `version: 2`、`position: {scope, cursor, phase, after, targetId?, targetRevision?}`、認証情報の指紋 `credential`、現在の候補頁 `scopeBatch: {candidates, next}`、候補取得位置 `candidateCursor` を持つ。phase は items / reviews / targets、after は照合済みの最後の task_id。認証情報の指紋が無い旧形式と版が違う形式は破棄する。旧版が読む root の resume は書かず、旧版へのコードの戻しでは Issue 走査を安全に先頭から再開する。前回成功した時点は last_success_at が持つ |
 | reconcile_state_json | TEXT | NOT NULL、既定 `'{}'`、`json_valid` | 1日1回の照合の続きの位置 |
 | last_success_at | TEXT | | |
 | last_reconciled_at | TEXT | | |

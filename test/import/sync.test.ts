@@ -274,7 +274,7 @@ describe('取り込みの同期', () => {
     expect(r1).toEqual({ outcome: 'success', imported: 3, more: true });
     expect(first.calls.map((call) => call.cursor)).toEqual([null, '1']);
     expect(JSON.parse((await connectionOf(db, connection.id)).sync_state_json)).toMatchObject({
-      resume: { scope: '501', cursor: '2' },
+      position: { scope: '501', cursor: '2' },
     });
 
     const second = fakeSource(pages);
