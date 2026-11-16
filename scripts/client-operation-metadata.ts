@@ -3,6 +3,8 @@
 import ts from 'typescript';
 import type { Plugin } from 'vite';
 
+export const clientOutputOperationNames = new Set(['me-avatar-upload', 'attachment-upload']);
+
 export function clientOperationMetadata(): Plugin {
   return {
     name: 'client-operation-metadata',
@@ -33,7 +35,7 @@ export function clientOperationMetadata(): Plugin {
             throw new Error(`${file}: 操作の定義は名前と各属性を直接書いてください`);
           }
           // バイナリのアップロードは画面側も応答を検証する。
-          const keepOutput = ['me-avatar-upload', 'attachment-upload'].includes(name.initializer.text);
+          const keepOutput = clientOutputOperationNames.has(name.initializer.text);
           const kept = properties.filter((p) => {
             const key = p.name?.getText(source);
             return (
