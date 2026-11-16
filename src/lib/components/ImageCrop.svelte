@@ -44,13 +44,12 @@
 
 <div class="image-crop">
   <p class="field-hint" id="{ids}-hint">{t('avatarCropHint')}</p>
-  <button
-    type="button"
+  <div
+    role="img"
     class="image-crop-preview"
     aria-label={t('avatarCropArea')}
     aria-describedby="{ids}-hint {ids}-position"
     aria-disabled={disabled}
-    onkeydown={keydown}
     onpointerdown={(event) => {
       if (disabled || !event.isPrimary || event.button !== 0) return;
       event.currentTarget.setPointerCapture(event.pointerId);
@@ -67,7 +66,7 @@
     onlostpointercapture={() => (dragging = null)}
   >
     <canvas width="256" height="256" bind:this={canvas} aria-hidden="true"></canvas>
-  </button>
+  </div>
   <span class="field-hint" id="{ids}-position"
     >{t('avatarCropPosition', {
       x: Math.round(((crop.x + crop.size / 2) / image.width) * 100),
@@ -75,17 +74,33 @@
     })}</span
   >
   <div class="form-actions" role="group" aria-label={t('avatarCropMove')}>
-    <button class="btn" type="button" aria-disabled={disabled} onclick={() => move(-crop.size / 10, 0)}
-      >{t('avatarCropLeft')}</button
+    <button
+      class="btn"
+      type="button"
+      aria-disabled={disabled}
+      onkeydown={keydown}
+      onclick={() => move(-crop.size / 10, 0)}>{t('avatarCropLeft')}</button
     >
-    <button class="btn" type="button" aria-disabled={disabled} onclick={() => move(crop.size / 10, 0)}
-      >{t('avatarCropRight')}</button
+    <button
+      class="btn"
+      type="button"
+      aria-disabled={disabled}
+      onkeydown={keydown}
+      onclick={() => move(crop.size / 10, 0)}>{t('avatarCropRight')}</button
     >
-    <button class="btn" type="button" aria-disabled={disabled} onclick={() => move(0, -crop.size / 10)}
-      >{t('avatarCropUp')}</button
+    <button
+      class="btn"
+      type="button"
+      aria-disabled={disabled}
+      onkeydown={keydown}
+      onclick={() => move(0, -crop.size / 10)}>{t('avatarCropUp')}</button
     >
-    <button class="btn" type="button" aria-disabled={disabled} onclick={() => move(0, crop.size / 10)}
-      >{t('avatarCropDown')}</button
+    <button
+      class="btn"
+      type="button"
+      aria-disabled={disabled}
+      onkeydown={keydown}
+      onclick={() => move(0, crop.size / 10)}>{t('avatarCropDown')}</button
     >
   </div>
   <label class="field" for="{ids}-zoom"
