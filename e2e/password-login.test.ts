@@ -1,5 +1,5 @@
 // ログインの画面からメールアドレスとパスワードで入る（POST /api/auth/password/login、Issue #256）。
-// seed のパスワードの人（seed/passwords.ts）で、本物の API と手元の D1 に当てる。組織が1つの人は組織の画面へ、2つの人は組織の選択へ移る。
+// seed のパスワードの人（seed/passwords.ts）で、本物の API と手元の D1 に当てる。組織の数によらずダッシュボードから組織を選ぶ。
 // 違うパスワードでは画面を移らずに理由を出し、メールアドレスの欄を残す。
 // 繰り返し（--repeat-each）でメールアドレスと IP の枠（10分に10回、30回）を使い切らないよう、場面ごとにパスワードの枠の行を消す
 import type { Page } from '@playwright/test';

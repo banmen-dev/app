@@ -141,7 +141,7 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
     expect(bodies[0]).toBe(bodies[1]);
   });
 
-  test('見つからない画面の「一覧へ」で、入れる組織の画面に戻る', async ({ page }) => {
+  test('見つからない画面の「ダッシュボード」で / に戻る', async ({ page }) => {
     await page.goto('/hibari');
     await page.getByRole('link', { name: 'ダッシュボード' }).click();
     await expect(page).toHaveURL(/\/$/);
@@ -489,9 +489,7 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
     expect(sizes.bottom).toBeLessThanOrEqual(sizes.inner);
   });
 
-  test('1組織でも届いた招待があれば、ボタンに印を出し、一覧へ戻る行に招待が届いていることを添える', async ({
-    page,
-  }) => {
+  test('1組織でも招待の印を出し、ダッシュボードへ戻る行に招待が届いていることを添える', async ({ page }) => {
     await mockOperation(page, myOrganizations, AOBA_WITH_INVITATION);
     await page.goto('/aoba');
     // 角のマスは1行に収めるため、チップの代わりに点の印で示し、読み上げの名前で伝える
@@ -690,7 +688,7 @@ test.describe('ログインしていない人と、組織が無い人', () => {
     await expect(page.getByText('運用者のログインで入りました')).toHaveCount(0);
   });
 
-  test('入れる組織が1つでも届いた招待があれば組織の選択の画面を出し、招待は組織の名前と招待の画面へのリンクで出す', async ({
+  test('1組織と招待をダッシュボードに並べ、招待は組織の名前と招待の画面へのリンクで出す', async ({
     page,
     context,
     baseURL,
