@@ -111,7 +111,10 @@ test.describe('プロフィール画像', () => {
     await dialog.getByRole('button', { name: '範囲を下へ', exact: true }).click();
     await expect(position).toHaveText('中心の位置: 横 58%、縦 55%');
     const beforeDrag = await position.textContent();
+    await expect(preview).toHaveCSS('touch-action', 'none');
     const bounds = await preview.boundingBox();
+    expect(bounds!.width).toBeLessThanOrEqual(256);
+    expect(Math.abs(bounds!.width - bounds!.height)).toBeLessThan(1);
     await page.mouse.move(bounds!.x + 100, bounds!.y + 100);
     await page.mouse.down();
     await page.mouse.move(bounds!.x + 120, bounds!.y + 110);
