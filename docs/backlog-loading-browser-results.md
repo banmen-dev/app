@@ -22,7 +22,7 @@
 
 ## 生データと再集計
 
-正式生データを [backlog-loading-samples.json.gz](backlog-loading-samples.json.gz) に、採否とセルごとの分位点を [backlog-loading-decision.json](backlog-loading-decision.json) に保存した。展開後の生データの SHA-256 は `d4cda2c9226ba943615aad64536ebb9e883a7588ba0316dd13bfc7d602b6e14c`。架空の計測データ・版・条件・計測器の入力ハッシュを含み、セッションのトークンや環境変数は含めない。計測に使ったコードは基準コミットと `inputHashes` で識別する。
+正式生データを [backlog-loading-samples.json.gz](backlog-loading-samples.json.gz) に、採否とセルごとの分位点を [backlog-loading-decision.json](backlog-loading-decision.json) に保存した。展開後の生データの SHA-256 は `d4cda2c9226ba943615aad64536ebb9e883a7588ba0316dd13bfc7d602b6e14c`。架空の計測データ・版・条件・計測器の入力ハッシュを含み、セッションのトークンや環境変数は含めない。計測に使ったコードは基準コミットと `inputHashes` で識別する。 `inputHashes` の対象は追加した `scripts/backlog-loading-*.ts` で、既存の `today-loading-support.ts`・`loading-server.ts`・`boot-proxy.ts` と製品ソースは基準コミットの版を使った。計測時の実行コードは本PRの初期コミット `d8828df9a43ac77d531b30c2cfbec9331c731567` でも参照できる。後続の計測器整理によって、保存済み生データとその採否を変更しない。
 
 ```sh
 pnpm exec node scripts/backlog-loading-summary.ts docs/backlog-loading-samples.json.gz /tmp/backlog-summary
