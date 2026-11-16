@@ -28,6 +28,7 @@
   } from '../../../../../lib/task-reload-failure.svelte.ts';
   import { MoveQueue } from '../../../../../lib/move-queue.ts';
   import { edgesOf, planCardMove, type MoveDirection, type MoveEdge } from '../../../../../lib/sprint-board.ts';
+  import { storyColumns, storyHref, applyStoryMove } from '../../../../../lib/sprint-story-filter.ts';
   import { SprintDnd } from '../../../../../lib/sprint-dnd.svelte.ts';
   import type { MovedPlan, ReopenPlan, SprintDrop } from '../../../../../lib/sprint-drop.ts';
   import { completedMessage, sprintLabel, sprintPeriod } from '../../../../../lib/sprint-label.ts';
@@ -114,6 +115,33 @@
   // 画面で動かした後の列とカード。読み直したら捨てる
   let local = $state<SprintBoardColumn[] | null>(null);
   const columns = $derived(local ?? board?.columns ?? []);
+  const requestedStoryId = $derived(page.url.searchParams.get('story'));
+  const filteredStory = $derived(
+    columns.flatMap((column) => column.tasks).find((task) => task.story?.id === requestedStoryId)?.story ?? null,
+  );
+  const storyId = $derived(filteredStory?.id ?? null);
+  // 存在しない親を指すURLは解除し、帯に題を出せない空の絞り込みを残さない。
+  $effect(() => {
+    if (board !== null && requestedStoryId !== null && filteredStory === null) {
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- 現在の経路のstory問い合わせだけを除く
+      void goto(storyHref(page.url, null), { replace: true, reset: false });
+    }
+  });
+  const visibleColumns = $derived(storyColumns(columns, storyId));
+  let hoveredStory = $state<string | null>(null);
+  let focusedStory = $state<string | null>(null);
+  const highlightedStory = $derived(hoveredStory ?? focusedStory);
+  async function filterStory(id: string | null): Promise<void> {
+    const previous = storyId;
+    hoveredStory = null;
+    focusedStory = null;
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- 現在の経路のstory問い合わせだけを替える
+    await goto(storyHref(page.url, id), { reset: false });
+    if (id === null && previous !== null) {
+      await tick();
+      document.querySelector<HTMLElement>(`[data-story-filter="${CSS.escape(previous)}"]`)?.focus();
+    }
+  }
   // `c` が移る列と、aria-keyshortcuts を付ける列は、同じ（完了でない最初の列）
   const firstOpenColumnId = $derived(columns.find((item) => !item.is_done)?.id);
   // 動かし方の案内。動かせるカード（書き込めるときだけ）の説明に結ぶので、案内も書き込めるときだけ出す
@@ -126,7 +154,7 @@
   // （完了を送っている最中に完了の列から落とすと、誤った「完了していない」の断りが出るため）
   let sendingIds = $state<string[]>([]);
   const dnd = new SprintDnd({
-    columns: () => columns,
+    columns: () => visibleColumns,
     enabled: () => canWrite,
     busy: (id) => sendingIds.includes(id) || completingId === id || reopeningId === id,
     onDrop: dropCard,
@@ -135,6 +163,7 @@
   $effect(() => dnd.monitor());
   // 読み直したら、つかんでいるドラッグは取りやめる（離しても何も送らない）。光らせているカードは、読み直した後も残す
   dnd.resetWhenChanged(() => board);
+  dnd.resetWhenChanged(() => storyId);
   // 完了にした、または戻したカード。読み直した後の列に出てから光らせる（応答の直後に光らせると、読み直しが遅いとき元の列で終わる）
   let flashAfterReload: string | null = null;
   $effect.pre(() => {
@@ -261,7 +290,7 @@
 
   function moveCard(task: SprintBoardTask, direction: MoveDirection): void {
     if (workspace === null || !canWrite) return;
-    const plan = planCardMove(columns, task.id, direction);
+    const plan = planCardMove(visibleColumns, task.id, direction);
     if (plan === null) return;
     // 次の列が完了の列なら、完了にする
     if (plan.kind === 'complete') {
@@ -344,7 +373,7 @@
   function applyMove(task: SprintBoardTask, plan: MovedPlan, flash = false): void {
     if (workspace === null) return;
     const saved = savedFocus();
-    local = plan.columns;
+    local = applyStoryMove(columns, task.id, plan.column.id, plan.afterTaskId);
     void restoreFocus(saved);
     if (flash) dnd.flash(task.id);
     void announce(movedMessage(task, plan));
@@ -556,9 +585,15 @@
   async function addCard(column: SprintBoardColumn, title: string): Promise<string | null> {
     if (workspace === null || sprint === null) return t('taskCreateFailed');
     const sentFor = page.params.id;
+    const sentStoryId = storyId;
     const result = await callOperation(
       taskCreate,
-      { workspace_id: workspace.id, title, sprint: { sprint_id: sprint.id, column_id: column.id } },
+      {
+        workspace_id: workspace.id,
+        title,
+        story_id: sentStoryId,
+        sprint: { sprint_id: sprint.id, column_id: column.id },
+      },
       { slug },
     );
     // 送っている間に別のワークスペースへ移っていたら、成功も失敗も、古い応答で状態を触らない
@@ -581,6 +616,10 @@
       if (result.status === 409 && taskCreateConflictReasonOf(result.error?.details) === 'closed') {
         void reloadBoard();
         return t('sprintBoardAddNotActive', { sprint: t('sprint'), task: t('task') });
+      }
+      if (sentStoryId !== null && result.status === 409 && result.error?.code === 'conflict') {
+        void reloadBoard();
+        return t('treeAddTaskParentDone', { story: t('story'), done: t('done'), task: t('task') });
       }
       if (result.status === 404) {
         void reloadBoard();
@@ -699,18 +738,32 @@
       <SprintOverdueNotice {sprint} canClose={canLead} onclose={openClose} />
     {/if}
     {#if sprint.goal !== null}<SprintGoalNotice goal={sprint.goal} />{/if}
+    {#if filteredStory !== null}
+      <div
+        class="story-filter-band"
+        role="group"
+        aria-label={t('sprintStoryFilterActive', { story: t('story'), title: filteredStory.title })}
+      >
+        <span
+          ><Icon name="flag" />{t('sprintStoryFilterActive', { story: t('story'), title: filteredStory.title })}</span
+        >
+        <button class="btn is-sm is-quiet" type="button" onclick={() => void filterStory(null)}
+          ><Icon name="x" />{t('filterClear')}</button
+        >
+      </div>
+    {/if}
     <!-- 列が並ぶと狭い幅で横に溢れる。カードが無いと中に止まる先が無く、キーボードで横へ送れないので、その間だけ領域に止まる -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <div
       class="board-wrap"
       role="region"
       aria-label={t('sprintBoardRegion', { sprint: t('sprint'), column: t('column') })}
-      tabindex={allTasks.length === 0 ? 0 : undefined}
+      tabindex={visibleColumns.every((column) => column.tasks.length === 0) ? 0 : undefined}
       {@attach canWrite ? (node) => dnd.wrap(node) : undefined}
     >
       <!-- 引き出しの前後のボタンの順は、ボードに今見えているカード（左の列から右へ、列の中は上から下） -->
       <div class="board" style:--board-cols={columns.length} {@attach trackTaskOrder}>
-        {#each columns as column (column.id)}
+        {#each visibleColumns as column (column.id)}
           <section
             class="board-col"
             class:is-done={column.is_done}
@@ -734,8 +787,12 @@
             {#each column.tasks as task (task.id)}
               <SprintCard
                 {task}
-                href="{sprintHref}?task={encodeURIComponent(task.id)}"
-                edges={canWrite ? edgesOf(columns, task.id) : null}
+                {highlightedStory}
+                onstoryhover={(id) => (hoveredStory = id)}
+                onstoryfocus={(id) => (focusedStory = id)}
+                onstoryfilter={(id) => void filterStory(id)}
+                href={storyHref(new URL(`${sprintHref}?task=${encodeURIComponent(task.id)}`, page.url.href), storyId)}
+                edges={canWrite ? edgesOf(visibleColumns, task.id) : null}
                 canComplete={canWrite}
                 canReopen={canWrite && task.reopenable}
                 clock={{ today: board.today, weekStart: board.week_start }}

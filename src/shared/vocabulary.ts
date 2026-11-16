@@ -2494,6 +2494,8 @@ export const dictionary = defineDictionary({
     '{sprint}「{label}」は最終日（{end}）を過ぎています。終わらなかった{task}の行き先を決めて、終えてください。',
   sprintOverdueMember: '{sprint}「{label}」は最終日（{end}）を過ぎています。終えるのは{leader}です。',
   // スプリントの画面（design/sprint.html）。見出しは進行中のスプリントの名前、小見出しは期間と何日目か
+  sprintStoryFilterLabel: '{story}で絞り込む: {title}',
+  sprintStoryFilterActive: '{story}: {title}',
   sprintBoardPageName: '{name}・{workspace}',
   sprintBoardEyebrow: '{period}・{length} 日のうち {day} 日目',
   sprintBoardTallyDone: '{done}（pt）',
