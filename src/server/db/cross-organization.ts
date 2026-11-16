@@ -992,10 +992,11 @@ export async function readAccountTaskOrganizations<T>(
     if (result.status === 'fulfilled') organizations.push({ organization, data: result.value });
     else {
       failed_organizations.push(organization);
-      if (!(result.reason instanceof ApiError)) {
+      const error = taskReadErrorKind(result.reason);
+      if (error !== null) {
         console.error(
           JSON.stringify({
-            error: taskReadErrorKind(result.reason),
+            error,
             organizationId: organizationIds.get(organization.slug)!,
           }),
         );
@@ -1010,9 +1011,11 @@ export async function readAccountTaskOrganizations<T>(
 }
 
 // 任意の name・message・stack をログへ流さず、組み込みの型だけを固定語に分類する。
-function taskReadErrorKind(error: unknown): 'Error' | 'TypeError' | 'RangeError' | 'UnknownError' {
+function taskReadErrorKind(error: unknown): 'Error' | 'TypeError' | 'RangeError' | 'UnknownError' | null {
   if (typeof error !== 'object' || error === null) return 'UnknownError';
   try {
+    // 取り消された Proxy では instanceof 自体も投げるため、既知エラーの判定もこの中に閉じる。
+    if (error instanceof ApiError) return null;
     const prototype = Object.getPrototypeOf(error);
     const name = Object.getOwnPropertyDescriptor(error, 'name');
     const kind =
