@@ -1,5 +1,6 @@
 import { expect, test } from './fixtures.ts';
-import { signIn, dragTo, waitForSettled } from './helpers.ts';
+import { signIn, dragTo, waitForSettled, applyTheme, A11Y_THEMES, findA11yViolations } from './helpers.ts';
+import { storyGet } from '../src/shared/operations/story/story-get.ts';
 import { mockOperation, routeOperation } from './operations.ts';
 import { sprintBoard, taskColumnMove } from '../src/shared/operations/sprint/index.ts';
 import { taskCreate } from '../src/shared/operations/task/index.ts';
@@ -7,6 +8,15 @@ import { SAMPLE_BOARD } from './sprint-fixture.ts';
 
 const PATH = '/aoba/w/019a0000-0000-7000-8000-000000000401/sprint';
 const STORY = SAMPLE_BOARD.columns[0]!.tasks[0]!.story!;
+// ?story= を誤って詳細として扱うと、APIの応答順によらずこの検査で落とす。
+test.beforeEach(async ({ page }) => {
+  await routeOperation(page, storyGet, { slug: 'aoba' }, async (call) => {
+    if (new URL(page.url()).pathname.endsWith('/sprint')) {
+      expect.soft(false, 'スプリントのstory絞り込みでstory-getを呼んではいけない').toBe(true);
+      await call.fail(500, 'internal');
+    } else await call.passThrough();
+  });
+});
 function sample() {
   const board = structuredClone(SAMPLE_BOARD);
   board.columns[1]!.tasks[0]!.story = STORY;
@@ -33,6 +43,11 @@ test('親名のポインタとフォーカスで列をまたいで強調し、UR
   const totals = await page.locator('.page-head .tally dd').allTextContents();
   await parents.first().click();
   await expect(page).toHaveURL(new RegExp(`story=${STORY.id}`));
+  await waitForSettled(page);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(
+    page.getByRole('status').filter({ hasText: `ストーリー「${STORY.title}」で絞り込みました` }),
+  ).toBeVisible();
   await expect(page.locator('.card')).toHaveCount(3);
   await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
   await expect(page.locator('.board-col').first().locator('.board-col-n')).toHaveText('1');
@@ -45,6 +60,7 @@ test('親名のポインタとフォーカスで列をまたいで強調し、UR
   await expect(page).not.toHaveURL(/story=/);
   await expect(page.locator('.card')).toHaveCount(4);
   await expect(parents.first()).toBeFocused();
+  await expect(page.getByRole('status').filter({ hasText: 'ストーリーの絞り込みを外しました' })).toBeVisible();
 });
 
 test('絞った状態の作成はそのストーリーを親にし、その場に残る', async ({ page, context, baseURL }) => {
@@ -132,9 +148,74 @@ test('無効な親IDはURLから解除して全件に戻し、狭い幅と動き
   await page.goto(`${PATH}?story=missing`);
   await expect(page).not.toHaveURL(/story=/);
   await expect(page.locator('.card')).toHaveCount(4);
+  await expect(
+    page.getByRole('status').filter({ hasText: '指定されたストーリーが現在のボードにないため、絞り込みを外しました' }),
+  ).toBeVisible();
   const parent = page.locator('.card-parent').first();
   await expect(parent).toHaveCSS('min-height', '44px');
   await parent.click();
   await expect(page.locator('.story-filter-band')).toBeVisible();
   await expect(page.locator('.card')).toHaveCount(3);
 });
+
+test('絞り込み中にタスク詳細を開閉してもstoryを保持し、不要な詳細を開かない', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'admin');
+  const board = sample();
+  board.columns[0]!.tasks[0]!.id = '019a0000-0000-7000-8000-000000000801';
+  board.columns[0]!.tasks[0]!.title = 'ポイント付与のバッチを作る';
+  await mockOperation(page, sprintBoard, { slug: 'aoba' }, board);
+  await page.goto(`${PATH}?story=${STORY.id}`);
+  await waitForSettled(page);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.locator('.card-title').first().click();
+  const drawer = page.getByRole('dialog', { name: 'ポイント付与のバッチを作る', exact: true });
+  await expect(drawer).toBeVisible();
+  await expect(page).toHaveURL(/task=019a0000-0000-7000-8000-000000000801/);
+  await expect(page).toHaveURL(new RegExp(`story=${STORY.id}`));
+  await drawer.getByRole('button', { name: '閉じる', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page).not.toHaveURL(/task=/);
+  await expect(page).toHaveURL(new RegExp(`story=${STORY.id}`));
+  await expect(page.locator('.card')).toHaveCount(3);
+  await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
+});
+
+test('バックログでは同じstoryクエリで従来の詳細を開き、閉じられる', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'admin');
+  await page.goto(PATH.replace('/sprint', ''));
+  await page.getByRole('link', { name: STORY.title, exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: STORY.title, exact: true });
+  await expect(drawer).toBeVisible();
+  await expect(page).toHaveURL(/story=/);
+  await drawer.getByRole('button', { name: '閉じる', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page).not.toHaveURL(/story=/);
+});
+
+test('親付き作成の404は親も含む理由を出し、親を引き継ぐ案内を入力のそばに置く', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'admin');
+  await mockOperation(page, sprintBoard, { slug: 'aoba' }, sample());
+  await routeOperation(page, taskCreate, { slug: 'aoba' }, (call) => call.fail(404, 'not_found'));
+  await page.goto(`${PATH}?story=${STORY.id}`);
+  const column = page.locator('.board-col').first();
+  await expect(column).toContainText('絞り込んだストーリーの下に追加します');
+  const input = column.getByRole('textbox', { name: 'タスクを足す: 未着手', exact: true });
+  await input.fill('親が消えた札');
+  await input.press('Enter');
+  await expect(column).toContainText(
+    'このストーリーかスプリントか列が見つかりません。タスクは作られていません。一覧を読み直します',
+  );
+});
+
+for (const theme of A11Y_THEMES) {
+  test(`ストーリー強調の二重の輪郭と文字のコントラスト: ${theme}`, async ({ page, context, baseURL }) => {
+    await signIn(context, baseURL, 'admin');
+    await mockOperation(page, sprintBoard, { slug: 'aoba' }, sample());
+    await page.goto(PATH);
+    await applyTheme(page, theme);
+    await page.locator('.card-parent').first().hover();
+    await expect(page.locator('.card.is-story-highlighted')).toHaveCount(3);
+    await expect(page.locator('.card.is-story-highlighted').first()).toHaveCSS('outline-style', 'double');
+    expect(await findA11yViolations(page, '.story-board')).toEqual([]);
+  });
+}
