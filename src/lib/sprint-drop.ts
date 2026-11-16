@@ -3,7 +3,7 @@
 // 画面の並びを先に替える moved に加えて、完了の列へ落とす complete と、完了の列から落とす reopen を持つ。
 //
 // 決まり:
-// - つかめるのは、完了していないカードと、完了の列で戻せる（reopenable）カード。完了したストーリーの下のカードはつかめない（null）
+// - 完了カードもすべてつかめる。戻せないカードを未完了列へ落とすと reopen-blocked で知らせ、APIは送らない
 // - カードの前（before）か後ろ（after）は、その列の中のカードとカードの間の線。列の末尾（into）は列を囲む。
 //   カードの無い所と列の頭は、列の末尾に入る。カードとカードの間の隙間は、上のカードの後ろ（gapAbove）として扱い、囲みに切り替えない
 // - 完了の列は、カードに重ねても、列に重ねても、列を囲む（位置の線は出さない）。完了でないカードを落とすと complete（画面の並びは替えない）。
@@ -37,7 +37,8 @@ export type ReopenPlan = {
   afterTaskId: string | null | undefined;
 };
 
-export type SprintDropPlan = MovedPlan | Extract<CardMovePlan, { kind: 'complete' }> | ReopenPlan;
+export type SprintDropPlan =
+  MovedPlan | Extract<CardMovePlan, { kind: 'complete' }> | ReopenPlan | { kind: 'reopen-blocked' };
 
 export type SprintDrop = {
   // つかんだカード
@@ -55,12 +56,9 @@ export function gapAbove(cards: readonly { id: string; top: number; bottom: numb
   return null;
 }
 
-// つかめるカードか（書き込めるかは、呼ぶ側が見る）。完了の列では、戻せるカードだけ
+// つかめるカードか（書き込めるかは、呼ぶ側が見る）。戻せない完了カードも操作を試せる
 export function isGrabbable(columns: readonly SprintBoardColumn[], taskId: string): boolean {
-  const place = placeOf(columns, taskId);
-  if (place === null) return false;
-  const column = columns[place.columnIndex]!;
-  return column.is_done ? column.tasks[place.index]!.reopenable : true;
+  return placeOf(columns, taskId) !== null;
 }
 
 export function resolveSprintDrop(
@@ -98,6 +96,7 @@ export function resolveSprintDrop(
     : { target: { kind: 'column', id: dest.id }, operation: 'into' };
 
   if (source.is_done) {
+    if (!card.reopenable) return { taskId, mark, plan: { kind: 'reopen-blocked' } };
     return {
       taskId,
       mark,

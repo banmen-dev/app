@@ -55,11 +55,11 @@ describe('gapAbove', () => {
 });
 
 describe('isGrabbable', () => {
-  test('完了していないカードと、完了の列で戻せるカードだけつかめる', () => {
+  test('戻せるかにかかわらず完了カードもつかめる', () => {
     expect(isGrabbable(columns, 'a')).toBe(true);
     expect(isGrabbable(columns, 'z')).toBe(true);
-    // 完了したストーリーの下のカードは戻せないのでつかめない
-    expect(isGrabbable(columns, 'x')).toBe(false);
+    // 完了したストーリーの下も、落としたときに理由を知らせるためつかめる
+    expect(isGrabbable(columns, 'x')).toBe(true);
     expect(isGrabbable(columns, 'nope')).toBe(false);
   });
 });
@@ -196,9 +196,12 @@ describe('resolveSprintDrop: 完了の列から', () => {
     });
   });
 
-  test('戻せないカード（完了したストーリーの下）はつかめない', () => {
-    expect(resolveSprintDrop(columns, 'x', onColumn('c1'), 'into')).toBeNull();
-    expect(resolveSprintDrop(columns, 'x', onCard('a'), 'before')).toBeNull();
+  test('戻せないカードは未完了の列とカードへ落とすと拒否計画を返し、元の配列を変えない', () => {
+    const before = ids(columns);
+    expect(resolveSprintDrop(columns, 'x', onColumn('c1'), 'into')?.plan).toEqual({ kind: 'reopen-blocked' });
+    expect(resolveSprintDrop(columns, 'x', onCard('a'), 'before')?.plan).toEqual({ kind: 'reopen-blocked' });
+    expect(resolveSprintDrop(columns, 'x', onColumn('done'), 'into')).toBeNull();
+    expect(ids(columns)).toEqual(before);
   });
 });
 

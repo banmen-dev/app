@@ -197,8 +197,9 @@ test('リーダーはゴールを書いてスプリントを始め、2つ目は�
   await expect(titlesIn(page, '完了')).toHaveText(['C札']);
   await expect(titlesIn(page, 'レビュー')).toHaveText([]);
   await expect(titlesIn(page, '完了').filter({ hasText: 'C札' })).toBeFocused();
-  // 完了の列のカードは、完了の印の横に「戻す」を持つ。戻すと完了の前の列（レビュー）へ戻り、フォーカスはそのカードへ移る
-  await page.getByRole('button', { name: '完了を戻す: C札' }).click();
+  // 完了の列のカードは、Alt と ← で戻せる。戻すと完了の前の列（レビュー）へ戻り、フォーカスはそのカードへ移る
+  await card('C札').focus();
+  await page.keyboard.press('Alt+ArrowLeft');
   await expect(status('「C札」の完了を戻し、レビューへ移しました')).toBeVisible();
   await expect(titlesIn(page, 'レビュー')).toHaveText(['C札']);
   await expect(titlesIn(page, '完了')).toHaveText([]);
@@ -231,7 +232,7 @@ test('リーダーはゴールを書いてスプリントを始め、2つ目は�
   await expect(drawer).toBeHidden();
   await expect(titlesIn(page, '作業中').filter({ hasText: 'A札' })).toBeFocused();
 
-  // カードのメニューからの完了は task-complete を呼ぶだけ。完了の列のカードは完了の印と「戻す」を持ち、動かすボタンを持たない
+  // カードのメニューからの完了は task-complete を呼ぶだけ。完了の列のカードは完了の印と「⋯」を持ち、戻す文字のボタンを持たない
   await chooseRowAction(page, 'C札', '完了の列へ（完了にする）');
   await expect(status('タスクを完了にしました')).toBeVisible();
   await expect(titlesIn(page, '完了')).toHaveText(['C札']);
@@ -240,8 +241,9 @@ test('リーダーはゴールを書いてスプリントを始め、2つ目は�
   await expect(
     page.getByRole('region', { name: '完了', exact: true }).getByRole('img', { name: 'C札: 完了' }),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: /を戻す: C札$/ })).toHaveText(['戻す']);
-  await expect(page.getByRole('article', { name: 'C札' })).toHaveCount(0);
+  await expect(card('C札').locator('.link-btn')).toHaveCount(0);
+  await expect(rowMenuToggle(page, 'C札')).toBeAttached();
+  await expect(page.getByRole('article', { name: 'C札' })).toHaveCount(1);
   // 完了と戻しは、詳細の引き出しの変更の履歴に残る
   await titlesIn(page, '完了').filter({ hasText: 'C札' }).click();
   const doneDrawer = page.getByRole('dialog', { name: 'C札' });
@@ -396,7 +398,7 @@ test('スクラムの言葉でも、スプリントを始めて、列とカー�
   await expect(page.getByRole('status').filter({ hasText: 'タスクを完了にしました' })).toBeVisible();
   await expect(titlesIn(page, '完了')).toHaveText(['E札']);
   // 戻すと、完了の前の列へ戻る
-  await page.getByRole('button', { name: '完了を戻す: E札' }).click();
+  await chooseRowAction(page, 'E札', '前の列へ（完了を戻す）');
   await expect(page.getByRole('status').filter({ hasText: '「E札」の完了を戻し、レビューへ移しました' })).toBeVisible();
   await expect(titlesIn(page, 'レビュー')).toHaveText(['E札']);
   await expect(titlesIn(page, '完了')).toHaveText([]);
@@ -426,10 +428,10 @@ test('戻すのが断られたら理由を知らせて読み直す', async ({ pa
     details: { reason: 'sprint_closed' },
   });
   // 読み込みで行が動いている間に押すと、Playwright が押し直す前にスクロールし、画面の位置が実行ごとに変わる（#354、#491）
-  const reopen = page.getByRole('button', { name: '完了を戻す: 付与の履歴を返す API を作る' });
+  const reopen = rowMenuToggle(page, '付与の履歴を返す API を作る');
   await expect(reopen).toBeVisible();
   await waitForSettled(page);
-  await reopen.click();
+  await chooseRowAction(page, '付与の履歴を返す API を作る', '前の列へ（完了を戻す）');
   await expect(
     page
       .getByRole('status')
@@ -776,7 +778,7 @@ test('最終日を過ぎた知らせは、リーダーでない人には終え�
 test.describe('カードのドラッグ', () => {
   test.use({ viewport: { width: 1600, height: 900 } });
 
-  // 完了の列のカードは選べず、article に名前が付かないので、題のリンクから探す
+  // 完了・未完了のカードを、題のリンクから探す
   const cardOf = (page: Page, title: string) =>
     page.locator('.card').filter({ has: page.getByRole('link', { name: title, exact: true }) });
   const grabOf = (page: Page, title: string) => cardOf(page, title).locator('.card-title');
@@ -916,11 +918,12 @@ test.describe('カードのドラッグ', () => {
     await expect(page.locator('.toasts:visible .toast')).toHaveCount(0, { timeout: 12_000 });
   });
 
-  test('完了を戻すのが断られたら、列の移動は送らず、理由を知らせる。戻せないカードはつかめない', async ({
+  test('完了を戻すのが断られたら、列の移動は送らず、理由を知らせる。戻せないカードも試せ、送らずに理由を知らせる', async ({
     page,
     context,
     baseURL,
   }) => {
+    test.setTimeout(90_000);
     await signIn(context, baseURL, 'member');
     const locked = 'ストーリーが完了したカード';
     const done = SAMPLE_BOARD.columns.find((column) => column.is_done)!;
@@ -945,15 +948,40 @@ test.describe('カードのドラッグ', () => {
     );
     await page.goto(`${AOBA_TEAM}/sprint`);
     const title = done.tasks[0]!.title;
-    // 完了したストーリーの下のカードは戻せないので、つかめない
+    // 完了したストーリーの下もつかめ、試したときに理由を知らせる
     await expect(cardOf(page, locked)).toHaveCount(1);
-    await expect(cardOf(page, locked)).not.toHaveAttribute('draggable', 'true');
+    await expect(cardOf(page, locked)).toHaveAttribute('draggable', 'true');
+    await expect(cardOf(page, locked)).toHaveCSS('cursor', 'not-allowed');
     await expect(cardOf(page, title)).toHaveAttribute('draggable', 'true');
 
     const columnMoves: string[] = [];
     page.on('request', (request) => {
       if (request.url().includes('task-column-move')) columnMoves.push(request.url());
     });
+    const reopenRequests: string[] = [];
+    page.on('request', (request) => {
+      if (request.url().includes('task-reopen')) reopenRequests.push(request.url());
+    });
+    const blockedReason = statusOf(
+      page,
+      '完了したストーリーの下のタスクは戻せません。先にストーリーの完了を取り消してください。一覧を読み直します',
+    );
+    await dragTo(page, grabOf(page, locked), headOf(page, 'レビュー'), 'middle');
+    await expect(blockedReason).toBeVisible();
+    await waitForSettled(page);
+    await page.mouse.move(0, 0);
+    await expect(blockedReason).toHaveCount(0, { timeout: 12_000 });
+    await cardOf(page, locked).focus();
+    await page.keyboard.press('Alt+ArrowLeft');
+    await expect(blockedReason).toBeVisible();
+    await waitForSettled(page);
+    await expect(blockedReason).toHaveCount(0, { timeout: 12_000 });
+    await chooseRowAction(page, locked, '前の列へ（完了を戻す）');
+    await expect(blockedReason).toBeVisible();
+    await waitForSettled(page);
+    await expect(titlesIn(page, '完了')).toHaveText([title, locked]);
+    expect(reopenRequests).toEqual([]);
+    expect(columnMoves).toEqual([]);
     const unroute = await failOperation(page, taskReopen, { slug: 'aoba' }, 409, 'conflict', {
       details: { reason: 'sprint_closed' },
     });
@@ -1169,8 +1197,8 @@ test.describe('390px の指の画面のカード', () => {
       }
       await page.goto(`${AOBA_TEAM}/sprint`);
       await expect(page.locator('.card')).toHaveCount(4);
-      // 未完了カードは3枚。書き込める場合はメニューの描画を待ち、初期の読み取り専用状態で不存在を確かめない
-      await expect(page.locator('.card .row-menu-btn')).toHaveCount(closed ? 0 : 3);
+      // 完了カードを含め4枚。書き込める場合はメニューの描画を待ち、初期の読み取り専用状態で不存在を確かめない
+      await expect(page.locator('.card .row-menu-btn')).toHaveCount(closed ? 0 : 4);
       const title = SAMPLE_BOARD.columns[0]!.tasks[0]!.title;
       if (!closed) await expect(rowMenuToggle(page, title)).toBeVisible();
       await expect(page.locator('.card .done-btn')).toHaveCount(0);
@@ -1182,7 +1210,7 @@ test.describe('390px の指の画面のカード', () => {
     });
   }
 
-  test('題のタップで詳細が開き、完了の丸はなく、完了印と44pxの「⋯」・「戻す」が見える', async ({
+  test('題のタップで詳細が開き、完了の丸はなく、完了印と完了カードの44pxの「⋯」が見える', async ({
     page,
     context,
     baseURL,
@@ -1235,11 +1263,13 @@ test.describe('390px の指の画面のカード', () => {
     const doneMark = page.getByRole('img', { name: `${done.title}: 完了`, exact: true });
     await doneMark.scrollIntoViewIfNeeded();
     await expect(doneMark).toBeVisible();
-    const reopen = page.getByRole('button', { name: `完了を戻す: ${done.title}`, exact: true });
+    const reopen = rowMenuToggle(page, done.title);
     await reopen.scrollIntoViewIfNeeded();
     await expect(reopen).toBeVisible();
     const reopenBox = await reopen.boundingBox();
     expect(reopenBox!.width).toBeGreaterThanOrEqual(44);
     expect(reopenBox!.height).toBeGreaterThanOrEqual(44);
+    await reopen.tap();
+    await expect(page.getByRole('menuitem', { name: '前の列へ（完了を戻す）', exact: true })).toBeVisible();
   });
 });

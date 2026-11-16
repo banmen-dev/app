@@ -59,7 +59,7 @@
   // 動かせるカード（完了していない、終了していないワークスペース）は、選んで Alt と ← → で隣の列、Alt と ↑ ↓ で列の中を動かし、
   // カードの右下の「⋯」のメニューでも同じことができる。動かしたら先に画面の並びを替えて位置を読み上げ、押した順に1つずつ送る（MoveQueue）。
   // 最後の完了でない列の「次の列へ」と Alt と → は、完了の操作と同じく task-complete を呼ぶ。
-  // 完了の列のカードは、戻せる（完了したストーリーの下でない）ときに完了の印の横に「戻す」を出し、task-reopen を呼ぶ。
+  // 完了の列のカードは Alt と ← と「⋯」で戻す。戻せないカードを試すと既存の理由をトーストで読み上げ、書き込みは送らない。
   // 戻したら読み直して、戻した列のカードへフォーカスを移す。完了の列には、ワークスペースの完成の定義（空なら出さない）を畳んで置く。
   // 断られたら理由をトーストで知らせて読み直す。
   // カードのドラッグ（SprintDnd。判定は sprint-drop.ts）は、カード全体をつかみ、カードの間の線か列の囲みに落として動かす。
@@ -262,6 +262,10 @@
 
   function moveCard(task: SprintBoardTask, direction: MoveDirection): void {
     if (workspace === null || !canWrite) return;
+    if (task.completed_at !== null) {
+      if (direction === 'left') void reopen(task);
+      return;
+    }
     const plan = planCardMove(columns, task.id, direction);
     if (plan === null) return;
     // 次の列が完了の列なら、完了にする
@@ -392,6 +396,7 @@
     if (task === undefined) return;
     if (drop.plan.kind === 'complete') queueComplete(task, true);
     else if (drop.plan.kind === 'reopen') applyReopenMove(task, drop.plan);
+    else if (drop.plan.kind === 'reopen-blocked') refuseReopen();
     else applyMove(task, drop.plan, true);
   }
 
@@ -489,10 +494,22 @@
     });
   }
 
+  // 進行中ボードの完了カードで reopenable が偽なのは、完了した親ストーリーの下。APIと同じ文で試行を断る。
+  function refuseReopen(): void {
+    const message = reopenFailureMessage({ reason: 'parent_completed' });
+    showToast(message, 'alert');
+    // 既存の理由の文は読み直すことも伝える。書き込みはせず、現在の親の状態を読み直す。
+    void reloadBoard();
+  }
+
   // 戻す。戻せたら true。followed が真のとき（ドラッグで別の列へ落とすとき）は、通ってもトーストを出さず、読み直さず、
   // フォーカスも動かさない（続けて task-column-move を送り、列が空になった後で画面が読み直し、位置を読み上げる）。断られたときの扱いは同じ
   async function reopen(task: SprintBoardTask, followed = false): Promise<boolean> {
     if (workspace === null || refusedWhileBusy()) return false;
+    if (!task.reopenable) {
+      refuseReopen();
+      return false;
+    }
     reopeningId = task.id;
     const workspaceId = workspace.id;
     let reopened = false;
@@ -513,7 +530,7 @@
             'check',
           );
           await invalidate('app:sprint-board');
-          // 押した「戻す」は消えるので、戻した列に出たカードへフォーカスを移す（動かせるカードは選べる）
+          // 戻した列に出た同じカードへフォーカスを移す
           await tick();
           document.querySelector<HTMLElement>(`[data-card-id="${CSS.escape(task.id)}"]`)?.focus();
         }
@@ -744,13 +761,11 @@
                 {task}
                 href="{sprintHref}?task={encodeURIComponent(task.id)}"
                 edges={canWrite ? edgesOf(columns, task.id) : null}
-                canReopen={canWrite && task.reopenable}
+                writable={canWrite}
                 clock={{ today: board.today, weekStart: board.week_start }}
-                pending={completingId !== null || reopeningId !== null}
                 hintId={KEY_HINT_ID}
                 dnd={canWrite ? dnd : undefined}
                 onmove={moveCard}
-                onreopen={(target) => void reopen(target)}
                 ondelete={canWrite ? (target, keyboard) => void removeCard(target, keyboard) : undefined}
               />
             {:else}

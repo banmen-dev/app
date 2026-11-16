@@ -2530,7 +2530,7 @@ export const dictionary = defineDictionary({
   sprintBoardDraftHint: '{column}の末尾の空の行に題を打って Enter を押すと、その{column}に{task}が足されます。',
   sprintBoardColumnPoints: '{points} pt',
   sprintBoardKeyHint:
-    'カードを別の{column}へドラッグして移すか、カードを選んで Alt と ← → で隣の{column}、Alt と ↑ ↓ で{column}の中を動かせます。カードの「⋯」のメニューでも同じです。{done}の{column}の手前の{column}から次へ送ると、{done}になります。',
+    'カードを別の{column}へドラッグして移すか、カードを選んで Alt と ← → で隣の{column}、Alt と ↑ ↓ で{column}の中を動かせます。カードの「⋯」のメニューでも同じです。{done}の{column}の手前の{column}から次へ送ると、{done}になります。{done}のカードは Alt と ← か「⋯」で戻せます。戻せないときは理由を知らせます。',
   sprintBoardEmptyTitle: '進行中の{sprint}はありません',
   sprintBoardEmptyLeaderText:
     '{plan}の画面で{sprint}を作り、{backlog}から{task}を入れてから始めます。始めると、ここに{column}とカードが並びます。',
@@ -2541,6 +2541,7 @@ export const dictionary = defineDictionary({
   sprintBoardOpenBacklog: '{backlog}を開く',
   // カードの移動。カードの「⋯」のメニューの項目（メニューの名前が題を持つので、項目には題を添えない）
   moveColumnPrev: '前の{column}へ',
+  moveColumnReopen: '前の{column}へ（{done}を戻す）',
   moveColumnNext: '次の{column}へ',
   // 最後の完了でない列のカードの「次の列へ」。完了の列へ移す代わりに完了にする
   moveColumnComplete: '{done}の{column}へ（{complete}）',

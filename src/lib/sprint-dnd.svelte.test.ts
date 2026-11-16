@@ -47,13 +47,13 @@ describe('SprintDnd のつかめるカード', () => {
     expect(dnd.canGrab('a')).toBe(true);
   });
 
-  test('戻せない完了のカードと、無いカードはつかめない', () => {
+  test('戻せない完了カードもつかめ、無いカードはつかめない', () => {
     const locked: SprintBoardColumn[] = [
       { id: 'c1', name: '出発前', is_done: false, tasks: [] },
       { id: 'done', name: null, is_done: true, tasks: [{ ...card('x'), completed_at: '2026-10-20T00:00:00Z' }] },
     ];
     const dnd = new SprintDnd({ columns: () => locked, enabled: () => true, onDrop: vi.fn(), onStale: vi.fn() });
-    expect(dnd.canGrab('x')).toBe(false);
+    expect(dnd.canGrab('x')).toBe(true);
     expect(dnd.canGrab('nope')).toBe(false);
   });
 
