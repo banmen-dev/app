@@ -10,13 +10,14 @@
 // e2e を走らせるコマンドは、フック自身の環境がクラウドを示すときだけ許可する。
 // gh pr merge は、<番号>-… の作業ブランチの中で打つ --squash --match-head-commit <40桁の SHA> の固定の形だけを判定せず（.claude/settings.json の許可ルールに任せる）、ほかの形は deny にする。非対話の実行は確認に回す。
 // git の設定の場所を変える環境変数（GIT_CONFIG_*、HOME、XDG_CONFIG_HOME）を付けた git push、git config -e、git の設定ファイルへの書き込み、
-// 名前を展開かファイルの変数で渡す GraphQL の createRef は確認に回す。
+// 名前を展開かファイルの変数で渡す GraphQL の createRef、Claude Code が各 Bash の前に読む環境のファイル（session-env、shell-snapshots）への書き込みは確認に回す。
 // find の -exec 系は {} を起点に置き換えて同じ規則に掛け直す（docs/development.md の「Claude の設定とフック」）。
 // permissions.deny の前方一致では npx wrangler や pnpm exec wrangler の言い換えを取りこぼすので、語に分けて判定する。
 // 踏み線であって守りの本体ではない。変数の中身と、パイプで sh に流す中身は見えない。
 import { existsSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { SHELL_ENV_DIR, SHELL_ENV_DIR_NAMES, SHELL_ENV_REASON, homeOrNull, resolveLinks } from './file-rules.mjs';
 import {
   DYNAMIC,
   GLOB_GROUP,
@@ -2702,7 +2703,7 @@ function interpreterWords(tool, args) {
 // 連結した値（perl -e'…'、python3 -c'…'）も本文とする。本文を取る短いフラグはインタープリタごとに違う。
 // -c は python では本文、node、perl、ruby では構文の確かめ、php では設定のパス。-r は php では本文、node と ruby では require。
 // perl の -p は行ごとに回すだけのフラグ。node の --print も -p と同じ。tclsh と deno は本文をヒアドキュメントとヒアストリングでだけ見る
-const BODY_FLAGS = { node: 'ep', bun: 'ep', python: 'c', python3: 'c', ruby: 'e', perl: 'eE', php: 'rRBE', osascript: 'e' };
+const BODY_FLAGS = { node: 'ep', bun: 'ep', python: 'c', python3: 'c', ruby: 'e', perl: 'eE', php: 'rRBE', osascript: 'e', lua: 'e', Rscript: 'e', julia: 'eE' };
 function interpreterBodyWords(tool, args) {
   const bodies = heredocBodies(args);
   const flags = BODY_FLAGS[tool] ?? '';
@@ -2863,9 +2864,22 @@ function judgePipedScript(tool, args, ctx, nextCtx) {
       // 既存のヒアストリングと同じく、秘密の名前とインタープリタの本文の規則で見る。
       if (mentionsSecret(text)) results.push([DENY, SECRET_FILE_REASON]);
       results.push(judgeInterpreterBody(tool, ['--eval', text]));
+      // パイプで渡した本文も、環境のファイルの名前と CLAUDE_ENV_FILE を見る
+      if (bodyHitsShellEnv(tool, ['--eval', text], shellEnvFileAt(ctx.dir, ctx.cdWords, ctx.env?.CLAUDE_ENV_FILE))) results.push([ASK, SHELL_ENV_REASON]);
     }
   }
   return results.filter(Boolean);
+}
+
+// echo と printf がパイプで渡す本文を読む道具（sqlite3 の .output と writefile、curl -K - の設定）が、環境のファイルに書くか。
+// ヒアドキュメントとヒアストリングは writesShellEnv が見る
+function judgePipedShellEnvWriter(tool, ctx) {
+  const previous = ctx.stdinContext?.previous;
+  const producer = previous ? commandIndex(previous) : -1;
+  if ((tool !== 'sqlite3' && tool !== 'curl') || !['|', '|&'].includes(previous?.endOp) || producer === -1 || !['echo', 'printf'].includes(baseName(previous[producer]))) return [];
+  const texts = previous.slice(producer + 1).filter((w) => !w.startsWith('-'));
+  const words = tool === 'sqlite3' ? sqliteWords(texts) : curlConfigWrites(texts);
+  return words.some(shellEnvFileAt(ctx.dir, ctx.cdWords, ctx.env?.CLAUDE_ENV_FILE, ctx.oldCdWords)) ? [[ASK, SHELL_ENV_REASON]] : [];
 }
 
 // -c の位置を値の中から探さず、呼び出しのオプションを先頭から読む。
@@ -3011,10 +3025,495 @@ function gitConfigFileAt(dir, cdWords, namesGitDir) {
     viaGitDir(word);
 }
 
+// Claude Code が各 Bash のコマンドの前に読む環境のファイル（file-rules.mjs の SHELL_ENV_DIR。session-env と shell-snapshots）への書き込み。
+// 守りの本体は名前（CLAUDE_CONFIG_DIR で ~/.claude の場所を替えても名前は同じ）。$CLAUDE_ENV_FILE の字面と起動元の値の照合は補助で、
+// CLAUDE_ENV_FILE は PreToolUse のフックと Bash の環境にふつう無い（SessionStart のフックだけが持つ）
+const CLAUDE_ENV_VAR = /\$\{?CLAUDE_ENV_FILE\b/i;
+// インタープリタと awk の本文は環境変数を $ を付けずに読む（process.env.CLAUDE_ENV_FILE、ENVIRON["CLAUDE_ENV_FILE"]）
+const CLAUDE_ENV_NAME = /\bCLAUDE_ENV_FILE\b/i;
+// ~/.claude そのものか、その場所を替える変数。ここへのリンクと展開は、中の環境のファイルに届く
+const CLAUDE_CONFIG_WORD = /(^|\/)\.claude\/?$|\$\{?CLAUDE_CONFIG_DIR\}?\/?$/i;
+// 親の .claude の無い glob（/opt/cfg/se*-env/x）を当てる、区切りの固定の文字数。/tmp/*/x と /tmp/s*/x は通す
+const MIN_LITERAL_CHARS = 4;
+
+const literalCount = (segment) => segment.replace(/\[[^\]]*\]|[*?{}()!+@,|]/g, '').length;
+// .claude の名前に当たる区切りか。dotglob と GLOBIGNORE では * と ? が先頭の点にも当たるので、点を _ に替えた名前でも照合する
+const namesClaudeDir = (segment) => (GLOB_CHARS.test(segment) ? matchesGlob('.claude', segment) || matchesGlob('_claude', segment) : segment === '.claude');
+
+// glob の語の区切りが、環境のファイルのディレクトリの名前に当たるか。親の区切りが .claude なら何にでも当たる glob（~/.claude/s*）も、
+// 親が無い glob は固定の文字が MIN_LITERAL_CHARS 以上のものだけ止める
+function globHitsShellEnv(word) {
+  const segments = word.split('/').map((s) => s.toLowerCase());
+  const namesEnvDir = (s) => GLOB_CHARS.test(s) && SHELL_ENV_DIR_NAMES.some((name) => matchesGlob(name, s));
+  return segments.some((s, k) => namesEnvDir(s) && (literalCount(s) >= MIN_LITERAL_CHARS || (k > 0 && namesClaudeDir(segments[k - 1]))));
+}
+
+// 語から照合する形を作る。{a,b} を展開した語ごとに、書かれた形、zsh の括弧の glob を外した形、正規化した形、作業場所から解決した絶対パス、
+// cd の行き先の字面をつないだ形（絶対パス、~、変数で始まる語には付けない。付けると cd の後の > /dev/null まで当たる）、
+// リンクを解いた形（ln -s ~/.claude/session-env /tmp/e の後の /tmp/e/x/a.sh）。展開が大きすぎるときは null（当たるものとして扱う。protectedAt と同じ）。
+// $PWD、${PWD}、~+ で始まる語はその時点の作業場所（cd のたびにシェルが置く値）、~- で始まる語は直前の作業場所（oldCdWords）の下として見る
+const PWD_PREFIX = /^(\$PWD|\$\{PWD\}|~\+|~-)(?=\/|$)/;
+function wordForms(word, dir, cdWords, oldCdWords = '') {
+  if (expansionSize(word) > MAX_BRACE_EXPANSION) return null;
+  return expandBraces(word).flatMap((w) => {
+    const forms = [w, withoutGlobGroup(w), path.posix.normalize(w)];
+    const prefix = PWD_PREFIX.exec(w)?.[1];
+    const rest = prefix === undefined ? w : w.slice(prefix.length).replace(/^\//, '') || '.';
+    const base = prefix === '~-' ? oldCdWords : cdWords;
+    if (dir && prefix !== '~-') forms.push(path.resolve(dir, rest));
+    if (base && (prefix !== undefined || !/^[/~$]/.test(w))) forms.push(path.posix.join(base, rest));
+    const linked = linkedForm(w, dir);
+    return linked === null ? forms : [...forms, linked];
+  });
+}
+
+// 絶対パス（~ と $HOME は展開する。作業場所が分かれば相対パスも）の、ある親までリンクを解いた形。解く必要が無ければ null
+function linkedForm(word, dir) {
+  if (GLOB_CHARS.test(word) || /[`$]/.test(word.replace(/^\$\{?HOME\}?(?=\/|$)/, ''))) return null;
+  const home = homeOrNull();
+  if (home === null && /^(~|\$\{?HOME\}?)(\/|$)/.test(word)) return null;
+  const expanded = word.replace(/^(~|\$\{?HOME\}?)(?=\/|$)/, home ?? '');
+  // リンクは .. を畳む前の字面で辿る（deep/../x.sh は、deep がリンクならその向き先の親）。path.resolve と path.join は先に畳むので使わない
+  const absolute = path.isAbsolute(expanded) ? expanded : dir && `${dir}/${expanded}`;
+  const linked = absolute && resolveLinks(absolute);
+  return linked && linked !== absolute ? linked : null;
+}
+
+// 語の照合する形のどれかが hitsOne に当たるか。形を作れない（展開が大きすぎる）語は当たるものとする
+const formsHit = (dir, cdWords, hitsOne, oldCdWords = '') => (word) => {
+  const forms = wordForms(word, dir, cdWords, oldCdWords);
+  return forms === null || forms.some(hitsOne);
+};
+
+// 起動元の CLAUDE_ENV_FILE の絶対パス（と、リンクを解いた実体。/var が /private/var へのリンクの macOS では、リンクを解いた形の語と綴りが違う）。小文字にそろえる
+function envFilePaths(envFile) {
+  if (typeof envFile !== 'string' || !path.isAbsolute(envFile)) return [];
+  return [...new Set([path.resolve(envFile), resolveLinks(path.resolve(envFile))])].map((p) => p.toLowerCase());
+}
+
+// 語が環境のファイルに当たるか。envFile は起動元の環境の CLAUDE_ENV_FILE の値（無ければ undefined）
+function shellEnvFileAt(dir, cdWords, envFile, oldCdWords = '') {
+  const isValue = isEnvFileValue(envFile);
+  return formsHit(dir, cdWords, (v) => SHELL_ENV_DIR.test(v) || CLAUDE_ENV_VAR.test(v) || (GLOB_CHARS.test(v) && globHitsShellEnv(v)) || isValue(v), oldCdWords);
+}
+
+// 形が起動元の CLAUDE_ENV_FILE の値そのもの（のパス）か
+function isEnvFileValue(envFile) {
+  const real = envFilePaths(envFile);
+  return (v) => path.isAbsolute(v) && real.includes(path.resolve(v).toLowerCase());
+}
+// 語が値そのものを指すか（名前の照合は含まない）。宛先がディレクトリのコピーが、元の名前を付けて値に当たるかを見るのに使う
+const envFileValueAt = (dir, cdWords, envFile, oldCdWords = '') => formsHit(dir, cdWords, isEnvFileValue(envFile), oldCdWords);
+
+// ホームそのもの（~、~ユーザー名、$HOME、ホームの絶対パス）
+function isHomeWord(v) {
+  const home = homeOrNull();
+  return /^(~[A-Za-z_][\w.-]*|~|\$\{?HOME\}?)\/?$/.test(v) || (home !== null && path.isAbsolute(v) && path.normalize(v).replace(/(.)\/$/, '$1') === home);
+}
+
+// ホームの祖先（/、/Users）。書庫のメンバーが Users/<名前>/.claude/… の形でホームの下に届く
+function isHomeAncestor(v) {
+  const home = homeOrNull();
+  return home !== null && path.isAbsolute(v) && `${home}/`.startsWith(`${path.normalize(v).replace(/\/$/, '')}/`);
+}
+
+// .claude（か $CLAUDE_CONFIG_DIR）かホームそのものに当たる語。cd ~/.claude の後の . も当たる。ここへ中身を置くコピーと書庫の展開は、
+// 中に session-env を持ちうる
+const claudeConfigDirAt = (dir, cdWords, oldCdWords = '') => formsHit(dir, cdWords, (v) => CLAUDE_CONFIG_WORD.test(v) || isHomeWord(v), oldCdWords);
+
+// 書庫の展開やパッチの先として止める語（環境のファイルのディレクトリ、.claude、ホームとその祖先）。展開した中身が環境のファイルや .claude の下に届く
+const extractionTargetAt = (dir, cdWords, oldCdWords = '') =>
+  formsHit(dir, cdWords, (v) => SHELL_ENV_DIR.test(v) || CLAUDE_CONFIG_WORD.test(v) || isHomeWord(v) || isHomeAncestor(v), oldCdWords);
+
+// 同じコマンドの中で環境のファイルのディレクトリに入った後に、cd - と popd で行き先が分からなくなったとき、相対の語につなぐ字面。
+// 戻った先がそのディレクトリでないと言い切れないので、相対の書き込みを環境のファイルとみなす
+const SHELL_ENV_UNKNOWN_CWD = '~/.claude/session-env/?';
+const namesShellEnvDir = (cdWords) => shellEnvFileAt(null, '', undefined)(cdWords);
+// cd の行き先の字面が決まらない（cd -、popd、cd ~1、cd "$OLDPWD/" の ?、cd * や cd s?/ の glob）か。
+// 変数（cd "$TMPDIR"）は、環境のファイルのディレクトリでない別の場所への移動として扱う（止めない）
+const cdWordsUnknown = (cdWords) => /[*?[{]/.test(cdWords);
+
+// リンクを作る道具（ln、link、cp -l、cp -s、cp -al）。別名を作ると、後でその別名に書ける。元も先も見る
+const LINK_TOOLS = new Set(['ln', 'gln', 'link']);
+// ハードリンクで写す形（rsync --link-dest、cpio -pl、pax -rwl）も、元の側の語を見る。
+// 元と先の語を返す。リンクを作らなければ空
+function linkedOperands(tool, args) {
+  const pos = positionals(args);
+  if (LINK_TOOLS.has(tool)) return pos;
+  // --link-dest の先のファイルは、先にハードリンクで置かれる。元は rsync の位置引数の最後以外
+  if (tool === 'rsync') {
+    const linkDirectories = optionValues(args, '--link-dest', 6);
+    return linkDirectories.length > 0 ? [...linkDirectories, ...pos] : [];
+  }
+  // cpio の -p（パススルー）の -l と、pax の -l は、標準入力の一覧のファイルを作業場所から先へリンクする
+  if (tool === 'cpio') return args.some((a) => /^-[a-zA-Z]*p[a-zA-Z]*l|^-[a-zA-Z]*l[a-zA-Z]*p|^--link$/.test(a)) ? [...pos, '.'] : [];
+  if (tool === 'pax') return args.some((a) => /^-[a-zA-Z]*l/.test(a)) ? pos : [];
+  if (tool !== 'cp' && tool !== 'gcp') return [];
+  const links = args.some((a) => {
+    const long = /^--([a-z-]+)(=|$)/.exec(a);
+    if (long) return abbreviates(long[1], 'link') || (long[1].length >= 2 && abbreviates(long[1], 'symbolic-link'));
+    return /^-[^-]*[ls]/.test(a);
+  });
+  return links ? pos : [];
+}
+
+// コピーの宛先。-t のときは、位置引数は全部が元（cp -t /tmp ~/.claude/session-env/x/a.sh は元を読むだけ）で、宛先は必ずディレクトリ。
+// ln は位置引数が 1 つなら、作業場所に元と同じ名前のリンクを作る
+function copyDestinations(tool, args) {
+  const target = TARGET_DIRECTORY_TOOLS.has(tool) ? targetDirectoryOf(args, flagsWithValueOf(tool)) : null;
+  if (target) return { destinations: [target.dir], isDirectory: true };
+  if (tool === 'ln' && positionals(args).length === 1) return { destinations: ['.'], isDirectory: true };
+  return { destinations: [positionals(args).at(-1), copyOperands(args, flagsWithValueOf(tool)).at(-1)].filter((w) => w !== undefined), isDirectory: false };
+}
+
+const isRecursiveCopy = (args) => args.some((a) => /^-[^-]*[rRa]/.test(a) || /^--(recursive|archive)$/.test(a));
+
+// コピーが環境のファイルへ書くか。宛先だけを見る（cp "$CLAUDE_ENV_FILE" /tmp/backup/ は読むだけ）。
+// 宛先がディレクトリのコピーは元の名前でそこに置かれる（cp /tmp/claude-env.sh $T/）ので、宛先に元の名前を付けても見る。
+// .claude への再帰のコピー（cd ~/.claude && cp -r /tmp/x/. .）は中に session-env を持ちうるので、元の名前が環境のディレクトリでなくても止める
+function copiesToShellEnv(tool, args, { isShellEnv, isEnvFileValue, isClaudeConfig, dir }) {
+  const { destinations, isDirectory } = copyDestinations(tool, args);
+  if (destinations.some(isShellEnv)) return true;
+  const sources = positionals(args).filter((w) => !destinations.includes(w));
+  const placedByName = (d) => (isDirectory || isDirectoryTarget(d, dir)) && sources.some((s) => isEnvFileValue(path.posix.join(d, path.posix.basename(s))));
+  if (destinations.some(placedByName)) return true;
+  const namesEnvDir = sources.some((w) => SHELL_ENV_DIR_NAMES.includes(path.posix.basename(w).toLowerCase()));
+  // ditto は -r を付けなくても、ディレクトリをいつも再帰でコピーする
+  return destinations.some(isClaudeConfig) && (namesEnvDir || tool === 'ditto' || isRecursiveCopy(args));
+}
+
+// awk の標準のフラグのうち値を取るもの（-F、-v、-f、-i、-l）。プログラムは -e と --source の値か、最初の位置引数
+const AWKS = new Set(['awk', 'gawk', 'mawk', 'nawk']);
+function awkParts(args) {
+  const programs = [];
+  const assigns = [];
+  const rest = [];
+  let inPlace = false;
+  let programFile = false;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    const long = /^--([a-z-]+)(=([\s\S]*))?$/.exec(a);
+    const value = () => (long?.[2] === undefined ? args[++i] : long[3]);
+    // -v name=値 の値は、プログラムが書き込み先として読む（BEGIN{print "x" > f}）ので、プログラムと同じく本文の語として見る
+    const assignment = a === '-v' || long?.[1] === 'assign' ? value() : /^-v(.+)/.exec(a)?.[1];
+    if (assignment !== undefined) assigns.push(assignment.slice(assignment.indexOf('=') + 1));
+    else if (a === '--') rest.push(...args.slice(i + 1));
+    if (assignment !== undefined) continue;
+    if (a === '--') break;
+    if (a === '-e' || long?.[1] === 'source') programs.push(value() ?? '');
+    else if (a === '-i' || long?.[1] === 'include') inPlace ||= /^inplace/.test(value() ?? '');
+    // -f /dev/stdin のプログラムは、ヒアストリングとヒアドキュメントの本文として字面に見える（source /dev/stdin と同じ）
+    else if (a === '-f' || long?.[1] === 'file') {
+      // -f のときは、最初の位置引数もプログラムではなく入力のファイル
+      programFile = true;
+      if (isStdinScript(value())) programs.push(...heredocBodies(args));
+    } else if (a === '-F' || a === '-l' || ['field-separator', 'load'].includes(long?.[1])) value();
+    else if (!a.startsWith('-')) rest.push(a);
+  }
+  if (programs.length === 0 && !programFile && rest.length > 0) programs.push(rest.shift());
+  return { programs, assigns, files: rest, inPlace };
+}
+
+// sed の w コマンドと s///w フラグが書くファイル（sed -n 'w /x'）。スクリプトは -e の値か、最初の位置引数
+function sedScripts(args) {
+  const scripts = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '-e' || args[i] === '--expression') scripts.push(args[++i] ?? '');
+    else if (args[i].startsWith('--expression=')) scripts.push(args[i].slice('--expression='.length));
+  }
+  if (scripts.length === 0 && positionals(args).length > 0) scripts.push(positionals(args)[0]);
+  return scripts;
+}
+
+// e コマンド（行をコマンドとして実行）と s///e フラグ（置換した結果をコマンドとして実行）があるか
+const sedRunsCommands = (script) => /(^|[\s;{}!\d$/])e(\s|;|}|$)/.test(script) || /(^|[\s;{}])s(.).*?\2.*?\2[0-9gpiImM]*e/.test(script);
+
+// sed の本文で環境のファイルの名前を探す語。w の先に加え、e を使うスクリプトは何を実行するか読めないので、
+// 本文と引数の語も見る（スクリプトの中の区切りの \/ は外す）。awk の本文の見方と同じ
+function sedBodyWords(args) {
+  const scripts = sedScripts(args);
+  const writes = scripts.flatMap((s) => [...s.matchAll(/(?:^|[^\w])[wW]\s*([^\s;}]+)/g)].map((m) => m[1]));
+  if (!scripts.some(sedRunsCommands)) return writes;
+  return [...writes, ...[...scripts, ...args].flatMap((text) => text.replaceAll('\\', '').split(CODE_SEPARATORS).filter(Boolean))];
+}
+
+// 値を取るオプションの値を除いた位置引数。- は標準入力か標準出力を表す位置引数に数える（uniq - 出力）。
+// shortValues は値を取る短いフラグの文字、singleDashValues と singleDashFlags は 1 つのダッシュで書く長い名前（xxd の -seek、-autoskip）の
+// 値を取るものと取らないもの、longValues は値を取る長いオプション（GNU は一意な省略形も受け付ける。--skip-f は --skip-fields）
+function operandsOf(args, { shortValues = '', singleDashValues = [], singleDashFlags = [], longValues = [] }) {
+  const result = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === '--') return [...result, ...args.slice(i + 1)];
+    if (a === '-' || !a.startsWith('-')) {
+      result.push(a);
+      continue;
+    }
+    const long = /^--([a-z-]+)(=)?/.exec(a);
+    if (long) {
+      if (!long[2] && longValues.some((full) => abbreviates(long[1], full))) i++;
+    } else if (singleDashValues.includes(a)) i++;
+    else if (!singleDashFlags.includes(a)) {
+      const at = [...a].findIndex((c, k) => k > 0 && shortValues.includes(c));
+      if (at === a.length - 1) i++;
+    }
+  }
+  return result;
+}
+const UNIQ_OPERANDS = { shortValues: 'fsw', longValues: ['skip-fields', 'skip-chars', 'check-chars'] };
+const XXD_OPERANDS = {
+  shortValues: 'cglnosR',
+  singleDashValues: ['-cols', '-groupsize', '-len', '-name', '-seek', '-offset'],
+  singleDashFlags: ['-autoskip', '-bits', '-capitalize', '-ebcdic', '-include', '-plain', '-postscript', '-ps', '-revert', '-uppercase', '-version', '-help'],
+};
+
+// ruby の -i（-pi、-i.bak、-pi.bak）は perl -i と同じく、位置引数のファイルをその場で書き換える。
+// -e、-r、-I などの値を取るフラグの後ろは値なので、-rfileutils の i をフラグとして数えない
+function rubyEditsInPlace(args) {
+  for (let i = 0; i < args.length; i++) {
+    if (!/^-[^-]/.test(args[i])) continue;
+    for (let k = 1; k < args[i].length; k++) {
+      if (args[i][k] === 'i') return true;
+      // -0 は 8 進の数字を取るだけで、その後ろに短いフラグが続く（-0777pi）
+      if (args[i][k] === '0') {
+        while (/[0-7]/.test(args[i][k + 1] ?? '')) k++;
+        continue;
+      }
+      if (!'erICEFKTWx'.includes(args[i][k])) continue;
+      if (k + 1 === args[i].length && 'erICEF'.includes(args[i][k])) i++;
+      break;
+    }
+  }
+  return false;
+}
+
+// ruby -C <dir> と -X <dir>（-Cdir）は、作業場所を移してから本文を動かす。本文の相対パスはその下に書く
+function rubyDirectories(args) {
+  return args.flatMap((a, k) => {
+    if (a === '-C' || a === '-X') return args[k + 1] === undefined ? [] : [args[k + 1]];
+    return /^-[CX]./.test(a) ? [a.slice(2)] : [];
+  });
+}
+
+// curl の --stderr の先と、-w（--write-out）の %output{ファイル}（curl 8.3 以降。>> を前に付けると追記）
+// ほかに、ヘッダーを書く -D（--dump-header）、やりとりを書く --trace と --trace-ascii、cookie の -c（--cookie-jar）、--libcurl、--etag-save、--hsts、--alt-svc の先。
+// -K -（--config -）の標準入力の設定は、ヒアドキュメントとヒアストリングの本文の中の同じ名前の行を見る
+const CURL_FILE_OPTIONS = ['dump-header', 'trace', 'trace-ascii', 'cookie-jar', 'libcurl', 'etag-save', 'hsts', 'alt-svc', 'stderr'];
+const CURL_FILE_FLAGS = ['D', 'c', ...CURL_FILE_OPTIONS];
+function curlOtherWrites(args) {
+  const takesValue = (name) => CURL_LONG_WITH_VALUE.has(name) || CURL_FILE_OPTIONS.includes(name);
+  const { found } = flagValues(args, CURL_SHORT_WITH_VALUE, takesValue, ['write-out', 'config', ...CURL_FILE_OPTIONS]);
+  const outputs = valuesOf(found, 'w', 'write-out').flatMap((format) => [...format.matchAll(/%output\{(?:>>)?([^}]*)\}/g)].map((m) => m[1]));
+  const readsStdinConfig = valuesOf(found, 'K', 'config').includes('-');
+  return [...valuesOf(found, ...CURL_FILE_FLAGS), ...outputs, ...(readsStdinConfig ? curlConfigWrites(heredocBodies(args)) : [])];
+}
+
+// curl の設定（-K）の行 option = "値"、option "値"、-o 値 のうち、ファイルに書くもの
+function curlConfigWrites(texts) {
+  const names = ['o', 'output', ...CURL_FILE_FLAGS].join('|');
+  return texts.flatMap((text) => [...text.matchAll(new RegExp(`^\\s*-{0,2}(?:${names})\\s*[=:\\s]\\s*"?([^"\\s]+)"?`, 'gm'))].map((m) => m[1]));
+}
+
+// patch の値を取るオプション。-o、-r の先に書き、-d の先（無ければ作業場所）の下に、差分が指す名前のファイルを書く
+const PATCH_LONG_VALUES = ['directory', 'input', 'output', 'reject-file', 'strip', 'prefix', 'basename-prefix', 'suffix', 'version-control', 'fuzz', 'ifdef', 'get', 'quoting-style'];
+const patchOptions = (args) => flagValues(args, 'dioprBVYzFDg', (name) => PATCH_LONG_VALUES.includes(name), PATCH_LONG_VALUES).found;
+
+// sqlite3 の .output、.once、.log、.backup、.save、.clone は、続く結果やコピーを任意のファイルに書く。引数と標準入力の本文の中のコマンドの語
+// コマンド名は一意な前方一致の省略でも効く（.out、.o は .output）ので、前方の綴りも並べる。.output は 1 文字から、ほかは 2 文字から。
+// SQL の writefile('ファイル', …) は、組み込みの関数が任意の文字列をファイルに書く
+const SQLITE_WRITING_COMMANDS = ['output', 'once', 'log', 'backup', 'save', 'clone'].flatMap((name) =>
+  Array.from({ length: name.length }, (_, k) => name.slice(0, k + 1)).filter((prefix) => prefix.length >= (name === 'output' ? 1 : 2)),
+);
+const SQLITE_COMMAND = new RegExp(`(?:^|\\n)\\s*\\.(?:${SQLITE_WRITING_COMMANDS.join('|')})(?![A-Za-z])([^\\n]*)`, 'g');
+function sqliteWords(texts) {
+  const commands = texts.flatMap((text) => [...text.matchAll(SQLITE_COMMAND)].flatMap((m) => m[1].split(/\s+/).map((w) => w.replace(/^['"]|['"]$/g, '')).filter(Boolean)));
+  const functions = texts.flatMap((text) => [...text.matchAll(/writefile\s*\(\s*(['"])(.*?)\1/gi)].map((m) => m[2]));
+  return [...commands, ...functions];
+}
+const sqliteOutputWords = (args) => sqliteWords([...positionals(args), ...heredocBodies(args)]);
+
+// git が書くファイル。config -f と --file は書く形のときだけ（節の名前の '$(…)' はそのまま [a "$(…)"] の行になり、
+// Bash が環境のファイルを読むときに置換が走る）。checkout-index --prefix は、リポジトリのファイルを接頭辞の下に書き出す。
+// git の設定ファイルの判定（GIT_CONFIG_FILE）には広げない（環境のファイルのときだけ）
+// 作業コピーとして書く形もここで見る。clone（先）、worktree add と move（先）、--work-tree の先、--git-dir だけを付けた作業コピーを書くサブコマンド
+// （作業場所が作業コピーの根になる。-C の先があればそこ）。
+function gitFileWrites(args) {
+  const sub = positionals(args, GIT_FLAGS_WITH_VALUE)[0];
+  if (sub === undefined) return [];
+  const at = args.indexOf(sub);
+  const [before, rest] = [args.slice(0, at), args.slice(at + 1)];
+  const workTrees = optionValues(before, '--work-tree', 6);
+  if (sub === 'clone') return [...workTrees, ...cloneTargets(rest)];
+  if (sub === 'worktree') return [...workTrees, ...worktreeTargets(rest)];
+  if (sub === 'checkout-index') return [...workTrees, ...optionValues(rest, '--prefix', 3), ...implicitWorkTree(before, workTrees)];
+  if (WORKTREE_WRITERS.has(sub)) return [...workTrees, ...implicitWorkTree(before, workTrees)];
+  if (sub !== 'config') return workTrees;
+  const { reads, removes, edits, key, value } = readConfigArgs(rest);
+  if (reads || !(removes || edits || (key !== undefined && value !== undefined))) return workTrees;
+  return [...workTrees, ...optionValues(rest, '--file', 4), ...rest.flatMap((a) => (a === '-f' || !/^-f./.test(a) ? [] : [a.slice(2)])), ...rest.flatMap((a, k) => (a === '-f' && rest[k + 1] !== undefined ? [rest[k + 1]] : []))];
+}
+
+// 作業コピーのファイルを書き換えるサブコマンド
+const WORKTREE_WRITERS = new Set(['reset', 'checkout', 'checkout-index', 'restore', 'switch', 'read-tree', 'merge', 'pull', 'rebase', 'stash', 'apply', 'am', 'cherry-pick', 'revert']);
+
+// --git-dir だけを付けた git は、作業場所（-C があればその先）を作業コピーの根にする。--work-tree があればそちら
+function implicitWorkTree(before, workTrees) {
+  if (workTrees.length > 0 || optionValues(before, '--git-dir', 6).length === 0) return [];
+  const directories = before.flatMap((a, k) => (a === '-C' && before[k + 1] !== undefined ? [before[k + 1]] : []));
+  return directories.length > 0 ? directories : ['.'];
+}
+
+const CLONE_FLAGS_WITH_VALUE = new Set(['-b', '--branch', '--depth', '-o', '--origin', '-c', '--config', '--template', '--reference', '--reference-if-able', '-j', '--jobs', '--filter', '--shallow-since', '--shallow-exclude', '-u', '--upload-pack', '--server-option', '--bundle-uri', '--ref-format']);
+// git clone <元> [<先>] の先。無ければ作業場所の下にリポジトリの名前で作る。--separate-git-dir の先にも .git のファイルか中身を書く
+function cloneTargets(rest) {
+  const operands = positionals(rest, CLONE_FLAGS_WITH_VALUE);
+  return [...(operands.length >= 2 ? [operands[1]] : ['.']), ...optionValues(rest, '--separate-git-dir', 6)];
+}
+
+// git worktree add [-b <ブランチ>] <先> と move <元> <先> の先
+function worktreeTargets(rest) {
+  const [subcommand, first, second] = positionals(rest, new Set(['-b', '-B', '--reason']));
+  if (subcommand === 'add') return first === undefined ? [] : [first];
+  return subcommand === 'move' && second !== undefined ? [second] : [];
+}
+
+// 長いオプション（--prefix=X、--prefix X。一意な省略形も）の値。shortest は -- を含む最短の長さ
+function optionValues(args, full, shortest) {
+  return args.flatMap((a, k) => {
+    if (!isOption(a, full, shortest)) return [];
+    return a.includes('=') ? [a.slice(a.indexOf('=') + 1)] : [args[k + 1]].filter((w) => w !== undefined);
+  });
+}
+
+const OUTPUT_OPTION_TOOLS = new Set(['sort', 'base64', 'uudecode', 'sdiff']);
+
+// gh repo clone <リポジトリ> [<ディレクトリ>] の先。無ければ作業場所の下にリポジトリの名前で作る
+function ghRepoCloneTargets(args) {
+  const [group, sub, , directory] = positionals(args);
+  return group === 'repo' && sub === 'clone' ? [directory ?? '.'] : [];
+}
+
+// 表（writesTo）に無い道具が書くファイル。sort -o、openssl -out、split の出力の接頭辞、zip の書庫、yq -i、gawk -i inplace
+function otherWrittenFiles(tool, args) {
+  const pos = positionals(args);
+  // -o（--output、--output-file）で先を名指す道具。macOS の base64 -o、uudecode -o、sdiff -o も同じ
+  if (OUTPUT_OPTION_TOOLS.has(tool)) {
+    const { found } = flagValues(args, 'o', (name) => ['output', 'output-file'].includes(name), ['output', 'output-file']);
+    return valuesOf(found, 'o', 'output', 'output-file');
+  }
+  if (tool === 'gh') return ghRepoCloneTargets(args);
+  if (tool === 'openssl') return args.flatMap((a, i) => (['-out', '-keyout'].includes(a) && args[i + 1] !== undefined ? [args[i + 1]] : []));
+  if (tool === 'split') return pos.length >= 2 ? [pos.at(-1)] : [];
+  if (tool === 'zip') return pos.slice(0, 1);
+  // 入力のファイルの次の位置引数が出力のファイル（uniq 入力 出力、xxd -r 入力 出力）。値を取るフラグの値は位置引数に数えない
+  if (tool === 'uniq') return operandsOf(args, UNIQ_OPERANDS).slice(1, 2).filter((w) => w !== '-');
+  if (tool === 'xxd') return operandsOf(args, XXD_OPERANDS).slice(1, 2).filter((w) => w !== '-');
+  if (tool === 'git') return gitFileWrites(args);
+  if (tool === 'curl') return curlOtherWrites(args);
+  // -B（--prefix）は控えを置く接頭辞で、先のディレクトリの下に書く
+  if (tool === 'patch') return valuesOf(patchOptions(args), 'o', 'output', 'r', 'reject-file', 'B', 'prefix');
+  if (interpreterFamily(tool) === 'ruby') return rubyEditsInPlace(args) ? pos : [];
+  if (tool === 'yq') return args.some((a) => a === '--inplace' || /^-[a-zA-Z]*i/.test(a)) ? pos : [];
+  if (AWKS.has(tool)) {
+    const { files, inPlace } = awkParts(args);
+    return inPlace ? files : [];
+  }
+  return [];
+}
+
+// 本文の語（-e、-c、ヒアドキュメントなど）の道具の分類。python3.12、pypy3、lua5.4 などの版付きの名前、nodejs、tsx、ts-node、Rscript、julia も本文を読む
+const VERSIONED_INTERPRETERS = { python: 'python3', pypy: 'python3', ruby: 'ruby', perl: 'perl', php: 'php', lua: 'lua', luajit: 'lua' };
+function interpreterFamily(tool) {
+  if (INTERPRETERS.has(tool)) return tool;
+  if (/^(nodejs|tsx|ts-node(-\w+)?)$/.test(tool)) return 'node';
+  if (tool === 'Rscript' || tool === 'julia') return tool;
+  const versioned = /^([a-z]+)(\d+(\.\d+)*)?$/.exec(tool);
+  return (versioned && VERSIONED_INTERPRETERS[versioned[1]]) || null;
+}
+
+// 環境のファイルの名前を探す本文の語。インタープリタの本文（スクリプトのファイルの引数は本文ではない。deno は eval の引数）、
+// awk のプログラムと -v の値、sed の w の先
+function shellEnvBodyWords(tool, args) {
+  const split = (texts) => texts.flatMap((p) => p.split(CODE_SEPARATORS).filter(Boolean));
+  if (AWKS.has(tool)) {
+    const { programs, assigns } = awkParts(args);
+    return split([...programs, ...assigns]);
+  }
+  if (tool === 'sed' || tool === 'gsed') return sedBodyWords(args);
+  if (tool === 'sqlite3') return sqliteOutputWords(args);
+  const family = interpreterFamily(tool);
+  if (family === 'deno' && positionals(args)[0] === 'eval') return split(positionals(args).slice(1));
+  return family ? interpreterBodyWords(family, args) : [];
+}
+const bodyHitsShellEnv = (tool, args, isShellEnv) => shellEnvBodyWords(tool, args).some((w) => isShellEnv(w) || CLAUDE_ENV_NAME.test(w));
+
+// 書庫を展開する先（-C、-d、-o の値。無ければ作業場所の '.'）。tar と bsdtar の x、unzip（一覧と表示は除く）、cpio -i、7z の x と e
+function extractionDirectories(tool, args) {
+  const here = ['.'];
+  if (['tar', 'gtar', 'bsdtar'].includes(tool)) {
+    const { directories, modes } = tarOperands(args);
+    return modes.size === 0 || modes.has('x') ? (directories.length > 0 ? directories : here) : [];
+  }
+  if (tool === 'unzip') {
+    const { found } = flagValues(args, 'dxP', () => false);
+    if (found.some((f) => ['l', 'p', 't', 'v', 'z'].includes(f.name))) return [];
+    const target = valuesOf(found, 'd');
+    return target.length > 0 ? target : here;
+  }
+  if (tool === 'cpio') {
+    const { found } = flagValues(args, 'DEFHIMORC', (name) => name === 'directory', ['directory']);
+    // -i（コピーイン）は作業場所か -D の先へ展開し、-p（パススルー）は最後の位置引数へ書く
+    const directories = valuesOf(found, 'D', 'directory');
+    if (found.some((f) => f.name === 'i' || f.name === 'extract')) return directories.length > 0 ? directories : here;
+    return found.some((f) => f.name === 'p') ? positionals(args).slice(-1) : [];
+  }
+  if (/^7z[a-z]?$|^7zz$/.test(tool)) {
+    const [subcommand] = positionals(args);
+    if (!['x', 'e'].includes(subcommand)) return [];
+    const outputs = args.filter((a) => a.startsWith('-o')).map((a) => a.slice(2));
+    return outputs.length > 0 ? outputs : here;
+  }
+  // patch は差分が指す名前のファイルを、-d の先（無ければ作業場所）の下に書く。git apply も同じ（-C の先、--directory の下）
+  if (tool === 'patch') {
+    const found = patchOptions(args);
+    const directories = valuesOf(found, 'd', 'directory');
+    return found.some((f) => f.name === 'dry-run') ? [] : directories.length > 0 ? directories : here;
+  }
+  if (interpreterFamily(tool) === 'ruby') return rubyDirectories(args);
+  return tool === 'git' ? gitApplyDirectories(args) : [];
+}
+
+// git apply が書く先。-C の値（git の前置きのオプション）と --directory= の値。--check、--stat、--numstat、--summary だけなら書かない
+function gitApplyDirectories(args) {
+  const at = args.indexOf('apply');
+  if (positionals(args, GIT_FLAGS_WITH_VALUE)[0] !== 'apply' || at === -1) return [];
+  const [before, after] = [args.slice(0, at), args.slice(at + 1)];
+  if (!after.includes('--apply') && after.some((a) => ['--check', '--stat', '--numstat', '--summary'].includes(a))) return [];
+  const directories = [...before.flatMap((a, k) => (a === '-C' && before[k + 1] !== undefined ? [before[k + 1]] : [])), ...optionValues(after, '--directory', 5)];
+  return directories.length > 0 ? directories : ['.'];
+}
+
+// 環境のファイルへの書き込みか。writesTo の表（リダイレクト、tee、sed -i、dd、curl -o、tar -f と -C）と、
+// コピー（宛先だけ）、リンクを作る道具（元も先も）、表に無い道具、本文の語、書庫の展開で見る。busybox の後ろの名前は道具として見る
+// where は { dir, cdWords, oldCdWords, envFile }（作業場所、cd の行き先の字面、直前の行き先の字面、起動元の CLAUDE_ENV_FILE）
+function writesShellEnv(tool, args, words, where) {
+  if (tool === 'busybox' && args.length > 0) return writesShellEnv(baseName(args[0]), sliceWords(args, 1), words, where);
+  const { dir, cdWords, oldCdWords, envFile } = where;
+  const isShellEnv = shellEnvFileAt(dir, cdWords, envFile, oldCdWords);
+  const plainTool = GNU_PREFIXED.has(tool) ? tool.slice(1) : tool;
+  const isCopy = COPY_TOOLS.has(plainTool);
+  if (writesTo(isShellEnv, isCopy ? '' : tool, args, words)) return true;
+  const copy = { isShellEnv, isEnvFileValue: envFileValueAt(dir, cdWords, envFile, oldCdWords), isClaudeConfig: claudeConfigDirAt(dir, cdWords, oldCdWords), dir };
+  if (isCopy && copiesToShellEnv(plainTool, args, copy)) return true;
+  if (linkedOperands(tool, args).some((w) => isShellEnv(w) || CLAUDE_CONFIG_WORD.test(w))) return true;
+  if (otherWrittenFiles(plainTool, args).some(isShellEnv) || bodyHitsShellEnv(tool, args, isShellEnv)) return true;
+  return extractionDirectories(plainTool, args).some(extractionTargetAt(dir, cdWords, oldCdWords));
+}
+
 // 道具の無い区切り（> f、exec > f）と cd、pushd のリダイレクトも見るので、tool を空、args を空にして呼べる。
 // dir は作業場所（分からなければ null）。wrangler の設定は相対パスを dir から解決しても見る。
 // cdWords は、これまでの cd の行き先の字面（~/.config/git）をつないだもの。namesGitDir は gitConfigFileAt を参照
-function judgeFileWrites(tool, args, words, dir = null, cdWords = '', namesGitDir = false) {
+function judgeFileWrites(tool, args, words, dir = null, cdWords = '', namesGitDir = false, envFile = undefined, oldCdWords = '') {
   const results = [];
   const globRedirects = redirectsOf(words).filter((r) => !isHeredocRedirect(r) && r.expands);
   const redirectNames = globRedirects.map((r) => r.globPattern);
@@ -3047,6 +3546,7 @@ function judgeFileWrites(tool, args, words, dir = null, cdWords = '', namesGitDi
   if (writesTo(isGitConfig, tool, args, words, { intoDirectory: { dir, names: GIT_CONFIG_NAMES, anywhere: true } }) || interpreterWords(tool, args).some((w) => expansionSize(w) <= MAX_BRACE_EXPANSION && isGitConfig(w))) {
     results.push([ASK, GIT_CONFIG_FILE_REASON]);
   }
+  if (writesShellEnv(tool, args, words, { dir, cdWords, oldCdWords, envFile })) results.push([ASK, SHELL_ENV_REASON]);
   return results;
 }
 
@@ -3487,8 +3987,9 @@ function judgeDeployScript(words, ci, dir) {
 // env -C <dir> と env --chdir=<dir> は、その後ろのコマンドの作業場所を変える。GNU の env は長いオプションを一意な省略形でも
 // 受け付けるので、--c、--ch、--c=<dir> も --chdir と読む。
 // ~ か $ で始まる値と、展開の印のある値は判定できない（null）とする。
-// { dir, place } を返し、place（書かれた行き先）は cd と同じく作業場所が分からなくても値をつなぐ（env -C .claude rm -rf hooks）
-function dirAfterEnv(words, ci, dir, from, place) {
+// { dir, place, cdWords } を返し、place（書かれた行き先）は cd と同じく作業場所が分からなくても値をつなぐ（env -C .claude rm -rf hooks）。
+// cdWords は cd の行き先の字面（cdWordsAfter）で、~ や変数で始まる値もつなぐ
+function dirAfterEnv(words, ci, dir, from, place, cdWords = '') {
   for (let i = from; i < ci; i++) {
     if (prefixName(words[i]) !== 'env') continue;
     for (let j = i + 1; j < ci; j++) {
@@ -3509,9 +4010,11 @@ function dirAfterEnv(words, ci, dir, from, place) {
       // 絶対パスの値は、前の作業場所が分からなくても行き先が決まる（nextDir と同じ）
       dir = unknown ? null : path.isAbsolute(value) ? path.resolve(value) : dir && path.resolve(dir, value);
       place = place == null || unknown ? null : path.posix.isAbsolute(value) ? value : path.posix.join(place, value);
+      // 行き先の字面は、~ や変数で始まる値も cd と同じくつなぐ（cdWordsAfter）。env -C の後ろのコマンドの相対パスを環境のファイルの名前と照らすのに使う
+      cdWords = !value ? '?' : /^[/~$]/.test(value) ? value : path.posix.join(cdWords, value);
     }
   }
-  return { dir, place };
+  return { dir, place, cdWords };
 }
 
 // env の -S、--split-string、--split-string=…、-S"…"、-iS のようにまとめた短いフラグ。env -S は文字列をシェルと違う規則で分けて
@@ -3558,9 +4061,9 @@ function judgeSegment(words, ctx) {
   // env -C は後ろのコマンドの作業場所を変える。経由先に掛け直すとき（envFrom）は、前置きの env の分を解決済みなので重ねない
   // 字面の行き先（place）も、env -C の値をつないで追う
   if (ci !== -1) {
-    ctx = { ...ctx, ...dirAfterEnv(words, ci, ctx.dir, ctx.envFrom ?? 0, ctx.place) };
+    ctx = { ...ctx, ...dirAfterEnv(words, ci, ctx.dir, ctx.envFrom ?? 0, ctx.place, ctx.cdWords) };
   }
-  results.push(...judgeFileWrites(tool, args, words, ctx.dir, ctx.cdWords, ctx.namesGitDir));
+  results.push(...judgeFileWrites(tool, args, words, ctx.dir, ctx.cdWords, ctx.namesGitDir, ctx.env?.CLAUDE_ENV_FILE, ctx.oldCdWords));
   const removal = judgeRemoval(tool, args, ctx);
   if (removal) results.push(removal);
   // 再帰 chmod は祖先の . を指定しても配下のフックの実行権限を外しうる。
@@ -3592,7 +4095,7 @@ function judgeSegment(words, ctx) {
   // 場所は npx より前の env -C までで決める。npx の後ろの入れ子の npx は、経由先に掛け直したときに見る
   const npx = prefixes.find((j) => ['npx', 'pnpx'].includes(prefixName(words[j])));
   if (npx !== undefined) {
-    const npxCtx = { ...outer, ...dirAfterEnv(words, npx, outer.dir, outer.envFrom ?? 0, outer.place), inheritedScriptStdin, inheritedInterpreterStdin };
+    const npxCtx = { ...outer, ...dirAfterEnv(words, npx, outer.dir, outer.envFrom ?? 0, outer.place, outer.cdWords), inheritedScriptStdin, inheritedInterpreterStdin };
     results.push(...judgeNpx(prefixName(words[npx]), sliceWords(words, npx + 1), sliceWords(words, 0, npx), npxCtx));
   }
   if (ci === -1) return results;
@@ -3677,6 +4180,7 @@ function judgeSegment(words, ctx) {
   }
 
   results.push(...judgePipedScript(tool, args, ctx, nextCtx));
+  results.push(...judgePipedShellEnvWriter(tool, ctx));
   if (INTERPRETERS.has(tool)) results.push(judgeInterpreterBody(tool, args));
   if (unknownPrefixNeedsReview(words, ci, args, manager, ctx)) {
     results.push([ASK, '前置きの道具から git、シェル、インタープリタや名前を判定できない道具を動かすと、作業場所や追加の引数を判定できない。人が確かめる']);
@@ -3704,6 +4208,15 @@ function judgeSegment(words, ctx) {
   }
   if (['curl', 'wget', 'http', 'https'].includes(tool)) results.push(judgeHttpClient(tool, args, ctx.stdinContext));
   if (tool === 'eval') results.push(judgeBash(args.join(' '), nextCtx));
+  // coproc は後ろのコマンドをそのまま動かす（coproc tee -a …）。前置きとして外して掛け直す
+  if (tool === 'coproc') {
+    if (ctx.depth + 1 > MAX_DEPTH) results.push([ASK, DEEP_REASON]);
+    else results.push(...judgeSegment(concatWords(sliceWords(words, 0, ci), args), { ...ctx, envFrom: ci, depth: ctx.depth + 1 }));
+  }
+  // source と . は /dev/stdin を読むとき、ヒアストリングとヒアドキュメントの本文をこのシェルで動かす（パイプの本文は judgePipedScript が見る）
+  if ((tool === 'source' || tool === '.') && readsPipedScript(tool, args) === true) {
+    for (const body of heredocScripts(args)) results.push(judgeBash(body, nextCtx));
+  }
   if (SCRIPT_READERS.has(tool) || RUNNERS.has(tool) || INTERPRETERS.has(tool)) {
     const processSubstitution = (word) => /[<=]\(…\)/.test(word);
     if (positionals(args).some(processSubstitution) ||
@@ -3976,9 +4489,12 @@ function pushingFunctions(command) {
 // cd -、popd、pushd +N のように行き先を字面から決められないものは、どの名前にも当たらない ? とする。
 // cd .. を重ねると .. が増え、つなぐたびに全体を正規化して2乗の時間になるので、長すぎる字面も ? とする
 const MAX_CD_WORDS_LENGTH = 1024;
+// 行き先がスタックと直前の作業場所を指す語（-、~-、~-/x、~1、+2、$OLDPWD/、${OLDPWD}/x）
+const CD_HISTORY_OPERAND = /^(-|[+-]\d+|~[-+](\/.*)?|~[-+]?\d+(\/.*)?|\$\{?OLDPWD\}?(\/.*)?)$/;
 function cdWordsAfter(words, ci, before) {
-  const operand = words.slice(ci + 1).find((w) => !/^-[LPn]+$/.test(w) && w !== '--');
-  if (words[ci] === 'popd' || operand === '-' || operand === '~-' || /^[+-]\d+$|^\$\{?OLDPWD\}?$/.test(operand ?? '')) return '?';
+  // cd のフラグは -L、-P、-e、-@（まとめた -Pe も）。-n は pushd の
+  const operand = words.slice(ci + 1).find((w) => !/^-[LPen@]+$/.test(w) && w !== '--');
+  if (words[ci] === 'popd' || CD_HISTORY_OPERAND.test(operand ?? '')) return '?';
   if (operand === undefined) return words[ci] === 'cd' ? '~' : '?';
   const joined = /^[/~$]/.test(operand) ? operand : path.posix.join(before, operand);
   return joined.length > MAX_CD_WORDS_LENGTH ? '?' : joined;
@@ -4050,6 +4566,7 @@ function judgeCommand(
     root = cwd ? repoRootOf(cwd) : null,
     place = '',
     cdWords = '',
+    oldCdWords = '',
     namesGitDir = false,
     inheritedScriptStdin = false,
     inheritedInterpreterStdin = false,
@@ -4058,6 +4575,9 @@ function judgeCommand(
 ) {
   if (depth > MAX_DEPTH) return [ASK, DEEP_REASON];
   let dir = cwd;
+  // 同じコマンドの中で（外側の cd も含めて）環境のファイルのディレクトリに入ったか。cd - で戻れるので、入ったことは忘れない
+  // フックの cwd が初めから環境のファイルのディレクトリの下にあるときも、入っているものとする（cd -、glob の cd の後を見るため）
+  let inShellEnvDir = namesShellEnvDir(cdWords) || (typeof cwd === 'string' && namesShellEnvDir(cwd));
   // 同じコマンドの中で checkout や switch をした後の push は、切り替えた先のブランチで判定する
   const switched = new Map();
   const currentBranch = (d) => (switched.has(d) ? switched.get(d) : branchOf(d));
@@ -4092,7 +4612,7 @@ function judgeCommand(
       const headTool = baseName(globHead[headCi] ?? '');
       if (SCRIPT_READERS.has(headTool) || RUNNERS.has(headTool) || INTERPRETERS.has(headTool)) {
         results.push(...judgeSegment(concatWords(globHead, sliceWords(words, words.length)), {
-          dir, branchOf: currentBranch, scriptOf, packageDirOf, depth, env, root, place, cdWords, namesGitDir, inheritedScriptStdin, inheritedInterpreterStdin, findBudget,
+          dir, branchOf: currentBranch, scriptOf, packageDirOf, depth, env, root, place, cdWords, oldCdWords, namesGitDir, inheritedScriptStdin, inheritedInterpreterStdin, findBudget,
           segmentCount: segments.length, stdinContext: { previous, ...shapeOfStdin },
         }));
       }
@@ -4113,14 +4633,20 @@ function judgeCommand(
     if (ci !== -1 && ['cd', 'pushd', 'popd'].includes(words[ci])) {
       if (setsWorkersCi(words, ci)) results.push([DENY, WORKERS_CI_REASON]);
       // cd . > .dev.vars のようにリダイレクトを付けられる。道具として見ない（cd の引数は書き込み先ではない）
-      results.push(...judgeFileWrites('', [], words, dir, cdWords, namesGitDir));
+      results.push(...judgeFileWrites('', [], words, dir, cdWords, namesGitDir, segmentEnv.CLAUDE_ENV_FILE, oldCdWords));
       dir = nextDir(words, ci, dir, segmentEnv);
+      // ~- は直前の作業場所（OLDPWD）なので、移る前の行き先の字面を覚える
+      oldCdWords = cdWords;
       cdWords = cdWordsAfter(words, ci, cdWords);
+      // 環境のファイルのディレクトリに入った後に行き先が分からなくなったら（cd -、popd）、そこに戻ったものとして相対の書き込みを見る
+      inShellEnvDir ||= namesShellEnvDir(cdWords);
+      if (inShellEnvDir && !namesShellEnvDir(cdWords) && cdWordsUnknown(cdWords)) cdWords = SHELL_ENV_UNKNOWN_CWD;
+      if (inShellEnvDir && cdWordsUnknown(oldCdWords)) oldCdWords = SHELL_ENV_UNKNOWN_CWD;
       const to = cdTarget(words, ci, segmentEnv);
       place = to === null || place === null ? null : to.startsWith('/') ? to : path.posix.join(place, to);
       continue;
     }
-    results.push(...judgeSegment(words, { dir, branchOf: currentBranch, scriptOf, packageDirOf, depth, env: segmentEnv, root, place, cdWords, namesGitDir, inheritedScriptStdin, inheritedInterpreterStdin, findBudget, segmentCount: segments.length, stdinContext: { previous, ...shapeOfStdin } }));
+    results.push(...judgeSegment(words, { dir, branchOf: currentBranch, scriptOf, packageDirOf, depth, env: segmentEnv, root, place, cdWords, oldCdWords, namesGitDir, inheritedScriptStdin, inheritedInterpreterStdin, findBudget, segmentCount: segments.length, stdinContext: { previous, ...shapeOfStdin } }));
     if (ci !== -1 && baseName(words[ci]) === 'git' && dir) {
       const branch = switchedBranch(words.slice(ci + 1));
       if (branch !== null) switched.set(dir, branch);
