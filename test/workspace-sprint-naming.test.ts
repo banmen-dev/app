@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { describe, expect, test } from 'vitest';
+import { createWorkspace } from './factories.ts';
 import { createApp } from '../src/server/app.ts';
 import { orgDb, verifyWorkspace } from '../src/server/db/index.ts';
 import { sprintCreateOperation } from '../src/server/operations/sprint.ts';
@@ -88,7 +89,7 @@ async function createAfterRejectedBatch(target: Target, race: (db: ReturnType<ty
   const actor = {
     accountId: target.leader.accountId,
     userId: target.leader.userId,
-    isAdmin: false,
+    isAdmin: target.leader.userId === target.admin.userId,
     invitedOnly: false,
   };
   const workspace = await verifyWorkspace(db, actor, target.workspace.id);
@@ -98,8 +99,21 @@ async function createAfterRejectedBatch(target: Target, race: (db: ReturnType<ty
       if (typeof method !== 'function') return method;
       if (key !== 'batch') return method.bind(base);
       return async (...args: unknown[]) => {
+        const beforeLogs = await logs(target);
         const result = await (method as (...args: unknown[]) => Promise<{ changes: number }[]>).apply(base, args);
-        expect(result[0]?.changes).toBe(0);
+        // 割り込みによる上書きや削除が、失敗batchの副作用を隠す前に3文すべてを確かめる。
+        expect(result.map((row) => row.changes)).toEqual([0, 0, 0]);
+        const stored = await db.first(
+          db.statement((q) =>
+            q
+              .selectFrom('workspaces')
+              .select('sprint_number_next')
+              .where('organization_id', '=', target.organization.id)
+              .where('id', '=', target.workspace.id),
+          ),
+        );
+        expect(stored?.sprint_number_next).toBe(Number.MAX_SAFE_INTEGER);
+        expect(await logs(target)).toEqual(beforeLogs);
         await race(db);
         return result;
       };
@@ -263,6 +277,28 @@ describe('スプリント命名のAPI', () => {
     ]);
   });
 
+  test('スプリント作成で番号だけ進んでも読み直し、履歴は実際の番号3から5への変更になる', async () => {
+    const target = await createTarget();
+    expect((await update(target, '{n}', 2)).status).toBe(200);
+    const reads: number[] = [];
+    const result = await updateWithRace(target, '{n}', 5, async (n) => {
+      reads.push(n);
+      if (n !== 1) return;
+      const created = await post(app, sprintCreate, {
+        slug: target.slug,
+        token: target.admin.token,
+        body: { workspace_id: target.workspace.id, start_on: '2027-01-04', length: 7, name: null },
+      });
+      expect(created.status).toBe(200);
+    });
+    expect(reads).toEqual([1, 2]);
+    expect(result).toEqual({ sprint_name_template: '{n}', sprint_number_next: 5 });
+    const workspaceLogs = (await logs(target)).filter((log) => log.entity_type === 'workspace');
+    expect(workspaceLogs).toHaveLength(2);
+    expect(JSON.parse(workspaceLogs[1]!.changes_json)).toEqual({ sprint_number_next: [3, 5] });
+    expect((await list(target)).defaults).toMatchObject({ sprint_name_template: '{n}', sprint_number_next: 5 });
+  });
+
   test('INSERTが0件の後で番号が直っていても、作成したことにせず409 conflictで返す', async () => {
     const target = await createTarget();
     expect((await update(target, '{n}', Number.MAX_SAFE_INTEGER)).status).toBe(200);
@@ -280,34 +316,37 @@ describe('スプリント命名のAPI', () => {
 
   test('INSERTが0件の後でworkspaceが消えたら404を返し、スプリントと履歴を足さない', async () => {
     const target = await createTarget();
-    expect((await update(target, '{n}', Number.MAX_SAFE_INTEGER)).status).toBe(200);
+    // 子行を作らないfactoryのworkspaceを管理者で使う。無関係な子表の掃除で本題を隠さない。
+    const empty = await createWorkspace(target.organization, target.admin.userId!, {
+      sprint_name_template: '{n}',
+      sprint_number_next: Number.MAX_SAFE_INTEGER,
+    });
+    const emptyTarget = { ...target, workspace: empty, leader: target.admin };
     await expect(
-      createAfterRejectedBatch(target, async (db) => {
+      createAfterRejectedBatch(emptyTarget, async (db) => {
         await db.batch([
           db.statement((q) =>
-            q
-              .deleteFrom('change_logs')
-              .where('organization_id', '=', target.organization.id)
-              .where('workspace_id', '=', target.workspace.id),
-          ),
-          db.statement((q) => q.deleteFrom('invitations').where('workspace_id', '=', target.workspace.id)),
-          db.statement((q) => q.deleteFrom('memberships').where('workspace_id', '=', target.workspace.id)),
-          db.statement((q) =>
-            q
-              .deleteFrom('workspaces')
-              .where('organization_id', '=', target.organization.id)
-              .where('id', '=', target.workspace.id),
+            q.deleteFrom('workspaces').where('organization_id', '=', target.organization.id).where('id', '=', empty.id),
           ),
         ]);
       }),
     ).rejects.toMatchObject({ status: 404, code: 'not_found' });
     const db = orgDb(env, target.organization.verified);
     expect(
-      await db.rows(
-        db.statement((q) => q.selectFrom('sprints').select('id').where('workspace_id', '=', target.workspace.id)),
+      await db.first(
+        db.statement((q) =>
+          q
+            .selectFrom('workspaces')
+            .select('id')
+            .where('organization_id', '=', target.organization.id)
+            .where('id', '=', empty.id),
+        ),
       ),
+    ).toBeUndefined();
+    expect(
+      await db.rows(db.statement((q) => q.selectFrom('sprints').select('id').where('workspace_id', '=', empty.id))),
     ).toEqual([]);
-    expect(await logs(target)).toEqual([]);
+    expect(await logs(emptyTarget)).toEqual([]);
   });
 
   test.each([
