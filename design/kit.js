@@ -980,22 +980,35 @@
     </article>`;
   }
   // opts.key: カードの id の接頭辞、opts.cardMarks: (x, i, c) => card のドラッグの状態、opts.columnMarks: (c) => 列の囲み（{ drop: "into" }）、opts.grab: (x) => つかめるか（既定は完了していないカードだけ。完了の列のカードは、本番では戻せるもの（reopenable）だけがつかめる）
+  const boardCollapsed = new Map();
   function board(sprintId, opts = {}) {
     const list = tasksWhere((x) => x.sprint === sprintId);
     const open = D.columns.filter((c) => !c.done);
     return `<div class="board-wrap"><div class="board" style="--board-cols:${D.columns.length}">${D.columns.map((c) => {
+      const name = c.done ? t("done") : (opts.columnName ? opts.columnName(c) : c.name);
       const items = list.filter((x) => (c.done ? x.doneAt : !x.doneAt && x.col === c.id));
+      const collapseKey = `${opts.key || sprintId}-${c.id}`;
+      const collapsed = boardCollapsed.has(collapseKey) ? boardCollapsed.get(collapseKey) : Boolean(opts.collapsed && opts.collapsed(c));
       const at = open.indexOf(c);
       // 最後の完了でない列の「次の列へ」は、完了の列へ移す代わりに完了にする（本番は task-complete を呼ぶ）ので、押せる
       const orderOf = (i) => ({ first: i === 0, last: i === items.length - 1, across: { first: at === 0, last: false } });
-      return `<section class="board-col ${c.done ? "is-done" : ""}"${dropAttr(opts.columnMarks && opts.columnMarks(c))} aria-label="${c.done ? t("done") : esc(c.name)}">
-        <div class="board-col-head">${c.done ? icon("check") : ""}<span class="board-col-name">${c.done ? t("done") : esc(c.name)}</span><span class="board-col-n">${items.length}</span><span class="board-col-pts">${sumPts(items)} pt</span></div>
-        ${c.done && D.definitionOfDone.length ? `<details class="dod"><summary>${t("dod")}</summary>${dodDoc()}</details>` : ""}
+      return `<section class="board-col ${c.done ? "is-done" : ""} ${collapsed ? "is-collapsed" : ""}"${dropAttr(opts.columnMarks && opts.columnMarks(c))} aria-label="${esc(name)}">
+        <div class="board-col-head"><button class="board-col-toggle" type="button" aria-label="${esc(name)}の開閉" aria-expanded="${!collapsed}" data-column-collapse="${esc(collapseKey)}">${icon("chevron")}</button>${c.done ? icon("check") : ""}<span class="board-col-name">${esc(name)}</span><span class="board-col-n">${items.length}</span><span class="board-col-pts">${sumPts(items)} pt</span></div>
+        ${collapsed ? "" : `${c.done && D.definitionOfDone.length ? `<details class="dod"><summary>${t("dod")}</summary>${dodDoc()}</details>` : ""}
         ${items.map((x, i) => card(x, c.done ? undefined : orderOf(i), { mark: opts.cardMarks && opts.cardMarks(x, i, c), grab: opts.grab ? opts.grab(x) : !x.doneAt, key: opts.key })).join("") || `<p class="board-empty">なし</p>`}
-        ${opts.draft && !c.done ? draftRow("col", c.id, `${t("task")}を足す: ${c.name}`, `${t("task")}を足す`) : ""}
+        ${opts.draft && !c.done ? `<div class="board-col-draft">${draftRow("col", c.id, `${t("task")}を足す: ${c.name}`, `${t("task")}を足す`)}</div>` : ""}` }
       </section>`;
     }).join("")}</div></div>`;
   }
+
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest && event.target.closest("[data-column-collapse]");
+    if (!button) return;
+    const key = button.dataset.columnCollapse;
+    boardCollapsed.set(key, button.getAttribute("aria-expanded") === "true");
+    redrawAll();
+    [...document.querySelectorAll("[data-column-collapse]")].find((item) => item.dataset.columnCollapse === key)?.focus();
+  });
 
   // ストーリーの完了の操作（本番の TreeStory）。完了したストーリーは完了の印と「取り消す」。完了していなければ「完了にする」で、
   // 配下の未完了のタスクが残るあいだは aria-disabled にして、横に「残り N 件」を添える
