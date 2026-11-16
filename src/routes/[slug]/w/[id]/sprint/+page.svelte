@@ -396,7 +396,7 @@
     if (task === undefined) return;
     if (drop.plan.kind === 'complete') queueComplete(task, true);
     else if (drop.plan.kind === 'reopen') applyReopenMove(task, drop.plan);
-    else if (drop.plan.kind === 'reopen-blocked') refuseReopen();
+    else if (drop.plan.kind === 'reopen-blocked') void refuseReopen();
     else applyMove(task, drop.plan, true);
   }
 
@@ -495,11 +495,19 @@
   }
 
   // 進行中ボードの完了カードで reopenable が偽なのは、完了した親ストーリーの下。APIと同じ文で試行を断る。
-  function refuseReopen(): void {
-    const message = reopenFailureMessage({ reason: 'parent_completed' });
-    showToast(message, 'alert');
-    // 既存の理由の文は読み直すことも伝える。書き込みはせず、現在の親の状態を読み直す。
-    void reloadBoard();
+  async function refuseReopen(): Promise<void> {
+    if (workspace === null) return;
+    const workspaceId = workspace.id;
+    showToast(reopenFailureMessage({ reason: 'parent_completed' }), 'alert');
+    // 既に積んだ移動を捨てない。読み直す前に、その移動と最後の再読込まで待つ。
+    await moves.whenIdle();
+    if (workspaceId !== page.params.id) return;
+    try {
+      await reloadBoard();
+      await throwIfListFailed(() => page.data);
+    } catch {
+      if (workspaceId === page.params.id) markReloadFailed('stale', workspaceId);
+    }
   }
 
   // 戻す。戻せたら true。followed が真のとき（ドラッグで別の列へ落とすとき）は、通ってもトーストを出さず、読み直さず、
@@ -507,7 +515,7 @@
   async function reopen(task: SprintBoardTask, followed = false): Promise<boolean> {
     if (workspace === null || refusedWhileBusy()) return false;
     if (!task.reopenable) {
-      refuseReopen();
+      await refuseReopen();
       return false;
     }
     reopeningId = task.id;

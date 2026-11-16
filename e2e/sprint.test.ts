@@ -918,11 +918,60 @@ test.describe('カードのドラッグ', () => {
     await expect(page.locator('.toasts:visible .toast')).toHaveCount(0, { timeout: 12_000 });
   });
 
+  for (const failReload of [false, true]) {
+    test(`戻せないカードの拒否は送信中の移動を待って読み直す${failReload ? '。読めなければ失敗を画面に残す' : ''}`, async ({
+      page,
+      context,
+      baseURL,
+    }) => {
+      await signIn(context, baseURL, 'member');
+      const events: string[] = [];
+      const done = SAMPLE_BOARD.columns.find((column) => column.is_done)!.tasks[0]!;
+      const moving = SAMPLE_BOARD.columns[0]!.tasks[0]!;
+      const lockedBoard = {
+        ...SAMPLE_BOARD,
+        columns: SAMPLE_BOARD.columns.map((column) =>
+          column.is_done ? { ...column, tasks: column.tasks.map((task) => ({ ...task, reopenable: false })) } : column,
+        ),
+      };
+      await routeOperation(page, sprintBoard, { slug: 'aoba' }, async (call) => {
+        events.push('board');
+        if (failReload && events.length > 1) await call.fail(500, 'internal');
+        else await call.fulfill(lockedBoard);
+      });
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let started!: () => void;
+      const sent = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      await routeOperation(page, taskColumnMove, { slug: 'aoba' }, async (call) => {
+        events.push('move-start');
+        started();
+        await gate;
+        await call.fulfill({ task_id: call.input.task_id, column_id: call.input.column_id });
+        events.push('move-end');
+      });
+      await page.goto(`${AOBA_TEAM}/sprint`);
+      await cardOf(page, moving.title).press('Alt+ArrowRight');
+      await sent;
+      await cardOf(page, done.title).press('Alt+ArrowLeft');
+      await expect(statusOf(page, '完了したストーリーの下のタスクは戻せません。')).toBeVisible();
+      release();
+      await expect.poll(() => events).toEqual(['board', 'move-start', 'move-end', 'board']);
+      if (failReload) await expect(page.locator('[data-task-reload-note]')).toBeVisible();
+      else await expect(titlesIn(page, '完了')).toHaveText([done.title]);
+    });
+  }
+
   test('完了を戻すのが断られたら、列の移動は送らず、理由を知らせる。戻せないカードも試せ、送らずに理由を知らせる', async ({
     page,
     context,
     baseURL,
   }) => {
+    // drag/キー/メニューごとに前の8秒の拒否通知が消えるのを待ち、通知の空振りを防ぐ
     test.setTimeout(90_000);
     await signIn(context, baseURL, 'member');
     const locked = 'ストーリーが完了したカード';
