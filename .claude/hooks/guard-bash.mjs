@@ -53,27 +53,30 @@ try {
   const stateCheck = { ...(await import('./shell-env-state.mjs')), homeOrNull: (await import('./file-rules.mjs')).homeOrNull };
   const input = JSON.parse(readFileSync(0, 'utf8'));
   const command = input.tool_input?.command;
+  let commandVerdict = null;
   if (typeof command === 'string') {
     // セッションの CDPATH は、相対の cd の行き先を cwd の外へ変える（judgeBash は空文字を無いものとする）。
     // GH_REPO、GH_HOST、GIT_DIR、GIT_WORK_TREE、GIT_CONFIG_* は、gh が宛先と現在のブランチを決める元になるので、起動元の環境にあっても見る。
     // CLAUDE_ENV_FILE は、Claude Code が各 Bash の前に読むファイルの場所。PreToolUse のフックの環境にはふつう無い（SessionStart のフックだけが持つ）ので、
-    // 守りの本体は名前（session-env、shell-snapshots）で、これは名前に当たらない場所に置かれていたときの補助
+    // 字面の判定の中心は名前（session-env、shell-snapshots）で、これは名前に当たらない場所に置かれていたときの補助
     const env = Object.fromEntries(
       ['CDPATH', 'GH_REPO', 'GH_HOST', 'GIT_DIR', 'GIT_WORK_TREE', 'CLAUDE_ENV_FILE', ...Object.keys(process.env).filter((name) => /^GIT_CONFIG_/.test(name))].map((name) => [name, process.env[name]]),
     );
-    const verdict = withShellEnvState(judgeBash(command, { cwd: input.cwd ?? process.cwd(), branchOf, scriptOf, packageDirOf, env }), input.session_id, stateCheck);
-    if (verdict) {
-      const [decision, reason] = verdict;
-      process.stdout.write(
-        JSON.stringify({
-          hookSpecificOutput: {
-            hookEventName: 'PreToolUse',
-            permissionDecision: decision,
-            permissionDecisionReason: `${reason}（.claude/hooks/bash-rules.mjs）`,
-          },
-        }),
-      );
-    }
+    commandVerdict = judgeBash(command, { cwd: input.cwd ?? process.cwd(), branchOf, scriptOf, packageDirOf, env });
+  }
+  // 状態の確かめは、command が無いか文字列でない入力でも行う（字面を読めない入力を素通りにしない）
+  const verdict = withShellEnvState(commandVerdict, input.session_id, stateCheck);
+  if (verdict) {
+    const [decision, reason] = verdict;
+    process.stdout.write(
+      JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: decision,
+          permissionDecisionReason: `${reason}（.claude/hooks/bash-rules.mjs）`,
+        },
+      }),
+    );
   }
 } catch (error) {
   process.stderr.write(`guard-bash: 判定できなかったので止めました: ${error.message}\n`);

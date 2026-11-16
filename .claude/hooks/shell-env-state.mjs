@@ -98,8 +98,10 @@ export function shellEnvStateProblems({ configDir, sessionId, envFile }) {
     [sessionEnvProblems, path.join(configDir, 'session-env', sessionId)],
     [snapshotsProblems, path.join(configDir, 'shell-snapshots')],
   ];
-  if (envFile) checks.push([(file) => [envFileProblem(path.resolve(file))].filter((problem) => problem !== null), envFile]);
   const problems = [];
+  // 相対の値は Claude Code のプロセスの cwd（起動した場所）から解かれ、フックの cwd からは同じファイルを引けない
+  if (envFile && !path.isAbsolute(envFile)) problems.push(`CLAUDE_ENV_FILE（${envFile}）: 相対のパスで、Claude Code が読むファイルを引けない`);
+  else if (envFile) checks.push([(file) => [envFileProblem(file)].filter((problem) => problem !== null), envFile]);
   for (const [check, target] of checks) {
     try {
       problems.push(...check(target));
