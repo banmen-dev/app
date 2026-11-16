@@ -69,7 +69,9 @@ async function expectHorizontalBrand(page: Page): Promise<void> {
   await expect(logo).toHaveAttribute('alt', '');
   await expect(name).toHaveText('スクラムギルド');
   await expect(name).toBeVisible();
-  expect(await name.evaluate((el) => el.tagName)).toBe('SPAN');
+  await expect(name).toHaveCSS('color', 'rgb(48, 55, 64)');
+  await expect(name).toHaveCSS('font-weight', '700');
+  await page.evaluate(() => document.fonts.ready);
   await expect(art).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect.poll(() => logo.evaluate((img) => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   await expect
@@ -106,10 +108,44 @@ async function expectHorizontalBrand(page: Page): Promise<void> {
   expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
   const nameBox = (await name.boundingBox())!;
   expect(nameBox.x).toBeGreaterThanOrEqual(box.x + box.width);
-  expect(nameBox.x + nameBox.width).toBeLessThanOrEqual(parent.x + parent.width + 1);
+  const inner = await art.evaluate((el) => {
+    const rect = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    return {
+      right: rect.right - parseFloat(style.paddingRight),
+      bottom: rect.bottom - parseFloat(style.paddingBottom),
+    };
+  });
+  expect(nameBox.x + nameBox.width).toBeLessThanOrEqual(inner.right + 1);
+  expect(nameBox.y + nameBox.height).toBeLessThanOrEqual(inner.bottom + 1);
+  const textBounds = await name.evaluate((el) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return Array.from(range.getClientRects(), (rect) => ({ right: rect.right, bottom: rect.bottom }));
+  });
+  for (const rect of textBounds) {
+    expect(rect.right).toBeLessThanOrEqual(inner.right + 1);
+    expect(rect.bottom).toBeLessThanOrEqual(inner.bottom + 1);
+  }
   // ブランド内の文字は読ませず、サービス名を1回だけ残す
   await expect(art.locator('..').getByText('Scrum Guild', { exact: true })).toHaveCount(1);
 }
+
+test('文字を拡大してもロゴの名前が白い下地に収まる', async ({ page }) => {
+  for (const path of ['/login', '/signup']) {
+    await page.goto(path);
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const theme of themes) {
+        await page.evaluate((value) => (document.documentElement.dataset.theme = value), theme);
+        await page.locator('.brand-name').evaluate((el) => {
+          (el as HTMLElement).style.fontSize = '36px';
+        });
+        await expectHorizontalBrand(page);
+      }
+    }
+  }
+});
 
 // 組織の枠の左上の角のマスは、横組みではなくマーク単体を白い枠の中に出し、角のマスの高さに収める
 async function expectCornerSymbol(page: Page): Promise<void> {

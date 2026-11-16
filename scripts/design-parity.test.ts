@@ -99,6 +99,13 @@ describe('見本との照合', () => {
       const images = readElements(kit, 'img');
       assert.equal(images.length, count);
       assert.deepEqual(readElements(normalized, 'img'), images);
+      if (name === 'brandMark') {
+        // 画像だけの一致では、片方の名前が画像や別の文言に戻っても検出できない。
+        const textName = /<span class="brand-name">\$?\{t\('([^']+)'\)\}<\/span>/;
+        for (const source of [kit, component]) {
+          assert.equal(textName.exec(source)?.[1], 'brandName');
+        }
+      }
       for (const source of [kit, normalized]) {
         assert.match(source, wrapper);
         for (const image of readElements(source, 'img')) {
