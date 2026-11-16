@@ -8,11 +8,19 @@ export type { Expression, ExpressionBuilder, Insertable, QueryCreator, Selectabl
 export type { Statement } from './entry.ts';
 export { commonDb, orgDb, type CommonDb, type OrganizationDb } from './entries.ts';
 export { DatabaseUnavailableError, pingDatabase } from './ping.ts';
-export { jsonList, jsonPairLookup, jsonPairRows, sprintLeftLogSql, sprintLogRefSql } from './json-list.ts';
+export {
+  changedColumnsSql,
+  jsonList,
+  jsonPairLookup,
+  jsonPairRows,
+  sprintLeftLogSql,
+  sprintLogRefSql,
+} from './json-list.ts';
 export { jsonLookup } from './json-lookup.ts';
 export { previousStatementChanged } from './previous-statement.ts';
 export { apiTokenSeenAt } from './api-token-seen-at.ts';
 export { organizationHistoryRowFilter } from './organization-history-filter.ts';
+export { notTodayMarkOnlyRowFilter, recentChangeRowFilter, recentCommentRowFilter } from './recent-activity-filter.ts';
 export { activeSprintRowFilter } from './active-sprint-filter.ts';
 export { pendingEmailInvitationRowFilter } from './pending-email-invitation-filter.ts';
 export { uuidv7Sql } from './uuid-sql.ts';

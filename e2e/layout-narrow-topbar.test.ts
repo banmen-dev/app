@@ -67,6 +67,15 @@ for (const theme of LAYOUT_THEMES) {
     await tabs.getByRole('link', { name: '今日やること', exact: true }).click();
     await expect(page).toHaveURL(/\/aoba$/);
     // 最後に本文の末尾を画面内へ送り、固定タブの上に余白が残ることを測る。
+    // ホームの本文の高さは、最近の更新の面が自分の読み込みを終えてから決まる（骨組みが行に替わって、面が伸びる）。
+    // 測る前に、面の読み込みが終わった状態（aria-busy が外れ、行か空の案内が出ている）を待つ。待たないと、末尾へ送った後に面が伸び、
+    // 足した行が下へ押し出されて隙間が負になる
+    const activity = page
+      .locator('.pane')
+      .filter({ has: page.getByRole('heading', { level: 2, name: '最近の更新', exact: true }) });
+    await expect(activity).toBeVisible();
+    await expect(activity.locator('.pane-body')).not.toHaveAttribute('aria-busy', 'true');
+    await expect(activity.locator('.skeleton')).toHaveCount(0);
     await page.locator('#content').evaluate((content) => {
       const last = document.createElement('p');
       last.textContent = '本文の最後の行';
