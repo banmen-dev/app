@@ -90,9 +90,18 @@ test('検索の補助だけを読む初回の束には、Wikiの検証コード�
   const root = path.resolve(import.meta.dirname, '..');
   try {
     const entry = path.join(dir, 'entry.ts');
+    const helpers = [
+      ['src/shared/backlog-filter.ts', 'searchWordsOf'],
+      ['src/shared/workspace.ts', 'workspaceNameProblem'],
+      ['src/shared/organization-slug.ts', 'slugProblem'],
+      ['src/shared/errors.ts', 'isErrorBody'],
+      ['src/shared/return-to.ts', 'safeReturnTo'],
+      ['src/lib/workspace.ts', 'isTransientFailure'],
+    ];
     writeFileSync(
       entry,
       `
+      ${helpers.map(([file, name], i) => `export { ${name} as helper${i} } from ${JSON.stringify(path.join(root, file))};`).join('\n')}
       export { searchWordsOf } from ${JSON.stringify(path.join(root, 'src/shared/backlog-filter.ts'))};
       export async function validate(value) {
         const { wikiQuerySchema } = await import(${JSON.stringify(path.join(root, 'src/shared/operations/wiki/index.ts'))});
@@ -117,8 +126,22 @@ test('検索の補助だけを読む初回の束には、Wikiの検証コード�
           preserveEntrySignatures: 'strict',
         },
       },
-    })) as { output: { type: string; fileName: string; isEntry?: boolean; imports?: string[]; code?: string }[] };
+    })) as {
+      output: {
+        type: string;
+        fileName: string;
+        isEntry?: boolean;
+        modules?: Record<string, unknown>;
+        imports?: string[];
+        code?: string;
+      }[];
+    };
     const chunks = result.output.filter((item) => item.type === 'chunk');
+    const helperChunks = helpers.map(([file]) =>
+      chunks.find((chunk) => path.join(root, file) in (chunk.modules ?? {})),
+    );
+    assert.ok(helperChunks.every(Boolean), '初期ヘルパーが束に存在する');
+    assert.equal(new Set(helperChunks.map((chunk) => chunk!.fileName)).size, 1, '初期ヘルパーの要求を分散させない');
     const initial = new Set<string>();
     const visit = (file: string) => {
       if (initial.has(file)) return;
