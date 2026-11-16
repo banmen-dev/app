@@ -126,9 +126,17 @@ function componentCode(code: string): string {
       return;
     }
     const node = value as Record<string, unknown>;
-    const expression = node.expression as { start?: number; end?: number } | undefined;
-    if (typeof expression?.start === 'number' && typeof expression.end === 'number') {
-      expressions.push(`void (${code.slice(expression.start, expression.end)});`);
+    // Svelteのproperty名に依存せず、ESTreeの宣言・式を拾う。
+    // constのdeclaration、eachのkey、snippet引数の既定値も含む。
+    if (typeof node.start === 'number' && typeof node.end === 'number') {
+      if (node.type === 'VariableDeclaration') {
+        expressions.push(`${code.slice(node.start, node.end)};`);
+        return;
+      }
+      if (typeof node.type === 'string' && /(?:Expression|Literal|Identifier)$/.test(node.type)) {
+        expressions.push(`void (${code.slice(node.start, node.end)});`);
+        return;
+      }
     }
     Object.values(node).forEach(visit);
   }
@@ -238,6 +246,17 @@ test('別名・namespace・分割代入・引数・角括弧のスキーマ参�
     `<script lang="ts">import { organizationInfo as renamed } from './shared/operations/organization/organization.ts';</script><p>{renamed.output}</p>`,
   );
   assert.equal(schemaViolations({ [file]: component }).length, 1);
+});
+
+test('Svelteのconst・eachのkey・snippetの既定値も検査する', () => {
+  const file = path.join(root, 'src/extra-client.ts');
+  const imported = `<script lang="ts">import { organizationInfo as renamed } from './shared/operations/organization/organization.ts';</script>`;
+  for (const template of [
+    `{#if true}{@const parsed = renamed.output}<p>{parsed}</p>{/if}`,
+    `{#each [1] as item (renamed.output)}<p>{item}</p>{/each}`,
+    `{#snippet demo(value = renamed.output)}<p>{value}</p>{/snippet}`,
+  ])
+    assert.equal(schemaViolations({ [file]: componentCode(imported + template) }).length, 1, template);
 });
 
 test('全クライアントのスキーマ参照は、保持する操作の output だけ', () => {
