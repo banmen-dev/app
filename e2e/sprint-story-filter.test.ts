@@ -402,12 +402,10 @@ test('絞り込み中も戻せない完了カードは理由を伝え、書き�
   await expect(card).toHaveAccessibleDescription(/完了を戻せません/);
   await card.press('Alt+ArrowLeft');
   await expect(
-    page
-      .getByRole('status')
-      .filter({
-        hasText:
-          '完了したストーリーの下のタスクは戻せません。先にストーリーの完了を取り消してください。一覧を読み直します',
-      }),
+    page.getByRole('status').filter({
+      hasText:
+        '完了したストーリーの下のタスクは戻せません。先にストーリーの完了を取り消してください。一覧を読み直します',
+    }),
   ).toBeVisible();
   await waitForSettled(page);
   expect(sent).toBe(0);
