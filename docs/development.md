@@ -143,6 +143,17 @@ Wikiの一括取り込みは、`requestRateLimit` の要求枠（本文を読む
 - 辞書の型の保証は `src/shared/vocabulary.typecheck.ts` が持つ。文字列でない項目（数、オブジェクト、`{ scope, game, scrum }` の旧形式）が型で落ちることを `@ts-expect-error` で確かめ、落ちなくなると `pnpm check` が落ちる。
 - 見本の `design/kit.js` の `DICT` にあるキーは、本番も同じ中身で持つ。`scripts/design-parity.test.ts` が突き合わせる（`docs/design.md` の「デザインシステムの構成」）。
 
+### ニュースの足し方
+
+組織のホームの「Scrum Guild のニュース」の面に出す知らせは、`src/lib/news.ts` の `newsItems` に足す。API と DB は通さず、リリースで配る（運用者が画面から書く仕組みは持たない）。
+
+1. `newsItems` の先頭に `{ date, title, body, href? }` を足す。`date` は知らせる日の `YYYY-MM-DD`（実在する暦の日で、`2026-01-01` 以上、検査を走らせた日の翌日以下。年の打ち間違いで先頭に居座らないようにする）、`title` は空でない1行で40字まで、`body` は空でない短い平文で120字まで（長さはコードポイントで数える。狭い幅で何行にも折り返さないため）。題と本文は書いたまま画面に出る（辞書を通さず、HTML にも Markdown にもならない）。例は架空にし、実在の名前を混ぜない
+2. 詳しく読める先があるときだけ `href` を足す。`https://` で始まり、`new URL(href).href` が `href` と同じ（正規化して形が変わらない。`https://example.com` は `https://example.com/` と末尾の `/` まで書く）、ユーザー情報（`https://名前:鍵@…`）の無い URL だけを許す。画面は同じ検査（`isNewsHref`）を通るときだけ、題（h3）を新しいタブで開くリンクにして、題の文字の末尾に external の印を添える
+3. 面に出るのは日付の新しい順に5件まで。古い知らせは消さなくてよい（出さないだけ）。1件も無くなると面ごと置かない
+4. `pnpm test` の `src/lib/news.test.ts` が、一覧の全件を `newsItemProblems` で検査する（日付の実在と範囲、題と本文が空でないことと長さの上限、リンクの形）。同じ関数が悪い入力の表でも落とすことを確かめているので、形の決まりを変えるときはそこも直す
+
+メンテナンスの知らせなど、リリースを待たずに出す帯は、この一覧では扱わない。
+
 ### キーボードのショートカット
 
 - 画面のどこからでも働くキー（検索の `Mod+K`、引き出しの `[` `]` など、一覧に出すキー）は一か所に登録する。`src/routes/+layout.svelte` が `keydown` を1つだけ受けて `src/lib/shortcuts.svelte.ts` の `shortcuts.handle` へ渡し、そこで振り分ける。メニューや引き出しの中で閉じる Esc、矢印キーなど、部品の中だけで完結する操作は対象にせず、これまでどおり部品が受ける（Drawer の Esc は残している。登録に寄せるときは、変換中と `defaultPrevented` の判定が重なるので別の Issue にする）。
