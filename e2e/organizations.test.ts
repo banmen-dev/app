@@ -624,15 +624,17 @@ test('組織からダッシュボードへの遅い移動では、元の画面�
 }) => {
   await signIn(context, baseURL, 'member');
   await page.goto('/aoba');
+  // 初回の my-organizations を止めず、ダッシュボードへ移るときの読み取りだけを待たせる。
+  await expect(menuButton(page)).toBeVisible();
   let release = () => {};
   const gate = new Promise<void>((resolve) => (release = resolve));
   await routeOperation(page, myOrganizations, async (call) => {
     await gate;
     await call.passThrough();
   });
-  await menuButton(page).click();
-  await menuLinks(page).last().click();
   try {
+    await menuButton(page).click();
+    await menuLinks(page).last().click();
     await expect(menuButton(page)).toContainText('移っています');
     await expect(page.locator('.org-menu [role="status"]')).toHaveText('移っています');
     await expect(page.getByRole('heading', { level: 1, name: '今日やること' })).toBeVisible();
