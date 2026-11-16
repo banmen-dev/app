@@ -59,7 +59,10 @@ test('列を畳んで再読み込みしても保存され、別のワークス�
   // 同じ列IDの応答を新しいワークスペースにも返し、列IDだけで保存していないことを確かめる。
   await createWorkspace(page, '開閉を分ける見張り番');
   expect(new URL(page.url()).pathname).not.toContain('000000000401');
-  await page.goto(`${new URL(page.url()).pathname.replace(/\/$/, '')}/sprint`);
+  const destination = `${new URL(page.url()).pathname.replace(/\/$/, '')}/sprint`;
+  await page.goto(destination);
+  await expect(page).toHaveURL(new RegExp(`${destination}$`));
+  await expect(page.getByRole('heading', { level: 1, name: '第14回', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '完了の開閉' })).toHaveAttribute('aria-expanded', 'true');
   expect(await collect()).toEqual([]);
 });
