@@ -81,12 +81,14 @@ test('2組織の本人タスクを組織名とともに表示し、各組織の�
       await expect(page.getByRole('dialog', { name: task.title, exact: true })).toBeVisible();
     }
   } finally {
+    // cleanup の検査失敗で元の失敗を隠さず、残りのタスクとワークスペースも片付ける。
+    // ワークスペースを消すAPIは無いので終了する。CIのD1はジョブごとの使い捨て。
     for (const task of made) {
       const deleted = await page.request.post(`/api/${task.slug}/${taskDelete.name}`, {
         headers,
         data: { workspace_id: task.workspaceId, task_id: task.taskId },
       });
-      expect(deleted.status()).toBe(200);
+      expect.soft(deleted.status()).toBe(200);
     }
     for (const workspace of workspaces) {
       const closer = workspace.slug === 'aoba' ? page.request : otherAdmin.request;
@@ -94,7 +96,7 @@ test('2組織の本人タスクを組織名とともに表示し、各組織の�
         headers,
         data: { workspace_id: workspace.id },
       });
-      expect(closed.status()).toBe(200);
+      expect.soft(closed.status()).toBe(200);
     }
     await otherAdmin.close();
   }
