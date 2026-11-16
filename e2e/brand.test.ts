@@ -138,6 +138,7 @@ async function expectHorizontalBrand(page: Page, singleLine = false): Promise<vo
 test('文字を拡大してもロゴの名前が白い下地に収まる', async ({ page }) => {
   for (const path of ['/login', '/signup']) {
     await page.goto(path);
+    await expect(page.locator('.brand-name')).toBeVisible();
     for (const width of [320, 390, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       for (const theme of themes) {
@@ -145,8 +146,9 @@ test('文字を拡大してもロゴの名前が白い下地に収まる', async
         for (const mode of ['name', 'root']) {
           await page.evaluate((value) => {
             document.documentElement.style.fontSize = value === 'root' ? '24px' : '16px';
-            const name = document.querySelector<HTMLElement>('.brand-name')!;
-            name.style.fontSize = value === 'name' ? '36px' : '';
+          }, mode);
+          await page.locator('.brand-name').evaluate((el, value) => {
+            (el as HTMLElement).style.fontSize = value === 'name' ? '36px' : '';
           }, mode);
           const fontSize = await page
             .locator('.brand-name')
