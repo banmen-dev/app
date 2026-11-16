@@ -2510,6 +2510,7 @@ export const dictionary = defineDictionary({
   sprintBoardAddNotActive: 'この{sprint}はもう進行中ではないので、{task}は作られていません。一覧を読み直します',
   sprintBoardAddDoneColumn: '{done}の{column}には{task}を足せないので、作られていません。一覧を読み直します',
   sprintBoardDraftHint: '{column}の末尾の空の行に題を打って Enter を押すと、その{column}に{task}が足されます。',
+  sprintBoardColumnToggle: '{column}の開閉',
   sprintBoardColumnPoints: '{points} pt',
   sprintBoardKeyHint:
     'カードを別の{column}へドラッグして移すか、カードを選んで Alt と ← → で隣の{column}、Alt と ↑ ↓ で{column}の中を動かせます。カードの「⋯」のメニューでも同じです。{done}の{column}の手前の{column}から次へ送ると、{done}になります。',
