@@ -1151,11 +1151,13 @@ test.describe('390px の指の画面のカード', () => {
       }
       await page.goto(`${AOBA_TEAM}/sprint`);
       await expect(page.locator('.card')).toHaveCount(4);
+      // 未完了カードは3枚。書き込める場合はメニューの描画を待ち、初期の読み取り専用状態で不存在を確かめない
+      await expect(page.locator('.card .row-menu-btn')).toHaveCount(closed ? 0 : 3);
+      const title = SAMPLE_BOARD.columns[0]!.tasks[0]!.title;
+      if (!closed) await expect(rowMenuToggle(page, title)).toBeVisible();
       await expect(page.locator('.card .done-btn')).toHaveCount(0);
-      if (closed) {
-        await expect(page.locator('.card .row-menu-btn')).toHaveCount(0);
-      } else {
-        const title = SAMPLE_BOARD.columns[0]!.tasks[0]!.title;
+      await expect(page.locator('.card').getByRole('button', { name: /^完了にする: / })).toHaveCount(0);
+      if (!closed) {
         await rowMenuToggle(page, title).tap();
         await expect(page.getByRole('menu', { name: `操作: ${title}`, exact: true })).toBeVisible();
       }
