@@ -137,14 +137,19 @@
   const pointsText = $derived(
     task.points === null ? t('pointsUnsetTitle') : t('pointsLabel', { points: t('points'), value: task.points }),
   );
-  const summary = $derived(
+  const baseSummary = $derived(
     task.assignee === null
       ? t('sprintCardSummaryUnassigned', { points: pointsText, unassigned: t('unassigned') })
       : t('sprintCardSummary', { points: pointsText, assignee: t('assignee'), name: task.assignee.name }),
   );
+  const summary = $derived(
+    done && !task.reopenable
+      ? t('sprintCardReopenBlockedSummary', { summary: baseSummary, done: t('done') })
+      : baseSummary,
+  );
 </script>
 
-<!-- キーは中のリンクとボタンから届く。選べるのは動かせるカードだけ（tabindex は 0 か未指定だけ） -->
+<!-- キーは中のリンクとボタンから届く。書き込めるカードは完了カードも選べる（tabindex は 0 か未指定だけ） -->
 <!-- 選んだときは題を名前に、ポイントと担当の要約と動かし方の案内を説明に読む（中の印は role="img" で、選んだだけでは読まれないため） -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->

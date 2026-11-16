@@ -2548,6 +2548,7 @@ export const dictionary = defineDictionary({
   // 選んだカードの説明（aria-describedby）。{points} はポイントか未見積もりの文
   sprintCardSummary: '{points}、{assignee}は{name}',
   sprintCardSummaryUnassigned: '{points}、{unassigned}',
+  sprintCardReopenBlockedSummary: '{summary}、{done}を戻せません',
   // 動かした後の読み上げ。{index} は移した先の{column}の中で何番目か、{total} はその件数
   sprintCardMoved: '「{title}」を{column}の {index} 番目に移しました（{total} 件中）',
   sprintCardNoPrevColumn: 'これより前の{column}はありません',
