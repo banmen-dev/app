@@ -2,6 +2,7 @@ import { env } from 'cloudflare:workers';
 import { describe, expect, test } from 'vitest';
 import { createApp } from '../src/server/app.ts';
 import { orgDb, verifyWorkspace } from '../src/server/db/index.ts';
+import { sprintCreateOperation } from '../src/server/operations/sprint.ts';
 import { workspaceSprintNamingUpdateOperation } from '../src/server/operations/workspace.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
 import {
@@ -77,6 +78,38 @@ async function updateWithRace(target: Target, template: string, next: number, ra
     actor,
     workspace,
     input: { workspace_id: target.workspace.id, sprint_name_template: template, sprint_number_next: next },
+    defer: () => {},
+  } as never);
+}
+
+// INSERTが本当に0件になったbatchの直後に別の要求を割り込ませ、失敗後の再読を確かめる。
+async function createAfterRejectedBatch(target: Target, race: (db: ReturnType<typeof orgDb>) => Promise<void>) {
+  const db = orgDb(env, target.organization.verified);
+  const actor = {
+    accountId: target.leader.accountId,
+    userId: target.leader.userId,
+    isAdmin: false,
+    invitedOnly: false,
+  };
+  const workspace = await verifyWorkspace(db, actor, target.workspace.id);
+  const racing = new Proxy(db, {
+    get(base, key) {
+      const method = Reflect.get(base, key, base);
+      if (typeof method !== 'function') return method;
+      if (key !== 'batch') return method.bind(base);
+      return async (...args: unknown[]) => {
+        const result = await (method as (...args: unknown[]) => Promise<{ changes: number }[]>).apply(base, args);
+        expect(result[0]?.changes).toBe(0);
+        await race(db);
+        return result;
+      };
+    },
+  });
+  return sprintCreateOperation.handler({
+    db: racing,
+    actor,
+    workspace,
+    input: { workspace_id: target.workspace.id, start_on: '2027-01-04', length: 7, name: null },
     defer: () => {},
   } as never);
 }
@@ -208,6 +241,73 @@ describe('スプリント命名のAPI', () => {
     ).rejects.toMatchObject({ status: 409, code: 'workspace_closed' });
     expect((await list(target)).defaults).toMatchObject({ sprint_name_template: '{n}', sprint_number_next: 2 });
     expect(await logs(target)).toEqual(afterClosing);
+  });
+
+  test('3回続けて競合したら409 conflictで、自分の番号・ルール・履歴を書かない', async () => {
+    const target = await createTarget();
+    const reads: number[] = [];
+    await expect(
+      updateWithRace(target, '自分{n}', 50, async (n) => {
+        reads.push(n);
+        expect((await update(target, `先の更新${n}`, 10 + n, target.admin)).status).toBe(200);
+      }),
+    ).rejects.toMatchObject({ status: 409, code: 'conflict' });
+    expect(reads).toEqual([1, 2, 3]);
+    expect((await list(target)).defaults).toMatchObject({ sprint_name_template: '先の更新3', sprint_number_next: 13 });
+    const storedLogs = await logs(target);
+    expect(storedLogs).toHaveLength(3);
+    expect(storedLogs.map((log) => JSON.parse(log.changes_json).sprint_name_template[1])).toEqual([
+      '先の更新1',
+      '先の更新2',
+      '先の更新3',
+    ]);
+  });
+
+  test('INSERTが0件の後で番号が直っていても、作成したことにせず409 conflictで返す', async () => {
+    const target = await createTarget();
+    expect((await update(target, '{n}', Number.MAX_SAFE_INTEGER)).status).toBe(200);
+    let afterRace: Awaited<ReturnType<typeof logs>> = [];
+    await expect(
+      createAfterRejectedBatch(target, async () => {
+        expect((await update(target, '{n}', 5, target.admin)).status).toBe(200);
+        afterRace = await logs(target);
+      }),
+    ).rejects.toMatchObject({ status: 409, code: 'conflict' });
+    expect((await list(target)).defaults.sprint_number_next).toBe(5);
+    expect((await list(target)).sprints).toHaveLength(0);
+    expect(await logs(target)).toEqual(afterRace);
+  });
+
+  test('INSERTが0件の後でworkspaceが消えたら404を返し、スプリントと履歴を足さない', async () => {
+    const target = await createTarget();
+    expect((await update(target, '{n}', Number.MAX_SAFE_INTEGER)).status).toBe(200);
+    await expect(
+      createAfterRejectedBatch(target, async (db) => {
+        await db.batch([
+          db.statement((q) =>
+            q
+              .deleteFrom('change_logs')
+              .where('organization_id', '=', target.organization.id)
+              .where('workspace_id', '=', target.workspace.id),
+          ),
+          db.statement((q) => q.deleteFrom('invitations').where('workspace_id', '=', target.workspace.id)),
+          db.statement((q) => q.deleteFrom('memberships').where('workspace_id', '=', target.workspace.id)),
+          db.statement((q) =>
+            q
+              .deleteFrom('workspaces')
+              .where('organization_id', '=', target.organization.id)
+              .where('id', '=', target.workspace.id),
+          ),
+        ]);
+      }),
+    ).rejects.toMatchObject({ status: 404, code: 'not_found' });
+    const db = orgDb(env, target.organization.verified);
+    expect(
+      await db.rows(
+        db.statement((q) => q.selectFrom('sprints').select('id').where('workspace_id', '=', target.workspace.id)),
+      ),
+    ).toEqual([]);
+    expect(await logs(target)).toEqual([]);
   });
 
   test.each([
