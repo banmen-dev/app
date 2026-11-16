@@ -5,6 +5,7 @@ import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import {
+  loadingDashboard,
   loadingShape,
   loadingShapeCounts,
   loadingShapeHasActions,
@@ -60,6 +61,8 @@ describe('最初の読み込みの骨組みの形（static/boot-shape.js）', ()
   test('/ の骨組みは広いダッシュボードにし、ほかの枠の外の画面には当てない', () => {
     const root = runBootShape('/');
     assert.equal(root.dataset.bootDashboard, 'true');
+    assert.equal(root.dataset.boot, undefined);
+    assert.equal(root.content.innerHTML, '');
     assert.equal((root.paper.innerHTML.match(/class="boot-pane"/g) ?? []).length, 2);
     assert.equal(runBootShape('/login').dataset.bootDashboard, undefined);
     assert.equal(runBootShape('/aoba').dataset.bootDashboard, undefined);
@@ -76,6 +79,7 @@ describe('最初の読み込みの骨組みの形（static/boot-shape.js）', ()
     for (const id of ids) {
       for (const path of [samplePath(id), `${samplePath(id)}/`]) {
         assert.equal(runBootShape(path).dataset.boot, loadingShape(id) ?? undefined, `${id}（${path}）`);
+        assert.equal(runBootShape(path).dataset.bootDashboard === 'true', loadingDashboard(id), `${id}（${path}）`);
       }
     }
   });

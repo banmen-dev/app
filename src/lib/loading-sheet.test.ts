@@ -8,7 +8,7 @@ test('ダッシュボードの待ちは広い紙の2列で、組織の枠を出�
   expect(body).toContain('gate is-wide');
   expect(body).toContain('dashboard-main');
   expect(body).toContain('dashboard-side');
-  expect(body).not.toContain('class="binding"');
+  expect(body).not.toMatch(/class="[^"]*\bbinding(?:\s|")/);
 });
 
 test('ほかの枠の外の待ちは狭い紙を保つ', () => {

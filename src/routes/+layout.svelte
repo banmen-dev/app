@@ -13,7 +13,7 @@
   import ShortcutHelp from '../lib/components/ShortcutHelp.svelte';
   import ShortcutHints from '../lib/components/ShortcutHints.svelte';
   import ToastRegion from '../lib/components/ToastRegion.svelte';
-  import { loadingShape, type LoadingShape } from '../lib/loading-shape.ts';
+  import { loadingDashboard, loadingShape, type LoadingShape } from '../lib/loading-shape.ts';
   import { shortcuts } from '../lib/shortcuts.svelte.ts';
   import { t } from '../lib/vocabulary.svelte.ts';
 
@@ -88,7 +88,7 @@
   $effect(() => {
     if (slow && loadingKind === 'outside') {
       shownLoadingShape = loadingShapeTo;
-      shownLoadingDashboard = navigating.to?.route.id === '/';
+      shownLoadingDashboard = loadingDashboard(navigating.to?.route.id);
     }
   });
 </script>
