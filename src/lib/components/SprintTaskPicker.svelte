@@ -175,7 +175,8 @@
     const parts = [
       task.points === null ? t('pointsUnsetTitle') : t('pointsLabel', { points: t('points'), value: task.points }),
     ];
-    if (task.sprint !== null) parts.push(t('sprintTaskAddInSprint', { label: sprintLabel(task.sprint, t) }));
+    if (task.sprint !== null)
+      parts.push(t('sprintTaskAddInSprint', { sprint: t('sprint'), label: sprintLabel(task.sprint, t) }));
     return parts.join('・');
   }
 
@@ -261,7 +262,9 @@
           ? outcomeText(outcome)
           : '',
   );
-  const title = $derived(sprint === null ? '' : t('sprintTaskAddTitle', { label: sprintLabel(sprint, t) }));
+  const title = $derived(
+    sprint === null ? '' : t('sprintTaskAddTitle', { sprint: t('sprint'), label: sprintLabel(sprint, t) }),
+  );
 </script>
 
 <Dialog bind:this={dialog} bind:open dismissible={!submitting} {title}>

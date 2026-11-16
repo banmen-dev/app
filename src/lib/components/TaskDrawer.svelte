@@ -1755,7 +1755,7 @@
             <span>{t('sprintNone', { backlog: t('backlog') })}</span>
           {:else if task.sprint.name === null}
             <!-- 名前の無いスプリントは、期間を等幅で出す -->
-            <span>{t('sprint')} <span class="mono">{sprintPeriod(task.sprint, t)}</span></span>
+            <span class="mono">{sprintPeriod(task.sprint, t)}</span>
           {:else}
             <span>{sprintLabel(task.sprint, t)}</span>
           {/if}

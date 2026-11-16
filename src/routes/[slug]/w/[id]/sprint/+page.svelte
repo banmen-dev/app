@@ -688,7 +688,7 @@
           <button
             class="btn"
             type="button"
-            aria-label={t('sprintCloseLabel', { label: sprintLabel(sprint, t) })}
+            aria-label={t('sprintCloseLabel', { sprint: t('sprint'), label: sprintLabel(sprint, t) })}
             onclick={(event) => openClose(event.currentTarget)}>{t('sprintCloseAction')}</button
           >
         {/if}
