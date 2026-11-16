@@ -485,3 +485,20 @@ describe('ランタイム: 種類の表と設定', () => {
     expect(source.parseSettings(value)).toBeNull();
   });
 });
+
+test('同期用の候補列挙は1要求ずつ返し、100件の境界から再開する', async () => {
+  const fake = setup(fakeRepos(101));
+  const page = source.fetchScopeCandidatesPage!;
+  const first = await page({ credential: PAT, fetcher: fake.fetcher, cursor: null });
+  expect(first.candidates).toHaveLength(100);
+  expect(first.next).toBe('2');
+  expect(fake.calls).toHaveLength(1);
+  const second = await page({ credential: PAT, fetcher: fake.fetcher, cursor: first.next });
+  expect(second.candidates).toHaveLength(1);
+  expect(second.next).toBeNull();
+  expect(fake.calls).toHaveLength(2);
+  await expect(page({ credential: PAT, fetcher: fake.fetcher, cursor: 'https://evil.example' })).rejects.toThrow(
+    TypeError,
+  );
+  expect(fake.calls).toHaveLength(2);
+});

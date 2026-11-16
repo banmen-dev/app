@@ -116,6 +116,17 @@ async function fillOrganization(organization: Awaited<ReturnType<typeof createOr
     category_id: category.id,
     assignee_user_id: member.id,
   });
+  const organizationDb = orgDb(env, organization.verified);
+  await organizationDb.run(
+    organizationDb.statement((q) =>
+      q.insertInto('review_request_cycles').values({
+        task_id: task.id,
+        review_cycle: 'purge-cycle',
+        completion_id: completion.id,
+        created_at: AT,
+      }),
+    ),
+  );
   const grant = await createXpGrant(organization, ws, member.id, {
     action: 'task_completed',
     task_id: task.id,

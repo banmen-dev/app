@@ -231,6 +231,9 @@
                 {/if}
                 <span>{t('inboxArrived', { date: formatLocalDateTime(task.arrived_at) })}</span>
                 <span>{task.connection_name}</span>
+                {#if task.is_source_done}
+                  <span class="chip is-ok"><Icon name="check" />{t('inboxSourceDone')}</span>
+                {/if}
                 {#if canWrite && inbox.repositories.length > 0}
                   <select
                     class="select"

@@ -48,6 +48,8 @@ export function ownPullFixture() {
     const match = /^\/repositories\/(\d+)\/(issues|pulls)$/.exec(url.pathname);
     if (!match || match[1] !== PULL_SCOPE.id) return Response.json({ message: 'Not found' }, { status: 404 });
     const pulls = match[2] === 'pulls';
+    // このfixtureにはレビュー依頼を置かない。レビューの全走査は別の統合テストで扱う。
+    if (pulls && url.searchParams.get('per_page') === '1') return Response.json([]);
     if (pulls && data.pullFailure) {
       return new Response(`SECRET ${PULL_PAT}`, { status: data.pullFailure });
     }

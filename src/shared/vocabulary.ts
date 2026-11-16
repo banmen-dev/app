@@ -2891,6 +2891,7 @@ export const dictionary = defineDictionary({
   // ---- 受信箱の画面（design/inbox.html）----
   inboxPageName: '{inbox} - {name}',
   inboxTallyArrived: '届いたもの',
+  inboxSourceDone: '取り込み元で完了',
   inboxSynced: '最後に成功した同期は {date} です。届いたものは{workspace}の全員に見えます。',
   inboxNeverSynced: 'まだ同期に成功していません。届いたものは{workspace}の全員に見えます。',
   inboxNoConnectionTitle: '{connection}がまだありません',

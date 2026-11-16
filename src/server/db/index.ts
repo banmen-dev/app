@@ -28,6 +28,8 @@ export { tailPosition } from './tail-position.ts';
 // 取り込みの同期（src/server/import/sync.ts）が使う文
 export {
   importTaskStatements,
+  readReviewTarget,
+  reviewUpdateStatements,
   readInboxTailPosition,
   readRepositoriesByContainer,
   readSyncConnection,

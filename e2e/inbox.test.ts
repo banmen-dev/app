@@ -2,7 +2,7 @@
 // 作ったワークスペースに入れたタスクをバックログへ入れる流れ。入れる操作は戻らないので、seed のタスクには行わない
 import { expect, test } from './fixtures.ts';
 import { createWorkspace, signIn, waitForResponses, watchViolations } from './helpers.ts';
-import { seedInboxTasks } from './local-d1.ts';
+import { seedInboxTasks, seedInboxReviewStates } from './local-d1.ts';
 
 const ADMIN_USER_ID = '019a0000-0000-7000-8000-000000000301';
 const WORKSPACE = '/aoba/w/019a0000-0000-7000-8000-000000000401';
@@ -89,4 +89,34 @@ test('受信箱から、1件とまとめて選んだタスクをバックログ�
   const order = titles.map((title) => texts.findIndex((text) => text.includes(title)));
   expect(order.every((index) => index >= 0)).toBe(true);
   expect(order).toEqual([...order].sort((a, b) => a - b));
+});
+
+test('レビューの完了印と再依頼後の受信箱を表示し、同じタスクをバックログへ戻せる', async ({ page }) => {
+  const suffix = `${test.info().repeatEachIndex}-${test.info().retry}`;
+  await createWorkspace(page, `レビュー受信箱-${suffix}`);
+  const workspaceId = /\/w\/([0-9a-f-]{36})/.exec(page.url())?.[1];
+  if (workspaceId === undefined) throw new Error('ワークスペースの ID を URL から取れなかった');
+  await seedInboxReviewStates(workspaceId, ADMIN_USER_ID);
+  await page.goto(`/aoba/w/${workspaceId}/inbox`);
+  const list = page.getByRole('list', { name: '受信箱のタスク' });
+  const done = list.getByRole('listitem').filter({ hasText: '提出済みのレビュー' });
+  const again = list.getByRole('listitem').filter({ hasText: '再依頼されたレビュー' });
+  await expect(done.getByText('取り込み元で完了', { exact: true })).toBeVisible();
+  await expect(again).toBeVisible();
+  await expect(list.getByRole('listitem').first()).toContainText('再依頼されたレビュー');
+  await expect(again).toContainText('届いた 2026-11-17 09:00');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(done.getByText('取り込み元で完了', { exact: true })).toBeVisible();
+  await expect(again).toBeVisible();
+
+  await expect(again.getByText('取り込み元で完了', { exact: true })).toHaveCount(0);
+  const taskId = await again.getAttribute('data-row-id');
+  if (!taskId) throw new Error('タスク ID が無い');
+  const response = waitForResponses(page, '/inbox-to-backlog');
+  await again.getByRole('button', { name: '「再依頼されたレビュー」をバックログへ入れる' }).click();
+  await response;
+  await expect(again).toHaveCount(0);
+  await expect(done).toBeVisible();
+  await page.goto(`/aoba/w/${workspaceId}`);
+  await expect(page.locator(`[data-row-id="${taskId}"]`).filter({ hasText: '再依頼されたレビュー' })).toBeVisible();
 });

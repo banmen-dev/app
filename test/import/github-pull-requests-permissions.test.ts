@@ -81,14 +81,17 @@ describe('PR 一覧の権限不足と範囲の読み取り失敗', () => {
       stopped_reason: null,
       last_error_message: message,
       consecutive_failures: 1,
-      sync_state_json: '{}',
     });
     expect(JSON.stringify(await t.current())).not.toContain(PULL_PAT);
 
     // 既に保存済みの非空カーソルがある場合にも、失敗で消したり先へ進めたりしない。
-    expect(await sync(1)).toEqual({ outcome: 'success', imported: 0, more: true });
     const checkpoint = (await t.current()).sync_state_json;
     expect(checkpoint).not.toBe('{}');
+    expect(JSON.parse(checkpoint)).toMatchObject({
+      version: 2,
+      position: { scope: PULL_SCOPE.id, phase: 'items', cursor: 'v2:pulls:42:fake-ranger:1' },
+    });
+    expect(await sync(1)).toEqual({ outcome: 'error', imported: 0 });
     expect(await sync()).toEqual({ outcome: 'error', imported: 0 });
     expect((await t.current()).sync_state_json).toBe(checkpoint);
     expect((await t.current()).last_error_message).toBe(message);
@@ -99,7 +102,7 @@ describe('PR 一覧の権限不足と範囲の読み取り失敗', () => {
     // 同じ接続のまま PAT の読取権限が回復すれば、不足 PR と後続範囲が届く。
     f.data.pullFailure = 0;
     expect(await sync()).toEqual({ outcome: 'success', imported: 2, more: false });
-    expect(laterCalls).toEqual(['/repositories/1002/issues', '/repositories/1002/pulls']);
+    expect(laterCalls).toEqual(['/repositories/1002/issues', '/repositories/1002/pulls', '/repositories/1002/pulls']);
     expect((await t.sources()).map((s) => `${s.source_kind}:${s.source_id}`).sort()).toEqual([
       'issue:500001',
       'issue:500009',
