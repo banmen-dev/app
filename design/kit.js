@@ -59,6 +59,7 @@
 
   // ---- 言葉の辞書（各キーはスクラムの言葉の文字列1つ） ----
   const DICT = {
+    organizationList: "ダッシュボード",
     avatarTitle: "プロフィール画像",
     avatarDescription: "この組織だけで使う画像。PNG、JPEG、WebP を選び、正方形に切り抜いて上げます。",
     avatarChoose: "画像を選ぶ", avatarRemove: "外す", avatarUpload: "上げる", avatarCancel: "やめる",
@@ -233,13 +234,13 @@
   onboardingPersonalUrlSaved: "作成済みの個人用URLです。あとから変更できません。",
   onboardingBlockedTitle: "利用開始を再開できません",
   onboardingPersonalUrlLiveHint: "自分だけで使う場所のURLです。半角の英小文字・数字・ハイフンで2〜40文字。あとから変更できません。",
-  onboardingTeamUnavailable: "このチームの利用開始を再開できません。組織の選択に戻り、権限とワークスペースを確認してください。",
+  onboardingTeamUnavailable: "このチームの利用開始を再開できません。ダッシュボードに戻り、権限とワークスペースを確認してください。",
   onboardingWorkspaceFailed: "チームは作成済みですが、招待先のワークスペースを作れませんでした。もう一度試してください。",
   onboardingEmailsInvalid: "Googleでログインするメールアドレスを、カンマか改行で区切って1〜20件入力してください。",
   onboardingInvitationsFailed: "一部の招待を作成できませんでした。作成済みのリンクは残しています。入力を確認してもう一度試してください。",
   onboardingCopyFailed: "コピーできませんでした。表示されたURLを選択してコピーしてください。",
-  onboardingPersonalUnavailable: "作成済みの自分用の組織に入れません。組織の選択画面で状態を確認してください。",
-  onboardingReturnOrganizations: "組織の選択に戻る",
+  onboardingPersonalUnavailable: "作成済みの自分用の組織に入れません。ダッシュボードで状態を確認してください。",
+  onboardingReturnOrganizations: "ダッシュボードに戻る",
   onboardingInviteChoiceLiveNote: "個人用はこのまま使い始められます。チームで使う場合は、組織と招待先のワークスペースを作ります。チーム利用はあとからでも始められます。",
   onboardingStartPersonal: "個人用で使い始める",
   onboardingTeamCreateNote: "チームの{organization}は30日間のお試しで作成します。招待先として「チームのタスク」というワークスペースも作ります。",
@@ -3534,9 +3535,9 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     } else if (event.target.closest("[data-mobile-menu-close]") || (dialog.open && event.target.closest(".mobile-menu a[href], .mobile-menu [data-dialog]"))) closeMobileMenu();
   });
   // 組織の切り替え。開閉するメニューで、中は各組織へのリンクと、組織の選択の画面へ戻るリンクと、最後に「組織を作る」（ダイアログを開く）。
-  // 戻るリンクは、入れる組織が2つ以上、または届いた招待があるときだけ出す（1組織でも招待があれば、一覧へ戻る道が要る）。
-  // 「組織を作る」は常に出す（入れる組織が1つで招待が無い人は、/ を開くと今の組織へ移り、組織の選択の画面に届かない）。
-  // 続けて「自分用を作る」を、自分用を持たない人にだけ出す（同じ理由で、ここが入口になる）。
+  // 戻るリンク「ダッシュボード」は、組織の数や招待によらず出す。
+  // 「組織を作る」は、組織の中からも作れる入口。
+  // 続けて「自分用を作る」を、自分用を持たない人にだけ出す。
   // select にしないのは、矢印キーで選んだだけで画面が移らないようにするため。
   // 閉じるのは、ボタン、外を押す、Tab で外へ出る、リンクを押す、Esc。メニューの中にフォーカスがあるときに閉じたら、ボタンへ戻す
   let orgMenuOpen = false;
@@ -3545,16 +3546,13 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   // moving は別の組織へ移っている最中（本番の OrganizationSwitcher の moving）。名前の欄と札に「移っています」を出す
   // 自分用の組織（kind が personal）は、名前の代わりに辞書の「自分用」で出す。
   // 「自分用を作る」は、入れる組織（orgs）にも停止した組織（suspended）にも自分用が無い人にだけ出す（canCreatePersonal）。
-  // 入れる組織が1つで招待が無い人は組織の選択の画面に届かないので、ここも「自分用を作る」の入口になる
   const orgName = (k) => (k.kind === "personal" ? t("personalOrganizationName") : k.name);
   function orgMenuHtml({ open = orgMenuOpen, id = "org-menu-list", live = true, orgs = D.organizations, suspended = [], invited = (D.receivedInvites || []).length > 0, moving = false, canCreatePersonal = ![...orgs, ...suspended].some((k) => k.kind === "personal") } = {}) {
-    // 入れる組織が1つで招待が無い人は、/ を開くと今の組織へ移るので、一覧へ戻る行を出さない（「組織を作る」の入口は残す）
-    const hasList = orgs.length > 1 || invited;
     const current = orgs.find((k) => k.slug === D.organization) || orgs[0];
     const label = `${t("organization")}${moving ? t("organizationMoving") : orgName(current)}${invited ? "届いた招待あり" : ""}。${t("organization")}を切り替える`;
     const shown = moving ? t("organizationMoving") : esc(orgName(current));
     return `<div class="org-menu"><button class="org-menu-button" type="button" aria-expanded="${open}" aria-controls="${id}" aria-label="${esc(label)}" ${moving ? 'data-moving="true"' : ""} ${live ? "data-org-menu" : ""}><span class="org-menu-label">${t("organization")}</span><b>${shown}</b>${invited ? '<span class="chip">届いた招待あり</span>' : ""}${invited ? '<span class="org-menu-invite" aria-hidden="true"></span>' : ""}${brandSymbol}${icon("chevron")}<span class="nav-tip" aria-hidden="true">${shown}${invited && !moving ? "<small>届いた招待あり</small>" : ""}</span></button><span class="visually-hidden" role="status">${moving ? t("organizationMoving") : ""}</span>
-      <ul class="org-menu-list" id="${id}" aria-label="入れる${t("organization")}" ${open ? "" : "hidden"}>${orgs.map((k) => `<li><a href="today.html"${k.slug === current.slug ? ' aria-current="page"' : ""}><span class="org-menu-name">${esc(orgName(k))}</span>${k.slug === current.slug ? icon("check") : ""}</a></li>`).join("")}${hasList ? `<li class="is-aside"><a href="organizations.html"><span class="org-menu-name">${t("organization")}の一覧へ</span>${invited ? '<span class="org-menu-note">招待が届いています</span>' : ""}</a></li>` : ""}<li class="is-aside"><button type="button" ${live ? 'data-dialog="createMyOrganization"' : ""}><span class="org-menu-name">${t("organization")}を作る</span></button></li>${canCreatePersonal ? `<li class="is-aside"><button type="button" ${live ? 'data-dialog="createPersonalOrganization"' : ""}><span class="org-menu-name">${t("createPersonalOrganizationAction")}</span></button></li>` : ""}</ul></div>`;
+      <ul class="org-menu-list" id="${id}" aria-label="入れる${t("organization")}" ${open ? "" : "hidden"}>${orgs.map((k) => `<li><a href="today.html"${k.slug === current.slug ? ' aria-current="page"' : ""}><span class="org-menu-name">${esc(orgName(k))}</span>${k.slug === current.slug ? icon("check") : ""}</a></li>`).join("")}<li class="is-aside"><a href="organizations.html"><span class="org-menu-name">${t("organizationList")}</span>${invited ? '<span class="org-menu-note">招待が届いています</span>' : ""}</a></li><li class="is-aside"><button type="button" ${live ? 'data-dialog="createMyOrganization"' : ""}><span class="org-menu-name">${t("organization")}を作る</span></button></li>${canCreatePersonal ? `<li class="is-aside"><button type="button" ${live ? 'data-dialog="createPersonalOrganization"' : ""}><span class="org-menu-name">${t("createPersonalOrganizationAction")}</span></button></li>` : ""}</ul></div>`;
   }
   function setOrgMenu(open, focus) {
     orgMenuOpen = open;

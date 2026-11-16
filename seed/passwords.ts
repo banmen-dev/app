@@ -16,7 +16,7 @@ export type SeedPasswordLogin = {
 };
 
 export const SEED_PASSWORD_LOGINS = {
-  // 入れる組織が1つの人。ログインすると、その組織の画面へ移る
+  // 入れる組織が1つの人。ログインすると、ダッシュボード（/）からその組織を選ぶ
   single: {
     email: 'tsumugi@example.test',
     password: 'seed-password-tsumugi',
@@ -25,7 +25,7 @@ export const SEED_PASSWORD_LOGINS = {
     organizations: ['yuzu'],
     description: 'ゆず書房だけに入れる管理者（ツムギ）',
   },
-  // 入れる組織が2つの人。ログインすると、組織の選択（/）へ移る
+  // 入れる組織が2つの人。ログインすると、ダッシュボード（/）から組織を選ぶ
   multi: {
     email: 'aoi@example.test',
     password: 'seed-password-aoi',

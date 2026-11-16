@@ -10,10 +10,10 @@
   // 行き先が組織の枠（/<slug> の下）なら、枠と同じ部品（.app、.binding、.topbar、.content）で左のメニューと上の帯を出し、
   // 本文は行き先の画面の組み（shape。src/lib/loading-shape.ts）に近い形にする。読み込んだ後に画面の組みと位置が変わらないように、
   // 本文の2列や設定の節は、本物と同じ部品（.layout-aside、.layout-wiki、.settings、.board、.lanes）を使う。
-  // 行き先が枠の外（ログイン、組織の選択など。shape が null）なら、枠の外と同じ紙を出す。
+  // 行き先が枠の外（shape が null）なら紙を出す。/ だけ dashboard を指定し、広い紙の2列にする。
   // 骨組みは装飾なので aria-hidden。見出しは読み上げと画面の構造のために見えないまま置く。
   // 読み上げの領域（role="status"）と、出す遅れ（短い読み込みでは出さない）は呼ぶ側の root レイアウトが持つ
-  let { shape = null }: { shape?: LoadingShape | null } = $props();
+  let { shape = null, dashboard = false }: { shape?: LoadingShape | null; dashboard?: boolean } = $props();
 </script>
 
 <svelte:head>
@@ -159,14 +159,30 @@
     </div>
   </div>
 {:else}
-  <Gate>
+  <Gate wide={dashboard}>
     <GateSheet brand>
       <h1 class="visually-hidden">{t('loading')}</h1>
       <div class="skeleton" aria-hidden="true">
         <span class="skeleton-line is-title"></span>
-        <span class="skeleton-line"></span>
-        <span class="skeleton-line is-short"></span>
-        <span class="skeleton-line is-block"></span>
+        {#if dashboard}
+          <div class="dashboard">
+            {#each ['dashboard-main', 'dashboard-side'] as column (column)}
+              <div class={column}>
+                <div class="pane">
+                  <div class="pane-body skeleton">
+                    <span class="skeleton-line is-title"></span>
+                    <span class="skeleton-line is-block"></span>
+                    <span class="skeleton-line is-short"></span>
+                  </div>
+                </div>
+              </div>
+            {/each}
+          </div>
+        {:else}
+          <span class="skeleton-line"></span>
+          <span class="skeleton-line is-short"></span>
+          <span class="skeleton-line is-block"></span>
+        {/if}
       </div>
     </GateSheet>
   </Gate>
