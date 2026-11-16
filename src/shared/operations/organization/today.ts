@@ -3,7 +3,7 @@ import { taskPointsSchema } from '../../task.ts';
 import { sprintRefSchema } from '../sprint/sprint.ts';
 import { defineOperation } from '../define.ts';
 
-const todayTaskSchema = z.object({
+export const todayTaskSchema = z.object({
   id: z.string(),
   title: z.string(),
   points: taskPointsSchema.nullable(),
