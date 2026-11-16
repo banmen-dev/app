@@ -78,52 +78,58 @@ type Resume = {
   targetRevision?: number;
 };
 type ScopeBatch = { candidates: Scope[]; next: string | null };
-type SyncState = {
-  resume: Resume | null;
-  credential: string | null;
-  scopeBatch: ScopeBatch | null;
-  candidateCursor: string | null;
-};
+type Progress = { resume: Resume | null; scopeBatch: ScopeBatch | null; candidateCursor: string | null };
+type SyncState = Progress & { credential: string | null; itemsOnly: boolean; reviewRetry: Progress | null };
+function parseProgress(value: Record<string, unknown>): Progress {
+  const r = value.position as Partial<Resume> | undefined;
+  const validCursor = (v: unknown): v is string | null =>
+    v === null || (typeof v === 'string' && v.length > 0 && v.length <= MAX_CURSOR_LENGTH);
+  const resume: Resume | null =
+    r && typeof r.scope === 'string' && validCursor(r.cursor) && ['items', 'reviews', 'targets'].includes(r.phase ?? '')
+      ? {
+          scope: r.scope,
+          cursor: r.cursor,
+          phase: r.phase!,
+          after: typeof r.after === 'string' ? r.after : '',
+          targetId: typeof r.targetId === 'string' ? r.targetId : undefined,
+          targetRevision: Number.isSafeInteger(r.targetRevision) ? r.targetRevision : undefined,
+        }
+      : null;
+  const batch = value.scopeBatch as Partial<ScopeBatch> | undefined;
+  const scopeBatch =
+    batch &&
+    Array.isArray(batch.candidates) &&
+    batch.candidates.length <= MAX_ITEMS_PER_PAGE &&
+    batch.candidates.every((c) => c && isText(c.id) && isText(c.name)) &&
+    validCursor(batch.next)
+      ? (batch as ScopeBatch)
+      : null;
+  return { resume, scopeBatch, candidateCursor: validCursor(value.candidateCursor) ? value.candidateCursor : null };
+}
 function parseSyncState(json: string): SyncState {
-  const empty = { resume: null, credential: null, scopeBatch: null, candidateCursor: null };
+  const empty: SyncState = {
+    resume: null,
+    credential: null,
+    scopeBatch: null,
+    candidateCursor: null,
+    itemsOnly: false,
+    reviewRetry: null,
+  };
   try {
     const value = JSON.parse(json);
     if (typeof value !== 'object' || value === null || value.version !== 2) return empty;
-    const r = value.position;
-    const resume: Resume | null =
-      r &&
-      typeof r.scope === 'string' &&
-      (r.cursor === null || (typeof r.cursor === 'string' && r.cursor.length <= MAX_CURSOR_LENGTH)) &&
-      ['items', 'reviews', 'targets'].includes(r.phase)
-        ? {
-            scope: r.scope,
-            cursor: r.cursor,
-            phase: r.phase,
-            after: typeof r.after === 'string' ? r.after : '',
-            targetId: typeof r.targetId === 'string' ? r.targetId : undefined,
-            targetRevision: Number.isSafeInteger(r.targetRevision) ? r.targetRevision : undefined,
-          }
-        : null;
-    const batch = value.scopeBatch;
-    const validCursor = (v: unknown) =>
-      v === null || (typeof v === 'string' && v.length > 0 && v.length <= MAX_CURSOR_LENGTH);
-    const scopeBatch =
-      batch &&
-      Array.isArray(batch.candidates) &&
-      batch.candidates.length <= MAX_ITEMS_PER_PAGE &&
-      batch.candidates.every((c: Scope) => c && isText(c.id) && isText(c.name)) &&
-      validCursor(batch.next)
-        ? (batch as ScopeBatch)
-        : null;
     return {
-      resume,
+      ...parseProgress(value),
       credential: typeof value.credential === 'string' ? value.credential : null,
-      scopeBatch,
-      candidateCursor: validCursor(value.candidateCursor) ? value.candidateCursor : null,
+      itemsOnly: value.itemsOnly === true,
+      reviewRetry: value.reviewRetry && typeof value.reviewRetry === 'object' ? parseProgress(value.reviewRetry) : null,
     };
   } catch {
     return empty;
   }
+}
+function progressValue(progress: Progress) {
+  return { position: progress.resume, scopeBatch: progress.scopeBatch, candidateCursor: progress.candidateCursor };
 }
 
 function validPage(page: FetchPageResult, cursor: string | null): boolean {
@@ -277,6 +283,8 @@ export async function syncConnection(
   let resume: Resume | null = null;
   let scopeBatch: ScopeBatch | null = null;
   let candidateCursor: string | null = null;
+  let reviewRetry: Progress | null = null;
+  let itemsOnly = false;
   // 認証情報を替えた場合、本人 ID を含む保存カーソルは使わない。平文も暗号文も状態には保存しない。
   const digest = await crypto.subtle.digest(
     'SHA-256',
@@ -288,11 +296,19 @@ export async function syncConnection(
     resume = storedState.resume;
     scopeBatch = storedState.scopeBatch;
     candidateCursor = storedState.candidateCursor;
+    reviewRetry = storedState.reviewRetry;
+    itemsOnly = storedState.itemsOnly;
   }
   const stateJson = () =>
-    resume === null && scopeBatch === null && candidateCursor === null
+    resume === null && scopeBatch === null && candidateCursor === null && reviewRetry === null
       ? '{}'
-      : JSON.stringify({ version: 2, position: resume, credential: credentialStamp, scopeBatch, candidateCursor });
+      : JSON.stringify({
+          version: 2,
+          ...progressValue({ resume, scopeBatch, candidateCursor }),
+          credential: credentialStamp,
+          itemsOnly,
+          reviewRetry: reviewRetry === null ? null : progressValue(reviewRetry),
+        });
   // 状態の文が通らなかった（同期の最中に接続が止まった、削除された）ときは false
   const finish = async (outcome: SyncOutcome): Promise<boolean> => {
     const result = await db.run(
@@ -350,7 +366,12 @@ export async function syncConnection(
         let current: Resume =
           index === start && resume !== null
             ? { ...resume }
-            : { scope: scope.id, cursor: null, phase: source.fetchReviewRequestsPage ? 'targets' : 'items', after: '' };
+            : {
+                scope: scope.id,
+                cursor: null,
+                phase: !itemsOnly && source.fetchReviewRequestsPage ? 'targets' : 'items',
+                after: '',
+              };
         while (true) {
           resume = current;
           if (pages >= maxPages || requests >= requestLimit) {
@@ -425,7 +446,7 @@ export async function syncConnection(
             current = { ...current, cursor: page.next };
             continue;
           }
-          if (current.phase === 'items' && source.fetchReviewRequestsPage) {
+          if (!itemsOnly && current.phase === 'items' && source.fetchReviewRequestsPage) {
             current = { ...current, phase: 'reviews', cursor: null };
             continue;
           }
@@ -441,6 +462,13 @@ export async function syncConnection(
       candidateCursor = scopeBatch!.next;
       scopeBatch = null;
     }
+    if (itemsOnly && reviewRetry !== null) {
+      ({ resume, scopeBatch, candidateCursor } = reviewRetry);
+      reviewRetry = null;
+      itemsOnly = false;
+      if (!(await finish({ kind: 'success', syncStateJson: stateJson() }))) return { outcome: 'stopped' };
+      return { outcome: 'success', imported, more: true };
+    }
     resume = null;
     if (!(await finish({ kind: 'success', syncStateJson: '{}' }))) return { outcome: 'stopped' };
     return { outcome: 'success', imported, more: false };
@@ -448,6 +476,19 @@ export async function syncConnection(
     if (budgetReached && (resume !== null || candidateCursor !== null || scopeBatch !== null)) {
       if (!(await finish({ kind: 'success', syncStateJson: stateJson() }))) return { outcome: 'stopped' };
       return { outcome: 'success', imported, more: true };
+    }
+    // 403/429の回は直ちに止める。失敗したレビューの位置を保持し、次回はIssueだけを全範囲へ通す。
+    // 権限不足とレート制限を推測で区別せず、Issueの走査が終わった後で元のレビューを再試行する。
+    if (
+      error instanceof ImportSourceError &&
+      error.failure === 'forbidden' &&
+      resume !== null &&
+      resume.phase !== 'items' &&
+      !itemsOnly
+    ) {
+      reviewRetry = { resume, scopeBatch, candidateCursor };
+      resume = null;
+      itemsOnly = true;
     }
     const failure = failureOf(error);
     // 認証の失敗（取り込み元が受け付けない、保存した認証情報が使えない形）は接続を止める。ほかは止めず、次の同期で再試行する

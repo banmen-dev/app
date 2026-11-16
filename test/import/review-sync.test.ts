@@ -473,6 +473,12 @@ test('GitHub取得口を実際に同期へ接続し、依頼・本人提出・�
   expect(await rows(ctx)).toMatchObject([{ id: task!.id, completed_at: null, tray: 'inbox' }]);
   // 実際の403/429でもその回を止め、保存状態を動かさない。
   for (const status of [403, 429]) {
+    if (status === 429) {
+      // 403後の次回はIssueの走査を進め、その後に保留したレビューへ戻る。
+      expect(
+        await syncConnection(env, ctx.db, ctx.workspace.id, ctx.connection.id, { source, fetcher, now }),
+      ).toMatchObject({ outcome: 'success', more: true });
+    }
     failure = status;
     requests = 0;
     const before = await sources(ctx);
@@ -611,4 +617,38 @@ test('新しい同期状態のレビューカーソルを旧版のresume.cursor�
   const value = JSON.parse(connection.sync_state_json);
   expect(value.resume).toBeUndefined(); // 旧版はresumeが無ければIssue走査を最初から始める。
   expect(value.position).toMatchObject({ phase: 'reviews', cursor: 'review-history' });
+});
+
+test('レビューの403はその回を止め、次の同期では後ろの範囲のIssueも取り込める', async () => {
+  const ctx = await setup();
+  const f = fake();
+  const issueScopes: string[] = [];
+  await createConnectionScope(ctx.organization, ctx.connection.id, { source_id: '502', source_name: 'fake/second' });
+  f.source.fetchPage = async (input) => {
+    issueScopes.push(input.scope.id);
+    return {
+      items: [
+        item({
+          kind: 'issue',
+          reviewCycle: undefined,
+          reviewerSourceId: '',
+          sourceId: `issue-${input.scope.id}`,
+          containerId: input.scope.id,
+        }),
+      ],
+      next: null,
+    };
+  };
+  f.state.failure = 'forbidden';
+  expect(await sync(ctx, f.source)).toMatchObject({ outcome: 'error', imported: 1 });
+  expect(issueScopes).toEqual(['501']);
+  expect(f.calls).toHaveLength(1);
+  const result = await sync(ctx, f.source);
+  expect(result).toMatchObject({ outcome: 'success', imported: 1, more: true });
+  expect(issueScopes).toContain('502');
+  expect(f.calls).toHaveLength(1);
+  expect(await rows(ctx)).toHaveLength(2);
+  // 保留したレビューを、元の入力位置で再試行する。403後の同じ回には別要求をしない。
+  expect(await sync(ctx, f.source)).toMatchObject({ outcome: 'error' });
+  expect(f.calls).toHaveLength(2);
 });
