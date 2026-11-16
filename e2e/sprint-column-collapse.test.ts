@@ -178,7 +178,8 @@ for (const collapsed of [true, false]) {
       const title = SAMPLE_BOARD.columns[0].tasks[0].title;
       const target = page.getByRole('region', { name: 'レビュー', exact: true });
       if (collapsed) await target.getByRole('button', { name: 'レビューの開閉' }).click();
-      const moved = page.locator('.toast').filter({ hasText: new RegExp(`${title}をレビューの`) });
+      const movedText = `「${title}」をレビューの`;
+      const moved = page.locator('.toasts:visible .toast').filter({ hasText: movedText });
       try {
         await dragTo(
           page,
@@ -190,12 +191,14 @@ for (const collapsed of [true, false]) {
         await expect(moved).toHaveCount(0);
         release();
         if (!succeeds) {
-          await expect(page.locator('.toast', { hasText: '動かせませんでした。一覧を読み直します' })).toBeVisible();
+          await expect(
+            page.getByRole('status').filter({ hasText: '動かせませんでした。一覧を読み直します' }),
+          ).toBeVisible();
           await expect(moved).toHaveCount(0);
         } else if (collapsed) {
           await expect(moved).toBeVisible();
         } else {
-          await expect(page.getByRole('status').filter({ hasText: new RegExp(`${title}をレビューの`) })).toHaveCount(1);
+          await expect(page.getByRole('status').filter({ hasText: movedText })).toHaveCount(1);
           await expect(moved).toHaveCount(0);
         }
       } finally {
