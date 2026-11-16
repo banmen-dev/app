@@ -23,7 +23,7 @@ type Position = {
 };
 
 class InvalidPull extends Error {}
-function idOf(value: unknown): string {
+function payloadIdOf(value: unknown): string {
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) throw new InvalidPull();
   return String(value);
 }
@@ -120,7 +120,7 @@ function advance(position: Position, input: ReviewRequestPageInput, items: Impor
 }
 function pullOf(raw: unknown, expected?: Pull): Pull {
   if (!isRecord(raw)) throw new InvalidPull();
-  const pull = { id: idOf(raw.id), number: idOf(raw.number), updatedAt: instant(raw.updated_at) };
+  const pull = { id: payloadIdOf(raw.id), number: payloadIdOf(raw.number), updatedAt: instant(raw.updated_at) };
   if (expected && (pull.id !== expected.id || pull.number !== expected.number)) throw new InvalidPull();
   return pull;
 }
@@ -137,7 +137,7 @@ async function readPage(input: ReviewRequestPageInput, parsed: Position | null):
       version: 1,
       scope: input.scope.id,
       target: input.target?.sourceId ?? null,
-      user: idOf(user.id),
+      user: payloadIdOf(user.id),
       page: 1,
       phase: input.target ? 'pull' : 'list',
       pull: input.target ? { id: input.target.sourceId, number: input.target.key.split('#')[1]!, updatedAt: '' } : null,
@@ -171,7 +171,7 @@ async function readPage(input: ReviewRequestPageInput, parsed: Position | null):
         if (event.requested_reviewer === undefined || event.requested_reviewer === null) continue;
         if (isRecord(event.requested_reviewer) && event.requested_reviewer.id === Number(position.user)) {
           if (event.event === 'review_requested') {
-            cycle = idOf(event.id);
+            cycle = payloadIdOf(event.id);
             reviewed = false;
           } else if (!reviewed) {
             // 未提出の依頼解除は、後の PR 終了をレビュー完了にしない。
