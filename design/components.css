@@ -1146,7 +1146,8 @@ a.brand { color: inherit; text-decoration: none; }
 /* ===== 道具の帯（絞り込みと検索） ===== */
 .toolbar { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
 .toolbar .search { flex: 1 1 240px; max-width: 380px; }
-.toolbar .select { width: auto; max-width: min(100%, 18rem); padding-block: var(--space-2); font-size: var(--text-sm); }
+/* ネイティブの select は行高が入力欄より低くなるブラウザもあるため、帯では44pxを下限にそろえる。 */
+.toolbar .select { width: auto; max-width: min(100%, 18rem); min-height: 44px; padding-block: var(--space-2); font-size: var(--text-sm); }
 .toolbar-end { margin-left: auto; }
 /* 帯の下の知らせ（検索の文字が長すぎる など）。帯と同じ幅で折り返す */
 .toolbar-note { flex-basis: 100%; }
