@@ -39,7 +39,30 @@ export function clientOperationMetadata(): Plugin {
       const source = ts.createSourceFile(file, code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
       const edits: { start: number; end: number; text: string }[] = [];
       let usesMini = false;
+      let hasOperations = false;
+      const operationBindings = new Set<string>(['defineOperation']);
       function visit(node: ts.Node) {
+        if (ts.isVariableDeclaration(node) && node.initializer && ts.isCallExpression(node.initializer)) {
+          let root: ts.Expression = node.initializer.expression;
+          while (ts.isPropertyAccessExpression(root) || ts.isCallExpression(root)) root = root.expression;
+          if (
+            ts.isIdentifier(root) &&
+            root.text === 'z' &&
+            ts.isPropertyAccessExpression(node.initializer.expression) &&
+            !['config', 'parse', 'safeParse', 'parseAsync', 'safeParseAsync'].includes(
+              node.initializer.expression.name.text,
+            )
+          ) {
+            // 呼び出しだけにPUREを付けても、引数内の別のスキーマ生成は残る。
+            // 初期化式全体を遅らせ、未使用なら引数もまとめて除く。
+            edits.push({
+              start: node.initializer.getStart(source),
+              end: node.initializer.end,
+              text: `/* @__PURE__ */ (() => (${node.initializer.getText(source)}))()`,
+            });
+            return;
+          }
+        }
         if (
           file.includes('/src/shared/operations/') &&
           ts.isCallExpression(node) &&
@@ -49,6 +72,13 @@ export function clientOperationMetadata(): Plugin {
           ts.isObjectLiteralExpression(node.arguments[0])
         ) {
           const properties = node.arguments[0].properties;
+          hasOperations = true;
+          function record(node: ts.Node) {
+            if (ts.isTypeNode(node)) return;
+            if (ts.isIdentifier(node)) operationBindings.add(node.text);
+            ts.forEachChild(node, record);
+          }
+          record(node.arguments[0]);
           const name = properties.find((p) => p.name?.getText(source) === 'name');
           if (
             !name ||
@@ -107,6 +137,47 @@ export function clientOperationMetadata(): Plugin {
       if (!edits.length) return null;
       for (const edit of edits.sort((a, b) => b.start - a.start)) {
         code = code.slice(0, edit.start) + edit.text + code.slice(edit.end);
+      }
+      // input/outputだけが参照していたimportを残すと、手動の束のまとめ方が
+      // 別画面専用のスキーマまで初回へ取り込む。型だけの参照は数えない。
+      const transformed = ts.createSourceFile(file, code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+      const used = new Set<string>();
+      function collect(node: ts.Node) {
+        if (ts.isImportDeclaration(node) || ts.isTypeNode(node)) return;
+        if (ts.isIdentifier(node)) used.add(node.text);
+        ts.forEachChild(node, collect);
+      }
+      collect(transformed);
+      const keep = (name: string) => used.has(name) || !operationBindings.has(name);
+      const printer = ts.createPrinter();
+      for (const node of [...transformed.statements].reverse()) {
+        if (!ts.isImportDeclaration(node) || !node.importClause || node.importClause.isTypeOnly) continue;
+        const clause = node.importClause;
+        const name = clause.name && keep(clause.name.text) ? clause.name : undefined;
+        let bindings = clause.namedBindings;
+        if (bindings && ts.isNamedImports(bindings)) {
+          const elements = bindings.elements.filter((item) => item.isTypeOnly || keep(item.name.text));
+          bindings = elements.length ? ts.factory.updateNamedImports(bindings, elements) : undefined;
+        } else if (bindings && !keep(bindings.name.text)) bindings = undefined;
+        const replacement =
+          name || bindings
+            ? printer.printNode(
+                ts.EmitHint.Unspecified,
+                ts.factory.updateImportDeclaration(
+                  node,
+                  node.modifiers,
+                  ts.factory.updateImportClause(clause, false, name, bindings),
+                  node.moduleSpecifier,
+                  node.attributes,
+                ),
+                transformed,
+              )
+            : '';
+        code = code.slice(0, node.getStart(transformed)) + replacement + code.slice(node.end);
+      }
+      if (hasOperations) {
+        const shared = file.slice(0, file.indexOf('/src/shared/') + '/src/shared/'.length);
+        code = `import ${JSON.stringify(`${shared}zod-config.ts`)};\n${code}`;
       }
       if (usesMini) code = `import * as __sgClientOutputZod from 'zod/mini';\n${code}`;
       return { code, map: null };

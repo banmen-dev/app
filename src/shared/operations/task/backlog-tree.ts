@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { backlogQuerySchema } from '../../backlog-filter.ts';
+import { backlogQuerySchema } from '../../backlog-query-schema.ts';
 import { idSchema } from '../../id.ts';
 import { taskPointsSchema } from '../../task.ts';
 import { defineOperation } from '../define.ts';

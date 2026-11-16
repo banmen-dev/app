@@ -47,7 +47,14 @@ export default defineConfig({
                 { name: 'svelte', test: /node_modules[\\/]svelte[\\/]/ },
                 {
                   name: 'operations',
-                  test: /src[\\/]shared[\\/]operations[\\/](attachment|column|definition|epic|operator|organization|session|story|task|workspace)[\\/]/,
+                  // 最初の画面の小さな補助もまとめ、分離した検証コードを
+                  // 読まなくなった分の代わりに、小さい要求が増えるのを避ける。
+                  test: (id) =>
+                    /src[\\/]shared[\\/]operations[\\/](attachment|column|definition|epic|operator|organization|session|story|task|workspace)[\\/]/.test(
+                      id,
+                    ) ||
+                    /src[\\/]shared[\\/](backlog-filter|workspace|organization-slug|errors|return-to)\.ts$/.test(id) ||
+                    /src[\\/]lib[\\/]workspace\.ts$/.test(id),
                 },
                 {
                   name: 'controls',

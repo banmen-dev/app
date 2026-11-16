@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, rmSync, readFileSync, readdirSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -63,6 +63,7 @@ test('実際のブラウザの束でも URL・待ち上限・アップロード�
     })) as { output: { type: string; code?: string }[] }[];
     const chunks = result.flatMap((result) => result.output).filter((chunk) => chunk.type === 'chunk');
     assert.equal(chunks.length, 1);
+    assert.doesNotMatch(chunks[0].code!, /["'`]ZodString["'`]/, 'Classic のスキーマ生成を初回用の束に残さない');
     // eslint-disable-next-line db-entry/guard -- このテストでリポジトリの定義だけから束ねた固定の fixture を読む。
     const client = await import(`data:text/javascript;base64,${Buffer.from(chunks[0].code!).toString('base64')}`);
     for (const [name, definition] of Object.entries({
@@ -185,6 +186,40 @@ function schemaViolations(sources: Record<string, string>): string[] {
   }
   return failures;
 }
+
+test('使わないスキーマの引数からClassicの依存が残らない', async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'sg-unused-schema-'));
+  try {
+    const base = path.join(dir, 'src/shared');
+    mkdirSync(base, { recursive: true });
+    const entry = path.join(base, 'probe.ts');
+    writeFileSync(
+      entry,
+      `
+      import { z } from ${JSON.stringify(path.join(root, 'node_modules/zod/index.js'))};
+      import { idSchema } from ${JSON.stringify(path.join(root, 'src/shared/id.ts'))};
+      const unused = z.object({ id: idSchema.min(1) });
+      export const value = 1;
+    `,
+    );
+    const result = (await build({
+      configFile: false,
+      root,
+      logLevel: 'silent',
+      plugins: [clientOperationMetadata()],
+      build: { write: false, minify: false, lib: { entry, formats: ['es'] } },
+    })) as { output: { type: string; code?: string }[] }[];
+    const code = result
+      .flatMap((item) => item.output)
+      .filter((item) => item.type === 'chunk')
+      .map((item) => item.code)
+      .join('\n');
+    assert.doesNotMatch(code, /["'`]ZodString["'`]/);
+    assert.match(code, /1/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 test('別名・namespace・分割代入・引数・角括弧のスキーマ参照を検出する', () => {
   const file = path.join(root, 'src/extra-client.ts');
