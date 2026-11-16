@@ -210,8 +210,7 @@ describe('レビュー依頼の取得', () => {
   test('表示番号が同じでも不変 ID の違う PR を返さない', async () => {
     const f = fixture();
     f.data.pull.id = 9002;
-    const result = await f.page(null, { target });
-    await expect(f.page(result.next, { target })).rejects.toBeInstanceOf(ImportSourceError);
+    expect(await f.drain({ target })).toEqual([]);
   });
   test('依頼解除で一覧から消えただけなら完了と推測しない', async () => {
     const f = fixture();
@@ -243,6 +242,25 @@ describe('レビュー依頼の取得', () => {
     f.data.timelines['8'] = [[request(202)]];
     expect(await f.drain()).toEqual([expect.objectContaining({ sourceId: '9002', reviewCycle: '202' })]);
     expect(f.calls.length).toBeLessThan(20);
+  });
+  test.each(['missing-cycle', 'bad-title', 'bad-url', 'bad-event'])(
+    '1件の不整合 %s が後の PR を塞がない',
+    async (kind) => {
+      const f = fixture();
+      f.data.others = [{ ...f.data.pull, id: 9002, number: 8, html_url: `https://github.com/${scope.name}/pull/8` }];
+      f.data.timelines['8'] = [[request(202)]];
+      if (kind === 'missing-cycle') f.data.timeline = [[]];
+      if (kind === 'bad-title') f.data.pull.title = '';
+      if (kind === 'bad-url') f.data.pull.html_url = 'https://example.invalid/pull/7';
+      if (kind === 'bad-event') f.data.timeline = [[request(), null]];
+      expect(await f.drain()).toEqual([expect.objectContaining({ sourceId: '9002', reviewCycle: '202' })]);
+    },
+  );
+  test('退会した他人のレビューは本人の判定を塞がない', async () => {
+    const f = fixture();
+    f.data.timeline = [[request(), { event: 'reviewed', user: null }, review()]];
+    f.data.pull.requested_reviewers = [];
+    expect(await f.drain()).toEqual([expect.objectContaining({ isDone: true })]);
   });
   test('PAT は固定ホストの Authorization だけに送り、リダイレクトしない', async () => {
     const f = fixture();
