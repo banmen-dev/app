@@ -77,7 +77,7 @@
   {:else}
     {#if today.omitted_organizations > 0}
       <div class="callout is-info">
-        <Icon name="info" /><span>{t('myTodayOmitted', { count: today.omitted_organizations })}</span>
+        <Icon name="alert" /><span>{t('myTodayOmitted', { count: today.omitted_organizations })}</span>
       </div>
     {/if}
     {#if today.failed_organizations.length > 0}

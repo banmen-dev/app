@@ -42,20 +42,50 @@ const suspendedSheet = () => pane("p-suspended", `停止している${t("organiz
     `);
 const createActions = (primary) => `<button class="btn ${primary ? "is-primary" : "is-sm"}" type="button" data-dialog="createMyOrganization">${t("organization")}を作る</button><button class="btn is-sm" type="button" data-dialog="createPersonalOrganization">自分用を作る</button>`;
 // 本人の全組織の今日やること。行は閲覧だけで、その組織のバックログの詳細へ移る。
+const myTodayEntry = (task, note = "") => {
+  const organizationName = task.organization.kind === "personal" ? t("personalOrganizationName") : task.organization.name;
+  // 本体の TaskEntry と同じ順（組織、ワークスペース）・同じ tag にする。
+  const opts = { showWs: false, showParent: false, showAssignee: true, lead: '<span aria-hidden="true"></span>',
+    actions: () => task.doneAt ? `<span class="hanko" role="img" aria-label="完了">${icon("check")}</span>` : "",
+    meta: () => note };
+  return entry(task, opts)
+    .replace('<span class="entry-meta">', `<span class="entry-meta"><span class="tag">${esc(organizationName)}</span><span class="tag">${esc(D.workspaces[task.ws].name)}</span>`)
+    .replace(`href="#" data-task="${task.id}"`, `href="backlog.html?workspace=${encodeURIComponent(task.ws)}&task=${encodeURIComponent(task.id)}"`);
+};
 const myTodaySheet = () => {
   const labels = ["期日切れ", "今日やると決めたもの", "依頼中", "今週が期日", "進行中のスプリント", "今日完了"];
   const rows = D.tasks.slice(0, 6).map((task, i) => ({ ...task, who: D.me, doneAt: i === 5 ? "10/20 14:00" : null,
     organization: D.organizations[i % D.organizations.length] }));
   const body = rows.map((task, i) => {
-    const opts = { showWs: true, showParent: false, showAssignee: true, lead: '<span aria-hidden="true"></span>',
-      actions: () => task.doneAt ? `<span class="hanko" role="img" aria-label="完了">${icon("check")}</span>` : "",
-      meta: () => `<span class="tag">${esc(task.organization.name)}</span>${i === 2 ? '<span class="props-note">依頼先：青葉 透</span>' : ""}` };
-    const row = entry(task, opts).replace(`href="#" data-task="${task.id}"`,
-      `href="backlog.html?workspace=${encodeURIComponent(task.ws)}&task=${encodeURIComponent(task.id)}"`);
+    const row = myTodayEntry(task, i === 2 ? '<span class="props-note">依頼先：青葉 透</span>' : "");
     const book = `<div class="book">${row}</div>`;
     return i === 4 ? foldedSection(`my-today-${i}`, labels[i], 1, book, 3) : section(`my-today-${i}`, labels[i], 1, book, "", 3);
   }).join("");
   return pane("p-my-today", "全組織の今日やること", body);
+};
+// 面だけの読み込み中・空・未読・部分失敗・全失敗。組織とニュースはそのまま残る。
+const myTodayStates = () => {
+  const title = "全組織の今日やること";
+  const omitted = `<div class="callout is-info">${icon("alert")}<span>ほか 2 組織は読み込んでいません</span></div>`;
+  const failedName = "ひばり工房・共同制作と長い名前の折り返しを確かめる組織";
+  const task = { ...D.tasks[0], who: D.me, doneAt: null, organization: D.organizations[0] };
+  const states = [
+    { name: "読み込み中", id: "loading", busy: true,
+      body: '<div class="skeleton" aria-hidden="true"><span class="skeleton-line is-block"></span><span class="skeleton-line is-block"></span><span class="skeleton-line is-block"></span></div>',
+      note: "my-today を面の中で読み、組織の入口とニュースは先に表示します。" },
+    { name: "今日やることが無い", id: "empty",
+      body: '<p class="book-empty">今日やることはまだありません。各組織のバックログから探せます。</p>' },
+    { name: "上限の先に未読の組織がある", id: "omitted",
+      body: `${omitted}<p class="book-empty">読み込んだ組織には今日やることがありません。</p>`,
+      note: "先頭10組織だけを読んでいるため、全組織にタスクが無いとは案内しません。" },
+    { name: "一部の組織だけ読めなかった", id: "partial",
+      body: `<div class="choice-list"><a class="choice" href="today.html"><div><b>${esc(failedName)}</b><span>今日やることを読めませんでした</span></div>${icon("chevron")}</a></div>${section("my-today-partial-today", "今日やると決めたもの", 1, `<div class="book">${myTodayEntry(task)}</div>`, "", 3)}`,
+      note: "読めた組織の分は残します。読めなかった組織も、折り返す押せる行でホームへ移れます。" },
+    { name: "読み込みに失敗した", id: "failed",
+      body: `<div class="callout is-warn">${icon("alert")}<span role="alert">今日やることを読み込めませんでした</span></div><div class="form-actions"><button class="btn" type="button" data-toast="見本のため、読み込み直しません">もう一度試す</button><span class="field-hint" role="status"></span></div>`,
+      note: "再試行はこの面だけを読み直します。組織の一覧とニュースは残します。" },
+  ];
+  return states.map((state) => `<section class="gate-sheet"><h2 class="dialog-title">全組織の今日やること：${state.name}</h2>${pane(`p-my-today-${state.id}`, title, state.body, { busy: state.busy ?? false })}${state.note ? `<p class="gate-note">${state.note}</p>` : ""}</section>`).join("");
 };
 function render() {
   document.getElementById("gate").innerHTML = `<div class="gate is-wide"><div class="gate-stack">
@@ -125,6 +155,7 @@ function render() {
       <div class="form-actions"><button class="btn is-sm" type="button" data-dialog="createMyOrganization">${t("organization")}を作る</button></div>
       <p class="gate-note">自分用の${t("organization")}（1アカウントに1つ）は、名前の代わりに「自分用」と出して、チーム用の${t("organization")}と並べて選べるようにする。持つ人には「自分用を作る」を出さない（入れる${t("organization")}にも停止している${t("organization")}にも、自分用が無い人にだけ出す）。どちらの一覧にも出ない自分用を持つ人（その${t("organization")}で無効にされた人など）には出し、押すと 409 の <code>personal_limit</code> で断って、ダイアログが伝える。</p>
     </section>
+    ${myTodayStates()}
     <p class="gate-note" style="text-align:center"><a href="index.html">デザインシステムのカタログへ戻る</a></p>
   </div></div>`;
 }
