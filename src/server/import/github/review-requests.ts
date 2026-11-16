@@ -1,5 +1,6 @@
 // レビュー依頼を履歴の最後まで読んでから返す。1呼び出し1要求で、同期の上限を越えて読み続けない。
 // DB には書かない。保存と同期への組み込みは #1314 が受け持つ。
+// 人が差分を読む領域（docs/development.md の「マージの判定」）
 import type { FetchPageResult, ImportItem, ReviewRequestPageInput } from '../source.ts';
 import { FULL_NAME_PATTERN, PAGE_SIZE, fail, getJson, isRecord } from './client.ts';
 
