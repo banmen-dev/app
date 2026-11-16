@@ -1,6 +1,5 @@
 <script lang="ts">
   import { tick, untrack } from 'svelte';
-  import { beforeNavigate, goto } from '$app/navigation';
   import { page } from '$app/state';
   import {
     DEFINITION_OF_DONE_MAX_LENGTH,
@@ -12,7 +11,6 @@
   import { isUnauthenticated, loginUrl } from '../login-redirect.ts';
   import { showToast } from '../toast.svelte.ts';
   import { t } from '../vocabulary.svelte.ts';
-  import ConfirmDialog from './ConfirmDialog.svelte';
   import Icon from './Icon.svelte';
   import Markdown from './Markdown.svelte';
   import Setting from './Setting.svelte';
@@ -32,6 +30,7 @@
     canWrite,
     onsaved,
     onstale,
+    ondirty,
   }: {
     slug: string;
     workspaceId: string;
@@ -42,6 +41,7 @@
     onsaved: () => Promise<void>;
     // ワークスペースが閉じていたか、見つからない、操作できない。枠ごと読み直す
     onstale: () => void;
+    ondirty: (dirty: boolean) => void;
   } = $props();
 
   const ids = $props.id();
@@ -71,34 +71,8 @@
   const dod = $derived(t('dod'));
   const changed = $derived(normalizeLongText(draft) !== base);
 
-  // ---- 書きかけのまま移るときの確かめ（TaskDrawer と同じ扱い） ----
-  let discardDialog = $state<ReturnType<typeof ConfirmDialog>>();
-  let asking = false;
-  let leaving = false;
-  beforeNavigate((navigation) => {
-    if (leaving || !canWrite || !(changed || sending)) return;
-    if (navigation.to === null) {
-      navigation.cancel();
-      return;
-    }
-    const to = navigation.to.url;
-    if (to.origin === location.origin && to.pathname === location.pathname) return;
-    const delta = navigation.type === 'popstate' ? navigation.delta : undefined;
-    navigation.cancel();
-    if (asking) return;
-    asking = true;
-    void (discardDialog?.ask() ?? Promise.resolve(false))
-      .then((discard) => {
-        if (!discard) return;
-        leaving = true;
-        if (to.origin !== location.origin) location.href = to.href;
-        else if (delta !== undefined && delta !== 0) history.go(delta);
-        // eslint-disable-next-line svelte/no-navigation-without-resolve -- 行き先は SvelteKit が解決した URL（navigation.to）で、経路から作り直せない
-        else void goto(to);
-      })
-      .finally(() => {
-        asking = false;
-      });
+  $effect(() => {
+    ondirty(canWrite && (changed || sending));
   });
 
   function problemText(normalized: string | null): string | null {
@@ -218,13 +192,3 @@
     <div class="doc-box is-empty">{t('dodEmptyReadOnly', { dod })}</div>
   {/if}
 </Setting>
-
-<ConfirmDialog
-  bind:this={discardDialog}
-  title={t('discardTitle')}
-  confirmLabel={t('discardConfirm')}
-  cancelLabel={t('discardKeep')}
-  danger
->
-  <p>{t('discardText')}</p>
-</ConfirmDialog>

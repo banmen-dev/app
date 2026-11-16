@@ -11,6 +11,25 @@ export function defineDictionary<const T extends Record<string, string>>(entries
 }
 
 export const dictionary = defineDictionary({
+  sprintNamingTitle: '{sprint}の命名ルール',
+  sprintNamingDesc: '新しく作る{sprint}の名前の初期値。過去の名前は変わりません。',
+  sprintNamingTemplate: '命名ルール',
+  sprintNamingNumber: '次の番号',
+  sprintNamingHint: '空なら名前を自動入力しません。',
+  sprintNamingVariables:
+    '{n}: 次の番号、{yyyy}/{yy}: 年（4桁/2桁）、{mm}/{m}: 月（2桁/そのまま）、{dd}/{d}: 日（2桁/そのまま）、{w}: 月の中の週（1〜7日が1、8〜14日が2）。日付は開始日から取ります。',
+  sprintNamingExample: '次の名前の例（{date}）: {name}',
+  sprintNamingEmpty: '名前なし',
+  sprintNamingUnknown: '使えない変数があります。使える変数の一覧を確認してください。',
+  sprintNamingNumberInvalid: '次の番号は1以上の整数で入れてください。',
+  sprintNamingTooLong: '命名ルールは100字以内で入れてください。',
+  sprintNamingInvalidCharacter: '命名ルールに使えない文字が含まれています。',
+  sprintNamingExpansionFailed: '名前の初期値が100字を超えます。名前を入力するか、開始日や命名ルールを変えてください。',
+  sprintNamingSave: '保存する',
+  sprintNamingSaving: '保存しています',
+  sprintNamingSaved: '{sprint}の命名ルールを保存しました。',
+  sprintNamingFailed: '命名ルールを保存できませんでした。入力を残してあります。もう一度試してください。',
+
   billingTitle: '請求管理者',
   billingRemoveFor: '{name}の請求管理者を解除する',
   billingAcceptFor: '{name}の請求管理者の指名を承諾する',

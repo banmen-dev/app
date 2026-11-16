@@ -1,10 +1,12 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { invalidate } from '$app/navigation';
+  import { afterNavigate, beforeNavigate, goto, invalidate } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
+  import ConfirmDialog from '../../../../../lib/components/ConfirmDialog.svelte';
   import ColumnsSetting from '../../../../../lib/components/ColumnsSetting.svelte';
   import DefinitionsSetting from '../../../../../lib/components/DefinitionsSetting.svelte';
+  import SprintNamingSetting from '../../../../../lib/components/SprintNamingSetting.svelte';
   import DodSetting from '../../../../../lib/components/DodSetting.svelte';
   import EmptyState from '../../../../../lib/components/EmptyState.svelte';
   import Icon from '../../../../../lib/components/Icon.svelte';
@@ -75,6 +77,49 @@
     heading.focus();
   }
 
+  let namingDirty = $state(false);
+  let dodDirty = $state(false);
+  let dirtyWorkspaceId: string | null = null;
+  $effect.pre(() => {
+    const id = workspace?.id ?? null;
+    if (dirtyWorkspaceId === id && !data.forbidden) return;
+    dirtyWorkspaceId = id;
+    namingDirty = false;
+    dodDirty = false;
+  });
+  // ---- 書きかけのまま移るときの確かめ（TaskDrawer と同じ扱い） ----
+  let discardDialog = $state<ReturnType<typeof ConfirmDialog>>();
+  let asking = false;
+  let leaving = false;
+  afterNavigate(() => {
+    leaving = false;
+  });
+  beforeNavigate((navigation) => {
+    if (leaving || !canWrite || !(namingDirty || dodDirty)) return;
+    if (navigation.to === null) {
+      navigation.cancel();
+      return;
+    }
+    const to = navigation.to.url;
+    if (to.origin === location.origin && to.pathname === location.pathname) return;
+    const delta = navigation.type === 'popstate' ? navigation.delta : undefined;
+    navigation.cancel();
+    if (asking) return;
+    asking = true;
+    void (discardDialog?.ask() ?? Promise.resolve(false))
+      .then((discard) => {
+        if (!discard) return;
+        leaving = true;
+        if (to.origin !== location.origin) location.href = to.href;
+        else if (delta !== undefined && delta !== 0) history.go(delta);
+        // eslint-disable-next-line svelte/no-navigation-without-resolve -- 行き先は SvelteKit が解決した URL（navigation.to）で、経路から作り直せない
+        else void goto(to);
+      })
+      .finally(() => {
+        asking = false;
+      });
+  });
+
   function stale(): void {
     void invalidate('app:workspace');
   }
@@ -139,9 +184,19 @@
         onchanged={reload}
         onstale={stale}
       />
+      <SprintNamingSetting
+        {slug}
+        workspaceId={workspace.id}
+        ondirty={(dirty) => (namingDirty = dirty)}
+        value={definitions.naming}
+        {canWrite}
+        onsaved={reload}
+        onstale={stale}
+      />
       <DodSetting
         {slug}
         workspaceId={workspace.id}
+        ondirty={(dirty) => (dodDirty = dirty)}
         value={workspace.definitionOfDone}
         {canWrite}
         onsaved={() => invalidate('app:workspace')}
@@ -168,3 +223,13 @@
     {/key}
   </div>
 {/if}
+
+<ConfirmDialog
+  bind:this={discardDialog}
+  title={t('discardTitle')}
+  confirmLabel={t('discardConfirm')}
+  cancelLabel={t('discardKeep')}
+  danger
+>
+  <p>{t('discardText')}</p>
+</ConfirmDialog>
