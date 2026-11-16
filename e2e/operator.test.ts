@@ -3008,10 +3008,13 @@ test.describe('運用者', () => {
   });
 });
 
-test('運用者でない人が /operator を開くと、唯一の組織へ戻る', async ({ page, context, baseURL }) => {
+test('運用者でない人が /operator を開くと、ダッシュボードに戻り組織を選べる', async ({ page, context, baseURL }) => {
   // 組織の作成・招待テストが使うmemberと分け、所属がくもラボだけの会員で確認する。
   await signIn(context, baseURL, 'lookMember');
   await page.goto('/operator');
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
+  await page.getByRole('link', { name: /くもラボ/ }).click();
   await expect(page).toHaveURL(/\/kumo$/);
 });
 
