@@ -13,7 +13,7 @@ import {
 } from '../../shared/operations/experience/index.ts';
 import { MIN_POINTS_FOR_EXPERIENCE } from '../../shared/task.ts';
 import type { OrganizationDb } from '../db/index.ts';
-import { detailedRecipient } from './task-detail-xp.ts';
+import { activeTaskGrant, detailedRecipient } from './task-detail-xp.ts';
 import { implement } from './implement.ts';
 import { actorUserIdOf } from './write-guards.ts';
 
@@ -115,6 +115,22 @@ export function detailedProspectiveStatement(db: OrganizationDb, userId: string)
       .where('tasks.completed_at', 'is', null)
       .where('tasks.points', '>=', MIN_POINTS_FOR_EXPERIENCE)
       .where((eb) => eb(detailedRecipient(eb), '=', userId))
+      // 再依頼で残した詳細の付与は、新しい回で再付与しないため見込みにも含めない。
+      .where((eb) =>
+        eb.or([
+          eb.not(
+            eb.exists(
+              eb
+                .selectFrom('task_sources')
+                .select('task_id')
+                .whereRef('task_sources.workspace_id', '=', 'tasks.workspace_id')
+                .whereRef('task_sources.task_id', '=', 'tasks.id')
+                .where('source_kind', '=', 'review_request'),
+            ),
+          ),
+          eb.not(eb.exists(activeTaskGrant(q, eb.ref('tasks.workspace_id'), eb.ref('tasks.id'), 'task_detailed'))),
+        ]),
+      )
       .groupBy('m.workspace_id'),
   );
 }
