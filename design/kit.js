@@ -59,9 +59,39 @@
 
   // ---- 言葉の辞書（各キーはスクラムの言葉の文字列1つ） ----
   const DICT = {
-    loadFailedText: 'しばらくしてから、もう一度試してください。',
-    loadFailedTitle: '読み込めませんでした',
-    organizationList: '組織の一覧へ',
+    sprintNamingTitle: '{sprint}の命名ルール',
+    sprintNamingDesc: '新しく作る{sprint}の名前の初期値。過去の名前は変わりません。',
+    sprintNamingTemplate: '命名ルール',
+    sprintNamingNumber: '次の番号',
+    sprintNamingHint: '空なら名前を自動入力しません。',
+    sprintNamingVariableN: '{n}: 次の番号',
+    sprintNamingVariableYyyy: '{yyyy}: 開始日の年（4桁）',
+    sprintNamingVariableYy: '{yy}: 開始日の年（下2桁）',
+    sprintNamingVariableMm: '{mm}: 開始日の月（2桁）',
+    sprintNamingVariableM: '{m}: 開始日の月',
+    sprintNamingVariableDd: '{dd}: 開始日の日（2桁）',
+    sprintNamingVariableD: '{d}: 開始日の日',
+    sprintNamingVariableW: '{w}: 月の中の週（1〜7日が1、8〜14日が2）',
+    sprintNamingVariables:
+      '{n}: 次の番号、{yyyy}/{yy}: 年（4桁/2桁）、{mm}/{m}: 月（2桁/そのまま）、{dd}/{d}: 日（2桁/そのまま）、{w}: 月の中の週（1〜7日が1、8〜14日が2）。日付は開始日から取ります。',
+    sprintNamingExample: '次の名前の例（{date}）: {name}',
+    sprintNamingEmpty: '名前なし',
+    sprintNamingUnknown: '使えない変数があります。使える変数の一覧を確認してください。',
+    sprintNamingNumberInvalid: '次の番号は1以上の整数で入れてください。',
+    sprintNamingTooLong: '命名ルールは{max}字以内で入れてください。',
+    sprintNamingInvalidCharacter: '命名ルールに使えない文字が含まれています。',
+    sprintNamingExpansionFailed:
+      '名前の初期値が{max}字を超えます。名前を入力するか、開始日や命名ルールを変えてください。',
+    sprintNamingExpansionWarning: '次の開始日の名前が{max}字を超えるため、自動入力できません。このルールは保存できます。必要ならルールを短くしてください。',
+    sprintNamingNumberRefreshed: '次の番号を最新の値（{number}）に更新しました。',
+    sprintNamingUnchanged: '保存した内容から変わっていません。',
+    sprintNamingUnavailable: '保存できませんでした。操作できない状態のため、画面を読み直します。',
+    sprintNamingLoadFailed: '命名ルールを読み込めませんでした。もう一度試してください。',
+    sprintNamingSave: '保存する',
+    sprintNamingSaving: '保存しています',
+    sprintNamingSaved: '{sprint}の命名ルールを保存しました。',
+    sprintNamingFailed: '命名ルールを保存できませんでした。入力を残してあります。もう一度試してください。',
+
     billingTitle: '請求管理者',
     billingRemoveFor: '{name}の請求管理者を解除する',
     billingAcceptFor: '{name}の請求管理者の指名を承諾する',
@@ -402,7 +432,7 @@
     wikiRestoreFailed: "戻せませんでした。もう一度試してください。",
 
     workspaceSwitchLabel: "{workspace} {name}。切り替える", workspaceSwitchListLabel: "所属する{workspace}",
-    workspacePaneHint: "押すと{backlog}を開きます",
+    workspacePaneHint: "押すと{backlog}を開きます", paneNews: "{app} のニュース", appName: "Scrum Guild",
     workspace: "ワークスペース", inbox: "受信箱", backlog: "バックログ", sprint: "スプリント", plan: "計画", epic: "エピック", story: "ストーリー",
     menuCollapse: "メニューを畳む", menuExpand: "メニューを広げる", breadcrumb: "パンくず", organizationMoving: "移っています",
     personalOrganizationName: "自分用", createPersonalOrganizationAction: "自分用を作る",
@@ -805,6 +835,22 @@
   // 面の中の、押すと移る行の一覧。rows は { href, name, role } の配列（role は leader か member）
   function paneList(rows) {
     return `<ul class="pane-list">${rows.map((r) => `<li><a class="pane-link" href="${esc(r.href)}"><b>${esc(r.name)}</b><span class="chip">${esc(t(r.role))}</span>${icon("chevron")}</a></li>`).join("")}</ul>`;
+  }
+  // 面の中の、ニュースの一覧。items は { date, title, body, href? } の配列で、新しい順に5件まで出す（本番は src/lib/news.ts の latestNews）。
+  // 題は h3。href は src/lib/news.ts の isNewsHref と同じ形（https:// で始まり、正規化しても変わらず、ユーザー情報が無い）のときだけリンクにし、
+  // 新しいタブで開いて、題の文字の末尾に external の印を添える。日付、題、本文は書いたまま出す（esc する）
+  function isNewsHref(href) {
+    if (typeof href !== "string" || !href.startsWith("https://")) return false;
+    try { const u = new URL(href); return u.href === href && u.username === "" && u.password === ""; } catch { return false; }
+  }
+  function newsList(items) {
+    // 5 は src/lib/news.ts の NEWS_LIMIT と同じ値
+    const rows = [...items].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)).slice(0, 5);
+    return `<ul class="news-list">${rows.map((n) => `<li class="news-item"><time class="news-date" datetime="${esc(n.date)}">${esc(n.date)}</time><h3 class="news-title">${
+      isNewsHref(n.href)
+        ? `<a class="news-link" href="${esc(n.href)}" target="_blank" rel="external noopener noreferrer"><span>${esc(n.title)}${icon("external")}</span><span class="visually-hidden"> ${t("markdownNewTab")}</span></a>`
+        : esc(n.title)
+    }</h3><p class="news-body">${esc(n.body)}</p></li>`).join("")}</ul>`;
   }
   // ダッシュボード。main は左の列の面、side は右の列の面（空なら右の列を置かない。広い幅では右の列の幅だけが空く）
   function dashboard(main, side = "") {
@@ -4519,7 +4565,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     D, t, brandMark, brandSymbol, googleMark, githubMark, THEMES, THEME_LABEL, THEME_NOTE, esc, icon, md, sumPts, cycleTheme, setTheme, applyTheme, mount,
     onRedraw: (fn) => extraRedraws.push(fn), openDrawer, drawerHtml, drawerState: drawer, flashRow,
     user, task, tasksWhere, repoTag, categoryTag, sprintTag, repoPicker, sprintLabel, colName, categoryOf, storyPts, epicPts, dueOf,
-    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, emblem, pts, dueChip, taskDue, tier, sourceKey, entry, rowMenu, orderItems, draftRow, attrChip, book, section, foldedSection, pane, paneList, dashboard, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
+    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, emblem, pts, dueChip, taskDue, tier, sourceKey, entry, rowMenu, orderItems, draftRow, attrChip, book, section, foldedSection, pane, paneList, newsList, dashboard, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
     narrowDisclosure, card, board, treeStory, treeEpic, completedTasks, sprintNotice, raidNotice, progress, levelPanel, teamXp, xpDelta, load, capacityRows,
     openDialog, closeDialog, toast, celebrate, miniCap, redraw: () => redrawAll(), DIALOGS, loginTarget, orgMenuHtml, workspaceMenuHtml, accountMenuHtml, breadcrumbHtml,
     filesOf, fileThumb, fileRow, dropzone, attachments, markdownEditor, markdownToolbarHtml, mdBody, markdownSample, meter, storageBytes,

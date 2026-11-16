@@ -75,7 +75,7 @@ export const screens: Screen[] = [
   { route: '/[slug]/w/[id]/sprint', operations: [w('sprint-board')] },
   {
     route: '/[slug]/w/[id]/settings',
-    operations: [w('category-repository-list'), w('column-list'), w('detail-field-list')],
+    operations: [w('category-repository-list'), w('column-list'), w('detail-field-list'), w('sprint-list')],
     note: 'parent() 後の並列群。',
   },
   { route: '/[slug]/w/[id]/members', operations: [w('member-list')] },

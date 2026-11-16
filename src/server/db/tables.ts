@@ -202,6 +202,8 @@ export const organizationTableColumns = {
     timezone: text,
     week_start: integerDefault,
     definition_of_done_md: textOrNull,
+    sprint_name_template: textOrNull,
+    sprint_number_next: integerDefault,
     closed_at: textOrNull,
     created_by: text,
     created_at: text,

@@ -18,9 +18,9 @@
 <script src="kit.js"></script>
 <script>
 "use strict";
-// 今日やること（組織のホーム）: 2列のダッシュボード。左の列に、所属するワークスペースの面と、自分が担当するタスクの面（今日やること）を上から並べる。
+// 今日やること（組織のホーム）: 2列のダッシュボード。左の列に、所属するワークスペースの面と、自分が担当するタスクの面（今日やること）、Scrum Guild のニュースの面を上から並べる。
 // 右の列（.dashboard-side）は面（最近の更新）を足すまで置かない。広い幅では右の列の幅だけが空く（左3、右2）
-const { D, t, book, section, foldedSection, pageHead, sprintNotice, pane, paneList, dashboard } = SQ;
+const { D, t, book, section, foldedSection, pageHead, sprintNotice, pane, paneList, newsList, dashboard } = SQ;
 
 SQ.mount("today", () => {
   const mine = SQ.tasksWhere((x) => x.who === D.me);
@@ -65,6 +65,8 @@ SQ.mount("today", () => {
         ${dueList.length ? section("s-due", `今週が${t("due")}`, dueList.length, book(dueList, dueOpts), "", 3) : ""}
         ${restList.length ? foldedSection("s-sprint", `進行中の${t("sprint")}`, restList.length, book(restList, opts), 3) : ""}
         ${part("s-done", t("doneToday"), doneList)}`);
+  // ニュースの面。新しい順に5件まで。1件も無いときは面を置かない
+  const newsPane = D.news.length ? pane("p-news", t("paneNews").replace("{app}", t("appName")), newsList(D.news)) : "";
   // 見出しと「最初にやること」を全幅で置き、その下にダッシュボード。積載量は #66 で今日やるの近くに足す。
   return `${pageHead(D.todayLabel, "今日やること", [
         ["", "sun", "今日やると決めたもの", todayList.length],
@@ -75,7 +77,7 @@ SQ.mount("today", () => {
       ])}
     <div class="layout-main">
       ${SQ.first ? SQ.firstSteps(SQ.first) : ""}
-      ${dashboard(workspacePane + todayPane)}
+      ${dashboard(workspacePane + todayPane + newsPane)}
     </div>
   `;
 });
