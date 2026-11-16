@@ -1628,3 +1628,5 @@ R2 を消す道具は操作定義の `storage: 'attachments'` で宣言する。
 - 消す経路: 本人が外す（`me-avatar-delete`）、差し替える（前のファイル）、管理者が無効にする（`user-disable`）、組織に入れなくなる（#1273。`membership-leave` で最後の所属が終わった管理者でない人、`user-admin-update` で解除した今の所属の無い人）。後の3つの定義は `storage: 'attachments'` を持ち、行を消す文を所属や `users` を書く `batch()` の最後に置き、書いた後に R2 のファイルを消す。「管理者でなく、今の所属も無い」の条件は `cannotEnterOrganization`（`src/server/operations/organization-departure.ts`）で、外された人の `credentials_not_before` の文と、上げる操作の UPSERT の条件（入れなくなった後に行を書かない）も同じ関数を使う。
 - R2 に残るファイル: 行を消した後（外す、無効にする、組織に入れなくなる、差し替えの前のファイル）の R2 の削除が失敗しても、操作は成功にし、ログに件数（`count`）だけを JSON の1行で出す（キー、例外の文、本文は出さない。添付の削除と同じ形で、上げる操作は `requestId` も持つ）。書いたが行に負けたファイル（409）の削除の失敗も同じ。消せなかったファイルはどの行からも指されずに残るが、キーは組織の接頭辞（`<組織の ID>/avatars/`）の下にあるので、組織のデータを消す手順（`docs/operations.md` の「解約した組織のデータを消す」）の接頭辞の削除で、組織の接頭辞ごと消える。定期処理での片付けは作らない（ログの件数が増えたら別の Issue にする）。
 - 組織の分離: `user-avatar` は画像の ID と `organization_id` で引く。別の組織の ID は存在しないときと同じ 404 で、`test/operations/pointers.ts` の一覧から回る分離のテストが確かめる。
+
+生成フォントの異体字・欠字・ライセンスの比較（`scripts/boot-font-assets.test.py`）は、CIの `test-node` ジョブでも固定版fonttools[woff]の専用venvから実行する。通常のアプリbuildにPythonは不要。

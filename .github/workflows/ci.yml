@@ -133,6 +133,12 @@ jobs:
       # ffmpeg は入れない。受け入れの動画は手元で作るので、実録画の寸法（ffprobe）と字幕の合成（ffmpeg）のテストは CI では飛ばす。
       # apt はミラーの速さに左右され、この段だけで 13 分かかり、ジョブの上限 15 分に迫った実行があった（PR #865。テストは 48 秒）
       - run: pnpm test:node
+      # 異体字・欠字・ライセンスはwoff2を展開して原本と比較する。
+      - name: Verify generated font coverage
+        run: |
+          python3 -m venv "$RUNNER_TEMP/boot-fonts"
+          "$RUNNER_TEMP/boot-fonts/bin/pip" install 'fonttools[woff]==4.61.1'
+          "$RUNNER_TEMP/boot-fonts/bin/python" scripts/boot-font-assets.test.py
 
   migration:
     needs: changes
