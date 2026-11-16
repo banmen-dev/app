@@ -117,7 +117,11 @@ export function startStallProbe(
     }
   };
   const loops = PROBE_TARGETS.map(async (target) => {
-    const url = new URL(target.path, baseURL).toString();
+    const endpoint = new URL(target.path, baseURL);
+    // localhost の DNS は fs/promises と同じ libuv の pool を使う。
+    // 採取側の I/O 待ちを workerd の止まりと取り違えないよう、計測だけ数値 IP へ送る。
+    if (endpoint.hostname === 'localhost') endpoint.hostname = '127.0.0.1';
+    const url = endpoint.toString();
     while (!controller.signal.aborted) {
       const { startedAt, ms, result } = await probeOnce(url, deps, controller.signal, timeoutMs);
       counts[target.name] += 1;

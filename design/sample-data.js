@@ -8,6 +8,11 @@ window.SQ_DATA = (function () {
     weekStart: "2026-10-19",
     weekEnd: "2026-10-25",
     todayLabel: "2026年10月20日（火）",
+    // 組織のホームのニュース（本番は src/lib/news.ts）。日付は YYYY-MM-DD。href は https:// で始まるものだけで、あれば題が新しいタブで開く
+    news: [
+      { date: "2026-10-20", title: "組織のホームがダッシュボードになりました", body: "ワークスペースと今日やることを左の列に並べました。ここには Scrum Guild からの知らせが載ります。" },
+      { date: "2026-10-12", title: "見本のリンク付きの知らせ", body: "リンクのある知らせは、題を押すと新しいタブで開きます。題の後ろの印が目印です。", href: "https://example.com/news/sample" },
+    ],
     me: "u1",
     workspace: "wa",
     organization: "aoba",
@@ -15,6 +20,7 @@ window.SQ_DATA = (function () {
     ai: { enabled: true, provider: "claude", used: 1.3, limit: 5, resets: "11/1" },
 
     // 自分が入れる組織。組織ごとに名前、レベル、経験値が別になる
+    // plan は契約（プランと支払いの周期）。無いチーム用の組織は「未契約」、自分用は「パーソナル」の印を出す
     organizations: [
       { slug: "aoba", name: "あおば開発", level: 7, admin: true },
       { slug: "hibari", name: "ひばり工房", level: 3 },
@@ -33,8 +39,9 @@ window.SQ_DATA = (function () {
       u7: { name: "ツムギ", hue: 140, level: 1, role: "member", left: true },
     },
     workspaces: {
-      wa: { name: "受託開発チーム" },
-      wb: { name: "社内ツール" },
+      // role は自分（D.me）のロール。組織のホームのワークスペースの面に出る
+      wa: { name: "受託開発チーム", role: "leader" },
+      wb: { name: "社内ツール", role: "member" },
     },
     columns: [
       { id: "c1", name: "未着手" },
@@ -100,25 +107,25 @@ window.SQ_DATA = (function () {
         body: ["確定とキャンセルのイベントを夜間にまとめて処理する。付与率は会員ランクごとの設定値を使う。", "![付与率の設定画面](f1)", "参考: 管理画面の設計メモ https://example.com/notes/42"] },
       { id: "t2", ws: "wa", repo: "r1", title: "失効日の計算に月末の扱いを足す", story: "s1", sprint: "sp14", col: "c3", who: "u3", pts: 3,
         src: { kind: "pr", key: "acme/shop#412", status: "open" } },
-      { id: "t3", ws: "wa", repo: "r2", title: "管理画面にポイント履歴の一覧を出す", story: "s1", sprint: "sp14", col: "c1", who: "u2", pts: 5, unfilled: true, creator: "u2" },
+      { id: "t3", ws: "wa", repo: "r2", title: "管理画面にポイント履歴の一覧を出す", story: "s1", sprint: "sp14", col: "c1", who: "u2", pts: 5, fieldsEmpty: true, creator: "u2" },
       { id: "t4", ws: "wa", repo: "r1", title: "購入画面でポイント残高を出す", story: "s2", sprint: "sp15", who: "u3", pts: 3, creator: "u3" },
-      { id: "t5", ws: "wa", repo: "r1", title: "ポイント利用の API を設計する", story: "s2", sprint: "sp15", who: "u1", pts: 8, due: "2026-10-18", unfilled: true, creator: "u1" },
+      { id: "t5", ws: "wa", repo: "r1", title: "ポイント利用の API を設計する", story: "s2", sprint: "sp15", who: "u1", pts: 8, due: "2026-10-18", fieldsEmpty: true, creator: "u1" },
       { id: "t6", ws: "wa", repo: "r1", title: "決済 Webhook の再送を監視する", story: "s3", sprint: "sp14", col: "c2", who: "u4", pts: 3,
         src: { kind: "backlog", key: "SHOP-128", status: "処理中", due: today } },
       { id: "t7", ws: "wa", repo: "r1", title: "タイムアウトの閾値を見直す", story: "s3", sprint: "sp14", col: "done", who: "u4", pts: 2, doneAt: "10/16 15:20", creator: "u4" },
       { id: "t8", ws: "wa", title: "障害時の連絡手順を書く", story: "s3", sprint: "sp14", col: "c1", who: "u1", pts: 1, due: "2026-10-17", todayOn: "2026-10-19", creator: "u1" },
-      { id: "t9", ws: "wa", title: "問い合わせテンプレートを整える", story: "s4", who: null, pts: null, unfilled: true, creator: "u4" },
+      { id: "t9", ws: "wa", title: "問い合わせテンプレートを整える", story: "s4", who: null, pts: null, fieldsEmpty: true, creator: "u4" },
       { id: "t10", ws: "wa", repo: "r1", title: "依存パッケージを更新する", cat: "k2", sprint: "sp14", col: "done", who: "u3", pts: 2, doneAt: "10/15 11:02",
         src: { kind: "issue", key: "acme/shop#398", status: "closed" } },
       { id: "t11", ws: "wa", repo: "r1", title: "クーポンの併用制限", cat: "k1", sprint: "sp14", col: "c1", who: "u1", pts: 1, todayOn: today,
         src: { kind: "review", key: "acme/shop#418", status: "レビュー待ち" } },
       { id: "t12", ws: "wa", repo: "r2", title: "請求書 PDF の文字化けを直す", cat: "k2", sprint: "sp14", col: "c3", who: "u1", pts: 2,
         src: { kind: "backlog", key: "SHOP-131", status: "完了" }, srcDone: true },
-      { id: "t13", ws: "wa", repo: "r2", title: "ポイント失効の通知メールを作る", story: "s1", sprint: "sp15", who: null, pts: null, unfilled: true, creator: "u2" },
+      { id: "t13", ws: "wa", repo: "r2", title: "ポイント失効の通知メールを作る", story: "s1", sprint: "sp15", who: null, pts: null, fieldsEmpty: true, creator: "u2" },
       { id: "t14", ws: "wa", repo: "r1", title: "決済通知のメール文面を直す", story: "s3", sprint: "sp14", col: "done", who: "u1", pts: 1, doneAt: "10/20 09:40",
         src: { kind: "backlog", key: "SHOP-126", status: "完了" } },
       { id: "t15", ws: "wb", title: "勤怠の CSV 出力で締め日を選べるようにする", sprint: "spb", colName: "作業中", who: "u1", pts: 3, due: "2026-10-22", todayOn: "2026-10-18", creator: "u1" },
-      { id: "t16", ws: "wb", title: "有給の残日数を一覧に出す", sprint: "spb", colName: "未着手", who: "u1", pts: null, due: today, unfilled: true, creator: "u1" },
+      { id: "t16", ws: "wb", title: "有給の残日数を一覧に出す", sprint: "spb", colName: "未着手", who: "u1", pts: null, due: today, fieldsEmpty: true, creator: "u1" },
     ],
 
     comments: {
@@ -334,19 +341,19 @@ Object.assign(window.SQ_DATA, {
   operator: {
     name: "運用担当",
     organizations: [
-      { slug: "aoba", name: "あおば開発", users: 5, limit: 15, wss: 3, tasks: 1284, quota: 30, lastUsed: "2026/10/20 09:12", created: "2026/06/01 09:00", admins: 2 },
-      { slug: "hibari", name: "ひばり工房", users: 15, limit: 15, wss: 1, tasks: 212, quota: 30, lastUsed: "2026/10/19 18:40", created: "2026/09/15 10:20", admins: 1, adminPending: true },
+      { slug: "aoba", name: "あおば開発", plan: "チーム・年払い", users: 5, limit: 15, wss: 3, tasks: 1284, quota: 30, lastUsed: "2026/10/20 09:12", created: "2026/06/01 09:00", admins: 2 },
+      { slug: "hibari", name: "ひばり工房", plan: "チーム・月払い", users: 15, limit: 15, wss: 1, tasks: 212, quota: 30, lastUsed: "2026/10/19 18:40", created: "2026/09/15 10:20", admins: 1, adminPending: true },
       { slug: "tsubame", name: "つばめ商会", users: 1, limit: 15, wss: 0, tasks: 0, quota: 30, lastUsed: null, created: "2026/10/05 14:05", admins: 1, adminExpired: true },
       // 会員が自分で作った組織（self_created）。名前に「自分で作った組織」の印が付く
       { slug: "kaze-labo", name: "かぜラボ", users: 1, limit: 15, wss: 0, tasks: 0, quota: 30, lastUsed: "2026/10/21 08:30", created: "2026/10/21 08:20", admins: 1, selfCreated: true, trialEndsOn: "2026-11-20", trialExpired: false },
       // 自分用の組織（personal）。種類の印を付け、人数 / 上限の列は空（ダッシュ）、上限に達した印と管理者の状態の印を出さず、管理者の指名と上限の変更を置かない
       { slug: "mio-solo", name: "自分用", users: 1, limit: 1, wss: 2, tasks: 37, quota: 1, usedBytes: 37, lastUsed: "2026/10/22 07:55", created: "2026/10/10 21:40", admins: 1, personal: true },
-      { slug: "kumo-lab", name: "くもラボ", users: 38, limit: 50, wss: 4, tasks: 3410, quota: 100, lastUsed: "2026/10/18 11:03", created: "2026/07/10 09:45", admins: 0 },
+      { slug: "kumo-lab", name: "くもラボ", plan: "ビジネス・月払い", users: 38, limit: 50, wss: 4, tasks: 3410, quota: 100, lastUsed: "2026/10/18 11:03", created: "2026/07/10 09:45", admins: 0 },
       // 停止中の自分用。停止の理由の切り替えと再開はできる
       { slug: "hoshi-solo", name: "自分用", users: 1, limit: 1, wss: 1, tasks: 4, quota: 1, lastUsed: "2026/09/05 12:10", created: "2026/08/20 18:00", admins: 1, personal: true, suspended: "2026-09-30" },
-      { slug: "nagi", name: "なぎ設計", users: 2, limit: 15, wss: 1, tasks: 96, quota: 30, lastUsed: "2026/09/02 15:21", created: "2026/08/01 16:30", admins: 1, suspended: "2026-09-30", purgeOn: "2026-10-30" },
+      { slug: "nagi", name: "なぎ設計", plan: "チーム・月払い", users: 2, limit: 15, wss: 1, tasks: 96, quota: 30, lastUsed: "2026/09/02 15:21", created: "2026/08/01 16:30", admins: 1, suspended: "2026-09-30", purgeOn: "2026-10-30" },
       // 消す予定日を過ぎた解約の組織（purgeDue）。管理者の指名、再開、停止の理由の切り替えを出さず、できない理由を出す
-      { slug: "kiri", name: "きり製作所", users: 3, limit: 15, wss: 1, tasks: 41, quota: 30, lastUsed: "2026/08/28 10:05", created: "2026/05/20 13:10", admins: 1, suspended: "2026-09-10", purgeOn: "2026-10-10", purgeDue: true },
+      { slug: "kiri", name: "きり製作所", plan: "チーム・月払い", users: 3, limit: 15, wss: 1, tasks: 41, quota: 30, lastUsed: "2026/08/28 10:05", created: "2026/05/20 13:10", admins: 1, suspended: "2026-09-10", purgeOn: "2026-10-10", purgeDue: true },
     ],
   },
 });

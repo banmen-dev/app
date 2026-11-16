@@ -640,7 +640,7 @@ test.describe('一般のユーザー（あおば開発のハルカ）', () => {
 
   test('ほかにも所属していれば、「抜ける」のダイアログは組織に入れなくなるとは知らせない', async ({ page }) => {
     await setOwnWorkspaces(page, [
-      { id: '019a0000-0000-7000-8000-00000000fff1', name: '社内ツール改善', role: 'leader' },
+      { id: '019a0000-0000-7000-8000-00000000fff1', name: '社内ツール改善', role: 'leader', closed_at: null },
     ]);
     await page.goto(MEMBERS_PATH);
     await page.getByRole('button', { name: '受託開発チームから抜ける' }).click();

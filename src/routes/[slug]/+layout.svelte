@@ -4,6 +4,7 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import AccountMenu from '../../lib/components/AccountMenu.svelte';
+  import { InvitationCount } from '../../lib/invitation-count.svelte.ts';
   import AppShell from '../../lib/components/AppShell.svelte';
   import CreateMyOrganizationDialog from '../../lib/components/CreateMyOrganizationDialog.svelte';
   import CreatePersonalOrganizationDialog from '../../lib/components/CreatePersonalOrganizationDialog.svelte';
@@ -44,6 +45,10 @@
   onMount(() => favorites.watch());
   // 招待の画面。組織に入れず招待だけがある人には、どの経路でも招待の画面を出す（data.invitationInbox）。
   // /<slug>/invitations のページ（page.data に invitationPage がある）は、組織に入れる人にも枠を出さずにページだけを出す
+  const invitations = new InvitationCount(
+    () => data.invitationCount,
+    () => data.slug,
+  );
   const inbox = $derived(organization ? null : data.invitationInbox);
   const invitationPage = $derived(page.data.invitationPage !== undefined && (organization !== null || inbox !== null));
   const notFound = $derived(data.failure?.status === 404 && data.failure.code === 'not_found');
@@ -65,8 +70,7 @@
     if (organization) applyOrganization(organization);
   });
 
-  // 切り替えは、入れる組織の一覧が読めたときに出す。入れる組織が1つで招待が無い人も、ここから「組織を作る」と「自分用を作る」を開く
-  // （その人は / を開くとこの組織へ移り、組織の選択の画面に届かない）。
+  // 切り替えは、入れる組織の一覧が読めたときに出す。組織の数によらずダッシュボードへ戻り、作成のダイアログも開ける。
   // ダイアログは、メニューを閉じても残るよう、切り替えの外（枠）に置く
   const switcherOrganizations = $derived(data.organizations !== null ? data.organizations.organizations : null);
   // 「自分用を作る」も同じ理由でここが入口になる。入れる組織にも停止した組織にも自分用が無い人にだけ出す
@@ -115,12 +119,34 @@
     {/if}
     <AccountMenu
       userId={organization.me.id}
+      image={organization.me.avatar_url}
       name={organization.me.name}
       isAdmin={organization.me.is_admin}
       level={organization.me.level}
       slug={data.slug}
-      invitationCount={data.invitationCount}
-    />
+      invitationCount={invitations.count ?? 0}
+      invitationState={invitations.loading ? 'loading' : invitations.count === null ? 'failed' : 'ready'}
+    >
+      {#snippet invitationStatus()}
+        {#if invitations.loading || invitations.count === null}
+          <li class="account-menu-status" data-invitation-status>
+            {#if invitations.loading}
+              <span role="status">{t('invitationCountLoading')}</span>
+            {:else}
+              <span role="alert">{t('invitationCountFailed')}</span>
+            {/if}
+            {#if !invitations.loading || invitations.retrying}
+              <button
+                class="btn is-sm"
+                type="button"
+                aria-disabled={invitations.loading}
+                onclick={() => invitations.retry()}>{t(invitations.loading ? 'retrying' : 'retry')}</button
+              >
+            {/if}
+          </li>
+        {/if}
+      {/snippet}
+    </AccountMenu>
   {/snippet}
   {#snippet workspaceSwitcher()}
     {#if navigationWorkspace}

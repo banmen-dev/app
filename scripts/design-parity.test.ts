@@ -5,6 +5,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, test } from 'node:test';
 import vm from 'node:vm';
+import ts from 'typescript';
 import { artViewBox, arts } from '../src/lib/art.ts';
 import { iconViewBox, icons } from '../src/lib/icons.ts';
 import { themeLabelKeys, themeNoteKeys, themes } from '../src/shared/theme.ts';
@@ -102,9 +103,17 @@ describe('見本との照合', () => {
         assert.match(source, wrapper);
         for (const image of readElements(source, 'img')) {
           assert.equal(image.alt, '');
-          const png = readFileSync(new URL(`../design/${image.src}`, import.meta.url));
-          assert.equal(Number(image.width), png.readUInt32BE(16));
-          assert.equal(Number(image.height), png.readUInt32BE(20));
+          const data = readFileSync(new URL(`../design/${image.src}`, import.meta.url));
+          if (image.src.endsWith('.webp')) {
+            // 可逆 WebP（VP8L）の寸法。幅・高さは14ビットずつ、値は寸法-1。
+            assert.equal(data.toString('ascii', 12, 16), 'VP8L');
+            const dimensions = data.readUInt32LE(21);
+            assert.equal(Number(image.width), (dimensions & 0x3fff) + 1);
+            assert.equal(Number(image.height), ((dimensions >>> 14) & 0x3fff) + 1);
+          } else {
+            assert.equal(Number(image.width), data.readUInt32BE(16));
+            assert.equal(Number(image.height), data.readUInt32BE(20));
+          }
         }
       }
     });
@@ -221,6 +230,25 @@ describe('見本との照合', () => {
     for (const name of names) assert.ok(name in arts, `${name} は線画の定義に無い`);
   });
 
+  test('見本の HTML の t・label・title が直接参照する billing の辞書キーは、見本と本番の両方に存在する', () => {
+    const design = readKitDictionary();
+    const production: Record<string, string | undefined> = dictionary;
+    const references = readdirSync(new URL('../design/', import.meta.url))
+      .filter((file) => file.endsWith('.html'))
+      .flatMap((file) =>
+        [...read(file).matchAll(/\b(?:t|label|title)\(\s*(['"])(billing[A-Z][A-Za-z0-9]*)\1/g)].map(([, , key]) => ({
+          file,
+          key,
+        })),
+      );
+    assert.ok(references.length > 0, '見本の HTML に請求の辞書キーが見つからない');
+    for (const { file, key } of references) {
+      assert.ok(Object.hasOwn(design, key), `${file}: ${key} が見本の DICT に無い`);
+      assert.ok(Object.hasOwn(production, key), `${file}: ${key} が本番の辞書に無い`);
+      assert.equal(design[key], production[key], `${file}: ${key} の文言`);
+    }
+  });
+
   test('言葉の辞書は、見本の DICT の全キーについて、言葉が同じ', () => {
     const design = readKitDictionary();
     const keys = Object.keys(design);
@@ -252,4 +280,82 @@ describe('見本との照合', () => {
       assert.notEqual(text, '', key);
     }
   });
+});
+
+test('組織作成のslug入力を、プラン変更の送信クリックとして扱わない', () => {
+  const source = read('kit.js');
+  const createDialog = source.slice(
+    source.indexOf('    createPersonalOrganization:'),
+    source.indexOf('    organizationCreated:'),
+  );
+  const slugId = /<label[^>]*for="([^"]+)"[^>]*>URL の名前（slug）/.exec(createDialog)?.[1];
+  const planDialog = source.slice(source.indexOf('    changePlan:'), source.indexOf('    suspendOrganization:'));
+  const submitId = /<button[^>]*id="([^"]+)"/.exec(planDialog)?.[1];
+  assert.ok(slugId, '組織作成のslug入力が見つからない');
+  assert.ok(submitId, 'プラン変更の送信ボタンが見つからない');
+  assert.notEqual(submitId, slugId, 'slug入力のクリックがプラン変更の送信に誤って入る');
+  assert.ok(source.includes(`ev.target.closest("#${submitId}")`), 'クリックの振り分けはプラン送信ボタンを指す');
+  const sendingText = /submit\.textContent = "([^"]+)"/.exec(
+    source.slice(source.indexOf(`ev.target.closest("#${submitId}")`)),
+  )?.[1];
+  assert.equal(sendingText, dictionary.operatorChanging, '送信中の文言は本番と同じ');
+});
+
+test('スプリントの見本の開始と削除は、名前なしでも期間を重ねない', () => {
+  const source = read('kit.js');
+  const ast = ts.createSourceFile('kit.js', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
+  function findNode(predicate: (node: ts.Node) => boolean): ts.Node {
+    let found: ts.Node | undefined;
+    function visit(node: ts.Node) {
+      if (found) return;
+      if (predicate(node)) found = node;
+      else ts.forEachChild(node, visit);
+    }
+    visit(ast);
+    assert.ok(found, 'kit.js に検証対象の構文が見つからない');
+    return found;
+  }
+  const labels = ['sprintLabel', 'sprintLabelWithPeriod']
+    .map((name) => {
+      const node = findNode((node) => ts.isFunctionDeclaration(node) && node.name?.text === name);
+      return node.getText(ast);
+    })
+    .join('\n');
+  function dialogBody(name: string): string {
+    const property = findNode((node) => ts.isPropertyAssignment(node) && node.name.getText(ast) === name);
+    let body: ts.Expression | undefined;
+    function visit(node: ts.Node) {
+      if (ts.isCallExpression(node) && node.expression.getText(ast) === 'openDialog') body = node.arguments[1];
+      else ts.forEachChild(node, visit);
+    }
+    visit(property);
+    assert.ok(body, `${name} の openDialog 本文が見つからない`);
+    return body.getText(ast);
+  }
+  for (const name of [null, 'スプリント 12']) {
+    const sprint = { name, start: '2099-01-04', end: '2099-01-17' };
+    const context = vm.createContext({
+      D: { sprints: { sp15: sprint, sp16: sprint } },
+      md: (value: string) => `${Number(value.slice(5, 7))}/${Number(value.slice(8))}`,
+      t: (key: string) => ({ sprint: 'スプリント', task: 'タスク' })[key],
+      esc: (value: string) => value,
+    });
+    vm.runInContext(labels, context);
+    for (const [dialog, action] of [
+      ['deleteSprint', '削除します'],
+      ['sprintStart', '始めます'],
+    ]) {
+      const html = /<p>(.*?)<\/p>/s.exec(dialogBody(dialog))?.[1];
+      assert.ok(html, `${dialog} の冒頭が見つからない`);
+      const rendered = vm.runInContext('`' + html + '`', context) as string;
+      const label = name === null ? '1/4〜1/17' : `${name}（1/4〜1/17）`;
+      assert.ok(rendered.startsWith(`スプリント「${label}」を${action}`), rendered);
+    }
+    const closing = dialogBody('sprintEnd');
+    const carry = /<b>([^<]*へ持ち越す)<\/b>/s.exec(closing)?.[1];
+    assert.ok(carry, 'sprintEnd の持ち越し先が見つからない');
+    const renderedCarry = vm.runInContext('`' + carry + '`', context) as string;
+    const label = name === null ? '1/4〜1/17' : `${name}（1/4〜1/17）`;
+    assert.equal(renderedCarry, `スプリント「${label}」へ持ち越す`);
+  }
 });

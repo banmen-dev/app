@@ -22,7 +22,7 @@
   import { focusPageHeading } from '../../../../../lib/focus-heading.ts';
   import { isUnauthenticated, loginUrl } from '../../../../../lib/login-redirect.ts';
   import { formatPoints, isOverVelocity } from '../../../../../lib/plan-summary.ts';
-  import { sprintLabel, sprintPeriod } from '../../../../../lib/sprint-label.ts';
+  import { sprintLabel, sprintLabelWithPeriod, sprintPeriod } from '../../../../../lib/sprint-label.ts';
   import { trackTaskOrder } from '../../../../../lib/task-order.ts';
   import { showToast } from '../../../../../lib/toast.svelte.ts';
   import { t } from '../../../../../lib/vocabulary.svelte.ts';
@@ -364,10 +364,6 @@
               {#if lane !== undefined && lane.unestimated_count > 0}
                 <span data-lane-unestimated>{t('planUnestimated', { count: lane.unestimated_count })}</span>
               {/if}
-              <!-- 入っている完了していないタスクのうち、決まった欄が未記入のもの（入れる操作は止めない） -->
-              {#if lane !== undefined && lane.unfilled_count > 0}
-                <span data-lane-unfilled>{t('planUnfilled', { detail: t('detail'), count: lane.unfilled_count })}</span>
-              {/if}
             </div>
             {#if isOverdue(sprint)}
               <SprintOverdueNotice
@@ -411,7 +407,7 @@
                       class="hanko"
                       role="img"
                       aria-label={t('doneMarkLabel', { title: task.title, done: t('done') })}
-                      ><Icon name="check" /><b>{t('doneStamp')}</b></span
+                      ><Icon name="check" /></span
                     >
                   {/if}
                   {#if task.assignee === null}
@@ -442,7 +438,11 @@
                 class="btn is-sm"
                 type="button"
                 data-sprint-add={sprint.id}
-                aria-label={t('sprintTaskAddOpenLabel', { backlog: t('backlog'), label: labelOf(sprint) })}
+                aria-label={t('sprintTaskAddOpenLabel', {
+                  sprint: t('sprint'),
+                  backlog: t('backlog'),
+                  label: labelOf(sprint),
+                })}
                 onclick={(event) => openPicker(event, sprint)}
                 ><Icon name="plus" />{t('sprintTaskAddOpen', { backlog: t('backlog') })}</button
               >
@@ -452,7 +452,7 @@
                 <button
                   class="btn is-sm is-primary"
                   type="button"
-                  aria-label={t('sprintStartLabel', { label: labelOf(sprint) })}
+                  aria-label={t('sprintStartLabel', { sprint: t('sprint'), label: labelOf(sprint) })}
                   aria-disabled={deleting}
                   onclick={(event) => !deleting && openStart(event, sprint)}
                   ><Icon name="play" />{t('sprintStartAction')}</button
@@ -460,7 +460,7 @@
                 <button
                   class="btn is-sm"
                   type="button"
-                  aria-label={t('sprintEditLabel', { label: labelOf(sprint) })}
+                  aria-label={t('sprintEditLabel', { sprint: t('sprint'), label: labelOf(sprint) })}
                   aria-disabled={deleting}
                   onclick={(event) => !deleting && openEdit(event, sprint)}
                   ><Icon name="pen" />{t('sprintEditAction')}</button
@@ -468,7 +468,7 @@
                 <button
                   class="btn is-sm is-quiet is-danger"
                   type="button"
-                  aria-label={t('sprintDeleteLabel', { label: labelOf(sprint) })}
+                  aria-label={t('sprintDeleteLabel', { sprint: t('sprint'), label: labelOf(sprint) })}
                   aria-disabled={deleting}
                   onclick={(event) => void remove(event, sprint)}><Icon name="trash" />{t('sprintDeleteAction')}</button
                 >
@@ -509,7 +509,7 @@
     danger
   >
     {#if deleteTarget !== null}
-      <p>{t('sprintDeleteText', { label: labelOf(deleteTarget), period: periodOf(deleteTarget) })}</p>
+      <p>{t('sprintDeleteText', { sprint: t('sprint'), label: sprintLabelWithPeriod(deleteTarget, t) })}</p>
     {/if}
   </ConfirmDialog>
 {/if}

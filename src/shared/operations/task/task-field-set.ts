@@ -14,7 +14,7 @@ export function taskFieldConflictReasonOf(details: unknown): TaskFieldConflictRe
   return conflictReasonOf(details, taskFieldConflictReasons);
 }
 
-// 引き出しが出す、決まった欄1つ。value_md は書かれていなければ null（未記入）
+// 引き出しが出す、決まった欄1つ。value_md は書かれていなければ null
 export const taskFieldValueSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -30,12 +30,12 @@ export type TaskFieldValue = z.output<typeof taskFieldValueSchema>;
 // 変更の履歴は entity_type = 'task'、action = 'update'、{"field": [前, 後]}。前後は欄の {id, name}（その欄に値があった／あるとき）か null
 // （無かった／無くなる）だけで、値の全文は入れない。
 // 無いタスク・削除した欄（別の組織・別のワークスペース・削除済みを含む）は 404。閉じたワークスペースは 409 の workspace_closed。
-// 返すのは、書いた後の欄と、そのタスクが未記入か（完了していないバックログのタスクで、削除していない欄に値の行が無いものがあるとき真）。
+// 返すのは、書いた後の欄。
 // 書く文が0行だったとき、読み直した今の値がすでに書こうとした値（空にするなら行なし）なら、成功した書き込みの再送として 409 にせず 200 で今の値を返す（履歴は残さない）
 export const taskFieldSet = defineOperation({
   name: 'task-field-set',
   description:
-    'タスクの決まった欄に値を書く。空にすると未記入に戻る。読んだ値のままなら書き、違えば 409（changed）で断る。履歴には欄の名前だけを残す',
+    'タスクの決まった欄に値を書く。空にすると値の行を消す。読んだ値のままなら書き、違えば 409（changed）で断る。履歴には欄の名前だけを残す',
   mode: 'write',
   permission: 'member',
   workspace: true,
@@ -47,5 +47,5 @@ export const taskFieldSet = defineOperation({
     value_md: longTextSchema,
     read_md: longTextSchema,
   }),
-  output: z.object({ field: taskFieldValueSchema, unfilled: z.boolean() }),
+  output: z.object({ field: taskFieldValueSchema }),
 });

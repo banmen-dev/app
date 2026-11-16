@@ -1,0 +1,18 @@
+[
+  {
+    "entry": "@media (max-width: 760px), (pointer: coarse) | .row-check | margin-inline: -6px",
+    "reason": "docs/design.md「余白の刻み」「狭い幅と押せる範囲を機械で確かめる」: 44px のラベルを左右6pxずつ戻して元の32pxの列に収める。"
+  },
+  {
+    "entry": "@media (max-width: 760px), (pointer: coarse) | .order-list .order-actions | gap: 14px",
+    "reason": "docs/design.md「余白の刻み」「狭い幅と押せる範囲を機械で確かめる」: 30px のボタンの中心間を44pxにする。"
+  },
+  {
+    "entry": "@media (max-width: 760px), (pointer: coarse) | .entry-end, .card-foot | row-gap: 18px",
+    "reason": "docs/design.md「余白の刻み」「狭い幅と押せる範囲を機械で確かめる」: 折り返す小さな操作の44pxの範囲を上下で重ねない。"
+  },
+  {
+    "entry": "@media (max-width: 760px), (pointer: coarse) | .entry:not(:has(.entry-meta)):has(.chip-btn) | row-gap: 22px",
+    "reason": "docs/design.md「余白の刻み」「狭い幅と押せる範囲を機械で確かめる」: 題とチップの広げた範囲（それぞれ約11px）を重ねない。"
+  }
+]

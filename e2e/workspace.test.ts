@@ -1,12 +1,18 @@
 // ワークスペースの作成、組織の管理の画面、ワークスペースの枠。seed のセッション（seed/sessions.ts）の Cookie で開く。
 // あおば開発の管理者はミナト、一般のユーザーはハルカ。ひばり工房のワークスペースの ID は seed/data.sql の値
 import type { Page } from '@playwright/test';
-import { firstSteps } from '../src/shared/operations/organization/index.ts';
-import { workspaceCreate } from '../src/shared/operations/workspace/index.ts';
+import { operationPath } from '../src/shared/operations/define.ts';
+import { firstSteps, organizationInfo } from '../src/shared/operations/organization/index.ts';
+import {
+  workspaceCreate,
+  workspaceInfo,
+  workspaceLeaderCandidates,
+  workspaceList,
+} from '../src/shared/operations/workspace/index.ts';
 import type { FirstStep } from '../src/shared/operations/organization/first-steps.ts';
 import { expect, test } from './fixtures.ts';
 import { expectFocusReturned, signIn, watchViolations } from './helpers.ts';
-import { failOperation, mockOperation } from './operations.ts';
+import { failOperation, mockOperation, routeOperation } from './operations.ts';
 
 // この回の印。作る行の名前に混ぜる（作ったワークスペースは消せずに残るので、繰り返しとやり直しの回で名前を分ける）
 function runMark(): string {
@@ -70,7 +76,15 @@ test.describe('管理者（あおば開発のミナト）', () => {
     await expect(dialog.getByRole('radio')).toHaveCount(0);
     await expect(dialog.getByText('言葉づかい')).toHaveCount(0);
     await dialog.getByLabel('名前').fill('  保守チーム  ');
+    const createdResponse = page.waitForResponse(
+      (response) => new URL(response.url()).pathname === operationPath(workspaceCreate, 'aoba'),
+    );
     await dialog.getByRole('button', { name: '作る' }).click();
+    const created = await createdResponse;
+    expect(created.ok()).toBe(true);
+    const createdBody = (await created.json()) as { workspace_id: string };
+    expect(createdBody).not.toHaveProperty('vocabulary');
+    expect(createdBody.workspace_id).toEqual(expect.any(String));
 
     // 閉じずに、同じダイアログが完了の表示に替わる。作った名前（前後の空白は除く）が読め、移らない。トーストは出さない
     const done = page.getByRole('dialog', { name: 'ワークスペースを作りました' });
@@ -82,7 +96,17 @@ test.describe('管理者（あおば開発のミナト）', () => {
     await expect(done.getByLabel('名前')).toHaveCount(0);
     await expect(page).toHaveURL(/\/aoba\/admin$/);
     await expect(page.locator('.toast')).toHaveCount(0);
+    const workspaceResponse = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === operationPath(workspaceInfo, 'aoba') &&
+        response.request().method() === 'POST' &&
+        response.request().postDataJSON()?.workspace_id === createdBody.workspace_id,
+    );
     await done.getByRole('button', { name: '開く' }).click();
+    const workspace = await workspaceResponse;
+    expect(workspace.ok()).toBe(true);
+    // 新規作成の保存値を画面へ渡さず、スクラムの言葉で表示する。
+    expect(await workspace.json()).not.toHaveProperty('vocabulary');
 
     await expect(page).toHaveURL(/\/aoba\/w\/[0-9a-f-]{36}$/);
     await expect(done).toBeHidden();
@@ -338,9 +362,9 @@ test.describe('管理者（あおば開発のミナト）', () => {
 
   test('名前が空か51字以上だと、送らずに知らせる', async ({ page }) => {
     let requests = 0;
-    await page.route('**/api/aoba/workspace-create', (route) => {
+    await routeOperation(page, workspaceCreate, { slug: 'aoba' }, (call) => {
       requests++;
-      return route.continue();
+      return call.passThrough();
     });
     await page.goto('/aoba/admin');
     await page.getByRole('button', { name: 'ワークスペースを作る' }).first().click();
@@ -373,10 +397,10 @@ test.describe('管理者（あおば開発のミナト）', () => {
     page,
   }) => {
     let requests = 0;
-    await page.route('**/api/aoba/workspace-create', async (route) => {
+    await routeOperation(page, workspaceCreate, { slug: 'aoba' }, async (call) => {
       requests++;
       await new Promise((resolve) => setTimeout(resolve, 1200));
-      await route.continue();
+      await call.passThrough();
     });
     await page.goto('/aoba/admin');
     await page.getByRole('button', { name: 'ワークスペースを作る' }).first().click();
@@ -418,9 +442,9 @@ test.describe('管理者（あおば開発のミナト）', () => {
   });
 
   test('送っている間に別の画面へ移ったら、古い応答では移り直さない', async ({ page }) => {
-    await page.route('**/api/aoba/workspace-create', async (route) => {
+    await routeOperation(page, workspaceCreate, { slug: 'aoba' }, async (call) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      await route.continue();
+      await call.passThrough();
     });
     await page.goto('/aoba');
     await page.getByRole('button', { name: /アカウントのメニュー$/ }).click();
@@ -441,11 +465,11 @@ test.describe('管理者（あおば開発のミナト）', () => {
 
   test('候補を読み込めないときは知らせ、「もう一度試す」は読み直している間も残り、直ったら作れる', async ({ page }) => {
     let calls = 0;
-    await page.route('**/api/aoba/workspace-leader-candidates', async (route) => {
+    await routeOperation(page, workspaceLeaderCandidates, { slug: 'aoba' }, async (call) => {
       calls++;
-      if (calls === 1) return route.fulfill({ status: 500, json: { error: { code: 'internal', message: 'x' } } });
+      if (calls === 1) return call.fail(500, 'internal', { message: 'x' });
       await new Promise((resolve) => setTimeout(resolve, 600));
-      return route.continue();
+      return call.passThrough();
     });
     await page.goto('/aoba/admin');
     await page.getByRole('button', { name: 'ワークスペースを作る' }).first().click();
@@ -471,9 +495,7 @@ test.describe('管理者（あおば開発のミナト）', () => {
   });
 
   test('候補を読み込めないときの欄は、理由の文を二重に出さない', async ({ page }) => {
-    await page.route('**/api/aoba/workspace-leader-candidates', (route) =>
-      route.fulfill({ status: 500, json: { error: { code: 'internal', message: 'x' } } }),
-    );
+    await failOperation(page, workspaceLeaderCandidates, { slug: 'aoba' }, 500, 'internal', { message: 'x' });
     await page.goto('/aoba/admin');
     await page.getByRole('button', { name: 'ワークスペースを作る' }).first().click();
     const dialog = page.getByRole('dialog', { name: 'ワークスペースを作る' });
@@ -487,13 +509,13 @@ test.describe('管理者（あおば開発のミナト）', () => {
   }) => {
     let created = false;
     let organizationReads = 0;
-    await page.route('**/api/aoba/workspace-create', async (route) => {
-      await route.continue();
+    await routeOperation(page, workspaceCreate, { slug: 'aoba' }, async (call) => {
+      await call.passThrough();
       created = true;
     });
-    await page.route('**/api/aoba/organization', async (route) => {
+    await routeOperation(page, organizationInfo, { slug: 'aoba' }, async (call) => {
       if (created) organizationReads++;
-      return route.continue();
+      return call.passThrough();
     });
     await page.goto('/aoba/admin');
     await page.getByRole('button', { name: 'ワークスペースを作る' }).first().click();
@@ -530,13 +552,13 @@ test.describe('管理者（あおば開発のミナト）', () => {
   test('「開く」で作ったワークスペースへ移り、組織の枠も読み直される', async ({ page }) => {
     let created = false;
     let organizationReads = 0;
-    await page.route('**/api/aoba/workspace-create', async (route) => {
-      await route.continue();
+    await routeOperation(page, workspaceCreate, { slug: 'aoba' }, async (call) => {
+      await call.passThrough();
       created = true;
     });
-    await page.route('**/api/aoba/organization', async (route) => {
+    await routeOperation(page, organizationInfo, { slug: 'aoba' }, async (call) => {
       if (created) organizationReads++;
-      return route.continue();
+      return call.passThrough();
     });
     await page.goto('/aoba/admin');
     await page.getByRole('button', { name: 'ワークスペースを作る' }).first().click();
@@ -559,13 +581,11 @@ test.describe('管理者（あおば開発のミナト）', () => {
 
   test('選んだ最初のリーダーが指せなくなっていて 404 になったら、選び直しを促し、候補を取り直す', async ({ page }) => {
     let candidateCalls = 0;
-    await page.route('**/api/aoba/workspace-leader-candidates', (route) => {
+    await routeOperation(page, workspaceLeaderCandidates, { slug: 'aoba' }, (call) => {
       candidateCalls++;
-      return route.continue();
+      return call.passThrough();
     });
-    await page.route('**/api/aoba/workspace-create', (route) =>
-      route.fulfill({ status: 404, json: { error: { code: 'not_found', message: 'x' } } }),
-    );
+    await failOperation(page, workspaceCreate, { slug: 'aoba' }, 404, 'not_found', { message: 'x' });
     await page.goto('/aoba/admin');
     await page.getByRole('button', { name: 'ワークスペースを作る' }).first().click();
     const dialog = page.getByRole('dialog', { name: 'ワークスペースを作る' });
@@ -583,18 +603,10 @@ test.describe('管理者（あおば開発のミナト）', () => {
   });
 
   test('ブラウザのタイムゾーンが断られたら、直せない理由を伝える', async ({ page }) => {
-    await page.route('**/api/aoba/workspace-create', (route) =>
-      route.fulfill({
-        status: 400,
-        json: {
-          error: {
-            code: 'invalid_input',
-            message: 'x',
-            details: [{ path: 'timezone', code: 'custom', message: 'x' }],
-          },
-        },
-      }),
-    );
+    await failOperation(page, workspaceCreate, { slug: 'aoba' }, 400, 'invalid_input', {
+      message: 'x',
+      details: [{ path: 'timezone', code: 'custom', message: 'x' }],
+    });
     await page.goto('/aoba/admin');
     await page.getByRole('button', { name: 'ワークスペースを作る' }).first().click();
     const dialog = page.getByRole('dialog', { name: 'ワークスペースを作る' });
@@ -607,26 +619,16 @@ test.describe('管理者（あおば開発のミナト）', () => {
   test('組織の管理の一覧を読むときにセッションが切れていたら（401）、今のパスを return_to に入れてログインへ移す', async ({
     page,
   }) => {
-    await page.route('**/api/aoba/workspace-list', (route) =>
-      route.fulfill({ status: 401, json: { error: { code: 'unauthenticated', message: 'x' } } }),
-    );
+    await failOperation(page, workspaceList, { slug: 'aoba' }, 401, 'unauthenticated', { message: 'x' });
     await page.goto('/aoba/admin');
     await expect(page).toHaveURL(/\/login\?return_to=%2Faoba%2Fadmin$/);
   });
 
   test('サーバーが名前を断ったら、送り終えて欄が戻った後に、名前の欄へフォーカスを戻す', async ({ page }) => {
-    await page.route('**/api/aoba/workspace-create', (route) =>
-      route.fulfill({
-        status: 400,
-        json: {
-          error: {
-            code: 'invalid_input',
-            message: 'x',
-            details: [{ path: 'name', code: 'custom', message: 'x' }],
-          },
-        },
-      }),
-    );
+    await failOperation(page, workspaceCreate, { slug: 'aoba' }, 400, 'invalid_input', {
+      message: 'x',
+      details: [{ path: 'name', code: 'custom', message: 'x' }],
+    });
     await page.goto('/aoba/admin');
     await page.getByRole('button', { name: 'ワークスペースを作る' }).first().click();
     const dialog = page.getByRole('dialog', { name: 'ワークスペースを作る' });
@@ -651,9 +653,7 @@ test.describe('管理者（あおば開発のミナト）', () => {
   test('入れないワークスペース（403）は、「もう一度試す」を出さず、入れない案内と今日やることへ戻るリンクを出す', async ({
     page,
   }) => {
-    await page.route('**/api/aoba/workspace', (route) =>
-      route.fulfill({ status: 403, json: { error: { code: 'forbidden', message: 'x' } } }),
-    );
+    await failOperation(page, workspaceInfo, { slug: 'aoba' }, 403, 'forbidden', { message: 'x' });
     await page.goto('/aoba/w/019a0000-0000-7000-8000-000000000401');
     await expect(page.getByRole('heading', { level: 1, name: 'ワークスペースが見つかりません' })).toBeVisible();
     await expect(page.getByText('URL が違うか、入れないワークスペースです。')).toBeVisible();
@@ -663,11 +663,10 @@ test.describe('管理者（あおば開発のミナト）', () => {
   });
 
   test('応答に vocabulary が混ざっても、最初の描画からスクラムの言葉で出る', async ({ page }) => {
-    await page.route('**/api/aoba/workspace', async (route) => {
-      const response = await route.fetch();
-      const body = (await response.json()) as { vocabulary?: string };
-      body.vocabulary = 'game';
-      await route.fulfill({ response, json: body });
+    // 定義に無い vocabulary を意図的に混ぜるため、出力検証を通さず生の route で返す。
+    await routeOperation(page, workspaceInfo, { slug: 'aoba' }, async (call) => {
+      const body = await call.fetch();
+      await call.route.fulfill({ json: { ...body, vocabulary: 'game' } });
     });
     // 描画のたびに、ワークスペースの節の見出しの文字を集める。ゲームの用語（パーティ）が一度も出ない
     await page.addInitScript(() => {

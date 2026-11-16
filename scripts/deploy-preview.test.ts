@@ -1,0 +1,157 @@
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { test } from 'node:test';
+import ts from 'typescript';
+import { openPreviewBranches, publishPreview } from './deploy-preview.ts';
+import { previewConfig, PRODUCTION_DATABASE_ID } from './preview-config.ts';
+
+const SHA = 'a'.repeat(40);
+const DB = { name: 'scrum-guild-pr-374', uuid: '11111111-1111-4111-8111-111111111111' };
+
+test('ランタイムと資産・bindingの共通設定は本番とずれない', () => {
+  const text = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
+  const parsed = ts.parseConfigFileTextToJson('wrangler.jsonc', text);
+  assert.equal(parsed.error, undefined);
+  const production = parsed.config as ReturnType<typeof previewConfig>;
+  const preview = previewConfig('374', DB, SHA, '/workspace/app');
+  assert.deepEqual(
+    Object.keys(preview).sort(),
+    Object.keys(production)
+      .filter((key) => key !== '$schema')
+      .sort(),
+  );
+  assert.equal(preview.compatibility_date, production.compatibility_date);
+  assert.equal(preview.send_metrics, production.send_metrics);
+  assert.equal(preview.main, `/workspace/app/${production.main}`);
+  assert.equal(preview.assets.directory, path.resolve('/workspace/app', production.assets.directory));
+  assert.deepEqual(preview.assets, { ...production.assets, directory: preview.assets.directory });
+  assert.equal(preview.d1_databases[0].binding, production.d1_databases[0].binding);
+  assert.equal(preview.d1_databases.length, production.d1_databases.length);
+  assert.equal(preview.d1_databases[0].migrations_dir, `/workspace/app/${production.d1_databases[0].migrations_dir}`);
+  assert.equal(preview.r2_buckets[0].binding, production.r2_buckets[0].binding);
+  assert.equal(preview.r2_buckets.length, production.r2_buckets.length);
+  assert.deepEqual(preview.observability, production.observability);
+});
+
+test('拒否する本番IDは本番の設定と一致する', () => {
+  const production = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
+  const ids = [...production.matchAll(/"database_id"\s*:\s*"([^"]+)"/g)].map((match) => match[1]);
+  assert.deepEqual(ids, [PRODUCTION_DATABASE_ID]);
+});
+
+test('設定は本番の binding を持たず、cron と呼び出しログを無効にする', () => {
+  const config = previewConfig('374', DB, SHA, '/workspace/app');
+  assert.equal(config.name, 'scrum-guild-preview');
+  assert.equal(config.vars.PUBLIC_ORIGIN, 'https://pr-374-scrum-guild-preview.ucan-lab.workers.dev');
+  assert.equal(config.vars.APP_VERSION, SHA);
+  assert.equal(config.vars.OPERATOR_LOGIN_IDS, 'github:9000000000000001');
+  assert.deepEqual(config.d1_databases, [
+    { binding: 'DB', database_name: DB.name, database_id: DB.uuid, migrations_dir: '/workspace/app/migrations' },
+  ]);
+  assert.deepEqual(config.r2_buckets, [{ binding: 'ATTACHMENTS', bucket_name: 'scrum-guild-preview-attachments' }]);
+  assert.deepEqual(config.vars, {
+    APP_VERSION: SHA,
+    PUBLIC_ORIGIN: 'https://pr-374-scrum-guild-preview.ucan-lab.workers.dev',
+    OPERATOR_LOGIN_IDS: 'github:9000000000000001',
+  });
+  assert.equal(config.workers_dev, true);
+  assert.deepEqual(config.triggers.crons, []);
+  assert.equal(config.observability.logs.invocation_logs, false);
+  assert.equal(config.preview_urls, true);
+});
+
+test('設定生成は本番・別番号のDBと不正な版や番号を拒否する', () => {
+  for (const [number, database, sha] of [
+    ['374', { ...DB, uuid: PRODUCTION_DATABASE_ID }, SHA],
+    ['374', { ...DB, name: 'scrum-guild' }, SHA],
+    ['275', DB, SHA],
+    ['374\n', { ...DB, name: 'scrum-guild-pr-374\n' }, SHA],
+    ['374', DB, SHA + '\n'],
+    ['374', { ...DB, uuid: DB.uuid + '\n' }, SHA],
+  ] as const)
+    assert.throws(() => previewConfig(number, database, sha, '/workspace/app'));
+});
+
+test('公開前に新規D1へ全マイグレーションとseedを当て、プレビューaliasだけuploadする', () => {
+  const calls: string[][] = [];
+  let temporaryConfigFile = '';
+  const run: typeof spawnSync = ((command: string, args: string[]) => {
+    assert.ok(command.endsWith('/node_modules/.bin/wrangler'));
+    calls.push(args.slice(0, -2));
+    const configFile = args.at(-1)!;
+    temporaryConfigFile = configFile;
+    const config = JSON.parse(readFileSync(configFile, 'utf8'));
+    assert.equal(config.d1_databases[0].database_id, DB.uuid);
+    if (args[1] === 'execute') {
+      const sql = readFileSync(args[args.indexOf('--file') + 1], 'utf8');
+      assert.match(sql, /INSERT INTO sessions/);
+      assert.match(sql, /INSERT INTO accounts/);
+      assert.ok(!sql.includes('DELETE FROM'));
+    }
+    return { status: 0 };
+  }) as typeof spawnSync;
+  publishPreview({ number: '374', database: DB, commitSha: SHA }, run);
+  assert.deepEqual(calls[0], ['d1', 'migrations', 'apply', 'DB', '--remote']);
+  assert.deepEqual(calls[1].slice(0, 5), ['d1', 'execute', 'DB', '--remote', '--file']);
+  assert.deepEqual(calls[2], ['versions', 'upload', '--preview-alias', 'pr-374']);
+  assert.ok(!existsSync(temporaryConfigFile));
+});
+
+test('マイグレーション失敗後はseedやuploadをせず一時ファイルを片付ける', () => {
+  let calls = 0;
+  let configFile = '';
+  const run = ((_command: string, args: string[]) => {
+    calls++;
+    configFile = args.at(-1)!;
+    return { status: 1 };
+  }) as typeof spawnSync;
+  assert.throws(() => publishPreview({ number: '374', database: DB, commitSha: SHA }, run));
+  assert.equal(calls, 1);
+  assert.ok(!existsSync(configFile));
+});
+
+test('GitHubは全ページを取得し、forkのPRを生存中の根拠にしない', async () => {
+  const urls: string[] = [];
+  const branches = await openPreviewBranches(async (url) => {
+    urls.push(url);
+    const own = { head: { ref: '374-preview', repo: { full_name: 'scrum-guild-dev/app' } } };
+    return urls.length === 1
+      ? Array.from({ length: 100 }, () => own)
+      : [{ head: { ref: '275-x', repo: { full_name: 'someone/fork' } } }];
+  });
+  assert.equal(urls.length, 2);
+  assert.match(urls[1], /page=2$/);
+  assert.ok(branches.every((branch) => branch === '374-preview'));
+});
+
+test('削除済みforkは掃除を止めず、同じ番号の自リポジトリのPRだけ残す', async () => {
+  const branches = await openPreviewBranches(async () => [
+    { head: { ref: '275-task', repo: null } },
+    { head: { ref: '374-preview', repo: { full_name: 'scrum-guild-dev/app' } } },
+  ]);
+  assert.deepEqual(branches, ['374-preview']);
+});
+
+test('GitHubの欠落・不明な応答を空の一覧として扱わない', async () => {
+  for (const value of [
+    {},
+    [{ head: { ref: '374-preview' } }],
+    [{ head: { ref: '374-preview', repo: 1 } }],
+    [{ head: { ref: '374-preview', repo: {} } }],
+    [{ head: { ref: '374-preview', repo: { full_name: 1 } } }],
+  ]) {
+    await assert.rejects(openPreviewBranches(async () => value));
+  }
+});
+
+test('デプロイの入口はWorkers Buildsの外で失敗し、認証情報を出さない', () => {
+  const result = spawnSync(process.execPath, ['scripts/deploy-preview.ts'], {
+    encoding: 'utf8',
+    env: { ...process.env, WORKERS_CI: undefined },
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /プレビューの処理に失敗/);
+  assert.equal(result.stdout, '');
+});

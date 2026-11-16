@@ -3,11 +3,16 @@
 // 可変版の書体名も既存の共通トークンへそろえる。静的版を読む場合の woff 除去は互換のため残す。
 // vite.config.ts が Vite のプラグインとして読み、scripts/fontsource-woff2.test.ts が置き換えを確かめる。
 import type { Plugin } from 'vite';
+import { fileURLToPath } from 'node:url';
 
 const woffSource = /,\s*url\([^)]*\.woff\)\s*format\(['"]woff['"]\)/g;
 
 export function dropWoff(css: string): string {
   return css.replace(woffSource, '');
+}
+
+export function fontAssetUrl(file: string): string {
+  return `url(${JSON.stringify(file.replaceAll('\\', '/'))})`;
 }
 
 export function fontsourceWoff2Only(): Plugin {
@@ -20,10 +25,11 @@ export function fontsourceWoff2Only(): Plugin {
       if (!file.endsWith('.css')) return null;
       // 可変版も同じ書体名で使い、見本と共通のトークンを変えない。
       if (file.includes('/@fontsource-variable/noto-sans-jp/')) {
-        const normalized = code.replace(
-          /font-family:\s*(['"])Noto Sans JP Variable\1\s*;/g,
-          "font-family: 'Noto Sans JP';",
-        );
+        const normalized = code
+          .replace(/font-family:\s*(['"])Noto Sans JP Variable\1\s*;/g, "font-family: 'Noto Sans JP';")
+          .replace(/url\(\.\/files\/(noto-sans-jp-(?:10[9]|11[0-9]|latin)-wght-normal\.woff2)\)/g, (_, file: string) =>
+            fontAssetUrl(fileURLToPath(new URL(`../design/fonts/${file}`, import.meta.url))),
+          );
         const families = [...normalized.matchAll(/font-family:\s*([^;]+);/g)];
         if (families.length === 0 || families.some((family) => family[1] !== "'Noto Sans JP'")) {
           throw new Error('Noto Sans JP の書体名が変わりました。可変フォントの宣言を確認してください。');

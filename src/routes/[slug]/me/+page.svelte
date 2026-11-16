@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MeAvatarSetting from '../../../lib/components/MeAvatarSetting.svelte';
   import { tick } from 'svelte';
   import { page } from '$app/state';
   import { callOperation } from '../../../lib/api.ts';
@@ -228,11 +229,15 @@
   <div class="layout-main">
     {#if data.organization}
       <div class="settings">
-        <MeThemeSetting
-          {slug}
-          theme={data.organization.me.theme}
-          organizationTheme={data.organization.organization.theme}
-        />
+        {#key slug}
+          <MeAvatarSetting
+            {slug}
+            userId={data.organization.me.id}
+            name={data.organization.me.name}
+            image={data.organization.me.avatar_url}
+          />
+        {/key}
+        <MeThemeSetting {slug} theme={data.organization.me.theme} />
       </div>
     {/if}
   </div>

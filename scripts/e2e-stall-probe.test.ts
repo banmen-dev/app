@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import dns from 'node:dns';
+import { createServer } from 'node:http';
 import { describe, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import {
@@ -102,6 +104,64 @@ describe('isNotable', () => {
 });
 
 describe('startStallProbe', () => {
+  for (const origin of [
+    'http://127.0.0.1:9876',
+    'http://[::1]:9876',
+    'http://example.test:9876',
+    'http://localhost.:9876',
+    'http://foo.localhost:9876',
+  ]) {
+    test(`${origin} の接続先は置き換えない`, async () => {
+      const urls: string[] = [];
+      const probe = startStallProbe(
+        origin,
+        {
+          ...nodeProbeDeps,
+          fetch: async (url) => {
+            urls.push(url);
+            return ok(EXPECTED[new URL(url).pathname]);
+          },
+        },
+        { intervalMs: 60_000 },
+      );
+      await probe.stop();
+      assert.deepEqual(
+        urls,
+        PROBE_TARGETS.map(({ path }) => `${origin}${path}`),
+      );
+    });
+  }
+
+  test('localhost の計測は名前解決を通さず、同じポートの3経路に届く', async (t) => {
+    const paths: string[] = [];
+    const hosts: (string | undefined)[] = [];
+    const server = createServer((req, res) => {
+      paths.push(req.url!);
+      hosts.push(req.headers.host);
+      res.writeHead(EXPECTED[req.url!] ?? 500).end();
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => {
+      server.closeAllConnections();
+      return new Promise<void>((resolve) => server.close(() => resolve()));
+    });
+    // libuv の pool が詰まっても localhost の DNS を待たないことを、時間の閾値に頼らず確かめる。
+    t.mock.method(dns, 'lookup', () => {
+      throw new Error('計測で名前解決を呼ばない');
+    });
+    const address = server.address();
+    assert.ok(address && typeof address !== 'string');
+    const probe = startStallProbe(`http://localhost:${address.port}`, nodeProbeDeps, { intervalMs: 60_000 });
+    try {
+      await waitUntil(() => paths.length === 3);
+    } finally {
+      const report = await probe.stop();
+      assert.deepEqual(report.stalls, []);
+    }
+    assert.deepEqual(new Set(paths), new Set(PROBE_TARGETS.map(({ path }) => path)));
+    assert.deepEqual(new Set(hosts), new Set([`127.0.0.1:${address.port}`]));
+  });
+
   // 3 か所の問い合わせは並んで進み、偽の時計を共有すると互いの所要時間が混ざるので、実時間で、しきい値と止まりを大きく離して確かめる
   test('3 か所を問い合わせ続け、止まりを見つけた時点で知らせ、始めた時刻の順に返す', async () => {
     const calls: string[] = [];

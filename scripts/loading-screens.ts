@@ -8,31 +8,52 @@ const op = (name: string, input: Record<string, unknown> = {}, secondary = false
 });
 const ws = { workspace_id: loadingWorkspace };
 const w = (name: string, secondary = false) => op(name, ws, secondary);
-export type Screen = { route: string; operations: Reading[]; operator?: boolean; note?: string; after?: Reading[] };
+export type Screen = {
+  route: string;
+  operations: Reading[];
+  operator?: boolean;
+  note?: string;
+  after?: Reading[];
+  deferSecondary?: boolean;
+};
 // 通常の管理者の成功経路。条件分岐は行を分ける。レイアウトはページと分けて測る。
 export const screens: Screen[] = [
-  { route: '/', operations: [op('my-organizations', {}, false, true)] },
+  {
+    route: '/',
+    deferSecondary: true,
+    operations: [op('my-organizations', {}, false, true)],
+    after: [op('my-today', {}, true, true)],
+    note: '今日やることは面を描いてから読み、組織の入口の表示を待たせない。',
+  },
+  {
+    route: '/auth/billing',
+    operations: [op('my-billing-organizations', {}, false, true)],
+    after: [op('billing-admin-list', { slug: 'aoba' }, false, true)],
+    note: '担当組織を選択した経路。一覧取得後に担当者と履歴を取得する。',
+  },
   { route: '/auth/setup', operations: [op('onboarding-status', {}, false, true), op('me', {}, false, true)] },
   { route: '/operator', operator: true, operations: [op('list-organizations', {}, false, true)] },
   {
     route: '/[slug]/+layout',
+    deferSecondary: true,
     operations: [
+      op('token-notice', {}, true, true),
       op('organization'),
       op('my-organizations', {}, false, true),
-      op('token-notice', {}, true, true),
       op('favorite-list'),
     ],
   },
   {
     route: '/[slug]/+layout（招待あり）',
+    deferSecondary: true,
     operations: [
+      op('token-notice', {}, true, true),
       op('organization'),
       op('my-organizations', {}, false, true),
-      op('token-notice', {}, true, true),
       op('favorite-list'),
     ],
     after: [op('invitation-list', {}, true)],
-    note: '並列群の完了後に招待の件数を読む条件分岐を再現する。',
+    note: '主の群の完了後に招待件数を開始し、通知・件数の完了は枠の表示を待たせない。招待だけの人の一覧は主として待つ別経路。',
   },
   { route: '/[slug]', operations: [op('today'), op('first-steps', {}, true)] },
   { route: '/[slug]/admin', operations: [], note: 'parent() の権限確認だけ。節の部品の読み込みは load 外。' },
@@ -60,7 +81,7 @@ export const screens: Screen[] = [
   { route: '/[slug]/w/[id]/sprint', operations: [w('sprint-board')] },
   {
     route: '/[slug]/w/[id]/settings',
-    operations: [w('category-repository-list'), w('column-list'), w('detail-field-list')],
+    operations: [w('category-repository-list'), w('column-list'), w('detail-field-list'), w('sprint-list')],
     note: 'parent() 後の並列群。',
   },
   { route: '/[slug]/w/[id]/members', operations: [w('member-list')] },

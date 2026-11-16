@@ -11,17 +11,16 @@
   import Markdown from './Markdown.svelte';
 
   // タスクの詳細の引き出しの、決まった欄（design/kit.js の drawerHtml の「詳細」の field）。ワークスペースの決まった欄ごとに、
-  // 名前（リーダーが付けたまま。辞書を通さない）を見出しにして、値を Markdown で描く。書かれていなければ「まだ書かれていません。」と、
-  // 完了していないバックログのタスクだけ「未記入」の印（.chip.is-todo）を添える。書けるときは「編集」で AutoSaveEdit に替わる（本文と同じ操作）。
+  // 名前（リーダーが付けたまま。辞書を通さない）を見出しにして、値を Markdown で描く。書かれていなければ「まだ書かれていません。」を出す。
+  // 書けるときは「編集」で AutoSaveEdit に替わる（本文と同じ操作）。
   // 保存は task-field-set に、読んだ値（read_md。行が無ければ null）を添えて送る。読んだ値のままなら書かれ、同時に別の人が直していれば
   // 409 の changed で断られる。断られたら引き出しに読み直してもらい（onrefresh）、書きかけは残したまま、読み直した内容を見て決められる文を出す。
-  // 空にして保存すると行が消え、未記入に戻る。書きかけ（保存した値と違う入力中の欄）があるかは ondirty で引き出しに伝える
+  // 空にして保存すると行が消え、「まだ書かれていません。」に戻る。書きかけ（保存した値と違う入力中の欄）があるかは ondirty で引き出しに伝える
   let {
     slug,
     workspaceId,
     taskId,
     fields,
-    marksUnfilled,
     canWrite,
     onsaved,
     onrefresh,
@@ -33,8 +32,6 @@
     workspaceId: string;
     taskId: string;
     fields: readonly TaskFieldValue[];
-    // 値が無い欄に「未記入」の印を出すか。完了したタスクと、バックログでない（受信箱とアーカイブの）タスクには出さない
-    marksUnfilled: boolean;
     canWrite: boolean;
     // 書けた。応答の欄を引き出しの状態に入れ、変更の履歴と木を読み直してもらう
     onsaved: (field: TaskFieldValue) => void;
@@ -137,7 +134,6 @@
   <span class="field-label">
     <Icon name="pen" />
     {field.name}
-    {#if field.value_md === null && marksUnfilled}<span class="chip is-todo">{t('unfilledMark')}</span>{/if}
   </span>
 {/snippet}
 

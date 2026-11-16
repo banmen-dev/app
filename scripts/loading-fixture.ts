@@ -21,8 +21,8 @@ const sqlId = (prefix: string, kind: string, expr: string) =>
 function shapeSql(shape: Shape): string {
   const { workspaceId: ws, prefix } = shape;
   return `
-INSERT INTO workspaces (id, organization_id, name, timezone, vocabulary, created_by, created_at, updated_at) VALUES
-  ('${ws}', '${ORGANIZATION_ID}', '測る形 ${prefix}', 'Asia/Tokyo', 'scrum', '${ADMIN_USER_ID}', '${AT}', '${AT}');
+INSERT INTO workspaces (id, organization_id, name, timezone, created_by, created_at, updated_at) VALUES
+  ('${ws}', '${ORGANIZATION_ID}', '測る形 ${prefix}', 'Asia/Tokyo', '${ADMIN_USER_ID}', '${AT}', '${AT}');
 INSERT INTO memberships (id, workspace_id, user_id, role, joined_on, joined_at) VALUES
   ('${id(prefix, 1, 'm')}', '${ws}', '${ADMIN_USER_ID}', 'leader', '2026-10-01', '${AT}'),
   ('${id(prefix, 2, 'm')}', '${ws}', '${MEMBER_USER_ID}', 'member', '2026-10-01', '${AT}');
@@ -67,6 +67,10 @@ export function loadingFixtureSql(now = new Date()): string {
   return (
     shapeSql({ workspaceId: loadingWorkspace, prefix: '1', completedPerTen: 8 }) +
     `
+-- 専用の請求画面の成功経路だけに使う。通常seedの業務管理者に請求権限を自動付与しない。
+INSERT INTO billing_administrators (id, organization_id, account_id, status, invited_by, created_at, updated_at)
+  SELECT '${id('1', 1, 'd')}', '${ORGANIZATION_ID}', account_id, 'active', account_id, '${AT}', '${AT}'
+  FROM users WHERE id = '${ADMIN_USER_ID}' AND account_id IS NOT NULL;
 INSERT INTO board_columns (id, workspace_id, name, is_done, position, created_at, updated_at) VALUES
   ('${id('1', 1, 'b')}', '${loadingWorkspace}', '未着手', 0, 'a0', '${AT}', '${AT}'),
   ('${id('1', 2, 'b')}', '${loadingWorkspace}', '完了', 1, 'a1', '${AT}', '${AT}');

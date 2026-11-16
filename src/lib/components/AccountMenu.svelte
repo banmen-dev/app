@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick, type Snippet } from 'svelte';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { logoutState, performLogout } from '../logout-action.svelte.ts';
@@ -14,18 +15,24 @@
   // level は自分のレベル。名前（と管理者の印）の横に小さい紋章で出す（kit.js の accountMenuHtml と同じ並び）
   let {
     userId,
+    image = null,
     name,
     isAdmin,
     level,
     slug,
     invitationCount = 0,
+    invitationStatus,
+    invitationState = 'ready',
   }: {
     userId: string;
+    image?: string | null;
     name: string;
     isAdmin: boolean;
     level: number;
     slug: string;
     invitationCount?: number;
+    invitationStatus?: Snippet;
+    invitationState?: 'loading' | 'failed' | 'ready';
   } = $props();
 
   const profileHref = $derived(resolve('/[slug]/me', { slug }));
@@ -38,6 +45,18 @@
 
   // 読み上げの名前に、見た目にある管理者の印も含める
   const label = $derived(t('accountMenuLabel', { name: isAdmin ? `${name}（${t('admin')}）` : name }));
+
+  let profile = $state<HTMLAnchorElement>();
+  $effect.pre(() => {
+    // 再試行が成功して項目が消える前に、そこへ残ったフォーカスだけをプロフィールへ戻す。
+    if (invitationState !== 'ready') return;
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement && root?.contains(focused) && focused.closest('[data-invitation-status]')) {
+      void tick().then(() => {
+        if (document.activeElement === document.body || document.activeElement === focused) profile?.focus();
+      });
+    }
+  });
 
   function closeMenu(): void {
     // 隠れる要素にフォーカスがあるなら、ボタンへ戻す
@@ -75,7 +94,7 @@
     onclick={() => (open = !open)}
   >
     <span class="me">
-      <Avatar {userId} {name} />
+      <Avatar {userId} {name} {image} />
       <!-- 760px 以下では隠してアバターだけにする（読み上げの名前は aria-label に残る） -->
       <span class="me-detail"
         >{name}
@@ -90,7 +109,12 @@
   <span class="visually-hidden" role="status">{logoutState.busy ? t('logoutMoving') : ''}</span>
   <ul class="account-menu-list" id={listId} aria-label={label} hidden={!open}>
     <li>
-      <a href={profileHref} aria-current={page.url.pathname === profileHref ? 'page' : undefined} onclick={closeMenu}>
+      <a
+        bind:this={profile}
+        href={profileHref}
+        aria-current={page.url.pathname === profileHref ? 'page' : undefined}
+        onclick={closeMenu}
+      >
         <span class="org-menu-name">{t('pageMe')}</span>
         {#if invitationCount > 0}
           <span class="account-menu-badge" aria-hidden="true"
@@ -100,6 +124,7 @@
         {/if}
       </a>
     </li>
+    {#if invitationStatus}{@render invitationStatus()}{/if}
     {#if isAdmin}
       <li>
         <a href={adminHref} aria-current={page.url.pathname === adminHref ? 'page' : undefined} onclick={closeMenu}>
@@ -107,6 +132,9 @@
         </a>
       </li>
     {/if}
+    <li>
+      <a href={resolve('/auth/billing')} onclick={closeMenu}><span class="org-menu-name">{t('billingOpen')}</span></a>
+    </li>
     <li>
       <button type="button" aria-disabled={logoutState.busy} onclick={performLogout}>
         <span class="org-menu-name">{logoutState.busy ? t('logoutMoving') : t('logout')}</span>

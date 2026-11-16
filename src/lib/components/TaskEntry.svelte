@@ -16,7 +16,7 @@
   import type { DropRow } from '../backlog-drop.ts';
   import type { BacklogDnd } from '../backlog-dnd.svelte.ts';
   import { taskDetailHref, taskLinkAttrs } from '../drawer.svelte.ts';
-  import { sprintShortName } from '../sprint-label.ts';
+  import { sprintLabel } from '../sprint-label.ts';
   import { t } from '../vocabulary.svelte.ts';
   import AttrChip from './AttrChip.svelte';
   import Avatar from './Avatar.svelte';
@@ -89,6 +89,7 @@
     taskQuery = '?task=',
     workspaceId,
     workspaceName,
+    organization,
     metaChip,
     metaText,
     attrs,
@@ -115,14 +116,14 @@
     taskQuery?: string;
     workspaceId?: string;
     workspaceName?: string;
+    // 全組織のダッシュボードでは、この組織のバックログへ移る（操作は渡さない）。
+    organization?: { slug: string; name: string };
     metaChip?: string;
     metaText?: string;
     attrs?: RowAttrs;
   } = $props();
 
   const category = $derived(showCategory ? task.category : null);
-  // 完了した行（画面で完了にした直後を含む）には印を出さない
-  const unfilled = $derived(task.unfilled && !done);
 
   const movable = $derived(onMove !== undefined && !done);
   const dropRow = $derived<DropRow>({ kind: 'task', id: task.id });
@@ -494,7 +495,9 @@
   // タイトルのリンクは、今のワークスペースの画面に `?task=<ID>` を付ける。絞り込みの問い合わせ（assignee、q など）は残す。
   // 問い合わせの前半（taskQuery。`?...&task=` か `?task=`）は画面が1回だけ組んで渡し、行は ID だけを足す
   const taskHref = $derived(
-    resolve('/[slug]/w/[id]', { slug: page.params.slug ?? '', id: workspaceId ?? page.params.id ?? '' }),
+    organization === undefined
+      ? resolve('/[slug]/w/[id]', { slug: page.params.slug ?? '', id: workspaceId ?? page.params.id ?? '' })
+      : resolve('/[slug]/w/[id]', { slug: organization.slug, id: workspaceId ?? '' }),
   );
 
   export function focusMark(): void {
@@ -576,16 +579,19 @@
     <a
       class="entry-title"
       bind:this={titleLink}
-      href={taskDetailHref(`${taskHref}${taskQuery}${encodeURIComponent(task.id)}`)}
+      href={taskDetailHref(
+        `${taskHref}${organization === undefined ? taskQuery : '?task='}${encodeURIComponent(task.id)}`,
+      )}
       data-task-id={task.id}
-      {...taskLinkAttrs()}>{task.title}</a
+      {...taskLinkAttrs(organization === undefined)}>{task.title}</a
     >
     <!-- eslint-enable svelte/no-navigation-without-resolve -->
-    {#if workspaceName !== undefined || (attrs === undefined && (task.repository !== null || category !== null)) || task.sprint !== null || unfilled || metaChip !== undefined || metaText !== undefined}
+    {#if organization !== undefined || workspaceName !== undefined || (attrs === undefined && (task.repository !== null || category !== null)) || task.sprint !== null || metaChip !== undefined || metaText !== undefined}
       <span class="entry-meta">
+        {#if organization !== undefined}<span class="tag">{organization.name}</span>{/if}
         {#if workspaceName !== undefined}<span class="tag">{workspaceName}</span>{/if}
         {#if task.sprint !== null}
-          <DefinitionChip kind="sprint" name={sprintShortName(task.sprint, t)} mono={task.sprint.name === null} />
+          <DefinitionChip kind="sprint" name={sprintLabel(task.sprint, t)} mono={task.sprint.name === null} />
         {/if}
         <!-- チップのある行（attrs）は、リポジトリと区分を右端のチップが出す -->
         {#if attrs === undefined && task.repository !== null}
@@ -593,10 +599,6 @@
         {/if}
         {#if attrs === undefined && category !== null}
           <DefinitionChip kind="category" name={category.name} />
-        {/if}
-        <!-- 決まった欄が未記入（完了していないタスクだけ。見本の taskFlags の .chip.is-todo。色だけに頼らず、鉛筆の印と文字で示す） -->
-        {#if unfilled}
-          <span class="chip is-todo"><Icon name="pen" />{t('unfilledChip', { detail: t('detail') })}</span>
         {/if}
         {#if metaChip !== undefined}<span class="chip is-warn">{metaChip}</span>{/if}
         {#if metaText !== undefined}<span class="props-note">{metaText}</span>{/if}
@@ -748,7 +750,7 @@
           tabindex="-1"
           bind:this={mark}
         >
-          <Icon name="check" /><b>{t('doneStamp')}</b>
+          <Icon name="check" />
         </span>
         {#if onReopen !== undefined}
           <button

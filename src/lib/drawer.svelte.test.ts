@@ -203,3 +203,13 @@ describe('引き出しからページ全体への受け渡し', () => {
     expect(consumeOverlayHandoff()).toBe(false);
   });
 });
+
+test.each(['side', 'center'] as const)('別ルートへ移る %s のリンクはスクロールとフォーカスをリセットする', (mode) => {
+  drawerState.mode = mode;
+  expect(taskLinkAttrs(false)).toEqual({});
+  expect(taskLinkAttrs()).toEqual({ 'data-sveltekit-reset': 'false' });
+});
+test('別ルートへ移る新しいタブの設定は target と rel を保つ', () => {
+  drawerState.mode = 'tab';
+  expect(taskLinkAttrs(false)).toEqual({ target: '_blank', rel: 'noopener noreferrer' });
+});

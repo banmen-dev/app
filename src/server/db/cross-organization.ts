@@ -1,6 +1,6 @@
 // 組織をまたいで読む処理の置き場所（docs/data-model.md の「読み書きの入口」）。1つの関数にまとめ、
 // 組織を分けるときはここだけを直す。当たるのは、ログインできるか（アカウントが無い人に、入れる組織か届いた招待があるか）、ログインの直後の組織の選択、
-// 届いた招待の一覧、初めてのログインで users.account_id を埋めること、招待の URL の秘密のハッシュから待っている指名と招待を引くこと。
+// 届いた招待の一覧、本人の今日やることの認可と読み取り、初めてのログインで users.account_id を埋めること、招待の URL の秘密のハッシュから待っている指名と招待を引くこと。
 // 今あるのは、組織の選択と届いた招待の一覧、ログインできるか、users.account_id を埋めること、運用者の一覧の管理者の状態と
 // 組織ごとの集計（organizationUsage。人数の数え方は seats.ts）、招待の URL の秘密のハッシュから待っている指名と招待を引いて結ぶこと（claimPendingLogin）。
 // ログインできるか（hasLoginAccess）は、組織の選択と同じ読み取り（readAccountOrganizations）を使う。判定の元を1つにするため。
@@ -21,8 +21,9 @@ import type { OrganizationKind } from '../../shared/organization-kind.ts';
 import type { AdminStatus } from '../../shared/operations/operator/list-organizations.ts';
 import { uuidv7 } from '../uuid.ts';
 import { chunksOf } from './chunks.ts';
-import { commonDb, crossOrganizationEntries } from './entries.ts';
-import type { LoginId } from './enter-organization.ts';
+import { commonDb, crossOrganizationEntries, type OrganizationDb } from './entries.ts';
+import { enterOrganization, isSuspendedOrganization, type LoginId } from './enter-organization.ts';
+import { ApiError } from '../errors.ts';
 import { seatHoldersIn } from './seats.ts';
 import { MAX_BOUND_PARAMETERS } from './send.ts';
 import type { OrganizationTables } from './tables.ts';
@@ -165,6 +166,7 @@ async function readAccountOrganizations(
   env: Env,
   account: Reading,
   entries: readonly OrganizationEntry[],
+  organizationIds?: Map<string, string>,
 ): Promise<AccountOrganizations> {
   if (account.logins.length === 0) return { organizations: [], invitations: [], suspended: [] };
 
@@ -224,6 +226,10 @@ async function readAccountOrganizations(
   const active = rows.filter((row) => row.suspended_at === null).sort(byName);
   const paused = rows.filter((row) => row.suspended_at !== null).sort(byName);
 
+  // 内部の診断ログ用。組織の ID は公開の一覧や読み取りの callback には足さない。
+  for (const row of active) {
+    if (enterable.has(row.id)) organizationIds?.set(row.slug, row.id);
+  }
   const shown = new Set(invitedShown);
   return {
     organizations: active.filter((row) => enterable.has(row.id)).map(kindedOrganization),
@@ -941,4 +947,92 @@ export async function claimPendingLoginIn(
     return pending.kind === 'user' ? { kind: 'user', organizationSlug: slug } : { kind: 'invitation' };
   }
   return undefined;
+}
+// 選ぶ・入る・読む・失敗を分ける処理をここに閉じる。入口は認可と再認証を通した callback にだけ渡す。
+export async function readAccountTaskOrganizations<T>(
+  env: Env,
+  account: Account & { authenticatedAt: string },
+  read: (db: OrganizationDb, userId: string) => Promise<T>,
+): Promise<{
+  organizations: { organization: AccountOrganizations['organizations'][number]; data: T }[];
+  omitted_organizations: number;
+  failed_organizations: AccountOrganizations['organizations'][number][];
+}> {
+  const organizationIds = new Map<string, string>();
+  const listed = await readAccountOrganizations(
+    env,
+    { ...account, includeUnlinked: false },
+    crossOrganizationEntries(env),
+    organizationIds,
+  );
+  // 既に名前・同名は slug の順。組織内の読み取りを始める前に上限を掛ける。
+  const selected = listed.organizations.slice(0, 10);
+  const results = await Promise.allSettled(
+    selected.map(async (organization) => {
+      const entered = await enterOrganization(env, organization.slug, {
+        accountId: account.accountId,
+        authenticatedAt: account.authenticatedAt,
+        loadLogins: async () => account.logins,
+      });
+      if (
+        entered === undefined ||
+        isSuspendedOrganization(entered) ||
+        entered.actor.invitedOnly ||
+        entered.actor.userId === null
+      ) {
+        throw new ApiError(404, 'not_found');
+      }
+      return read(entered.db, entered.actor.userId);
+    }),
+  );
+  const organizations: { organization: AccountOrganizations['organizations'][number]; data: T }[] = [];
+  const failed_organizations: AccountOrganizations['organizations'][number][] = [];
+  for (const [index, result] of results.entries()) {
+    const organization = selected[index]!;
+    if (result.status === 'fulfilled') organizations.push({ organization, data: result.value });
+    else {
+      failed_organizations.push(organization);
+      const error = taskReadErrorKind(result.reason);
+      if (error !== null) {
+        console.error(
+          JSON.stringify({
+            error,
+            organizationId: organizationIds.get(organization.slug)!,
+          }),
+        );
+      }
+    }
+  }
+  return {
+    organizations,
+    failed_organizations,
+    omitted_organizations: Math.max(0, listed.organizations.length - selected.length),
+  };
+}
+
+// 任意の name・message・stack をログへ流さず、組み込みの型だけを固定語に分類する。
+function taskReadErrorKind(error: unknown): 'Error' | 'TypeError' | 'RangeError' | 'UnknownError' | null {
+  if (typeof error !== 'object' || error === null) return 'UnknownError';
+  try {
+    // 取り消された Proxy では instanceof 自体も投げるため、既知エラーの判定もこの中に閉じる。
+    if (error instanceof ApiError) {
+      // 想定した認可拒否だけを無ログにし、障害などの API エラーは安全な固定語で観測する。
+      const status = error.status;
+      return status === 401 || status === 403 || status === 404 ? null : 'UnknownError';
+    }
+    const prototype = Object.getPrototypeOf(error);
+    const name = Object.getOwnPropertyDescriptor(error, 'name');
+    const kind =
+      prototype === Error.prototype
+        ? 'Error'
+        : prototype === TypeError.prototype
+          ? 'TypeError'
+          : prototype === RangeError.prototype
+            ? 'RangeError'
+            : 'UnknownError';
+    // name の getter は読まない。既定から書き換えた name と未知の派生型も UnknownError。
+    return name !== undefined && (!('value' in name) || name.value !== kind) ? 'UnknownError' : kind;
+  } catch {
+    return 'UnknownError';
+  }
 }

@@ -235,15 +235,17 @@
       const carryTo = result.data.carry_to;
       showToast(
         result.data.carried_count === 0
-          ? t('sprintClosedNone', { label })
+          ? t('sprintClosedNone', { sprint: t('sprint'), label })
           : carryTo === null
             ? t('sprintClosedToBacklog', {
+                sprint: t('sprint'),
                 label,
                 task: t('task'),
                 count: result.data.carried_count,
                 backlog: t('backlog'),
               })
             : t('sprintClosedToSprint', {
+                sprint: t('sprint'),
                 label,
                 task: t('task'),
                 count: result.data.carried_count,
@@ -293,7 +295,12 @@
                       onchange={() => (chosenByUser = true)}
                     />
                     <div>
-                      <b>{t('sprintCloseCarryTo', { label: sprintLabelWithPeriod(candidate, t) })}</b>
+                      <b
+                        >{t('sprintCloseCarryTo', {
+                          sprint: t('sprint'),
+                          label: sprintLabelWithPeriod(candidate, t),
+                        })}</b
+                      >
                       <span>{t('sprintCloseCarryToNote', { task: t('task') })}</span>
                     </div>
                   </label>

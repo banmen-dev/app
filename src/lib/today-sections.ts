@@ -3,13 +3,13 @@
 import { dueStatus, type DueStatus } from '../shared/due.ts';
 import type { TodayTask } from '../shared/operations/organization/today.ts';
 
-export type TodaySections = {
-  overdue: TodayTask[];
-  today: TodayTask[];
-  delegated: TodayTask[];
-  week: TodayTask[];
-  sprint: TodayTask[];
-  done: TodayTask[];
+export type TodaySections<T extends TodayTask = TodayTask> = {
+  overdue: T[];
+  today: T[];
+  delegated: T[];
+  week: T[];
+  sprint: T[];
+  done: T[];
 };
 
 // UTF-16 のコード単位の比較。`localeCompare` は実行環境の言語で順が変わるので使わない
@@ -48,8 +48,8 @@ function dueStatusOf(task: TodayTask): DueStatus | null {
   }
 }
 
-export function todaySections(tasks: readonly TodayTask[]): TodaySections {
-  const sections: TodaySections = { overdue: [], today: [], delegated: [], week: [], sprint: [], done: [] };
+export function todaySections<T extends TodayTask>(tasks: readonly T[]): TodaySections<T> {
+  const sections: TodaySections<T> = { overdue: [], today: [], delegated: [], week: [], sprint: [], done: [] };
   for (const task of tasks) {
     if (task.completed_at !== null) {
       // 今日より前に完了したものは、どの区分にも出さない

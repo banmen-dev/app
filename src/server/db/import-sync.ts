@@ -1,6 +1,8 @@
 // 取り込みの同期（src/server/import/sync.ts）が使う文。接続と範囲の読み取り、取り込み（1件）の書き込み、接続の状態の書き込み。
 // 組織の中の表だけを使い、共通の表とは結合しない（docs/data-model.md の「データベースの分け方」）。
 // 組織は、接続のワークスペースを workspaces.organization_id で絞って確かめる
+import { previousStatementChanged } from './previous-statement.ts';
+import type { ImportItem } from '../import/source.ts';
 import type { Statement } from './entry.ts';
 import type { OrganizationDb } from './entries.ts';
 
@@ -150,6 +152,9 @@ export type ImportedTask = {
   kind: 'issue' | 'pull_request' | 'review_request';
   sourceId: string;
   reviewerSourceId: string;
+  reviewCycle?: string;
+  credentialCiphertext?: string | null;
+  credentialKeyVersion?: number | null;
   key: string;
   url: string;
   containerId: string;
@@ -165,11 +170,7 @@ export type ImportedTask = {
 //   - task_sources は、そのタスクの行があることが条件
 // 同じ項目を同時に取り込むと、先に通った 1 つだけが tasks を書き、後の要求は 2 つの文とも 0 件になる
 // （D1 の batch() はトランザクションで順に流れるので、後の要求の tasks の文は先の要求の task_sources を見る）
-export function importTaskStatements(
-  db: OrganizationDb,
-  task: ImportedTask,
-  at: string,
-): [Statement<'organization'>, Statement<'organization'>] {
+export function importTaskStatements(db: OrganizationDb, task: ImportedTask, at: string): Statement<'organization'>[] {
   const insertTask = db.statement((q) =>
     q
       .insertInto('tasks')
@@ -242,6 +243,11 @@ export function importTaskStatements(
                   .innerJoin('workspaces', 'workspaces.id', 'connections.workspace_id')
                   .select('connections.id')
                   .where('connections.id', '=', task.connectionId)
+                  .$if(task.credentialCiphertext !== undefined, (qb) =>
+                    qb
+                      .where('connections.credential_ciphertext', 'is', task.credentialCiphertext ?? null)
+                      .where('connections.credential_key_version', 'is', task.credentialKeyVersion ?? null),
+                  )
                   .where('connections.workspace_id', '=', task.workspaceId)
                   .where('connections.deleted_at', 'is', null)
                   .where('connections.status', '!=', 'stopped')
@@ -277,6 +283,7 @@ export function importTaskStatements(
         'source_kind',
         'source_id',
         'reviewer_source_id',
+        'review_cycle',
         'source_key',
         'source_url',
         'source_container_id',
@@ -300,6 +307,7 @@ export function importTaskStatements(
             eb.val(task.kind).as('source_kind'),
             eb.val(task.sourceId).as('source_id'),
             eb.val(task.reviewerSourceId).as('reviewer_source_id'),
+            eb.cast<string | null>(eb.val(task.reviewCycle ?? null), 'text').as('review_cycle'),
             eb.val(task.key).as('source_key'),
             eb.val(task.url).as('source_url'),
             eb.val(task.containerId).as('source_container_id'),
@@ -326,54 +334,66 @@ export function importTaskStatements(
       ),
   );
 
-  return [insertTask, insertSource];
+  return task.reviewCycle === undefined
+    ? [insertTask, insertSource]
+    : [insertTask, insertSource, reviewCycleStatement(db, task.taskId, task.workspaceId, task.reviewCycle, at)];
 }
 
 // 同期の結果として接続に書く値。成功は続きの位置（なければ空の状態）まで、失敗は種別ごと
 export type SyncOutcome =
   | { kind: 'success'; syncStateJson: string }
-  | { kind: 'auth_failed'; message: string }
-  | { kind: 'error'; message: string };
+  | { kind: 'progress'; syncStateJson: string }
+  | { kind: 'auth_failed'; message: string; syncStateJson?: string }
+  | { kind: 'error'; message: string; syncStateJson?: string };
 
 // 接続の状態を1文で書く。接続が今も削除されておらず、止まっていないことが条件
 // （同期の最中に止められた接続や削除された接続を、成功で書き戻さない）。ほかの失敗の回数は、読み直さず SQL の中で足す
 export function syncOutcomeStatement(
   db: OrganizationDb,
-  connection: { id: string; workspaceId: string },
+  connection: { id: string; workspaceId: string; credential?: string | null; keyVersion?: number | null },
   outcome: SyncOutcome,
   at: string,
 ): Statement<'organization'> {
   return db.statement((q) => {
     const base = q.updateTable('connections');
     const set =
-      outcome.kind === 'success'
-        ? base.set({
-            status: 'active',
-            stopped_reason: null,
-            sync_state_json: outcome.syncStateJson,
-            last_success_at: at,
-            consecutive_failures: 0,
-            last_error_message: null,
-            last_error_at: null,
-            updated_at: at,
-          })
-        : outcome.kind === 'auth_failed'
+      outcome.kind === 'progress'
+        ? base.set({ sync_state_json: outcome.syncStateJson, updated_at: at })
+        : outcome.kind === 'success'
           ? base.set({
-              status: 'stopped',
-              stopped_reason: 'auth_failed',
-              last_error_message: outcome.message,
-              last_error_at: at,
+              status: 'active',
+              stopped_reason: null,
+              sync_state_json: outcome.syncStateJson,
+              last_success_at: at,
+              consecutive_failures: 0,
+              last_error_message: null,
+              last_error_at: null,
               updated_at: at,
             })
-          : base.set((eb) => ({
-              status: 'error',
-              consecutive_failures: eb('connections.consecutive_failures', '+', 1),
-              last_error_message: outcome.message,
-              last_error_at: at,
-              updated_at: at,
-            }));
+          : outcome.kind === 'auth_failed'
+            ? base.set({
+                status: 'stopped',
+                stopped_reason: 'auth_failed',
+                ...(outcome.syncStateJson === undefined ? {} : { sync_state_json: outcome.syncStateJson }),
+                last_error_message: outcome.message,
+                last_error_at: at,
+                updated_at: at,
+              })
+            : base.set((eb) => ({
+                status: 'error',
+                ...(outcome.syncStateJson === undefined ? {} : { sync_state_json: outcome.syncStateJson }),
+                consecutive_failures: eb('connections.consecutive_failures', '+', 1),
+                last_error_message: outcome.message,
+                last_error_at: at,
+                updated_at: at,
+              }));
     return set
       .where('connections.id', '=', connection.id)
+      .$if(connection.credential !== undefined, (qb) =>
+        qb
+          .where('connections.credential_ciphertext', 'is', connection.credential ?? null)
+          .where('connections.credential_key_version', 'is', connection.keyVersion ?? null),
+      )
       .where('connections.workspace_id', '=', connection.workspaceId)
       .where('connections.deleted_at', 'is', null)
       .where('connections.status', '!=', 'stopped')
@@ -387,4 +407,186 @@ export function syncOutcomeStatement(
         ),
       );
   });
+}
+
+// target の順次照合。最後に読んだ task_id から続け、全走査の欠落では何も変えない。
+export async function readReviewTarget(db: OrganizationDb, connection: SyncConnection, scopeId: string, after: string) {
+  return db.first(
+    db.statement((q) =>
+      q
+        .selectFrom('task_sources as s')
+        .innerJoin('tasks as t', 't.id', 's.task_id')
+        .innerJoin('workspaces as w', 'w.id', 's.workspace_id')
+        .select([
+          's.task_id',
+          's.source_id',
+          's.source_key',
+          's.reviewer_source_id',
+          's.review_cycle',
+          's.review_revision',
+          's.source_updated_at',
+          's.updated_at',
+        ])
+        .where('s.workspace_id', '=', connection.workspace_id)
+        .where('t.workspace_id', '=', connection.workspace_id)
+        .where('w.organization_id', '=', db.organizationId)
+        .where('w.closed_at', 'is', null)
+        .where('s.connection_id', '=', connection.id)
+        .where('s.provider', '=', connection.provider)
+        .where('s.source_kind', '=', 'review_request')
+        .where('s.source_container_id', '=', scopeId)
+        .where('t.deleted_at', 'is', null)
+        .where('s.task_id', '>', after)
+        .orderBy('s.task_id')
+        .limit(1),
+    ),
+  );
+}
+export type ReviewTarget = NonNullable<Awaited<ReturnType<typeof readReviewTarget>>>;
+
+// target で確かめた項目だけを書く。CAS と回の記録で並行・遅着の再復帰を防ぐ。
+export function reviewUpdateStatements(
+  db: OrganizationDb,
+  connection: SyncConnection,
+  target: ReviewTarget,
+  item: ImportItem,
+  position: string,
+  at: string,
+): Statement<'organization'>[] {
+  const newCycle = target.review_cycle !== item.reviewCycle;
+  const reopen = newCycle && target.review_cycle !== null;
+  const claim = db.statement((q) =>
+    q
+      .updateTable('task_sources')
+      .set((eb) => ({
+        review_revision: eb('review_revision', '+', 1),
+        ...(reopen ? { last_received_at: at } : {}),
+        review_cycle: item.reviewCycle!,
+        is_source_done: item.isDone ? 1 : 0,
+        source_updated_at: new Date(item.updatedAt).toISOString(),
+        last_seen_at: at,
+        updated_at: at,
+      }))
+      .where('task_id', '=', target.task_id)
+      .where('workspace_id', '=', connection.workspace_id)
+      .where('connection_id', '=', connection.id)
+      .where('provider', '=', connection.provider)
+      .where('source_kind', '=', 'review_request')
+      .where('source_id', '=', item.sourceId)
+      .where('reviewer_source_id', '=', item.reviewerSourceId)
+      .where('review_cycle', 'is', target.review_cycle)
+      .where('review_revision', '=', target.review_revision)
+      .where('updated_at', '=', target.updated_at)
+      .where('source_updated_at', '<=', new Date(item.updatedAt).toISOString())
+      .$if(newCycle, (qb) =>
+        qb.where((eb) =>
+          eb.not(
+            eb.exists(
+              q
+                .selectFrom('review_request_cycles')
+                .select('task_id')
+                .where('task_id', '=', target.task_id)
+                .where('review_cycle', '=', item.reviewCycle!),
+            ),
+          ),
+        ),
+      )
+      .where((eb) =>
+        eb.exists(
+          q
+            .selectFrom('connections as c')
+            .innerJoin('workspaces as w', 'w.id', 'c.workspace_id')
+            .select('c.id')
+            .where('c.id', '=', connection.id)
+            .where('c.workspace_id', '=', connection.workspace_id)
+            .where('w.organization_id', '=', db.organizationId)
+            .where('w.closed_at', 'is', null)
+            .where('c.deleted_at', 'is', null)
+            .where('c.status', '!=', 'stopped')
+            .where('c.credential_ciphertext', 'is', connection.credential_ciphertext)
+            .where('c.credential_key_version', 'is', connection.credential_key_version)
+            .where((cb) => ownerIsActive(cb, q, 'c.owner_user_id', 'c.workspace_id')),
+        ),
+      )
+      .where((eb) =>
+        eb.exists(
+          q
+            .selectFrom('tasks')
+            .select('id')
+            .where('id', '=', target.task_id)
+            .where('workspace_id', '=', connection.workspace_id)
+            .where('deleted_at', 'is', null),
+        ),
+      ),
+  );
+  // claim の直後だけが tasks を変える。完了印ではタスクを自動完了にしない。
+  const statements: Statement<'organization'>[] = [claim];
+  if (reopen) {
+    statements.push(
+      db.statement((q) =>
+        q
+          .updateTable('tasks')
+          .set({
+            tray: 'inbox',
+            completed_at: null,
+            completed_by: null,
+            sprint_id: null,
+            column_id: null,
+            column_position: null,
+            story_id: null,
+            today_on: null,
+            position,
+            updated_at: at,
+          })
+          .where('id', '=', target.task_id)
+          .where('workspace_id', '=', connection.workspace_id)
+          .where('deleted_at', 'is', null)
+          .where(previousStatementChanged),
+      ),
+    );
+    statements.push(
+      db.statement((q) =>
+        q
+          .updateTable('sprint_entries')
+          .set({ ended_at: at, outcome: 'removed' })
+          .where('workspace_id', '=', connection.workspace_id)
+          .where('task_id', '=', target.task_id)
+          .where('ended_at', 'is', null)
+          .where(previousStatementChanged),
+      ),
+    );
+  }
+  // 過去の回を記録しておく。completions と xp_grants には触れない。
+  statements.push(reviewCycleStatement(db, target.task_id, connection.workspace_id, item.reviewCycle!, at));
+  return statements;
+}
+
+function reviewCycleStatement(db: OrganizationDb, taskId: string, workspaceId: string, cycle: string, at: string) {
+  return db.statement((q) =>
+    q
+      .insertInto('review_request_cycles')
+      .columns(['task_id', 'review_cycle', 'completion_id', 'created_at'])
+      .expression(
+        q
+          .selectNoFrom((eb) => [
+            eb.val(taskId).as('task_id'),
+            eb.val(cycle).as('review_cycle'),
+            eb.cast<string | null>(eb.val(null), 'text').as('completion_id'),
+            eb.val(at).as('created_at'),
+          ])
+          .where((eb) =>
+            eb.exists(
+              q
+                .selectFrom('task_sources')
+                .innerJoin('workspaces', 'workspaces.id', 'task_sources.workspace_id')
+                .select('task_id')
+                .where('task_id', '=', taskId)
+                .where('workspace_id', '=', workspaceId)
+                .where('workspaces.organization_id', '=', db.organizationId)
+                .where('review_cycle', '=', cycle),
+            ),
+          ),
+      )
+      .onConflict((oc) => oc.columns(['task_id', 'review_cycle']).doNothing()),
+  );
 }

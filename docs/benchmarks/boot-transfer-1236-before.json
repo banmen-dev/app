@@ -1,0 +1,2589 @@
+{
+  "measuredAt": "2026-11-16T15:18:19.687Z",
+  "node": "v26.13.0",
+  "pnpm": "12.12.0",
+  "browser": "156.0.8078.4",
+  "head": "ab2588b250ee4ffc13a876b30216cfe68c6ae22d",
+  "changes": "",
+  "route": "/aoba",
+  "runs": 2,
+  "network": "both",
+  "port": 9744,
+  "expectedHeading": "今日やること",
+  "viewport": {
+    "width": 1280,
+    "height": 900
+  },
+  "locale": "ja-JP",
+  "timezone": "Asia/Tokyo",
+  "theme": "simple_light",
+  "compression": "gzip",
+  "networks": {
+    "fast": {
+      "latency": 562.5,
+      "downloadThroughput": 180000,
+      "uploadThroughput": 84375
+    },
+    "slow": {
+      "latency": 2000,
+      "downloadThroughput": 40000,
+      "uploadThroughput": 40000
+    }
+  },
+  "failureSummaries": [
+    {
+      "profile": "fast",
+      "failedRuns": 0,
+      "runs": 2,
+      "maxMs": 0
+    },
+    {
+      "profile": "slow",
+      "failedRuns": 2,
+      "runs": 2,
+      "maxMs": 4099.400000000023
+    }
+  ],
+  "samples": [
+    {
+      "profile": "fast",
+      "run": 1,
+      "htmlMs": 21.29999999998836,
+      "shownMs": 8833.200000000012,
+      "afterHtmlMs": 8811.900000000023,
+      "failed": false,
+      "failedMs": 0,
+      "responseEndMs": 588.2000000000116,
+      "domReadyMs": 4415.299999999988,
+      "afterDomReadyMs": 4417.900000000023,
+      "completedAtDisplay": {
+        "requests": 65,
+        "bytes": 516790,
+        "groups": {
+          "Document": {
+            "requests": 1,
+            "bytes": 3301
+          },
+          "Script": {
+            "requests": 49,
+            "bytes": 251684
+          },
+          "Stylesheet": {
+            "requests": 2,
+            "bytes": 66380
+          },
+          "Font": {
+            "requests": 7,
+            "bytes": 191879
+          },
+          "Fetch": {
+            "requests": 6,
+            "bytes": 3546
+          }
+        }
+      },
+      "requests": 81,
+      "bytes": 1000279,
+      "groups": {
+        "Document": {
+          "requests": 1,
+          "bytes": 3301
+        },
+        "Script": {
+          "requests": 49,
+          "bytes": 251684
+        },
+        "Stylesheet": {
+          "requests": 2,
+          "bytes": 66380
+        },
+        "Font": {
+          "requests": 21,
+          "bytes": 481329
+        },
+        "Fetch": {
+          "requests": 7,
+          "bytes": 4035
+        },
+        "Image": {
+          "requests": 1,
+          "bytes": 193550
+        }
+      },
+      "resources": [
+        {
+          "url": "/aoba",
+          "type": "Document",
+          "gzip": true,
+          "bytes": 3301,
+          "finishedAtMs": 588.1320000000017
+        },
+        {
+          "url": "/_app/immutable/entry/start.CpQwv3pf.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1187,
+          "finishedAtMs": 1155.495000000002
+        },
+        {
+          "url": "/_app/immutable/entry/payload.DSmR2FwN.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 931,
+          "finishedAtMs": 1162.8999999999792
+        },
+        {
+          "url": "/_app/immutable/chunks/OBHOGGpF.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 923,
+          "finishedAtMs": 1171.57899999998
+        },
+        {
+          "url": "/_app/immutable/chunks/CRzLMJPS.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1653,
+          "finishedAtMs": 1212.2929999999883
+        },
+        {
+          "url": "/_app/immutable/chunks/R4-APeu2.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 16793,
+          "finishedAtMs": 1379.290999999995
+        },
+        {
+          "url": "/_app/immutable/assets/0.CVpG-bjL.css",
+          "type": "Stylesheet",
+          "gzip": true,
+          "bytes": 60120,
+          "finishedAtMs": 1629.6179999999936
+        },
+        {
+          "url": "/_app/immutable/chunks/BbeMw8zO.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1620,
+          "finishedAtMs": 1729.6079999999847
+        },
+        {
+          "url": "/_app/immutable/chunks/y0gnEyWl.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 2784,
+          "finishedAtMs": 1763.0629999999883
+        },
+        {
+          "url": "/_app/immutable/entry/app.CmY3de51.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 4518,
+          "finishedAtMs": 1837.88899999999
+        },
+        {
+          "url": "/_app/immutable/chunks/DHrvYH_o.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 23693,
+          "finishedAtMs": 1912.701999999996
+        },
+        {
+          "url": "/_app/immutable/chunks/CaSa16mG.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 896,
+          "finishedAtMs": 1946.553999999992
+        },
+        {
+          "url": "/_app/immutable/chunks/4tVxZq34.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1051,
+          "finishedAtMs": 2346.059999999994
+        },
+        {
+          "url": "/_app/immutable/nodes/0.Dk2XUr8u.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 7793,
+          "finishedAtMs": 2395.823999999976
+        },
+        {
+          "url": "/_app/immutable/chunks/omwox5Zb.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1609,
+          "finishedAtMs": 2521.3629999999794
+        },
+        {
+          "url": "/_app/immutable/chunks/Oqdn27hV.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 896,
+          "finishedAtMs": 2538.4409999999775
+        },
+        {
+          "url": "/_app/immutable/chunks/QVm6EIT3.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 47883,
+          "finishedAtMs": 2645.951999999994
+        },
+        {
+          "url": "/_app/immutable/chunks/bQ_Y-jpG.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 52182,
+          "finishedAtMs": 2829.6059999999843
+        },
+        {
+          "url": "/_app/immutable/chunks/ySu8ssqU.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1519,
+          "finishedAtMs": 2921.3559999999743
+        },
+        {
+          "url": "/_app/immutable/chunks/3w-0cVDI.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1293,
+          "finishedAtMs": 2963.6669999999867
+        },
+        {
+          "url": "/_app/immutable/chunks/CFJPMD4i.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1026,
+          "finishedAtMs": 3087.8529999999955
+        },
+        {
+          "url": "/_app/immutable/chunks/DffitFGN.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 2369,
+          "finishedAtMs": 3113.047999999992
+        },
+        {
+          "url": "/theme-init.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1406,
+          "finishedAtMs": 3213.079999999991
+        },
+        {
+          "url": "/boot-loading.css",
+          "type": "Stylesheet",
+          "gzip": true,
+          "bytes": 6260,
+          "finishedAtMs": 3821.339999999992
+        },
+        {
+          "url": "/boot-shape.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 3146,
+          "finishedAtMs": 4412.559999999985
+        },
+        {
+          "url": "/_app/immutable/nodes/1.DPjWWje0.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1114,
+          "finishedAtMs": 4430.855999999977
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-113-wght-normal.hxVHS2d4.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 17301,
+          "finishedAtMs": 4787.549999999982
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-114-wght-normal.DUzjAsrP.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 17445,
+          "finishedAtMs": 4828.997999999984
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-latin-wght-normal.Bnnzbixe.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 25437,
+          "finishedAtMs": 4904.614999999978
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-117-wght-normal.CLJPD2y0.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 13897,
+          "finishedAtMs": 5203.795999999983
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-115-wght-normal.BiZ4-5rz.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 20557,
+          "finishedAtMs": 5296.089999999993
+        },
+        {
+          "url": "/_app/immutable/chunks/Cxftvk7F.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1256,
+          "finishedAtMs": 5496.753999999982
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-119-wght-normal.BAB3pFaH.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 79877,
+          "finishedAtMs": 5537.21299999998
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-109-wght-normal.DaJwqT__.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 17365,
+          "finishedAtMs": 5604.772999999995
+        },
+        {
+          "url": "/_app/immutable/nodes/2.kMc8xiNa.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 14539,
+          "finishedAtMs": 5613.807999999977
+        },
+        {
+          "url": "/_app/immutable/chunks/CTs6eEXs.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1686,
+          "finishedAtMs": 5780.180000000001
+        },
+        {
+          "url": "/_app/immutable/chunks/IEStwrru.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1159,
+          "finishedAtMs": 5863.699999999994
+        },
+        {
+          "url": "/_app/immutable/chunks/CUGo5JHt.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1207,
+          "finishedAtMs": 6063.553999999982
+        },
+        {
+          "url": "/_app/immutable/chunks/yRSA7C2Z.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 3485,
+          "finishedAtMs": 6121.450999999979
+        },
+        {
+          "url": "/_app/immutable/chunks/DnHWOOOv.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1432,
+          "finishedAtMs": 6179.617999999977
+        },
+        {
+          "url": "/_app/immutable/chunks/YSEQj-7t.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1709,
+          "finishedAtMs": 6196.4819999999745
+        },
+        {
+          "url": "/_app/immutable/chunks/DFCswVjN.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1011,
+          "finishedAtMs": 6346.420999999992
+        },
+        {
+          "url": "/_app/immutable/chunks/D49ypRZV.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1393,
+          "finishedAtMs": 6430.11199999998
+        },
+        {
+          "url": "/_app/immutable/chunks/BX1ofMBy.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 3416,
+          "finishedAtMs": 6654.3449999999775
+        },
+        {
+          "url": "/_app/immutable/chunks/XH2_F2nH.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1513,
+          "finishedAtMs": 6696.713999999985
+        },
+        {
+          "url": "/_app/immutable/chunks/BqsX4-Fb.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 3006,
+          "finishedAtMs": 6762.547999999981
+        },
+        {
+          "url": "/_app/immutable/chunks/DDfTnAD4.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1133,
+          "finishedAtMs": 6772.18099999999
+        },
+        {
+          "url": "/_app/immutable/chunks/BJibBJ6l.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1796,
+          "finishedAtMs": 6921.572999999995
+        },
+        {
+          "url": "/_app/immutable/chunks/CdpSaLz6.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1275,
+          "finishedAtMs": 6995.850999999988
+        },
+        {
+          "url": "/_app/immutable/chunks/CF7SAR__.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1060,
+          "finishedAtMs": 7221.097999999984
+        },
+        {
+          "url": "/_app/immutable/nodes/5.nIA2hIyp.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 9387,
+          "finishedAtMs": 7312.229000000002
+        },
+        {
+          "url": "/_app/immutable/chunks/D1O3KU4E.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1969,
+          "finishedAtMs": 7337.3659999999745
+        },
+        {
+          "url": "/_app/immutable/chunks/BMiDmM8T.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 2019,
+          "finishedAtMs": 7354.65099999999
+        },
+        {
+          "url": "/_app/immutable/chunks/BKHyZ93q.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 2332,
+          "finishedAtMs": 7496.769
+        },
+        {
+          "url": "/_app/immutable/chunks/DyZTdKVe.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1234,
+          "finishedAtMs": 7562.80799999999
+        },
+        {
+          "url": "/_app/immutable/chunks/CcHPLRNL.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 6217,
+          "finishedAtMs": 7821.103999999991
+        },
+        {
+          "url": "/_app/immutable/chunks/C-JWhKlA.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 2686,
+          "finishedAtMs": 7888.013999999998
+        },
+        {
+          "url": "/_app/immutable/chunks/CsyO1vI3.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1144,
+          "finishedAtMs": 7904.100999999997
+        },
+        {
+          "url": "/_app/immutable/chunks/Dk4cqH4j.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 4335,
+          "finishedAtMs": 7937.245999999987
+        },
+        {
+          "url": "/api/token-notice",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 488,
+          "finishedAtMs": 8062.54899999999
+        },
+        {
+          "url": "/api/aoba/organization",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 699,
+          "finishedAtMs": 8137.482999999975
+        },
+        {
+          "url": "/api/my-organizations",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 602,
+          "finishedAtMs": 8405.462999999998
+        },
+        {
+          "url": "/api/aoba/favorite-list",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 486,
+          "finishedAtMs": 8479.597999999982
+        },
+        {
+          "url": "/api/aoba/today",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 784,
+          "finishedAtMs": 8512.597
+        },
+        {
+          "url": "/api/aoba/first-steps",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 487,
+          "finishedAtMs": 8529.364999999983
+        },
+        {
+          "url": "/api/aoba/recent-activity",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 489,
+          "finishedAtMs": 9154.521999999986
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-118-wght-normal.D8DI_HXJ.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 19185,
+          "finishedAtMs": 9662.993999999997
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-116-wght-normal.DkZAcxAY.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 18133,
+          "finishedAtMs": 9670.97099999998
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-112-wght-normal.DdhK_1vk.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 18185,
+          "finishedAtMs": 9680.923999999975
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-111-wght-normal.CuGzYIdC.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 19673,
+          "finishedAtMs": 9704.565999999999
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-99-wght-normal.DaQ3GEVf.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 22405,
+          "finishedAtMs": 9720.885999999979
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-108-wght-normal.DijBe27A.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 22297,
+          "finishedAtMs": 9845.889999999998
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-110-wght-normal.bhh2FQQH.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 18609,
+          "finishedAtMs": 10812.882000000001
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-105-wght-normal.CqRQAfnb.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 19773,
+          "finishedAtMs": 10828.863999999981
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-91-wght-normal.BishDeFy.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 22745,
+          "finishedAtMs": 10837.641999999989
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-107-wght-normal.DrykTIAp.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 19597,
+          "finishedAtMs": 10887.144999999975
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-104-wght-normal.OIyZ9iQD.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 20801,
+          "finishedAtMs": 10895.653999999979
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-98-wght-normal.CjEDrQIY.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 21789,
+          "finishedAtMs": 10937.846999999976
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-102-wght-normal.2gFz4V6e.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 21637,
+          "finishedAtMs": 11687.750999999991
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-106-wght-normal.D-PO3jqS.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 24621,
+          "finishedAtMs": 11770.843999999983
+        },
+        {
+          "url": "/brand/master/symbol.png",
+          "type": "Image",
+          "gzip": false,
+          "bytes": 193550,
+          "finishedAtMs": 12720.836999999989
+        }
+      ]
+    },
+    {
+      "profile": "fast",
+      "run": 2,
+      "htmlMs": 14.099999999976717,
+      "shownMs": 9565.099999999977,
+      "afterHtmlMs": 9551,
+      "failed": false,
+      "failedMs": 0,
+      "responseEndMs": 588,
+      "domReadyMs": 4660.099999999977,
+      "afterDomReadyMs": 4905,
+      "completedAtDisplay": {
+        "requests": 65,
+        "bytes": 516790,
+        "groups": {
+          "Document": {
+            "requests": 1,
+            "bytes": 3301
+          },
+          "Script": {
+            "requests": 49,
+            "bytes": 251684
+          },
+          "Stylesheet": {
+            "requests": 2,
+            "bytes": 66380
+          },
+          "Font": {
+            "requests": 7,
+            "bytes": 191879
+          },
+          "Fetch": {
+            "requests": 6,
+            "bytes": 3546
+          }
+        }
+      },
+      "requests": 81,
+      "bytes": 1000279,
+      "groups": {
+        "Document": {
+          "requests": 1,
+          "bytes": 3301
+        },
+        "Script": {
+          "requests": 49,
+          "bytes": 251684
+        },
+        "Stylesheet": {
+          "requests": 2,
+          "bytes": 66380
+        },
+        "Font": {
+          "requests": 21,
+          "bytes": 481329
+        },
+        "Fetch": {
+          "requests": 7,
+          "bytes": 4035
+        },
+        "Image": {
+          "requests": 1,
+          "bytes": 193550
+        }
+      },
+      "resources": [
+        {
+          "url": "/aoba",
+          "type": "Document",
+          "gzip": true,
+          "bytes": 3301,
+          "finishedAtMs": 588.0420000000015
+        },
+        {
+          "url": "/_app/immutable/entry/start.CpQwv3pf.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1187,
+          "finishedAtMs": 1155.2639999999883
+        },
+        {
+          "url": "/_app/immutable/entry/payload.DSmR2FwN.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 931,
+          "finishedAtMs": 1163.609000000008
+        },
+        {
+          "url": "/_app/immutable/chunks/OBHOGGpF.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 923,
+          "finishedAtMs": 1174.2319999999893
+        },
+        {
+          "url": "/_app/immutable/chunks/CRzLMJPS.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1653,
+          "finishedAtMs": 1206.0459999999864
+        },
+        {
+          "url": "/_app/immutable/chunks/BbeMw8zO.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1620,
+          "finishedAtMs": 1228.780999999998
+        },
+        {
+          "url": "/_app/immutable/chunks/R4-APeu2.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 16793,
+          "finishedAtMs": 1304.7959999999819
+        },
+        {
+          "url": "/_app/immutable/chunks/y0gnEyWl.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 2784,
+          "finishedAtMs": 1780.1609999999926
+        },
+        {
+          "url": "/_app/immutable/chunks/CaSa16mG.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 896,
+          "finishedAtMs": 1821.6919999999845
+        },
+        {
+          "url": "/_app/immutable/entry/app.CmY3de51.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 4518,
+          "finishedAtMs": 1879.6979999999905
+        },
+        {
+          "url": "/_app/immutable/chunks/DHrvYH_o.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 23693,
+          "finishedAtMs": 2130.979999999994
+        },
+        {
+          "url": "/_app/immutable/chunks/4tVxZq34.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1051,
+          "finishedAtMs": 2413.812000000007
+        },
+        {
+          "url": "/_app/immutable/nodes/0.Dk2XUr8u.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 7793,
+          "finishedAtMs": 2512.7799999999925
+        },
+        {
+          "url": "/_app/immutable/chunks/QVm6EIT3.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 47883,
+          "finishedAtMs": 2596.7829999999876
+        },
+        {
+          "url": "/_app/immutable/assets/0.CVpG-bjL.css",
+          "type": "Stylesheet",
+          "gzip": true,
+          "bytes": 60120,
+          "finishedAtMs": 2621.6969999999833
+        },
+        {
+          "url": "/_app/immutable/chunks/omwox5Zb.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1609,
+          "finishedAtMs": 2721.912000000003
+        },
+        {
+          "url": "/_app/immutable/chunks/bQ_Y-jpG.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 52182,
+          "finishedAtMs": 2879.683
+        },
+        {
+          "url": "/_app/immutable/chunks/Oqdn27hV.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 896,
+          "finishedAtMs": 2979.7460000000056
+        },
+        {
+          "url": "/_app/immutable/chunks/ySu8ssqU.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1519,
+          "finishedAtMs": 3088.6189999999942
+        },
+        {
+          "url": "/_app/immutable/chunks/3w-0cVDI.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1293,
+          "finishedAtMs": 3164.284000000009
+        },
+        {
+          "url": "/_app/immutable/chunks/CFJPMD4i.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1026,
+          "finishedAtMs": 3188.6900000000082
+        },
+        {
+          "url": "/_app/immutable/chunks/DffitFGN.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 2369,
+          "finishedAtMs": 3296.866999999992
+        },
+        {
+          "url": "/theme-init.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1406,
+          "finishedAtMs": 3446.3189999999886
+        },
+        {
+          "url": "/boot-loading.css",
+          "type": "Stylesheet",
+          "gzip": true,
+          "bytes": 6260,
+          "finishedAtMs": 4054.4069999999974
+        },
+        {
+          "url": "/boot-shape.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 3146,
+          "finishedAtMs": 4646.631999999982
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-117-wght-normal.CLJPD2y0.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 13897,
+          "finishedAtMs": 5096.1220000000085
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-113-wght-normal.hxVHS2d4.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 17301,
+          "finishedAtMs": 5106.981999999988
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-114-wght-normal.DUzjAsrP.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 17445,
+          "finishedAtMs": 5146.442000000007
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-latin-wght-normal.Bnnzbixe.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 25437,
+          "finishedAtMs": 5221.2810000000045
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-115-wght-normal.BiZ4-5rz.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 20557,
+          "finishedAtMs": 5446.114999999992
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-119-wght-normal.BAB3pFaH.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 79877,
+          "finishedAtMs": 5654.742999999997
+        },
+        {
+          "url": "/_app/immutable/nodes/1.DPjWWje0.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1114,
+          "finishedAtMs": 5680.284000000001
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-109-wght-normal.DaJwqT__.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 17365,
+          "finishedAtMs": 5763.210999999984
+        },
+        {
+          "url": "/_app/immutable/chunks/Cxftvk7F.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1256,
+          "finishedAtMs": 6256.254999999982
+        },
+        {
+          "url": "/_app/immutable/chunks/IEStwrru.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1159,
+          "finishedAtMs": 6272.154999999998
+        },
+        {
+          "url": "/_app/immutable/chunks/CUGo5JHt.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1207,
+          "finishedAtMs": 6279.803999999985
+        },
+        {
+          "url": "/_app/immutable/chunks/CTs6eEXs.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1686,
+          "finishedAtMs": 6305.243999999988
+        },
+        {
+          "url": "/_app/immutable/chunks/yRSA7C2Z.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 3485,
+          "finishedAtMs": 6370.905999999991
+        },
+        {
+          "url": "/_app/immutable/nodes/2.kMc8xiNa.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 14539,
+          "finishedAtMs": 6396.320000000003
+        },
+        {
+          "url": "/_app/immutable/chunks/DnHWOOOv.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1432,
+          "finishedAtMs": 6829.418000000004
+        },
+        {
+          "url": "/_app/immutable/chunks/YSEQj-7t.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1709,
+          "finishedAtMs": 6846.0039999999935
+        },
+        {
+          "url": "/_app/immutable/chunks/DFCswVjN.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1011,
+          "finishedAtMs": 6855.6370000000015
+        },
+        {
+          "url": "/_app/immutable/chunks/D49ypRZV.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1393,
+          "finishedAtMs": 6871.181000000007
+        },
+        {
+          "url": "/_app/immutable/chunks/BX1ofMBy.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 3416,
+          "finishedAtMs": 6954.606999999982
+        },
+        {
+          "url": "/_app/immutable/chunks/XH2_F2nH.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1513,
+          "finishedAtMs": 6971.054000000009
+        },
+        {
+          "url": "/_app/immutable/chunks/BqsX4-Fb.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 3006,
+          "finishedAtMs": 7413.192000000009
+        },
+        {
+          "url": "/_app/immutable/chunks/DDfTnAD4.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1133,
+          "finishedAtMs": 7422.021000000001
+        },
+        {
+          "url": "/_app/immutable/chunks/BJibBJ6l.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1796,
+          "finishedAtMs": 7437.87900000001
+        },
+        {
+          "url": "/_app/immutable/chunks/CdpSaLz6.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1275,
+          "finishedAtMs": 7446.690999999987
+        },
+        {
+          "url": "/_app/immutable/chunks/CF7SAR__.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1060,
+          "finishedAtMs": 7522.694000000001
+        },
+        {
+          "url": "/_app/immutable/nodes/5.nIA2hIyp.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 9387,
+          "finishedAtMs": 7587.62999999999
+        },
+        {
+          "url": "/_app/immutable/chunks/D1O3KU4E.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1969,
+          "finishedAtMs": 7987.560000000002
+        },
+        {
+          "url": "/_app/immutable/chunks/BMiDmM8T.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 2019,
+          "finishedAtMs": 8004.367000000002
+        },
+        {
+          "url": "/_app/immutable/chunks/DyZTdKVe.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1234,
+          "finishedAtMs": 8021.5220000000045
+        },
+        {
+          "url": "/_app/immutable/chunks/BKHyZ93q.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 2332,
+          "finishedAtMs": 8029.281999999995
+        },
+        {
+          "url": "/_app/immutable/chunks/CcHPLRNL.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 6217,
+          "finishedAtMs": 8120.758999999993
+        },
+        {
+          "url": "/_app/immutable/chunks/C-JWhKlA.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 2686,
+          "finishedAtMs": 8163.076999999987
+        },
+        {
+          "url": "/_app/immutable/chunks/CsyO1vI3.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1144,
+          "finishedAtMs": 8555.227000000003
+        },
+        {
+          "url": "/_app/immutable/chunks/Dk4cqH4j.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 4335,
+          "finishedAtMs": 8596.122000000008
+        },
+        {
+          "url": "/api/token-notice",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 488,
+          "finishedAtMs": 8604.849999999999
+        },
+        {
+          "url": "/api/aoba/organization",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 699,
+          "finishedAtMs": 8622.239000000007
+        },
+        {
+          "url": "/api/my-organizations",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 602,
+          "finishedAtMs": 8705.131999999992
+        },
+        {
+          "url": "/api/aoba/favorite-list",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 486,
+          "finishedAtMs": 8746.589
+        },
+        {
+          "url": "/api/aoba/today",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 784,
+          "finishedAtMs": 9188.22800000001
+        },
+        {
+          "url": "/api/aoba/first-steps",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 487,
+          "finishedAtMs": 9204.994999999997
+        },
+        {
+          "url": "/api/aoba/recent-activity",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 489,
+          "finishedAtMs": 9880.054000000002
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-116-wght-normal.DkZAcxAY.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 18133,
+          "finishedAtMs": 10370.694999999983
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-118-wght-normal.D8DI_HXJ.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 19185,
+          "finishedAtMs": 10404.810999999994
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-112-wght-normal.DdhK_1vk.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 18185,
+          "finishedAtMs": 10430.367999999988
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-111-wght-normal.CuGzYIdC.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 19673,
+          "finishedAtMs": 10446.196999999984
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-99-wght-normal.DaQ3GEVf.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 22405,
+          "finishedAtMs": 10455.321999999995
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-108-wght-normal.DijBe27A.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 22297,
+          "finishedAtMs": 10579.838999999993
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-91-wght-normal.BishDeFy.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 22745,
+          "finishedAtMs": 11404.664999999994
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-105-wght-normal.CqRQAfnb.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 19773,
+          "finishedAtMs": 11529.299000000008
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-110-wght-normal.bhh2FQQH.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 18609,
+          "finishedAtMs": 11546.33100000001
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-107-wght-normal.DrykTIAp.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 19597,
+          "finishedAtMs": 11595.979999999998
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-104-wght-normal.OIyZ9iQD.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 20801,
+          "finishedAtMs": 11604.478000000001
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-98-wght-normal.CjEDrQIY.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 21789,
+          "finishedAtMs": 11646.145999999988
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-102-wght-normal.2gFz4V6e.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 21637,
+          "finishedAtMs": 12088.037999999982
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-106-wght-normal.D-PO3jqS.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 24621,
+          "finishedAtMs": 12362.42999999999
+        },
+        {
+          "url": "/brand/master/symbol.png",
+          "type": "Image",
+          "gzip": false,
+          "bytes": 193550,
+          "finishedAtMs": 13321.142000000009
+        }
+      ]
+    },
+    {
+      "profile": "slow",
+      "run": 1,
+      "htmlMs": 14,
+      "shownMs": 33970.5,
+      "afterHtmlMs": 33956.5,
+      "failed": true,
+      "failedMs": 4033.2999999999884,
+      "responseEndMs": 2098,
+      "domReadyMs": 17400.20000000001,
+      "afterDomReadyMs": 16570.29999999999,
+      "completedAtDisplay": {
+        "requests": 65,
+        "bytes": 516790,
+        "groups": {
+          "Document": {
+            "requests": 1,
+            "bytes": 3301
+          },
+          "Script": {
+            "requests": 49,
+            "bytes": 251684
+          },
+          "Stylesheet": {
+            "requests": 2,
+            "bytes": 66380
+          },
+          "Font": {
+            "requests": 7,
+            "bytes": 191879
+          },
+          "Fetch": {
+            "requests": 6,
+            "bytes": 3546
+          }
+        }
+      },
+      "requests": 81,
+      "bytes": 1000279,
+      "groups": {
+        "Document": {
+          "requests": 1,
+          "bytes": 3301
+        },
+        "Script": {
+          "requests": 49,
+          "bytes": 251684
+        },
+        "Stylesheet": {
+          "requests": 2,
+          "bytes": 66380
+        },
+        "Font": {
+          "requests": 21,
+          "bytes": 481329
+        },
+        "Fetch": {
+          "requests": 7,
+          "bytes": 4035
+        },
+        "Image": {
+          "requests": 1,
+          "bytes": 193550
+        }
+      },
+      "resources": [
+        {
+          "url": "/aoba",
+          "type": "Document",
+          "gzip": true,
+          "bytes": 3301,
+          "finishedAtMs": 2097.962999999993
+        },
+        {
+          "url": "/_app/immutable/entry/start.CpQwv3pf.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1187,
+          "finishedAtMs": 4090.1649999999845
+        },
+        {
+          "url": "/_app/immutable/entry/payload.DSmR2FwN.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 931,
+          "finishedAtMs": 4123.169999999987
+        },
+        {
+          "url": "/_app/immutable/chunks/OBHOGGpF.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 923,
+          "finishedAtMs": 4160.693999999978
+        },
+        {
+          "url": "/_app/immutable/chunks/CRzLMJPS.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1653,
+          "finishedAtMs": 4310.849999999988
+        },
+        {
+          "url": "/_app/immutable/chunks/R4-APeu2.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 16793,
+          "finishedAtMs": 5098.149999999976
+        },
+        {
+          "url": "/_app/immutable/chunks/BbeMw8zO.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1620,
+          "finishedAtMs": 6261.135999999993
+        },
+        {
+          "url": "/_app/immutable/chunks/y0gnEyWl.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 2784,
+          "finishedAtMs": 6411.331999999988
+        },
+        {
+          "url": "/_app/immutable/assets/0.CVpG-bjL.css",
+          "type": "Stylesheet",
+          "gzip": true,
+          "bytes": 60120,
+          "finishedAtMs": 6486.432999999977
+        },
+        {
+          "url": "/_app/immutable/entry/app.CmY3de51.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 4518,
+          "finishedAtMs": 6710.916999999995
+        },
+        {
+          "url": "/_app/immutable/chunks/DHrvYH_o.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 23693,
+          "finishedAtMs": 7123.018000000002
+        },
+        {
+          "url": "/_app/immutable/chunks/CaSa16mG.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 896,
+          "finishedAtMs": 7161.006999999983
+        },
+        {
+          "url": "/_app/immutable/chunks/4tVxZq34.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1051,
+          "finishedAtMs": 8585.881000000001
+        },
+        {
+          "url": "/_app/immutable/nodes/0.Dk2XUr8u.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 7793,
+          "finishedAtMs": 8960.861999999992
+        },
+        {
+          "url": "/_app/immutable/chunks/Oqdn27hV.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 896,
+          "finishedAtMs": 9300.189999999986
+        },
+        {
+          "url": "/_app/immutable/chunks/omwox5Zb.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1609,
+          "finishedAtMs": 9373.449999999992
+        },
+        {
+          "url": "/_app/immutable/chunks/QVm6EIT3.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 47883,
+          "finishedAtMs": 10723.990999999984
+        },
+        {
+          "url": "/_app/immutable/chunks/ySu8ssqU.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1519,
+          "finishedAtMs": 10798.920999999978
+        },
+        {
+          "url": "/_app/immutable/chunks/3w-0cVDI.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1293,
+          "finishedAtMs": 11023.99699999998
+        },
+        {
+          "url": "/_app/immutable/chunks/bQ_Y-jpG.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 52182,
+          "finishedAtMs": 11248.034999999987
+        },
+        {
+          "url": "/_app/immutable/chunks/CFJPMD4i.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1026,
+          "finishedAtMs": 11324.98099999998
+        },
+        {
+          "url": "/_app/immutable/chunks/DffitFGN.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 2369,
+          "finishedAtMs": 11436.296999999997
+        },
+        {
+          "url": "/theme-init.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1406,
+          "finishedAtMs": 12748.767999999984
+        },
+        {
+          "url": "/boot-loading.css",
+          "type": "Stylesheet",
+          "gzip": true,
+          "bytes": 6260,
+          "finishedAtMs": 14923.563000000002
+        },
+        {
+          "url": "/boot-shape.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 3146,
+          "finishedAtMs": 17398.57699999999
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-117-wght-normal.CLJPD2y0.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 13897,
+          "finishedAtMs": 18897.823999999986
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-113-wght-normal.hxVHS2d4.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 17301,
+          "finishedAtMs": 19085.959000000003
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-114-wght-normal.DUzjAsrP.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 17445,
+          "finishedAtMs": 19197.614999999983
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-latin-wght-normal.Bnnzbixe.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 25437,
+          "finishedAtMs": 19573.07
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-115-wght-normal.BiZ4-5rz.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 20557,
+          "finishedAtMs": 20510.497999999985
+        },
+        {
+          "url": "/_app/immutable/nodes/1.DPjWWje0.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1114,
+          "finishedAtMs": 21186.259999999977
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-109-wght-normal.DaJwqT__.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 17365,
+          "finishedAtMs": 21823.12999999999
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-119-wght-normal.BAB3pFaH.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 79877,
+          "finishedAtMs": 21973.453999999976
+        },
+        {
+          "url": "/_app/immutable/chunks/Cxftvk7F.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1256,
+          "finishedAtMs": 23249.772999999976
+        },
+        {
+          "url": "/_app/immutable/chunks/IEStwrru.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1159,
+          "finishedAtMs": 23324.43699999999
+        },
+        {
+          "url": "/_app/immutable/chunks/CTs6eEXs.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1686,
+          "finishedAtMs": 23398.552999999993
+        },
+        {
+          "url": "/_app/immutable/nodes/2.kMc8xiNa.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 14539,
+          "finishedAtMs": 23698.139
+        },
+        {
+          "url": "/_app/immutable/chunks/CUGo5JHt.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1207,
+          "finishedAtMs": 23848.227999999977
+        },
+        {
+          "url": "/_app/immutable/chunks/yRSA7C2Z.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 3485,
+          "finishedAtMs": 24073.01899999999
+        },
+        {
+          "url": "/_app/immutable/chunks/DnHWOOOv.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1432,
+          "finishedAtMs": 25274.160999999993
+        },
+        {
+          "url": "/_app/immutable/chunks/YSEQj-7t.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1709,
+          "finishedAtMs": 25386.123
+        },
+        {
+          "url": "/_app/immutable/chunks/DFCswVjN.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1011,
+          "finishedAtMs": 25423.869999999995
+        },
+        {
+          "url": "/_app/immutable/chunks/D49ypRZV.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1393,
+          "finishedAtMs": 25723.403999999988
+        },
+        {
+          "url": "/_app/immutable/chunks/BX1ofMBy.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 3416,
+          "finishedAtMs": 25948.083
+        },
+        {
+          "url": "/_app/immutable/chunks/XH2_F2nH.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1513,
+          "finishedAtMs": 26136.566999999985
+        },
+        {
+          "url": "/_app/immutable/chunks/BqsX4-Fb.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 3006,
+          "finishedAtMs": 27373.12799999998
+        },
+        {
+          "url": "/_app/immutable/chunks/DDfTnAD4.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1133,
+          "finishedAtMs": 27410.97099999999
+        },
+        {
+          "url": "/_app/immutable/chunks/BJibBJ6l.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1796,
+          "finishedAtMs": 27486.383999999987
+        },
+        {
+          "url": "/_app/immutable/chunks/CdpSaLz6.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1275,
+          "finishedAtMs": 27748.256999999994
+        },
+        {
+          "url": "/_app/immutable/chunks/CF7SAR__.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1060,
+          "finishedAtMs": 27973.445999999996
+        },
+        {
+          "url": "/_app/immutable/nodes/5.nIA2hIyp.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 9387,
+          "finishedAtMs": 28385.492999999995
+        },
+        {
+          "url": "/_app/immutable/chunks/D1O3KU4E.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1969,
+          "finishedAtMs": 29435.498999999993
+        },
+        {
+          "url": "/_app/immutable/chunks/BMiDmM8T.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 2019,
+          "finishedAtMs": 29510.93399999999
+        },
+        {
+          "url": "/_app/immutable/chunks/BKHyZ93q.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 2332,
+          "finishedAtMs": 29585.80699999999
+        },
+        {
+          "url": "/_app/immutable/chunks/DyZTdKVe.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1234,
+          "finishedAtMs": 29773.566999999985
+        },
+        {
+          "url": "/_app/immutable/chunks/CcHPLRNL.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 6217,
+          "finishedAtMs": 30148.668999999983
+        },
+        {
+          "url": "/_app/immutable/chunks/C-JWhKlA.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 2686,
+          "finishedAtMs": 30448.576
+        },
+        {
+          "url": "/_app/immutable/chunks/CsyO1vI3.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1144,
+          "finishedAtMs": 31461.460999999985
+        },
+        {
+          "url": "/_app/immutable/chunks/Dk4cqH4j.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 4335,
+          "finishedAtMs": 31610.365999999998
+        },
+        {
+          "url": "/api/token-notice",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 488,
+          "finishedAtMs": 31650.044999999976
+        },
+        {
+          "url": "/api/aoba/organization",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 699,
+          "finishedAtMs": 31836.34599999999
+        },
+        {
+          "url": "/api/my-organizations",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 602,
+          "finishedAtMs": 32210.414999999983
+        },
+        {
+          "url": "/api/aoba/favorite-list",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 486,
+          "finishedAtMs": 32512.259000000002
+        },
+        {
+          "url": "/api/aoba/today",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 784,
+          "finishedAtMs": 33673.69599999998
+        },
+        {
+          "url": "/api/aoba/first-steps",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 487,
+          "finishedAtMs": 33710.386
+        },
+        {
+          "url": "/api/aoba/recent-activity",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 489,
+          "finishedAtMs": 35998.66
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-118-wght-normal.D8DI_HXJ.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 19185,
+          "finishedAtMs": 38097.96499999999
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-116-wght-normal.DkZAcxAY.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 18133,
+          "finishedAtMs": 38136.01799999998
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-112-wght-normal.DdhK_1vk.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 18185,
+          "finishedAtMs": 38248.124999999985
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-111-wght-normal.CuGzYIdC.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 19673,
+          "finishedAtMs": 38398.662000000004
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-99-wght-normal.DaQ3GEVf.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 22405,
+          "finishedAtMs": 38435.626999999986
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-108-wght-normal.DijBe27A.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 22297,
+          "finishedAtMs": 38923.46899999998
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-105-wght-normal.CqRQAfnb.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 19773,
+          "finishedAtMs": 42635.345
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-91-wght-normal.BishDeFy.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 22745,
+          "finishedAtMs": 42747.626
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-110-wght-normal.bhh2FQQH.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 18609,
+          "finishedAtMs": 42823.555
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-107-wght-normal.DrykTIAp.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 19597,
+          "finishedAtMs": 43085.657999999996
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-104-wght-normal.OIyZ9iQD.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 20801,
+          "finishedAtMs": 43160.61599999997
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-98-wght-normal.CjEDrQIY.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 21789,
+          "finishedAtMs": 43312.75299999999
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-102-wght-normal.2gFz4V6e.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 21637,
+          "finishedAtMs": 45973.29099999999
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-106-wght-normal.D-PO3jqS.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 24621,
+          "finishedAtMs": 46385.612999999976
+        },
+        {
+          "url": "/brand/master/symbol.png",
+          "type": "Image",
+          "gzip": false,
+          "bytes": 193550,
+          "finishedAtMs": 50698.329
+        }
+      ]
+    },
+    {
+      "profile": "slow",
+      "run": 2,
+      "htmlMs": 9.800000000017462,
+      "shownMs": 34044.20000000001,
+      "afterHtmlMs": 34034.399999999994,
+      "failed": true,
+      "failedMs": 4099.400000000023,
+      "responseEndMs": 2098.600000000006,
+      "domReadyMs": 17288.400000000023,
+      "afterDomReadyMs": 16755.79999999999,
+      "completedAtDisplay": {
+        "requests": 65,
+        "bytes": 516790,
+        "groups": {
+          "Document": {
+            "requests": 1,
+            "bytes": 3301
+          },
+          "Script": {
+            "requests": 49,
+            "bytes": 251684
+          },
+          "Stylesheet": {
+            "requests": 2,
+            "bytes": 66380
+          },
+          "Font": {
+            "requests": 7,
+            "bytes": 191879
+          },
+          "Fetch": {
+            "requests": 6,
+            "bytes": 3546
+          }
+        }
+      },
+      "requests": 81,
+      "bytes": 1000279,
+      "groups": {
+        "Document": {
+          "requests": 1,
+          "bytes": 3301
+        },
+        "Script": {
+          "requests": 49,
+          "bytes": 251684
+        },
+        "Stylesheet": {
+          "requests": 2,
+          "bytes": 66380
+        },
+        "Font": {
+          "requests": 21,
+          "bytes": 481329
+        },
+        "Fetch": {
+          "requests": 7,
+          "bytes": 4035
+        },
+        "Image": {
+          "requests": 1,
+          "bytes": 193550
+        }
+      },
+      "resources": [
+        {
+          "url": "/aoba",
+          "type": "Document",
+          "gzip": true,
+          "bytes": 3301,
+          "finishedAtMs": 2098.5119999999997
+        },
+        {
+          "url": "/_app/immutable/entry/start.CpQwv3pf.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1187,
+          "finishedAtMs": 4088.0669999999955
+        },
+        {
+          "url": "/_app/immutable/entry/payload.DSmR2FwN.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 931,
+          "finishedAtMs": 4123.735000000011
+        },
+        {
+          "url": "/_app/immutable/chunks/OBHOGGpF.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 923,
+          "finishedAtMs": 4199.275999999998
+        },
+        {
+          "url": "/_app/immutable/chunks/CRzLMJPS.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1653,
+          "finishedAtMs": 4311.807000000016
+        },
+        {
+          "url": "/_app/immutable/chunks/R4-APeu2.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 16793,
+          "finishedAtMs": 5099.205000000012
+        },
+        {
+          "url": "/_app/immutable/chunks/BbeMw8zO.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1620,
+          "finishedAtMs": 6261.86899999999
+        },
+        {
+          "url": "/_app/immutable/assets/0.CVpG-bjL.css",
+          "type": "Stylesheet",
+          "gzip": true,
+          "bytes": 60120,
+          "finishedAtMs": 6411.254000000014
+        },
+        {
+          "url": "/_app/immutable/chunks/y0gnEyWl.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 2784,
+          "finishedAtMs": 6486.582999999996
+        },
+        {
+          "url": "/_app/immutable/entry/app.CmY3de51.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 4518,
+          "finishedAtMs": 6711.734000000007
+        },
+        {
+          "url": "/_app/immutable/chunks/DHrvYH_o.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 23693,
+          "finishedAtMs": 7123.890000000018
+        },
+        {
+          "url": "/_app/immutable/chunks/CaSa16mG.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 896,
+          "finishedAtMs": 7161.075000000011
+        },
+        {
+          "url": "/_app/immutable/chunks/4tVxZq34.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1051,
+          "finishedAtMs": 8586.675000000014
+        },
+        {
+          "url": "/_app/immutable/nodes/0.Dk2XUr8u.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 7793,
+          "finishedAtMs": 8960.802999999998
+        },
+        {
+          "url": "/_app/immutable/chunks/Oqdn27hV.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 896,
+          "finishedAtMs": 9299.312000000014
+        },
+        {
+          "url": "/_app/immutable/chunks/omwox5Zb.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1609,
+          "finishedAtMs": 9374.032999999998
+        },
+        {
+          "url": "/_app/immutable/chunks/QVm6EIT3.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 47883,
+          "finishedAtMs": 10724.102000000017
+        },
+        {
+          "url": "/_app/immutable/chunks/ySu8ssqU.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1519,
+          "finishedAtMs": 10798.767999999996
+        },
+        {
+          "url": "/_app/immutable/chunks/3w-0cVDI.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1293,
+          "finishedAtMs": 11023.827000000012
+        },
+        {
+          "url": "/_app/immutable/chunks/bQ_Y-jpG.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 52182,
+          "finishedAtMs": 11248.847999999982
+        },
+        {
+          "url": "/_app/immutable/chunks/CFJPMD4i.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1026,
+          "finishedAtMs": 11324.347000000018
+        },
+        {
+          "url": "/_app/immutable/chunks/DffitFGN.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 2369,
+          "finishedAtMs": 11436.833000000008
+        },
+        {
+          "url": "/theme-init.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1406,
+          "finishedAtMs": 12749.288000000008
+        },
+        {
+          "url": "/boot-loading.css",
+          "type": "Stylesheet",
+          "gzip": true,
+          "bytes": 6260,
+          "finishedAtMs": 14923.643999999997
+        },
+        {
+          "url": "/boot-shape.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 3146,
+          "finishedAtMs": 17286.49199999998
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-117-wght-normal.CLJPD2y0.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 13897,
+          "finishedAtMs": 18899.103999999996
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-113-wght-normal.hxVHS2d4.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 17301,
+          "finishedAtMs": 19123.30899999998
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-114-wght-normal.DUzjAsrP.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 17445,
+          "finishedAtMs": 19198.39700000003
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-latin-wght-normal.Bnnzbixe.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 25437,
+          "finishedAtMs": 19649.06099999999
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-115-wght-normal.BiZ4-5rz.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 20557,
+          "finishedAtMs": 20473.55999999999
+        },
+        {
+          "url": "/_app/immutable/nodes/1.DPjWWje0.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1114,
+          "finishedAtMs": 21223.599000000006
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-109-wght-normal.DaJwqT__.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 17365,
+          "finishedAtMs": 21823.590999999993
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-119-wght-normal.BAB3pFaH.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 79877,
+          "finishedAtMs": 21973.479000000025
+        },
+        {
+          "url": "/_app/immutable/chunks/Cxftvk7F.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1256,
+          "finishedAtMs": 23286.591000000015
+        },
+        {
+          "url": "/_app/immutable/chunks/IEStwrru.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1159,
+          "finishedAtMs": 23362.447000000004
+        },
+        {
+          "url": "/_app/immutable/chunks/CTs6eEXs.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1686,
+          "finishedAtMs": 23436.698000000008
+        },
+        {
+          "url": "/_app/immutable/nodes/2.kMc8xiNa.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 14539,
+          "finishedAtMs": 23737.261000000017
+        },
+        {
+          "url": "/_app/immutable/chunks/CUGo5JHt.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1207,
+          "finishedAtMs": 23848.62100000001
+        },
+        {
+          "url": "/_app/immutable/chunks/yRSA7C2Z.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 3485,
+          "finishedAtMs": 24073.22100000002
+        },
+        {
+          "url": "/_app/immutable/chunks/DnHWOOOv.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1432,
+          "finishedAtMs": 25311.55400000003
+        },
+        {
+          "url": "/_app/immutable/chunks/YSEQj-7t.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1709,
+          "finishedAtMs": 25423.782999999985
+        },
+        {
+          "url": "/_app/immutable/chunks/DFCswVjN.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1011,
+          "finishedAtMs": 25460.985000000022
+        },
+        {
+          "url": "/_app/immutable/chunks/D49ypRZV.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1393,
+          "finishedAtMs": 25761.141999999978
+        },
+        {
+          "url": "/_app/immutable/chunks/BX1ofMBy.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 3416,
+          "finishedAtMs": 25948.144999999982
+        },
+        {
+          "url": "/_app/immutable/chunks/XH2_F2nH.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1513,
+          "finishedAtMs": 26136.909000000032
+        },
+        {
+          "url": "/_app/immutable/chunks/BqsX4-Fb.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 3006,
+          "finishedAtMs": 27411.631000000027
+        },
+        {
+          "url": "/_app/immutable/chunks/DDfTnAD4.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1133,
+          "finishedAtMs": 27448.459999999985
+        },
+        {
+          "url": "/_app/immutable/chunks/BJibBJ6l.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1796,
+          "finishedAtMs": 27524.21000000001
+        },
+        {
+          "url": "/_app/immutable/chunks/CdpSaLz6.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1275,
+          "finishedAtMs": 27786.366000000016
+        },
+        {
+          "url": "/_app/immutable/chunks/CF7SAR__.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1060,
+          "finishedAtMs": 27973.960000000006
+        },
+        {
+          "url": "/_app/immutable/nodes/5.nIA2hIyp.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 9387,
+          "finishedAtMs": 28386.331000000013
+        },
+        {
+          "url": "/_app/immutable/chunks/D1O3KU4E.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1969,
+          "finishedAtMs": 29473.130999999994
+        },
+        {
+          "url": "/_app/immutable/chunks/BMiDmM8T.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 2019,
+          "finishedAtMs": 29548.964999999982
+        },
+        {
+          "url": "/_app/immutable/chunks/BKHyZ93q.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 2332,
+          "finishedAtMs": 29624.335000000003
+        },
+        {
+          "url": "/_app/immutable/chunks/DyZTdKVe.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1234,
+          "finishedAtMs": 29811.633
+        },
+        {
+          "url": "/_app/immutable/chunks/CcHPLRNL.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 6217,
+          "finishedAtMs": 30148.222000000005
+        },
+        {
+          "url": "/_app/immutable/chunks/C-JWhKlA.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 2686,
+          "finishedAtMs": 30449.08799999999
+        },
+        {
+          "url": "/_app/immutable/chunks/CsyO1vI3.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 1144,
+          "finishedAtMs": 31499.29899999998
+        },
+        {
+          "url": "/_app/immutable/chunks/Dk4cqH4j.js",
+          "type": "Script",
+          "gzip": true,
+          "bytes": 4335,
+          "finishedAtMs": 31648.73400000002
+        },
+        {
+          "url": "/api/token-notice",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 488,
+          "finishedAtMs": 31686.571999999986
+        },
+        {
+          "url": "/api/aoba/organization",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 699,
+          "finishedAtMs": 31873.328999999983
+        },
+        {
+          "url": "/api/my-organizations",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 602,
+          "finishedAtMs": 32211.659000000025
+        },
+        {
+          "url": "/api/aoba/favorite-list",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 486,
+          "finishedAtMs": 32511.860999999983
+        },
+        {
+          "url": "/api/aoba/today",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 784,
+          "finishedAtMs": 33710.91199999998
+        },
+        {
+          "url": "/api/aoba/first-steps",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 487,
+          "finishedAtMs": 33748.74300000002
+        },
+        {
+          "url": "/api/aoba/recent-activity",
+          "type": "Fetch",
+          "gzip": true,
+          "bytes": 489,
+          "finishedAtMs": 35848.75500000001
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-118-wght-normal.D8DI_HXJ.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 19185,
+          "finishedAtMs": 38173.687
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-116-wght-normal.DkZAcxAY.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 18133,
+          "finishedAtMs": 38211.41000000003
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-112-wght-normal.DdhK_1vk.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 18185,
+          "finishedAtMs": 38323.994
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-111-wght-normal.CuGzYIdC.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 19673,
+          "finishedAtMs": 38473.19899999999
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-99-wght-normal.DaQ3GEVf.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 22405,
+          "finishedAtMs": 38510.617999999995
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-108-wght-normal.DijBe27A.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 22297,
+          "finishedAtMs": 38961.59700000001
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-105-wght-normal.CqRQAfnb.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 19773,
+          "finishedAtMs": 42711.05000000003
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-91-wght-normal.BishDeFy.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 22745,
+          "finishedAtMs": 42824.05700000001
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-110-wght-normal.bhh2FQQH.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 18609,
+          "finishedAtMs": 42899.006000000016
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-107-wght-normal.DrykTIAp.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 19597,
+          "finishedAtMs": 43198.518000000004
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-104-wght-normal.OIyZ9iQD.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 20801,
+          "finishedAtMs": 43236.21
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-98-wght-normal.CjEDrQIY.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 21789,
+          "finishedAtMs": 43385.87400000003
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-102-wght-normal.2gFz4V6e.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 21637,
+          "finishedAtMs": 46048.46399999999
+        },
+        {
+          "url": "/_app/immutable/assets/noto-sans-jp-106-wght-normal.D-PO3jqS.woff2",
+          "type": "Font",
+          "gzip": false,
+          "bytes": 24621,
+          "finishedAtMs": 46460.73299999998
+        },
+        {
+          "url": "/brand/master/symbol.png",
+          "type": "Image",
+          "gzip": false,
+          "bytes": 193550,
+          "finishedAtMs": 50773.34800000003
+        }
+      ]
+    }
+  ]
+}

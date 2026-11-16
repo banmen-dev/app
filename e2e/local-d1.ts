@@ -126,6 +126,16 @@ export async function restoreHinataInvitation(): Promise<void> {
   ]);
 }
 
+// あおば開発の一般のユーザー（ハルカ、seed/sessions.ts の member）の users.theme を seed の状態（選んでいない = NULL）へ戻す。
+// マイプロフィールのテーマの節（e2e/me-settings.test.ts）が本物の API で書いた値を、繰り返しとほかのテストのために残さない。
+// me-theme-update は NULL を取らないので、選んでいない状態へは D1 に直に戻す
+export async function resetAobaMemberTheme(): Promise<void> {
+  await executeLocalD1([
+    `UPDATE users SET theme = NULL WHERE organization_id = '${AOBA_ORGANIZATION_ID}' ` +
+      `AND account_id = '${SEED_SESSIONS.member.accountId}';`,
+  ]);
+}
+
 // パスワードでのログインのレート制限の行（`password:<IP>`、`password48:<…>`、`password-email:<ハッシュ>`）を消す。
 // パスワードのログインの e2e（e2e/password-login.test.ts）が、繰り返し（--repeat-each）で同じメールアドレスと IP の枠
 // （10分に10回、30回）を使い切らないよう、場面ごとに消す。ほかの e2e はパスワードのログインを使わない
@@ -309,4 +319,31 @@ export async function seedInboxTasks(workspaceId: string, ownerUserId: string, t
     );
   });
   await executeLocalD1(statements);
+}
+
+// くもラボの保守（seed/data.sql）と、そこだけに所属する一般のシオン（seed/sessions.ts の avatarLeaver）の所属の行
+export const KUMO_WORKSPACE_ID = '019a0000-0000-7000-8000-000000000403';
+export const KUMO_AVATAR_LEAVER_USER_ID = '019a0000-0000-7000-8000-000000000317';
+const KUMO_AVATAR_LEAVER_MEMBERSHIP_ID = '019a0000-0000-7000-8000-000000000709';
+
+// e2e/profile-avatar.test.ts が保守を抜けさせたシオンの所属を、seed の状態（今の所属）へ戻す。離脱を戻す操作は無いので、手元の D1 に直に書く。
+// 離脱が書いた変更の履歴は残す（追記だけの記録で、くもラボの履歴を数えるテストは無い）。消えたプロフィール画像は戻さない（seed は画像を持たない）
+export async function restoreKumoAvatarLeaverMembership(): Promise<void> {
+  await executeLocalD1([
+    `UPDATE memberships SET left_on = NULL, left_at = NULL ` +
+      `WHERE id = '${KUMO_AVATAR_LEAVER_MEMBERSHIP_ID}' AND workspace_id = '${KUMO_WORKSPACE_ID}' ` +
+      `AND user_id = '${KUMO_AVATAR_LEAVER_USER_ID}';`,
+  ]);
+}
+
+// #1314 の同期後の保存状態を、独立したワークスペースに用意する。
+// 実際の GitHub 通信と再依頼の遷移は Workers テストで確かめ、E2E は保存後の表示・移動を確かめる。
+export async function seedInboxReviewStates(workspaceId: string, ownerUserId: string): Promise<void> {
+  await seedInboxTasks(workspaceId, ownerUserId, ['提出済みのレビュー', '再依頼されたレビュー']);
+  await executeLocalD1([
+    `UPDATE task_sources SET source_kind = 'review_request', reviewer_source_id = '42', review_cycle = 'seed-cycle-2', ` +
+      `is_source_done = CASE WHEN source_key = 'aoba/e2e#1' THEN 1 ELSE 0 END, ` +
+      `last_received_at = CASE WHEN source_key = 'aoba/e2e#2' THEN '2026-11-17T00:00:00.000Z' ELSE NULL END ` +
+      `WHERE workspace_id = '${workspaceId}';`,
+  ]);
 }

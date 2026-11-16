@@ -7,6 +7,12 @@ import {
   organizationHistory,
 } from '../../shared/operations/organization/organization-history.ts';
 import type { OutputOf } from '../../shared/operations/define.ts';
+import {
+  billingIntervals,
+  organizationPlans,
+  type BillingInterval,
+  type OrganizationPlan,
+} from '../../shared/organization-plan.ts';
 import { organizationHistoryRowFilter, type OrganizationDb } from '../db/index.ts';
 import { implement } from './implement.ts';
 
@@ -113,6 +119,60 @@ function userEvent(action: string, changes: Changes, row: HistoryRow): HistoryEv
   return { kind: 'other' };
 }
 
+const isPlan = (value: unknown): value is OrganizationPlan =>
+  typeof value === 'string' && (organizationPlans as readonly string[]).includes(value);
+const isInterval = (value: unknown): value is BillingInterval =>
+  typeof value === 'string' && (billingIntervals as readonly string[]).includes(value);
+
+// 運用者の契約の変更（organization-plan-update）。プランと支払いの周期は組で残している。組がそろわない行と、知らない値の行は扱わない
+function planChange(changes: Changes): HistoryEvent | undefined {
+  const plan = pairOf(changes, 'plan');
+  const interval = pairOf(changes, 'billing_interval');
+  if (plan === undefined || interval === undefined) return undefined;
+  const [planFrom, planTo] = plan;
+  const [intervalFrom, intervalTo] = interval;
+  if (!isPlan(planTo) || !isInterval(intervalTo)) return undefined;
+  const customTerms = (index: 0 | 1) => {
+    const fields: { custom_member_limit?: number | null; custom_attachment_quota_bytes?: number | null } = {};
+    for (const key of ['custom_member_limit', 'custom_attachment_quota_bytes'] as const) {
+      const pair = pairOf(changes, key);
+      if (
+        pair !== undefined &&
+        (pair[index] === null || (typeof pair[index] === 'number' && Number.isInteger(pair[index])))
+      )
+        fields[key] = pair[index] as number | null;
+    }
+    return fields;
+  };
+  const to = { plan: planTo, billing_interval: intervalTo, ...customTerms(1) };
+  if (planFrom === null && intervalFrom === null) return { kind: 'organization_plan_changed', from: null, to };
+  if (!isPlan(planFrom) || !isInterval(intervalFrom)) return undefined;
+  return {
+    kind: 'organization_plan_changed',
+    from: { plan: planFrom, billing_interval: intervalFrom, ...customTerms(0) },
+    to,
+  };
+}
+
+function storageChange(changes: Changes): HistoryEvent | undefined {
+  const ten = pairOf(changes, 'extra_10gb_units');
+  const fifty = pairOf(changes, 'extra_50gb_units');
+  const interval = pairOf(changes, 'billing_interval');
+  if (!ten || !fifty || !interval || !isInterval(interval[1])) return undefined;
+  if (interval[0] !== null && !isInterval(interval[0])) return undefined;
+  if (![...ten, ...fifty].every((value) => typeof value === 'number' && Number.isInteger(value) && value >= 0))
+    return undefined;
+  return {
+    kind: 'organization_storage_changed',
+    from: {
+      extra_10gb_units: ten[0] as number,
+      extra_50gb_units: fifty[0] as number,
+      billing_interval: interval[0],
+    },
+    to: { extra_10gb_units: ten[1] as number, extra_50gb_units: fifty[1] as number, billing_interval: interval[1] },
+  };
+}
+
 function organizationEvent(action: string, changes: Changes): HistoryEvent {
   switch (action) {
     case 'create':
@@ -124,6 +184,10 @@ function organizationEvent(action: string, changes: Changes): HistoryEvent {
     case 'update': {
       const purgeOn = pairOf(changes, 'purge_on');
       if (purgeOn !== undefined) return { kind: 'organization_suspension_changed', purge_on: textOrNull(purgeOn[1]) };
+      const storage = storageChange(changes);
+      if (storage !== undefined) return storage;
+      const plan = planChange(changes);
+      if (plan !== undefined) return plan;
       // vocabulary は言葉づかいを選べた頃に残した行の項目
       if ('vocabulary' in changes || 'theme' in changes) return { kind: 'organization_settings_changed' };
       return { kind: 'other' };

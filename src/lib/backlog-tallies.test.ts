@@ -18,11 +18,10 @@ const row = (id: string, changes: Partial<BacklogTask> = {}): BacklogTask => ({
   category: null,
   repository: null,
   sprint: null,
-  unfilled: true,
   can_delete: true,
   ...changes,
 });
-const counts = { open_count: 100, unfilled_count: 50, unestimated_count: 20, unscheduled_count: 30 };
+const counts = { open_count: 100, unestimated_count: 20, unscheduled_count: 30 };
 
 test('起票前の木では集計用の追加分を残し、起票後に要求した木が成功したときだけ外す', () => {
   const oldRead = startBacklogRead();
@@ -47,14 +46,12 @@ test('表示の木が一部でもサーバーの全体の値を保ち、起票�
   const fresh = row('fresh');
   expect(backlogTallies(counts, [loaded], [fresh], [], {})).toEqual({
     open_count: 101,
-    unfilled_count: 51,
     unestimated_count: 21,
     unscheduled_count: 31,
   });
   expect(backlogTallies(counts, [loaded], [fresh], ['loaded'], {})).toEqual(counts);
   expect(backlogTallies(counts, [loaded], [fresh], ['loaded', 'fresh'], {})).toEqual({
     open_count: 99,
-    unfilled_count: 49,
     unestimated_count: 19,
     unscheduled_count: 29,
   });
@@ -68,13 +65,10 @@ test('起票した行が読み直しにもあれば重ねず、見積もりの�
   });
   expect(backlogTallies(counts, [task], [task], ['task'], { task: { value: 5 } })).toEqual({
     open_count: 99,
-    unfilled_count: 49,
     unestimated_count: 19,
     unscheduled_count: 29,
   });
-  expect(
-    backlogTallies(counts, [row('task', { points: 3, unfilled: false })], [], [], { task: { value: null } }),
-  ).toEqual({
+  expect(backlogTallies(counts, [row('task', { points: 3 })], [], [], { task: { value: null } })).toEqual({
     ...counts,
     unestimated_count: 21,
   });
@@ -83,7 +77,6 @@ test('起票した行が読み直しにもあれば重ねず、見積もりの�
 test('スプリント入りの見積もり済みの行の完了は、未見積もりと未割り当てを減らさない', () => {
   const task = row('task', {
     points: 3,
-    unfilled: false,
     sprint: { id: 'sprint', name: '試す', start_on: '2026-11-01', end_on: '2026-11-14' },
   });
   expect(backlogTallies(counts, [task], [], ['task'], {})).toEqual({ ...counts, open_count: 99 });

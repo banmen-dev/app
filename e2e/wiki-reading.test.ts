@@ -53,7 +53,14 @@ for (const scope of ['organization', 'workspace'] as const) {
         page,
         workspaceInfo,
         { slug: 'aoba' },
-        { name: '手順のチーム', closed_at: null, definition_of_done_md: null, role: 'leader' },
+        {
+          name: '手順のチーム',
+          closed_at: null,
+          definition_of_done_md: null,
+          sprint_name_template: null,
+          sprint_number_next: 1,
+          role: 'leader',
+        },
       );
       await page.goto(root);
       const list = page.locator('.wiki-page-list');

@@ -1,6 +1,8 @@
 // 組織の外の操作の処理に渡す、ログインした人についての読み取り。env を処理に渡さず、決まった問い合わせだけを渡す。
 // アカウントに結んだログインの手段と ID、入れる組織と届いた招待と停止した組織は、使われたときに1回だけ引く
-// （入れる組織の確かめは登録の関数では行わない。my-organizations の処理が使う）
+// （組織の一覧は my-organizations が使い、今日の組織ごとの認可と読み取りは db/ の関数へ任せる）
+import type { z } from 'zod';
+import type { myToday } from '../../shared/operations/organization/my-today.ts';
 import { accountLogins } from '../auth/account-logins.ts';
 import { isOperatorLogin, operatorLoginIdOf } from '../auth/operators.ts';
 import {
@@ -8,10 +10,12 @@ import {
   insertPersonalOrganization,
   insertSelfCreatedOrganization,
   listAccountOrganizations,
+  readAccountTaskOrganizations,
   type AccountOrganizations,
   type CreatedOrganization,
   type LoginId,
 } from '../db/index.ts';
+import { readToday } from './today.ts';
 
 export type OutsideAccount = {
   // このアカウントが自分の組織を作る最初の書き込み（共通の DB の organizations）。slug が重なれば 'slug_taken'、
@@ -32,6 +36,7 @@ export type OutsideAccount = {
   abandonOrganization(organizationId: string): Promise<void>;
   // 入れる組織と、承諾待ちの招待だけがある組織（組織をまたいで読む関数を通す）。アカウントに結ばれる前の行は数えない
   organizations(): Promise<AccountOrganizations>;
+  today(): Promise<z.output<typeof myToday.output>>;
   // シークレットの運用者の一覧に、このアカウントのログインが載っているか
   isOperator(): Promise<boolean>;
   // 運用者の一覧に載っているログインの ID（`github:12345` の形）。運用者でなければ undefined
@@ -40,7 +45,7 @@ export type OutsideAccount = {
   logins(): Promise<readonly LoginId[]>;
 };
 
-export function outsideAccount(env: Env, accountId: string): OutsideAccount {
+export function outsideAccount(env: Env, accountId: string, authenticatedAt: string): OutsideAccount {
   let logins: Promise<LoginId[]> | undefined;
   const loadLogins = () => (logins ??= accountLogins(env, accountId));
   let organizations: Promise<AccountOrganizations> | undefined;
@@ -49,6 +54,20 @@ export function outsideAccount(env: Env, accountId: string): OutsideAccount {
     createPersonalOrganization: (input) => insertPersonalOrganization(env, { ...input, accountId }),
     abandonOrganization: (organizationId) => deleteSelfCreatedOrganization(env, { organizationId, accountId }),
     logins: loadLogins,
+    today: async () => {
+      const result = await readAccountTaskOrganizations(
+        env,
+        { accountId, logins: await loadLogins(), authenticatedAt },
+        (db, userId) => readToday(db, userId, { includeSprintGoals: false }),
+      );
+      return {
+        tasks: result.organizations.flatMap(({ organization, data }) =>
+          data.tasks.map((task) => ({ ...task, organization })),
+        ),
+        failed_organizations: result.failed_organizations,
+        omitted_organizations: result.omitted_organizations,
+      };
+    },
     organizations: () =>
       (organizations ??= (async () => listAccountOrganizations(env, { accountId, logins: await loadLogins() }))()),
     isOperator: async () => isOperatorLogin(env, await loadLogins()),

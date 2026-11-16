@@ -22,7 +22,7 @@ function anchor(attributes: Record<string, string> = {}, rect = { right: 200, to
   } as unknown as HTMLElement;
 }
 
-function shortcut(overrides: Partial<Shortcut> = {}): Shortcut {
+function shortcut(overrides: Partial<Extract<Shortcut, { helpOnly?: false }>> = {}): Shortcut {
   return { id: 'next', keys: ']', label: () => '次', run: () => {}, hintAnchor: () => anchor(), ...overrides };
 }
 

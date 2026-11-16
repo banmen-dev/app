@@ -94,6 +94,12 @@ export function createFakePatGithub() {
     }
 
     const issuesMatch = /^\/repositories\/(\d+)\/issues$/.exec(parsed.pathname);
+    // PR を置かない従来のテスト用。PR の振る舞いは専用 fake-github-pulls.ts が担う。
+    if (parsed.origin === 'https://api.github.com' && /^\/repositories\/\d+\/pulls$/.test(parsed.pathname)) {
+      return accounts.has((headers['authorization'] ?? '').replace(/^Bearer /, ''))
+        ? json([])
+        : json({ message: 'Bad credentials' }, 401);
+    }
     if (parsed.origin === 'https://api.github.com' && issuesMatch !== null) {
       const pageFailure = issuePageFailures.get(page);
       if (pageFailure !== undefined) {

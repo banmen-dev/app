@@ -43,6 +43,59 @@ export const sprintNameSchema = z
   })
   .nullable();
 
+// 命名ルールは名前と同じ整え方・字数・文字の制限。知らない {…} は保存時に断る。
+export const SPRINT_NAME_VARIABLES = ['n', 'yyyy', 'yy', 'mm', 'm', 'dd', 'd', 'w'] as const;
+export type SprintNameTemplateProblem = SprintNameProblem | 'unknown_variable';
+
+export function sprintNameTemplateProblem(value: string | null): SprintNameTemplateProblem | null {
+  const problem = sprintNameProblem(value);
+  if (problem !== null || value === null) return problem;
+  for (const match of value.matchAll(/\{([^{}]*)\}/g)) {
+    if (!SPRINT_NAME_VARIABLES.some((variable) => variable === match[1])) return 'unknown_variable';
+  }
+  return null;
+}
+
+export const sprintNameTemplateSchema = z
+  .string()
+  .transform((raw, ctx) => {
+    const value = normalizeSprintName(raw);
+    const problem = sprintNameTemplateProblem(value);
+    if (problem !== null) {
+      ctx.addIssue({ code: 'custom', message: `スプリントの命名ルールが使えない（${problem}）` });
+      return z.NEVER;
+    }
+    return value;
+  })
+  .nullable();
+
+// 開始日の暦の日付で展開する。{w} は月の中の何回目の同じ曜日か（1〜5）。
+// 空のルール、無効な入力、展開後に名前の上限を超えるときは初期値を入れない（null）。
+// 画面は sprintNameTemplateProblem と、展開結果が null かどうかで理由を知らせる。
+export function expandSprintName(template: string | null, startOn: string, number: number): string | null {
+  if (
+    template === null ||
+    sprintNameTemplateProblem(template) !== null ||
+    !isCalendarDate(startOn) ||
+    !Number.isSafeInteger(number) ||
+    number < 1
+  )
+    return null;
+  const day = Number(startOn.slice(8, 10));
+  const values: Record<(typeof SPRINT_NAME_VARIABLES)[number], string> = {
+    n: String(number),
+    yyyy: startOn.slice(0, 4),
+    yy: startOn.slice(2, 4),
+    mm: startOn.slice(5, 7),
+    m: String(Number(startOn.slice(5, 7))),
+    dd: startOn.slice(8, 10),
+    d: String(day),
+    w: String(Math.ceil(day / 7)),
+  };
+  const name = normalizeSprintName(template.replace(/\{([^{}]*)\}/g, (_, key: keyof typeof values) => values[key]));
+  return sprintNameProblem(name) === null ? name : null;
+}
+
 // ゴール（始めるときに書く、任意の文）。前後の空白を除いて 0〜200 字（コードポイントで数える）。改行は入れられる（LF にそろえる）。
 // 断る文字は名前と同じ（hidden-characters.ts）が、改行（LF）と字下げのタブは通す
 export const SPRINT_GOAL_MAX_LENGTH = 200;

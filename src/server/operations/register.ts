@@ -147,7 +147,10 @@ async function handleOperation(
   let code = 'ok';
   const cookie: SessionCookie = { applied: false, extend: false, clear: false };
   const bearer = bearerOf(c);
-  if (operation.definition.response === 'binary') c.set('binaryResponse', true);
+  if (operation.definition.response === 'binary') {
+    c.set('binaryResponse', true);
+    if (operation.definition.cacheControl !== undefined) c.set('binaryCacheControl', operation.definition.cacheControl);
+  }
   try {
     const response = await execute(c, operation, trace, cookie, options, bearer);
     status = response.status;
@@ -323,7 +326,7 @@ async function execute(
   const deferred = deferrer(c);
   // 運用者の判定と、アカウントに結んだログインの手段と ID の読み取りは account.ts の1か所。
   // ログインの手段と ID は、使われたときに1回だけ引く。設定の誤りは app のミドルウェアが先に 500 にしている
-  const account = outsideAccount(c.env, accountId);
+  const account = outsideAccount(c.env, accountId, authenticatedAt);
   let result: unknown;
   if (isOutsideOperation(definition)) {
     // 組織の外の操作は、アカウントがあれば入れる組織が無くても通す（入れる組織を失った人も、停止した組織にしか入れない人も）
@@ -368,7 +371,15 @@ async function execute(
     }
     const { db, actor, organization } = entry;
     // 入れた組織の入口に結ぶ。どの道具も組織の ID を引数に取らない
-    const tools = organizationTools(c.env, db, actor, inviteeResolverOf(c, options), options.fetcher, deferred.defer);
+    const tools = organizationTools(
+      c.env,
+      db,
+      actor,
+      organization.slug,
+      inviteeResolverOf(c, options),
+      options.fetcher,
+      deferred.defer,
+    );
     trace.organizationId = db.organizationId;
     trace.userId = actor.userId;
     checkOrganizationPermission(definition.permission, actor);
@@ -379,7 +390,10 @@ async function execute(
       definition.response === 'binary'
         ? readDownloadInput(c, definition.input)
         : await readInput(c, definition.input, definition.body, definition.maxBodyBytes);
-    const binary = definition.body === 'binary' ? { binary: readBinaryBody(c), requestId: c.get('requestId') } : {};
+    const binary =
+      definition.body === 'binary'
+        ? { binary: readBinaryBody(c, definition.maxBodyBytes), requestId: c.get('requestId') }
+        : {};
     const storage =
       definition.storage === 'attachments'
         ? { attachmentStorage: { delete: (keys: string | string[]) => c.env.ATTACHMENTS.delete(keys) } }

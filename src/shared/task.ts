@@ -35,5 +35,5 @@ export const taskPointsSchema = z.union([
   z.literal(13),
 ]);
 
-// 起票と完了の経験値が付くのは、完了にした時点のポイントが 1 以上のタスクだけ
+// 起票、詳細と完了の経験値が付くのは、完了にした時点のポイントが 1 以上のタスクだけ
 export const MIN_POINTS_FOR_EXPERIENCE = 1;

@@ -1,5 +1,5 @@
 // ワークスペースの中の主な画面（バックログ、タスクの引き出し、計画、メンバー、ワークスペースの設定）を幅 390px で開き、
-// 横のはみ出しと 44px の押せる範囲を確かめる（#336）。3つのテーマ × 1つの言葉（スクラムの言葉）。ワークスペースの外の画面は
+// 横のはみ出しと 44px の押せる範囲を確かめる（#336）。2つのテーマ × 1つの言葉（スクラムの言葉）。ワークスペースの外の画面は
 // e2e/layout-narrow.test.ts（CI のシャードに散るよう分けた）。除外は e2e/ui-exclusions.ts。
 // seed のセッション（seed/sessions.ts）の Cookie で開く。あおば開発の管理者はミナト。
 // 開くだけで、seed の行もテーマも書き換えない（ほかのファイルと並べて走るため）
@@ -69,7 +69,7 @@ test('バックログの先頭2行が390×844pxに入り、補助情報を各1�
     await expect(header.locator('.team-xp')).toBeHidden();
     await expect(page.locator('.breadcrumb')).toHaveCount(0);
     await expect(header.locator('.mobile-page-tools')).toHaveCount(1);
-    for (const label of ['詳細 未記入', '未見積もり', 'スプリントに入っていない']) {
+    for (const label of ['未見積もり', 'スプリントに入っていない']) {
       await expect(header.getByText(label, { exact: true })).toBeHidden();
     }
     await expect(page.getByText('上ほど優先', { exact: true })).toBeVisible();
@@ -103,12 +103,14 @@ test('バックログの先頭2行が390×844pxに入り、補助情報を各1�
     }
     for (const button of [summary, filters, help]) await expect(button).toHaveAttribute('aria-expanded', 'true');
     await expect(header.locator('.team-xp')).toBeVisible();
-    for (const label of ['詳細 未記入', '未見積もり', 'スプリントに入っていない']) {
+    for (const label of ['未見積もり', 'スプリントに入っていない']) {
       const item = header.locator('.tally > div').filter({ has: page.getByText(label, { exact: true }) });
       await expect(item.locator('dt')).toBeVisible();
       await expect(item.locator('dd')).toBeVisible();
       await expect(item.locator('dd')).toHaveText(/^\d+$/);
     }
+    // 開いた集計にも「詳細 未記入」は出さない（#1263）
+    await expect(header.getByText('詳細 未記入', { exact: true })).toHaveCount(0);
     await expect(bar.getByRole('combobox')).toHaveCount(4);
     await expect(page.locator('.order-help .action-note')).toBeVisible();
     expect(await findOverflowViolations(page), theme).toEqual([]);
@@ -187,7 +189,7 @@ test('スプリントが 390px で横にはみ出さず、押せる要素が 44p
   await mockOperation(page, sprintBoard, { slug: 'aoba' }, SAMPLE_BOARD);
   await expectNarrowLayout(page, 'sprint', async (w) => {
     await page.goto(`${WORKSPACE}/sprint`);
-    await expect(page.getByRole('heading', { level: 1, name: `${w('sprint')} 第14回` })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: '第14回', exact: true })).toBeVisible();
     await expect(page.getByRole('article', { name: 'ポイント付与のバッチを作る' })).toBeVisible();
     await expectWorkspaceWords(page, w);
   });

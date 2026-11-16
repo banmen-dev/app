@@ -7,13 +7,18 @@ test.describe('アカウントのメニュー', () => {
     await signIn(context, baseURL, 'admin');
   });
 
-  test('管理者は3項目が指定順に並び、各リンクで移ると閉じ、現在地が付く', async ({ page }) => {
+  test('管理者は4項目が指定順に並び、各リンクで移ると閉じ、現在地が付く', async ({ page }) => {
     const collect = await watchViolations(page);
     await page.goto('/aoba');
     const button = page.getByRole('button', { name: /アカウントのメニュー$/ });
     const list = page.locator('.account-menu-list');
     await button.click();
-    await expect(list.locator('li')).toHaveText(['マイプロフィール', '組織の管理', 'ログアウト']);
+    await expect(list.locator('li')).toHaveText([
+      'マイプロフィール',
+      '組織の管理',
+      '請求管理者を管理する',
+      'ログアウト',
+    ]);
     await expect(list.locator('[aria-current="page"]')).toHaveCount(0);
     await expect(page.locator('.nav')).not.toContainText(/マイプロフィール|組織の管理/);
 
@@ -40,12 +45,16 @@ test.describe('アカウントのメニュー', () => {
     expect(await collect()).toEqual([]);
   });
 
-  test('一般のユーザーにはマイプロフィールとログアウトだけを出す', async ({ context, baseURL, page }) => {
+  test('一般のユーザーにも請求管理者への入口を出す', async ({ context, baseURL, page }) => {
     await context.clearCookies();
     await signIn(context, baseURL, 'member');
     await page.goto('/aoba');
     await page.getByRole('button', { name: /アカウントのメニュー$/ }).click();
-    await expect(page.locator('.account-menu-list li')).toHaveText(['マイプロフィール', 'ログアウト']);
+    await expect(page.locator('.account-menu-list li')).toHaveText([
+      'マイプロフィール',
+      '請求管理者を管理する',
+      'ログアウト',
+    ]);
     await expect(page.locator('.account-menu-list').getByRole('link', { name: '組織の管理' })).toHaveCount(0);
     await expect(page.locator('.nav')).not.toContainText(/マイプロフィール|組織の管理/);
   });
@@ -60,6 +69,8 @@ test.describe('アカウントのメニュー', () => {
     await expect(list.getByRole('link', { name: 'マイプロフィール', exact: true })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(list.getByRole('link', { name: '組織の管理' })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(list.getByRole('link', { name: '請求管理者を管理する' })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(list.getByRole('button', { name: 'ログアウト' })).toBeFocused();
     await page.keyboard.press('Escape');
@@ -85,7 +96,7 @@ test.describe('アカウントのメニュー', () => {
           return { inside: box.left >= 0 && box.right <= window.innerWidth, height: box.height };
         }),
       );
-      expect(boxes).toHaveLength(3);
+      expect(boxes).toHaveLength(4);
       for (const box of boxes) {
         expect(box.inside).toBe(true);
         expect(box.height).toBeGreaterThanOrEqual(44);

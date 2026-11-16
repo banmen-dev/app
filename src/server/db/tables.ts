@@ -13,6 +13,24 @@ import {
 } from './column-spec.ts';
 
 export const commonTableColumns = {
+  billing_administrators: {
+    id: text,
+    organization_id: text,
+    account_id: text,
+    status: text,
+    invited_by: text,
+    is_bootstrap: integerDefault,
+    created_at: text,
+    updated_at: text,
+  },
+  billing_admin_events: {
+    id: text,
+    organization_id: text,
+    actor_account_id: text,
+    target_account_id: text,
+    action: text,
+    created_at: text,
+  },
   accounts: { id: text, last_login_at: textOrNull, created_at: text, updated_at: text },
   account_profiles: { account_id: text, name: text, title: text, created_at: text, updated_at: text },
   account_logins: {
@@ -72,8 +90,6 @@ export const commonTableColumns = {
     id: text,
     slug: text,
     name: text,
-    vocabulary: textDefault,
-    theme: textDefault,
     // migrations/0017_add_organization_kind.sql で足す。'team' か 'personal'（自分用）
     kind: textDefault,
     suspended_at: textOrNull,
@@ -89,6 +105,18 @@ export const commonTableColumns = {
     // migrations/0014_add_organization_trial.sql で足す。運用者が作る組織は両方 NULL
     created_by_account_id: textOrNull,
     trial_ends_on: textOrNull,
+    created_at: text,
+    updated_at: text,
+  },
+  // migrations/0028_add_organization_contracts.sql で足した。組織と1対1の契約。行が無い組織は未契約
+  organization_contracts: {
+    organization_id: text,
+    custom_member_limit: integerOrNull,
+    custom_attachment_quota_bytes: integerOrNull,
+    plan: text,
+    billing_interval: text,
+    extra_10gb_units: integerDefault,
+    extra_50gb_units: integerDefault,
     created_at: text,
     updated_at: text,
   },
@@ -149,6 +177,16 @@ export const organizationTableColumns = {
     created_at: text,
     updated_at: text,
   },
+  // migrations/0034_add_user_avatars.sql で足した。1人1行のプロフィール画像のメタデータ（中身は R2）
+  user_avatars: {
+    user_id: text,
+    id: text,
+    organization_id: text,
+    object_key: text,
+    content_type: text,
+    size_bytes: integer,
+    created_at: text,
+  },
   // migrations/0004_add_organization_holidays.sql で足した
   organization_holidays: {
     organization_id: text,
@@ -163,8 +201,9 @@ export const organizationTableColumns = {
     name: text,
     timezone: text,
     week_start: integerDefault,
-    vocabulary: textDefault,
     definition_of_done_md: textOrNull,
+    sprint_name_template: textOrNull,
+    sprint_number_next: integerDefault,
     closed_at: textOrNull,
     created_by: text,
     created_at: text,
@@ -282,6 +321,9 @@ export const organizationTableColumns = {
     source_kind: text,
     source_id: text,
     reviewer_source_id: textDefault,
+    review_cycle: textOrNull,
+    review_revision: integerDefault,
+    last_received_at: textOrNull,
     source_key: text,
     source_url: text,
     source_container_id: text,
@@ -294,6 +336,12 @@ export const organizationTableColumns = {
     last_seen_at: text,
     created_at: text,
     updated_at: text,
+  },
+  review_request_cycles: {
+    task_id: text,
+    review_cycle: text,
+    completion_id: textOrNull,
+    created_at: text,
   },
   task_source_payloads: { task_id: text, payload_json: text, is_truncated: integerDefault, updated_at: text },
   epics: {

@@ -58,10 +58,10 @@ export const detailFieldMove = defineOperation({
   output: z.object({ field_id: z.string() }),
 });
 
-// 論理削除。値の行は残す（削除した欄の値は出さず、未記入の判定からも外れる）。復活はしない
+// 論理削除。値の行は残す（削除した欄の値は出さず、「詳細を書いた」の経験値の判定からも外れる）。復活はしない
 export const detailFieldDelete = defineOperation({
   name: 'detail-field-delete',
-  description: '決まった欄を削除する（論理削除）。値の行は残し、削除した欄は未記入の判定から外れる',
+  description: '決まった欄を削除する（論理削除）。値の行は残し、削除した欄は「詳細を書いた」の経験値の判定から外れる',
   mode: 'write',
   permission: 'leader',
   workspace: true,

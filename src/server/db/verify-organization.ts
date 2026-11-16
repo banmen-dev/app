@@ -5,6 +5,7 @@
 // 型の上では private な印で、同じ形のオブジェクトは通らない。実行時には、作る関数が登録したものだけを is() が通す。
 //
 // 組織を確かめる処理（リクエストの組織が存在し、ログインした人が入れること。停止していないかは入口を渡すかどうかを決める）は enter-organization.ts。
+// 全組織の今日やること（cross-organization.ts）も enterOrganization を通し、ここから別の入口は発行しない。
 // このほかに作るのは、組織の作成の関数（create-organization.ts。挿入した組織の ID だけ）と、運用者の履歴の関数
 // （operator-change-log.ts。履歴を1行足すだけで、作った結果は関数の外へ出さない）。
 // 定期処理の履歴（scheduled-change-log.ts）、未添付の行の掃除（cleanup-attachments.ts）、

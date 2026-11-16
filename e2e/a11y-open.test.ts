@@ -1,4 +1,4 @@
-// 開いた状態（タスクの引き出し、ストーリーの引き出し、エピックの引き出し、Dialog のダイアログ、ConfirmDialog、運用の画面の管理者の指名し直し）を axe で確かめる（#334）。4つのテーマ × スクラムの言葉。
+// 開いた状態（タスクの引き出し、ストーリーの引き出し、エピックの引き出し、Dialog のダイアログ、ConfirmDialog、運用の画面の管理者の指名し直し）を axe で確かめる（#334）。3つのテーマ × スクラムの言葉。
 // 主な画面は e2e/a11y-screens.test.ts、除外は e2e/ui-exclusions.ts。
 // seed のセッション（seed/sessions.ts）の Cookie で開く。あおば開発の管理者はミナト。受託開発チームも社内ツールもスクラムの言葉。
 // 開くだけで、作る、外すは押さない。seed の行もテーマの設定も書き換えない（ほかのファイルと並べて走るため）
@@ -86,11 +86,11 @@ test('行のチップの選択の窓（リポジトリのメニューと期日�
 
 test('スプリントに入れるダイアログ（SprintTaskPicker）を開いた状態に axe の違反が無い', async ({ page }) => {
   await page.goto(`${WORKSPACE}/plan`);
-  const open = page.getByRole('button', { name: 'バックログから入れる: スプリント 年末の仕上げ' });
+  const open = page.getByRole('button', { name: 'バックログから入れる: スプリント「年末の仕上げ」' });
   await expect(open).toBeVisible();
   await waitForSettled(page);
   await open.click();
-  const dialog = page.getByRole('dialog', { name: 'スプリント 年末の仕上げ に入れる' });
+  const dialog = page.getByRole('dialog', { name: 'スプリント「年末の仕上げ」に入れる' });
   await expect(dialog.getByRole('group', { name: '入れるタスク' })).toBeVisible();
   await expect(page.locator('[aria-busy="true"]:visible')).toHaveCount(0);
   await expectNoA11yViolationsInThemes(page, 'sprint-task-picker');
@@ -98,7 +98,7 @@ test('スプリントに入れるダイアログ（SprintTaskPicker）を開い�
 
 test('スプリントを始めるダイアログ（SprintStartDialog）を開いた状態に axe の違反が無い', async ({ page }) => {
   await page.goto(`${WORKSPACE}/plan`);
-  const open = page.getByRole('button', { name: '始める: スプリント 11/2〜11/15' });
+  const open = page.getByRole('button', { name: '始める: スプリント「11/2〜11/15」' });
   await expect(open).toBeVisible();
   await waitForSettled(page);
   await open.click();
@@ -136,6 +136,7 @@ test('管理者の指名し直しのダイアログを開いた状態に axe の
             self_created: false,
             trial_ends_on: null,
             trial_expired: false,
+            contract: null,
             created_at: '2026-10-01T09:30:00.000Z',
             admin_status: 'none',
             seats: { used: 2, limit: 15 },

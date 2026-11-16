@@ -1,6 +1,6 @@
 // 取り込み元の共通の型（docs/requirements.md の「取り込み」）。取り込み元ごとの固有の処理と値は、型の実装の中に閉じる。
 // この型が持つのは、登録に要る部分（認証情報の形の検査と確かめ、範囲の候補の一覧）と、同期に要る部分（範囲ごとの項目の取得）。
-// 項目の取得と変換は取り込み元ごとの固有の処理で、同期の仕組み（sync.ts）は取り込み元に依らず、この型の `fetchPage` だけを呼ぶ。
+// 項目の取得と変換は取り込み元ごとの固有の処理で、同期の仕組み（sync.ts）は取り込み元に依らず、この型の取得口を呼ぶ。
 // 取り込み元の一覧（種類から実装への表）を知るのは index.ts だけ。
 //
 // 人が差分を読む領域（docs/development.md の「マージの判定」）
@@ -41,6 +41,8 @@ export type ImportItem = {
   kind: 'issue' | 'pull_request' | 'review_request';
   sourceId: string;
   reviewerSourceId: string;
+  // レビュー依頼の回を表す不透明な不変識別子。属性の更新では変わらない。
+  reviewCycle?: string;
   key: string;
   url: string;
   title: string;
@@ -63,6 +65,11 @@ export type FetchPageInput = {
   cursor: string | null;
 };
 
+// 保存済み項目の照合では、不変 ID と現在の表示キーを渡す。番号だけで一致と判断しない。
+export type ReviewRequestPageInput = FetchPageInput & {
+  target?: { sourceId: string; key: string };
+};
+
 // items は未完了のものも完了したものも含んでよい（同期の仕組みが完了を除く）。next が null なら、この範囲は終わり
 export type FetchPageResult = { items: ImportItem[]; next: string | null };
 
@@ -79,6 +86,15 @@ export interface ImportSource {
   verifyCredential(credential: string, fetcher: typeof fetch): Promise<CredentialOwner>;
   // 範囲の候補を、頁をまたいで漏れなく返す。形が合わなければ問い合わせずに ImportSourceError('invalid_format') を投げる
   listScopeCandidates(credential: string, fetcher: typeof fetch): Promise<ScopeCandidate[]>;
+  // 同期用の候補列挙。任意口だが、多頁を持つ取り込み元は1要求ずつ再開できる形で実装する。
+  fetchScopeCandidatesPage?(input: {
+    credential: string;
+    fetcher: typeof fetch;
+    cursor: string | null;
+  }): Promise<{ candidates: ScopeCandidate[]; next: string | null }>;
   // 範囲の項目を1頁取る。失敗は ImportSourceError で投げる（unauthorized は接続を止め、ほかは次の同期で再試行する）
   fetchPage(input: FetchPageInput): Promise<FetchPageResult>;
+  // 任意のレビュー依頼取得口。1呼び出し1要求。履歴の途中は空の items と next を返す。
+  // 同期はこの取得口を fetchPage と分けて呼び、依頼回と照合状態を保存する。
+  fetchReviewRequestsPage?(input: ReviewRequestPageInput): Promise<FetchPageResult>;
 }
