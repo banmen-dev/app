@@ -135,7 +135,12 @@ export function clientOperationMetadata(): Plugin {
       }
       visit(source);
       if (!edits.length) return null;
+      const insertions = new Set<number>();
       for (const edit of edits.sort((a, b) => b.start - a.start)) {
+        if (edit.start === edit.end) {
+          if (insertions.has(edit.start)) continue;
+          insertions.add(edit.start);
+        }
         code = code.slice(0, edit.start) + edit.text + code.slice(edit.end);
       }
       // input/outputだけが参照していたimportを残すと、手動の束のまとめ方が
