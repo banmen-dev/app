@@ -79,7 +79,10 @@
   const workspace = $derived(data.workspace);
   const board = $derived(data.board);
   const workspaceId = $derived(workspace?.id ?? '');
-  const collapsedColumns = $derived(new SprintColumnCollapse(workspaceId));
+  const collapsedColumns = $derived.by(() => {
+    const id = workspaceId;
+    return untrack(() => new SprintColumnCollapse(id));
+  });
   $effect(() => collapsedColumns.listen(window));
   // カードの「⋯」から消した（戻した）後の読み直しの失敗の印（#979。task-reload-failure.svelte.ts）。ボードが読めたら下ろす
   $effect(() => {
