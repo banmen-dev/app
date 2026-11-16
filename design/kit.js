@@ -932,7 +932,8 @@
     if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.key !== "ArrowLeft") return;
     const card = event.target.closest?.(".card.is-done");
     if (!card || event.target.closest?.('[role="menu"]')) return;
-    event.preventDefault(); card.querySelector("[data-card-reopen]")?.click();
+    event.preventDefault(); if (event.repeat) return;
+    card.querySelector("[data-card-reopen]")?.click();
   });
   document.addEventListener("click", (event) => {
     const button = event.target.closest && event.target.closest(".narrow-disclosure-toggle");
@@ -4038,7 +4039,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     }
     if ((el = hit("data-card-reopen"))) {
       const x = task(el.dataset.cardReopen);
-      if (x.story && D.stories[x.story]?.doneAt) { toast(`${t("done")}した${t("story")}の下の${t("task")}は戻せません。先に${t("story")}の${t("done")}を取り消してください`); return; }
+      if (x.story && D.stories[x.story]?.doneAt) { toast(`${t("done")}した${t("story")}の下の${t("task")}は戻せません。先に${t("story")}の${t("done")}を取り消してください。一覧を読み直します`); redrawAll(); return; }
       x.doneAt = null; x.col = x.prevCol || "c3";
       redrawAll(); document.querySelector(`#content [data-task="${x.id}"]`)?.closest(".card")?.focus(); return;
     }
