@@ -18,9 +18,9 @@ const files: Record<string, string> = {
   'kit.js': 'text/javascript',
 };
 
-async function openSample(page: Page, name: 'backlog.html' | 'sprint.html' | 'index.html'): Promise<string[]> {
+async function openSample(page: Page, name: 'backlog.html' | 'sprint.html' | 'index.html' | ''): Promise<string[]> {
   await page.route('**/__design-catalog/**', async (route) => {
-    const file = new URL(route.request().url()).pathname.split('/').pop()!;
+    const file = new URL(route.request().url()).pathname.split('/').pop() || 'index.html';
     const contentType = files[file];
     if (!contentType) return route.fulfill({ status: 404, body: '' });
     await route.fulfill({ contentType, body: readFileSync(new URL(`../design/${file}`, import.meta.url)) });
@@ -40,7 +40,7 @@ test('見本の近道一覧はスプリントとカタログだけにカード�
     '選んだ未完了カードを列の中で動かす',
     '列の末尾の空の行に題を打ち、タスクを足す',
   ];
-  for (const name of ['sprint.html', 'backlog.html', 'index.html'] as const) {
+  for (const name of ['sprint.html', 'backlog.html', 'index.html', ''] as const) {
     const errors = await openSample(page, name);
     await page.locator('body').click({ position: { x: 1, y: 1 } });
     await page.keyboard.press('?');

@@ -2613,7 +2613,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     // ショートカットの一覧（本番の ShortcutHelp）。? で開く。今の画面のキーを上に、どの画面でも効くキーをその下に並べる。カタログはスプリントの例。画面の見本では、その画面のカード操作だけを追加する。
     shortcutHelp: () => {
       const group = (title, rows) => `<section class="shortcut-group"><h3 class="shortcut-group-title">${title}</h3><dl class="shortcut-list">${rows.map(([name, key]) => `<div class="shortcut-row"><dt>${name}</dt><dd><kbd class="kbd">${key}</kbd></dd></div>`).join("")}</dl></section>`;
-      const sprintRows = (page?.current === "sprint" || location.pathname.endsWith("/index.html")) && D.sprints.sp14
+      const sprintRows = (page?.current === "sprint" || (location.pathname.split("/").pop() || "index.html") === "index.html") && D.sprints.sp14
         ? [[`選んだカードを隣の${t("column")}へ（${t("done")}のカードは左で戻す）`, "Alt + ← →"], [`選んだ未完了カードを${t("column")}の中で動かす`, "Alt + ↑ ↓"], [`${t("column")}の末尾の空の行に題を打ち、${t("task")}を足す`, "Enter"]]
         : [];
       openDialog("ショートカットの一覧",
