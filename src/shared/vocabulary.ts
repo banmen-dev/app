@@ -1172,7 +1172,7 @@ export const dictionary = defineDictionary({
   createPersonalOrganizationFailed: '自分用の{organization}を作れませんでした。もう一度試してください。',
   createPersonalOrganizationSubmit: '自分用を作る',
   createPersonalOrganizationSubmitting: '自分用の{organization}を作っています',
-  organizationList: '組織の一覧へ',
+  organizationList: 'ダッシュボード',
   // 組織の切り替えのボタンと一覧の読み上げの名前。{name} は今の組織の名前
   organizationSwitchLabel: '{name}。組織を切り替える',
   organizationListLabel: '入れる組織',

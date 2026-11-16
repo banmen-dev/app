@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Scrum Guild 組織の選択</title>
+<title>Scrum Guild ダッシュボード</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;900&display=swap">
@@ -21,11 +21,10 @@
 <script>
 "use strict";
 
-// 組織の選択: 入れる組織が2つ以上の人に、ログインの直後に出す。メニューの組織の切り替えからも来る
-const { D, t, esc, icon } = SQ;
+// 全組織のダッシュボード。組織が1つでもログインの直後に出す。
+const { D, t, esc, icon, pane, newsList } = SQ;
 // 届いた招待の紙。承諾待ちの招待がある人に出す。入れる組織の分も含め、組織ごとに1件
-const invitationsSheet = () => `<section class="gate-sheet">
-      <h2 class="dialog-title">届いた招待</h2>
+const invitationsSheet = () => pane("p-invitations", "届いた招待", `
       <div class="choice-list">
       ${[...new Set(D.receivedInvites.map((i) => i.organization))].map((name) => `<a class="choice" href="login.html"><div>
         <b>${esc(name)}</b>
@@ -33,30 +32,34 @@ const invitationsSheet = () => `<section class="gate-sheet">
       </a>`).join("")}
       </div>
       <p class="gate-note">すべての${t("organization")}に届いた招待を、${t("organization")}ごとにまとめて出します。押すと、承諾するか辞退するかを選べます。見本は、その${t("organization")}の招待の画面（login.html の「届いた招待」）。</p>
-    </section>`;
+    `);
 // 停止している組織の紙。停止していなければ入れた組織があるときだけ、組織の選択の紙（届いた招待の紙があればその次）に出す。押せない行にする
-const suspendedSheet = () => `<section class="gate-sheet">
-      <h2 class="dialog-title">停止している${t("organization")}</h2>
+const suspendedSheet = () => pane("p-suspended", `停止している${t("organization")}`, `
       <div class="choice-list">
         ${D.suspendedOrganizations.map((k) => `<div class="choice is-static"><div><b>${esc(k.name)}</b><span>停止しています</span></div></div>`).join("")}
       </div>
       <p class="gate-note">停止している${t("organization")}には、停止している間は入れません。再開については、運用者に問い合わせてください。</p>
-    </section>`;
+    `);
 const createActions = (primary) => `<button class="btn ${primary ? "is-primary" : "is-sm"}" type="button" data-dialog="createMyOrganization">${t("organization")}を作る</button><button class="btn is-sm" type="button" data-dialog="createPersonalOrganization">自分用を作る</button>`;
 function render() {
-  document.getElementById("gate").innerHTML = `<div class="gate"><div class="gate-stack">
+  document.getElementById("gate").innerHTML = `<div class="gate is-wide"><div class="gate-stack">
     <section class="gate-sheet">
       <div class="gate-brand">${SQ.brandMark}<span class="visually-hidden">Scrum Guild</span></div>
-      <h1 class="gate-title">${t("organization")}を選ぶ</h1>
+      <h1 class="gate-title">ダッシュボード</h1>
+      <div class="dashboard"><div class="dashboard-main">
+      ${pane("p-organizations", `入れる${t("organization")}`, `
       <p>入れる${t("organization")}が ${D.organizations.length} つあります。名前や稼働の設定は${t("organization")}ごとに別です。</p>
       <div class="choice-list">
         ${D.organizations.map((k) => `<a class="choice" href="today.html"><div><b>${esc(k.name)}</b><span class="mono">scrum-guild.dev/${esc(k.slug)}/</span></div>${icon("chevron")}</a>`).join("")}
       </div>
       <p class="gate-note">あとから、画面の左上（狭い幅では上の帯）の${t("organization")}の切り替えで選び直せます。</p>
       <div class="form-actions"><button class="btn is-sm" type="button" data-dialog="createMyOrganization">${t("organization")}を作る</button><button class="btn is-sm" type="button" data-dialog="createPersonalOrganization">自分用を作る</button></div>
+      `)}
+      ${invitationsSheet()}
+      ${suspendedSheet()}
+      </div><div class="dashboard-side">${D.news.length ? pane("p-news", t("paneNews").replace("{app}", t("appName")), newsList(D.news)) : ""}</div></div>
       <div class="form-actions"><a class="btn is-sm" href="billing.html">${t("billingOpen")}</a><button class="btn is-sm is-quiet" type="button" data-toast="見本のため、ログアウトしません">${t("logout")}</button></div>
     </section>
-    ${invitationsSheet()}
     <section class="gate-sheet">
       <h2 class="dialog-title">入れる${t("organization")}が無い人</h2>
       ${SQ.emptyState("shield", `入れる${t("organization")}がありません`, `${t("admin")}から招待が届くと、ここに出ます。自分で${t("organization")}を作って、30日間のお試しで始めることもできます。自分だけで使う「${t("personalOrganizationName")}」を作ることもできます。`,`<button class="btn is-primary" type="button" data-dialog="createMyOrganization">${t("organization")}を作る</button><button class="btn is-sm" type="button" data-dialog="createPersonalOrganization">自分用を作る</button>`)}
@@ -77,7 +80,7 @@ function render() {
       <p class="gate-note">すべての${t("organization")}に届いた招待を、${t("organization")}ごとにまとめて出します。押すと、承諾するか辞退するかを選べます。</p>
       <div class="form-actions">${createActions(false)}</div>
       <div class="form-actions"><a class="btn is-sm" href="billing.html">${t("billingOpen")}</a><button class="btn is-sm is-quiet" type="button" data-toast="見本のため、ログアウトしません">${t("logout")}</button></div>
-      <p class="gate-note">入れる${t("organization")}が無く、届いた招待だけがある人。押す先の招待を最初に出し、「${t("organization")}を作る」は下の静かな大きさ（is-sm）にそろえる。本番はこの全体が1枚目の紙（見出し「${t("organization")}を選ぶ」）に入る。</p>
+      <p class="gate-note">入れる${t("organization")}が無く、届いた招待だけがある人。押す先の招待を最初に出し、「${t("organization")}を作る」は下の静かな大きさ（is-sm）にそろえる。本番はこの全体が1枚目の組織の面に入る。</p>
     </section>
     <section class="gate-sheet">
       <h2 class="dialog-title">入れる${t("organization")}と停止している${t("organization")}がある人</h2>
@@ -86,9 +89,8 @@ function render() {
       </div>
       <div class="form-actions">${createActions(false)}</div>
       <div class="form-actions"><a class="btn is-sm" href="billing.html">${t("billingOpen")}</a><button class="btn is-sm is-quiet" type="button" data-toast="見本のため、ログアウトしません">${t("logout")}</button></div>
-      <p class="gate-note">停止している${t("organization")}は入れる${t("organization")}の一覧に並べず、リンクにしない。組織の選択の紙の次（届いた招待の紙があればその次）に、別の紙で出す。</p>
+      <p class="gate-note">停止している${t("organization")}は入れる${t("organization")}の一覧に並べず、リンクにしない。組織の面の下（届いた招待の面があればその次）に、別の面で出す。</p>
     </section>
-    ${suspendedSheet()}
     <section class="gate-sheet">
       <h2 class="dialog-title">運用者</h2>
       <div class="choice-list">

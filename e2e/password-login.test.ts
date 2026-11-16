@@ -74,14 +74,17 @@ test('ログインの画面は、幅 390px で横にはみ出さず、押せる�
   expect(await findA11yViolations(page)).toEqual([]);
 });
 
-test('入れる組織が1つの人は、パスワードで入ると同意の画面に移り、同意するとその組織の画面に移る', async ({ page }) => {
+test('入れる組織が1つの人も、パスワードで入り同意するとダッシュボードから組織を選ぶ', async ({ page }) => {
   const person = SEED_PASSWORD_LOGINS.single;
   await page.goto('/login');
   await emailField(page).fill(person.email);
   await passwordField(page).fill(person.password);
   await submitButton(page).click();
-  await expect(page).toHaveURL(/\/consent\?return_to=%2Fyuzu$/);
+  await expect(page).toHaveURL(/\/consent\?return_to=%2F$/);
   await consent(page);
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
+  await page.getByRole('link', { name: /ゆず書房/ }).click();
   await expect(page).toHaveURL(/\/yuzu$/);
   await expect(page.locator('.me')).toContainText(person.name);
 });
@@ -94,7 +97,7 @@ test('入れる組織が2つの人は、パスワードで入ると同意の画�
   await passwordField(page).press('Enter');
   await expect(page).toHaveURL(/\/consent\?return_to=%2F$/);
   await consent(page);
-  await expect(page.getByRole('heading', { level: 1, name: '組織を選ぶ' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole('link', { name: /ゆず書房/ })).toBeVisible();
   await expect(page.getByRole('link', { name: /みなも舎/ })).toBeVisible();
