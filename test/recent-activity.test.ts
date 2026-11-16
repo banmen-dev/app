@@ -720,6 +720,16 @@ describe('recent-activity', () => {
       );
       expect(comments, comments).not.toMatch(/TEMP B-TREE/);
       expect(comments, comments).not.toMatch(/^SCAN c\b/m);
+      // 2ページ目は、カーソルの日時が索引の範囲に付く（OR の外の created_at <= を足した理由。`<` と `<=` は同じ表示）。
+      // 1ページ目は workspace_id の等号だけ
+      const range = /\(workspace_id=\? AND created_at<\?\)/;
+      if (before === undefined) {
+        expect(changes, changes).not.toMatch(/created_at/);
+        expect(comments, comments).not.toMatch(/created_at/);
+      } else {
+        expect(changes, changes).toMatch(range);
+        expect(comments, comments).toMatch(range);
+      }
     }
   });
 
@@ -727,7 +737,8 @@ describe('recent-activity', () => {
     const target = await createTarget();
     const db = orgDb(env, target.organization.verified);
     const workspaceId = target.workspace.id;
-    // main の版（この Issue の前）の comment-list の文。一覧は消したコメントも返し、件数は deleted_at IS NULL を持つ
+    // この PR の前の版（main）の comment-list の文の写し。写した元は src/server/operations/comment.ts の commentPageStatement（一覧）と、
+    // comment-list の処理の中の件数の文（この PR の前は関数に切り出していない）。一覧は消したコメントも返し、件数は deleted_at IS NULL を持つ
     const list = db.statement((q) =>
       q
         .selectFrom('comments')
@@ -797,7 +808,8 @@ describe('recent-activity', () => {
       }
     }
 
-    // 前の版の comment-list の一覧と件数の文は、ANALYZE の後も comments_task を使う
+    // 前の版（この PR の前の main）の comment-list の一覧と件数の文は、ANALYZE の後も comments_task を使う。
+    // 文の写しは、上のテストと同じ（commentPageStatement と、comment-list の処理の中の件数の文）
     const workspaceId = target.workspace.id;
     const taskId = tasks[0]!.id;
     const list = db.statement((q) =>
