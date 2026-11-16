@@ -192,7 +192,7 @@ describe('レビュー依頼の取得', () => {
       expect.objectContaining({ isDone: true }),
     ]);
   });
-  test.each([401, 403, 429, 500])('履歴の失敗 %s では項目を返さず、同じカーソルで再試行できる', async (status) => {
+  test.each([401, 403, 422, 429, 500])('履歴の失敗 %s では項目を返さず、同じカーソルで再試行できる', async (status) => {
     const f = fixture();
     const a = await f.page(null, { target });
     const b = await f.page(a.next, { target });
@@ -307,6 +307,37 @@ describe('レビュー依頼の取得', () => {
     f.data.missingFirst = status;
     expect(await f.drain()).toEqual([expect.objectContaining({ sourceId: '9002' })]);
     await expect(f.drain({ target })).rejects.toBeInstanceOf(ImportSourceError);
+  });
+  test('読み直し2回の回数をカーソルに持ち越す', async () => {
+    const f = fixture();
+    f.data.mutate = true;
+    let cursor: string | null = null;
+    const restarts: number[] = [];
+    for (let step = 0; step < 15; step++) {
+      const result = await f.page(cursor);
+      cursor = result.next;
+      if (cursor === null) break;
+      const state = JSON.parse(cursor);
+      if (state.phase === 'pull') restarts.push(state.restarts);
+      cursor = JSON.parse(JSON.stringify(cursor));
+    }
+    expect(restarts).toEqual([1, 2]);
+    expect(cursor).toBeNull();
+  });
+  test('過去の提出の後の再依頼が解除されたら最新の依頼を完了にしない', async () => {
+    const f = fixture();
+    f.data.timeline = [
+      [request(), review(), request(303), { event: 'review_request_removed', requested_reviewer: { id: 42 } }],
+    ];
+    f.data.pull.requested_reviewers = [];
+    f.data.pull.state = 'closed';
+    expect(await f.drain()).toEqual([]);
+  });
+  test('本人に一致しない壊れたユーザー情報は本人の提出を妨げない', async () => {
+    const f = fixture();
+    f.data.timeline = [[request(), { event: 'reviewed', user: 'invalid' }, review()]];
+    f.data.pull.requested_reviewers = [];
+    expect(await f.drain()).toEqual([expect.objectContaining({ isDone: true })]);
   });
   test('PAT は固定ホストの Authorization だけに送り、リダイレクトしない', async () => {
     const f = fixture();
