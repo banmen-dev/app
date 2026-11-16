@@ -10,7 +10,7 @@
     return `<div class="image-crop" data-image-crop data-crop-disabled="${disabled}">
       <p class="field-hint" id="${id}-hint">${t("avatarCropHint")}</p>
       <div class="image-crop-preview" role="img" aria-label="${t("avatarCropArea")}" aria-describedby="${id}-hint ${id}-position" data-disabled="${disabled}"><canvas width="256" height="256" aria-hidden="true"></canvas></div>
-      <span class="field-hint" id="${id}-position" data-crop-position>${format("avatarCropPosition", { x: 50, y: 50 })}</span>
+      <span class="field-hint" id="${id}-position" role="status" aria-live="polite" aria-atomic="true" data-crop-position>${format("avatarCropPosition", { x: 50, y: 50 })}</span>
       <div class="form-actions" role="group" aria-label="${t("avatarCropMove")}">
         ${[["Left", "avatarCropLeft"], ["Right", "avatarCropRight"], ["Up", "avatarCropUp"], ["Down", "avatarCropDown"]].map(([direction, key]) => `<button class="btn" type="button" data-crop-move="Arrow${direction}" aria-disabled="${disabled}">${t(key)}</button>`).join("")}
       </div>

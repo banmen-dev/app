@@ -67,7 +67,7 @@
   >
     <canvas width="256" height="256" bind:this={canvas} aria-hidden="true"></canvas>
   </div>
-  <span class="field-hint" id="{ids}-position"
+  <span class="field-hint" id="{ids}-position" role="status" aria-live="polite" aria-atomic="true"
     >{t('avatarCropPosition', {
       x: Math.round(((crop.x + crop.size / 2) / image.width) * 100),
       y: Math.round(((crop.y + crop.size / 2) / image.height) * 100),

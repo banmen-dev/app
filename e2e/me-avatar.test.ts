@@ -95,7 +95,8 @@ test.describe('プロフィール画像', () => {
     await range.press('Home');
     for (let i = 0; i < 20; i++) await range.press('ArrowRight');
     await expect(range).toHaveValue('2');
-    const position = dialog.getByText(/^中心の位置:/);
+    const position = dialog.getByRole('status').filter({ hasText: /^中心の位置:/ });
+    await expect(position).toHaveAttribute('aria-live', 'polite');
     const before = await position.textContent();
     const preview = dialog.getByRole('img', { name: '切り抜きの範囲', exact: true });
     const moveLeft = dialog.getByRole('button', { name: '左へ', exact: true });
