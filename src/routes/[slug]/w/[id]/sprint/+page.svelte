@@ -30,6 +30,7 @@
   } from '../../../../../lib/task-reload-failure.svelte.ts';
   import { MoveQueue } from '../../../../../lib/move-queue.ts';
   import { edgesOf, planCardMove, type MoveDirection, type MoveEdge } from '../../../../../lib/sprint-board.ts';
+  import { SprintColumnCollapse } from '../../../../../lib/sprint-column-collapse.svelte.ts';
   import { SprintDnd } from '../../../../../lib/sprint-dnd.svelte.ts';
   import type { MovedPlan, ReopenPlan, SprintDrop } from '../../../../../lib/sprint-drop.ts';
   import { completedMessage, sprintLabel, sprintPeriod } from '../../../../../lib/sprint-label.ts';
@@ -55,7 +56,7 @@
 
   // スプリントの画面（design/sprint.html）。進行中のスプリントの列（`.board-col`）とカード（`.card`）を並べる。
   // 見出しは進行中のスプリントの名前（無ければ期間）、小見出しは期間と何日目か。ゴールを書いて始めていれば貼り紙（`.notice`）で出す。
-  // カードは題（`?task=<ID>` で詳細の引き出しを開く）、親のストーリー、ポイント、担当と、完了の印か完了の操作。
+  // カードは題（`?task=<ID>` で詳細の引き出しを開く）、親のストーリー、ポイント、担当と、完了の印か列移動の「⋯」。
   // 完了の操作は task-complete を呼ぶだけで、完了の列への移動は task-complete が行う（完了の列へ task-column-move で移すことはしない）。
   // 動かせるカード（完了していない、終了していないワークスペース）は、選んで Alt と ← → で隣の列、Alt と ↑ ↓ で列の中を動かし、
   // カードの右下の「⋯」のメニューでも同じことができる。動かしたら先に画面の並びを替えて位置を読み上げ、押した順に1つずつ送る（MoveQueue）。
@@ -68,6 +69,7 @@
   // 完了の列へ落としたら、完了の操作と同じく task-complete を積む（画面の並びは替えない）。
   // 完了の列から落としたら、task-reopen で戻してから、落とした列と位置へ task-column-move を続ける（同じ待ち行列で順に送る）。
   // 画面を読み直したら、つかんでいるドラッグは取りやめ、離しても送らず、トーストで知らせる。落としたカードは光らせ、フォーカスは動かさない。
+  // 列の開閉はワークスペースごとに端末へ保存する。畳んだ列も移動先に残し、空の行の書きかけは隠して保つ。
   // 進行中のスプリントが無いときは、見本の空の状態をロールで文を分けて出す。
   // 各列（完了の列を除く）の末尾に、タスクを足す空の行（DraftRow）を置く。書き込めるとき（終了していないワークスペース）だけ出す。
   // 題を打って Enter で、そのスプリントのその列の末尾に task-create で作る（作成と入れ込みは1回の書き込み）。作れたら読み直し、
@@ -79,6 +81,12 @@
 
   const workspace = $derived(data.workspace);
   const board = $derived(data.board);
+  const workspaceId = $derived(workspace?.id ?? '');
+  const collapsedColumns = $derived.by(() => {
+    const id = workspaceId;
+    return untrack(() => new SprintColumnCollapse(id));
+  });
+  $effect(() => collapsedColumns.listen(window));
   // カードの「⋯」から消した（戻した）後の読み直しの失敗の印（#979。task-reload-failure.svelte.ts）。ボードが読めたら下ろす
   $effect(() => {
     if (board !== null) untrack(clearReloadFailure);
@@ -88,7 +96,7 @@
   const isLeader = $derived(workspace !== null && (workspace.role === 'leader' || isAdmin));
   const isClosed = $derived(workspace !== null && workspace.closedAt !== null);
   const canWrite = $derived(workspace !== null && !isClosed);
-  // `c` で、完了でない最初の列の空の行へフォーカスを移す。行が無い（書き込めない、列が無い）間は働かない
+  // `c` で、開いている完了でない最初の列の空の行へフォーカスを移す。行が無い（書き込めない、列が無い）間は働かない
   // bind:this は、部品が外れると null に戻る
   let draftRows = $state<Record<string, DraftRow | null | undefined>>({});
   const firstDraftRow = (): DraftRow | null | undefined =>
@@ -116,8 +124,10 @@
   // 画面で動かした後の列とカード。読み直したら捨てる
   let local = $state<SprintBoardColumn[] | null>(null);
   const columns = $derived(local ?? board?.columns ?? []);
-  // `c` が移る列と、aria-keyshortcuts を付ける列は、同じ（完了でない最初の列）
-  const firstOpenColumnId = $derived(columns.find((item) => !item.is_done)?.id);
+  // `c` が移る列と、aria-keyshortcuts を付ける列は、同じ（開いている完了でない最初の列）
+  const firstOpenColumnId = $derived(
+    columns.find((item) => !item.is_done && !collapsedColumns.isCollapsed(item.id))?.id,
+  );
   // 動かし方の案内。動かせるカード（書き込めるときだけ）の説明に結ぶので、案内も書き込めるときだけ出す
   const KEY_HINT_ID = 'sprint-board-key-hint';
   const moves = new MoveQueue<ApiResult<unknown>>({
@@ -221,9 +231,31 @@
     const card = [...document.querySelectorAll<HTMLElement>('[data-card-id]')].find(
       (el) => el.dataset.cardId === saved.id,
     );
-    if (card === undefined) return;
+    if (card === undefined) {
+      // キーで畳んだ列へ送ったときは、消えたカードの代わりに列の開閉へ移る。
+      focusCollapsedColumn(saved.id);
+      return;
+    }
     const control = saved.index === -1 ? card : card.querySelectorAll<HTMLElement>('a, button')[saved.index];
     (control ?? card).focus();
+  }
+
+  function focusCollapsedColumn(taskId: string, columnId?: string): void {
+    const column =
+      columnId === undefined
+        ? columns.find((candidate) => candidate.tasks.some((task) => task.id === taskId))
+        : columns.find((candidate) => candidate.id === columnId);
+    if (column && collapsedColumns.isCollapsed(column.id)) {
+      [...document.querySelectorAll<HTMLButtonElement>('[data-column-toggle]')]
+        .find((button) => button.dataset.columnToggle === column.id)
+        ?.focus();
+    }
+  }
+
+  function focusTaskOrCollapsedColumn(taskId: string, selector: string, columnId?: string): void {
+    const control = document.querySelector<HTMLElement>(selector);
+    if (control) control.focus();
+    else focusCollapsedColumn(taskId, columnId);
   }
 
   function edgeMessage(edge: MoveEdge): string {
@@ -293,7 +325,7 @@
     void sent.then(async () => {
       if (!completed) return;
       await tick();
-      document.querySelector<HTMLElement>(`a[data-task-id="${CSS.escape(task.id)}"]`)?.focus();
+      focusTaskOrCollapsedColumn(task.id, `a[data-task-id="${CSS.escape(task.id)}"]`);
     });
   }
 
@@ -344,11 +376,16 @@
     local = plan.columns;
     void restoreFocus(saved);
     if (flash) dnd.flash(task.id);
-    void announce(movedMessage(task, plan));
+    const hiddenDrop = flash && collapsedColumns.isCollapsed(plan.column.id);
+    if (!hiddenDrop) void announce(movedMessage(task, plan));
     const workspaceId = workspace.id;
     const input = columnMoveInput(workspaceId, task, plan.column.id, plan.afterTaskId);
     void moves.send(
-      () => callOperation(taskColumnMove, input, { slug }),
+      async () => {
+        const result = await callOperation(taskColumnMove, input, { slug });
+        if (result.ok && hiddenDrop && workspaceId === page.params.id) showToast(movedMessage(task, plan), 'check');
+        return result;
+      },
       (result) => moveRefused(workspaceId, result),
     );
   }
@@ -369,7 +406,8 @@
           },
         );
         if (result.ok && workspaceId === page.params.id) {
-          void announce(movedMessage(task, plan));
+          if (collapsedColumns.isCollapsed(plan.column.id)) showToast(movedMessage(task, plan), 'check');
+          else void announce(movedMessage(task, plan));
           flashAfterReload = task.id;
         }
         return result;
@@ -511,7 +549,11 @@
           await invalidate('app:sprint-board');
           // 押した「戻す」は消えるので、戻した列に出たカードへフォーカスを移す（動かせるカードは選べる）
           await tick();
-          document.querySelector<HTMLElement>(`[data-card-id="${CSS.escape(task.id)}"]`)?.focus();
+          focusTaskOrCollapsedColumn(
+            task.id,
+            `[data-card-id="${CSS.escape(task.id)}"]`,
+            result.data.column_id ?? undefined,
+          );
         }
       } else if (result.status === 401) {
         await invalidateAll();
@@ -733,50 +775,63 @@
           <section
             class="board-col"
             class:is-done={column.is_done}
+            class:is-collapsed={collapsedColumns.isCollapsed(column.id)}
             aria-label={columnName(column)}
             data-drop={canWrite ? dnd.markOfColumn(column.id) : undefined}
             {@attach canWrite ? dnd.column(column.id) : undefined}
           >
             <div class="board-col-head">
+              <button
+                class="board-col-toggle"
+                type="button"
+                data-column-toggle={column.id}
+                aria-label={t('sprintBoardColumnToggle', { column: columnName(column) })}
+                aria-expanded={!collapsedColumns.isCollapsed(column.id)}
+                onclick={() => collapsedColumns.toggle(column.id)}><Icon name="chevron" /></button
+              >
               {#if column.is_done}<Icon name="check" />{/if}
               <span class="board-col-name">{columnName(column)}</span>
               <span class="board-col-n">{column.tasks.length}</span>
               <span class="board-col-pts">{t('sprintBoardColumnPoints', { points: pointsOf(column.tasks) })}</span>
             </div>
-            <!-- 完成の定義（components.css の .dod。kit.js の board）。完了の列にだけ畳んで置き、空なら出さない。本文は開くまで描かない -->
-            {#if column.is_done && workspace.definitionOfDone !== null}
-              <details class="dod" bind:open={dodOpen}>
-                <summary>{t('dod')}</summary>
-                {#if dodOpen}<Markdown source={workspace.definitionOfDone} headingStart={2} />{/if}
-              </details>
+            {#if !collapsedColumns.isCollapsed(column.id)}
+              <!-- 完成の定義（components.css の .dod。kit.js の board）。完了の列にだけ畳んで置き、空なら出さない。本文は開くまで描かない -->
+              {#if column.is_done && workspace.definitionOfDone !== null}
+                <details class="dod" bind:open={dodOpen}>
+                  <summary>{t('dod')}</summary>
+                  {#if dodOpen}<Markdown source={workspace.definitionOfDone} headingStart={2} />{/if}
+                </details>
+              {/if}
+              {#each column.tasks as task (task.id)}
+                <SprintCard
+                  {task}
+                  href="{sprintHref}?task={encodeURIComponent(task.id)}"
+                  edges={canWrite ? edgesOf(columns, task.id) : null}
+                  canReopen={canWrite && task.reopenable}
+                  clock={{ today: board.today, weekStart: board.week_start }}
+                  pending={completingId !== null || reopeningId !== null}
+                  hintId={KEY_HINT_ID}
+                  dnd={canWrite ? dnd : undefined}
+                  onmove={moveCard}
+                  onreopen={(target) => void reopen(target)}
+                  ondelete={canWrite ? (target, keyboard) => void removeCard(target, keyboard) : undefined}
+                />
+              {:else}
+                <p class="board-empty">{t('sprintBoardColumnEmpty')}</p>
+              {/each}
             {/if}
-            {#each column.tasks as task (task.id)}
-              <SprintCard
-                {task}
-                href="{sprintHref}?task={encodeURIComponent(task.id)}"
-                edges={canWrite ? edgesOf(columns, task.id) : null}
-                canReopen={canWrite && task.reopenable}
-                clock={{ today: board.today, weekStart: board.week_start }}
-                pending={completingId !== null || reopeningId !== null}
-                hintId={KEY_HINT_ID}
-                dnd={canWrite ? dnd : undefined}
-                onmove={moveCard}
-                onreopen={(target) => void reopen(target)}
-                ondelete={canWrite ? (target, keyboard) => void removeCard(target, keyboard) : undefined}
-              />
-            {:else}
-              <p class="board-empty">{t('sprintBoardColumnEmpty')}</p>
-            {/each}
             {#if canWrite && !column.is_done}
-              <DraftRow
-                bind:this={draftRows[column.id]}
-                keyshortcut={column.id === firstOpenColumnId ? ariaKeyshortcuts(NEW_TASK_KEY) : undefined}
-                label={t('sprintBoardAddTask', { task: t('task') })}
-                placeholder={t('sprintBoardAddTaskPlaceholder', { task: t('task') })}
-                name={t('sprintBoardAddTaskIn', { task: t('task'), column: columnName(column) })}
-                problem={cardTitleProblem}
-                create={(title) => addCard(column, title)}
-              />
+              <div class="board-col-draft" hidden={collapsedColumns.isCollapsed(column.id)}>
+                <DraftRow
+                  bind:this={draftRows[column.id]}
+                  keyshortcut={column.id === firstOpenColumnId ? ariaKeyshortcuts(NEW_TASK_KEY) : undefined}
+                  label={t('sprintBoardAddTask', { task: t('task') })}
+                  placeholder={t('sprintBoardAddTaskPlaceholder', { task: t('task') })}
+                  name={t('sprintBoardAddTaskIn', { task: t('task'), column: columnName(column) })}
+                  problem={cardTitleProblem}
+                  create={(title) => addCard(column, title)}
+                />
+              </div>
             {/if}
           </section>
         {/each}

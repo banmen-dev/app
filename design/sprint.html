@@ -73,7 +73,7 @@ SQ.mount("sprint", () => {
     ${s.extended ? `<p class="action-note">延長 ${s.extended} 日</p>` : ""}
     ${overdue ? overdueNotice("sp14") : ""}
     ${sprintNotice("sp14", { showWs: false })}
-    ${board("sp14", { draft: true })}
+    ${board("sp14", { draft: true, collapsed: (c) => c.done && new URLSearchParams(location.search).has("collapsed") })}
     <p class="action-note" id="board-key-hint">カードは別の${t("column")}へドラッグして移せます。キーボードでは、カードを選んで Alt と ← → で隣の${t("column")}、Alt と ↑ ↓ で${t("column")}の中を動かせます。カードの「⋯」のメニューでも同じです。</p>
     <p class="action-note">${t("column")}の末尾の空の行に題を打って Enter を押すと、その${t("column")}に${t("task")}が足されます。</p>
     <section class="section" aria-labelledby="cap">
