@@ -20,8 +20,11 @@ test('列を畳んで再読み込みしても保存され、別のワークス�
   await expect(done.locator('.card')).not.toHaveCount(0);
   const todoToggle = page.getByRole('button', { name: '未着手の開閉' });
   const draft = page.getByRole('textbox', { name: 'タスクを足す: 未着手', exact: true });
+  const draftGroup = page.getByRole('region', { name: '未着手', exact: true }).locator('.board-col-draft');
+  await expect(draftGroup).toHaveCSS('display', 'grid');
   await draft.fill('書きかけの札');
   await todoToggle.click();
+  await expect(draftGroup).toHaveCSS('display', 'none');
   await expect(draft).toBeHidden();
   await page.keyboard.press('c');
   await expect(page.getByRole('textbox', { name: 'タスクを足す: 作業中', exact: true })).toBeFocused();
@@ -32,7 +35,17 @@ test('列を畳んで再読み込みしても保存され、別のワークス�
   await draft.press('Enter');
   const draftError = page.getByRole('alert').filter({ hasText: 'タイトルは 200 字までです' });
   await expect(draftError).toBeVisible();
+  const errorGap = await draftError.evaluate((error) => {
+    const row = error.parentElement!.querySelector('.draft-row')!;
+    return {
+      actual: error.getBoundingClientRect().top - row.getBoundingClientRect().bottom,
+      expected: Number.parseFloat(getComputedStyle(error).getPropertyValue('--space-2')),
+    };
+  });
+  expect(errorGap.expected).toBeGreaterThan(0);
+  expect(errorGap.actual).toBeCloseTo(errorGap.expected, 2);
   await todoToggle.click();
+  await expect(draftGroup).toHaveCSS('display', 'none');
   await expect(draftError).toBeHidden();
   await todoToggle.click();
   await expect(draftError).toBeVisible();
