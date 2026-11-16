@@ -22,13 +22,37 @@
 
 ## 生データと再集計
 
-正式生データを [backlog-loading-samples.json.gz](backlog-loading-samples.json.gz) に、採否とセルごとの分位点を [backlog-loading-decision.json](backlog-loading-decision.json) に保存した。展開後の生データの SHA-256 は `d4cda2c9226ba943615aad64536ebb9e883a7588ba0316dd13bfc7d602b6e14c`。架空の計測データ・版・条件・計測器の入力ハッシュを含み、セッションのトークンや環境変数は含めない。計測に使ったコードは基準コミットと `inputHashes` で識別する。 `inputHashes` の対象は追加した `scripts/backlog-loading-*.ts` で、既存の `today-loading-support.ts`・`loading-server.ts`・`boot-proxy.ts` と製品ソースは基準コミットの版を使った。計測時の実行コードは本PRの初期コミット `d8828df9a43ac77d531b30c2cfbec9331c731567` でも参照できる。後続の計測器整理によって、保存済み生データとその採否を変更しない。
+正式生データを [backlog-loading-samples.json.gz](backlog-loading-samples.json.gz) に、採否とセルごとの分位点を [backlog-loading-decision.json](backlog-loading-decision.json) に保存した。展開後の生データの SHA-256 は `d4cda2c9226ba943615aad64536ebb9e883a7588ba0316dd13bfc7d602b6e14c`。架空の計測データ・版・条件・計測器の入力ハッシュを含み、セッションのトークンや環境変数は含めない。計測に使ったコードは基準コミットと `inputHashes` で識別する。`inputHashes` の対象は追加した `scripts/backlog-loading-*.ts` で、既存の `today-loading-support.ts`・`loading-server.ts`・`boot-proxy.ts` と製品ソースは基準コミットの版を使った。正式計測時の実行コード6件は [backlog-loading-source.json.gz](backlog-loading-source.json.gz) にも保存し、各ファイルを保存済みハッシュと照合するテストを持つ。PRの途中のコミットがmainの履歴に残ることには依存しない。
+
+現行の計測器には、計測後に未使用の応答フィールド・戻り値の除去、必要な応答情報だけを受け取る型への整理、採用基準のコメント追記を入れたため、現行ファイルのハッシュと保存値が異なる。測定する時点・保存する列・採否の式は変えていない。正式データと全表・採否は計測時のものを維持する。
 
 ```sh
 pnpm exec node scripts/backlog-loading-summary.ts docs/backlog-loading-samples.json.gz /tmp/backlog-summary
 ```
 
 `/tmp/backlog-summary.json` に採否・各セルの分位点、`.md` に下の全表を再生成する。分位点は nearest-rank（20回の p95 は昇順19番目）。分位点同士の差であり、同一試行の改善量ではない。採否には丸め前の値を使う。未完了・error・欠測・過剰・セル内の試行番号の重複・不正な時系列を拒否する。B は両従の完了が load 以前であることも検査する。
+
+
+## 計測時のコードを復元する
+
+基準コミット `ab2588b250ee4ffc13a876b30216cfe68c6ae22d` の検証用checkoutを別の場所に用意し、保存した実行コードをその `scripts/` に書き出す。以下の第2引数は用意済みのcheckoutの絶対パスに置き換える。既存の共通ヘルパー・製品ソース・依存は基準コミットから復元する。現在の作業コピーを上書きせず、計測時の版と現行版を区別する。
+
+```sh
+node --input-type=module - docs/backlog-loading-source.json.gz /tmp/backlog-loading-measured <<'JS'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
+import { resolve } from 'node:path';
+const snapshot = JSON.parse(gunzipSync(readFileSync(process.argv[2])).toString('utf8'));
+const scripts = resolve(process.argv[3], 'scripts');
+mkdirSync(scripts, { recursive: true });
+for (const [name, source] of Object.entries(snapshot.files)) {
+  if (!/^backlog-loading-[a-z-]+\.ts$/.test(name)) throw new Error('不正なファイル名');
+  writeFileSync(resolve(scripts, name), source);
+}
+JS
+```
+
+これはコードと計測方法を復元する手順であり、別時刻・別環境でも同じ応答時間になる保証ではない。保存済みの数値と採否の再現には上の再集計の入口を使う。
 
 ## 採用基準
 

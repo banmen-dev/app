@@ -28,6 +28,25 @@ test('正式生データから全表と3経路の短縮・10組の悪化によ�
   assert.equal(document.slice(document.indexOf('## API')).trim(), markdown.trim());
 });
 
+test('計測時の実行コード6件を保存済みハッシュと照合できる', () => {
+  const samples = JSON.parse(
+    gunzipSync(readFileSync(new URL('../docs/backlog-loading-samples.json.gz', import.meta.url))).toString('utf8'),
+  );
+  const snapshot = JSON.parse(
+    gunzipSync(readFileSync(new URL('../docs/backlog-loading-source.json.gz', import.meta.url))).toString('utf8'),
+  );
+  assert.equal(snapshot.base, samples.base);
+  const runtimeFiles = Object.keys(samples.inputHashes)
+    .filter((name) => !name.endsWith('.test.ts'))
+    .sort();
+  assert.equal(runtimeFiles.length, 6);
+  assert.deepEqual(Object.keys(snapshot.files).sort(), runtimeFiles);
+  for (const [name, source] of Object.entries(snapshot.files)) {
+    assert.ok(typeof source === 'string');
+    assert.equal(createHash('sha256').update(source).digest('hex'), samples.inputHashes[name]);
+  }
+});
+
 function fixture(): BacklogReport {
   const report: BacklogReport = {
     runs: 20,
