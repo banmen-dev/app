@@ -294,7 +294,7 @@ test.describe('組織の選択の「自分用を作る」の出し分け', () =>
     expect(await findA11yViolations(page)).toEqual([]);
   });
 
-  test('すでに自分用を持つ人が押すと、ダイアログに断りと組織の一覧へのリンクが出る', async ({
+  test('すでに自分用を持つ人が押すと、ダイアログに断りとダッシュボードへのリンクが出る', async ({
     context,
     baseURL,
     page,
