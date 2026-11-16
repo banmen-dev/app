@@ -1,6 +1,7 @@
 // 組織の選択と組織の枠。seed のセッション（seed/sessions.ts）の Cookie で、組織が1つの人、2つの人、入れない組織を開いた人を確かめる
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures.ts';
+import { word } from '../src/shared/vocabulary.ts';
 import type { OutputOf } from '../src/shared/operations/define.ts';
 import { listOrganizations } from '../src/shared/operations/operator/index.ts';
 import { myOrganizations, organizationInfo } from '../src/shared/operations/organization/index.ts';
@@ -616,6 +617,32 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
   });
 });
 
+test('組織からダッシュボードへの遅い移動では、元の画面に「移っています」と読み上げを出す', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signIn(context, baseURL, 'member');
+  await page.goto('/aoba');
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  await routeOperation(page, myOrganizations, async (call) => {
+    await gate;
+    await call.passThrough();
+  });
+  await menuButton(page).click();
+  await menuLinks(page).last().click();
+  try {
+    await expect(menuButton(page)).toContainText('移っています');
+    await expect(page.locator('.org-menu [role="status"]')).toHaveText('移っています');
+    await expect(page.getByRole('heading', { level: 1, name: '今日やること' })).toBeVisible();
+    await expect(page.locator('.loading-overlay')).toHaveCount(0);
+  } finally {
+    release();
+  }
+  await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
+});
+
 test('枠の外からダッシュボードへの遅い移動で、広い紙と2列の骨組みを出す', async ({ page, context, baseURL }) => {
   await signIn(context, baseURL, 'member');
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -624,7 +651,10 @@ test('枠の外からダッシュボードへの遅い移動で、広い紙と2�
     await new Promise((resolve) => setTimeout(resolve, 1200));
     await call.passThrough();
   });
-  await page.getByRole('link', { name: 'Scrum Guild を開く' }).first().click();
+  await page
+    .getByRole('link', { name: word('legalOpenApp', { app: word('appName') }) })
+    .first()
+    .click();
   const loadingPaper = page.locator('.loading-overlay .gate.is-wide .gate-sheet');
   await expect(loadingPaper).toBeVisible();
   await expect(loadingPaper.locator('.dashboard')).toBeVisible();
