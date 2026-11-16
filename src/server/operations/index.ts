@@ -63,6 +63,7 @@ import {
 import { createMyOrganizationOperation } from './create-my-organization.ts';
 import { createPersonalOrganizationOperation } from './create-personal-organization.ts';
 import { myOrganizationsOperation, organizationInfoOperation } from './organization.ts';
+import { recentActivityOperation } from './recent-activity.ts';
 import { todayOperation } from './today.ts';
 import { firstStepsOperation } from './first-steps.ts';
 import { organizationHistoryOperation } from './organization-history.ts';
@@ -197,6 +198,7 @@ const listedOperations: readonly ImplementedOperation[] = [
   organizationInfoOperation,
   meThemeUpdateOperation,
   todayOperation,
+  recentActivityOperation,
   firstStepsOperation,
   organizationHolidayListOperation,
   organizationHolidayAddOperation,
