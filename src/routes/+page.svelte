@@ -142,7 +142,10 @@
             </Pane>
           {/if}
         </div>
-        <div class="dashboard-side"><MyTodayPane /><NewsPane items={news} /></div>
+        <div class="dashboard-side">
+          {#if data.organizations.length > 0}<MyTodayPane />{/if}
+          <NewsPane items={news} />
+        </div>
       </div>
       <div class="form-actions">
         {#if data.operator}

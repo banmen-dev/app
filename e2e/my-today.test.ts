@@ -1,4 +1,5 @@
 // 全組織の今日やること。実際の API で2組織の本人タスクを作り、/ から詳細へ移れることを確かめる。
+import { myOrganizations } from '../src/shared/operations/organization/my-organizations.ts';
 import { myToday } from '../src/shared/operations/organization/my-today.ts';
 import { organizationInfo } from '../src/shared/operations/organization/organization.ts';
 import type { OutputOf } from '../src/shared/operations/define.ts';
@@ -16,8 +17,64 @@ test.beforeEach(async ({ context, baseURL }) => {
   await signIn(context, baseURL, 'admin');
 });
 
+const noOrganizationCases = [
+  {
+    name: '招待だけが届いている',
+    data: {
+      organizations: [],
+      invitations: [{ slug: 'hibari', organization_name: 'ひばり工房' }],
+      suspended: [],
+      operator: false,
+    },
+    notice: 'まだ入れる組織がありません。届いた招待から組織を選び、承諾すると入れます。',
+  },
+  {
+    name: '停止した組織だけがある',
+    data: {
+      organizations: [],
+      invitations: [],
+      suspended: [{ slug: 'hibari', name: 'ひばり工房', kind: 'team' }],
+      operator: false,
+    },
+    notice: '停止している組織があります。下の「停止している組織」を見てください。',
+  },
+  {
+    name: '初回で組織も招待も無い',
+    data: { organizations: [], invitations: [], suspended: [], operator: false },
+    notice: '管理者から招待が届くと、ここに出ます。',
+  },
+] satisfies { name: string; data: OutputOf<typeof myOrganizations>; notice: string }[];
+
+for (const scenario of noOrganizationCases) {
+  test(`${scenario.name}人には今日の面も要求も作らず、組織の案内とニュースを残す`, async ({ page }) => {
+    await mockOperation(page, myOrganizations, scenario.data);
+    let todayCalls = 0;
+    await routeOperation(page, myToday, async (call) => {
+      todayCalls++;
+      await call.fulfill(empty);
+    });
+    await page.goto('/');
+    const organizations = page.getByRole('region', { name: '入れる組織', exact: true });
+    await expect(organizations).toBeVisible();
+    await expect(organizations).toContainText(scenario.notice);
+    if (scenario.data.invitations.length > 0) {
+      await expect(organizations.getByRole('link', { name: /ひばり工房/ })).toHaveAttribute(
+        'href',
+        '/hibari/invitations',
+      );
+    }
+    if (scenario.data.suspended.length > 0) {
+      await expect(page.getByRole('region', { name: '停止している組織', exact: true })).toContainText('ひばり工房');
+    }
+    await expect(page.getByRole('region', { name: 'Scrum Guild のニュース', exact: true })).toBeVisible();
+    await expect(pane(page)).toHaveCount(0);
+    expect(todayCalls).toBe(0);
+  });
+}
+
 test('2組織の本人タスクを組織名とともに表示し、各組織の詳細へ移れる', async ({ page, browser, baseURL }) => {
   if (baseURL === undefined) throw new Error('baseURL が無い');
+  await page.setViewportSize({ width: 390, height: 320 });
   const headers = { Origin: new URL(baseURL).origin };
   const otherAdmin = await browser.newContext({ baseURL });
   await signIn(otherAdmin, baseURL, 'otherOrg');
@@ -76,9 +133,12 @@ test('2組織の本人タスクを組織名とともに表示し、各組織の�
       await expect(row.getByRole('button')).toHaveCount(0);
       const link = row.getByRole('link', { name: task.title, exact: true });
       await expect(link).toHaveAttribute('href', `/${task.slug}/w/${task.workspaceId}?task=${task.taskId}`);
+      await link.scrollIntoViewIfNeeded();
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
       await link.click();
       await expect(page).toHaveURL(new URL(`/${task.slug}/w/${task.workspaceId}?task=${task.taskId}`, baseURL).href);
       await expect(page.getByRole('dialog', { name: task.title, exact: true })).toBeVisible();
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
     }
   } finally {
     // cleanup の検査失敗で元の失敗を隠さず、残りのタスクとワークスペースも片付ける。
