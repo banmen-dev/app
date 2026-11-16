@@ -199,11 +199,17 @@ test('リーダーはゴールを書いてスプリントを始め、2つ目は�
   await expect(titlesIn(page, '完了').filter({ hasText: 'C札' })).toBeFocused();
   // 完了の列のカードは、Alt と ← で戻せる。戻すと完了の前の列（レビュー）へ戻り、フォーカスはそのカードへ移る
   await card('C札').focus();
-  await page.keyboard.press('Alt+ArrowLeft');
+  await page.keyboard.down('Alt');
+  await page.keyboard.down('ArrowLeft');
   await expect(status('「C札」の完了を戻し、レビューへ移しました')).toBeVisible();
   await expect(titlesIn(page, 'レビュー')).toHaveText(['C札']);
   await expect(titlesIn(page, '完了')).toHaveText([]);
   await expect(card('C札')).toBeFocused();
+  // 完了カードから始めた左キーを保持したまま、戻った未完了カードへ反復が届いても列を送らない
+  await card('C札').dispatchEvent('keydown', { key: 'ArrowLeft', altKey: true, repeat: true, bubbles: true });
+  await expect(titlesIn(page, 'レビュー')).toHaveText(['C札']);
+  await page.keyboard.up('ArrowLeft');
+  await page.keyboard.up('Alt');
   await expect(page.getByRole('button', { name: '完了を戻す: C札' })).toHaveCount(0);
 
   // 読み直しても、別の画面でも、同じ列と順
@@ -1017,16 +1023,26 @@ test.describe('カードのドラッグ', () => {
     );
     await dragTo(page, grabOf(page, locked), headOf(page, 'レビュー'), 'middle');
     await expect(blockedReason).toBeVisible();
+    await expect(blockedReason).toHaveCount(1);
     await waitForSettled(page);
     await page.mouse.move(0, 0);
     await expect(blockedReason).toHaveCount(0, { timeout: 12_000 });
     await cardOf(page, locked).focus();
+    await cardOf(page, locked).dispatchEvent('keydown', {
+      key: 'ArrowLeft',
+      altKey: true,
+      repeat: true,
+      bubbles: true,
+    });
+    await expect(blockedReason).toHaveCount(0);
     await page.keyboard.press('Alt+ArrowLeft');
     await expect(blockedReason).toBeVisible();
+    await expect(blockedReason).toHaveCount(1);
     await waitForSettled(page);
     await expect(blockedReason).toHaveCount(0, { timeout: 12_000 });
     await chooseRowAction(page, locked, '前の列へ（完了を戻す）');
     await expect(blockedReason).toBeVisible();
+    await expect(blockedReason).toHaveCount(1);
     await waitForSettled(page);
     await expect(titlesIn(page, '完了')).toHaveText([title, locked]);
     expect(reopenRequests).toEqual([]);

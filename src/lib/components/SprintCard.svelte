@@ -43,7 +43,7 @@
     edges: { top: boolean; bottom: boolean; prev: boolean; next: boolean; completes: boolean } | null;
     // 完了カードも選び、戻す操作を試せるか（書き込めるときだけ）
     writable?: boolean;
-    onmove: (task: SprintBoardTask, direction: MoveDirection) => void;
+    onmove: (task: SprintBoardTask, direction: MoveDirection, repeat?: boolean) => void;
     // 渡すと（書き込めるとき）、task.can_delete が真のカードの「⋯」の末尾に危険色の「この<タスク>を削除する」を出す
     ondelete?: (task: SprintBoardTask, keyboard: boolean) => void;
   } = $props();
@@ -122,10 +122,14 @@
     if (!selectable || !event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
     const direction = KEY_DIRECTIONS[event.key];
     if (direction === undefined || (done && direction !== 'left')) return;
+    if (done && event.repeat) {
+      event.preventDefault();
+      return;
+    }
     event.preventDefault();
     // 押しっぱなしの自動の繰り返しでは、完了の列の手前から完了にしない（列を送るうちに気づかず完了にしないため）
     if (event.repeat && direction === 'right' && edges?.completes === true) return;
-    onmove(task, direction);
+    onmove(task, direction, event.repeat);
   }
 
   const titleId = $derived(`card-${task.id}-title`);

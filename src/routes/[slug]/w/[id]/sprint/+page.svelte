@@ -28,6 +28,7 @@
     throwIfListFailed,
   } from '../../../../../lib/task-reload-failure.svelte.ts';
   import { MoveQueue } from '../../../../../lib/move-queue.ts';
+  import { ReopenKeyGuard } from '../../../../../lib/reopen-key.ts';
   import { edgesOf, planCardMove, type MoveDirection, type MoveEdge } from '../../../../../lib/sprint-board.ts';
   import { SprintDnd } from '../../../../../lib/sprint-dnd.svelte.ts';
   import type { MovedPlan, ReopenPlan, SprintDrop } from '../../../../../lib/sprint-drop.ts';
@@ -260,10 +261,21 @@
     return t('sprintCardMoveFailed');
   }
 
-  function moveCard(task: SprintBoardTask, direction: MoveDirection): void {
+  const reopenKey = new ReopenKeyGuard();
+  const keyWorkspaceId = $derived(workspace?.id);
+  $effect(() => {
+    void keyWorkspaceId;
+    reopenKey.reset();
+  });
+
+  function moveCard(task: SprintBoardTask, direction: MoveDirection, repeat?: boolean): void {
     if (workspace === null || !canWrite) return;
+    if (direction === 'left' && reopenKey.suppress(repeat)) return;
     if (task.completed_at !== null) {
-      if (direction === 'left') void reopen(task);
+      if (direction === 'left') {
+        reopenKey.start(repeat);
+        void reopen(task);
+      }
       return;
     }
     const plan = planCardMove(columns, task.id, direction);
@@ -644,6 +656,8 @@
           }),
   );
 </script>
+
+<svelte:window onkeyup={(event) => reopenKey.release(event.key)} onblur={() => reopenKey.reset()} />
 
 <svelte:head>
   {#if workspace && board !== null}
