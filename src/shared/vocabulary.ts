@@ -2459,6 +2459,8 @@ export const dictionary = defineDictionary({
   sprintExtendFailed: '延長できませんでした。もう一度試してください。',
   sprintExtendNotActive: 'この{sprint}は進行中ではありません。画面を読み直しました。',
   sprintExtendChanged: '期間が変わりました。新しい期間を確かめて、もう一度試してください。',
+  sprintHeaderEditAction: '編集',
+  sprintHeaderEditLabel: '{sprint}を編集: {label}',
   sprintEditActive: '名前と{sprintGoal}を変更',
   sprintEditGoalHint: '{max} 字まで。空にすると消えます',
   // スプリントを終えるダイアログ（kit.js の DIALOGS.sprintEnd）と、スプリントの画面の見出しの「終える」

@@ -1,0 +1,91 @@
+import { organizationInfo } from '../src/shared/operations/organization/index.ts';
+import { sprintBoard, sprintList } from '../src/shared/operations/sprint/index.ts';
+import { expect, test } from './fixtures.ts';
+import { signIn, waitForSettled } from './helpers.ts';
+import { mockOperation, rewriteOperation } from './operations.ts';
+import { OVERDUE_PLAN, SAMPLE_BOARD } from './sprint-fixture.ts';
+
+const PATH = '/aoba/w/019a0000-0000-7000-8000-000000000401/sprint';
+test.use({ timezoneId: 'Asia/Tokyo' });
+
+for (const today of ['2026-10-20', '2026-10-26', '2026-10-27']) {
+  test(`見出しは編集と操作にまとまり、終えるは最終日から表にも出る: ${today}`, async ({ page, context, baseURL }) => {
+    await signIn(context, baseURL, 'admin');
+    await mockOperation(page, sprintBoard, { slug: 'aoba' }, { ...SAMPLE_BOARD, today });
+    await mockOperation(page, sprintList, { slug: 'aoba' }, { ...OVERDUE_PLAN, today });
+    await page.goto(PATH);
+    const head = page.locator('.page-head');
+    const menu = head.getByRole('button', { name: '操作: 第14回', exact: true });
+    await expect(head.getByRole('button', { name: 'スプリントを編集: 第14回' })).toHaveText('編集');
+    await expect(menu).toBeVisible();
+    await expect(menu).toHaveCSS('opacity', '1');
+    await expect(head.getByRole('button', { name: '延長する', exact: true })).toHaveCount(0);
+    await expect(head.getByRole('button', { name: '終える: スプリント「第14回」' })).toHaveCount(
+      today < '2026-10-26' ? 0 : 1,
+    );
+    await menu.click();
+    await expect(head.getByRole('menuitem')).toHaveText(['延長する', '終える']);
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeFocused();
+    await head.getByRole('button', { name: 'スプリントを編集: 第14回' }).click();
+    const edit = page.getByRole('dialog', { name: 'スプリントを直す' });
+    await expect(edit.getByLabel('名前（任意）')).toHaveValue('第14回');
+    await expect(edit.getByLabel('スプリントゴール', { exact: true })).toHaveValue(SAMPLE_BOARD.sprint!.goal!);
+    await edit.getByRole('button', { name: 'やめる' }).click();
+    for (const [action, title] of [
+      ['延長する', 'スプリントを延ばす'],
+      ['終える', 'スプリントを終える'],
+    ]) {
+      await menu.focus();
+      await page.keyboard.press('ArrowDown');
+      await head.getByRole('menuitem', { name: action, exact: true }).click();
+      const dialog = page.getByRole('dialog', { name: title });
+      await expect(dialog).toBeVisible();
+      await dialog.getByRole('button', { name: 'やめる' }).click();
+      await expect(menu).toBeFocused();
+      await expect(menu).toHaveAttribute('aria-expanded', 'false');
+    }
+    await waitForSettled(page);
+  });
+}
+
+for (const state of ['member', 'closed'] as const) {
+  test(`${state === 'member' ? 'メンバー' : '閉じたワークスペース'}には見出しの操作を出さない`, async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await signIn(context, baseURL, state === 'member' ? 'member' : 'admin');
+    if (state === 'closed') {
+      await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (output) => ({
+        ...output,
+        workspaces: output.workspaces.map((workspace) => ({ ...workspace, closed_at: '2026-10-20T00:00:00.000Z' })),
+      }));
+    }
+    await mockOperation(page, sprintBoard, { slug: 'aoba' }, { ...SAMPLE_BOARD, today: '2026-10-26' });
+    await page.goto(PATH);
+    await expect(page.getByRole('heading', { level: 1, name: '第14回' })).toBeVisible();
+    await expect(page.locator('.page-actions').getByRole('button')).toHaveCount(0);
+    await expect(page.getByRole('menuitem', { name: '終える', exact: true })).toHaveCount(0);
+  });
+}
+
+for (const today of ['2026-10-20', '2026-10-26']) {
+  test(`390pxでも見出しの操作は画面内に収まり押せる: ${today}`, async ({ page, context, baseURL }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signIn(context, baseURL, 'admin');
+    await mockOperation(page, sprintBoard, { slug: 'aoba' }, { ...SAMPLE_BOARD, today });
+    await page.goto(PATH);
+    const actions = page.locator('.page-actions');
+    await expect(actions.getByRole('button', { name: '操作: 第14回', exact: true })).toBeVisible();
+    for (const button of await actions.getByRole('button').all()) {
+      const box = await button.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+    }
+    await actions.getByRole('button', { name: '操作: 第14回', exact: true }).click();
+    await expect(actions.getByRole('menuitem', { name: '延長する', exact: true })).toBeVisible();
+  });
+}
