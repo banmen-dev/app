@@ -5,7 +5,6 @@ import type { myToday } from '../../shared/operations/organization/my-today.ts';
 import * as drawer from '../drawer.svelte.ts';
 import MyTodayPane from './MyTodayPane.svelte';
 
-vi.mock('$app/navigation', () => ({ invalidateAll: vi.fn() }));
 vi.mock('$app/state', () => ({ page: { params: {}, url: new URL('https://example.test/') } }));
 vi.mock('$app/paths', () => ({
   resolve: (route: string, params: Record<string, string>) =>
@@ -118,7 +117,7 @@ test('組織の指定があっても、タスク詳細の開き方の設定を�
       props: { today: { ...empty, tasks: [row('設定の確認', { slug: 'aoba', name: '青葉工房', kind: 'team' })] } },
     });
     expect(href).toHaveBeenCalledWith('/aoba/w/w1?task=%E8%A8%AD%E5%AE%9A%E3%81%AE%E7%A2%BA%E8%AA%8D');
-    expect(attrs).toHaveBeenCalled();
+    expect(attrs).toHaveBeenCalledWith(false);
     expect(body).toContain('href="/preferred/detail"');
     expect(body).toContain('target="_blank"');
   } finally {

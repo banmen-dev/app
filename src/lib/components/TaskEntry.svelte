@@ -583,7 +583,7 @@
         `${taskHref}${organization === undefined ? taskQuery : '?task='}${encodeURIComponent(task.id)}`,
       )}
       data-task-id={task.id}
-      {...taskLinkAttrs()}>{task.title}</a
+      {...taskLinkAttrs(organization === undefined)}>{task.title}</a
     >
     <!-- eslint-enable svelte/no-navigation-without-resolve -->
     {#if organization !== undefined || workspaceName !== undefined || (attrs === undefined && (task.repository !== null || category !== null)) || task.sprint !== null || metaChip !== undefined || metaText !== undefined}
