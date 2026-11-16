@@ -11,7 +11,7 @@ import {
   type ScopeCandidate,
 } from '../source.ts';
 import { FULL_NAME_PATTERN, LOGIN_PATTERN, PAGE_SIZE, fail, getJson, idOf, isRecord } from './client.ts';
-import { fetchAssignedIssuesPage } from './issues.ts';
+import { fetchOwnItemsPage } from './items.ts';
 import { fetchReviewRequestsPage } from './review-requests.ts';
 
 const USER_URL = 'https://api.github.com/user';
@@ -67,9 +67,9 @@ async function listScopeCandidates(credential: string, fetcher: typeof fetch): P
   throw fail('unavailable');
 }
 
-// 範囲のリポジトリの、自分が担当の未完了の Issue を1頁取る（github/issues.ts）
+// 範囲のリポジトリの、担当 Issue → 作者または担当 PR の順で1頁取る。
 async function fetchPage(input: FetchPageInput): Promise<FetchPageResult> {
-  return fetchAssignedIssuesPage({ ...input, credential: requireShape(input.credential) });
+  return fetchOwnItemsPage({ ...input, credential: requireShape(input.credential) });
 }
 
 export const githubImportSource: ImportSource = {

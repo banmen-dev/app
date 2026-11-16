@@ -115,16 +115,19 @@ function convert(raw: unknown, scope: ScopeCandidate, login: string): ImportItem
 
 type Position = { login: string | null; page: number; anchor: string | null };
 
-function parseCursor(cursor: string | null): Position {
+export function parseIssueCursor(cursor: string | null): Position {
   if (cursor === null) return { login: null, page: 1, anchor: null };
   const match = CURSOR_PATTERN.exec(cursor);
   if (match === null) invalidArgument();
   const page = Number(match[2]);
   if (page > MAX_PAGE) invalidArgument();
-  return { login: match[1]!, page, anchor: match[3] ?? null };
+  const anchor = match[3] ?? null;
+  if (anchor !== null && (Number.isNaN(Date.parse(anchor)) || new Date(anchor).toISOString() !== anchor))
+    invalidArgument();
+  return { login: match[1]!, page, anchor };
 }
 
-async function loginOf(input: FetchPageInput): Promise<string> {
+export async function loginOf(input: FetchPageInput): Promise<string> {
   const fromSettings = input.settings['login'];
   if (typeof fromSettings === 'string' && LOGIN_PATTERN.test(fromSettings)) return fromSettings;
   const body = await getJson(USER_URL, input.credential, input.fetcher);
@@ -148,7 +151,7 @@ function urlOf(scope: ScopeCandidate, assignee: string, since: string | null, pa
 export async function fetchAssignedIssuesPage(input: FetchPageInput): Promise<FetchPageResult> {
   const { scope } = input;
   if (!SCOPE_ID_PATTERN.test(scope.id) || !FULL_NAME_PATTERN.test(scope.name)) invalidArgument();
-  const position = parseCursor(input.cursor);
+  const position = parseIssueCursor(input.cursor);
   const login = position.login ?? (await loginOf(input));
   const { page, anchor } = position;
 
