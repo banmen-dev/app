@@ -47,15 +47,15 @@ test('計測時の実行コード6件を保存済みハッシュと照合でき�
   }
 });
 
-function fixture(): BacklogReport {
+function fixture(rounds = 2): BacklogReport {
   const report: BacklogReport = {
     runs: 20,
-    rounds: 2,
+    rounds,
     completedAt: '2026-11-17T00:00:00.000Z',
     api: [],
     browser: [],
   };
-  for (const round of [1, 2])
+  for (let round = 1; round <= rounds; round++)
     for (let condition = 0; condition < backlogCases.length; condition++)
       for (const reverse of [false, true])
         for (let trial = 0; trial < report.runs; trial++) {
@@ -106,18 +106,13 @@ function improve(p: BacklogReport, condition = 0, entry = 'direct', round?: numb
 }
 
 test('3巡中2巡の再現を採用し、全巡の悪化を検査する', () => {
-  const report = fixture();
-  report.rounds = 3;
-  report.api.push(...report.api.filter((sample) => sample.round === 1).map((sample) => ({ ...sample, round: 3 })));
-  report.browser.push(
-    ...report.browser.filter((sample) => sample.round === 1).map((sample) => ({ ...sample, round: 3 })),
-  );
+  const report = fixture(3);
   improve(report, 0, 'direct', 1);
   improve(report, 0, 'direct', 2);
   const result = summarizeBacklog(report);
   assert.equal(result.eligible, true);
   assert.deepEqual(result.qualifyingPaths, [{ case: 0, entry: 'direct' }]);
-  assert.equal(result.comparisons.length, 120);
+  assert.equal(result.comparisons.length, report.rounds * backlogCases.length * 2 * backlogEntries.length);
   for (const sample of report.browser)
     if (
       sample.round === 3 &&
@@ -129,6 +124,34 @@ test('3巡中2巡の再現を採用し、全巡の悪化を検査する', () => 
       sample.ready = 1100;
   assert.equal(summarizeBacklog(report).eligible, false);
 });
+
+test('3巡中1巡だけの短縮は採用しない', () => {
+  const report = fixture(3);
+  improve(report, 0, 'direct', 1);
+  assert.equal(summarizeBacklog(report).eligible, false);
+});
+
+for (const condition of [
+  { name: '逆順', case: 0, entry: 'direct', reverse: true },
+  { name: '別条件', case: 1, entry: 'direct', reverse: false },
+  { name: '別経路', case: 0, entry: 'navigation', reverse: false },
+])
+  test(`3巡目の${condition.name}の悪化も採用を止める`, () => {
+    const report = fixture(3);
+    improve(report, 0, 'direct', 1);
+    improve(report, 0, 'direct', 2);
+    assert.equal(summarizeBacklog(report).eligible, true);
+    for (const sample of report.browser)
+      if (
+        sample.round === 3 &&
+        sample.case === condition.case &&
+        sample.entry === condition.entry &&
+        sample.reverse === condition.reverse &&
+        sample.variant === 'C'
+      )
+        sample.ready = 1100;
+    assert.equal(summarizeBacklog(report).eligible, false);
+  });
 
 test('全5条件・4経路・正逆2順・2巡をnearest-rankで集計する', () => {
   const report = fixture();
