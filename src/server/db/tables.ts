@@ -321,6 +321,8 @@ export const organizationTableColumns = {
     source_kind: text,
     source_id: text,
     reviewer_source_id: textDefault,
+    review_cycle: textOrNull,
+    review_revision: integerDefault,
     source_key: text,
     source_url: text,
     source_container_id: text,
@@ -333,6 +335,12 @@ export const organizationTableColumns = {
     last_seen_at: text,
     created_at: text,
     updated_at: text,
+  },
+  review_request_cycles: {
+    task_id: text,
+    review_cycle: text,
+    completion_id: textOrNull,
+    created_at: text,
   },
   task_source_payloads: { task_id: text, payload_json: text, is_truncated: integerDefault, updated_at: text },
   epics: {

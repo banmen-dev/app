@@ -13,6 +13,7 @@ export const inboxTaskSchema = z.object({
   title: z.string(),
   // 取り込み元のキー（owner/repo#12）と URL、取り込み元のリポジトリの名前、取り込んだ接続の名前
   source_key: z.string(),
+  is_source_done: z.boolean(),
   source_url: z.string(),
   source_container_name: z.string(),
   connection_name: z.string(),

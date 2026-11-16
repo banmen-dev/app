@@ -67,6 +67,31 @@ async function listScopeCandidates(credential: string, fetcher: typeof fetch): P
   throw fail('unavailable');
 }
 
+// 同期の候補列挙は1要求ずつ返し、10要求の予算をまたいでも先へ進める。
+async function fetchScopeCandidatesPage(input: { credential: string; fetcher: typeof fetch; cursor: string | null }) {
+  const page = input.cursor === null ? 1 : Number(input.cursor);
+  if (
+    !Number.isInteger(page) ||
+    page < 1 ||
+    page > MAX_PAGES + 1 ||
+    (input.cursor !== null && String(page) !== input.cursor)
+  )
+    throw new TypeError('範囲候補の続きの位置が不正');
+  const body = await getJson(
+    `${REPOS_URL}?per_page=${PAGE_SIZE}&page=${page}`,
+    requireShape(input.credential),
+    input.fetcher,
+  );
+  if (!Array.isArray(body) || body.length > PAGE_SIZE || (page > MAX_PAGES && body.length > 0))
+    throw fail('unavailable');
+  const candidates: ScopeCandidate[] = body.map((item: unknown) => {
+    if (!isRecord(item) || typeof item.full_name !== 'string' || !FULL_NAME_PATTERN.test(item.full_name))
+      throw fail('unavailable');
+    return { id: idOf(item.id), name: item.full_name };
+  });
+  return { candidates, next: body.length < PAGE_SIZE ? null : String(page + 1) };
+}
+
 // 範囲のリポジトリの、自分が担当の未完了の Issue を1頁取る（github/issues.ts）
 async function fetchPage(input: FetchPageInput): Promise<FetchPageResult> {
   return fetchAssignedIssuesPage({ ...input, credential: requireShape(input.credential) });
@@ -87,6 +112,7 @@ export const githubImportSource: ImportSource = {
   verifyCredential,
   listScopeCandidates,
   fetchPage,
+  fetchScopeCandidatesPage,
   async fetchReviewRequestsPage(input) {
     return fetchReviewRequestsPage({ ...input, credential: requireShape(input.credential) });
   },

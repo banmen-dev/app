@@ -335,3 +335,14 @@ export async function restoreKumoAvatarLeaverMembership(): Promise<void> {
       `AND user_id = '${KUMO_AVATAR_LEAVER_USER_ID}';`,
   ]);
 }
+
+// #1314 の同期後の保存状態を、独立したワークスペースに用意する。
+// 実際の GitHub 通信と再依頼の遷移は Workers テストで確かめ、E2E は保存後の表示・移動を確かめる。
+export async function seedInboxReviewStates(workspaceId: string, ownerUserId: string): Promise<void> {
+  await seedInboxTasks(workspaceId, ownerUserId, ['提出済みのレビュー', '再依頼されたレビュー']);
+  await executeLocalD1([
+    `UPDATE task_sources SET source_kind = 'review_request', reviewer_source_id = '42', review_cycle = 'seed-cycle-2', ` +
+      `is_source_done = CASE WHEN source_key = 'aoba/e2e#1' THEN 1 ELSE 0 END ` +
+      `WHERE workspace_id = '${workspaceId}';`,
+  ]);
+}

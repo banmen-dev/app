@@ -128,6 +128,9 @@ export function createFakePatGithub() {
 
     const account = accounts.get((headers['authorization'] ?? '').replace(/^Bearer /, ''));
     if (account === undefined) return json({ message: 'Bad credentials' }, 401);
+    // レビュー依頼を持たない既存のIssue用fixture。同期のレビュー全走査は空で完了する。
+    if (parsed.origin === 'https://api.github.com' && /^\/repositories\/\d+\/pulls$/.test(parsed.pathname))
+      return json([]);
     if (parsed.origin + parsed.pathname === FAKE_PAT_USER_URL) return json(account.owner);
     if (isRepos) {
       const perPage = Math.min(Number(parsed.searchParams.get('per_page') ?? '30'), 100);

@@ -33,7 +33,7 @@
 | ワークスペース | `workspaces`、`workspace_point_rates`、`workspace_holidays`、`memberships`、`invitations`、`allocations` |
 | ワークスペースの定義 | `board_columns`、`detail_fields`、`categories`、`repositories` |
 | 接続 | `connections`、`connection_scopes`、`connection_status_mappings` |
-| 計画と作業 | `epics`、`epic_party_members`、`stories`、`tasks`、`task_sources`、`task_source_payloads`、`task_field_values`、`comments`、`attachments`、`sprints`、`sprint_entries` |
+| 計画と作業 | `epics`、`epic_party_members`、`stories`、`tasks`、`task_sources`、`review_request_cycles`、`task_source_payloads`、`task_field_values`、`comments`、`attachments`、`sprints`、`sprint_entries` |
 | Wiki | `wiki_pages`、`wiki_page_revisions` |
 | 記録 | `completions`、`thanks`、`xp_grants`、`notifications`、`favorites`、`change_logs` |
 
@@ -1044,6 +1044,8 @@
 | source_kind | TEXT | NOT NULL、`issue`、`pull_request`、`review_request` | 種別。取り込み元を問わず共通 |
 | source_id | TEXT | NOT NULL | 取り込み元の不変の ID |
 | reviewer_source_id | TEXT | NOT NULL、既定 `''` | レビュー依頼のレビュアーの取り込み元での ID。他の種別は空文字（`CHECK ((source_kind = 'review_request') = (reviewer_source_id <> ''))`） |
+| review_cycle | TEXT | | 現在のレビュー依頼回の不透明な識別子。旧版の行は NULL |
+| review_revision | INTEGER | NOT NULL、既定 0 | target 照合の更新ごとに増やす CAS 用の版。同時刻でも古い読取から更新しない |
 | source_key | TEXT | NOT NULL | 課題キーや `owner/repo#12` など、取り込み元での表示用のキー。移動で変わるので検索と表示にだけ使う |
 | source_url | TEXT | NOT NULL | |
 | source_container_id | TEXT | NOT NULL | Backlog のプロジェクトや GitHub のリポジトリなど、取り込み元で項目が入る先の ID。絞り込みに使う |
@@ -1059,6 +1061,23 @@
 - 一意: `(workspace_id, provider, source_kind, source_id, reviewer_source_id)`。同じワークスペースで同じ項目を1件にまとめ、レビュー依頼だけはレビュアーごとに分ける。
 - 索引: `(connection_id)`、`(workspace_id, source_container_id)`。
 - 接続が削除されても行は残す。続けて同期する接続がなくなるだけ。
+
+- レビュー依頼の既存行は target 付き照合の結果だけで更新する。発見の全走査で出ない行は変更しない。提出・PR 終了は `is_source_done` だけを変え、自動完了も経験値付与もしない。
+- 既存行の新しい依頼回では、すでに提出・終了していても同じタスクの `completed_at` / `completed_by` を空にして受信箱へ戻し、`story_id`、`sprint_id`、`column_id` / `column_position`、`today_on` を空にする。開いている `sprint_entries` は `removed` で閉じる。通常の `task-reopen` は呼ばず、`completions` / `xp_grants` を保持する。同じ回では復帰しない。初めて依頼回を付ける旧版の NULL 行も初回復帰の対象にせず、以後の回から適用する。
+- 状態の照合、タスクの復帰、所属記録、依頼回の記録は、組織・ワークスペース・接続・認証情報・読んだ版を条件にした同一 batch で保存する。古い取り込み元更新日時と処理済みの別の回は反映しない。
+
+### review_request_cycles
+
+レビュー依頼の処理済みの依頼回。組織の中の表で、タスクを通してワークスペースに属する。過去の回への遅れた応答で再復帰しないために残し、#1315 の回単位重複防止でも使う。
+
+| 列 | 型 | 制約 | 説明 |
+| --- | --- | --- | --- |
+| task_id | TEXT | PK の一部、FK tasks、NOT NULL | 同じタスクを保持する |
+| review_cycle | TEXT | PK の一部、NOT NULL | 依頼回の不透明な識別子 |
+| completion_id | TEXT | FK completions | その回の完了への参照。#1314 は NULL だけを書き、接続と経験値の処理は #1315 |
+| created_at | TEXT | NOT NULL、UTC ミリ秒の日時 | 初めて処理した日時 |
+
+- 主キーは `(task_id, review_cycle)`。`completion_id` に索引を持つ。過去の完了と経験値を消さず、組織の消去では completions / tasks より先に消す。旧版が扱う親の通常削除は論理削除で、#1314 は completion_id を常に NULL とするため、旧版へのコードの戻しを妨げない。
 
 ### task_source_payloads
 
@@ -1626,7 +1645,7 @@ D1 は対話的なトランザクションを持たない。まとめて書く�
 | ユーザーの有効化 | 認証の線 `credentials_not_before` は残す。`users`（`disabled_at` を空に、`updated_at`）、`change_logs`（`{"disabled_at": [前の日時, null]}`、`workspace_id` は空）、無効にする前に作った招待の取り消しの `change_logs` と `invitations` を1回の `batch()` で書く。招待の2文は、無効化の 3 と 4 と同じ形で、その人の `login_provider` と `login_subject` への承諾待ちの招待のうち `created_at` が読んだ `disabled_at` より前のものに当て、「この要求で有効に戻した（`updated_at` がこの要求の時刻で `disabled_at` が空）」を条件にする（`users` の節の限界も参照）。操作は `user-enable`（管理者）で、入力は `user_id`。相手は管理者の指名と同じで、有効な人なら何も書かずに今の値を返す。その次に、書く前に人数の上限を見る（`organizations` の「人数」）。無効にした日時以後に招待し直した承諾待ちの招待（開いたワークスペース）があって新しく数えられる人 `adding` が 1 で、今の人数に足すと `member_limit` を超えるときは、何も書かずに 409（`member_limit_reached`、`details` は `{ used, limit, adding }`。無効の間に作った招待は残す）。`adding` が 0 の有効化は通す。人数は書く文の条件に入れない。`users` の条件は ID、組織、`login_subject IS NOT NULL`、読んだ `disabled_at` のまま、呼んだ人が今も無効でない管理者である `EXISTS`。記録は直前の文が行を変えたときだけ入れる。所属と管理者の指名は戻さない（入るには招待し直すか、指名し直す）。書けなければ読み直し、相手が無ければ 404、呼んだ人がもう管理者でなければ 403、既に有効なら今の値を返し、そうでなければ 409（`conflict`） |
 | プロフィール画像を上げる | R2 に新しいキーで書いてから、`user_avatars` の UPSERT 1文を1回の `batch()` で送る（操作は `me-avatar-upload`、入力は空で本文が画像）。文は、その人が組織にいて無効でないことと、読んだ前のキー（前の行が無ければ行が無いこと）を条件にする。書けなければ（0行）新しいキーを消して 409（`conflict`）、書けたら前のキーを消す（失敗は件数だけをログに出す）。`batch()` の応答が失われたときは行を引き直して書けたかを決める（「user_avatars」の上げる流れ）。回数はアカウントごとに10分に20回まで（組織をまたいで同じ枠） |
 | プロフィール画像を外す | `user_avatars` の自分の行を `RETURNING object_key` で消す1文を `batch()` で送り、返ったキーの R2 のファイルを消す（失敗は件数だけをログに出す）。操作は `me-avatar-delete`。画像が無くても 200 |
-| 取り込み（1件） | `tasks`（結ばれたリポジトリがあれば `repository_id` も）、`task_sources`、`task_source_payloads`。同期の仕組み（`src/server/import/sync.ts`、#924）は、取り込み元から取った頁ごとに、頁の新しい項目（未完了のものだけ）の `tasks` と `task_sources` の組を1回の `batch()` で書く（`task_source_payloads` は応答の保存のストーリーで足す）。`tasks` は受信箱（`tray = 'inbox'`、`is_imported = 1`、担当は接続の登録者、`created_by` は空、並びは受信箱の末尾）に入れ、タイトルは手で入れるタイトルと同じ整え方（見えない文字を除き、200字で切る）にする。`tasks` の文は「接続が削除されておらず止まっていない」「ワークスペースが閉じていない」「同じ項目の `task_sources` が無い」を、`task_sources` の文は「そのタスクの行がある」を条件に持つので、二度押しや並行した同期でも二重に入らず、片方だけの行もできない。接続の状態は、頁を取り終えた後の1文で書く。成功は `last_success_at`、`consecutive_failures` を0、エラーの欄を空に、`sync_state_json` に続きの位置（上限の10頁で止めたとき。次の同期はそこから続ける）。認証の失敗（取り込み元が認証情報を受け付けなかった、保存した認証情報が使えない形）は `status = 'stopped'`、`stopped_reason = 'auth_failed'`。ほかの失敗（権限、届かない、応答が想定と違う、認証情報を復号できない、想定外の例外）は `status = 'error'`、`consecutive_failures` を1足し、`last_error_message` は固定の文（取り込み元や例外の文は書かない）、`last_error_at` を書き、止めずに次の同期で再試行する。この文も、接続が削除されておらず止まっていないことを条件にする。範囲が空の接続（対象を挙げるモードで行が無い）は、取り込み元に問い合わせず、接続の行も書かない |
+| 取り込み（1件） | `tasks`（結ばれたリポジトリがあれば `repository_id` も）、`task_sources`、`review_request_cycles`、`task_source_payloads`。同期の仕組み（`src/server/import/sync.ts`、#924）は、取り込み元から取った頁ごとに、頁の新しい項目（未完了のものだけ）の `tasks` と `task_sources` の組を1回の `batch()` で書く（`task_source_payloads` は応答の保存のストーリーで足す）。`tasks` は受信箱（`tray = 'inbox'`、`is_imported = 1`、担当は接続の登録者、`created_by` は空、並びは受信箱の末尾）に入れ、タイトルは手で入れるタイトルと同じ整え方（見えない文字を除き、200字で切る）にする。`tasks` の文は「接続が削除されておらず止まっていない」「ワークスペースが閉じていない」「同じ項目の `task_sources` が無い」を、`task_sources` の文は「そのタスクの行がある」を条件に持つので、二度押しや並行した同期でも二重に入らず、片方だけの行もできない。接続の状態は、頁を取り終えた後の1文で書く。成功は `last_success_at`、`consecutive_failures` を0、エラーの欄を空に、`sync_state_json` に続きの位置（上限の10頁で止めたとき。次の同期はそこから続ける）。認証の失敗（取り込み元が認証情報を受け付けなかった、保存した認証情報が使えない形）は `status = 'stopped'`、`stopped_reason = 'auth_failed'`。ほかの失敗（権限、届かない、応答が想定と違う、認証情報を復号できない、想定外の例外）は `status = 'error'`、`consecutive_failures` を1足し、`last_error_message` は固定の文（取り込み元や例外の文は書かない）、`last_error_at` を書き、止めずに次の同期で再試行する。この文も、接続が削除されておらず止まっていないことを条件にする。範囲が空の接続（対象を挙げるモードで行が無い）は、取り込み元に問い合わせず、接続の行も書かない |
 | API トークンの発行と取り消し・発行の確認 | 共通の DB の `api_tokens` と `sessions`（組織の中の表は触らない）。`token-create` は発行元セッションの存在・アカウント・期限と有効件数の上限を同じ文で確かめる `INSERT ... SELECT ... WHERE`（挿入0件ならセッションを読み直し、401 `unauthenticated` と409 `conflict`（`limit`）を区別）と、発行に成功した場合だけ発行セッションの `api_token_seen_at` を進める `UPDATE` を同じ `batch()` で送る。`token-revoke` は呼んだ人の行を読んでから、`token_hash`、`account_id`、`revoked_at IS NULL` で絞る `UPDATE`（`revoked_at`）を `batch()` で送る。`token-notice-seen` は呼び出したセッションだけの確認日時を、最新発行を上限として単調に進める1文を `batch()` で送る |
 | 設定からの全失効（`credentials-revoke-all`） | 共通の DB の `sessions` と `api_tokens` だけ（組織の中の表は触らない）を、1回の `batch()` で書く。`sessions` は呼んだアカウントの行のうち `token_hash` が今のセッション以外で、作成日時が今のセッションと同時刻以前の行だけを `DELETE`（期限切れも含む。日時は `julianday` で比較し、今のセッションの作成日時は同じ文の中で読む。削除対象の読めない作成日時は最古として扱う）、`api_tokens` は呼んだアカウントの `revoked_at IS NULL` の行の `revoked_at` を今で `UPDATE`（期限切れも含み、取り消し済みの行は書き直さない）。2文とも、今のセッションの行（`token_hash` と `account_id` が一致）が `sessions` に残っていることを `EXISTS` で条件にする。同じアカウントの同時刻に作られた2つのセッションが同時に実行すると、書き込みが先に通った側が後の側のセッションを消し、後の側の2文は何も書かない（両方のセッションが消えることはない。どちらが先に通るかは選べず、本人の認証が通った後でも、盗まれた Cookie の書き込みが先に通れば本人のセッションが消え、本人はログインし直してもう一度実行する）。作成日時が異なる場合、古い側は新しい側を消せないため、新しい側は古い側の実行後でも全失効で古い側を締め出せる。新しい盗難セッションも残るという制約がある。ログアウトや期限切れで今のセッションの行が先に消えていたときも、何も書かない。応答の件数は2文の `RETURNING expires_at` の行のうち、期限内（`expires_at` が実行の時刻より後）の行の数。期限切れの行も消す・取り消すが、もう使えなかったので数えない。何も書かなかった実行と、期限切れの行しか無かった実行は 200 で `revoked_sessions` も `revoked_tokens` も 0。今のセッションと、ほかのアカウントの行は触らない |
 | 組織の作成（運用者） | 共通の DB の `organizations`、続けて組織の DB の最初の管理者の `users` と `change_logs` の2行（組織の作成と管理者の指名） |

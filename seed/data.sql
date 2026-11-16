@@ -487,3 +487,8 @@ INSERT INTO workspace_point_rates (workspace_id, effective_month, hours_per_poin
 INSERT INTO board_columns (id, workspace_id, name, is_done, position, created_at, updated_at) VALUES
   ('019a0000-0000-7000-8000-000000000541', '019a0000-0000-7000-8000-000000000405', '未着手', 0, 'a0', '2026-10-20T00:00:00.000Z', '2026-10-20T00:00:00.000Z'),
   ('019a0000-0000-7000-8000-000000000544', '019a0000-0000-7000-8000-000000000405', NULL, 1, 'a1', '2026-10-20T00:00:00.000Z', '2026-10-20T00:00:00.000Z');
+
+-- レビュー依頼の依頼回（#1314）。旧版の NULL も読めるが、見本は現在の保存形にそろえる。
+UPDATE task_sources SET review_cycle = 'seed-review-1' WHERE task_id = '019a0000-0000-7000-8000-0000000008a3';
+INSERT INTO review_request_cycles (task_id, review_cycle, created_at) VALUES
+  ('019a0000-0000-7000-8000-0000000008a3', 'seed-review-1', '2026-10-20T01:00:00.000Z');

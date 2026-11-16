@@ -1,12 +1,14 @@
 // 取り込み元に依らない同期の仕組み（docs/requirements.md の「取り込み」、docs/data-model.md の「書き込みの単位」）。
 // 接続を1つ、範囲ごとに続きの位置で頁を取り、頁ごとに1回の batch() で、新しい項目をタスクと task_sources に書く。
 // 「今すぐ同期」と、後の定期処理が同じ関数を呼ぶ。取り込み元ごとの違いは ImportSource の実装の中に閉じ、ここは取り込み元の名前を知らない。
-// このタスクの範囲は新しい項目を入れるまで。取り込み済みの項目の属性の更新と完了の印、応答の保存はしない。
+// 通常項目は新規未完了だけを取り込む。レビュー依頼は target で照合し、完了印と再依頼時の復帰を保存する。汎用の属性更新と応答保存は別工程。
 //
 // 人が差分を読む領域（docs/development.md の「マージの判定」）
 import { generateNKeysBetween } from 'fractional-indexing';
 import {
   importTaskStatements,
+  readReviewTarget,
+  reviewUpdateStatements,
   readInboxTailPosition,
   readRepositoriesByContainer,
   readSyncConnection,
@@ -21,9 +23,15 @@ import { stripHiddenCharacters } from '../../shared/hidden-characters.ts';
 import { TASK_TITLE_MAX_LENGTH } from '../../shared/task.ts';
 import { BLANK_CHARACTERS } from '../../shared/text-rules.ts';
 import { importSourceOf, isImportSourceKind } from './index.ts';
-import { ImportSourceError, type ImportItem, type ImportSource, type ImportSourceFailure } from './source.ts';
+import {
+  ImportSourceError,
+  type ImportItem,
+  type ImportSource,
+  type ImportSourceFailure,
+  type FetchPageResult,
+} from './source.ts';
 
-// 1回の同期で取る頁の数の上限。超えたら続きの位置を保存して止め、次の同期で続ける
+// 1回の同期で取る要求・取得口の呼び出しの上限。超えたら続きの位置を保存して止め、次の同期で続ける
 export const DEFAULT_MAX_PAGES = 10;
 // 1頁の項目の数の上限。超える応答は想定と違うものとして断る（1回の batch() の文を抑える）
 export const MAX_ITEMS_PER_PAGE = 100;
@@ -61,24 +69,75 @@ export type SyncResult =
   // imported: 失敗するまでに入れた数
   | { outcome: 'auth_failed' | 'error'; imported: number };
 
-type SyncState = { resume: { scope: string; cursor: string | null } | null };
-
+type Resume = {
+  scope: string;
+  cursor: string | null;
+  phase: 'items' | 'reviews' | 'targets';
+  after: string;
+  targetId?: string;
+  targetRevision?: number;
+};
+type ScopeBatch = { candidates: Scope[]; next: string | null };
+type SyncState = {
+  resume: Resume | null;
+  credential: string | null;
+  scopeBatch: ScopeBatch | null;
+  candidateCursor: string | null;
+};
 function parseSyncState(json: string): SyncState {
+  const empty = { resume: null, credential: null, scopeBatch: null, candidateCursor: null };
   try {
-    const value: unknown = JSON.parse(json);
-    if (typeof value === 'object' && value !== null && 'resume' in value) {
-      const resume = (value as { resume: unknown }).resume;
-      if (typeof resume === 'object' && resume !== null) {
-        const { scope, cursor } = resume as { scope?: unknown; cursor?: unknown };
-        if (typeof scope === 'string' && (cursor === null || typeof cursor === 'string')) {
-          return { resume: { scope, cursor } };
-        }
-      }
-    }
+    const value = JSON.parse(json);
+    if (typeof value !== 'object' || value === null) return empty;
+    const r = value.resume;
+    const resume: Resume | null =
+      r &&
+      typeof r.scope === 'string' &&
+      (r.cursor === null || (typeof r.cursor === 'string' && r.cursor.length <= MAX_CURSOR_LENGTH)) &&
+      ['items', 'reviews', 'targets'].includes(r.phase)
+        ? {
+            scope: r.scope,
+            cursor: r.cursor,
+            phase: r.phase,
+            after: typeof r.after === 'string' ? r.after : '',
+            targetId: typeof r.targetId === 'string' ? r.targetId : undefined,
+            targetRevision: Number.isSafeInteger(r.targetRevision) ? r.targetRevision : undefined,
+          }
+        : null;
+    const batch = value.scopeBatch;
+    const validCursor = (v: unknown) =>
+      v === null || (typeof v === 'string' && v.length > 0 && v.length <= MAX_CURSOR_LENGTH);
+    const scopeBatch =
+      batch &&
+      Array.isArray(batch.candidates) &&
+      batch.candidates.length <= MAX_ITEMS_PER_PAGE &&
+      batch.candidates.every((c: Scope) => c && isText(c.id) && isText(c.name)) &&
+      validCursor(batch.next)
+        ? (batch as ScopeBatch)
+        : null;
+    return {
+      resume,
+      credential: typeof value.credential === 'string' ? value.credential : null,
+      scopeBatch,
+      candidateCursor: validCursor(value.candidateCursor) ? value.candidateCursor : null,
+    };
   } catch {
-    // 壊れた状態は最初からやり直す
+    return empty;
   }
-  return { resume: null };
+}
+
+function validPage(page: FetchPageResult, cursor: string | null): boolean {
+  return (
+    typeof page === 'object' &&
+    page !== null &&
+    Array.isArray(page.items) &&
+    page.items.length <= MAX_ITEMS_PER_PAGE &&
+    (page.next === null ||
+      (typeof page.next === 'string' &&
+        page.next !== '' &&
+        page.next.length <= MAX_CURSOR_LENGTH &&
+        page.next !== cursor))
+  );
 }
 
 function parseSettings(json: string): Record<string, unknown> {
@@ -148,6 +207,7 @@ function isValidItem(item: ImportItem): boolean {
     !isText(item.sourceId) ||
     !isText(item.reviewerSourceId, true) ||
     (item.kind === 'review_request') !== (item.reviewerSourceId !== '') ||
+    (item.kind === 'review_request' && !isText(item.reviewCycle)) ||
     !isText(item.key) ||
     !isText(item.url) ||
     !isWebUrl(item.url) ||
@@ -192,9 +252,19 @@ export async function syncConnection(
   connectionId: string,
   options: SyncOptions = {},
 ): Promise<SyncResult> {
-  const fetcher = options.fetcher ?? fetch;
+  let requests = 0;
+  let budgetReached = false;
+  const requestLimit = Math.min(DEFAULT_MAX_PAGES, Math.max(1, options.maxPages ?? DEFAULT_MAX_PAGES));
+  const fetcher: typeof fetch = async (...args) => {
+    if (requests >= requestLimit) {
+      budgetReached = true;
+      throw invalid();
+    }
+    requests++;
+    return (options.fetcher ?? fetch)(...args);
+  };
   const now = options.now ?? (() => new Date());
-  const maxPages = options.maxPages ?? DEFAULT_MAX_PAGES;
+  const maxPages = requestLimit;
 
   const read = await readSyncConnection(db, workspaceId, connectionId);
   if (read === undefined) return { outcome: 'not_found' };
@@ -204,10 +274,39 @@ export async function syncConnection(
   if (connection.scope_mode !== 'exclude' && read.scopes.length === 0) return { outcome: 'no_scope' };
 
   let imported = 0;
+  let resume: Resume | null = null;
+  let scopeBatch: ScopeBatch | null = null;
+  let candidateCursor: string | null = null;
+  // 認証情報を替えた場合、本人 ID を含む保存カーソルは使わない。平文も暗号文も状態には保存しない。
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(`${connection.credential_key_version}:${connection.credential_ciphertext}`),
+  );
+  const credentialStamp = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+  const storedState = parseSyncState(connection.sync_state_json);
+  if (storedState.credential === credentialStamp) {
+    resume = storedState.resume;
+    scopeBatch = storedState.scopeBatch;
+    candidateCursor = storedState.candidateCursor;
+  }
+  const stateJson = () =>
+    resume === null && scopeBatch === null && candidateCursor === null
+      ? '{}'
+      : JSON.stringify({ resume, credential: credentialStamp, scopeBatch, candidateCursor });
   // 状態の文が通らなかった（同期の最中に接続が止まった、削除された）ときは false
   const finish = async (outcome: SyncOutcome): Promise<boolean> => {
     const result = await db.run(
-      syncOutcomeStatement(db, { id: connection.id, workspaceId }, outcome, now().toISOString()),
+      syncOutcomeStatement(
+        db,
+        {
+          id: connection.id,
+          workspaceId,
+          credential: connection.credential_ciphertext,
+          keyVersion: connection.credential_key_version,
+        },
+        outcome,
+        now().toISOString(),
+      ),
     );
     return result.changes > 0;
   };
@@ -220,51 +319,143 @@ export async function syncConnection(
     const credential = await credentialOf(env, connection);
     const settings = parseSettings(connection.settings_json);
     const stored = read.scopes.map((scope) => ({ id: scope.source_id, name: scope.source_name }));
-    const scopes = await scopesOf(source, connection.scope_mode, stored, credential, fetcher);
-    const state = parseSyncState(connection.sync_state_json);
-    const start = state.resume === null ? -1 : scopes.findIndex((scope) => scope.id === state.resume!.scope);
     const repositories = await readRepositoriesByContainer(db, workspaceId, connection.provider);
-
     let pages = 0;
-    for (let index = Math.max(start, 0); index < scopes.length; index++) {
-      const scope = scopes[index]!;
-      let cursor = index === start ? state.resume!.cursor : null;
-      do {
-        if (pages >= maxPages) {
-          const resume = { scope: scope.id, cursor };
-          if (!(await finish({ kind: 'success', syncStateJson: JSON.stringify({ resume }) }))) {
-            return { outcome: 'stopped' };
-          }
+    const pagedCandidates = connection.scope_mode === 'exclude' && source.fetchScopeCandidatesPage !== undefined;
+    while (true) {
+      if (pagedCandidates && scopeBatch === null) {
+        if (requests >= requestLimit || pages >= maxPages) {
+          // 候補一覧だけで上限に達しても、その続きの位置から再開する。
+          if (!(await finish({ kind: 'success', syncStateJson: stateJson() }))) return { outcome: 'stopped' };
           return { outcome: 'success', imported, more: true };
         }
         pages++;
-        const page = await source.fetchPage({ credential, fetcher, settings, scope, cursor });
+        const page = await source.fetchScopeCandidatesPage!({ credential, fetcher, cursor: candidateCursor });
         if (
-          typeof page !== 'object' ||
-          page === null ||
-          !Array.isArray(page.items) ||
-          page.items.length > MAX_ITEMS_PER_PAGE ||
-          (page.next !== null &&
-            (typeof page.next !== 'string' || page.next === '' || page.next.length > MAX_CURSOR_LENGTH))
-        ) {
+          !Array.isArray(page.candidates) ||
+          page.candidates.length > MAX_ITEMS_PER_PAGE ||
+          !page.candidates.every((s) => s && isText(s.id) && isText(s.name)) ||
+          (page.next !== null && (!isText(page.next) || page.next === candidateCursor))
+        )
           throw invalid();
+        scopeBatch = page;
+      }
+      const excluded = new Set(stored.map((s) => s.id));
+      const scopes = pagedCandidates
+        ? scopeBatch!.candidates.filter((s) => !excluded.has(s.id))
+        : await scopesOf(source, connection.scope_mode, stored, credential, fetcher);
+      const start = resume === null ? -1 : scopes.findIndex((scope) => scope.id === resume!.scope);
+      for (let index = Math.max(start, 0); index < scopes.length; index++) {
+        const scope = scopes[index]!;
+        let current: Resume =
+          index === start && resume !== null
+            ? { ...resume }
+            : { scope: scope.id, cursor: null, phase: source.fetchReviewRequestsPage ? 'targets' : 'items', after: '' };
+        while (true) {
+          resume = current;
+          if (pages >= maxPages || requests >= requestLimit) {
+            if (!(await finish({ kind: 'success', syncStateJson: stateJson() }))) return { outcome: 'stopped' };
+            return { outcome: 'success', imported, more: true };
+          }
+          const input = { credential, fetcher, settings, scope, cursor: current.cursor };
+          if (current.phase === 'targets') {
+            const target = await readReviewTarget(db, connection, scope.id, current.after);
+            if (!target) {
+              current = { ...current, phase: 'items', cursor: null };
+              continue;
+            }
+            if (!source.fetchReviewRequestsPage) throw invalid();
+            // 対象の削除や並行同期を挟んだら、別の項目・古い版の履歴カーソルを使わない。
+            current = {
+              ...current,
+              targetId: target.task_id,
+              targetRevision: target.review_revision,
+              cursor:
+                current.targetId === target.task_id && current.targetRevision === target.review_revision
+                  ? current.cursor
+                  : null,
+            };
+            resume = current;
+            pages++;
+            let page: FetchPageResult;
+            try {
+              page = await source.fetchReviewRequestsPage({
+                ...input,
+                cursor: current.cursor,
+                target: { sourceId: target.source_id, key: target.source_key },
+              });
+            } catch (error) {
+              if (budgetReached) throw error;
+              if (!(error instanceof ImportSourceError) || error.failure !== 'unavailable') throw error;
+              // 不明な項目は動かさず、他の保存済み項目を照合する。次の走査で再試行する。
+              current = { ...current, after: target.task_id, cursor: null };
+              continue;
+            }
+            if (!validPage(page, current.cursor)) throw invalid();
+            for (const item of page.items) {
+              if (
+                !isValidItem(item) ||
+                item.kind !== 'review_request' ||
+                item.sourceId !== target.source_id ||
+                item.reviewerSourceId !== target.reviewer_source_id ||
+                item.containerId !== scope.id
+              )
+                continue;
+              const tail = await readInboxTailPosition(db, workspaceId);
+              const [position] = generateNKeysBetween(tail ?? null, null, 1);
+              await db.batch(reviewUpdateStatements(db, connection, target, item, position!, now().toISOString()));
+            }
+            current =
+              page.next === null
+                ? { ...current, cursor: null, after: target.task_id }
+                : { ...current, cursor: page.next };
+            continue;
+          }
+          pages++;
+          const page =
+            current.phase === 'reviews' ? await source.fetchReviewRequestsPage!(input) : await source.fetchPage(input);
+          if (!validPage(page, current.cursor)) throw invalid();
+          // 発見は未完了新規だけを作る。既存は target の応答だけが更新できる。
+          const items =
+            current.phase === 'reviews'
+              ? page.items.filter((item) => item.containerId === scope.id && item.kind === 'review_request')
+              : page.items;
+          imported += await writePage(db, connection, workspaceId, items, repositories, now);
+          if (page.next !== null) {
+            current = { ...current, cursor: page.next };
+            continue;
+          }
+          if (current.phase === 'items' && source.fetchReviewRequestsPage) {
+            current = { ...current, phase: 'reviews', cursor: null };
+            continue;
+          }
+          break;
         }
-        // 同じ続きの位置が返り続けると回り続けるので、進まない頁は断る
-        if (page.next !== null && page.next === cursor) throw invalid();
-        imported += await writePage(db, connection, workspaceId, page.items, repositories, now);
-        cursor = page.next;
-      } while (cursor !== null);
+      }
+      resume = null;
+      if (!pagedCandidates || scopeBatch!.next === null) {
+        scopeBatch = null;
+        candidateCursor = null;
+        break;
+      }
+      candidateCursor = scopeBatch!.next;
+      scopeBatch = null;
     }
+    resume = null;
     if (!(await finish({ kind: 'success', syncStateJson: '{}' }))) return { outcome: 'stopped' };
     return { outcome: 'success', imported, more: false };
   } catch (error) {
+    if (budgetReached && (resume !== null || candidateCursor !== null || scopeBatch !== null)) {
+      if (!(await finish({ kind: 'success', syncStateJson: stateJson() }))) return { outcome: 'stopped' };
+      return { outcome: 'success', imported, more: true };
+    }
     const failure = failureOf(error);
     // 認証の失敗（取り込み元が受け付けない、保存した認証情報が使えない形）は接続を止める。ほかは止めず、次の同期で再試行する
     if (failure.stop) {
-      await finish({ kind: 'auth_failed', message: failure.message });
+      await finish({ kind: 'auth_failed', message: failure.message, syncStateJson: stateJson() });
       return { outcome: 'auth_failed', imported };
     }
-    await finish({ kind: 'error', message: failure.message });
+    await finish({ kind: 'error', message: failure.message, syncStateJson: stateJson() });
     return { outcome: 'error', imported };
   }
 }
@@ -309,7 +500,13 @@ function failureOf(error: unknown): { stop: boolean; message: string } {
 // 1頁を、未完了の新しい項目だけ、1回の batch() で書く。入れたタスクの数を返す
 async function writePage(
   db: OrganizationDb,
-  connection: { id: string; provider: string; owner_user_id: string },
+  connection: {
+    id: string;
+    provider: string;
+    owner_user_id: string;
+    credential_ciphertext: string | null;
+    credential_key_version: number | null;
+  },
   workspaceId: string,
   items: readonly ImportItem[],
   repositories: ReadonlyMap<string, string>,
@@ -334,6 +531,9 @@ async function writePage(
     kind: item.kind,
     sourceId: item.sourceId,
     reviewerSourceId: item.reviewerSourceId,
+    reviewCycle: item.reviewCycle,
+    credentialCiphertext: connection.credential_ciphertext,
+    credentialKeyVersion: connection.credential_key_version,
     key: stripHiddenCharacters(item.key),
     url: item.url,
     containerId: item.containerId,
@@ -342,9 +542,14 @@ async function writePage(
     dueOn: item.dueOn,
     updatedAt: isoInstant(item.updatedAt)!,
   }));
-  const results = await db.batch(tasks.flatMap((task) => importTaskStatements(db, task, at.toISOString())));
-  // 2文ずつの組の先頭（tasks）が書いた数が、入れたタスクの数
+  const groups = tasks.map((task) => importTaskStatements(db, task, at.toISOString()));
+  const results = await db.batch(groups.flat());
+  // 各組の先頭（tasks）が書いた数が、入れたタスクの数。レビュー依頼は依頼回の記録も含む
   let imported = 0;
-  for (let index = 0; index < results.length; index += 2) imported += results[index]!.changes;
+  let index = 0;
+  for (const group of groups) {
+    imported += results[index]!.changes;
+    index += group.length;
+  }
   return imported;
 }

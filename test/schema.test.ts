@@ -2237,3 +2237,31 @@ describe('ワークスペースのスプリント命名のスキーマ', () => {
     expect(stored?.sprint_name_template).toBe('😀'.repeat(100));
   });
 });
+
+describe('レビュー依頼回の保存', () => {
+  test('同じタスクと依頼回は一意で、日時はUTCミリ秒に限る', async () => {
+    const org = await createOrganization();
+    const user = await createUser(org);
+    const workspace = await createWorkspace(org, user.id);
+    const task = await createTask(org, workspace.id, user.id);
+    const db = orgDb(env, org.verified);
+    const write = (cycle: string, at: string) =>
+      db.run(
+        db.statement((q) =>
+          q
+            .insertInto('review_request_cycles')
+            .values({ task_id: task.id, review_cycle: cycle, completion_id: null, created_at: at }),
+        ),
+      );
+    await write('opaque-cycle', AT);
+    await expect(write('opaque-cycle', AT)).rejects.toThrow(/UNIQUE/);
+    await expect(write('other-cycle', '2026-11-17')).rejects.toThrow(/CHECK/);
+    await write('other-cycle', AT);
+    // 旧版の task_sources は列を省いた INSERT も引き続き使える。
+    expect(
+      await db.rows(
+        db.statement((q) => q.selectFrom('review_request_cycles').selectAll().where('task_id', '=', task.id)),
+      ),
+    ).toHaveLength(2);
+  });
+});

@@ -86,6 +86,19 @@ type ListBody = {
 };
 
 describe('inbox-list', () => {
+  test('取り込み元の完了印を真偽値で返し、未完了のタスクとして残す', async () => {
+    const target = await createTarget();
+    const connection = await connect(target);
+    const task = await arrive(target, connection.id, '2026-10-20T00:00:00.000Z');
+    const db = orgDb(env, target.organization.verified);
+    await db.run(
+      db.statement((q) => q.updateTable('task_sources').set({ is_source_done: 1 }).where('task_id', '=', task.id)),
+    );
+    const body = (await (await list(target)).json()) as { tasks: { id: string; is_source_done: boolean }[] };
+    expect(body.tasks).toMatchObject([{ id: task.id, is_source_done: true }]);
+    expect(await rowOf(target, task.id)).toMatchObject({ completed_at: null, tray: 'inbox' });
+  });
+
   test('接続が無いと、空の一覧と接続の数 0 を返す', async () => {
     const target = await createTarget();
     const body = (await (await list(target)).json()) as ListBody;
