@@ -344,7 +344,7 @@ test('スクラムの言葉でも、スプリントを始めて、列とカー�
   // 完成の定義を書いておく
   await page.getByRole('link', { name: '設定', exact: true }).click();
   await page.getByRole('textbox', { name: 'Markdown' }).fill('- レビューを1人以上が通した');
-  await page.getByRole('button', { name: '保存する' }).click();
+  await page.getByRole('region', { name: '完成の定義', exact: true }).getByRole('button', { name: '保存する' }).click();
   await expect(page.getByRole('status').filter({ hasText: '完成の定義を保存しました' })).toBeVisible();
   await page.getByRole('link', { name: 'バックログ', exact: true }).click();
   await addTaskRow(page, 'E札');
