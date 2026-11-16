@@ -1,5 +1,13 @@
 import { expect, test } from './fixtures.ts';
-import { signIn, dragTo, waitForSettled, applyTheme, A11Y_THEMES, findA11yViolations } from './helpers.ts';
+import {
+  signIn,
+  dragTo,
+  waitForSettled,
+  applyTheme,
+  A11Y_THEMES,
+  findA11yViolations,
+  expectFocusReturned,
+} from './helpers.ts';
 import { storyGet } from '../src/shared/operations/story/story-get.ts';
 import { mockOperation, routeOperation } from './operations.ts';
 import { sprintBoard, taskColumnMove } from '../src/shared/operations/sprint/index.ts';
@@ -54,6 +62,22 @@ test('親名のポインタとフォーカスで列をまたいで強調し、UR
   await expect(page.locator('.board-col').first().locator('.board-col-pts')).toHaveText('5 pt');
   // 見出しは絞る前の全体のまま（5+3+2 pt）
   await expect(page.locator('.page-head .tally dd')).toHaveText(totals);
+  // mainへ入った#1284の編集・メニューを使っても、storyの絞り込みは維持する。
+  const head = page.locator('.page-head');
+  const editTrigger = head.getByRole('button', { name: 'スプリントを編集: 第14回', exact: true });
+  await editTrigger.click();
+  const edit = page.getByRole('dialog', { name: 'スプリントを直す', exact: true });
+  await expect(edit).toBeVisible();
+  await edit.getByRole('button', { name: 'やめる', exact: true }).click();
+  await expect(edit).toBeHidden();
+  await expectFocusReturned(page, editTrigger);
+  const menu = head.getByRole('button', { name: '操作: 第14回', exact: true });
+  await menu.click();
+  await expect(head.getByRole('menuitem')).toHaveText(['延長する', '終える']);
+  await page.keyboard.press('Escape');
+  await expectFocusReturned(page, menu);
+  await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
+  await expect(page).toHaveURL(new RegExp(`story=${STORY.id}`));
   await page.reload();
   await expect(page.locator('.card')).toHaveCount(3);
   await page.getByRole('button', { name: '絞り込みを外す', exact: true }).click();
