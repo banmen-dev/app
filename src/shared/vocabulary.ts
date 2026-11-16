@@ -2500,9 +2500,6 @@ export const dictionary = defineDictionary({
   // スプリントの画面（design/sprint.html）。見出しは進行中のスプリントの名前、小見出しは期間と何日目か
   sprintBoardPageName: '{name}・{workspace}',
   sprintBoardEyebrow: '{period}・{length} 日のうち {day} 日目',
-  sprintBoardTallyDone: '{done}（pt）',
-  sprintBoardTallyTotal: '合計（pt）',
-  sprintBoardTallyRemaining: '残り（日）',
   sprintBoardRegion: '{sprint}の{column}とカード',
   sprintBoardColumnEmpty: 'なし',
   sprintBoardAddTask: '{task}を足す',
