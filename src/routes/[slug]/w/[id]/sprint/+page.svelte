@@ -12,6 +12,7 @@
   import LoadFailed from '../../../../../lib/components/LoadFailed.svelte';
   import Markdown from '../../../../../lib/components/Markdown.svelte';
   import PageHead from '../../../../../lib/components/PageHead.svelte';
+  import RowMenu from '../../../../../lib/components/RowMenu.svelte';
   import SprintCard from '../../../../../lib/components/SprintCard.svelte';
   import SprintDialog from '../../../../../lib/components/SprintDialog.svelte';
   import SprintExtendDialog from '../../../../../lib/components/SprintExtendDialog.svelte';
@@ -71,7 +72,7 @@
   // 各列（完了の列を除く）の末尾に、タスクを足す空の行（DraftRow）を置く。書き込めるとき（終了していないワークスペース）だけ出す。
   // 題を打って Enter で、そのスプリントのその列の末尾に task-create で作る（作成と入れ込みは1回の書き込み）。作れたら読み直し、
   // 空の行に戻って続けて打てる。断られたら理由を空の行の下に出し、スプリントか列が無いか進行中でなければ読み直す。
-  // 見出しの右の「終える」は、リーダー（管理者を含む）にだけ、終了していないワークスペースでだけ出し、終了のダイアログ（SprintCloseDialog）を開く。
+  // 見出しは「編集」と「⋯」（延長・終了）。「終える」のボタンは最終日から表にも出す。リーダーか管理者、開いたワークスペースだけ。
   // 最終日がワークスペースの今日より前なら、見出しの下に終えるのを促す警告（SprintOverdueNotice）を出す。
   // 終えたら読み直して進行中の無い表示に戻り、見出しへフォーカスを移す
   let { data }: PageProps = $props();
@@ -737,18 +738,32 @@
     >
       {#snippet actions()}
         {#if canLead}
-          <button class="btn" type="button" onclick={(event) => editDialog?.show(event.currentTarget, sprint)}
-            >{t('sprintEditActive', { sprintGoal: t('sprintGoal') })}</button
-          >
-          <button class="btn" type="button" onclick={(event) => extendDialog?.show(event.currentTarget, sprint)}
-            >{t('sprintExtendAction')}</button
-          >
           <button
             class="btn"
             type="button"
-            aria-label={t('sprintCloseLabel', { sprint: t('sprint'), label: sprintLabel(sprint, t) })}
-            onclick={(event) => openClose(event.currentTarget)}>{t('sprintCloseAction')}</button
+            aria-label={t('sprintHeaderEditLabel', { sprint: t('sprint'), label: sprintLabel(sprint, t) })}
+            onclick={(event) => editDialog?.show(event.currentTarget, sprint)}>{t('sprintHeaderEditAction')}</button
           >
+          <RowMenu
+            title={sprintLabel(sprint, t)}
+            items={[
+              {
+                key: 'extend',
+                label: t('sprintExtendAction'),
+                icon: 'clock',
+                onselect: (trigger) => extendDialog?.show(trigger, sprint),
+              },
+              { key: 'close', label: t('sprintCloseAction'), icon: 'check', onselect: openClose },
+            ]}
+          />
+          {#if board.today >= sprint.end_on}
+            <button
+              class="btn"
+              type="button"
+              aria-label={t('sprintCloseLabel', { sprint: t('sprint'), label: sprintLabel(sprint, t) })}
+              onclick={(event) => openClose(event.currentTarget)}>{t('sprintCloseAction')}</button
+            >
+          {/if}
         {/if}
       {/snippet}
     </PageHead>
