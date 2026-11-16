@@ -1133,12 +1133,28 @@ test.describe('390px の指の画面のカード', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
 
   test('完了の丸がなく、題と操作メニューを押せ、完了の印は残る', async ({ page, context, baseURL }) => {
-    await signIn(context, baseURL, 'member');
-    await mockOperation(page, sprintBoard, { slug: 'aoba' }, SAMPLE_BOARD);
-    await page.goto(`${AOBA_TEAM}/sprint`);
+    await signIn(context, baseURL, 'admin');
+    await createWorkspace(page, '指でカードを選ぶ');
+    const task = SAMPLE_BOARD.columns.find((column) => !column.is_done && column.tasks.length > 0)!.tasks[0]!;
+    await addTaskRow(page, task.title);
+    const workspacePath = new URL(page.url()).pathname;
+    const taskId = await page.getByRole('link', { name: task.title, exact: true }).getAttribute('data-task-id');
+    expect(taskId).not.toBeNull();
+    await mockOperation(
+      page,
+      sprintBoard,
+      { slug: 'aoba' },
+      {
+        ...SAMPLE_BOARD,
+        columns: SAMPLE_BOARD.columns.map((column) => ({
+          ...column,
+          tasks: column.tasks.map((card) => (card.id === task.id ? { ...card, id: taskId! } : card)),
+        })),
+      },
+    );
+    await page.goto(`${workspacePath}/sprint`);
     await expect(page.locator('.card')).not.toHaveCount(0);
     await expect(page.locator('.card .done-btn')).toHaveCount(0);
-    const task = SAMPLE_BOARD.columns.find((column) => !column.is_done && column.tasks.length > 0)!.tasks[0]!;
     const card = page.getByRole('article', { name: task.title, exact: true });
     const menu = rowMenuToggle(page, task.title);
     await expect(menu).toBeVisible();
@@ -1151,7 +1167,22 @@ test.describe('390px の指の画面のカード', () => {
     expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(cardBox!.x + cardBox!.width);
     await menu.tap();
     await expect(page.getByRole('menu', { name: `操作: ${task.title}` })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await card.locator('.card-title').tap();
+    const drawer = page.getByRole('dialog', { name: task.title, exact: true });
+    await expect(drawer).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`task=${taskId}`));
+    await page.keyboard.press('Escape');
+    await expect(drawer).toBeHidden();
     const done = SAMPLE_BOARD.columns.find((column) => column.is_done)!.tasks[0]!;
-    await expect(page.getByRole('img', { name: `${done.title}: 完了`, exact: true })).toBeAttached();
+    const doneMark = page.getByRole('img', { name: `${done.title}: 完了`, exact: true });
+    await doneMark.scrollIntoViewIfNeeded();
+    await expect(doneMark).toBeVisible();
+    const reopen = page.getByRole('button', { name: `完了を戻す: ${done.title}`, exact: true });
+    await reopen.scrollIntoViewIfNeeded();
+    await expect(reopen).toBeVisible();
+    const reopenBox = await reopen.boundingBox();
+    expect(reopenBox!.width).toBeGreaterThanOrEqual(44);
+    expect(reopenBox!.height).toBeGreaterThanOrEqual(44);
   });
 });
