@@ -20,7 +20,7 @@
   // 書いた後は画面が枠（app:workspace）を読み直す（onsaved。バックログの画面と詳細の引き出しは、枠の値を出す）。
   // 欄の値は、保存した値（value）から変えていない間だけ、読み直した値に合わせる（変えている途中の文は上書きしない）。
   // 書きかけ（保存した値から変えた文。送っている間も数える）があるまま別の画面へ移る（左のメニュー、戻る／進む）ときは、
-  // 詳細の引き出しと同じく、捨てるかをアプリの中のダイアログで確かめる。同じ画面のままの移動（`?task=` で引き出しを開くなど）は通す。
+  // ページへ ondirty で知らせ、ほかの節と1つのダイアログで捨てるかを確かめる。同じ画面のままの移動（`?task=` で引き出しを開くなど）は通す。
   // ページを離れる（タブを閉じる、外のサイト）ときは、cancel() がブラウザの確認を出す。
   // 閉じたワークスペース（canWrite が偽）では、欄を出さずに Markdown で読み取り専用に出す
   let {
@@ -74,6 +74,7 @@
   $effect(() => {
     ondirty(canWrite && (changed || sending));
   });
+  $effect(() => () => ondirty(false));
 
   function problemText(normalized: string | null): string | null {
     const problem = normalized === null ? null : definitionOfDoneProblem(normalized);

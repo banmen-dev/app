@@ -11,12 +11,13 @@ import type { PageLoad } from './$types';
 // 区分とリポジトリの一覧（category-repository-list）と列の一覧（column-list）と決まった欄の一覧（detail-field-list）を並べて読み、どれかが読めなかったとき（通信、5xx）は
 // definitions が null で、画面は読み込みの失敗を出す。
 // ワークスペースが見つからないとき（404、403）は枠が先に「見つからない」を出すので、ここでは同じ null にする。
+// 命名ルールの例の初期開始日は既存の sprint-list だけが返す。APIを増やさず再利用し、失敗は naming だけに閉じ込める。
 // `app:workspace-settings` は、節で書いた後に、この画面の値だけを読み直す印（枠の load を走らせない）
 export const load: PageLoad = async ({ params, fetch, url, depends, parent }) => {
   depends('app:workspace-settings');
   const { workspace, organization } = await parent();
   const allowed = workspace !== null && (workspace.role === 'leader' || organization?.me.is_admin === true);
-  if (!allowed) return { forbidden: true, definitions: null };
+  if (!allowed) return { forbidden: true, definitions: null, naming: null };
   const [result, columns, fields, naming] = await Promise.all([
     callOperation(categoryRepositoryList, { workspace_id: params.id }, { slug: params.slug, fetcher: fetch }),
     callOperation(columnList, { workspace_id: params.id }, { slug: params.slug, fetcher: fetch }),
@@ -29,9 +30,10 @@ export const load: PageLoad = async ({ params, fetch, url, depends, parent }) =>
   if (isUnauthenticated(fields)) redirect(307, loginUrl(url));
   return {
     forbidden: false,
+    naming: naming.ok ? naming.data.defaults : null,
     definitions:
-      result.ok && columns.ok && fields.ok && naming.ok
-        ? { ...result.data, naming: naming.data.defaults, columns: columns.data.columns, fields: fields.data.fields }
+      result.ok && columns.ok && fields.ok
+        ? { ...result.data, columns: columns.data.columns, fields: fields.data.fields }
         : null,
   };
 };

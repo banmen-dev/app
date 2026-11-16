@@ -28,7 +28,7 @@
   import Icon from './Icon.svelte';
 
   // スプリントの作成と変更のダイアログ（kit.js の DIALOGS.sprintCreate）。欄は開始日、長さ（日）、最終日（開始日と長さから決まる。曜日を添える）、
-  // 名前（任意。空なら期間を名前にする）。進行中は名前とゴールだけを直す。作るときは、画面が渡す初期値（sprint-list の defaults）で開く。
+  // 名前（任意。作るときは命名ルールから初期値を入れ、空なら期間を名前にする）。進行中は名前とゴールだけを直す。作るときは、画面が渡す初期値（sprint-list の defaults）で開く。
   // 直すときは、開いたときの値と比べて変えた欄だけを送り、変えた欄が無ければ何も送らずに閉じる。
   // 期間がほかのスプリントと重なったとき（409 の overlap）は、ダイアログの中に理由を出して開いたままにする。
   // 始まっていた（started）、見つからない（404）ときは、トーストで知らせて閉じ、画面が一覧を読み直す（ongone）。
@@ -154,7 +154,7 @@
       found.length = t('sprintEndOutOfRange');
     }
     const problem = sprintNameProblem(normalizeSprintName(name));
-    if (nameGenerationFailed) found.name = t('sprintNamingExpansionFailed');
+    if (nameGenerationFailed) found.name = t('sprintNamingExpansionFailed', { max: SPRINT_NAME_MAX_LENGTH });
     if (problem === 'too_long') found.name = t('sprintNameTooLong', { max: SPRINT_NAME_MAX_LENGTH });
     if (problem === 'invalid_character') found.name = t('sprintNameInvalidCharacter');
     if (active) {
@@ -335,7 +335,9 @@
               : undefined}
         />
         {#if nameGenerationFailed && errors.name === undefined}
-          <p class="field-error" id="{fieldIds.name}-generation" role="alert">{t('sprintNamingExpansionFailed')}</p>
+          <p class="field-error" id="{fieldIds.name}-generation" role="alert">
+            {t('sprintNamingExpansionFailed', { max: SPRINT_NAME_MAX_LENGTH })}
+          </p>
         {/if}
         {@render error('name')}
       </div>

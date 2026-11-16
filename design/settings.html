@@ -54,12 +54,21 @@ SQ.mount("settings", () => `
       `<div><button class="btn is-sm" type="button">${icon("plus")}${t("column")}を足す</button></div>`)}
     ${setting(`${t("detail")}の決まった欄`, `${t("task")}ごとに書く欄。${t("task")}を完了にした時点ですべて埋まっていると、最後に書いた人に経験値が付きます。`,
       orderList(D.detailFields) + `<div><button class="btn is-sm" type="button">${icon("plus")}欄を足す</button></div>`)}
-    ${setting("スプリントの命名ルール", "新しく作るスプリントの名前の初期値。過去の名前は変わりません。", `
-      <div class="field"><label class="field-label" for="sprint-template">命名ルール</label><input class="input" id="sprint-template" value="スプリント{n}"><p class="field-hint">空なら名前を自動入力しません。</p></div>
-      <div class="field"><label class="field-label" for="sprint-number">次の番号</label><input class="input" id="sprint-number" type="number" min="1" step="1" value="12"></div>
-      <p class="field-hint">{n}: 次の番号、{yyyy}/{yy}: 年（4桁/2桁）、{mm}/{m}: 月（2桁/そのまま）、{dd}/{d}: 日（2桁/そのまま）、{w}: 月の中の週（1〜7日が1、8〜14日が2）。日付は開始日から取ります。</p>
-      <p class="field-hint">次の名前の例（2026-01-05）: スプリント12</p>
-      <div class="form-actions"><button class="btn is-primary" type="button">保存する</button></div>`)}
+    ${setting(t("sprintNamingTitle").replace("{sprint}", t("sprint")), t("sprintNamingDesc").replace("{sprint}", t("sprint")), `
+      <div class="field"><label class="field-label" for="sprint-template">${t("sprintNamingTemplate")}</label><input class="input" id="sprint-template" value="${t("sprint")}{n}"><p class="field-hint">${t("sprintNamingHint")}</p></div>
+      <div class="field"><label class="field-label" for="sprint-number">${t("sprintNamingNumber")}</label><input class="input" id="sprint-number" type="number" min="1" step="1" value="12"></div>
+      <p class="field-hint">${t("sprintNamingVariables")}</p>
+      <p class="field-hint">${t("sprintNamingExample").replace("{date}", "2026-01-05").replace("{name}", `${t("sprint")}12`)}</p>
+      <div class="form-actions"><button class="btn is-primary" type="button">${t("sprintNamingSave")}</button></div>
+      <details><summary>状態の見本</summary>
+        <div class="field is-invalid"><label class="field-label" for="sprint-template-error">${t("sprintNamingTemplate")}</label><input class="input" id="sprint-template-error" value="{unknown}" aria-invalid="true" aria-describedby="sprint-template-error-text"><span class="field-error" id="sprint-template-error-text">${icon("alert")}${t("sprintNamingUnknown")}</span></div>
+        <div class="field is-invalid"><label class="field-label" for="sprint-number-error">${t("sprintNamingNumber")}</label><input class="input" id="sprint-number-error" type="number" value="0" aria-invalid="true" aria-describedby="sprint-number-error-text"><span class="field-error" id="sprint-number-error-text">${icon("alert")}${t("sprintNamingNumberInvalid")}</span></div>
+        <div class="field"><label class="field-label" for="sprint-template-saving">${t("sprintNamingTemplate")}</label><input class="input" id="sprint-template-saving" value="${t("sprint")}{n}" readonly><span class="field-hint" role="status">${t("sprintNamingSaving")}</span><button class="btn is-primary" type="button" aria-disabled="true">${t("sprintNamingSave")}</button></div>
+        <div class="field"><span class="field-label">${t("sprintNamingTemplate")}</span><div class="doc-box is-plain">${t("sprint")}{n}</div></div>
+        <div class="field"><span class="field-label">${t("sprintNamingNumber")}</span><div class="doc-box is-plain">12</div></div>
+        <p class="field-error">${icon("alert")}${t("sprintNamingExpansionFailed").replace("{max}", "100")}</p>
+        <p class="field-error">${icon("alert")}${t("sprintNamingLoadFailed")}</p>
+      </details>`)}
     ${setting(t("dod"), `すべての${t("task")}に共通する完了の基準。${t("backlog")}の上と、完了の操作の横に出します。`, `
       <div class="field"><label class="field-label" for="dod">Markdown</label><textarea class="textarea" id="dod" rows="8" aria-describedby="dod-hint">${D.definitionOfDone.map((d) => `- ${esc(d)}`).join("\n")}</textarea>
         <span class="field-hint" id="dod-hint">Markdown で書けます。空にして保存すると、どこにも出しません。</span>

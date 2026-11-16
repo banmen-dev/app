@@ -11,17 +11,18 @@
   import EmptyState from '../../../../../lib/components/EmptyState.svelte';
   import Icon from '../../../../../lib/components/Icon.svelte';
   import LoadFailed from '../../../../../lib/components/LoadFailed.svelte';
+  import Setting from '../../../../../lib/components/Setting.svelte';
   import PageHead from '../../../../../lib/components/PageHead.svelte';
   import { t } from '../../../../../lib/vocabulary.svelte.ts';
   import type { PageProps } from './$types';
 
   // ワークスペースの設定の画面（design/settings.html）。今あるのは列（ColumnsSetting）、決まった欄（DefinitionsSetting の kind = 'field'）、
-  // 完成の定義（DodSetting）、区分とリポジトリの節で、
+  // 命名ルール（SprintNamingSetting）、完成の定義（DodSetting）、区分とリポジトリの節で、
   // ほかの節（一般、換算比率、ワークスペースの休日）は、それぞれの Issue で .settings の中に、見本の順に足す。
   // 完成の定義は枠の値（workspace.definitionOfDone）を出し、保存したら枠（app:workspace）を読み直す。
   // 開けるのはリーダーと管理者だけ。一般のメンバーが URL で開いたら「入れない」の案内と、バックログへ戻るリンクを出す（メニューにも出さない）。
   // 閉じたワークスペースでは、節を読み取り専用で出す（枠が読み取り専用の帯を出す）。
-  // 最初の読み込みの失敗は画面全体を LoadFailed にする。書いた後の読み直しが失敗したときは、前に読めた一覧を残したまま、
+  // 一覧の初回失敗は画面全体を LoadFailed にし、命名ルールの失敗はその節だけへ出す。書いた後の読み直しが失敗したときは、前に読めた一覧を残したまま、
   // 節の先頭に「一覧を更新できませんでした」と「もう一度試す」を出す（組織の管理の画面の SectionBoundary と同じ扱い）
   let { data }: PageProps = $props();
 
@@ -49,6 +50,16 @@
     data.definitions ?? (kept !== null && kept.workspaceId === workspace?.id ? kept.definitions : null),
   );
 
+  let keptNaming = $state.raw<{ workspaceId: string; value: NonNullable<typeof data.naming> } | null>(null);
+  $effect.pre(() => {
+    const id = workspace?.id ?? null;
+    if (data.naming !== null && id !== null) keptNaming = { workspaceId: id, value: data.naming };
+    else if (keptNaming?.workspaceId !== id) keptNaming = null;
+  });
+  const naming = $derived(
+    data.naming ?? (keptNaming?.workspaceId === workspace?.id ? (keptNaming?.value ?? null) : null),
+  );
+
   async function reload(): Promise<void> {
     await invalidate('app:workspace-settings');
     refreshFailed = data.definitions === null && kept !== null;
@@ -64,7 +75,7 @@
     refreshedMessage = '';
     try {
       await reload();
-      retryFailed = refreshFailed;
+      retryFailed = refreshFailed || data.naming === null;
     } finally {
       retrying = false;
     }
@@ -184,15 +195,30 @@
         onchanged={reload}
         onstale={stale}
       />
-      <SprintNamingSetting
-        {slug}
-        workspaceId={workspace.id}
-        ondirty={(dirty) => (namingDirty = dirty)}
-        value={definitions.naming}
-        {canWrite}
-        onsaved={reload}
-        onstale={stale}
-      />
+      {#if naming === null}
+        <Setting
+          title={t('sprintNamingTitle', { sprint: t('sprint') })}
+          description={t('sprintNamingDesc', { sprint: t('sprint') })}
+        >
+          <p class="field-error" role="alert"><Icon name="alert" />{t('sprintNamingLoadFailed')}</p>
+          <button class="btn is-sm" type="button" aria-disabled={retrying} onclick={() => void retry()}
+            >{t('retry')}</button
+          >
+        </Setting>
+      {:else}
+        <SprintNamingSetting
+          {slug}
+          workspaceId={workspace.id}
+          ondirty={(dirty) => (namingDirty = dirty)}
+          value={naming}
+          refreshFailed={data.naming === null}
+          onretry={retry}
+          {retrying}
+          {canWrite}
+          onsaved={reload}
+          onstale={stale}
+        />
+      {/if}
       <DodSetting
         {slug}
         workspaceId={workspace.id}

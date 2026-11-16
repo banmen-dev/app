@@ -1,4 +1,6 @@
-import { workspaceSprintNamingUpdate } from '../src/shared/operations/workspace/index.ts';
+import { workspaceInfo, workspaceSprintNamingUpdate } from '../src/shared/operations/workspace/index.ts';
+import { sprintCreate, sprintList } from '../src/shared/operations/sprint/index.ts';
+import { failOperation } from './operations.ts';
 import { expect, test } from './fixtures.ts';
 import { createWorkspace, signIn } from './helpers.ts';
 
@@ -12,11 +14,11 @@ test('設定で命名ルールと次の番号を決め、名前を自動入力�
   await expect(setting).toContainText('{w}');
   await template.fill('{unknown}');
   await setting.getByRole('button', { name: '保存する' }).click();
-  await expect(setting.getByRole('alert')).toContainText('使えない変数');
+  await expect(setting.locator('.field-error')).toContainText('使えない変数');
   await template.fill('スプリント{n}');
   await setting.getByLabel('次の番号', { exact: true }).fill('0');
-  await expect(setting.getByRole('status').filter({ hasText: '次の名前の例' })).toContainText('次の番号は1以上の整数');
-  await expect(setting.getByRole('status').filter({ hasText: '次の名前の例' })).not.toContainText('100字を超え');
+  await expect(setting.getByText(/^次の名前の例/)).toHaveCount(0);
+  await expect(setting.getByRole('status').filter({ hasText: '次の名前の例' })).toHaveCount(0);
   await setting.getByRole('button', { name: '保存する' }).click();
   await expect(setting.getByLabel('次の番号', { exact: true })).toBeFocused();
   await expect(template).toHaveAttribute('aria-invalid', 'false');
@@ -83,4 +85,51 @@ test('命名ルールと完成の定義の書きかけは1つの確認で捨て�
   await confirmation.getByRole('button', { name: '捨てる', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/aoba/w/${workspaceId}/plan$`));
   await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('命名の読み取り失敗はほかの設定を隠さず、再試行できる', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'admin');
+  await createWorkspace(page, '命名節の読み取り失敗');
+  const workspaceId = new URL(page.url()).pathname.split('/')[3]!;
+  const restore = await failOperation(page, sprintList, { slug: 'aoba' }, 500, 'internal');
+  await page.goto(`/aoba/w/${workspaceId}/settings`);
+  await expect(page.getByRole('region', { name: '完成の定義', exact: true })).toBeVisible();
+  const setting = page.getByRole('region', { name: 'スプリントの命名ルール', exact: true });
+  await expect(setting.getByRole('alert')).toContainText('読み込めませんでした');
+  await restore();
+  await setting.getByRole('button', { name: 'もう一度試す', exact: true }).click();
+  await expect(setting.getByLabel('命名ルール', { exact: true })).toBeVisible();
+});
+
+test('ルールだけの保存は別タブの作成で進んだ番号を巻き戻さず、再読取失敗では保存しない', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signIn(context, baseURL, 'admin');
+  await createWorkspace(page, '次の番号を保つ');
+  const workspaceId = new URL(page.url()).pathname.split('/')[3]!;
+  await page.goto(`/aoba/w/${workspaceId}/settings`);
+  const setting = page.getByRole('region', { name: 'スプリントの命名ルール', exact: true });
+  await setting.getByLabel('命名ルール', { exact: true }).fill('次{n}');
+  const headers = { Origin: new URL(baseURL!).origin };
+  const created = await page.request.post(`/api/aoba/${sprintCreate.name}`, {
+    headers,
+    data: { workspace_id: workspaceId, start_on: '2099-01-01', length: 14, name: '別の画面で作成' },
+  });
+  expect(created.status()).toBe(200);
+  const saved = page.waitForResponse((response) =>
+    response.url().endsWith(`/api/aoba/${workspaceSprintNamingUpdate.name}`),
+  );
+  await setting.getByRole('button', { name: '保存する' }).click();
+  expect((await saved).status()).toBe(200);
+  await expect(setting.getByLabel('次の番号', { exact: true })).toHaveValue('2');
+  await setting.getByRole('button', { name: '保存する' }).click();
+  await expect(setting.getByRole('status')).toHaveText('保存した内容から変わっていません。');
+  await setting.getByLabel('命名ルール', { exact: true }).fill('書きかけ{n}');
+  const restore = await failOperation(page, workspaceInfo, { slug: 'aoba' }, 500, 'internal');
+  await setting.getByRole('button', { name: '保存する' }).click();
+  await expect(setting.getByRole('alert')).toContainText('保存できませんでした');
+  await expect(setting.getByLabel('命名ルール', { exact: true })).toHaveValue('書きかけ{n}');
+  await restore();
 });

@@ -1,8 +1,13 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import { page } from '$app/state';
-  import { workspaceSprintNamingUpdate } from '../../shared/operations/workspace/index.ts';
-  import { expandSprintName, normalizeSprintName, sprintNameTemplateProblem } from '../../shared/sprint.ts';
+  import { workspaceInfo, workspaceSprintNamingUpdate } from '../../shared/operations/workspace/index.ts';
+  import {
+    SPRINT_NAME_MAX_LENGTH,
+    expandSprintName,
+    normalizeSprintName,
+    sprintNameTemplateProblem,
+  } from '../../shared/sprint.ts';
   import { callOperation } from '../api.ts';
   import { isUnauthenticated, loginUrl } from '../login-redirect.ts';
   import { showToast } from '../toast.svelte.ts';
@@ -18,16 +23,22 @@
     onsaved,
     onstale,
     ondirty,
+    refreshFailed = false,
+    onretry,
+    retrying = false,
   }: {
     slug: string;
     workspaceId: string;
     value: { start_on: string; sprint_name_template: string | null; sprint_number_next: number };
     canWrite: boolean;
-    // 保存した。枠を読み直す
+    // 保存した。設定の一覧と命名ルールの初期値を読み直す
     onsaved: () => Promise<void>;
     // ワークスペースが閉じていたか、見つからない、操作できない。枠ごと読み直す
     onstale: () => void;
     ondirty: (dirty: boolean) => void;
+    refreshFailed?: boolean;
+    onretry: () => Promise<void>;
+    retrying?: boolean;
   } = $props();
 
   const ids = $props.id();
@@ -38,12 +49,15 @@
   // 欄の文と、欄が今もとにしている保存した値。読み直した値（value）が替わったら、欄を変えていなければ合わせる
   let draft = $state(untrack(() => value.sprint_name_template ?? ''));
   let number = $state<number | null>(untrack(() => value.sprint_number_next));
-  let base = $state(untrack(() => value));
-  let seen = untrack(() => value);
+  let base = $state.raw(untrack(() => value));
+  const valueKey = (current: typeof value) =>
+    JSON.stringify([current.start_on, current.sprint_name_template, current.sprint_number_next]);
+  let seen = untrack(() => valueKey(value));
   $effect.pre(() => {
     const next = value;
-    if (next === seen) return;
-    seen = next;
+    const key = valueKey(next);
+    if (key === seen) return;
+    seen = key;
     untrack(() => {
       if (!changed) {
         draft = next.sprint_name_template ?? '';
@@ -65,15 +79,20 @@
   const numberProblem = $derived(
     Number.isSafeInteger(number) && number !== null && number >= 1 ? null : t('sprintNamingNumberInvalid'),
   );
+  const templateProblem = $derived(problemText(normalizeSprintName(draft)));
   const example = $derived(expandSprintName(normalizeSprintName(draft), value.start_on, number ?? 0));
+  const expansionFailed = $derived(
+    templateProblem === null && numberProblem === null && normalizeSprintName(draft) !== null && example === null,
+  );
 
   $effect(() => {
     ondirty(canWrite && (changed || sending));
   });
+  $effect(() => () => ondirty(false));
 
   function problemText(normalized: string | null): string | null {
     const problem = sprintNameTemplateProblem(normalized);
-    if (problem === 'too_long') return t('sprintNamingTooLong');
+    if (problem === 'too_long') return t('sprintNamingTooLong', { max: SPRINT_NAME_MAX_LENGTH });
     if (problem === 'invalid_character') return t('sprintNamingInvalidCharacter');
     if (problem === 'unknown_variable') return t('sprintNamingUnknown');
     return null;
@@ -84,7 +103,12 @@
     if (sending || !canWrite) return;
     const normalized = normalizeSprintName(draft);
     status = '';
-    if (!changed) return;
+    if (!changed) {
+      error = null;
+      await tick();
+      status = t('sprintNamingUnchanged');
+      return;
+    }
     const problem = problemText(normalized);
     if (problem !== null) {
       error = { text: problem, field: 'template' };
@@ -100,9 +124,22 @@
     sending = true;
     status = t('sprintNamingSaving');
     try {
+      let nextNumber = number;
+      if (number === base.sprint_number_next) {
+        const current = await callOperation(workspaceInfo, { workspace_id: workspaceId }, { slug });
+        if (!current.ok) {
+          if (isUnauthenticated(current)) window.location.assign(loginUrl(page.url));
+          else if (current.status === 403 || current.status === 404) {
+            error = { text: t('sprintNamingUnavailable'), field: null };
+            onstale();
+          } else error = { text: t('sprintNamingFailed'), field: null };
+          return;
+        }
+        nextNumber = current.data.sprint_number_next;
+      }
       const result = await callOperation(
         workspaceSprintNamingUpdate,
-        { workspace_id: workspaceId, sprint_name_template: draft, sprint_number_next: number },
+        { workspace_id: workspaceId, sprint_name_template: draft, sprint_number_next: nextNumber },
         { slug },
       );
       if (result.ok) {
@@ -110,7 +147,7 @@
         base = { ...value, ...saved };
         draft = saved.sprint_name_template ?? '';
         number = saved.sprint_number_next;
-        // 枠の読み直しを待つ間に「保存しています」を残さない
+        // 設定の読み直しを待つ間に「保存しています」を残さない
         sending = false;
         status = '';
         showToast(t('sprintNamingSaved', { sprint: t('sprint') }), 'check');
@@ -127,7 +164,7 @@
         return;
       }
       if (result.status === 403 || result.status === 404) {
-        error = { text: t('sprintNamingFailed'), field: null };
+        error = { text: t('sprintNamingUnavailable'), field: null };
         onstale();
         return;
       }
@@ -150,9 +187,14 @@
   title={t('sprintNamingTitle', { sprint: t('sprint') })}
   description={t('sprintNamingDesc', { sprint: t('sprint') })}
 >
+  {#if refreshFailed}
+    <p class="field-error" role="alert"><Icon name="alert" />{t('sprintNamingLoadFailed')}</p>
+    <button class="btn is-sm" type="button" aria-disabled={retrying} onclick={() => void onretry()}>{t('retry')}</button
+    >
+  {/if}
   {#if canWrite}
     <form class="field" onsubmit={save} novalidate>
-      <div class="field" class:is-invalid={error?.field === 'template'}>
+      <div class="field" class:is-invalid={error?.field === 'template' || expansionFailed}>
         <label class="field-label" for={fieldId}>{t('sprintNamingTemplate')}</label>
         <input
           class="input"
@@ -164,12 +206,24 @@
             error = null;
             status = '';
           }}
-          aria-invalid={error?.field === 'template'}
-          aria-describedby="{hintId} {hintId}-variables {hintId}-example{error?.field === 'template'
-            ? ` ${errorId}`
-            : ''}"
+          aria-invalid={error?.field === 'template' || expansionFailed}
+          aria-describedby={[
+            hintId,
+            `${hintId}-variables`,
+            templateProblem === null && numberProblem === null && !expansionFailed ? `${hintId}-example` : null,
+            error?.field === 'template' || expansionFailed ? `${errorId}-template` : null,
+          ]
+            .filter(Boolean)
+            .join(' ')}
         />
         <p class="field-hint" id={hintId}>{t('sprintNamingHint')}</p>
+        {#if error?.field === 'template' || expansionFailed}
+          <span class="field-error" id="{errorId}-template"
+            ><Icon name="alert" />{error?.field === 'template'
+              ? error.text
+              : t('sprintNamingExpansionFailed', { max: SPRINT_NAME_MAX_LENGTH })}</span
+          >
+        {/if}
       </div>
       <div class="field" class:is-invalid={error?.field === 'number'}>
         <label class="field-label" for="{fieldId}-number">{t('sprintNamingNumber')}</label>
@@ -188,21 +242,19 @@
             status = '';
           }}
           aria-invalid={error?.field === 'number'}
-          aria-describedby={error?.field === 'number' ? errorId : undefined}
+          aria-describedby={error?.field === 'number' ? `${errorId}-number` : undefined}
         />
+        {#if error?.field === 'number'}
+          <span class="field-error" id="{errorId}-number"><Icon name="alert" />{error.text}</span>
+        {/if}
       </div>
       <p class="field-hint" id="{hintId}-variables">{t('sprintNamingVariables')}</p>
-      <p class="field-hint" id="{hintId}-example" role="status">
-        {t('sprintNamingExample', {
-          date: value.start_on,
-          name:
-            problemText(normalizeSprintName(draft)) ??
-            numberProblem ??
-            example ??
-            (normalizeSprintName(draft) === null ? t('sprintNamingEmpty') : t('sprintNamingExpansionFailed')),
-        })}
-      </p>
-      {#if error !== null}
+      {#if templateProblem === null && numberProblem === null && !expansionFailed}
+        <p class="field-hint" id="{hintId}-example">
+          {t('sprintNamingExample', { date: value.start_on, name: example ?? t('sprintNamingEmpty') })}
+        </p>
+      {/if}
+      {#if error !== null && error.field === null}
         <span class="field-error" id={errorId} role="alert"><Icon name="alert" />{error.text}</span>
       {/if}
       <div class="form-actions">
@@ -212,7 +264,13 @@
       </div>
     </form>
   {:else}
-    <p>{value.sprint_name_template ?? t('sprintNamingEmpty')}</p>
-    <p>{t('sprintNamingNumber')}: {value.sprint_number_next}</p>
+    <div class="field">
+      <span class="field-label">{t('sprintNamingTemplate')}</span>
+      <div class="doc-box is-plain">{value.sprint_name_template ?? t('sprintNamingEmpty')}</div>
+    </div>
+    <div class="field">
+      <span class="field-label">{t('sprintNamingNumber')}</span>
+      <div class="doc-box is-plain">{value.sprint_number_next}</div>
+    </div>
   {/if}
 </Setting>
