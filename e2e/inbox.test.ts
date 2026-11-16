@@ -26,6 +26,13 @@ test('受信箱に、取り込み元のキーと届いた日時と最後に成�
   );
   await expect(row).toContainText('届いた 2026-10-19 18:00');
   await expect(row).toContainText('ミナトの GitHub');
+  // 作者または担当者が自分の PR も、Issue と同じ受信箱で取り込み元へ開ける。
+  const pullRequest = list.getByRole('listitem').filter({ hasText: '管理画面の一覧に並び替えを足す' });
+  await expect(pullRequest.getByRole('link', { name: 'aoba/admin-web#17' })).toHaveAttribute(
+    'href',
+    'https://github.com/aoba/admin-web/pull/17',
+  );
+  await expect(pullRequest).toContainText('ミナトの GitHub');
   await expect(page.locator('.callout')).toContainText('最後に成功した同期は 2026-10-20 10:30');
   // 受信箱のタスクは、入れるまでバックログに出ない
   await page.goto(WORKSPACE);

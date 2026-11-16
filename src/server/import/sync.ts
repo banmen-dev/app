@@ -33,6 +33,8 @@ import {
 
 // 1回の同期で取る要求・取得口の呼び出しの上限。超えたら続きの位置を保存して止め、次の同期で続ける
 export const DEFAULT_MAX_PAGES = 10;
+// 頁の間で判定する。開始済みの1頁（GitHub は1要求、初回だけ本人照会が加わる）は完了してから保存する。
+export const DEFAULT_MAX_DURATION_MS = 60_000;
 // 1頁の項目の数の上限。超える応答は想定と違うものとして断る（1回の batch() の文を抑える）
 export const MAX_ITEMS_PER_PAGE = 100;
 // 続きの位置の長さの上限（取り込み元が返した値をそのまま保存するため）
@@ -55,6 +57,7 @@ export type SyncOptions = {
   fetcher?: typeof fetch;
   now?: () => Date;
   maxPages?: number;
+  maxDurationMs?: number;
 };
 
 export type SyncResult =
@@ -260,7 +263,7 @@ export async function syncConnection(
 ): Promise<SyncResult> {
   let requests = 0;
   let budgetReached = false;
-  const requestLimit = Math.min(DEFAULT_MAX_PAGES, Math.max(1, options.maxPages ?? DEFAULT_MAX_PAGES));
+  const requestLimit = DEFAULT_MAX_PAGES;
   const fetcher: typeof fetch = async (...args) => {
     if (requests >= requestLimit) {
       budgetReached = true;
@@ -270,7 +273,7 @@ export async function syncConnection(
     return (options.fetcher ?? fetch)(...args);
   };
   const now = options.now ?? (() => new Date());
-  const maxPages = requestLimit;
+  const maxPages = Math.min(DEFAULT_MAX_PAGES, Math.max(1, options.maxPages ?? DEFAULT_MAX_PAGES));
 
   const read = await readSyncConnection(db, workspaceId, connectionId);
   if (read === undefined) return { outcome: 'not_found' };
@@ -309,7 +312,7 @@ export async function syncConnection(
           itemsOnly,
           reviewRetry: reviewRetry === null ? null : progressValue(reviewRetry),
         });
-  // Issueだけの走査はレビューの失敗を解消していないので、接続の成功・失敗の記録を変えない。
+  // 通常項目（Issue/PR）だけの走査はレビューの失敗を解消していないので、接続の成功・失敗の記録を変えない。
   const checkpoint = (preserveFailure = false): SyncOutcome => ({
     kind: preserveFailure || itemsOnly || reviewRetry !== null ? 'progress' : 'success',
     syncStateJson: stateJson(),
@@ -347,12 +350,13 @@ export async function syncConnection(
     const credential = await credentialOf(env, connection);
     const settings = parseSettings(connection.settings_json);
     const stored = read.scopes.map((scope) => ({ id: scope.source_id, name: scope.source_name }));
+    const deadline = Date.now() + (options.maxDurationMs ?? DEFAULT_MAX_DURATION_MS);
     const repositories = await readRepositoriesByContainer(db, workspaceId, connection.provider);
     let pages = 0;
     const pagedCandidates = connection.scope_mode === 'exclude' && source.fetchScopeCandidatesPage !== undefined;
     while (true) {
       if (pagedCandidates && scopeBatch === null) {
-        if (requests >= requestLimit || pages >= maxPages) {
+        if (requests >= requestLimit || pages >= maxPages || Date.now() >= deadline) {
           // 候補一覧だけで上限に達しても、その続きの位置から再開する。
           if (!(await finish(checkpoint()))) return interrupted();
           return { outcome: 'success', imported, more: true };
@@ -386,7 +390,7 @@ export async function syncConnection(
               };
         while (true) {
           resume = current;
-          if (pages >= maxPages || requests >= requestLimit) {
+          if (pages >= maxPages || requests >= requestLimit || Date.now() >= deadline) {
             if (!(await finish(checkpoint()))) return interrupted();
             return { outcome: 'success', imported, more: true };
           }
@@ -489,7 +493,7 @@ export async function syncConnection(
       if (!(await finish(checkpoint()))) return interrupted();
       return { outcome: 'success', imported, more: true };
     }
-    // 403/429の回は直ちに止める。失敗したレビューの位置を保持し、次回はIssueだけを全範囲へ通す。
+    // 403/429の回は直ちに止める。失敗したレビューの位置を保持し、次回は通常項目（Issue/PR）だけを全範囲へ通す。
     // 権限不足とレート制限を推測で区別せず、Issueの走査が終わった後で元のレビューを再試行する。
     if (
       error instanceof ImportSourceError &&

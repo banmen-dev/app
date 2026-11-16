@@ -424,6 +424,9 @@ test('GitHub取得口を実際に同期へ接続し、依頼・本人提出・�
     html_url: 'https://github.com/fake/box/pull/1',
     state: 'open',
     updated_at: data.updatedAt,
+    user: { id: 42, login: 'fake-ranger' },
+    assignees: [],
+    base: { repo: { id: 501, full_name: 'fake/box' } },
     requested_reviewers: data.reviewed ? [] : [{ id: 42 }],
   });
   let requests = 0;
@@ -446,6 +449,11 @@ test('GitHub取得口を実際に同期へ接続し、依頼・本人提出・�
     throw new Error('想定していない要求');
   };
   const source = importSourceOf('github');
+  const reviewSources = async () => (await sources(ctx)).filter((s) => s.source_kind === 'review_request');
+  const reviewTasks = async () => {
+    const ids = new Set((await reviewSources()).map((s) => s.task_id));
+    return (await rows(ctx)).filter((t) => ids.has(t.id));
+  };
   async function drain() {
     for (let i = 0; i < 12; i++) {
       requests = 0;
@@ -457,20 +465,21 @@ test('GitHub取得口を実際に同期へ接続し、依頼・本人提出・�
     throw new Error('同期が終了しない');
   }
   await drain();
-  expect(await sources(ctx)).toMatchObject([{ review_cycle: '101', is_source_done: 0 }]);
-  const [task] = await rows(ctx);
+  expect((await sources(ctx)).map((s) => s.source_kind).sort()).toEqual(['pull_request', 'review_request']);
+  expect(await reviewSources()).toMatchObject([{ review_cycle: '101', is_source_done: 0 }]);
+  const [task] = await reviewTasks();
   await moveToBacklog(ctx, task!.id);
   data.reviewed = true;
   data.updatedAt = '2026-11-16T11:00:00Z';
   await drain();
-  expect(await sources(ctx)).toMatchObject([{ review_cycle: '101', is_source_done: 1 }]);
-  expect(await rows(ctx)).toMatchObject([{ id: task!.id, completed_at: null, tray: 'backlog' }]);
+  expect(await reviewSources()).toMatchObject([{ review_cycle: '101', is_source_done: 1 }]);
+  expect(await reviewTasks()).toMatchObject([{ id: task!.id, completed_at: null, tray: 'backlog' }]);
   data.reviewed = false;
   data.cycle = 301;
   data.updatedAt = '2026-11-16T12:00:00Z';
   await drain();
-  expect(await sources(ctx)).toMatchObject([{ review_cycle: '301', is_source_done: 0 }]);
-  expect(await rows(ctx)).toMatchObject([{ id: task!.id, completed_at: null, tray: 'inbox' }]);
+  expect(await reviewSources()).toMatchObject([{ review_cycle: '301', is_source_done: 0 }]);
+  expect(await reviewTasks()).toMatchObject([{ id: task!.id, completed_at: null, tray: 'inbox' }]);
   // 実際の403/429でもその回を止め、保存状態を動かさない。
   for (const status of [403, 429]) {
     if (status === 429) {
@@ -481,12 +490,12 @@ test('GitHub取得口を実際に同期へ接続し、依頼・本人提出・�
     }
     failure = status;
     requests = 0;
-    const before = await sources(ctx);
+    const before = await reviewSources();
     expect(
       await syncConnection(env, ctx.db, ctx.workspace.id, ctx.connection.id, { source, fetcher, now }),
     ).toMatchObject({ outcome: 'error' });
     expect(requests).toBeLessThanOrEqual(10);
-    expect(await sources(ctx)).toEqual(before);
+    expect(await reviewSources()).toEqual(before);
   }
 });
 
