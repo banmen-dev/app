@@ -1006,6 +1006,9 @@ test.describe('カードのドラッグ', () => {
     );
     await page.goto(`${AOBA_TEAM}/sprint`);
     const title = done.tasks[0]!.title;
+    const reviewToggle = page.getByRole('button', { name: 'レビューの開閉', exact: true });
+    await reviewToggle.click();
+    await expect(reviewToggle).toHaveAttribute('aria-expanded', 'false');
     // 完了したストーリーの下もつかめ、試したときに理由を知らせる
     await expect(cardOf(page, locked)).toHaveCount(1);
     await expect(cardOf(page, locked)).toHaveAttribute('draggable', 'true');
@@ -1049,6 +1052,7 @@ test.describe('カードのドラッグ', () => {
     await waitForSettled(page);
     await expect(titlesIn(page, '完了')).toHaveText([title, locked]);
     expect(reopenRequests).toEqual([]);
+    await expect(reviewToggle).toHaveAttribute('aria-expanded', 'false');
     expect(columnMoves).toEqual([]);
     const unroute = await failOperation(page, taskReopen, { slug: 'aoba' }, 409, 'conflict', {
       details: { reason: 'sprint_closed' },
