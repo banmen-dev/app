@@ -18,10 +18,10 @@
 <script src="kit.js"></script>
 <script>
 "use strict";
-// 今日やること（組織のホーム）: 2列のダッシュボード。左の列に、所属するワークスペースの面と、自分が担当するタスクの面（今日やること）を上から並べる。
+// 今日やること（組織のホーム）: 2列のダッシュボード。左の列に、所属するワークスペースの面と、自分が担当するタスクの面（今日やること）、Scrum Guild のニュースの面を上から並べる。
 // 右の列（.dashboard-side）に、最近の更新の面（所属するワークスペースのタスク、ストーリー、エピックの変更とコメントを、日付ごとに新しい順）を置く。
 // 広い幅は左3、右2の2列。760px 以下は左の列の下に続く
-const { D, t, book, section, foldedSection, pageHead, sprintNotice, pane, paneList, dashboard, activity } = SQ;
+const { D, t, book, section, foldedSection, pageHead, sprintNotice, pane, paneList, newsList, dashboard, activity } = SQ;
 
 SQ.mount("today", () => {
   const mine = SQ.tasksWhere((x) => x.who === D.me);
@@ -66,6 +66,8 @@ SQ.mount("today", () => {
         ${dueList.length ? section("s-due", `今週が${t("due")}`, dueList.length, book(dueList, dueOpts), "", 3) : ""}
         ${restList.length ? foldedSection("s-sprint", `進行中の${t("sprint")}`, restList.length, book(restList, opts), 3) : ""}
         ${part("s-done", t("doneToday"), doneList)}`);
+  // ニュースの面。新しい順に5件まで。1件も無いときは面を置かない
+  const newsPane = D.news.length ? pane("p-news", t("paneNews").replace("{app}", t("appName")), newsList(D.news)) : "";
   // 最近の更新の面。1件の文は辞書の activity*（{actor} がした人、{fields} が変えた欄）。行を押すと、対象の詳細（見本ではバックログ）へ移る
   const say = (key, p) => t(key).replace(/\{(\w+)\}/g, (_, k) => p[k] ?? "");
   const wsName = (id) => D.workspaces[id].name;
@@ -93,7 +95,7 @@ SQ.mount("today", () => {
       ])}
     <div class="layout-main">
       ${SQ.first ? SQ.firstSteps(SQ.first) : ""}
-      ${dashboard(workspacePane + todayPane, activityPane)}
+      ${dashboard(workspacePane + todayPane + newsPane, activityPane)}
     </div>
   `;
 });

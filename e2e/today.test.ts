@@ -62,9 +62,9 @@ function region(page: Page, name: string): Locator {
   return page.getByRole('region', { name, exact: true });
 }
 
-// 区分の見出し。面（ワークスペース、今日やること）の見出しは h2、今日やることの面の中の区分は h3
+// 区分の見出し。面（ワークスペース、今日やること、ニュース）の見出しは h2、今日やることの面の中の区分は h3（ニュースの題も h3 なので、今日やることの面に絞る）
 function sectionHeadings(page: Page): Locator {
-  return page.locator('.dashboard').getByRole('heading', { level: 3 });
+  return pane(page, '今日やること').getByRole('heading', { level: 3 });
 }
 
 // 面（.pane）。見出しの名前で選ぶ

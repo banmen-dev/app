@@ -555,6 +555,8 @@ export const dictionary = defineDictionary({
   todayEmptyNoWorkspaceText: '{workspace}に所属すると、自分が{assignee}する{task}がここに並びます。',
   // 組織のホームのワークスペースの面（見出しは辞書の {workspace}）。行を押すとそのワークスペースの{backlog}へ移る。見本は design/kit.js の DICT
   workspacePaneHint: '押すと{backlog}を開きます',
+  // 組織のホームのニュースの面の見出し。ニュースの日付、題、本文は src/lib/news.ts に書いたまま出す（辞書を通さない）
+  paneNews: '{app} のニュース',
   // 組織のホームの最近の更新の面（右の列）。1件の文は、した人（{actor}。分からないときは historyActorSystem）と内容の種類で決まる。
   // 押すと対象（{task}、{story}、{epic}）の詳細を開く。見本は design/kit.js の DICT
   paneActivity: '最近の更新',
