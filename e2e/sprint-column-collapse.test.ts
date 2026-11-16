@@ -191,8 +191,9 @@ for (const collapsed of [true, false]) {
       const title = SAMPLE_BOARD.columns[0].tasks[0].title;
       const target = page.getByRole('region', { name: 'レビュー', exact: true });
       if (collapsed) await target.getByRole('button', { name: 'レビューの開閉' }).click();
-      const movedText = `「${title}」をレビューの`;
+      const movedText = `「${title}」をレビューの 1 番目に移しました（1 件中）`;
       const moved = page.locator('.toasts:visible .toast').filter({ hasText: movedText });
+      const announced = page.locator('.visually-hidden[role="status"]').filter({ hasText: movedText });
       try {
         await dragTo(
           page,
@@ -210,8 +211,9 @@ for (const collapsed of [true, false]) {
           await expect(moved).toHaveCount(0);
         } else if (collapsed) {
           await expect(moved).toBeVisible();
+          await expect(announced).toHaveCount(0);
         } else {
-          await expect(page.getByRole('status').filter({ hasText: movedText })).toHaveCount(1);
+          await expect(announced).toHaveCount(1);
           await expect(moved).toHaveCount(0);
         }
       } finally {
