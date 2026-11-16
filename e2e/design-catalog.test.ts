@@ -69,6 +69,13 @@ for (const width of [1280, 1024, 761, 760, 390, 320]) {
         const smallButton = page.locator('#buttons .btn.is-sm').first();
         await expect(smallButton).toHaveCSS('padding-top', '4px');
         await expect(smallButton).toHaveCSS('padding-left', '12px');
+        // 通常のボタン・選択欄と入力欄を並べるとき、マウス向けでも高さが大きくずれない。
+        const heights = await page.evaluate(() => {
+          const height = (selector: string) => document.querySelector(selector)!.getBoundingClientRect().height;
+          return { input: height('#f1'), button: height('#buttons .btn'), select: height('#f0') };
+        });
+        expect(Math.abs(heights.input - heights.button)).toBeLessThanOrEqual(6);
+        expect(Math.abs(heights.input - heights.select)).toBeLessThanOrEqual(6);
         const loadingCode = page.locator('pre').filter({ hasText: 'LoadingSheet の中身' });
         await expect(loadingCode).toBeVisible();
         const codeBox = await loadingCode.boundingBox();
