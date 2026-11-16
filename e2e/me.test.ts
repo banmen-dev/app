@@ -169,7 +169,7 @@ test.describe('マイプロフィール（ミナト）', () => {
   test('面と明細が読めなければ、それぞれに失敗と節ごとの「もう一度試す」を出し、押した節だけを読み直して題へフォーカスを移す', async ({
     page,
   }) => {
-    const failing = new Set(['experience-summary', 'experience-grants']);
+    const failing = new Set([experienceSummary.name, experienceGrants.name]);
     for (const definition of [experienceSummary, experienceGrants]) {
       await routeOperation(page, definition, { slug: 'hibari' }, (call) =>
         failing.has(definition.name) ? call.fail(500, 'internal', { message: 'x' }) : call.passThrough(),
@@ -185,7 +185,7 @@ test.describe('マイプロフィール（ミナト）', () => {
     await expect(retryGrants).toBeVisible();
 
     // 面だけが読めるようになった。面を読み直しても、明細はまだ失敗のまま
-    failing.delete('experience-summary');
+    failing.delete(experienceSummary.name);
     await retrySummary.click();
     const panel = page.getByRole('region', { name: 'レベル' });
     await expect(panel.locator('.xp-num')).toHaveText('0XP');
@@ -207,7 +207,7 @@ test.describe('マイプロフィール（ミナト）', () => {
     await expect(page.getByRole('region', { name: '経験値の明細' }).getByRole('status').last()).toHaveText(
       'まだ読み込めませんでした',
     );
-    failing.delete('experience-grants');
+    failing.delete(experienceGrants.name);
     await retryGrants.click();
     await expect(page.getByRole('table', { name: '経験値の明細' }).locator('tbody tr')).toHaveCount(50);
     await expect(page.getByRole('heading', { level: 2, name: '経験値の明細' })).toBeFocused();
