@@ -50,6 +50,7 @@ function parse(input: ReviewRequestPageInput): Position | null {
   )
     invalid();
   if (input.cursor === null) return null;
+  if (input.cursor.length > 2000) invalid();
   let value: unknown;
   try {
     value = JSON.parse(input.cursor);

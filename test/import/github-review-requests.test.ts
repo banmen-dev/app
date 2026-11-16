@@ -262,6 +262,22 @@ describe('レビュー依頼の取得', () => {
     f.data.pull.requested_reviewers = [];
     expect(await f.drain()).toEqual([expect.objectContaining({ isDone: true })]);
   });
+  test('カーソルの範囲・対象の食い違いと上限超過を通信前に断る', async () => {
+    const f = fixture();
+    const first = await f.page(null, { target });
+    const cursor = JSON.parse(first.next!);
+    for (const change of [{ scope: '1002' }, { target: '9002' }, { restarts: -1 }, { restarts: 3 }]) {
+      await expect(f.page(JSON.stringify({ ...cursor, ...change }), { target })).rejects.toBeInstanceOf(TypeError);
+    }
+    await expect(f.page(first.next! + ' '.repeat(2001), { target })).rejects.toBeInstanceOf(TypeError);
+    expect(f.calls).toHaveLength(1);
+  });
+  test.each([256, 257])('題の %s 文字の境界を確認する', async (length) => {
+    const f = fixture();
+    f.data.pull.title = '題'.repeat(length);
+    const items = await f.drain();
+    expect(items).toHaveLength(length === 256 ? 1 : 0);
+  });
   test('PAT は固定ホストの Authorization だけに送り、リダイレクトしない', async () => {
     const f = fixture();
     await f.drain();
