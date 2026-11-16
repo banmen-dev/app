@@ -120,7 +120,11 @@ function todayTaskQuery(
 }
 
 // 組織のホームと全組織のダッシュボードで、対象・区分・日付の判定を共有する。
-export async function readToday(db: OrganizationDb, userId: string) {
+export async function readToday(
+  db: OrganizationDb,
+  userId: string,
+  { includeSprintGoals = true }: { includeSprintGoals?: boolean } = {},
+) {
   const completedSince = new Date(now().getTime() - COMPLETED_WINDOW_MS).toISOString();
   const [openResult, completedResult, goalsResult] = await db.batch([
     // 未完了と完了は、tasks_assignee_user（assignee_user_id, deleted_at, completed_at）の範囲条件に乗せるため別の文にする。
@@ -138,23 +142,27 @@ export async function readToday(db: OrganizationDb, userId: string) {
         ),
     ),
     db.statement((q) => todayTaskQuery(q, db.organizationId, userId).where('t.completed_at', '>=', completedSince)),
-    db.statement((q) =>
-      q
-        .selectFrom('sprints as s')
-        .innerJoin('workspaces as w', 'w.id', 's.workspace_id')
-        .innerJoin('memberships as m', 'm.workspace_id', 's.workspace_id')
-        .select(['w.id as workspace_id', 'w.name as workspace_name', 's.goal'])
-        .where('m.user_id', '=', userId)
-        .where('m.left_at', 'is', null)
-        .where('w.organization_id', '=', db.organizationId)
-        .where('w.closed_at', 'is', null)
-        .where('s.deleted_at', 'is', null)
-        .where('s.status', '=', 'active')
-        .where('s.goal', 'is not', null)
-        .where('s.goal', '!=', '')
-        .orderBy('w.name')
-        .orderBy('w.id'),
-    ),
+    ...(includeSprintGoals
+      ? [
+          db.statement((q) =>
+            q
+              .selectFrom('sprints as s')
+              .innerJoin('workspaces as w', 'w.id', 's.workspace_id')
+              .innerJoin('memberships as m', 'm.workspace_id', 's.workspace_id')
+              .select(['w.id as workspace_id', 'w.name as workspace_name', 's.goal'])
+              .where('m.user_id', '=', userId)
+              .where('m.left_at', 'is', null)
+              .where('w.organization_id', '=', db.organizationId)
+              .where('w.closed_at', 'is', null)
+              .where('s.deleted_at', 'is', null)
+              .where('s.status', '=', 'active')
+              .where('s.goal', 'is not', null)
+              .where('s.goal', '!=', '')
+              .orderBy('w.name')
+              .orderBy('w.id'),
+          ),
+        ]
+      : []),
   ] as const);
 
   const rows = [...openResult.rows, ...completedResult.rows] as Row[];
@@ -206,7 +214,7 @@ export async function readToday(db: OrganizationDb, userId: string) {
   }
   return {
     tasks,
-    sprint_goals: goalsResult.rows.map((row) => ({
+    sprint_goals: (goalsResult?.rows ?? []).map((row) => ({
       workspace_id: row.workspace_id,
       workspace_name: row.workspace_name,
       goal: row.goal!,

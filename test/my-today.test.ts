@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { z } from 'zod';
 import { createApp } from '../src/server/app.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
-import { listAccountTaskOrganizations } from '../src/server/db/index.ts';
+import { readAccountTaskOrganizations } from '../src/server/db/index.ts';
 import { envWithD1Hooks } from '../src/server/db/testing.ts';
 import { myToday } from '../src/shared/operations/organization/my-today.ts';
 import { today } from '../src/shared/operations/organization/today.ts';
@@ -85,19 +85,31 @@ function organizationRef(organization: OrganizationFixture) {
 }
 
 describe('my-today: 全組織の本人の今日やること', () => {
-  test('組織をまたぐ関数は、入れる組織ごとの本人とその組織に絞る入口を返す', async () => {
+  test('組織をまたぐ関数は、認可済みの本人と入口で読み、入口を外へ返さない', async () => {
     const person = await createPerson();
     const target = await organizationFor(person);
     await organizationFor(person, { suspended: true });
-    const listed = await listAccountTaskOrganizations(testEnv, {
-      accountId: person.accountId,
-      logins: [person.login],
-    });
+    const seen: { organizationId: string; userId: string }[] = [];
+    const listed = await readAccountTaskOrganizations(
+      testEnv,
+      {
+        accountId: person.accountId,
+        logins: [person.login],
+        authenticatedAt: NOW.toISOString(),
+      },
+      async (db, userId) => {
+        seen.push({ organizationId: db.organizationId, userId });
+        return { value: '読めた' };
+      },
+    );
     expect(listed.omitted_organizations).toBe(0);
     expect(listed.organizations).toHaveLength(1);
     expect(listed.organizations[0]!.organization).toEqual(organizationRef(target.organization));
-    expect(listed.organizations[0]!.userId).toBe(target.user.id);
-    expect(listed.organizations[0]!.db.organizationId).toBe(target.organization.id);
+    expect(seen).toEqual([{ organizationId: target.organization.id, userId: target.user.id }]);
+    expect(listed.organizations[0]!.data).toEqual({ value: '読めた' });
+    expect(listed.organizations[0]).not.toHaveProperty('db');
+    expect(listed.organizations[0]).not.toHaveProperty('userId');
+    expect(listed.failed_organizations).toEqual([]);
   });
 
   test('2組織の別々の本人 userId を使い、組織名・種類・ワークスペース名を付ける', async () => {

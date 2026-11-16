@@ -1,6 +1,6 @@
 // 組織の外の操作の処理に渡す、ログインした人についての読み取り。env を処理に渡さず、決まった問い合わせだけを渡す。
 // アカウントに結んだログインの手段と ID、入れる組織と届いた招待と停止した組織は、使われたときに1回だけ引く
-// （入れる組織の確かめは登録の関数では行わない。my-organizations の処理が使う）
+// （組織の一覧は my-organizations が使い、今日の組織ごとの認可と読み取りは db/ の関数へ任せる）
 import type { z } from 'zod';
 import type { myToday } from '../../shared/operations/organization/my-today.ts';
 import { accountLogins } from '../auth/account-logins.ts';
@@ -10,15 +10,12 @@ import {
   insertPersonalOrganization,
   insertSelfCreatedOrganization,
   listAccountOrganizations,
-  listAccountTaskOrganizations,
-  enterOrganization,
-  isSuspendedOrganization,
+  readAccountTaskOrganizations,
   type AccountOrganizations,
   type CreatedOrganization,
   type LoginId,
 } from '../db/index.ts';
 import { readToday } from './today.ts';
-import { ApiError } from '../errors.ts';
 
 export type OutsideAccount = {
   // このアカウントが自分の組織を作る最初の書き込み（共通の DB の organizations）。slug が重なれば 'slug_taken'、
@@ -58,33 +55,18 @@ export function outsideAccount(env: Env, accountId: string, authenticatedAt: str
     abandonOrganization: (organizationId) => deleteSelfCreatedOrganization(env, { organizationId, accountId }),
     logins: loadLogins,
     today: async () => {
-      const targets = await listAccountTaskOrganizations(env, { accountId, logins: await loadLogins() });
-      // 組織単位で結果を分ける。1組織の読み取り失敗でほかの組織の仕事を隠さない。
-      const results = await Promise.allSettled(
-        targets.organizations.map(async ({ organization }) => {
-          // 組織のホームと同じ入口で、読取直前の認可と組織ごとの再認証を確かめる。
-          // 古い資格情報の組織だけ失敗とし、ほかの組織の結果は残す。
-          const entered = await enterOrganization(env, organization.slug, { accountId, authenticatedAt, loadLogins });
-          if (
-            entered === undefined ||
-            isSuspendedOrganization(entered) ||
-            entered.actor.invitedOnly ||
-            entered.actor.userId === null
-          ) {
-            throw new ApiError(404, 'not_found');
-          }
-          return readToday(entered.db, entered.actor.userId);
-        }),
+      const result = await readAccountTaskOrganizations(
+        env,
+        { accountId, logins: await loadLogins(), authenticatedAt },
+        (db, userId) => readToday(db, userId, { includeSprintGoals: false }),
       );
-      const tasks: z.output<typeof myToday.output>['tasks'] = [];
-      const failed_organizations: z.output<typeof myToday.output>['failed_organizations'] = [];
-      for (const [index, result] of results.entries()) {
-        const { organization } = targets.organizations[index]!;
-        if (result.status === 'fulfilled') {
-          tasks.push(...result.value.tasks.map((task) => ({ ...task, organization })));
-        } else failed_organizations.push(organization);
-      }
-      return { tasks, failed_organizations, omitted_organizations: targets.omitted_organizations };
+      return {
+        tasks: result.organizations.flatMap(({ organization, data }) =>
+          data.tasks.map((task) => ({ ...task, organization })),
+        ),
+        failed_organizations: result.failed_organizations,
+        omitted_organizations: result.omitted_organizations,
+      };
     },
     organizations: () =>
       (organizations ??= (async () => listAccountOrganizations(env, { accountId, logins: await loadLogins() }))()),
