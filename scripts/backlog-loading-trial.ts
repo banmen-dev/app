@@ -2,17 +2,18 @@ import type { ReadResponse } from './loading-trial.ts';
 
 export type BacklogMode = 'A' | 'B' | 'C';
 export type BacklogOperation = 0 | 1 | 2;
+export type BacklogReadResponse = Pick<ReadResponse, 'finishedAt' | 'body' | 'validate'>;
 
 // 0: 木、1: 区分・リポジトリ、2: チーム経験値。検証と全応答の回収後にだけ次の試行へ進む。
 export async function backlogTrial(
   mode: BacklogMode,
   reverse: boolean,
-  read: (operation: BacklogOperation) => Promise<ReadResponse>,
+  read: (operation: BacklogOperation) => Promise<BacklogReadResponse>,
   now: () => number = () => performance.now(),
 ) {
   const started = now();
   const order: BacklogOperation[] = mode === 'A' ? [0] : reverse ? [2, 1, 0] : [0, 1, 2];
-  const pending = new Map<BacklogOperation, Promise<ReadResponse>>();
+  const pending = new Map<BacklogOperation, Promise<BacklogReadResponse>>();
   for (const operation of order) {
     // 同期 throw も rejected Promise として保存し、残る要求の開始と回収を保証する。
     try {
@@ -53,6 +54,5 @@ export async function backlogTrial(
     teamTotal: await completed(2),
     ready,
     total,
-    wait: Math.max(0, total - primary),
   };
 }

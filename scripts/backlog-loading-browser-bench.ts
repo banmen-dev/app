@@ -168,8 +168,6 @@ async function read(index: number, operation: BacklogOperation) {
   return {
     body,
     finishedAt: performance.now(),
-    ms: 0,
-    secondary: operation !== 0,
     validate: () => {
       if (!response.ok || !backlogOutputs[name]!.safeParse(body).success)
         throw new Error(`${name}: HTTP ${response.status} または出力が不正`);
