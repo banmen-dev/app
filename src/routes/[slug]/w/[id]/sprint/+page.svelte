@@ -788,7 +788,9 @@
               {:else}
                 <p class="board-empty">{t('sprintBoardColumnEmpty')}</p>
               {/each}
-              {#if canWrite && !column.is_done}
+            {/if}
+            {#if canWrite && !column.is_done}
+              <div hidden={collapsedColumns.isCollapsed(column.id)}>
                 <DraftRow
                   bind:this={draftRows[column.id]}
                   keyshortcut={column.id === firstOpenColumnId ? ariaKeyshortcuts(NEW_TASK_KEY) : undefined}

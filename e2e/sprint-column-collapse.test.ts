@@ -19,11 +19,15 @@ test('列を畳んで再読み込みしても保存され、別のワークス�
   const toggle = done.getByRole('button', { name: '完了の開閉' });
   await expect(done.locator('.card')).not.toHaveCount(0);
   const todoToggle = page.getByRole('button', { name: '未着手の開閉' });
+  const draft = page.getByRole('textbox', { name: 'タスクを足す: 未着手', exact: true });
+  await draft.fill('書きかけの札');
   await todoToggle.click();
+  await expect(draft).toBeHidden();
   await page.keyboard.press('c');
   await expect(page.getByRole('textbox', { name: 'タスクを足す: 作業中', exact: true })).toBeFocused();
   await expect(page.locator('.draft-row input[aria-keyshortcuts]')).toHaveCount(1);
   await todoToggle.click();
+  await expect(draft).toHaveValue('書きかけの札');
   const tally = await done.locator('.board-col-n').textContent();
   const points = await done.locator('.board-col-pts').textContent();
   await toggle.click();

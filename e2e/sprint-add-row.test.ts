@@ -45,7 +45,7 @@ test('スプリントの各列の末尾の空の行に題を打って Enter で�
   await expect(page.getByRole('heading', { level: 1, name: '第7回' })).toBeVisible();
 
   // 完了の列には空の行が無い。ほかの列には、場所の分かる名前で1つずつある
-  await expect(page.locator('.board-col > .draft-row')).toHaveCount(3);
+  await expect(page.locator('.board-col .draft-row')).toHaveCount(3);
   await expect(page.getByRole('region', { name: '完了', exact: true }).locator('.draft-row')).toHaveCount(0);
 
   // `c` で、完了でない最初の列（未着手）の空の行へフォーカスが移る。キーは、その行だけが読み上げに伝える
