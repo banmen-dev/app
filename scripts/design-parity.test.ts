@@ -103,9 +103,17 @@ describe('見本との照合', () => {
         assert.match(source, wrapper);
         for (const image of readElements(source, 'img')) {
           assert.equal(image.alt, '');
-          const png = readFileSync(new URL(`../design/${image.src}`, import.meta.url));
-          assert.equal(Number(image.width), png.readUInt32BE(16));
-          assert.equal(Number(image.height), png.readUInt32BE(20));
+          const data = readFileSync(new URL(`../design/${image.src}`, import.meta.url));
+          if (image.src.endsWith('.webp')) {
+            // 可逆 WebP（VP8L）の寸法。幅・高さは14ビットずつ、値は寸法-1。
+            assert.equal(data.toString('ascii', 12, 16), 'VP8L');
+            const dimensions = data.readUInt32LE(21);
+            assert.equal(Number(image.width), (dimensions & 0x3fff) + 1);
+            assert.equal(Number(image.height), ((dimensions >>> 14) & 0x3fff) + 1);
+          } else {
+            assert.equal(Number(image.width), data.readUInt32BE(16));
+            assert.equal(Number(image.height), data.readUInt32BE(20));
+          }
         }
       }
     });

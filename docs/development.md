@@ -451,6 +451,18 @@ vite の転送先も同じ値から作るので、画面は自分のワークツ
 
 `pnpm bench:backlog`（`scripts/backlog-bench.ts`）は、使い捨ての場所（`--persist-to` の一時ディレクトリ）の D1 に全マイグレーションと seed と 5 万件のタスクのワークスペース（現実の形と最悪の形）を入れ、その D1 で `wrangler dev`（API はポート 9700、デバッガーは 9701。デバッガーは常に `--port` + 1。`--port` を上の範囲の中に替えると、そのオフセットのワークツリーと重なりうるので、替える側が空きを選ぶ。既定の 2 つは、ワークツリーが使う範囲（画面 5173〜5614、API 8787〜9228、デバッガー 9229〜9670）の外に固定してあるので、どのオフセットの開発用のサーバーや `pnpm e2e` を立てたままでも重ならない。`scripts/dev-ports.ts` の `BENCH_PORTS`）を立てて、`backlog-tree` を絞らない、担当、検索などの読み方ごとに測る（#165）。手元の開発用の D1 と本番には触らない。`--runs` で回数（既定 10）を替える。`--prepare-only <場所>` は、その場所の D1 に入れて終える（測らず、消さない）ので、遅い文を `wrangler d1 execute DB --local --persist-to <場所> --command "EXPLAIN QUERY PLAN ..."` で見るのに使う。測った数と結論は `docs/data-model.md` の `tasks` の節。木を読む文、索引、絞り込みを変えたら流し直し、数が変わったら書き直す。
 
+### ブラウザに配る操作の定義
+
+`vite.config.ts` の `clientOperationMetadata` は client 環境だけで、操作の定義を呼び出しに必要な名前・権限の範囲・mode・workspace・clientTimeoutMs・binary の属性へ縮める。入力と通常の応答はサーバーで検証し、ブラウザへスキーマやサーバー用の説明・制限設定を配らない。Worker・SSR・CLI・ユニットテストには適用しない。
+
+`me-avatar-upload` と `attachment-upload` は画面側も応答を検証するため output を残す。同じZod 4のMiniでobject/string/numberの応答スキーマを元の定義から組み、safeParseの判定と変換は元のスキーマと比較する。未対応のスキーマへの変更はビルドで止める。画面でほかの操作の input/output を読む場合は、この出力方針と `scripts/client-operation-metadata.test.ts` を同時に更新する。操作の型は元の定義から推論し、URL の組み立てと待ち上限は従来の共通関数を使う。不要になった Zod のスキーマ生成には PURE の注記を付けるが、`z.config` の CSP 用の jitless 設定は残す。
+
+画面で使う独立したスキーマは、操作メタデータのモジュールから分ける。プロフィールの検証は `src/shared/account-profile.ts`、検索の検証は `src/shared/backlog-query-schema.ts` に置き、検索の補助関数だけを読む初回の画面には検証コードを配らない。スキーマ生成の初期化式は引数もまとめて除去できる形にし、削った操作定義だけが参照していたimportを外す。副作用だけのimportとCSP用の設定は残す。`zod-config.ts` はClassic全体を束へ連れ込まず、同じZodのcoreのconfigからjitlessを設定する。
+
+### 初回に配る素材を再生成する
+
+Fontsource を更新したら `python -m pip install 'fonttools[woff]==4.61.1' 'Pillow==13.0.0'` で生成用の依存を用意し、`python scripts/generate-boot-assets.py`、`python scripts/boot-font-assets.test.py`、`pnpm exec node scripts/generate-favicon.ts` を順に実行する。Pythonは通常のbuildには不要。文字範囲・異体字セレクタ・`.notdef`・ライセンス情報と横書きの描画を保ち、元より小さくなるフォントだけ差し替える。`pnpm bench:boot --runs 2` で転送量と表示時間も確認する。原本とハッシュは `design/fonts/README.md` を参照する。
+
 ### URL を直接開く最初の読み込みを測る
 
 JavaScriptの本数の削減、チャンクの分け方と起票シートの遅延読み込みの比較は [初回表示のJavaScript](boot-javascript-results.md) に記録する。
@@ -1623,3 +1635,7 @@ R2 を消す道具は操作定義の `storage: 'attachments'` で宣言する。
 - 消す経路: 本人が外す（`me-avatar-delete`）、差し替える（前のファイル）、管理者が無効にする（`user-disable`）、組織に入れなくなる（#1273。`membership-leave` で最後の所属が終わった管理者でない人、`user-admin-update` で解除した今の所属の無い人）。後の3つの定義は `storage: 'attachments'` を持ち、行を消す文を所属や `users` を書く `batch()` の最後に置き、書いた後に R2 のファイルを消す。「管理者でなく、今の所属も無い」の条件は `cannotEnterOrganization`（`src/server/operations/organization-departure.ts`）で、外された人の `credentials_not_before` の文と、上げる操作の UPSERT の条件（入れなくなった後に行を書かない）も同じ関数を使う。
 - R2 に残るファイル: 行を消した後（外す、無効にする、組織に入れなくなる、差し替えの前のファイル）の R2 の削除が失敗しても、操作は成功にし、ログに件数（`count`）だけを JSON の1行で出す（キー、例外の文、本文は出さない。添付の削除と同じ形で、上げる操作は `requestId` も持つ）。書いたが行に負けたファイル（409）の削除の失敗も同じ。消せなかったファイルはどの行からも指されずに残るが、キーは組織の接頭辞（`<組織の ID>/avatars/`）の下にあるので、組織のデータを消す手順（`docs/operations.md` の「解約した組織のデータを消す」）の接頭辞の削除で、組織の接頭辞ごと消える。定期処理での片付けは作らない（ログの件数が増えたら別の Issue にする）。
 - 組織の分離: `user-avatar` は画像の ID と `organization_id` で引く。別の組織の ID は存在しないときと同じ 404 で、`test/operations/pointers.ts` の一覧から回る分離のテストが確かめる。
+
+生成フォントの異体字・欠字・ライセンスの比較（`scripts/boot-font-assets.test.py`）は、CIの `test-node` ジョブでも固定版fonttools[woff]の専用venvから実行する。通常のアプリbuildにPythonは不要。
+
+クライアントに残すアップロード2種類のZod Mini検証は成功・失敗と検証済みデータだけを使い、Zodのerror.messageを画面表示しない（avatar-upload.ts・attachment-upload.ts）。サーバーから返すエラーコードと画面の言葉は従来どおり扱う。

@@ -2,6 +2,6 @@
 // zod 4 は、スキーマを作るとき new Function('') で eval が使えるかを試す。例外は握りつぶされるが、
 // script-src に 'unsafe-eval' の無い CSP（画面の CSP）では securitypolicyviolation が報告されるので、試さないようにする。
 // 画面の束にも入るので、CSP を持たない Worker でも同じ設定にする（eval を使う速い経路を使わないだけ）
-import { z } from 'zod';
+import { config } from 'zod/v4/core';
 
-z.config({ jitless: true });
+config({ jitless: true });

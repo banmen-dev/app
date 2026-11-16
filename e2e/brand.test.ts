@@ -4,6 +4,61 @@ import { signIn } from './helpers.ts';
 
 const themes = ['simple_light', 'simple_dark', 'modern'];
 
+test('可逆 WebP のマークは PNG の寸法・透過・合成後の色を保つ（#1236）', async ({ page }) => {
+  await page.goto('/login');
+  const comparison = await page.evaluate(async () => {
+    const images = await Promise.all(
+      ['png', 'webp'].map(async (extension) => {
+        const image = new Image();
+        image.src = `/brand/master/symbol.${extension}`;
+        await image.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const context = canvas.getContext('2d')!;
+        context.drawImage(image, 0, 0);
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+        // マークは全テーマで白い下地に出す。その合成色も別に比較する。
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = '#fff';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(image, 0, 0);
+        return {
+          width: canvas.width,
+          height: canvas.height,
+          pixels,
+          composited: context.getImageData(0, 0, canvas.width, canvas.height).data,
+        };
+      }),
+    );
+    let alphaDifferences = 0;
+    let maxCompositedDifference = 0;
+    for (let index = 0; index < images[0].pixels.length; index += 4) {
+      const left = images[0].pixels;
+      const right = images[1].pixels;
+      if (left[index + 3] !== right[index + 3]) alphaDifferences++;
+      for (let channel = 0; channel < 3; channel++) {
+        maxCompositedDifference = Math.max(
+          maxCompositedDifference,
+          Math.abs(images[0].composited[index + channel] - images[1].composited[index + channel]),
+        );
+      }
+    }
+    return {
+      dimensions: images.map(({ width, height }) => [width, height]),
+      alphaDifferences,
+      maxCompositedDifference,
+    };
+  });
+  expect(comparison.dimensions).toEqual([
+    [629, 678],
+    [629, 678],
+  ]);
+  expect(comparison.alphaDifferences).toBe(0);
+  // Chromium の PNG/WebP デコーダーで半透明色を premultiply する丸めが異なる。
+  expect(comparison.maxCompositedDifference).toBeLessThanOrEqual(1);
+});
+
 async function expectHorizontalBrand(page: Page): Promise<void> {
   const art = page.locator('.brand-art');
   const logo = art.locator('.brand-name');
@@ -11,7 +66,10 @@ async function expectHorizontalBrand(page: Page): Promise<void> {
   await expect(art).toHaveAttribute('aria-hidden', 'true');
   await expect(logo).toBeVisible();
   await expect(logo).toHaveAttribute('alt', '');
-  await expect(art.locator('.brand-mark')).toBeHidden();
+  const symbol = art.locator('.brand-mark');
+  await expect(symbol).toBeHidden();
+  await expect(symbol).toHaveAttribute('src', /\/brand\/master\/symbol\.webp$/);
+  await expect.poll(() => symbol.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBe(629);
   await expect(art).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect.poll(() => logo.evaluate((img) => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   await expect
@@ -82,6 +140,7 @@ async function expectCornerSymbol(page: Page): Promise<void> {
   await expect(brand.locator('.brand-name')).toHaveCount(0);
   await expect(symbol).toBeVisible();
   await expect(symbol).toHaveAttribute('alt', '');
+  await expect(symbol).toHaveAttribute('src', /\/brand\/master\/symbol\.webp$/);
   await expect.poll(() => symbol.evaluate((img) => (img as HTMLImageElement).naturalWidth)).toBe(629);
   const box = (await symbol.boundingBox())!;
   const head = (await page.locator('.binding-head').boundingBox())!;
@@ -110,6 +169,11 @@ for (const screen of [
       await page.setViewportSize({ width, height: 900 });
       for (const theme of themes) {
         await page.evaluate((value) => (document.documentElement.dataset.theme = value), theme);
+        // 折り畳まれた組織メニューのBrandSymbolも、同じ配信用素材を読み込む。
+        for (const mark of await page.locator('.brand-art .brand-mark').all()) {
+          await expect(mark).toHaveAttribute('src', /\/brand\/master\/symbol\.webp$/);
+          await expect.poll(() => mark.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBe(629);
+        }
         if (screen.path.startsWith('/aoba') && width <= 760) {
           // 角のマスは出さない。残るマークは浮きメニューの中の組織の切り替えのもので、見えない
           await expect(page.locator('.binding-head')).toHaveCount(0);

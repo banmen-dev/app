@@ -84,3 +84,81 @@ test('共通部品をまとめても、初期化後に読む版番号と別画�
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('検索の補助だけを読む初回の束には、Wikiの検証コードを含めない', async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'client-query-chunks-'));
+  const root = path.resolve(import.meta.dirname, '..');
+  try {
+    const entry = path.join(dir, 'entry.ts');
+    const helpers = [
+      ['src/shared/backlog-filter.ts', 'searchWordsOf'],
+      ['src/shared/workspace.ts', 'workspaceNameProblem'],
+      ['src/shared/organization-slug.ts', 'slugProblem'],
+      ['src/shared/errors.ts', 'isErrorBody'],
+      ['src/shared/return-to.ts', 'safeReturnTo'],
+      ['src/lib/workspace.ts', 'isTransientFailure'],
+    ];
+    writeFileSync(
+      entry,
+      `
+      ${helpers.map(([file, name], i) => `export { ${name} as helper${i} } from ${JSON.stringify(path.join(root, file))};`).join('\n')}
+      export { searchWordsOf } from ${JSON.stringify(path.join(root, 'src/shared/backlog-filter.ts'))};
+      export async function validate(value) {
+        const { wikiQuerySchema } = await import(${JSON.stringify(path.join(root, 'src/shared/operations/wiki/index.ts'))});
+        return wikiQuerySchema.safeParse(value);
+      }
+    `,
+    );
+    const result = (await build({
+      configFile: false,
+      root,
+      logLevel: 'silent',
+      plugins: viteConfig.plugins!.filter(
+        (plugin) =>
+          plugin && typeof plugin === 'object' && 'name' in plugin && plugin.name === 'client-operation-metadata',
+      ),
+      build: {
+        write: false,
+        minify: false,
+        rolldownOptions: {
+          ...viteConfig.environments!.client.build!.rolldownOptions,
+          input: entry,
+          preserveEntrySignatures: 'strict',
+        },
+      },
+    })) as {
+      output: {
+        type: string;
+        fileName: string;
+        isEntry?: boolean;
+        modules?: Record<string, unknown>;
+        imports?: string[];
+        code?: string;
+      }[];
+    };
+    const chunks = result.output.filter((item) => item.type === 'chunk');
+    const helperChunks = helpers.map(([file]) =>
+      chunks.find((chunk) => path.join(root, file) in (chunk.modules ?? {})),
+    );
+    assert.ok(helperChunks.every(Boolean), '初期ヘルパーが束に存在する');
+    assert.equal(new Set(helperChunks.map((chunk) => chunk!.fileName)).size, 1, '初期ヘルパーの要求を分散させない');
+    const initial = new Set<string>();
+    const visit = (file: string) => {
+      if (initial.has(file)) return;
+      initial.add(file);
+      for (const imported of chunks.find((chunk) => chunk.fileName === file)?.imports ?? []) visit(imported);
+    };
+    visit(chunks.find((chunk) => chunk.isEntry)!.fileName);
+    const code = chunks
+      .filter((chunk) => initial.has(chunk.fileName))
+      .map((chunk) => chunk.code)
+      .join('\n');
+    assert.doesNotMatch(code, /["'`]ZodString["'`]/);
+    assert.ok(
+      chunks.some((chunk) => !initial.has(chunk.fileName)),
+      'Wikiの遅延読み込みが分かれていない',
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

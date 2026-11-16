@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { backlogQuerySchema } from '../../backlog-filter.ts';
+import { backlogQuerySchema } from '../../backlog-query-schema.ts';
 import { idSchema } from '../../id.ts';
 import { wikiBodyProblem, wikiTitle } from '../../wiki.ts';
 import { WIKI_UPLOAD_MAX_FILES, WIKI_UPLOAD_MAX_REQUEST_BYTES, wikiUploadProblem } from '../../wiki-transfer.ts';

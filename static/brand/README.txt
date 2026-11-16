@@ -20,6 +20,8 @@ header/
 master/
   logo-horizontal.png 横組みの元画像・透過PNG
   symbol.png          マークのみの元画像・透過PNG
+  symbol.webp         629 × 678 px、同じ画素の配信用可逆WebP
+                      python scripts/generate-boot-assets.py で生成
 
 主な指定色：オレンジ #F58220 / チャコール #303740
 生成画像から書き出したラスター画像です。画素の色には微差があります。

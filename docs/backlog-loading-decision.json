@@ -1,0 +1,8395 @@
+{
+  "eligible": false,
+  "qualifyingPaths": [
+    {
+      "case": 0,
+      "entry": "navigation"
+    },
+    {
+      "case": 1,
+      "entry": "direct"
+    },
+    {
+      "case": 2,
+      "entry": "direct"
+    }
+  ],
+  "worsening": [
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": false,
+      "entry": "direct",
+      "hasTask": true,
+      "B_p95": 1287.8999999999069,
+      "C_p95": 1510.1999999999534,
+      "saving_ms": -222.30000000004657,
+      "saving_pct": -17.260656883303255,
+      "pass": false,
+      "bad": true
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": true,
+      "entry": "navigation",
+      "hasTask": true,
+      "B_p95": 305.5,
+      "C_p95": 424.79999999981374,
+      "saving_ms": -119.29999999981374,
+      "saving_pct": -39.05073649748404,
+      "pass": false,
+      "bad": true
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": false,
+      "entry": "filter",
+      "hasTask": true,
+      "B_p95": 238.5,
+      "C_p95": 407.30000000004657,
+      "saving_ms": -168.80000000004657,
+      "saving_pct": -70.7756813417386,
+      "pass": false,
+      "bad": true
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": true,
+      "entry": "direct",
+      "hasTask": true,
+      "B_p95": 1026.0999999996275,
+      "C_p95": 1141.7999999998137,
+      "saving_ms": -115.70000000018626,
+      "saving_pct": -11.27570412242747,
+      "pass": false,
+      "bad": true
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": true,
+      "entry": "direct",
+      "hasTask": false,
+      "B_p95": 956.5,
+      "C_p95": 1060.2000000001863,
+      "saving_ms": -103.70000000018626,
+      "saving_pct": -10.841610036611215,
+      "pass": false,
+      "bad": true
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": false,
+      "entry": "direct",
+      "hasTask": false,
+      "B_p95": 655.1000000000931,
+      "C_p95": 897.1000000000931,
+      "saving_ms": -242,
+      "saving_pct": -36.9409250496055,
+      "pass": false,
+      "bad": true
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": false,
+      "entry": "navigation",
+      "hasTask": false,
+      "B_p95": 220.80000000004657,
+      "C_p95": 363.5,
+      "saving_ms": -142.69999999995343,
+      "saving_pct": -64.62862318837108,
+      "pass": false,
+      "bad": true
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": false,
+      "entry": "navigation",
+      "hasTask": true,
+      "B_p95": 345.60000000009313,
+      "C_p95": 496.29999999981374,
+      "saving_ms": -150.6999999997206,
+      "saving_pct": -43.60532407398148,
+      "pass": false,
+      "bad": true
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": false,
+      "entry": "invalidate",
+      "hasTask": true,
+      "B_p95": 167.89999999990687,
+      "C_p95": 475.40000000037253,
+      "saving_ms": -307.50000000046566,
+      "saving_pct": -183.14472900573926,
+      "pass": false,
+      "bad": true
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": false,
+      "entry": "direct",
+      "hasTask": false,
+      "B_p95": 812.1000000000931,
+      "C_p95": 1041.5,
+      "saving_ms": -229.39999999990687,
+      "saving_pct": -28.24775273979566,
+      "pass": false,
+      "bad": true
+    }
+  ],
+  "comparisons": [
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": false,
+      "entry": "direct",
+      "hasTask": true,
+      "B_p95": 1287.8999999999069,
+      "C_p95": 1510.1999999999534,
+      "saving_ms": -222.30000000004657,
+      "saving_pct": -17.260656883303255,
+      "pass": false,
+      "bad": true
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": false,
+      "entry": "navigation",
+      "hasTask": true,
+      "B_p95": 628,
+      "C_p95": 528,
+      "saving_ms": 100,
+      "saving_pct": 15.92356687898089,
+      "pass": true,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": false,
+      "entry": "invalidate",
+      "hasTask": true,
+      "B_p95": 172.89999999990687,
+      "C_p95": 252,
+      "saving_ms": -79.10000000009313,
+      "saving_pct": -45.74898785432952,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": false,
+      "entry": "filter",
+      "hasTask": true,
+      "B_p95": 477.10000000009313,
+      "C_p95": 474.60000000009313,
+      "saving_ms": 2.5,
+      "saving_pct": 0.5239991616012392,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": true,
+      "entry": "direct",
+      "hasTask": true,
+      "B_p95": 1319.2000000001863,
+      "C_p95": 1421,
+      "saving_ms": -101.79999999981374,
+      "saving_pct": -7.7167980594147485,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": true,
+      "entry": "navigation",
+      "hasTask": true,
+      "B_p95": 523.7000000001863,
+      "C_p95": 482.70000000018626,
+      "saving_ms": 41,
+      "saving_pct": 7.828909681112358,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": true,
+      "entry": "invalidate",
+      "hasTask": true,
+      "B_p95": 184.39999999990687,
+      "C_p95": 250.79999999981374,
+      "saving_ms": -66.39999999990687,
+      "saving_pct": -36.00867678955554,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": true,
+      "entry": "filter",
+      "hasTask": true,
+      "B_p95": 422.10000000009313,
+      "C_p95": 408.70000000018626,
+      "saving_ms": 13.399999999906868,
+      "saving_pct": 3.17460317458041,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": false,
+      "entry": "direct",
+      "hasTask": true,
+      "B_p95": 1244.5,
+      "C_p95": 943.6000000000931,
+      "saving_ms": 300.89999999990687,
+      "saving_pct": 24.178384893524054,
+      "pass": true,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": false,
+      "entry": "navigation",
+      "hasTask": true,
+      "B_p95": 340.5,
+      "C_p95": 305,
+      "saving_ms": 35.5,
+      "saving_pct": 10.425844346549193,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": false,
+      "entry": "invalidate",
+      "hasTask": true,
+      "B_p95": 169.70000000018626,
+      "C_p95": 171.80000000004657,
+      "saving_ms": -2.0999999998603016,
+      "saving_pct": -1.237477902096639,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": false,
+      "entry": "filter",
+      "hasTask": true,
+      "B_p95": 200.20000000018626,
+      "C_p95": 212.20000000018626,
+      "saving_ms": -12,
+      "saving_pct": -5.994005994000418,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": true,
+      "entry": "direct",
+      "hasTask": true,
+      "B_p95": 1200.8999999999069,
+      "C_p95": 1057.7999999998137,
+      "saving_ms": 143.10000000009313,
+      "saving_pct": 11.916062952794091,
+      "pass": true,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": true,
+      "entry": "navigation",
+      "hasTask": true,
+      "B_p95": 305.5,
+      "C_p95": 424.79999999981374,
+      "saving_ms": -119.29999999981374,
+      "saving_pct": -39.05073649748404,
+      "pass": false,
+      "bad": true
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": true,
+      "entry": "invalidate",
+      "hasTask": true,
+      "B_p95": 196.5,
+      "C_p95": 162,
+      "saving_ms": 34.5,
+      "saving_pct": 17.557251908396946,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": true,
+      "entry": "filter",
+      "hasTask": true,
+      "B_p95": 186.6999999997206,
+      "C_p95": 155,
+      "saving_ms": 31.699999999720603,
+      "saving_pct": 16.979110872934143,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": false,
+      "entry": "direct",
+      "hasTask": true,
+      "B_p95": 1477.5,
+      "C_p95": 1085.8000000000466,
+      "saving_ms": 391.69999999995343,
+      "saving_pct": 26.51099830794947,
+      "pass": true,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": false,
+      "entry": "navigation",
+      "hasTask": true,
+      "B_p95": 451.9000000001397,
+      "C_p95": 368.69999999995343,
+      "saving_ms": 83.20000000018626,
+      "saving_pct": 18.411152909971353,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": false,
+      "entry": "invalidate",
+      "hasTask": true,
+      "B_p95": 249.30000000004657,
+      "C_p95": 203.60000000009313,
+      "saving_ms": 45.699999999953434,
+      "saving_pct": 18.331327717587204,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": false,
+      "entry": "filter",
+      "hasTask": true,
+      "B_p95": 238.5,
+      "C_p95": 407.30000000004657,
+      "saving_ms": -168.80000000004657,
+      "saving_pct": -70.7756813417386,
+      "pass": false,
+      "bad": true
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": true,
+      "entry": "direct",
+      "hasTask": true,
+      "B_p95": 1026.0999999996275,
+      "C_p95": 1141.7999999998137,
+      "saving_ms": -115.70000000018626,
+      "saving_pct": -11.27570412242747,
+      "pass": false,
+      "bad": true
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": true,
+      "entry": "navigation",
+      "hasTask": true,
+      "B_p95": 356.3000000002794,
+      "C_p95": 424.10000000009313,
+      "saving_ms": -67.79999999981374,
+      "saving_pct": -19.028908223340043,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": true,
+      "entry": "invalidate",
+      "hasTask": true,
+      "B_p95": 190.29999999981374,
+      "C_p95": 202.79999999981374,
+      "saving_ms": -12.5,
+      "saving_pct": -6.568575932744212,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": true,
+      "entry": "filter",
+      "hasTask": true,
+      "B_p95": 271.70000000018626,
+      "C_p95": 253.3000000002794,
+      "saving_ms": 18.399999999906868,
+      "saving_pct": 6.772175193188905,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": false,
+      "entry": "direct",
+      "hasTask": false,
+      "B_p95": 819.6999999999534,
+      "C_p95": 873.6000000000931,
+      "saving_ms": -53.9000000001397,
+      "saving_pct": -6.575576430418782,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": false,
+      "entry": "navigation",
+      "hasTask": false,
+      "B_p95": 241.19999999995343,
+      "C_p95": 208.9000000001397,
+      "saving_ms": 32.299999999813735,
+      "saving_pct": 13.391376451003305,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": false,
+      "entry": "invalidate",
+      "hasTask": false,
+      "B_p95": 117.29999999981374,
+      "C_p95": 119.19999999995343,
+      "saving_ms": -1.9000000001396984,
+      "saving_pct": -1.6197783462427242,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": false,
+      "entry": "filter",
+      "hasTask": false,
+      "B_p95": 118.20000000018626,
+      "C_p95": 191.5999999998603,
+      "saving_ms": -73.39999999967404,
+      "saving_pct": -62.098138747511314,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": true,
+      "entry": "direct",
+      "hasTask": false,
+      "B_p95": 956.5,
+      "C_p95": 1060.2000000001863,
+      "saving_ms": -103.70000000018626,
+      "saving_pct": -10.841610036611215,
+      "pass": false,
+      "bad": true
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": true,
+      "entry": "navigation",
+      "hasTask": false,
+      "B_p95": 196.5,
+      "C_p95": 233.5,
+      "saving_ms": -37,
+      "saving_pct": -18.829516539440203,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": true,
+      "entry": "invalidate",
+      "hasTask": false,
+      "B_p95": 115.89999999990687,
+      "C_p95": 128.70000000018626,
+      "saving_ms": -12.800000000279397,
+      "saving_pct": -11.04400345150102,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": true,
+      "entry": "filter",
+      "hasTask": false,
+      "B_p95": 139.79999999981374,
+      "C_p95": 185.10000000009313,
+      "saving_ms": -45.3000000002794,
+      "saving_pct": -32.40343347663788,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": false,
+      "entry": "direct",
+      "hasTask": false,
+      "B_p95": 655.1000000000931,
+      "C_p95": 897.1000000000931,
+      "saving_ms": -242,
+      "saving_pct": -36.9409250496055,
+      "pass": false,
+      "bad": true
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": false,
+      "entry": "navigation",
+      "hasTask": false,
+      "B_p95": 220.80000000004657,
+      "C_p95": 363.5,
+      "saving_ms": -142.69999999995343,
+      "saving_pct": -64.62862318837108,
+      "pass": false,
+      "bad": true
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": false,
+      "entry": "invalidate",
+      "hasTask": false,
+      "B_p95": 150,
+      "C_p95": 116.4000000001397,
+      "saving_ms": 33.5999999998603,
+      "saving_pct": 22.399999999906868,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": false,
+      "entry": "filter",
+      "hasTask": false,
+      "B_p95": 147.89999999990687,
+      "C_p95": 156.5,
+      "saving_ms": -8.600000000093132,
+      "saving_pct": -5.8147396890456715,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": true,
+      "entry": "direct",
+      "hasTask": false,
+      "B_p95": 729,
+      "C_p95": 805.5,
+      "saving_ms": -76.5,
+      "saving_pct": -10.493827160493828,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": true,
+      "entry": "navigation",
+      "hasTask": false,
+      "B_p95": 219.60000000009313,
+      "C_p95": 173.29999999981374,
+      "saving_ms": 46.3000000002794,
+      "saving_pct": 21.083788706857813,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": true,
+      "entry": "invalidate",
+      "hasTask": false,
+      "B_p95": 166.10000000009313,
+      "C_p95": 206.5,
+      "saving_ms": -40.39999999990687,
+      "saving_pct": -24.32269717030958,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": true,
+      "entry": "filter",
+      "hasTask": false,
+      "B_p95": 128.20000000018626,
+      "C_p95": 152.10000000009313,
+      "saving_ms": -23.899999999906868,
+      "saving_pct": -18.64274570972866,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": false,
+      "entry": "direct",
+      "hasTask": true,
+      "B_p95": 1541.5,
+      "C_p95": 1494,
+      "saving_ms": 47.5,
+      "saving_pct": 3.081414206941291,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": false,
+      "entry": "navigation",
+      "hasTask": true,
+      "B_p95": 680,
+      "C_p95": 462.89999999990687,
+      "saving_ms": 217.10000000009313,
+      "saving_pct": 31.92647058824899,
+      "pass": true,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": false,
+      "entry": "invalidate",
+      "hasTask": true,
+      "B_p95": 294.10000000009313,
+      "C_p95": 270.10000000009313,
+      "saving_ms": 24,
+      "saving_pct": 8.160489629375178,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": false,
+      "entry": "filter",
+      "hasTask": true,
+      "B_p95": 503.5,
+      "C_p95": 487,
+      "saving_ms": 16.5,
+      "saving_pct": 3.2770605759682225,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": true,
+      "entry": "direct",
+      "hasTask": true,
+      "B_p95": 1462.5999999996275,
+      "C_p95": 1176.0999999996275,
+      "saving_ms": 286.5,
+      "saving_pct": 19.588404211682825,
+      "pass": true,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": true,
+      "entry": "navigation",
+      "hasTask": true,
+      "B_p95": 548.1000000000931,
+      "C_p95": 493.10000000009313,
+      "saving_ms": 55,
+      "saving_pct": 10.034665207077294,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": true,
+      "entry": "invalidate",
+      "hasTask": true,
+      "B_p95": 200.3000000002794,
+      "C_p95": 238.39999999990687,
+      "saving_ms": -38.09999999962747,
+      "saving_pct": -19.02146779809003,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": true,
+      "entry": "filter",
+      "hasTask": true,
+      "B_p95": 455.10000000009313,
+      "C_p95": 390.10000000009313,
+      "saving_ms": 65,
+      "saving_pct": 14.282575258182092,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": false,
+      "entry": "direct",
+      "hasTask": true,
+      "B_p95": 1371.6999999997206,
+      "C_p95": 1101.3999999999069,
+      "saving_ms": 270.29999999981374,
+      "saving_pct": 19.705474958071648,
+      "pass": true,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": false,
+      "entry": "navigation",
+      "hasTask": true,
+      "B_p95": 509.39999999990687,
+      "C_p95": 404.89999999990687,
+      "saving_ms": 104.5,
+      "saving_pct": 20.514330585005712,
+      "pass": true,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": false,
+      "entry": "invalidate",
+      "hasTask": true,
+      "B_p95": 170.1999999997206,
+      "C_p95": 201.6999999997206,
+      "saving_ms": -31.5,
+      "saving_pct": -18.507638072885847,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": false,
+      "entry": "filter",
+      "hasTask": true,
+      "B_p95": 185.79999999981374,
+      "C_p95": 196.70000000018626,
+      "saving_ms": -10.900000000372529,
+      "saving_pct": -5.866523143371074,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": true,
+      "entry": "direct",
+      "hasTask": true,
+      "B_p95": 1237.1999999997206,
+      "C_p95": 1353.5,
+      "saving_ms": -116.3000000002794,
+      "saving_pct": -9.400258648585973,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": true,
+      "entry": "navigation",
+      "hasTask": true,
+      "B_p95": 318.79999999981374,
+      "C_p95": 339.60000000009313,
+      "saving_ms": -20.800000000279397,
+      "saving_pct": -6.524466750405129,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": true,
+      "entry": "invalidate",
+      "hasTask": true,
+      "B_p95": 157.29999999981374,
+      "C_p95": 155.3000000002794,
+      "saving_ms": 1.9999999995343387,
+      "saving_pct": 1.271455816615834,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": true,
+      "entry": "filter",
+      "hasTask": true,
+      "B_p95": 231.8000000002794,
+      "C_p95": 152.60000000009313,
+      "saving_ms": 79.20000000018626,
+      "saving_pct": 34.1673856773472,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": false,
+      "entry": "direct",
+      "hasTask": true,
+      "B_p95": 1242.1999999997206,
+      "C_p95": 1021.3000000002794,
+      "saving_ms": 220.8999999994412,
+      "saving_pct": 17.78296570596449,
+      "pass": true,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": false,
+      "entry": "navigation",
+      "hasTask": true,
+      "B_p95": 345.60000000009313,
+      "C_p95": 496.29999999981374,
+      "saving_ms": -150.6999999997206,
+      "saving_pct": -43.60532407398148,
+      "pass": false,
+      "bad": true
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": false,
+      "entry": "invalidate",
+      "hasTask": true,
+      "B_p95": 167.89999999990687,
+      "C_p95": 475.40000000037253,
+      "saving_ms": -307.50000000046566,
+      "saving_pct": -183.14472900573926,
+      "pass": false,
+      "bad": true
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": false,
+      "entry": "filter",
+      "hasTask": true,
+      "B_p95": 272.10000000009313,
+      "C_p95": 289.79999999981374,
+      "saving_ms": -17.699999999720603,
+      "saving_pct": -6.5049614111409575,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": true,
+      "entry": "direct",
+      "hasTask": true,
+      "B_p95": 1495,
+      "C_p95": 974.1999999997206,
+      "saving_ms": 520.8000000002794,
+      "saving_pct": 34.83612040135648,
+      "pass": true,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": true,
+      "entry": "navigation",
+      "hasTask": true,
+      "B_p95": 420.79999999981374,
+      "C_p95": 438.3000000002794,
+      "saving_ms": -17.50000000046566,
+      "saving_pct": -4.158745247260791,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": true,
+      "entry": "invalidate",
+      "hasTask": true,
+      "B_p95": 202.1999999997206,
+      "C_p95": 208.10000000009313,
+      "saving_ms": -5.900000000372529,
+      "saving_pct": -2.9179030664592887,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": true,
+      "entry": "filter",
+      "hasTask": true,
+      "B_p95": 319.89999999990687,
+      "C_p95": 413.5,
+      "saving_ms": -93.60000000009313,
+      "saving_pct": -29.259143482375862,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": false,
+      "entry": "direct",
+      "hasTask": false,
+      "B_p95": 1341.5999999996275,
+      "C_p95": 1287.5,
+      "saving_ms": 54.09999999962747,
+      "saving_pct": 4.0324985092160475,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": false,
+      "entry": "navigation",
+      "hasTask": false,
+      "B_p95": 468.60000000009313,
+      "C_p95": 263,
+      "saving_ms": 205.60000000009313,
+      "saving_pct": 43.875373452849395,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": false,
+      "entry": "invalidate",
+      "hasTask": false,
+      "B_p95": 150.39999999990687,
+      "C_p95": 116.59999999962747,
+      "saving_ms": 33.8000000002794,
+      "saving_pct": 22.473404255518833,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": false,
+      "entry": "filter",
+      "hasTask": false,
+      "B_p95": 134.5,
+      "C_p95": 178.5,
+      "saving_ms": -44,
+      "saving_pct": -32.71375464684015,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": true,
+      "entry": "direct",
+      "hasTask": false,
+      "B_p95": 1404.2000000001863,
+      "C_p95": 875,
+      "saving_ms": 529.2000000001863,
+      "saving_pct": 37.68693918246091,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": true,
+      "entry": "navigation",
+      "hasTask": false,
+      "B_p95": 425.10000000009313,
+      "C_p95": 186.60000000009313,
+      "saving_ms": 238.5,
+      "saving_pct": 56.1044460126906,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": true,
+      "entry": "invalidate",
+      "hasTask": false,
+      "B_p95": 331,
+      "C_p95": 148.40000000037253,
+      "saving_ms": 182.59999999962747,
+      "saving_pct": 55.16616314188141,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": true,
+      "entry": "filter",
+      "hasTask": false,
+      "B_p95": 219.39999999990687,
+      "C_p95": 156.70000000018626,
+      "saving_ms": 62.6999999997206,
+      "saving_pct": 28.57793983580092,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": false,
+      "entry": "direct",
+      "hasTask": false,
+      "B_p95": 812.1000000000931,
+      "C_p95": 1041.5,
+      "saving_ms": -229.39999999990687,
+      "saving_pct": -28.24775273979566,
+      "pass": false,
+      "bad": true
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": false,
+      "entry": "navigation",
+      "hasTask": false,
+      "B_p95": 185.70000000018626,
+      "C_p95": 219.29999999981374,
+      "saving_ms": -33.59999999962747,
+      "saving_pct": -18.093699515128577,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": false,
+      "entry": "invalidate",
+      "hasTask": false,
+      "B_p95": 149.3000000002794,
+      "C_p95": 98.59999999962747,
+      "saving_ms": 50.700000000651926,
+      "saving_pct": 33.95847287378235,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": false,
+      "entry": "filter",
+      "hasTask": false,
+      "B_p95": 134.1999999997206,
+      "C_p95": 105.39999999990687,
+      "saving_ms": 28.799999999813735,
+      "saving_pct": 21.46050670631423,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": true,
+      "entry": "direct",
+      "hasTask": false,
+      "B_p95": 1219.3999999999069,
+      "C_p95": 792.8999999999069,
+      "saving_ms": 426.5,
+      "saving_pct": 34.97621781204138,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": true,
+      "entry": "navigation",
+      "hasTask": false,
+      "B_p95": 205.1999999997206,
+      "C_p95": 185.5,
+      "saving_ms": 19.699999999720603,
+      "saving_pct": 9.600389863424672,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": true,
+      "entry": "invalidate",
+      "hasTask": false,
+      "B_p95": 151.5,
+      "C_p95": 161.39999999990687,
+      "saving_ms": -9.899999999906868,
+      "saving_pct": -6.534653465285062,
+      "pass": false,
+      "bad": false
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": true,
+      "entry": "filter",
+      "hasTask": false,
+      "B_p95": 183.90000000037253,
+      "C_p95": 133.60000000009313,
+      "saving_ms": 50.3000000002794,
+      "saving_pct": 27.351821642293366,
+      "pass": false,
+      "bad": false
+    }
+  ],
+  "apiRows": [
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": false,
+      "variant": "A",
+      "primary": {
+        "p50": 34.47502600000007,
+        "p95": 40.669807000005676
+      },
+      "definitions": null,
+      "experience": null,
+      "load": {
+        "p50": 34.4849200000026,
+        "p95": 40.67924000000494
+      },
+      "total": {
+        "p50": 34.48540100000537,
+        "p95": 40.68025200000557
+      }
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": false,
+      "variant": "B",
+      "primary": {
+        "p50": 34.076051000003645,
+        "p95": 65.09204999999929
+      },
+      "definitions": {
+        "p50": 65.15950000000157,
+        "p95": 81.30857899999683
+      },
+      "experience": {
+        "p50": 65.29934599999979,
+        "p95": 81.2453949999981
+      },
+      "load": {
+        "p50": 65.30378299999575,
+        "p95": 81.31268499999715
+      },
+      "total": {
+        "p50": 65.30439399999887,
+        "p95": 81.31309599999804
+      }
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": false,
+      "variant": "C",
+      "primary": {
+        "p50": 31.50862199999392,
+        "p95": 75.4265000000014
+      },
+      "definitions": {
+        "p50": 62.46328899999935,
+        "p95": 115.72362100000464
+      },
+      "experience": {
+        "p50": 62.38527400000021,
+        "p95": 115.9518090000056
+      },
+      "load": {
+        "p50": 31.517634999996517,
+        "p95": 75.43172799999593
+      },
+      "total": {
+        "p50": 62.46839699999691,
+        "p95": 115.95731700000033
+      }
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": true,
+      "variant": "A",
+      "primary": {
+        "p50": 36.35359800000151,
+        "p95": 50.00764899999922
+      },
+      "definitions": null,
+      "experience": null,
+      "load": {
+        "p50": 36.36228100000153,
+        "p95": 50.734112999998615
+      },
+      "total": {
+        "p50": 36.36290100000042,
+        "p95": 50.73499399999855
+      }
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": true,
+      "variant": "B",
+      "primary": {
+        "p50": 65.34049699999741,
+        "p95": 72.40779800000018
+      },
+      "definitions": {
+        "p50": 62.982386000003316,
+        "p95": 69.75436700000137
+      },
+      "experience": {
+        "p50": 26.807903000000806,
+        "p95": 32.27270100000169
+      },
+      "load": {
+        "p50": 65.3464959999983,
+        "p95": 72.41517900000326
+      },
+      "total": {
+        "p50": 65.34722699999838,
+        "p95": 72.41570000000502
+      }
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": true,
+      "variant": "C",
+      "primary": {
+        "p50": 56.226605000003474,
+        "p95": 109.02833899999678
+      },
+      "definitions": {
+        "p50": 55.555482000003394,
+        "p95": 107.9201699999976
+      },
+      "experience": {
+        "p50": 24.25768500000413,
+        "p95": 49.4492390000014
+      },
+      "load": {
+        "p50": 56.23252300000604,
+        "p95": 109.03636099999858
+      },
+      "total": {
+        "p50": 56.23317400000087,
+        "p95": 109.03722199999902
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": false,
+      "variant": "A",
+      "primary": {
+        "p50": 26.320137000002433,
+        "p95": 29.09212600000319
+      },
+      "definitions": null,
+      "experience": null,
+      "load": {
+        "p50": 26.328899999993155,
+        "p95": 29.10074799999711
+      },
+      "total": {
+        "p50": 26.329400999995414,
+        "p95": 29.101438999990933
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": false,
+      "variant": "B",
+      "primary": {
+        "p50": 26.29786900000181,
+        "p95": 64.28761200000008
+      },
+      "definitions": {
+        "p50": 62.33094300000812,
+        "p95": 127.71450000000186
+      },
+      "experience": {
+        "p50": 62.34308199999214,
+        "p95": 127.9998520000081
+      },
+      "load": {
+        "p50": 62.39558900000702,
+        "p95": 128.00516000000061
+      },
+      "total": {
+        "p50": 62.396200000002864,
+        "p95": 128.0059110000002
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": false,
+      "variant": "C",
+      "primary": {
+        "p50": 28.09682900000189,
+        "p95": 42.1638810000004
+      },
+      "definitions": {
+        "p50": 63.22901699999056,
+        "p95": 79.26187299999583
+      },
+      "experience": {
+        "p50": 63.17807100000209,
+        "p95": 79.18004199999268
+      },
+      "load": {
+        "p50": 28.105332000006456,
+        "p95": 42.172022999991896
+      },
+      "total": {
+        "p50": 63.267763000010746,
+        "p95": 79.26726100000087
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": true,
+      "variant": "A",
+      "primary": {
+        "p50": 27.82653500000015,
+        "p95": 38.123959000004106
+      },
+      "definitions": null,
+      "experience": null,
+      "load": {
+        "p50": 27.836999999999534,
+        "p95": 38.13326299999608
+      },
+      "total": {
+        "p50": 27.837591000003158,
+        "p95": 38.13369400000374
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": true,
+      "variant": "B",
+      "primary": {
+        "p50": 59.92948500000057,
+        "p95": 74.68710200001078
+      },
+      "definitions": {
+        "p50": 59.537374999999884,
+        "p95": 74.50912900001276
+      },
+      "experience": {
+        "p50": 25.125811999998405,
+        "p95": 57.96335900000122
+      },
+      "load": {
+        "p50": 60.03608200000599,
+        "p95": 74.69289100001333
+      },
+      "total": {
+        "p50": 60.03677299999981,
+        "p95": 74.6936820000119
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": true,
+      "variant": "C",
+      "primary": {
+        "p50": 54.12814499999513,
+        "p95": 66.33564200000546
+      },
+      "definitions": {
+        "p50": 53.41386400000192,
+        "p95": 66.64299800001027
+      },
+      "experience": {
+        "p50": 23.295082000011462,
+        "p95": 34.750702999997884
+      },
+      "load": {
+        "p50": 54.134023999999044,
+        "p95": 66.34580700000515
+      },
+      "total": {
+        "p50": 54.1345949999959,
+        "p95": 66.6466330000112
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": false,
+      "variant": "A",
+      "primary": {
+        "p50": 26.502542999995057,
+        "p95": 39.26255200000014
+      },
+      "definitions": null,
+      "experience": null,
+      "load": {
+        "p50": 26.5242750000034,
+        "p95": 39.27097500000673
+      },
+      "total": {
+        "p50": 26.52543599999626,
+        "p95": 39.27195599999686
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": false,
+      "variant": "B",
+      "primary": {
+        "p50": 26.313083000000915,
+        "p95": 35.84958799999731
+      },
+      "definitions": {
+        "p50": 55.82637399999658,
+        "p95": 67.43703699999605
+      },
+      "experience": {
+        "p50": 55.937117999987095,
+        "p95": 67.4676119999931
+      },
+      "load": {
+        "p50": 55.94164499999897,
+        "p95": 67.47256999999809
+      },
+      "total": {
+        "p50": 55.94247599999653,
+        "p95": 67.47361099999398
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": false,
+      "variant": "C",
+      "primary": {
+        "p50": 27.640729999999166,
+        "p95": 33.130027999999584
+      },
+      "definitions": {
+        "p50": 56.81004000001121,
+        "p95": 68.0357159999985
+      },
+      "experience": {
+        "p50": 56.91722800000571,
+        "p95": 68.07109800000035
+      },
+      "load": {
+        "p50": 27.648400999998557,
+        "p95": 33.136266999994405
+      },
+      "total": {
+        "p50": 56.92160500001046,
+        "p95": 68.07684700000391
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": true,
+      "variant": "A",
+      "primary": {
+        "p50": 28.920535999990534,
+        "p95": 58.22589700001117
+      },
+      "definitions": null,
+      "experience": null,
+      "load": {
+        "p50": 28.92865799998981,
+        "p95": 58.23326800001087
+      },
+      "total": {
+        "p50": 28.94971899999655,
+        "p95": 58.2345900000073
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": true,
+      "variant": "B",
+      "primary": {
+        "p50": 63.015121000004,
+        "p95": 120.4085919999925
+      },
+      "definitions": {
+        "p50": 60.15940899999987,
+        "p95": 119.7177010000014
+      },
+      "experience": {
+        "p50": 24.479492000013124,
+        "p95": 109.60176799999317
+      },
+      "load": {
+        "p50": 63.0203279999987,
+        "p95": 120.41361899999902
+      },
+      "total": {
+        "p50": 63.02088900000672,
+        "p95": 120.4140400000033
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": true,
+      "variant": "C",
+      "primary": {
+        "p50": 55.02797500000452,
+        "p95": 78.0348410000006
+      },
+      "definitions": {
+        "p50": 54.84140900000057,
+        "p95": 77.81533599999966
+      },
+      "experience": {
+        "p50": 22.075829000008525,
+        "p95": 37.14611999999033
+      },
+      "load": {
+        "p50": 55.03207100000873,
+        "p95": 78.03981799999019
+      },
+      "total": {
+        "p50": 55.032351000001654,
+        "p95": 78.04020899999887
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": false,
+      "variant": "A",
+      "primary": {
+        "p50": 21.657465999989654,
+        "p95": 26.432122999991407
+      },
+      "definitions": null,
+      "experience": null,
+      "load": {
+        "p50": 21.664385999989463,
+        "p95": 26.43882300000405
+      },
+      "total": {
+        "p50": 21.664796999990358,
+        "p95": 26.439323999991757
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": false,
+      "variant": "B",
+      "primary": {
+        "p50": 22.065935000005993,
+        "p95": 40.91961599999922
+      },
+      "definitions": {
+        "p50": 49.04975299999933,
+        "p95": 69.03605500000413
+      },
+      "experience": {
+        "p50": 49.0201390000002,
+        "p95": 69.32426100000157
+      },
+      "load": {
+        "p50": 49.053578999999445,
+        "p95": 69.32866699999431
+      },
+      "total": {
+        "p50": 49.054069000005256,
+        "p95": 69.3291179999942
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": false,
+      "variant": "C",
+      "primary": {
+        "p50": 21.22777500000666,
+        "p95": 45.235665000000154
+      },
+      "definitions": {
+        "p50": 50.11431599999196,
+        "p95": 57.72794399999839
+      },
+      "experience": {
+        "p50": 50.086404999994556,
+        "p95": 57.64177700001164
+      },
+      "load": {
+        "p50": 21.234444999994594,
+        "p95": 45.24254500000097
+      },
+      "total": {
+        "p50": 50.11791099999391,
+        "p95": 57.73577600000135
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": true,
+      "variant": "A",
+      "primary": {
+        "p50": 20.621148999998695,
+        "p95": 31.45745600000373
+      },
+      "definitions": null,
+      "experience": null,
+      "load": {
+        "p50": 20.628660000002128,
+        "p95": 31.46510699999635
+      },
+      "total": {
+        "p50": 20.62915000000794,
+        "p95": 31.4656479999976
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": true,
+      "variant": "B",
+      "primary": {
+        "p50": 43.189575999989756,
+        "p95": 58.307847000003676
+      },
+      "definitions": {
+        "p50": 42.74030700000003,
+        "p95": 57.08911499999522
+      },
+      "experience": {
+        "p50": 19.639798999996856,
+        "p95": 47.36794199999713
+      },
+      "load": {
+        "p50": 43.19390199999907,
+        "p95": 58.322537999993074
+      },
+      "total": {
+        "p50": 43.1943229999888,
+        "p95": 58.32300899999973
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": true,
+      "variant": "C",
+      "primary": {
+        "p50": 41.41137799998978,
+        "p95": 49.07680700000492
+      },
+      "definitions": {
+        "p50": 41.3543939999945,
+        "p95": 48.9807950000104
+      },
+      "experience": {
+        "p50": 19.066590999995242,
+        "p95": 23.6016440000094
+      },
+      "load": {
+        "p50": 41.416084999989835,
+        "p95": 49.08144400001038
+      },
+      "total": {
+        "p50": 41.41647599999851,
+        "p95": 49.081844000000274
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": false,
+      "variant": "A",
+      "primary": {
+        "p50": 18.406896999993478,
+        "p95": 38.21979599999031
+      },
+      "definitions": null,
+      "experience": null,
+      "load": {
+        "p50": 18.41390699999465,
+        "p95": 38.22677599999588
+      },
+      "total": {
+        "p50": 18.414268000007723,
+        "p95": 38.22717600000033
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": false,
+      "variant": "B",
+      "primary": {
+        "p50": 21.299627000000328,
+        "p95": 50.238549999994575
+      },
+      "definitions": {
+        "p50": 40.7895889999927,
+        "p95": 72.40274400000635
+      },
+      "experience": {
+        "p50": 42.451731000008294,
+        "p95": 72.43092600000091
+      },
+      "load": {
+        "p50": 42.456669000006514,
+        "p95": 72.43469199999527
+      },
+      "total": {
+        "p50": 42.45706900001096,
+        "p95": 72.43523200000345
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": false,
+      "variant": "C",
+      "primary": {
+        "p50": 20.015864000000875,
+        "p95": 41.77087000000756
+      },
+      "definitions": {
+        "p50": 42.62899800000014,
+        "p95": 66.29535800000303
+      },
+      "experience": {
+        "p50": 42.581858999998076,
+        "p95": 66.32594399999653
+      },
+      "load": {
+        "p50": 20.022624000004726,
+        "p95": 41.77719900000375
+      },
+      "total": {
+        "p50": 42.632514000011724,
+        "p95": 66.32987899999716
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": true,
+      "variant": "A",
+      "primary": {
+        "p50": 20.000000999993063,
+        "p95": 27.074817999993684
+      },
+      "definitions": null,
+      "experience": null,
+      "load": {
+        "p50": 20.00616999999329,
+        "p95": 27.082268999991356
+      },
+      "total": {
+        "p50": 20.0065709999908,
+        "p95": 27.08281999999599
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": true,
+      "variant": "B",
+      "primary": {
+        "p50": 45.57596800000465,
+        "p95": 53.099577999993926
+      },
+      "definitions": {
+        "p50": 44.424297000005026,
+        "p95": 53.12703899999906
+      },
+      "experience": {
+        "p50": 18.384623000005377,
+        "p95": 31.807903000008082
+      },
+      "load": {
+        "p50": 45.67083800000546,
+        "p95": 53.13095400000748
+      },
+      "total": {
+        "p50": 45.671149000001606,
+        "p95": 53.13140500000736
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": true,
+      "variant": "C",
+      "primary": {
+        "p50": 49.13614500001131,
+        "p95": 119.3480899999995
+      },
+      "definitions": {
+        "p50": 49.01486100000329,
+        "p95": 119.3065889999998
+      },
+      "experience": {
+        "p50": 23.067044000010355,
+        "p95": 47.11738599999808
+      },
+      "load": {
+        "p50": 49.14055200001167,
+        "p95": 119.35236600000644
+      },
+      "total": {
+        "p50": 49.14093200000934,
+        "p95": 119.35276700000395
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": false,
+      "variant": "A",
+      "primary": {
+        "p50": 25.496452999999747,
+        "p95": 119.7952449999284
+      },
+      "definitions": null,
+      "experience": null,
+      "load": {
+        "p50": 25.506967999972403,
+        "p95": 119.94291300000623
+      },
+      "total": {
+        "p50": 25.50726899993606,
+        "p95": 119.94380399992224
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": false,
+      "variant": "B",
+      "primary": {
+        "p50": 26.60775300010573,
+        "p95": 50.4710030000424
+      },
+      "definitions": {
+        "p50": 54.708413999993354,
+        "p95": 66.38993099995423
+      },
+      "experience": {
+        "p50": 54.82852099998854,
+        "p95": 66.33029299997725
+      },
+      "load": {
+        "p50": 54.83515099994838,
+        "p95": 66.39501899993047
+      },
+      "total": {
+        "p50": 54.83573199994862,
+        "p95": 66.39531900000293
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": false,
+      "variant": "C",
+      "primary": {
+        "p50": 29.19243799999822,
+        "p95": 95.91638599999715
+      },
+      "definitions": {
+        "p50": 58.416368999984115,
+        "p95": 102.8805660000071
+      },
+      "experience": {
+        "p50": 58.47791000001598,
+        "p95": 102.9164790000068
+      },
+      "load": {
+        "p50": 29.203564999974333,
+        "p95": 95.92450799990911
+      },
+      "total": {
+        "p50": 58.483577999984846,
+        "p95": 102.9224679999752
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": true,
+      "variant": "A",
+      "primary": {
+        "p50": 24.670954000088386,
+        "p95": 33.951502999989316
+      },
+      "definitions": null,
+      "experience": null,
+      "load": {
+        "p50": 24.681949999998324,
+        "p95": 33.9672969999956
+      },
+      "total": {
+        "p50": 24.682311000069603,
+        "p95": 33.96781800000463
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": true,
+      "variant": "B",
+      "primary": {
+        "p50": 56.15781899995636,
+        "p95": 68.85987500008196
+      },
+      "definitions": {
+        "p50": 55.24781500000972,
+        "p95": 63.79245299997274
+      },
+      "experience": {
+        "p50": 23.16819699993357,
+        "p95": 58.33217099995818
+      },
+      "load": {
+        "p50": 56.163907999987714,
+        "p95": 68.87062100006733
+      },
+      "total": {
+        "p50": 56.16435899992939,
+        "p95": 68.87112100003287
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": true,
+      "variant": "C",
+      "primary": {
+        "p50": 49.029714999953285,
+        "p95": 56.481553000048734
+      },
+      "definitions": {
+        "p50": 48.292975999997,
+        "p95": 56.185614999965765
+      },
+      "experience": {
+        "p50": 20.213236000039615,
+        "p95": 33.52614500001073
+      },
+      "load": {
+        "p50": 49.03652500000317,
+        "p95": 56.4872210000176
+      },
+      "total": {
+        "p50": 49.03682499995921,
+        "p95": 56.4875320000574
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": false,
+      "variant": "A",
+      "primary": {
+        "p50": 24.11005399993155,
+        "p95": 40.32812099996954
+      },
+      "definitions": null,
+      "experience": null,
+      "load": {
+        "p50": 24.12121000001207,
+        "p95": 40.33789500000421
+      },
+      "total": {
+        "p50": 24.121450999984518,
+        "p95": 40.33910699991975
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": false,
+      "variant": "B",
+      "primary": {
+        "p50": 35.51226999994833,
+        "p95": 117.31670699990354
+      },
+      "definitions": {
+        "p50": 80.89325299998745,
+        "p95": 133.5401819999097
+      },
+      "experience": {
+        "p50": 80.8425780000398,
+        "p95": 133.57630499999505
+      },
+      "load": {
+        "p50": 80.89969300001394,
+        "p95": 133.58122199994978
+      },
+      "total": {
+        "p50": 80.90005299996119,
+        "p95": 133.5815729999449
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": false,
+      "variant": "C",
+      "primary": {
+        "p50": 29.40317900001537,
+        "p95": 48.226357999956235
+      },
+      "definitions": {
+        "p50": 68.86228200001642,
+        "p95": 86.39489700004924
+      },
+      "experience": {
+        "p50": 68.9693800000241,
+        "p95": 86.26001800002996
+      },
+      "load": {
+        "p50": 29.415136999916285,
+        "p95": 48.23757400002796
+      },
+      "total": {
+        "p50": 68.97498900000937,
+        "p95": 86.40168699994683
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": true,
+      "variant": "A",
+      "primary": {
+        "p50": 21.16006100003142,
+        "p95": 31.667012999998406
+      },
+      "definitions": null,
+      "experience": null,
+      "load": {
+        "p50": 21.16833300003782,
+        "p95": 31.67703799996525
+      },
+      "total": {
+        "p50": 21.168703999952413,
+        "p95": 31.677448999951594
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": true,
+      "variant": "B",
+      "primary": {
+        "p50": 51.07461999997031,
+        "p95": 66.52550300001167
+      },
+      "definitions": {
+        "p50": 50.99930799996946,
+        "p95": 66.45777300000191
+      },
+      "experience": {
+        "p50": 21.525049000047147,
+        "p95": 43.273782999953255
+      },
+      "load": {
+        "p50": 51.079696999979205,
+        "p95": 66.53114199999254
+      },
+      "total": {
+        "p50": 51.08004799997434,
+        "p95": 66.53164300008211
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": true,
+      "variant": "C",
+      "primary": {
+        "p50": 52.454527999972925,
+        "p95": 80.20786399999633
+      },
+      "definitions": {
+        "p50": 52.49164300004486,
+        "p95": 80.25363200006541
+      },
+      "experience": {
+        "p50": 21.057227000012062,
+        "p95": 46.5853510000743
+      },
+      "load": {
+        "p50": 52.4641619999893,
+        "p95": 80.21830000006594
+      },
+      "total": {
+        "p50": 52.493265000055544,
+        "p95": 80.25549500004854
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": false,
+      "variant": "A",
+      "primary": {
+        "p50": 24.682859000051394,
+        "p95": 34.59338600002229
+      },
+      "definitions": null,
+      "experience": null,
+      "load": {
+        "p50": 24.69307400006801,
+        "p95": 34.60395100002643
+      },
+      "total": {
+        "p50": 24.693474000087008,
+        "p95": 34.60435200005304
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": false,
+      "variant": "B",
+      "primary": {
+        "p50": 25.274262999999337,
+        "p95": 63.141106000053696
+      },
+      "definitions": {
+        "p50": 54.456623999984004,
+        "p95": 67.88628299999982
+      },
+      "experience": {
+        "p50": 54.49222599994391,
+        "p95": 67.83338500000536
+      },
+      "load": {
+        "p50": 54.49699299992062,
+        "p95": 67.89152099995408
+      },
+      "total": {
+        "p50": 54.49751399992965,
+        "p95": 67.89202100003604
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": false,
+      "variant": "C",
+      "primary": {
+        "p50": 29.990165999974124,
+        "p95": 66.30391500005499
+      },
+      "definitions": {
+        "p50": 65.95374699996319,
+        "p95": 83.09484099992551
+      },
+      "experience": {
+        "p50": 66.10076399997342,
+        "p95": 83.00264500000048
+      },
+      "load": {
+        "p50": 30.003044999903068,
+        "p95": 66.3095129999565
+      },
+      "total": {
+        "p50": 66.30987400002778,
+        "p95": 83.09813599998597
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": true,
+      "variant": "A",
+      "primary": {
+        "p50": 21.764770999900065,
+        "p95": 33.1005769999465
+      },
+      "definitions": null,
+      "experience": null,
+      "load": {
+        "p50": 21.775666999979876,
+        "p95": 33.111202999949455
+      },
+      "total": {
+        "p50": 21.776046999963,
+        "p95": 33.11169399996288
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": true,
+      "variant": "B",
+      "primary": {
+        "p50": 45.69818300008774,
+        "p95": 50.63436400005594
+      },
+      "definitions": {
+        "p50": 44.678281000000425,
+        "p95": 50.37639200000558
+      },
+      "experience": {
+        "p50": 17.599519999930635,
+        "p95": 28.94899499998428
+      },
+      "load": {
+        "p50": 45.704131999984384,
+        "p95": 50.63985200005118
+      },
+      "total": {
+        "p50": 45.70452300005127,
+        "p95": 50.64033299998846
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": true,
+      "variant": "C",
+      "primary": {
+        "p50": 56.43534399999771,
+        "p95": 157.39303299994208
+      },
+      "definitions": {
+        "p50": 56.047281000064686,
+        "p95": 157.15774599998258
+      },
+      "experience": {
+        "p50": 20.41108499991242,
+        "p95": 119.31467400002293
+      },
+      "load": {
+        "p50": 56.441814000019804,
+        "p95": 157.39910199993756
+      },
+      "total": {
+        "p50": 56.4422950000735,
+        "p95": 157.39949300000444
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": false,
+      "variant": "A",
+      "primary": {
+        "p50": 20.8327130000107,
+        "p95": 27.413505999953486
+      },
+      "definitions": null,
+      "experience": null,
+      "load": {
+        "p50": 20.843518999987282,
+        "p95": 27.423279999988154
+      },
+      "total": {
+        "p50": 20.84387899993453,
+        "p95": 27.423660999978893
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": false,
+      "variant": "B",
+      "primary": {
+        "p50": 22.29501999996137,
+        "p95": 33.09932499995921
+      },
+      "definitions": {
+        "p50": 50.590540000004694,
+        "p95": 66.2186310000252
+      },
+      "experience": {
+        "p50": 50.50068699999247,
+        "p95": 66.18475100002252
+      },
+      "load": {
+        "p50": 50.59608799999114,
+        "p95": 66.22304700000677
+      },
+      "total": {
+        "p50": 50.59657900000457,
+        "p95": 66.22357799997553
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": false,
+      "variant": "C",
+      "primary": {
+        "p50": 27.096127000055276,
+        "p95": 37.07859200006351
+      },
+      "definitions": {
+        "p50": 56.49780700006522,
+        "p95": 68.16072500008158
+      },
+      "experience": {
+        "p50": 56.5861969999969,
+        "p95": 68.40684900002088
+      },
+      "load": {
+        "p50": 27.10780400002841,
+        "p95": 37.09056000004057
+      },
+      "total": {
+        "p50": 56.591124000027776,
+        "p95": 68.41345800005365
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": true,
+      "variant": "A",
+      "primary": {
+        "p50": 21.156577000045218,
+        "p95": 25.55928499996662
+      },
+      "definitions": null,
+      "experience": null,
+      "load": {
+        "p50": 21.165359999984503,
+        "p95": 25.569640000001527
+      },
+      "total": {
+        "p50": 21.165709999972023,
+        "p95": 25.570030999951996
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": true,
+      "variant": "B",
+      "primary": {
+        "p50": 46.01559200009797,
+        "p95": 60.12101699993946
+      },
+      "definitions": {
+        "p50": 45.07925700000487,
+        "p95": 59.95575199997984
+      },
+      "experience": {
+        "p50": 19.27013399999123,
+        "p95": 34.60071499994956
+      },
+      "load": {
+        "p50": 46.02083000005223,
+        "p95": 60.12638899998274
+      },
+      "total": {
+        "p50": 46.02137100009713,
+        "p95": 60.12686999992002
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": true,
+      "variant": "C",
+      "primary": {
+        "p50": 44.062964999931864,
+        "p95": 68.34416199999396
+      },
+      "definitions": {
+        "p50": 43.84170799993444,
+        "p95": 68.24453400005586
+      },
+      "experience": {
+        "p50": 19.374212000053376,
+        "p95": 43.42348999995738
+      },
+      "load": {
+        "p50": 44.068192999926396,
+        "p95": 68.34979999996722
+      },
+      "total": {
+        "p50": 44.06854399992153,
+        "p95": 68.35017999995034
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": false,
+      "variant": "A",
+      "primary": {
+        "p50": 22.15709600003902,
+        "p95": 26.873168000020087
+      },
+      "definitions": null,
+      "experience": null,
+      "load": {
+        "p50": 22.167700999998488,
+        "p95": 26.938244999968447
+      },
+      "total": {
+        "p50": 22.168081999989226,
+        "p95": 26.938695000018924
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": false,
+      "variant": "B",
+      "primary": {
+        "p50": 20.617069000029005,
+        "p95": 27.920045000035316
+      },
+      "definitions": {
+        "p50": 47.739217999973334,
+        "p95": 72.79370300006121
+      },
+      "experience": {
+        "p50": 47.51021999993827,
+        "p95": 72.75275200000033
+      },
+      "load": {
+        "p50": 47.81425900000613,
+        "p95": 72.79791900003329
+      },
+      "total": {
+        "p50": 47.814819999970496,
+        "p95": 72.79898100008722
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": false,
+      "variant": "C",
+      "primary": {
+        "p50": 21.221843999926932,
+        "p95": 25.553988000028767
+      },
+      "definitions": {
+        "p50": 47.3345360000385,
+        "p95": 61.510101999971084
+      },
+      "experience": {
+        "p50": 47.54969400004484,
+        "p95": 61.45948700001463
+      },
+      "load": {
+        "p50": 21.231507999938913,
+        "p95": 25.56340199999977
+      },
+      "total": {
+        "p50": 47.555191999999806,
+        "p95": 61.51470900001004
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": true,
+      "variant": "A",
+      "primary": {
+        "p50": 21.527765000006184,
+        "p95": 22.893439000006765
+      },
+      "definitions": null,
+      "experience": null,
+      "load": {
+        "p50": 21.542316999984905,
+        "p95": 22.904395000077784
+      },
+      "total": {
+        "p50": 21.543088000034913,
+        "p95": 22.904776000068523
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": true,
+      "variant": "B",
+      "primary": {
+        "p50": 47.97788800008129,
+        "p95": 54.09633199998643
+      },
+      "definitions": {
+        "p50": 47.926602000021376,
+        "p95": 54.051035000011325
+      },
+      "experience": {
+        "p50": 19.398586999974214,
+        "p95": 27.168962999945506
+      },
+      "load": {
+        "p50": 47.98318500001915,
+        "p95": 54.10166000004392
+      },
+      "total": {
+        "p50": 47.98356600000989,
+        "p95": 54.102170999976806
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": true,
+      "variant": "C",
+      "primary": {
+        "p50": 47.865371000021696,
+        "p95": 53.85387399990577
+      },
+      "definitions": {
+        "p50": 47.90164400008507,
+        "p95": 53.72265999997035
+      },
+      "experience": {
+        "p50": 21.13811999990139,
+        "p95": 32.429361999966204
+      },
+      "load": {
+        "p50": 47.87526500003878,
+        "p95": 53.86066399991978
+      },
+      "total": {
+        "p50": 47.903076000045985,
+        "p95": 53.86124499992002
+      }
+    }
+  ],
+  "browserRows": [
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": false,
+      "variant": "B",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 512.6000000000931,
+        "p95": 577.1999999999534
+      },
+      "definitions": {
+        "p50": 523.8000000000466,
+        "p95": 577.3000000000466
+      },
+      "experience": {
+        "p50": 527.1999999999534,
+        "p95": 582
+      },
+      "load": {
+        "p50": 527.3000000000466,
+        "p95": 582.5
+      },
+      "ready": {
+        "p50": 1071.3999999999069,
+        "p95": 1287.8999999999069
+      },
+      "choices": {
+        "p50": 1031,
+        "p95": 1256.8000000000466
+      },
+      "shell": {
+        "p50": 481.60000000009313,
+        "p95": 546.6000000000931
+      }
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": false,
+      "variant": "C",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 535.1000000000931,
+        "p95": 702.5
+      },
+      "definitions": {
+        "p50": 823.5,
+        "p95": 1180
+      },
+      "experience": {
+        "p50": 869,
+        "p95": 1273.8000000000466
+      },
+      "load": {
+        "p50": 535.1000000000931,
+        "p95": 702.5
+      },
+      "ready": {
+        "p50": 1165.5,
+        "p95": 1510.1999999999534
+      },
+      "choices": {
+        "p50": 1138.8000000000466,
+        "p95": 1476.6999999999534
+      },
+      "shell": {
+        "p50": 498.70000000018626,
+        "p95": 698.9000000001397
+      }
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": false,
+      "variant": "B",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 142.69999999995343,
+        "p95": 183.60000000009313
+      },
+      "definitions": {
+        "p50": 141.60000000009313,
+        "p95": 183.5
+      },
+      "experience": {
+        "p50": 141.69999999995343,
+        "p95": 183.5
+      },
+      "load": {
+        "p50": 143.39999999990687,
+        "p95": 183.60000000009313
+      },
+      "ready": {
+        "p50": 487.30000000004657,
+        "p95": 628
+      },
+      "choices": {
+        "p50": 459.5,
+        "p95": 603.1999999999534
+      },
+      "shell": {
+        "p50": 297.80000000004657,
+        "p95": 426.29999999981374
+      }
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": false,
+      "variant": "C",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 122.19999999995343,
+        "p95": 170.5
+      },
+      "definitions": {
+        "p50": 122,
+        "p95": 169.5
+      },
+      "experience": {
+        "p50": 122.19999999995343,
+        "p95": 170.5
+      },
+      "load": {
+        "p50": 122.19999999995343,
+        "p95": 170.5
+      },
+      "ready": {
+        "p50": 419.4000000001397,
+        "p95": 528
+      },
+      "choices": {
+        "p50": 392.69999999995343,
+        "p95": 504.19999999995343
+      },
+      "shell": {
+        "p50": 271.5999999998603,
+        "p95": 350.5
+      }
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": false,
+      "variant": "B",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 37,
+        "p95": 72.5
+      },
+      "definitions": {
+        "p50": 66,
+        "p95": 74.70000000018626
+      },
+      "experience": {
+        "p50": 66.10000000009313,
+        "p95": 74.70000000018626
+      },
+      "load": {
+        "p50": 66.10000000009313,
+        "p95": 74.70000000018626
+      },
+      "ready": {
+        "p50": 153.30000000004657,
+        "p95": 172.89999999990687
+      },
+      "choices": {
+        "p50": 125.30000000004657,
+        "p95": 142.5
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": false,
+      "variant": "C",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 30.700000000186265,
+        "p95": 67.19999999995343
+      },
+      "definitions": {
+        "p50": 116.4000000001397,
+        "p95": 144.10000000009313
+      },
+      "experience": {
+        "p50": 126.9000000001397,
+        "p95": 166
+      },
+      "load": {
+        "p50": 30.700000000186265,
+        "p95": 67.19999999995343
+      },
+      "ready": {
+        "p50": 221.10000000009313,
+        "p95": 252
+      },
+      "choices": {
+        "p50": 199.0999999998603,
+        "p95": 235.30000000004657
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": false,
+      "variant": "B",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 43.699999999953434,
+        "p95": 63.9000000001397
+      },
+      "definitions": {
+        "p50": 80.5,
+        "p95": 111
+      },
+      "experience": {
+        "p50": 80.0999999998603,
+        "p95": 111
+      },
+      "load": {
+        "p50": 80.5,
+        "p95": 111
+      },
+      "ready": {
+        "p50": 324,
+        "p95": 477.10000000009313
+      },
+      "choices": {
+        "p50": 312.5,
+        "p95": 473.5
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": false,
+      "variant": "C",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 32.800000000046566,
+        "p95": 55.300000000046566
+      },
+      "definitions": {
+        "p50": 187.69999999995343,
+        "p95": 222.5999999998603
+      },
+      "experience": {
+        "p50": 191,
+        "p95": 222.29999999981374
+      },
+      "load": {
+        "p50": 32.800000000046566,
+        "p95": 55.300000000046566
+      },
+      "ready": {
+        "p50": 314.9000000001397,
+        "p95": 474.60000000009313
+      },
+      "choices": {
+        "p50": 301,
+        "p95": 473.5
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": true,
+      "variant": "B",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 552.7999999998137,
+        "p95": 690.1000000000931
+      },
+      "definitions": {
+        "p50": 552.7999999998137,
+        "p95": 690.1000000000931
+      },
+      "experience": {
+        "p50": 545.2000000001863,
+        "p95": 675.0999999996275
+      },
+      "load": {
+        "p50": 552.7999999998137,
+        "p95": 690.1000000000931
+      },
+      "ready": {
+        "p50": 1060.2000000001863,
+        "p95": 1319.2000000001863
+      },
+      "choices": {
+        "p50": 1024.2000000001863,
+        "p95": 1242.6000000000931
+      },
+      "shell": {
+        "p50": 507,
+        "p95": 647.8999999999069
+      }
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": true,
+      "variant": "C",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 515.6000000000931,
+        "p95": 642
+      },
+      "definitions": {
+        "p50": 498.3000000002794,
+        "p95": 623.5
+      },
+      "experience": {
+        "p50": 486.3000000002794,
+        "p95": 606.2999999998137
+      },
+      "load": {
+        "p50": 515.6000000000931,
+        "p95": 642
+      },
+      "ready": {
+        "p50": 1043.3999999999069,
+        "p95": 1421
+      },
+      "choices": {
+        "p50": 1009.1000000000931,
+        "p95": 1366.8999999999069
+      },
+      "shell": {
+        "p50": 484.40000000037253,
+        "p95": 601.6999999997206
+      }
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": true,
+      "variant": "B",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 119.1999999997206,
+        "p95": 133.79999999981374
+      },
+      "definitions": {
+        "p50": 118,
+        "p95": 133.09999999962747
+      },
+      "experience": {
+        "p50": 117.70000000018626,
+        "p95": 133.09999999962747
+      },
+      "load": {
+        "p50": 119.29999999981374,
+        "p95": 133.89999999990687
+      },
+      "ready": {
+        "p50": 433.39999999990687,
+        "p95": 523.7000000001863
+      },
+      "choices": {
+        "p50": 401.89999999990687,
+        "p95": 460.5
+      },
+      "shell": {
+        "p50": 259.79999999981374,
+        "p95": 363.3000000002794
+      }
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": true,
+      "variant": "C",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 119.6999999997206,
+        "p95": 141.5
+      },
+      "definitions": {
+        "p50": 119.6999999997206,
+        "p95": 141
+      },
+      "experience": {
+        "p50": 119.59999999962747,
+        "p95": 141.5
+      },
+      "load": {
+        "p50": 119.6999999997206,
+        "p95": 141.5
+      },
+      "ready": {
+        "p50": 414.39999999990687,
+        "p95": 482.70000000018626
+      },
+      "choices": {
+        "p50": 400.59999999962747,
+        "p95": 483.79999999981374
+      },
+      "shell": {
+        "p50": 264.10000000009313,
+        "p95": 348.3000000002794
+      }
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": true,
+      "variant": "B",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 59.10000000009313,
+        "p95": 68.09999999962747
+      },
+      "definitions": {
+        "p50": 58,
+        "p95": 68.09999999962747
+      },
+      "experience": {
+        "p50": 27,
+        "p95": 66.5
+      },
+      "load": {
+        "p50": 59.10000000009313,
+        "p95": 68.09999999962747
+      },
+      "ready": {
+        "p50": 151.59999999962747,
+        "p95": 184.39999999990687
+      },
+      "choices": {
+        "p50": 119.3000000002794,
+        "p95": 165.10000000009313
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": true,
+      "variant": "C",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 57.40000000037253,
+        "p95": 67.39999999990687
+      },
+      "definitions": {
+        "p50": 57.3000000002794,
+        "p95": 67.39999999990687
+      },
+      "experience": {
+        "p50": 27.200000000186265,
+        "p95": 61.3000000002794
+      },
+      "load": {
+        "p50": 57.40000000037253,
+        "p95": 67.39999999990687
+      },
+      "ready": {
+        "p50": 187.70000000018626,
+        "p95": 250.79999999981374
+      },
+      "choices": {
+        "p50": 161.89999999990687,
+        "p95": 199.29999999981374
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": true,
+      "variant": "B",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 60.200000000186265,
+        "p95": 94.3000000002794
+      },
+      "definitions": {
+        "p50": 59.3000000002794,
+        "p95": 93.8000000002794
+      },
+      "experience": {
+        "p50": 29.5,
+        "p95": 62.299999999813735
+      },
+      "load": {
+        "p50": 60.200000000186265,
+        "p95": 94.3000000002794
+      },
+      "ready": {
+        "p50": 374.79999999981374,
+        "p95": 422.10000000009313
+      },
+      "choices": {
+        "p50": 360.90000000037253,
+        "p95": 408.5
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 0,
+      "reverse": true,
+      "variant": "C",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 60.10000000009313,
+        "p95": 85.10000000009313
+      },
+      "definitions": {
+        "p50": 59.1999999997206,
+        "p95": 85
+      },
+      "experience": {
+        "p50": 29.800000000279397,
+        "p95": 65
+      },
+      "load": {
+        "p50": 60.10000000009313,
+        "p95": 85.10000000009313
+      },
+      "ready": {
+        "p50": 341.59999999962747,
+        "p95": 408.70000000018626
+      },
+      "choices": {
+        "p50": 341.5,
+        "p95": 408.70000000018626
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": false,
+      "variant": "B",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 532.2999999998137,
+        "p95": 912.6999999999534
+      },
+      "definitions": {
+        "p50": 551.3000000000466,
+        "p95": 980.1000000000931
+      },
+      "experience": {
+        "p50": 551.5999999998603,
+        "p95": 980.1000000000931
+      },
+      "load": {
+        "p50": 551.5999999998603,
+        "p95": 980.1000000000931
+      },
+      "ready": {
+        "p50": 798.3000000000466,
+        "p95": 1244.5
+      },
+      "choices": {
+        "p50": 797.3999999999069,
+        "p95": 1216.6000000000931
+      },
+      "shell": {
+        "p50": 516,
+        "p95": 910
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": false,
+      "variant": "C",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 448.29999999981374,
+        "p95": 754.3999999999069
+      },
+      "definitions": {
+        "p50": 505.5,
+        "p95": 837.6999999999534
+      },
+      "experience": {
+        "p50": 545.5999999998603,
+        "p95": 844.8000000000466
+      },
+      "load": {
+        "p50": 448.29999999981374,
+        "p95": 754.5
+      },
+      "ready": {
+        "p50": 668.9000000001397,
+        "p95": 943.6000000000931
+      },
+      "choices": {
+        "p50": 658.3000000000466,
+        "p95": 934.8999999999069
+      },
+      "shell": {
+        "p50": 430.30000000004657,
+        "p95": 740
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": false,
+      "variant": "B",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 149.19999999995343,
+        "p95": 247.89999999990687
+      },
+      "definitions": {
+        "p50": 149.19999999995343,
+        "p95": 245.89999999990687
+      },
+      "experience": {
+        "p50": 149.39999999990687,
+        "p95": 245.89999999990687
+      },
+      "load": {
+        "p50": 149.39999999990687,
+        "p95": 247.89999999990687
+      },
+      "ready": {
+        "p50": 247.10000000009313,
+        "p95": 340.5
+      },
+      "choices": {
+        "p50": 229,
+        "p95": 309.30000000004657
+      },
+      "shell": {
+        "p50": 183.69999999995343,
+        "p95": 300.69999999995343
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": false,
+      "variant": "C",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 123.80000000004657,
+        "p95": 191
+      },
+      "definitions": {
+        "p50": 130.9000000001397,
+        "p95": 243.89999999990687
+      },
+      "experience": {
+        "p50": 136.5,
+        "p95": 243.89999999990687
+      },
+      "load": {
+        "p50": 123.80000000004657,
+        "p95": 191.0999999998603
+      },
+      "ready": {
+        "p50": 222.60000000009313,
+        "p95": 305
+      },
+      "choices": {
+        "p50": 194.0999999998603,
+        "p95": 281.70000000018626
+      },
+      "shell": {
+        "p50": 158.70000000018626,
+        "p95": 216.89999999990687
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": false,
+      "variant": "B",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 35.60000000009313,
+        "p95": 65
+      },
+      "definitions": {
+        "p50": 70.5,
+        "p95": 86.5
+      },
+      "experience": {
+        "p50": 70.19999999995343,
+        "p95": 87.5
+      },
+      "load": {
+        "p50": 70.5,
+        "p95": 87.5
+      },
+      "ready": {
+        "p50": 152.5,
+        "p95": 169.70000000018626
+      },
+      "choices": {
+        "p50": 94.60000000009313,
+        "p95": 109.10000000009313
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": false,
+      "variant": "C",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 33.39999999990687,
+        "p95": 70.20000000018626
+      },
+      "definitions": {
+        "p50": 70.80000000004657,
+        "p95": 88.29999999981374
+      },
+      "experience": {
+        "p50": 71.69999999995343,
+        "p95": 95.9000000001397
+      },
+      "load": {
+        "p50": 33.39999999990687,
+        "p95": 70.30000000004657
+      },
+      "ready": {
+        "p50": 132.69999999995343,
+        "p95": 171.80000000004657
+      },
+      "choices": {
+        "p50": 105.60000000009313,
+        "p95": 137.4000000001397
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": false,
+      "variant": "B",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 33.799999999813735,
+        "p95": 74.9000000001397
+      },
+      "definitions": {
+        "p50": 65.80000000004657,
+        "p95": 110.5999999998603
+      },
+      "experience": {
+        "p50": 66,
+        "p95": 110.69999999995343
+      },
+      "load": {
+        "p50": 66,
+        "p95": 110.69999999995343
+      },
+      "ready": {
+        "p50": 154,
+        "p95": 200.20000000018626
+      },
+      "choices": {
+        "p50": 120.39999999990687,
+        "p95": 168.69999999995343
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": false,
+      "variant": "C",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 30.300000000046566,
+        "p95": 67.19999999995343
+      },
+      "definitions": {
+        "p50": 66.39999999990687,
+        "p95": 92.30000000004657
+      },
+      "experience": {
+        "p50": 67.19999999995343,
+        "p95": 94
+      },
+      "load": {
+        "p50": 30.300000000046566,
+        "p95": 67.19999999995343
+      },
+      "ready": {
+        "p50": 118,
+        "p95": 212.20000000018626
+      },
+      "choices": {
+        "p50": 105.19999999995343,
+        "p95": 195.80000000004657
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": true,
+      "variant": "B",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 510.79999999981374,
+        "p95": 973.0999999996275
+      },
+      "definitions": {
+        "p50": 491,
+        "p95": 972.8999999999069
+      },
+      "experience": {
+        "p50": 481.60000000009313,
+        "p95": 943.6999999997206
+      },
+      "load": {
+        "p50": 510.89999999990687,
+        "p95": 973.1999999997206
+      },
+      "ready": {
+        "p50": 755.8999999999069,
+        "p95": 1200.8999999999069
+      },
+      "choices": {
+        "p50": 708.7000000001863,
+        "p95": 1142.1999999997206
+      },
+      "shell": {
+        "p50": 467.89999999990687,
+        "p95": 942.1999999997206
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": true,
+      "variant": "C",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 424.39999999990687,
+        "p95": 754.7999999998137
+      },
+      "definitions": {
+        "p50": 409.5,
+        "p95": 738.3999999999069
+      },
+      "experience": {
+        "p50": 397.89999999990687,
+        "p95": 736.7999999998137
+      },
+      "load": {
+        "p50": 424.39999999990687,
+        "p95": 754.8999999999069
+      },
+      "ready": {
+        "p50": 617.5,
+        "p95": 1057.7999999998137
+      },
+      "choices": {
+        "p50": 592.1999999997206,
+        "p95": 925.8999999999069
+      },
+      "shell": {
+        "p50": 377,
+        "p95": 703.5999999996275
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": true,
+      "variant": "B",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 120.29999999981374,
+        "p95": 209.70000000018626
+      },
+      "definitions": {
+        "p50": 120.29999999981374,
+        "p95": 209.70000000018626
+      },
+      "experience": {
+        "p50": 117.40000000037253,
+        "p95": 209.70000000018626
+      },
+      "load": {
+        "p50": 120.29999999981374,
+        "p95": 209.70000000018626
+      },
+      "ready": {
+        "p50": 207.10000000009313,
+        "p95": 305.5
+      },
+      "choices": {
+        "p50": 172.60000000009313,
+        "p95": 277.60000000009313
+      },
+      "shell": {
+        "p50": 134.5,
+        "p95": 272.70000000018626
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": true,
+      "variant": "C",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 128.5,
+        "p95": 324.5
+      },
+      "definitions": {
+        "p50": 128.5,
+        "p95": 324.6999999997206
+      },
+      "experience": {
+        "p50": 127.90000000037253,
+        "p95": 323.89999999990687
+      },
+      "load": {
+        "p50": 128.5,
+        "p95": 324.5
+      },
+      "ready": {
+        "p50": 219.29999999981374,
+        "p95": 424.79999999981374
+      },
+      "choices": {
+        "p50": 188.10000000009313,
+        "p95": 395
+      },
+      "shell": {
+        "p50": 147.8000000002794,
+        "p95": 358.20000000018626
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": true,
+      "variant": "B",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 66.8000000002794,
+        "p95": 94.89999999990687
+      },
+      "definitions": {
+        "p50": 66.8000000002794,
+        "p95": 93.79999999981374
+      },
+      "experience": {
+        "p50": 32.299999999813735,
+        "p95": 39.1999999997206
+      },
+      "load": {
+        "p50": 66.8000000002794,
+        "p95": 95
+      },
+      "ready": {
+        "p50": 151.10000000009313,
+        "p95": 196.5
+      },
+      "choices": {
+        "p50": 90.6999999997206,
+        "p95": 142.10000000009313
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": true,
+      "variant": "C",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 53.60000000009313,
+        "p95": 76.8000000002794
+      },
+      "definitions": {
+        "p50": 53.5,
+        "p95": 77.3000000002794
+      },
+      "experience": {
+        "p50": 25.300000000279397,
+        "p95": 41.10000000009313
+      },
+      "load": {
+        "p50": 53.60000000009313,
+        "p95": 76.8000000002794
+      },
+      "ready": {
+        "p50": 135.29999999981374,
+        "p95": 162
+      },
+      "choices": {
+        "p50": 79.70000000018626,
+        "p95": 99.8000000002794
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": true,
+      "variant": "B",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 54.39999999990687,
+        "p95": 73.39999999990687
+      },
+      "definitions": {
+        "p50": 54.39999999990687,
+        "p95": 72
+      },
+      "experience": {
+        "p50": 27.700000000186265,
+        "p95": 50
+      },
+      "load": {
+        "p50": 54.39999999990687,
+        "p95": 73.39999999990687
+      },
+      "ready": {
+        "p50": 136.39999999990687,
+        "p95": 186.6999999997206
+      },
+      "choices": {
+        "p50": 92.39999999990687,
+        "p95": 122.20000000018626
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 1,
+      "reverse": true,
+      "variant": "C",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 56.3000000002794,
+        "p95": 68.8000000002794
+      },
+      "definitions": {
+        "p50": 56.3000000002794,
+        "p95": 66.60000000009313
+      },
+      "experience": {
+        "p50": 26.899999999906868,
+        "p95": 55.8000000002794
+      },
+      "load": {
+        "p50": 56.3000000002794,
+        "p95": 68.8000000002794
+      },
+      "ready": {
+        "p50": 136.89999999990687,
+        "p95": 155
+      },
+      "choices": {
+        "p50": 101.8000000002794,
+        "p95": 123.29999999981374
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": false,
+      "variant": "B",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 620.7999999998137,
+        "p95": 1127.1999999999534
+      },
+      "definitions": {
+        "p50": 640.0999999998603,
+        "p95": 1123.1999999999534
+      },
+      "experience": {
+        "p50": 652.1999999999534,
+        "p95": 1123.6000000000931
+      },
+      "load": {
+        "p50": 652.1999999999534,
+        "p95": 1127.1999999999534
+      },
+      "ready": {
+        "p50": 1058.9000000001397,
+        "p95": 1477.5
+      },
+      "choices": {
+        "p50": 997.7000000001863,
+        "p95": 1426.4000000001397
+      },
+      "shell": {
+        "p50": 608.5999999998603,
+        "p95": 1032.5
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": false,
+      "variant": "C",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 459.30000000004657,
+        "p95": 635.7999999998137
+      },
+      "definitions": {
+        "p50": 611.3000000000466,
+        "p95": 844.4000000001397
+      },
+      "experience": {
+        "p50": 630.1999999999534,
+        "p95": 857.3000000000466
+      },
+      "load": {
+        "p50": 459.39999999990687,
+        "p95": 635.8999999999069
+      },
+      "ready": {
+        "p50": 805.6000000000931,
+        "p95": 1085.8000000000466
+      },
+      "choices": {
+        "p50": 772.5,
+        "p95": 1024.3000000000466
+      },
+      "shell": {
+        "p50": 440.19999999995343,
+        "p95": 606.1999999999534
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": false,
+      "variant": "B",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 133,
+        "p95": 175.30000000004657
+      },
+      "definitions": {
+        "p50": 133.60000000009313,
+        "p95": 178.80000000004657
+      },
+      "experience": {
+        "p50": 133.60000000009313,
+        "p95": 178.70000000018626
+      },
+      "load": {
+        "p50": 133.70000000018626,
+        "p95": 178.80000000004657
+      },
+      "ready": {
+        "p50": 340,
+        "p95": 451.9000000001397
+      },
+      "choices": {
+        "p50": 305.10000000009313,
+        "p95": 431.70000000018626
+      },
+      "shell": {
+        "p50": 254.69999999995343,
+        "p95": 390.20000000018626
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": false,
+      "variant": "C",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 135.5,
+        "p95": 150.80000000004657
+      },
+      "definitions": {
+        "p50": 135.80000000004657,
+        "p95": 149.30000000004657
+      },
+      "experience": {
+        "p50": 135.80000000004657,
+        "p95": 150.80000000004657
+      },
+      "load": {
+        "p50": 135.5,
+        "p95": 150.80000000004657
+      },
+      "ready": {
+        "p50": 323.10000000009313,
+        "p95": 368.69999999995343
+      },
+      "choices": {
+        "p50": 292,
+        "p95": 348.69999999995343
+      },
+      "shell": {
+        "p50": 220.39999999990687,
+        "p95": 281.19999999995343
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": false,
+      "variant": "B",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 33.89999999990687,
+        "p95": 66.29999999981374
+      },
+      "definitions": {
+        "p50": 63.5999999998603,
+        "p95": 169.5
+      },
+      "experience": {
+        "p50": 63.60000000009313,
+        "p95": 170
+      },
+      "load": {
+        "p50": 63.60000000009313,
+        "p95": 170.10000000009313
+      },
+      "ready": {
+        "p50": 150.29999999981374,
+        "p95": 249.30000000004657
+      },
+      "choices": {
+        "p50": 96.30000000004657,
+        "p95": 208.39999999990687
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": false,
+      "variant": "C",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 35.199999999953434,
+        "p95": 54.199999999953434
+      },
+      "definitions": {
+        "p50": 91.19999999995343,
+        "p95": 110.69999999995343
+      },
+      "experience": {
+        "p50": 96.10000000009313,
+        "p95": 115.10000000009313
+      },
+      "load": {
+        "p50": 35.199999999953434,
+        "p95": 54.199999999953434
+      },
+      "ready": {
+        "p50": 170,
+        "p95": 203.60000000009313
+      },
+      "choices": {
+        "p50": 153,
+        "p95": 191.9000000001397
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": false,
+      "variant": "B",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 32.4000000001397,
+        "p95": 64.60000000009313
+      },
+      "definitions": {
+        "p50": 61.5999999998603,
+        "p95": 104.60000000009313
+      },
+      "experience": {
+        "p50": 64.60000000009313,
+        "p95": 104.69999999995343
+      },
+      "load": {
+        "p50": 64.60000000009313,
+        "p95": 104.69999999995343
+      },
+      "ready": {
+        "p50": 188.10000000009313,
+        "p95": 238.5
+      },
+      "choices": {
+        "p50": 167.69999999995343,
+        "p95": 197.80000000004657
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": false,
+      "variant": "C",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 37.699999999953434,
+        "p95": 55.10000000009313
+      },
+      "definitions": {
+        "p50": 117.0999999998603,
+        "p95": 298.19999999995343
+      },
+      "experience": {
+        "p50": 120.19999999995343,
+        "p95": 297.39999999990687
+      },
+      "load": {
+        "p50": 37.699999999953434,
+        "p95": 55.10000000009313
+      },
+      "ready": {
+        "p50": 188.30000000004657,
+        "p95": 407.30000000004657
+      },
+      "choices": {
+        "p50": 179.30000000004657,
+        "p95": 405.10000000009313
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": true,
+      "variant": "B",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 447,
+        "p95": 647
+      },
+      "definitions": {
+        "p50": 447,
+        "p95": 621
+      },
+      "experience": {
+        "p50": 444.8000000002794,
+        "p95": 604.8000000002794
+      },
+      "load": {
+        "p50": 447,
+        "p95": 647
+      },
+      "ready": {
+        "p50": 757.6000000000931,
+        "p95": 1026.0999999996275
+      },
+      "choices": {
+        "p50": 741,
+        "p95": 993.7999999998137
+      },
+      "shell": {
+        "p50": 411.89999999990687,
+        "p95": 600.8000000002794
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": true,
+      "variant": "C",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 488.20000000018626,
+        "p95": 676.5
+      },
+      "definitions": {
+        "p50": 487.79999999981374,
+        "p95": 676.5
+      },
+      "experience": {
+        "p50": 460.1999999997206,
+        "p95": 675.9000000003725
+      },
+      "load": {
+        "p50": 488.20000000018626,
+        "p95": 676.5
+      },
+      "ready": {
+        "p50": 822.8999999999069,
+        "p95": 1141.7999999998137
+      },
+      "choices": {
+        "p50": 798.1999999997206,
+        "p95": 1105.6999999997206
+      },
+      "shell": {
+        "p50": 440.10000000009313,
+        "p95": 629.8000000002794
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": true,
+      "variant": "B",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 133,
+        "p95": 158.09999999962747
+      },
+      "definitions": {
+        "p50": 133,
+        "p95": 158.09999999962747
+      },
+      "experience": {
+        "p50": 128.3000000002794,
+        "p95": 156.1999999997206
+      },
+      "load": {
+        "p50": 133,
+        "p95": 158.09999999962747
+      },
+      "ready": {
+        "p50": 272.79999999981374,
+        "p95": 356.3000000002794
+      },
+      "choices": {
+        "p50": 240.89999999990687,
+        "p95": 321
+      },
+      "shell": {
+        "p50": 196.8000000002794,
+        "p95": 275.8000000002794
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": true,
+      "variant": "C",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 119.6999999997206,
+        "p95": 165.39999999990687
+      },
+      "definitions": {
+        "p50": 119.20000000018626,
+        "p95": 164.89999999990687
+      },
+      "experience": {
+        "p50": 119.29999999981374,
+        "p95": 164.89999999990687
+      },
+      "load": {
+        "p50": 119.6999999997206,
+        "p95": 165.39999999990687
+      },
+      "ready": {
+        "p50": 274.60000000009313,
+        "p95": 424.10000000009313
+      },
+      "choices": {
+        "p50": 249,
+        "p95": 407.29999999981374
+      },
+      "shell": {
+        "p50": 195.8000000002794,
+        "p95": 279.8000000002794
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": true,
+      "variant": "B",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 67.20000000018626,
+        "p95": 95.89999999990687
+      },
+      "definitions": {
+        "p50": 66.89999999990687,
+        "p95": 95.89999999990687
+      },
+      "experience": {
+        "p50": 37.39999999990687,
+        "p95": 67.1999999997206
+      },
+      "load": {
+        "p50": 67.20000000018626,
+        "p95": 95.89999999990687
+      },
+      "ready": {
+        "p50": 151.79999999981374,
+        "p95": 190.29999999981374
+      },
+      "choices": {
+        "p50": 107.59999999962747,
+        "p95": 137.29999999981374
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": true,
+      "variant": "C",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 60.59999999962747,
+        "p95": 84.89999999990687
+      },
+      "definitions": {
+        "p50": 59.1999999997206,
+        "p95": 84.89999999990687
+      },
+      "experience": {
+        "p50": 29.199999999720603,
+        "p95": 77.20000000018626
+      },
+      "load": {
+        "p50": 60.59999999962747,
+        "p95": 84.89999999990687
+      },
+      "ready": {
+        "p50": 160.09999999962747,
+        "p95": 202.79999999981374
+      },
+      "choices": {
+        "p50": 128.89999999990687,
+        "p95": 156.20000000018626
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": true,
+      "variant": "B",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 62.39999999990687,
+        "p95": 107.1999999997206
+      },
+      "definitions": {
+        "p50": 60.39999999990687,
+        "p95": 106.40000000037253
+      },
+      "experience": {
+        "p50": 30.799999999813735,
+        "p95": 74.60000000009313
+      },
+      "load": {
+        "p50": 62.39999999990687,
+        "p95": 107.1999999997206
+      },
+      "ready": {
+        "p50": 215.1999999997206,
+        "p95": 271.70000000018626
+      },
+      "choices": {
+        "p50": 190.5,
+        "p95": 245.20000000018626
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 2,
+      "reverse": true,
+      "variant": "C",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 58.89999999990687,
+        "p95": 87.8000000002794
+      },
+      "definitions": {
+        "p50": 57.700000000186265,
+        "p95": 87.3000000002794
+      },
+      "experience": {
+        "p50": 26.799999999813735,
+        "p95": 45.299999999813735
+      },
+      "load": {
+        "p50": 58.89999999990687,
+        "p95": 87.8000000002794
+      },
+      "ready": {
+        "p50": 220.5,
+        "p95": 253.3000000002794
+      },
+      "choices": {
+        "p50": 193.60000000009313,
+        "p95": 229.40000000037253
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": false,
+      "variant": "B",
+      "entry": "direct",
+      "hasTask": false,
+      "primary": {
+        "p50": 418.30000000004657,
+        "p95": 585.1999999999534
+      },
+      "definitions": {
+        "p50": 424.0999999998603,
+        "p95": 594.4000000001397
+      },
+      "experience": {
+        "p50": 434.5,
+        "p95": 619.6999999999534
+      },
+      "load": {
+        "p50": 434.60000000009313,
+        "p95": 619.6999999999534
+      },
+      "ready": {
+        "p50": 531.0999999998603,
+        "p95": 819.6999999999534
+      },
+      "choices": {
+        "p50": 498,
+        "p95": 759
+      },
+      "shell": {
+        "p50": 396.60000000009313,
+        "p95": 583.8000000000466
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": false,
+      "variant": "C",
+      "entry": "direct",
+      "hasTask": false,
+      "primary": {
+        "p50": 503.30000000004657,
+        "p95": 724.6999999999534
+      },
+      "definitions": {
+        "p50": 540.8000000000466,
+        "p95": 725.1000000000931
+      },
+      "experience": {
+        "p50": 574.1999999999534,
+        "p95": 796
+      },
+      "load": {
+        "p50": 503.30000000004657,
+        "p95": 724.8000000000466
+      },
+      "ready": {
+        "p50": 668.1999999999534,
+        "p95": 873.6000000000931
+      },
+      "choices": {
+        "p50": 614.4000000001397,
+        "p95": 807.1000000000931
+      },
+      "shell": {
+        "p50": 483.70000000018626,
+        "p95": 699.3000000000466
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": false,
+      "variant": "B",
+      "entry": "navigation",
+      "hasTask": false,
+      "primary": {
+        "p50": 111.80000000004657,
+        "p95": 123.70000000018626
+      },
+      "definitions": {
+        "p50": 112.30000000004657,
+        "p95": 124.30000000004657
+      },
+      "experience": {
+        "p50": 113.30000000004657,
+        "p95": 124.20000000018626
+      },
+      "load": {
+        "p50": 113.30000000004657,
+        "p95": 124.30000000004657
+      },
+      "ready": {
+        "p50": 157.10000000009313,
+        "p95": 241.19999999995343
+      },
+      "choices": {
+        "p50": 131.30000000004657,
+        "p95": 152.80000000004657
+      },
+      "shell": {
+        "p50": 129.19999999995343,
+        "p95": 158.80000000004657
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": false,
+      "variant": "C",
+      "entry": "navigation",
+      "hasTask": false,
+      "primary": {
+        "p50": 127.30000000004657,
+        "p95": 151.19999999995343
+      },
+      "definitions": {
+        "p50": 131.20000000018626,
+        "p95": 173.5
+      },
+      "experience": {
+        "p50": 131.5,
+        "p95": 173.60000000009313
+      },
+      "load": {
+        "p50": 127.30000000004657,
+        "p95": 151.19999999995343
+      },
+      "ready": {
+        "p50": 171.10000000009313,
+        "p95": 208.9000000001397
+      },
+      "choices": {
+        "p50": 151.5,
+        "p95": 188.60000000009313
+      },
+      "shell": {
+        "p50": 136.79999999981374,
+        "p95": 177.30000000004657
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": false,
+      "variant": "B",
+      "entry": "invalidate",
+      "hasTask": false,
+      "primary": {
+        "p50": 28.199999999953434,
+        "p95": 47.60000000009313
+      },
+      "definitions": {
+        "p50": 59.10000000009313,
+        "p95": 69.69999999995343
+      },
+      "experience": {
+        "p50": 59,
+        "p95": 69.69999999995343
+      },
+      "load": {
+        "p50": 59.200000000186265,
+        "p95": 69.79999999981374
+      },
+      "ready": {
+        "p50": 99.80000000004657,
+        "p95": 117.29999999981374
+      },
+      "choices": {
+        "p50": 66.10000000009313,
+        "p95": 87.89999999990687
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": false,
+      "variant": "C",
+      "entry": "invalidate",
+      "hasTask": false,
+      "primary": {
+        "p50": 34.700000000186265,
+        "p95": 65
+      },
+      "definitions": {
+        "p50": 65.5999999998603,
+        "p95": 87.5
+      },
+      "experience": {
+        "p50": 65.79999999981374,
+        "p95": 87.60000000009313
+      },
+      "load": {
+        "p50": 34.700000000186265,
+        "p95": 65
+      },
+      "ready": {
+        "p50": 82.89999999990687,
+        "p95": 119.19999999995343
+      },
+      "choices": {
+        "p50": 80.19999999995343,
+        "p95": 100.30000000004657
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": false,
+      "variant": "B",
+      "entry": "filter",
+      "hasTask": false,
+      "primary": {
+        "p50": 25.199999999953434,
+        "p95": 55.10000000009313
+      },
+      "definitions": {
+        "p50": 49.39999999990687,
+        "p95": 78.60000000009313
+      },
+      "experience": {
+        "p50": 50.4000000001397,
+        "p95": 78.69999999995343
+      },
+      "load": {
+        "p50": 50.4000000001397,
+        "p95": 78.69999999995343
+      },
+      "ready": {
+        "p50": 99.80000000004657,
+        "p95": 118.20000000018626
+      },
+      "choices": {
+        "p50": 68.30000000004657,
+        "p95": 88.89999999990687
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": false,
+      "variant": "C",
+      "entry": "filter",
+      "hasTask": false,
+      "primary": {
+        "p50": 37.800000000046566,
+        "p95": 122.5999999998603
+      },
+      "definitions": {
+        "p50": 88.69999999995343,
+        "p95": 133.30000000004657
+      },
+      "experience": {
+        "p50": 87.69999999995343,
+        "p95": 133.60000000009313
+      },
+      "load": {
+        "p50": 37.800000000046566,
+        "p95": 122.5999999998603
+      },
+      "ready": {
+        "p50": 94.20000000018626,
+        "p95": 191.5999999998603
+      },
+      "choices": {
+        "p50": 100.20000000018626,
+        "p95": 162.0999999998603
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": true,
+      "variant": "B",
+      "entry": "direct",
+      "hasTask": false,
+      "primary": {
+        "p50": 448.5,
+        "p95": 838.7999999998137
+      },
+      "definitions": {
+        "p50": 437.5,
+        "p95": 838.7999999998137
+      },
+      "experience": {
+        "p50": 434.10000000009313,
+        "p95": 810.8999999999069
+      },
+      "load": {
+        "p50": 448.5,
+        "p95": 838.7999999998137
+      },
+      "ready": {
+        "p50": 559.1000000000931,
+        "p95": 956.5
+      },
+      "choices": {
+        "p50": 516.2999999998137,
+        "p95": 928.2000000001863
+      },
+      "shell": {
+        "p50": 427.59999999962747,
+        "p95": 801.8999999999069
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": true,
+      "variant": "C",
+      "entry": "direct",
+      "hasTask": false,
+      "primary": {
+        "p50": 441.70000000018626,
+        "p95": 766.6000000000931
+      },
+      "definitions": {
+        "p50": 431.39999999990687,
+        "p95": 766.6000000000931
+      },
+      "experience": {
+        "p50": 417.70000000018626,
+        "p95": 739.8999999999069
+      },
+      "load": {
+        "p50": 441.8000000002794,
+        "p95": 766.6000000000931
+      },
+      "ready": {
+        "p50": 552.2000000001863,
+        "p95": 1060.2000000001863
+      },
+      "choices": {
+        "p50": 516.8999999999069,
+        "p95": 1039.7000000001863
+      },
+      "shell": {
+        "p50": 399.1999999997206,
+        "p95": 720.8999999999069
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": true,
+      "variant": "B",
+      "entry": "navigation",
+      "hasTask": false,
+      "primary": {
+        "p50": 117,
+        "p95": 139.5
+      },
+      "definitions": {
+        "p50": 115.40000000037253,
+        "p95": 139.5
+      },
+      "experience": {
+        "p50": 114.90000000037253,
+        "p95": 139
+      },
+      "load": {
+        "p50": 117,
+        "p95": 139.5
+      },
+      "ready": {
+        "p50": 168,
+        "p95": 196.5
+      },
+      "choices": {
+        "p50": 140.29999999981374,
+        "p95": 170.89999999990687
+      },
+      "shell": {
+        "p50": 133.8000000002794,
+        "p95": 170.3000000002794
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": true,
+      "variant": "C",
+      "entry": "navigation",
+      "hasTask": false,
+      "primary": {
+        "p50": 124.6999999997206,
+        "p95": 183.90000000037253
+      },
+      "definitions": {
+        "p50": 124.6999999997206,
+        "p95": 183.90000000037253
+      },
+      "experience": {
+        "p50": 124.6999999997206,
+        "p95": 183.5
+      },
+      "load": {
+        "p50": 124.6999999997206,
+        "p95": 183.90000000037253
+      },
+      "ready": {
+        "p50": 168.1999999997206,
+        "p95": 233.5
+      },
+      "choices": {
+        "p50": 143,
+        "p95": 204.10000000009313
+      },
+      "shell": {
+        "p50": 128.59999999962747,
+        "p95": 161.29999999981374
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": true,
+      "variant": "B",
+      "entry": "invalidate",
+      "hasTask": false,
+      "primary": {
+        "p50": 51.5,
+        "p95": 75.10000000009313
+      },
+      "definitions": {
+        "p50": 51.39999999990687,
+        "p95": 74.79999999981374
+      },
+      "experience": {
+        "p50": 25.5,
+        "p95": 39.200000000186265
+      },
+      "load": {
+        "p50": 51.5,
+        "p95": 75.10000000009313
+      },
+      "ready": {
+        "p50": 99.5,
+        "p95": 115.89999999990687
+      },
+      "choices": {
+        "p50": 65.5,
+        "p95": 82.70000000018626
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": true,
+      "variant": "C",
+      "entry": "invalidate",
+      "hasTask": false,
+      "primary": {
+        "p50": 54.60000000009313,
+        "p95": 77.60000000009313
+      },
+      "definitions": {
+        "p50": 54.89999999990687,
+        "p95": 70.60000000009313
+      },
+      "experience": {
+        "p50": 27,
+        "p95": 62
+      },
+      "load": {
+        "p50": 54.60000000009313,
+        "p95": 77.60000000009313
+      },
+      "ready": {
+        "p50": 99.39999999990687,
+        "p95": 128.70000000018626
+      },
+      "choices": {
+        "p50": 68.8000000002794,
+        "p95": 90.6999999997206
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": true,
+      "variant": "B",
+      "entry": "filter",
+      "hasTask": false,
+      "primary": {
+        "p50": 58.5,
+        "p95": 88.79999999981374
+      },
+      "definitions": {
+        "p50": 58.10000000009313,
+        "p95": 89.09999999962747
+      },
+      "experience": {
+        "p50": 29.100000000093132,
+        "p95": 58
+      },
+      "load": {
+        "p50": 58.5,
+        "p95": 89.09999999962747
+      },
+      "ready": {
+        "p50": 100.89999999990687,
+        "p95": 139.79999999981374
+      },
+      "choices": {
+        "p50": 70.60000000009313,
+        "p95": 106.3000000002794
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 3,
+      "reverse": true,
+      "variant": "C",
+      "entry": "filter",
+      "hasTask": false,
+      "primary": {
+        "p50": 69.90000000037253,
+        "p95": 132.20000000018626
+      },
+      "definitions": {
+        "p50": 69.5,
+        "p95": 132
+      },
+      "experience": {
+        "p50": 33.60000000009313,
+        "p95": 96.89999999990687
+      },
+      "load": {
+        "p50": 69.90000000037253,
+        "p95": 132.20000000018626
+      },
+      "ready": {
+        "p50": 116.10000000009313,
+        "p95": 185.10000000009313
+      },
+      "choices": {
+        "p50": 92.60000000009313,
+        "p95": 160.70000000018626
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": false,
+      "variant": "B",
+      "entry": "direct",
+      "hasTask": false,
+      "primary": {
+        "p50": 389.5,
+        "p95": 514
+      },
+      "definitions": {
+        "p50": 394.19999999995343,
+        "p95": 513.6999999999534
+      },
+      "experience": {
+        "p50": 407.30000000004657,
+        "p95": 525.1999999999534
+      },
+      "load": {
+        "p50": 407.4000000001397,
+        "p95": 525.1999999999534
+      },
+      "ready": {
+        "p50": 507.5,
+        "p95": 655.1000000000931
+      },
+      "choices": {
+        "p50": 513.3000000000466,
+        "p95": 660.4000000001397
+      },
+      "shell": {
+        "p50": 377.5999999998603,
+        "p95": 490.69999999995343
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": false,
+      "variant": "C",
+      "entry": "direct",
+      "hasTask": false,
+      "primary": {
+        "p50": 484.0999999998603,
+        "p95": 691.9000000001397
+      },
+      "definitions": {
+        "p50": 527.0999999998603,
+        "p95": 751.8999999999069
+      },
+      "experience": {
+        "p50": 546,
+        "p95": 753.6000000000931
+      },
+      "load": {
+        "p50": 484.0999999998603,
+        "p95": 691.9000000001397
+      },
+      "ready": {
+        "p50": 634.6999999999534,
+        "p95": 897.1000000000931
+      },
+      "choices": {
+        "p50": 654.3000000000466,
+        "p95": 906.6000000000931
+      },
+      "shell": {
+        "p50": 468.9000000001397,
+        "p95": 689.3000000000466
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": false,
+      "variant": "B",
+      "entry": "navigation",
+      "hasTask": false,
+      "primary": {
+        "p50": 117.70000000018626,
+        "p95": 172.19999999995343
+      },
+      "definitions": {
+        "p50": 117.60000000009313,
+        "p95": 172.19999999995343
+      },
+      "experience": {
+        "p50": 117.70000000018626,
+        "p95": 172.19999999995343
+      },
+      "load": {
+        "p50": 117.70000000018626,
+        "p95": 172.19999999995343
+      },
+      "ready": {
+        "p50": 167.69999999995343,
+        "p95": 220.80000000004657
+      },
+      "choices": {
+        "p50": 152.20000000018626,
+        "p95": 203.39999999990687
+      },
+      "shell": {
+        "p50": 129.29999999981374,
+        "p95": 183.19999999995343
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": false,
+      "variant": "C",
+      "entry": "navigation",
+      "hasTask": false,
+      "primary": {
+        "p50": 121.30000000004657,
+        "p95": 262.19999999995343
+      },
+      "definitions": {
+        "p50": 122.89999999990687,
+        "p95": 262.69999999995343
+      },
+      "experience": {
+        "p50": 125.30000000004657,
+        "p95": 262.69999999995343
+      },
+      "load": {
+        "p50": 121.30000000004657,
+        "p95": 262.19999999995343
+      },
+      "ready": {
+        "p50": 167.39999999990687,
+        "p95": 363.5
+      },
+      "choices": {
+        "p50": 155.19999999995343,
+        "p95": 348
+      },
+      "shell": {
+        "p50": 134.9000000001397,
+        "p95": 162.60000000009313
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": false,
+      "variant": "B",
+      "entry": "invalidate",
+      "hasTask": false,
+      "primary": {
+        "p50": 33.39999999990687,
+        "p95": 47.89999999990687
+      },
+      "definitions": {
+        "p50": 62.199999999953434,
+        "p95": 91.89999999990687
+      },
+      "experience": {
+        "p50": 62.199999999953434,
+        "p95": 91.89999999990687
+      },
+      "load": {
+        "p50": 62.199999999953434,
+        "p95": 92
+      },
+      "ready": {
+        "p50": 114.5,
+        "p95": 150
+      },
+      "choices": {
+        "p50": 91.19999999995343,
+        "p95": 123
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": false,
+      "variant": "C",
+      "entry": "invalidate",
+      "hasTask": false,
+      "primary": {
+        "p50": 33.5,
+        "p95": 77.80000000004657
+      },
+      "definitions": {
+        "p50": 66.30000000004657,
+        "p95": 90.5
+      },
+      "experience": {
+        "p50": 67.10000000009313,
+        "p95": 91
+      },
+      "load": {
+        "p50": 33.5,
+        "p95": 77.80000000004657
+      },
+      "ready": {
+        "p50": 84.9000000001397,
+        "p95": 116.4000000001397
+      },
+      "choices": {
+        "p50": 88.20000000018626,
+        "p95": 107.5
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": false,
+      "variant": "B",
+      "entry": "filter",
+      "hasTask": false,
+      "primary": {
+        "p50": 32.299999999813735,
+        "p95": 65
+      },
+      "definitions": {
+        "p50": 59,
+        "p95": 75.19999999995343
+      },
+      "experience": {
+        "p50": 59,
+        "p95": 75.19999999995343
+      },
+      "load": {
+        "p50": 59,
+        "p95": 75.19999999995343
+      },
+      "ready": {
+        "p50": 100.89999999990687,
+        "p95": 147.89999999990687
+      },
+      "choices": {
+        "p50": 75.9000000001397,
+        "p95": 97.5999999998603
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": false,
+      "variant": "C",
+      "entry": "filter",
+      "hasTask": false,
+      "primary": {
+        "p50": 34.199999999953434,
+        "p95": 83.70000000018626
+      },
+      "definitions": {
+        "p50": 66.80000000004657,
+        "p95": 104.69999999995343
+      },
+      "experience": {
+        "p50": 68.69999999995343,
+        "p95": 106.39999999990687
+      },
+      "load": {
+        "p50": 34.199999999953434,
+        "p95": 83.70000000018626
+      },
+      "ready": {
+        "p50": 87,
+        "p95": 156.5
+      },
+      "choices": {
+        "p50": 93,
+        "p95": 211.5
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": true,
+      "variant": "B",
+      "entry": "direct",
+      "hasTask": false,
+      "primary": {
+        "p50": 450,
+        "p95": 522.6000000000931
+      },
+      "definitions": {
+        "p50": 449.5,
+        "p95": 502.09999999962747
+      },
+      "experience": {
+        "p50": 433.10000000009313,
+        "p95": 490.39999999990687
+      },
+      "load": {
+        "p50": 450,
+        "p95": 522.6000000000931
+      },
+      "ready": {
+        "p50": 577.1000000000931,
+        "p95": 729
+      },
+      "choices": {
+        "p50": 583.1000000000931,
+        "p95": 741.1000000000931
+      },
+      "shell": {
+        "p50": 424.90000000037253,
+        "p95": 487.29999999981374
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": true,
+      "variant": "C",
+      "entry": "direct",
+      "hasTask": false,
+      "primary": {
+        "p50": 449.5,
+        "p95": 632.5
+      },
+      "definitions": {
+        "p50": 444.39999999990687,
+        "p95": 632.5
+      },
+      "experience": {
+        "p50": 436.29999999981374,
+        "p95": 613
+      },
+      "load": {
+        "p50": 449.60000000009313,
+        "p95": 632.5
+      },
+      "ready": {
+        "p50": 580.5,
+        "p95": 805.5
+      },
+      "choices": {
+        "p50": 585.6000000000931,
+        "p95": 813
+      },
+      "shell": {
+        "p50": 417.39999999990687,
+        "p95": 610.3000000002794
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": true,
+      "variant": "B",
+      "entry": "navigation",
+      "hasTask": false,
+      "primary": {
+        "p50": 130.70000000018626,
+        "p95": 167.3000000002794
+      },
+      "definitions": {
+        "p50": 130.60000000009313,
+        "p95": 167.3000000002794
+      },
+      "experience": {
+        "p50": 129.39999999990687,
+        "p95": 167.3000000002794
+      },
+      "load": {
+        "p50": 130.70000000018626,
+        "p95": 167.3000000002794
+      },
+      "ready": {
+        "p50": 173.8000000002794,
+        "p95": 219.60000000009313
+      },
+      "choices": {
+        "p50": 167,
+        "p95": 209.5
+      },
+      "shell": {
+        "p50": 138.39999999990687,
+        "p95": 180.40000000037253
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": true,
+      "variant": "C",
+      "entry": "navigation",
+      "hasTask": false,
+      "primary": {
+        "p50": 111.5,
+        "p95": 127.70000000018626
+      },
+      "definitions": {
+        "p50": 111.20000000018626,
+        "p95": 126.70000000018626
+      },
+      "experience": {
+        "p50": 111.39999999990687,
+        "p95": 128.10000000009313
+      },
+      "load": {
+        "p50": 111.5,
+        "p95": 127.70000000018626
+      },
+      "ready": {
+        "p50": 152.29999999981374,
+        "p95": 173.29999999981374
+      },
+      "choices": {
+        "p50": 142.3000000002794,
+        "p95": 160.6999999997206
+      },
+      "shell": {
+        "p50": 132.3000000002794,
+        "p95": 152.8000000002794
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": true,
+      "variant": "B",
+      "entry": "invalidate",
+      "hasTask": false,
+      "primary": {
+        "p50": 70.20000000018626,
+        "p95": 118.8000000002794
+      },
+      "definitions": {
+        "p50": 70.20000000018626,
+        "p95": 118.70000000018626
+      },
+      "experience": {
+        "p50": 30.899999999906868,
+        "p95": 49.5
+      },
+      "load": {
+        "p50": 70.20000000018626,
+        "p95": 118.8000000002794
+      },
+      "ready": {
+        "p50": 112.60000000009313,
+        "p95": 166.10000000009313
+      },
+      "choices": {
+        "p50": 91.39999999990687,
+        "p95": 148.1999999997206
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": true,
+      "variant": "C",
+      "entry": "invalidate",
+      "hasTask": false,
+      "primary": {
+        "p50": 63.5,
+        "p95": 86.10000000009313
+      },
+      "definitions": {
+        "p50": 62.1999999997206,
+        "p95": 86.10000000009313
+      },
+      "experience": {
+        "p50": 33.10000000009313,
+        "p95": 73.20000000018626
+      },
+      "load": {
+        "p50": 63.5,
+        "p95": 86.10000000009313
+      },
+      "ready": {
+        "p50": 115.39999999990687,
+        "p95": 206.5
+      },
+      "choices": {
+        "p50": 91.10000000009313,
+        "p95": 112.10000000009313
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": true,
+      "variant": "B",
+      "entry": "filter",
+      "hasTask": false,
+      "primary": {
+        "p50": 53,
+        "p95": 81.3000000002794
+      },
+      "definitions": {
+        "p50": 52.89999999990687,
+        "p95": 81.3000000002794
+      },
+      "experience": {
+        "p50": 25.699999999720603,
+        "p95": 79.20000000018626
+      },
+      "load": {
+        "p50": 53,
+        "p95": 81.39999999990687
+      },
+      "ready": {
+        "p50": 99.79999999981374,
+        "p95": 128.20000000018626
+      },
+      "choices": {
+        "p50": 74.1999999997206,
+        "p95": 102.39999999990687
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 1,
+      "case": 4,
+      "reverse": true,
+      "variant": "C",
+      "entry": "filter",
+      "hasTask": false,
+      "primary": {
+        "p50": 52.5,
+        "p95": 76.5
+      },
+      "definitions": {
+        "p50": 52,
+        "p95": 77
+      },
+      "experience": {
+        "p50": 26.100000000093132,
+        "p95": 74.60000000009313
+      },
+      "load": {
+        "p50": 52.5,
+        "p95": 76.5
+      },
+      "ready": {
+        "p50": 100.5,
+        "p95": 152.10000000009313
+      },
+      "choices": {
+        "p50": 74.60000000009313,
+        "p95": 106.1999999997206
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": false,
+      "variant": "B",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 499.79999999981374,
+        "p95": 875.7999999998137
+      },
+      "definitions": {
+        "p50": 496.20000000018626,
+        "p95": 896.7000000001863
+      },
+      "experience": {
+        "p50": 512.6000000000931,
+        "p95": 896.7999999998137
+      },
+      "load": {
+        "p50": 512.7000000001863,
+        "p95": 896.7999999998137
+      },
+      "ready": {
+        "p50": 1039.9000000003725,
+        "p95": 1541.5
+      },
+      "choices": {
+        "p50": 1005.8999999999069,
+        "p95": 1495.1999999997206
+      },
+      "shell": {
+        "p50": 471.5,
+        "p95": 733.1000000000931
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": false,
+      "variant": "C",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 501.29999999981374,
+        "p95": 712.6000000000931
+      },
+      "definitions": {
+        "p50": 712.6000000000931,
+        "p95": 1174
+      },
+      "experience": {
+        "p50": 880.4000000003725,
+        "p95": 1219.5
+      },
+      "load": {
+        "p50": 501.29999999981374,
+        "p95": 712.6000000000931
+      },
+      "ready": {
+        "p50": 1146,
+        "p95": 1494
+      },
+      "choices": {
+        "p50": 1103.3000000002794,
+        "p95": 1464.3999999999069
+      },
+      "shell": {
+        "p50": 498.5,
+        "p95": 707.8999999999069
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": false,
+      "variant": "B",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 129.89999999990687,
+        "p95": 186.6999999997206
+      },
+      "definitions": {
+        "p50": 130.20000000018626,
+        "p95": 186.6999999997206
+      },
+      "experience": {
+        "p50": 130.20000000018626,
+        "p95": 186.6999999997206
+      },
+      "load": {
+        "p50": 130.20000000018626,
+        "p95": 186.79999999981374
+      },
+      "ready": {
+        "p50": 459.60000000009313,
+        "p95": 680
+      },
+      "choices": {
+        "p50": 430.20000000018626,
+        "p95": 618.1999999997206
+      },
+      "shell": {
+        "p50": 245.89999999990687,
+        "p95": 369.20000000018626
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": false,
+      "variant": "C",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 120.39999999990687,
+        "p95": 151.29999999981374
+      },
+      "definitions": {
+        "p50": 120.10000000009313,
+        "p95": 155.6999999997206
+      },
+      "experience": {
+        "p50": 120.29999999981374,
+        "p95": 155.6999999997206
+      },
+      "load": {
+        "p50": 120.39999999990687,
+        "p95": 151.29999999981374
+      },
+      "ready": {
+        "p50": 423.5,
+        "p95": 462.89999999990687
+      },
+      "choices": {
+        "p50": 419,
+        "p95": 464.1999999997206
+      },
+      "shell": {
+        "p50": 255.5,
+        "p95": 350
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": false,
+      "variant": "B",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 37.5,
+        "p95": 78.60000000009313
+      },
+      "definitions": {
+        "p50": 70.40000000037253,
+        "p95": 103.6999999997206
+      },
+      "experience": {
+        "p50": 71.39999999990687,
+        "p95": 103.6999999997206
+      },
+      "load": {
+        "p50": 71.5,
+        "p95": 103.6999999997206
+      },
+      "ready": {
+        "p50": 168.90000000037253,
+        "p95": 294.10000000009313
+      },
+      "choices": {
+        "p50": 144.8000000002794,
+        "p95": 209.79999999981374
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": false,
+      "variant": "C",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 31,
+        "p95": 53.39999999990687
+      },
+      "definitions": {
+        "p50": 128.89999999990687,
+        "p95": 162.20000000018626
+      },
+      "experience": {
+        "p50": 131.10000000009313,
+        "p95": 164.39999999990687
+      },
+      "load": {
+        "p50": 31,
+        "p95": 53.39999999990687
+      },
+      "ready": {
+        "p50": 236,
+        "p95": 270.10000000009313
+      },
+      "choices": {
+        "p50": 220.70000000018626,
+        "p95": 257.5
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": false,
+      "variant": "B",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 39.5,
+        "p95": 96.20000000018626
+      },
+      "definitions": {
+        "p50": 73.89999999990687,
+        "p95": 105.29999999981374
+      },
+      "experience": {
+        "p50": 72.5,
+        "p95": 105.5
+      },
+      "load": {
+        "p50": 74,
+        "p95": 105.5
+      },
+      "ready": {
+        "p50": 406.10000000009313,
+        "p95": 503.5
+      },
+      "choices": {
+        "p50": 405,
+        "p95": 505.3000000002794
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": false,
+      "variant": "C",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 31.699999999720603,
+        "p95": 58.799999999813735
+      },
+      "definitions": {
+        "p50": 184.59999999962747,
+        "p95": 324.8000000002794
+      },
+      "experience": {
+        "p50": 197.59999999962747,
+        "p95": 345.29999999981374
+      },
+      "load": {
+        "p50": 31.799999999813735,
+        "p95": 58.799999999813735
+      },
+      "ready": {
+        "p50": 302.5,
+        "p95": 487
+      },
+      "choices": {
+        "p50": 295.59999999962747,
+        "p95": 458
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": true,
+      "variant": "B",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 587.5999999996275,
+        "p95": 920.0999999996275
+      },
+      "definitions": {
+        "p50": 586.5999999996275,
+        "p95": 920.0999999996275
+      },
+      "experience": {
+        "p50": 567.6000000000931,
+        "p95": 902.1999999997206
+      },
+      "load": {
+        "p50": 587.5999999996275,
+        "p95": 920.1999999997206
+      },
+      "ready": {
+        "p50": 1153.7999999998137,
+        "p95": 1462.5999999996275
+      },
+      "choices": {
+        "p50": 1118.3000000002794,
+        "p95": 1411.5
+      },
+      "shell": {
+        "p50": 561,
+        "p95": 896.0999999996275
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": true,
+      "variant": "C",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 483.39999999990687,
+        "p95": 546.0999999996275
+      },
+      "definitions": {
+        "p50": 460.09999999962747,
+        "p95": 546
+      },
+      "experience": {
+        "p50": 452.70000000018626,
+        "p95": 528.4000000003725
+      },
+      "load": {
+        "p50": 483.39999999990687,
+        "p95": 546.0999999996275
+      },
+      "ready": {
+        "p50": 993,
+        "p95": 1176.0999999996275
+      },
+      "choices": {
+        "p50": 956.3999999999069,
+        "p95": 1142.2999999998137
+      },
+      "shell": {
+        "p50": 447.79999999981374,
+        "p95": 525.5
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": true,
+      "variant": "B",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 130,
+        "p95": 159.70000000018626
+      },
+      "definitions": {
+        "p50": 128.10000000009313,
+        "p95": 159.5
+      },
+      "experience": {
+        "p50": 127.5,
+        "p95": 159.39999999990687
+      },
+      "load": {
+        "p50": 130,
+        "p95": 159.70000000018626
+      },
+      "ready": {
+        "p50": 444,
+        "p95": 548.1000000000931
+      },
+      "choices": {
+        "p50": 427.10000000009313,
+        "p95": 475.20000000018626
+      },
+      "shell": {
+        "p50": 261,
+        "p95": 396.70000000018626
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": true,
+      "variant": "C",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 116.39999999990687,
+        "p95": 138.8000000002794
+      },
+      "definitions": {
+        "p50": 116.39999999990687,
+        "p95": 138.8000000002794
+      },
+      "experience": {
+        "p50": 115.60000000009313,
+        "p95": 138.20000000018626
+      },
+      "load": {
+        "p50": 116.39999999990687,
+        "p95": 138.8000000002794
+      },
+      "ready": {
+        "p50": 414.29999999981374,
+        "p95": 493.10000000009313
+      },
+      "choices": {
+        "p50": 414.10000000009313,
+        "p95": 478
+      },
+      "shell": {
+        "p50": 289.5,
+        "p95": 356.70000000018626
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": true,
+      "variant": "B",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 63.3000000002794,
+        "p95": 89.5
+      },
+      "definitions": {
+        "p50": 62.90000000037253,
+        "p95": 73.60000000009313
+      },
+      "experience": {
+        "p50": 30.699999999720603,
+        "p95": 65.10000000009313
+      },
+      "load": {
+        "p50": 63.3000000002794,
+        "p95": 89.5
+      },
+      "ready": {
+        "p50": 154.60000000009313,
+        "p95": 200.3000000002794
+      },
+      "choices": {
+        "p50": 129.5,
+        "p95": 165.40000000037253
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": true,
+      "variant": "C",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 61,
+        "p95": 84.89999999990687
+      },
+      "definitions": {
+        "p50": 60.5,
+        "p95": 84.89999999990687
+      },
+      "experience": {
+        "p50": 29,
+        "p95": 68.70000000018626
+      },
+      "load": {
+        "p50": 61,
+        "p95": 84.89999999990687
+      },
+      "ready": {
+        "p50": 188.70000000018626,
+        "p95": 238.39999999990687
+      },
+      "choices": {
+        "p50": 163.60000000009313,
+        "p95": 212.10000000009313
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": true,
+      "variant": "B",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 69.29999999981374,
+        "p95": 82.8000000002794
+      },
+      "definitions": {
+        "p50": 67.1999999997206,
+        "p95": 81.79999999981374
+      },
+      "experience": {
+        "p50": 30.300000000279397,
+        "p95": 63.60000000009313
+      },
+      "load": {
+        "p50": 69.29999999981374,
+        "p95": 82.89999999990687
+      },
+      "ready": {
+        "p50": 373.20000000018626,
+        "p95": 455.10000000009313
+      },
+      "choices": {
+        "p50": 356.10000000009313,
+        "p95": 443
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 0,
+      "reverse": true,
+      "variant": "C",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 56.89999999990687,
+        "p95": 68.39999999990687
+      },
+      "definitions": {
+        "p50": 56.200000000186265,
+        "p95": 67.60000000009313
+      },
+      "experience": {
+        "p50": 27.90000000037253,
+        "p95": 60.8000000002794
+      },
+      "load": {
+        "p50": 56.89999999990687,
+        "p95": 68.39999999990687
+      },
+      "ready": {
+        "p50": 289,
+        "p95": 390.10000000009313
+      },
+      "choices": {
+        "p50": 271.6999999997206,
+        "p95": 366.5
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": false,
+      "variant": "B",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 498.20000000018626,
+        "p95": 1131.5999999996275
+      },
+      "definitions": {
+        "p50": 508.90000000037253,
+        "p95": 1165.3999999999069
+      },
+      "experience": {
+        "p50": 508.90000000037253,
+        "p95": 1166.0999999996275
+      },
+      "load": {
+        "p50": 508.90000000037253,
+        "p95": 1166.0999999996275
+      },
+      "ready": {
+        "p50": 769,
+        "p95": 1371.6999999997206
+      },
+      "choices": {
+        "p50": 760.3000000002794,
+        "p95": 1339.1999999997206
+      },
+      "shell": {
+        "p50": 469.10000000009313,
+        "p95": 926
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": false,
+      "variant": "C",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 442.79999999981374,
+        "p95": 661.5
+      },
+      "definitions": {
+        "p50": 493.79999999981374,
+        "p95": 762.2999999998137
+      },
+      "experience": {
+        "p50": 553.5,
+        "p95": 956.6000000000931
+      },
+      "load": {
+        "p50": 442.89999999990687,
+        "p95": 661.6000000000931
+      },
+      "ready": {
+        "p50": 650.6999999997206,
+        "p95": 1101.3999999999069
+      },
+      "choices": {
+        "p50": 627,
+        "p95": 1054.8999999999069
+      },
+      "shell": {
+        "p50": 431.39999999990687,
+        "p95": 660.1000000000931
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": false,
+      "variant": "B",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 128.10000000009313,
+        "p95": 297.6999999997206
+      },
+      "definitions": {
+        "p50": 128.3000000002794,
+        "p95": 298.39999999990687
+      },
+      "experience": {
+        "p50": 128.3000000002794,
+        "p95": 298.39999999990687
+      },
+      "load": {
+        "p50": 128.3000000002794,
+        "p95": 298.39999999990687
+      },
+      "ready": {
+        "p50": 223.5,
+        "p95": 509.39999999990687
+      },
+      "choices": {
+        "p50": 204.29999999981374,
+        "p95": 471.29999999981374
+      },
+      "shell": {
+        "p50": 172.60000000009313,
+        "p95": 457.29999999981374
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": false,
+      "variant": "C",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 120.29999999981374,
+        "p95": 315
+      },
+      "definitions": {
+        "p50": 121.1999999997206,
+        "p95": 316.20000000018626
+      },
+      "experience": {
+        "p50": 122.39999999990687,
+        "p95": 315.90000000037253
+      },
+      "load": {
+        "p50": 120.29999999981374,
+        "p95": 315
+      },
+      "ready": {
+        "p50": 204.60000000009313,
+        "p95": 404.89999999990687
+      },
+      "choices": {
+        "p50": 175.60000000009313,
+        "p95": 371.20000000018626
+      },
+      "shell": {
+        "p50": 150.39999999990687,
+        "p95": 236.10000000009313
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": false,
+      "variant": "B",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 31.199999999720603,
+        "p95": 58.89999999990687
+      },
+      "definitions": {
+        "p50": 61.5,
+        "p95": 78.89999999990687
+      },
+      "experience": {
+        "p50": 61.5,
+        "p95": 78.6999999997206
+      },
+      "load": {
+        "p50": 61.5,
+        "p95": 78.89999999990687
+      },
+      "ready": {
+        "p50": 151.89999999990687,
+        "p95": 170.1999999997206
+      },
+      "choices": {
+        "p50": 91.79999999981374,
+        "p95": 105.09999999962747
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": false,
+      "variant": "C",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 38,
+        "p95": 81.29999999981374
+      },
+      "definitions": {
+        "p50": 78.10000000009313,
+        "p95": 85.5
+      },
+      "experience": {
+        "p50": 81.60000000009313,
+        "p95": 89.6999999997206
+      },
+      "load": {
+        "p50": 38,
+        "p95": 81.29999999981374
+      },
+      "ready": {
+        "p50": 133.39999999990687,
+        "p95": 201.6999999997206
+      },
+      "choices": {
+        "p50": 116.39999999990687,
+        "p95": 133.79999999981374
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": false,
+      "variant": "B",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 34.3000000002794,
+        "p95": 58
+      },
+      "definitions": {
+        "p50": 66.29999999981374,
+        "p95": 96
+      },
+      "experience": {
+        "p50": 66.3000000002794,
+        "p95": 96.5
+      },
+      "load": {
+        "p50": 66.5,
+        "p95": 96.5
+      },
+      "ready": {
+        "p50": 153.29999999981374,
+        "p95": 185.79999999981374
+      },
+      "choices": {
+        "p50": 116.29999999981374,
+        "p95": 146.1999999997206
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": false,
+      "variant": "C",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 33,
+        "p95": 55.700000000186265
+      },
+      "definitions": {
+        "p50": 65.39999999990687,
+        "p95": 96.90000000037253
+      },
+      "experience": {
+        "p50": 68.1999999997206,
+        "p95": 99.60000000009313
+      },
+      "load": {
+        "p50": 33,
+        "p95": 55.700000000186265
+      },
+      "ready": {
+        "p50": 117.79999999981374,
+        "p95": 196.70000000018626
+      },
+      "choices": {
+        "p50": 102.09999999962747,
+        "p95": 147.39999999990687
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": true,
+      "variant": "B",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 544.0999999996275,
+        "p95": 990.5
+      },
+      "definitions": {
+        "p50": 525.3999999999069,
+        "p95": 975.1000000000931
+      },
+      "experience": {
+        "p50": 519.1999999997206,
+        "p95": 968.6000000000931
+      },
+      "load": {
+        "p50": 544.0999999996275,
+        "p95": 990.5
+      },
+      "ready": {
+        "p50": 741.6999999997206,
+        "p95": 1237.1999999997206
+      },
+      "choices": {
+        "p50": 719.3999999999069,
+        "p95": 1183.6000000000931
+      },
+      "shell": {
+        "p50": 478.6999999997206,
+        "p95": 964.8999999999069
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": true,
+      "variant": "C",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 483.39999999990687,
+        "p95": 1105.6000000000931
+      },
+      "definitions": {
+        "p50": 464.3000000002794,
+        "p95": 1077.7000000001863
+      },
+      "experience": {
+        "p50": 456.6999999997206,
+        "p95": 1068.6000000000931
+      },
+      "load": {
+        "p50": 483.39999999990687,
+        "p95": 1105.7000000001863
+      },
+      "ready": {
+        "p50": 770.8999999999069,
+        "p95": 1353.5
+      },
+      "choices": {
+        "p50": 746.5,
+        "p95": 1325.6000000000931
+      },
+      "shell": {
+        "p50": 428.89999999990687,
+        "p95": 1062.3000000002794
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": true,
+      "variant": "B",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 130.09999999962747,
+        "p95": 219.6999999997206
+      },
+      "definitions": {
+        "p50": 130.09999999962747,
+        "p95": 219.6999999997206
+      },
+      "experience": {
+        "p50": 129.89999999990687,
+        "p95": 219.6999999997206
+      },
+      "load": {
+        "p50": 130.09999999962747,
+        "p95": 219.79999999981374
+      },
+      "ready": {
+        "p50": 221.6999999997206,
+        "p95": 318.79999999981374
+      },
+      "choices": {
+        "p50": 192.3000000002794,
+        "p95": 285.39999999990687
+      },
+      "shell": {
+        "p50": 162.89999999990687,
+        "p95": 278.39999999990687
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": true,
+      "variant": "C",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 125.70000000018626,
+        "p95": 161.79999999981374
+      },
+      "definitions": {
+        "p50": 125.5,
+        "p95": 161.70000000018626
+      },
+      "experience": {
+        "p50": 124.5,
+        "p95": 161.20000000018626
+      },
+      "load": {
+        "p50": 125.70000000018626,
+        "p95": 161.79999999981374
+      },
+      "ready": {
+        "p50": 221.20000000018626,
+        "p95": 339.60000000009313
+      },
+      "choices": {
+        "p50": 188.39999999990687,
+        "p95": 226.29999999981374
+      },
+      "shell": {
+        "p50": 159.70000000018626,
+        "p95": 224.70000000018626
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": true,
+      "variant": "B",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 64.20000000018626,
+        "p95": 73.39999999990687
+      },
+      "definitions": {
+        "p50": 64.10000000009313,
+        "p95": 73.39999999990687
+      },
+      "experience": {
+        "p50": 30.699999999720603,
+        "p95": 66.3000000002794
+      },
+      "load": {
+        "p50": 64.29999999981374,
+        "p95": 73.39999999990687
+      },
+      "ready": {
+        "p50": 150.60000000009313,
+        "p95": 157.29999999981374
+      },
+      "choices": {
+        "p50": 89.89999999990687,
+        "p95": 103.89999999990687
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": true,
+      "variant": "C",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 57.89999999990687,
+        "p95": 72.8000000002794
+      },
+      "definitions": {
+        "p50": 56.8000000002794,
+        "p95": 70.60000000009313
+      },
+      "experience": {
+        "p50": 29.5,
+        "p95": 46.700000000186265
+      },
+      "load": {
+        "p50": 58,
+        "p95": 72.8000000002794
+      },
+      "ready": {
+        "p50": 137.5,
+        "p95": 155.3000000002794
+      },
+      "choices": {
+        "p50": 83.3000000002794,
+        "p95": 106.89999999990687
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": true,
+      "variant": "B",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 59.700000000186265,
+        "p95": 119.60000000009313
+      },
+      "definitions": {
+        "p50": 60,
+        "p95": 119.5
+      },
+      "experience": {
+        "p50": 28.800000000279397,
+        "p95": 108.10000000009313
+      },
+      "load": {
+        "p50": 60.10000000009313,
+        "p95": 119.60000000009313
+      },
+      "ready": {
+        "p50": 139,
+        "p95": 231.8000000002794
+      },
+      "choices": {
+        "p50": 96.89999999990687,
+        "p95": 173.1999999997206
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 1,
+      "reverse": true,
+      "variant": "C",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 53,
+        "p95": 67
+      },
+      "definitions": {
+        "p50": 53,
+        "p95": 74.20000000018626
+      },
+      "experience": {
+        "p50": 26.300000000279397,
+        "p95": 46
+      },
+      "load": {
+        "p50": 53,
+        "p95": 67
+      },
+      "ready": {
+        "p50": 136.29999999981374,
+        "p95": 152.60000000009313
+      },
+      "choices": {
+        "p50": 95.6999999997206,
+        "p95": 120.1999999997206
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": false,
+      "variant": "B",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 507.20000000018626,
+        "p95": 891.5
+      },
+      "definitions": {
+        "p50": 514.5,
+        "p95": 918.8999999999069
+      },
+      "experience": {
+        "p50": 530.5,
+        "p95": 918.8999999999069
+      },
+      "load": {
+        "p50": 530.5,
+        "p95": 918.8999999999069
+      },
+      "ready": {
+        "p50": 909.1000000000931,
+        "p95": 1242.1999999997206
+      },
+      "choices": {
+        "p50": 901.8999999999069,
+        "p95": 1231.7999999998137
+      },
+      "shell": {
+        "p50": 482.29999999981374,
+        "p95": 878.1000000000931
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": false,
+      "variant": "C",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 474.60000000009313,
+        "p95": 599.1999999997206
+      },
+      "definitions": {
+        "p50": 584.5,
+        "p95": 777.3999999999069
+      },
+      "experience": {
+        "p50": 681.3000000002794,
+        "p95": 874.9000000003725
+      },
+      "load": {
+        "p50": 474.60000000009313,
+        "p95": 599.1999999997206
+      },
+      "ready": {
+        "p50": 820.5999999996275,
+        "p95": 1021.3000000002794
+      },
+      "choices": {
+        "p50": 803.0999999996275,
+        "p95": 978.9000000003725
+      },
+      "shell": {
+        "p50": 438.5,
+        "p95": 576.3999999999069
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": false,
+      "variant": "B",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 118.40000000037253,
+        "p95": 143.39999999990687
+      },
+      "definitions": {
+        "p50": 118.39999999990687,
+        "p95": 143.39999999990687
+      },
+      "experience": {
+        "p50": 118.60000000009313,
+        "p95": 143.39999999990687
+      },
+      "load": {
+        "p50": 118.60000000009313,
+        "p95": 143.39999999990687
+      },
+      "ready": {
+        "p50": 295.29999999981374,
+        "p95": 345.60000000009313
+      },
+      "choices": {
+        "p50": 277.09999999962747,
+        "p95": 327.60000000009313
+      },
+      "shell": {
+        "p50": 223,
+        "p95": 267.10000000009313
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": false,
+      "variant": "C",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 138.20000000018626,
+        "p95": 286.39999999990687
+      },
+      "definitions": {
+        "p50": 145.20000000018626,
+        "p95": 307.10000000009313
+      },
+      "experience": {
+        "p50": 145.20000000018626,
+        "p95": 309
+      },
+      "load": {
+        "p50": 138.20000000018626,
+        "p95": 286.39999999990687
+      },
+      "ready": {
+        "p50": 344.79999999981374,
+        "p95": 496.29999999981374
+      },
+      "choices": {
+        "p50": 317.10000000009313,
+        "p95": 486.39999999990687
+      },
+      "shell": {
+        "p50": 243.5,
+        "p95": 340.89999999990687
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": false,
+      "variant": "B",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 29.600000000093132,
+        "p95": 55.39999999990687
+      },
+      "definitions": {
+        "p50": 56.89999999990687,
+        "p95": 79.60000000009313
+      },
+      "experience": {
+        "p50": 57,
+        "p95": 79.60000000009313
+      },
+      "load": {
+        "p50": 57,
+        "p95": 79.60000000009313
+      },
+      "ready": {
+        "p50": 136.60000000009313,
+        "p95": 167.89999999990687
+      },
+      "choices": {
+        "p50": 91.39999999990687,
+        "p95": 114.89999999990687
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": false,
+      "variant": "C",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 48,
+        "p95": 133.39999999990687
+      },
+      "definitions": {
+        "p50": 127.89999999990687,
+        "p95": 264.90000000037253
+      },
+      "experience": {
+        "p50": 135.59999999962747,
+        "p95": 277.90000000037253
+      },
+      "load": {
+        "p50": 48,
+        "p95": 133.39999999990687
+      },
+      "ready": {
+        "p50": 223.70000000018626,
+        "p95": 475.40000000037253
+      },
+      "choices": {
+        "p50": 193.29999999981374,
+        "p95": 425.8000000002794
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": false,
+      "variant": "B",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 33.60000000009313,
+        "p95": 56.799999999813735
+      },
+      "definitions": {
+        "p50": 58,
+        "p95": 76.29999999981374
+      },
+      "experience": {
+        "p50": 58.1999999997206,
+        "p95": 76.59999999962747
+      },
+      "load": {
+        "p50": 58.1999999997206,
+        "p95": 76.59999999962747
+      },
+      "ready": {
+        "p50": 186.39999999990687,
+        "p95": 272.10000000009313
+      },
+      "choices": {
+        "p50": 170.5,
+        "p95": 214.60000000009313
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": false,
+      "variant": "C",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 31.299999999813735,
+        "p95": 59.60000000009313
+      },
+      "definitions": {
+        "p50": 156,
+        "p95": 186.20000000018626
+      },
+      "experience": {
+        "p50": 163,
+        "p95": 192.5
+      },
+      "load": {
+        "p50": 31.299999999813735,
+        "p95": 59.700000000186265
+      },
+      "ready": {
+        "p50": 238.20000000018626,
+        "p95": 289.79999999981374
+      },
+      "choices": {
+        "p50": 229.59999999962747,
+        "p95": 284.39999999990687
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": true,
+      "variant": "B",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 713.1000000000931,
+        "p95": 956.5
+      },
+      "definitions": {
+        "p50": 698.7999999998137,
+        "p95": 923.3999999999069
+      },
+      "experience": {
+        "p50": 697.1000000000931,
+        "p95": 889.3999999999069
+      },
+      "load": {
+        "p50": 713.2999999998137,
+        "p95": 956.5
+      },
+      "ready": {
+        "p50": 1278,
+        "p95": 1495
+      },
+      "choices": {
+        "p50": 1253.8999999999069,
+        "p95": 1469.8999999999069
+      },
+      "shell": {
+        "p50": 671.6000000000931,
+        "p95": 885.3999999999069
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": true,
+      "variant": "C",
+      "entry": "direct",
+      "hasTask": true,
+      "primary": {
+        "p50": 479.3000000002794,
+        "p95": 590.6999999997206
+      },
+      "definitions": {
+        "p50": 476.6999999997206,
+        "p95": 577.2999999998137
+      },
+      "experience": {
+        "p50": 459.39999999990687,
+        "p95": 569.5999999996275
+      },
+      "load": {
+        "p50": 479.39999999990687,
+        "p95": 590.6999999997206
+      },
+      "ready": {
+        "p50": 796.1000000000931,
+        "p95": 974.1999999997206
+      },
+      "choices": {
+        "p50": 789.5,
+        "p95": 941.5
+      },
+      "shell": {
+        "p50": 432.8000000002794,
+        "p95": 565.6999999997206
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": true,
+      "variant": "B",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 140.10000000009313,
+        "p95": 169.5
+      },
+      "definitions": {
+        "p50": 139.70000000018626,
+        "p95": 169.5
+      },
+      "experience": {
+        "p50": 139.20000000018626,
+        "p95": 169
+      },
+      "load": {
+        "p50": 140.20000000018626,
+        "p95": 169.5
+      },
+      "ready": {
+        "p50": 291.89999999990687,
+        "p95": 420.79999999981374
+      },
+      "choices": {
+        "p50": 284.39999999990687,
+        "p95": 369.3000000002794
+      },
+      "shell": {
+        "p50": 204.5,
+        "p95": 297.89999999990687
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": true,
+      "variant": "C",
+      "entry": "navigation",
+      "hasTask": true,
+      "primary": {
+        "p50": 136.89999999990687,
+        "p95": 163.20000000018626
+      },
+      "definitions": {
+        "p50": 136.89999999990687,
+        "p95": 162.70000000018626
+      },
+      "experience": {
+        "p50": 134.5,
+        "p95": 162.70000000018626
+      },
+      "load": {
+        "p50": 136.89999999990687,
+        "p95": 163.20000000018626
+      },
+      "ready": {
+        "p50": 331.70000000018626,
+        "p95": 438.3000000002794
+      },
+      "choices": {
+        "p50": 307.8000000002794,
+        "p95": 374.5
+      },
+      "shell": {
+        "p50": 222.8000000002794,
+        "p95": 295.3000000002794
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": true,
+      "variant": "B",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 74.20000000018626,
+        "p95": 109.09999999962747
+      },
+      "definitions": {
+        "p50": 73.5,
+        "p95": 109
+      },
+      "experience": {
+        "p50": 35,
+        "p95": 106
+      },
+      "load": {
+        "p50": 74.20000000018626,
+        "p95": 109.09999999962747
+      },
+      "ready": {
+        "p50": 166.40000000037253,
+        "p95": 202.1999999997206
+      },
+      "choices": {
+        "p50": 113.10000000009313,
+        "p95": 171.29999999981374
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": true,
+      "variant": "C",
+      "entry": "invalidate",
+      "hasTask": true,
+      "primary": {
+        "p50": 71.5,
+        "p95": 102.89999999990687
+      },
+      "definitions": {
+        "p50": 71,
+        "p95": 102.5
+      },
+      "experience": {
+        "p50": 33.700000000186265,
+        "p95": 80
+      },
+      "load": {
+        "p50": 71.5,
+        "p95": 102.89999999990687
+      },
+      "ready": {
+        "p50": 173.8000000002794,
+        "p95": 208.10000000009313
+      },
+      "choices": {
+        "p50": 143.10000000009313,
+        "p95": 175
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": true,
+      "variant": "B",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 66.5,
+        "p95": 115.6999999997206
+      },
+      "definitions": {
+        "p50": 66,
+        "p95": 115.60000000009313
+      },
+      "experience": {
+        "p50": 29.899999999906868,
+        "p95": 76.40000000037253
+      },
+      "load": {
+        "p50": 66.5,
+        "p95": 115.6999999997206
+      },
+      "ready": {
+        "p50": 209.1999999997206,
+        "p95": 319.89999999990687
+      },
+      "choices": {
+        "p50": 194,
+        "p95": 303.1999999997206
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 2,
+      "reverse": true,
+      "variant": "C",
+      "entry": "filter",
+      "hasTask": true,
+      "primary": {
+        "p50": 68.29999999981374,
+        "p95": 196.79999999981374
+      },
+      "definitions": {
+        "p50": 67.5,
+        "p95": 196.6999999997206
+      },
+      "experience": {
+        "p50": 32.3000000002794,
+        "p95": 69.60000000009313
+      },
+      "load": {
+        "p50": 68.29999999981374,
+        "p95": 196.79999999981374
+      },
+      "ready": {
+        "p50": 203.39999999990687,
+        "p95": 413.5
+      },
+      "choices": {
+        "p50": 185.29999999981374,
+        "p95": 304.6999999997206
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": false,
+      "variant": "B",
+      "entry": "direct",
+      "hasTask": false,
+      "primary": {
+        "p50": 525.1000000000931,
+        "p95": 1127.3999999999069
+      },
+      "definitions": {
+        "p50": 542.2000000001863,
+        "p95": 1127.5
+      },
+      "experience": {
+        "p50": 653.8999999999069,
+        "p95": 1127.5
+      },
+      "load": {
+        "p50": 653.8999999999069,
+        "p95": 1127.5
+      },
+      "ready": {
+        "p50": 798.6000000000931,
+        "p95": 1341.5999999996275
+      },
+      "choices": {
+        "p50": 766.1000000000931,
+        "p95": 1214
+      },
+      "shell": {
+        "p50": 522.4000000003725,
+        "p95": 1109.7000000001863
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": false,
+      "variant": "C",
+      "entry": "direct",
+      "hasTask": false,
+      "primary": {
+        "p50": 442.20000000018626,
+        "p95": 1163.3999999999069
+      },
+      "definitions": {
+        "p50": 477,
+        "p95": 1167.3999999999069
+      },
+      "experience": {
+        "p50": 503.89999999990687,
+        "p95": 1211.3000000002794
+      },
+      "load": {
+        "p50": 442.20000000018626,
+        "p95": 1163.3999999999069
+      },
+      "ready": {
+        "p50": 574.2000000001863,
+        "p95": 1287.5
+      },
+      "choices": {
+        "p50": 533.7999999998137,
+        "p95": 1224.3999999999069
+      },
+      "shell": {
+        "p50": 440.5,
+        "p95": 1115
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": false,
+      "variant": "B",
+      "entry": "navigation",
+      "hasTask": false,
+      "primary": {
+        "p50": 144.10000000009313,
+        "p95": 427.3000000002794
+      },
+      "definitions": {
+        "p50": 148,
+        "p95": 427.40000000037253
+      },
+      "experience": {
+        "p50": 147.6999999997206,
+        "p95": 427.40000000037253
+      },
+      "load": {
+        "p50": 148,
+        "p95": 427.5
+      },
+      "ready": {
+        "p50": 201.89999999990687,
+        "p95": 468.60000000009313
+      },
+      "choices": {
+        "p50": 194.6999999997206,
+        "p95": 449.10000000009313
+      },
+      "shell": {
+        "p50": 149.70000000018626,
+        "p95": 231.6999999997206
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": false,
+      "variant": "C",
+      "entry": "navigation",
+      "hasTask": false,
+      "primary": {
+        "p50": 115.5,
+        "p95": 222
+      },
+      "definitions": {
+        "p50": 117,
+        "p95": 222.89999999990687
+      },
+      "experience": {
+        "p50": 117.1999999997206,
+        "p95": 222.79999999981374
+      },
+      "load": {
+        "p50": 115.5,
+        "p95": 222.10000000009313
+      },
+      "ready": {
+        "p50": 168.1999999997206,
+        "p95": 263
+      },
+      "choices": {
+        "p50": 139.5,
+        "p95": 241.20000000018626
+      },
+      "shell": {
+        "p50": 131.3000000002794,
+        "p95": 151.29999999981374
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": false,
+      "variant": "B",
+      "entry": "invalidate",
+      "hasTask": false,
+      "primary": {
+        "p50": 31.799999999813735,
+        "p95": 64.90000000037253
+      },
+      "definitions": {
+        "p50": 64.5,
+        "p95": 104
+      },
+      "experience": {
+        "p50": 65,
+        "p95": 104
+      },
+      "load": {
+        "p50": 65,
+        "p95": 104
+      },
+      "ready": {
+        "p50": 112,
+        "p95": 150.39999999990687
+      },
+      "choices": {
+        "p50": 75.70000000018626,
+        "p95": 109.39999999990687
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": false,
+      "variant": "C",
+      "entry": "invalidate",
+      "hasTask": false,
+      "primary": {
+        "p50": 31.100000000093132,
+        "p95": 76.09999999962747
+      },
+      "definitions": {
+        "p50": 55.60000000009313,
+        "p95": 91.60000000009313
+      },
+      "experience": {
+        "p50": 55.799999999813735,
+        "p95": 90.70000000018626
+      },
+      "load": {
+        "p50": 31.100000000093132,
+        "p95": 76.09999999962747
+      },
+      "ready": {
+        "p50": 82.70000000018626,
+        "p95": 116.59999999962747
+      },
+      "choices": {
+        "p50": 68.5,
+        "p95": 101.10000000009313
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": false,
+      "variant": "B",
+      "entry": "filter",
+      "hasTask": false,
+      "primary": {
+        "p50": 31.600000000093132,
+        "p95": 61.799999999813735
+      },
+      "definitions": {
+        "p50": 58.60000000009313,
+        "p95": 86.09999999962747
+      },
+      "experience": {
+        "p50": 58.6999999997206,
+        "p95": 84.59999999962747
+      },
+      "load": {
+        "p50": 58.6999999997206,
+        "p95": 86.1999999997206
+      },
+      "ready": {
+        "p50": 101.5,
+        "p95": 134.5
+      },
+      "choices": {
+        "p50": 69.29999999981374,
+        "p95": 100.5
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": false,
+      "variant": "C",
+      "entry": "filter",
+      "hasTask": false,
+      "primary": {
+        "p50": 42.299999999813735,
+        "p95": 110.29999999981374
+      },
+      "definitions": {
+        "p50": 77,
+        "p95": 117.39999999990687
+      },
+      "experience": {
+        "p50": 77.1999999997206,
+        "p95": 117.5
+      },
+      "load": {
+        "p50": 42.299999999813735,
+        "p95": 110.29999999981374
+      },
+      "ready": {
+        "p50": 95.20000000018626,
+        "p95": 178.5
+      },
+      "choices": {
+        "p50": 91.8000000002794,
+        "p95": 145.89999999990687
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": true,
+      "variant": "B",
+      "entry": "direct",
+      "hasTask": false,
+      "primary": {
+        "p50": 558.2999999998137,
+        "p95": 1239
+      },
+      "definitions": {
+        "p50": 530.7999999998137,
+        "p95": 1220.7999999998137
+      },
+      "experience": {
+        "p50": 520,
+        "p95": 1219.1000000000931
+      },
+      "load": {
+        "p50": 558.2999999998137,
+        "p95": 1239
+      },
+      "ready": {
+        "p50": 707.7999999998137,
+        "p95": 1404.2000000001863
+      },
+      "choices": {
+        "p50": 669.5,
+        "p95": 1372
+      },
+      "shell": {
+        "p50": 504.10000000009313,
+        "p95": 1172.7000000001863
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": true,
+      "variant": "C",
+      "entry": "direct",
+      "hasTask": false,
+      "primary": {
+        "p50": 449,
+        "p95": 745.9000000003725
+      },
+      "definitions": {
+        "p50": 447.39999999990687,
+        "p95": 745.9000000003725
+      },
+      "experience": {
+        "p50": 425.5,
+        "p95": 682.9000000003725
+      },
+      "load": {
+        "p50": 449,
+        "p95": 745.9000000003725
+      },
+      "ready": {
+        "p50": 586.8999999999069,
+        "p95": 875
+      },
+      "choices": {
+        "p50": 532.2999999998137,
+        "p95": 841.5
+      },
+      "shell": {
+        "p50": 424.39999999990687,
+        "p95": 673.8000000002794
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": true,
+      "variant": "B",
+      "entry": "navigation",
+      "hasTask": false,
+      "primary": {
+        "p50": 141.5,
+        "p95": 369.70000000018626
+      },
+      "definitions": {
+        "p50": 141.5,
+        "p95": 369.60000000009313
+      },
+      "experience": {
+        "p50": 138.70000000018626,
+        "p95": 369.5
+      },
+      "load": {
+        "p50": 141.60000000009313,
+        "p95": 369.70000000018626
+      },
+      "ready": {
+        "p50": 200.59999999962747,
+        "p95": 425.10000000009313
+      },
+      "choices": {
+        "p50": 176.60000000009313,
+        "p95": 409.3000000002794
+      },
+      "shell": {
+        "p50": 161.5,
+        "p95": 207.70000000018626
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": true,
+      "variant": "C",
+      "entry": "navigation",
+      "hasTask": false,
+      "primary": {
+        "p50": 114.10000000009313,
+        "p95": 127.10000000009313
+      },
+      "definitions": {
+        "p50": 116.5,
+        "p95": 127.10000000009313
+      },
+      "experience": {
+        "p50": 116.29999999981374,
+        "p95": 125.29999999981374
+      },
+      "load": {
+        "p50": 114.20000000018626,
+        "p95": 127.10000000009313
+      },
+      "ready": {
+        "p50": 157.29999999981374,
+        "p95": 186.60000000009313
+      },
+      "choices": {
+        "p50": 134.3000000002794,
+        "p95": 151.60000000009313
+      },
+      "shell": {
+        "p50": 132.29999999981374,
+        "p95": 152.3000000002794
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": true,
+      "variant": "B",
+      "entry": "invalidate",
+      "hasTask": false,
+      "primary": {
+        "p50": 71.39999999990687,
+        "p95": 125.89999999990687
+      },
+      "definitions": {
+        "p50": 71.39999999990687,
+        "p95": 125.79999999981374
+      },
+      "experience": {
+        "p50": 32.60000000009313,
+        "p95": 56.799999999813735
+      },
+      "load": {
+        "p50": 71.39999999990687,
+        "p95": 125.89999999990687
+      },
+      "ready": {
+        "p50": 119.1999999997206,
+        "p95": 331
+      },
+      "choices": {
+        "p50": 83.20000000018626,
+        "p95": 142.6999999997206
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": true,
+      "variant": "C",
+      "entry": "invalidate",
+      "hasTask": false,
+      "primary": {
+        "p50": 51.6999999997206,
+        "p95": 113.3000000002794
+      },
+      "definitions": {
+        "p50": 51.700000000186265,
+        "p95": 113.3000000002794
+      },
+      "experience": {
+        "p50": 26.600000000093132,
+        "p95": 113.3000000002794
+      },
+      "load": {
+        "p50": 51.6999999997206,
+        "p95": 113.40000000037253
+      },
+      "ready": {
+        "p50": 99.5,
+        "p95": 148.40000000037253
+      },
+      "choices": {
+        "p50": 69.09999999962747,
+        "p95": 121.5
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": true,
+      "variant": "B",
+      "entry": "filter",
+      "hasTask": false,
+      "primary": {
+        "p50": 75.60000000009313,
+        "p95": 139.60000000009313
+      },
+      "definitions": {
+        "p50": 75.60000000009313,
+        "p95": 139.60000000009313
+      },
+      "experience": {
+        "p50": 42.89999999990687,
+        "p95": 110.89999999990687
+      },
+      "load": {
+        "p50": 75.60000000009313,
+        "p95": 139.60000000009313
+      },
+      "ready": {
+        "p50": 119.29999999981374,
+        "p95": 219.39999999990687
+      },
+      "choices": {
+        "p50": 92.39999999990687,
+        "p95": 179.29999999981374
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 3,
+      "reverse": true,
+      "variant": "C",
+      "entry": "filter",
+      "hasTask": false,
+      "primary": {
+        "p50": 52.39999999990687,
+        "p95": 76.29999999981374
+      },
+      "definitions": {
+        "p50": 52.6999999997206,
+        "p95": 76.29999999981374
+      },
+      "experience": {
+        "p50": 25.199999999720603,
+        "p95": 35.60000000009313
+      },
+      "load": {
+        "p50": 52.39999999990687,
+        "p95": 76.29999999981374
+      },
+      "ready": {
+        "p50": 101,
+        "p95": 156.70000000018626
+      },
+      "choices": {
+        "p50": 69.90000000037253,
+        "p95": 144.60000000009313
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": false,
+      "variant": "B",
+      "entry": "direct",
+      "hasTask": false,
+      "primary": {
+        "p50": 430.10000000009313,
+        "p95": 680.3999999999069
+      },
+      "definitions": {
+        "p50": 442.39999999990687,
+        "p95": 680.6000000000931
+      },
+      "experience": {
+        "p50": 452.59999999962747,
+        "p95": 680.5
+      },
+      "load": {
+        "p50": 452.89999999990687,
+        "p95": 680.6000000000931
+      },
+      "ready": {
+        "p50": 581,
+        "p95": 812.1000000000931
+      },
+      "choices": {
+        "p50": 587.6000000000931,
+        "p95": 827.8999999999069
+      },
+      "shell": {
+        "p50": 412,
+        "p95": 607.6000000000931
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": false,
+      "variant": "C",
+      "entry": "direct",
+      "hasTask": false,
+      "primary": {
+        "p50": 456,
+        "p95": 885.8999999999069
+      },
+      "definitions": {
+        "p50": 498.60000000009313,
+        "p95": 885.8999999999069
+      },
+      "experience": {
+        "p50": 504.3000000002794,
+        "p95": 978
+      },
+      "load": {
+        "p50": 456,
+        "p95": 886
+      },
+      "ready": {
+        "p50": 559.7000000001863,
+        "p95": 1041.5
+      },
+      "choices": {
+        "p50": 567.7999999998137,
+        "p95": 1047.3999999999069
+      },
+      "shell": {
+        "p50": 445.89999999990687,
+        "p95": 857.6000000000931
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": false,
+      "variant": "B",
+      "entry": "navigation",
+      "hasTask": false,
+      "primary": {
+        "p50": 115.89999999990687,
+        "p95": 144.40000000037253
+      },
+      "definitions": {
+        "p50": 116,
+        "p95": 144.5
+      },
+      "experience": {
+        "p50": 116,
+        "p95": 144.60000000009313
+      },
+      "load": {
+        "p50": 116,
+        "p95": 144.60000000009313
+      },
+      "ready": {
+        "p50": 167.59999999962747,
+        "p95": 185.70000000018626
+      },
+      "choices": {
+        "p50": 150.89999999990687,
+        "p95": 180.89999999990687
+      },
+      "shell": {
+        "p50": 138.20000000018626,
+        "p95": 176.89999999990687
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": false,
+      "variant": "C",
+      "entry": "navigation",
+      "hasTask": false,
+      "primary": {
+        "p50": 112.20000000018626,
+        "p95": 152.59999999962747
+      },
+      "definitions": {
+        "p50": 112.70000000018626,
+        "p95": 152.5
+      },
+      "experience": {
+        "p50": 113.10000000009313,
+        "p95": 152.89999999990687
+      },
+      "load": {
+        "p50": 112.20000000018626,
+        "p95": 152.59999999962747
+      },
+      "ready": {
+        "p50": 154.40000000037253,
+        "p95": 219.29999999981374
+      },
+      "choices": {
+        "p50": 155.59999999962747,
+        "p95": 210
+      },
+      "shell": {
+        "p50": 136.39999999990687,
+        "p95": 192.60000000009313
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": false,
+      "variant": "B",
+      "entry": "invalidate",
+      "hasTask": false,
+      "primary": {
+        "p50": 28.399999999906868,
+        "p95": 79.90000000037253
+      },
+      "definitions": {
+        "p50": 55,
+        "p95": 107.70000000018626
+      },
+      "experience": {
+        "p50": 54.90000000037253,
+        "p95": 107.8000000002794
+      },
+      "load": {
+        "p50": 55,
+        "p95": 107.8000000002794
+      },
+      "ready": {
+        "p50": 99.29999999981374,
+        "p95": 149.3000000002794
+      },
+      "choices": {
+        "p50": 73.90000000037253,
+        "p95": 122.90000000037253
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": false,
+      "variant": "C",
+      "entry": "invalidate",
+      "hasTask": false,
+      "primary": {
+        "p50": 27.200000000186265,
+        "p95": 46.89999999990687
+      },
+      "definitions": {
+        "p50": 48.5,
+        "p95": 64.6999999997206
+      },
+      "experience": {
+        "p50": 49.8000000002794,
+        "p95": 65.59999999962747
+      },
+      "load": {
+        "p50": 27.200000000186265,
+        "p95": 46.89999999990687
+      },
+      "ready": {
+        "p50": 71.79999999981374,
+        "p95": 98.59999999962747
+      },
+      "choices": {
+        "p50": 74.60000000009313,
+        "p95": 96.6999999997206
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": false,
+      "variant": "B",
+      "entry": "filter",
+      "hasTask": false,
+      "primary": {
+        "p50": 29.600000000093132,
+        "p95": 39.3000000002794
+      },
+      "definitions": {
+        "p50": 57.3000000002794,
+        "p95": 83.09999999962747
+      },
+      "experience": {
+        "p50": 57.3000000002794,
+        "p95": 83.09999999962747
+      },
+      "load": {
+        "p50": 57.40000000037253,
+        "p95": 83.09999999962747
+      },
+      "ready": {
+        "p50": 100.5,
+        "p95": 134.1999999997206
+      },
+      "choices": {
+        "p50": 75.20000000018626,
+        "p95": 108.1999999997206
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": false,
+      "variant": "C",
+      "entry": "filter",
+      "hasTask": false,
+      "primary": {
+        "p50": 26.699999999720603,
+        "p95": 55.200000000186265
+      },
+      "definitions": {
+        "p50": 53.799999999813735,
+        "p95": 59.39999999990687
+      },
+      "experience": {
+        "p50": 54.60000000009313,
+        "p95": 62.10000000009313
+      },
+      "load": {
+        "p50": 26.699999999720603,
+        "p95": 55.200000000186265
+      },
+      "ready": {
+        "p50": 69.60000000009313,
+        "p95": 105.39999999990687
+      },
+      "choices": {
+        "p50": 74.5,
+        "p95": 108.70000000018626
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": true,
+      "variant": "B",
+      "entry": "direct",
+      "hasTask": false,
+      "primary": {
+        "p50": 720.2999999998137,
+        "p95": 1031.8999999999069
+      },
+      "definitions": {
+        "p50": 693.7999999998137,
+        "p95": 1016.1999999997206
+      },
+      "experience": {
+        "p50": 662.7000000001863,
+        "p95": 1016.1999999997206
+      },
+      "load": {
+        "p50": 720.2999999998137,
+        "p95": 1032
+      },
+      "ready": {
+        "p50": 927.6000000000931,
+        "p95": 1219.3999999999069
+      },
+      "choices": {
+        "p50": 943.1000000000931,
+        "p95": 1228.1000000000931
+      },
+      "shell": {
+        "p50": 657,
+        "p95": 1007.6999999997206
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": true,
+      "variant": "C",
+      "entry": "direct",
+      "hasTask": false,
+      "primary": {
+        "p50": 469.20000000018626,
+        "p95": 664.7000000001863
+      },
+      "definitions": {
+        "p50": 453.90000000037253,
+        "p95": 664.3999999999069
+      },
+      "experience": {
+        "p50": 447.79999999981374,
+        "p95": 602.7999999998137
+      },
+      "load": {
+        "p50": 469.20000000018626,
+        "p95": 664.7000000001863
+      },
+      "ready": {
+        "p50": 626,
+        "p95": 792.8999999999069
+      },
+      "choices": {
+        "p50": 636.3000000002794,
+        "p95": 801
+      },
+      "shell": {
+        "p50": 426.79999999981374,
+        "p95": 602.1000000000931
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": true,
+      "variant": "B",
+      "entry": "navigation",
+      "hasTask": false,
+      "primary": {
+        "p50": 128,
+        "p95": 150.10000000009313
+      },
+      "definitions": {
+        "p50": 128,
+        "p95": 150.10000000009313
+      },
+      "experience": {
+        "p50": 126.60000000009313,
+        "p95": 149.5
+      },
+      "load": {
+        "p50": 128,
+        "p95": 150.20000000018626
+      },
+      "ready": {
+        "p50": 180.10000000009313,
+        "p95": 205.1999999997206
+      },
+      "choices": {
+        "p50": 168.1999999997206,
+        "p95": 208.29999999981374
+      },
+      "shell": {
+        "p50": 146.39999999990687,
+        "p95": 189.3000000002794
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": true,
+      "variant": "C",
+      "entry": "navigation",
+      "hasTask": false,
+      "primary": {
+        "p50": 114.89999999990687,
+        "p95": 136.10000000009313
+      },
+      "definitions": {
+        "p50": 115.20000000018626,
+        "p95": 134.39999999990687
+      },
+      "experience": {
+        "p50": 114.20000000018626,
+        "p95": 134.10000000009313
+      },
+      "load": {
+        "p50": 114.89999999990687,
+        "p95": 136.10000000009313
+      },
+      "ready": {
+        "p50": 166.60000000009313,
+        "p95": 185.5
+      },
+      "choices": {
+        "p50": 149,
+        "p95": 170.79999999981374
+      },
+      "shell": {
+        "p50": 130.5,
+        "p95": 161.1999999997206
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": true,
+      "variant": "B",
+      "entry": "invalidate",
+      "hasTask": false,
+      "primary": {
+        "p50": 66.60000000009313,
+        "p95": 89.89999999990687
+      },
+      "definitions": {
+        "p50": 60.89999999990687,
+        "p95": 90.29999999981374
+      },
+      "experience": {
+        "p50": 34.6999999997206,
+        "p95": 84.5
+      },
+      "load": {
+        "p50": 66.60000000009313,
+        "p95": 90.29999999981374
+      },
+      "ready": {
+        "p50": 116.10000000009313,
+        "p95": 151.5
+      },
+      "choices": {
+        "p50": 94.59999999962747,
+        "p95": 159.39999999990687
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": true,
+      "variant": "C",
+      "entry": "invalidate",
+      "hasTask": false,
+      "primary": {
+        "p50": 59.200000000186265,
+        "p95": 92.29999999981374
+      },
+      "definitions": {
+        "p50": 59.5,
+        "p95": 93.1999999997206
+      },
+      "experience": {
+        "p50": 29.800000000279397,
+        "p95": 66.8000000002794
+      },
+      "load": {
+        "p50": 59.200000000186265,
+        "p95": 92.29999999981374
+      },
+      "ready": {
+        "p50": 100.3000000002794,
+        "p95": 161.39999999990687
+      },
+      "choices": {
+        "p50": 77.90000000037253,
+        "p95": 153.1999999997206
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": true,
+      "variant": "B",
+      "entry": "filter",
+      "hasTask": false,
+      "primary": {
+        "p50": 60.299999999813735,
+        "p95": 131.40000000037253
+      },
+      "definitions": {
+        "p50": 60.10000000009313,
+        "p95": 131.40000000037253
+      },
+      "experience": {
+        "p50": 28.299999999813735,
+        "p95": 66.70000000018626
+      },
+      "load": {
+        "p50": 60.299999999813735,
+        "p95": 131.40000000037253
+      },
+      "ready": {
+        "p50": 114.39999999990687,
+        "p95": 183.90000000037253
+      },
+      "choices": {
+        "p50": 91.09999999962747,
+        "p95": 159.8000000002794
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "round": 2,
+      "case": 4,
+      "reverse": true,
+      "variant": "C",
+      "entry": "filter",
+      "hasTask": false,
+      "primary": {
+        "p50": 55.10000000009313,
+        "p95": 78.10000000009313
+      },
+      "definitions": {
+        "p50": 55,
+        "p95": 78.3000000002794
+      },
+      "experience": {
+        "p50": 28.399999999906868,
+        "p95": 54.1999999997206
+      },
+      "load": {
+        "p50": 55.10000000009313,
+        "p95": 78.10000000009313
+      },
+      "ready": {
+        "p50": 102.29999999981374,
+        "p95": 133.60000000009313
+      },
+      "choices": {
+        "p50": 80.20000000018626,
+        "p95": 111.8000000002794
+      },
+      "shell": {
+        "p50": 0,
+        "p95": 0
+      }
+    }
+  ]
+}

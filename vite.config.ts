@@ -5,6 +5,7 @@ import { defineConfig } from 'vite';
 import { devPorts } from './scripts/dev-ports.ts';
 import { devWatchIgnored } from './scripts/dev-watch.ts';
 import { fontsourceWoff2Only } from './scripts/fontsource-woff2.ts';
+import { clientOperationMetadata } from './scripts/client-operation-metadata.ts';
 import { decodeNamedCharacterReferenceFile } from './scripts/markdown-worker-entities.ts';
 import { pageCspDirectives } from './src/shared/security-headers.ts';
 
@@ -13,6 +14,7 @@ const root = fileURLToPath(new URL('.', import.meta.url));
 
 export default defineConfig({
   plugins: [
+    clientOperationMetadata(),
     fontsourceWoff2Only(),
     sveltekit({
       compilerOptions: {
@@ -45,7 +47,14 @@ export default defineConfig({
                 { name: 'svelte', test: /node_modules[\\/]svelte[\\/]/ },
                 {
                   name: 'operations',
-                  test: /src[\\/]shared[\\/]operations[\\/](attachment|column|definition|epic|operator|organization|session|story|task|workspace)[\\/]/,
+                  // 最初の画面の小さな補助もまとめ、分離した検証コードを
+                  // 読まなくなった分の代わりに、小さい要求が増えるのを避ける。
+                  test: (id) =>
+                    /src[\\/]shared[\\/]operations[\\/](attachment|column|definition|epic|operator|organization|session|story|task|workspace)[\\/]/.test(
+                      id,
+                    ) ||
+                    /src[\\/]shared[\\/](backlog-filter|workspace|organization-slug|errors|return-to)\.ts$/.test(id) ||
+                    /src[\\/]lib[\\/]workspace\.ts$/.test(id),
                 },
                 {
                   name: 'controls',
