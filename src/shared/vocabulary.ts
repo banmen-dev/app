@@ -2533,7 +2533,7 @@ export const dictionary = defineDictionary({
   sprintBoardColumnToggle: '{column}の開閉',
   sprintBoardColumnPoints: '{points} pt',
   sprintBoardKeyHint:
-    'カードを別の{column}へドラッグして移すか、カードを選んで Alt と ← → で隣の{column}、Alt と ↑ ↓ で{column}の中を動かせます。カードの「⋯」のメニューでも同じです。{done}の{column}の手前の{column}から次へ送ると、{done}になります。',
+    'カードを別の{column}へドラッグして移すか、カードを選んで Alt と ← → で隣の{column}、Alt と ↑ ↓ で{column}の中を動かせます。カードの「⋯」のメニューでも同じです。{done}の{column}の手前の{column}から次へ送ると、{done}になります。{done}のカードは Alt と ← か「⋯」で戻せます。戻せないときは理由を知らせます。',
   sprintBoardEmptyTitle: '進行中の{sprint}はありません',
   sprintBoardEmptyLeaderText:
     '{plan}の画面で{sprint}を作り、{backlog}から{task}を入れてから始めます。始めると、ここに{column}とカードが並びます。',
@@ -2544,12 +2544,14 @@ export const dictionary = defineDictionary({
   sprintBoardOpenBacklog: '{backlog}を開く',
   // カードの移動。カードの「⋯」のメニューの項目（メニューの名前が題を持つので、項目には題を添えない）
   moveColumnPrev: '前の{column}へ',
+  moveColumnReopen: '前の{column}へ（{done}を戻す）',
   moveColumnNext: '次の{column}へ',
   // 最後の完了でない列のカードの「次の列へ」。完了の列へ移す代わりに完了にする
   moveColumnComplete: '{done}の{column}へ（{complete}）',
   // 選んだカードの説明（aria-describedby）。{points} はポイントか未見積もりの文
   sprintCardSummary: '{points}、{assignee}は{name}',
   sprintCardSummaryUnassigned: '{points}、{unassigned}',
+  sprintCardReopenBlockedSummary: '{summary}、{done}を戻せません',
   // 動かした後の読み上げ。{index} は移した先の{column}の中で何番目か、{total} はその件数
   sprintCardMoved: '「{title}」を{column}の {index} 番目に移しました（{total} 件中）',
   sprintCardNoPrevColumn: 'これより前の{column}はありません',

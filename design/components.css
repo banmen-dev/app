@@ -1230,14 +1230,14 @@ a.brand { color: inherit; text-decoration: none; }
 .card-meta:empty { display: none; }
 .card-foot { display: flex; align-items: center; gap: var(--space-2); }
 .card-end { margin-left: auto; display: flex; align-items: center; gap: var(--space-2); }
-/* 完了の印の横の「戻す」。狭いカードと帯でも折り返さず、縮めない */
-.card .link-btn, .done-bar-done .link-btn { white-space: nowrap; flex: none; }
-/* 狭い幅と指の画面では、題のリンクと完了を戻す「戻す」（.link-btn）を 44px の高さと幅にする
+/* 詳細の完了の印の横の「戻す」は折り返さず、縮めない */
+.done-bar-done .link-btn { white-space: nowrap; flex: none; }
+/* 狭い幅と指の画面では、カードの題のリンクを 44px の高さにする
    （見た目ごと広げる。列の端のボタンは ::after では範囲が切れる） */
 @media (max-width: 760px), (pointer: coarse) {
   .card .card-title { display: flex; align-items: center; min-height: 44px; }
-  .card .link-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
 }
+.card.is-reopen-blocked[draggable="true"] { cursor: not-allowed; }
 .card.is-done .card-title { color: var(--color-muted); font-weight: 400; }
 /* キーボードで選んでいるカード。カードは tabindex="0" で、中のどこにフォーカスがあっても枠を太く出す（色だけに頼らない）。
    Alt と ← → で隣の列、Alt と ↑ ↓ で列の中を動かす。同じ操作を、カードの右下の「⋯」（.row-menu）のメニューでもできる */

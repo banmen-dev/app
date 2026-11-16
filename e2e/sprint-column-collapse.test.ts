@@ -178,7 +178,10 @@ test('畳んだ列へドラッグすると末尾に入り、キー移動も隣�
   await expect(doneToggle).toHaveAttribute('aria-expanded', 'false');
   await doneToggle.click();
   await toggle.click();
-  await page.getByRole('button', { name: '完了を戻す: 動かす札', exact: true }).click();
+  // 完了カードは文字の戻すではなく、Alt と左矢印で戻す。行き先が畳まれていればその開閉へ移る
+  await page
+    .locator('.card', { has: page.getByRole('link', { name: '動かす札', exact: true }) })
+    .press('Alt+ArrowLeft');
   await expect(toggle).toBeFocused();
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   await toggle.click();
