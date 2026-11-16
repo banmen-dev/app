@@ -616,16 +616,15 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
   });
 });
 
-test('ダッシュボードへの遅い移動でも、枠の外の広い紙と2列の骨組みを出す', async ({ page, context, baseURL }) => {
+test('枠の外からダッシュボードへの遅い移動で、広い紙と2列の骨組みを出す', async ({ page, context, baseURL }) => {
   await signIn(context, baseURL, 'member');
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto('/aoba');
+  await page.goto('/terms');
   await routeOperation(page, myOrganizations, async (call) => {
     await new Promise((resolve) => setTimeout(resolve, 1200));
     await call.passThrough();
   });
-  await menuButton(page).click();
-  await menuLinks(page).last().click();
+  await page.getByRole('link', { name: 'Scrum Guild を開く' }).first().click();
   const loadingPaper = page.locator('.loading-overlay .gate.is-wide .gate-sheet');
   await expect(loadingPaper).toBeVisible();
   await expect(loadingPaper.locator('.dashboard')).toBeVisible();
