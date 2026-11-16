@@ -158,3 +158,7 @@ node --test scripts/design-contrast.test.ts  # 報酬の段階の色と操作部
 ```
 
 画面を開いて、カタログのテーマの切り替えで、シンプルのライトとダーク、ネオンの3つを目で見る。
+
+## 画像の切り抜き
+
+`ImageCrop`（`.image-crop`）は正方形の枠（`.image-crop-preview`）と拡大率、移動ボタンを持つ。枠の角は `--radius-1`、区切りは `--color-line`、間は `--space-3`。操作は44px以上を確保し、狭い幅では折り返す。見本はカタログの「画像の切り抜き」とマイプロフィール。

@@ -15,6 +15,7 @@
   // level は自分のレベル。名前（と管理者の印）の横に小さい紋章で出す（kit.js の accountMenuHtml と同じ並び）
   let {
     userId,
+    image = null,
     name,
     isAdmin,
     level,
@@ -24,6 +25,7 @@
     invitationState = 'ready',
   }: {
     userId: string;
+    image?: string | null;
     name: string;
     isAdmin: boolean;
     level: number;
@@ -92,7 +94,7 @@
     onclick={() => (open = !open)}
   >
     <span class="me">
-      <Avatar {userId} {name} />
+      <Avatar {userId} {name} {image} />
       <!-- 760px 以下では隠してアバターだけにする（読み上げの名前は aria-label に残る） -->
       <span class="me-detail"
         >{name}
