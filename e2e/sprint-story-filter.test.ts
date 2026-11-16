@@ -298,6 +298,13 @@ test('絞り込みと列の畳み・保存・下書き・移動先フォーカ�
   await expect(workingToggle).toHaveAttribute('aria-expanded', 'false');
   await expect(page).toHaveURL(new RegExp(`story=${STORY.id}`));
   await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
+  await todoToggle.click();
+  await page.getByRole('button', { name: '完了の開閉', exact: true }).click();
+  await expect(page.locator('.card')).toHaveCount(0);
+  await page.getByRole('button', { name: '絞り込みを外す', exact: true }).click();
+  await expect(page).not.toHaveURL(/story=/);
+  await expect(todoToggle).toBeFocused();
+  await expect(todoToggle).toHaveAttribute('aria-expanded', 'false');
 });
 
 test('最後の対象カードを削除したら中立の案内で絞り込みを解除する', async ({ page, context, baseURL }) => {

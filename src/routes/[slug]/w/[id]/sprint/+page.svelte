@@ -167,7 +167,12 @@
     );
     if (id === null && previous !== null) {
       await tick();
-      document.querySelector<HTMLElement>(`[data-story-filter="${CSS.escape(previous)}"]`)?.focus();
+      const parent = document.querySelector<HTMLElement>(`[data-story-filter="${CSS.escape(previous)}"]`);
+      if (parent) parent.focus();
+      else {
+        const task = columns.flatMap((column) => column.tasks).find((item) => item.story?.id === previous);
+        if (task) focusCollapsedColumn(task.id);
+      }
     }
   }
   // `c` が移る列と、aria-keyshortcuts を付ける列は、同じ（開いている完了でない最初の列）
