@@ -625,7 +625,7 @@ Claude Code が各 Bash の前に読む環境のファイルを守る本体は�
 | 起動元の環境の `CLAUDE_ENV_FILE` が指すファイル | session-env と同じ形。Claude Code は自分の環境にこの変数があれば、session-env より先にその中身を読む。フックは同じ環境を受け継ぐ |
 | `<設定の場所>/shell-snapshots/` の全部のファイル | 名前が `snapshot-<シェル>-<エポックms>-<乱数>.sh`（後ろに `-<識別>` が付いてもよい）で、通常のファイルで、`ctime` が名前の時刻の 1 秒前から 15 秒後まで（猶予 S）。中身は読まない。セッションとの対応は名前から分からないので、全部を見る |
 
-- 設定の場所は `CLAUDE_CONFIG_DIR`、無ければ `~/.claude`。`session-env/<session_id>` と `shell-snapshots` が無ければ通す（SessionStart のフックが何も書かない、snapshot をまだ作っていない）
+- 設定の場所は `CLAUDE_CONFIG_DIR`、無ければ `~/.claude`（Claude Code と同じく、空文字は無いものとしない。空文字と相対のパスは、Claude Code が起動した場所から解くのでフックからは引けず、確認を挟む）。`session-env/<session_id>` と `shell-snapshots` が無ければ通す（SessionStart のフックが何も書かない、snapshot をまだ作っていない）
 - `session-env/<session_id>` と `shell-snapshots` そのものがリンクか、ディレクトリでなければ確認を挟む。入力の `session_id` が無いか、英数字と `-`、`_` 以外を含むとき、ファイルを読めないとき、`CLAUDE_ENV_FILE` が相対のパスのとき（Claude Code は自分の起動した場所から解くので、フックからは同じファイルを引けない）も確認を挟み、素通りにしない。入力の `tool_input.command` が無いか文字列でないときも、状態は確かめる
 - `ctime` は、書き込み、置き換え（`mv`、`ln`）、`touch`、`chmod` のどれでも今になり、利用者の権限では戻せない。猶予 S は 15 秒。Claude Code（2.1.325）は名前の時刻を取ってから snapshot を書くシェルを起こし、10 秒で打ち切るので、正当な snapshot の `ctime` はその中に収まる（手元の macOS の実測は 0.3〜1.1 秒）。APFS で `mv` と `ln` が `ctime` を今にすることを確かめた（2026-11-16）
 

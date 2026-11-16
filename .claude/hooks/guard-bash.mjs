@@ -41,7 +41,8 @@ function scriptOf(dir, name) {
 function withShellEnvState(verdict, sessionId, { shellEnvStateProblems, shellEnvStateReason, homeOrNull }) {
   if (verdict?.[0] === 'deny') return verdict;
   const home = homeOrNull();
-  const configDir = process.env.CLAUDE_CONFIG_DIR || (home && path.join(home, '.claude'));
+  // Claude Code と同じく ?? で決める。空文字は Claude Code が起動した場所からの相対として使うので、フックからは引けず ask に倒れる
+  const configDir = process.env.CLAUDE_CONFIG_DIR ?? (home && path.join(home, '.claude'));
   const problems = shellEnvStateProblems({ configDir, sessionId, envFile: process.env.CLAUDE_ENV_FILE });
   if (problems.length === 0) return verdict;
   const reason = shellEnvStateReason(problems);
