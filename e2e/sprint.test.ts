@@ -581,14 +581,18 @@ test('リーダーはスプリントを終え、終わらなかったタスク�
   await expect(startDialog).toBeHidden();
   await page.getByRole('link', { name: 'スプリント', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: '第1回' })).toBeVisible();
-  // 最終日の前なので、最終日を過ぎた知らせは出ない。見出しの右の「終える」だけがある
+  // 最終日の前なので、期限切れの知らせはなく、「終える」は見出しの「⋯」の中だけにある
   await expect(page.locator('.callout.is-warn')).toHaveCount(0);
   await page.getByRole('button', { name: '完了にする: A札' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'タスクを完了にしました' })).toBeVisible();
   await expect(titlesIn(page, '完了')).toHaveText(['A札']);
 
   // 終える。未完了の2件の行き先は、既定が次のスプリント（第2回）で、バックログへ戻すことも選べる。ゴールがあるので達成を聞く（既定は達成した）
-  await page.getByRole('button', { name: '終える: スプリント「第1回」' }).click();
+  await page
+    .locator('.page-head')
+    .getByRole('button', { name: /^操作: / })
+    .click();
+  await page.getByRole('menuitem', { name: '終える', exact: true }).click();
   const closeDialog = page.getByRole('dialog', { name: 'スプリントを終える' });
   await expect(closeDialog).toContainText(
     'スプリント「第1回（3/1〜3/14）」を終えます。終えたスプリントの期間と中身は、あとから変えられません。',
@@ -626,7 +630,11 @@ test('リーダーはスプリントを終え、終わらなかったタスク�
   await page.getByRole('link', { name: 'スプリント', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: '第2回' })).toBeVisible();
   await expect(titlesIn(page, '未着手')).toHaveText(['B札', 'C札']);
-  await page.getByRole('button', { name: '終える: スプリント「第2回」' }).click();
+  await page
+    .locator('.page-head')
+    .getByRole('button', { name: /^操作: / })
+    .click();
+  await page.getByRole('menuitem', { name: '終える', exact: true }).click();
   await expect(closeDialog).toBeVisible();
   const backlogOnly = closeDialog.getByRole('radiogroup', { name: '終わらなかったタスク 2 件の行き先' });
   await expect(backlogOnly.getByRole('radio')).toHaveCount(1);
@@ -1081,7 +1089,11 @@ for (const [name, label] of [
     await page.goto(`${AOBA_TEAM}/sprint`);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(label);
     await expect(page).toHaveTitle(`${label}・受託開発チーム - Scrum Guild`);
-    await page.getByRole('button', { name: '延長する', exact: true }).click();
+    await page
+      .locator('.page-head')
+      .getByRole('button', { name: /^操作: / })
+      .click();
+    await page.getByRole('menuitem', { name: '延長する', exact: true }).click();
     const extend = page.getByRole('dialog', { name: 'スプリントを延ばす' });
     await expect(extend.getByRole('paragraph').first()).toHaveText(name === null ? label : `${label}（10/13〜10/26）`);
   });
@@ -1114,7 +1126,11 @@ test('名前なしの開始・削除・終了では、文中に期間を一度�
   await remove.getByRole('button', { name: 'やめる' }).click();
   await page.goto(`${AOBA_TEAM}/sprint`);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('10/13〜10/26');
-  await page.getByRole('button', { name: '終える: スプリント「10/13〜10/26」', exact: true }).click();
+  await page
+    .locator('.page-head')
+    .getByRole('button', { name: /^操作: / })
+    .click();
+  await page.getByRole('menuitem', { name: '終える', exact: true }).click();
   const close = page.getByRole('dialog', { name: 'スプリントを終える' });
   await expect(close.getByRole('radio', { name: /^スプリント「10\/27〜11\/9」へ持ち越す/ })).toBeVisible();
   await expect(

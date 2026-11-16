@@ -37,7 +37,11 @@ test('延長の予告どおり空きを吸収して後ろを押し出し、進�
   await expect(start).toBeHidden();
   await page.getByRole('link', { name: 'スプリント', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: '第1回' })).toBeVisible();
-  await page.getByRole('button', { name: '延長する', exact: true }).click();
+  await page
+    .locator('.page-head')
+    .getByRole('button', { name: /^操作: / })
+    .click();
+  await page.getByRole('menuitem', { name: '延長する', exact: true }).click();
   const extend = page.getByRole('dialog', { name: 'スプリントを延ばす' });
   await extend.getByLabel('延ばす日数').fill('3');
   await expect(extend.locator('[data-sprint-extend-end]')).toHaveText('2099-03-17');
@@ -49,7 +53,7 @@ test('延長の予告どおり空きを吸収して後ろを押し出し、進�
   await expect(extend).toBeHidden();
   await expect(page.getByText('延長 3 日', { exact: true })).toBeVisible();
 
-  await page.getByRole('button', { name: '名前とスプリントゴールを変更' }).click();
+  await page.getByRole('button', { name: 'スプリントを編集: 第1回' }).click();
   const edit = page.getByRole('dialog', { name: 'スプリントを直す' });
   await expect(edit.getByLabel('開始日')).toHaveCount(0);
   await edit.getByLabel('名前（任意）').fill('延長した第1回');
@@ -84,9 +88,13 @@ for (const width of [320, 390, 1024, 1280]) {
       await call.fail(500, 'internal');
     });
     await page.goto('/aoba/w/019a0000-0000-7000-8000-000000000401/sprint');
-    await expect(page.getByRole('button', { name: '延長する', exact: true })).toBeVisible();
+    await expect(page.locator('.page-head').getByRole('button', { name: /^操作: / })).toBeVisible();
     await waitForSettled(page);
-    await page.getByRole('button', { name: '延長する', exact: true }).click();
+    await page
+      .locator('.page-head')
+      .getByRole('button', { name: /^操作: / })
+      .click();
+    await page.getByRole('menuitem', { name: '延長する', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'スプリントを延ばす' });
     await expect(dialog.getByLabel('延ばす日数')).toHaveAttribute('max', '14');
     await dialog.getByLabel('延ばす日数').fill('15');
@@ -100,10 +108,14 @@ for (const width of [320, 390, 1024, 1280]) {
     expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     await dialog.getByRole('button', { name: 'やめる' }).click();
     await page.reload();
-    await expect(page.getByRole('button', { name: '延長する', exact: true })).toBeVisible();
+    await expect(page.locator('.page-head').getByRole('button', { name: /^操作: / })).toBeVisible();
     expect(sent).toBe(0);
     await waitForSettled(page);
-    await page.getByRole('button', { name: '延長する', exact: true }).click();
+    await page
+      .locator('.page-head')
+      .getByRole('button', { name: /^操作: / })
+      .click();
+    await page.getByRole('menuitem', { name: '延長する', exact: true }).click();
     await expect(dialog.locator('[data-sprint-shift]')).toBeVisible();
     await page.mouse.move(0, 0);
   });
@@ -157,7 +169,11 @@ test('押し出しは5本まで並べて残りを本数で示し、別の人が�
   });
   await page.goto('/aoba/w/019a0000-0000-7000-8000-000000000401/sprint');
   await waitForSettled(page);
-  await page.getByRole('button', { name: '延長する', exact: true }).click();
+  await page
+    .locator('.page-head')
+    .getByRole('button', { name: /^操作: / })
+    .click();
+  await page.getByRole('menuitem', { name: '延長する', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'スプリントを延ばす' });
   await dialog.getByLabel('延ばす日数').fill('2');
   await expect(dialog.locator('[data-sprint-shift]')).toHaveCount(5);
@@ -180,7 +196,11 @@ test('後ろと重ならなければ動かない予告を出し、28日では入
   const plan = { ...OVERDUE_PLAN, sprints: [OVERDUE_PLAN.sprints[0]!] };
   const unroute = await mockOperation(page, sprintList, { slug: 'aoba' }, plan);
   await page.goto('/aoba/w/019a0000-0000-7000-8000-000000000401/sprint');
-  await page.getByRole('button', { name: '延長する', exact: true }).click();
+  await page
+    .locator('.page-head')
+    .getByRole('button', { name: /^操作: / })
+    .click();
+  await page.getByRole('menuitem', { name: '延長する', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'スプリントを延ばす' });
   // 読み上げの要約にも同じ文が入るので、見える段落を指す
   await expect(dialog.getByRole('paragraph').filter({ hasText: '後ろのスプリントは動きません' })).toBeVisible();
@@ -195,7 +215,11 @@ test('後ろと重ならなければ動かない予告を出し、28日では入
       sprints: [{ ...plan.sprints[0]!, end_on: '2026-11-09', length: 28, extended_days: 14 }],
     },
   );
-  await page.getByRole('button', { name: '延長する', exact: true }).click();
+  await page
+    .locator('.page-head')
+    .getByRole('button', { name: /^操作: / })
+    .click();
+  await page.getByRole('menuitem', { name: '延長する', exact: true }).click();
   await expect(dialog.getByText('長さが28日のため、これ以上延長できません。')).toBeVisible();
   await expect(dialog.getByLabel('延ばす日数')).toHaveCount(0);
   await expect(dialog.getByRole('button', { name: '延長する', exact: true })).toHaveAttribute('aria-disabled', 'true');
