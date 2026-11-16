@@ -158,6 +158,7 @@ Wikiの一括取り込みは、`requestRateLimit` の要求枠（本文を読む
 
 - 画面のどこからでも働くキー（検索の `Mod+K`、引き出しの `[` `]` など、一覧に出すキー）は一か所に登録する。`src/routes/+layout.svelte` が `keydown` を1つだけ受けて `src/lib/shortcuts.svelte.ts` の `shortcuts.handle` へ渡し、そこで振り分ける。メニューや引き出しの中で閉じる Esc、矢印キーなど、部品の中だけで完結する操作は対象にせず、これまでどおり部品が受ける（Drawer の Esc は残している。登録に寄せるときは、変換中と `defaultPrevented` の判定が重なるので別の Issue にする）。
 - 登録は部品の初期化の中で `useShortcut(() => ({ id, keys, label, run, ... }))` を呼ぶ。部品が置かれている間だけ登録され、外れると解除される（画面ごとの有効・無効を別の状態で持たない）。`id` は部品をまたいで一意にし、`label` は辞書（`t`）を通した名前を返す（一覧の画面で使う）。
+- 一覧だけに出し、キーはカードや入力欄自身が受ける操作は `useShortcut(() => ({ id, keys, label, helpOnly: true, enabled }))` として登録する（`run` は持たない）。`keys` は表示する文字列で解析せず、衝突検査・キーの振り分け・長押しヒントには参加しない。`enabled` と部品の登録解除は通常の登録と共通。
 - `keys` の書き方は `src/lib/shortcut-keys.ts` に決める。`Mod+K` は Ctrl か ⌘ と K（Alt と Shift は付けない）、`[`、`c`、`?` は修飾キー（Ctrl、⌘、Alt）なしの1文字で、押された `key` と同じ文字で当てる（`c` と `C` は別。Shift は見ず、`?` のように Shift で出る文字は出た文字で当てる）。`aria-keyshortcuts` の値は `ariaKeyshortcuts(keys)` で作る（`Mod+K` は `Control+K Meta+K`）。
 - 振り分けの既定は次のとおり。部品ごとに書き直さない。
   - 日本語の変換中のキー（`isComposing`、`keyCode` 229）と、ほかの処理が受けたキー（`defaultPrevented`）には働かない。
