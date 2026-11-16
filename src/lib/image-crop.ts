@@ -17,7 +17,17 @@ export function canvasBlob(canvas: HTMLCanvasElement, type: string): Promise<Blo
 export async function encodeAvatar(canvas: HTMLCanvasElement): Promise<Blob> {
   const webp = await canvasBlob(canvas, 'image/webp');
   // Safari など WebP を書けないブラウザは PNG を返すので、明示的に JPEG にする。
-  return webp.type === 'image/webp' ? webp : canvasBlob(canvas, 'image/jpeg');
+  if (webp.type === 'image/webp') return webp;
+  // JPEGに透過は無いため、ブラウザ任せの黒ではなく白地へ合成する。
+  const fallback = document.createElement('canvas');
+  fallback.width = canvas.width;
+  fallback.height = canvas.height;
+  const context = fallback.getContext('2d');
+  if (!context) throw new Error('encode');
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, fallback.width, fallback.height);
+  context.drawImage(canvas, 0, 0);
+  return canvasBlob(fallback, 'image/jpeg');
 }
 
 // ファイル選択のMIMEだけではSVG/GIFなどの偽装を見分けられないため、先頭も照合する。

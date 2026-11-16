@@ -1,5 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cropSquare, encodeAvatar, isAvatarSource, drawCrop } from './image-crop.ts';
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('画像の切り抜き', () => {
   it('横長・縦長の写真を中央の正方形にし、拡大する', () => {
@@ -23,7 +25,18 @@ describe('画像の切り抜き', () => {
     const toBlob = vi.fn((callback: BlobCallback, type: string) =>
       callback(new Blob(['encoded'], { type: type === 'image/webp' ? 'image/png' : type })),
     );
-    const result = await encodeAvatar({ toBlob } as unknown as HTMLCanvasElement);
+    const calls: string[] = [];
+    const context = {
+      fillStyle: '',
+      fillRect: vi.fn(() => calls.push('white')),
+      drawImage: vi.fn(() => calls.push('image')),
+    };
+    const fallback = { width: 0, height: 0, getContext: () => context, toBlob };
+    vi.stubGlobal('document', { createElement: () => fallback });
+    const result = await encodeAvatar({ width: 256, height: 256, toBlob } as unknown as HTMLCanvasElement);
+    expect(context.fillStyle).toBe('#ffffff');
+    expect(context.fillRect).toHaveBeenCalledWith(0, 0, 256, 256);
+    expect(calls).toEqual(['white', 'image']);
     expect(result.type).toBe('image/jpeg');
     expect(toBlob.mock.calls.map((call) => call[1])).toEqual(['image/webp', 'image/jpeg']);
   });
