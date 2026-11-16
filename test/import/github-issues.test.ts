@@ -20,6 +20,7 @@ function setup() {
 type Input = { scope?: ScopeCandidate; cursor?: string | null; settings?: Record<string, unknown> };
 
 function page(fake: ReturnType<typeof setup>, input: Input = {}, credential = PAT) {
+  // Issue 単体の頁送りを点検する。公開口の Issue→PR 遷移は github-pull-requests*.test.ts が担う。
   return fetchAssignedIssuesPage({
     credential,
     fetcher: fake.fetcher,
