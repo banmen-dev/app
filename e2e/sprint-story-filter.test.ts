@@ -48,7 +48,8 @@ test('親名のポインタとフォーカスで列をまたいで強調し、UR
   await expect(page.locator('.card.is-story-highlighted')).toHaveCount(0);
   await parents.first().focus();
   await expect(page.locator('.card.is-story-highlighted')).toHaveCount(3);
-  const totals = await page.locator('.page-head .tally dd').allTextContents();
+  await expect(page.locator('.progress-bar')).toHaveAccessibleName('完了 2 / 10 pt（20%）、経過 8 / 14 日（57%）');
+  await expect(page.locator('.progress-remaining')).toHaveText('残り 7 日');
   await parents.first().click();
   await expect(page).toHaveURL(new RegExp(`story=${STORY.id}`));
   await waitForSettled(page);
@@ -61,7 +62,8 @@ test('親名のポインタとフォーカスで列をまたいで強調し、UR
   await expect(page.locator('.board-col').first().locator('.board-col-n')).toHaveText('1');
   await expect(page.locator('.board-col').first().locator('.board-col-pts')).toHaveText('5 pt');
   // 見出しは絞る前の全体のまま（5+3+2 pt）
-  await expect(page.locator('.page-head .tally dd')).toHaveText(totals);
+  await expect(page.locator('.progress-bar')).toHaveAccessibleName('完了 2 / 10 pt（20%）、経過 8 / 14 日（57%）');
+  await expect(page.locator('.progress-remaining')).toHaveText('残り 7 日');
   // mainへ入った#1284の編集・メニューを使っても、storyの絞り込みは維持する。
   const head = page.locator('.page-head');
   const editTrigger = head.getByRole('button', { name: 'スプリントを編集: 第14回', exact: true });
@@ -178,9 +180,11 @@ test('絞り込み中も完了の丸を出さず、最後の未完了列から�
   await page.goto(`${PATH}?story=${STORY.id}`);
   await expect(page.locator('.card')).toHaveCount(3);
   await expect(page.locator('.card .done-btn')).toHaveCount(0);
+  await expect(page.locator('.progress-bar')).toHaveAccessibleName('完了 2 / 10 pt（20%）、経過 8 / 14 日（57%）');
   await page.locator(`[data-card-id="${task.id}"]`).press('Alt+ArrowRight');
   await expect.poll(() => completed).toBe(1);
   await expect(page.locator('.board-col.is-done').locator('.card')).toHaveCount(2);
+  await expect(page.locator('.progress-bar')).toHaveAccessibleName('完了 7 / 10 pt（70%）、経過 8 / 14 日（57%）');
   await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
   await expect(page).toHaveURL(new RegExp(`story=${STORY.id}`));
   await expect(page.locator('.card')).toHaveCount(3);
@@ -270,8 +274,8 @@ test('絞り込みと列の畳み・保存・下書き・移動先フォーカ�
     call.fulfill({ task_id: call.input.task_id, column_id: call.input.column_id }),
   );
   await page.goto(`${PATH}?story=${STORY.id}`);
-  await expect(page.locator('.page-head .tally dd')).toHaveCount(3);
-  const totals = await page.locator('.page-head .tally dd').allTextContents();
+  await expect(page.locator('.progress-bar')).toHaveAccessibleName('完了 2 / 10 pt（20%）、経過 8 / 14 日（57%）');
+  await expect(page.locator('.progress-remaining')).toHaveText('残り 7 日');
   const todo = page.locator('.board-col').first();
   const draft = todo.getByRole('textbox');
   await expect(draft).toHaveAccessibleDescription('絞り込んだストーリーの下に追加します');
@@ -292,7 +296,8 @@ test('絞り込みと列の畳み・保存・下書き・移動先フォーカ�
   await expect(workingToggle).toBeFocused();
   await expect(page.locator('.board-col').nth(1).locator('.board-col-n')).toHaveText('2');
   await expect(page.locator('.board-col').nth(1).locator('.card')).toHaveCount(0);
-  await expect(page.locator('.page-head .tally dd')).toHaveText(totals);
+  await expect(page.locator('.progress-bar')).toHaveAccessibleName('完了 2 / 10 pt（20%）、経過 8 / 14 日（57%）');
+  await expect(page.locator('.progress-remaining')).toHaveText('残り 7 日');
   await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
   await page.reload();
   await expect(workingToggle).toHaveAttribute('aria-expanded', 'false');
