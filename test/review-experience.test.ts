@@ -2,6 +2,7 @@ import { env } from 'cloudflare:workers';
 import { describe, expect, test } from 'vitest';
 import { createApp } from '../src/server/app.ts';
 import { orgDb, readReviewTarget, reviewUpdateStatements } from '../src/server/db/index.ts';
+import { envWithD1Hooks } from '../src/server/db/testing.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
 import { experienceSummary } from '../src/shared/operations/experience/index.ts';
 import { taskComplete, taskReopen } from '../src/shared/operations/task/index.ts';
@@ -12,6 +13,9 @@ import {
   createDetailField,
   createTaskFieldValue,
   createThanks,
+  createBoardColumn,
+  createSprint,
+  createSprintEntry,
 } from './factories.ts';
 import { post } from './operations/harness.ts';
 import { createTarget, testEnv, type Target } from './operations/world.ts';
@@ -278,8 +282,8 @@ describe('レビュー依頼の回ごとの経験値', () => {
     await nextCycle(s);
     expect((await call(s.target, s.task.id)).status).toBe(200);
     const second = await grants(s);
-    expect.soft(second.filter((r) => r.action === 'task_detailed')).toHaveLength(1);
-    expect.soft(second.filter((r) => r.action === 'help')).toHaveLength(1);
+    expect(second.filter((r) => r.action === 'task_detailed')).toHaveLength(1);
+    expect(second.filter((r) => r.action === 'help')).toHaveLength(1);
     expect(second.reduce((sum, r) => sum + r.amount, 0)).toBe(90);
     expect((await call(s.target, s.task.id, taskReopen)).status).toBe(200);
     const reopened = await grants(s);
@@ -307,6 +311,135 @@ describe('レビュー依頼の回ごとの経験値', () => {
     };
     expect(summary.prospective).toBe(0);
     expect(summary.workspaces.find((w) => w.id === s.target.workspace.id)?.prospective).toBe(0);
+  });
+
+  test('保存済み依頼回の行が欠けていたら完了せず409で断り、記録も経験値も書かない', async () => {
+    const s = await setup();
+    await s.db.run(s.db.statement((q) => q.deleteFrom('review_request_cycles').where('task_id', '=', s.task.id)));
+    const response = await call(s.target, s.task.id);
+    expect(response.status).toBe(409);
+    expect(await completions(s)).toEqual([]);
+    expect(await grants(s)).toEqual([]);
+    const row = await s.db.first(
+      s.db.statement((q) =>
+        q
+          .selectFrom('tasks')
+          .select('completed_at')
+          .where('id', '=', s.task.id)
+          .where('workspace_id', '=', s.target.workspace.id),
+      ),
+    );
+    expect(row?.completed_at).toBeNull();
+  });
+
+  test.each([null, 'leader'] as const)(
+    'レビュー経験値の応答額は実行者自身が受け取った分だけ（担当=%s）',
+    async (assignee) => {
+      const s = await setup({ assignee });
+      const response = await call(s.target, s.task.id);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ xp_granted: assignee === null ? 30 : 0 });
+      expect(await grants(s)).toMatchObject([
+        { action: 'review', amount: 30, user_id: assignee === null ? s.target.member.userId : s.target.leader.userId },
+      ]);
+    },
+  );
+
+  test.each(['planned', 'active'] as const)(
+    '%sスプリント内のレビューを完了・取り消しすると配置と依頼回と経験値を戻す',
+    async (status) => {
+      const s = await setup();
+      const column = await createBoardColumn(s.target.organization, s.target.workspace.id, {
+        name: '作業中',
+        position: 'a0',
+      });
+      await createBoardColumn(s.target.organization, s.target.workspace.id, { name: null, is_done: 1, position: 'a1' });
+      const sprint = await createSprint(s.target.organization, s.target.workspace.id, { status });
+      await createSprintEntry(
+        s.target.organization,
+        s.target.workspace.id,
+        sprint.id,
+        s.task.id,
+        s.target.member.userId!,
+      );
+      await s.db.run(
+        s.db.statement((q) =>
+          q
+            .updateTable('tasks')
+            .set({ sprint_id: sprint.id, column_id: column.id, column_position: 'a0' })
+            .where('id', '=', s.task.id)
+            .where('workspace_id', '=', s.target.workspace.id),
+        ),
+      );
+      const response = await call(s.target, s.task.id);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ left_sprint: status === 'planned', xp_granted: 30 });
+      expect(await completions(s)).toMatchObject([
+        {
+          sprint_id: status === 'active' ? sprint.id : null,
+          previous_column_id: status === 'active' ? column.id : null,
+        },
+      ]);
+      expect((await call(s.target, s.task.id, taskReopen)).status).toBe(200);
+      expect(await completions(s)).toEqual([]);
+      expect((await grants(s)).reduce((sum, r) => sum + r.amount, 0)).toBe(0);
+      const row = await s.db.first(
+        s.db.statement((q) =>
+          q
+            .selectFrom('tasks')
+            .select(['completed_at', 'sprint_id', 'column_id'])
+            .where('id', '=', s.task.id)
+            .where('workspace_id', '=', s.target.workspace.id),
+        ),
+      );
+      expect(row).toMatchObject({
+        completed_at: null,
+        sprint_id: status === 'active' ? sprint.id : null,
+        column_id: status === 'active' ? column.id : null,
+      });
+      const cycle = await s.db.first(
+        s.db.statement((q) =>
+          q
+            .selectFrom('review_request_cycles')
+            .select('completion_id')
+            .where('task_id', '=', s.task.id)
+            .where('review_cycle', '=', 'request-1'),
+        ),
+      );
+      expect(cycle?.completion_id).toBeNull();
+    },
+  );
+
+  test('完了対象の読み取り後に依頼回の版が進んだら読み直して完了し二重付与しない', async () => {
+    const s = await setup();
+    let changed = false;
+    const requestEnv = envWithD1Hooks(clock, {
+      afterQuery: async (sql) => {
+        if (changed || !sql.includes('"tasks"') || !sql.includes('"task_sources"') || !sql.includes('"sprints"'))
+          return;
+        changed = true;
+        await s.db.run(
+          s.db.statement((q) =>
+            q
+              .updateTable('task_sources')
+              .set({ review_revision: 1 })
+              .where('task_id', '=', s.task.id)
+              .where('workspace_id', '=', s.target.workspace.id),
+          ),
+        );
+      },
+    });
+    const response = await post(app, taskComplete, {
+      slug: s.target.slug,
+      token: s.target.member.token,
+      body: { workspace_id: s.target.workspace.id, task_id: s.task.id },
+      env: requestEnv,
+    });
+    expect(changed).toBe(true);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ xp_granted: 30 });
+    expect(await completions(s)).toHaveLength(1);
+    expect(await grants(s)).toMatchObject([{ action: 'review', amount: 30 }]);
   });
 
   test('PR の完了は従来どおり task_completed を付ける', async () => {
