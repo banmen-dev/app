@@ -1426,7 +1426,7 @@ label.pick-row:hover { background: var(--color-accent-soft); }
 .drawer .source-key { white-space: normal; overflow-wrap: anywhere; }
 .drawer.is-center {
   inset: 5vh max(var(--space-4), calc((100% - 960px) / 2));
-  width: auto; border: var(--rule-double); border-radius: var(--radius-md);
+  width: auto; border: var(--rule-double); border-radius: var(--radius-1);
 }
 .drawer.is-page {
   position: relative; inset: auto; z-index: auto; width: 100%; max-width: 960px;
