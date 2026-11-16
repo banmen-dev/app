@@ -157,14 +157,14 @@
         }}>{t('avatarRemove')}</button
       >{/if}
   </div>
-  <div role="alert">
+  <div role="alert" class:visually-hidden={!error}>
     {#if error}<span class="field-error"><Icon name="alert" />{error}</span>{/if}
   </div>
   <span class="visually-hidden" role="status">{busy ? t('avatarSaving') : reading ? t('avatarReading') : ''}</span>
 </Setting>
 <Dialog bind:this={dialog} bind:open title={t('avatarCropTitle')} dismissible={!busy}>
   {#if bitmap}<ImageCrop image={bitmap} disabled={busy} bind:this={cropper} />{/if}
-  <div role="alert">
+  <div role="alert" class:visually-hidden={!cropError}>
     {#if cropError}<span class="field-error"><Icon name="alert" />{cropError}</span>{/if}
   </div>
   <span class="visually-hidden" role="status">{busy ? t('avatarSaving') : ''}</span>
