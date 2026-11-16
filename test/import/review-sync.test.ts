@@ -700,3 +700,122 @@ test('Issueだけの途中保存と完走でレビュー失敗の記録を消さ
   await sync(ctx, f.source);
   expect(await connectionRow(ctx)).toMatchObject({ status: 'error', consecutive_failures: 2 });
 });
+
+async function heldReview() {
+  const ctx = await setup();
+  const f = fake();
+  f.state.discovery = [item(), item({ sourceId: '702', key: 'fake/box#2' })];
+  await sync(ctx, f.source);
+  const ordered = (await sources(ctx)).sort((a, b) => a.task_id.localeCompare(b.task_id));
+  const heldSource = ordered[1]!.source_id;
+  const initialSource = ordered[0]!.source_id;
+  f.state.page = (input) =>
+    input.target?.sourceId === heldSource ? { items: [], next: 'target-history' } : { items: [], next: null };
+  await sync(ctx, f.source, 2);
+  f.state.page = () => {
+    throw new ImportSourceError('forbidden', '固定の失敗');
+  };
+  expect(await sync(ctx, f.source)).toMatchObject({ outcome: 'error' });
+  const state = JSON.parse((await connectionRow(ctx)).sync_state_json);
+  expect(state.itemsOnly).toBe(true);
+  expect(state.reviewRetry.position).toMatchObject({ phase: 'targets', cursor: 'target-history', targetRevision: 0 });
+  expect(state.reviewRetry.position.after).not.toBe('');
+  expect(state.reviewRetry.position.targetId).not.toBe(state.reviewRetry.position.after);
+  return { ctx, f, held: state.reviewRetry.position, heldSource, initialSource };
+}
+
+test('Issue走査の後で保留したcursor・after・targetと版を復元し、成功したレビューで失敗を解除する', async () => {
+  const { ctx, f, held, heldSource } = await heldReview();
+  await sync(ctx, f.source);
+  const state = JSON.parse((await connectionRow(ctx)).sync_state_json);
+  expect(state.position).toEqual(held);
+  expect(state.reviewRetry).toBeNull();
+  expect(state.itemsOnly).toBe(false);
+  f.calls.length = 0;
+  f.state.page = (input) =>
+    input.target
+      ? {
+          items: [item({ sourceId: input.target.sourceId, key: input.target.key, isDone: true, updatedAt: AT })],
+          next: null,
+        }
+      : { items: [], next: null };
+  expect(await sync(ctx, f.source)).toMatchObject({ outcome: 'success', more: false });
+  expect(f.calls[0]).toMatchObject({ cursor: 'target-history', target: { sourceId: heldSource } });
+  expect(await connectionRow(ctx)).toMatchObject({
+    status: 'active',
+    consecutive_failures: 0,
+    last_error_message: null,
+    sync_state_json: '{}',
+  });
+});
+
+test.each(['itemsOnly', 'retry'])('保留レビューの%s段階でPATを替えたら全カーソルを捨てる', async (phase) => {
+  const { ctx, f, initialSource } = await heldReview();
+  if (phase === 'retry') await sync(ctx, f.source);
+  const sealed = await encryptCredential(env, 'new-review-owner', ctx.connection.id);
+  await ctx.db.run(
+    ctx.db.statement((q) =>
+      q
+        .updateTable('connections')
+        .set({ credential_ciphertext: sealed.ciphertext })
+        .where('id', '=', ctx.connection.id),
+    ),
+  );
+  f.calls.length = 0;
+  f.state.page = () => ({ items: [], next: null });
+  await sync(ctx, f.source, 1);
+  expect(f.calls[0]).toMatchObject({ cursor: null, target: { sourceId: initialSource } });
+  const state = JSON.parse((await connectionRow(ctx)).sync_state_json);
+  expect(state.reviewRetry).toBeNull();
+  expect(state.itemsOnly).toBe(false);
+  expect(JSON.stringify(state)).not.toContain('target-history');
+});
+
+test('versionの無い旧形式を本人の指紋が一致していても破棄する', async () => {
+  const ctx = await setup();
+  const f = fake();
+  f.state.page = () => ({ items: [], next: 'old-review-position' });
+  await sync(ctx, f.source, 2);
+  const state = JSON.parse((await connectionRow(ctx)).sync_state_json);
+  delete state.version;
+  await ctx.db.run(
+    ctx.db.statement((q) =>
+      q
+        .updateTable('connections')
+        .set({ sync_state_json: JSON.stringify(state) })
+        .where('id', '=', ctx.connection.id),
+    ),
+  );
+  f.calls.length = 0;
+  await sync(ctx, f.source, 2);
+  expect(f.calls[0]?.cursor).toBeNull();
+});
+
+test('除外モードの403後も候補頁を保持し、Issue走査後に同じレビュー範囲へ戻る', async () => {
+  const ctx = await setup();
+  const f = fake();
+  let candidateCalls = 0;
+  await ctx.db.run(
+    ctx.db.statement((q) =>
+      q.updateTable('connections').set({ scope_mode: 'exclude' }).where('id', '=', ctx.connection.id),
+    ),
+  );
+  f.source.fetchScopeCandidatesPage = async () => {
+    candidateCalls++;
+    return { candidates: [{ id: '502', name: 'fake/second' }], next: null };
+  };
+  f.state.failure = 'forbidden';
+  expect(await sync(ctx, f.source)).toMatchObject({ outcome: 'error' });
+  await sync(ctx, f.source);
+  const state = JSON.parse((await connectionRow(ctx)).sync_state_json);
+  expect(state.position).toMatchObject({ scope: '502', phase: 'reviews', cursor: null });
+  expect(state.scopeBatch.candidates).toEqual([{ id: '502', name: 'fake/second' }]);
+  expect(state.reviewRetry).toBeNull();
+  expect(state.itemsOnly).toBe(false);
+  expect(candidateCalls).toBe(1);
+  f.state.failure = null;
+  f.state.discovery = [];
+  expect(await sync(ctx, f.source)).toMatchObject({ outcome: 'success', more: false });
+  expect(f.calls.at(-1)?.scope.id).toBe('502');
+  expect(candidateCalls).toBe(1);
+});
