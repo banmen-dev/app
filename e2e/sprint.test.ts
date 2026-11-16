@@ -1178,4 +1178,15 @@ test('0ポイントの進み具合は完了割合を出さず、390pxでも枠�
   expect(box).not.toBeNull();
   expect(box!.x).toBeGreaterThanOrEqual(0);
   expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+  for (const child of await page
+    .locator(
+      '.progress-summary .progress-num, .progress-summary .progress-legend, .progress-summary .progress-remaining',
+    )
+    .all()) {
+    const childBox = await child.boundingBox();
+    expect(childBox).not.toBeNull();
+    expect(childBox!.x).toBeGreaterThanOrEqual(box!.x);
+    expect(childBox!.x + childBox!.width).toBeLessThanOrEqual(box!.x + box!.width);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
