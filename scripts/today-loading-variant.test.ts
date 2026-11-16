@@ -5,7 +5,7 @@ import { runInNewContext } from 'node:vm';
 import { setImmediate } from 'node:timers/promises';
 import ts from 'typescript';
 import { compile } from 'svelte/compiler';
-import { todayLoadingSource, todayLoadingComponent } from './today-loading-variant.ts';
+import { todayLoadingSource, todayLoadingComponent, todayLoadingPlugin } from './today-loading-variant.ts';
 
 const loadSource = readFileSync(new URL('../src/routes/[slug]/+page.ts', import.meta.url), 'utf8');
 const component = readFileSync(new URL('../src/routes/[slug]/+page.svelte', import.meta.url), 'utf8');
@@ -56,4 +56,18 @@ for (const variant of ['B', 'C'] as const)
 test('load・手順の形が変わったら別の画面を黙って測らない', () => {
   assert.throws(() => todayLoadingSource('unknown', 'C', false), /計測器を見直して/);
   assert.throws(() => todayLoadingComponent('unknown', 'C'), /計測器を見直して/);
+});
+
+test('計測プラグインは対象のload・部品だけを変換し、query付きや別経路に適用しない', () => {
+  const transform = todayLoadingPlugin('C', false).transform as (source: string, id: string) => string | undefined;
+  assert.ok(transform(loadSource, '/project/src/routes/[slug]/+page.ts')?.includes('bench:primary'));
+  assert.ok(transform(component, '/project/src/routes/[slug]/+page.svelte')?.includes('bench:reload'));
+  for (const id of [
+    '/project/src/routes/[slug]/+page.svelte?svelte&type=style',
+    '/project/src/routes/[slug]/+page.ts?raw',
+    '/project/src/routes/other/+page.ts',
+    '/project/src/routes/[slug]/+page.server.ts',
+    '/project/src/routes/[slug]/+layout.svelte',
+  ])
+    assert.equal(transform('対象外の内容', id), undefined, id);
 });
