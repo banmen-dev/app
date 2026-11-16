@@ -1,5 +1,5 @@
 // 余白の刻み（DESIGN.md の「余白」）。design/components.css の padding、margin、gap には tokens.css の変数だけを書く。
-// 今ある刻みの外の値は design-spacing-allowlist.json に凍結し、新しく足した値と、直したのにリストに残った値で落とす。
+// 押せる範囲の例外だけを design-spacing-allowlist.json に理由付きで残し、新しい値と、直したのにリストに残った値で落とす。
 // リストの行は文字列か、理由を添えた { "entry": …, "reason": … }（押せる範囲などで刻みの外を残すとき）。
 // 同じ組が2か所にあれば、リストにも同じ行を2つ書く
 import assert from 'node:assert/strict';
