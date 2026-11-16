@@ -2,8 +2,11 @@
 // あおば開発のミナトは、完了したタスクの起票と完了の明細2行（seed/data.sql）。ひばり工房のミナト（同じアカウント）は、
 // 完了と打ち消しをくり返した明細 52 行（合計 0）で、「続きを読む」を確かめる。
 // ほかのファイルの e2e がタスクを完了にすると、あおば開発のミナトの明細とレベルは増えうるので、数は ひばり工房で確かめる
+import { experienceGrants, experienceSummary, experienceTeamTotal } from '../src/shared/operations/experience/index.ts';
+import { organizationInfo } from '../src/shared/operations/organization/index.ts';
 import { expect, test } from './fixtures.ts';
 import { signIn, watchViolations } from './helpers.ts';
+import { failOperation, mockOperation, rewriteOperation, routeOperation } from './operations.ts';
 
 const AOBA_WORKSPACE_ID = '019a0000-0000-7000-8000-000000000401';
 
@@ -130,14 +133,14 @@ test.describe('マイプロフィール（ミナト）', () => {
 
   test('続きの読み込みに失敗したら、表を残して知らせ、同じボタンで読み直せる', async ({ page }) => {
     let fail = true;
-    await page.route('**/api/hibari/experience-grants', async (route) => {
-      const body = route.request().postDataJSON() as { before?: unknown };
+    await routeOperation(page, experienceGrants, { slug: 'hibari' }, async (call) => {
+      const body = call.input;
       if (body.before !== undefined && fail) {
         fail = false;
-        await route.fulfill({ status: 503, json: { error: { code: 'unavailable', message: 'x' } } });
+        await call.fail(503, 'unavailable', { message: 'x' });
         return;
       }
-      await route.continue();
+      await call.passThrough();
     });
     await page.goto('/hibari/me');
     const rows = page.getByRole('table', { name: '経験値の明細' }).locator('tbody tr');
@@ -155,7 +158,7 @@ test.describe('マイプロフィール（ミナト）', () => {
   });
 
   test('明細が無ければ空の状態を出す', async ({ page }) => {
-    await page.route('**/api/aoba/experience-grants', (route) => route.fulfill({ json: { grants: [], next: null } }));
+    await mockOperation(page, experienceGrants, { slug: 'aoba' }, { grants: [], next: null });
     await page.goto('/aoba/me');
     await expect(page.getByText('経験値の明細はまだありません')).toBeVisible();
     // 「完了」で出す（辞書の complete と done）
@@ -167,11 +170,9 @@ test.describe('マイプロフィール（ミナト）', () => {
     page,
   }) => {
     const failing = new Set(['experience-summary', 'experience-grants']);
-    for (const name of ['experience-summary', 'experience-grants']) {
-      await page.route(`**/api/hibari/${name}`, (route) =>
-        failing.has(name)
-          ? route.fulfill({ status: 500, json: { error: { code: 'internal', message: 'x' } } })
-          : route.continue(),
+    for (const definition of [experienceSummary, experienceGrants]) {
+      await routeOperation(page, definition, { slug: 'hibari' }, (call) =>
+        failing.has(definition.name) ? call.fail(500, 'internal', { message: 'x' }) : call.passThrough(),
       );
     }
     await page.goto('/hibari/me');
@@ -214,10 +215,8 @@ test.describe('マイプロフィール（ミナト）', () => {
 
   test('面を読み直しても、「続きを読む」で足した明細の行は残る', async ({ page }) => {
     let failSummary = true;
-    await page.route('**/api/hibari/experience-summary', (route) =>
-      failSummary
-        ? route.fulfill({ status: 500, json: { error: { code: 'internal', message: 'x' } } })
-        : route.continue(),
+    await routeOperation(page, experienceSummary, { slug: 'hibari' }, (call) =>
+      failSummary ? call.fail(500, 'internal', { message: 'x' }) : call.passThrough(),
     );
     await page.goto('/hibari/me');
     const rows = page.getByRole('table', { name: '経験値の明細' }).locator('tbody tr');
@@ -232,24 +231,25 @@ test.describe('マイプロフィール（ミナト）', () => {
   });
 
   test('今所属していないワークスペースの明細は、内容を伏せた旨を出す', async ({ page }) => {
-    await page.route('**/api/aoba/experience-grants', (route) =>
-      route.fulfill({
-        json: {
-          grants: [
-            {
-              id: '019a0000-0000-7000-8000-00000000fff1',
-              confirmed_at: '2026-09-18T01:30:00.000Z',
-              workspace_id: '019a0000-0000-7000-8000-00000000fff2',
-              workspace_name: '旧ワークスペース',
-              action: 'task_completed',
-              content: null,
-              content_hidden: true,
-              amount: 30,
-            },
-          ],
-          next: null,
-        },
-      }),
+    await mockOperation(
+      page,
+      experienceGrants,
+      { slug: 'aoba' },
+      {
+        grants: [
+          {
+            id: '019a0000-0000-7000-8000-00000000fff1',
+            confirmed_at: '2026-09-18T01:30:00.000Z',
+            workspace_id: '019a0000-0000-7000-8000-00000000fff2',
+            workspace_name: '旧ワークスペース',
+            action: 'task_completed',
+            content: null,
+            content_hidden: true,
+            amount: 30,
+          },
+        ],
+        next: null,
+      },
     );
     await page.goto('/aoba/me');
     const cells = page.getByRole('table', { name: '経験値の明細' }).locator('tbody tr').first().locator('td');
@@ -310,43 +310,51 @@ test.describe('マイプロフィール（ミナト）', () => {
     const longName = 'ミナト'.repeat(15);
     const longWorkspace = 'とても長いワークスペースの名前'.repeat(5);
     const longTitle = 'ポイント付与のバッチを作る'.repeat(6);
-    await page.route('**/api/hibari/organization', async (route) => {
-      const response = await route.fetch();
-      const json = (await response.json()) as { me: { name: string } };
+    await rewriteOperation(page, organizationInfo, { slug: 'hibari' }, (json) => {
       json.me.name = longName;
-      await route.fulfill({ response, json });
+      return json;
     });
-    await page.route('**/api/hibari/experience-summary', (route) =>
-      route.fulfill({
-        json: {
-          total: 99999,
-          level: 45,
-          level_start: 99000,
-          next_level_at: 103500,
-          prospective: 40,
-          thanks_received: 12,
-          workspaces: [{ id: 'w1', name: longWorkspace, total: 99999, prospective: 40, thanks_received: 12 }],
-        },
-      }),
+    await mockOperation(
+      page,
+      experienceSummary,
+      { slug: 'hibari' },
+      {
+        total: 99999,
+        level: 45,
+        level_start: 99000,
+        next_level_at: 103500,
+        prospective: 40,
+        thanks_received: 12,
+        workspaces: [
+          {
+            id: 'w1',
+            name: longWorkspace,
+            total: 99999,
+            prospective: 40,
+            thanks_received: 12,
+          },
+        ],
+      },
     );
-    await page.route('**/api/hibari/experience-grants', (route) =>
-      route.fulfill({
-        json: {
-          grants: [
-            {
-              id: '019a0000-0000-7000-8000-00000000fff3',
-              confirmed_at: '2026-10-16T06:20:00.000Z',
-              workspace_id: 'w1',
-              workspace_name: longWorkspace,
-              action: 'task_completed',
-              content: longTitle,
-              content_hidden: false,
-              amount: 30,
-            },
-          ],
-          next: null,
-        },
-      }),
+    await mockOperation(
+      page,
+      experienceGrants,
+      { slug: 'hibari' },
+      {
+        grants: [
+          {
+            id: '019a0000-0000-7000-8000-00000000fff3',
+            confirmed_at: '2026-10-16T06:20:00.000Z',
+            workspace_id: 'w1',
+            workspace_name: longWorkspace,
+            action: 'task_completed',
+            content: longTitle,
+            content_hidden: false,
+            amount: 30,
+          },
+        ],
+        next: null,
+      },
     );
     await page.goto('/hibari/me');
     await expect(page.locator('.page-eyebrow')).toHaveText(longName);
@@ -382,9 +390,7 @@ test.describe('チーム全体の経験値（バックログの画面）', () =>
 
   test('読めなくても、バックログの画面は開き、合計だけを出さない', async ({ page, context, baseURL }) => {
     await signIn(context, baseURL, 'member');
-    await page.route('**/api/aoba/experience-team-total', (route) =>
-      route.fulfill({ status: 500, json: { error: { code: 'internal', message: 'x' } } }),
-    );
+    await failOperation(page, experienceTeamTotal, { slug: 'aoba' }, 500, 'internal', { message: 'x' });
     await page.goto(`/aoba/w/${AOBA_WORKSPACE_ID}`);
     await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();
     await expect(page.locator('.tree')).toBeVisible();
