@@ -181,15 +181,25 @@ test.describe('プロフィール画像', () => {
       .setInputFiles(await photo(page));
     const dialog = page.getByRole('dialog', { name: 'プロフィール画像を切り抜く' });
     for (const status of [400, 413]) {
+      let releaseResponse!: () => void;
+      const held = new Promise<void>((resolve) => (releaseResponse = resolve));
       await page.route(
         '**/api/aoba/me-avatar-upload',
-        (route) => route.fulfill({ status, json: { error: { code: 'invalid_input', message: 'invalid' } } }),
+        async (route) => {
+          await held;
+          await route.fulfill({ status, json: { error: { code: 'invalid_input', message: 'invalid' } } });
+        },
         { times: 1 },
       );
       const rejected = page.waitForResponse(
         (response) => response.url().endsWith('/api/aoba/me-avatar-upload') && response.status() === status,
       );
       await dialog.getByRole('button', { name: '上げる', exact: true }).click();
+      try {
+        await expect(dialog.getByRole('alert')).toBeEmpty();
+      } finally {
+        releaseResponse();
+      }
       await rejected;
       await expect(dialog.getByRole('alert')).toContainText('512KiB');
     }
