@@ -13,5 +13,5 @@
     height="200"
     alt=""
   />
-  <img class="brand-mark" src={asset('brand/master/symbol.png')} width="629" height="678" alt="" />
+  <img class="brand-mark" src={asset('brand/master/symbol.webp')} width="629" height="678" alt="" />
 </span>

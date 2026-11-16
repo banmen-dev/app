@@ -14,12 +14,9 @@
   import { invitationEmails } from '../onboarding.ts';
   import { resetToDefaults } from '../organization.svelte.ts';
   import { t } from '../vocabulary.svelte.ts';
-  import {
-    accountProfileSave,
-    accountProfileSchema,
-    onboardingStatus,
-  } from '../../shared/operations/session/onboarding.ts';
+  import { accountProfileSave, onboardingStatus } from '../../shared/operations/session/onboarding.ts';
   import { me } from '../../shared/operations/session/index.ts';
+  import { accountProfileSchema } from '../../shared/account-profile.ts';
   import {
     createMyOrganization,
     createPersonalOrganization,

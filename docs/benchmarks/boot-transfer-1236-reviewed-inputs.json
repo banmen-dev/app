@@ -1,0 +1,166 @@
+{
+  "head": "57821b4c7deacf9df8c8858a43aa0a3505073f09",
+  "purpose": "修正版の配信入力と生成・検証コード。計測対象SHAは各計測JSONに保存。",
+  "files": [
+    {
+      "file": "design/brand/README.txt",
+      "sha256": "5732cd5a80f0285750087e16bce67464748d1184d460efa03ec300cb9a390393"
+    },
+    {
+      "file": "design/brand/master/symbol.webp",
+      "sha256": "e2177770ecf71121c3d7cda8bb74071154db4250125a4e395c9fc8b7b238d921"
+    },
+    {
+      "file": "design/fonts/LICENSE",
+      "sha256": "18aabf190848725e2576eefb5c29ba06aac1029d02132252a7f312eac2e50cf3"
+    },
+    {
+      "file": "design/fonts/README.md",
+      "sha256": "e2d40dd3c3230b16161b0f6f53f81e0c0eeb61ad09b3690fe14666b99f3ea135"
+    },
+    {
+      "file": "design/fonts/manifest.json",
+      "sha256": "7611c659bfd582c6122f5432f77278780beb1a11a0e09c465cf8adf5fcd1e561"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-109-wght-normal.woff2",
+      "sha256": "db41a6736dd07c7cb73cd7916450d6b6d9f7e203e5fa93addd87e087230ac8f7"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-110-wght-normal.woff2",
+      "sha256": "c477320156bf5d4069446143843aa1df1bf5b7699e2b8f7441a7fde1c62c6d58"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-111-wght-normal.woff2",
+      "sha256": "32808a12aac3b01e06512b0b4ee12f177362395b99d7d9d523a9ae113a25d986"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-112-wght-normal.woff2",
+      "sha256": "1a41a1e026f03712cf0bcd3f80e24eb3cdbeec72e6fad8eed8b25f1bdb8628a2"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-113-wght-normal.woff2",
+      "sha256": "24eb4c8e8cc0d0e24e1584c2c524cfd9f339025db9cfbeffc013c5c5f675fb28"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-114-wght-normal.woff2",
+      "sha256": "d32cb7a0247201ab96181cfb43d6030f7897daee7361e7002f6af9137e4d2ab3"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-115-wght-normal.woff2",
+      "sha256": "b920080efdfc979185eef788d418b4152286aaf05fc1f252c7a2c0fd02d366dd"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-116-wght-normal.woff2",
+      "sha256": "d05bdc84f8f99eccc260767886a4f73c6878b2b47c5bef40f1181eafcba9e54f"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-117-wght-normal.woff2",
+      "sha256": "8ff7c58c1460621cdd2d4f30569f1ccc6694ef3c7de7a19589ca85f4c1effdea"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-118-wght-normal.woff2",
+      "sha256": "81ed72b59aa427a0b01cb1d279b7692b35f57760fa180cd5659b2d495853b28a"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-119-wght-normal.woff2",
+      "sha256": "957e4f9c0ca5a9160c44ea9285e2668cf1d9524bd095e63474c68be93b13c525"
+    },
+    {
+      "file": "design/fonts/noto-sans-jp-latin-wght-normal.woff2",
+      "sha256": "dac5ab363f133a5f7a92efd52ea78837d726bf2041a35905a30b2d41508813c0"
+    },
+    {
+      "file": "design/kit.js",
+      "sha256": "cd996de0b6378cb9a5f9ccb11762aea01da27088a8ea51430b617aa4937b7fcd"
+    },
+    {
+      "file": "scripts/boot-font-assets.test.py",
+      "sha256": "04751f82589c804ca1446b14bfe5a70afab4f94629722cb32299010bf02f834c"
+    },
+    {
+      "file": "scripts/boot-font-assets.test.ts",
+      "sha256": "7c5cfff5b05e86e16a461bfa7d7b73ee9f0bde8bac0afdb38569b133aa3adb0e"
+    },
+    {
+      "file": "scripts/client-chunks.test.ts",
+      "sha256": "e3184e00e91d7e9344211652fe06d249a928739a68cd90bde0f42ab8d6b3a859"
+    },
+    {
+      "file": "scripts/client-operation-metadata.test.ts",
+      "sha256": "e348ba7c6922e74f74c3b2c0b6cafe4350d07b34921a6dde6312a668fbac6018"
+    },
+    {
+      "file": "scripts/client-operation-metadata.ts",
+      "sha256": "8d725687883400d41aa4ac13293f23661422322cd40b49522c1c0c223f04ce66"
+    },
+    {
+      "file": "scripts/design-parity.test.ts",
+      "sha256": "8fcef06f4b3d08ce7e431d7151fe55ff9130a76c802b3f7bdc8b74453dc27688"
+    },
+    {
+      "file": "scripts/fontsource-woff2.test.ts",
+      "sha256": "dff63bb4f802b50a1e06301bf66f74b08a1cb06f315a0fa86d4cb9f4f54007a0"
+    },
+    {
+      "file": "scripts/fontsource-woff2.ts",
+      "sha256": "a17c7ad8b2933553a1d959273c79dd41415685440af7344fe07c81881191711c"
+    },
+    {
+      "file": "scripts/generate-boot-assets.py",
+      "sha256": "6a249cc725b4a7f6e34cc9a155b9d06078e8a06fedb063b16d8aff893a38c957"
+    },
+    {
+      "file": "src/lib/components/BrandMark.svelte",
+      "sha256": "5880f05e9e22ced84ba21b4d49fdceae0ec7a555ecaacb8610a2665512e9eb6e"
+    },
+    {
+      "file": "src/lib/components/BrandSymbol.svelte",
+      "sha256": "0cb7000489aa9f78ab006dfbbc77b79e816182abea3d1bd08868721eb900322b"
+    },
+    {
+      "file": "src/lib/components/OnboardingSetup.svelte",
+      "sha256": "2ecfeef11f201a709142d7f82206c2d9bad4b5f9e0f3e3ed7d33f5d1b21c4127"
+    },
+    {
+      "file": "src/shared/account-profile.ts",
+      "sha256": "5410b61ecb5afc44d3f7067fd960943f7081510cf119fc6fbdef23cc8bdd896e"
+    },
+    {
+      "file": "src/shared/backlog-filter.ts",
+      "sha256": "1015866257c684daafe934f3b578018232bb80693d10cf62a9cf119b31a8630e"
+    },
+    {
+      "file": "src/shared/backlog-query-schema.ts",
+      "sha256": "b3762ddf881e490a1757ab0c2cb4ac1bd3a9b561cc9871360d3fda8e2224c83c"
+    },
+    {
+      "file": "src/shared/operations/session/onboarding.ts",
+      "sha256": "66cce1f385d0f85656faf18ae8361e8a475f7a83f1dd4759d9caccd5055bf1b9"
+    },
+    {
+      "file": "src/shared/operations/task/backlog-tree.ts",
+      "sha256": "351044023b5e772817811a44ab8a27cb823f5fede1590be794539e55d1152f9e"
+    },
+    {
+      "file": "src/shared/operations/wiki/index.ts",
+      "sha256": "21fd869a2ea0bfd4b297db1e2dada380d5e1921f38e9e6873b6d913d64aca27d"
+    },
+    {
+      "file": "src/shared/zod-config.ts",
+      "sha256": "358038604b0668313d7cbc45b6d22ec6dd9057fce5a064f3352ed6ab34a291e7"
+    },
+    {
+      "file": "static/brand/README.txt",
+      "sha256": "5732cd5a80f0285750087e16bce67464748d1184d460efa03ec300cb9a390393"
+    },
+    {
+      "file": "static/brand/master/symbol.webp",
+      "sha256": "e2177770ecf71121c3d7cda8bb74071154db4250125a4e395c9fc8b7b238d921"
+    },
+    {
+      "file": "vite.config.ts",
+      "sha256": "d38378c89f026685f1916400d7ae590802d73dd9f7738172fd3ec394c4878465"
+    }
+  ]
+}
