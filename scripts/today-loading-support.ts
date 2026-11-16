@@ -2,7 +2,11 @@ import { cpSync, existsSync, rmSync } from 'node:fs';
 import { today, firstSteps } from '../src/shared/operations/organization/index.ts';
 
 // 保存・停止のいずれが失敗しても、残りの後片付けまで試みる。
-export async function finishTodayBenchmark(save: () => unknown, cleanup: (() => unknown)[]): Promise<void> {
+export async function finishTodayBenchmark(
+  save: () => unknown,
+  cleanup: (() => unknown)[],
+  originalError?: unknown,
+): Promise<void> {
   const errors: unknown[] = [];
   for (const action of [save, ...cleanup]) {
     try {
@@ -11,7 +15,11 @@ export async function finishTodayBenchmark(save: () => unknown, cleanup: (() => 
       errors.push(error);
     }
   }
-  if (errors.length) throw new AggregateError(errors, '計測結果の保存または後片付けに失敗しました');
+  if (errors.length)
+    throw new AggregateError(
+      originalError === undefined ? errors : [originalError, ...errors],
+      '計測結果の保存または後片付けに失敗しました',
+    );
 }
 
 export function preserveTodayBuild(output: string, backup: string): () => void {

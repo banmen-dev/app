@@ -55,6 +55,7 @@ let tracked: ReturnType<typeof trackServer> | undefined;
 let browser: Browser | undefined;
 const proxy = bootProxy(port + 1);
 let restoreBuild: (() => void) | undefined;
+let measurementError: unknown;
 let interrupted = false;
 const stop = () => {
   interrupted = true;
@@ -393,22 +394,27 @@ try {
   }
   report.completedAt = new Date().toISOString();
 } catch (error) {
+  measurementError = error;
   report.error = error instanceof Error ? error.message : String(error);
   throw error;
 } finally {
-  await finishTodayBenchmark(save, [
-    () => browser?.close(),
-    () => tracked?.stop(),
-    () =>
-      new Promise<void>((resolve) => {
-        if (proxy.listening) proxy.close(() => resolve());
-        else resolve();
-      }),
-    () => restoreBuild?.(),
-    () => {
-      for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.off(signal, stop);
-    },
-    () => rmSync(dir, { recursive: true, force: true }),
-  ]);
+  await finishTodayBenchmark(
+    save,
+    [
+      () => browser?.close(),
+      () => tracked?.stop(),
+      () =>
+        new Promise<void>((resolve) => {
+          if (proxy.listening) proxy.close(() => resolve());
+          else resolve();
+        }),
+      () => restoreBuild?.(),
+      () => {
+        for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.off(signal, stop);
+      },
+      () => rmSync(dir, { recursive: true, force: true }),
+    ],
+    measurementError,
+  );
   console.log(`結果: ${output}。使い捨て D1・計測ビルドは削除し、元の build を復元しました。`);
 }

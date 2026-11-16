@@ -75,3 +75,21 @@ test('正常な主と従は全応答の検証後に成功する', async () => {
   checks.response('/api/bench/first-steps', 200, async () => ({ role: null, steps: [] }));
   await checks.assertSuccess();
 });
+
+test('後片付けも失敗したとき、計測の元のエラーを失わない', async () => {
+  const original = new Error('measurement failed');
+  const cleanup = new Error('stop failed');
+  await assert.rejects(
+    finishTodayBenchmark(
+      () => {},
+      [
+        () => {
+          throw cleanup;
+        },
+      ],
+      original,
+    ),
+    (error: unknown) =>
+      error instanceof AggregateError && error.errors.includes(original) && error.errors.includes(cleanup),
+  );
+});
