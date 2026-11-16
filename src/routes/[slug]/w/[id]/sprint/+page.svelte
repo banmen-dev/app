@@ -55,7 +55,7 @@
 
   // スプリントの画面（design/sprint.html）。進行中のスプリントの列（`.board-col`）とカード（`.card`）を並べる。
   // 見出しは進行中のスプリントの名前（無ければ期間）、小見出しは期間と何日目か。ゴールを書いて始めていれば貼り紙（`.notice`）で出す。
-  // カードは題（`?task=<ID>` で詳細の引き出しを開く）、親のストーリー、ポイント、担当と、完了の印か完了の操作。
+  // カードは題（`?task=<ID>` で詳細の引き出しを開く）、親のストーリー、ポイント、担当と、完了の印か列移動の「⋯」。
   // 完了の操作は task-complete を呼ぶだけで、完了の列への移動は task-complete が行う（完了の列へ task-column-move で移すことはしない）。
   // 動かせるカード（完了していない、終了していないワークスペース）は、選んで Alt と ← → で隣の列、Alt と ↑ ↓ で列の中を動かし、
   // カードの右下の「⋯」のメニューでも同じことができる。動かしたら先に画面の並びを替えて位置を読み上げ、押した順に1つずつ送る（MoveQueue）。
@@ -317,7 +317,7 @@
     let completed = false;
     const sent = moves.send(
       async () => {
-        completed = await complete(task, true);
+        completed = await complete(task);
         if (completed && dropped) flashAfterReload = task.id;
         return completed ? ({ ok: true, data: null } as const) : ({ ok: false, status: 0, error: null } as const);
       },
@@ -433,9 +433,8 @@
     else applyMove(task, drop.plan, true);
   }
 
-  // 完了にできたら true（別の画面で先に完了にされていたときも）。queued が真のとき（MoveQueue の中で呼ぶとき）は、通っても
-  // 読み直さず、フォーカスも動かさない（列が空になった後に、呼んだ側の reloadOnSuccess が読み直す）。断られたときの扱いは同じ
-  async function complete(task: SprintBoardTask, queued = false): Promise<boolean> {
+  // 完了にできたら true（別の画面で先に完了にされていたときも）。queueComplete から呼び、成功時の読み直しとフォーカスは待ち行列側が扱う。
+  async function complete(task: SprintBoardTask): Promise<boolean> {
     if (workspace === null || refusedWhileBusy()) return false;
     completingId = task.id;
     const workspaceId = workspace.id;
@@ -452,12 +451,6 @@
           : t('taskAlreadyDone', { task: t('task'), done: t('done') });
         // トーストが読み上げる
         showToast(message, 'check');
-        if (!queued) {
-          await invalidate('app:sprint-board');
-          // 完了の列のカードは選べない。同じカードの題のリンクへフォーカスを移す
-          await tick();
-          focusTaskOrCollapsedColumn(task.id, `a[data-task-id="${CSS.escape(task.id)}"]`);
-        }
       } else if (result.status === 401) {
         await invalidateAll();
       } else if (result.status === 404) {
@@ -803,14 +796,12 @@
                   {task}
                   href="{sprintHref}?task={encodeURIComponent(task.id)}"
                   edges={canWrite ? edgesOf(columns, task.id) : null}
-                  canComplete={canWrite}
                   canReopen={canWrite && task.reopenable}
                   clock={{ today: board.today, weekStart: board.week_start }}
                   pending={completingId !== null || reopeningId !== null}
                   hintId={KEY_HINT_ID}
                   dnd={canWrite ? dnd : undefined}
                   onmove={moveCard}
-                  oncomplete={(target) => void complete(target)}
                   onreopen={(target) => void reopen(target)}
                   ondelete={canWrite ? (target, keyboard) => void removeCard(target, keyboard) : undefined}
                 />

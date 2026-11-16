@@ -170,7 +170,10 @@ test('畳んだ列へドラッグすると末尾に入り、キー移動も隣�
   await expect(working.locator('.card-title')).toHaveText(['キーの札']);
   const doneToggle = page.getByRole('button', { name: '完了の開閉' });
   await doneToggle.click();
-  await page.getByRole('button', { name: '完了にする: 動かす札', exact: true }).click();
+  await expect(page.locator('.board .done-btn')).toHaveCount(0);
+  const completingCard = page.locator('.card', { has: page.getByRole('link', { name: '動かす札', exact: true }) });
+  await completingCard.focus();
+  await page.keyboard.press('Alt+ArrowRight');
   await expect(doneToggle).toBeFocused();
   await expect(doneToggle).toHaveAttribute('aria-expanded', 'false');
   await doneToggle.click();

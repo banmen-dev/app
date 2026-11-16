@@ -10,10 +10,10 @@
   import Icon from './Icon.svelte';
   import RowMenu, { type RowMenuItem } from './RowMenu.svelte';
 
-  // スプリントの画面のカード（kit.js の card）。題は `?task=<ID>` で詳細の引き出しを開くリンク、ポイント、担当、完了の印か完了の操作。
+  // スプリントの画面のカード（kit.js の card）。題は `?task=<ID>` で詳細の引き出しを開くリンク、ポイント、担当、完了したカードの完了の印。
   // 動かせるカード（完了していない、書き込める）は tabindex="0" で選べ、中のどこにフォーカスがあっても Alt と ← → で隣の列、
   // Alt と ↑ ↓ で列の中を動かす。同じ操作を、カードの右下の「⋯」（RowMenu）のメニューの「前の<列>へ」「上へ」「下へ」「次の<列>へ」でもできる。
-  // カードの操作は、完了の丸と「⋯」だけを出す。端の項目は aria-disabled（フォーカスを失わない）にし、端で Alt と矢印を押したときは画面に渡し、動かせないことを読み上げさせる。
+  // 完了していないカードの操作は、「⋯」だけを出す。端の項目は aria-disabled（フォーカスを失わない）にし、端で Alt と矢印を押したときは画面に渡し、動かせないことを読み上げさせる。
   // 最後の完了でない列の「次の列へ」と Alt と → は、画面が完了にする（task-complete）。
   // 完了したカードは、完了の印の横に「戻す」（kit.js の doneControl の .link-btn。task-reopen）を、戻せるとき（canReopen）だけ出す。
   // dnd を渡すと（書き込めるとき）、カード全体をつかんで列の間と中へ落とせる（SprintDnd。つかめるのは動かせるカードと、戻せる完了のカードだけ）。
@@ -23,14 +23,12 @@
     task,
     href,
     edges,
-    canComplete,
     canReopen = false,
     clock,
     pending = false,
     hintId,
     dnd,
     onmove,
-    oncomplete,
     onreopen,
     ondelete,
   }: {
@@ -45,12 +43,10 @@
     // 動かせないカード（完了の列、書き込めない）は null
     // completes は、次の列が完了の列で「次の列へ」が完了にすること（読み上げの名前と title を完了の操作の名前にする）
     edges: { top: boolean; bottom: boolean; prev: boolean; next: boolean; completes: boolean } | null;
-    canComplete: boolean;
     // 完了したカードの「戻す」を出すか（書き込めて、task.reopenable が真）
     canReopen?: boolean;
     pending?: boolean;
     onmove: (task: SprintBoardTask, direction: MoveDirection) => void;
-    oncomplete: (task: SprintBoardTask) => void;
     onreopen?: (task: SprintBoardTask) => void;
     // 渡すと（書き込めるとき）、task.can_delete が真のカードの「⋯」の末尾に危険色の「この<タスク>を削除する」を出す
     ondelete?: (task: SprintBoardTask, keyboard: boolean) => void;
@@ -215,19 +211,6 @@
             }}>{t('taskReopen')}</button
           >
         {/if}
-      {:else if canComplete}
-        <button
-          class="done-btn"
-          type="button"
-          aria-label={t('taskCompleteLabel', { complete: t('complete'), title: task.title })}
-          title={t('complete')}
-          aria-disabled={pending}
-          onclick={() => {
-            if (!pending) oncomplete(task);
-          }}
-        >
-          <Icon name="check" />
-        </button>
       {/if}
     </span>
   </div>
