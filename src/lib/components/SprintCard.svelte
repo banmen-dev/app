@@ -11,25 +11,23 @@
   import RowMenu, { type RowMenuItem } from './RowMenu.svelte';
 
   // スプリントの画面のカード（kit.js の card）。題は `?task=<ID>` で詳細の引き出しを開くリンク、ポイント、担当、完了したカードの完了の印。
-  // 動かせるカード（完了していない、書き込める）は tabindex="0" で選べ、中のどこにフォーカスがあっても Alt と ← → で隣の列、
+  // 書き込めるカードは完了したものも tabindex="0" で選べる。未完了カードは中のどこにフォーカスがあっても Alt と ← → で隣の列、
   // Alt と ↑ ↓ で列の中を動かす。同じ操作を、カードの右下の「⋯」（RowMenu）のメニューの「前の<列>へ」「上へ」「下へ」「次の<列>へ」でもできる。
   // 完了していないカードの操作は、「⋯」だけを出す。端の項目は aria-disabled（フォーカスを失わない）にし、端で Alt と矢印を押したときは画面に渡し、動かせないことを読み上げさせる。
   // 最後の完了でない列の「次の列へ」と Alt と → は、画面が完了にする（task-complete）。
-  // 完了したカードは、完了の印の横に「戻す」（kit.js の doneControl の .link-btn。task-reopen）を、戻せるとき（canReopen）だけ出す。
-  // dnd を渡すと（書き込めるとき）、カード全体をつかんで列の間と中へ落とせる（SprintDnd。つかめるのは動かせるカードと、戻せる完了のカードだけ）。
+  // 完了したカードも選べ、Alt と ← と「⋯」の前の列へで完了を戻す。戻せないカードも試せ、画面が理由を知らせる。
+  // dnd を渡すと（書き込めるとき）、完了したカードを含めカード全体をつかめる。戻せないカードは not-allowed のカーソルで示す。
   // 題のリンクは draggable="false" で、リンクの既定のドラッグがカードのドラッグを奪わない。ボタンと「⋯」は押すだけで動き出さない。
   // 落とす位置の印は data-drop、つかんだ薄さは .is-dragging、落とした光は .is-dropped
   let {
     task,
     href,
     edges,
-    canReopen = false,
+    writable = false,
     clock,
-    pending = false,
     hintId,
     dnd,
     onmove,
-    onreopen,
     ondelete,
     highlightedStory = null,
     onstoryhover,
@@ -51,17 +49,16 @@
     // 動かせないカード（完了の列、書き込めない）は null
     // completes は、次の列が完了の列で「次の列へ」が完了にすること（読み上げの名前と title を完了の操作の名前にする）
     edges: { top: boolean; bottom: boolean; prev: boolean; next: boolean; completes: boolean } | null;
-    // 完了したカードの「戻す」を出すか（書き込めて、task.reopenable が真）
-    canReopen?: boolean;
-    pending?: boolean;
-    onmove: (task: SprintBoardTask, direction: MoveDirection) => void;
-    onreopen?: (task: SprintBoardTask) => void;
+    // 完了カードも選び、戻す操作を試せるか（書き込めるときだけ）
+    writable?: boolean;
+    onmove: (task: SprintBoardTask, direction: MoveDirection, repeat?: boolean) => void;
     // 渡すと（書き込めるとき）、task.can_delete が真のカードの「⋯」の末尾に危険色の「この<タスク>を削除する」を出す
     ondelete?: (task: SprintBoardTask, keyboard: boolean) => void;
   } = $props();
 
   const done = $derived(task.completed_at !== null);
   const movable = $derived(edges !== null);
+  const selectable = $derived(movable || (done && writable));
   const column = $derived(t('column'));
   // 末尾の危険色の項目。確認は挟まない（消したらトーストの「取り消す」で戻せる）。動かせるカード（完了していない）だけに出す
   // （見本の kit.js の card と同じ。完了したカードは、消して取り消しても完了のポイントがそのスプリントに戻らないため）
@@ -80,39 +77,48 @@
   );
   // 「⋯」のメニューの項目（kit.js の orderItems の順）。最後の完了でない列の「次の列へ」は完了にするので、名前もそう言う
   const moveItems = $derived<RowMenuItem[]>(
-    edges === null
-      ? []
-      : [
+    done && writable
+      ? [
           {
             key: 'left',
-            label: t('moveColumnPrev', { column }),
+            label: t('moveColumnReopen', { column, done: t('done') }),
             icon: 'left',
-            disabled: edges.prev,
             onselect: () => onmove(task, 'left'),
           },
-          { key: 'up', label: t('moveUp'), icon: 'up', disabled: edges.top, onselect: () => onmove(task, 'up') },
-          {
-            key: 'down',
-            label: t('moveDown'),
-            icon: 'down',
-            disabled: edges.bottom,
-            onselect: () => onmove(task, 'down'),
-          },
-          {
-            key: 'right',
-            label: edges.completes
-              ? t('moveColumnComplete', { done: t('done'), column, complete: t('complete') })
-              : t('moveColumnNext', { column }),
-            icon: 'right',
-            // 完了か戻しを送っている間も選べる。画面が捨てて理由を読み上げる（Alt と → と同じ。refusedWhileBusy）
-            disabled: edges.next,
-            onselect: () => onmove(task, 'right'),
-          },
-        ],
+        ]
+      : edges === null
+        ? []
+        : [
+            {
+              key: 'left',
+              label: t('moveColumnPrev', { column }),
+              icon: 'left',
+              disabled: edges.prev,
+              onselect: () => onmove(task, 'left'),
+            },
+            { key: 'up', label: t('moveUp'), icon: 'up', disabled: edges.top, onselect: () => onmove(task, 'up') },
+            {
+              key: 'down',
+              label: t('moveDown'),
+              icon: 'down',
+              disabled: edges.bottom,
+              onselect: () => onmove(task, 'down'),
+            },
+            {
+              key: 'right',
+              label: edges.completes
+                ? t('moveColumnComplete', { done: t('done'), column, complete: t('complete') })
+                : t('moveColumnNext', { column }),
+              icon: 'right',
+              // 完了か戻しを送っている間も選べる。画面が捨てて理由を読み上げる（Alt と → と同じ。refusedWhileBusy）
+              disabled: edges.next,
+              onselect: () => onmove(task, 'right'),
+            },
+          ],
   );
   const menuItems = $derived<RowMenuItem[]>([...moveItems, ...deleteItems]);
-  // つかめるのは、動かせるカードと、戻せる完了のカード
-  const grabbable = $derived(done ? canReopen : movable);
+  // 書き込めるときは、戻せない完了カードも試せるようにつかめる
+  const grabbable = $derived(selectable);
   const KEY_DIRECTIONS: Record<string, MoveDirection> = {
     ArrowLeft: 'left',
     ArrowRight: 'right',
@@ -121,13 +127,17 @@
   };
 
   function keydown(event: KeyboardEvent): void {
-    if (!movable || !event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    if (!selectable || !event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
     const direction = KEY_DIRECTIONS[event.key];
-    if (direction === undefined) return;
+    if (direction === undefined || (done && direction !== 'left')) return;
+    if (done && event.repeat) {
+      event.preventDefault();
+      return;
+    }
     event.preventDefault();
     // 押しっぱなしの自動の繰り返しでは、完了の列の手前から完了にしない（列を送るうちに気づかず完了にしないため）
     if (event.repeat && direction === 'right' && edges?.completes === true) return;
-    onmove(task, direction);
+    onmove(task, direction, event.repeat);
   }
 
   const titleId = $derived(`card-${task.id}-title`);
@@ -135,14 +145,19 @@
   const pointsText = $derived(
     task.points === null ? t('pointsUnsetTitle') : t('pointsLabel', { points: t('points'), value: task.points }),
   );
-  const summary = $derived(
+  const baseSummary = $derived(
     task.assignee === null
       ? t('sprintCardSummaryUnassigned', { points: pointsText, unassigned: t('unassigned') })
       : t('sprintCardSummary', { points: pointsText, assignee: t('assignee'), name: task.assignee.name }),
   );
+  const summary = $derived(
+    done && !task.reopenable
+      ? t('sprintCardReopenBlockedSummary', { summary: baseSummary, done: t('done') })
+      : baseSummary,
+  );
 </script>
 
-<!-- キーは中のリンクとボタンから届く。選べるのは動かせるカードだけ（tabindex は 0 か未指定だけ） -->
+<!-- キーは中のリンクとボタンから届く。書き込めるカードは完了カードも選べる（tabindex は 0 か未指定だけ） -->
 <!-- 選んだときは題を名前に、ポイントと担当の要約と動かし方の案内を説明に読む（中の印は role="img" で、選んだだけでは読まれないため） -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -151,19 +166,20 @@
   class:is-done={done}
   class:is-story-highlighted={highlightedStory !== null && task.story?.id === highlightedStory}
   class:is-story-dimmed={highlightedStory !== null && task.story?.id !== highlightedStory}
+  class:is-reopen-blocked={done && writable && !task.reopenable}
   class:is-dragging={dnd?.isDragging(task.id)}
   class:is-dropped={dnd?.isFlashing(task.id)}
   class:is-busy={dnd?.isBusy(task.id)}
   aria-busy={dnd?.isBusy(task.id) ? true : undefined}
   data-drop={dnd?.markOfCard(task.id)}
   {@attach dnd?.card(task.id, grabbable)}
-  tabindex={movable ? 0 : undefined}
-  aria-labelledby={movable ? titleId : undefined}
-  aria-describedby={movable ? [summaryId, hintId].filter(Boolean).join(' ') : undefined}
+  tabindex={selectable ? 0 : undefined}
+  aria-labelledby={selectable ? titleId : undefined}
+  aria-describedby={selectable ? [summaryId, hintId].filter(Boolean).join(' ') : undefined}
   data-card-id={task.id}
   onkeydown={keydown}
 >
-  {#if movable}<span class="visually-hidden" id={summaryId}>{summary}</span>{/if}
+  {#if selectable}<span class="visually-hidden" id={summaryId}>{summary}</span>{/if}
   {#if task.story !== null}
     <button
       class="card-parent is-action"
@@ -220,17 +236,6 @@
         <span class="hanko" role="img" aria-label={t('doneMarkLabel', { title: task.title, done: t('done') })}
           ><Icon name="check" /></span
         >
-        {#if canReopen}
-          <button
-            class="link-btn"
-            type="button"
-            aria-label={t('taskReopenLabel', { done: t('done'), title: task.title })}
-            aria-disabled={pending}
-            onclick={() => {
-              if (!pending) onreopen?.(task);
-            }}>{t('taskReopen')}</button
-          >
-        {/if}
       {/if}
     </span>
   </div>

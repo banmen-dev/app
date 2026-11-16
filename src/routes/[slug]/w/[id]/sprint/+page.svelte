@@ -29,6 +29,7 @@
     throwIfListFailed,
   } from '../../../../../lib/task-reload-failure.svelte.ts';
   import { MoveQueue } from '../../../../../lib/move-queue.ts';
+  import { ReopenKeyGuard } from '../../../../../lib/reopen-key.ts';
   import { edgesOf, planCardMove, type MoveDirection, type MoveEdge } from '../../../../../lib/sprint-board.ts';
   import { storyColumns, storyHref, applyStoryMove } from '../../../../../lib/sprint-story-filter.ts';
   import { SprintColumnCollapse } from '../../../../../lib/sprint-column-collapse.svelte.ts';
@@ -62,7 +63,7 @@
   // 動かせるカード（完了していない、終了していないワークスペース）は、選んで Alt と ← → で隣の列、Alt と ↑ ↓ で列の中を動かし、
   // カードの右下の「⋯」のメニューでも同じことができる。動かしたら先に画面の並びを替えて位置を読み上げ、押した順に1つずつ送る（MoveQueue）。
   // 最後の完了でない列の「次の列へ」と Alt と → は、完了の操作と同じく task-complete を呼ぶ。
-  // 完了の列のカードは、戻せる（完了したストーリーの下でない）ときに完了の印の横に「戻す」を出し、task-reopen を呼ぶ。
+  // 完了の列のカードは Alt と ← と「⋯」で戻す。戻せないカードを試すと既存の理由をトーストで読み上げ、書き込みは送らない。
   // 戻したら読み直して、戻した列のカードへフォーカスを移す。完了の列には、ワークスペースの完成の定義（空なら出さない）を畳んで置く。
   // 断られたら理由をトーストで知らせて読み直す。
   // カードのドラッグ（SprintDnd。判定は sprint-drop.ts）は、カード全体をつかみ、カードの間の線か列の囲みに落として動かす。
@@ -341,8 +342,28 @@
     return t('sprintCardMoveFailed');
   }
 
-  function moveCard(task: SprintBoardTask, direction: MoveDirection): void {
+  const reopenKey = new ReopenKeyGuard();
+  const keyWorkspaceId = $derived(workspace?.id);
+  $effect(() => {
+    void keyWorkspaceId;
+    reopenKey.reset();
+  });
+
+  function moveCard(task: SprintBoardTask, direction: MoveDirection, repeat?: boolean): void {
     if (workspace === null || !canWrite) return;
+    if (direction === 'left' && reopenKey.suppress(repeat)) return;
+    if (task.completed_at !== null) {
+      if (direction === 'left') {
+        reopenKey.start(repeat);
+        // ドラッグの戻しが送信待ちの間も、同じカードをキーやメニューから重ねて送らない。
+        if (sendingIds.includes(task.id)) {
+          void announce(t('sprintCardBusyReopening', { done: t('done') }));
+          return;
+        }
+        void reopen(task);
+      }
+      return;
+    }
     const plan = planCardMove(visibleColumns, task.id, direction);
     if (plan === null) return;
     // 次の列が完了の列なら、完了にする
@@ -479,6 +500,7 @@
     if (task === undefined) return;
     if (drop.plan.kind === 'complete') queueComplete(task, true);
     else if (drop.plan.kind === 'reopen') applyReopenMove(task, drop.plan);
+    else if (drop.plan.kind === 'reopen-blocked') void refuseReopen();
     else applyMove(task, drop.plan, true);
   }
 
@@ -576,10 +598,30 @@
     });
   }
 
+  // 進行中ボードの完了カードで reopenable が偽なのは、完了した親ストーリーの下。APIと同じ文で試行を断る。
+  async function refuseReopen(): Promise<void> {
+    if (workspace === null) return;
+    const workspaceId = workspace.id;
+    showToast(reopenFailureMessage({ reason: 'parent_completed' }), 'alert');
+    // 既に積んだ移動を捨てない。読み直す前に、その移動と最後の再読込まで待つ。
+    await moves.whenIdle();
+    if (workspaceId !== page.params.id) return;
+    try {
+      await reloadBoard();
+      await throwIfListFailed(() => page.data);
+    } catch {
+      if (workspaceId === page.params.id) markReloadFailed('stale', workspaceId);
+    }
+  }
+
   // 戻す。戻せたら true。followed が真のとき（ドラッグで別の列へ落とすとき）は、通ってもトーストを出さず、読み直さず、
   // フォーカスも動かさない（続けて task-column-move を送り、列が空になった後で画面が読み直し、位置を読み上げる）。断られたときの扱いは同じ
   async function reopen(task: SprintBoardTask, followed = false): Promise<boolean> {
     if (workspace === null || refusedWhileBusy()) return false;
+    if (!task.reopenable) {
+      await refuseReopen();
+      return false;
+    }
     reopeningId = task.id;
     const workspaceId = workspace.id;
     let reopened = false;
@@ -600,7 +642,7 @@
             'check',
           );
           await invalidate('app:sprint-board');
-          // 押した「戻す」は消えるので、戻した列に出たカードへフォーカスを移す（動かせるカードは選べる）
+          // 戻した列に出た同じカードへフォーカスを移す
           await tick();
           focusTaskOrCollapsedColumn(
             task.id,
@@ -727,6 +769,8 @@
           }),
   );
 </script>
+
+<svelte:window onkeyup={(event) => reopenKey.release(event.key)} onblur={() => reopenKey.reset()} />
 
 <svelte:head>
   {#if workspace && board !== null}
@@ -898,13 +942,11 @@
                     onstoryfilter={(id) => void filterStory(id)}
                     href="{sprintHref}?task={encodeURIComponent(task.id)}{cardStoryQuery}"
                     edges={canWrite ? edgesOf(visibleColumns, task.id) : null}
-                    canReopen={canWrite && task.reopenable}
+                    writable={canWrite}
                     clock={{ today: board.today, weekStart: board.week_start }}
-                    pending={completingId !== null || reopeningId !== null}
                     hintId={KEY_HINT_ID}
                     dnd={canWrite ? dnd : undefined}
                     onmove={moveCard}
-                    onreopen={(target) => void reopen(target)}
                     ondelete={canWrite ? (target, keyboard) => void removeCard(target, keyboard) : undefined}
                   />
                 {:else}

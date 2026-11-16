@@ -635,8 +635,8 @@
   const stamped = new Set();
   function doneControl(x, opts = {}) {
     return x.doneAt
-      ? `<span class="hanko ${stamped.has(x.id) ? "is-new" : ""}" role="img" aria-label="${t("done")}">${icon("check")}</span>
-         <button class="link-btn" type="button" data-undo="${x.id}" aria-label="${t("done")}を戻す: ${esc(x.title)}" aria-disabled="false">戻す</button>`
+      ? `<span class="hanko ${stamped.has(x.id) ? "is-new" : ""}" role="img" aria-label="${t("done")}">${icon("check")}</span>${opts.card ? "" : `
+         <button class="link-btn" type="button" data-undo="${x.id}" aria-label="${t("done")}を戻す: ${esc(x.title)}" aria-disabled="false">戻す</button>`}`
       : opts.card ? "" : `<button class="done-btn" type="button" data-done="${x.id}" aria-label="${t("complete")}" title="${t("complete")}">${icon("check")}</button>`;
   }
 
@@ -932,6 +932,13 @@
     const id = `narrow-disclosure-${++narrowDisclosureId}`;
     return `<div class="narrow-disclosure" data-open="false"><button class="btn is-sm is-quiet narrow-disclosure-toggle" type="button" aria-expanded="false" aria-controls="${id}">${icon("chevron")}<span>${esc(label)}</span></button><div class="narrow-disclosure-body" id="${id}">${body}</div></div>`;
   }
+  document.addEventListener("keydown", (event) => {
+    if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.key !== "ArrowLeft") return;
+    const card = event.target.closest?.(".card.is-done");
+    if (!card || event.target.closest?.('[role="menu"]')) return;
+    event.preventDefault(); if (event.repeat) return;
+    card.querySelector("[data-card-reopen]")?.click();
+  });
   document.addEventListener("click", (event) => {
     const button = event.target.closest && event.target.closest(".narrow-disclosure-toggle");
     if (!button) return;
@@ -959,7 +966,7 @@
 
   // スプリントのカード（列の中）
   // order を渡したカード（完了していないカード）は tabindex="0" で選べ、移す操作を「⋯」のメニュー（.row-menu）に持つ。
-  // キーボードでは、選んで Alt と ← → で隣の列、Alt と ↑ ↓ で列の中を動かす（本番の SprintBoard）。完了の列のカードは動かさない
+  // キーボードでは、選んで Alt と ← → で隣の列、Alt と ↑ ↓ で列の中を動かす（本番の SprintBoard）。完了の列のカードは Alt と ← と「⋯」で戻す
   // ドラッグ（本番の SprintCard）: つかめるカードは draggable="true" を持ち、カード全体をつかむ（opts.grab を false にするとつかめないカード）。
   // opts.mark はドラッグの状態: { drop: "before" | "after", state: "is-dragging" | "is-dropped" }（dropAttr と同じ形。into は列に付ける）
   function storyFilterText(key, title = "") {
@@ -967,6 +974,8 @@
   }
   function card(x, order, opts = {}) {
     const mark = opts.mark || {};
+    const selectable = Boolean(order || x.doneAt);
+    const blocked = Boolean(x.doneAt && x.story && D.stories[x.story]?.doneAt);
     const grab = opts.grab !== false;
     // 同じ画面に同じ盤を並べる（カタログ）ときの id の重なりを避ける接頭辞
     const k = opts.key ? `${opts.key}-` : "";
@@ -974,9 +983,9 @@
     const storyState = opts.highlightStory ? (x.story === opts.highlightStory ? " is-story-highlighted" : " is-story-dimmed") : "";
     // 選べるカードは、題を名前に、ポイントと担当の要約と画面の下の動かし方の案内（#board-key-hint）を説明に読む
     const who = x.who ? user(x.who).name : null;
-    const summary = `${x.pts == null ? "未見積もり" : `${t("points")} ${x.pts}`}、${who ? `${t("assignee")}は${esc(who)}` : `${t("assignee")}なし`}`;
-    return `<article data-story-id="${esc(x.story || "")}" class="card ${x.doneAt ? "is-done" : ""}${storyState}${mark.state ? ` ${mark.state}` : ""}"${grab ? ` draggable="true"` : ""}${dropAttr(mark)}${order ? ` tabindex="0" aria-labelledby="card-${k}${x.id}-title" aria-describedby="card-${k}${x.id}-summary board-key-hint"` : ""}>
-      ${order ? `<span class="visually-hidden" id="card-${k}${x.id}-summary">${summary}</span>` : ""}
+    const summary = `${x.pts == null ? "未見積もり" : `${t("points")} ${x.pts}`}、${who ? `${t("assignee")}は${esc(who)}` : `${t("assignee")}なし`}${blocked ? `、${t("done")}を戻せません` : ""}`;
+    return `<article data-story-id="${esc(x.story || "")}" class="card ${x.doneAt ? "is-done" : ""}${storyState}${blocked ? " is-reopen-blocked" : ""}${mark.state ? ` ${mark.state}` : ""}"${grab ? ` draggable="true"` : ""}${dropAttr(mark)}${selectable ? ` tabindex="0" aria-labelledby="card-${k}${x.id}-title" aria-describedby="card-${k}${x.id}-summary board-key-hint"` : ""}>
+      ${selectable ? `<span class="visually-hidden" id="card-${k}${x.id}-summary">${summary}</span>` : ""}
       ${parent ? `<button class="card-parent is-action" type="button" aria-label="${esc(storyFilterText("sprintStoryFilterLabel", parent))}" data-story-filter="${esc(x.story)}">${icon("flag")} ${esc(parent)}</button>` : ""}
       <a class="card-title" id="card-${k}${x.id}-title" href="#" data-task="${x.id}" draggable="false">${titleOf(x)}</a>
       <div class="card-meta">${repoTag(x)}${sourceKey(x)}${taskFlags(x)}${taskDue(x)}</div>
@@ -984,10 +993,10 @@
         { attr: `data-sun="${x.id}"`, label: x.todayOn === D.today ? "今日やるを外す" : "今日やる", icon: "sun" },
         ...orderItems(order),
         { attr: `data-task-delete="${x.id}"`, label: `この${t("task")}を削除する`, icon: "trash", danger: true },
-      ], x.id) : ""}${doneControl(x, { card: true })}</span></div>
+      ], x.id) : x.doneAt ? rowMenu(x.title, [{ attr: `data-card-reopen="${x.id}"`, label: `前の${t("column")}へ（${t("done")}を戻す）`, icon: "left" }], x.id) : ""}${doneControl(x, { card: true })}</span></div>
     </article>`;
   }
-  // opts.key: カードの id の接頭辞、opts.cardMarks: (x, i, c) => card のドラッグの状態、opts.columnMarks: (c) => 列の囲み（{ drop: "into" }）、opts.grab: (x) => つかめるか（既定は完了していないカードだけ。完了の列のカードは、本番では戻せるもの（reopenable）だけがつかめる）
+  // opts.key: カードの id の接頭辞、opts.cardMarks: (x, i, c) => card のドラッグの状態、opts.columnMarks: (c) => 列の囲み（{ drop: "into" }）、opts.grab: (x) => つかめるか（既定は完了カードを含むすべて）
   const boardCollapsed = new Map();
   function board(sprintId, opts = {}) {
     const list = tasksWhere((x) => x.sprint === sprintId && (!opts.story || x.story === opts.story));
@@ -1003,7 +1012,7 @@
       return `<section class="board-col ${c.done ? "is-done" : ""} ${collapsed ? "is-collapsed" : ""}"${dropAttr(opts.columnMarks && opts.columnMarks(c))} aria-label="${esc(name)}">
         <div class="board-col-head"><button class="board-col-toggle" type="button" aria-label="${esc(name)}の開閉" aria-expanded="${!collapsed}" data-column-collapse="${esc(collapseKey)}">${icon("chevron")}</button>${c.done ? icon("check") : ""}<span class="board-col-name">${esc(name)}</span><span class="board-col-n">${items.length}</span><span class="board-col-pts">${sumPts(items)} pt</span></div>
         ${collapsed ? "" : `${c.done && D.definitionOfDone.length ? `<details class="dod"><summary>${t("dod")}</summary>${dodDoc()}</details>` : ""}
-        ${items.map((x, i) => card(x, c.done ? undefined : orderOf(i), { mark: opts.cardMarks && opts.cardMarks(x, i, c), grab: opts.grab ? opts.grab(x) : !x.doneAt, key: opts.key, highlightStory: opts.highlightStory })).join("") || `<p class="board-empty">なし</p>`}
+        ${items.map((x, i) => card(x, c.done ? undefined : orderOf(i), { mark: opts.cardMarks && opts.cardMarks(x, i, c), grab: opts.grab ? opts.grab(x) : true, key: opts.key, highlightStory: opts.highlightStory })).join("") || `<p class="board-empty">なし</p>`}
         ${opts.draft && !c.done ? `<div class="board-col-draft">${draftRow("col", c.id, `${t("task")}を足す: ${c.name}`, `${t("task")}を足す`)}${opts.story ? `<p class="action-note">${storyFilterText("sprintStoryCreateUnder")}</p>` : ""}</div>` : ""}` }
       </section>`;
     }).join("")}</div></div></div>`;
@@ -4075,6 +4084,12 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       toast(`${icon("check")}<span>${t("task")}を${t("done")}にしました${x.pts > 0 ? "\n+40 XP" : ""}</span>`);
       document.querySelector(`#content [data-undo="${x.id}"]`)?.focus();
       return;
+    }
+    if ((el = hit("data-card-reopen"))) {
+      const x = task(el.dataset.cardReopen);
+      if (x.story && D.stories[x.story]?.doneAt) { toast(`${t("done")}した${t("story")}の下の${t("task")}は戻せません。先に${t("story")}の${t("done")}を取り消してください。一覧を読み直します`); redrawAll(); return; }
+      x.doneAt = null; x.col = x.prevCol || "c3";
+      redrawAll(); document.querySelector(`#content [data-task="${x.id}"]`)?.closest(".card")?.focus(); return;
     }
     if ((el = hit("data-undo"))) {
       const x = task(el.dataset.undo);

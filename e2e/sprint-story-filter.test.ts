@@ -11,7 +11,7 @@ import {
 import { storyGet } from '../src/shared/operations/story/story-get.ts';
 import { mockOperation, routeOperation } from './operations.ts';
 import { sprintBoard, taskColumnMove } from '../src/shared/operations/sprint/index.ts';
-import { taskComplete, taskCreate, taskDelete } from '../src/shared/operations/task/index.ts';
+import { taskComplete, taskCreate, taskDelete, taskReopen } from '../src/shared/operations/task/index.ts';
 import { SAMPLE_BOARD } from './sprint-fixture.ts';
 
 const PATH = '/aoba/w/019a0000-0000-7000-8000-000000000401/sprint';
@@ -334,6 +334,85 @@ test('最後の対象カードを削除したら中立の案内で絞り込み�
       .getByRole('status')
       .filter({ hasText: '絞り込み対象のストーリーが現在のボードにないため、絞り込みを外しました' }),
   ).toBeVisible();
+});
+
+for (const operation of ['key', 'menu', 'drag'] as const) {
+  test(`絞り込み中の完了カードを${operation}で畳んだ列へ戻し、全体進捗を更新する`, async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await signIn(context, baseURL, 'admin');
+    const board = sample();
+    const completed = board.columns[3]!.tasks[0]!;
+    const destination = board.columns[2]!;
+    let reopened = 0;
+    await routeOperation(page, sprintBoard, { slug: 'aoba' }, (call) => call.fulfill(board));
+    await routeOperation(page, taskReopen, { slug: 'aoba' }, (call) => {
+      expect(call.input.task_id).toBe(completed.id);
+      reopened++;
+      board.columns[3]!.tasks = [];
+      completed.completed_at = null;
+      destination.tasks.push(completed);
+      return call.fulfill({ task_id: completed.id, sprint_id: board.sprint!.id, column_id: destination.id });
+    });
+    await routeOperation(page, taskColumnMove, { slug: 'aoba' }, (call) =>
+      call.fulfill({ task_id: call.input.task_id, column_id: call.input.column_id }),
+    );
+    await page.goto(`${PATH}?story=${STORY.id}`);
+    const target = page.locator('.board-col').nth(2);
+    const toggle = target.getByRole('button', { name: 'レビューの開閉', exact: true });
+    await toggle.click();
+    const card = page.locator(`[data-card-id="${completed.id}"]`);
+    await expect(card).toHaveAttribute('tabindex', '0');
+    await expect(card.getByRole('button', { name: /^完了を戻す:/ })).toHaveCount(0);
+    if (operation === 'key') await card.press('Alt+ArrowLeft');
+    else if (operation === 'menu') {
+      await card.locator('.row-menu-btn').click();
+      await card.getByRole('menuitem', { name: '前の列へ（完了を戻す）', exact: true }).click();
+    } else await dragTo(page, card, target.locator('.board-col-head'), 'middle');
+    await expect.poll(() => reopened).toBe(1);
+    await expect(page.locator('.board-col.is-done .card')).toHaveCount(0);
+    await expect(target.locator('.board-col-n')).toHaveText('1');
+    await expect(target.locator('.board-col-pts')).toHaveText('2 pt');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    if (operation !== 'drag') await expect(toggle).toBeFocused();
+    await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
+    await expect(page).toHaveURL(new RegExp(`story=${STORY.id}`));
+    await expect(page.locator('.progress-bar')).toHaveAccessibleName('完了 0 / 10 pt（0%）、経過 8 / 14 日（57%）');
+    await toggle.click();
+    await expect(target.locator('.card-title')).toHaveText(completed.title);
+    await expect(page.locator('.card')).toHaveCount(3);
+  });
+}
+
+test('絞り込み中も戻せない完了カードは理由を伝え、書き込まない', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'admin');
+  const board = sample();
+  const task = board.columns[3]!.tasks[0]!;
+  task.reopenable = false;
+  let sent = 0;
+  page.on('request', (request) => {
+    if (request.url().includes('/task-reopen')) sent++;
+  });
+  await mockOperation(page, sprintBoard, { slug: 'aoba' }, board);
+  await page.goto(`${PATH}?story=${STORY.id}`);
+  const card = page.locator(`[data-card-id="${task.id}"]`);
+  await expect(card).toHaveClass(/is-reopen-blocked/);
+  await expect(card).toHaveAccessibleDescription(/完了を戻せません/);
+  await card.press('Alt+ArrowLeft');
+  await expect(
+    page.getByText(
+      '完了したストーリーの下のタスクは戻せません。先にストーリーの完了を取り消してください。一覧を読み直します',
+      {
+        exact: true,
+      },
+    ),
+  ).toBeVisible();
+  await waitForSettled(page);
+  expect(sent).toBe(0);
+  await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
+  await expect(page.locator('.card')).toHaveCount(3);
 });
 
 for (const theme of A11Y_THEMES) {
