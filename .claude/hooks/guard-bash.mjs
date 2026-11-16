@@ -42,7 +42,7 @@ function withShellEnvState(verdict, sessionId, { shellEnvStateProblems, shellEnv
   if (verdict?.[0] === 'deny') return verdict;
   const home = homeOrNull();
   const configDir = process.env.CLAUDE_CONFIG_DIR || (home && path.join(home, '.claude'));
-  const problems = shellEnvStateProblems({ configDir, sessionId });
+  const problems = shellEnvStateProblems({ configDir, sessionId, envFile: process.env.CLAUDE_ENV_FILE });
   if (problems.length === 0) return verdict;
   const reason = shellEnvStateReason(problems);
   return ['ask', verdict ? `${verdict[1]}。${reason}` : reason];

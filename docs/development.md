@@ -622,16 +622,18 @@ Claude Code が各 Bash の前に読む環境のファイルを守る本体は�
 | 見るもの | 許す形 |
 | --- | --- |
 | `<設定の場所>/session-env/<入力の session_id>/` の全部のファイルの全部の行 | 空行、`session-start.sh` が書く `export PATH="/opt/node<数字>/bin:$PATH"`、`export <許した名前>='<値>'`。値は単一引用符の中で、引用符、`$`、バッククォート、`\`、制御文字を含まない。許した名前は個人のプラグインが SessionStart で書く `CODEX_COMPANION_SESSION_ID`、`CODEX_COMPANION_TRANSCRIPT_PATH`、`CLAUDE_PLUGIN_DATA`（`shell-env-state.mjs` の `SESSION_ENV_ALLOWED_NAMES`）。ファイルは通常のファイルだけ |
-| `<設定の場所>/shell-snapshots/` の全部のファイル | 名前が `snapshot-<シェル>-<エポックms>-<乱数>.sh` で、通常のファイルで、`ctime` が名前の時刻の 1 秒前から 30 秒後まで（猶予 S）。中身は読まない。セッションとの対応は名前から分からないので、全部を見る |
+| 起動元の環境の `CLAUDE_ENV_FILE` が指すファイル | session-env と同じ形。Claude Code は自分の環境にこの変数があれば、session-env より先にその中身を読む。フックは同じ環境を受け継ぐ |
+| `<設定の場所>/shell-snapshots/` の全部のファイル | 名前が `snapshot-<シェル>-<エポックms>-<乱数>.sh`（後ろに `-<識別>` が付いてもよい）で、通常のファイルで、`ctime` が名前の時刻の 1 秒前から 15 秒後まで（猶予 S）。中身は読まない。セッションとの対応は名前から分からないので、全部を見る |
 
 - 設定の場所は `CLAUDE_CONFIG_DIR`、無ければ `~/.claude`。`session-env/<session_id>` と `shell-snapshots` が無ければ通す（SessionStart のフックが何も書かない、snapshot をまだ作っていない）
 - `session-env/<session_id>` と `shell-snapshots` そのものがリンクか、ディレクトリでなければ確認を挟む。入力の `session_id` が無いか、英数字と `-`、`_` 以外を含むとき、ファイルを読めないときも確認を挟み、素通りにしない
-- `ctime` は、書き込み、置き換え（`mv`、`ln`）、`touch`、`chmod` のどれでも今になり、利用者の権限では戻せない。猶予 S は、手元の macOS の snapshot で `ctime − 名前の時刻` が 0.3〜1.1 秒だったのに対し、シェルの起動ファイルが重い環境を見込んで 30 秒にした。APFS で `mv` と `ln` が `ctime` を今にすることを確かめた（2026-11-16）
+- `ctime` は、書き込み、置き換え（`mv`、`ln`）、`touch`、`chmod` のどれでも今になり、利用者の権限では戻せない。猶予 S は 15 秒。Claude Code（2.1.325）は名前の時刻を取ってから snapshot を書くシェルを起こし、10 秒で打ち切るので、正当な snapshot の `ctime` はその中に収まる（手元の macOS の実測は 0.3〜1.1 秒）。APFS で `mv` と `ln` が `ctime` を今にすることを確かめた（2026-11-16）
 
 弱点（同じ権限で動くフックでは塞げない）。
 
 - 確かめた後の書き込み: フックが確かめてから Bash が読むまでの間に、裏で動くプロセスが書けば見えない
 - 時計を動かせる環境: システムの時刻を戻せる権限があれば、`ctime` を名前の時刻に合わせて書き換えられる
+- 作りたての snapshot: 名前の時刻から 15 秒の間に書き換えれば見えない。起動したばかりのセッションと、並べて動くほかのセッションの作りたての snapshot が当たる
 - プラグインが増えたとき: 許した名前に無い変数を書くプラグインを入れると、そのセッションのすべての Bash で確認が出る。値を確かめてから `SESSION_ENV_ALLOWED_NAMES` に足す。Spotlight やバックアップの道具が snapshot に拡張属性を付けて `ctime` が動いたときも、確認が出る。外れたファイルを消せば止まる（今のセッションの snapshot なら Claude Code を起動し直す）
 
 #### パイプで実行する本文

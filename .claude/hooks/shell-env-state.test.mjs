@@ -61,6 +61,11 @@ describe('shell-snapshots のファイル', () => {
   test('作られたままなら問題なし', () => {
     assert.equal(snapshotProblem(name, stat(at + 333)), null);
     assert.equal(snapshotProblem(`snapshot-bash-${at}-a1.sh`, stat(at + SNAPSHOT_GRACE_MS)), null);
+    // Claude Code が名前の後ろにセッションの識別を付ける形
+    assert.equal(snapshotProblem(`snapshot-zsh-${at}-mzfo83-0a1b2c3d-0000-4000-8000-000000000000.sh`, stat(at + 333)), null);
+  });
+  test('猶予は snapshot を書くシェルの打ち切り（10 秒）に近く取る', () => {
+    assert.ok(SNAPSHOT_GRACE_MS >= 10_000 && SNAPSHOT_GRACE_MS <= 15_000);
   });
   test('猶予を超えて ctime が動いたら外す', () => {
     assert.match(snapshotProblem(name, stat(at + SNAPSHOT_GRACE_MS + 1)), /ctime/);
