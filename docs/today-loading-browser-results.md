@@ -36,6 +36,8 @@ pnpm exec node scripts/today-loading-summary.ts docs/today-loading-samples.json.
 pnpm exec node scripts/today-loading-browser-bench.ts --runs 20 --rounds 2 --output /tmp/today-loading.json
 ```
 
+`--fixture-at 2026-11-16T12:35:24.317Z` のように架空データの基準日時を指定でき、結果JSONの `fixtureAt` に正規化した日時を残す。省略時は開始時刻を使い、同じfixtureを両巡に投入する。Workerの時計は固定しないため、別の日の持ち越し集計まで同じにはならない。
+
 Node は `.node-version`、pnpm は `package.json` の指定版。Chromium はプロジェクトの Playwright に対応する版を導入する。既存の [API 比較器と結果](today-loading-results.md) は残す。この比較器はそれにブラウザ比較とロールの条件を追加する別の入口。
 
 - 全ビルドを先に済ませ、build・検査・他の計測と重ねず実行する。使い捨ての D1 と Worker を使い、巡ごとに新しい D1 を同じ fixture で作る。本番と既存の手元 D1 は使わない。自分で起動したプロセスと一時ファイルだけを後片付けする。

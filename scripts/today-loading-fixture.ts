@@ -42,3 +42,9 @@ SELECT printf('019d${i}600-0000-7000-8000-%012d', i), '${ws}', 0, 'backlog', '�
     })
     .join('\n');
 }
+
+export function todayFixtureAt(value: string): Date {
+  const at = new Date(value);
+  if (!Number.isFinite(at.getTime())) throw new Error('--fixture-at に有効なISO日時を指定してください');
+  return at;
+}

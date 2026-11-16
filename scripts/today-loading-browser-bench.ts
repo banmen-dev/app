@@ -16,7 +16,7 @@ import { TEST_CREDENTIAL_KEYS } from './test-credential-keys.ts';
 import { finishTodayBenchmark, preserveTodayBuild, TodayBrowserChecks } from './today-loading-support.ts';
 import { isBenchHealth, trackServer } from './loading-server.ts';
 import { bootProxy } from './boot-proxy.ts';
-import { todayCases, todayCaseSlug, todayLoadingFixture } from './today-loading-fixture.ts';
+import { todayCases, todayCaseSlug, todayLoadingFixture, todayFixtureAt } from './today-loading-fixture.ts';
 import { todayLoadingPlugin, type TodayVariant } from './today-loading-variant.ts';
 
 function option(name: string, fallback: string): string {
@@ -39,6 +39,7 @@ if (
 )
   throw new Error('runs/rounds/port が範囲外です');
 const output = path.resolve(option('--output', path.join(tmpdir(), 'today-loading.json')));
+const fixtureAt = todayFixtureAt(option('--fixture-at', new Date().toISOString()));
 const root = process.cwd();
 const dir = mkdtempSync(path.join(tmpdir(), 'scrum-guild-today-'));
 const origin = `http://127.0.0.1:${port}`;
@@ -202,6 +203,7 @@ const report: Record<string, unknown> = {
   startedAt: new Date().toISOString(),
   cache: 'CDP cache disabled; service workers blocked',
   network: 'loopback, no artificial delay or network throttling',
+  fixtureAt: fixtureAt.toISOString(),
   fixture: '5000 tasks, 30 marked; leader pending and admin have no tasks',
   api,
   browser: samples,
@@ -278,7 +280,7 @@ try {
     fixture,
     readFileSync(path.join(root, 'seed/data.sql'), 'utf8') +
       sessionInserts(Object.values(SEED_SESSIONS), new Date()) +
-      todayLoadingFixture(),
+      todayLoadingFixture(fixtureAt),
   );
 
   await new Promise<void>((resolve, reject) => {
