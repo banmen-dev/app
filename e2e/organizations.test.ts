@@ -1,6 +1,7 @@
 // 組織の選択と組織の枠。seed のセッション（seed/sessions.ts）の Cookie で、組織が1つの人、2つの人、入れない組織を開いた人を確かめる
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures.ts';
+import { word } from '../src/shared/vocabulary.ts';
 import type { OutputOf } from '../src/shared/operations/define.ts';
 import { listOrganizations } from '../src/shared/operations/operator/index.ts';
 import { myOrganizations, organizationInfo } from '../src/shared/operations/organization/index.ts';
@@ -38,19 +39,26 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
     await signIn(context, baseURL, 'member');
   });
 
-  test('/ を開くと組織の画面に入り、組織の切り替えには「組織を作る」と「自分用を作る」だけが並ぶ', async ({ page }) => {
+  test('/ のダッシュボードから組織へ入り、切り替えからダッシュボードに戻れる', async ({ page }) => {
     const collect = await watchViolations(page);
     await page.goto('/');
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Scrum Guild のニュース' })).toBeVisible();
+    await page.getByRole('link', { name: /あおば開発/ }).click();
     await expect(page).toHaveURL(/\/aoba$/);
     await expect(page.getByRole('heading', { level: 1, name: '今日やること' })).toBeVisible();
     await expect(page.locator('.me')).toContainText('ハルカ');
     await expect(page.locator('.me .chip')).toHaveCount(0);
-    // / は今の組織へ戻すだけなので、組織の一覧へ戻る行は出さない。招待も無いので印も出ない
+    // 1組織でもダッシュボードに戻れる。招待が無いので印は出ない
     await expect(menuButton(page)).toHaveAttribute('aria-label', 'あおば開発。組織を切り替える');
     await expect(page.locator('.org-menu-invite')).toHaveCount(0);
     await menuButton(page).click();
-    await expect(menuLinks(page)).toHaveText(['あおば開発']);
+    await expect(menuLinks(page)).toHaveText(['あおば開発', 'ダッシュボード']);
     await expect(page.locator('.org-menu-list button')).toHaveText(['組織を作る', '自分用を作る']);
+    await menuLinks(page).last().click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
     expect(await collect()).toEqual([]);
   });
 
@@ -134,10 +142,11 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
     expect(bodies[0]).toBe(bodies[1]);
   });
 
-  test('見つからない画面の「一覧へ」で、入れる組織の画面に戻る', async ({ page }) => {
+  test('見つからない画面の「ダッシュボード」で / に戻る', async ({ page }) => {
     await page.goto('/hibari');
-    await page.getByRole('link', { name: '組織の一覧へ' }).click();
-    await expect(page).toHaveURL(/\/aoba$/);
+    await page.getByRole('link', { name: 'ダッシュボード' }).click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
   });
 
   // 見つからないのは、API が not_found の 404 を返したときだけ
@@ -175,8 +184,9 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
     await expect(page.getByText('この組織は停止しています。運用者に問い合わせてください。')).toBeVisible();
     await expect(page.getByRole('heading', { name: '組織が見つかりません' })).toHaveCount(0);
     await expect(page.locator('.nav')).toHaveCount(0);
-    await page.getByRole('link', { name: '組織の一覧へ' }).click();
-    await expect(page).toHaveURL(/\/aoba$/);
+    await page.getByRole('link', { name: 'ダッシュボード' }).click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
     // 差し替えた 403 の読み込みの失敗をブラウザがコンソールに出す。それ以外（CSP の違反など）が無いことを見る
     expect((await collect()).filter((entry) => !entry.includes('403 (Forbidden)'))).toEqual([]);
   });
@@ -344,7 +354,7 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
     const collect = await watchViolations(page);
     await page.goto('/');
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole('heading', { level: 1, name: '組織を選ぶ' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
     await expect(page.locator('.nav')).toHaveCount(0);
     await expect(page.locator('a.choice')).toHaveText([/あおば開発/, /ひばり工房/]);
     // 押せる行（a.choice）には右端に印があり、押せない行（.is-static）には無い
@@ -377,7 +387,7 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
     await expect(page.locator('.org-menu-list')).toBeHidden();
     await menuButton(page).click();
     await expect(menuButton(page)).toHaveAttribute('aria-expanded', 'true');
-    await expect(menuLinks(page)).toHaveText(['あおば開発', 'ひばり工房', '組織の一覧へ']);
+    await expect(menuLinks(page)).toHaveText(['あおば開発', 'ひばり工房', 'ダッシュボード']);
     await expect(menuLinks(page).nth(0)).toHaveAttribute('aria-current', 'page');
     await expect(menuLinks(page).nth(0).locator('svg')).toHaveCount(1);
     await expect(menuLinks(page).nth(1)).not.toHaveAttribute('aria-current', /.*/);
@@ -480,9 +490,7 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
     expect(sizes.bottom).toBeLessThanOrEqual(sizes.inner);
   });
 
-  test('1組織でも届いた招待があれば、ボタンに印を出し、一覧へ戻る行に招待が届いていることを添える', async ({
-    page,
-  }) => {
+  test('1組織でも招待の印を出し、ダッシュボードへ戻る行に招待が届いていることを添える', async ({ page }) => {
     await mockOperation(page, myOrganizations, AOBA_WITH_INVITATION);
     await page.goto('/aoba');
     // 角のマスは1行に収めるため、チップの代わりに点の印で示し、読み上げの名前で伝える
@@ -550,7 +558,7 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
     await menuButton(page).click();
     await menuLinks(page).last().click();
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole('heading', { level: 1, name: '組織を選ぶ' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
   });
 
   test('390px の幅でも、組織の切り替えが出て、各組織へ移れ、一覧に戻れる', async ({ page }) => {
@@ -559,7 +567,7 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
     await page.getByRole('button', { name: 'すべてのメニュー', exact: true }).click();
     await expect(menuButton(page)).toBeVisible();
     await menuButton(page).click();
-    await expect(menuLinks(page)).toHaveText(['あおば開発', 'ひばり工房', '組織の一覧へ']);
+    await expect(menuLinks(page)).toHaveText(['あおば開発', 'ひばり工房', 'ダッシュボード']);
     for (const link of await menuLinks(page).all()) await expect(link).toBeVisible();
     const closed = await overflowOf(page);
     expect(closed.scroll).toBeLessThanOrEqual(closed.inner);
@@ -570,7 +578,7 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
     await menuButton(page).click();
     await menuLinks(page).last().click();
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole('heading', { level: 1, name: '組織を選ぶ' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
   });
 
   test('長い組織名、slug、ユーザー名でも、横にはみ出さない', async ({ page }) => {
@@ -609,10 +617,128 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
   });
 });
 
+test('組織からダッシュボードへの遅い移動では、元の画面に「移っています」と読み上げを出す', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signIn(context, baseURL, 'member');
+  await page.goto('/aoba');
+  // 初回の my-organizations を止めず、ダッシュボードへ移るときの読み取りだけを待たせる。
+  await expect(menuButton(page)).toBeVisible();
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  await routeOperation(page, myOrganizations, async (call) => {
+    await gate;
+    await call.passThrough();
+  });
+  try {
+    await menuButton(page).click();
+    await menuLinks(page).last().click();
+    await expect(menuButton(page)).toContainText('移っています');
+    await expect(page.locator('.org-menu [role="status"]')).toHaveText('移っています');
+    await expect(page.getByRole('heading', { level: 1, name: '今日やること' })).toBeVisible();
+    await expect(page.locator('.loading-overlay')).toHaveCount(0);
+  } finally {
+    release();
+  }
+  await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
+});
+
+test('枠の外からダッシュボードへの遅い移動で、広い紙と2列の骨組みを出す', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'member');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/terms');
+  await routeOperation(page, myOrganizations, async (call) => {
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await call.passThrough();
+  });
+  await page
+    .getByRole('link', { name: word('legalOpenApp', { app: word('appName') }) })
+    .first()
+    .click();
+  const loadingPaper = page.locator('.loading-overlay .gate.is-wide .gate-sheet');
+  await expect(loadingPaper).toBeVisible();
+  await expect(loadingPaper.locator('.dashboard')).toBeVisible();
+  await expect(page.locator('.loading-overlay .binding')).toHaveCount(0);
+  const loadingBox = await shownBox(loadingPaper);
+  await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
+  const loadedBox = await shownBox(page.locator('.gate-sheet'));
+  expect(loadingBox.width).toBe(loadedBox.width);
+  expect(loadingBox.x).toBe(loadedBox.x);
+});
+
+for (const width of [1280, 390]) {
+  test(`ダッシュボードの初回の骨組みも ${width}px の紙の幅に揃える`, async ({ page, context, baseURL }) => {
+    await signIn(context, baseURL, 'member');
+    await page.setViewportSize({ width, height: 900 });
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    await routeOperation(page, myOrganizations, async (call) => {
+      await gate;
+      await call.passThrough();
+    });
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    let loadingBox;
+    try {
+      const boot = page.locator('#boot-loading .boot-skeleton');
+      await expect(boot).toBeVisible();
+      await expect(boot.locator('.boot-pane')).toHaveCount(2);
+      loadingBox = await shownBox(boot);
+    } finally {
+      release();
+    }
+    await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
+    const loadedBox = await shownBox(page.locator('.gate-sheet'));
+    expect(loadingBox.width).toBe(loadedBox.width);
+    expect(loadingBox.x).toBe(loadedBox.x);
+  });
+}
+
+for (const width of [1280, 390]) {
+  test(`全組織のダッシュボードは ${width}px で面を並べ、組織の中を読まない`, async ({ page, context, baseURL }) => {
+    await signIn(context, baseURL, 'member');
+    await page.setViewportSize({ width, height: 900 });
+    await mockOperation(page, myOrganizations, {
+      ...AOBA_WITH_INVITATION,
+      suspended: [{ slug: 'kamome', name: 'かもめ社', kind: 'team' }],
+    });
+    const organizationRequests: string[] = [];
+    page.on('request', (request) => {
+      if (/\/api\/(aoba|tsubame|kamome)\//.test(new URL(request.url()).pathname))
+        organizationRequests.push(request.url());
+    });
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
+    await expect(page.locator('.pane-title')).toHaveText([
+      '入れる組織',
+      '届いた招待',
+      '停止している組織',
+      'Scrum Guild のニュース',
+    ]);
+    await expect(page.locator('.nav, .topbar')).toHaveCount(0);
+    const main = await shownBox(page.locator('.dashboard-main'));
+    const side = await shownBox(page.locator('.dashboard-side'));
+    if (width === 390) {
+      expect(side.y).toBeGreaterThanOrEqual(main.y + main.height);
+      expect(side.x).toBe(main.x);
+    } else {
+      expect(side.x).toBeGreaterThanOrEqual(main.x + main.width);
+      expect(side.y).toBe(main.y);
+    }
+    const overflow = await overflowOf(page);
+    expect(overflow.scroll).toBeLessThanOrEqual(overflow.inner);
+    expect(organizationRequests).toEqual([]);
+    expect(await findA11yViolations(page)).toEqual([]);
+  });
+}
+
 test.describe('ひばり工房だけの管理者（リン）', () => {
-  test('/ を開くとひばり工房に入る。あおば開発の slug は見つからない', async ({ page, context, baseURL }) => {
+  test('/ で組織を選んでひばり工房に入る。あおば開発の slug は見つからない', async ({ page, context, baseURL }) => {
     await signIn(context, baseURL, 'otherOrg');
     await page.goto('/');
+    await expect(page).toHaveURL(/\/$/);
+    await page.getByRole('link', { name: /ひばり工房/ }).click();
     await expect(page).toHaveURL(/\/hibari$/);
     await expect(page.locator('.me')).toContainText('リン');
     await expect(page.locator('.me .chip')).toHaveText('管理者');
@@ -641,7 +767,7 @@ test.describe('ログインしていない人と、組織が無い人', () => {
     await expect(page.getByText('運用者のログインで入りました')).toHaveCount(0);
   });
 
-  test('入れる組織が1つでも届いた招待があれば組織の選択の画面を出し、招待は組織の名前と招待の画面へのリンクで出す', async ({
+  test('1組織と招待をダッシュボードに並べ、招待は組織の名前と招待の画面へのリンクで出す', async ({
     page,
     context,
     baseURL,
@@ -694,7 +820,7 @@ test.describe('ログインしていない人と、組織が無い人', () => {
     await signIn(context, baseURL, 'admin');
     await page.addInitScript(() => localStorage.setItem('sg-theme', 'modern'));
     await page.goto('/');
-    await expect(page.getByRole('heading', { level: 1, name: '組織を選ぶ' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
     await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.*/);
     expect(await page.evaluate(() => localStorage.getItem('sg-theme'))).toBeNull();
   });
@@ -711,7 +837,7 @@ test.describe('すべてのワークスペースから外れた人（ツバサ�
     const collect = await watchViolations(page);
     await page.goto('/');
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole('heading', { level: 1, name: '組織を選ぶ' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
     await expect(page.getByText('入れる組織がありません', { exact: true })).toBeVisible();
     await expect(page.getByText('管理者から招待が届くと、ここに出ます。')).toBeVisible();
     // 入れる組織の一覧も、届いた招待も出ない

@@ -93,7 +93,7 @@ test('すでにある組織の slug を入れると、ダイアログに理由�
   await expect(page).not.toHaveURL(/\/aoba/);
 });
 
-// 入れる組織が1つで招待が無い会員（ハルカ）は / を開くとその組織へ移り、組織の選択の画面に届かない。切り替えのメニューが入口になる。
+// 組織の中からも、切り替えのメニューで作成のダイアログを開ける。
 // ハルカで組織を作ると手元の D1 に組織が残り、繰り返し（e2e-repeat）が崩れるので、作成までは進めず、開いて、やめるで閉じるところまで確かめる
 test('入れる組織が1つの会員は、組織の切り替えのメニューから「組織を作る」を開き、閉じるとフォーカスが切り替えのボタンへ戻る', async ({
   context,
@@ -102,6 +102,7 @@ test('入れる組織が1つの会員は、組織の切り替えのメニュー�
 }) => {
   await signIn(context, baseURL, 'member');
   await page.goto('/');
+  await page.getByRole('link', { name: /あおば開発/ }).click();
   await expect(page).toHaveURL(/\/aoba$/);
   const menuButton = page.getByRole('button', { name: 'あおば開発。組織を切り替える' });
   await menuButton.click();
@@ -118,7 +119,7 @@ test('入れる組織が1つの会員は、組織の切り替えのメニュー�
   await expect(page).toHaveURL(/\/aoba$/);
 });
 
-// 入れる組織が1つで招待が無い会員（ハルカ）は組織の選択の画面に届かないので、切り替えのメニューの「自分用を作る」が自分用の入口になる（#733）。
+// 自分用の作成も、組織の中の切り替えのメニューから開ける（#733）。
 // 作成までは進めず、開いて、やめるで閉じるところまで確かめる（手元の D1 に自分用の組織を残さない）
 test('入れる組織が1つの会員は、組織の切り替えのメニューから「自分用を作る」を開き、閉じるとフォーカスが切り替えのボタンへ戻る', async ({
   context,
@@ -127,6 +128,7 @@ test('入れる組織が1つの会員は、組織の切り替えのメニュー�
 }) => {
   await signIn(context, baseURL, 'member');
   await page.goto('/');
+  await page.getByRole('link', { name: /あおば開発/ }).click();
   await expect(page).toHaveURL(/\/aoba$/);
   const menuButton = page.getByRole('button', { name: 'あおば開発。組織を切り替える' });
   await menuButton.click();
@@ -255,7 +257,7 @@ test.describe('組織の選択の「自分用を作る」の出し分け', () =>
     await signIn(context, baseURL, 'createOrg');
     await rewriteOperation(page, myOrganizations, (output) => ({ ...output, organizations: [team, personal] }));
     await page.goto('/');
-    await expect(page.getByRole('heading', { level: 1, name: '組織を選ぶ' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
     await expect(page.locator('.choice')).toHaveText([/あおば開発/, /自分用/]);
     await expect(page.getByRole('button', { name: word('createMyOrganizationAction') })).toBeVisible();
     await expect(page.getByRole('button', { name: word('createPersonalOrganizationAction') })).toHaveCount(0);
@@ -269,12 +271,12 @@ test.describe('組織の選択の「自分用を作る」の出し分け', () =>
     await signIn(context, baseURL, 'createOrg');
     await rewriteOperation(page, myOrganizations, (output) => ({
       ...output,
-      // 入れる組織が1つだと組織へ直に移るので、選択の画面を出すために2つにする
+      // チーム用と停止した自分用を持つ人の表示を確かめる
       organizations: [team, { ...team, slug: 'other-team', name: 'もう一つのチーム' }],
       suspended: [{ ...personal, slug: 'mio-stopped' }],
     }));
     await page.goto('/');
-    await expect(page.getByRole('heading', { level: 1, name: '組織を選ぶ' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
     await expect(page.locator('.choice.is-static')).toHaveText([/自分用/]);
     await expect(page.getByText(word('suspendedOrganizationStatus'))).toBeVisible();
     await expect(page.getByRole('button', { name: word('createPersonalOrganizationAction') })).toHaveCount(0);
@@ -292,7 +294,7 @@ test.describe('組織の選択の「自分用を作る」の出し分け', () =>
     expect(await findA11yViolations(page)).toEqual([]);
   });
 
-  test('すでに自分用を持つ人が押すと、ダイアログに断りと組織の一覧へのリンクが出る', async ({
+  test('すでに自分用を持つ人が押すと、ダイアログに断りとダッシュボードへのリンクが出る', async ({
     context,
     baseURL,
     page,

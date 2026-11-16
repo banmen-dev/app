@@ -15,12 +15,7 @@
   // メニューの中にフォーカスがあるときに閉じたら、ボタンへフォーカスを戻す（隠れた要素にフォーカスを残さない）。
   // 今の組織の名前は、入れる組織の一覧の中の名前を使う。一覧に無いとき（取れなかった）だけ fallbackName を使う。
   // invited は、届いた招待があること。招待が見える入口は組織の選択の画面だけなので、ここで印を出す。
-  // 最後に「組織を作る」を置く。入れる組織が1つで招待が無い人は / を開くとその組織へ移り、組織の選択の画面の「組織を作る」に届かないので、
-  // ここが入口になる。押すとメニューを閉じてから oncreate に押したボタンを渡す（ダイアログは、メニューを閉じても残る枠の側が持つ。
-  // フォーカスは、閉じたメニューのボタンへ戻る）。
-  // 続けて「自分用を作る」を、自分用を持たない人（入れる組織にも停止した組織にも自分用が無い人）にだけ置く。同じ理由で、ここも入口になる。
-  // 押すと同じようにメニューを閉じてから oncreatepersonal に押したボタンを渡す。
-  // 「組織の一覧へ」は、/ が今の組織へ戻すだけのとき（入れる組織が1つで招待が無い）は出さない（landingFor と同じ条件）
+  // ダッシュボードへのリンクは組織の数によらず出す。作成ボタンは閉じた後も残る枠のダイアログを開く。
   let {
     organizations,
     currentSlug,
@@ -56,8 +51,6 @@
   const label = $derived(
     t('organizationSwitchLabel', { name: currentName }) + (invited ? `。${t('invitationsBadge')}` : ''),
   );
-
-  const hasList = $derived(organizations.length > 1 || invited);
 
   function create(): void {
     menu.close();
@@ -112,14 +105,12 @@
         </a>
       </li>
     {/each}
-    {#if hasList}
-      <li class="is-aside">
-        <a href={resolve('/')} onclick={menu.close}>
-          <span class="org-menu-name">{t('organizationList')}</span>
-          {#if invited}<span class="org-menu-note">{t('invitationsReceived')}</span>{/if}
-        </a>
-      </li>
-    {/if}
+    <li class="is-aside">
+      <a href={resolve('/')} onclick={menu.close}>
+        <span class="org-menu-name">{t('organizationList')}</span>
+        {#if invited}<span class="org-menu-note">{t('invitationsReceived')}</span>{/if}
+      </a>
+    </li>
     <li class="is-aside">
       <button type="button" onclick={create}>
         <span class="org-menu-name">{t('createMyOrganizationAction')}</span>
