@@ -1123,3 +1123,58 @@ test('名前なしの開始・削除・終了では、文中に期間を一度�
     }),
   ).toBeVisible();
 });
+
+test('進み具合は完了ポイントと経過日数を1本の棒で示し、完了へのドラッグで更新する', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signIn(context, baseURL, 'admin');
+  const board = structuredClone(SAMPLE_BOARD);
+  await routeOperation(page, sprintBoard, { slug: 'aoba' }, async (call) => {
+    await call.fulfill(board);
+  });
+  await routeOperation(page, taskComplete, { slug: 'aoba' }, async (call) => {
+    const task = board.columns[0].tasks.shift()!;
+    expect(call.input.task_id).toBe(task.id);
+    board.columns.at(-1)!.tasks.push({ ...task, completed_at: '2026-10-20T09:00:00.000Z', reopenable: true });
+    await call.fulfill({
+      task_id: task.id,
+      completed_at: '2026-10-20T09:00:00.000Z',
+      left_sprint: false,
+      xp_granted: 0,
+    });
+  });
+  await page.goto(`${AOBA_TEAM}/sprint`);
+  const gauge = page.locator('.progress-bar');
+  await expect(page.locator('.progress-num')).toHaveText('完了 2 / 10 pt（20%）');
+  await expect(gauge).toHaveAccessibleName('完了 2 / 10 pt（20%）、経過 8 / 14 日（57%）');
+  await expect(page.locator('.progress-remaining')).toHaveText('残り 7 日');
+  await expect(page.locator('.progress-fill')).not.toHaveCSS('width', '0px');
+  await expect(page.locator('.progress-marker')).toHaveAttribute('style', /left: 57\.142/);
+  await dragTo(
+    page,
+    page.getByRole('link', { name: '管理画面にポイント履歴の一覧を出す', exact: true }),
+    page.getByRole('region', { name: '完了', exact: true }).locator('.board-col-head'),
+    'middle',
+  );
+  await expect(page.locator('.progress-num')).toHaveText('完了 7 / 10 pt（70%）');
+  await expect(gauge).toHaveAccessibleName('完了 7 / 10 pt（70%）、経過 8 / 14 日（57%）');
+  await expect(page.locator('.progress-fill')).toHaveAttribute('style', /width: 70%/);
+});
+
+test('0ポイントの進み具合は完了割合を出さず、390pxでも枠内に収まる', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'admin');
+  const board = structuredClone(SAMPLE_BOARD);
+  for (const column of board.columns) for (const task of column.tasks) task.points = null;
+  await mockOperation(page, sprintBoard, { slug: 'aoba' }, board);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${AOBA_TEAM}/sprint`);
+  await expect(page.locator('.progress-num')).toHaveText('完了 0 / 0 pt');
+  await expect(page.locator('.progress-bar')).toHaveAccessibleName('完了 0 / 0 pt、経過 8 / 14 日（57%）');
+  await expect(page.locator('.progress-fill')).toHaveCSS('width', '0px');
+  const box = await page.locator('.progress-summary').boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+});

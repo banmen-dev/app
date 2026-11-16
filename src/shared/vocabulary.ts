@@ -1071,6 +1071,10 @@ export const dictionary = defineDictionary({
   // 進み具合の棒の読み上げ（kit.js の progress の aria-label）と、棒の横の数
   progressLabel: '{done} {value} / {all} {points}',
   progressValue: '{value} / {all} pt',
+  progressCompleted: '{done} {value} / {all} pt',
+  progressCompletedPercent: '{done} {value} / {all} pt（{percent}%）',
+  progressElapsed: '経過 {day} / {length} 日（{percent}%）',
+  sprintBoardRemaining: '残り {days} 日',
   epicPageNotFoundTitle: '{epic}が見つかりません',
   epicPageNotFoundText: '削除されたか、この{workspace}にない{epic}です。',
   // クリア報酬の段階の呼び名。額は経験値の定数（XP_EPIC_REWARD）から出す

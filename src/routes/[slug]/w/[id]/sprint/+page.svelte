@@ -11,6 +11,7 @@
   import Icon from '../../../../../lib/components/Icon.svelte';
   import LoadFailed from '../../../../../lib/components/LoadFailed.svelte';
   import Markdown from '../../../../../lib/components/Markdown.svelte';
+  import Progress from '../../../../../lib/components/Progress.svelte';
   import PageHead from '../../../../../lib/components/PageHead.svelte';
   import SprintCard from '../../../../../lib/components/SprintCard.svelte';
   import SprintDialog from '../../../../../lib/components/SprintDialog.svelte';
@@ -191,11 +192,6 @@
   const allTasks = $derived(columns.flatMap((column) => column.tasks));
   const progress = $derived(sprint !== null && board !== null ? sprintProgress(sprint, board.today) : null);
   const doneColumnTasks = $derived(columns.filter((column) => column.is_done).flatMap((column) => column.tasks));
-  const tallies = $derived([
-    { icon: 'check' as const, label: t('sprintBoardTallyDone', { done: t('done') }), count: pointsOf(doneColumnTasks) },
-    { label: t('sprintBoardTallyTotal'), count: pointsOf(allTasks) },
-    { icon: 'clock' as const, label: t('sprintBoardTallyRemaining'), count: progress?.remaining ?? 0 },
-  ]);
 
   async function reloadBoard(): Promise<void> {
     const saved = savedFocus();
@@ -674,9 +670,24 @@
         length: progress.length,
         day: progress.day,
       })}
-      {tallies}
       focusable
     >
+      {#snippet meta()}
+        <div class="progress-summary">
+          <Progress
+            done={pointsOf(doneColumnTasks)}
+            all={pointsOf(allTasks)}
+            markerPercent={(progress.day / progress.length) * 100}
+            markerLabel={t('progressElapsed', {
+              day: progress.day,
+              length: progress.length,
+              percent: Math.round((progress.day / progress.length) * 100),
+            })}
+            detailed
+          />
+          <span class="progress-remaining">{t('sprintBoardRemaining', { days: progress.remaining })}</span>
+        </div>
+      {/snippet}
       {#snippet actions()}
         {#if canLead}
           <button class="btn" type="button" onclick={(event) => editDialog?.show(event.currentTarget, sprint)}
