@@ -75,6 +75,7 @@ describe('最初の読み込みの骨組みの形（static/boot-shape.js）', ()
   });
   test('どの画面の URL でも、移る間の骨組み（src/lib/loading-shape.ts）と同じ形を選ぶ', () => {
     const ids = routeIds();
+    assert.ok(ids.includes('/'));
     assert.ok(ids.includes('/[slug]/w/[id]/sprint'));
     for (const id of ids) {
       for (const path of [samplePath(id), `${samplePath(id)}/`]) {
@@ -164,6 +165,17 @@ describe('最初の読み込みの骨組みの形（static/boot-shape.js）', ()
     for (const name of names) {
       assert.match(rules, new RegExp(`\\.${name}(?![\\w-])`), `.${name} が static/boot-loading.css に無い`);
     }
+  });
+
+  test('初回の面の帯の間隔を、移る間の skeleton の実寸に揃える', () => {
+    const components = readFileSync(new URL('../design/components.css', import.meta.url), 'utf8');
+    const tokens = readFileSync(new URL('../design/tokens.css', import.meta.url), 'utf8');
+    const boot = readFileSync(new URL('../static/boot-loading.css', import.meta.url), 'utf8');
+    const gapToken = components.match(/\.skeleton\s*\{[^}]*gap:\s*var\((--[\w-]+)\)/)?.[1];
+    assert.ok(gapToken);
+    const expected = tokens.match(new RegExp(`${gapToken}:\\s*([^;]+);`))?.[1];
+    assert.ok(expected);
+    assert.equal(boot.match(/#boot-loading \.boot-pane\s*\{[^}]*gap:\s*([^;]+);/)?.[1], expected);
   });
 
   test('URL の区切りは文字に直して比べ、直せない URL は紙の形のまま', () => {
