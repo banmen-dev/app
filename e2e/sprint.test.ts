@@ -957,16 +957,19 @@ test.describe('カードのドラッグ', () => {
         events.push('move-start');
         started();
         await gate;
+        events.push('move-released');
         await call.fulfill({ task_id: call.input.task_id, column_id: call.input.column_id });
-        events.push('move-end');
       });
       await page.goto(`${AOBA_TEAM}/sprint`);
       await cardOf(page, moving.title).press('Alt+ArrowRight');
       await sent;
-      await cardOf(page, done.title).press('Alt+ArrowLeft');
-      await expect(statusOf(page, '完了したストーリーの下のタスクは戻せません。')).toBeVisible();
-      release();
-      await expect.poll(() => events).toEqual(['board', 'move-start', 'move-end', 'board']);
+      try {
+        await cardOf(page, done.title).press('Alt+ArrowLeft');
+        await expect(statusOf(page, '完了したストーリーの下のタスクは戻せません。')).toBeVisible();
+      } finally {
+        release();
+      }
+      await expect.poll(() => events).toEqual(['board', 'move-start', 'move-released', 'board']);
       if (failReload) await expect(page.locator('[data-task-reload-note]')).toBeVisible();
       else await expect(titlesIn(page, '完了')).toHaveText([done.title]);
     });
