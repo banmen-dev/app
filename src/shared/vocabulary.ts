@@ -2435,7 +2435,7 @@ export const dictionary = defineDictionary({
   sprintStartEnded: 'この{sprint}は最終日を過ぎているので、始められません。期間を直すか、削除して作り直してください',
   sprintStartAlreadyStarted: 'この{sprint}はもう始まっています。一覧を読み直します',
   sprintStartForbidden: '{sprint}を始めるのは{leader}です',
-  // 進行中のスプリントを延ばすダイアログ（kit.js の DIALOGS.sprintExtend）と、スプリントの画面の見出しの「延長する」と「名前とゴールを変更」
+  // 進行中のスプリントを延ばすダイアログ（kit.js の DIALOGS.sprintExtend）と、見出しの「編集」・「⋯」の延長メニュー
   sprintExtendAction: '延長する',
   sprintExtendSubmit: '{days} 日延長する',
   sprintExtendTitle: '{sprint}を延ばす',
@@ -2463,7 +2463,7 @@ export const dictionary = defineDictionary({
   sprintHeaderEditLabel: '{sprint}を編集: {label}',
   sprintEditActive: '名前と{sprintGoal}を変更',
   sprintEditGoalHint: '{max} 字まで。空にすると消えます',
-  // スプリントを終えるダイアログ（kit.js の DIALOGS.sprintEnd）と、スプリントの画面の見出しの「終える」
+  // 終了のダイアログ（kit.js の DIALOGS.sprintEnd）と、見出しの「⋯」の終了メニュー・最終日から表に出す「終える」
   sprintCloseAction: '終える',
   sprintCloseLabel: '終える: {sprint}「{label}」',
   sprintCloseTitle: '{sprint}を終える',
