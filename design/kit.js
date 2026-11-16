@@ -59,6 +59,7 @@
 
   // ---- 言葉の辞書（各キーはスクラムの言葉の文字列1つ） ----
   const DICT = {
+    organizationList: "ダッシュボード",
     sprintStoryFilterLabel: '{story}で絞り込む: {title}',
     sprintStoryFilterActive: '{story}: {title}',
     sprintStoryTotalsNote: '見出しは全体、列の件数と{points}は絞り込み後の値です',
@@ -222,7 +223,7 @@
   onboardingInvitationsFailed: "一部の招待を作成できませんでした。作成済みのリンクは残しています。入力を確認してもう一度試してください。",
   onboardingCopyFailed: "コピーできませんでした。表示されたURLを選択してコピーしてください。",
   onboardingPersonalUnavailable: "作成済みの自分用の組織に入れません。組織の選択画面で状態を確認してください。",
-  onboardingReturnOrganizations: "組織の選択に戻る",
+  onboardingReturnOrganizations: "ダッシュボードに戻る",
   onboardingInviteChoiceLiveNote: "個人用はこのまま使い始められます。チームで使う場合は、組織と招待先のワークスペースを作ります。チーム利用はあとからでも始められます。",
   onboardingStartPersonal: "個人用で使い始める",
   onboardingTeamCreateNote: "チームの{organization}は30日間のお試しで作成します。招待先として「チームのタスク」というワークスペースも作ります。",
@@ -3534,7 +3535,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const label = `${t("organization")}${moving ? t("organizationMoving") : orgName(current)}${invited ? "届いた招待あり" : ""}。${t("organization")}を切り替える`;
     const shown = moving ? t("organizationMoving") : esc(orgName(current));
     return `<div class="org-menu"><button class="org-menu-button" type="button" aria-expanded="${open}" aria-controls="${id}" aria-label="${esc(label)}" ${moving ? 'data-moving="true"' : ""} ${live ? "data-org-menu" : ""}><span class="org-menu-label">${t("organization")}</span><b>${shown}</b>${invited ? '<span class="chip">届いた招待あり</span>' : ""}${invited ? '<span class="org-menu-invite" aria-hidden="true"></span>' : ""}${brandSymbol}${icon("chevron")}<span class="nav-tip" aria-hidden="true">${shown}${invited && !moving ? "<small>届いた招待あり</small>" : ""}</span></button><span class="visually-hidden" role="status">${moving ? t("organizationMoving") : ""}</span>
-      <ul class="org-menu-list" id="${id}" aria-label="入れる${t("organization")}" ${open ? "" : "hidden"}>${orgs.map((k) => `<li><a href="today.html"${k.slug === current.slug ? ' aria-current="page"' : ""}><span class="org-menu-name">${esc(orgName(k))}</span>${k.slug === current.slug ? icon("check") : ""}</a></li>`).join("")}<li class="is-aside"><a href="organizations.html"><span class="org-menu-name">ダッシュボード</span>${invited ? '<span class="org-menu-note">招待が届いています</span>' : ""}</a></li><li class="is-aside"><button type="button" ${live ? 'data-dialog="createMyOrganization"' : ""}><span class="org-menu-name">${t("organization")}を作る</span></button></li>${canCreatePersonal ? `<li class="is-aside"><button type="button" ${live ? 'data-dialog="createPersonalOrganization"' : ""}><span class="org-menu-name">${t("createPersonalOrganizationAction")}</span></button></li>` : ""}</ul></div>`;
+      <ul class="org-menu-list" id="${id}" aria-label="入れる${t("organization")}" ${open ? "" : "hidden"}>${orgs.map((k) => `<li><a href="today.html"${k.slug === current.slug ? ' aria-current="page"' : ""}><span class="org-menu-name">${esc(orgName(k))}</span>${k.slug === current.slug ? icon("check") : ""}</a></li>`).join("")}<li class="is-aside"><a href="organizations.html"><span class="org-menu-name">${t("organizationList")}</span>${invited ? '<span class="org-menu-note">招待が届いています</span>' : ""}</a></li><li class="is-aside"><button type="button" ${live ? 'data-dialog="createMyOrganization"' : ""}><span class="org-menu-name">${t("organization")}を作る</span></button></li>${canCreatePersonal ? `<li class="is-aside"><button type="button" ${live ? 'data-dialog="createPersonalOrganization"' : ""}><span class="org-menu-name">${t("createPersonalOrganizationAction")}</span></button></li>` : ""}</ul></div>`;
   }
   function setOrgMenu(open, focus) {
     orgMenuOpen = open;

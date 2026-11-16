@@ -159,7 +159,7 @@ export const dictionary = defineDictionary({
   onboardingOpenTeam: 'チームの組織を開く',
   onboardingCopyFailed: 'コピーできませんでした。表示されたURLを選択してコピーしてください。',
   onboardingPersonalUnavailable: '作成済みの自分用の組織に入れません。組織の選択画面で状態を確認してください。',
-  onboardingReturnOrganizations: '組織の選択に戻る',
+  onboardingReturnOrganizations: 'ダッシュボードに戻る',
   onboardingInviteChoiceLiveNote:
     '個人用はこのまま使い始められます。チームで使う場合は、組織と招待先のワークスペースを作ります。チーム利用はあとからでも始められます。',
   onboardingStartPersonal: '個人用で使い始める',
@@ -1130,7 +1130,6 @@ export const dictionary = defineDictionary({
   storyReopenFailed: '取り消せませんでした。もう一度試してください。',
 
   // 組織の選択と、枠の外の画面（組織の切り替え、見つからない、運用の仮の画面）
-  organizationChooseTitle: '組織を選ぶ',
   organizationChooseLead: '入れる組織が {count} つあります。名前や稼働の設定は組織ごとに別です。',
   organizationChooseNote: 'あとから、画面の左上（狭い幅では上の帯）の組織の切り替えで選び直せます。',
   createMyOrganizationAction: '組織を作る',
@@ -1155,7 +1154,7 @@ export const dictionary = defineDictionary({
     '{organization}の名前に使えない文字（制御文字、行や段落の区切り、向きを変える文字、見えない空白や演算子）が含まれています。',
   createMyOrganizationTrialLimit:
     'お試し中の{organization}は、1つのアカウントにつき1つまでです。入れる{organization}は「{organization}の一覧へ」から開けます（停止している{organization}には入れません）。継続して使う場合は、運用者に問い合わせてください。',
-  createMyOrganizationTrialLimitLink: '{organization}の一覧へ',
+  createMyOrganizationTrialLimitLink: 'ダッシュボードへ',
   createMyOrganizationRateLimited: '短い間に操作が重なりました。しばらくしてから、もう一度試してください。',
   createMyOrganizationInvalid: '入力を受け付けられませんでした。内容を確かめてください。',
   createMyOrganizationFailed: '{organization}を作れませんでした。もう一度試してください。',
