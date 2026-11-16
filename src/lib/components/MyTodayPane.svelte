@@ -7,6 +7,7 @@
   import { organizationLabel } from '../organization-label.ts';
   import { todaySections } from '../today-sections.ts';
   import { t } from '../vocabulary.svelte.ts';
+  import Icon from './Icon.svelte';
   import Pane from './Pane.svelte';
   import Section from './Section.svelte';
   import TaskEntry from './TaskEntry.svelte';
@@ -68,11 +69,11 @@
       <span class="skeleton-line is-block"></span>
     </div>
   {:else if today === null}
-    <p>{t('loadFailedText')}</p>
-    <span class="field-hint" role="status">{retrying ? t('retrying') : retryFailed ? t('retryFailed') : ''}</span>
-    <button class="btn is-sm" type="button" aria-disabled={retrying} onclick={retry}>
-      {retrying ? t('retrying') : t('retry')}
-    </button>
+    <div class="callout is-warn"><Icon name="alert" /><span role="alert">{t('myTodayLoadFailed')}</span></div>
+    <div class="form-actions">
+      <button class="btn" type="button" aria-disabled={retrying} onclick={() => void retry()}>{t('retry')}</button>
+      <span class="field-hint" role="status">{retrying ? t('retrying') : retryFailed ? t('retryFailed') : ''}</span>
+    </div>
   {:else}
     {#if today.omitted_organizations > 0}
       <p class="gate-note">{t('myTodayOmitted', { count: today.omitted_organizations })}</p>

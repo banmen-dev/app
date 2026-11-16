@@ -610,6 +610,7 @@ export const dictionary = defineDictionary({
   // 組織のホームの、自分のタスクの面の見出し。画面の見出し（pageToday）と文言は同じだが、役目が違うので分ける
   paneToday: '今日やること',
   paneMyToday: '全組織の今日やること',
+  myTodayLoadFailed: '今日やることを読み込めませんでした',
   myTodayOmitted: 'ほか {count} 組織',
   myTodayFailedOrganization: '今日やることを読めませんでした：{name}',
   myTodayEmpty: '今日やることはまだありません。各組織のバックログから探せます。',
