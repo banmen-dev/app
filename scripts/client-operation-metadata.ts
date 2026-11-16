@@ -28,6 +28,61 @@ function miniOutput(node: ts.Expression, source: ts.SourceFile): string {
   throw new Error(`${source.fileName}: client output の Mini 対応と比較テストを更新してください`);
 }
 
+const schemaConstructors = new Set([
+  'string',
+  'number',
+  'bigint',
+  'boolean',
+  'date',
+  'symbol',
+  'undefined',
+  'null',
+  'void',
+  'any',
+  'unknown',
+  'never',
+  'literal',
+  'enum',
+  'nativeEnum',
+  'object',
+  'strictObject',
+  'looseObject',
+  'array',
+  'tuple',
+  'union',
+  'discriminatedUnion',
+  'intersection',
+  'record',
+  'partialRecord',
+  'map',
+  'set',
+  'function',
+  'promise',
+  'lazy',
+  'custom',
+  'preprocess',
+  'instanceof',
+  'optional',
+  'nullable',
+  'nullish',
+  'iso',
+  'coerce',
+]);
+
+function isZodSchemaCall(node: ts.CallExpression): boolean {
+  let root: ts.Expression = node.expression;
+  while (ts.isPropertyAccessExpression(root) || ts.isCallExpression(root)) {
+    if (ts.isPropertyAccessExpression(root) && ts.isIdentifier(root.expression) && root.expression.text === 'z')
+      return schemaConstructors.has(root.name.text);
+    root = root.expression;
+  }
+  return false;
+}
+
+function containsSuspension(node: ts.Node): boolean {
+  return ts.isAwaitExpression(node) || ts.isYieldExpression(node) || !!ts.forEachChild(node, containsSuspension);
+}
+
 export function clientOperationMetadata(): Plugin {
   return {
     name: 'client-operation-metadata',
@@ -43,16 +98,7 @@ export function clientOperationMetadata(): Plugin {
       const operationBindings = new Set<string>(['defineOperation']);
       function visit(node: ts.Node) {
         if (ts.isVariableDeclaration(node) && node.initializer && ts.isCallExpression(node.initializer)) {
-          let root: ts.Expression = node.initializer.expression;
-          while (ts.isPropertyAccessExpression(root) || ts.isCallExpression(root)) root = root.expression;
-          if (
-            ts.isIdentifier(root) &&
-            root.text === 'z' &&
-            ts.isPropertyAccessExpression(node.initializer.expression) &&
-            !['config', 'parse', 'safeParse', 'parseAsync', 'safeParseAsync'].includes(
-              node.initializer.expression.name.text,
-            )
-          ) {
+          if (isZodSchemaCall(node.initializer) && !containsSuspension(node.initializer)) {
             // 呼び出しだけにPUREを付けても、引数内の別のスキーマ生成は残る。
             // 初期化式全体を遅らせ、未使用なら引数もまとめて除く。
             edits.push({
@@ -125,8 +171,7 @@ export function clientOperationMetadata(): Plugin {
             );
           if (
             ts.isIdentifier(root) &&
-            ((root.text === 'z' && node.expression.getText(source) !== 'z.config') ||
-              (root.text.endsWith('Schema') && schemaMethod))
+            ((root.text === 'z' && isZodSchemaCall(node)) || (root.text.endsWith('Schema') && schemaMethod))
           ) {
             edits.push({ start: node.getStart(source), end: node.getStart(source), text: '/* @__PURE__ */ ' });
           }

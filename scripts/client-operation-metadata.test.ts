@@ -270,3 +270,40 @@ test('全クライアントのスキーマ参照は、保持する操作の outp
   }
   assert.deepEqual(schemaViolations(sources), []);
 });
+
+test('スキーマ以外のZod呼出しとawaitを含む初期化を保つ', async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'sg-schema-effects-'));
+  try {
+    const base = path.join(dir, 'src/shared');
+    mkdirSync(base, { recursive: true });
+    const entry = path.join(base, 'probe.ts');
+    writeFileSync(
+      entry,
+      `
+      import { z } from ${JSON.stringify(path.join(root, 'node_modules/zod/index.js'))};
+      export const calls = [];
+      const ignored = z.treeifyError((calls.push('observed'), {issues: []}));
+      const schema = z.object(await Promise.resolve({value: z.string()}));
+      export const parsed = schema.safeParse({value: 'ok'}).success;
+    `,
+    );
+    const result = (await build({
+      configFile: false,
+      root,
+      logLevel: 'silent',
+      plugins: [clientOperationMetadata()],
+      build: { target: 'esnext', write: false, minify: false, lib: { entry, formats: ['es'] } },
+    })) as { output: { type: string; code?: string }[] }[];
+    const code = result
+      .flatMap((item) => item.output)
+      .filter((item) => item.type === 'chunk')
+      .map((item) => item.code)
+      .join('\n');
+    // eslint-disable-next-line db-entry/guard -- 固定fixtureをこのテストで束ねた結果のみ実行する。
+    const client = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+    assert.equal(client.parsed, true);
+    assert.deepEqual(client.calls, ['observed']);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
