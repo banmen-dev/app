@@ -2516,8 +2516,9 @@ export const dictionary = defineDictionary({
   sprintStoryFilterActive: '{story}: {title}',
   sprintStoryFilterApplied: '{story}「{title}」で絞り込みました',
   sprintStoryFilterCleared: '{story}の絞り込みを外しました',
-  sprintStoryFilterInvalid: '指定された{story}が現在のボードにないため、絞り込みを外しました',
-  sprintStoryTotalsNote: '見出しは全体、列の件数とポイントは絞り込み後の値です',
+  sprintStoryFilterInvalid: '絞り込み対象の{story}が現在のボードにないため、絞り込みを外しました',
+  sprintStoryFilterClearFailed: '絞り込みを外せませんでした。もう一度試してください',
+  sprintStoryTotalsNote: '見出しは全体、列の件数と{points}は絞り込み後の値です',
   sprintStoryCreateUnder: '絞り込んだ{story}の下に追加します',
   sprintBoardAddStoryGone:
     'この{story}か{sprint}か{column}が見つかりません。{task}は作られていません。一覧を読み直します',
@@ -2537,6 +2538,7 @@ export const dictionary = defineDictionary({
   sprintBoardAddNotActive: 'この{sprint}はもう進行中ではないので、{task}は作られていません。一覧を読み直します',
   sprintBoardAddDoneColumn: '{done}の{column}には{task}を足せないので、作られていません。一覧を読み直します',
   sprintBoardDraftHint: '{column}の末尾の空の行に題を打って Enter を押すと、その{column}に{task}が足されます。',
+  sprintBoardColumnToggle: '{column}の開閉',
   sprintBoardColumnPoints: '{points} pt',
   sprintBoardKeyHint:
     'カードを別の{column}へドラッグして移すか、カードを選んで Alt と ← → で隣の{column}、Alt と ↑ ↓ で{column}の中を動かせます。カードの「⋯」のメニューでも同じです。{done}の{column}の手前の{column}から次へ送ると、{done}になります。',

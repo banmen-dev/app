@@ -11,7 +11,7 @@ import {
 import { storyGet } from '../src/shared/operations/story/story-get.ts';
 import { mockOperation, routeOperation } from './operations.ts';
 import { sprintBoard, taskColumnMove } from '../src/shared/operations/sprint/index.ts';
-import { taskComplete, taskCreate } from '../src/shared/operations/task/index.ts';
+import { taskComplete, taskCreate, taskDelete } from '../src/shared/operations/task/index.ts';
 import { SAMPLE_BOARD } from './sprint-fixture.ts';
 
 const PATH = '/aoba/w/019a0000-0000-7000-8000-000000000401/sprint';
@@ -199,13 +199,18 @@ test('無効な親IDはURLから解除して全件に戻し、狭い幅と動き
   await expect(page).not.toHaveURL(/story=/);
   await expect(page.locator('.card')).toHaveCount(4);
   await expect(
-    page.getByRole('status').filter({ hasText: '指定されたストーリーが現在のボードにないため、絞り込みを外しました' }),
+    page
+      .getByRole('status')
+      .filter({ hasText: '絞り込み対象のストーリーが現在のボードにないため、絞り込みを外しました' }),
   ).toBeVisible();
   const parent = page.locator('.card-parent').first();
   await expect(parent).toHaveCSS('min-height', '44px');
   await parent.click();
   await expect(page.locator('.story-filter-band')).toBeVisible();
   await expect(page.locator('.card')).toHaveCount(3);
+  const clear = page.getByRole('button', { name: '絞り込みを外す', exact: true });
+  expect((await clear.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(391);
 });
 
 test('絞り込み中にタスク詳細を開閉してもstoryを保持し、不要な詳細を開かない', async ({ page, context, baseURL }) => {
@@ -257,6 +262,67 @@ test('親付き作成の404は親も含む理由を出し、親を引き継ぐ�
   );
 });
 
+test('絞り込みと列の畳み・保存・下書き・移動先フォーカスが共存する', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'admin');
+  const board = sample();
+  await mockOperation(page, sprintBoard, { slug: 'aoba' }, board);
+  await routeOperation(page, taskColumnMove, { slug: 'aoba' }, (call) =>
+    call.fulfill({ task_id: call.input.task_id, column_id: call.input.column_id }),
+  );
+  await page.goto(`${PATH}?story=${STORY.id}`);
+  const totals = await page.locator('.page-head .tally dd').allTextContents();
+  const todo = page.locator('.board-col').first();
+  const draft = todo.getByRole('textbox');
+  await expect(draft).toHaveAccessibleDescription('絞り込んだストーリーの下に追加します');
+  await draft.fill('畳んでも残る下書き');
+  const todoToggle = todo.getByRole('button', { name: '未着手の開閉', exact: true });
+  await todoToggle.click();
+  await expect(todo.locator('.card')).toHaveCount(0);
+  await expect(todo.locator('.board-col-n')).toHaveText('1');
+  await expect(todo.locator('.board-col-pts')).toHaveText('5 pt');
+  await expect(draft).toBeHidden();
+  await page.keyboard.press('c');
+  await expect(page.getByRole('textbox', { name: 'タスクを足す: 作業中', exact: true })).toBeFocused();
+  await todoToggle.click();
+  await expect(draft).toHaveValue('畳んでも残る下書き');
+  const workingToggle = page.getByRole('button', { name: '作業中の開閉', exact: true });
+  await workingToggle.click();
+  await todo.locator('.card').press('Alt+ArrowRight');
+  await expect(workingToggle).toBeFocused();
+  await expect(page.locator('.board-col').nth(1).locator('.board-col-n')).toHaveText('2');
+  await expect(page.locator('.board-col').nth(1).locator('.card')).toHaveCount(0);
+  await expect(page.locator('.page-head .tally dd')).toHaveText(totals);
+  await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
+  await page.reload();
+  await expect(workingToggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(page).toHaveURL(new RegExp(`story=${STORY.id}`));
+  await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
+});
+
+test('最後の対象カードを削除したら中立の案内で絞り込みを解除する', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'admin');
+  const board = structuredClone(SAMPLE_BOARD);
+  const task = board.columns[0]!.tasks[0]!;
+  task.can_delete = true;
+  await routeOperation(page, sprintBoard, { slug: 'aoba' }, (call) => call.fulfill(board));
+  await routeOperation(page, taskDelete, { slug: 'aoba' }, (call) => {
+    expect(call.input.task_id).toBe(task.id);
+    board.columns[0]!.tasks = board.columns[0]!.tasks.filter((item) => item.id !== task.id);
+    return call.fulfill({ task_id: task.id });
+  });
+  await page.goto(`${PATH}?story=${STORY.id}`);
+  await expect(page.locator('.card')).toHaveCount(1);
+  await page.locator('.card .row-menu-btn').click();
+  await page.getByRole('menuitem', { name: 'このタスクを削除する', exact: true }).click();
+  await expect(page).not.toHaveURL(/story=/);
+  await expect(page.locator('.card')).toHaveCount(3);
+  await expect(
+    page
+      .getByRole('status')
+      .filter({ hasText: '絞り込み対象のストーリーが現在のボードにないため、絞り込みを外しました' }),
+  ).toBeVisible();
+});
+
 for (const theme of A11Y_THEMES) {
   test(`ストーリー強調の二重の輪郭と文字のコントラスト: ${theme}`, async ({ page, context, baseURL }) => {
     await signIn(context, baseURL, 'admin');
@@ -266,6 +332,11 @@ for (const theme of A11Y_THEMES) {
     await page.locator('.card-parent').first().hover();
     await expect(page.locator('.card.is-story-highlighted')).toHaveCount(3);
     await expect(page.locator('.card.is-story-highlighted').first()).toHaveCSS('outline-style', 'double');
+    expect(await findA11yViolations(page, '.story-board')).toEqual([]);
+    await page.locator('.card-parent').first().focus();
+    expect(await findA11yViolations(page, '.story-board')).toEqual([]);
+    await page.locator('.card-parent').first().click();
+    await page.setViewportSize({ width: 390, height: 844 });
     expect(await findA11yViolations(page, '.story-board')).toEqual([]);
   });
 }

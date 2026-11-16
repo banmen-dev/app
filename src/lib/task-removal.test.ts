@@ -317,6 +317,7 @@ describe('urlWithoutOpenTask', () => {
   test('現在URLがスプリントでないときはstory詳細を残さない', () => {
     expect(urlWithoutOpenTask('http://x/a/w/1/plan?task=t1&story=s', 't1')).toBe('/a/w/1/plan');
     expect(urlWithoutOpenTask('http://x/a/w/1/tasks/sprint?task=t1&story=s', 't1')).toBe('/a/w/1/tasks/sprint');
+    expect(urlWithoutOpenTask('http://x/prefix/a/w/1/sprint?task=t1&story=s', 't1')).toBe('/prefix/a/w/1/sprint');
   });
   test('開いているタスクだけ task、story、epic_id を外す。ほかの問い合わせは残す', () => {
     expect(urlWithoutOpenTask('http://x/a/w/1?task=t1&story=s&epic_id=e&q=z', 't1')).toBe('/a/w/1?q=z');

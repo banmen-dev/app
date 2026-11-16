@@ -17,6 +17,7 @@ visit(ast);
 const first = { id: 'a', story: 'story', sprint: 'sprint', col: 'todo', pts: 3 };
 const second = { id: 'b', story: null, sprint: 'sprint', col: 'todo', pts: 2 };
 const context = {
+  boardCollapsed: new Map(),
   D: {
     stories: { story: { title: '同じストーリー' } },
     columns: [{ id: 'todo', name: '未着手', done: false }],
@@ -24,7 +25,8 @@ const context = {
   },
   tasksWhere: (predicate: (task: typeof first | typeof second) => boolean) => [first, second].filter(predicate),
   sumPts: (items: { pts: number }[]) => items.reduce((sum, item) => sum + item.pts, 0),
-  esc: (value: string) => value,
+  esc: (value: string) => value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;'),
+  draftRow: () => '<input class="input">',
   t: (value: string) => value,
   icon: () => '',
   user: () => ({}),
@@ -58,4 +60,35 @@ test('ボードの絞り込みは帯と解除操作を持ち、件数とポイ�
   assert.match(html, /board-col-pts">3 pt</);
   assert.equal((html.match(/<article /g) ?? []).length, 1);
   assert.equal((render.board('sprint').match(/<article /g) ?? []).length, 2);
+});
+
+test('絞り込み後に列を畳んでも、件数とポイントと帯は保持する', () => {
+  context.boardCollapsed.set('sprint-todo', true);
+  try {
+    const html = render.board('sprint', { story: 'story' });
+    assert.match(html, /is-collapsed/);
+    assert.match(html, /story-filter-band/);
+    assert.match(html, /board-col-n">1</);
+    assert.match(html, /board-col-pts">3 pt</);
+    assert.equal((html.match(/<article /g) ?? []).length, 0);
+  } finally {
+    context.boardCollapsed.clear();
+  }
+});
+
+test('見本の親IDと名前をescapeし、親付き起票の注記と帯の補足を描く', () => {
+  const id = 'story"<&';
+  const stories = context.D.stories as Record<string, { title: string }>;
+  stories[id] = { title: '題"<&' };
+  try {
+    const card = render.card({ ...first, story: id }, undefined, {});
+    assert.match(card, /data-story-filter="story&quot;&lt;&amp;"/);
+    assert.match(card, /題&quot;&lt;&amp;/);
+    const board = render.board('sprint', { story: 'story', draft: true });
+    assert.match(board, /story-filter-summary/);
+    assert.match(board, /class="action-note"/);
+    assert.match(board, /sprintStoryCreateUnder/);
+  } finally {
+    delete stories[id];
+  }
 });
