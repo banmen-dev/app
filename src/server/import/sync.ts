@@ -25,6 +25,8 @@ import { ImportSourceError, type ImportItem, type ImportSource, type ImportSourc
 
 // 1回の同期で取る頁の数の上限。超えたら続きの位置を保存して止め、次の同期で続ける
 export const DEFAULT_MAX_PAGES = 10;
+// 頁の間で判定する。開始済みの1頁（GitHub は1要求、初回だけ本人照会が加わる）は完了してから保存する。
+export const DEFAULT_MAX_DURATION_MS = 60_000;
 // 1頁の項目の数の上限。超える応答は想定と違うものとして断る（1回の batch() の文を抑える）
 export const MAX_ITEMS_PER_PAGE = 100;
 // 続きの位置の長さの上限（取り込み元が返した値をそのまま保存するため）
@@ -47,6 +49,7 @@ export type SyncOptions = {
   fetcher?: typeof fetch;
   now?: () => Date;
   maxPages?: number;
+  maxDurationMs?: number;
 };
 
 export type SyncResult =
@@ -221,6 +224,8 @@ export async function syncConnection(
     const settings = parseSettings(connection.settings_json);
     const stored = read.scopes.map((scope) => ({ id: scope.source_id, name: scope.source_name }));
     const scopes = await scopesOf(source, connection.scope_mode, stored, credential, fetcher);
+    // 候補一覧は取り込み元の独立した予算で取る。毎回の列挙で項目取得が飢餓化しないよう、ここから測る。
+    const deadline = Date.now() + (options.maxDurationMs ?? DEFAULT_MAX_DURATION_MS);
     const state = parseSyncState(connection.sync_state_json);
     const start = state.resume === null ? -1 : scopes.findIndex((scope) => scope.id === state.resume!.scope);
     const repositories = await readRepositoriesByContainer(db, workspaceId, connection.provider);
@@ -230,7 +235,7 @@ export async function syncConnection(
       const scope = scopes[index]!;
       let cursor = index === start ? state.resume!.cursor : null;
       do {
-        if (pages >= maxPages) {
+        if (pages >= maxPages || Date.now() >= deadline) {
           const resume = { scope: scope.id, cursor };
           if (!(await finish({ kind: 'success', syncStateJson: JSON.stringify({ resume }) }))) {
             return { outcome: 'stopped' };

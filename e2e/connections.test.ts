@@ -73,6 +73,9 @@ test('接続が無いワークスペースでは、登録へ誘う空の表示�
   await page.goto(`${HIBARI_TOOLS}/connections`);
   await expect(page.getByRole('heading', { level: 1, name: '接続' })).toBeVisible();
   await expect(page.getByText('接続がまだありません')).toBeVisible();
+  await expect(
+    page.getByText('自分が担当の Issue と、自分が作者か担当の PR が受信箱に届きます。', { exact: false }),
+  ).toBeVisible();
   await expect(page.getByRole('list', { name: '接続の一覧' })).toHaveCount(0);
 });
 

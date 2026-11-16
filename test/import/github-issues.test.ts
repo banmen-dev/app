@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import { ImportSourceError, importSourceOf } from '../../src/server/import/index.ts';
 import type { ImportItem, ImportSourceFailure, ScopeCandidate } from '../../src/server/import/index.ts';
 import { FAKE_FAILURE_MARK, createFakePatGithub, fakeIssue, fakePat } from './fake-github-pat.ts';
+import { fetchAssignedIssuesPage } from '../../src/server/import/github/issues.ts';
 
 const source = importSourceOf('github');
 const PAT = fakePat('Gamma');
@@ -19,7 +20,8 @@ function setup() {
 type Input = { scope?: ScopeCandidate; cursor?: string | null; settings?: Record<string, unknown> };
 
 function page(fake: ReturnType<typeof setup>, input: Input = {}, credential = PAT) {
-  return source.fetchPage({
+  // Issue 単体の頁送りを点検する。公開口の Issue→PR 遷移は github-pull-requests*.test.ts が担う。
+  return fetchAssignedIssuesPage({
     credential,
     fetcher: fake.fetcher,
     settings: input.settings ?? {},
@@ -329,7 +331,9 @@ describe('完了条件: 失敗の区別', () => {
 
   test('PAT の形が合わなければ問い合わせずに invalid_format', async () => {
     const fake = setup();
-    const error = await failureOf(page(fake, {}, 'ghp_x'));
+    const error = await failureOf(
+      source.fetchPage({ credential: 'ghp_x', fetcher: fake.fetcher, settings: {}, scope: REPO_A, cursor: null }),
+    );
     expect(error.failure).toBe('invalid_format');
     expect(fake.calls).toHaveLength(0);
   });
