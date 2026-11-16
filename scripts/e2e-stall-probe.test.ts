@@ -128,8 +128,10 @@ describe('startStallProbe', () => {
 
   test('localhost の計測は名前解決を通さず、同じポートの3経路に届く', async (t) => {
     const paths: string[] = [];
+    const hosts: (string | undefined)[] = [];
     const server = createServer((req, res) => {
       paths.push(req.url!);
+      hosts.push(req.headers.host);
       res.writeHead(EXPECTED[req.url!] ?? 500).end();
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -151,6 +153,7 @@ describe('startStallProbe', () => {
       assert.deepEqual(report.stalls, []);
     }
     assert.deepEqual(new Set(paths), new Set(PROBE_TARGETS.map(({ path }) => path)));
+    assert.deepEqual(new Set(hosts), new Set([`127.0.0.1:${address.port}`]));
   });
 
   // 3 か所の問い合わせは並んで進み、偽の時計を共有すると互いの所要時間が混ざるので、実時間で、しきい値と止まりを大きく離して確かめる
