@@ -1087,6 +1087,11 @@ export const dictionary = defineDictionary({
   // 進み具合の棒の読み上げ（kit.js の progress の aria-label）と、棒の横の数
   progressLabel: '{done} {value} / {all} {points}',
   progressValue: '{value} / {all} pt',
+  progressCompleted: '{done} {value} / {all} pt',
+  progressCompletedPercent: '{done} {value} / {all} pt（{percent}%）',
+  progressPercent: '（{percent}%）',
+  progressElapsed: '経過 {day} / {length} 日（{percent}%）',
+  sprintBoardRemaining: '残り {days} 日',
   epicPageNotFoundTitle: '{epic}が見つかりません',
   epicPageNotFoundText: '削除されたか、この{workspace}にない{epic}です。',
   // クリア報酬の段階の呼び名。額は経験値の定数（XP_EPIC_REWARD）から出す
@@ -2524,9 +2529,6 @@ export const dictionary = defineDictionary({
     'この{story}か{sprint}か{column}が見つかりません。{task}は作られていません。一覧を読み直します',
   sprintBoardPageName: '{name}・{workspace}',
   sprintBoardEyebrow: '{period}・{length} 日のうち {day} 日目',
-  sprintBoardTallyDone: '{done}（pt）',
-  sprintBoardTallyTotal: '合計（pt）',
-  sprintBoardTallyRemaining: '残り（日）',
   sprintBoardRegion: '{sprint}の{column}とカード',
   sprintBoardColumnEmpty: 'なし',
   sprintBoardAddTask: '{task}を足す',

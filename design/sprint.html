@@ -19,7 +19,7 @@
 <script>
 "use strict";
 // スプリント: 進行中のスプリントの列とカード
-const { D, t, icon, pageHead, sprintNotice, board, capacityRows, sumPts } = SQ;
+const { D, t, icon, pageHead, sprintNotice, board, capacityRows, sumPts, progress } = SQ;
 
 // ?overdue は、最終日を過ぎた進行中のスプリントの状態。ふだんの見本の最終日（10/26）の前に今日があるので、期間を1週間前へずらして今日が最終日より後になる形にする。
 // 本番は SprintOverdueNotice.svelte で、進行中で、ワークスペースの今日が最終日より後のときに出す（スプリントの画面と計画の画面）
@@ -68,11 +68,8 @@ SQ.mount("sprint", () => {
     ])}
     ${lastDay || overdue ? `<button class="btn" type="button" data-dialog="sprintEnd" aria-label="終える: ${t("sprint")}「${SQ.esc(SQ.sprintLabel("sp14"))}」">終える</button>` : ""}` : "";
   return `
-    ${pageHead(`${SQ.md(s.start)}〜${SQ.md(s.end)}・${s.days} 日のうち ${Math.min(s.dayIndex + 1, s.days)} 日目`, SQ.sprintLabel("sp14"), [
-      ["", "check", `${t("done")}（pt）`, done],
-      ["", "", "合計（pt）", all],
-      ["", "clock", "残り（日）", s.days - s.dayIndex],
-    ], actions)}
+    ${pageHead(`${SQ.md(s.start)}〜${SQ.md(s.end)}・${s.days} 日のうち ${Math.min(s.dayIndex + 1, s.days)} 日目`, SQ.sprintLabel("sp14"), [], actions,
+      `<div class="progress-summary">${progress(done, all, { markerPercent: Math.min(s.dayIndex + 1, s.days) / s.days * 100, markerLabel: `経過 ${Math.min(s.dayIndex + 1, s.days)} / ${s.days} 日（${Math.round(Math.min(s.dayIndex + 1, s.days) / s.days * 100)}%）`, detailed: true })}<span class="progress-remaining">残り ${Math.max(0, s.days - s.dayIndex)} 日</span></div>`)}
     ${s.extended ? `<p class="action-note">延長 ${s.extended} 日</p>` : ""}
     ${overdue ? overdueNotice("sp14") : ""}
     ${sprintNotice("sp14", { showWs: false })}

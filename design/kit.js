@@ -1183,9 +1183,13 @@
       </div>
     </article>`;
   }
-  function progress(done, all) {
-    const pct = all ? Math.round((done / all) * 100) : 0;
-    return `<span class="progress"><span class="progress-bar" role="img" aria-label="完了 ${done} / ${all} ${t("points")}"><span style="width:${pct}%"></span></span><span class="progress-num">${done} / ${all} pt</span></span>`;
+  function progress(done, all, { markerPercent, markerLabel, detailed = false } = {}) {
+    const pct = all > 0 ? Math.min(100, Math.round(done / all * 100)) : 0;
+    const value = detailed ? `${t("done")} ${done} / ${all} pt${all > 0 ? `（${pct}%）` : ""}` : `${done} / ${all} pt`;
+    const label = detailed ? value : `${t("done")} ${done} / ${all} ${t("points")}`;
+    const marker = markerPercent === undefined ? "" : `<i class="progress-marker" style="left:${Math.max(0, Math.min(100, markerPercent))}%" aria-hidden="true"></i>`;
+    const visibleValue = detailed ? `${esc(t("done"))} <span class="progress-value">${done} / ${all} pt</span>${all > 0 ? `<span class="progress-value">（${pct}%）</span>` : ""}` : esc(value);
+    return `<span class="progress${detailed ? " is-detailed" : ""}"><span class="progress-bar${marker ? " has-marker" : ""}" role="img" aria-label="${esc(label + (marker && markerLabel ? `、${markerLabel}` : ""))}"><span class="progress-fill" style="width:${pct}%"></span>${marker}</span><span class="progress-num">${visibleValue}</span>${marker && markerLabel ? `<span class="progress-legend">${esc(markerLabel)}</span>` : ""}</span>`;
   }
 
   // レベルの面
