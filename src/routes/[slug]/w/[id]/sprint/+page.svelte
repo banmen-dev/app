@@ -800,7 +800,7 @@
               {/each}
             {/if}
             {#if canWrite && !column.is_done}
-              <div hidden={collapsedColumns.isCollapsed(column.id)}>
+              <div class="board-col-draft" hidden={collapsedColumns.isCollapsed(column.id)}>
                 <DraftRow
                   bind:this={draftRows[column.id]}
                   keyshortcut={column.id === firstOpenColumnId ? ariaKeyshortcuts(NEW_TASK_KEY) : undefined}

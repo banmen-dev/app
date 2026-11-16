@@ -964,7 +964,7 @@
         <div class="board-col-head"><button class="board-col-toggle" type="button" aria-label="${esc(name)}の開閉" aria-expanded="${!collapsed}" data-column-collapse="${esc(collapseKey)}">${icon("chevron")}</button>${c.done ? icon("check") : ""}<span class="board-col-name">${esc(name)}</span><span class="board-col-n">${items.length}</span><span class="board-col-pts">${sumPts(items)} pt</span></div>
         ${collapsed ? "" : `${c.done && D.definitionOfDone.length ? `<details class="dod"><summary>${t("dod")}</summary>${dodDoc()}</details>` : ""}
         ${items.map((x, i) => card(x, c.done ? undefined : orderOf(i), { mark: opts.cardMarks && opts.cardMarks(x, i, c), grab: opts.grab ? opts.grab(x) : !x.doneAt, key: opts.key })).join("") || `<p class="board-empty">なし</p>`}
-        ${opts.draft && !c.done ? draftRow("col", c.id, `${t("task")}を足す: ${c.name}`, `${t("task")}を足す`) : ""}` }
+        ${opts.draft && !c.done ? `<div class="board-col-draft">${draftRow("col", c.id, `${t("task")}を足す: ${c.name}`, `${t("task")}を足す`)}</div>` : ""}` }
       </section>`;
     }).join("")}</div></div>`;
   }

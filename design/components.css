@@ -2143,7 +2143,7 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
 .tree-children .draft-error { padding-left: calc(var(--space-10) + 20px + var(--space-2)); }
 @media (max-width: 760px) { .tree-children .draft-row { padding-left: var(--space-4); } .tree-children .draft-error { padding-left: calc(var(--space-4) + 20px + var(--space-2)); } }
 .entry-today { display: inline-flex; align-items: center; gap: var(--space-1); }
-.board-col > .draft-row { padding: var(--space-2) 0 0; border-top: 0; }
+.board-col > .draft-row, .board-col > .board-col-draft > .draft-row { padding: var(--space-2) 0 0; border-top: 0; }
 /* 列の中の空の行の見えない要素（.visually-hidden は絶対配置）を列の中に収める。収めないと、横に溢れた列の位置に残り、画面の幅を押し広げる */
 .board-col { position: relative; }
 /* 属性のチップ（.chip-btn）。押すと値を選ぶ。未設定（.is-unset）は薄い破線の形で、値があれば .chip と同じ */
