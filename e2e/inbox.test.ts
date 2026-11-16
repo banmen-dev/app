@@ -98,6 +98,10 @@ test('レビューの完了印と再依頼後の受信箱を表示し、同じ�
   await expect(again).toBeVisible();
   await expect(list.getByRole('listitem').first()).toContainText('再依頼されたレビュー');
   await expect(again).toContainText('届いた 2026-11-17 09:00');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(done.getByText('取り込み元で完了', { exact: true })).toBeVisible();
+  await expect(again).toBeVisible();
+
   await expect(again.getByText('取り込み元で完了', { exact: true })).toHaveCount(0);
   const taskId = await again.getAttribute('data-row-id');
   if (!taskId) throw new Error('タスク ID が無い');
