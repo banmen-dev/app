@@ -326,7 +326,7 @@ async function execute(
   const deferred = deferrer(c);
   // 運用者の判定と、アカウントに結んだログインの手段と ID の読み取りは account.ts の1か所。
   // ログインの手段と ID は、使われたときに1回だけ引く。設定の誤りは app のミドルウェアが先に 500 にしている
-  const account = outsideAccount(c.env, accountId);
+  const account = outsideAccount(c.env, accountId, authenticatedAt);
   let result: unknown;
   if (isOutsideOperation(definition)) {
     // 組織の外の操作は、アカウントがあれば入れる組織が無くても通す（入れる組織を失った人も、停止した組織にしか入れない人も）

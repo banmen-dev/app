@@ -1,7 +1,7 @@
 import { now, todayIn } from '../../shared/clock.ts';
 import { daysBetween, dueStatus } from '../../shared/due.ts';
 import { today, type TodayTask } from '../../shared/operations/organization/today.ts';
-import type { OrganizationTables, QueryCreator } from '../db/index.ts';
+import type { OrganizationDb, OrganizationTables, QueryCreator } from '../db/index.ts';
 import { implement } from './implement.ts';
 import { reopenBlockOf } from './task-reopen.ts';
 
@@ -119,9 +119,8 @@ function todayTaskQuery(
     .where('t.assignee_user_id', '=', userId);
 }
 
-export const todayOperation = implement(today, async ({ db, actor }) => {
-  const userId = actor.userId;
-  if (userId === null) return { tasks: [], sprint_goals: [] };
+// 組織のホームと全組織のダッシュボードで、対象・区分・日付の判定を共有する。
+export async function readToday(db: OrganizationDb, userId: string) {
   const completedSince = new Date(now().getTime() - COMPLETED_WINDOW_MS).toISOString();
   const [openResult, completedResult, goalsResult] = await db.batch([
     // 未完了と完了は、tasks_assignee_user（assignee_user_id, deleted_at, completed_at）の範囲条件に乗せるため別の文にする。
@@ -213,4 +212,9 @@ export const todayOperation = implement(today, async ({ db, actor }) => {
       goal: row.goal!,
     })),
   };
+}
+
+export const todayOperation = implement(today, async ({ db, actor }) => {
+  if (actor.userId === null) return { tasks: [], sprint_goals: [] };
+  return readToday(db, actor.userId);
 });

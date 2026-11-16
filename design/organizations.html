@@ -22,7 +22,7 @@
 "use strict";
 
 // 全組織のダッシュボード。組織が1つでもログインの直後に出す。
-const { D, t, esc, icon, pane, newsList } = SQ;
+const { D, t, esc, icon, pane, newsList, entry, section, foldedSection } = SQ;
 // 届いた招待の紙。承諾待ちの招待がある人に出す。入れる組織の分も含め、組織ごとに1件
 const invitationsSheet = () => pane("p-invitations", "届いた招待", `
       <div class="choice-list">
@@ -41,6 +41,22 @@ const suspendedSheet = () => pane("p-suspended", `停止している${t("organiz
       <p class="gate-note">停止している${t("organization")}には、停止している間は入れません。再開については、運用者に問い合わせてください。</p>
     `);
 const createActions = (primary) => `<button class="btn ${primary ? "is-primary" : "is-sm"}" type="button" data-dialog="createMyOrganization">${t("organization")}を作る</button><button class="btn is-sm" type="button" data-dialog="createPersonalOrganization">自分用を作る</button>`;
+// 本人の全組織の今日やること。行は閲覧だけで、その組織のバックログの詳細へ移る。
+const myTodaySheet = () => {
+  const labels = ["期日切れ", "今日やると決めたもの", "依頼中", "今週が期日", "進行中のスプリント", "今日完了"];
+  const rows = D.tasks.slice(0, 6).map((task, i) => ({ ...task, who: D.me, doneAt: i === 5 ? "10/20 14:00" : null,
+    organization: D.organizations[i % D.organizations.length] }));
+  const body = rows.map((task, i) => {
+    const opts = { showWs: true, showParent: false, showAssignee: true, lead: '<span aria-hidden="true"></span>',
+      actions: () => task.doneAt ? `<span class="hanko" role="img" aria-label="完了">${icon("check")}</span>` : "",
+      meta: () => `<span class="tag">${esc(task.organization.name)}</span>${i === 2 ? '<span class="props-note">依頼先：青葉 透</span>' : ""}` };
+    const row = entry(task, opts).replace(`href="#" data-task="${task.id}"`,
+      `href="backlog.html?workspace=${encodeURIComponent(task.ws)}&task=${encodeURIComponent(task.id)}"`);
+    const book = `<div class="book">${row}</div>`;
+    return i === 4 ? foldedSection(`my-today-${i}`, labels[i], 1, book, 3) : section(`my-today-${i}`, labels[i], 1, book, "", 3);
+  }).join("");
+  return pane("p-my-today", "全組織の今日やること", body);
+};
 function render() {
   document.getElementById("gate").innerHTML = `<div class="gate is-wide"><div class="gate-stack">
     <section class="gate-sheet">
@@ -57,7 +73,7 @@ function render() {
       `)}
       ${invitationsSheet()}
       ${suspendedSheet()}
-      </div><div class="dashboard-side">${D.news.length ? pane("p-news", t("paneNews").replace("{app}", t("appName")), newsList(D.news)) : ""}</div></div>
+      </div><div class="dashboard-side">${myTodaySheet()}${D.news.length ? pane("p-news", t("paneNews").replace("{app}", t("appName")), newsList(D.news)) : ""}</div></div>
       <div class="form-actions"><a class="btn is-sm" href="billing.html">${t("billingOpen")}</a><button class="btn is-sm is-quiet" type="button" data-toast="見本のため、ログアウトしません">${t("logout")}</button></div>
     </section>
     <section class="gate-sheet">

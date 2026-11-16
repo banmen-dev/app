@@ -1,6 +1,6 @@
 // 組織をまたいで読む処理の置き場所（docs/data-model.md の「読み書きの入口」）。1つの関数にまとめ、
 // 組織を分けるときはここだけを直す。当たるのは、ログインできるか（アカウントが無い人に、入れる組織か届いた招待があるか）、ログインの直後の組織の選択、
-// 届いた招待の一覧、初めてのログインで users.account_id を埋めること、招待の URL の秘密のハッシュから待っている指名と招待を引くこと。
+// 届いた招待の一覧、本人の今日やることの組織とユーザーの確定、初めてのログインで users.account_id を埋めること、招待の URL の秘密のハッシュから待っている指名と招待を引くこと。
 // 今あるのは、組織の選択と届いた招待の一覧、ログインできるか、users.account_id を埋めること、運用者の一覧の管理者の状態と
 // 組織ごとの集計（organizationUsage。人数の数え方は seats.ts）、招待の URL の秘密のハッシュから待っている指名と招待を引いて結ぶこと（claimPendingLogin）。
 // ログインできるか（hasLoginAccess）は、組織の選択と同じ読み取り（readAccountOrganizations）を使う。判定の元を1つにするため。
@@ -21,7 +21,8 @@ import type { OrganizationKind } from '../../shared/organization-kind.ts';
 import type { AdminStatus } from '../../shared/operations/operator/list-organizations.ts';
 import { uuidv7 } from '../uuid.ts';
 import { chunksOf } from './chunks.ts';
-import { commonDb, crossOrganizationEntries } from './entries.ts';
+import { commonDb, crossOrganizationEntries, orgDb, type OrganizationDb } from './entries.ts';
+import { issueVerifiedOrganization } from './verify-organization.ts';
 import type { LoginId } from './enter-organization.ts';
 import { seatHoldersIn } from './seats.ts';
 import { MAX_BOUND_PARAMETERS } from './send.ts';
@@ -114,12 +115,17 @@ export function listAccountOrganizations(env: Env, account: Account): Promise<Ac
 }
 
 // 組織の中の表を持つ DB ごとの入口を受け取る本体。index.ts は出さない。DB を複数にした場合を、テストが testing.ts から確かめる
-export function listAccountOrganizationsIn(
+export async function listAccountOrganizationsIn(
   env: Env,
   account: Account,
   entries: readonly OrganizationEntry[],
 ): Promise<AccountOrganizations> {
-  return readAccountOrganizations(env, { ...account, includeUnlinked: false }, entries);
+  const { organizations, invitations, suspended } = await readAccountOrganizations(
+    env,
+    { ...account, includeUnlinked: false },
+    entries,
+  );
+  return { organizations, invitations, suspended };
 }
 
 // 入れる組織か、承諾待ちの招待が、停止していない組織に1つでもあるか。停止した組織の分は数えない（readLoginAccess が分けて返す）。
@@ -161,14 +167,22 @@ export async function hasLoginAccessIn(
   return (await readLoginAccessIn(env, who, entries)).allowed;
 }
 
+type AccountTaskTarget = {
+  organization: AccountOrganizations['organizations'][number];
+  organizationId: string;
+  userId: string;
+};
+
 async function readAccountOrganizations(
   env: Env,
   account: Reading,
   entries: readonly OrganizationEntry[],
-): Promise<AccountOrganizations> {
-  if (account.logins.length === 0) return { organizations: [], invitations: [], suspended: [] };
+): Promise<AccountOrganizations & { taskTargets: AccountTaskTarget[] }> {
+  if (account.logins.length === 0) return { organizations: [], invitations: [], suspended: [], taskTargets: [] };
 
   const enterable = new Set<string>();
+  // 同じ読み取りで本人の組織内 ID も保持する。タスクの読み取りに別の人の ID を渡さない。
+  const ownUsers = new Map<string, string>();
   // 入れず、招待も出さない組織
   const blocked = new Set<string>();
   // 手段と ID が一致する無効な行がある組織
@@ -187,6 +201,7 @@ async function readAccountOrganizations(
       if (row.disabled_at !== null) loginDisabled.add(row.organization_id);
       const mine = row.account_id === account.accountId || (account.includeUnlinked && row.account_id === null);
       if (!mine) continue;
+      ownUsers.set(row.organization_id, row.id);
       if (row.disabled_at !== null) blocked.add(row.organization_id);
       else if (row.is_admin === 1) enterable.add(row.organization_id);
       else memberCandidates.set(row.id, row.organization_id);
@@ -231,6 +246,9 @@ async function readAccountOrganizations(
       .filter((row) => shown.has(row.id))
       .map((row) => ({ organization_name: row.name, slug: row.slug })),
     suspended: paused.map(kindedOrganization),
+    taskTargets: active
+      .filter((row) => enterable.has(row.id) && !blocked.has(row.id) && ownUsers.has(row.id))
+      .map((row) => ({ organization: kindedOrganization(row), organizationId: row.id, userId: ownUsers.get(row.id)! })),
   };
 }
 
@@ -941,4 +959,28 @@ export async function claimPendingLoginIn(
     return pending.kind === 'user' ? { kind: 'user', organizationSlug: slug } : { kind: 'invitation' };
   }
   return undefined;
+}
+
+export async function listAccountTaskOrganizations(
+  env: Env,
+  account: Account,
+): Promise<{
+  organizations: { organization: AccountOrganizations['organizations'][number]; db: OrganizationDb; userId: string }[];
+  omitted_organizations: number;
+}> {
+  const { taskTargets } = await readAccountOrganizations(
+    env,
+    { ...account, includeUnlinked: false },
+    crossOrganizationEntries(env),
+  );
+  // 既に名前・同名は slug の順。組織内のタスクの問い合わせを始める前に上限を掛ける。
+  const selected = taskTargets.slice(0, 10);
+  return {
+    organizations: selected.map(({ organization, organizationId, userId }) => ({
+      organization,
+      userId,
+      db: orgDb(env, issueVerifiedOrganization(organizationId)),
+    })),
+    omitted_organizations: Math.max(0, taskTargets.length - selected.length),
+  };
 }

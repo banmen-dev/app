@@ -6,6 +6,7 @@
   import CreateMyOrganizationDialog from '../lib/components/CreateMyOrganizationDialog.svelte';
   import Gate from '../lib/components/Gate.svelte';
   import Pane from '../lib/components/Pane.svelte';
+  import MyTodayPane from '../lib/components/MyTodayPane.svelte';
   import NewsPane from '../lib/components/NewsPane.svelte';
   import { latestNews } from '../lib/news.ts';
   import GateSheet from '../lib/components/GateSheet.svelte';
@@ -16,7 +17,7 @@
   import { t } from '../lib/vocabulary.svelte.ts';
   import type { PageProps } from './$types';
 
-  // 全組織のダッシュボード。組織の中の表は読まず、入口とリリースで配るニュースを並べる。
+  // 全組織のダッシュボード。本人の今日やることは閲覧のみ。
   const news = latestNews();
   let { data }: PageProps = $props();
   let createDialog = $state<ReturnType<typeof CreateMyOrganizationDialog>>();
@@ -141,7 +142,7 @@
             </Pane>
           {/if}
         </div>
-        <div class="dashboard-side"><NewsPane items={news} /></div>
+        <div class="dashboard-side"><MyTodayPane today={data.today} /><NewsPane items={news} /></div>
       </div>
       <div class="form-actions">
         {#if data.operator}
