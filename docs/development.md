@@ -1630,3 +1630,5 @@ R2 を消す道具は操作定義の `storage: 'attachments'` で宣言する。
 - 組織の分離: `user-avatar` は画像の ID と `organization_id` で引く。別の組織の ID は存在しないときと同じ 404 で、`test/operations/pointers.ts` の一覧から回る分離のテストが確かめる。
 
 生成フォントの異体字・欠字・ライセンスの比較（`scripts/boot-font-assets.test.py`）は、CIの `test-node` ジョブでも固定版fonttools[woff]の専用venvから実行する。通常のアプリbuildにPythonは不要。
+
+クライアントに残すアップロード2種類のZod Mini検証は成功・失敗と検証済みデータだけを使い、Zodのerror.messageを画面表示しない（avatar-upload.ts・attachment-upload.ts）。サーバーから返すエラーコードと画面の言葉は従来どおり扱う。
