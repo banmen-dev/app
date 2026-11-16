@@ -301,7 +301,7 @@ try {
       const main = today.output.parse((await read(slug, 'today')).body);
       if (condition.pending ? first.role !== condition.role || first.steps.length === 0 : first.steps.length !== 0)
         throw new Error(`${slug}: 手順の条件が不正`);
-      const hasTask = condition.role === 'member' || (condition.role === 'leader' && !condition.pending);
+      const hasTask = condition.hasTask;
       if (main.tasks.length > 0 !== hasTask) throw new Error(`${slug}: タスクの条件が不正`);
       for (const reverse of [false, true])
         for (const variant of (round % 2 ? ['A', 'B', 'C'] : ['C', 'B', 'A']) as ('A' | TodayVariant)[]) {
@@ -331,7 +331,7 @@ try {
       await startServer(path.join(dir, `${variant}-${reverse}`));
       for (const [index, condition] of todayCases.entries()) {
         const slug = todayCaseSlug(index);
-        const hasTask = condition.role === 'member' || (condition.role === 'leader' && !condition.pending);
+        const hasTask = condition.hasTask;
         const context = await browser.newContext({
           viewport: { width: 1280, height: 900 },
           serviceWorkers: 'block',

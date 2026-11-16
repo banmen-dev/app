@@ -3,11 +3,16 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { z } from 'zod';
 import { percentile } from './loading-stats.ts';
+import { todayCases } from './today-loading-fixture.ts';
 
 const ms = z.number().finite().nonnegative();
 const common = {
   round: z.number().int().min(1),
-  case: z.number().int().min(0).max(5),
+  case: z
+    .number()
+    .int()
+    .min(0)
+    .max(todayCases.length - 1),
   reverse: z.boolean(),
   primary: ms,
   load: ms,
@@ -33,14 +38,8 @@ const reportSchema = z.object({
 });
 export type TodayReport = z.input<typeof reportSchema>;
 const entries = ['direct', 'navigation', 'invalidate'] as const;
-const names = [
-  'member / pending',
-  'member / completed',
-  'leader / pending',
-  'leader / completed',
-  'admin / pending',
-  'admin / completed',
-];
+const names = todayCases.map((x) => `${x.role} / ${x.pending ? 'pending' : 'completed'}`);
+const generalCases = todayCases.flatMap((x, index) => (x.role === 'member' ? [index] : []));
 const entryNames = { direct: '直接表示', navigation: '画面内遷移', invalidate: '再読み取り' };
 const key = (round: number, condition: number, reverse: boolean, variant: string, route = '') =>
   JSON.stringify([round, condition, reverse, variant, route]);
@@ -50,8 +49,8 @@ const formatted = (value: { p50: number; p95: number }) => `${value.p50.toFixed(
 export function summarizeToday(value: unknown) {
   const report = reportSchema.parse(value);
   if (
-    report.api.length !== report.rounds * 6 * 2 * 3 * report.runs ||
-    report.browser.length !== report.rounds * 6 * 2 * 2 * 3 * report.runs
+    report.api.length !== report.rounds * todayCases.length * 2 * 3 * report.runs ||
+    report.browser.length !== report.rounds * todayCases.length * 2 * 2 * 3 * report.runs
   )
     throw new Error('試行数が不足または過剰です');
   const apiGroups = new Map<string, typeof report.api>();
@@ -64,7 +63,7 @@ export function summarizeToday(value: unknown) {
     apiGroups.set(id, group);
   }
   for (const sample of report.browser) {
-    if (sample.round > report.rounds || sample.hasTask !== (sample.case < 2 || sample.case === 3))
+    if (sample.round > report.rounds || sample.hasTask !== todayCases[sample.case]!.hasTask)
       throw new Error('巡またはタスクの条件が不正です');
     const id = key(sample.round, sample.case, sample.reverse, sample.variant, sample.entry);
     const group = browserGroups.get(id) ?? [];
@@ -91,7 +90,7 @@ export function summarizeToday(value: unknown) {
     '| --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: |',
   ];
   for (let round = 1; round <= report.rounds; round++)
-    for (let condition = 0; condition < 6; condition++)
+    for (let condition = 0; condition < todayCases.length; condition++)
       for (const reverse of [false, true]) {
         const order = reverse ? '逆' : '正';
         for (const variant of ['A', 'B', 'C']) {
@@ -157,7 +156,7 @@ export function summarizeToday(value: unknown) {
         }
       }
   const qualifyingPaths = [];
-  for (const condition of [0, 1])
+  for (const condition of generalCases)
     for (const route of entries) {
       if (comparisons.filter((x) => x.case === condition && x.entry === route && !x.reverse && x.pass).length >= 2)
         qualifyingPaths.push({ case: condition, entry: route });

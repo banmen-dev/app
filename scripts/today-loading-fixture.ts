@@ -2,12 +2,12 @@ import { z } from 'zod';
 
 // 使い捨て D1 にだけ追加する架空データ。seed の公開セッション（member）で全条件を読む。
 export const todayCases = [
-  { role: 'member', pending: true },
-  { role: 'member', pending: false },
-  { role: 'leader', pending: true },
-  { role: 'leader', pending: false },
-  { role: 'admin', pending: true },
-  { role: 'admin', pending: false },
+  { role: 'member', pending: true, hasTask: true },
+  { role: 'member', pending: false, hasTask: true },
+  { role: 'leader', pending: true, hasTask: false },
+  { role: 'leader', pending: false, hasTask: true },
+  { role: 'admin', pending: true, hasTask: false },
+  { role: 'admin', pending: false, hasTask: false },
 ] as const;
 export function todayCaseSlug(index: number) {
   return `bench-today-${index}`;
