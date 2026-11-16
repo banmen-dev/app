@@ -1,7 +1,74 @@
 // Write と Edit の判定。CLAUDE.md の「守ること」のうち、書いた内容で判定できるものを止め、
 // 守る仕組みそのもの（.claude/settings*.json と、セッションが使っている .claude/hooks/）と、wrangler の設定の転送先（.wrangler/deploy/config.json）の書き換えには人の確認を挟む。
 // D1 の binding の判定は、ESLint の入口を守る規則（docs/development.md の「入口を守る規則」）が入るまでのつなぎ。
+import { lstatSync, readlinkSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+
+// Claude Code が各 Bash のコマンドの前に読む環境のファイル（CLAUDE_ENV_FILE。~/.claude/session-env/<セッション>/*.sh と ~/.claude/shell-snapshots/*.sh）。
+// 書き足すと、以後のすべての Bash に、フックからは見えない GIT_CONFIG_*、GH_REPO、PATH、関数の定義などが付く。
+// CLAUDE_CONFIG_DIR で ~/.claude の場所を替えても名前は変わらないので、守りの本体は名前（大文字小文字は区別しない。APFS では同じ場所を指す）。
+// CLAUDE_ENV_FILE は PreToolUse のフックと Bash の環境にふつう無い（SessionStart のフックだけが持つ）ので、$CLAUDE_ENV_FILE の字面と起動元の値の照合は補助。
+// bash-rules.mjs もこの名前と理由を使う（重ねて持つと片方だけ直る）
+export const SHELL_ENV_DIR_NAMES = ['session-env', 'shell-snapshots'];
+export const SHELL_ENV_DIR = new RegExp(`(^|/)(${SHELL_ENV_DIR_NAMES.join('|')})(/|$)`, 'i');
+export const SHELL_ENV_REASON =
+  'Claude Code が各 Bash の前に読む環境のファイル（CLAUDE_ENV_FILE、~/.claude/session-env/、~/.claude/shell-snapshots/）への書き込みは、フックから見えない GIT_CONFIG_*、GH_REPO、PATH、関数の定義を以後のコマンドに付け、push の先や守りを替えうる。書き込みは人が確かめる';
+
+// HOME が無く passwd にも無いと os.homedir() は投げる。照合は止めずに、ホームを使う形だけ諦める
+export function homeOrNull() {
+  try {
+    return os.homedir();
+  } catch {
+    return null;
+  }
+}
+
+// リンクをたどる回数の上限（OS の ELOOP の上限と同じくらい）
+const MAX_LINK_HOPS = 40;
+
+// 絶対パスを、OS と同じく名前を左から 1 つずつ辿って実体の側に直す。リンクは向き先に置き換え（向き先の無いリンクも）、
+// .. は直前の実体の親として解く（deep/.. は、deep がリンクならその向き先の親。字面で畳んでから解くと別の場所になる）。
+// 無い名前は字面のまま。Write の先がまだ無い session-env のファイルを指すリンクや、/tmp/e -> ~/.claude/session-env の下のファイルを、名前で見るために使う。
+// .. を畳んでいない字面（deep/../x.sh）を渡すこと（path.resolve と path.join は先に畳む）
+export function resolveLinks(absolute) {
+  const queue = absolute.split('/').filter((segment) => segment !== '');
+  let current = '/';
+  let hops = 0;
+  while (queue.length > 0) {
+    const segment = queue.shift();
+    if (segment === '.') continue;
+    if (segment === '..') {
+      current = path.dirname(current);
+      continue;
+    }
+    const next = path.join(current, segment);
+    let target;
+    try {
+      if (lstatSync(next).isSymbolicLink()) target = readlinkSync(next);
+    } catch {
+      // 無い名前は字面のまま辿る
+    }
+    if (target === undefined) {
+      current = next;
+      continue;
+    }
+    // 輪になったリンクは、ここから先を辿らず字面のまま返す
+    if (++hops > MAX_LINK_HOPS) return path.join(next, ...queue);
+    if (path.isAbsolute(target)) current = '/';
+    queue.unshift(...target.split('/').filter((s) => s !== ''));
+  }
+  return current;
+}
+
+// paths は書かれたパスと、リンクを解いたパス。git のリポジトリの外にあるので judgeFile とは別に見る。
+// envFile は起動元の環境の CLAUDE_ENV_FILE の値（無ければ undefined）。止めるものが無ければ null
+export function judgeShellEnvFile(paths, envFile) {
+  // 値のパスと、そのリンクを解いた実体の両方で比べる（/var が /private/var へのリンクの macOS では、リンクを解いたパスの綴りが違う）
+  const targets = typeof envFile === 'string' && path.isAbsolute(envFile) ? [...new Set([path.resolve(envFile), resolveLinks(path.resolve(envFile))])].map((t) => t.toLowerCase()) : [];
+  const hits = (p) => SHELL_ENV_DIR.test(p.split(path.sep).join('/')) || targets.includes(path.resolve(p).toLowerCase());
+  return paths.some(hits) ? ['ask', SHELL_ENV_REASON] : null;
+}
 
 // rel はリポジトリのルートからの相対パス。shippedOnMain は origin/main に同じパスがあるか（main を引けなければ undefined）
 // inWorktree は、セッションが使うフックのあるリポジトリとは別の、リンクされたワークツリーの中のファイルか

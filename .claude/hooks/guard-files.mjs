@@ -136,33 +136,52 @@ function existsOnMain(root, rel) {
 // 守る先は大文字小文字を区別せずに見る（file-rules.mjs と同じ）
 const startsWithFolded = (rel, prefix) => rel.toLowerCase().startsWith(prefix);
 
+// 書かれたパスと、リンクを解いたパス（/tmp/e が ~/.claude/session-env へのリンクのとき /tmp/e/x/y.sh、
+// まだ無い session-env のファイルを指すリンクの Write も当てる）。~ は Write と Edit が展開しないが、名前で見るので展開した形も足す
+// ホームを引けないとき（HOME が無く passwd にも無い）は展開せず、書かれたパスのまま見る
+function writtenPaths(cwd, filePath, { resolveLinks, homeOrNull }) {
+  const home = homeOrNull();
+  const expanded = home !== null && (filePath === '~' || filePath.startsWith('~/')) ? path.join(home, filePath.slice(1)) : filePath;
+  const absolute = path.resolve(cwd, expanded);
+  // リンクは .. を畳む前の字面で辿る（deep/../x.sh は、deep がリンクならその向き先の親）
+  return [filePath, absolute, resolveLinks(path.isAbsolute(expanded) ? expanded : `${cwd}/${expanded}`)];
+}
+
+// deny があれば deny（ask が deny を下げない）。同じ決定が複数あれば、理由の文を全部つなぐ（片方を捨てない）。無ければ null
+function mergeVerdicts(verdicts) {
+  const decision = verdicts.some(([d]) => d === 'deny') ? 'deny' : verdicts.length > 0 ? 'ask' : null;
+  if (decision === null) return null;
+  const reasons = [...new Set(verdicts.filter(([d]) => d === decision).map(([, reason]) => reason))];
+  return [decision, reasons.join(' / ')];
+}
+
+const answer = (decision, reason) =>
+  JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: decision, permissionDecisionReason: `${reason}（.claude/hooks/file-rules.mjs）` } });
+
+// 場所の判定（judgeFile）。リポジトリの外のファイルは見ない
+function judgeLocated(input, cwd, filePath, judgeFile) {
+  const located = filePath && locate(path.resolve(cwd, filePath));
+  if (!located || located.rel.startsWith('..')) return null;
+  const { root, rel, dir } = located;
+  return judgeFile({
+    rel,
+    onMain: isProjectOnMain(root, dir),
+    inWorktree: (startsWithFolded(rel, '.claude/hooks/') || startsWithFolded(rel, '.githooks/')) && isOtherWorktree(root, dir),
+    contents: writtenContents(input.tool_name, input.tool_input),
+    shippedOnMain: startsWithFolded(rel, 'migrations/') ? existsOnMain(root, rel) : false,
+  });
+}
+
 try {
-  const { judgeFile } = await import('./file-rules.mjs');
+  const { judgeFile, judgeShellEnvFile, resolveLinks, homeOrNull } = await import('./file-rules.mjs');
   const input = JSON.parse(readFileSync(0, 'utf8'));
   const filePath = input.tool_input?.file_path;
-  const located = filePath && locate(path.resolve(input.cwd ?? process.cwd(), filePath));
-  if (located && !located.rel.startsWith('..')) {
-    const { root, rel, dir } = located;
-    const verdict = judgeFile({
-      rel,
-      onMain: isProjectOnMain(root, dir),
-      inWorktree: (startsWithFolded(rel, '.claude/hooks/') || startsWithFolded(rel, '.githooks/')) && isOtherWorktree(root, dir),
-      contents: writtenContents(input.tool_name, input.tool_input),
-      shippedOnMain: startsWithFolded(rel, 'migrations/') ? existsOnMain(root, rel) : false,
-    });
-    if (verdict) {
-      const [decision, reason] = verdict;
-      process.stdout.write(
-        JSON.stringify({
-          hookSpecificOutput: {
-            hookEventName: 'PreToolUse',
-            permissionDecision: decision,
-            permissionDecisionReason: `${reason}（.claude/hooks/file-rules.mjs）`,
-          },
-        }),
-      );
-    }
-  }
+  const cwd = input.cwd ?? process.cwd();
+  // 環境のファイルは git のリポジトリの外にもあるので、場所の判定とは別に見る。
+  // 名前が src/routes/session-env/ のようにリポジトリの中の守る先とも重なるので、両方を判定する
+  const envVerdict = typeof filePath === 'string' && filePath !== '' ? judgeShellEnvFile(writtenPaths(cwd, filePath, { resolveLinks, homeOrNull }), process.env.CLAUDE_ENV_FILE) : null;
+  const verdict = mergeVerdicts([judgeLocated(input, cwd, filePath, judgeFile), envVerdict].filter(Boolean));
+  if (verdict) process.stdout.write(answer(...verdict));
 } catch (error) {
   process.stderr.write(`guard-files: 判定できなかったので止めました: ${error.message}\n`);
   process.exit(2);
