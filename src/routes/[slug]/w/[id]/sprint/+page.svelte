@@ -736,14 +736,12 @@
                 {task}
                 href="{sprintHref}?task={encodeURIComponent(task.id)}"
                 edges={canWrite ? edgesOf(columns, task.id) : null}
-                canComplete={canWrite}
                 canReopen={canWrite && task.reopenable}
                 clock={{ today: board.today, weekStart: board.week_start }}
                 pending={completingId !== null || reopeningId !== null}
                 hintId={KEY_HINT_ID}
                 dnd={canWrite ? dnd : undefined}
                 onmove={moveCard}
-                oncomplete={(target) => void complete(target)}
                 onreopen={(target) => void reopen(target)}
                 ondelete={canWrite ? (target, keyboard) => void removeCard(target, keyboard) : undefined}
               />

@@ -626,11 +626,11 @@
       ${x.srcDone && !x.doneAt ? `<span class="chip is-ok">${icon("check")}取り込み元で完了</span>` : ""}`;
   }
   const stamped = new Set();
-  function doneControl(x) {
+  function doneControl(x, opts = {}) {
     return x.doneAt
       ? `<span class="hanko ${stamped.has(x.id) ? "is-new" : ""}" role="img" aria-label="${t("done")}">${icon("check")}</span>
          <button class="link-btn" type="button" data-undo="${x.id}" aria-label="${t("done")}を戻す: ${esc(x.title)}" aria-disabled="false">戻す</button>`
-      : `<button class="done-btn" type="button" data-done="${x.id}" aria-label="${t("complete")}" title="${t("complete")}">${icon("check")}</button>`;
+      : opts.card ? "" : `<button class="done-btn" type="button" data-done="${x.id}" aria-label="${t("complete")}" title="${t("complete")}">${icon("check")}</button>`;
   }
 
   // 行の「⋯」のメニュー（.row-menu）。完了の丸のほかの操作（今日やる、並べ替え、親を移す、削除）をまとめる。
@@ -944,7 +944,7 @@
         { attr: `data-sun="${x.id}"`, label: x.todayOn === D.today ? "今日やるを外す" : "今日やる", icon: "sun" },
         ...orderItems(order),
         { attr: `data-task-delete="${x.id}"`, label: `この${t("task")}を削除する`, icon: "trash", danger: true },
-      ], x.id) : ""}${doneControl(x)}</span></div>
+      ], x.id) : ""}${doneControl(x, { card: true })}</span></div>
     </article>`;
   }
   // opts.key: カードの id の接頭辞、opts.cardMarks: (x, i, c) => card のドラッグの状態、opts.columnMarks: (c) => 列の囲み（{ drop: "into" }）、opts.grab: (x) => つかめるか（既定は完了していないカードだけ。完了の列のカードは、本番では戻せるもの（reopenable）だけがつかめる）
