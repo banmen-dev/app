@@ -2946,7 +2946,7 @@ export const dictionary = defineDictionary({
   connectionChooseScope: '範囲を選ぶ',
   connectionEmptyTitle: '{connection}がまだありません',
   connectionEmptyText:
-    '下の「新しい{connection}を登録する」の欄から、自分の GitHub の認証情報で登録すると、自分が担当の Issue が{inbox}に届きます。',
+    '下の「新しい{connection}を登録する」の欄から、自分の GitHub の認証情報で登録すると、自分が担当の Issue と、自分が作者か担当の PR が{inbox}に届きます。',
   connectionEmptyReadonly: '{connection}はまだありません。この{workspace}は終了しているため、登録できません。',
   connectionRegisterTitle: '新しい{connection}を登録する',
   connectionRegisterHint: '自分の認証情報で、自分の担当分を取り込みます',
