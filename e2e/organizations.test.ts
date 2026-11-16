@@ -638,6 +638,33 @@ test('ダッシュボードへの遅い移動でも、枠の外の広い紙と2�
 });
 
 for (const width of [1280, 390]) {
+  test(`ダッシュボードの初回の骨組みも ${width}px の紙の幅に揃える`, async ({ page, context, baseURL }) => {
+    await signIn(context, baseURL, 'member');
+    await page.setViewportSize({ width, height: 900 });
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    await routeOperation(page, myOrganizations, async (call) => {
+      await gate;
+      await call.passThrough();
+    });
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    let loadingBox;
+    try {
+      const boot = page.locator('#boot-loading .boot-skeleton');
+      await expect(boot).toBeVisible();
+      await expect(boot.locator('.boot-pane')).toHaveCount(2);
+      loadingBox = await shownBox(boot);
+    } finally {
+      release();
+    }
+    await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
+    const loadedBox = await shownBox(page.locator('.gate-sheet'));
+    expect(loadingBox.width).toBe(loadedBox.width);
+    expect(loadingBox.x).toBe(loadedBox.x);
+  });
+}
+
+for (const width of [1280, 390]) {
   test(`全組織のダッシュボードは ${width}px で面を並べ、組織の中を読まない`, async ({ page, context, baseURL }) => {
     await signIn(context, baseURL, 'member');
     await page.setViewportSize({ width, height: 900 });
