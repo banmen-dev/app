@@ -808,7 +808,8 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
 
 /* 進み（完了 / 全体） */
 .progress { display: flex; align-items: center; gap: var(--space-2); flex: 1; min-width: 120px; }
-.progress-bar { position: relative; flex: 1; min-width: 0; height: 6px; background: var(--color-gauge); }
+.progress-bar { position: relative; flex: 1; min-width: 0; height: 6px; background: var(--color-gauge); overflow: hidden; }
+.progress-bar.has-marker { overflow: visible; }
 .progress-bar .progress-fill { display: block; height: 100%; background: var(--color-accent); }
 .progress-num { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-muted); white-space: nowrap; }
 

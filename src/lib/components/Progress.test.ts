@@ -36,4 +36,9 @@ test.each([-10, 0, 100, 110])('目盛り %s は棒の両端に収める', (marke
 test('経過の意味を読み上げだけでなく可視の凡例としても出す', () => {
   const html = body({ done: 8, all: 31, detailed: true, markerPercent: 57, markerLabel: '経過 8 / 14 日（57%）' });
   expect(html).toContain('<span class="progress-legend">経過 8 / 14 日（57%）</span>');
+  expect(html).toContain('has-marker');
+});
+
+test('目盛りがない既存の棒には、はみ出しを許す状態を付けない', () => {
+  expect(body({ done: 8, all: 31 })).not.toContain('has-marker');
 });

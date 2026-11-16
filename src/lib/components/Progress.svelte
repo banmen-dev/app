@@ -31,6 +31,7 @@
 <span class="progress" class:is-detailed={detailed}>
   <span
     class="progress-bar"
+    class:has-marker={marker !== undefined}
     role="img"
     aria-label={marker !== undefined && markerLabel ? `${label}、${markerLabel}` : label}
   >
