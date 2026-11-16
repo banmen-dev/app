@@ -375,7 +375,8 @@
     local = plan.columns;
     void restoreFocus(saved);
     if (flash) dnd.flash(task.id);
-    void announce(movedMessage(task, plan));
+    if (flash && collapsedColumns.isCollapsed(plan.column.id)) showToast(movedMessage(task, plan), 'check');
+    else void announce(movedMessage(task, plan));
     const workspaceId = workspace.id;
     const input = columnMoveInput(workspaceId, task, plan.column.id, plan.afterTaskId);
     void moves.send(
@@ -400,7 +401,8 @@
           },
         );
         if (result.ok && workspaceId === page.params.id) {
-          void announce(movedMessage(task, plan));
+          if (collapsedColumns.isCollapsed(plan.column.id)) showToast(movedMessage(task, plan), 'check');
+          else void announce(movedMessage(task, plan));
           flashAfterReload = task.id;
         }
         return result;
