@@ -18,6 +18,7 @@ for (const width of [1280, 1024, 761, 760, 390, 320]) {
       'art.js': 'text/javascript',
       'sample-data.js': 'text/javascript',
       'kit.js': 'text/javascript',
+      'image-crop.js': 'text/javascript',
     };
     await page.route('**/__design-catalog/**', async (route) => {
       const name = new URL(route.request().url()).pathname.split('/').pop()!;
@@ -140,6 +141,7 @@ test('見本の引き出し: タブを切り替えても、作り直しても、
     'art.js': 'text/javascript',
     'sample-data.js': 'text/javascript',
     'kit.js': 'text/javascript',
+    'image-crop.js': 'text/javascript',
   };
   await page.route('**/__design-catalog/**', async (route) => {
     const name = new URL(route.request().url()).pathname.split('/').pop()!;
@@ -302,6 +304,7 @@ test('操作部品の枠の色: 3つのテーマ', async ({ page }) => {
     'art.js': 'text/javascript',
     'sample-data.js': 'text/javascript',
     'kit.js': 'text/javascript',
+    'image-crop.js': 'text/javascript',
   };
   await page.route('**/__design-catalog/**', async (route) => {
     const name = new URL(route.request().url()).pathname.split('/').pop()!;
@@ -341,6 +344,7 @@ test('見本のカタログ: 「ストーリーを直す（引き出し）」の
     'art.js': 'text/javascript',
     'sample-data.js': 'text/javascript',
     'kit.js': 'text/javascript',
+    'image-crop.js': 'text/javascript',
   };
   await page.route('**/__design-catalog/**', async (route) => {
     const name = new URL(route.request().url()).pathname.split('/').pop()!;
@@ -378,6 +382,7 @@ test('見本の削除の確認: クリア済みのエピックを配下を残し
     'art.js': 'text/javascript',
     'sample-data.js': 'text/javascript',
     'kit.js': 'text/javascript',
+    'image-crop.js': 'text/javascript',
   };
   await page.route('**/__design-catalog/**', async (route) => {
     const name = new URL(route.request().url()).pathname.split('/').pop()!;
@@ -429,6 +434,7 @@ test('スマホの見本の浮きメニューから組織作成を開ける（#1
     'art.js': 'text/javascript',
     'sample-data.js': 'text/javascript',
     'kit.js': 'text/javascript',
+    'image-crop.js': 'text/javascript',
   };
   await page.route('**/__design-mobile/**', async (route) => {
     const file = new URL(route.request().url()).pathname.split('/').pop()!;
@@ -462,6 +468,7 @@ test('見本のカタログ: エピックは引き出しで開き、読み取り
     'art.js': 'text/javascript',
     'sample-data.js': 'text/javascript',
     'kit.js': 'text/javascript',
+    'image-crop.js': 'text/javascript',
   };
   await page.route('**/__design-catalog/**', async (route) => {
     const name = new URL(route.request().url()).pathname.split('/').pop()!;

@@ -16,6 +16,7 @@ const files: Record<string, string> = {
   'art.js': 'text/javascript',
   'sample-data.js': 'text/javascript',
   'kit.js': 'text/javascript',
+  'image-crop.js': 'text/javascript',
 };
 
 async function openSample(page: Page, name: 'backlog.html' | 'sprint.html' | 'index.html' | ''): Promise<string[]> {
