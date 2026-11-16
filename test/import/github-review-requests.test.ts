@@ -289,10 +289,25 @@ describe('レビュー依頼の取得', () => {
     f.data.pull.title = '';
     await expect(f.drain({ target })).rejects.toBeInstanceOf(ImportSourceError);
   });
-  test('既存依頼の読み直し上限は依頼なしと区別する', async () => {
+  test('既存依頼の読み直し上限後も返されたカーソルから回復する', async () => {
     const f = fixture();
     f.data.mutate = true;
-    await expect(f.drain({ target })).rejects.toBeInstanceOf(ImportSourceError);
+    let cursor: string | null = null;
+    let reset = false;
+    for (let step = 0; step < 15; step++) {
+      const result = await f.page(cursor, { target });
+      expect(result.items).toEqual([]);
+      expect(result.next).not.toBeNull();
+      cursor = result.next;
+      const state = JSON.parse(cursor!);
+      if (step > 0 && state.phase === 'pull' && state.restarts === 0) {
+        reset = true;
+        break;
+      }
+    }
+    expect(reset).toBe(true);
+    f.data.mutate = false;
+    expect(await f.drain({ target }, cursor)).toEqual([expect.objectContaining({ sourceId: '9001', isDone: false })]);
   });
   test.each([{}, [1, 2]])('一覧自体の不正応答はカーソルを進めず失敗する', async (response) => {
     const f = fixture();

@@ -201,7 +201,11 @@ async function readPage(input: ReviewRequestPageInput, parsed: Position | null):
   const current = pullOf(raw, pull);
   // 履歴取得中に PR が変わったら古い回で完了判定せず、上限を守りながら読み直す。
   if (current.updatedAt !== pull.updatedAt) {
-    if (position.restarts >= MAX_RESTARTS) return defer(position, input);
+    if (position.restarts >= MAX_RESTARTS) {
+      if (!input.target) return defer(position, input);
+      // 既存項目の照合は終了扱いにせず、次の呼び出しで最新の PR から読み直す。
+      return next({ ...position, phase: 'pull', historyPage: 1, cycle: null, reviewed: false, restarts: 0 });
+    }
     return next({
       ...position,
       phase: 'pull',
