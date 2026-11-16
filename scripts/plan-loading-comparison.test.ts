@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { loadingFixtureSql, loadingWorkspace } from './loading-fixture.ts';
+import { fillSeedDates } from './seed-dates.ts';
 import {
   emptyPlanSql,
   emptyPlanWorkspace,
@@ -56,8 +57,9 @@ test('空の計画fixtureは既存の履歴を残し、同じ組織の管理者�
       .sort()) {
       db.exec(readFileSync(new URL(file, migrations), 'utf8'));
     }
-    db.exec(readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8'));
-    db.exec(loadingFixtureSql(new Date('2026-11-15T00:00:00Z')));
+    const now = new Date('2026-11-15T00:00:00Z');
+    db.exec(fillSeedDates(readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8'), now));
+    db.exec(loadingFixtureSql(now));
     db.exec(emptyPlanSql);
     const memberships = (workspace: string) =>
       db.prepare('SELECT user_id, role FROM memberships WHERE workspace_id=? ORDER BY user_id').all(workspace);

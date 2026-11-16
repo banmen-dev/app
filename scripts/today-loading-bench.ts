@@ -14,6 +14,7 @@ import { loadingFixtureSql } from './loading-fixture.ts';
 import type { Reading } from './loading-screens.ts';
 import { percentile } from './loading-stats.ts';
 import { sessionInserts } from './seed.ts';
+import { fillSeedDates } from './seed-dates.ts';
 import { todayTrial, type TodayMode } from './today-loading-trial.ts';
 
 function option(name: string, fallback: number, max: number): number {
@@ -120,7 +121,7 @@ try {
   const file = path.join(dir, 'fixture.sql');
   writeFileSync(
     file,
-    readFileSync(path.join(root, 'seed/data.sql'), 'utf8') +
+    fillSeedDates(readFileSync(path.join(root, 'seed/data.sql'), 'utf8'), new Date()) +
       sessionInserts(Object.values(SEED_SESSIONS), new Date()) +
       loadingFixtureSql(fixtureTime),
   );

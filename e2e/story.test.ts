@@ -16,6 +16,7 @@ import {
   watchViolations,
 } from './helpers.ts';
 import { failOperation, rewriteOperation, routeOperation } from './operations.ts';
+import { seedDue, seedDueMonthDay, seedWeekStartBeforeToday } from './seed-dates.ts';
 
 test.use({ timezoneId: 'Asia/Tokyo' });
 
@@ -270,24 +271,26 @@ test('日付の入力が途中までしか打たれていなければ、引き�
 });
 
 test('期日の印: 過ぎた（赤）、今日と今週（橙）、それ以外（色なし）。今日と週の始まりは API の値', async ({ page }) => {
-  // 今日と週の始まりは API が返す値で決まる。seed の日付（2026-10-20 前後）に合わせて差し替える
+  // 今日と週の始まりは API が返す値で決まる。seed の期日は流した日（T）から作るので、今日を T に、
+  // 週の始まりを T の前日の曜日に差し替え、今週の終わりを T+5 にする（T の曜日に関わらず同じ印になる）
+  const weekStart = seedWeekStartBeforeToday();
   await rewriteOperation(page, backlogTree, { slug: 'aoba' }, (output) => ({
     ...output,
-    today: '2026-10-20',
-    week_start: 1,
+    today: seedDue(0),
+    week_start: weekStart,
   }));
   await page.goto(SEED_CLIENT_WORKSPACE);
   await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();
 
   const first = storyGroup(page, 'ポイントの付与と失効を管理画面で確かめられる');
-  // ストーリーの期日（10/23）は今週
-  await expect(first.locator('.tree-row .chip.is-warn')).toHaveText('今週 10/23');
+  // ストーリーの期日（T+3）は今週
+  await expect(first.locator('.tree-row .chip.is-warn')).toHaveText(`今週 ${seedDueMonthDay(3)}`);
   await expect(first.locator('.tree-ratio')).toHaveText('完了 5 / 10 pt');
   await expect(first.locator('.tree-folded')).toHaveText('完了 1 件を折りたたんでいます');
   const overdue = first.locator('.entry', { hasText: '失効日の計算に月末の扱いを足す' });
-  await expect(overdue.locator('.chip.is-danger')).toHaveText('期日切れ 10/19');
+  await expect(overdue.locator('.chip.is-danger')).toHaveText(`期日切れ ${seedDueMonthDay(-1)}`);
   const thisWeek = first.locator('.entry', { hasText: '失効予定のポイントを知らせる文面を決める' });
-  await expect(thisWeek.locator('.chip.is-warn')).toHaveText('今週 10/22');
+  await expect(thisWeek.locator('.chip.is-warn')).toHaveText(`今週 ${seedDueMonthDay(2)}`);
 
   const second = storyGroup(page, '問い合わせの一次回答を早くする');
   await expect(
@@ -295,19 +298,19 @@ test('期日の印: 過ぎた（赤）、今日と今週（橙）、それ以外
   ).toHaveText('今日まで');
   await expect(second.locator('.tree-row .chip')).toHaveCount(0);
 
-  // 親のないタスクの期日（10/17）は過ぎている
+  // 親のないタスクの期日（T-3）は過ぎている
   await expect(page.locator('.entry', { hasText: '障害時の連絡手順を書く' }).locator('.chip.is-danger')).toHaveText(
-    '期日切れ 10/17',
+    `期日切れ ${seedDueMonthDay(-3)}`,
   );
 
-  // 今日を 10/12 に替えると、期日（10/19 以降）は来週以降で色なし
+  // 今日を T-8 に替えると、ストーリーの期日（T+3）は来週以降で色なし、過ぎた期日も無い
   await rewriteOperation(page, backlogTree, { slug: 'aoba' }, (output) => ({
     ...output,
-    today: '2026-10-12',
-    week_start: 1,
+    today: seedDue(-8),
+    week_start: weekStart,
   }));
   await page.reload();
-  await expect(first.locator('.tree-row .chip')).toHaveText('10/23');
+  await expect(first.locator('.tree-row .chip')).toHaveText(seedDueMonthDay(3));
   await expect(first.locator('.tree-row .chip.is-warn')).toHaveCount(0);
   await expect(page.locator('.chip.is-danger')).toHaveCount(0);
 });
@@ -315,8 +318,8 @@ test('期日の印: 過ぎた（赤）、今日と今週（橙）、それ以外
 test('完了したストーリーには「タスクを足す」の空の行を出さず、期日の印の色も付けない', async ({ page }) => {
   await rewriteOperation(page, backlogTree, { slug: 'aoba' }, (output) => ({
     ...output,
-    today: '2026-10-20',
-    week_start: 1,
+    today: seedDue(0),
+    week_start: seedWeekStartBeforeToday(),
     stories: output.stories.map((story, index) =>
       index === 0 ? { ...story, completed_at: '2026-10-19T00:00:00.000Z' } : story,
     ),
@@ -325,7 +328,7 @@ test('完了したストーリーには「タスクを足す」の空の行を�
   const done = storyGroup(page, 'ポイントの付与と失効を管理画面で確かめられる');
   await expect(done.locator('.tree-ratio')).toBeVisible();
   await expect(done.getByRole('textbox', { name: /タスクを足す/ })).toHaveCount(0);
-  await expect(done.locator('.tree-row .chip')).toHaveText('10/23');
+  await expect(done.locator('.tree-row .chip')).toHaveText(seedDueMonthDay(3));
   await expect(done.locator('.tree-row .chip.is-warn')).toHaveCount(0);
   // もう一方のストーリーには出る
   await expect(
@@ -372,7 +375,7 @@ test('閉じたワークスペースでは、作る操作と「タスクを足�
   await expect(drawer.getByRole('button', { name: '完了にする' })).toHaveCount(0);
   await expect(drawer.getByText('購入の確定でポイントが付く')).toBeVisible();
   await expect(drawer.getByText('先方の運用担当が、問い合わせを受けたときに')).toBeVisible();
-  await expect(drawer.locator('.props').getByText('2026-10-23')).toBeVisible();
+  await expect(drawer.locator('.props').getByText(seedDue(3))).toBeVisible();
   // リンクは読み取り専用でも開ける
   await expect(drawer.getByRole('link', { name: 'リンクを新しいタブで開く' })).toHaveAttribute(
     'href',

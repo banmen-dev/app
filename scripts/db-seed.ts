@@ -17,6 +17,14 @@ if (persistIndex !== -1 && !persistTo) {
 }
 const local = ['--local', ...(persistTo ? ['--persist-to', persistTo] : [])];
 
+// --now <ISO 8601> を渡すと、その日時を流した日時として日付を埋める（e2e/global-setup.ts が期待値と同じ日時を渡す）
+const nowIndex = process.argv.indexOf('--now');
+const now = nowIndex === -1 ? new Date() : new Date(process.argv[nowIndex + 1] ?? '');
+if (Number.isNaN(now.getTime())) {
+  console.error('--now に ISO 8601 の日時を渡してください');
+  process.exit(1);
+}
+
 async function wrangler(args: string[], capture = false): Promise<string> {
   const result = await retryLocalD1(() =>
     spawnSync('wrangler', ['d1', ...args, ...local], {
@@ -47,7 +55,7 @@ const data = readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8');
 const dir = mkdtempSync(path.join(tmpdir(), 'scrum-guild-seed-'));
 try {
   const file = path.join(dir, 'seed.sql');
-  writeFileSync(file, seedSql(tables, data, Object.values(SEED_SESSIONS), new Date()));
+  writeFileSync(file, seedSql(tables, data, Object.values(SEED_SESSIONS), now));
   await wrangler(['execute', 'DB', '--file', file]);
 } finally {
   rmSync(dir, { recursive: true, force: true });

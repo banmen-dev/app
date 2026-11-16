@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
+import { fillSeedDates } from './seed-dates.ts';
 
 function migratedDatabase() {
   const db = new DatabaseSync(':memory:');
@@ -13,7 +14,7 @@ function migratedDatabase() {
     .sort()) {
     db.exec(readFileSync(new URL(name, directory), 'utf8'));
   }
-  db.exec(readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8'));
+  db.exec(fillSeedDates(readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8'), new Date()));
   return db;
 }
 

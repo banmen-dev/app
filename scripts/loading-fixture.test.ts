@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
 import { loadingFixtureSql, loadingWorkspace } from './loading-fixture.ts';
+import { fillSeedDates } from './seed-dates.ts';
 
 test('読み取り計測fixtureは実スキーマで最近の完了・経験値・終了スプリントを集計できる', () => {
   // UTCの日付境界直前でも、全ステートメントは同じ基準日を使う。
@@ -16,7 +17,7 @@ test('読み取り計測fixtureは実スキーマで最近の完了・経験値�
       .sort()) {
       db.exec(readFileSync(new URL(file, migrations), 'utf8'));
     }
-    db.exec(readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8'));
+    db.exec(fillSeedDates(readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8'), now));
     const fixture = loadingFixtureSql(now);
     assert.equal(fixture.includes("'now'"), false);
     db.exec(fixture);
