@@ -5,6 +5,7 @@ import { FULL_NAME_PATTERN, PAGE_SIZE, fail, getJson, idOf, isRecord } from './c
 
 const ID = /^[1-9][0-9]{0,15}$/;
 const MAX_PAGE = 100_000;
+const MAX_RESTARTS = 2;
 type Pull = { id: string; number: string; updatedAt: string };
 type Position = {
   version: 1;
@@ -17,6 +18,7 @@ type Position = {
   historyPage: number;
   cycle: string | null;
   reviewed: boolean;
+  restarts: number;
 };
 
 function invalid(): never {
@@ -59,7 +61,9 @@ function parse(input: ReviewRequestPageInput): Position | null {
     !pageNumber(value.historyPage) ||
     !['list', 'pull', 'timeline', 'finish'].includes(String(value.phase)) ||
     !(value.cycle === null || numeric(value.cycle)) ||
-    typeof value.reviewed !== 'boolean'
+    typeof value.reviewed !== 'boolean' ||
+    (value.restarts !== undefined &&
+      (!Number.isInteger(value.restarts) || Number(value.restarts) < 0 || Number(value.restarts) > MAX_RESTARTS))
   )
     invalid();
   const pull = value.pull;
@@ -79,13 +83,29 @@ function parse(input: ReviewRequestPageInput): Position | null {
     (pull.id !== input.target.sourceId || pull.number !== input.target.key.split('#')[1])
   )
     invalid();
-  return value as unknown as Position;
+  return { ...value, restarts: value.restarts ?? 0 } as unknown as Position;
 }
 function next(position: Position): FetchPageResult {
   if (!pageNumber(position.page) || !pageNumber(position.historyPage)) throw fail('unavailable');
   const cursor = JSON.stringify(position);
   if (cursor.length > 2000) throw fail('unavailable');
   return { items: [], next: cursor };
+}
+function advance(position: Position, input: ReviewRequestPageInput, items: ImportItem[] = []): FetchPageResult {
+  if (input.target) return { items, next: null };
+  return {
+    ...next({
+      ...position,
+      page: position.page + 1,
+      phase: 'list',
+      pull: null,
+      historyPage: 1,
+      cycle: null,
+      reviewed: false,
+      restarts: 0,
+    }),
+    items,
+  };
 }
 function pullOf(raw: unknown, expected?: Pull): Pull {
   if (!isRecord(raw)) throw fail('unavailable');
@@ -114,6 +134,7 @@ export async function fetchReviewRequestsPage(input: ReviewRequestPageInput): Pr
       historyPage: 1,
       cycle: null,
       reviewed: false,
+      restarts: 0,
     });
   }
   const position = parsed;
@@ -172,7 +193,15 @@ export async function fetchReviewRequestsPage(input: ReviewRequestPageInput): Pr
   const current = pullOf(raw, pull);
   // 履歴取得中に PR が変わったら古い回で完了判定せず、上限を守りながら読み直す。
   if (current.updatedAt !== pull.updatedAt) {
-    return next({ ...position, phase: 'pull', historyPage: 1, cycle: null, reviewed: false });
+    if (position.restarts >= MAX_RESTARTS) return advance(position, input);
+    return next({
+      ...position,
+      phase: 'pull',
+      historyPage: 1,
+      cycle: null,
+      reviewed: false,
+      restarts: position.restarts + 1,
+    });
   }
   if (
     !isRecord(raw) ||
@@ -216,17 +245,5 @@ export async function fetchReviewRequestsPage(input: ReviewRequestPageInput): Pr
       isDone: position.reviewed || raw.state === 'closed',
     });
   }
-  if (input.target) return { items, next: null };
-  return {
-    ...next({
-      ...position,
-      page: position.page + 1,
-      phase: 'list',
-      pull: null,
-      historyPage: 1,
-      cycle: null,
-      reviewed: false,
-    }),
-    items,
-  };
+  return advance(position, input, items);
 }

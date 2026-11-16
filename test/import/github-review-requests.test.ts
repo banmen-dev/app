@@ -32,6 +32,9 @@ function fixture() {
     },
     timeline: [[request()]] as unknown[][],
     failure: 0,
+    mutate: false,
+    others: [] as Record<string, unknown>[],
+    timelines: {} as Record<string, unknown[][]>,
   };
   const fetcher: typeof fetch = async (input, init) => {
     const request = new Request(input, init);
@@ -41,10 +44,26 @@ function fixture() {
     if (data.failure && parsed.pathname.endsWith('/timeline')) return new Response('', { status: data.failure });
     if (parsed.pathname === '/user') return Response.json({ type: 'User', id: 42, login: 'fake-ranger' });
     if (parsed.pathname.endsWith('/timeline'))
-      return Response.json(data.timeline[Number(parsed.searchParams.get('page')) - 1] ?? []);
+      return Response.json(
+        (data.timelines[parsed.pathname.split('/')[4]!] ?? data.timeline)[
+          Number(parsed.searchParams.get('page')) - 1
+        ] ?? [],
+      );
     if (parsed.pathname.endsWith('/pulls'))
-      return Response.json(parsed.searchParams.get('page') === '1' ? [data.pull] : []);
-    if (parsed.pathname.endsWith('/pulls/7')) return Response.json(data.pull);
+      return Response.json(
+        [data.pull, ...data.others].slice(
+          Number(parsed.searchParams.get('page')) - 1,
+          Number(parsed.searchParams.get('page')),
+        ),
+      );
+    if (/\/pulls\/\d+$/.test(parsed.pathname)) {
+      if (data.mutate && parsed.pathname.endsWith('/7')) {
+        data.pull.updated_at = new Date(Date.parse(data.pull.updated_at) + 1000).toISOString();
+      }
+      return Response.json(
+        [data.pull, ...data.others].find((p) => String(p.number) === parsed.pathname.split('/').at(-1)),
+      );
+    }
     throw new Error('想定外の要求');
   };
   const page = (cursor: string | null, extra: Partial<ReviewRequestPageInput> = {}) =>
@@ -216,6 +235,14 @@ describe('レビュー依頼の取得', () => {
     f.data.timeline = [[request(), review(), { event: 'review_request_removed', requested_reviewer: { id: 42 } }]];
     f.data.pull.requested_reviewers = [];
     expect(await f.drain()).toEqual([expect.objectContaining({ reviewCycle: '101', isDone: true })]);
+  });
+  test('更新が続く PR は有限回で判定を保留し次の PR へ進む', async () => {
+    const f = fixture();
+    f.data.mutate = true;
+    f.data.others = [{ ...f.data.pull, id: 9002, number: 8, html_url: `https://github.com/${scope.name}/pull/8` }];
+    f.data.timelines['8'] = [[request(202)]];
+    expect(await f.drain()).toEqual([expect.objectContaining({ sourceId: '9002', reviewCycle: '202' })]);
+    expect(f.calls.length).toBeLessThan(20);
   });
   test('PAT は固定ホストの Authorization だけに送り、リダイレクトしない', async () => {
     const f = fixture();
