@@ -79,7 +79,7 @@ test.describe('招待だけが届いた人（ヒナタ）', () => {
       await page.goto('/');
       await expect(page).toHaveURL(/\/$/);
       await expect(page.getByText('まだ入れる組織がありません')).toBeVisible();
-      await expect(page.getByRole('heading', { level: 2, name: '届いた招待' })).toBeVisible();
+      await expect(page.getByRole('heading', { level: 3, name: '届いた招待' })).toBeVisible();
       const link = page.getByRole('link', { name: /ひばり工房/ });
       await expect(link).toContainText('承諾待ちの招待があります');
       // 押せる行は右端に印があり、招待は組織を作る入口より前に並ぶ
@@ -144,7 +144,7 @@ test.describe('招待だけが届いた人（ヒナタ）', () => {
     await expect(page.getByRole('button', { name: '旧サイト改修への招待を辞退する' })).toBeEnabled();
     // 組織に入れない人には、組織の画面へ戻るリンクを出さない
     await expect(page.getByRole('link', { name: /の画面へ戻る/ })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: '組織の一覧へ' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'ダッシュボード' })).toBeVisible();
     expect((await collect()).filter(expected404)).toEqual([]);
   });
 

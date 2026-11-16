@@ -60,7 +60,7 @@ test('組織の選択から移って組織の読み取りが 10 秒返らなけ�
   baseURL,
 }) => {
   await signIn(context, baseURL, 'member');
-  // 招待を足して、組織が1つでも組織の選択に留める（入れる組織が1つで招待が無いと、そのまま組織へ移る）
+  // 組織の入口と招待が並ぶダッシュボードからの移動を確かめる
   await routeOperation(page, myOrganizations, (call) =>
     call.fulfill({
       organizations: [{ slug: 'aoba', name: 'あおば開発', kind: 'team' }],

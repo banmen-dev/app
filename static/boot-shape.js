@@ -1,5 +1,6 @@
 // URL を直接開いた最初の読み込みの骨組み（src/app.html の #boot-loading、static/boot-loading.css）の形を、行き先に合わせる。
 // 行き先が組織の枠（/<slug> の下）なら html に data-boot="<形>" を付け、左のメニューと上の帯と、行き先の本文の組みに近い骨組みを出す。
+// / は枠の外のまま広い紙の2列にする。
 // 形と URL の対応は src/lib/loading-shape.ts（画面を移るときの LoadingSheet）と同じにする（scripts/boot-shape.test.ts が突き合わせる）。
 // 枠の外の画面（ログイン、組織の選択、届いた招待など）と、どの画面にも当たらない URL は付けず、紙の形の骨組みのまま出す。
 // ログインの有無と組織に入れるかは見ないので、/<1語> は組織の枠の形で出し、読み込んだ後に見つからない画面やログインの画面に替わることがある。
@@ -90,6 +91,15 @@
       })
       .map(decodeURIComponent);
   } catch {
+    return;
+  }
+  // ダッシュボードは枠の外のまま、広い紙と2列の面を先に出す。
+  if (parts.length === 0) {
+    document.documentElement.dataset.bootDashboard = 'true';
+    var paper = document.querySelector('#boot-loading .boot-skeleton');
+    if (paper)
+      paper.innerHTML =
+        '<i></i><span class="boot-dashboard"><span class="boot-pane"><i></i><i></i><i></i></span><span class="boot-pane"><i></i><i></i><i></i></span></span>';
     return;
   }
   var shape = shapeOf(parts);

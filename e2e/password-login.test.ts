@@ -1,5 +1,5 @@
 // ログインの画面からメールアドレスとパスワードで入る（POST /api/auth/password/login、Issue #256）。
-// seed のパスワードの人（seed/passwords.ts）で、本物の API と手元の D1 に当てる。組織が1つの人は組織の画面へ、2つの人は組織の選択へ移る。
+// seed のパスワードの人（seed/passwords.ts）で、本物の API と手元の D1 に当てる。組織の数によらずダッシュボードから組織を選ぶ。
 // 違うパスワードでは画面を移らずに理由を出し、メールアドレスの欄を残す。
 // 繰り返し（--repeat-each）でメールアドレスと IP の枠（10分に10回、30回）を使い切らないよう、場面ごとにパスワードの枠の行を消す
 import type { Page } from '@playwright/test';
@@ -74,14 +74,17 @@ test('ログインの画面は、幅 390px で横にはみ出さず、押せる�
   expect(await findA11yViolations(page)).toEqual([]);
 });
 
-test('入れる組織が1つの人は、パスワードで入ると同意の画面に移り、同意するとその組織の画面に移る', async ({ page }) => {
+test('入れる組織が1つの人も、パスワードで入り同意するとダッシュボードから組織を選ぶ', async ({ page }) => {
   const person = SEED_PASSWORD_LOGINS.single;
   await page.goto('/login');
   await emailField(page).fill(person.email);
   await passwordField(page).fill(person.password);
   await submitButton(page).click();
-  await expect(page).toHaveURL(/\/consent\?return_to=%2Fyuzu$/);
+  await expect(page).toHaveURL(/\/consent\?return_to=%2F$/);
   await consent(page);
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
+  await page.getByRole('link', { name: /ゆず書房/ }).click();
   await expect(page).toHaveURL(/\/yuzu$/);
   await expect(page.locator('.me')).toContainText(person.name);
 });
@@ -94,7 +97,7 @@ test('入れる組織が2つの人は、パスワードで入ると同意の画�
   await passwordField(page).press('Enter');
   await expect(page).toHaveURL(/\/consent\?return_to=%2F$/);
   await consent(page);
-  await expect(page.getByRole('heading', { level: 1, name: '組織を選ぶ' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole('link', { name: /ゆず書房/ })).toBeVisible();
   await expect(page.getByRole('link', { name: /みなも舎/ })).toBeVisible();

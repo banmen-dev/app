@@ -13,7 +13,7 @@
   import ShortcutHelp from '../lib/components/ShortcutHelp.svelte';
   import ShortcutHints from '../lib/components/ShortcutHints.svelte';
   import ToastRegion from '../lib/components/ToastRegion.svelte';
-  import { loadingShape, type LoadingShape } from '../lib/loading-shape.ts';
+  import { loadingDashboard, loadingShape, type LoadingShape } from '../lib/loading-shape.ts';
   import { shortcuts } from '../lib/shortcuts.svelte.ts';
   import { t } from '../lib/vocabulary.svelte.ts';
 
@@ -24,6 +24,7 @@
   const slow = $derived(navigationLoading.kind === 'outside');
   // 行き先の情報は到着時に消える。退場中に枠を紙へ替えないよう、表示した形を保持する。
   let shownLoadingShape = $state<LoadingShape | null>(null);
+  let shownLoadingDashboard = $state(false);
 
   // URL を直接開いた最初の読み込みの表示（src/app.html の #boot-loading）は、画面が描かれたら要らない
   // （骨組みの形の印 data-boot と data-boot-nav も、以後の画面の開閉と食い違わないよう外す）
@@ -33,6 +34,7 @@
       boot?.remove();
       delete document.documentElement.dataset.boot;
       delete document.documentElement.dataset.bootNav;
+      delete document.documentElement.dataset.bootDashboard;
     };
     if (!boot) {
       removeBoot();
@@ -84,7 +86,10 @@
   // 待っている間の行き先変更は形だけ替え、表示待ちのタイマーと退場をやり直さない。
   // 到着して行き先が消えた後は、退場中の形を保持する。
   $effect(() => {
-    if (slow && loadingKind === 'outside') shownLoadingShape = loadingShapeTo;
+    if (slow && loadingKind === 'outside') {
+      shownLoadingShape = loadingShapeTo;
+      shownLoadingDashboard = loadingDashboard(navigating.to?.route.id);
+    }
   });
 </script>
 
@@ -101,7 +106,9 @@
 <!-- 読み込み中を読み上げに伝える。領域は常に置き、中の文字だけを替える -->
 <div class="visually-hidden" role="status">{navigationLoading.kind !== null ? t('loading') : ''}</div>
 {#if slow}
-  <div class="loading-overlay" out:loadingOut><LoadingSheet shape={shownLoadingShape} /></div>
+  <div class="loading-overlay" out:loadingOut>
+    <LoadingSheet shape={shownLoadingShape} dashboard={shownLoadingDashboard} />
+  </div>
 {:else}
   {@render children()}
 {/if}

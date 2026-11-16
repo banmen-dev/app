@@ -8,17 +8,15 @@ import { isWorkspaceRoute, navSections, visibleNav } from '../src/lib/nav.ts';
 const org = (slug: string) => ({ slug, name: slug });
 
 describe('ログインの直後の行き先', () => {
-  test('入れる組織が1つで招待が無ければ、その組織へ', () => {
+  test('入れる組織が1つで招待が無くても、ダッシュボード', () => {
     assert.deepEqual(landingFor({ organizations: [org('aoba')], invitations: [], operator: false }), {
-      to: 'organization',
-      slug: 'aoba',
+      to: 'select',
     });
   });
 
-  test('入れる組織が1つの運用者も、その組織へ', () => {
+  test('入れる組織が1つの運用者も、ダッシュボード', () => {
     assert.deepEqual(landingFor({ organizations: [org('aoba')], invitations: [], operator: true }), {
-      to: 'organization',
-      slug: 'aoba',
+      to: 'select',
     });
   });
 

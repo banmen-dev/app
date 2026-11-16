@@ -70,8 +70,7 @@
     if (organization) applyOrganization(organization);
   });
 
-  // 切り替えは、入れる組織の一覧が読めたときに出す。入れる組織が1つで招待が無い人も、ここから「組織を作る」と「自分用を作る」を開く
-  // （その人は / を開くとこの組織へ移り、組織の選択の画面に届かない）。
+  // 切り替えは、入れる組織の一覧が読めたときに出す。組織の数によらずダッシュボードへ戻り、作成のダイアログも開ける。
   // ダイアログは、メニューを閉じても残るよう、切り替えの外（枠）に置く
   const switcherOrganizations = $derived(data.organizations !== null ? data.organizations.organizations : null);
   // 「自分用を作る」も同じ理由でここが入口になる。入れる組織にも停止した組織にも自分用が無い人にだけ出す
