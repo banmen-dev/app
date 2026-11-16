@@ -278,10 +278,10 @@ test.describe('組織の外（紙の下のボタン）', () => {
   });
 
   test('/ の紙の下にもログアウトのボタンがある', async ({ context, page, baseURL }) => {
-    // 組織が2つの人にだけ組織の選択の画面が出る
+    // 組織の数によらずダッシュボードが出る
     await signIn(context, baseURL, 'admin');
     await page.goto('/');
-    await expect(page.getByRole('heading', { level: 1, name: '組織を選ぶ' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
     await expect(page.locator('.gate-sheet').first().getByRole('button', { name: 'ログアウト' })).toBeVisible();
   });
 });
