@@ -58,7 +58,7 @@ Slow の表示 p50（nearest-rank）は33,971msから32,765msへ改善した。F
 
 ## 未コミット入力の保存
 
-[入力一覧とSHA-256](boot-transfer-1236-inputs.json) に配信に関わる変更とテスト・生成手順のファイルを記録した。完全な変更ファイルは `/workspace/scratch/1236-implementation.tar.gz`、既存ファイルの差分は `/workspace/scratch/1236-tracked.patch` に保存した。基準コミットの別チェックアウトへアーカイブを展開すれば、新規のフォントとWebPも含めて復元できる。E2E・テスト・説明の追記は計測した配信内容を変えない。
+[入力一覧とSHA-256](boot-transfer-1236-inputs.json) に配信に関わる変更とテスト・生成手順のファイルを記録した。初期版の配信内容はコミット `ca7ca2b` に保存しており、新規のフォントとWebPもGitから復元できる。一時アーカイブを再現の前提にはしない。E2E・テスト・説明の追記は計測した配信内容を変えない。
 
 #1069 の Font 300kB と #1071 の JS 230kB という個別目標は、この変更後もそれぞれ421.0kB・234.5kBで未達。#1236 の全体転送量の条件とは分けて残す。
 
@@ -68,7 +68,7 @@ Slow の表示 p50（nearest-rank）は33,971msから32,765msへ改善した。F
 
 最初の2試行では Fast のp50が26ms増え、平均は89ms減ったため、完了扱いにせず前後を各6回追加した。前後とも保存した同じ本番buildを使い、計測の設定・表示の判定・転送量の集計は元のまま、Fastだけを測った。原本スクリプトから build の再生成を省き、assets.directory を保存した build へ向けた一時コピー `/workspace/scratch/1236-repeat-fast.ts` を使った。変更前は `/tmp/1236-before-build`、変更後は `/tmp/1236-after-build`。同時にビルド・テスト・ほかの計測を行っていない。
 
-コマンドは `VISUAL_BUILD=<保存したbuild> node /workspace/scratch/1236-repeat-fast.ts --runs 6 --network fast --output <JSON>`。元の2試行は上の表と生データに残し、都合のよい回を選び直さない。[追加の変更前](boot-transfer-1236-fast-before.json)・[追加の変更後](boot-transfer-1236-fast-after.json)には使ったindex.htmlのSHA-256も残す。
+当時の追加計測は保存buildを指定する一時スクリプトを用いた履歴である。公開されたコミットで再現するときは対象コミットをチェックアウトし、通常の `pnpm bench:boot --runs 6 --network fast --output <JSON>` でbuildから実行する。元の2試行は上の表と生データに残し、都合のよい回を選び直さない。[追加の変更前](boot-transfer-1236-fast-before.json)・[追加の変更後](boot-transfer-1236-fast-after.json)には使ったindex.htmlのSHA-256も残す。
 
 | 版 | 回 | 表示 ms | 表示まで kB/件 | 安定後 kB/件 |
 | --- | ---: | ---: | ---: | ---: |
