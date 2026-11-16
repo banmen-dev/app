@@ -31,6 +31,7 @@
   import { MoveQueue } from '../../../../../lib/move-queue.ts';
   import { ReopenKeyGuard } from '../../../../../lib/reopen-key.ts';
   import { edgesOf, planCardMove, type MoveDirection, type MoveEdge } from '../../../../../lib/sprint-board.ts';
+  import { storyColumns, storyHref, applyStoryMove } from '../../../../../lib/sprint-story-filter.ts';
   import { SprintColumnCollapse } from '../../../../../lib/sprint-column-collapse.svelte.ts';
   import { SprintDnd } from '../../../../../lib/sprint-dnd.svelte.ts';
   import type { MovedPlan, ReopenPlan, SprintDrop } from '../../../../../lib/sprint-drop.ts';
@@ -125,6 +126,57 @@
   // 画面で動かした後の列とカード。読み直したら捨てる
   let local = $state<SprintBoardColumn[] | null>(null);
   const columns = $derived(local ?? board?.columns ?? []);
+  const requestedStoryId = $derived(page.url.searchParams.get('story'));
+  const filteredStory = $derived(
+    columns.flatMap((column) => column.tasks).find((task) => task.story?.id === requestedStoryId)?.story ?? null,
+  );
+  const storyId = $derived(filteredStory?.id ?? null);
+  const cardStoryQuery = $derived(storyId === null ? '' : `&story=${encodeURIComponent(storyId)}`);
+  // ボード全体で親が無くなれば、URLを直接開いた場合も操作後も同じ条件で解除する。
+  const hasBoard = $derived(board !== null);
+  let clearingStoryHref: string | null = null;
+  $effect(() => {
+    const href = page.url.href;
+    if (!hasBoard || requestedStoryId === null || filteredStory !== null) {
+      clearingStoryHref = null;
+      return;
+    }
+    if (clearingStoryHref === href) return;
+    clearingStoryHref = href;
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- 現在の経路のstory問い合わせだけを除く
+    void goto(storyHref(page.url, null), { replace: true, reset: false })
+      .then(() => announce(t('sprintStoryFilterInvalid', { story: t('story') })))
+      .catch(() => showToast(t('sprintStoryFilterClearFailed'), 'alert'));
+  });
+  const visibleColumns = $derived(storyColumns(columns, storyId));
+  let hoveredStory = $state<string | null>(null);
+  let focusedStory = $state<string | null>(null);
+  const highlightedStory = $derived(hoveredStory ?? focusedStory);
+  async function filterStory(id: string | null): Promise<void> {
+    const previous = storyId;
+    const title =
+      id === null
+        ? null
+        : columns.flatMap((column) => column.tasks).find((task) => task.story?.id === id)?.story?.title;
+    hoveredStory = null;
+    focusedStory = null;
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- 現在の経路のstory問い合わせだけを替える
+    await goto(storyHref(page.url, id), { reset: false });
+    await announce(
+      id === null
+        ? t('sprintStoryFilterCleared', { story: t('story') })
+        : t('sprintStoryFilterApplied', { story: t('story'), title: title ?? '' }),
+    );
+    if (id === null && previous !== null) {
+      await tick();
+      const parent = document.querySelector<HTMLElement>(`[data-story-filter="${CSS.escape(previous)}"]`);
+      if (parent) parent.focus();
+      else {
+        const task = columns.flatMap((column) => column.tasks).find((item) => item.story?.id === previous);
+        if (task) focusCollapsedColumn(task.id);
+      }
+    }
+  }
   // `c` が移る列と、aria-keyshortcuts を付ける列は、同じ（開いている完了でない最初の列）
   const firstOpenColumnId = $derived(
     columns.find((item) => !item.is_done && !collapsedColumns.isCollapsed(item.id))?.id,
@@ -139,7 +191,7 @@
   // （完了を送っている最中に完了の列から落とすと、誤った「完了していない」の断りが出るため）
   let sendingIds = $state<string[]>([]);
   const dnd = new SprintDnd({
-    columns: () => columns,
+    columns: () => visibleColumns,
     enabled: () => canWrite,
     busy: (id) => sendingIds.includes(id) || completingId === id || reopeningId === id,
     onDrop: dropCard,
@@ -148,6 +200,7 @@
   $effect(() => dnd.monitor());
   // 読み直したら、つかんでいるドラッグは取りやめる（離しても何も送らない）。光らせているカードは、読み直した後も残す
   dnd.resetWhenChanged(() => board);
+  dnd.resetWhenChanged(() => storyId);
   // 完了にした、または戻したカード。読み直した後の列に出てから光らせる（応答の直後に光らせると、読み直しが遅いとき元の列で終わる）
   let flashAfterReload: string | null = null;
   $effect.pre(() => {
@@ -311,7 +364,7 @@
       }
       return;
     }
-    const plan = planCardMove(columns, task.id, direction);
+    const plan = planCardMove(visibleColumns, task.id, direction);
     if (plan === null) return;
     // 次の列が完了の列なら、完了にする
     if (plan.kind === 'complete') {
@@ -394,7 +447,7 @@
   function applyMove(task: SprintBoardTask, plan: MovedPlan, flash = false): void {
     if (workspace === null) return;
     const saved = savedFocus();
-    local = plan.columns;
+    local = applyStoryMove(columns, task.id, plan.column.id, plan.afterTaskId);
     void restoreFocus(saved);
     if (flash) dnd.flash(task.id);
     const hiddenDrop = flash && collapsedColumns.isCollapsed(plan.column.id);
@@ -630,9 +683,15 @@
   async function addCard(column: SprintBoardColumn, title: string): Promise<string | null> {
     if (workspace === null || sprint === null) return t('taskCreateFailed');
     const sentFor = page.params.id;
+    const sentStoryId = storyId;
     const result = await callOperation(
       taskCreate,
-      { workspace_id: workspace.id, title, sprint: { sprint_id: sprint.id, column_id: column.id } },
+      {
+        workspace_id: workspace.id,
+        title,
+        story_id: sentStoryId,
+        sprint: { sprint_id: sprint.id, column_id: column.id },
+      },
       { slug },
     );
     // 送っている間に別のワークスペースへ移っていたら、成功も失敗も、古い応答で状態を触らない
@@ -656,9 +715,20 @@
         void reloadBoard();
         return t('sprintBoardAddNotActive', { sprint: t('sprint'), task: t('task') });
       }
+      if (sentStoryId !== null && result.status === 409 && result.error?.code === 'conflict') {
+        void reloadBoard();
+        return t('treeAddTaskParentDone', { story: t('story'), done: t('done'), task: t('task') });
+      }
       if (result.status === 404) {
         void reloadBoard();
-        return t('sprintBoardAddGone', { sprint: t('sprint'), column: t('column'), task: t('task') });
+        return sentStoryId === null
+          ? t('sprintBoardAddGone', { sprint: t('sprint'), column: t('column'), task: t('task') })
+          : t('sprintBoardAddStoryGone', {
+              story: t('story'),
+              sprint: t('sprint'),
+              column: t('column'),
+              task: t('task'),
+            });
       }
       return t('taskCreateFailed');
     }
@@ -804,79 +874,105 @@
       <SprintOverdueNotice {sprint} canClose={canLead} onclose={openClose} />
     {/if}
     {#if sprint.goal !== null}<SprintGoalNotice goal={sprint.goal} />{/if}
-    <!-- 列が並ぶと狭い幅で横に溢れる。カードが無いと中に止まる先が無く、キーボードで横へ送れないので、その間だけ領域に止まる -->
-    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-    <div
-      class="board-wrap"
-      role="region"
-      aria-label={t('sprintBoardRegion', { sprint: t('sprint'), column: t('column') })}
-      tabindex={allTasks.length === 0 ? 0 : undefined}
-      {@attach canWrite ? (node) => dnd.wrap(node) : undefined}
-    >
-      <!-- 引き出しの前後のボタンの順は、ボードに今見えているカード（左の列から右へ、列の中は上から下） -->
-      <div class="board" style:--board-cols={columns.length} {@attach trackTaskOrder}>
-        {#each columns as column (column.id)}
-          <section
-            class="board-col"
-            class:is-done={column.is_done}
-            class:is-collapsed={collapsedColumns.isCollapsed(column.id)}
-            aria-label={columnName(column)}
-            data-drop={canWrite ? dnd.markOfColumn(column.id) : undefined}
-            {@attach canWrite ? dnd.column(column.id) : undefined}
+    <div class="story-board">
+      {#if filteredStory !== null}
+        <div class="story-filter-band">
+          <div class="story-filter-summary">
+            <span
+              ><Icon name="flag" />{t('sprintStoryFilterActive', {
+                story: t('story'),
+                title: filteredStory.title,
+              })}</span
+            >
+            <span class="action-note">{t('sprintStoryTotalsNote', { points: t('points') })}</span>
+          </div>
+          <button class="btn is-sm is-quiet" type="button" onclick={() => void filterStory(null)}
+            ><Icon name="x" />{t('filterClear')}</button
           >
-            <div class="board-col-head">
-              <button
-                class="board-col-toggle"
-                type="button"
-                data-column-toggle={column.id}
-                aria-label={t('sprintBoardColumnToggle', { column: columnName(column) })}
-                aria-expanded={!collapsedColumns.isCollapsed(column.id)}
-                onclick={() => collapsedColumns.toggle(column.id)}><Icon name="chevron" /></button
-              >
-              {#if column.is_done}<Icon name="check" />{/if}
-              <span class="board-col-name">{columnName(column)}</span>
-              <span class="board-col-n">{column.tasks.length}</span>
-              <span class="board-col-pts">{t('sprintBoardColumnPoints', { points: pointsOf(column.tasks) })}</span>
-            </div>
-            {#if !collapsedColumns.isCollapsed(column.id)}
-              <!-- 完成の定義（components.css の .dod。kit.js の board）。完了の列にだけ畳んで置き、空なら出さない。本文は開くまで描かない -->
-              {#if column.is_done && workspace.definitionOfDone !== null}
-                <details class="dod" bind:open={dodOpen}>
-                  <summary>{t('dod')}</summary>
-                  {#if dodOpen}<Markdown source={workspace.definitionOfDone} headingStart={2} />{/if}
-                </details>
-              {/if}
-              {#each column.tasks as task (task.id)}
-                <SprintCard
-                  {task}
-                  href="{sprintHref}?task={encodeURIComponent(task.id)}"
-                  edges={canWrite ? edgesOf(columns, task.id) : null}
-                  writable={canWrite}
-                  clock={{ today: board.today, weekStart: board.week_start }}
-                  hintId={KEY_HINT_ID}
-                  dnd={canWrite ? dnd : undefined}
-                  onmove={moveCard}
-                  ondelete={canWrite ? (target, keyboard) => void removeCard(target, keyboard) : undefined}
-                />
-              {:else}
-                <p class="board-empty">{t('sprintBoardColumnEmpty')}</p>
-              {/each}
-            {/if}
-            {#if canWrite && !column.is_done}
-              <div class="board-col-draft" hidden={collapsedColumns.isCollapsed(column.id)}>
-                <DraftRow
-                  bind:this={draftRows[column.id]}
-                  keyshortcut={column.id === firstOpenColumnId ? ariaKeyshortcuts(NEW_TASK_KEY) : undefined}
-                  label={t('sprintBoardAddTask', { task: t('task') })}
-                  placeholder={t('sprintBoardAddTaskPlaceholder', { task: t('task') })}
-                  name={t('sprintBoardAddTaskIn', { task: t('task'), column: columnName(column) })}
-                  problem={cardTitleProblem}
-                  create={(title) => addCard(column, title)}
-                />
+        </div>
+      {/if}
+      <!-- 列が並ぶと狭い幅で横に溢れる。カードが無いと中に止まる先が無く、キーボードで横へ送れないので、その間だけ領域に止まる -->
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+      <div
+        class="board-wrap"
+        role="region"
+        aria-label={t('sprintBoardRegion', { sprint: t('sprint'), column: t('column') })}
+        tabindex={visibleColumns.every((column) => column.tasks.length === 0) ? 0 : undefined}
+        {@attach canWrite ? (node) => dnd.wrap(node) : undefined}
+      >
+        <!-- 引き出しの前後のボタンの順は、ボードに今見えているカード（左の列から右へ、列の中は上から下） -->
+        <div class="board" style:--board-cols={columns.length} {@attach trackTaskOrder}>
+          {#each visibleColumns as column (column.id)}
+            <section
+              class="board-col"
+              class:is-done={column.is_done}
+              class:is-collapsed={collapsedColumns.isCollapsed(column.id)}
+              aria-label={columnName(column)}
+              data-drop={canWrite ? dnd.markOfColumn(column.id) : undefined}
+              {@attach canWrite ? dnd.column(column.id) : undefined}
+            >
+              <div class="board-col-head">
+                <button
+                  class="board-col-toggle"
+                  type="button"
+                  data-column-toggle={column.id}
+                  aria-label={t('sprintBoardColumnToggle', { column: columnName(column) })}
+                  aria-expanded={!collapsedColumns.isCollapsed(column.id)}
+                  onclick={() => collapsedColumns.toggle(column.id)}><Icon name="chevron" /></button
+                >
+                {#if column.is_done}<Icon name="check" />{/if}
+                <span class="board-col-name">{columnName(column)}</span>
+                <span class="board-col-n">{column.tasks.length}</span>
+                <span class="board-col-pts">{t('sprintBoardColumnPoints', { points: pointsOf(column.tasks) })}</span>
               </div>
-            {/if}
-          </section>
-        {/each}
+              {#if !collapsedColumns.isCollapsed(column.id)}
+                <!-- 完成の定義（components.css の .dod。kit.js の board）。完了の列にだけ畳んで置き、空なら出さない。本文は開くまで描かない -->
+                {#if column.is_done && workspace.definitionOfDone !== null}
+                  <details class="dod" bind:open={dodOpen}>
+                    <summary>{t('dod')}</summary>
+                    {#if dodOpen}<Markdown source={workspace.definitionOfDone} headingStart={2} />{/if}
+                  </details>
+                {/if}
+                {#each column.tasks as task (task.id)}
+                  <SprintCard
+                    {task}
+                    {highlightedStory}
+                    onstoryhover={(id) => (hoveredStory = id)}
+                    onstoryfocus={(id) => (focusedStory = id)}
+                    onstoryfilter={(id) => void filterStory(id)}
+                    href="{sprintHref}?task={encodeURIComponent(task.id)}{cardStoryQuery}"
+                    edges={canWrite ? edgesOf(visibleColumns, task.id) : null}
+                    writable={canWrite}
+                    clock={{ today: board.today, weekStart: board.week_start }}
+                    hintId={KEY_HINT_ID}
+                    dnd={canWrite ? dnd : undefined}
+                    onmove={moveCard}
+                    ondelete={canWrite ? (target, keyboard) => void removeCard(target, keyboard) : undefined}
+                  />
+                {:else}
+                  <p class="board-empty">{t('sprintBoardColumnEmpty')}</p>
+                {/each}
+              {/if}
+              {#if canWrite && !column.is_done}
+                <div class="board-col-draft" hidden={collapsedColumns.isCollapsed(column.id)}>
+                  <DraftRow
+                    bind:this={draftRows[column.id]}
+                    keyshortcut={column.id === firstOpenColumnId ? ariaKeyshortcuts(NEW_TASK_KEY) : undefined}
+                    label={t('sprintBoardAddTask', { task: t('task') })}
+                    placeholder={t('sprintBoardAddTaskPlaceholder', { task: t('task') })}
+                    describedby={storyId === null ? undefined : `story-create-${column.id}`}
+                    name={t('sprintBoardAddTaskIn', { task: t('task'), column: columnName(column) })}
+                    problem={cardTitleProblem}
+                    create={(title) => addCard(column, title)}
+                  />
+                  {#if storyId !== null}<p class="action-note" id="story-create-{column.id}">
+                      {t('sprintStoryCreateUnder', { story: t('story') })}
+                    </p>{/if}
+                </div>
+              {/if}
+            </section>
+          {/each}
+        </div>
       </div>
     </div>
     {#if canWrite}
