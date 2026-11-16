@@ -166,6 +166,7 @@ async function readAccountOrganizations(
   env: Env,
   account: Reading,
   entries: readonly OrganizationEntry[],
+  organizationIds?: Map<string, string>,
 ): Promise<AccountOrganizations> {
   if (account.logins.length === 0) return { organizations: [], invitations: [], suspended: [] };
 
@@ -225,6 +226,10 @@ async function readAccountOrganizations(
   const active = rows.filter((row) => row.suspended_at === null).sort(byName);
   const paused = rows.filter((row) => row.suspended_at !== null).sort(byName);
 
+  // 内部の診断ログ用。組織の ID は公開の一覧や読み取りの callback には足さない。
+  for (const row of active) {
+    if (enterable.has(row.id)) organizationIds?.set(row.slug, row.id);
+  }
   const shown = new Set(invitedShown);
   return {
     organizations: active.filter((row) => enterable.has(row.id)).map(kindedOrganization),
@@ -953,10 +958,12 @@ export async function readAccountTaskOrganizations<T>(
   omitted_organizations: number;
   failed_organizations: AccountOrganizations['organizations'][number][];
 }> {
+  const organizationIds = new Map<string, string>();
   const listed = await readAccountOrganizations(
     env,
     { ...account, includeUnlinked: false },
     crossOrganizationEntries(env),
+    organizationIds,
   );
   // 既に名前・同名は slug の順。組織内の読み取りを始める前に上限を掛ける。
   const selected = listed.organizations.slice(0, 10);
@@ -985,6 +992,14 @@ export async function readAccountTaskOrganizations<T>(
     if (result.status === 'fulfilled') organizations.push({ organization, data: result.value });
     else {
       failed_organizations.push(organization);
+      if (!(result.reason instanceof ApiError)) {
+        console.error(
+          JSON.stringify({
+            error: taskReadErrorKind(result.reason),
+            organizationId: organizationIds.get(organization.slug)!,
+          }),
+        );
+      }
     }
   }
   return {
@@ -994,3 +1009,23 @@ export async function readAccountTaskOrganizations<T>(
   };
 }
 
+// 任意の name・message・stack をログへ流さず、組み込みの型だけを固定語に分類する。
+function taskReadErrorKind(error: unknown): 'Error' | 'TypeError' | 'RangeError' | 'UnknownError' {
+  if (typeof error !== 'object' || error === null) return 'UnknownError';
+  try {
+    const prototype = Object.getPrototypeOf(error);
+    const name = Object.getOwnPropertyDescriptor(error, 'name');
+    const kind =
+      prototype === Error.prototype
+        ? 'Error'
+        : prototype === TypeError.prototype
+          ? 'TypeError'
+          : prototype === RangeError.prototype
+            ? 'RangeError'
+            : 'UnknownError';
+    // name の getter は読まない。既定から書き換えた name と未知の派生型も UnknownError。
+    return name !== undefined && (!('value' in name) || name.value !== kind) ? 'UnknownError' : kind;
+  } catch {
+    return 'UnknownError';
+  }
+}
