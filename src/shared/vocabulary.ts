@@ -591,6 +591,22 @@ export const dictionary = defineDictionary({
   workspacePaneHint: '押すと{backlog}を開きます',
   // 組織のホームのニュースの面の見出し。ニュースの日付、題、本文は src/lib/news.ts に書いたまま出す（辞書を通さない）
   paneNews: '{app} のニュース',
+  // 組織のホームの最近の更新の面（右の列）。1件の文は、した人（{actor}。分からないときは historyActorSystem）と内容の種類で決まる。
+  // 押すと対象（{task}、{story}、{epic}）の詳細を開く。見本は design/kit.js の DICT
+  paneActivity: '最近の更新',
+  activityEmptyTitle: 'まだ更新はありません',
+  activityEmptyText: '所属する{workspace}の{task}、{story}、{epic}の変更とコメントが、ここに新しい順に並びます。',
+  // 所属する閉じていないワークスペースが無いとき。案内はワークスペースの面に出すので、ここは線画の無い短い1行にして案内を重ねない
+  activityEmptyNoWorkspaceText: '{workspace}に所属すると、{task}、{story}、{epic}の更新がここに並びます。',
+  activityCreated: '{actor}が作成した',
+  activityUpdated: '{actor}が{fields}を変更した',
+  activityChanged: '{actor}が変更した',
+  activityCompleted: '{actor}が{done}にした',
+  activityReopened: '{actor}が{done}を戻した',
+  activityCommented: '{actor}がコメントした',
+  activityMore: 'さらに読む',
+  activityLoadFailed: '最近の更新を読み込めませんでした。',
+  activityMoreFailed: '続きを読み込めませんでした。もう一度試してください。',
   sectionOpen: '開くと一覧を表示',
   // 依頼先（自分用の組織）の付いた、自分が担当の未完了のタスク。人に振ったものを期日の早い順に確かめる
   sectionDelegated: '依頼中',
