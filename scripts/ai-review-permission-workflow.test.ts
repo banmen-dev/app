@@ -170,13 +170,15 @@ else console.log(JSON.stringify(raw));
 
   test('コンテキストの CLI には確認済み集合のファイルを必ず渡す', () => {
     const steps = workflow.jobs.review?.steps ?? [];
-    const format = steps.find((step) => step.run?.includes('node scripts/ai-review-context.ts'));
+    const format = steps.find((step) => step.run?.includes('node "$TRUSTED_DIR/scripts/ai-review-context.ts"'));
     assert.ok(format?.run);
-    const command = format.run.split('\n').find((line) => line.includes('node scripts/ai-review-context.ts'));
+    const command = format.run
+      .split('\n')
+      .find((line) => line.includes('node "$TRUSTED_DIR/scripts/ai-review-context.ts"'));
     assert.ok(command);
     assert.match(
       command,
-      /node scripts\/ai-review-context\.ts "\$RAW_DIR" "\$CONTEXT_DIR" "\$RAW_DIR\/write-users\.json"/,
+      /node "\$TRUSTED_DIR\/scripts\/ai-review-context\.ts" "\$RAW_DIR" "\$CONTEXT_DIR" "\$RAW_DIR\/write-users\.json"/,
     );
     const resolve = steps.find((step) => step.run?.includes('github-write-permissions.ts'));
     assert.ok(resolve, 'コメントを書いた人の権限を確認する段が無い');

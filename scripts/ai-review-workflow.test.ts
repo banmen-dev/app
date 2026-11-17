@@ -63,6 +63,12 @@ describe('ai-review の Claude に許す道具', () => {
     ]);
   });
 
+  test('CI では SessionStart の依存導入を無効にし、出力は checkout の外に固定する', () => {
+    assert.equal(actionStep().env?.CLAUDE_CODE_REMOTE, 'false');
+    assert.equal(actionStep().with?.prompt?.split(' OUT_FILE: ')[1], '${{ runner.temp }}/pr-out/summary.md');
+    assert.ok(!toolList('--allowedTools').some((tool) => tool.includes('github.workspace')));
+  });
+
   // 上の一覧の外でも、action の入力（allowed_tools、settings など）や claude_args の別の引数
   // （--permission-mode、--mcp-config、--settings など）で許可を広げられる。mcp__github__ を1つでも許すと、
   // action が github の MCP サーバーを入れ、base の .claude/settings.json の許可で絞る前のコメントを読める。
@@ -170,7 +176,7 @@ describe('ai-review の前後の段', () => {
       "${{ steps.claude.outcome == 'success' && github.event.pull_request.head.sha || '' }}",
     );
     const run = step.run ?? '';
-    const build = run.indexOf('node scripts/ai-review-summary.ts "$OUT_FILE" "$BODY_FILE"');
+    const build = run.indexOf('node "$TRUSTED_DIR/scripts/ai-review-summary.ts" "$OUT_FILE" "$BODY_FILE"');
     const post = run.indexOf('gh pr comment "$PR_NUMBER" -R "$REPO" --body-file "$BODY_FILE"');
     assert.ok(build >= 0 && post > build, run);
   });
@@ -187,8 +193,9 @@ describe('ai-review の前後の段', () => {
   // 差分なしの本文のファイルが起点の段とずれると、gh pr comment が無いファイルを読んで落ちる
   test('起点の段は pr-raw を消す前にスクリプトを走らせ、差分なしの段と本文のファイルを共有する', () => {
     const scope = named('起点を決める');
-    assert.equal(scope.run, 'node scripts/ai-review-scope.ts');
+    assert.equal(scope.run, 'node "$TRUSTED_DIR/scripts/ai-review-scope.ts"');
     assert.deepEqual(scope.env, {
+      TRUSTED_DIR: '${{ runner.temp }}/ai-review-base',
       RAW_DIR: '${{ runner.temp }}/pr-raw',
       CONTEXT_DIR: '${{ runner.temp }}/pr-context',
       BASE_SHA: '${{ github.event.pull_request.base.sha }}',
