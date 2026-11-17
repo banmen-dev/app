@@ -86,6 +86,7 @@ test('追加・変更・削除・リネームを head にし、symlink を通常
   f.write('link-target.txt', 'target');
   f.write('regular-to-link', 'base');
   symlinkSync('link-target.txt', join(f.dir, 'existing-link'));
+  symlinkSync('link-target.txt', join(f.dir, 'unchanged-link'));
   const base = f.commit('base');
   f.write('changed.txt', 'head');
   f.write('新しいファイル.txt', 'added');
@@ -113,6 +114,8 @@ test('追加・変更・削除・リネームを head にし、symlink を通常
     assert.ok(lstatSync(join(f.dir, path!)).isFile(), path);
     assert.equal(f.read(path!), text);
   }
+  assert.ok(lstatSync(join(f.dir, 'unchanged-link')).isSymbolicLink());
+  assert.equal(f.read('unchanged-link'), 'target');
   assert.equal(f.git('rev-parse', 'HEAD'), base, '実行する base の参照を動かさない');
 });
 
