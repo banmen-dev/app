@@ -241,3 +241,31 @@ for (const path of ['.claude', 'src/.ClAuDe', 'src/.claude/skills/review']) {
     assert.equal(f.read('ordinary.txt'), 'head');
   });
 }
+
+for (const path of [
+  'CLAUDE.md',
+  'CLAUDE.local.md',
+  '.mcp.json',
+  'src/cLaUdE.Md',
+  'src/CLAUDE.local.md',
+  'src/.MCP.JSON',
+]) {
+  for (const existsInBase of [true, false]) {
+    test(`保護対象 ${path} を head でディレクトリにしても base の状態を維持する: ${existsInBase}`, (t) => {
+      const f = fixture(t);
+      f.write('ordinary.txt', 'base');
+      if (existsInBase) f.write(path, 'base protected');
+      const base = f.commit('base');
+      if (existsInBase) f.git('rm', path);
+      f.write(`${path}/child.txt`, 'head content');
+      f.write('ordinary.txt', 'head');
+      const head = f.commit('head');
+      f.git('checkout', '-q', base);
+      const result = f.run(overlay(), { HEAD_SHA: head });
+      assert.equal(result.status, 0, result.stderr);
+      if (existsInBase) assert.equal(f.read(path), 'base protected');
+      else assert.ok(!existsSync(join(f.dir, path)));
+      assert.equal(f.read('ordinary.txt'), 'head');
+    });
+  }
+}

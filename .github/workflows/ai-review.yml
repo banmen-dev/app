@@ -228,8 +228,11 @@ jobs:
             ':(exclude,glob,icase)**/.claude' \
             ':(exclude,glob,icase)**/.claude/**' \
             ':(exclude,glob,icase)**/CLAUDE.md' \
+            ':(exclude,glob,icase)**/CLAUDE.md/**' \
             ':(exclude,glob,icase)**/CLAUDE.local.md' \
-            ':(exclude,glob,icase)**/.mcp.json'
+            ':(exclude,glob,icase)**/CLAUDE.local.md/**' \
+            ':(exclude,glob,icase)**/.mcp.json' \
+            ':(exclude,glob,icase)**/.mcp.json/**'
 
       - uses: anthropics/claude-code-action@ae68417a745a5df4b2124873632bd73a2255e6f6 # v1.0.259
         id: claude
