@@ -179,7 +179,12 @@ test('ワークフローの全 node スクリプトは head に上書きされ�
   assert.equal(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: trustedDir, encoding: 'utf8' }).trim(), base);
   assert.equal(f.run(overlay(), env).status, 0);
   assert.equal(f.read('package.json'), '{"type":"commonjs"}');
-  const commands = steps.flatMap((step) => (step.run ?? '').split('\n').filter((line) => /^\s*node\s/.test(line)));
+  // 包む書き方や別ランタイムを足しても、base の起動検査を素通りさせない。
+  const commands = steps.flatMap((step) =>
+    (step.run ?? '')
+      .split('\n')
+      .filter((line) => !/^\s*#/.test(line) && /\b(?:node|pnpm|npm|npx|bun|yarn|deno)\b/.test(line)),
+  );
   assert.equal(commands.length, scripts.length);
   for (const command of commands) {
     assert.match(command, /^\s*node "\$TRUSTED_DIR\/scripts\/[\w-]+\.ts"(?:\s|$)/);
