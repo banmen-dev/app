@@ -852,6 +852,17 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
 .pane-link:hover, .pane-link:focus-visible { background: var(--color-accent-soft); }
 .pane-link:hover > .ico, .pane-link:focus-visible > .ico { color: var(--color-accent); }
 @media (max-width: 760px), (pointer: coarse) { .pane-link { min-height: 44px; } }
+/* 全組織のダッシュボード（/）の組織のまとまり（.org-block）。組織ごとに1つの枠で、上に組織のホームへ入る行（a.choice。枠は外の .org-block が持つ）、
+   罫の下（.org-block-body）にその組織で所属するワークスペースの行（.pane-list と .pane-link）か、短い案内（.workspace-note。自分用の面でも、一覧の代わりに使う）を置く。
+   まとまりの間（.org-blocks）は面の中の並びと同じ --space-3 */
+.org-blocks { display: grid; gap: var(--space-3); min-width: 0; }
+.org-block { display: grid; border: 1px solid var(--color-line); border-radius: var(--radius-1); background: var(--color-surface); min-width: 0; }
+.org-block > a.choice { border: 0; border-radius: var(--radius-1) var(--radius-1) 0 0; background: transparent; }
+/* 組織の名前は、下に並ぶワークスペースの名前（.pane-link > b）と同じ大きさにし、親が子より小さく見えないようにする */
+.org-block > a.choice b { font-size: var(--text-md); }
+.org-block > a.choice:hover, .org-block > a.choice:focus-visible { background: var(--color-accent-soft); }
+.org-block-body { display: grid; gap: var(--space-2); padding: var(--space-2) var(--space-3); border-top: 1px solid var(--color-rule); min-width: 0; }
+.workspace-note { margin: 0; padding: var(--space-1); font-size: var(--text-xs); color: var(--color-muted); overflow-wrap: anywhere; }
 /* 面の中の、ニュースの一覧。日付（暦の日付）、題、本文を縦に並べ、知らせの間は細い線で区切る。題にリンクがあるときは新しいタブで開き、
    題（h3）の文字の末尾に external の印を続けて置く（題が折り返しても印は最後の行の文字に付く。読み上げは visually-hidden の「新しいタブで開きます」が補う） */
 .news-list { list-style: none; margin: 0; padding: 0; display: grid; }

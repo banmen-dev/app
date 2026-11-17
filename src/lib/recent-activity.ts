@@ -60,12 +60,12 @@ export function formatActivityTime(iso: string, timeZone?: string): string {
   }).format(time);
 }
 
-export type ActivityDay = { label: string; entries: RecentActivityEntry[] };
+export type ActivityDay<T extends RecentActivityEntry = RecentActivityEntry> = { label: string; entries: T[] };
 
 // 日付（ブラウザのタイムゾーン）ごとの区分。並びは入力のまま（新しい順）で、同じ日が続く間を1つにまとめる。
 // 読めない日時の行は、前の区分に続ける（先頭なら日付を日時の文字のまま）
-export function groupByDay(entries: readonly RecentActivityEntry[], timeZone?: string): ActivityDay[] {
-  const days: ActivityDay[] = [];
+export function groupByDay<T extends RecentActivityEntry>(entries: readonly T[], timeZone?: string): ActivityDay<T>[] {
+  const days: ActivityDay<T>[] = [];
   for (const entry of entries) {
     const time = Date.parse(entry.created_at);
     const label = Number.isNaN(time)
@@ -79,10 +79,7 @@ export function groupByDay(entries: readonly RecentActivityEntry[], timeZone?: s
 }
 
 // 続きを足す。ID が重なる行（読んでいる間に先頭へ足された行がずれて、境目で重なる）は足さない
-export function appendEntries(
-  current: readonly RecentActivityEntry[],
-  more: readonly RecentActivityEntry[],
-): RecentActivityEntry[] {
+export function appendEntries<T extends RecentActivityEntry>(current: readonly T[], more: readonly T[]): T[] {
   const seen = new Set(current.map((entry) => entry.id));
   return [...current, ...more.filter((entry) => !seen.has(entry.id))];
 }

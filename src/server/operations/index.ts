@@ -66,6 +66,8 @@ import { myOrganizationsOperation, organizationInfoOperation } from './organizat
 import { recentActivityOperation } from './recent-activity.ts';
 import { todayOperation } from './today.ts';
 import { myTodayOperation } from './my-today.ts';
+import { myWorkspacesOperation } from './my-workspaces.ts';
+import { myRecentActivityOperation } from './my-recent-activity.ts';
 import { firstStepsOperation } from './first-steps.ts';
 import { organizationHistoryOperation } from './organization-history.ts';
 import {
@@ -200,6 +202,8 @@ const listedOperations: readonly ImplementedOperation[] = [
   meThemeUpdateOperation,
   todayOperation,
   myTodayOperation,
+  myWorkspacesOperation,
+  myRecentActivityOperation,
   recentActivityOperation,
   firstStepsOperation,
   organizationHolidayListOperation,

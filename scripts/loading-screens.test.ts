@@ -38,14 +38,20 @@ test('全 load の操作が計測表にあり、load の変更時に追従漏れ
         }),
       ),
     ];
-    // / の今日は load を待たせず、描いた面の中で始める。after にある操作も実際の部品と照合する。
+    // / のワークスペース、今日、最近の更新は load を待たせず、描いた画面と面の中で始める。after にある操作も実際の部品と照合する。
+    // 最近の更新の部品は組織のホームと共有で、/ が使うのは slug を渡さないときの my-recent-activity だけ
     if (route === '/') {
-      const pane = readFileSync('src/lib/components/MyTodayPane.svelte', 'utf8');
-      for (const match of pane.matchAll(/callOperation\(\s*(\w+)/g)) {
-        const name = definitions.get(match[1]!);
-        assert.ok(name, `面の操作定義が解決できない: ${match[1]}`);
-        names.push(name);
+      for (const component of ['src/routes/+page.svelte', 'src/lib/components/MyTodayPane.svelte']) {
+        const pane = readFileSync(component, 'utf8');
+        for (const match of pane.matchAll(/callOperation\(\s*(\w+)/g)) {
+          const name = definitions.get(match[1]!);
+          assert.ok(name, `面の操作定義が解決できない: ${match[1]}`);
+          names.push(name);
+        }
       }
+      const activity = readFileSync('src/lib/components/RecentActivity.svelte', 'utf8');
+      assert.match(activity, /callOperation\(myRecentActivity/);
+      names.push('my-recent-activity');
     }
     // 組織の枠の招待だけは通常経路で呼ばない。追加の行で測る。
     const measured = [...screen.operations, ...(screen.after ?? [])].map((o) => o.name);
@@ -70,7 +76,7 @@ test('計測表は読み取りだけで、入力とURLの範囲が操作定義�
   }
 });
 
-test('/ の今日は描画後の従として測り、組織の入口を待たせない', () => {
+test('/ のワークスペース、今日、最近の更新は描画後の従として測り、組織の入口を待たせない', () => {
   const screen = screens.find((s) => s.route === '/')!;
   assert.deepEqual(
     screen.operations.map((o) => o.name),
@@ -79,6 +85,10 @@ test('/ の今日は描画後の従として測り、組織の入口を待たせ
   assert.equal(screen.deferSecondary, true);
   assert.deepEqual(
     screen.after?.map((o) => ({ name: o.name, secondary: o.secondary })),
-    [{ name: 'my-today', secondary: true }],
+    [
+      { name: 'my-workspaces', secondary: true },
+      { name: 'my-today', secondary: true },
+      { name: 'my-recent-activity', secondary: true },
+    ],
   );
 });

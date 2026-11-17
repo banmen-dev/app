@@ -2,7 +2,9 @@
 // アカウントに結んだログインの手段と ID、入れる組織と届いた招待と停止した組織は、使われたときに1回だけ引く
 // （組織の一覧は my-organizations が使い、今日の組織ごとの認可と読み取りは db/ の関数へ任せる）
 import type { z } from 'zod';
+import type { myRecentActivity } from '../../shared/operations/organization/my-recent-activity.ts';
 import type { myToday } from '../../shared/operations/organization/my-today.ts';
+import type { myWorkspaces } from '../../shared/operations/organization/my-workspaces.ts';
 import { accountLogins } from '../auth/account-logins.ts';
 import { isOperatorLogin, operatorLoginIdOf } from '../auth/operators.ts';
 import {
@@ -14,8 +16,17 @@ import {
   type AccountOrganizations,
   type CreatedOrganization,
   type LoginId,
+  type OrganizationDb,
 } from '../db/index.ts';
+import { readAccountRecentActivity } from './my-recent-activity.ts';
+import { readAccountWorkspaces } from './my-workspaces.ts';
 import { readToday } from './today.ts';
+
+// 入れる組織ごとに、認可した入口と本人のユーザーの ID で読む関数（readAccountTaskOrganizations に env とアカウントを結んだもの）。
+// 全組織のダッシュボードの読み取り（今日やること、ワークスペース、最近の更新）が使う
+export type AccountOrganizationReader = <T>(
+  read: (db: OrganizationDb, userId: string) => Promise<T>,
+) => ReturnType<typeof readAccountTaskOrganizations<T>>;
 
 export type OutsideAccount = {
   // このアカウントが自分の組織を作る最初の書き込み（共通の DB の organizations）。slug が重なれば 'slug_taken'、
@@ -37,6 +48,12 @@ export type OutsideAccount = {
   // 入れる組織と、承諾待ちの招待だけがある組織（組織をまたいで読む関数を通す）。アカウントに結ばれる前の行は数えない
   organizations(): Promise<AccountOrganizations>;
   today(): Promise<z.output<typeof myToday.output>>;
+  // 入れる組織ごとの、自分が今所属する閉じていないワークスペース
+  workspaces(): Promise<z.output<typeof myWorkspaces.output>>;
+  // 入れる組織の最近の更新を混ぜた1ページ。before は前のページの最後の行
+  recentActivity(
+    before: { created_at: string; id: string } | undefined,
+  ): Promise<z.output<typeof myRecentActivity.output>>;
   // シークレットの運用者の一覧に、このアカウントのログインが載っているか
   isOperator(): Promise<boolean>;
   // 運用者の一覧に載っているログインの ID（`github:12345` の形）。運用者でなければ undefined
@@ -49,17 +66,15 @@ export function outsideAccount(env: Env, accountId: string, authenticatedAt: str
   let logins: Promise<LoginId[]> | undefined;
   const loadLogins = () => (logins ??= accountLogins(env, accountId));
   let organizations: Promise<AccountOrganizations> | undefined;
+  const readOrganizations: AccountOrganizationReader = async (read) =>
+    readAccountTaskOrganizations(env, { accountId, logins: await loadLogins(), authenticatedAt }, read);
   return {
     createOrganization: (input) => insertSelfCreatedOrganization(env, { ...input, accountId }),
     createPersonalOrganization: (input) => insertPersonalOrganization(env, { ...input, accountId }),
     abandonOrganization: (organizationId) => deleteSelfCreatedOrganization(env, { organizationId, accountId }),
     logins: loadLogins,
     today: async () => {
-      const result = await readAccountTaskOrganizations(
-        env,
-        { accountId, logins: await loadLogins(), authenticatedAt },
-        (db, userId) => readToday(db, userId, { includeSprintGoals: false }),
-      );
+      const result = await readOrganizations((db, userId) => readToday(db, userId, { includeSprintGoals: false }));
       return {
         tasks: result.organizations.flatMap(({ organization, data }) =>
           data.tasks.map((task) => ({ ...task, organization })),
@@ -68,6 +83,8 @@ export function outsideAccount(env: Env, accountId: string, authenticatedAt: str
         omitted_organizations: result.omitted_organizations,
       };
     },
+    workspaces: () => readAccountWorkspaces(readOrganizations),
+    recentActivity: (before) => readAccountRecentActivity(readOrganizations, before),
     organizations: () =>
       (organizations ??= (async () => listAccountOrganizations(env, { accountId, logins: await loadLogins() }))()),
     isOperator: async () => isOperatorLogin(env, await loadLogins()),

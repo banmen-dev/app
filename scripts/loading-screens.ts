@@ -22,8 +22,12 @@ export const screens: Screen[] = [
     route: '/',
     deferSecondary: true,
     operations: [op('my-organizations', {}, false, true)],
-    after: [op('my-today', {}, true, true)],
-    note: '今日やることは面を描いてから読み、組織の入口の表示を待たせない。',
+    after: [
+      op('my-workspaces', {}, true, true),
+      op('my-today', {}, true, true),
+      op('my-recent-activity', {}, true, true),
+    ],
+    note: 'ワークスペース、今日やること、最近の更新は面を描いてから読み、組織の入口の表示を待たせない。',
   },
   {
     route: '/auth/billing',

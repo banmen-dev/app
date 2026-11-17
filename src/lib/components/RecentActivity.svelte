@@ -13,8 +13,10 @@
     groupByDay,
     targetQuery,
   } from '../recent-activity.ts';
+  import { organizationLabel } from '../organization-label.ts';
   import { t } from '../vocabulary.svelte.ts';
   import { recentActivity, type RecentActivityEntry } from '../../shared/operations/organization/recent-activity.ts';
+  import { myRecentActivity } from '../../shared/operations/organization/my-recent-activity.ts';
   import type { OutputOf } from '../../shared/operations/define.ts';
   import EmptyState from './EmptyState.svelte';
   import Icon from './Icon.svelte';
@@ -24,18 +26,25 @@
   // （今日やることの操作でホームを読み直しても、足した続きを消さず、ホーム全体の表示を待たせない）。新しい更新を自動では読み直さない。
   // 状態は、読み込み中（骨組み）、読めた（行か空の案内）、読めなかった（失敗の案内と「もう一度試す」）。続きの読み込みと失敗は、読めた状態の中で出す。
   // 読み込みの状態は、常に置いた role="status" の領域の文字だけを替えて伝える（LoadFailed と同じ）。
-  // 行は押すと、対象のワークスペースのバックログに `?task=` `?story=` `?epic_id=` を付けて移り、詳細の引き出しが開く
-  type Listing = OutputOf<typeof recentActivity>;
+  // 行は押すと、対象のワークスペースのバックログに `?task=` `?story=` `?epic_id=` を付けて移り、詳細の引き出しが開く。
+  // slug を渡さないときは、全組織のダッシュボード（/）の面として my-recent-activity を読み、各行に組織の名前（自分用は「自分用」）を添え、
+  // 行の行き先はその行の組織にする。読めなかった組織と、上限を超えて読まなかった組織の数は、先頭のページの答えを面の上に出す
+  type Organization = OutputOf<typeof myRecentActivity>['failed_organizations'][number];
+  type Entry = RecentActivityEntry & { organization?: Organization };
+  type Listing = { entries: Entry[]; next: OutputOf<typeof recentActivity>['next'] };
   // noWorkspace は、今所属する閉じていないワークスペースが無いこと（ホームの todayEmptyKind が 'noWorkspace'）。
   // 空の案内はワークスペースの面に出すので、ここは線画の無い短い1行にする。組織を読めなかったとき（unknown）は、今の空の案内のまま
-  let { slug: slugProp, noWorkspace = false }: { slug: string; noWorkspace?: boolean } = $props();
+  let { slug: slugProp, noWorkspace = false }: { slug?: string; noWorkspace?: boolean } = $props();
   // 親は `slug={data.slug}` で渡す。この prop の読み出しは data（ページの load の結果）を直に読むので、ホームを読み直して data が
   // 新しい値に置き換わるたびに、slug の値が同じでも effect が走り直す（今日やることの操作のたびに、足した続きを捨てて先頭から読み直していた）。
   // $derived にすると値の比較が入り、値が替わったとき（別の組織へ移ったとき）だけ、依存する effect が走り直る
   const slug = $derived(slugProp);
 
   let phase = $state<'loading' | 'ready' | 'failed'>('loading');
-  let entries = $state.raw<RecentActivityEntry[]>([]);
+  let entries = $state.raw<Entry[]>([]);
+  // 全組織の面だけ。先頭のページで読めなかった組織と、読まなかった組織の数
+  let failedOrganizations = $state.raw<Organization[]>([]);
+  let omittedOrganizations = $state(0);
   let next = $state.raw<Listing['next']>(null);
   // 「もう一度試す」で先頭を読み直している間と、読み直しがまた失敗したか
   let retrying = $state(false);
@@ -60,10 +69,20 @@
     window.location.assign(loginUrl(page.url));
   }
 
+  // 1ページを読む。組織のホームは recent-activity、全組織の面は my-recent-activity
+  async function fetchPage(before: Listing['next'] | undefined) {
+    const input = before === undefined || before === null ? {} : { before };
+    if (slug === undefined) return callOperation(myRecentActivity, input);
+    const result = await callOperation(recentActivity, input, { slug });
+    return result.ok
+      ? { ...result, data: { ...result.data, failed_organizations: [], omitted_organizations: 0 } }
+      : result;
+  }
+
   // 先頭の 20 件を読む。読めたら、足した続きも失敗の知らせも捨てて置き直す
   async function loadFirst(): Promise<void> {
     const token = generation;
-    const result = await callOperation(recentActivity, {}, { slug });
+    const result = await fetchPage(undefined);
     if (token !== generation) return;
     if (isUnauthenticated(result)) {
       toLogin();
@@ -75,6 +94,8 @@
     }
     entries = result.data.entries;
     next = result.data.next;
+    failedOrganizations = result.data.failed_organizations;
+    omittedOrganizations = result.data.omitted_organizations;
     moreFailed = false;
     phase = 'ready';
   }
@@ -137,7 +158,7 @@
     loadingMore = true;
     moreFailed = false;
     try {
-      const result = await callOperation(recentActivity, { before }, { slug });
+      const result = await fetchPage(before);
       if (token !== generation) return;
       if (isUnauthenticated(result)) {
         toLogin();
@@ -147,6 +168,12 @@
         moreFailed = true;
         return;
       }
+      // 続きで読めなかった組織も面の上に足す（その組織の、この境目より古い行は欠けるので、知らせずに並べない）
+      const failedSlugs = new Set(failedOrganizations.map((organization) => organization.slug));
+      const newlyFailed = result.data.failed_organizations.filter(
+        (organization) => !failedSlugs.has(organization.slug),
+      );
+      if (newlyFailed.length > 0) failedOrganizations = [...failedOrganizations, ...newlyFailed];
       const shown = new Set(entries.map((entry) => entry.id));
       const added = result.data.entries.filter((entry) => !shown.has(entry.id));
       entries = appendEntries(entries, result.data.entries);
@@ -158,9 +185,10 @@
     }
   }
 
-  // 行のリンク。タスクは引き出しの開き方（横、真ん中、ページ全体、新しいタブ）に従い、ストーリーとエピックは引き出しだけ
-  function href(entry: RecentActivityEntry): string {
-    const base = resolve('/[slug]/w/[id]', { slug, id: entry.workspace.id });
+  // 行のリンク。タスクは引き出しの開き方（横、真ん中、ページ全体、新しいタブ）に従い、ストーリーとエピックは引き出しだけ。
+  // 全組織の面（slug なし）の行は別の画面へ移るので、一覧の位置を保たない（taskLinkAttrs の preservePosition を偽にする。今日やることの面と同じ）
+  function href(entry: Entry): string {
+    const base = resolve('/[slug]/w/[id]', { slug: entry.organization?.slug ?? slug ?? '', id: entry.workspace.id });
     const link = `${base}${targetQuery(entry.target)}`;
     return entry.target.kind === 'task' ? taskDetailHref(link) : link;
   }
@@ -180,7 +208,28 @@
       <button class="btn" type="button" aria-disabled={retrying} onclick={() => void retry()}>{t('retry')}</button>
       <span class="field-hint" role="status">{failedStatus}</span>
     </div>
-  {:else if entries.length === 0 && noWorkspace}
+  {:else}
+    {#if omittedOrganizations > 0}
+      <div class="callout is-info">
+        <Icon name="list-bullet" /><span>{t('activityOmitted', { count: omittedOrganizations })}</span>
+      </div>
+    {/if}
+    {#if failedOrganizations.length > 0}
+      <div class="choice-list">
+        {#each failedOrganizations as organization (organization.slug)}
+          <a class="choice" href={resolve('/[slug]', { slug: organization.slug })}>
+            <div><b>{organizationLabel(organization)}</b><span>{t('activityFailedOrganization')}</span></div>
+            <Icon name="chevron" />
+          </a>
+        {/each}
+      </div>
+    {/if}
+    {@render listing()}
+  {/if}
+</Pane>
+
+{#snippet listing()}
+  {#if entries.length === 0 && noWorkspace}
     <!-- 所属が無い人には、案内をワークスペースの面に出す。ここは線画の無い短い1行にして、案内を重ねない -->
     <div class="book">
       <div class="book-empty">
@@ -192,6 +241,11 @@
         })}
       </div>
     </div>
+  {:else if entries.length === 0 && failedOrganizations.length > 0}
+    <!-- 全組織の面で、読めた組織に更新が無く、読めなかった組織がある。空の案内は出さない（読めなかった組織に更新があるかもしれない） -->
+  {:else if entries.length === 0 && omittedOrganizations > 0}
+    <!-- 読まなかった組織がある。全組織に更新が無いとは言い切らない -->
+    <div class="book"><div class="book-empty">{t('activityShownEmpty')}</div></div>
   {:else if entries.length === 0}
     <EmptyState
       icon="clock"
@@ -212,7 +266,7 @@
                   class="activity-row"
                   href={href(entry)}
                   data-activity-id={entry.id}
-                  {...entry.target.kind === 'task' ? taskLinkAttrs() : {}}
+                  {...entry.target.kind === 'task' ? taskLinkAttrs(slug !== undefined) : {}}
                 >
                   <b class="activity-title">{entry.target.title}</b>
                   <span class="activity-text">{activitySentence(entry, t)}</span>
@@ -221,6 +275,9 @@
                   {/if}
                   <span class="activity-meta">
                     <span class="chip">{t(entry.target.kind)}</span>
+                    {#if entry.organization !== undefined}
+                      <span class="tag">{organizationLabel(entry.organization)}</span>
+                    {/if}
                     <span class="tag">{entry.workspace.name}</span>
                     <time datetime={entry.created_at}>{formatActivityTime(entry.created_at)}</time>
                   </span>
@@ -243,4 +300,4 @@
       </div>
     {/if}
   {/if}
-</Pane>
+{/snippet}
