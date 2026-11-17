@@ -120,6 +120,8 @@ test('追加・変更・削除・リネームを head にし、symlink を通常
 });
 
 const protectedPaths = [
+  'bunfig.toml',
+  '.env.example',
   '.claude/settings.json',
   '.claude/skills/review/SKILL.md',
   'CLAUDE.md',
