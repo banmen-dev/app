@@ -55,6 +55,23 @@ describe('容量通知のスキーマ', () => {
   });
 });
 
+describe('0039_expand_organization_contract_plans', () => {
+  test.each(['personal', 'small', 'team', 'business', 'pro', 'custom'])('%s の契約を保存できる', async (plan) => {
+    const org = await createOrganization();
+    await run(
+      'INSERT INTO organization_contracts (organization_id, plan, billing_interval, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+      org.id,
+      plan,
+      'monthly',
+      AT,
+      AT,
+    );
+    await expect(
+      run('UPDATE organization_contracts SET plan = ? WHERE organization_id = ?', 'unknown', org.id),
+    ).rejects.toThrow(/CHECK/);
+  });
+});
+
 describe('0032_add_custom_contract_limits', () => {
   async function contract() {
     const org = await createOrganization();

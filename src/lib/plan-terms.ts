@@ -9,8 +9,10 @@ type Translate = (key: DictionaryKey, params?: TemplateParams) => string;
 
 const PLAN_KEYS = {
   personal: 'planPersonal',
+  small: 'planSmall',
   team: 'planTeam',
   business: 'planBusiness',
+  pro: 'planPro',
   custom: 'planCustom',
 } as const satisfies Record<OrganizationPlan, DictionaryKey>;
 const INTERVAL_KEYS = {

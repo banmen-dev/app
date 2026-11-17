@@ -1412,8 +1412,10 @@ export const dictionary = defineDictionary({
     '上限を変えられませんでした。変わっていることもあるので、閉じた後の一覧で確かめてからもう一度試してください。',
   // プラン（organization_contracts）。運用者の画面と組織の変更の履歴で使う。組織の種類の「チーム用」（operatorKindTeam）とは別の語
   planPersonal: 'パーソナル',
+  planSmall: 'スモール',
   planTeam: 'チーム',
   planBusiness: 'ビジネス',
+  planPro: 'プロ',
   planCustom: '個別',
   operatorPlanCustomHint: '相談して決めた人数と標準の容量',
   operatorPlanCustomSizeLabel: '標準の添付容量（GB）',

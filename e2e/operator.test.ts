@@ -2249,6 +2249,36 @@ test.describe('運用者', () => {
     });
   });
 
+  test('スモールとプロの契約をプラン名で表示する', async ({ page }) => {
+    await mockList(
+      page,
+      (['small', 'pro'] as const).map((plan) =>
+        organization({
+          slug: plan,
+          name: plan,
+          contract: {
+            plan,
+            billing_interval: 'monthly',
+            extra_10gb_units: 0,
+            extra_50gb_units: 0,
+            custom_member_limit: null,
+            custom_attachment_quota_bytes: null,
+          },
+        }),
+      ),
+    );
+    await page.goto('/operator');
+    for (const [plan, name] of [
+      ['small', 'スモール'],
+      ['pro', 'プロ'],
+    ]) {
+      await expect(page.locator('.table tbody tr').filter({ hasText: plan }).locator('.chip')).toHaveText([
+        'チーム用',
+        `プラン: ${name}・月払い`,
+      ]);
+    }
+  });
+
   // 契約の変更（organization-plan-update）。サーバーの処理は test/operator-plan.test.ts
   test.describe('契約の変更', () => {
     const GIB = 1024 ** 3;

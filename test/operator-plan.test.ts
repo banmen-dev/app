@@ -12,7 +12,10 @@ import {
   listOrganizations,
   organizationPlanUpdate,
   organizationQuotaUpdate,
+  organizationStorageUpdate,
 } from '../src/shared/operations/operator/index.ts';
+import { organizationInfo } from '../src/shared/operations/organization/index.ts';
+import { createPerson } from './operations/world.ts';
 import { organizationHistory } from '../src/shared/operations/organization/organization-history.ts';
 import { contractLimits, PLAN_LIMITS, type BillingInterval, type TeamPlan } from '../src/shared/organization-plan.ts';
 import { createOrganization, createUser } from './factories.ts';
@@ -829,5 +832,91 @@ describe('変更の履歴', () => {
       changes: { plan: [null, 'business'], billing_interval: [null, 'yearly'], member_limit: [15, 50] },
     });
     expect(logged[0]).not.toContain('secret SQL detail');
+  });
+});
+
+describe('新しいプランを読む版', () => {
+  test.each([
+    ['small', 3, 10],
+    ['pro', 50, 100],
+  ] as const)('%s を読み、追加容量を計算するが契約の選択は断る', async (plan, members, quota) => {
+    const organization = await createOrganization({ member_limit: members, attachment_quota_bytes: quota * GIB });
+    await insertContract(organization.id, { plan, billing_interval: 'monthly' });
+    const token = await operatorToken();
+    const admin = await createPerson({ organization, admin: true });
+    const listed = await post(app, listOrganizations, { token });
+    expect(listed.status).toBe(200);
+    expect(
+      ((await listed.json()) as { organizations: { slug: string; contract: unknown }[] }).organizations.find(
+        (row) => row.slug === organization.slug,
+      )?.contract,
+    ).toMatchObject({ plan });
+    const info = await post(app, organizationInfo, {
+      slug: organization.slug,
+      token: admin.token,
+      body: { include_plan: true },
+    });
+    expect(info.status).toBe(200);
+    expect(((await info.json()) as { plan: unknown }).plan).toMatchObject({
+      contract: { plan },
+      member_limit: members,
+      attachment_quota_bytes: quota * GIB,
+    });
+    const expected = {
+      plan,
+      billing_interval: 'monthly',
+      extra_10gb_units: 0,
+      extra_50gb_units: 0,
+      custom_member_limit: null,
+      custom_attachment_quota_bytes: null,
+    };
+    const storage = await post(app, organizationStorageUpdate, {
+      token,
+      body: {
+        slug: organization.slug,
+        expected,
+        billing_interval: 'monthly',
+        extra_10gb_units: 1,
+        extra_50gb_units: 1,
+      },
+    });
+    expect(storage.status).toBe(200);
+    expect(await storage.json()).toMatchObject({
+      contract: { plan },
+      member_limit: members,
+      attachment_quota_bytes: (quota + 60) * GIB,
+    });
+    const changed = await post(app, organizationPlanUpdate, {
+      token,
+      body: {
+        slug: organization.slug,
+        plan: 'team',
+        billing_interval: 'monthly',
+        expected: { ...expected, extra_10gb_units: 1, extra_50gb_units: 1 },
+      },
+    });
+    expect(changed.status).toBe(200);
+    const history = await post(app, organizationHistory, { slug: organization.slug, token: admin.token });
+    expect(history.status).toBe(200);
+    expect(await history.json()).toMatchObject({
+      entries: expect.arrayContaining([
+        {
+          id: expect.any(String),
+          created_at: expect.any(String),
+          actor: { kind: 'operator' },
+          event: expect.objectContaining({
+            kind: 'organization_plan_changed',
+            from: expect.objectContaining({ plan }),
+            to: expect.objectContaining({ plan: 'team' }),
+          }),
+        },
+      ]),
+    });
+    const rejected = await post(app, organizationPlanUpdate, {
+      token,
+      body: { slug: organization.slug, plan, billing_interval: 'monthly', expected: null },
+    });
+    expect(rejected.status).toBe(400);
+    expect(await errorCodeOf(rejected)).toBe('invalid_input');
   });
 });

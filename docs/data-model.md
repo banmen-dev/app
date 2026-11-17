@@ -331,12 +331,14 @@
 
 ### organization_contracts
 
+`small`（スモール、3人・10GB）と `pro`（プロ、50人・100GB）は読めるが、書くのはこの版を含む Release が本番に出た後の版から（#1336、#1337）。この版のビジネスは50人のままとし、運用者が選べるプランは変えない。
+
 組織の契約（プラン、支払いの周期、追加容量の口数）。組織と1対1の共通の表で、行が無い組織は未契約（お試し中の組織、運用者が作って契約を付けていない組織、追加容量の無い自分用の組織）。ベータの間は決済サービスとつながず、支払いはアプリの外で受け、運用者が運用者の画面で書く（`business.md` の「契約と支払いの管理」）。決済サービスの ID や支払いの状態、契約の更新日は、連携するときに列を足す（マイグレーション `0028_add_organization_contracts.sql`）。
 
 | 列 | 型 | 制約 | 説明 |
 | --- | --- | --- | --- |
 | organization_id | TEXT | PK、FK organizations | |
-| plan | TEXT | NOT NULL、`CHECK (plan IN ('personal', 'team', 'business', 'custom'))` | プラン。`personal` はパーソナル（自分用の組織の追加容量の契約に使う。#1191）、`team` はチーム、`business` はビジネス、`custom` は個別に人数と標準容量を決めた契約（人数は51人以上に限らない）。自分用の追加容量の契約には `personal` を書く |
+| plan | TEXT | NOT NULL、`CHECK (plan IN ('personal', 'small', 'team', 'business', 'pro', 'custom'))` | プラン。`personal` はパーソナル（自分用の組織の追加容量の契約に使う。#1191）、`team` はチーム、`business` はビジネス、`custom` は個別に人数と標準容量を決めた契約（人数は51人以上に限らない）。自分用の追加容量の契約には `personal` を書く |
 | billing_interval | TEXT | NOT NULL、`CHECK (billing_interval IN ('monthly', 'yearly'))` | 支払いの周期。`monthly` は月払い、`yearly` は年払い。追加容量も同じ周期で払う |
 | extra_10gb_units | INTEGER | NOT NULL、既定 0、`CHECK (extra_10gb_units >= 0)` | 追加容量 ＋10GB の口数。口数の上限は CHECK に持たず、`organization-storage-update` の入力で0〜100の整数に絞る。プランの変更では変えない |
 | extra_50gb_units | INTEGER | NOT NULL、既定 0、`CHECK (extra_50gb_units >= 0)` | 追加容量 ＋50GB の口数。扱いは `extra_10gb_units` と同じ |
