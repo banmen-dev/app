@@ -12,6 +12,9 @@ const workflow = load(readFileSync(new URL('../.github/workflows/accepting.yml',
 const script = workflow.jobs.accepting.steps[0].run;
 
 for (const [name, branch, body, expected] of [
+  ['先頭ゼロの Refs', 'claude/work', 'Refs #01238\nPart of #1238', []],
+  ['先頭ゼロの印', '1238-part', 'Part of #01238', []],
+  ['先頭ゼロのブランチ', '01238-part', 'Part of #1238', []],
   ['番号付きの途中', '1238-part', 'Refs #1238\nPart of #1238 題', []],
   ['本文から選ぶ途中', 'claude/work', 'Refs #1238\nPart of #1238', []],
   ['空白・大小文字・CRLF', '1238-part', '  pArT oF #1238 題\r\n', []],
