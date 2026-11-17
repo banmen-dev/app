@@ -2272,10 +2272,12 @@ test.describe('運用者', () => {
       ['small', 'スモール'],
       ['pro', 'プロ'],
     ]) {
-      await expect(page.locator('.table tbody tr').filter({ hasText: plan }).locator('.chip')).toHaveText([
-        'チーム用',
-        `プラン: ${name}・月払い`,
-      ]);
+      await expect(
+        page
+          .locator('.table tbody tr')
+          .filter({ has: page.getByRole('link', { name: plan, exact: true }) })
+          .locator('.chip'),
+      ).toHaveText(['チーム用', `プラン: ${name}・月払い`]);
     }
   });
 
