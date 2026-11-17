@@ -261,8 +261,8 @@ test('自分用にワークスペースを作った後の読み直しが失敗�
   await personalPane.getByRole('button', { name: 'ワークスペースを作る', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('名前').fill('家の用事');
-  await dialog.getByRole('button', { name: 'ワークスペースを作る', exact: true }).click();
-  await expect(dialog.getByText('ワークスペースを作りました')).toBeVisible();
+  await dialog.getByRole('button', { name: '作る', exact: true }).click();
+  await expect(dialog.getByRole('heading', { name: 'ワークスペースを作りました', exact: true })).toBeVisible();
   await expect.poll(() => reads).toBe(2);
   await expect(personalPane.getByRole('alert')).toHaveText(
     'ワークスペースの一覧を新しくできませんでした。前に読んだ一覧を出しています。',
