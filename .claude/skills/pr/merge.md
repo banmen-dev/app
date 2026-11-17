@@ -16,6 +16,8 @@ gh api "repos/{owner}/{repo}/pulls/<number>" --jq '{labels: [.labels[].name], he
 gh api "repos/{owner}/{repo}/commits/<head>/check-runs" --paginate --jq '.check_runs[] | {name, status, conclusion}'
 ```
 
+- マージ前に完了条件と差分を照合し、途中の Issue は本文の行頭に `Part of #<番号> <Issue の題>` と `Refs` を併記し、`Closes` にしない。全条件を進める Issue からは `Part of` を外す。本文の更新が必要なら承認済みの範囲で更新し、未承認なら更新案を提示して承認を求める。更新が必要なままならマージしない。
+
 - `needs-human` が付いていればマージしない
 - PR の `head.repo.full_name` が `base.repo.full_name` と違う（fork の PR）なら、マージしない
 - `base` が `main` でなければマージしない（別のブランチへの PR では、`ci-ok` はそのブランチとの差分しか見ていない）
@@ -49,7 +51,7 @@ gh api "repos/{owner}/{repo}/pulls/<number>" --jq '{merged, base: .base.ref, hea
    - その PR のワークツリー（`worktrees/<head>`）に入って `sync-base` を呼ぶ。ワークツリーが無いか、未コミットの変更があれば、追従させずに PR の番号と理由を報告する（別のセッションが作業している恐れがあるため）
    - レビューの途中か人のマージ待ちの PR は、取り込んだことを PR にコメントで残す（`docs/development.md` の「並行して作業するときの決まり」）。新しい head では CI が走り直すので、人がマージする PR ならそのことも伝える
    - コンフリクトの意図が読めずに止まったら、その PR の番号と理由を報告する
-4. 本文の `Closes` が指す Issue は、GitHub により閉じたことを確かめる。開いたままなら閉じる操作はせず、PR の base と閉じる指定、GitHub の処理状況を確認して未完了として報告する。以下の受け入れ待ち確認からは外す。`Refs` の PR が指す Issue（ブランチ名の `<番号>-` の先頭か、本文の `Refs`。子を持つストーリーとエピックは除く）に `status:accepting` が付き、開いたままであることを確かめる（`gh api "repos/{owner}/{repo}/issues/<番号>" --jq '{state, labels: [.labels[].name]}'`）。付けるのはマージで動く `accepting.yml` で、数十秒かかるので、付いていなければ30秒おきに5回まで取り直す。それでも付かなければ、ワークフローの実行（`gh api "repos/{owner}/{repo}/actions/workflows/accepting.yml/runs?per_page=5"`）を見て報告する。`Refs` の Issue は人が受け入れで閉じる。セッションは閉じない（`docs/development.md` の「Issue の運用」）
+4. 途中の印がある Issue は `accepting.yml` によるラベル操作の対象外とし、受け入れ待ちの付与を待ったり手で付けたりしない。既存のラベルも外さない。本文の `Closes` が指す Issue は、GitHub により閉じたことを確かめる。開いたままなら閉じる操作はせず、PR の base と閉じる指定、GitHub の処理状況を確認して未完了として報告する。以下の受け入れ待ち確認からは外す。`Refs` の PR が指す Issue（ブランチ名の `<番号>-` の先頭か、本文の `Refs`。子を持つストーリーとエピックは除く）のうち、行頭の `Part of #<番号>` がない Issue に `status:accepting` が付き、開いたままであることを確かめる（`gh api "repos/{owner}/{repo}/issues/<番号>" --jq '{state, labels: [.labels[].name]}'`）。付けるのはマージで動く `accepting.yml` で、数十秒かかるので、付いていなければ30秒おきに5回まで取り直す。それでも付かなければ、ワークフローの実行（`gh api "repos/{owner}/{repo}/actions/workflows/accepting.yml/runs?per_page=5"`）を見て報告する。`Refs` の Issue は人が受け入れで閉じる。セッションは閉じない（`docs/development.md` の「Issue の運用」）
 5. Artifact のツールがある手元のセッションなら、Skill ツールで `daily-scrum` を引数「ボードだけ」で起動して開発ボードを出し直す。無ければ飛ばし、飛ばしたことを報告する
 
 
