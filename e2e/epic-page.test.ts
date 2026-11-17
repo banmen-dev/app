@@ -566,6 +566,8 @@ test('直した直後に閉じても、画面は保存した後の値を読み�
   await expect(drawer).toBeHidden();
   await expect(page.getByText(savedBody)).toBeVisible();
   await expect(page.getByText('貯まったポイントを、送料の割引と提携先の商品券に交換できるようにする。')).toHaveCount(0);
+  // 読み直しは通ったので、読み直しの失敗の知らせは出さない
+  await expect(page.getByRole('alert').filter({ hasText: '最新の内容を読み込めませんでした' })).toHaveCount(0);
 });
 
 test('終了したワークスペースでも読めて、直す口と参加者の操作は出さない', async ({ page }) => {

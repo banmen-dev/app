@@ -8,7 +8,9 @@ import { navigating } from '$app/state';
 // そこで、保存の後の読み直しは、移動の途中（navigating が立っている間）なら、その移動が決着してから始める。
 // navigating は、移動の途中に始まった次の移動でも立つ（beforeNavigate は呼ばれない）。
 // 移動より先に始まった読み直しは、移動の側が印を見て読み直すので、待たずに呼んでよい。
-// SvelteKit を上げたら、e2e/epic-page.test.ts の直した後の読み直しのテストで確かめ直す
+// 移動の途中に応答が着く順は e2e で決まって作れない（閉じる移動は load を走らせず一瞬で終わる）ので、順は単体テストだけが確かめる。
+// SvelteKit を上げたら、client.js の _invalidate と navigate、$app/state の navigating（complete、willUnload、決着の後に下ろす順）が
+// ここの前提のままかを読み直す
 const SETTLE_LIMIT_MS = 10_000;
 
 // 移動が途中なら決着する（済む、取りやめ、後の移動に替わる）のを待ってから、渡した印の load を読み直す。
