@@ -45,7 +45,10 @@ export async function readAccountRecentActivity(
     if (subset.length === 0 && data.workspaces.length > 0) capped++;
     return { organization, data, subset };
   });
-  const results = await Promise.allSettled(plans.map(({ data, subset }) => data.entries(subset)));
+  // 上限で1つも読めなくなった組織は2段目を呼ばない（読まなかった組織と読めなかった組織の両方に数えないため）
+  const results = await Promise.allSettled(
+    plans.map(({ data, subset }) => (subset.length === 0 ? Promise.resolve([]) : data.entries(subset))),
+  );
 
   const found: View['entries'] = [];
   const failed_organizations = [...listed.failed_organizations];

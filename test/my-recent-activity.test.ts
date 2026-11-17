@@ -188,7 +188,15 @@ describe('my-recent-activity: 全組織の最近の更新', () => {
     }
     const b = await organizationFor(person, { name: 'い工房' });
     const hidden = await taskChange(b.organization, b.workspace.id, b.user.id, minutesLater(1));
-    const view = await read(person);
+    // 上限の外の組織には2段目を送らないので、変更とコメントを読む batch は1つ（あ工房の分）だけ
+    let batches = 0;
+    const env = envWithD1Hooks(testEnv, {
+      beforeBatch: (sqls) => {
+        if (sqls.some((sql) => sql.includes('from "change_logs" as "cl"'))) batches++;
+      },
+    });
+    const view = await read(person, undefined, env);
+    expect(batches).toBe(1);
     expect(view.entries.map((entry) => entry.id)).not.toContain(hidden.log.id);
     expect(view.omitted_organizations).toBe(1);
     expect(view.failed_organizations).toEqual([]);
