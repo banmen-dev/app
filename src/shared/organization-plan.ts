@@ -1,5 +1,6 @@
 // 組織の契約（organization_contracts）のプラン、支払いの周期、追加容量と、契約から決まる人数と添付ファイルの上限。
-// 値は docs/business.md の「基本プラン」「追加容量」。DB の列挙（organization_contracts.plan と billing_interval）と同じ値を持つ
+// 現行の基本プランと追加容量は docs/business.md、新プラン small/pro の標準値と移行条件は docs/data-model.md の organization_contracts。
+// DB の列挙（organization_contracts.plan と billing_interval）と同じ値を持つ
 const GIB = 1024 ** 3;
 
 // custom は人数と標準容量を個別に決める契約。51人以上には限らない
