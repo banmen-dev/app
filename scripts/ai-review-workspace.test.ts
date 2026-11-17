@@ -259,7 +259,7 @@ for (const path of [
   'src/.MCP.JSON',
 ]) {
   for (const existsInBase of [true, false]) {
-    test(`保護対象 ${path} を head でディレクトリにしても base の状態を維持する: ${existsInBase}`, (t) => {
+    test(`保護対象 ${path} を head でディレクトリにしても base の状態を維持する: ${existsInBase ? '元ファイルあり' : '元ファイルなし'}`, (t) => {
       const f = fixture(t);
       f.write('ordinary.txt', 'base');
       if (existsInBase) f.write(path, 'base protected');
