@@ -65,11 +65,9 @@
     const workspaceId = workspace?.id;
     return onTaskAttributeSaved((saved) => {
       if (saved.slug === slug && saved.workspaceId === workspaceId && page.route.id !== '/[slug]/w/[id]') {
-        // 待つ間に別のワークスペースやバックログへ移ったら、読み直さない
-        void invalidateAfterNavigation(
-          ['app:backlog-tree'],
-          () => data.slug === slug && workspace?.id === workspaceId && page.route.id !== '/[slug]/w/[id]',
-        );
+        // 待つ間に別の組織かワークスペースへ移ったら、読み直さない。バックログへ移ったときは読み直す
+        // （バックログの画面は通知の時点でいなかったので、保存した欄を受け取っていない）
+        void invalidateAfterNavigation(['app:backlog-tree'], () => data.slug === slug && workspace?.id === workspaceId);
       }
     });
   });
