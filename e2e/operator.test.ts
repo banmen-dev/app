@@ -2275,7 +2275,7 @@ test.describe('運用者', () => {
       await expect(
         page
           .locator('.table tbody tr')
-          .filter({ has: page.getByRole('link', { name: plan, exact: true }) })
+          .filter({ has: page.getByText(plan, { exact: true }) })
           .locator('.chip'),
       ).toHaveText(['チーム用', `プラン: ${name}・月払い`]);
     }
