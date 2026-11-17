@@ -277,3 +277,44 @@ for (const path of [
     });
   }
 }
+
+test('head で上書きした後の action・コマンド・環境変数は既知のものだけ', () => {
+  const after = steps.slice(steps.indexOf(overlay()) + 1);
+  assert.deepEqual(
+    after.map((step) => step.uses ?? step.name),
+    [
+      'anthropics/claude-code-action@ae68417a745a5df4b2124873632bd73a2255e6f6',
+      'まとめを PR に付ける',
+      'ai-review のラベルを外す',
+    ],
+  );
+  assert.deepEqual(workflow.jobs.review.env, {
+    CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: '1',
+    CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1',
+  });
+  const expectedEnvKeys: Record<string, string[]> = {
+    書いた人の書き込み権限を確認する: ['TRUSTED_DIR', 'GH_TOKEN', 'REPO', 'RAW_DIR'],
+    起点を決める: [
+      'TRUSTED_DIR',
+      'RAW_DIR',
+      'CONTEXT_DIR',
+      'BASE_SHA',
+      'HEAD_SHA',
+      'EVENT_ACTION',
+      'NO_DIFF_BODY_FILE',
+    ],
+    'PR の本文とコメントを整える': ['TRUSTED_DIR', 'RAW_DIR', 'CONTEXT_DIR'],
+    'まとめを PR に付ける': ['TRUSTED_DIR', 'GH_TOKEN', 'REPO', 'PR_NUMBER', 'OUT_FILE', 'BODY_FILE', 'MARK_SHA'],
+    'ai-review のラベルを外す': ['GH_TOKEN', 'REPO', 'PR_NUMBER'],
+  };
+  for (const [name, keys] of Object.entries(expectedEnvKeys)) {
+    assert.deepEqual(Object.keys(named(name).env ?? {}).sort(), keys.sort(), name);
+  }
+  assert.deepEqual(after[0]?.env, { CLAUDE_CODE_REMOTE: 'false' });
+  assert.equal(after[0]?.run, undefined);
+  assert.equal(
+    after[1]?.run,
+    'set -euo pipefail\nnode "$TRUSTED_DIR/scripts/ai-review-summary.ts" "$OUT_FILE" "$BODY_FILE" "$MARK_SHA"\ngh pr comment "$PR_NUMBER" -R "$REPO" --body-file "$BODY_FILE"\n',
+  );
+  assert.equal(after[2]?.run, 'gh api -X DELETE "repos/$REPO/issues/$PR_NUMBER/labels/ai-review"');
+});
