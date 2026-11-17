@@ -28,6 +28,14 @@ const AOBA_WITH_INVITATION: OutputOf<typeof myOrganizations> = {
 
 // 組織の切り替え（メニューの上の開閉するメニュー）
 const menuButton = (page: Page) => page.locator('.org-menu-button');
+
+// 入れる組織を seed の組織だけに絞る。ほかのテスト（e2e/storage-quota-integration.test.ts など）は、試験の間だけ
+// 共有の seed のアカウントを一時的な組織に入れるので、並べて走ると一覧に混ざる。一覧そのものを確かめるテストだけが使う
+const onlySeedOrganizations = (page: Page) =>
+  rewriteOperation(page, myOrganizations, (output) => ({
+    ...output,
+    organizations: output.organizations.filter((organization) => ['aoba', 'hibari'].includes(organization.slug)),
+  }));
 const menuLinks = (page: Page) => page.locator('.org-menu-list a');
 
 // 横にはみ出していないか
@@ -41,6 +49,7 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
 
   test('/ のダッシュボードから組織へ入り、切り替えからダッシュボードに戻れる', async ({ page }) => {
     const collect = await watchViolations(page);
+    await onlySeedOrganizations(page);
     await page.goto('/');
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
@@ -361,6 +370,7 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
 
   test('/ を開くと組織の選択の画面になり、選ぶとその組織に入る', async ({ page }) => {
     const collect = await watchViolations(page);
+    await onlySeedOrganizations(page);
     await page.goto('/');
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
@@ -388,6 +398,7 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
       body.me.theme = 'modern';
       body.me.name = 'ミナト（ひばり）';
     });
+    await onlySeedOrganizations(page);
     await page.goto('/aoba');
     await expect(page.locator('.me')).toContainText('ミナト（あおば）');
     await expect(page.locator('.me .chip')).toHaveText('管理者');
@@ -575,6 +586,7 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
 
   test('390px の幅でも、組織の切り替えが出て、各組織へ移れ、一覧に戻れる', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 });
+    await onlySeedOrganizations(page);
     await page.goto('/aoba');
     await page.getByRole('button', { name: 'すべてのメニュー', exact: true }).click();
     await expect(menuButton(page)).toBeVisible();
