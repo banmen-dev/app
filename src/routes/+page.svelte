@@ -245,7 +245,7 @@
           <Pane
             id="p-organizations"
             title={t('paneOrganizations')}
-            busy={teamOrganizations.length > 0 && workspaces === undefined}
+            busy={teamOrganizations.length > 0 && workspacesView === undefined}
           >
             {#if teamOrganizations.length > 0}
               {#if personalOrganization === undefined}{@render workspacesStatus()}{/if}

@@ -166,6 +166,8 @@ test('ワークスペースを読めないときも組織の行は押せ、も�
   await page.goto('/');
   const organizations = page.getByRole('region', { name: '組織', exact: true });
   await expect(organizations.getByRole('alert')).toHaveText('ワークスペースを読み込めませんでした。');
+  // 読めずに終わったので、面は読み込み中ではない
+  await expect(organizations.locator('.pane-body')).not.toHaveAttribute('aria-busy', 'true');
   await expect(organizations.locator('.org-block > a.choice')).toHaveAttribute('href', '/aoba');
   await restore();
   await mockOperation(page, myWorkspaces, { ...workspaces, organizations: [workspaces.organizations[1]!] });
