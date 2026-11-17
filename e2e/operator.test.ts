@@ -3014,7 +3014,10 @@ test('運用者でない人が /operator を開くと、ダッシュボードに
   await page.goto('/operator');
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
-  await page.getByRole('link', { name: /くもラボ/ }).click();
+  await page
+    .getByRole('region', { name: '組織', exact: true })
+    .getByRole('link', { name: /くもラボ/ })
+    .click();
   await expect(page).toHaveURL(/\/kumo$/);
 });
 

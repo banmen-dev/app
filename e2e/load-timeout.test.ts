@@ -81,7 +81,10 @@ test('組織の選択から移って組織の読み取りが 10 秒返らなけ�
     await call.abort().catch(() => {});
   });
 
-  await page.getByRole('link', { name: /あおば開発/ }).click();
+  await page
+    .getByRole('region', { name: '組織', exact: true })
+    .getByRole('link', { name: /あおば開発/ })
+    .click();
   await expect.poll(() => calls).toBe(1);
   await page.clock.runFor(1_000);
   await expect(page.getByRole('heading', { level: 1, name: '読み込んでいます' })).toBeVisible();

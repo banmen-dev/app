@@ -54,7 +54,7 @@ for (const scenario of noOrganizationCases) {
       await call.fulfill(empty);
     });
     await page.goto('/');
-    const organizations = page.getByRole('region', { name: '入れる組織', exact: true });
+    const organizations = page.getByRole('region', { name: '組織', exact: true });
     await expect(organizations).toBeVisible();
     await expect(organizations).toContainText(scenario.notice);
     if (scenario.data.invitations.length > 0) {
@@ -252,7 +252,7 @@ test('今日の応答が遅くても組織とニュースを先に出し、面�
   });
   try {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('region', { name: '入れる組織', exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: '組織', exact: true })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Scrum Guild のニュース', exact: true })).toBeVisible();
     await expect(pane(page).locator('.pane-body')).toHaveAttribute('aria-busy', 'true');
     await expect(pane(page).locator('.skeleton')).toBeVisible();
@@ -270,7 +270,7 @@ test('操作全体が失敗しても組織とニュースを残し、面内で�
   const restore = await failOperation(page, myToday, 500, 'internal');
   await page.goto('/');
   await expect(pane(page).getByRole('button', { name: 'もう一度試す', exact: true })).toBeVisible();
-  await expect(page.getByRole('region', { name: '入れる組織', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: '組織', exact: true })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Scrum Guild のニュース', exact: true })).toBeVisible();
   await expect(pane(page).getByRole('alert')).toHaveText('今日やることを読み込めませんでした');
   await expect(pane(page).locator('.callout.is-warn')).toBeVisible();
