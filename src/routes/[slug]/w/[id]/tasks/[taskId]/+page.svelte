@@ -135,7 +135,7 @@
       workspaceClosed={workspace.closedAt !== null}
       definitionOfDone={workspace.definitionOfDone}
       onclose={() => void close()}
-      onchanged={() => void invalidateAfterNavigation('app:backlog-tree')}
+      onchanged={() => void invalidateAfterNavigation(['app:backlog-tree'])}
       onstale={() => void invalidate('app:workspace')}
       onremoved={(toastId) => void close(true, toastId)}
       onrestored={restored}

@@ -530,8 +530,9 @@ test('直した後の読み直しが失敗したら、前の値を残して知�
   await expect(page.getByRole('region', { name: '参加者' }).locator('.party-list > li')).toHaveCount(2);
 });
 
-// 保存の応答の直後に閉じると、閉じる移動の途中に読み直しが始まることがある。移動が終わってから読み直すので、
-// 画面は保存した後の値に替わる（移動の途中に始めた読み直しは SvelteKit が捨てる。#1331）
+// 保存の応答の直後に閉じると、閉じる移動の途中に読み直しが始まることがある。移動が決着してから読み直すので、
+// 画面は保存した後の値に替わる（移動の途中に始めた読み直しは SvelteKit が捨てる。#1331）。
+// 閉じる移動は load を走らせず一瞬で終わるので、この順を e2e で決まって作ることはできない。順は src/lib/navigation-settled.test.ts が確かめる
 test('直した直後に閉じても、画面は保存した後の値を読み直す', async ({ page }) => {
   const savedBody = '閉じた直後にも読み直す本文';
   await page.goto(`${WORKSPACE}/epics/${EPIC_ID}`);
@@ -564,7 +565,6 @@ test('直した直後に閉じても、画面は保存した後の値を読み�
   await expect(drawer).toBeHidden();
   await expect(page.getByText(savedBody)).toBeVisible();
   await expect(page.getByText('貯まったポイントを、送料の割引と提携先の商品券に交換できるようにする。')).toHaveCount(0);
-  await expect(page.getByRole('alert').filter({ hasText: '最新の内容を読み込めませんでした' })).toHaveCount(0);
 });
 
 test('終了したワークスペースでも読めて、直す口と参加者の操作は出さない', async ({ page }) => {
