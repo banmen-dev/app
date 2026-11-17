@@ -118,5 +118,23 @@ test('レビューの完了印と再依頼後の受信箱を表示し、同じ�
   await expect(again).toHaveCount(0);
   await expect(done).toBeVisible();
   await page.goto(`/aoba/w/${workspaceId}`);
-  await expect(page.locator(`[data-row-id="${taskId}"]`).filter({ hasText: '再依頼されたレビュー' })).toBeVisible();
+  const row = page.locator(`[data-row-id="${taskId}"]`).filter({ hasText: '再依頼されたレビュー' });
+  await expect(row).toBeVisible();
+  await row.getByRole('button', { name: 'ポイント: 未設定' }).click();
+  await page.getByRole('menuitemradio', { name: '1 pt', exact: true }).click();
+  await expect(row.getByRole('button', { name: 'ポイント: 1 pt' })).toBeVisible();
+  const completed = page.waitForResponse(
+    (response) => response.url().endsWith('/task-complete') && response.request().method() === 'POST',
+  );
+  await row.getByRole('button', { name: /完了にする/ }).click();
+  expect((await completed).ok()).toBe(true);
+  await expect(row.getByRole('img', { name: '再依頼されたレビュー: 完了' })).toBeVisible();
+  await page.goto('/aoba/me');
+  const grants = page
+    .getByRole('table', { name: '経験値の明細' })
+    .locator('tbody tr', { hasText: '再依頼されたレビュー' })
+    .filter({ hasText: `レビュー受信箱-${suffix}` });
+  await expect(grants).toHaveCount(1);
+  await expect(grants.locator('.tag')).toHaveText('レビュー');
+  await expect(grants.locator('.xp-delta')).toHaveText('+30');
 });

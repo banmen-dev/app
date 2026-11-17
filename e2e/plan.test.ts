@@ -6,6 +6,7 @@ import { backlogTree } from '../src/shared/operations/task/index.ts';
 import { expect, test } from './fixtures.ts';
 import { addStoryRow, addTaskRow, createWorkspace, signIn, watchViolations } from './helpers.ts';
 import { failOperation, rewriteOperation, routeOperation } from './operations.ts';
+import { seedSprintLabel } from './seed-dates.ts';
 
 test.use({ timezoneId: 'Asia/Tokyo' });
 
@@ -91,7 +92,9 @@ test('一般のメンバーには、スプリントと入っているタスク�
   await signIn(context, baseURL, 'member');
   await page.goto(AOBA_TEAM);
   await expect(page.getByRole('heading', { level: 1, name: '計画' })).toBeVisible();
-  await expect(page.locator('.lane-title')).toHaveText(['11/2〜11/15', '年末の仕上げ']);
+  // 名前の無い先のスプリントは、流した日の週の月曜（W）から 14〜27 日
+  const firstPlanned = seedSprintLabel(14, 27);
+  await expect(page.locator('.lane-title')).toHaveText([firstPlanned, '年末の仕上げ']);
   await expect(page.locator('.lane-sub').first()).toContainText('14 日');
   // seed の先のスプリントには、ストーリーの下のタスクが1件ずつ入っている
   await expect(page.locator('.lane').first().locator('.lane-row a')).toHaveText([
@@ -106,8 +109,8 @@ test('一般のメンバーには、スプリントと入っているタスク�
   await expect(page.getByRole('button', { name: /^削除する/ })).toHaveCount(0);
   await page.getByRole('link', { name: '失効予定のポイントを知らせる文面を決める', exact: true }).click();
   const drawer = page.getByRole('dialog');
-  await expect(drawer.locator('.props dd').filter({ hasText: '11/2〜11/15' })).toHaveText(
-    /^11\/2〜11\/15\s*計画の画面で出し入れします$/,
+  await expect(drawer.locator('.props dd').filter({ hasText: firstPlanned })).toHaveText(
+    new RegExp(`^${firstPlanned}\\s*計画の画面で出し入れします$`),
   );
 });
 
@@ -311,7 +314,7 @@ test('スクラムの言葉: スプリントが無いときは空の状態を出
 });
 
 // seed の受託開発チームには、終了したスプリントが4つある（夏の仕上げ 6 pt、延長した 9月の追い込み 13 pt、秋の準備 8 pt、秋の立ち上げ 7 pt）。
-// 延長した回を除いた新しい3つの平均は 7 pt。先のスプリントは「11/2〜11/15」（2 pt）と「年末の仕上げ」（未見積もり 1 件）
+// 延長した回を除いた新しい3つの平均は 7 pt。先のスプリントは名前の無いもの（2 pt）と「年末の仕上げ」（未見積もり 1 件）
 test('ベロシティは延長した回を除いた直近3回の平均で、先のスプリントの棒と未見積もりの件数、エピックごとの残りが並ぶ', async ({
   page,
   context,

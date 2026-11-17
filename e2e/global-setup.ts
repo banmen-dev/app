@@ -7,6 +7,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { DEV_WARNING_CODE, e2eGlobalSetup, e2eHealthURL } from '../scripts/e2e-server.ts';
 import { formatStallSummary, nodeProbeDeps, stallLogger, startStallProbe } from '../scripts/e2e-stall-probe.ts';
 import { startProcessProbe } from '../scripts/e2e-process-probe.ts';
+import { SEED_NOW_ENV } from './seed-dates.ts';
 
 // build した画面の JS（build/_app の下の .js）のどれかに、開発時の警告を出すコードがあるか（E2E_DEV_BUILD=1 のときだけ呼ぶ）。
 // build/_app が無ければ（build の外で立てたサーバーを使い回した）、ENOENT でなく理由の分かる文で止める
@@ -20,12 +21,17 @@ function hasDevWarningCode(): boolean {
 
 // 返す関数は、Playwright がすべてのテストの後に global teardown として呼ぶ
 export default async function globalSetup(): Promise<() => Promise<void>> {
+  // seed の日付を埋める日時を1回だけ決め、seed と各ワーカー（e2e/seed-dates.ts が読む）に同じ値を渡す。
+  // ワーカーごとに new Date() から期待値を作ると、日付の境目をまたいだ実行で seed とずれるため。
+  // globalSetup で process.env に置いた値は、後から立つワーカーに引き継がれる
+  const seedNow = new Date().toISOString();
+  process.env[SEED_NOW_ENV] = seedNow;
   // 版は playwright.config.ts が決めて process.env に置く
   await e2eGlobalSetup(process.env, {
     fetchHealth: (url, signal) => fetch(url, { signal }),
     seed: () => {
       // wrangler の出力は長いので、失敗のときの標準エラーだけを出す
-      const result = spawnSync('pnpm', ['db:seed'], { stdio: ['ignore', 'ignore', 'inherit'] });
+      const result = spawnSync('pnpm', ['db:seed', '--now', seedNow], { stdio: ['ignore', 'ignore', 'inherit'] });
       if (result.error || result.status !== 0) throw new Error('pnpm db:seed が失敗した');
     },
     hasDevWarningCode,

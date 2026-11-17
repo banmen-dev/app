@@ -564,6 +564,7 @@ export const dictionary = defineDictionary({
   delegatee: '依頼先',
   // 枠の共通の文言
   appName: 'Scrum Guild',
+  brandName: 'スクラムギルド',
   pageTitle: '{page} - {app}',
   menu: 'メニュー',
   mobileTabs: 'よく使う画面',

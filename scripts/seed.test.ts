@@ -154,6 +154,16 @@ describe('seedSql', () => {
     assert.ok(!sql.includes('d1_migrations'));
     assert.ok(sql.indexOf('INSERT INTO accounts') < sql.indexOf('INSERT INTO sessions'));
   });
+
+  test('data の日付の印を、渡した日時から埋める', () => {
+    const sql = seedSql(
+      [],
+      'INSERT INTO sprints VALUES ({{W+0}}, {{T-1}});\n',
+      sessions,
+      new Date('2026-11-18T03:00:00Z'),
+    );
+    assert.ok(sql.includes("INSERT INTO sprints VALUES ('2026-11-16', '2026-11-17');"), sql);
+  });
 });
 
 // 空の D1 に流して中身を数える。wrangler の手元の D1 を使うので数秒かかる

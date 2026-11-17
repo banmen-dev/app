@@ -79,7 +79,7 @@ const readTags = (source: string) => [...source.matchAll(/<([a-zA-Z][\w-]*)\b/g)
 describe('見本との照合', () => {
   // 横組みのロゴ（枠の外の画面）と、左上の角のマスのマーク単体
   for (const { name, file, count, wrapper } of [
-    { name: 'brandMark', file: 'BrandMark.svelte', count: 2, wrapper: /<span class="brand-art" aria-hidden="true">/ },
+    { name: 'brandMark', file: 'BrandMark.svelte', count: 1, wrapper: /<span class="brand-art" aria-hidden="true">/ },
     {
       name: 'brandSymbol',
       file: 'BrandSymbol.svelte',
@@ -99,6 +99,15 @@ describe('見本との照合', () => {
       const images = readElements(kit, 'img');
       assert.equal(images.length, count);
       assert.deepEqual(readElements(normalized, 'img'), images);
+      if (name === 'brandMark') {
+        // 画像だけの一致では、片方の名前が画像や別の文言に戻っても検出できない。
+        const textName = /<span class="brand-name">\$?\{t\('([^']+)'\)\}<\/span>/;
+        for (const source of [kit, component]) {
+          assert.equal(textName.exec(source)?.[1], 'brandName');
+          const brand = source.slice(source.indexOf('<span class="brand-art"'));
+          assert.deepEqual(readTags(brand), ['span', 'img', 'span'], 'マークの後に名前を並べる');
+        }
+      }
       for (const source of [kit, normalized]) {
         assert.match(source, wrapper);
         for (const image of readElements(source, 'img')) {

@@ -2,6 +2,7 @@ import { generateKeyBetween } from 'fractional-indexing';
 import { monthIn, now, todayIn, weekRangeIn } from '../../shared/clock.ts';
 import {
   XP_HELP,
+  XP_REVIEW,
   XP_HELP_WEEKLY_LIMIT,
   XP_TASK_COMPLETED,
   XP_TASK_CREATED,
@@ -11,6 +12,7 @@ import { backlogTree, taskComplete, taskCreate, taskMove } from '../../shared/op
 import { searchWordsOf } from '../../shared/backlog-filter.ts';
 import { MIN_POINTS_FOR_EXPERIENCE } from '../../shared/task.ts';
 import {
+  previousStatementChanged,
   sprintLeftLogSql,
   titleContainsAll,
   unindexed,
@@ -33,7 +35,7 @@ import { taskAssigneePartyStatements } from './epic-party.ts';
 import { implement } from './implement.ts';
 import { sprintRefColumns, sprintRefOf, type SprintRefRow } from './sprint-refs.ts';
 import { openSprint } from './sprint.ts';
-import { detailedRecipient } from './task-detail-xp.ts';
+import { activeTaskGrant, detailedRecipient } from './task-detail-xp.ts';
 import {
   MAX_TIES,
   moveConflict,
@@ -1022,6 +1024,7 @@ type CompletionParams = {
   completionId: string;
   userId: string;
   at: string;
+  review: boolean;
 };
 
 // 起票、詳細と完了の経験値の1行。ポイント、起票した人、担当は先に読まず、tasks の行から取る。
@@ -1029,7 +1032,7 @@ type CompletionParams = {
 function grantStatement(
   db: OrganizationDb,
   params: CompletionParams,
-  grant: { id: string; action: 'task_created' | 'task_completed' | 'task_detailed'; amount: number },
+  grant: { id: string; action: 'task_created' | 'task_completed' | 'task_detailed' | 'review'; amount: number },
 ) {
   const { workspaceId, taskId, completionId, userId, at } = params;
   return db.statement((q) =>
@@ -1079,6 +1082,9 @@ function grantStatement(
                   ),
               ),
               eb.exists(completionExists(q, workspaceId, completionId)),
+              ...(params.review && grant.action !== 'review'
+                ? [eb.not(eb.exists(activeTaskGrant(q, workspaceId, taskId, grant.action)))]
+                : []),
             ]),
           ),
       ),
@@ -1136,6 +1142,9 @@ function helpStatement(db: OrganizationDb, params: HelpParams, grant: { id: stri
                   .whereRef('memberships.user_id', '=', 'thanks.recipient_user_id'),
               ),
               eb.exists(completionExists(q, workspaceId, completionId)),
+              ...(params.review
+                ? [eb.not(eb.exists(activeTaskGrant(q, workspaceId, taskId, 'help', grant.thankId)))]
+                : []),
               eb(
                 eb
                   .selectFrom('xp_grants as h')
@@ -1232,6 +1241,7 @@ export const taskCompleteOperation = implement(taskComplete, async ({ db, actor,
       weekEnd: week.end,
       thankIds: thanks.map((row) => row.id),
       placement,
+      source: target,
     });
     const results = await db.batch(statements);
     if ((results[taskIndex]?.changes ?? 0) > 0) {
@@ -1262,7 +1272,13 @@ async function readCompleteTarget(db: OrganizationDb, workspaceId: string, taskI
         .leftJoin('sprints', (join) =>
           join.onRef('sprints.id', '=', 'tasks.sprint_id').on('sprints.workspace_id', '=', workspaceId),
         )
+        .leftJoin('task_sources', (join) =>
+          join.onRef('task_sources.task_id', '=', 'tasks.id').on('task_sources.workspace_id', '=', workspaceId),
+        )
         .select([
+          'task_sources.source_kind as source_kind',
+          'task_sources.review_cycle',
+          'task_sources.review_revision',
           'tasks.id',
           'tasks.sprint_id',
           'tasks.column_id',
@@ -1367,6 +1383,7 @@ type CompleteContext = {
   // このタスクの感謝の ID（手助けを付ける順）
   thankIds: string[];
   placement: Placement;
+  source: Pick<CompleteTarget, 'source_kind' | 'review_cycle' | 'review_revision'>;
 };
 
 // 完了の batch() に並べる文と、tasks の UPDATE の位置（taskIndex）。後ろの文は自分の完了の記録が入ったことを条件にする。
@@ -1374,9 +1391,10 @@ type CompleteContext = {
 // （ended_at が自分の時刻）を条件にする。行を閉じる文が負けたら（入っている行が無い、読んでから書くまでに閉じられた）、何も書かない
 function completeStatements(db: OrganizationDb, context: CompleteContext) {
   const { organizationId, workspaceId, taskId, userId, userName, at, billingMonth, placement } = context;
-  const { weekStart, weekEnd, thankIds } = context;
+  const { weekStart, weekEnd, thankIds, source } = context;
+  const review = source.source_kind === 'review_request';
   const completedAt = at.toISOString();
-  const params: CompletionParams = { workspaceId, taskId, completionId: uuidv7(at), userId, at: completedAt };
+  const params: CompletionParams = { workspaceId, taskId, completionId: uuidv7(at), userId, at: completedAt, review };
   const { completionId } = params;
   // 完了の前にいた列。進行中のスプリントの中の完了だけ（完了を戻す操作 task-reopen が、この列へ戻す）
   const previousColumnId = placement.kind === 'active' ? placement.columnId : null;
@@ -1392,6 +1410,36 @@ function completeStatements(db: OrganizationDb, context: CompleteContext) {
     if (inSprint!.kind === 'planned' && inSprint!.sprintDeleted)
       return sprint.where('read_sprint.deleted_at', 'is not', null);
     return sprint.where('read_sprint.deleted_at', 'is', null).where('read_sprint.status', '=', inSprint!.kind);
+  };
+
+  // 同期で依頼回が替わった後に、古い回として完了を記録しない。
+  const sourceAsRead = (eb: ExpressionBuilder<Tables, keyof Tables>) => {
+    const current = eb
+      .selectFrom('task_sources')
+      .select('task_sources.task_id')
+      .where('task_sources.workspace_id', '=', workspaceId)
+      .where('task_sources.task_id', '=', taskId);
+    if (source.source_kind === null) return eb.not(eb.exists(current));
+    return eb.and([
+      eb.exists(
+        current
+          .where('task_sources.source_kind', '=', source.source_kind)
+          .where('task_sources.review_cycle', 'is', source.review_cycle)
+          .where('task_sources.review_revision', 'is', source.review_revision),
+      ),
+      ...(review && source.review_cycle !== null
+        ? [
+            eb.exists(
+              eb
+                .selectFrom('review_request_cycles')
+                .select('task_id')
+                .where('task_id', '=', taskId)
+                .where('review_cycle', '=', source.review_cycle)
+                .where('completion_id', 'is', null),
+            ),
+          ]
+        : []),
+    ]);
   };
 
   // そのタスクの感謝が、読んだときのまま（数と、最も新しい ID）。読んでから書くまでに thanks-send が通ると、手助けの文が届いた感謝を
@@ -1439,6 +1487,7 @@ function completeStatements(db: OrganizationDb, context: CompleteContext) {
                   eb.exists(openWorkspace(q, organizationId, workspaceId)),
                   eb.exists(sprintAsRead(q)),
                   thanksAsRead(eb),
+                  sourceAsRead(eb),
                   eb.exists(
                     q
                       .selectFrom('tasks as closing')
@@ -1480,6 +1529,7 @@ function completeStatements(db: OrganizationDb, context: CompleteContext) {
         .where('deleted_at', 'is', null)
         .where((eb) => eb.exists(openWorkspace(q, organizationId, workspaceId)))
         .where((eb) => thanksAsRead(eb))
+        .where((eb) => sourceAsRead(eb))
         .$if(placement.kind === 'outside', (qb) => qb.where('sprint_id', 'is', null))
         .$if(inSprint !== null, (qb) =>
           qb
@@ -1503,7 +1553,7 @@ function completeStatements(db: OrganizationDb, context: CompleteContext) {
           ),
         ),
     ),
-    // 2. completions。止めた時計で同じ人が2回完了にしても、先に入った記録があれば何も入らない
+    // 2. completions。直前の tasks 更新が通った要求だけ記録する。同じ時刻の別の依頼回も記録できる
     db.statement((q) =>
       q
         .insertInto('completions')
@@ -1561,29 +1611,38 @@ function completeStatements(db: OrganizationDb, context: CompleteContext) {
               eb.val(completedAt).as('updated_at'),
               eb.val(previousColumnId).as('previous_column_id'),
             ])
+            .where(previousStatementChanged)
             .where((eb) =>
               eb.and([
                 eb('tasks.id', '=', taskId),
                 eb('tasks.workspace_id', '=', workspaceId),
                 eb('tasks.completed_at', '=', completedAt),
                 eb('tasks.completed_by', '=', userId),
-                eb.not(
-                  eb.exists(
-                    eb
-                      .selectFrom('completions')
-                      .select('completions.id')
-                      .where('completions.workspace_id', '=', workspaceId)
-                      .where('completions.task_id', '=', taskId)
-                      .where('completions.completed_at', '=', completedAt),
-                  ),
-                ),
               ]),
             ),
         ),
     ),
+    // 保存済みの依頼回へ今回の完了を接続する。通常の取り消しだけがこの参照を外す。
+    ...(review && source.review_cycle !== null
+      ? [
+          db.statement((q) =>
+            q
+              .updateTable('review_request_cycles')
+              .set({ completion_id: completionId })
+              .where('task_id', '=', taskId)
+              .where('review_cycle', '=', source.review_cycle!)
+              .where('completion_id', 'is', null)
+              .where((eb) => eb.exists(completionExists(q, workspaceId, completionId))),
+          ),
+        ]
+      : []),
     // 3. xp_grants。起票、完了と詳細、続けてそのタスクの感謝1件につき手助け1行（感謝の順。上限は前の文の挿入を数えて守る）
     grantStatement(db, params, { id: uuidv7(at), action: 'task_created', amount: XP_TASK_CREATED }),
-    grantStatement(db, params, { id: uuidv7(at), action: 'task_completed', amount: XP_TASK_COMPLETED }),
+    grantStatement(db, params, {
+      id: uuidv7(at),
+      action: review ? 'review' : 'task_completed',
+      amount: review ? XP_REVIEW : XP_TASK_COMPLETED,
+    }),
     grantStatement(db, params, { id: uuidv7(at), action: 'task_detailed', amount: XP_TASK_DETAILED }),
     ...thankIds.map((thankId) => helpStatement(db, { ...params, weekStart, weekEnd }, { id: uuidv7(at), thankId })),
     // 4. change_logs。3 と同じく、自分の完了の記録が入ったときだけ

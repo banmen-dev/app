@@ -59,25 +59,27 @@ test('可逆 WebP のマークは PNG の寸法・透過・合成後の色を保
   expect(comparison.maxCompositedDifference).toBeLessThanOrEqual(1);
 });
 
-async function expectHorizontalBrand(page: Page): Promise<void> {
+async function expectHorizontalBrand(page: Page, singleLine = false): Promise<void> {
   const art = page.locator('.brand-art');
-  const logo = art.locator('.brand-name');
+  const name = art.locator('.brand-name');
+  const logo = art.locator('.brand-mark');
   await expect(art).toHaveCount(1);
   await expect(art).toHaveAttribute('aria-hidden', 'true');
   await expect(logo).toBeVisible();
   await expect(logo).toHaveAttribute('alt', '');
-  const symbol = art.locator('.brand-mark');
-  await expect(symbol).toBeHidden();
-  await expect(symbol).toHaveAttribute('src', /\/brand\/master\/symbol\.webp$/);
-  await expect.poll(() => symbol.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBe(629);
+  await expect(name).toHaveText('スクラムギルド');
+  await expect(name).toBeVisible();
+  await expect(name).toHaveCSS('color', 'rgb(48, 55, 64)');
+  await expect(name).toHaveCSS('font-weight', '700');
+  await page.evaluate(() => document.fonts.ready);
   await expect(art).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect.poll(() => logo.evaluate((img) => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   await expect
     .poll(() => logo.evaluate((img) => (img as HTMLImageElement).currentSrc))
-    .toMatch(/\/brand\/header\/logo-transparent-(600|1200)\.png$/);
+    .toMatch(/\/brand\/master\/symbol\.webp$/);
   const box = (await logo.boundingBox())!;
-  expect(box.width).toBeGreaterThan(100);
-  expect(Math.abs(box.width / box.height - 3)).toBeLessThan(0.02);
+  expect(box.width).toBeGreaterThan(20);
+  expect(Math.abs(box.width / box.height - 629 / 678)).toBeLessThan(0.02);
   const parent = (await art.locator('..').boundingBox())!;
   const placement = await art.evaluate((el) =>
     el.closest('.gate-sheet') ? 'sheet' : el.parentElement?.classList.contains('gate-brand') ? 'header' : 'other',
@@ -97,38 +99,67 @@ async function expectHorizontalBrand(page: Page): Promise<void> {
     expect(frame.shadow).toContain(frame.line);
     expect(frame.shadow).toMatch(/0px 0px 0px 1px inset/);
   } else if (placement === 'header') {
-    // 紙を持たない会員登録と利用開始のヘッダーでは透明な左余白を外へ出している。素材そのもののアルファを読み、絵が切れず本文とそろうことを測る。
-    const opaqueLeft = await logo.evaluate((element) => {
-      const img = element as HTMLImageElement;
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const context = canvas.getContext('2d')!;
-      context.drawImage(img, 0, 0);
-      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-      let left = canvas.width;
-      for (let y = 0; y < canvas.height; y++) {
-        for (let x = 0; x < left; x++) {
-          if (pixels[(y * canvas.width + x) * 4 + 3] > 0) {
-            left = x;
-            break;
-          }
-        }
-      }
-      return left / canvas.width;
-    });
-    expect(opaqueLeft).toBeLessThan(1);
-    expect(Math.abs(box.x + box.width * opaqueLeft - parent.x)).toBeLessThan(1);
-    // 透明な余白も画面の外へは出さない。
-    expect(box.x).toBeGreaterThanOrEqual(0);
+    const artBox = (await art.boundingBox())!;
+    expect(Math.abs(artBox.x - parent.x)).toBeLessThan(1);
   } else {
     expect(box.x).toBeGreaterThanOrEqual(parent.x);
   }
   expect(box.x + box.width).toBeLessThanOrEqual(parent.x + parent.width + 1);
   expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
-  // 画像内の文字は読ませず、サービス名を1回だけ残す
+  const nameBox = (await name.boundingBox())!;
+  if (singleLine) {
+    const lineHeight = await name.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
+    expect(nameBox.height).toBeLessThanOrEqual(lineHeight + 1);
+  }
+  expect(nameBox.x).toBeGreaterThanOrEqual(box.x + box.width);
+  const inner = await art.evaluate((el) => {
+    const rect = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    return {
+      right: rect.right - parseFloat(style.paddingRight),
+      bottom: rect.bottom - parseFloat(style.paddingBottom),
+    };
+  });
+  expect(nameBox.x + nameBox.width).toBeLessThanOrEqual(inner.right + 1);
+  expect(nameBox.y + nameBox.height).toBeLessThanOrEqual(inner.bottom + 1);
+  const textBounds = await name.evaluate((el) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return Array.from(range.getClientRects(), (rect) => ({ right: rect.right, bottom: rect.bottom }));
+  });
+  for (const rect of textBounds) {
+    expect(rect.right).toBeLessThanOrEqual(inner.right + 1);
+    expect(rect.bottom).toBeLessThanOrEqual(inner.bottom + 1);
+  }
+  // ブランド内の文字は読ませず、サービス名を1回だけ残す
   await expect(art.locator('..').getByText('Scrum Guild', { exact: true })).toHaveCount(1);
 }
+
+test('文字を拡大してもロゴの名前が白い下地に収まる', async ({ page }) => {
+  for (const path of ['/login', '/signup']) {
+    await page.goto(path);
+    await expect(page.locator('.brand-name')).toBeVisible();
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const theme of themes) {
+        await page.evaluate((value) => (document.documentElement.dataset.theme = value), theme);
+        for (const mode of ['name', 'root']) {
+          await page.evaluate((value) => {
+            document.documentElement.style.fontSize = value === 'root' ? '24px' : '16px';
+          }, mode);
+          await page.locator('.brand-name').evaluate((el, value) => {
+            (el as HTMLElement).style.fontSize = value === 'name' ? '36px' : '';
+          }, mode);
+          const fontSize = await page
+            .locator('.brand-name')
+            .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+          expect(fontSize).toBeGreaterThanOrEqual(24);
+          await expectHorizontalBrand(page);
+        }
+      }
+    }
+  }
+});
 
 // 組織の枠の左上の角のマスは、横組みではなくマーク単体を白い枠の中に出し、角のマスの高さに収める
 async function expectCornerSymbol(page: Page): Promise<void> {
@@ -183,7 +214,7 @@ for (const screen of [
         } else if (screen.path.startsWith('/aoba')) {
           await expectCornerSymbol(page);
         } else {
-          await expectHorizontalBrand(page);
+          await expectHorizontalBrand(page, true);
         }
       }
     }
