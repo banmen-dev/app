@@ -56,7 +56,7 @@ describe('容量通知のスキーマ', () => {
 });
 
 describe('0039_expand_organization_contract_plans', () => {
-  test('表を作り直しても全列・索引・トリガーを保ち、外部キー違反を残さない', async () => {
+  test('適用済みの表に0039を再適用しても全列・索引・トリガーを保ち、外部キー違反を残さない', async () => {
     for (const [index, plan] of ['personal', 'team', 'business', 'custom'].entries()) {
       const org = await createOrganization();
       await run(
@@ -101,7 +101,25 @@ describe('0039_expand_organization_contract_plans', () => {
     await expect(insert(id(), 'small', 'monthly')).rejects.toThrow(/FOREIGN KEY/);
     await expect(insert(org.id, 'unknown', 'monthly')).rejects.toThrow(/CHECK/);
     await expect(insert(org.id, 'pro', 'weekly')).rejects.toThrow(/CHECK/);
+    await expect(
+      run(
+        'INSERT INTO organization_contracts (organization_id, plan, billing_interval, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+        org.id,
+        'pro',
+        'yearly',
+        '2026-11-10',
+        AT,
+      ),
+    ).rejects.toThrow(/CHECK/);
     await insert(org.id, 'pro', 'yearly');
+    for (const column of ['extra_10gb_units', 'extra_50gb_units'] as const) {
+      await expect(
+        run(`UPDATE organization_contracts SET ${column} = ? WHERE organization_id = ?`, -1, org.id),
+      ).rejects.toThrow(/CHECK/);
+    }
+    await expect(
+      run('UPDATE organization_contracts SET updated_at = ? WHERE organization_id = ?', '2026-11-10', org.id),
+    ).rejects.toThrow(/CHECK/);
     await expect(insert(org.id, 'small', 'monthly')).rejects.toThrow(/UNIQUE/);
     await expect(
       run('UPDATE organization_contracts SET billing_interval = ? WHERE organization_id = ?', 'weekly', org.id),
