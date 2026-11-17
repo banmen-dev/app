@@ -11,6 +11,7 @@ import { SEED_OPERATOR_LOGIN_ID, SEED_SESSIONS } from '../seed/sessions.ts';
 import { sessionCookieName } from '../src/shared/session-cookie.ts';
 import { backlogTree } from '../src/shared/operations/task/index.ts';
 import { sessionInserts } from './seed.ts';
+import { fillSeedDates } from './seed-dates.ts';
 import { backlogTrial, type BacklogOperation } from './backlog-loading-trial.ts';
 import { TEST_CREDENTIAL_KEYS } from './test-credential-keys.ts';
 import { finishTodayBenchmark, preserveTodayBuild } from './today-loading-support.ts';
@@ -365,7 +366,7 @@ try {
   const fixture = path.join(dir, 'fixture.sql');
   writeFileSync(
     fixture,
-    readFileSync(path.join(root, 'seed/data.sql'), 'utf8') +
+    fillSeedDates(readFileSync(path.join(root, 'seed/data.sql'), 'utf8'), new Date()) +
       sessionInserts(Object.values(SEED_SESSIONS), new Date()) +
       backlogLoadingFixture(),
   );

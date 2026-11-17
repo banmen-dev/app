@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
+import { fillSeedDates } from './seed-dates.ts';
 
 const migrations = new URL('../migrations/', import.meta.url);
 const migrationFiles = readdirSync(migrations)
@@ -17,7 +18,7 @@ function oldDatabase() {
     db.exec(readFileSync(new URL(file, migrations), 'utf8'));
   }
   // 現行seedのうち0038で追加された依頼回だけを除き、対象の旧スキーマへ入れる。
-  const seed = readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8');
+  const seed = fillSeedDates(readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8'), new Date());
   const legacySeed = seed
     .replace(/^UPDATE task_sources SET review_cycle = .*;$/m, '')
     .replace(/INSERT INTO review_request_cycles[^;]*;/, '');

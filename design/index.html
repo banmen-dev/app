@@ -265,9 +265,9 @@ const SECTIONS = [
   ["logo", "ロゴ", () => block("logo", "ロゴ", "提供されたオレンジとチャコールのロゴ。全テーマで白い下地に載せる。枠の外の画面は横組み、組織の枠の左上の角のマスはマーク単体にする。",
     `<div class="two">
       <div class="field"><span class="field-label">左上の角のマス（34px の枠の中のマーク単体）</span><span class="brand">${SQ.brandSymbol}<span class="visually-hidden">Scrum Guild</span></span></div>
-      <div class="field"><span class="field-label">枠の外の画面の先頭（最大240px。紙の中では箱の内側に細い枠が付く。見本は「枠の外の画面」）</span><div class="gate-brand">${SQ.brandMark}<span class="visually-hidden">Scrum Guild</span></div></div>
+      <div class="field"><span class="field-label">枠の外の画面の先頭（中身に合う幅。紙の中では箱の内側に細い枠が付く。見本は「枠の外の画面」）</span><div class="gate-brand">${SQ.brandMark}<span class="visually-hidden">Scrum Guild</span></div></div>
     </div>`,
-    ["画像の形と色はテーマで変えない。白い下地でダークテーマでも名前を読めるようにする。", "画像は aria-hidden にし、視覚的に隠した名前で「Scrum Guild」と1回だけ読ませる。", "横組みロゴには名前が含まれるので、文字を横に重ねて表示しない。角のマスはマーク単体にし、横に組織の名前（組織の切り替え）を並べる。", "原本は design/brand/。pnpm exec node scripts/generate-favicon.ts で static/brand/ に同期する。"],
+    ["マーク画像と文字の書体・色はテーマで変えない。白い下地でダークテーマでも名前を読めるようにする。", "画像は aria-hidden にし、視覚的に隠した名前で「Scrum Guild」と1回だけ読ませる。", "横組みはマーク画像と辞書の「スクラムギルド」の文字を並べる。白い下地の幅は中身に合わせ、狭い幅や文字拡大時は名前を折り返す。角のマスはマーク単体にし、横に組織の名前（組織の切り替え）を並べる。", "原本は design/brand/。pnpm exec node scripts/generate-favicon.ts で static/brand/ に同期する。"],
     ".brand .brand-art .brand-art.is-symbol .brand-name .brand-mark / .gate-brand / SQ.brandMark / SQ.brandSymbol")],
   ["icons", "アイコン", () => block("icons", "アイコン", "24px の格子に線だけで描く。icons.js を読み込むとスプライトが入る。",
     `<div class="field"><span class="field-label">ゲームの物</span><div class="cat-grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">${GAME_ICONS.map(([n, word, tone, role]) => `<div class="icon-cell">${icon(n, tone)}<b>${word}</b><span>${n}</span><span>${role}</span></div>`).join("")}</div></div>

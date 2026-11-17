@@ -17,6 +17,7 @@ import { workspaceInfo } from '../src/shared/operations/workspace/workspace.ts';
 import { expect, test } from './fixtures.ts';
 import { addEpicRow, createWorkspace, openEpicPage, signIn, waitForResponses, watchViolations } from './helpers.ts';
 import { failOperation, mockOperation, rewriteOperation } from './operations.ts';
+import { seedDueMonthDay } from './seed-dates.ts';
 
 const AOBA = { slug: 'aoba' };
 const WORKSPACE = '/aoba/w/019a0000-0000-7000-8000-000000000401';
@@ -57,7 +58,7 @@ test('seed の受託開発チーム: 木のエピックの題から画面が開�
   await expect(rewardIcon).toHaveAttribute('aria-hidden', 'true');
   await expect(rewardIcon).not.toHaveClass(/\bis-xp\b/);
   await expect(request.locator('dd').nth(3)).toContainText('追加案件');
-  await expect(request.locator('dd').nth(2)).toContainText('11/27');
+  await expect(request.locator('dd').nth(2)).toContainText(seedDueMonthDay(38));
 
   // 参加者。入った順で、作成者に印、全員にレベルの紋章。経験値の数値は出さない
   const party = page.getByRole('region', { name: '参加者' });

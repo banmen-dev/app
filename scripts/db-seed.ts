@@ -6,6 +6,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { SEED_SESSIONS } from '../seed/sessions.ts';
+import { parseDevNow } from '../src/shared/clock.ts';
 import { seedSql } from './seed.ts';
 import { retryLocalD1 } from './local-d1-retry.ts';
 
@@ -16,6 +17,16 @@ if (persistIndex !== -1 && !persistTo) {
   process.exit(1);
 }
 const local = ['--local', ...(persistTo ? ['--persist-to', persistTo] : [])];
+
+// --now <ISO 8601、時差付き> を渡すと、その日時を流した日時として日付を埋める（e2e/global-setup.ts が期待値と同じ日時を渡す）。
+// 時差の無い値は手元のタイムゾーンで読まれて基準の日がずれるので、DEV_NOW と同じ形だけを受ける
+const nowIndex = process.argv.indexOf('--now');
+const parsedNow = nowIndex === -1 ? undefined : parseDevNow(process.argv[nowIndex + 1]);
+if (parsedNow !== undefined && !parsedNow.ok) {
+  console.error('--now に時差付きの ISO 8601 の日時を渡してください（例 2026-11-17T10:00:00+09:00）');
+  process.exit(1);
+}
+const now = parsedNow?.ok ? parsedNow.at : new Date();
 
 async function wrangler(args: string[], capture = false): Promise<string> {
   const result = await retryLocalD1(() =>
@@ -47,7 +58,7 @@ const data = readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8');
 const dir = mkdtempSync(path.join(tmpdir(), 'scrum-guild-seed-'));
 try {
   const file = path.join(dir, 'seed.sql');
-  writeFileSync(file, seedSql(tables, data, Object.values(SEED_SESSIONS), new Date()));
+  writeFileSync(file, seedSql(tables, data, Object.values(SEED_SESSIONS), now));
   await wrangler(['execute', 'DB', '--file', file]);
 } finally {
   rmSync(dir, { recursive: true, force: true });
