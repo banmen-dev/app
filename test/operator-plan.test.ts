@@ -920,3 +920,13 @@ describe('新しいプランを読む版', () => {
     expect(await errorCodeOf(rejected)).toBe('invalid_input');
   });
 });
+
+test.each([
+  ['small', 3, 10],
+  ['pro', 50, 100],
+] as const)('%s の標準の人数と容量を契約から計算する', (plan, members, quota) => {
+  expect(contractLimits({ plan, extra_10gb_units: 0, extra_50gb_units: 0 })).toEqual({
+    member_limit: members,
+    attachment_quota_bytes: quota * GIB,
+  });
+});
