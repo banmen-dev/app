@@ -1,9 +1,10 @@
 // 組織の契約（organization_contracts）のプラン、支払いの周期、追加容量と、契約から決まる人数と添付ファイルの上限。
-// 値は docs/business.md の「基本プラン」「追加容量」。DB の列挙（organization_contracts.plan と billing_interval）と同じ値を持つ
+// 現行の基本プランと追加容量は docs/business.md、新プラン small/pro の標準値と移行条件は docs/data-model.md の organization_contracts。
+// DB の列挙（organization_contracts.plan と billing_interval）と同じ値を持つ
 const GIB = 1024 ** 3;
 
 // custom は人数と標準容量を個別に決める契約。51人以上には限らない
-export const organizationPlans = ['personal', 'team', 'business', 'custom'] as const;
+export const organizationPlans = ['personal', 'small', 'team', 'business', 'pro', 'custom'] as const;
 export type OrganizationPlan = (typeof organizationPlans)[number];
 
 // チーム用の組織が選べるプラン。自分用の組織（kind が personal）はパーソナルに固定で、運用者はプランを選ばない
@@ -16,8 +17,10 @@ export type BillingInterval = (typeof billingIntervals)[number];
 // プランごとの標準の人数と添付ファイルの容量（バイト）。ワークスペースの個数の上限は種類で決める（organization-kind.ts の WORKSPACE_LIMITS）
 export const PLAN_LIMITS = {
   personal: { member_limit: 1, attachment_quota_bytes: 1 * GIB },
+  small: { member_limit: 3, attachment_quota_bytes: 10 * GIB },
   team: { member_limit: 15, attachment_quota_bytes: 30 * GIB },
   business: { member_limit: 50, attachment_quota_bytes: 100 * GIB },
+  pro: { member_limit: 50, attachment_quota_bytes: 100 * GIB },
 } as const satisfies Record<
   Exclude<OrganizationPlan, 'custom'>,
   { member_limit: number; attachment_quota_bytes: number }

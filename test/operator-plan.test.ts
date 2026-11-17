@@ -12,12 +12,21 @@ import {
   listOrganizations,
   organizationPlanUpdate,
   organizationQuotaUpdate,
+  organizationStorageUpdate,
 } from '../src/shared/operations/operator/index.ts';
+import { organizationInfo } from '../src/shared/operations/organization/index.ts';
 import { organizationHistory } from '../src/shared/operations/organization/organization-history.ts';
 import { contractLimits, PLAN_LIMITS, type BillingInterval, type TeamPlan } from '../src/shared/organization-plan.ts';
 import { createOrganization, createUser } from './factories.ts';
 import { errorCodeOf, post } from './operations/harness.ts';
-import { createTarget, getOperator, OPERATOR_LOGIN_ID, testEnv, withNewSession } from './operations/world.ts';
+import {
+  createPerson,
+  createTarget,
+  getOperator,
+  OPERATOR_LOGIN_ID,
+  testEnv,
+  withNewSession,
+} from './operations/world.ts';
 
 const app = createApp(implementedOperations);
 
@@ -829,5 +838,111 @@ describe('変更の履歴', () => {
       changes: { plan: [null, 'business'], billing_interval: [null, 'yearly'], member_limit: [15, 50] },
     });
     expect(logged[0]).not.toContain('secret SQL detail');
+  });
+});
+
+describe.each([
+  ['small', 3, 10],
+  ['pro', 50, 100],
+] as const)('新しいプラン %s を読む版', (plan, members, quota) => {
+  async function setup() {
+    const organization = await createOrganization({ member_limit: members, attachment_quota_bytes: quota * GIB });
+    await insertContract(organization.id, { plan, billing_interval: 'monthly' });
+    const token = await operatorToken();
+    const admin = await createPerson({ organization, admin: true });
+    const expected = {
+      plan,
+      billing_interval: 'monthly',
+      extra_10gb_units: 0,
+      extra_50gb_units: 0,
+      custom_member_limit: null,
+      custom_attachment_quota_bytes: null,
+    };
+    return { organization, token, admin, expected };
+  }
+  test('運用者の一覧と組織の管理で契約を読める', async () => {
+    const { organization, token, admin } = await setup();
+    const listed = await post(app, listOrganizations, { token });
+    expect(listed.status).toBe(200);
+    expect(
+      ((await listed.json()) as { organizations: { slug: string; contract: unknown }[] }).organizations.find(
+        (row) => row.slug === organization.slug,
+      )?.contract,
+    ).toMatchObject({ plan });
+    const info = await post(app, organizationInfo, {
+      slug: organization.slug,
+      token: admin.token,
+      body: { include_plan: true },
+    });
+    expect(info.status).toBe(200);
+    expect(((await info.json()) as { plan: unknown }).plan).toMatchObject({
+      contract: { plan },
+      member_limit: members,
+      attachment_quota_bytes: quota * GIB,
+    });
+  });
+  test('追加容量を計算し、既存プランへ変えた履歴で前のプランを読める', async () => {
+    const { organization, token, admin, expected } = await setup();
+    const storage = await post(app, organizationStorageUpdate, {
+      token,
+      body: {
+        slug: organization.slug,
+        expected,
+        billing_interval: 'monthly',
+        extra_10gb_units: 1,
+        extra_50gb_units: 1,
+      },
+    });
+    expect(storage.status).toBe(200);
+    expect(await storage.json()).toMatchObject({
+      contract: { plan },
+      member_limit: members,
+      attachment_quota_bytes: (quota + 60) * GIB,
+    });
+    const changed = await post(app, organizationPlanUpdate, {
+      token,
+      body: {
+        slug: organization.slug,
+        plan: 'team',
+        billing_interval: 'monthly',
+        expected: { ...expected, extra_10gb_units: 1, extra_50gb_units: 1 },
+      },
+    });
+    expect(changed.status).toBe(200);
+    const history = await post(app, organizationHistory, { slug: organization.slug, token: admin.token });
+    expect(history.status).toBe(200);
+    expect(await history.json()).toMatchObject({
+      entries: expect.arrayContaining([
+        {
+          id: expect.any(String),
+          created_at: expect.any(String),
+          actor: { kind: 'operator' },
+          event: expect.objectContaining({
+            kind: 'organization_plan_changed',
+            from: expect.objectContaining({ plan }),
+            to: expect.objectContaining({ plan: 'team' }),
+          }),
+        },
+      ]),
+    });
+  });
+  test('新プランの選択は400で断る', async () => {
+    const { organization, token } = await setup();
+    const rejected = await post(app, organizationPlanUpdate, {
+      token,
+      body: { slug: organization.slug, plan, billing_interval: 'monthly', expected: null },
+    });
+    expect(rejected.status).toBe(400);
+    expect(await errorCodeOf(rejected)).toBe('invalid_input');
+  });
+});
+
+test.each([
+  ['small', 3, 10],
+  ['pro', 50, 100],
+] as const)('%s の標準の人数と容量を契約から計算する', (plan, members, quota) => {
+  expect(contractLimits({ plan, extra_10gb_units: 0, extra_50gb_units: 0 })).toEqual({
+    member_limit: members,
+    attachment_quota_bytes: quota * GIB,
   });
 });

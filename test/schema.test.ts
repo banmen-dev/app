@@ -55,6 +55,93 @@ describe('容量通知のスキーマ', () => {
   });
 });
 
+describe('0039_expand_organization_contract_plans', () => {
+  test('適用済みの表に0039を再適用しても全列・索引・トリガーを保ち、外部キー違反を残さない', async () => {
+    for (const [index, plan] of ['personal', 'team', 'business', 'custom'].entries()) {
+      const org = await createOrganization();
+      await run(
+        'INSERT INTO organization_contracts (organization_id, plan, billing_interval, extra_10gb_units, extra_50gb_units, custom_member_limit, custom_attachment_quota_bytes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        org.id,
+        plan,
+        index % 2 ? 'yearly' : 'monthly',
+        index,
+        index + 1,
+        plan === 'custom' ? 80 : null,
+        plan === 'custom' ? 200 * 1024 ** 3 : null,
+        AT,
+        CLAIM_EXPIRES_AT,
+      );
+    }
+    const rows = () => env.DB.prepare('SELECT * FROM organization_contracts ORDER BY organization_id').all();
+    const objects = () =>
+      env.DB.prepare(
+        "SELECT type, name, sql FROM sqlite_master WHERE type IN ('index', 'trigger') ORDER BY name",
+      ).all();
+    const beforeRows = (await rows()).results;
+    const beforeObjects = (await objects()).results;
+    const migration = env.TEST_MIGRATIONS.find((m) => m.name.startsWith('0039_'));
+    expect(migration).toBeDefined();
+    await env.DB.batch(migration!.queries.map((query) => env.DB.prepare(query)));
+    expect((await rows()).results).toEqual(beforeRows);
+    expect((await objects()).results).toEqual(beforeObjects);
+    expect((await env.DB.prepare('PRAGMA foreign_key_check').all()).results).toEqual([]);
+  });
+
+  test('作り直した表でも外部キー・主キーとプラン・周期のCHECKを守る', async () => {
+    const org = await createOrganization();
+    const insert = (orgId: string, plan: string, interval: string) =>
+      run(
+        'INSERT INTO organization_contracts (organization_id, plan, billing_interval, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+        orgId,
+        plan,
+        interval,
+        AT,
+        AT,
+      );
+    await expect(insert(id(), 'small', 'monthly')).rejects.toThrow(/FOREIGN KEY/);
+    await expect(insert(org.id, 'unknown', 'monthly')).rejects.toThrow(/CHECK/);
+    await expect(insert(org.id, 'pro', 'weekly')).rejects.toThrow(/CHECK/);
+    await expect(
+      run(
+        'INSERT INTO organization_contracts (organization_id, plan, billing_interval, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+        org.id,
+        'pro',
+        'yearly',
+        '2026-11-10',
+        AT,
+      ),
+    ).rejects.toThrow(/CHECK/);
+    await insert(org.id, 'pro', 'yearly');
+    for (const column of ['extra_10gb_units', 'extra_50gb_units'] as const) {
+      await expect(
+        run(`UPDATE organization_contracts SET ${column} = ? WHERE organization_id = ?`, -1, org.id),
+      ).rejects.toThrow(/CHECK/);
+    }
+    await expect(
+      run('UPDATE organization_contracts SET updated_at = ? WHERE organization_id = ?', '2026-11-10', org.id),
+    ).rejects.toThrow(/CHECK/);
+    await expect(insert(org.id, 'small', 'monthly')).rejects.toThrow(/UNIQUE/);
+    await expect(
+      run('UPDATE organization_contracts SET billing_interval = ? WHERE organization_id = ?', 'weekly', org.id),
+    ).rejects.toThrow(/CHECK/);
+  });
+
+  test.each(['personal', 'small', 'team', 'business', 'pro', 'custom'])('%s の契約を保存できる', async (plan) => {
+    const org = await createOrganization();
+    await run(
+      'INSERT INTO organization_contracts (organization_id, plan, billing_interval, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+      org.id,
+      plan,
+      'monthly',
+      AT,
+      AT,
+    );
+    await expect(
+      run('UPDATE organization_contracts SET plan = ? WHERE organization_id = ?', 'unknown', org.id),
+    ).rejects.toThrow(/CHECK/);
+  });
+});
+
 describe('0032_add_custom_contract_limits', () => {
   async function contract() {
     const org = await createOrganization();

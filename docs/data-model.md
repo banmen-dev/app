@@ -331,12 +331,14 @@
 
 ### organization_contracts
 
-組織の契約（プラン、支払いの周期、追加容量の口数）。組織と1対1の共通の表で、行が無い組織は未契約（お試し中の組織、運用者が作って契約を付けていない組織、追加容量の無い自分用の組織）。ベータの間は決済サービスとつながず、支払いはアプリの外で受け、運用者が運用者の画面で書く（`business.md` の「契約と支払いの管理」）。決済サービスの ID や支払いの状態、契約の更新日は、連携するときに列を足す（マイグレーション `0028_add_organization_contracts.sql`）。
+`small`（スモール、3人・10GB）と `pro`（プロ、50人・100GB）の読み取りは #1336 で対応する。運用者が選べるようにするのは、#1336 を含む Release が本番に出た後の #1337 で、ビジネスの上限を50人から30人へ下げるのも #1337 で行う。
+
+組織の契約（プラン、支払いの周期、追加容量の口数）。組織と1対1の共通の表で、行が無い組織は未契約（お試し中の組織、運用者が作って契約を付けていない組織、追加容量の無い自分用の組織）。ベータの間は決済サービスとつながず、支払いはアプリの外で受け、運用者が運用者の画面で書く（`business.md` の「契約と支払いの管理」）。決済サービスの ID や支払いの状態、契約の更新日は、連携するときに列を足す（マイグレーション `0028_add_organization_contracts.sql`、`0032_add_custom_contract_limits.sql`、`0039_expand_organization_contract_plans.sql`）。
 
 | 列 | 型 | 制約 | 説明 |
 | --- | --- | --- | --- |
 | organization_id | TEXT | PK、FK organizations | |
-| plan | TEXT | NOT NULL、`CHECK (plan IN ('personal', 'team', 'business', 'custom'))` | プラン。`personal` はパーソナル（自分用の組織の追加容量の契約に使う。#1191）、`team` はチーム、`business` はビジネス、`custom` は個別に人数と標準容量を決めた契約（人数は51人以上に限らない）。自分用の追加容量の契約には `personal` を書く |
+| plan | TEXT | NOT NULL、`CHECK (plan IN ('personal', 'small', 'team', 'business', 'pro', 'custom'))` | プラン。`personal` はパーソナル（自分用の組織の追加容量の契約に使う。#1191）、`small` はスモール（3人・10GB）、`team` はチーム、`business` はビジネス、`pro` はプロ（50人・100GB）、`custom` は個別に人数と標準容量を決めた契約（人数は51人以上に限らない）。自分用の追加容量の契約には `personal` を書く |
 | billing_interval | TEXT | NOT NULL、`CHECK (billing_interval IN ('monthly', 'yearly'))` | 支払いの周期。`monthly` は月払い、`yearly` は年払い。追加容量も同じ周期で払う |
 | extra_10gb_units | INTEGER | NOT NULL、既定 0、`CHECK (extra_10gb_units >= 0)` | 追加容量 ＋10GB の口数。口数の上限は CHECK に持たず、`organization-storage-update` の入力で0〜100の整数に絞る。プランの変更では変えない |
 | extra_50gb_units | INTEGER | NOT NULL、既定 0、`CHECK (extra_50gb_units >= 0)` | 追加容量 ＋50GB の口数。扱いは `extra_10gb_units` と同じ |
@@ -344,7 +346,7 @@
 | custom_attachment_quota_bytes | INTEGER | NULL 可、`CHECK` で整数・1GB〜100TB・1GBの倍数 | 個別の標準容量。`custom` のときだけ1〜102,400GBの整数をバイトで持つ。1GB = 1024³ バイト |
 | created_at、updated_at | TEXT | NOT NULL | |
 
-- 人数と添付ファイルの上限は、契約から決まる値を `organizations.member_limit` と `attachment_quota_bytes` に写して持つ。人数と容量を検査するコード（招待、開き直し、有効化、添付ファイルの保存、容量の通知）は今までどおり `organizations` の2列を読む。写す値はプランの標準の値（パーソナル 1人・1GB、チーム 15人・30GB、ビジネス 50人・100GB。1GB = 1024³ バイト）に、添付ファイルだけ口数 × 10GB と口数 × 50GB を足したもの（`src/shared/organization-plan.ts` の `contractLimits`）。値段の段階（`quotaTiers`）と自分用の容量（`PERSONAL_ATTACHMENT_QUOTA_BYTES`）も同じ定数から作る。
+- 人数と添付ファイルの上限は、契約から決まる値を `organizations.member_limit` と `attachment_quota_bytes` に写して持つ。人数と容量を検査するコード（招待、開き直し、有効化、添付ファイルの保存、容量の通知）は今までどおり `organizations` の2列を読む。写す値はプランの標準の値（パーソナル 1人・1GB、スモール 3人・10GB、チーム 15人・30GB、ビジネス 50人・100GB、プロ 50人・100GB。1GB = 1024³ バイト）に、添付ファイルだけ口数 × 10GB と口数 × 50GB を足したもの（`src/shared/organization-plan.ts` の `contractLimits`）。値段の段階（`quotaTiers`）と自分用の容量（`PERSONAL_ATTACHMENT_QUOTA_BYTES`）も同じ定数から作る。
 - 個別の2列は `0032_add_custom_contract_limits.sql` で空にできる列として足す（既存行は NULL のまま）。`custom` では個別の2列を標準値として `contractLimits` に渡す。通常プランでは両列を NULL に戻す。値の組と範囲は契約を書く操作で検査し、新しい2列の範囲と整数は CHECK でも検査する。旧版がプランだけを変えても動くよう、`plan` と個別の列の組の CHECK は付けない。追加容量の操作はこの2列を維持する。自分用の組織に個別契約がある不整合な行は標準値の有無にかかわらず追加容量の変更を409で断る。基準値が空の古い個別契約も追加容量の変更を409で断り、先にプランの変更で基準値を設定する。契約の変更と追加容量の変更の `expected` と書き込み条件には個別の2列も含め、旧クライアントの省略は NULL として扱う。個別の値を変えた契約との競合は409で断る。個別契約の変更履歴は `custom_member_limit` と `custom_attachment_quota_bytes` の前後をプラン・周期と一緒に記録する。
 - 契約のある組織の上限は、運用者が値で変えられない（`organization-quota-update` は 409 の `conflict`、`details` は `{ reason: 'plan_managed' }`）。契約と上限がずれないようにするため。
 - 契約を外して未契約に戻す操作は無い。解約は組織の停止（解約）で表し、契約の行は、解約した組織のデータを消す手順で `organizations` の行の直前に消す（`scripts/purge-organization-sql.ts`）。

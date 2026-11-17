@@ -83,3 +83,11 @@ test('個別契約の履歴の人数とGBをほかの上限表示と同じ桁区
     ),
   ).toBe('個別・年払い（1,000 人・標準 2,048 GB）');
 });
+
+test.each([
+  ['small', 'スモール'],
+  ['pro', 'プロ'],
+] as const)('%s の契約を名前で表示する', (plan, name) => {
+  expect(planLabel({ kind: 'team', contract: { plan, billing_interval: 'monthly' } }, t)).toBe(`${name}・月払い`);
+  expect(planTermsText({ plan, billing_interval: 'yearly' }, t)).toBe(`${name}・年払い`);
+});
