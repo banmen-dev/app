@@ -63,6 +63,10 @@ jobs:
               echo "#$n は途中の PR なので状態を変えない"
               continue
             fi
+            # 印らしい行があるのに書式が違う場合、判定の取り違えをログで知らせる。
+            if printf '%s\n' "$BODY" | tr -d '\r' | grep -iE "^[[:blank:]]*part of #${n}([^0-9]|$)" >/dev/null; then
+              echo "::warning::#$n の途中の印を読めない。Part of #$n の番号の直後は半角スペースかタブ、または行末にする"
+            fi
             # 本文の書き間違いで無い番号を指しても、ほかの番号には付けたいので、無い番号（404）は失敗に数えない
             if ! issue=$(gh api "repos/$REPO/issues/$n" --jq '[(.pull_request != null), .state, (.sub_issues_summary.total // 0)] | @tsv' 2>"$err"); then
               if grep -q 'HTTP 404' "$err"; then

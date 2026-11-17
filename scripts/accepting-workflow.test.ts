@@ -49,6 +49,9 @@ for (const [name, branch, body, expected] of [
       },
     });
     assert.equal(result.status, 0, result.stdout + result.stderr);
+    if (name === '番号の直後の文字を認めない') {
+      assert.match(result.stdout, /::warning::#1238/);
+    }
     const calls = readFileSync(capture, 'utf8').trim().split('\n').filter(Boolean);
     assert.deepEqual(
       calls,
