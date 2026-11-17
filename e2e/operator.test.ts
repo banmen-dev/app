@@ -2255,7 +2255,7 @@ test.describe('運用者', () => {
       (['small', 'pro'] as const).map((plan) =>
         organization({
           slug: plan,
-          name: plan,
+          name: plan === 'small' ? 'こもれび工房' : 'あかね工房',
           contract: {
             plan,
             billing_interval: 'monthly',
