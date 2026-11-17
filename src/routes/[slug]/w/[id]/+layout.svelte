@@ -27,6 +27,7 @@
   import { focusFirstTaskRow, focusIsFree, focusPageHeading } from '../../../../lib/focus-heading.ts';
   import { formatLocalDate } from '../../../../lib/format.ts';
   import { focusToastAction, resumeToast } from '../../../../lib/toast.svelte.ts';
+  import { invalidateAfterNavigation } from '../../../../lib/navigation-settled.ts';
   import { settleListReload } from '../../../../lib/task-reload-failure.svelte.ts';
   import { epicFinishedOf, parentChoicesOf, storyTreeOf } from '../../../../lib/story-drawer.ts';
   import { t } from '../../../../lib/vocabulary.svelte.ts';
@@ -57,12 +58,16 @@
   const workspace = $derived(data.workspace);
   // バックログは保存した欄だけを反映する。それ以外の画面は、従来どおり読み直す。
   // 引き出しが閉じてから返った応答も、今いる画面に反映する。
+  // 引き出しの保存の後の読み直しは、どれも invalidateAfterNavigation で、画面の移動（閉じる、前後へ移る、リンク、戻る／進む）の
+  // 途中なら決着してから始める（移動の途中に始めた読み直しは SvelteKit が捨てるため。#1331）
   $effect(() => {
     const slug = data.slug;
     const workspaceId = workspace?.id;
     return onTaskAttributeSaved((saved) => {
       if (saved.slug === slug && saved.workspaceId === workspaceId && page.route.id !== '/[slug]/w/[id]') {
-        void invalidate('app:backlog-tree');
+        // 待つ間に別の組織かワークスペースへ移ったら、読み直さない。バックログへ移ったときは読み直す
+        // （バックログの画面は通知の時点でいなかったので、保存した欄を受け取っていない）
+        void invalidateAfterNavigation(['app:backlog-tree'], () => data.slug === slug && workspace?.id === workspaceId);
       }
     });
   });
@@ -293,9 +298,10 @@
     return goto(page.url.pathname + query, { replace: true, reset: false });
   };
 
-  // 木とエピックの画面の値を読み直す（欄を保存した）。引き出しの書きかけを失わないため、枠は読み直さない
+  // 木とエピックの画面の値を読み直す（欄を保存した）。引き出しの書きかけを失わないため、枠は読み直さない。
+  // 保存の応答が閉じる移動と重なっても、移動が終わってから読み直す（エピックの画面が読み直しの失敗を知らせるため）
   async function reloadEpic(): Promise<void> {
-    await Promise.all([invalidate('app:backlog-tree'), invalidate('app:epic-detail')]);
+    await invalidateAfterNavigation(['app:backlog-tree', 'app:epic-detail']);
   }
 
   // 閉じたら、開いた題（data-epic-id を持つリンクかボタン）へフォーカスを戻す。無ければ（畳んだ枝の中も含む）画面の見出しへ移す。
@@ -364,7 +370,7 @@
         workspaceClosed={workspace.closedAt !== null}
         definitionOfDone={workspace.definitionOfDone}
         onclose={() => void withoutTask()}
-        onchanged={() => void invalidate('app:backlog-tree')}
+        onchanged={() => void invalidateAfterNavigation(['app:backlog-tree'])}
         onstale={() => void invalidate('app:workspace')}
         onremoved={(toastId, cause) => void removed(toastId, cause)}
         onrestored={restored}
@@ -387,7 +393,7 @@
         clock={storyClock}
         parents={storyParents}
         onclose={() => void withoutStory()}
-        onchanged={() => invalidate('app:backlog-tree')}
+        onchanged={() => invalidateAfterNavigation(['app:backlog-tree'])}
         onstale={() => void invalidate('app:workspace')}
         onremoved={() => void removedStory()}
       />
