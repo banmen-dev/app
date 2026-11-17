@@ -7,14 +7,21 @@ import { test } from 'node:test';
 import { load } from 'js-yaml';
 
 const workflow = load(readFileSync(new URL('../.github/workflows/accepting.yml', import.meta.url), 'utf8')) as {
-  jobs: { accepting: { steps: { run: string }[] } };
+  jobs: { accepting: { steps: { name: string; run: string }[] } };
 };
-const script = workflow.jobs.accepting.steps[0].run;
+const step = workflow.jobs.accepting.steps.find(
+  (candidate) => candidate.name === '指している Issue に status:accepting を付ける',
+);
+assert.ok(step, 'Issue のラベルを更新するステップが無い');
+const script = step.run;
 
 for (const [name, branch, body, expected] of [
   ['先頭ゼロの Refs', 'claude/work', 'Refs #01238\nPart of #1238', []],
   ['先頭ゼロの印', '1238-part', 'Part of #01238', []],
   ['先頭ゼロのブランチ', '01238-part', 'Part of #1238', []],
+  ['複数の途中の印', 'claude/work', 'Refs #1238\nRefs #999\nPart of #1238\nPart of #999', []],
+  ['題なしの CRLF', '1238-part', 'Part of #1238\r\n', []],
+  ['句点を直結した印は警告', '1238-part', 'Part of #1238.', ['1238']],
   ['番号付きの途中', '1238-part', 'Refs #1238\nPart of #1238 題', []],
   ['本文から選ぶ途中', 'claude/work', 'Refs #1238\nPart of #1238', []],
   ['空白・大小文字・CRLF', '1238-part', '  pArT oF #1238 題\r\n', []],
@@ -52,7 +59,7 @@ for (const [name, branch, body, expected] of [
       },
     });
     assert.equal(result.status, 0, result.stdout + result.stderr);
-    if (name === '番号の直後の文字を認めない') {
+    if (name === '番号の直後の文字を認めない' || name === '句点を直結した印は警告') {
       assert.match(result.stdout, /::warning::#1238/);
     }
     const calls = readFileSync(capture, 'utf8').trim().split('\n').filter(Boolean);

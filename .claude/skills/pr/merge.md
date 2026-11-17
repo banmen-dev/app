@@ -56,4 +56,3 @@ gh api "repos/{owner}/{repo}/pulls/<number>" --jq '{merged, base: .base.ref, hea
 
 
 結果と残件は docs/development.md の6行レポートで返す。
-
