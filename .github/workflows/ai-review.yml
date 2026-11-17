@@ -237,6 +237,9 @@ jobs:
       - uses: anthropics/claude-code-action@ae68417a745a5df4b2124873632bd73a2255e6f6 # v1.0.259
         id: claude
         if: steps.diff.outputs.mode != 'none'
+        env:
+          # SessionStart の依存インストールを CI の head の木では走らせない。
+          CLAUDE_CODE_REMOTE: "false"
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # Claude の GitHub App のトークンは contents: write を持ち、上の permissions に縛られない。

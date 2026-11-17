@@ -63,6 +63,12 @@ describe('ai-review の Claude に許す道具', () => {
     ]);
   });
 
+  test('CI では SessionStart の依存導入を無効にし、出力は checkout の外に固定する', () => {
+    assert.equal(actionStep().env?.CLAUDE_CODE_REMOTE, 'false');
+    assert.ok(actionStep().with?.prompt?.includes(' OUT_FILE: ${{ runner.temp }}/pr-out/summary.md'));
+    assert.ok(!toolList('--allowedTools').some((tool) => tool.includes('github.workspace')));
+  });
+
   // 上の一覧の外でも、action の入力（allowed_tools、settings など）や claude_args の別の引数
   // （--permission-mode、--mcp-config、--settings など）で許可を広げられる。mcp__github__ を1つでも許すと、
   // action が github の MCP サーバーを入れ、base の .claude/settings.json の許可で絞る前のコメントを読める。
