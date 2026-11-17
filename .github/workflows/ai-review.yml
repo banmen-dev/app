@@ -74,6 +74,15 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # 実行するコードは base の別の木に固定し、レビューする作業場所だけ head にする。
+      - name: 実行用の base を用意する
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          TRUSTED_DIR: ${{ runner.temp }}/ai-review-base
+        run: |
+          set -euo pipefail
+          git -c core.hooksPath=/dev/null worktree add --detach "$TRUSTED_DIR" "$BASE_SHA"
+
       # 秘密情報を除く設定は bubblewrap を要る。action が自分で入れるのは allowed_non_write_users を設定したときだけなので、ここで入れる
       - name: bubblewrap を入れる
         run: |
@@ -110,23 +119,25 @@ jobs:
       - name: 書いた人の書き込み権限を確認する
         continue-on-error: true
         env:
+          TRUSTED_DIR: ${{ runner.temp }}/ai-review-base
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           RAW_DIR: ${{ runner.temp }}/pr-raw
-        run: node scripts/github-write-permissions.ts "$RAW_DIR" "$RAW_DIR/write-users.json"
+        run: node "$TRUSTED_DIR/scripts/github-write-permissions.ts" "$RAW_DIR" "$RAW_DIR/write-users.json"
 
       # done-check と前の AI レビューの印から、今回見る範囲の起点を決める。印が読めないときは全体に倒す。
       - name: 起点を決める
         id: scope
         continue-on-error: true
         env:
+          TRUSTED_DIR: ${{ runner.temp }}/ai-review-base
           RAW_DIR: ${{ runner.temp }}/pr-raw
           CONTEXT_DIR: ${{ runner.temp }}/pr-context
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           EVENT_ACTION: ${{ github.event.action }}
           NO_DIFF_BODY_FILE: ${{ runner.temp }}/pr-no-diff-body.md
-        run: node scripts/ai-review-scope.ts
+        run: node "$TRUSTED_DIR/scripts/ai-review-scope.ts"
 
       # 権限の無い人のコメントを落とし、大きさを抑える。ログには件数だけを出す。
       # 整形が落ちても、絞る前の JSON は消す。
@@ -134,6 +145,7 @@ jobs:
       - name: PR の本文とコメントを整える
         continue-on-error: true
         env:
+          TRUSTED_DIR: ${{ runner.temp }}/ai-review-base
           RAW_DIR: ${{ runner.temp }}/pr-raw
           CONTEXT_DIR: ${{ runner.temp }}/pr-context
         run: |
@@ -141,9 +153,9 @@ jobs:
           trap 'rm -rf "$RAW_DIR"' EXIT
           mkdir -p "$CONTEXT_DIR"
           # この変更の初回 PR では base に新スクリプトが無い。旧 CLI の区分判定へ戻さず差分だけを見る。
-          test -f scripts/github-write-permissions.ts
+          test -f "$TRUSTED_DIR/scripts/github-write-permissions.ts"
           test -f "$RAW_DIR/write-users.json"
-          node scripts/ai-review-context.ts "$RAW_DIR" "$CONTEXT_DIR" "$RAW_DIR/write-users.json"
+          node "$TRUSTED_DIR/scripts/ai-review-context.ts" "$RAW_DIR" "$CONTEXT_DIR" "$RAW_DIR/write-users.json"
 
       # Claude には Bash を許さないので、差分はここで書き出して pr-context で渡す。
       # 起点の段が落ちたか、書くはずのファイルが欠けていれば、PR 全体の差分に倒す。
@@ -183,6 +195,42 @@ jobs:
           NO_DIFF_BODY_FILE: ${{ runner.temp }}/pr-no-diff-body.md
         run: gh pr comment "$PR_NUMBER" -R "$REPO" --body-file "$NO_DIFF_BODY_FILE"
 
+      # Claude が自動で読む場所は base に残す。追加・変更された symlink はリンク先の文字列として取り出す。
+      # 失敗したら古い中身をレビューさせず、ジョブを落とす。
+      - name: レビューする作業場所を head にする
+        if: steps.diff.outputs.mode != 'none'
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          git cat-file -e "$HEAD_SHA^{tree}"
+          # 子の除外だけでは、親をファイルに変える restore が保護対象まで消す。
+          # base の保護対象の祖先が head で木以外になる場合は、書き換える前に止める。
+          while IFS= read -r -d '' path; do
+            case "/${path,,}" in
+              */.claude|*/.claude/*|*/claude.md|*/claude.local.md|*/.mcp.json) ;;
+              *) continue ;;
+            esac
+            parent="$path"
+            while [[ "$parent" == */* ]]; do
+              parent="${parent%/*}"
+              # .claude 自体と配下は全体が除外されるので、その中の型変更は安全。
+              case "/${parent,,}" in
+                */.claude|*/.claude/*) continue ;;
+              esac
+              if type=$(git cat-file -t "$HEAD_SHA:$parent" 2>/dev/null) && [[ "$type" != tree ]]; then
+                echo '保護対象の祖先が head でファイルになるため、上書きできません' >&2
+                exit 1
+              fi
+            done
+          done < <(git ls-files -z)
+          git -c core.symlinks=false restore --source="$HEAD_SHA" --worktree -- . \
+            ':(exclude,glob,icase)**/.claude' \
+            ':(exclude,glob,icase)**/.claude/**' \
+            ':(exclude,glob,icase)**/CLAUDE.md' \
+            ':(exclude,glob,icase)**/CLAUDE.local.md' \
+            ':(exclude,glob,icase)**/.mcp.json'
+
       - uses: anthropics/claude-code-action@ae68417a745a5df4b2124873632bd73a2255e6f6 # v1.0.259
         id: claude
         if: steps.diff.outputs.mode != 'none'
@@ -216,6 +264,7 @@ jobs:
       - name: まとめを PR に付ける
         if: ${{ !cancelled() && steps.diff.outputs.mode != 'none' }}
         env:
+          TRUSTED_DIR: ${{ runner.temp }}/ai-review-base
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -224,7 +273,7 @@ jobs:
           MARK_SHA: ${{ steps.claude.outcome == 'success' && github.event.pull_request.head.sha || '' }}
         run: |
           set -euo pipefail
-          node scripts/ai-review-summary.ts "$OUT_FILE" "$BODY_FILE" "$MARK_SHA"
+          node "$TRUSTED_DIR/scripts/ai-review-summary.ts" "$OUT_FILE" "$BODY_FILE" "$MARK_SHA"
           gh pr comment "$PR_NUMBER" -R "$REPO" --body-file "$BODY_FILE"
 
       - name: ai-review のラベルを外す
