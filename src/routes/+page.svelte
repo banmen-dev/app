@@ -161,38 +161,41 @@
   {/if}
 {/snippet}
 
-<!-- 1つの組織の、所属するワークスペースの行。押すとそのワークスペースのバックログへ移る。読んでいる間は骨組み、読めないときは短い案内 -->
+<!-- 1つの組織の、所属するワークスペースの行（組織の行の罫の下 .org-block-body）。押すとそのワークスペースのバックログへ移る。
+     読んでいる間は骨組み、読めないときは短い案内。全体が読めなかったときは、罫ごと置かない（案内は面の先頭の1か所だけ） -->
 {#snippet workspaceRows(organization: { slug: string; name: string; kind: 'team' | 'personal' })}
   {@const slug = organization.slug}
   {@const state = dashboardWorkspacesOf(workspacesView, slug)}
-  {#if state.kind === 'unavailable'}
-    <!-- 全体が読めなかった。案内は面の先頭の1か所だけに出し、組織ごとには繰り返さない -->
-  {:else if state.kind === 'loading'}
-    <div class="skeleton" aria-hidden="true"><span class="skeleton-line is-block"></span></div>
-  {:else if state.kind === 'failed'}
-    <p class="workspace-note">{t('dashboardWorkspacesFailedOrganization', { workspace: t('workspace') })}</p>
-  {:else if state.kind === 'omitted'}
-    <p class="workspace-note">{t('dashboardWorkspacesOmitted', { workspace: t('workspace') })}</p>
-  {:else if state.entry.workspaces.length === 0}
-    <p class="workspace-note">{t('dashboardNoWorkspace', { workspace: t('workspace') })}</p>
-  {:else}
-    <ul
-      class="pane-list"
-      aria-label={t('dashboardWorkspaceListLabel', {
-        organization: organizationLabel(organization),
-        workspace: t('workspace'),
-      })}
-    >
-      {#each state.entry.workspaces as workspace (workspace.id)}
-        <li>
-          <a class="pane-link" href={resolve('/[slug]/w/[id]', { slug, id: workspace.id })}>
-            <b>{workspace.name}</b>
-            <span class="chip">{t(workspace.role)}</span>
-            <Icon name="chevron" />
-          </a>
-        </li>
-      {/each}
-    </ul>
+  {#if state.kind !== 'unavailable'}
+    <div class="org-block-body">
+      {#if state.kind === 'loading'}
+        <div class="skeleton" aria-hidden="true"><span class="skeleton-line is-block"></span></div>
+      {:else if state.kind === 'failed'}
+        <p class="workspace-note">{t('dashboardWorkspacesFailedOrganization', { workspace: t('workspace') })}</p>
+      {:else if state.kind === 'omitted'}
+        <p class="workspace-note">{t('dashboardWorkspacesOmitted', { workspace: t('workspace') })}</p>
+      {:else if state.entry.workspaces.length === 0}
+        <p class="workspace-note">{t('dashboardNoWorkspace', { workspace: t('workspace') })}</p>
+      {:else}
+        <ul
+          class="pane-list"
+          aria-label={t('dashboardWorkspaceListLabel', {
+            organization: organizationLabel(organization),
+            workspace: t('workspace'),
+          })}
+        >
+          {#each state.entry.workspaces as workspace (workspace.id)}
+            <li>
+              <a class="pane-link" href={resolve('/[slug]/w/[id]', { slug, id: workspace.id })}>
+                <b>{workspace.name}</b>
+                <span class="chip">{t(workspace.role)}</span>
+                <Icon name="chevron" />
+              </a>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </div>
   {/if}
 {/snippet}
 
@@ -219,7 +222,7 @@
                     </div>
                     <Icon name="chevron" />
                   </a>
-                  <div class="org-block-body">{@render workspaceRows(personalOrganization)}</div>
+                  {@render workspaceRows(personalOrganization)}
                 </div>
                 {#if personalWorkspaces?.kind === 'ready'}
                   <div class="form-actions">
@@ -259,7 +262,7 @@
                       </div>
                       <Icon name="chevron" />
                     </a>
-                    <div class="org-block-body">{@render workspaceRows(organization)}</div>
+                    {@render workspaceRows(organization)}
                   </div>
                 {/each}
               </div>
