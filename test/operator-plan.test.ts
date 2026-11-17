@@ -15,12 +15,18 @@ import {
   organizationStorageUpdate,
 } from '../src/shared/operations/operator/index.ts';
 import { organizationInfo } from '../src/shared/operations/organization/index.ts';
-import { createPerson } from './operations/world.ts';
 import { organizationHistory } from '../src/shared/operations/organization/organization-history.ts';
 import { contractLimits, PLAN_LIMITS, type BillingInterval, type TeamPlan } from '../src/shared/organization-plan.ts';
 import { createOrganization, createUser } from './factories.ts';
 import { errorCodeOf, post } from './operations/harness.ts';
-import { createTarget, getOperator, OPERATOR_LOGIN_ID, testEnv, withNewSession } from './operations/world.ts';
+import {
+  createPerson,
+  createTarget,
+  getOperator,
+  OPERATOR_LOGIN_ID,
+  testEnv,
+  withNewSession,
+} from './operations/world.ts';
 
 const app = createApp(implementedOperations);
 
@@ -835,15 +841,27 @@ describe('変更の履歴', () => {
   });
 });
 
-describe('新しいプランを読む版', () => {
-  test.each([
-    ['small', 3, 10],
-    ['pro', 50, 100],
-  ] as const)('%s を読み、追加容量を計算するが契約の選択は断る', async (plan, members, quota) => {
+describe.each([
+  ['small', 3, 10],
+  ['pro', 50, 100],
+] as const)('新しいプラン %s を読む版', (plan, members, quota) => {
+  async function setup() {
     const organization = await createOrganization({ member_limit: members, attachment_quota_bytes: quota * GIB });
     await insertContract(organization.id, { plan, billing_interval: 'monthly' });
     const token = await operatorToken();
     const admin = await createPerson({ organization, admin: true });
+    const expected = {
+      plan,
+      billing_interval: 'monthly',
+      extra_10gb_units: 0,
+      extra_50gb_units: 0,
+      custom_member_limit: null,
+      custom_attachment_quota_bytes: null,
+    };
+    return { organization, token, admin, expected };
+  }
+  test('運用者の一覧と組織の管理で契約を読める', async () => {
+    const { organization, token, admin } = await setup();
     const listed = await post(app, listOrganizations, { token });
     expect(listed.status).toBe(200);
     expect(
@@ -862,14 +880,9 @@ describe('新しいプランを読む版', () => {
       member_limit: members,
       attachment_quota_bytes: quota * GIB,
     });
-    const expected = {
-      plan,
-      billing_interval: 'monthly',
-      extra_10gb_units: 0,
-      extra_50gb_units: 0,
-      custom_member_limit: null,
-      custom_attachment_quota_bytes: null,
-    };
+  });
+  test('追加容量を計算し、既存プランへ変えた履歴で前のプランを読める', async () => {
+    const { organization, token, admin, expected } = await setup();
     const storage = await post(app, organizationStorageUpdate, {
       token,
       body: {
@@ -912,6 +925,9 @@ describe('新しいプランを読む版', () => {
         },
       ]),
     });
+  });
+  test('新プランの選択は400で断る', async () => {
+    const { organization, token } = await setup();
     const rejected = await post(app, organizationPlanUpdate, {
       token,
       body: { slug: organization.slug, plan, billing_interval: 'monthly', expected: null },
