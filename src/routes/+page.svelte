@@ -56,13 +56,17 @@
   const workspacesView = $derived(workspaces ?? (workspacesError ? null : undefined));
   let workspacesGeneration = 0;
   let workspacesRetrying = $state(false);
+  // 読んでいる間（最初の読み込みと読み直しの両方）
+  let workspacesLoading = $state(false);
   // 自分用での自分のユーザーの ID（ワークスペースを作るダイアログの、最初のリーダーの既定）。一度読めたら持ち続け、
   // 作った後の読み直しが失敗しても、開いているダイアログ（完了の表示）を外さない
   let personalMeId = $state<string>();
   async function loadWorkspaces(): Promise<void> {
     const token = ++workspacesGeneration;
+    workspacesLoading = true;
     const result = await callOperation(myWorkspaces, {});
     if (token !== workspacesGeneration) return;
+    workspacesLoading = false;
     if (!result.ok) {
       workspacesError = true;
       return;
@@ -101,7 +105,9 @@
     }
   }
   const personalWorkspaces = $derived(
-    personalOrganization === undefined ? undefined : dashboardWorkspacesOf(workspacesView, personalOrganization.slug),
+    personalOrganization === undefined
+      ? undefined
+      : dashboardWorkspacesOf(workspacesView, personalOrganization.slug, workspacesLoading),
   );
 </script>
 
@@ -143,7 +149,9 @@
 <!-- ワークスペースの読み込みの状態。常に置いた role="status" の文字だけを替えて読み込み中を伝え、全体が読めなかったときは
      案内と「もう一度試す」を出す。自分用の面（自分用に入れる人）か組織の面の、先に出る1か所にだけ置く -->
 {#snippet workspacesStatus()}
-  <span class="visually-hidden" role="status">{workspacesView === undefined ? t('loading') : ''}</span>
+  <!-- 最初の読み込みは面の aria-busy と骨組みで伝え、文は空から始める（マウント時に文字を持った領域は読み上げられない恐れがあるため。
+       RecentActivity と同じ）。文を出すのは、前の答えを持ったままの読み直しの間だけ -->
+  <span class="visually-hidden" role="status">{workspacesLoading && workspaces !== undefined ? t('loading') : ''}</span>
   {#if workspacesError}
     <div class="callout is-warn">
       <Icon name="alert" /><span role="alert"
@@ -165,7 +173,7 @@
      読んでいる間は骨組み、読めないときは短い案内。全体が読めなかったときは、罫ごと置かない（案内は面の先頭の1か所だけ） -->
 {#snippet workspaceRows(organization: { slug: string; name: string; kind: 'team' | 'personal' })}
   {@const slug = organization.slug}
-  {@const state = dashboardWorkspacesOf(workspacesView, slug)}
+  {@const state = dashboardWorkspacesOf(workspacesView, slug, workspacesLoading)}
   {#if state.kind !== 'unavailable'}
     <div class="org-block-body">
       {#if state.kind === 'loading'}

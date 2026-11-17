@@ -17,11 +17,16 @@ export type DashboardWorkspaces =
   | { kind: 'omitted' }
   | { kind: 'ready'; entry: OrganizationWorkspaces };
 
-export function dashboardWorkspacesOf(view: MyWorkspacesView | null | undefined, slug: string): DashboardWorkspaces {
+// reloading は、前の答えを持ったまま読み直している間。答えに無い組織（組織を作った直後の新しい組織など）は、読み直しが終わるまで loading にする
+export function dashboardWorkspacesOf(
+  view: MyWorkspacesView | null | undefined,
+  slug: string,
+  reloading = false,
+): DashboardWorkspaces {
   if (view === undefined) return { kind: 'loading' };
   if (view === null) return { kind: 'unavailable' };
   const entry = view.organizations.find((organization) => organization.organization.slug === slug);
   if (entry !== undefined) return { kind: 'ready', entry };
   if (view.failed_organizations.some((organization) => organization.slug === slug)) return { kind: 'failed' };
-  return { kind: 'omitted' };
+  return reloading ? { kind: 'loading' } : { kind: 'omitted' };
 }

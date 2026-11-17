@@ -16,5 +16,9 @@ describe('dashboardWorkspacesOf', () => {
     expect(dashboardWorkspacesOf(view, 'kaede')).toEqual({ kind: 'failed' });
     expect(dashboardWorkspacesOf(view, 'sakura')).toEqual({ kind: 'omitted' });
     expect(dashboardWorkspacesOf(view, 'aoba')).toEqual({ kind: 'ready', entry: view.organizations[0] });
+    // 読み直している間は、答えに無い組織を読み込み中にする（読めた組織と読めなかった組織はそのまま）
+    expect(dashboardWorkspacesOf(view, 'sakura', true)).toEqual({ kind: 'loading' });
+    expect(dashboardWorkspacesOf(view, 'aoba', true)).toEqual({ kind: 'ready', entry: view.organizations[0] });
+    expect(dashboardWorkspacesOf(view, 'kaede', true)).toEqual({ kind: 'failed' });
   });
 });
