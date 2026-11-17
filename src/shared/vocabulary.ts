@@ -1415,6 +1415,7 @@ export const dictionary = defineDictionary({
   planSmall: 'スモール',
   planTeam: 'チーム',
   planBusiness: 'ビジネス',
+  // 料金のプラン名。プロダクトオーナーなどの役割名ではない
   planPro: 'プロ',
   planCustom: '個別',
   operatorPlanCustomHint: '相談して決めた人数と標準の容量',
