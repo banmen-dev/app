@@ -1,15 +1,20 @@
 // #740: 応答を差し替えず、添付の書き込みから容量警告・既読・画面表示までを確かめる。
-// 生成した組織だけを使い、共有 seed の組織・ユーザー・通知は変更しない。実行は CI に任せる。
+// 生成した組織と使い捨てのアカウントだけを使い、共有 seed の組織・アカウント・ユーザー・通知は変更しない（#1341）。
+// 共有 seed のアカウントを一時的な組織に入れると、並べて走る組織の一覧の e2e に混ざるため。実行は CI に任せる。
+import { randomBytes } from 'node:crypto';
 import type { APIRequestContext } from '@playwright/test';
+import { sessionInserts } from '../scripts/seed.ts';
 import { SEED_SESSIONS } from '../seed/sessions.ts';
 import { attachmentUpload } from '../src/shared/operations/attachment/index.ts';
 import { operationPath, type AnyOperationDefinition } from '../src/shared/operations/define.ts';
 import { notificationList, notificationRead } from '../src/shared/operations/notification.ts';
-import { organizationInfo } from '../src/shared/operations/organization/index.ts';
+import { myOrganizations, organizationInfo } from '../src/shared/operations/organization/index.ts';
 import { sessionCookieName } from '../src/shared/session-cookie.ts';
+import { uuidv7 } from '../src/server/uuid.ts';
 import { expect, test } from './fixtures.ts';
-import { signIn } from './helpers.ts';
 import { executeLocalD1 } from './local-d1.ts';
+
+type Who = 'admin' | 'secondAdmin' | 'member';
 
 test('全ワークスペースで容量を共有し、80%超過の管理者通知を一度だけ保存し、上限を超える並行添付を断る', async ({
   page,
@@ -29,20 +34,49 @@ test('全ワークスペースで容量を共有し、80%超過の管理者通�
   const requests: APIRequestContext[] = [];
   const workspaceIds = `SELECT id FROM workspaces WHERE organization_id = '${organizationId}'`;
   const userIds = `SELECT id FROM users WHERE organization_id = '${organizationId}'`;
+  // 一時的な組織に入れる人は、このテストだけのアカウントにする。ログインはセッションの行で用意し、OAuth は往復しない
+  const accounts: Record<Who, { accountId: string; token: string; description: string }> = {
+    admin: {
+      accountId: uuidv7(new Date()),
+      token: randomBytes(32).toString('base64url'),
+      description: '容量確認の管理者',
+    },
+    secondAdmin: {
+      accountId: uuidv7(new Date()),
+      token: randomBytes(32).toString('base64url'),
+      description: '容量確認の2人目の管理者',
+    },
+    member: {
+      accountId: uuidv7(new Date()),
+      token: randomBytes(32).toString('base64url'),
+      description: '容量確認のメンバー',
+    },
+  };
+  const accountIds = Object.values(accounts).map((account) => account.accountId);
 
-  // SQL の値はこのテストの UUID・日時・定数と、リポジトリにある seed のアカウント ID だけ。
-  // ログインの列は既存アカウントの公開 seed 行から写し、新しいユーザーをこの組織にだけ足す。
-  const userInsert = (id: string, who: 'admin' | 'otherOrg' | 'member', admin: boolean) =>
+  // SQL の値はこのテストの UUID・日時・乱数のトークンの hash・定数と、リポジトリにある seed のアカウント ID だけ。
+  // 同意の行は seed の admin の公開の行から写す（同意の画面へ移さないため）
+  const userInsert = (id: string, who: Who, admin: boolean) =>
     `INSERT INTO users (id, organization_id, account_id, login_provider, login_subject, name, is_admin, created_at, updated_at) ` +
-    `SELECT '${id}', '${organizationId}', account_id, login_provider, login_subject, '容量確認のメンバー', ${admin ? 1 : 0}, '${at}', '${at}' ` +
-    `FROM account_logins WHERE account_id = '${SEED_SESSIONS[who].accountId}' ORDER BY login_provider, login_subject LIMIT 1`;
+    `VALUES ('${id}', '${organizationId}', '${accounts[who].accountId}', 'github', '${accounts[who].accountId}', '容量確認のメンバー', ${admin ? 1 : 0}, '${at}', '${at}')`;
 
   try {
+    // 共通の表（アカウントとセッション）と組織の中の表は、別の batch で書く
+    await executeLocalD1([
+      ...accountIds.flatMap((accountId) => [
+        `INSERT INTO accounts (id, created_at, updated_at) VALUES ('${accountId}', '${at}', '${at}')`,
+        `INSERT INTO account_logins (login_provider, login_subject, account_id, login_name, created_at, updated_at) ` +
+          `VALUES ('github', '${accountId}', '${accountId}', 'quota-test', '${at}', '${at}')`,
+        `INSERT INTO account_consents (account_id, terms_version, privacy_version, consented_at) ` +
+          `SELECT '${accountId}', terms_version, privacy_version, consented_at FROM account_consents WHERE account_id = '${SEED_SESSIONS.admin.accountId}'`,
+      ]),
+      sessionInserts(Object.values(accounts), new Date()),
+    ]);
     await executeLocalD1([
       `INSERT INTO organizations (id, slug, name, attachment_quota_bytes, created_by_operator, created_at, updated_at) ` +
         `VALUES ('${organizationId}', '${slug}', '容量確認の工房', 1000, 'github:9000000000000001', '${at}', '${at}')`,
       userInsert(adminId!, 'admin', true),
-      userInsert(secondAdminId!, 'otherOrg', true),
+      userInsert(secondAdminId!, 'secondAdmin', true),
       userInsert(memberId!, 'member', false),
       ...[firstWorkspaceId, secondWorkspaceId].map(
         (id, index) =>
@@ -55,20 +89,26 @@ test('全ワークスペースで容量を共有し、80%超過の管理者通�
           `VALUES ('${crypto.randomUUID()}', '${id}', '${memberId}', 'member', '${at.slice(0, 10)}', '${at}')`,
       ),
     ]);
-    const client = async (who: 'admin' | 'otherOrg' | 'member') => {
+    const client = async (token: string) => {
       const request = await playwright.request.newContext({
         baseURL,
-        extraHTTPHeaders: {
-          Origin: origin,
-          Cookie: `${sessionCookieName(baseURL)}=${SEED_SESSIONS[who].token}`,
-        },
+        extraHTTPHeaders: { Origin: origin, Cookie: `${sessionCookieName(baseURL)}=${token}` },
       });
       requests.push(request);
       return request;
     };
-    const admin = await client('admin');
-    const secondAdmin = await client('otherOrg');
-    const member = await client('member');
+    const admin = await client(accounts.admin.token);
+    const secondAdmin = await client(accounts.secondAdmin.token);
+    const member = await client(accounts.member.token);
+
+    // 一時的な組織がある間も、並べて走るテストが使う seed のアカウントの入れる組織に混ざらない
+    for (const who of ['admin', 'otherOrg', 'member'] as const) {
+      const seed = await client(SEED_SESSIONS[who].token);
+      const response = await seed.post(operationPath(myOrganizations), { data: {} });
+      expect(response.status()).toBe(200);
+      const output = myOrganizations.output.parse(await response.json());
+      expect(output.organizations.map((organization) => organization.slug)).not.toContain(slug);
+    }
     const post = (request: APIRequestContext, definition: AnyOperationDefinition, input: unknown = {}) =>
       request.post(operationPath(definition, slug), { data: input });
     const notifications = async (request: APIRequestContext) => {
@@ -141,7 +181,9 @@ test('全ワークスペースで容量を共有し、80%超過の管理者通�
     const forbiddenRead = await post(member, notificationRead, { id: warning.id });
     expect(forbiddenRead.status()).toBe(404);
     expect(await forbiddenRead.json()).toMatchObject({ error: { code: 'not_found' } });
-    await signIn(context, baseURL, 'admin');
+    await context.addCookies([
+      { name: sessionCookieName(baseURL), value: accounts.admin.token, url: baseURL, httpOnly: true },
+    ]);
     await page.goto(`/${slug}/notifications`);
     await expect(page.getByRole('heading', { name: '通知', level: 1 })).toBeVisible();
     await expect(page.locator('.feed li')).toHaveCount(1);
@@ -170,6 +212,14 @@ test('全ワークスペースで容量を共有し、80%超過の管理者通�
       `DELETE FROM users WHERE organization_id = '${organizationId}'`,
       `DELETE FROM organizations WHERE id = '${organizationId}'`,
     ]);
+    await executeLocalD1(
+      accountIds.flatMap((accountId) => [
+        `DELETE FROM sessions WHERE account_id = '${accountId}'`,
+        `DELETE FROM account_consents WHERE account_id = '${accountId}'`,
+        `DELETE FROM account_logins WHERE account_id = '${accountId}'`,
+        `DELETE FROM accounts WHERE id = '${accountId}'`,
+      ]),
+    );
     // R2 はこの使い捨てローカル環境だけに残る。共有 seed のオブジェクトを列挙・削除しない。
   }
 });
