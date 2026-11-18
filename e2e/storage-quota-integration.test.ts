@@ -35,22 +35,15 @@ test('全ワークスペースで容量を共有し、80%超過の管理者通�
   const workspaceIds = `SELECT id FROM workspaces WHERE organization_id = '${organizationId}'`;
   const userIds = `SELECT id FROM users WHERE organization_id = '${organizationId}'`;
   // 一時的な組織に入れる人は、このテストだけのアカウントにする。ログインはセッションの行で用意し、OAuth は往復しない
-  const accounts: Record<Who, { accountId: string; token: string; description: string }> = {
-    admin: {
-      accountId: uuidv7(new Date()),
-      token: randomBytes(32).toString('base64url'),
-      description: '容量確認の管理者',
-    },
-    secondAdmin: {
-      accountId: uuidv7(new Date()),
-      token: randomBytes(32).toString('base64url'),
-      description: '容量確認の2人目の管理者',
-    },
-    member: {
-      accountId: uuidv7(new Date()),
-      token: randomBytes(32).toString('base64url'),
-      description: '容量確認のメンバー',
-    },
+  const newAccount = (description: string) => ({
+    accountId: uuidv7(new Date()),
+    token: randomBytes(32).toString('base64url'),
+    description,
+  });
+  const accounts: Record<Who, ReturnType<typeof newAccount>> = {
+    admin: newAccount('容量確認の管理者'),
+    secondAdmin: newAccount('容量確認の2人目の管理者'),
+    member: newAccount('容量確認のメンバー'),
   };
   const accountIds = Object.values(accounts).map((account) => account.accountId);
 
@@ -61,7 +54,7 @@ test('全ワークスペースで容量を共有し、80%超過の管理者通�
     `VALUES ('${id}', '${organizationId}', '${accounts[who].accountId}', 'github', '${accounts[who].accountId}', '容量確認のメンバー', ${admin ? 1 : 0}, '${at}', '${at}')`;
 
   try {
-    // 共通の表（アカウントとセッション）と組織の中の表は、別の batch で書く
+    // 共通の表（アカウント、セッション、組織）と組織の中の表は、別の batch で書く
     await executeLocalD1([
       ...accountIds.flatMap((accountId) => [
         `INSERT INTO accounts (id, created_at, updated_at) VALUES ('${accountId}', '${at}', '${at}')`,
@@ -71,10 +64,10 @@ test('全ワークスペースで容量を共有し、80%超過の管理者通�
           `SELECT '${accountId}', terms_version, privacy_version, consented_at FROM account_consents WHERE account_id = '${SEED_SESSIONS.admin.accountId}'`,
       ]),
       sessionInserts(Object.values(accounts), new Date()),
-    ]);
-    await executeLocalD1([
       `INSERT INTO organizations (id, slug, name, attachment_quota_bytes, created_by_operator, created_at, updated_at) ` +
         `VALUES ('${organizationId}', '${slug}', '容量確認の工房', 1000, 'github:9000000000000001', '${at}', '${at}')`,
+    ]);
+    await executeLocalD1([
       userInsert(adminId!, 'admin', true),
       userInsert(secondAdminId!, 'secondAdmin', true),
       userInsert(memberId!, 'member', false),
@@ -202,24 +195,30 @@ test('全ワークスペースで容量を共有し、80%超過の管理者通�
     );
     await expect(page.getByRole('region', { name: '添付ファイルと Wiki の容量' })).toContainText('1,000 バイト使用中');
   } finally {
-    await page.goto('about:blank');
-    await Promise.all(requests.map((request) => request.dispose()));
-    await executeLocalD1([
-      `DELETE FROM notifications WHERE user_id IN (${userIds})`,
-      `DELETE FROM attachments WHERE workspace_id IN (${workspaceIds})`,
-      `DELETE FROM memberships WHERE workspace_id IN (${workspaceIds})`,
-      `DELETE FROM workspaces WHERE organization_id = '${organizationId}'`,
-      `DELETE FROM users WHERE organization_id = '${organizationId}'`,
-      `DELETE FROM organizations WHERE id = '${organizationId}'`,
-    ]);
-    await executeLocalD1(
-      accountIds.flatMap((accountId) => [
-        `DELETE FROM sessions WHERE account_id = '${accountId}'`,
-        `DELETE FROM account_consents WHERE account_id = '${accountId}'`,
-        `DELETE FROM account_logins WHERE account_id = '${accountId}'`,
-        `DELETE FROM accounts WHERE id = '${accountId}'`,
-      ]),
-    );
-    // R2 はこの使い捨てローカル環境だけに残る。共有 seed のオブジェクトを列挙・削除しない。
+    // 画面と要求の後始末が投げても（タイムアウトで page が閉じたときなど）、D1 の後始末は流す
+    try {
+      await page.goto('about:blank');
+      await Promise.all(requests.map((request) => request.dispose()));
+    } finally {
+      // 組織の中の表を消してから、共通の表（アカウント、セッション、組織）を消す
+      await executeLocalD1([
+        `DELETE FROM notifications WHERE user_id IN (${userIds})`,
+        `DELETE FROM change_logs WHERE organization_id = '${organizationId}'`,
+        `DELETE FROM attachments WHERE workspace_id IN (${workspaceIds})`,
+        `DELETE FROM memberships WHERE workspace_id IN (${workspaceIds})`,
+        `DELETE FROM workspaces WHERE organization_id = '${organizationId}'`,
+        `DELETE FROM users WHERE organization_id = '${organizationId}'`,
+      ]);
+      await executeLocalD1([
+        ...accountIds.flatMap((accountId) => [
+          `DELETE FROM sessions WHERE account_id = '${accountId}'`,
+          `DELETE FROM account_consents WHERE account_id = '${accountId}'`,
+          `DELETE FROM account_logins WHERE account_id = '${accountId}'`,
+          `DELETE FROM accounts WHERE id = '${accountId}'`,
+        ]),
+        `DELETE FROM organizations WHERE id = '${organizationId}'`,
+      ]);
+      // R2 はこの使い捨てローカル環境だけに残る。共有 seed のオブジェクトを列挙・削除しない。
+    }
   }
 });
