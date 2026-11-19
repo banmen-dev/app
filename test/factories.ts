@@ -11,6 +11,7 @@ import {
 } from '../src/server/db/index.ts';
 import { PRIVACY_VERSION, TERMS_VERSION } from '../src/lib/legal/versions.ts';
 import { hashSessionToken } from '../src/server/auth/session.ts';
+import { SESSION_LIFETIME_DAYS } from '../src/shared/session-cookie.ts';
 import { uuidv7 as newUuidv7 } from '../src/server/uuid.ts';
 import { verifiedOrganizationForTest } from '../src/server/db/testing.ts';
 
@@ -125,8 +126,8 @@ export async function createAccountLogin(
   return row;
 }
 
-// テスト用のセッションの有効期間（seed と同じ30日）
-const SESSION_FIXTURE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+// テスト用のセッションの有効期間は、本番のセッションと同じ日数にする
+const SESSION_FIXTURE_TTL_MS = SESSION_LIFETIME_DAYS * 24 * 60 * 60 * 1000;
 
 export async function createSession(accountId: string, overrides: Partial<Row<CommonTables, 'sessions'>> = {}) {
   const now = new Date();

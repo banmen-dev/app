@@ -12,6 +12,7 @@ const app = createApp(implementedOperations);
 
 afterEach(() => vi.useRealTimers());
 
+// フィクスチャのセッションの期限は作った時刻から30日なので、時計を進める at() はセッションを作る前に呼ぶ
 function at(value: string): void {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date(value));
