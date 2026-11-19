@@ -293,7 +293,7 @@ test('期日のチップの窓で日付を入れると行に出て、「クリ�
   await expect(row.getByRole('button', { name: '期日: 未設定' })).toBeVisible();
 
   const saved = waitForResponses(page, '/task-update');
-  await input.fill('2030-11-20');
+  await input.fill('2099-11-20');
   await saved;
   await expect(panel).toBeHidden();
   await expect(row.getByRole('button', { name: '期日: 11/20' })).toBeVisible();
@@ -318,12 +318,12 @@ test('期日の窓は、続けて日付が変わる間は保存せず、変わ�
   await row.getByRole('button', { name: '期日: 未設定' }).click();
   const input = page.getByRole('dialog', { name: '期日を選ぶ' }).getByLabel('期日');
   // 月を「1」→「12」と打つと change が2回出る。1回目の値(1月)は保存しない
-  await input.fill('2030-01-20');
-  await input.fill('2030-12-20');
+  await input.fill('2099-01-20');
+  await input.fill('2099-12-20');
   await expect(row.getByRole('button', { name: '期日: 12/20' })).toBeVisible();
   await waitForSettled(page);
   expect(updates).toHaveLength(1);
-  expect(updates[0]).toContain('2030-12-20');
+  expect(updates[0]).toContain('2099-12-20');
 });
 
 test('担当の候補を読んでいる間に開いても、Esc で閉じてチップへ戻る', async ({ page }) => {
