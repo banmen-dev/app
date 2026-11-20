@@ -56,7 +56,7 @@ test('木のエピックの題を押すと引き出しが開き、タイトル�
   // 期日は選ぶと、少し待ってから保存される
   const dueSaved = waitForResponses(page, '/epic-update');
   const due = drawer.getByLabel('期日', { exact: true });
-  await due.fill('2027-03-31');
+  await due.fill('2099-03-31');
   await due.blur();
   await dueSaved;
 
@@ -85,7 +85,7 @@ test('木のエピックの題を押すと引き出しが開き、タイトル�
   await row.getByRole('link', { name: '会員ポイント制度を春に公開する', exact: true }).click();
   const reopened = page.getByRole('dialog', { name: '会員ポイント制度を春に公開する', exact: true });
   await expect(reopened.getByRole('listitem').filter({ hasText: '失効日が分かる' })).toBeVisible();
-  await expect(reopened.getByLabel('期日', { exact: true })).toHaveValue('2027-03-31');
+  await expect(reopened.getByLabel('期日', { exact: true })).toHaveValue('2099-03-31');
   expect(await collect()).toEqual([]);
 });
 

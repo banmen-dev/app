@@ -11,6 +11,7 @@ import {
 } from '../src/server/db/index.ts';
 import { PRIVACY_VERSION, TERMS_VERSION } from '../src/lib/legal/versions.ts';
 import { hashSessionToken } from '../src/server/auth/session.ts';
+import { SESSION_LIFETIME_DAYS } from '../src/shared/session-cookie.ts';
 import { uuidv7 as newUuidv7 } from '../src/server/uuid.ts';
 import { verifiedOrganizationForTest } from '../src/server/db/testing.ts';
 
@@ -125,14 +126,19 @@ export async function createAccountLogin(
   return row;
 }
 
+// テスト用のセッションの有効期間は、本番のセッションと同じ日数にする
+const SESSION_FIXTURE_TTL_MS = SESSION_LIFETIME_DAYS * 24 * 60 * 60 * 1000;
+
 export async function createSession(accountId: string, overrides: Partial<Row<CommonTables, 'sessions'>> = {}) {
+  const now = new Date();
   const row: Row<CommonTables, 'sessions'> = {
     token_hash: hash64(),
     account_id: accountId,
     // token-create はログインから10分以内のセッションだけ通す。固定の過去の日時だと、既定のセッションが発行を断られる
-    created_at: new Date().toISOString(),
+    created_at: now.toISOString(),
     last_used_at: AT,
-    expires_at: '2026-11-19T00:00:00.000Z',
+    // 期限も実行時の時刻から決める。固定の将来の日時だと、その日を過ぎてすべてのテストが 401 になる
+    expires_at: new Date(now.getTime() + SESSION_FIXTURE_TTL_MS).toISOString(),
     api_token_seen_at: null,
     ...overrides,
   };
