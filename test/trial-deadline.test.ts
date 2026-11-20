@@ -10,11 +10,9 @@ import { createPerson, getOperator } from './operations/world.ts';
 
 const app = createApp(implementedOperations);
 
-// 時計を 2028 年に進めても、フィクスチャのセッション（期限 2026-11-19）が切れないようにする
-const LONG_SESSION = { expires_at: '2030-01-01T00:00:00.000Z' };
-
 afterEach(() => vi.useRealTimers());
 
+// フィクスチャのセッションの期限は作った時刻から30日なので、時計を進める at() はセッションを作る前に呼ぶ
 function at(value: string): void {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date(value));
@@ -37,7 +35,7 @@ describe('organization のお試しの期限', () => {
   ])('管理者には UTC の日付差を返す（%s）', async (instant, endsOn, daysLeft) => {
     at(instant);
     const organization = await createOrganization({ trial_ends_on: endsOn });
-    const admin = await createPerson({ organization, admin: true, sessionOverrides: LONG_SESSION });
+    const admin = await createPerson({ organization, admin: true });
     expect((await read(organization.slug, admin.token)).trial).toEqual({ ends_on: endsOn, days_left: daysLeft });
   });
 
@@ -74,7 +72,7 @@ describe('list-organizations のお試しの期限', () => {
       at(instant);
       const dates = [null, '2028-02-29', '2028-03-01', '2028-03-02'];
       const organizations = await Promise.all(dates.map((trial_ends_on) => createOrganization({ trial_ends_on })));
-      const token = (await createSessionWithToken((await getOperator()).accountId, LONG_SESSION)).token;
+      const token = (await createSessionWithToken((await getOperator()).accountId)).token;
       const response = await post(app, listOrganizations, { token });
       expect(response.status).toBe(200);
       const result = (await response.json()) as OutputOf<typeof listOrganizations>;

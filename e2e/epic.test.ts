@@ -68,7 +68,7 @@ test('作ったワークスペース: エピックを作り、ストーリーを
   await bodyBox.blur();
   await bodySaved;
   const dueSaved = waitForResponses(page, '/epic-update');
-  await drawer.getByLabel('期日', { exact: true }).fill('2026-12-25');
+  await drawer.getByLabel('期日', { exact: true }).fill('2099-12-25');
   await drawer.getByLabel('期日', { exact: true }).blur();
   await dueSaved;
   // 引き出しの下から、エピックの画面へ移る。本文は概要に、期日は概要に出る
