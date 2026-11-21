@@ -3976,25 +3976,43 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   document.addEventListener("input", (ev) => { if (ev.target.closest("[data-storage-choice]")) syncStorageDialog(); });
 
 
-  // ストーリーの親名の操作も、カードの見本の範囲だけで働く。
-  // ポインタはカードのどこに乗っても、そのカードのストーリーを強調する（親名の1行だけでは狭くてちらつく）。フォーカスは親名のボタンだけ。
-  function highlightStoryExample(trigger, storyId, active) {
-    trigger.closest(".story-board")?.querySelectorAll(".card").forEach((card) => {
-      card.classList.toggle("is-story-highlighted", active && card.dataset.storyId === storyId);
-      card.classList.toggle("is-story-dimmed", active && card.dataset.storyId !== storyId);
+  // ストーリーの親名の操作も、カードの見本の範囲だけで働く。本番の SprintCard とスプリントの画面の trackStoryHover に合わせる。
+  // ポインタはカードのどこに乗っても、そのカードのストーリーを強調する（親のないカードは消す）。カードの隙間（列と盤の地）では直前の強調を保ち、
+  // 見出しや足す行に移るか盤を出たら外す。ポインタがある間はフォーカスより先で、外れたら親名のボタンのフォーカスの強調に戻す。タッチでは強調しない。
+  const storyHover = new WeakMap();
+  const storyFocus = new WeakMap();
+  function paintStoryExample(scope) {
+    const hover = storyHover.get(scope);
+    const storyId = hover !== undefined ? hover : (storyFocus.get(scope) ?? null);
+    scope.querySelectorAll(".card").forEach((card) => {
+      card.classList.toggle("is-story-highlighted", storyId !== null && card.dataset.storyId === storyId);
+      card.classList.toggle("is-story-dimmed", storyId !== null && card.dataset.storyId !== storyId);
     });
   }
-  function hoverStoryExample(event, active) {
-    const card = event.target.closest?.(".story-board .card");
-    if (!card || (event.relatedTarget && card.contains(event.relatedTarget))) return;
-    highlightStoryExample(card, card.dataset.storyId, active && !!card.dataset.storyId);
-  }
+  document.addEventListener("pointerover", (event) => {
+    const scope = event.target.closest?.(".story-board");
+    if (!scope || event.pointerType === "touch") return;
+    const card = event.target.closest(".card");
+    if (card) storyHover.set(scope, card.dataset.storyId || null);
+    else if (event.target.matches(".board, .board-col")) return;
+    else storyHover.delete(scope);
+    paintStoryExample(scope);
+  });
+  document.addEventListener("pointerout", (event) => {
+    const board = event.target.closest?.(".story-board .board");
+    if (!board || (event.relatedTarget && board.contains(event.relatedTarget))) return;
+    const scope = board.closest(".story-board");
+    storyHover.delete(scope);
+    paintStoryExample(scope);
+  });
   function focusStoryExample(event, active) {
     const trigger = event.target.closest?.("[data-story-filter]");
-    if (trigger) highlightStoryExample(trigger, trigger.dataset.storyFilter, active);
+    const scope = trigger?.closest(".story-board");
+    if (!scope) return;
+    if (active) storyFocus.set(scope, trigger.dataset.storyFilter);
+    else storyFocus.delete(scope);
+    paintStoryExample(scope);
   }
-  document.addEventListener("pointerover", (event) => hoverStoryExample(event, true));
-  document.addEventListener("pointerout", (event) => hoverStoryExample(event, false));
   document.addEventListener("focusin", (event) => focusStoryExample(event, true));
   document.addEventListener("focusout", (event) => focusStoryExample(event, false));
   document.addEventListener("click", (event) => {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import type { SprintBoardTask } from '../../shared/operations/sprint/index.ts';
   import { taskDetailHref, taskLinkAttrs } from '../drawer.svelte.ts';
   import type { MoveDirection } from '../sprint-board.ts';
@@ -35,7 +36,8 @@
     onstoryfilter,
   }: {
     highlightedStory?: string | null;
-    onstoryhover?: (id: string | null) => void;
+    // ポインタが乗ったカードのストーリー（親のないカードは null）。undefined はカードの上にいないことで、フォーカスの強調に戻す
+    onstoryhover?: (id: string | null | undefined) => void;
     onstoryfocus?: (id: string | null) => void;
     onstoryfilter?: (id: string) => void;
     task: SprintBoardTask;
@@ -57,6 +59,17 @@
   } = $props();
 
   const done = $derived(task.completed_at !== null);
+  // 乗っている間に消えたカード（削除、列をまたぐ移動）は pointerleave が来ないので、破棄するときに強調を外す
+  let hovering = false;
+  function storyPointerEnter(event: PointerEvent): void {
+    // タッチは押すだけで入るため、強調しない（スクロールのたびにほかのカードが暗くなる）
+    if (event.pointerType === 'touch') return;
+    hovering = true;
+    onstoryhover?.(task.story?.id ?? null);
+  }
+  onDestroy(() => {
+    if (hovering) onstoryhover?.(undefined);
+  });
   const movable = $derived(edges !== null);
   const selectable = $derived(movable || (done && writable));
   const column = $derived(t('column'));
@@ -159,7 +172,7 @@
 
 <!-- キーは中のリンクとボタンから届く。書き込めるカードは完了カードも選べる（tabindex は 0 か未指定だけ） -->
 <!-- 選んだときは題を名前に、ポイントと担当の要約と動かし方の見えない説明を読む（中の印は role="img" で、選んだだけでは読まれないため） -->
-<!-- 同じストーリーの強調は、親の名前の1行だけでなくカードのどこにポインタが乗っても働かせる（狭い行だけでは強調がちらつき、追いにくい） -->
+<!-- 同じストーリーの強調は、親の名前の1行だけでなくカードのどこにポインタが乗っても働かせる（狭い行だけでは強調がちらつき、追いにくい）。外すのは盤の側（カードの隙間では保つ） -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <article
@@ -178,8 +191,8 @@
   aria-labelledby={selectable ? titleId : undefined}
   aria-describedby={selectable ? [summaryId, hintId].filter(Boolean).join(' ') : undefined}
   data-card-id={task.id}
-  onpointerenter={() => onstoryhover?.(task.story?.id ?? null)}
-  onpointerleave={() => onstoryhover?.(null)}
+  onpointerenter={storyPointerEnter}
+  onpointerleave={() => (hovering = false)}
   onkeydown={keydown}
 >
   {#if selectable}<span class="visually-hidden" id={summaryId}>{summary}</span>{/if}

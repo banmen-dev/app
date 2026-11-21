@@ -171,16 +171,35 @@
       .catch(() => showToast(t('sprintStoryFilterClearFailed'), 'alert'));
   });
   const visibleColumns = $derived(storyColumns(columns, storyId));
-  let hoveredStory = $state<string | null>(null);
+  // ポインタの強調（undefined はカードの上にいない）が、親名のボタンのフォーカスより先。親のないカードに乗れば、フォーカスがあっても消す
+  let hoveredStory = $state<string | null | undefined>(undefined);
   let focusedStory = $state<string | null>(null);
-  const highlightedStory = $derived(hoveredStory ?? focusedStory);
+  const highlightedStory = $derived(hoveredStory !== undefined ? hoveredStory : focusedStory);
+  // カードの隙間（列の地と盤の地）では直前のカードの強調を保ち、ちらつかせない。見出しや足す行など、ほかの部分に移るか盤を出たら外す
+  function trackStoryHover(node: HTMLElement): () => void {
+    const over = (event: PointerEvent): void => {
+      const target = event.target;
+      if (event.pointerType === 'touch' || !(target instanceof Element)) return;
+      if (target === node || target.classList.contains('board-col') || target.closest('.card')) return;
+      hoveredStory = undefined;
+    };
+    const leave = (): void => {
+      hoveredStory = undefined;
+    };
+    node.addEventListener('pointerover', over);
+    node.addEventListener('pointerleave', leave);
+    return () => {
+      node.removeEventListener('pointerover', over);
+      node.removeEventListener('pointerleave', leave);
+    };
+  }
   async function filterStory(id: string | null): Promise<void> {
     const previous = storyId;
     const title =
       id === null
         ? null
         : columns.flatMap((column) => column.tasks).find((task) => task.story?.id === id)?.story?.title;
-    hoveredStory = null;
+    hoveredStory = undefined;
     focusedStory = null;
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- 現在の経路のstory問い合わせだけを替える
     await goto(storyHref(page.url, id), { reset: false });
@@ -923,7 +942,7 @@
         {@attach canWrite ? (node) => dnd.wrap(node) : undefined}
       >
         <!-- 引き出しの前後のボタンの順は、ボードに今見えているカード（左の列から右へ、列の中は上から下） -->
-        <div class="board" style:--board-cols={columns.length} {@attach trackTaskOrder}>
+        <div class="board" style:--board-cols={columns.length} {@attach trackTaskOrder} {@attach trackStoryHover}>
           {#each visibleColumns as column (column.id)}
             <section
               class="board-col"
