@@ -54,7 +54,7 @@ type NominationAcceptBody = z.output<typeof nominationAcceptSchema>;
 type Nomination = { email: string; tokenHash: string };
 
 // ログの1行。login-routes.ts の log と同じ形。パスワード、ハッシュ、メールアドレスは出さない
-function log(c: Context<AppEnv>, entry: { outcome: string; accountId?: string }): void {
+function log(c: Context<AppEnv>, entry: { outcome: string; accountId?: string; step?: string }): void {
   console.log(
     JSON.stringify({
       level: 'info',
@@ -284,6 +284,12 @@ export function passwordLoginRoutes(): Hono<AppEnv> {
     return c.json({
       return_to: resolvedReturnTo(safeReturnTo(body.return_to), new URL(c.env.PUBLIC_ORIGIN).origin),
     });
+  });
+
+  app.use('/nomination/*', async (c, next) => {
+    await next();
+    const step = c.req.path.endsWith('/inspect') ? 'nomination_inspect' : 'nomination_accept';
+    log(c, { step, outcome: c.error instanceof ApiError ? c.error.code : c.res.ok ? 'ok' : 'internal' });
   });
 
   // 指名の URL からの登録。秘密は本文でだけ受け、メールアドレスと資格情報の有無は有効な指名を持つ人にだけ返す。
