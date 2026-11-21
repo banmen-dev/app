@@ -171,7 +171,8 @@
       .catch(() => showToast(t('sprintStoryFilterClearFailed'), 'alert'));
   });
   const visibleColumns = $derived(storyColumns(columns, storyId));
-  // ポインタの強調（undefined はカードの上にいない）が、親名のボタンのフォーカスより先。親のないカードに乗れば、フォーカスがあっても消す
+  // ポインタの強調（undefined はカードの上にいない）が、親名のボタンのフォーカスより先。親のないカードに乗れば、フォーカスがあっても消す。
+  // ただし親名へフォーカスが移ったときは、ポインタの強調を捨ててフォーカスを先にする（onstoryfocus）
   let hoveredStory = $state<string | null | undefined>(undefined);
   let focusedStory = $state<string | null>(null);
   // 隙間で保った強調のストーリーが盤から消えたら（削除、読み直し、列を畳んで描かなくなった）、保った強調を捨ててフォーカスの強調に戻す
