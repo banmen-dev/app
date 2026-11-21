@@ -357,11 +357,13 @@ describe('外部キー', () => {
     const childrenByParent = new Map<string, string[]>();
     for (const { name } of tables) {
       const { results: keys } = await env.DB.prepare(
-        `SELECT "table" AS parent, "from" AS child_column FROM pragma_foreign_key_list(?)`,
+        `SELECT "table" AS parent, "from" AS child_column, "to" AS parent_column, seq FROM pragma_foreign_key_list(?)`,
       )
         .bind(name)
-        .all<{ parent: string; child_column: string }>();
-      for (const { parent, child_column } of keys) {
+        .all<{ parent: string; child_column: string; parent_column: string; seq: number }>();
+      for (const { parent, child_column, parent_column, seq } of keys) {
+        // 親の DELETE は単列の id を条件にする。別の参照先や複合外部キーを足すときは検査も広げる。
+        expect([parent_column, seq], `${name}.${child_column} → ${parent}`).toEqual(['id', 0]);
         const children = childrenByParent.get(parent) ?? [];
         children.push(`${name}.${child_column}`);
         childrenByParent.set(parent, children);
