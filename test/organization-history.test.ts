@@ -186,6 +186,14 @@ describe('organization-history', () => {
         },
       },
       {
+        changes: { member_limit: [15, 50], attachment_quota_bytes: [null, '100'] },
+        event: { kind: 'organization_quota_changed', member_limit: [15, 50] },
+      },
+      {
+        changes: { member_limit: [50, 50], attachment_quota_bytes: [512 * 1024 ** 2, 1024 ** 3] },
+        event: { kind: 'organization_quota_changed', attachment_quota_bytes: [512 * 1024 ** 2, 1024 ** 3] },
+      },
+      {
         changes: { member_limit: [50, 50], attachment_quota_bytes: [null, '100'] },
         event: { kind: 'other' },
       },
@@ -208,6 +216,31 @@ describe('organization-history', () => {
     const { entries } = await read(target);
     expect(entries.map(({ actor, event }) => ({ actor, event }))).toEqual(
       cases.map(({ event }) => ({ actor: { kind: 'operator' }, event })),
+    );
+  });
+
+  test('運用者の操作を示すログだけを上限の変更として返す', async () => {
+    const target = await createTarget();
+    const user = { kind: 'user', id: target.admin.userId, name: '星野 澪' };
+    const cases = [
+      { operator: null, actor_user_id: null, actor: { kind: 'system' } },
+      { operator: null, actor_user_id: target.admin.userId, actor: user },
+      { operator: OPERATOR_LOGIN_ID, actor_user_id: target.admin.userId, actor: user },
+    ];
+    for (const [index, { operator, actor_user_id }] of cases.entries()) {
+      await log(target.organization, {
+        operator,
+        actor_user_id,
+        changes_json: JSON.stringify({
+          member_limit: [15, 50],
+          attachment_quota_bytes: [512 * 1024 ** 2, 1024 ** 3],
+        }),
+        created_at: minutesLater(-index),
+      });
+    }
+    const { entries } = await read(target);
+    expect(entries.map(({ actor, event }) => ({ actor, event }))).toEqual(
+      cases.map(({ actor }) => ({ actor, event: { kind: 'other' } })),
     );
   });
 
