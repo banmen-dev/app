@@ -199,17 +199,19 @@ for (const [width, inset] of [
 
 test('組織のホームの面は、枠の中の画面なので枠と内側の余白を持ったままにする', async ({ page }) => {
   await page.goto('/aoba');
-  const pane = page.locator('.pane').first();
-  await expect(pane).toBeVisible();
-  const frame = await pane.evaluate((element) => {
-    const style = getComputedStyle(element);
-    return {
-      inSheet: element.closest('.gate-sheet') !== null,
-      border: style.borderTopWidth,
-      padding: style.paddingLeft,
-    };
-  });
-  expect(frame).toEqual({ inSheet: false, border: '1px', padding: '24px' });
+  await expect(page.locator('.pane').first()).toBeVisible();
+  const frames = await page.locator('.pane').evaluateAll((elements) =>
+    elements.map((element) => {
+      const style = getComputedStyle(element);
+      return {
+        inSheet: element.closest('.gate-sheet') !== null,
+        border: style.borderTopWidth,
+        padding: style.paddingLeft,
+      };
+    }),
+  );
+  expect(frames.length).toBeGreaterThan(1);
+  for (const frame of frames) expect(frame).toEqual({ inSheet: false, border: '1px', padding: '24px' });
 });
 
 test('チーム用だけの人の自分用の面には、自分用を作る入口を出す', async ({ page }) => {
