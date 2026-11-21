@@ -461,7 +461,7 @@
     activityMore: "さらに読む", activityLoadFailed: "最近の更新を読み込めませんでした。", activityMoreFailed: "続きを読み込めませんでした。もう一度試してください。",
     workspace: "ワークスペース", inbox: "受信箱", backlog: "バックログ", sprint: "スプリント", plan: "計画", epic: "エピック", story: "ストーリー",
     menuCollapse: "メニューを畳む", menuExpand: "メニューを広げる", breadcrumb: "パンくず", organizationMoving: "移っています",
-    personalOrganizationName: "自分用", createPersonalOrganizationAction: "自分用を作る",
+    personalOrganizationName: "自分用", dashboardPersonalHome: "ホーム", createPersonalOrganizationAction: "自分用を作る",
     task: "タスク", archive: "アーカイブ", connection: "接続", sprintGoal: "スプリントゴール", detail: "詳細", ac: "受け入れ基準", due: "期日",
     points: "ポイント", assignee: "担当", category: "区分", capacity: "作業量と基準", over: "超過", done: "完了", column: "列",
     doneToday: "今日の完了", complete: "完了にする", requester: "作成者", party: "参加者", accept: "参加する", leave: "参加をやめる",

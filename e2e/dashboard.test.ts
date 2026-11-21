@@ -214,9 +214,18 @@ test('組織のホームの面は、枠の中の画面なので枠と内側の�
   for (const frame of frames) expect(frame).toEqual({ inSheet: false, border: '1px', padding: '24px' });
 });
 
-// ワークスペースの行のロールは、札の枠と地を持たない文字だけにする（全組織のダッシュボードと組織のホームで同じ）
+// ワークスペースの行のロールは、札の枠と地を持たない小さく薄い文字だけにする（全組織のダッシュボードと組織のホームで同じ）
 for (const path of ['/', '/aoba'] as const) {
-  test(`${path} のワークスペースの行は、ロールを枠の無い文字で出す`, async ({ page }) => {
+  test(`${path} のワークスペースの行は、ロールを枠の無い小さく薄い文字で出す`, async ({ page }) => {
+    // 差し替えでは、リーダーの行とメンバーの行を両方出す
+    const expected =
+      path === '/'
+        ? [
+            ['読書の記録', 'リーダー'],
+            ['受託開発チーム', 'リーダー'],
+            ['社内ツール', 'メンバー'],
+          ]
+        : [['受託開発チーム', 'リーダー']];
     if (path === '/') {
       await mockOperation(page, myOrganizations, {
         organizations: [aoba, hibari, personal],
@@ -224,22 +233,55 @@ for (const path of ['/', '/aoba'] as const) {
         suspended: [],
         operator: false,
       });
-      await mockOperation(page, myWorkspaces, workspaces);
+      await mockOperation(page, myWorkspaces, {
+        ...workspaces,
+        organizations: workspaces.organizations.map((entry) =>
+          entry.organization.slug === hibari.slug
+            ? {
+                ...entry,
+                workspaces: [
+                  { id: '019a0000-0000-7000-8000-000000000a05', name: '社内ツール', role: 'member' as const },
+                ],
+              }
+            : entry,
+        ),
+      });
       await mockOperation(page, myRecentActivity, activity);
     }
     await page.goto(path);
     const rows = page.locator('.pane-link');
-    await expect(rows.first()).toBeVisible();
+    for (const [name, role] of expected) {
+      const row = page.getByRole('link', { name: new RegExp(name) }).and(rows);
+      await expect(row.locator('.pane-link-role')).toHaveText(role);
+    }
+    if (path === '/') await expect(rows).toHaveCount(expected.length);
     await expect(rows.locator('.chip')).toHaveCount(0);
-    await expect(rows.first().locator('.pane-link-role')).toHaveText(/^(リーダー|メンバー)$/);
-    const roles = await rows.locator('.pane-link-role').evaluateAll((elements) =>
+    const styles = await rows.evaluateAll((elements) =>
       elements.map((element) => {
-        const style = getComputedStyle(element);
-        return [style.borderTopWidth, style.borderLeftWidth, style.backgroundColor].join(' ');
+        const role = getComputedStyle(element.querySelector('.pane-link-role')!);
+        const name = getComputedStyle(element.querySelector('b')!);
+        return {
+          frame: [
+            role.borderTopWidth,
+            role.borderRightWidth,
+            role.borderBottomWidth,
+            role.borderLeftWidth,
+            role.boxShadow,
+            role.backgroundColor,
+            role.backgroundImage,
+          ].join(' '),
+          fontSize: role.fontSize,
+          paler: role.color !== name.color,
+        };
       }),
     );
-    expect(roles.length).toBeGreaterThan(0);
-    for (const role of roles) expect(role).toBe('0px 0px rgba(0, 0, 0, 0)');
+    for (const style of styles) {
+      expect(style).toEqual({
+        frame: '0px 0px 0px 0px none rgba(0, 0, 0, 0) none',
+        fontSize: '12px',
+        paler: true,
+      });
+    }
   });
 }
 
@@ -293,6 +335,9 @@ test('自分用の面に自分用のホームへの行を置き、自分用だ�
   await page.goto('/');
   const personalPane = page.getByRole('region', { name: '自分用', exact: true });
   await expect(personalPane.locator('.org-block > a.choice')).toHaveAttribute('href', '/mio-solo');
+  // 面の見出しが「自分用」なので、ホームへの行は「ホーム」と URL にし、「自分用」を繰り返さない
+  await expect(personalPane.locator('.org-block > a.choice b')).toHaveText('ホーム');
+  await expect(personalPane.locator('.org-block > a.choice')).not.toContainText('自分用');
   await expect(personalPane.getByRole('list', { name: '自分用で所属するワークスペース', exact: true })).toBeVisible();
   const organizations = page.getByRole('region', { name: '組織', exact: true });
   await expect(organizations.getByRole('link', { name: /ひばり工房/ })).toHaveAttribute('href', '/hibari/invitations');

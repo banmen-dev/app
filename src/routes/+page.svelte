@@ -225,7 +225,7 @@
                 <div class="org-block">
                   <a class="choice" href={resolve('/[slug]', { slug: personalOrganization.slug })}>
                     <div>
-                      <b>{organizationLabel(personalOrganization)}</b>
+                      <b>{t('dashboardPersonalHome')}</b>
                       <span class="mono">{page.url.host}/{personalOrganization.slug}/</span>
                     </div>
                     <Icon name="chevron" />

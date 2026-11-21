@@ -1182,6 +1182,8 @@ export const dictionary = defineDictionary({
   dashboardNoWorkspace: '所属する{workspace}はありません。',
   // 自分用の面。自分用の{organization}がまだ無い人に、作る入口と一緒に出す
   dashboardPersonalMissing: '自分だけで使う{workspace}を置く「{personal}」を作れます。期限はなく無料です。',
+  // 自分用の面の、自分用のホームへ入る行の名前。面の見出しが既に「自分用」なので、行では組織の名前を繰り返さない
+  dashboardPersonalHome: 'ホーム',
   // チーム用の{organization}が無く、自分用だけに入れる人の組織の面
   dashboardNoTeamOrganization: 'チームで使う{organization}はまだありません。管理者から招待が届くと、ここに出ます。',
   organizationChooseNote: 'あとから、画面の左上（狭い幅では上の帯）の組織の切り替えで選び直せます。',
