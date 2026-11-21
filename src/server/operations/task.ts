@@ -70,7 +70,7 @@ function backlogTasksUnder(
   table: 'tasks' | typeof tasksByStoryPosition = 'tasks',
 ) {
   const tasks = from
-    .selectFrom(table)
+    .selectFrom([table])
     .where('tasks.workspace_id', '=', workspaceId)
     .where('tasks.tray', '=', 'backlog')
     .where('tasks.deleted_at', 'is', null);
@@ -469,7 +469,7 @@ export type BacklogTreeFilter = {
 // （区分とエピックは親から引き継ぐので、親で決まる）。担当、依頼先、リポジトリは、タスク自身で決める。
 // 担当と依頼先の列は索引に使わせない（tasks_story_open を足す前は、SQLite が tasks_story の代わりに tasks_assignee_user をストーリーごとに
 // 引く計画を選び、5 万件で 10 秒かかった。ストーリーごとの未完了行を直接引ける計画を保つ。
-// 依頼先の tasks_delegatee_completed も同じ理由で止める。test/backlog-filter.test.ts が実行計画で確かめる）
+// 依頼先とリポジトリの索引も同じ理由で止める。test/backlog-filter.test.ts が実行計画で確かめる）
 export function openStoryTasksStatement(db: OrganizationDb, workspaceId: string, filter: BacklogTreeFilter) {
   const { assignee, delegatee, category, repository, epic, words } = filter;
   const organizationId = db.organizationId;
@@ -518,7 +518,9 @@ export function openStoryTasksStatement(db: OrganizationDb, workspaceId: string,
       .$if(delegatee !== undefined, (qb) =>
         qb.where(unindexed('tasks.delegatee_id'), delegatee === null ? 'is' : '=', delegatee!),
       )
-      .$if(repository !== undefined, (qb) => qb.where('repositories.id', repository === null ? 'is' : '=', repository!))
+      .$if(repository !== undefined, (qb) =>
+        qb.where(unindexed('repositories.id'), repository === null ? 'is' : '=', repository!),
+      )
       .$if(category !== undefined, (qb) =>
         qb.where((eb) => {
           // 引き継ぎを解いた区分の ID（親のないストーリーは自身の区分、エピックの下ならエピックの区分）。

@@ -9,7 +9,12 @@ import { sql, type RawBuilder } from 'kysely';
 // 例: バックログの木を依頼先で絞るとき、担当と同じ理由で tasks_delegatee_completed を選ばせない（#907）
 // 列は、使う列の名前（別名つき）だけを受ける（任意の文字列を SQL の参照にしない）
 export type UnindexedColumn =
-  'tasks.assignee_user_id' | 'tasks.delegatee_id' | 'tasks.story_id' | 'tasks.workspace_id' | 't.workspace_id';
+  | 'repositories.id'
+  | 'tasks.assignee_user_id'
+  | 'tasks.delegatee_id'
+  | 'tasks.story_id'
+  | 'tasks.workspace_id'
+  | 't.workspace_id';
 
 export function unindexed(column: UnindexedColumn): RawBuilder<unknown> {
   return sql`+${sql.ref(column)}`;

@@ -32,9 +32,6 @@ CREATE INDEX tasks_category_fk ON tasks (category_id) WHERE category_id IS NOT N
 CREATE INDEX completions_category_fk ON completions (category_id) WHERE category_id IS NOT NULL;
 CREATE INDEX sprint_entries_sprint_fk ON sprint_entries (sprint_id);
 
--- ストーリーごとにワークスペース全体を読む計画を避けるため、競合する索引の統計をそろえる。
--- 旧版の配下削除も、統計がなかった DB では tasks_workspace_tray を選ぶため、既存のこの索引も採る。
+-- ストーリーごとにワークスペース全体を読む計画を避けるため、候補の索引の統計をそろえる。
 ANALYZE tasks_workspace_fk;
-ANALYZE tasks_story_fk;
 ANALYZE stories_workspace_fk;
-ANALYZE tasks_workspace_tray;
