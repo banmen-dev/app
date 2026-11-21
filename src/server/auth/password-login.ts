@@ -77,7 +77,7 @@ async function readLoginBody(c: Context<AppEnv>): Promise<z.output<typeof loginB
   return parsed.data;
 }
 
-type Credential = { login_subject: string; password_hash: string; display_name: string };
+type Credential = { login_subject: string; password_hash: string; password_changed_at: string; display_name: string };
 
 async function findCredential(env: Env, email: string): Promise<Credential | undefined> {
   const db = commonDb(env);
@@ -85,7 +85,7 @@ async function findCredential(env: Env, email: string): Promise<Credential | und
     db.statement((q) =>
       q
         .selectFrom('password_credentials')
-        .select(['login_subject', 'password_hash', 'display_name'])
+        .select(['login_subject', 'password_hash', 'password_changed_at', 'display_name'])
         .where('email', '=', email),
     ),
   );
@@ -176,6 +176,7 @@ export function passwordLoginRoutes(): Hono<AppEnv> {
       },
       now,
       replacedSessionToken: getCookie(c, sessionCookie),
+      passwordProof: { subject: credential.login_subject, changedAt: credential.password_changed_at },
       requestId: c.get('requestId'),
     });
     if (!outcome.ok) {

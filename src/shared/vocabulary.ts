@@ -2677,6 +2677,20 @@ export const dictionary = defineDictionary({
   // 画面は出さない（開発の状況の説明になるため）。積載量の欄が入る（#66）ときに言い方を決め直す
   meOtherSettingsNote:
     '今は経験値、API トークン、テーマ、届いた招待を扱えます。1日の基準、稼働期間、休み、月の基準の上書き、積載量の合計は、これから足します。',
+  // パスワードの変更（マイプロフィールの節）
+  mePasswordChange: 'パスワードを変える',
+  mePasswordCurrent: '現在のパスワード',
+  mePasswordNew: '新しいパスワード',
+  mePasswordConfirm: '新しいパスワード（確認）',
+  mePasswordSessionNote: '変更すると、ほかの端末やブラウザーではログインし直す必要があります。',
+  mePasswordHint: '12〜128文字',
+  mePasswordInvalid: '新しいパスワードは12〜128文字で入力してください。',
+  mePasswordMismatch: '新しいパスワードと確認欄が一致しません。',
+  mePasswordIncorrect: '現在のパスワードが違います。',
+  mePasswordRateLimited: 'パスワード変更の試行が多すぎます。しばらく待ってから試してください。',
+  mePasswordFailed: 'パスワードを変えられませんでした。もう一度試してください。',
+  mePasswordSaving: 'パスワードを変えています',
+  mePasswordChanged: 'パスワードを変えました。',
   // 自分のテーマ（マイプロフィールの節。選んだ瞬間に保存する）。{label} はテーマの名前
   meThemeDesc: '画面の見た目。選ぶとすぐに変わります。自分だけに効きます。',
   meThemeSaving: 'テーマを保存しています',

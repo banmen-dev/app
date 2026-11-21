@@ -19,13 +19,13 @@ import { claimPendingLogin, commonDb, linkLoginToAccount, readLoginAccess, type 
 import { uuidv7 } from '../uuid.ts';
 import type { LoginProfile } from './login-method.ts';
 import { isOperatorLogin } from './operators.ts';
-import { createSession } from './session.ts';
+import { createSession, type PasswordSessionProof } from './session.ts';
 
 export type LoginOutcome =
   // claimed: 招待の URL から結んだときの、結んだ先
   | { ok: true; accountId: string; sessionToken: string; claimed?: ClaimOutcome }
   // denied: アカウントが無く、入れる組織も招待も無い（停止した組織の分も数える）。会員登録の往復（signup）では返さない。
-  // retry: 結ぶ書き込みが失敗した。invite: 招待の URL から結べなかった
+  // retry: 結ぶ書き込みが失敗したか、照合の後にパスワードが変わった。invite: 招待の URL から結べなかった
   | { ok: false; reason: 'denied' | 'retry' | 'invite' };
 
 type LoginInput = {
@@ -39,6 +39,7 @@ type LoginInput = {
   claimTokenHash?: string | null;
   // 会員登録の画面から始めた往復（oauth_states.is_signup）。真なら、アカウントも組織も招待も無い人を denied にせずアカウントを作る。通常のログインは偽
   signup?: boolean;
+  passwordProof?: PasswordSessionProof;
 };
 
 async function findAccountId(env: Env, provider: string, subject: string): Promise<string | undefined> {
@@ -174,6 +175,7 @@ export async function completeLogin(env: Env, input: LoginInput): Promise<LoginO
     return { ok: false, reason: 'retry' };
   }
 
-  const sessionToken = await createSession(env, accountId, now, input.replacedSessionToken);
+  const sessionToken = await createSession(env, accountId, now, input.replacedSessionToken, input.passwordProof);
+  if (sessionToken === undefined) return { ok: false, reason: 'retry' };
   return { ok: true, accountId, sessionToken, ...(claimed === undefined ? {} : { claimed }) };
 }

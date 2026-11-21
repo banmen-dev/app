@@ -77,15 +77,35 @@ export async function readSession(
   }
 }
 
+export type PasswordSessionProof = {
+  subject: string;
+  changedAt: string;
+};
+
 // セッションを作り、Cookie に入れるトークンを返す。DB には SHA-256 のハッシュだけを入れ、トークンは残さない。
 // replacedToken は、このリクエストが持っていた古いセッションの Cookie の値。ログインし直したら同じ書き込みで消す。
 // 期限（expires_at）は呼び出しの時刻 now から30日。作成の時刻（created_at と last_used_at）は、挿入の直前の時刻にする。
+// パスワードを照合してから変更されていたときは、セッションを発行せず undefined を返す。
+export function createSession(
+  env: Env,
+  accountId: string,
+  now: Date,
+  replacedToken: string | undefined,
+): Promise<string>;
+export function createSession(
+  env: Env,
+  accountId: string,
+  now: Date,
+  replacedToken: string | undefined,
+  passwordProof: PasswordSessionProof | undefined,
+): Promise<string | undefined>;
 export async function createSession(
   env: Env,
   accountId: string,
   now: Date,
   replacedToken: string | undefined,
-): Promise<string> {
+  passwordProof?: PasswordSessionProof,
+): Promise<string | undefined> {
   const token = randomToken();
   const tokenHash = await hashSessionToken(token);
   const replacedHash =
@@ -95,34 +115,63 @@ export async function createSession(
   const createdAt = new Date().toISOString();
   const db = commonDb(env);
   const statements: Statement<'common'>[] = [
-    db.statement((q) =>
-      q.insertInto('sessions').values((eb) => ({
-        token_hash: tokenHash,
-        account_id: accountId,
-        created_at: createdAt,
-        last_used_at: createdAt,
-        expires_at: new Date(now.getTime() + LIFETIME_MS).toISOString(),
+    db.statement((q) => {
+      const values = q.selectNoFrom((eb) => [
+        eb.val(tokenHash).as('token_hash'),
+        eb.val(accountId).as('account_id'),
+        eb.val(createdAt).as('created_at'),
+        eb.val(createdAt).as('last_used_at'),
+        eb.val(new Date(now.getTime() + LIFETIME_MS).toISOString()).as('expires_at'),
         // 置き換える古い行を消す前に、同じ INSERT の中で最古の確認を読む。
-        api_token_seen_at: eb.fn.coalesce(
-          eb
-            .selectFrom('sessions')
-            .select((inner) =>
-              inner.fn
-                .min<string>(apiTokenSeenAt(inner.ref('api_token_seen_at'), inner.ref('created_at')))
-                .as('oldest'),
-            )
-            .where('account_id', '=', accountId)
-            .where('expires_at', '>', now.toISOString()),
-          eb.val(createdAt),
-        ),
-      })),
-    ),
+        eb.fn
+          .coalesce(
+            eb
+              .selectFrom('sessions')
+              .select((inner) =>
+                inner.fn
+                  .min<string>(apiTokenSeenAt(inner.ref('api_token_seen_at'), inner.ref('created_at')))
+                  .as('oldest'),
+              )
+              .where('account_id', '=', accountId)
+              .where('expires_at', '>', now.toISOString()),
+            eb.val(createdAt),
+          )
+          .as('api_token_seen_at'),
+      ]);
+      // ハッシュの反復回数の書き直しは password_changed_at を変えないので、並行したログインも通る。
+      const verifiedValues =
+        passwordProof === undefined
+          ? values
+          : values.where(({ exists, selectFrom }) =>
+              exists(
+                selectFrom('password_credentials')
+                  .select('login_subject')
+                  .where('login_subject', '=', passwordProof.subject)
+                  .where('password_changed_at', '=', passwordProof.changedAt),
+              ),
+            );
+      return q
+        .insertInto('sessions')
+        .columns(['token_hash', 'account_id', 'created_at', 'last_used_at', 'expires_at', 'api_token_seen_at'])
+        .expression(verifiedValues);
+    }),
   ];
   if (replacedHash !== undefined) {
-    statements.push(db.statement((q) => q.deleteFrom('sessions').where('token_hash', '=', replacedHash)));
+    statements.push(
+      db.statement((q) =>
+        q
+          .deleteFrom('sessions')
+          .where('token_hash', '=', replacedHash)
+          .where(({ exists, selectFrom }) =>
+            exists(
+              selectFrom('sessions as issued').select('issued.token_hash').where('issued.token_hash', '=', tokenHash),
+            ),
+          ),
+      ),
+    );
   }
-  await db.batch(statements);
-  return token;
+  const [inserted] = await db.batch(statements);
+  return inserted?.changes === 1 ? token : undefined;
 }
 
 // その人のセッションを、checkedAt までに作られたものだけ消す。checkedAt より後に作られたセッションは残す
