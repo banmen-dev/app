@@ -108,8 +108,12 @@ test.describe('マイプロフィール（ミナト）', () => {
     await expect(panel.locator('.xp-sub')).toHaveText('次のレベルまで 100・見込み +0');
     await expect(panel.locator('.gauge-end')).toHaveText(['LV 1', 'LV 2']);
     const breakdown = panel.getByRole('group', { name: 'ワークスペースごとの経験値' });
-    await expect(breakdown.locator('dt')).toHaveText(['社内ツール', 'すべてのワークスペース']);
-    await expect(breakdown.locator('dd')).toHaveText(['0', '0']);
+    // ダッシュボードのテストがひばり工房にワークスペースを作るため、seed の行と合計を個別に見る。
+    const tools = breakdown.locator('dl > div').filter({ has: page.getByText('社内ツール', { exact: true }) });
+    await expect(tools.locator('dd')).toHaveText('0');
+    const total = breakdown.locator('.is-total');
+    await expect(total.locator('dt')).toHaveText('すべてのワークスペース');
+    await expect(total.locator('dd')).toHaveText('0');
     // 受け取った感謝は無い（0 と出す）
     await expect(panel.getByRole('group', { name: '受け取った感謝' }).locator('dd')).toHaveText('0');
 
