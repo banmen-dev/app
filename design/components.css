@@ -1327,7 +1327,7 @@ button.tree-folded[aria-expanded="true"] .ico { transform: rotate(90deg); }
 .tree, .book { container-type: inline-size; }
 .tree { container-name: tree; }
 .book { container-name: book; }
-/* 台帳は木より右端が短いので、520px を超えれば横に並べる */
+/* 通常の台帳は木より右端が短いので、520px を超えれば横に並べる */
 @container book (max-width: 520px) {
   .entry { grid-template-columns: var(--grip-col, ) 32px minmax(0, 1fr); }
   .entry-end { grid-column: -2; flex-wrap: wrap; }
@@ -1507,16 +1507,16 @@ label.pick-row:hover { background: var(--color-accent-soft); }
   .page-head { padding-bottom: var(--space-4); }
   .entry { padding-block: var(--space-2); min-height: 48px; }
   /* 組織ホームの台帳は、題に 12rem を取り、操作は右の列の中で折り返す。
-     左の印・余白・列の間の 80px に加え、右の印と文字に 2rem、印の内側の余白などに 24px を見込む。
+     左の印・余白・列の間の 80px と、期日切れの印を割らずに置く幅（6rem + 48px）を残す。
      文字を拡大してこれらの幅を取れない場合は、操作を題の下に置く。 */
-  @container book (width > 440px) and (width >= calc(14rem + 104px)) {
+  @container book (width > 440px) and (width >= calc(18rem + 128px)) {
     .book.is-compact > .entry {
       grid-template-columns: var(--grip-col, ) 32px minmax(12rem, 1fr) minmax(0, max-content);
     }
     .book.is-compact > .entry .entry-end { grid-column: auto; flex-wrap: wrap; justify-content: flex-end; }
-    .book.is-compact > .entry .entry-end .chip { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
   }
-  @container book (520px < width < calc(14rem + 104px)) {
+  /* 文字の拡大によって通常の台帳の折り返し境界より広い幅でも横並びにできない場合に、同じ縦並びにする。 */
+  @container book (520px < width < calc(18rem + 128px)) {
     .book.is-compact > .entry { grid-template-columns: var(--grip-col, ) 32px minmax(0, 1fr); }
     .book.is-compact > .entry:has(.entry-meta) { row-gap: var(--space-half); }
     .book.is-compact > .entry .entry-end { grid-column: -2; flex-wrap: wrap; }

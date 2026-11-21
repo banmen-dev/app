@@ -36,39 +36,62 @@ test('組織ホームの今日の行は1280pxでも横に並び、390pxでは折
   }
 });
 
-test('組織ホームの台帳は440pxを境に右端を折り返し、横並びでは題の12remを保つ', async ({ page }) => {
+test('組織ホームの台帳は、題と期日の印を読める幅で横に並べる', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/aoba');
-  const list = page.locator('.book.is-compact').first();
-  const row = list.locator('.entry').first();
+  const title = page.getByRole('link', { name: '障害時の連絡手順を書く', exact: true });
+  const list = page.locator('.book.is-compact').filter({ has: title });
+  const row = list.locator('.entry').filter({ has: title });
   const endColumn = row.locator('.entry-end');
-  await expect(row).toBeVisible();
-  // 期日などの印が多い行を作り、操作に譲ると題が12rem未満になる条件を揃える。
-  await row.locator('.entry-chips').evaluate((el) => {
-    for (let i = 0; i < 4; i++) {
-      const chip = document.createElement('span');
-      chip.className = 'chip';
-      chip.textContent = '期日切れ 11/19';
-      el.append(chip);
-    }
-  });
-  const minimum = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize) * 12);
-  for (const width of [440, 441, 520, 521]) {
-    await list.evaluate((el, width) => {
-      el.style.boxSizing = 'content-box';
-      el.style.width = `${width}px`;
-    }, width);
-    const main = await row.locator('.entry-main').boundingBox();
-    const end = await endColumn.boundingBox();
-    expect(main).not.toBeNull();
-    expect(end).not.toBeNull();
-    if (width === 440) {
-      expect(end!.y).toBeGreaterThanOrEqual(main!.y + main!.height);
-    } else {
-      expect(main!.width, `${width}pxで題の幅`).toBeGreaterThanOrEqual(minimum);
-      expect(end!.x).toBeGreaterThanOrEqual(main!.x + main!.width);
-      expect(end!.y).toBeLessThan(main!.y + main!.height);
-      await expect(endColumn).toHaveCSS('flex-wrap', 'wrap');
+  // seed の実際の行。組織ホームは編集用のチップではなく、期日の印、ポイント、担当、完了の操作を出す。
+  const due = endColumn.locator('.chip.is-danger');
+  await expect(due).toHaveText(/^期日切れ /);
+  await expect(endColumn.locator('.pts')).toBeVisible();
+  await expect(endColumn.locator('.avatar')).toBeVisible();
+  await expect(endColumn.locator('.done-btn')).toBeVisible();
+  for (const { zoom, widths, firstInline } of [
+    { zoom: 100, widths: [440, 441, 520, 521], firstInline: 441 },
+    { zoom: 200, widths: [504, 521, 553, 703, 704, 705], firstInline: 704 },
+  ]) {
+    await page.evaluate((percent) => {
+      document.documentElement.style.fontSize = `${percent}%`;
+    }, zoom);
+    const minimum = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize) * 12);
+    for (const width of widths) {
+      await list.evaluate((el, width) => {
+        el.style.boxSizing = 'content-box';
+        el.style.width = `${width}px`;
+      }, width);
+      const main = await row.locator('.entry-main').boundingBox();
+      const end = await endColumn.boundingBox();
+      expect(main).not.toBeNull();
+      expect(end).not.toBeNull();
+      const label = `文字${zoom}%・台帳${width}px`;
+      if (width < firstInline) {
+        expect(end!.y, label).toBeGreaterThanOrEqual(main!.y + main!.height);
+      } else {
+        expect(main!.width, label).toBeGreaterThanOrEqual(minimum);
+        expect(end!.x, label).toBeGreaterThanOrEqual(main!.x + main!.width);
+        expect(end!.y, label).toBeLessThan(main!.y + main!.height);
+        await expect(endColumn).toHaveCSS('flex-wrap', 'wrap');
+      }
+      const bounds = await row.evaluate((el) => {
+        const book = el.closest('.book')!;
+        const right = book.getBoundingClientRect().right - parseFloat(getComputedStyle(book).borderRightWidth);
+        const column = el.querySelector('.entry-end')!.getBoundingClientRect();
+        const items = [...el.querySelectorAll('.entry-chips > *, .entry-actions > *')].map((item) =>
+          item.getBoundingClientRect(),
+        );
+        return {
+          right,
+          columnRight: column.right,
+          itemsFit: items.every((item) => item.left >= column.left && item.right <= column.right),
+        };
+      });
+      expect(bounds.columnRight, label).toBeLessThanOrEqual(bounds.right);
+      expect(bounds.itemsFit, label).toBe(true);
+      await expect(due).toHaveCSS('white-space', 'nowrap');
+      expect(await due.evaluate((el) => el.scrollWidth <= el.clientWidth), label).toBe(true);
     }
   }
 });
@@ -95,28 +118,6 @@ test('通常の台帳と木はそれぞれの境界で右端を折り返す', as
       expect(end).not.toBeNull();
       expect(end!.y >= main!.y + main!.height).toBe(width === boundary);
     }
-  }
-});
-
-test('文字を200%に拡大して題と操作が収まらないときは、操作を題の下に置く', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto('/aoba');
-  const list = page.locator('.book.is-compact').first();
-  const row = list.locator('.entry').first();
-  await expect(row).toBeVisible();
-  await page.evaluate(() => {
-    document.documentElement.style.fontSize = '200%';
-  });
-  for (const width of [504, 521]) {
-    await list.evaluate((el, width) => {
-      el.style.boxSizing = 'content-box';
-      el.style.width = `${width}px`;
-    }, width);
-    const main = await row.locator('.entry-main').boundingBox();
-    const end = await row.locator('.entry-end').boundingBox();
-    expect(main).not.toBeNull();
-    expect(end).not.toBeNull();
-    expect(end!.y, `${width}pxで操作が題の下に移る`).toBeGreaterThanOrEqual(main!.y + main!.height);
   }
 });
 
