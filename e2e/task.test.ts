@@ -2,9 +2,9 @@
 // 詳細の引き出しで完了にしたタスクは、完了の帯の「戻す」で戻せる。
 // seed のセッション（seed/sessions.ts）の Cookie で開く。あおば開発の管理者はミナト。CSP の違反も確かめる
 import type { Page } from '@playwright/test';
+import { backlogTree, taskComplete, taskUpdate } from '../src/shared/operations/task/index.ts';
 import { expect, test } from './fixtures.ts';
-import { taskUpdate } from '../src/shared/operations/task/task-update.ts';
-import { routeOperation } from './operations.ts';
+import { failOperation, routeOperation } from './operations.ts';
 import { addStoryRow, addTaskRow, createWorkspace, signIn, waitForResponses, watchViolations } from './helpers.ts';
 
 test.use({ timezoneId: 'Asia/Tokyo' });
@@ -114,10 +114,10 @@ test('完了の操作を送っている間は、押せない印と読み上げ�
   let release!: () => void;
   const gate = new Promise<void>((resolve) => (release = resolve));
   let requests = 0;
-  await page.route('**/api/aoba/task-complete', async (route) => {
+  await routeOperation(page, taskComplete, { slug: 'aoba' }, async (call) => {
     requests++;
     await gate;
-    await route.continue();
+    await call.passThrough();
   });
   const button = row.getByRole('button', { name: /完了にする/ });
   await button.click();
@@ -175,14 +175,13 @@ test('完了の操作が 404 か workspace_closed を受けたら、一覧を読
     [409, 'workspace_closed'],
   ] as const) {
     const before = listRequests;
-    await page.route('**/api/aoba/task-complete', (route) =>
-      route.fulfill({ status, json: { error: { code, message: code } } }),
-    );
+    const unrouteTaskComplete = await failOperation(page, taskComplete, { slug: 'aoba' }, status, code);
     await row.getByRole('button', { name: /完了にする/ }).click();
     await expect.poll(() => listRequests).toBeGreaterThan(before);
     // 実際のタスクは完了にしていないので、読み直した一覧に行が残る
     await expect(row).toHaveCount(1);
     await expect(row.getByRole('button', { name: /完了にする/ })).toBeVisible();
+    await unrouteTaskComplete();
   }
 });
 
@@ -200,11 +199,11 @@ test('木にもとからあるタスク: 完了の応答より前に始まった
   let release!: () => void;
   const gate = new Promise<void>((resolve) => (release = resolve));
   let held = 0;
-  await page.route('**/api/aoba/backlog-tree', async (route) => {
-    if (held++ > 0) return route.continue();
+  await routeOperation(page, backlogTree, { slug: 'aoba' }, async (call) => {
+    if (held++ > 0) return call.passThrough();
     // 要求は完了より前に出ているが、サーバーが答えるのは完了の後。木にタスクは無い（完了の応答より前に始まった読み直し）
     await gate;
-    await route.fulfill({ response: await route.fetch() });
+    await call.fulfill(await call.fetch());
   });
   await saveLinkFromDrawer(page, '木にもとからある行');
   await expect.poll(() => held).toBe(1);
@@ -236,10 +235,10 @@ test('絞り込み中に木にもとからあるタスクを完了にして、�
   let release!: () => void;
   const gate = new Promise<void>((resolve) => (release = resolve));
   let held = 0;
-  await page.route('**/api/aoba/backlog-tree', async (route) => {
-    if (held++ > 0) return route.continue();
+  await routeOperation(page, backlogTree, { slug: 'aoba' }, async (call) => {
+    if (held++ > 0) return call.passThrough();
     await gate;
-    await route.fulfill({ response: await route.fetch() });
+    await call.fulfill(await call.fetch());
   });
   await saveLinkFromDrawer(page, '絞られる行');
   await expect.poll(() => held).toBe(1);
@@ -274,11 +273,11 @@ test('絞り込み中にストーリーの下のタスクを完了にして、�
   let release!: () => void;
   const gate = new Promise<void>((resolve) => (release = resolve));
   let held = 0;
-  await page.route('**/api/aoba/backlog-tree', async (route) => {
-    if (held++ > 0) return route.continue();
+  await routeOperation(page, backlogTree, { slug: 'aoba' }, async (call) => {
+    if (held++ > 0) return call.passThrough();
     // サーバーが答えるのは完了の後。木にタスクは無く、唯一の当たりだった親も外れる
     await gate;
-    await route.fulfill({ response: await route.fetch() });
+    await call.fulfill(await call.fetch());
   });
   await saveLinkFromDrawer(page, '絞られる子の行');
   await expect.poll(() => held).toBe(1);

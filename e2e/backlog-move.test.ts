@@ -2,7 +2,10 @@
 // 「親を移す」のダイアログでストーリーの下へ移し、親なしへ戻す。ストーリーも並べ替える。
 // seed のセッション（seed/sessions.ts）の Cookie で開く。あおば開発の管理者はミナト。CSP の違反も確かめる
 import type { Page } from '@playwright/test';
+import { epicMove } from '../src/shared/operations/epic/index.ts';
+import { backlogTree, taskCreate, taskMove } from '../src/shared/operations/task/index.ts';
 import { expect, test } from './fixtures.ts';
+import { failOperation, rewriteOperation, routeOperation } from './operations.ts';
 import {
   addEpicRow,
   addStoryRow,
@@ -179,9 +182,7 @@ test('「親を移す」でストーリーの下の末尾へ移し、親なし�
 test('並べ替えを断られたら、理由を知らせて読み直す', async ({ page }) => {
   await createWorkspace(page, '断られるワークスペース');
   for (const title of ['見積もりを送る', '請求書を出す']) await addTaskRow(page, title);
-  await page.route('**/api/aoba/task-move', (route) =>
-    route.fulfill({ status: 409, json: { error: { code: 'workspace_closed', message: 'workspace_closed' } } }),
-  );
+  let unrouteTaskMove = await failOperation(page, taskMove, { slug: 'aoba' }, 409, 'workspace_closed');
 
   await chooseRowAction(page, '見積もりを送る', '下へ');
   await expect(page.getByRole('status').filter({ hasText: '終了したワークスペースには書き込めません' })).toBeVisible();
@@ -194,19 +195,15 @@ test('並べ替えを断られたら、理由を知らせて読み直す', async
     ['task_completed', 'このタスクは完了しています。一覧を読み直します'],
     ['changed', 'ほかの画面で変わったため、移せませんでした。一覧を読み直します'],
   ] as const) {
-    await page.unrouteAll();
-    await page.route('**/api/aoba/task-move', (route) =>
-      route.fulfill({ status: 409, json: { error: { code: 'conflict', message: 'conflict', details: { reason } } } }),
-    );
+    await unrouteTaskMove();
+    unrouteTaskMove = await failOperation(page, taskMove, { slug: 'aoba' }, 409, 'conflict', { details: { reason } });
     await chooseRowAction(page, '見積もりを送る', '下へ');
     await expect(page.getByRole('status').filter({ hasText: message })).toBeVisible();
     await expect(rootTitles(page)).toHaveText(['見積もりを送る', '請求書を出す']);
   }
   // 404 は、どの行が消えたかが分からないので、一覧が変わったことを知らせる
-  await page.unrouteAll();
-  await page.route('**/api/aoba/task-move', (route) =>
-    route.fulfill({ status: 404, json: { error: { code: 'not_found', message: 'not found' } } }),
-  );
+  await unrouteTaskMove();
+  await failOperation(page, taskMove, { slug: 'aoba' }, 404, 'not_found', { message: 'not found' });
   await chooseRowAction(page, '見積もりを送る', '下へ');
   await expect(
     page.getByRole('status').filter({ hasText: '一覧が変わったため移せませんでした。一覧を読み直します' }),
@@ -222,13 +219,10 @@ test('先に送った並べ替えが断られて読み直したら、待って�
   let sent = 0;
   let release!: () => void;
   const clicked = new Promise<void>((resolve) => (release = resolve));
-  await page.route('**/api/aoba/task-move', async (route) => {
+  await routeOperation(page, taskMove, { slug: 'aoba' }, async (call) => {
     sent++;
     await clicked;
-    await route.fulfill({
-      status: 409,
-      json: { error: { code: 'conflict', message: 'conflict', details: { reason: 'changed' } } },
-    });
+    await call.fail(409, 'conflict', { details: { reason: 'changed' } });
   });
   await chooseRowAction(page, '見積もりを送る', '下へ');
   await chooseRowAction(page, '議事録をまとめる', '上へ');
@@ -374,13 +368,11 @@ test('完了か中止したエピックも並べ替えられる。断られた�
   await createWorkspace(page, 'エピックの中止ワークスペース');
   for (const title of ['ポイント制度を公開する', '決済の障害を減らす']) await addEpic(page, title);
   // 2番目のエピックを、木の上だけ中止したことにする（中止の操作は #65 で足す）
-  await page.route('**/api/aoba/backlog-tree', async (route) => {
-    const response = await route.fetch();
-    const body = (await response.json()) as { epics: { title: string; canceled_at: string | null }[] };
+  await rewriteOperation(page, backlogTree, { slug: 'aoba' }, (body) => {
     const epics = body.epics.map((epic) =>
       epic.title === '決済の障害を減らす' ? { ...epic, canceled_at: '2026-10-22T00:00:00.000Z' } : epic,
     );
-    await route.fulfill({ response, json: { ...body, epics } });
+    return { ...body, epics };
   });
   await page.reload();
   await expect(epicRow(page, '決済の障害を減らす').locator('.chip', { hasText: '中止' })).toBeVisible();
@@ -389,12 +381,9 @@ test('完了か中止したエピックも並べ替えられる。断られた�
   await expect(up).toHaveAttribute('aria-disabled', 'false');
 
   // 断られたら、ストーリーとタスクと同じ文で知らせて読み直し、フォーカスを同じ操作へ戻す
-  await page.route('**/api/aoba/epic-move', (route) =>
-    route.fulfill({
-      status: 409,
-      json: { error: { code: 'conflict', message: 'conflict', details: { reason: 'changed' } } },
-    }),
-  );
+  const unrouteEpicMove = await failOperation(page, epicMove, { slug: 'aoba' }, 409, 'conflict', {
+    details: { reason: 'changed' },
+  });
   await chooseRowAction(page, '決済の障害を減らす', '上へ');
   await expect(
     page.getByRole('status').filter({ hasText: 'ほかの画面で変わったため、移せませんでした。一覧を読み直します' }),
@@ -403,7 +392,7 @@ test('完了か中止したエピックも並べ替えられる。断られた�
   await expect(rowMenuToggle(page, '決済の障害を減らす')).toBeFocused();
 
   // 通るときは、中止したエピックも先頭へ動く
-  await page.unroute('**/api/aoba/epic-move');
+  await unrouteEpicMove();
   const moved = waitForResponses(page, '/epic-move');
   await chooseRowAction(page, '決済の障害を減らす', '上へ');
   await expect(epicTitles(page)).toHaveText(['決済の障害を減らす', 'ポイント制度を公開する']);
@@ -736,12 +725,11 @@ test('引き出しの保存と終了で読み直した木が、空の行で作�
   const creating = Promise.withResolvers<void>();
   const create = Promise.withResolvers<void>();
   const created = Promise.withResolvers<void>();
-  await page.route('**/api/aoba/task-create', async (route) => {
+  await routeOperation(page, taskCreate, { slug: 'aoba' }, async (call) => {
     creating.resolve();
     await create.promise;
-    const response = await route.fetch();
-    expect(response.ok()).toBe(true);
-    await route.fulfill({ response });
+    const body = await call.fetch();
+    await call.fulfill(body);
     created.resolve();
   });
   const draft = page.locator('.tree > .draft-row').getByRole('textbox', { name: 'タスクを足す', exact: true });
@@ -759,14 +747,13 @@ test('引き出しの保存と終了で読み直した木が、空の行で作�
   const closingReload = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
   let reads = 0;
-  await page.route('**/api/aoba/backlog-tree', async (route) => {
-    const response = await route.fetch();
-    expect(response.ok()).toBe(true);
+  await routeOperation(page, backlogTree, { slug: 'aoba' }, async (call) => {
+    const body = await call.fetch();
     reads += 1;
     reloading.resolve();
     if (reads >= 2) closingReload.resolve();
     await release.promise;
-    await route.fulfill({ response });
+    await call.fulfill(body);
   });
 
   try {
