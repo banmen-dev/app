@@ -694,11 +694,15 @@ for (const width of [1280, 390]) {
     });
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     let loadingBox;
+    let loadingPaneOffset: number | undefined;
     try {
       const boot = page.locator('#boot-loading .boot-skeleton');
       await expect(boot).toBeVisible();
       await expect(boot.locator('.boot-pane')).toHaveCount(2);
       loadingBox = await shownBox(boot);
+      loadingPaneOffset = await boot.evaluate(
+        (sheet) => sheet.querySelector('.boot-pane')!.getBoundingClientRect().left - sheet.getBoundingClientRect().left,
+      );
     } finally {
       release();
     }
@@ -707,6 +711,13 @@ for (const width of [1280, 390]) {
     const loadedBox = await shownBox(page.locator('.gate-sheet'));
     expect(loadingBox.width).toBe(loadedBox.width);
     expect(loadingBox.x).toBe(loadedBox.x);
+    // 面の左端（紙の内側の余白と、面が枠も余白も持たないこと）も読み込み後にそろえる
+    const loadedPaneOffset = await page
+      .locator('.gate-sheet')
+      .evaluate(
+        (sheet) => sheet.querySelector('.pane')!.getBoundingClientRect().left - sheet.getBoundingClientRect().left,
+      );
+    expect(loadingPaneOffset!).toBeCloseTo(loadedPaneOffset, 0);
   });
 }
 

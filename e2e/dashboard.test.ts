@@ -141,8 +141,11 @@ test('狭い幅では1列に積み、左の列の面の下に最近の更新と�
   expect(await findOverflowViolations(page)).toEqual([]);
 });
 
+// 紙の中の面は枠と地と内側の余白を持たない。紙の内側の左右は 760px 以下が --space-4、761px 以上が --space-6
 for (const [width, inset] of [
   [390, 16],
+  [760, 16],
+  [761, 24],
   [1280, 24],
 ] as const) {
   test(`${width}px で紙の中の面は枠と内側の余白を持たず、組織のまとまりを紙の内側の端から並べる`, async ({ page }) => {
@@ -157,19 +160,57 @@ for (const [width, inset] of [
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/');
     const pane = page.getByRole('region', { name: '組織', exact: true });
-    const block = pane.locator('.org-block').first();
-    await expect(block.getByRole('link', { name: /受託開発チーム/ })).toBeVisible();
-    const frame = await pane.evaluate((element) => {
-      const style = getComputedStyle(element);
-      return { border: style.borderTopWidth, padding: style.paddingLeft };
+    await expect(
+      pane
+        .locator('.org-block')
+        .first()
+        .getByRole('link', { name: /受託開発チーム/ }),
+    ).toBeVisible();
+    await expect(page.locator('.loading-overlay')).toHaveCount(0);
+    // 紙は面の祖先から取り、紙と組織のまとまりの位置は同じ時点で読む（読む間に面が伸びて紙が動いても、差は保たれる）
+    const measured = await pane.evaluate((element) => {
+      const sheet = element.closest('.gate-sheet')!;
+      const frames = [...sheet.querySelectorAll('.pane')].map((each) => {
+        const style = getComputedStyle(each);
+        return [
+          style.borderTopWidth,
+          style.borderRightWidth,
+          style.borderBottomWidth,
+          style.borderLeftWidth,
+          style.paddingTop,
+          style.paddingRight,
+          style.paddingBottom,
+          style.paddingLeft,
+          style.backgroundColor,
+          style.backgroundImage,
+        ].join(' ');
+      });
+      const block = element.querySelector('.org-block')!.getBoundingClientRect();
+      return { frames, offset: block.left - sheet.getBoundingClientRect().left };
     });
-    expect(frame).toEqual({ border: '0px', padding: '0px' });
-    const sheetBox = (await page.locator('.gate-sheet').boundingBox())!;
-    const blockBox = (await block.boundingBox())!;
-    // 紙の枠 1px と、紙の内側の左右（760px 以下は --space-4、広い幅は --space-6）だけ内へ入る
-    expect(blockBox.x - sheetBox.x).toBeCloseTo(1 + inset, 0);
+    expect(measured.frames.length).toBeGreaterThan(1);
+    for (const frame of measured.frames) {
+      expect(frame).toBe('0px 0px 0px 0px 0px 0px 0px 0px rgba(0, 0, 0, 0) none');
+    }
+    // 紙の枠 1px と、紙の内側の左右だけ内へ入る
+    expect(measured.offset).toBeCloseTo(1 + inset, 0);
   });
 }
+
+test('組織のホームの面は、枠の中の画面なので枠と内側の余白を持ったままにする', async ({ page }) => {
+  await page.goto('/aoba');
+  const pane = page.locator('.pane').first();
+  await expect(pane).toBeVisible();
+  const frame = await pane.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      inSheet: element.closest('.gate-sheet') !== null,
+      border: style.borderTopWidth,
+      padding: style.paddingLeft,
+    };
+  });
+  expect(frame).toEqual({ inSheet: false, border: '1px', padding: '24px' });
+});
 
 test('チーム用だけの人の自分用の面には、自分用を作る入口を出す', async ({ page }) => {
   await mockOperation(page, myOrganizations, {
