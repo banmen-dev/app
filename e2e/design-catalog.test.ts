@@ -618,8 +618,7 @@ test('見本のカタログ: 320px で、3つのテーマともページが横�
     await test.step(theme, async () => {
       await page.locator(`[data-pick-theme][value="${theme}"]`).check();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
-      // 落ちたときに直す所が分かるよう、右端を越えた要素のうち、親は越えていない一番外側のものを節の id つきで挙げる
-      // （以前は `.two` の最小の列幅 300px と、パレットの入力欄の既定の幅が見本の列を押し広げていた）。
+      // 落ちたときに直す所が分かるよう、右端を越えた要素のうち、親は越えていない一番外側のものを節の id つきで挙げる。
       // 中で横に送る入れ物（overflow-x が visible でないもの。引き出しや Markdown のコード）の中身は、ページを広げないので数えず、
       // 入れ物そのものが越えたときだけ挙げる
       const read = await page.evaluate((viewport) => {

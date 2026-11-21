@@ -1717,6 +1717,7 @@ label.pick-row:hover { background: var(--color-accent-soft); }
 .cap.is-unset { background: repeating-linear-gradient(135deg, var(--color-gauge) 0 4px, transparent 4px 8px); }
 a.notice-title.notice-link { color: var(--color-fg); text-decoration: none; }
 a.notice-title.notice-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* 列の最小を min(300px, 100%) にし、300px より狭い枠でも1列が枠の幅まで縮んで、横にはみ出さない */
 .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: var(--space-4) var(--space-6); align-items: start; }
 
 @media (max-width: 1080px) {
