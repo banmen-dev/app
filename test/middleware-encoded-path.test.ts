@@ -1,7 +1,8 @@
 // 全リクエストに掛けるミドルウェア（src/server/app.ts のパスを付けない app.use）が、符号化した行の終わりの文字を含む
-// パスでも飛ばされないこと。hono 4.13.15 以前の RegExpRouter は、ワイルドカードを `.*` の正規表現にしていて、
+// パスでも飛ばされないこと。hono の RegExpRouter は、4.13.15 以前ではワイルドカードを `.*` の正規表現にしていて、
 // 改行などに当たらず、`%0A` や `%E2%80%A8` を含むパスでワイルドカードのミドルウェアを飛ばした（GHSA-h7mg-cq63-vhpq。#1353）。
-// 飛ばされると、応答に Content-Security-Policy などのヘッダーが付かない
+// 飛ばされると、応答に Content-Security-Policy などのヘッダーが付かない。下の「4.13.13」は、当たる版のうち、このリポジトリが
+// 上げる前に使っていて、このテストが落ちることを確かめた版
 import { env, exports } from 'cloudflare:workers';
 import { describe, expect, test, vi } from 'vitest';
 import { createApp } from '../src/server/app.ts';
