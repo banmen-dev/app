@@ -3994,8 +3994,10 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   }
   document.addEventListener("pointerover", (event) => {
     const scope = event.target.closest?.(".story-board");
-    if (!scope || event.pointerType === "touch") return;
+    if (!scope) return;
     const card = event.target.closest(".card");
+    // タッチでは強調を付けない（外す側は通す）
+    if (card && event.pointerType === "touch") return;
     if (card) storyHover.set(scope, card.dataset.storyId || null);
     else if (event.target.matches(".board, .board-col")) return;
     else storyHover.delete(scope);
