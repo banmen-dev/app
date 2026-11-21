@@ -516,3 +516,73 @@ test('見本のカタログ: エピックは引き出しで開き、読み取り
   await expect(drawer.locator('input, textarea, select')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+for (const width of [390, 320]) {
+  test(`見本のカタログ: ワークスペースの行は ${width}px で長い名前を折り返し、ロールと chevron を折り返さずに縦の中央に置く`, async ({
+    page,
+  }) => {
+    const files: Record<string, string> = {
+      'index.html': 'text/html',
+      'tokens.css': 'text/css',
+      'components.css': 'text/css',
+      'icons.js': 'text/javascript',
+      'art.js': 'text/javascript',
+      'sample-data.js': 'text/javascript',
+      'kit.js': 'text/javascript',
+      'image-crop.js': 'text/javascript',
+    };
+    await page.route('**/__design-catalog/**', async (route) => {
+      const name = new URL(route.request().url()).pathname.split('/').pop()!;
+      const contentType = files[name];
+      if (!contentType) return route.fulfill({ status: 404, body: '' });
+      await route.fulfill({ contentType, body: readFileSync(new URL(`../design/${name}`, import.meta.url)) });
+    });
+    for (const host of ['fonts.googleapis.com', 'fonts.gstatic.com']) {
+      await page.route(`https://${host}/**`, (route) => route.fulfill({ body: '' }));
+    }
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/__design-catalog/index.html');
+    const rows = page.locator('section[aria-labelledby="pane-demo-workspaces"] .pane-link');
+    await expect(rows).toHaveCount(3);
+    const row = rows.nth(2);
+    await expect(row).toContainText('長い名前のワークスペース（受託開発チームの第二期・保守と追加案件をまとめて見る）');
+    const box = await row.evaluate((element) => {
+      const nameElement = element.querySelector('b')!;
+      const roleElement = element.querySelector('.pane-link-role')!;
+      const chevronElement = element.querySelector('.ico')!;
+      const name = nameElement.getBoundingClientRect();
+      const role = roleElement.getBoundingClientRect();
+      const chevron = chevronElement.getBoundingClientRect();
+      const self = element.getBoundingClientRect();
+      const body = element.closest('.pane-body')!.getBoundingClientRect();
+      const roleStyle = getComputedStyle(roleElement);
+      return {
+        nameLines: Math.round(name.height / parseFloat(getComputedStyle(nameElement).lineHeight)),
+        roleLines: Math.round(role.height / parseFloat(roleStyle.lineHeight)),
+        roleShrink: roleStyle.flexShrink,
+        roleWrap: roleStyle.whiteSpace,
+        chevronShrink: getComputedStyle(chevronElement).flexShrink,
+        nameBeforeRole: name.right <= role.left,
+        roleBeforeChevron: role.right <= chevron.left,
+        rowCenter: self.top + self.height / 2,
+        roleCenter: role.top + role.height / 2,
+        chevronCenter: chevron.top + chevron.height / 2,
+        rowInsideBody: self.left >= body.left && self.right <= body.right,
+      };
+    });
+    // 名前は2行以上に折り返し、ロールは縮まず折り返さずに1行のまま、chevron も縮まない
+    expect(box.nameLines).toBeGreaterThanOrEqual(2);
+    expect(box.roleLines).toBe(1);
+    expect([box.roleShrink, box.roleWrap, box.chevronShrink]).toEqual(['0', 'nowrap', '0']);
+    // 名前、ロール、chevron の順に重ならずに並び、行は面の中身からはみ出さない
+    expect(box.nameBeforeRole).toBe(true);
+    expect(box.roleBeforeChevron).toBe(true);
+    expect(box.rowInsideBody).toBe(true);
+    // ロールと chevron は行の縦の中央に付く
+    expect(Math.abs(box.roleCenter - box.rowCenter)).toBeLessThanOrEqual(1);
+    expect(Math.abs(box.chevronCenter - box.rowCenter)).toBeLessThanOrEqual(1);
+    expect(errors).toEqual([]);
+  });
+}
