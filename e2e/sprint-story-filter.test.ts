@@ -437,6 +437,15 @@ test('タッチで押している間は、同じストーリーの強調で他�
   await expect(page.locator('.card.is-story-dimmed')).toHaveCount(0);
   await card.dispatchEvent('pointerenter', { pointerType: 'mouse' });
   await expect(page.locator('.card.is-story-highlighted')).toHaveCount(3);
+  // タッチに持ち替えてカードに触れたら、保っていたマウスの強調も外す
+  await card.locator('.card-foot').dispatchEvent('pointerover', { pointerType: 'touch' });
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(0);
+  await expect(page.locator('.card.is-story-dimmed')).toHaveCount(0);
+  // 見出しに触れたときも外す
+  await card.dispatchEvent('pointerenter', { pointerType: 'mouse' });
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(3);
+  await page.locator('.board-col-head').first().dispatchEvent('pointerover', { pointerType: 'touch' });
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(0);
 });
 
 test('隙間で保った強調のストーリーのカードを列ごと畳んだら、残ったカードを暗くしたままにしない', async ({

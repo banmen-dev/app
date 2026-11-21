@@ -3998,9 +3998,8 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const scope = event.target.closest?.(".story-board");
     if (!scope) return;
     const card = event.target.closest(".card");
-    // タッチでは強調を付けない（外す側は通す）
-    if (card && event.pointerType === "touch") return;
-    if (card) storyHover.set(scope, card.dataset.storyId || null);
+    // タッチでは強調を付けず、カードに触れたら保っていた強調も外す
+    if (card && event.pointerType !== "touch") storyHover.set(scope, card.dataset.storyId || null);
     else if (event.target.matches(".board, .board-col")) return;
     else storyHover.delete(scope);
     paintStoryExample(scope);

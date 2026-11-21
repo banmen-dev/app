@@ -196,9 +196,10 @@
   function trackStoryHover(node: HTMLElement): () => void {
     const over = (event: PointerEvent): void => {
       const target = event.target;
-      // 強調を付けるのはカードの側で、タッチでは付けない。外す側はタッチでも通し、持ち替えの前の強調を残さない
+      // 強調を付けるのはカードの側で、タッチでは付けない。外す側はタッチでも通し、持ち替えの前の強調を残さない（カードに触れたときも外す）
       if (!(target instanceof Element)) return;
-      if (target === node || target.classList.contains('board-col') || target.closest('.card')) return;
+      if (target === node || target.classList.contains('board-col')) return;
+      if (target.closest('.card') && event.pointerType !== 'touch') return;
       hoveredStory = undefined;
     };
     const leave = (): void => {
