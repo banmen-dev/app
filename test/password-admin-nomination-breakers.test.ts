@@ -1,6 +1,6 @@
 // 管理者の指名を処理している間に、別の登録・指名・パスワード変更が進んだときの整合性を確かめる。
 import { env } from 'cloudflare:workers';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { createApp } from '../src/server/app.ts';
 import { hashPassword, verifyPassword } from '../src/server/auth/password-hash.ts';
 import { randomToken, sha256Hex } from '../src/server/auth/tokens.ts';
@@ -216,4 +216,28 @@ test('現在のパスワードを読み取った直後に変更されると、�
   const accepted = await request('accept', { claim_token: nomination.token, password: secondPassword });
   expect(accepted.status).toBe(200);
   expect(await nominatedUser(nomination)).toMatchObject({ account_id: person.accountId, login_subject: subject });
+});
+
+test('指名の結果は定義済みの POST だけを手段と結果に分けて記録する', async () => {
+  const nomination = await nominate(await createOrganization());
+  const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+  try {
+    expect((await request('inspect', { claim_token: nomination.token })).status).toBe(200);
+    expect((await request('accept', { claim_token: 'invalid', password: firstPassword })).status).toBe(404);
+    expect((await app.request('/api/auth/password/nomination/unknown', { method: 'POST' }, testEnv)).status).toBe(404);
+    expect((await app.request('/api/auth/password/nomination/inspect', { method: 'GET' }, testEnv)).status).toBe(404);
+
+    const entries = log.mock.calls
+      .map(([value]) => JSON.parse(String(value)) as { step?: string; outcome?: string })
+      .filter(({ step }) => step?.startsWith('nomination_'));
+    expect(entries).toEqual([
+      expect.objectContaining({ step: 'nomination_inspect', outcome: 'ok' }),
+      expect.objectContaining({ step: 'nomination_accept', outcome: 'not_found' }),
+    ]);
+    expect(JSON.stringify(entries)).not.toContain(nomination.token);
+    expect(JSON.stringify(entries)).not.toContain(nomination.email);
+    expect(JSON.stringify(entries)).not.toContain(firstPassword);
+  } finally {
+    log.mockRestore();
+  }
 });

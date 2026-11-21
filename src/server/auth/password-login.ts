@@ -11,7 +11,7 @@
 //      伝える。結ぶ書き込みの失敗は 503 unavailable。成功は 200 { return_to } とセッションの Cookie
 // 通常のログインでは、パスワード、ハッシュ、メールアドレスはログにも応答にも出さない。
 // 人が差分を読む領域（docs/development.md の「マージの判定」）
-import { Hono, type Context } from 'hono';
+import { Hono, type Context, type MiddlewareHandler } from 'hono';
 import { getCookie, setCookie } from 'hono/cookie';
 import { z } from 'zod';
 import { CLAIM_TOKEN_PATTERN } from '../../shared/claim-token.ts';
@@ -65,6 +65,14 @@ function log(c: Context<AppEnv>, entry: { outcome: string; accountId?: string; s
       ...entry,
     }),
   );
+}
+
+function logNomination(step: 'nomination_inspect' | 'nomination_accept'): MiddlewareHandler<AppEnv> {
+  return async (c, next) => {
+    await next();
+    const outcome = c.error instanceof ApiError ? c.error.code : c.res.ok ? 'ok' : 'internal';
+    log(c, { step, outcome });
+  };
 }
 
 // Origin が公開する URL と一致し、Sec-Fetch-Site があれば same-origin だけ（none のアドレス欄やほかのサイトからの送信を断る）
@@ -286,14 +294,8 @@ export function passwordLoginRoutes(): Hono<AppEnv> {
     });
   });
 
-  app.use('/nomination/*', async (c, next) => {
-    await next();
-    const step = c.req.path.endsWith('/inspect') ? 'nomination_inspect' : 'nomination_accept';
-    log(c, { step, outcome: c.error instanceof ApiError ? c.error.code : c.res.ok ? 'ok' : 'internal' });
-  });
-
   // 指名の URL からの登録。秘密は本文でだけ受け、メールアドレスと資格情報の有無は有効な指名を持つ人にだけ返す。
-  app.post('/nomination/inspect', async (c) => {
+  app.post('/nomination/inspect', logNomination('nomination_inspect'), async (c) => {
     requireSameOrigin(c);
     const body = await readPasswordBody(c, nominationInspectSchema);
     const now = new Date();
@@ -304,7 +306,7 @@ export function passwordLoginRoutes(): Hono<AppEnv> {
     return c.json({ email, existing_account: (await findCredential(c.env, email)) !== undefined });
   });
 
-  app.post('/nomination/accept', async (c) => {
+  app.post('/nomination/accept', logNomination('nomination_accept'), async (c) => {
     requireSameOrigin(c);
     const body = await readPasswordBody(c, nominationAcceptSchema);
     const now = new Date();
