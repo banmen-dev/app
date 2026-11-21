@@ -105,7 +105,7 @@
 | 群 | 対象 |
 | --- | --- |
 | 開発チーム向けのタスク管理 | [Jira](#jira)、[Linear](#linear)、[GitHub（Projects）](#github)、[Asana](#asana) |
-| 汎用と国産 | [Backlog](#backlog)、[ClickUp](#clickup)、[Notion](#notion)、[Trello](#trello)、[Jooto](#jooto)、[mfloow](#mfloow) |
+| 汎用と国産 | [Backlog](#backlog)、[ClickUp](#clickup)、[Notion](#notion)、[Trello](#trello)、[Jooto](#jooto)、[mfloow](#mfloow)、[Smartsheet](#smartsheet) |
 | Redmine 系 | [Redmine 本体](#redmine-本体)、[My Redmine](#my-redmine)、[Planio](#planio)、[RedmineUP Cloud](#redmineup-cloud)、[Lychee Redmine](#lychee-redmine) |
 | ゲームの仕組みを持つタスク管理 | [FocusUp](#focusup) |
 | ゲーム化 | [Habitica（Group Plan）](#habiticagroup-plan)、[Trophies](#trophiesjira-のアプリ) と [Collaboration Champion（Jira のアプリ）](#collaboration-championjira-のアプリ)、[devActivity（GitHub App）](#devactivitygithub-app)、[Bonusly](#bonusly)、[HeyTaco](#heytaco)、[Unipos](#unipos)、[Questline](#questline) |
@@ -133,6 +133,7 @@ Scrum Guild の額は標準容量込みの基本料金。追加容量（＋10GB 
 | Trello | Premium（タイムラインと CSV に要る） | $125（計算） | $100（計算） | $625（計算） | $500（計算） |
 | Jooto | 10人: スターター、50人: ビジネス | ¥5,000（計算） | ¥4,170（計算） | ¥65,000＋初期費用（計算） | ¥49,000＋初期費用（計算） |
 | mfloow | 管理者10人: ライト、管理者50人: スタンダード（メンバー数とは別） | 公開されていない | 公開されていない | 公開されていない | 公開されていない |
+| Smartsheet | 10人: Pro、50人: Business | $120（計算） | $90（計算） | $1,200（計算） | $950（計算） |
 | My Redmine | スタンダード | ¥11,500（口座振替 ¥9,600） | ¥10,000（前払い） | ¥11,500（口座振替 ¥9,600） | ¥10,000（前払い） |
 | Planio | 10人: Gold、50人: Enterprise | €49（約 ¥7,000） | 年払い無し | €349〜（約 ¥54,000〜） | 年払い無し |
 | RedmineUP Cloud | 10人: Small、50人: Medium | $83 | $69 | $203 | $169 |
@@ -179,6 +180,7 @@ Scrum Guild の額は標準容量込みの基本料金。追加容量（＋10GB 
 | Trello | Standard 約17%、Premium 20% | Enterprise は年払いだけ |
 | Jooto | スターター約17%、ビジネス約25% | 2026-09 から年払いを更新せず、同じ単価の月払いに切り替える。2027-07-31 に終了 |
 | mfloow | 記載無し | 記載無し。初期費用は「基本無料」 |
+| Smartsheet | Pro 25%、Business 約21%（米ドルの単価から計算） | Pro と Business は月払いと年払い。Enterprise と Advanced Work Management は個別見積もり |
 | My Redmine | 無し | 6か月か12か月の前払いが基本。銀行振込の毎月払いは月 ¥1,500 上乗せ、口座振替は月 ¥400 引き |
 | Planio | 無し | 月ごとの契約だけ。請求はユーロ |
 | RedmineUP Cloud | 約17%（2か月分無料） | 月払いと年払い |
@@ -194,20 +196,20 @@ Scrum Guild の額は標準容量込みの基本料金。追加容量（＋10GB 
 
 ○ は本体にある、△ はプランか追加機能に依る、× は無い、? は確認できなかった。
 
-| 機能 | Scrum Guild | FocusUp | Backlog | Jira | Linear | GitHub | Asana | ClickUp | Notion | Trello | Redmine 系 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| スプリントとポイント | ○ | ? | △ バーンダウンだけ | ○ | ○ | △ 代用 | △ カスタム項目 | △ ポイントは Business から | △ 自分で組む | △ Power-Up | △ プラグイン |
-| エピック | ○ | △ 目標とクエスト | △ 親子課題 | ○ | ○ | △ サブ課題 | △ サブタスク | △ サブタスク | △ 自分で組む | × | △ 親子チケット |
-| ガント | × | ? | △ | ○ | △ タイムライン | △ ロードマップ | △ | △ | △ タイムライン | △ | △ RedmineUP Cloud は ? |
-| 時間の記録 | × | ○ デスクトップアプリ | △ 予定と実績 | ○ | × | × | △ | △ | × | △ Power-Up | ○ |
-| 完了の記録を区分と月で書き出す | ○ | △ タイムシートを給与と請求用に書き出す | × | × | × | × | × | × | × | × | × |
-| Backlog の取り込み | ○ | △ Team から | 取り込み元 | × | × | × | × | × | × | × | × |
-| GitHub の PR とレビュー依頼の取り込み | ○ | ? | × | △ PR の表示 | ○ | 取り込み元 | △ PR の同期 | △ PR とコミットのひも付け | △ 一方向の同期 | △ 手で添付 | △ コミット |
-| ロールと権限、監査ログ | △ ロールと変更の履歴 | ? 監査ログは予定 | △ | △ | △ | △ | △ | △ | △ | △ | △ ロールはある。監査ログはサービスに依るか ? |
-| 自動化 | × | ? | △ | ○ | ○ | ○ Actions | △ | ○ | △ | ○ | ? |
-| ゲームの仕組み | ○ | ○ ランキングは無い | × | × | × | × | × | × | × | × | × |
-| 日本語の画面 | ○ | ? サイトは日本語 | ○ | ○ | ? 設定が見つからない | × | ○ | △ ベータ | ○ | ○ | △ RedmineUP Cloud は ? |
-| 円建ての定額 | ○ | × | ○ | × | × | × | × | × | × | × | △ My Redmine |
+| 機能 | Scrum Guild | FocusUp | Backlog | Jira | Linear | GitHub | Asana | ClickUp | Notion | Trello | Smartsheet | Redmine 系 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| スプリントとポイント | ○ | ? | △ バーンダウンだけ | ○ | ○ | △ 代用 | △ カスタム項目 | △ ポイントは Business から | △ 自分で組む | △ Power-Up | △ テンプレート | △ プラグイン |
+| エピック | ○ | △ 目標とクエスト | △ 親子課題 | ○ | ○ | △ サブ課題 | △ サブタスク | △ サブタスク | △ 自分で組む | × | △ 行の親子で代用 | △ 親子チケット |
+| ガント | × | ? | △ | ○ | △ タイムライン | △ ロードマップ | △ | △ | △ タイムライン | △ | ○ | △ RedmineUP Cloud は ? |
+| 時間の記録 | × | ○ デスクトップアプリ | △ 予定と実績 | ○ | × | × | △ | △ | × | △ Power-Up | △ Resource Management | ○ |
+| 完了の記録を区分と月で書き出す | ○ | △ タイムシートを給与と請求用に書き出す | × | × | × | × | × | × | × | × | ? | × |
+| Backlog の取り込み | ○ | △ Team から | 取り込み元 | × | × | × | × | × | × | × | ? | × |
+| GitHub の PR とレビュー依頼の取り込み | ○ | ? | × | △ PR の表示 | ○ | 取り込み元 | △ PR の同期 | △ PR とコミットのひも付け | △ 一方向の同期 | △ 手で添付 | ? PR とレビュー依頼は未確認 | △ コミット |
+| ロールと権限、監査ログ | △ ロールと変更の履歴 | ? 監査ログは予定 | △ | △ | △ | △ | △ | △ | △ | △ | △ | △ ロールはある。監査ログはサービスに依るか ? |
+| 自動化 | × | ? | △ | ○ | ○ | ○ Actions | △ | ○ | △ | ○ | ○ Pro は月250回まで | ? |
+| ゲームの仕組み | ○ | ○ ランキングは無い | × | × | × | × | × | × | × | × | × | × |
+| 日本語の画面 | ○ | ? サイトは日本語 | ○ | ○ | ? 設定が見つからない | × | ○ | △ ベータ | ○ | ○ | ○ | △ RedmineUP Cloud は ? |
+| 円建ての定額 | ○ | × | ○ | × | × | × | × | × | × | × | × | △ My Redmine |
 
 Scrum Guild の欄は `requirements.md` の初版の要件から付けた。実装状況を示す表ではない。
 変更の履歴はタスクや権限などの変更を残す機能で、セキュリティ監査ログとは分けて扱う。
@@ -875,6 +877,73 @@ Redmine 系は本体とホスティングごとに機能が違うため、各サ
 
 - https://www.mfloow.com
 - https://www.mfloow.com/price
+
+### Smartsheet
+
+#### 概要
+
+- 表計算に似たシートでプロジェクトを管理する汎用の道具。タスクを行に置き、ガントやボードで表示できる。料金は有料メンバー（Member）単位で、米ドルと円の表示がある。
+
+#### プラン
+
+横断の表では米ドル表示を使う。金額は有料メンバー1人あたり。
+
+| プラン | 月払い | 年払い（月あたり） | 人数と主な機能 |
+| --- | --- | --- | --- |
+| Pro | $12 | $9 | 新規の顧客向け。有料メンバー1〜10人。ガント、ボード、フォームを利用でき、自動化は月250回まで |
+| Business | $24 | $19 | 有料メンバー3人から。タイムライン、作業負荷の把握、自動化の回数制限なし |
+| Enterprise | 問い合わせ | 問い合わせ | 有料メンバー10人から。SAML SSO とポートフォリオ管理 |
+| Advanced Work Management | 問い合わせ | 問い合わせ | Enterprise の機能に加え、Dynamic View や Data Shuttle などを含む |
+
+- 公式の円建て単価は、Pro が月払い ¥1,600、年払いは月あたり ¥1,200。Business は月払い ¥3,200、年払いは月あたり ¥2,500。
+- 比較では全員を有料メンバーとして数える。10人の Pro は月払い $120、年払いは月あたり $90。Pro の上限を超える50人は Business で、月払い $1,200、年払いは月あたり $950（いずれも計算）。
+
+#### 無料の範囲とお試し
+
+- Free プランは2024-08-28に新規受付を終了した。既存の Free 契約は継続できる。
+- お試しは Business を30日間使え、クレジットカードの登録は要らない。
+- 有料プランに招待された無料の Contributor は、共有された項目を閲覧でき、権限があればコメントできる。Business 以上の外部 Guest は、共有権限に応じて編集もできる。
+
+#### 機能
+
+| 機能 | 使えるプランと範囲 |
+| --- | --- |
+| スプリントとポイント | 公式のテンプレートでスプリントとストーリーポイントを管理できる |
+| エピックと親子 | 行のインデントで親子関係を作れる |
+| ガント | Pro から |
+| 時間の記録 | Resource Management で実績時間を記録できる。Business 以上の追加機能 |
+| 書き出し | シートやレポートを Excel などに書き出せる。完了したタスクを区分と月でまとめる専用の書き出しは確認できなかった |
+| 権限と監査ログ | 項目ごとに共有権限を指定できる。アクティビティログは Business から。組織の監査に使う Event Reporting は Enterprise 以上の追加機能 |
+| SSO（SAML） | Enterprise から |
+| 自動化と API | 自動化は Pro が月250回、Business から回数制限なし。API は Business から |
+| GitHub との連携 | SoftwareX が Marketplace で GitHub Issues 連携を提供する。PR とレビュー依頼を取り込めるかは確認できなかった |
+| ゲームの仕組み | 公式の料金ページと機能の案内に記載無し |
+| 日本語の画面 | 対応 |
+
+#### 支払いの形
+
+- Pro と Business は月払いと年払い。米ドルの単価から計算した年払いの割引は Pro が25%、Business が約21%。
+- クレジットカードに対応する。請求書払いは年払いの Business と Enterprise で条件付き。支払い方法は請求先の国によって異なる。
+- 円建てでも支払える。
+
+#### 確信度の低い点
+
+- 表示額に税が含まれるか、請求先の国ごとの支払い条件、個別見積もりの額は確認できなかった。
+- Backlog の取り込みは確認できなかった。
+- 公式の総合 FAQ にも新規で Free プランを選べるという記載がある。ここでは、終了日と既存契約の扱いを明記した Free プランの公式ヘルプに従った。
+
+#### 出典
+
+以下はすべて Smartsheet 公式（2026-11-21 確認）。比較表の合計額と割引率は、公式の米ドル単価から計算した。
+
+- [料金・プラン別の機能・支払い方法](https://www.smartsheet.com/pricing)、[日本語の料金ページ](https://jp.smartsheet.com/pricing)
+- [Free プランの新規受付終了と既存契約](https://help.smartsheet.com/articles/2482687-free-plan)、[総合 FAQ の Free プランの記載](https://www.smartsheet.com/content/smartsheet-faqs)
+- [30日間のお試し](https://help.smartsheet.com/articles/529590-smartsheet-free-trial-faqs)、[有料・無料の席の違い](https://help.smartsheet.com/articles/2483245-User-Subscription-Model-System-Admin-overview)
+- [支払い方法と通貨](https://help.smartsheet.com/articles/807556-accepted-payment-types-currencies)
+- [スプリントとポイントのテンプレート](https://www.smartsheet.com/marketplace/eu/template-sets/agile-backlog-and-sprint-planning)、[行の親子関係](https://help.smartsheet.com/articles/504734-hierarchy-indenting-outdenting-rows)
+- [時間の記録](https://help.smartsheet.com/articles/2480851-track-time-in-resource-management)、[書き出し](https://help.smartsheet.com/articles/770623-exporting-sheets-reports-from-smartsheet)、[監査](https://help.smartsheet.com/learning-track/system-admin-governance-and-security/activity-monitoring-and-auditing)
+- [項目の共有権限](https://help.smartsheet.com/articles/1155182-sharing-permission-levels)、[対応言語（Impact Report 2026）](https://d2myx53yhj7u4b.cloudfront.net/sites/default/files/2026-08/smartsheet-impact-report-2026_0.pdf)
+- [連携の一覧](https://www.smartsheet.com/integrations)、[Marketplace の GitHub Issues 連携](https://www.smartsheet.com/marketplace/apps/connector-github)
 
 ## Redmine 系
 
