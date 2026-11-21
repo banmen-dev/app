@@ -196,7 +196,7 @@
             <li>
               <a class="pane-link" href={resolve('/[slug]/w/[id]', { slug, id: workspace.id })}>
                 <b>{workspace.name}</b>
-                <span class="chip">{t(workspace.role)}</span>
+                <span class="pane-link-role">{t(workspace.role)}</span>
                 <Icon name="chevron" />
               </a>
             </li>

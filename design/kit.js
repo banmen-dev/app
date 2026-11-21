@@ -860,7 +860,7 @@
   }
   // 面の中の、押すと移る行の一覧。rows は { href, name, role } の配列（role は leader か member）
   function paneList(rows) {
-    return `<ul class="pane-list">${rows.map((r) => `<li><a class="pane-link" href="${esc(r.href)}"><b>${esc(r.name)}</b><span class="chip">${esc(t(r.role))}</span>${icon("chevron")}</a></li>`).join("")}</ul>`;
+    return `<ul class="pane-list">${rows.map((r) => `<li><a class="pane-link" href="${esc(r.href)}"><b>${esc(r.name)}</b><span class="pane-link-role">${esc(t(r.role))}</span>${icon("chevron")}</a></li>`).join("")}</ul>`;
   }
   // 面の中の、ニュースの一覧。items は { date, title, body, href? } の配列で、新しい順に5件まで出す（本番は src/lib/news.ts の latestNews）。
   // 題は h3。href は src/lib/news.ts の isNewsHref と同じ形（https:// で始まり、正規化しても変わらず、ユーザー情報が無い）のときだけリンクにし、

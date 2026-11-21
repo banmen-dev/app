@@ -852,7 +852,9 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
 .pane-list > li + li { border-top: 1px solid var(--color-rule); }
 .pane-link { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-1); color: inherit; text-decoration: none; border-radius: var(--radius-1); }
 .pane-link > b { flex: 1; min-width: 0; font-size: var(--text-md); font-weight: 600; overflow-wrap: anywhere; }
-.pane-link > .chip { flex: none; }
+/* 行のロール（リーダー、メンバー）。枠と地を持つ札（.chip）にせず、小さく薄い文字だけにする。
+   行の名前より目立たせず、行と面と組織のまとまりの枠に、札の枠を重ねない */
+.pane-link-role { flex: none; font-size: var(--text-xs); color: var(--color-muted); white-space: nowrap; }
 .pane-link > .ico { flex: none; color: var(--color-muted); }
 .pane-link:hover, .pane-link:focus-visible { background: var(--color-accent-soft); }
 .pane-link:hover > .ico, .pane-link:focus-visible > .ico { color: var(--color-accent); }

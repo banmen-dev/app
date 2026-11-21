@@ -214,6 +214,35 @@ test('組織のホームの面は、枠の中の画面なので枠と内側の�
   for (const frame of frames) expect(frame).toEqual({ inSheet: false, border: '1px', padding: '24px' });
 });
 
+// ワークスペースの行のロールは、札の枠と地を持たない文字だけにする（全組織のダッシュボードと組織のホームで同じ）
+for (const path of ['/', '/aoba'] as const) {
+  test(`${path} のワークスペースの行は、ロールを枠の無い文字で出す`, async ({ page }) => {
+    if (path === '/') {
+      await mockOperation(page, myOrganizations, {
+        organizations: [aoba, hibari, personal],
+        invitations: [],
+        suspended: [],
+        operator: false,
+      });
+      await mockOperation(page, myWorkspaces, workspaces);
+      await mockOperation(page, myRecentActivity, activity);
+    }
+    await page.goto(path);
+    const rows = page.locator('.pane-link');
+    await expect(rows.first()).toBeVisible();
+    await expect(rows.locator('.chip')).toHaveCount(0);
+    await expect(rows.first().locator('.pane-link-role')).toHaveText(/^(リーダー|メンバー)$/);
+    const roles = await rows.locator('.pane-link-role').evaluateAll((elements) =>
+      elements.map((element) => {
+        const style = getComputedStyle(element);
+        return [style.borderTopWidth, style.borderLeftWidth, style.backgroundColor].join(' ');
+      }),
+    );
+    expect(roles.length).toBeGreaterThan(0);
+    for (const role of roles) expect(role).toBe('0px 0px rgba(0, 0, 0, 0)');
+  });
+}
+
 test('チーム用だけの人の自分用の面には、自分用を作る入口を出す', async ({ page }) => {
   await mockOperation(page, myOrganizations, {
     organizations: [aoba],

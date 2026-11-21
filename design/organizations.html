@@ -45,7 +45,7 @@ const createActions = (primary) => `<button class="btn ${primary ? "is-primary" 
 // 組織ごとのワークスペースの行（組織のホームのワークスペースの面と同じ .pane-list と .pane-link）。押すとバックログへ移る
 const workspaceRows = (rows) => rows.length === 0
   ? `<p class="workspace-note">所属する${t("workspace")}はありません。</p>`
-  : `<ul class="pane-list" aria-label="所属する${t("workspace")}">${rows.map((w) => `<li><a class="pane-link" href="backlog.html"><b>${esc(w.name)}</b><span class="chip">${t(w.role)}</span>${icon("chevron")}</a></li>`).join("")}</ul>`;
+  : `<ul class="pane-list" aria-label="所属する${t("workspace")}">${rows.map((w) => `<li><a class="pane-link" href="backlog.html"><b>${esc(w.name)}</b><span class="pane-link-role">${t(w.role)}</span>${icon("chevron")}</a></li>`).join("")}</ul>`;
 // 組織ごとの、自分が所属する閉じていないワークスペース（見本の値）
 const dashboardWorkspaces = {
   aoba: [{ name: "受託開発チーム", role: "leader" }, { name: "社内ツール", role: "member" }],
