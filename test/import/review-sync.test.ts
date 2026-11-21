@@ -188,9 +188,43 @@ describe('レビュー依頼の同期と保存', () => {
           .where('id', '=', task!.id),
       ),
     );
+    const [before] = await sources(ctx);
     f.state.target = [item({ reviewCycle: 'cycle-2', updatedAt: AT })];
-    await Promise.all([sync(ctx, f.source), sync(ctx, f.source)]);
-    expect(await rows(ctx)).toMatchObject([
+    const bothReading = Promise.withResolvers<void>();
+    const releaseLateResponse = Promise.withResolvers<void>();
+    let targetCalls = 0;
+    f.state.page = async ({ target }) => {
+      if (!target) return { items: f.state.discovery, next: null };
+      // 両方が同じ版を読み終えてから、最初の照合だけに新しい依頼回を返す。
+      targetCalls++;
+      if (targetCalls === 1) {
+        await bothReading.promise;
+      } else {
+        bothReading.resolve();
+        await releaseLateResponse.promise;
+      }
+      return { items: f.state.target, next: null };
+    };
+    const firstSync = sync(ctx, f.source);
+    await expect.poll(() => targetCalls === 1).toBe(true);
+    const lateSync = sync(ctx, f.source);
+    const success = { outcome: 'success', imported: 0, more: false };
+    let reopened;
+    try {
+      expect(await firstSync).toEqual(success);
+      reopened = await rows(ctx);
+      // 先行する復帰のあとで移したタスクを、同じ版を読んだ後続の同期が再度戻さない。
+      await moveToBacklog(ctx, task!.id);
+    } finally {
+      releaseLateResponse.resolve();
+      await expect(lateSync).resolves.toEqual(success);
+    }
+    f.state.page = null;
+    expect(await sources(ctx)).toMatchObject([
+      { review_cycle: 'cycle-2', review_revision: before!.review_revision + 1 },
+    ]);
+    expect(await rows(ctx)).toMatchObject([{ id: task!.id, tray: 'backlog' }]);
+    expect(reopened).toMatchObject([
       {
         id: task!.id,
         tray: 'inbox',
