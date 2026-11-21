@@ -191,7 +191,7 @@ describe('task-move の並べ替え', () => {
     let statement: Parameters<typeof queryPlanForCapturedSql>[1] | undefined;
     const requestEnv = envWithD1Hooks(testEnv, {
       beforeBatch: (_, queries) => {
-        statement = queries.find(
+        statement ??= queries.find(
           ({ sql }) => sql.startsWith('update "tasks"') && sql.includes('exists (select "tasks"."id"'),
         );
       },
