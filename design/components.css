@@ -842,6 +842,10 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
 .pane-hint { font-size: var(--text-xs); color: var(--color-muted); }
 .pane-body { display: grid; gap: var(--space-5); min-width: 0; }
 .pane .section-title { font-size: var(--text-lg); }
+/* 枠の外の紙（.gate-sheet。全組織のダッシュボード）に載せた面は、紙が既に枠なので、自分の枠と地と内側の余白を外す。
+   面の区切りは見出しの下の線（.pane-head）と面の間の余白（.dashboard の --space-8）だけにし、紙・面・組織のまとまりの枠が入れ子に重ならないようにする。
+   枠の中の画面（組織のホーム）の面は枠のまま */
+.gate-sheet .pane { border: 0; background: transparent; padding: 0; }
 /* 面の中の、押すと移る行の一覧（ワークスペース）。行の間は細い線で区切る */
 .pane-list { list-style: none; margin: 0; padding: 0; display: grid; }
 .pane-list > li + li { border-top: 1px solid var(--color-rule); }
@@ -2180,6 +2184,8 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
    実測（2026-10-26）: 停止中の行（操作が2つ）と、名前の列の長い印があるとき、表の最小の幅は 1056px。紙の内側は紙の幅より
    52px 狭いので、要るのは 1108px 以上。960px では表が内側の 908px に収まらない。1024px の画面では表の中の横スクロールで受ける */
 .gate.is-wide .gate-stack, .gate.is-wide .gate-sheet { width: min(1200px, 100%); }
+/* 760px 以下の広い紙は、内側の左右を画面の端の余白（.gate の --space-4）と同じに詰め、中の一覧の幅を残す */
+@media (max-width: 760px) { .gate.is-wide .gate-sheet { padding-inline: var(--space-4); } }
 /* 長い文を読む画面（利用規約とプライバシーポリシー）。日本語の1行が長すぎない 720px までに紙の幅を広げる。狭い画面では画面の幅に収める */
 .gate.is-reading .gate-stack, .gate.is-reading .gate-sheet { width: min(720px, 100%); }
 /* 紙の中に直に置いた Markdown の本文（.doc-box）は、紙が枠なので、自分の枠と余白を外す。条の見出しの前は広く空けて、読む区切りにする */

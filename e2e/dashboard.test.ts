@@ -141,6 +141,36 @@ test('狭い幅では1列に積み、左の列の面の下に最近の更新と�
   expect(await findOverflowViolations(page)).toEqual([]);
 });
 
+for (const [width, inset] of [
+  [390, 16],
+  [1280, 24],
+] as const) {
+  test(`${width}px で紙の中の面は枠と内側の余白を持たず、組織のまとまりを紙の内側の端から並べる`, async ({ page }) => {
+    await mockOperation(page, myOrganizations, {
+      organizations: [aoba, hibari, personal],
+      invitations: [],
+      suspended: [],
+      operator: false,
+    });
+    await mockOperation(page, myWorkspaces, workspaces);
+    await mockOperation(page, myRecentActivity, activity);
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/');
+    const pane = page.getByRole('region', { name: '組織', exact: true });
+    const block = pane.locator('.org-block').first();
+    await expect(block.getByRole('link', { name: /受託開発チーム/ })).toBeVisible();
+    const frame = await pane.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { border: style.borderTopWidth, padding: style.paddingLeft };
+    });
+    expect(frame).toEqual({ border: '0px', padding: '0px' });
+    const sheetBox = (await page.locator('.gate-sheet').boundingBox())!;
+    const blockBox = (await block.boundingBox())!;
+    // 紙の枠 1px と、紙の内側の左右（760px 以下は --space-4、広い幅は --space-6）だけ内へ入る
+    expect(blockBox.x - sheetBox.x).toBeCloseTo(1 + inset, 0);
+  });
+}
+
 test('チーム用だけの人の自分用の面には、自分用を作る入口を出す', async ({ page }) => {
   await mockOperation(page, myOrganizations, {
     organizations: [aoba],
