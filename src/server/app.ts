@@ -177,8 +177,8 @@ export function createApp(
   app.route('/client-errors', clientErrorRoutes());
 
   // 操作の定義から登録するルート。ルートを直に書かない（/api/health、/api/auth/ の下の GET、POST /api/auth/google/start、
-  // POST /api/auth/password/login、POST /api/client-errors だけが例外）
-  app.route('/', operationsApp(operations, { fetcher }));
+  // POST /api/auth/password/ のログインと指名、POST /api/client-errors が例外）
+  app.route('/', operationsApp(operations, { fetcher, passwordLogin: options.passwordLogin }));
 
   app.notFound((c) => c.json(errorBody('not_found', 'not found'), 404));
 

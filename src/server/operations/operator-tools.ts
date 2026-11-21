@@ -5,7 +5,7 @@
 // 既にある組織の中の表に書くのは、変更の履歴を1行足す appendChangeLog と、管理者を指名し直す reassignAdmin だけ
 // （組織の中の入口は渡さない）。包む関数（appendOperatorChangeLog、reassignOrganizationAdmin）を import できるのは
 // このファイルだけで、ESLint が守る（eslint.config.db-entry.js）
-import { INVITE_PATH } from '../../shared/claim-token.ts';
+import { INVITE_PATH, PASSWORD_INVITE_PATH } from '../../shared/claim-token.ts';
 import type { InviteeResolver } from '../auth/login-method.ts';
 import {
   adminStatusesOf,
@@ -21,6 +21,7 @@ import {
   type NewOrganization,
   type OperatorChangeLog,
 } from '../db/index.ts';
+import type { EmailAdminNomineeInput } from '../../shared/operations/operator/create-organization.ts';
 import type { AdminStatus } from '../../shared/operations/operator/list-organizations.ts';
 import type { AdminNominee } from '../organizations/designate-admin.ts';
 
@@ -31,8 +32,9 @@ export type OperatorTools = {
   readonly requestId: string;
   // 招待する人の解決器。持つ手段（GitHub）だけ。資格情報が未設定の手段と、解決器を持たない手段は undefined
   inviteeResolver(provider: string): InviteeResolver | undefined;
-  // 招待の URL（<公開 URL のオリジン>/invite#<秘密>）。秘密は応答の本文にだけ入れる
-  inviteUrl(claimToken: string): string;
+  readonly passwordLoginEnabled: boolean;
+  // 指名の URL（秘密はフラグメント）。秘密は応答の本文にだけ入れる
+  inviteUrl(provider: EmailAdminNomineeInput['provider'], claimToken: string): string;
   // 組織ごとの管理者の状態。人の名前や ID は返さない。期限の過ぎた待つ行は expired に数える
   adminStatuses(organizationIds: readonly string[], now: Date): Promise<Map<string, AdminStatus>>;
   // 組織ごとの集計（人数、閉じていないワークスペースの数、削除していないタスクの数、最後に使われた日時）。人の名前や ID は返さない
@@ -54,14 +56,18 @@ export type OperatorTools = {
 
 export function operatorTools(
   env: Env,
-  context: { loginId: string; requestId: string },
+  context: { loginId: string; requestId: string; passwordLoginEnabled: boolean },
   inviteeResolver: (provider: string) => InviteeResolver | undefined,
 ): OperatorTools {
   return {
     loginId: context.loginId,
     requestId: context.requestId,
     inviteeResolver,
-    inviteUrl: (claimToken) => `${new URL(env.PUBLIC_ORIGIN).origin}${INVITE_PATH}#${claimToken}`,
+    passwordLoginEnabled: context.passwordLoginEnabled,
+    inviteUrl: (provider, claimToken) => {
+      const path = provider === 'password' ? PASSWORD_INVITE_PATH : INVITE_PATH;
+      return `${new URL(env.PUBLIC_ORIGIN).origin}${path}#${claimToken}`;
+    },
     adminStatuses: (organizationIds, now) => adminStatusesOf(env, organizationIds, now),
     organizationUsage: (organizationIds, now) => organizationUsageOf(env, organizationIds, now),
     insertOrganization: (input) => insertOrganization(env, { ...input, createdByOperator: context.loginId }),

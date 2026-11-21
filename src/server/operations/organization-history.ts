@@ -1,7 +1,7 @@
 // 組織の変更の履歴（docs/data-model.md の change_logs の「組織の変更の履歴」）。管理者だけが読む。
 // 出す行は、ワークスペースの外の行（workspace_id が空）と、ワークスペースの作成、終了、再開の行。所属や招待など、
 // ワークスペースの中の行は出さない。changes_json はそのまま返さず、種類ごとに画面の文に要る値だけを取り出す
-import { WAITING_USER_NAME_IN_LOG } from '../../shared/claim-token.ts';
+import { WAITING_PASSWORD_USER_NAME_IN_LOG, WAITING_USER_NAME_IN_LOG } from '../../shared/claim-token.ts';
 import {
   ORGANIZATION_HISTORY_PAGE_SIZE,
   organizationHistory,
@@ -54,19 +54,22 @@ function textOrNull(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }
 
-// 記録にそのときの名前があればそれを、無ければ users の今の名前（ログインを待つ行は null で読む）。
-// 記録の名前でも、ログインを待つ行の仮の名前と、メールアドレスに見えるもの（@ を含む）は使わない
-function personName(changes: Changes, row: HistoryRow): string | null {
-  const logged = textOrNull(pairOf(changes, 'name')?.[1]);
-  return logged !== null && logged !== WAITING_USER_NAME_IN_LOG && !logged.includes('@')
-    ? logged
-    : row.entity_user_name;
+// ログインを待つ行の仮の名前と、メールアドレスに見えるもの（@ を含む）は使わない
+function loggedPersonName(changes: Changes, side: 0 | 1): string | null {
+  const logged = textOrNull(pairOf(changes, 'name')?.[side]);
+  if (
+    logged === null ||
+    logged === WAITING_USER_NAME_IN_LOG ||
+    logged === WAITING_PASSWORD_USER_NAME_IN_LOG ||
+    logged.includes('@')
+  )
+    return null;
+  return logged;
 }
 
-// 消した行の記録の前の名前。ログインを待つ行の仮の名前と、メールアドレスに見えるもの（@ を含む）は使わない
-function removedPersonName(changes: Changes): string | null {
-  const logged = textOrNull(pairOf(changes, 'name')?.[0]);
-  return logged !== null && logged !== WAITING_USER_NAME_IN_LOG && !logged.includes('@') ? logged : null;
+// 記録にそのときの名前があればそれを、無ければ users の今の名前（ログインを待つ行は null で読む）
+function personName(changes: Changes, row: HistoryRow): string | null {
+  return loggedPersonName(changes, 1) ?? row.entity_user_name;
 }
 
 // 本人が自分の行に書いた記録（Google の招待の URL から結んだとき。src/server/db/cross-organization.ts の claimLogStatement）
@@ -85,7 +88,7 @@ function userEvent(action: string, changes: Changes, row: HistoryRow): HistoryEv
   // 行は消えているので、名前は記録の前の値から取る。人がした users の削除は other のまま
   if (action === 'delete') {
     return row.actor_user_id === null && row.by_operator && isAdmin?.[0] === 1 && isAdmin[1] === null
-      ? { kind: 'admin_designation_removed', name: removedPersonName(changes) }
+      ? { kind: 'admin_designation_removed', name: loggedPersonName(changes, 0) }
       : { kind: 'other' };
   }
   if (action !== 'update') return { kind: 'other' };

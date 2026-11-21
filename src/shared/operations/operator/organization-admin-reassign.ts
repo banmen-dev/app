@@ -10,7 +10,7 @@ export const reassignAdminProblems = [
   'github_not_a_user',
   'github_user_changed',
   'email_invalid',
-  // 指名する GitHub の人が、操作する運用者自身（運用者のアカウントに結んだログインのどれか）。Google は突き合わせられないので見ない
+  // 指名する GitHub の人が、操作する運用者自身（運用者のアカウントに結んだログインのどれか）。メールアドレスでの指名では照合しない
   'nominee_is_operator',
 ] as const;
 export type ReassignAdminProblem = (typeof reassignAdminProblems)[number];
@@ -46,9 +46,9 @@ export const organizationAdminReassign = defineOperation({
   }),
   output: z.object({
     slug: z.string(),
-    // 指名した人の GitHub のユーザー名。Google の指名ではそろえたメールアドレス
+    // 指名した人の GitHub のユーザー名。メールアドレスでの指名ではそろえたメールアドレス
     admin_login_name: z.string(),
-    // Google の指名で作った招待の URL と、その期限（ISO 8601）。GitHub の指名では null
+    // メールアドレスでの指名で作った URL と期限（ISO 8601）。GitHub の指名では null
     invite: z.object({ url: z.string(), expires_at: z.string() }).nullable(),
   }),
 });

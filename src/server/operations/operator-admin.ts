@@ -6,13 +6,13 @@ import { purgeDueInDatabase } from '../db/index.ts';
 import { ApiError } from '../errors.ts';
 import { implement } from './implement.ts';
 import type { OutsideAccount } from './account.ts';
-import { githubNominee, googleNominee, invalid, linkIfLoggedInSince, type CommonDb } from './operator-nominee.ts';
+import { emailNominee, githubNominee, invalid, linkIfLoggedInSince, type CommonDb } from './operator-nominee.ts';
 import type { OperatorTools } from './operator-tools.ts';
 
 // 指名する GitHub の人が、操作する運用者自身か。運用者のアカウントに結んだログイン（無ければ運用者のログインの ID）の
 // どれかと (github, ID) が同じなら自分。運用者は組織の中に特権を持たないので、指名し直しで自分を組織の管理者にさせない
 // （組織の作成の最初の管理者は、自分のチームの組織を作る使い方があるので止めない）。
-// Google はメールアドレスを運用者のログイン（sub）と突き合わせられないので、ここでは見ない
+// メールアドレスでの指名は、本人のログインの後に組織に結ぶ
 async function isOperatorOwnLogin(account: OutsideAccount, operator: OperatorTools, subject: string): Promise<boolean> {
   const logins = await account.logins();
   const own =
@@ -50,7 +50,7 @@ async function organizationIdOf(db: CommonDb, slug: string, at: Date): Promise<s
 //      どれも GitHub に問い合わせず、
 //      招待の URL も作らない）
 //   2. GitHub はユーザー名を解決し直して確かめたユーザー ID と一致するか確かめ、アカウントを共通の DB で引く。
-//      Google はメールアドレスをそろえ、待つ行と招待の URL の秘密を作る（組織の作成と同じ。operator-nominee.ts）。
+//      Google とパスワードはメールアドレスをそろえ、待つ行と招待の URL の秘密を作る（組織の作成と同じ。operator-nominee.ts）。
 //      GitHub で解決した人が運用者自身なら、GitHub に問い合わせた後、書く前に 400（nominee_is_operator）で断る
 //   3. 組織の DB に、前の指名の取り消し（所属の無い行は消し、所属を持つ行は管理者の印を外す）と指名を1回の batch() で書く
 //      （運用者の道具の reassignAdmin。共通の表は混ぜない）。
@@ -62,14 +62,14 @@ export const organizationAdminReassignOperation = implement(
     const now = clockNow();
     const organizationId = await organizationIdOf(db, input.slug, now);
 
-    if (input.admin.provider === 'google') {
-      const google = await googleNominee(input.admin.email, now);
-      const result = await operator.reassignAdmin(organizationId, { nominee: google.nominee, now });
+    if (input.admin.provider !== 'github') {
+      const { nominee, email, claimToken, claimExpiresAt } = await emailNominee(operator, input.admin, now);
+      const result = await operator.reassignAdmin(organizationId, { nominee, now });
       if (result === 'conflict') throw new ApiError(409, 'conflict');
       return {
         slug: input.slug,
-        admin_login_name: google.email,
-        invite: { url: operator.inviteUrl(google.claimToken), expires_at: google.claimExpiresAt },
+        admin_login_name: email,
+        invite: { url: operator.inviteUrl(input.admin.provider, claimToken), expires_at: claimExpiresAt },
       };
     }
 

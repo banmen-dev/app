@@ -1401,6 +1401,7 @@ GitHub のアカウントも Google のアカウントも使わない人のた�
   - 単体テストは `createApp(undefined, { passwordLogin: true })` で口を開けて常に走る（`test/password-login*.test.ts`）。既定の `createApp()` が 404 の `not_found` を返すことは `test/password-login.test.ts` が確かめる
   - e2e は `e2e/password-login.test.ts` を `test.skip(!PASSWORD_LOGIN_ENABLED, …)` で飛ばし、`e2e/login.test.ts` が、フォームと「または」が出ないことと、POST が 404 の `not_found` を返すことを確かめる（`PASSWORD_LOGIN_ENABLED` が真のときは飛ばす）
   - `password_credentials` の表、`seed/passwords.ts` と `seed/data.sql` の行、辞書のキー、`src/lib/password-login.ts`、`password-hash.ts` は残す。閉じている間は読まれないだけ
+- #257 の管理者指名も同じ定数を使う。閉じている間は、運用者の画面に指名方法を出さず、API でのパスワード指名と `POST /api/auth/password/nomination/inspect`、`POST /api/auth/password/nomination/accept` は 404 を返す。これら2つの POST はログイン前にだけでなく、別のアカウントでログイン済みでも使える。通常のパスワードのログインと同じ検査で JSON を受け付ける。
 - 開き方: 登録の入口（#257、#258）と一緒に、1つの PR で次をする。(1) `PASSWORD_LOGIN_ENABLED` を `true` にする。(2) `design/login.html` に区切りとフォームと、断られたときの見本を戻す（git の履歴から。#635 の差分）。(3) `docs/requirements.md` の「後回し」の項目を「初版」へ移し、`docs/design.md` のログインの画面の行を、パスワードのフォームを出すものに戻す。(4) `e2e/login.test.ts` の閉じている間の場面は自動で飛ぶので、`e2e/password-login.test.ts` が PR の CI の `e2e` で通ることを見る（Claude のセッションは e2e を手元で走らせない）
 
 - 口: `POST /api/auth/password/login`（`src/server/auth/password-login.ts`）。本文は JSON の `{ email, password, return_to? }`（zod の strict）で、4KiB まで。成功は 200 の `{ return_to }` とセッションの Cookie で、`return_to` は自分のサイトのパスだけ（`safeReturnTo` と、URL の解決の後の `resolvedReturnTo`）。画面（`src/routes/login/+page.svelte`、送るのは `src/lib/password-login.ts`）はその値へ `location.replace` で移り、ページごと読み直す。入れる組織が2つ以上の人は `/`（組織の選択）へ移る

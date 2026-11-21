@@ -9,6 +9,8 @@
   import { showToast } from '../toast.svelte.ts';
   import { t } from '../vocabulary.svelte.ts';
   import { EMAIL_MAX_LENGTH } from '../../shared/email.ts';
+  import type { InputOf } from '../../shared/operations/define.ts';
+  import { PASSWORD_LOGIN_ENABLED } from '../../shared/password-login-enabled.ts';
   import {
     GITHUB_USERNAME_MAX_LENGTH,
     organizationAdminReassign,
@@ -41,7 +43,7 @@
   };
   type Done =
     | { kind: 'named'; slug: string; loginName: string }
-    | { kind: 'invite'; email: string; inviteUrl: string; expiresAt: string };
+    | { kind: 'invite'; password: boolean; email: string; inviteUrl: string; expiresAt: string };
   type Field = 'username' | 'email' | 'form';
   type FailedResult = Extract<ApiResult<unknown>, { ok: false }>;
 
@@ -52,7 +54,7 @@
   let open = $state(false);
   let dialog = $state<ReturnType<typeof Dialog>>();
   let target = $state<Target | null>(null);
-  let via = $state<'github' | 'google'>('github');
+  let via = $state<AdminToSend['provider']>('github');
   let username = $state('');
   let email = $state('');
   let resolved = $state<Resolved | null>(null);
@@ -72,13 +74,14 @@
   const viaLabelId = `${ids}-via`;
   const words = $derived({ organization: t('organization'), admin: t('admin') });
   const github = $derived(via === 'github');
+  const password = $derived(via === 'password');
   const sending = $derived(busy === 'sending');
   const organizationUrl = $derived(done?.kind === 'named' ? `${page.url.origin}/${done.slug}/` : '');
   const usernameDescribedBy = $derived(
     errors.username ? `${ids}-username-error ${ids}-username-hint` : `${ids}-username-hint`,
   );
   const emailDescribedBy = $derived(errors.email ? `${ids}-email-error ${ids}-email-hint` : `${ids}-email-hint`);
-  // 「指名する」を押せるか。GitHub は確かめた後、Google はメールアドレスを入れた後
+  // 「指名する」を押せるか。GitHub は確かめた後、Google とパスワードはメールアドレスを入れた後
   const ready = $derived(github ? resolved !== null : email.trim() !== '');
   const leadKeys: Record<AdminStatus, DictionaryKey> = {
     none: 'operatorReassignLeadNone',
@@ -165,7 +168,11 @@
     }
     const code = problemCodesOf(result).find((item) => Object.hasOwn(problemKeys, item));
     if (code !== undefined) {
-      return { field: code === 'email_invalid' ? 'email' : 'username', key: problemKeys[code]!, code };
+      return {
+        field: code === 'email_invalid' ? 'email' : 'username',
+        key: code === 'email_invalid' && password ? 'operatorPasswordEmailInvalid' : problemKeys[code]!,
+        code,
+      };
     }
     const field: Field = context === 'verify' ? 'username' : 'form';
     if (result.status === 400) return { field, key: 'operatorErrorInvalid' };
@@ -243,18 +250,17 @@
     await focusFailure(failure.field);
   }
 
-  type AdminToSend =
-    { provider: 'google'; email: string } | { provider: 'github'; username: string; login_subject: string };
+  type AdminToSend = InputOf<typeof organizationAdminReassign>['admin'];
 
-  // 送る人。GitHub は確かめた人（確かめていなければ送らない）、Google は入れたメールアドレス。送れないときは undefined
+  // 送る人。GitHub は確かめた人（確かめていなければ送らない）、Google とパスワードは入れたメールアドレス。送れないときは undefined
   function adminToSend(): AdminToSend | undefined {
-    if (!github) {
+    if (via !== 'github') {
       const value = email.trim();
       if (value === '') {
         errors = { ...errors, email: 'operatorErrorEmailRequired' };
         return undefined;
       }
-      return { provider: 'google', email: value };
+      return { provider: via, email: value };
     }
     if (resolved === null) return undefined;
     if (username.trim() !== resolved.username) {
@@ -293,6 +299,7 @@
       done = result.data.invite
         ? {
             kind: 'invite',
+            password: admin.provider === 'password',
             email: result.data.admin_login_name,
             inviteUrl: result.data.invite.url,
             expiresAt: result.data.invite.expires_at,
@@ -365,6 +372,19 @@
           />
           <span>{t('operatorGoogleName')}</span>
         </label>
+        {#if PASSWORD_LOGIN_ENABLED}
+          <label>
+            <input
+              type="radio"
+              name="{ids}-via"
+              value="password"
+              bind:group={via}
+              disabled={sending}
+              onchange={changeVia}
+            />
+            <span>{t('operatorPasswordName')}</span>
+          </label>
+        {/if}
       </div>
     </div>
     {#if github}
@@ -416,7 +436,9 @@
       {/if}
     {:else}
       <div class="field" class:is-invalid={errors.email}>
-        <label class="field-label" for={fieldIds.email}>{t('operatorGoogleEmailLabel')}</label>
+        <label class="field-label" for={fieldIds.email}
+          >{t(password ? 'loginEmailLabel' : 'operatorGoogleEmailLabel')}</label
+        >
         <input
           class="input mono"
           id={fieldIds.email}
@@ -442,7 +464,9 @@
             ><Icon name="alert" />{t(errors.email, words)}</span
           >
         {/if}
-        <span class="field-hint" id="{ids}-email-hint">{t('operatorGoogleEmailHint', words)}</span>
+        <span class="field-hint" id="{ids}-email-hint"
+          >{t(password ? 'operatorPasswordEmailHint' : 'operatorGoogleEmailHint', words)}</span
+        >
       </div>
     {/if}
     <p class="field-hint">{t('operatorReassignNote', words)}</p>
@@ -453,16 +477,22 @@
       </div>
     {/if}
   {:else if done.kind === 'invite'}
-    <!-- Google の指名。招待の URL は応答の本文にだけあり、この表示を閉じると二度と出ない -->
-    <p tabindex="-1" bind:this={doneLead}>{t('operatorInviteLead', words)}</p>
+    <!-- メールアドレスでの指名。URL は応答の本文にだけあり、この表示を閉じると二度と出ない -->
+    <p tabindex="-1" bind:this={doneLead}>
+      {t(done.password ? 'operatorPasswordInviteLead' : 'operatorInviteLead', words)}
+    </p>
     <div class="field">
-      <label class="field-label" for="{ids}-invite-url">{t('operatorInviteUrlLabel')}</label>
+      <label class="field-label" for="{ids}-invite-url"
+        >{t(done.password ? 'operatorPasswordInviteUrlLabel' : 'operatorInviteUrlLabel')}</label
+      >
       <div class="input-row">
         <input class="input mono" id="{ids}-invite-url" value={done.inviteUrl} readonly bind:this={urlInput} />
         <button
           class="btn"
           type="button"
-          onclick={() => done?.kind === 'invite' && copy(done.inviteUrl, 'operatorInviteCopied')}
+          onclick={() =>
+            done?.kind === 'invite' &&
+            copy(done.inviteUrl, done.password ? 'operatorPasswordInviteCopied' : 'operatorInviteCopied')}
           ><Icon name="link" />{t('operatorCopy')}</button
         >
       </div>
@@ -470,14 +500,14 @@
     <div class="callout is-info">
       <Icon name="check" />
       <span>
-        {t('operatorInviteTell')}
+        {t(done.password ? 'operatorPasswordInviteTell' : 'operatorInviteTell')}
         <b class="mono wrap-anywhere">{done.email}</b>
       </span>
     </div>
     <div class="callout is-warn">
       <Icon name="alert" /><span>{t('operatorInviteOnce', { expires: formatDateTime(done.expiresAt) })}</span>
     </div>
-    <p class="field-hint">{t('operatorInviteReissue', words)}</p>
+    <p class="field-hint">{t(done.password ? 'operatorPasswordInviteReissue' : 'operatorInviteReissue', words)}</p>
   {:else}
     <p tabindex="-1" bind:this={doneLead}>{t('operatorDoneLead', words)}</p>
     <div class="field">
