@@ -158,6 +158,7 @@ test('競合索引以外の統計だけを採った旧版で、読み取りが�
       ['tasks_story_open'],
     );
     db.exec(readFileSync(new URL(migration, migrations), 'utf8'));
+    assertRepositoryLookup(db, workspace);
     assertLegacyWorkspaceLookups(db, workspace, owner);
   } finally {
     db.close();
