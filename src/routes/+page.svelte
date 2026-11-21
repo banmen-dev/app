@@ -196,7 +196,7 @@
             <li>
               <a class="pane-link" href={resolve('/[slug]/w/[id]', { slug, id: workspace.id })}>
                 <b>{workspace.name}</b>
-                <span class="chip">{t(workspace.role)}</span>
+                <span class="pane-link-role">{t(workspace.role)}</span>
                 <Icon name="chevron" />
               </a>
             </li>
@@ -223,9 +223,16 @@
               {#if personalOrganization !== undefined}
                 {@render workspacesStatus()}
                 <div class="org-block">
-                  <a class="choice" href={resolve('/[slug]', { slug: personalOrganization.slug })}>
+                  <a
+                    class="choice"
+                    href={resolve('/[slug]', { slug: personalOrganization.slug })}
+                    aria-label={t('dashboardPersonalHomeLabel', {
+                      personal: t('personalOrganizationName'),
+                      address: `${page.url.host}/${personalOrganization.slug}/`,
+                    })}
+                  >
                     <div>
-                      <b>{organizationLabel(personalOrganization)}</b>
+                      <b>{t('dashboardPersonalHome')}</b>
                       <span class="mono">{page.url.host}/{personalOrganization.slug}/</span>
                     </div>
                     <Icon name="chevron" />
