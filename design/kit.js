@@ -568,12 +568,14 @@
   // opts.image はログインの手段の側のアバターの画像の URL（指名する人を確かめるときなど）。画像が読めないときは頭文字に戻す
   // （Avatar.svelte と同じ）。見本の画像は SAMPLE_PHOTO のような架空の data URI にし、外の URL を読まない
   function avatar(name, hue, opts = {}) {
-    if (!name) return `<span class="avatar is-none ${opts.lg ? "is-lg" : ""}" title="担当なし">?</span>`;
+    const label = name ? `${esc(name)}${opts.left ? "（離脱済み）" : ""}` : "担当なし";
+    const accessibility = opts.labelled ? ` role="img" aria-label="${label}"` : "";
+    if (!name) return `<span class="avatar is-none ${opts.lg ? "is-lg" : ""}" title="${label}"${accessibility}>?</span>`;
     const initial = esc([...name][0]);
     const inner = opts.image
       ? `<img src="${esc(opts.image)}" alt="" referrerpolicy="no-referrer" data-initial="${initial}" onerror="this.replaceWith(document.createTextNode(this.dataset.initial))">`
       : initial;
-    return `<span class="avatar ${opts.lg ? "is-lg" : ""} ${opts.left ? "is-left" : ""}" style="--h:${hue}" title="${esc(name)}${opts.left ? "（離脱済み）" : ""}">${inner}</span>`;
+    return `<span class="avatar ${opts.lg ? "is-lg" : ""} ${opts.left ? "is-left" : ""}" style="--h:${hue}" title="${label}"${accessibility}>${inner}</span>`;
   }
   // 見本のアバターの画像（架空の人の絵。data URI なので外へ通信しない）と、読み込めない画像（頭文字に戻る例）
   const SAMPLE_PHOTO = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><rect width="36" height="36" fill="#c9a24b"/><circle cx="18" cy="14" r="6" fill="#fffaf0"/><path d="M6 33c1-8 6-11 12-11s11 3 12 11z" fill="#fffaf0"/></svg>')}`;
@@ -627,7 +629,7 @@
   function categoryTag(id) {
     return id ? nameChip("tag", t("category"), D.categories[id].name) : "";
   }
-  // 入っているスプリント（本番の DefinitionChip の sprint）。名前が無ければ期間。バックログの木の行にだけ出す
+  // 入っているスプリント（本番の DefinitionChip の sprint）。名前が無ければ期間
   function sprintTag(x) {
     if (!x.sprint || !D.sprints[x.sprint]) return "";
     const s = D.sprints[x.sprint];
@@ -646,8 +648,8 @@
     const item = (id, label) => `<label><input type="radio" name="${name}" value="${id || ""}" ${opts.for ? `data-repo-for="${opts.for}"` : ""} ${sel === id ? "checked" : ""}><span>${esc(label)}</span></label>`;
     return `<div class="segmented" role="radiogroup" aria-label="リポジトリ">${item(null, "なし")}${ids.map((id) => item(id, D.repositories[id].name)).join("")}</div>`;
   }
-  function taskFlags(x) {
-    const carried = x.todayOn && x.todayOn < D.today && !x.doneAt;
+  function taskFlags(x, showCarry = true) {
+    const carried = showCarry && x.todayOn && x.todayOn < D.today && !x.doneAt;
     return `${carried ? `<span class="chip is-carry">${icon("redo")}持ち越し</span>` : ""}
       ${x.srcDone && !x.doneAt ? `<span class="chip is-ok">${icon("check")}取り込み元で完了</span>` : ""}`;
   }
@@ -734,7 +736,8 @@
     return mark && mark.drop ? ` data-drop="${mark.drop}"` : "";
   }
 
-  // 台帳の1行。opts: showWs, showParent（既定 true）, showAssignee, showSprint（入っているスプリントの印。バックログの木）,
+  // 台帳の1行。opts: showWs, showAssignee（アバターのオプションも渡せる）, showSprint（入っているスプリントの印）,
+  // showParent, showStatus, showCarry, showCategory（既定 true）,
   // order（並べ替えの操作。{ first, last, parent, across }。「⋯」のメニューに入る）,
   // mark（ドラッグの状態。dropAttr）
   function entry(x, opts = {}) {
@@ -752,13 +755,13 @@
         ${title}
         <span class="entry-meta">
           ${opts.showWs ? `<span class="tag">${esc(D.workspaces[x.ws].name)}</span>` : ""}
-          ${opts.showSprint ? sprintTag(x) : ""}${compact ? "" : repoTag(x)}${!compact && !x.story ? categoryTag(x.cat) : ""}${sourceKey(x)}
+          ${opts.showSprint ? sprintTag(x) : ""}${compact ? "" : repoTag(x)}${!compact && !x.story && opts.showCategory !== false ? categoryTag(x.cat) : ""}${sourceKey(x)}
           ${showParent && parent ? `<span>${icon("flag")} ${esc(parent)}</span>` : ""}
-          ${compact && x.todayOn === D.today ? `<span class="entry-today">${icon("sun")}今日やる</span>` : ""}${x.doneAt ? `<span>${t("done")} ${esc(x.doneAt)}</span>` : colName(x) ? `<span class="status-dot">${esc(colName(x))}</span>` : ""}
-          ${taskFlags(x)}${opts.meta ? opts.meta(x) : ""}
+          ${compact && x.todayOn === D.today ? `<span class="entry-today">${icon("sun")}今日やる</span>` : ""}${opts.showStatus === false ? "" : x.doneAt ? `<span>${t("done")} ${esc(x.doneAt)}</span>` : colName(x) ? `<span class="status-dot">${esc(colName(x))}</span>` : ""}
+          ${taskFlags(x, opts.showCarry)}${opts.meta ? opts.meta(x) : ""}
         </span>
       </div>
-      <div class="entry-end"><div class="entry-attributes"><div class="entry-chips"${compact ? ` role="group" aria-label="${esc(x.title)}"` : ""}>${compact ? attrChip(x, "due") + attrChip(x, "repo") + attrChip(x, "cat") : taskDue(x)}${opts.hidePts ? "" : compact ? attrChip(x, "pts") : pts(x.pts)}${opts.showAssignee ? (compact ? attrChip(x, "who") : avatarOf(x.who)) : ""}</div></div><div class="entry-actions">${compact ? rowMenu(x.title, [
+      <div class="entry-end"><div class="entry-attributes"><div class="entry-chips"${compact ? ` role="group" aria-label="${esc(x.title)}"` : ""}>${compact ? attrChip(x, "due") + attrChip(x, "repo") + attrChip(x, "cat") : taskDue(x)}${opts.hidePts ? "" : compact ? attrChip(x, "pts") : pts(x.pts)}${opts.showAssignee ? (compact ? attrChip(x, "who") : avatarOf(x.who, opts.showAssignee)) : ""}</div></div><div class="entry-actions">${compact ? rowMenu(x.title, [
         { attr: `data-sun="${x.id}"`, label: x.todayOn === D.today ? "今日やるを外す" : "今日やる", icon: "sun" },
         ...orderItems(opts.order),
         { attr: `data-task-delete="${x.id}"`, label: `この${t("task")}を削除する`, icon: "trash", danger: true },
@@ -1182,12 +1185,11 @@
   // スプリントゴールの貼り紙
   function sprintNotice(id, opts = {}) {
     const s = D.sprints[id];
-    const ticks = Array.from({ length: s.days }, (_, i) => `<i class="${i < s.dayIndex ? "is-past" : i === s.dayIndex ? "is-today" : ""}"></i>`).join("");
+    if (!s.goal) return "";
     return `<article class="notice">
       <span class="notice-label">${t("sprintGoal")}</span>
       <p class="notice-title is-goal">${esc(s.goal)}</p>
-      <div class="notice-meta">${opts.showWs !== false ? `<span>${esc(D.workspaces[s.ws].name)}</span>` : ""}<span>${sprintLabel(id)}</span>${s.name ? `<span class="mono">${md(s.start)}〜${md(s.end)}</span>` : ""}<span>残り ${s.days - s.dayIndex} 日</span></div>
-      <div class="day-ticks" role="img" aria-label="${s.days} 日のうち ${Math.min(s.dayIndex + 1, s.days)} 日目">${ticks}</div>
+      ${opts.showWs !== false ? `<div class="notice-meta"><span>${esc(D.workspaces[s.ws].name)}</span></div>` : ""}
     </article>`;
   }
   // レイドの貼り紙（一覧や計画の中で使う小さな形）
