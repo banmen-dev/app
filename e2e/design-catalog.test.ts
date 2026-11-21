@@ -516,3 +516,65 @@ test('見本のカタログ: エピックは引き出しで開き、読み取り
   await expect(drawer.locator('input, textarea, select')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+for (const width of [390, 320]) {
+  test(`見本のカタログ: ワークスペースの行は ${width}px で長い名前を折り返し、ロールと chevron を折り返さずに縦の中央に置く`, async ({
+    page,
+  }) => {
+    const files: Record<string, string> = {
+      'index.html': 'text/html',
+      'tokens.css': 'text/css',
+      'components.css': 'text/css',
+      'icons.js': 'text/javascript',
+      'art.js': 'text/javascript',
+      'sample-data.js': 'text/javascript',
+      'kit.js': 'text/javascript',
+      'image-crop.js': 'text/javascript',
+    };
+    await page.route('**/__design-catalog/**', async (route) => {
+      const name = new URL(route.request().url()).pathname.split('/').pop()!;
+      const contentType = files[name];
+      if (!contentType) return route.fulfill({ status: 404, body: '' });
+      await route.fulfill({ contentType, body: readFileSync(new URL(`../design/${name}`, import.meta.url)) });
+    });
+    for (const host of ['fonts.googleapis.com', 'fonts.gstatic.com']) {
+      await page.route(`https://${host}/**`, (route) => route.fulfill({ body: '' }));
+    }
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/__design-catalog/index.html');
+    const row = page
+      .locator('.pane-link')
+      .filter({ hasText: '長い名前のワークスペース（受託開発チームの第二期・保守と追加案件をまとめて見る）' })
+      .first();
+    await row.scrollIntoViewIfNeeded();
+    await expect(row).toBeVisible();
+    const box = await row.evaluate((element) => {
+      const rect = (selector: string) => element.querySelector(selector)!.getBoundingClientRect();
+      const name = rect('b');
+      const role = rect('.pane-link-role');
+      const chevron = rect('.ico');
+      const self = element.getBoundingClientRect();
+      const roleLine = parseFloat(getComputedStyle(element.querySelector('.pane-link-role')!).lineHeight);
+      return {
+        nameHeight: name.height,
+        roleHeight: role.height,
+        roleLine: Number.isNaN(roleLine) ? role.height : roleLine,
+        rowCenter: self.top + self.height / 2,
+        roleCenter: role.top + role.height / 2,
+        chevronCenter: chevron.top + chevron.height / 2,
+        roleRight: role.right,
+        chevronRight: chevron.right,
+        rowRight: self.right,
+      };
+    });
+    // 名前は2行以上に折り返す
+    expect(box.nameHeight).toBeGreaterThan(box.roleHeight * 1.5);
+    // ロールは1行のまま
+    expect(box.roleHeight).toBeLessThanOrEqual(box.roleLine + 1);
+    // ロールと chevron は行の縦の中央に付き、行の右端からはみ出さない
+    expect(Math.abs(box.roleCenter - box.rowCenter)).toBeLessThanOrEqual(1);
+    expect(Math.abs(box.chevronCenter - box.rowCenter)).toBeLessThanOrEqual(1);
+    expect(box.roleRight).toBeLessThanOrEqual(box.chevronRight);
+    expect(box.chevronRight).toBeLessThanOrEqual(box.rowRight);
+  });
+}
