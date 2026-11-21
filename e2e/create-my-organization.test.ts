@@ -107,7 +107,7 @@ test('入れる組織が1つの会員は、組織の切り替えのメニュー�
     .getByRole('link', { name: /あおば開発/ })
     .click();
   await expect(page).toHaveURL(/\/aoba$/);
-  const menuButton = page.getByRole('button', { name: 'あおば開発。組織を切り替える' });
+  const menuButton = page.getByRole('button', { name: '組織 あおば開発。組織を切り替える' });
   await menuButton.click();
   await expect(menuButton).toHaveAttribute('aria-expanded', 'true');
   await page.getByRole('list', { name: '入れる組織' }).getByRole('button', { name: '組織を作る' }).click();
@@ -136,7 +136,7 @@ test('入れる組織が1つの会員は、組織の切り替えのメニュー�
     .getByRole('link', { name: /あおば開発/ })
     .click();
   await expect(page).toHaveURL(/\/aoba$/);
-  const menuButton = page.getByRole('button', { name: 'あおば開発。組織を切り替える' });
+  const menuButton = page.getByRole('button', { name: '組織 あおば開発。組織を切り替える' });
   await menuButton.click();
   await expect(menuButton).toHaveAttribute('aria-expanded', 'true');
   const list = page.getByRole('list', { name: '入れる組織' });
@@ -171,7 +171,7 @@ test('自分用を持つ会員の切り替えのメニューには、名前の�
     organizations: [team, personal],
   }));
   await page.goto('/aoba');
-  await page.getByRole('button', { name: 'あおば開発。組織を切り替える' }).click();
+  await page.getByRole('button', { name: '組織 あおば開発。組織を切り替える' }).click();
   const list = page.getByRole('list', { name: '入れる組織' });
   await expect(list.getByRole('link', { name: '自分用' })).toBeVisible();
   await expect(list.getByRole('button', { name: word('createMyOrganizationAction') })).toBeVisible();
@@ -185,7 +185,7 @@ test('自分用を持つ会員の切り替えのメニューには、名前の�
     suspended: [{ ...personal, slug: 'mio-stopped' }],
   }));
   await page.goto('/aoba');
-  await page.getByRole('button', { name: 'あおば開発。組織を切り替える' }).click();
+  await page.getByRole('button', { name: '組織 あおば開発。組織を切り替える' }).click();
   await expect(list.getByRole('button', { name: word('createMyOrganizationAction') })).toBeVisible();
   await expect(list.getByRole('button', { name: word('createPersonalOrganizationAction') })).toHaveCount(0);
 });
@@ -213,7 +213,7 @@ test('組織の無い会員は「自分用を作る」から slug だけで作�
   await dialog.getByRole('button', { name: word('createPersonalOrganizationSubmit') }).click();
   await expect(page).toHaveURL(/\/nagi-solo\/?$/);
   // 組織の切り替えのボタンに、組織の名前の代わりに「自分用」と出る
-  await expect(page.getByRole('button', { name: '自分用。組織を切り替える' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '組織 自分用。組織を切り替える' })).toBeVisible();
 });
 
 test('すでにある slug を入れると、ダイアログの slug の欄に理由が出て、選び直せる', async ({

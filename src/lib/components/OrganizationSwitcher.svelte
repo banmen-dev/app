@@ -48,8 +48,10 @@
   );
   // 名前の欄と、畳んだ列の札に出す文字。移っている最中はどちらも「移っています」
   const shownName = $derived(moving ? t('organizationMoving') : currentName);
+  // 浮きメニューで見える「組織」、名前欄、招待の印を表示順に読み上げる（WCAG 2.5.3）。
+  const invitationBadge = $derived(invited ? t('invitationsBadge') : '');
   const label = $derived(
-    t('organizationSwitchLabel', { name: currentName }) + (invited ? `。${t('invitationsBadge')}` : ''),
+    t('organizationSwitchLabel', { name: [t('organization'), shownName, invitationBadge].filter(Boolean).join(' ') }),
   );
 
   function create(): void {
@@ -78,7 +80,7 @@
   >
     <span class="org-menu-label">{t('organization')}</span>
     <b>{shownName}</b>
-    {#if invited}<span class="chip">{t('invitationsBadge')}</span>{/if}
+    {#if invited}<span class="chip">{invitationBadge}</span>{/if}
     {#if invited}<span class="org-menu-invite" aria-hidden="true"></span>{/if}
     <!-- マークは畳んだ列でだけ見せ、名前の欄の代わりにする（広げた列はマークのリンクがボタンの左に別にある） -->
     <BrandSymbol />
@@ -86,7 +88,8 @@
     <!-- 畳んだ列で、ホバーとキーボードのフォーカスのときに今の組織と招待の有無を目で読ませる札。読み上げは aria-label が受け持つ。
          移っている最中は、広げた列の名前の欄と同じく「移っています」を出し、畳んだ列では札を出したままにする（押し直しを誘わない） -->
     <span class="nav-tip" aria-hidden="true"
-      >{shownName}{#if invited && !moving}<small>{t('invitationsBadge')}</small>{/if}</span
+      >{shownName}
+      {#if invited && !moving}<small>{invitationBadge}</small>{/if}</span
     >
   </button>
   <!-- 移っている最中を読み上げに伝える。領域は常に置き、中の文字だけを替える -->

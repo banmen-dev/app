@@ -245,7 +245,7 @@ test('畳んだメニューの角のマスは組織のボタンのマークだ�
     const box = (await symbol.boundingBox())!;
     expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(64);
-    await expect(org).toHaveAccessibleName('あおば開発。組織を切り替える');
+    await expect(org).toHaveAccessibleName('組織 あおば開発。組織を切り替える');
   }
   await page.setViewportSize({ width: 390, height: 700 });
   await expect(brand).toHaveCount(0);
