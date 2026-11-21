@@ -1717,7 +1717,7 @@ label.pick-row:hover { background: var(--color-accent-soft); }
 .cap.is-unset { background: repeating-linear-gradient(135deg, var(--color-gauge) 0 4px, transparent 4px 8px); }
 a.notice-title.notice-link { color: var(--color-fg); text-decoration: none; }
 a.notice-title.notice-link:hover { text-decoration: underline; text-underline-offset: 3px; }
-.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4) var(--space-6); align-items: start; }
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: var(--space-4) var(--space-6); align-items: start; }
 
 @media (max-width: 1080px) {
   .lanes { grid-template-columns: minmax(0, 1fr); }
@@ -2472,7 +2472,8 @@ button.file-name:hover { text-decoration-color: currentColor; }
   background: var(--surface-panel); border: 1px solid var(--color-line); border-radius: var(--radius-1); box-shadow: var(--shadow-float); overflow: hidden;
 }
 .assist-ask { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-rule); color: var(--color-muted); }
-.assist-input { flex: 1; min-width: 0; border: 0; background: none; outline: none; padding: var(--space-1) 0; font-size: var(--text-lg); color: var(--color-fg); }
+/* width: 0 で、入力欄の既定の幅（size の 20 文字分）を最小の幅として親へ伝えない。幅は flex: 1 で決まる */
+.assist-input { flex: 1; width: 0; min-width: 0; border: 0; background: none; outline: none; padding: var(--space-1) 0; font-size: var(--text-lg); color: var(--color-fg); }
 .assist-input::placeholder { color: var(--color-muted); }
 .assist-input:disabled { cursor: not-allowed; }
 .assist-ask:focus-within { box-shadow: inset 0 -2px 0 var(--color-accent); }
