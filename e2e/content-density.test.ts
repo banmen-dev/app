@@ -25,7 +25,6 @@ test('組織ホームの今日の行は1280pxでも横に並び、390pxでは折
             () => parseFloat(getComputedStyle(document.documentElement).fontSize) * 12,
           );
           expect(main!.width, `${theme}/${width}: 題の幅`).toBeGreaterThanOrEqual(minimum);
-          await expect(row.locator('.entry-end')).toHaveCSS('flex-wrap', 'wrap');
         }
         expect(end!.x, `${theme}/${width}: 操作が題の右に並ぶ`).toBeGreaterThanOrEqual(main!.x + main!.width);
         expect(end!.y).toBeLessThan(main!.y + main!.height);
@@ -37,9 +36,45 @@ test('組織ホームの今日の行は1280pxでも横に並び、390pxでは折
   }
 });
 
-test('組織ホームの台帳、通常の台帳、木はそれぞれの境界で右端を折り返す', async ({ page }) => {
+test('組織ホームの台帳は440pxを境に右端を折り返し、横並びでは題の12remを保つ', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/aoba');
+  const list = page.locator('.book.is-compact').first();
+  const row = list.locator('.entry').first();
+  const endColumn = row.locator('.entry-end');
+  await expect(row).toBeVisible();
+  // 期日などの印が多い行を作り、操作に譲ると題が12rem未満になる条件を揃える。
+  await row.locator('.entry-chips').evaluate((el) => {
+    for (let i = 0; i < 4; i++) {
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.textContent = '期日切れ 11/19';
+      el.append(chip);
+    }
+  });
+  const minimum = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize) * 12);
+  for (const width of [440, 441, 520, 521]) {
+    await list.evaluate((el, width) => {
+      el.style.boxSizing = 'content-box';
+      el.style.width = `${width}px`;
+    }, width);
+    const main = await row.locator('.entry-main').boundingBox();
+    const end = await endColumn.boundingBox();
+    expect(main).not.toBeNull();
+    expect(end).not.toBeNull();
+    if (width === 440) {
+      expect(end!.y).toBeGreaterThanOrEqual(main!.y + main!.height);
+    } else {
+      expect(main!.width, `${width}pxで題の幅`).toBeGreaterThanOrEqual(minimum);
+      expect(end!.x).toBeGreaterThanOrEqual(main!.x + main!.width);
+      expect(end!.y).toBeLessThan(main!.y + main!.height);
+      await expect(endColumn).toHaveCSS('flex-wrap', 'wrap');
+    }
+  }
+});
+
+test('通常の台帳と木はそれぞれの境界で右端を折り返す', async ({ page }) => {
   for (const [path, selector, boundary] of [
-    ['/aoba', '.book.is-compact', 440],
     [`${WORKSPACE}/inbox`, '.book', 520],
     [WORKSPACE, '.tree', 640],
   ] as const) {
@@ -59,11 +94,6 @@ test('組織ホームの台帳、通常の台帳、木はそれぞれの境界�
       expect(main).not.toBeNull();
       expect(end).not.toBeNull();
       expect(end!.y >= main!.y + main!.height).toBe(width === boundary);
-      if (path === '/aoba' && width > boundary) {
-        const minimum = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize) * 12);
-        expect(main!.width).toBeGreaterThanOrEqual(minimum);
-        expect(end!.x).toBeGreaterThanOrEqual(main!.x + main!.width);
-      }
     }
   }
 });
@@ -74,16 +104,20 @@ test('文字を200%に拡大して題と操作が収まらないときは、操�
   const list = page.locator('.book.is-compact').first();
   const row = list.locator('.entry').first();
   await expect(row).toBeVisible();
-  await list.evaluate((el) => {
+  await page.evaluate(() => {
     document.documentElement.style.fontSize = '200%';
-    el.style.boxSizing = 'content-box';
-    el.style.width = '504px';
   });
-  const main = await row.locator('.entry-main').boundingBox();
-  const end = await row.locator('.entry-end').boundingBox();
-  expect(main).not.toBeNull();
-  expect(end).not.toBeNull();
-  expect(end!.y).toBeGreaterThanOrEqual(main!.y + main!.height);
+  for (const width of [504, 521]) {
+    await list.evaluate((el, width) => {
+      el.style.boxSizing = 'content-box';
+      el.style.width = `${width}px`;
+    }, width);
+    const main = await row.locator('.entry-main').boundingBox();
+    const end = await row.locator('.entry-end').boundingBox();
+    expect(main).not.toBeNull();
+    expect(end).not.toBeNull();
+    expect(end!.y, `${width}pxで操作が題の下に移る`).toBeGreaterThanOrEqual(main!.y + main!.height);
+  }
 });
 
 for (const path of ['/aoba', '/aoba/me', '/aoba/wiki']) {
