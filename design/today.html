@@ -18,8 +18,8 @@
 <script src="kit.js"></script>
 <script>
 "use strict";
-// 今日やること（組織のホーム）: 2列のダッシュボード。左の列に、所属するワークスペースの面と、自分が担当するタスクの面（今日やること）、Scrum Guild のニュースの面を上から並べる。
-// 右の列（.dashboard-side）に、最近の更新の面（所属するワークスペースのタスク、ストーリー、エピックの変更とコメントを、日付ごとに新しい順）を置く。
+// 今日やること（組織のホーム）: 2列のダッシュボード。左の列には今日やること、Scrum Guild のニュースの順に面を並べる。
+// 右の列には所属するワークスペース、最近の更新の順に面を並べる。
 // 広い幅は左3、右2の2列。760px 以下は左の列の下に続く
 const { D, t, book, section, foldedSection, pageHead, sprintNotice, pane, paneList, newsList, dashboard, activity } = SQ;
 
@@ -95,7 +95,7 @@ SQ.mount("today", () => {
       ])}
     <div class="layout-main">
       ${SQ.first ? SQ.firstSteps(SQ.first) : ""}
-      ${dashboard(workspacePane + todayPane + newsPane, activityPane)}
+      ${dashboard(todayPane + newsPane, workspacePane + activityPane)}
     </div>
   `;
 });

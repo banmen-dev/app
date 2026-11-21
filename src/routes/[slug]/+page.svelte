@@ -431,8 +431,8 @@
   </Pane>
 {/snippet}
 
-<!-- 最初にやることは2列の上に全幅で置く。その下がダッシュボード（.dashboard）で、左の列（.dashboard-main）にワークスペース、今日やること、
-     ニュース（Scrum Guild のニュース。画面のコードの一覧で、どの組織でも同じ。1件も無ければ置かない）の面を上から並べる。右の列（.dashboard-side）に最近の更新の面を置く（広い幅は左3、右2の2列。760px 以下は左の列の下に続く）。
+<!-- 最初にやることは2列の上に全幅で置く。その下のダッシュボード（.dashboard）は、左の列に今日やること、Scrum Guild のニュースの順に面を並べる。
+     右の列にはワークスペース、最近の更新の順に面を並べる。広い幅は左3、右2の2列。760px 以下は左の列の下に右の列が続く。
      最近の更新の面は、ホームの load には入れず、面が自分で読む（今日やることの操作でホームを読み直しても、続きを消さない） -->
 {#snippet main()}
   <!-- 最初にやること。手順が空（必須が済んだ、出す手順が無い）か読めなかったときは置かない -->
@@ -448,11 +448,11 @@
   {/if}
   <div class="dashboard">
     <div class="dashboard-main">
-      {#if data.organization !== null}{@render workspacePane()}{/if}
       {@render todayPane()}
       <NewsPane items={news} />
     </div>
     <div class="dashboard-side">
+      {#if data.organization !== null}{@render workspacePane()}{/if}
       <RecentActivity slug={data.slug} noWorkspace={todayKind === 'noWorkspace'} />
     </div>
   </div>

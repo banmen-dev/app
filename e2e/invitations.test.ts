@@ -3,7 +3,11 @@
 // 本物の API で承諾するのは最初のテストだけで、承諾すると招待は残らない。そのテストは終わりに承諾を戻す（e2e/local-d1.ts）。
 // ほかのテストは、承諾の後でも同じに動くよう、組織の枠と招待の操作の応答を差し替える。サーバーの処理は test/invitation-response.test.ts が確かめる
 import type { Page } from '@playwright/test';
+import type { OutputOf } from '../src/shared/operations/define.ts';
+import { myOrganizations, organizationInfo } from '../src/shared/operations/organization/index.ts';
+import { invitationAccept, invitationDecline, invitationList } from '../src/shared/operations/workspace/index.ts';
 import { expect, test } from './fixtures.ts';
+import { failOperation, routeOperation } from './operations.ts';
 import { signIn, watchViolations } from './helpers.ts';
 import { restoreHinataInvitation } from './local-d1.ts';
 
@@ -15,15 +19,7 @@ const expected404 = (entry: string) => !entry.includes('404 (Not Found)');
 const expected401 = (entry: string) => expected404(entry) && !entry.includes('401 (Unauthorized)');
 const toast = (page: Page) => page.locator('.toasts:visible .toast');
 
-type InboxInvitation = {
-  invitation_id: string;
-  workspace_id: string;
-  workspace_name: string;
-  closed: boolean;
-  role: 'leader' | 'member';
-  invited_by_name: string;
-  invited_on: string;
-};
+type InboxInvitation = OutputOf<typeof invitationList>['invitations'][number];
 
 function invitation(overrides: Partial<InboxInvitation> = {}): InboxInvitation {
   return {
@@ -41,27 +37,21 @@ function invitation(overrides: Partial<InboxInvitation> = {}): InboxInvitation {
 // 招待だけの人として、ひばり工房の枠と招待の一覧を差し替える。invitations は呼ぶたびに今の値を返す。
 // 招待が残っていなければ、本物と同じく組織の選択の読み取りが 401（入れる組織も招待も無い人はセッションが消える）
 async function stubInvitedOnly(page: Page, state: { invitations: InboxInvitation[] }): Promise<void> {
-  await page.route('**/api/hibari/organization', (route) =>
-    route.fulfill({ status: 404, json: { error: { code: 'not_found', message: 'not found' } } }),
-  );
-  await page.route('**/api/my-organizations', (route) =>
+  await failOperation(page, organizationInfo, { slug: 'hibari' }, 404, 'not_found', { message: 'not found' });
+  await routeOperation(page, myOrganizations, (call) =>
     state.invitations.length > 0
-      ? route.fulfill({
-          json: {
-            organizations: [],
-            invitations: [{ organization_name: 'ひばり工房', slug: 'hibari' }],
-            suspended: [],
-            operator: false,
-          },
+      ? call.fulfill({
+          organizations: [],
+          invitations: [{ organization_name: 'ひばり工房', slug: 'hibari' }],
+          suspended: [],
+          operator: false,
         })
-      : route.fulfill({ status: 401, json: { error: { code: 'unauthenticated', message: 'unauthenticated' } } }),
+      : call.fail(401, 'unauthenticated'),
   );
-  await page.route('**/api/hibari/invitation-list', (route) =>
-    route.fulfill({
-      json: {
-        organization: { name: 'ひばり工房' },
-        invitations: state.invitations,
-      },
+  await routeOperation(page, invitationList, { slug: 'hibari' }, (call) =>
+    call.fulfill({
+      organization: { name: 'ひばり工房' },
+      invitations: state.invitations,
     }),
   );
 }
@@ -164,11 +154,11 @@ test.describe('招待だけが届いた人（ヒナタ）', () => {
     };
     await stubInvitedOnly(page, state);
     const sent: unknown[] = [];
-    await page.route('**/api/hibari/invitation-decline', (route) => {
-      const body = route.request().postDataJSON() as { invitation_id: string };
+    await routeOperation(page, invitationDecline, { slug: 'hibari' }, (call) => {
+      const body = call.input;
       sent.push(body);
       state.invitations = state.invitations.filter((item) => item.invitation_id !== body.invitation_id);
-      return route.fulfill({ json: { invitation_id: body.invitation_id } });
+      return call.fulfill({ invitation_id: body.invitation_id });
     });
 
     await page.goto('/hibari/invitations');
@@ -191,10 +181,10 @@ test.describe('招待だけが届いた人（ヒナタ）', () => {
     const collect = await watchViolations(page);
     const state = { invitations: [invitation()] };
     await stubInvitedOnly(page, state);
-    await page.route('**/api/hibari/invitation-accept', (route) => {
+    await routeOperation(page, invitationAccept, { slug: 'hibari' }, (call) => {
       // 取り消された。読み直すと招待は残らない
       state.invitations = [];
-      return route.fulfill({ status: 404, json: { error: { code: 'not_found', message: 'not found' } } });
+      return call.fail(404, 'not_found', { message: 'not found' });
     });
     await page.goto('/hibari/invitations');
     await page.getByRole('button', { name: 'デザイン相談室への招待を承諾する' }).click();
@@ -212,9 +202,9 @@ test.describe('招待だけが届いた人（ヒナタ）', () => {
     const collect = await watchViolations(page);
     const state = { invitations: [invitation()] };
     await stubInvitedOnly(page, state);
-    let code = 'conflict';
-    await page.route('**/api/hibari/invitation-accept', (route) =>
-      route.fulfill({ status: 409, json: { error: { code, message: 'conflict' } } }),
+    let code: 'conflict' | 'workspace_closed' = 'conflict';
+    await routeOperation(page, invitationAccept, { slug: 'hibari' }, (call) =>
+      call.fail(409, code, { message: 'conflict' }),
     );
     await page.goto('/hibari/invitations');
     const accept = page.getByRole('button', { name: 'デザイン相談室への招待を承諾する' });
