@@ -601,15 +601,17 @@ describe('実行計画', () => {
     ['依頼先なし', { delegatee: null }],
     ['検索', { words: ['請求'] }],
   ] as const)(
-    'ストーリーの下の未完了のタスクは、絞り込み（%s）によらず tasks_story_open で引き、担当と依頼先の索引をストーリーごとに引かない',
+    'ストーリーの下の未完了のタスクは、絞り込み（%s）によらずストーリーごとの未完了行を索引で引く',
     async (_name, filter) => {
       const target = await createTarget();
       const db = orgDb(env, target.organization.verified);
       const plan = (
         await queryPlanForTest(env, openStoryTasksStatement(db, target.workspace.id, { words: [], ...filter }))
       ).join('\n');
-      expect(plan).toContain('stories_workspace_epic');
-      expect(plan).toMatch(/SEARCH tasks USING INDEX tasks_story_open \(story_id=\?\)/);
+      expect(plan).toMatch(/SEARCH stories USING INDEX stories_workspace_(?:epic|fk) \(workspace_id=\?/);
+      expect(plan).toMatch(
+        /SEARCH tasks USING INDEX tasks_story_(?:open \(story_id=\?\)|fk \(story_id=\? AND deleted_at=\? AND completed_at=\?\))/,
+      );
       expect(plan).not.toContain('tasks_assignee_user');
       expect(plan).not.toContain('tasks_delegatee_completed');
       expect(plan).not.toMatch(/^\s*SCAN tasks\b/m);
@@ -737,14 +739,18 @@ describe('実行計画', () => {
       if (plan === undefined) return;
       expect(plan).toMatch(/SEARCH tasks USING (COVERING )?INDEX tasks_workspace_tray/);
       expect(plan).not.toMatch(/\btasks USING (COVERING )?INDEX tasks_story\b/);
-      expect(plan).toMatch(/SEARCH t USING (COVERING )?INDEX tasks_story \(story_id=\?\)/);
+      expect(plan).toMatch(
+        /SEARCH t USING (COVERING )?INDEX tasks_story(?: \(story_id=\?\)|_fk \(story_id=\? AND deleted_at=\?\))/,
+      );
     });
 
-    test('ストーリーの配下を引く文は、tasks_story で引く', async () => {
+    test('ストーリーの配下を引く文は、索引で対象のストーリーに絞る', async () => {
       const { db, workspaceId, target } = await analyzedWorld();
       const story = await createStory(target.organization, workspaceId, target.admin.userId!);
       const plan = await planOf(lastPositionStatement(db, workspaceId, story.id));
-      expect(plan).toMatch(/USING (COVERING )?INDEX tasks_story \(story_id=\?\)/);
+      expect(plan).toMatch(
+        /USING (COVERING )?INDEX tasks_story(?: \(story_id=\?\)|_fk \(story_id=\? AND deleted_at=\?\))/,
+      );
     });
   });
 });

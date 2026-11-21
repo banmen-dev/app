@@ -243,6 +243,7 @@ function rootStatements(db: OrganizationDb, context: DeleteContext, root: Root):
 // 1. スプリントに入っている配下のタスクの行を removed で閉じる、2. 手で作ったタスクの削除の履歴、
 // 3. 取り込んだタスクのアーカイブの履歴（親と置き場所）、4. 取り込んだタスクをアーカイブの末尾へ移す（親、スプリント、列を空にする）、
 // 5. 手で作ったタスクを論理削除する（スプリント、列を空にする）
+// 配下の ID が決まった後は ID で引く。ワークスペースでも照合するが、その索引で全タスクを読ませない。
 function deleteTaskStatements(db: OrganizationDb, context: DeleteContext, root: Root): Statement<'organization'>[] {
   const { organizationId, workspaceId, actorUserId, at, deletedAt } = context;
   return [
@@ -273,7 +274,7 @@ function deleteTaskStatements(db: OrganizationDb, context: DeleteContext, root: 
               eb.val(JSON.stringify({ deleted_at: [null, deletedAt] })).as('changes_json'),
               eb.val(deletedAt).as('created_at'),
             ])
-            .where('t.workspace_id', '=', workspaceId)
+            .where(unindexed('t.workspace_id'), '=', workspaceId)
             .where((eb) => eb('t.id', 'in', tasksUnderRoot(q, workspaceId, root, 0)))
             .where((eb) => eb.exists(guardRow(q, context, root))),
         ),
@@ -309,7 +310,7 @@ function deleteTaskStatements(db: OrganizationDb, context: DeleteContext, root: 
                 .as('changes_json'),
               eb.val(deletedAt).as('created_at'),
             ])
-            .where('t.workspace_id', '=', workspaceId)
+            .where(unindexed('t.workspace_id'), '=', workspaceId)
             .where((eb) => eb('t.id', 'in', tasksUnderRoot(q, workspaceId, root, 1)))
             .where((eb) => eb.exists(guardRow(q, context, root))),
         ),
@@ -334,7 +335,7 @@ function deleteTaskStatements(db: OrganizationDb, context: DeleteContext, root: 
                 eb.fn.countAll<number>().over(),
               ).as('position'),
             ])
-            .where('t.workspace_id', '=', workspaceId)
+            .where(unindexed('t.workspace_id'), '=', workspaceId)
             .where((eb) => eb('t.id', 'in', tasksUnderRoot(q, workspaceId, root, 1)))
             .where((eb) => eb.exists(guardRow(q, context, root)))
             .as('n'),
@@ -349,13 +350,13 @@ function deleteTaskStatements(db: OrganizationDb, context: DeleteContext, root: 
           updated_at: deletedAt,
         }))
         .whereRef('tasks.id', '=', 'n.id')
-        .where('tasks.workspace_id', '=', workspaceId),
+        .where(unindexed('tasks.workspace_id'), '=', workspaceId),
     ),
     db.statement((q) =>
       q
         .updateTable('tasks')
         .set({ deleted_at: deletedAt, updated_at: deletedAt, sprint_id: null, column_id: null, column_position: null })
-        .where('tasks.workspace_id', '=', workspaceId)
+        .where(unindexed('tasks.workspace_id'), '=', workspaceId)
         .where((eb) => eb('tasks.id', 'in', tasksUnderRoot(q, workspaceId, root, 0)))
         .where((eb) => eb.exists(guardRow(q, context, root))),
     ),

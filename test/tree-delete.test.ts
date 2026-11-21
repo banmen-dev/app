@@ -814,7 +814,7 @@ describe('一般のメンバーのまとめて削除', () => {
 
 describe('実行計画', () => {
   test.each(['epic', 'story'] as const)(
-    '%s を根にした文は、配下のストーリーを stories_workspace_epic、タスクを tasks_story で引き、タスクの表を走査しない',
+    '%s を根にした文は、配下のストーリーとタスクを親 ID の索引で引く',
     async (kind) => {
       const target = await createTarget();
       const db = dbOf(target);
@@ -832,10 +832,12 @@ describe('実行計画', () => {
           statements.map(async (statement) => (await queryPlanForTest(env, statement)).join('\n')),
         );
         const all = plans.join('\n');
-        if (kind === 'epic') expect(all).toContain('stories_workspace_epic');
-        expect(all).toContain('tasks_story');
-        // 配下のタスク（ut、t、ot）を tasks_workspace_tray や全件の走査で引かない（移す先の末尾を読む別名なしの tasks だけが使う）
-        expect(all).not.toMatch(/\b(ut|t|ot) USING (COVERING )?INDEX tasks_workspace_tray/);
+        if (kind === 'epic') {
+          expect(all).toMatch(/INDEX stories_workspace_(?:epic|fk) \(workspace_id=\? AND epic_id=\?/);
+        }
+        expect(all).toMatch(/INDEX tasks_story(?:_fk)? \(story_id=\?/);
+        // 配下のタスク（ut、t、ot）をワークスペースの索引や全件の走査で引かない。
+        expect(all).not.toMatch(/\b(ut|t|ot) USING (COVERING )?INDEX tasks_workspace_(?:tray|fk)\b/);
         expect(all).not.toMatch(/^\s*SCAN (tasks|stories|ut|t|s|us|es|os|ot)\s*$/m);
       }
     },
