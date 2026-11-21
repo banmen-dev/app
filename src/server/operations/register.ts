@@ -15,6 +15,7 @@ import {
   type Permission,
 } from '../../shared/operations/define.ts';
 import { readApiToken, type ApiToken } from '../auth/api-token.ts';
+import { PASSWORD_LOGIN_ENABLED } from '../../shared/password-login-enabled.ts';
 import { sessionCookieClearOptions, sessionCookieName, sessionCookieOptions } from '../../shared/session-cookie.ts';
 import type { AppEnv } from '../app-env.ts';
 import type { InviteeResolver } from '../auth/login-method.ts';
@@ -81,6 +82,7 @@ function unreachable(value: never): never {
 export type OperationsAppOptions = {
   // ログインの手段（GitHub）への通信。運用者の操作と組織の中の操作が GitHub のユーザー名を解決するのに使う。テストが差し替える
   fetcher: typeof fetch;
+  passwordLogin?: boolean;
 };
 
 // 運用者の道具と組織の道具に渡す、招待する人の解決器。持つのは GitHub だけ。
@@ -339,7 +341,11 @@ async function execute(
       if (operatorLoginId === undefined) throw new ApiError(403, 'forbidden');
       operator = operatorTools(
         c.env,
-        { loginId: operatorLoginId, requestId: c.get('requestId') },
+        {
+          loginId: operatorLoginId,
+          requestId: c.get('requestId'),
+          passwordLoginEnabled: options.passwordLogin ?? PASSWORD_LOGIN_ENABLED,
+        },
         inviteeResolverOf(c, options),
       );
     }

@@ -7,6 +7,7 @@ import {
   listOrganizations,
   resolveGithubUser,
 } from '../../shared/operations/operator/index.ts';
+import type { EmailAdminNomineeInput } from '../../shared/operations/operator/create-organization.ts';
 import type { OrganizationKind } from '../../shared/organization-kind.ts';
 import { contractOf } from './organization-contract.ts';
 import { slugProblem } from '../../shared/organization-slug.ts';
@@ -17,7 +18,7 @@ import { uuidv7 } from '../uuid.ts';
 import { implement } from './implement.ts';
 import {
   githubNominee,
-  googleNominee,
+  emailNominee,
   invalid,
   linkIfLoggedInSince,
   resolveForOperator,
@@ -142,16 +143,16 @@ async function writeOrganizationAndAdmin(
   }
 }
 
-// Google のメールアドレスで最初の管理者を指名する。sub が分かる前なので解決せず、待つ行（login_subject が空）を入れて、
+// メールアドレスで最初の管理者を指名する。sub が分かる前なので解決せず、待つ行（login_subject が空）を入れて、
 // 招待の URL を返す（docs/data-model.md の「メールアドレスで待つ指名と招待」）。秘密は応答の本文にだけ入れ、DB には SHA-256 だけを持つ。
 // 順は GitHub の指名と同じ（slug、重なり、organizations、組織の DB の users と change_logs）。解決も、アカウントの引き直しもしない
-async function createWithGoogleAdmin(
+async function createWithEmailAdmin(
   db: CommonDb,
   operator: OperatorTools,
-  input: { slug: string; name: string; email: string },
+  input: { slug: string; name: string; admin: EmailAdminNomineeInput },
 ) {
   const now = new Date();
-  const { nominee, email, claimToken, claimExpiresAt } = await googleNominee(input.email, now);
+  const { nominee, email, claimToken, claimExpiresAt } = await emailNominee(operator, input.admin, now);
 
   if (await slugExists(db, input.slug)) throw new ApiError(409, 'conflict');
 
@@ -170,7 +171,7 @@ async function createWithGoogleAdmin(
     slug: input.slug,
     name: input.name,
     admin_login_name: email,
-    invite: { url: operator.inviteUrl(claimToken), expires_at: claimExpiresAt },
+    invite: { url: operator.inviteUrl(input.admin.provider, claimToken), expires_at: claimExpiresAt },
   };
 }
 
@@ -190,8 +191,8 @@ export const createOrganizationOperation = implement(createOrganization, async (
       problem === 'format' ? 'slug の形に合わない' : 'アプリが使う名前は slug にできない',
     );
   }
-  if (input.admin.provider === 'google') {
-    return await createWithGoogleAdmin(db, operator, { slug: input.slug, name: input.name, email: input.admin.email });
+  if (input.admin.provider !== 'github') {
+    return await createWithEmailAdmin(db, operator, { slug: input.slug, name: input.name, admin: input.admin });
   }
 
   if (await slugExists(db, input.slug)) throw new ApiError(409, 'conflict');

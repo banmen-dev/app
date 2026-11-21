@@ -1,7 +1,7 @@
 // 組織の変更の履歴（docs/data-model.md の change_logs の「組織の変更の履歴」）。管理者だけが読む。
 // 出す行は、ワークスペースの外の行（workspace_id が空）と、ワークスペースの作成、終了、再開の行。所属や招待など、
 // ワークスペースの中の行は出さない。changes_json はそのまま返さず、種類ごとに画面の文に要る値だけを取り出す
-import { WAITING_USER_NAME_IN_LOG } from '../../shared/claim-token.ts';
+import { WAITING_PASSWORD_USER_NAME_IN_LOG, WAITING_USER_NAME_IN_LOG } from '../../shared/claim-token.ts';
 import {
   ORGANIZATION_HISTORY_PAGE_SIZE,
   organizationHistory,
@@ -54,19 +54,22 @@ function textOrNull(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }
 
-// 記録にそのときの名前があればそれを、無ければ users の今の名前（ログインを待つ行は null で読む）。
-// 記録の名前でも、ログインを待つ行の仮の名前と、メールアドレスに見えるもの（@ を含む）は使わない
-function personName(changes: Changes, row: HistoryRow): string | null {
-  const logged = textOrNull(pairOf(changes, 'name')?.[1]);
-  return logged !== null && logged !== WAITING_USER_NAME_IN_LOG && !logged.includes('@')
-    ? logged
-    : row.entity_user_name;
+// ログインを待つ行の仮の名前と、メールアドレスに見えるもの（@ を含む）は使わない
+function loggedPersonName(changes: Changes, side: 0 | 1): string | null {
+  const logged = textOrNull(pairOf(changes, 'name')?.[side]);
+  if (
+    logged === null ||
+    logged === WAITING_USER_NAME_IN_LOG ||
+    logged === WAITING_PASSWORD_USER_NAME_IN_LOG ||
+    logged.includes('@')
+  )
+    return null;
+  return logged;
 }
 
-// 消した行の記録の前の名前。ログインを待つ行の仮の名前と、メールアドレスに見えるもの（@ を含む）は使わない
-function removedPersonName(changes: Changes): string | null {
-  const logged = textOrNull(pairOf(changes, 'name')?.[0]);
-  return logged !== null && logged !== WAITING_USER_NAME_IN_LOG && !logged.includes('@') ? logged : null;
+// 記録にそのときの名前があればそれを、無ければ users の今の名前（ログインを待つ行は null で読む）
+function personName(changes: Changes, row: HistoryRow): string | null {
+  return loggedPersonName(changes, 1) ?? row.entity_user_name;
 }
 
 // 本人が自分の行に書いた記録（Google の招待の URL から結んだとき。src/server/db/cross-organization.ts の claimLogStatement）
@@ -85,18 +88,18 @@ function userEvent(action: string, changes: Changes, row: HistoryRow): HistoryEv
   // 行は消えているので、名前は記録の前の値から取る。人がした users の削除は other のまま
   if (action === 'delete') {
     return row.actor_user_id === null && row.by_operator && isAdmin?.[0] === 1 && isAdmin[1] === null
-      ? { kind: 'admin_designation_removed', name: removedPersonName(changes) }
+      ? { kind: 'admin_designation_removed', name: loggedPersonName(changes, 0) }
       : { kind: 'other' };
   }
   if (action !== 'update') return { kind: 'other' };
-  // Google の招待で指名した人の初めてのログイン（本人が、待つ行の空の sub を埋めた）
+  // 指名 URL で待つ行を結んだとき（本人が、待つ行の空の sub を埋めた）
   const loginSubject = pairOf(changes, 'login_subject');
   if (loginSubject !== undefined) {
     return loginSubject[0] === null && bySelf(row)
       ? { kind: 'admin_login_linked', name: personName(changes, row) }
       : { kind: 'other' };
   }
-  // Google の招待で指名した人が、同じ組織に既にいた（本人の行を管理者にして無効を解いた、統合の記録。
+  // 指名 URL で結んだ人が、同じ組織に既にいた（本人の行を管理者にして無効を解いた、統合の記録。
   // 列は is_admin と disabled_at だけ）。別の管理者が有効に戻して管理者にした記録とは、した人で分ける。
   // 管理者の無効化（user-disable）は、同じ文で解除するので is_admin（1 から 0）と disabled_at（空から日時）の両方を持ち、無効化と読む
   if (isAdmin !== undefined && disabledAt !== undefined) {

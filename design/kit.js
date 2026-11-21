@@ -3834,10 +3834,12 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   const LOGIN_VIA = {
     github: { name: "GitHub", label: "GitHub のユーザー名", example: "例: kotone-dev" },
     google: { name: "Google", label: "Google のメールアドレス", example: "例: mio.hoshino@example.com" },
+    password: { name: "メールアドレスとパスワード", label: "メールアドレス", example: "例: mio.hoshino@example.com" },
   };
   // action は欄の右に並べるボタン（確かめるなど）。入力欄とボタンだけを .input-row に並べ、ヒントはその下に出す
   function loginTarget(id, { title = "ログインの手段", hints = {}, disabled = false, action = "" } = {}) {
-    const vias = Object.keys(LOGIN_VIA);
+    const vias = ["github", "google"];
+    if (hints.password) vias.push("password");
     const radios = vias.map((k, i) => `<label><input type="radio" name="${id}-via" value="${k}" data-login-via="${id}" ${i === 0 ? "checked" : ""} ${disabled ? "disabled" : ""}><span>${LOGIN_VIA[k].name}</span></label>`).join("");
     const hintHtml = vias.filter((k) => hints[k]).map((k) => `<span class="field-hint" data-login-hint="${k}" ${k === vias[0] ? "" : "hidden"}>${hints[k]}</span>`).join("");
     return `<div class="field"><span class="field-label">${title}</span><div class="segmented" role="radiogroup" aria-label="${title}">${radios}</div></div>
@@ -3850,11 +3852,13 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   const adminHints = () => ({
     github: `GitHub のユーザー ID に解決します。その人が GitHub でログインすると、この${t("organization")}の${t("admin")}として入れます。`,
     google: `その人が招待の URL を開き、このメールアドレスの Google アカウントでログインすると、${t("admin")}として入れます。招待の URL は14日で切れます。`,
+    password: `本人が指名の URL を開き、パスワードの設定または確認をすると、${t("admin")}として入れます。指名の URL は14日で切れます。`,
   });
   // 運用者が管理者を指名し直すときの、手段ごとの説明（GitHub は確かめてから指名する）
   const reassignHints = () => ({
     github: "GitHub のユーザー ID に解決します。「確かめる」を押して、指名する人を見て確かめてから指名します。",
     google: adminHints().google,
+    password: adminHints().password,
   });
   // 招待と指名を決めたあと。Google なら、このときだけ出る招待の URL をダイアログで見せる。
   // reissue を付けると、URL を失ったときと期限が切れたときの直し方（指名し直し）を添える（運用者の指名）。
@@ -3862,18 +3866,23 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   // workspace を付けると、ワークスペースへの招待（メンバーの画面）の文にする（本番の MemberInvite.svelte と辞書の inviteUrl* と同じ文）
   function inviteLink(id, done, reissue = false, workspace = false) {
     const via = document.querySelector(`[data-login-via="${id}"]:checked`)?.value;
-    if (via !== "google") { closeDialog(); toast(`${icon("check")}${esc(done)}`); return; }
-    const lead = workspace
+    if (via !== "google" && via !== "password") { closeDialog(); toast(`${icon("check")}${esc(done)}`); return; }
+    const password = via === "password";
+    const urlLabel = password ? "指名の URL" : "招待の URL";
+    const path = password ? "/invite/password" : "/invite";
+    const lead = password
+      ? `${esc(done)}。Scrum Guild はメールを送りません。本人に次の指名の URL を伝えてください。`
+      : workspace
       ? `招待しました。Scrum Guild はメールを送りません。この招待の URL を本人に伝えてください。本人がこの URL を開き、招待したメールアドレスの Google アカウントでログインすると、招待を承諾して${t("workspace")}に入れます。`
       : `${esc(done)}。この URL を本人に伝えてください。本人がこの URL を開き、招待したメールアドレスの Google アカウントでログインすると入れます。`;
-    openDialog("招待の URL",
+    openDialog(urlLabel,
       `<p>${lead}</p>
-       <div class="field"><label class="field-label" for="d-iu">招待の URL</label>
-         <div class="input-row"><input class="input mono" id="d-iu" value="https://scrum-guild.dev/invite#Qm7tX2vLr9aKpE4wZc8hN3bYd6fGs1uJ0oTiRl5eWxA" readonly>
-           <button class="btn" type="button" data-toast="招待の URL をコピーしました">${icon("link")}コピー</button></div></div>
-       <div class="callout is-info">${icon("check")}<span>次のメールアドレスの Google アカウントでログインするよう伝えてください。<b class="mono wrap-anywhere">mio.hoshino@example.com</b></span></div>
+       <div class="field"><label class="field-label" for="d-iu">${urlLabel}</label>
+         <div class="input-row"><input class="input mono" id="d-iu" value="https://scrum-guild.dev${path}#Qm7tX2vLr9aKpE4wZc8hN3bYd6fGs1uJ0oTiRl5eWxA" readonly>
+           <button class="btn" type="button" data-toast="${urlLabel} をコピーしました">${icon("link")}コピー</button></div></div>
+       <div class="callout is-info">${icon("check")}<span>${password ? "指名したメールアドレス" : "次のメールアドレスの Google アカウントでログインするよう伝えてください。"} <b class="mono wrap-anywhere">mio.hoshino@example.com</b></span></div>
        <div class="callout is-warn">${icon("alert")}<span>この URL はこの画面を閉じると二度と出せません。期限は14日（2026/11/09 09:00 まで）です。期限までに本人へ伝えてください。</span></div>
-       ${reissue ? `<p class="field-hint">URL を失ったときや期限が切れたときは、一覧の「${t("admin")}を指名」から指名し直すと、新しい招待の URL が出ます。</p>` : ""}
+       ${reissue ? `<p class="field-hint">URL を失ったときや期限が切れたときは、一覧の「${t("admin")}を指名」から指名し直すと、新しい${urlLabel}が出ます。</p>` : ""}
        ${workspace ? `<p class="field-hint">URL を失ったときや期限が切れたときは、同じメールアドレスで招待し直すと、新しい招待の URL が出ます（期限が切れた後は、${t("organization")}の人数が上限なら招待し直せません）。招待し直すと（ほかの${t("leader")}が招待し直したときも）、前の招待の URL は使えなくなります。</p>` : ""}`,
       `<button class="btn is-primary" type="button" data-close-dialog>閉じる</button>`);
   }
@@ -3890,10 +3899,10 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     // 管理者の指名し直しのダイアログも同じ（確かめるボタン d-rz、確かめた人 d-rv、指名する d-rb）
     const ids = { "d-ka": ["d-kz", "d-kv", "d-kb"], "d-ra": ["d-rz", "d-rv", "d-rb"] }[el.dataset.loginVia];
     if (ids && document.getElementById(ids[2])) {
-      const google = el.value === "google";
-      document.getElementById(ids[0]).hidden = google;
+      const needsLookup = el.value === "github";
+      document.getElementById(ids[0]).hidden = !needsLookup;
       document.getElementById(ids[1]).hidden = true;
-      document.getElementById(ids[2]).disabled = !google;
+      document.getElementById(ids[2]).disabled = needsLookup;
     }
   });
 
@@ -4258,13 +4267,13 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       return;
     }
     if ((el = hit("data-reassign-admin"))) {
-      if (document.querySelector(`[data-login-via="${el.dataset.reassignAdmin}"]:checked`)?.value === "google") inviteLink(el.dataset.reassignAdmin, `${t("admin")}を指名しました`, true);
+      if (["google", "password"].includes(document.querySelector(`[data-login-via="${el.dataset.reassignAdmin}"]:checked`)?.value)) inviteLink(el.dataset.reassignAdmin, `${t("admin")}を指名しました`, true);
       else DIALOGS.adminReassigned();
       return;
     }
     // Google の指名は、組織の URL の代わりに招待の URL を出す
     if ((el = hit("data-org-create"))) {
-      if (document.querySelector(`[data-login-via="${el.dataset.orgCreate}"]:checked`)?.value === "google") inviteLink(el.dataset.orgCreate, `${t("organization")}を作りました`);
+      if (["google", "password"].includes(document.querySelector(`[data-login-via="${el.dataset.orgCreate}"]:checked`)?.value)) inviteLink(el.dataset.orgCreate, `${t("organization")}を作りました`);
       else DIALOGS.organizationCreated();
       return;
     }

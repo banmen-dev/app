@@ -56,6 +56,29 @@ function render() {
     </section>
     <p class="gate-note">招待の画面（/invite）を、URL の続き（# 以降）が無いか形の違う URL で開いた状態の見本です。戻る・再読み込みで来た人（すでに入れる${t("organization")}がある人を含む）が行き止まりにならないよう、警告の下に「ログインの画面へ」（同じタブで移る）を置きます。秘密を持たない状態なので、法文のリンクと違い新しいタブにしません。</p>
     <section class="gate-sheet">
+      <h2 class="dialog-title">管理者の登録</h2>
+      <form class="gate-group" onsubmit="return false">
+        <label class="field"><span class="field-label">メールアドレス</span><input class="input" type="email" value="mio.hoshino@example.com" readonly></label>
+        <label class="field"><span class="field-label">表示名</span><input class="input" autocomplete="name" required></label>
+        <div class="field"><label class="field-label" for="nomination-password">パスワード</label><input class="input" id="nomination-password" type="password" autocomplete="new-password" required aria-describedby="nomination-password-hint"><span class="field-hint" id="nomination-password-hint">12〜128文字</span></div>
+        <label class="field"><span class="field-label">パスワード（確認）</span><input class="input" type="password" autocomplete="new-password" required></label>
+        <button class="btn is-wide is-primary" type="submit">登録して組織に入る</button>
+      </form>
+    </section>
+    <section class="gate-sheet">
+      <h2 class="dialog-title">管理者の登録</h2>
+      <form class="gate-group" onsubmit="return false">
+        <label class="field"><span class="field-label">メールアドレス</span><input class="input" type="email" value="mio.hoshino@example.com" readonly></label>
+        <label class="field"><span class="field-label">現在のパスワード</span><input class="input" type="password" autocomplete="current-password" required></label>
+        <button class="btn is-wide is-primary" type="submit">確認して組織に入る</button>
+      </form>
+    </section>
+    <section class="gate-sheet">
+      <h2 class="dialog-title">管理者の登録</h2>
+      <div class="callout is-warn" role="alert">${icon("alert")}<span>この指名の URL は使えません。登録済みの場合はログインしてください。期限切れや取り消しの場合は、運用者に確認してください。</span></div>
+      <div class="form-actions"><a class="btn is-sm is-quiet" href="#">ログインの画面へ</a></div>
+    </section>
+    <section class="gate-sheet">
       <div class="callout is-info">${icon("shield")}<span>${t("loggedOut")}</span></div>
       <p class="gate-note">ログアウトした直後のログインの画面の表示の見本です。見出しの下、ログインのボタンの上に出します。エラーがあるときは、エラーだけを出します。</p>
     </section>

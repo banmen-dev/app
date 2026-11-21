@@ -95,6 +95,7 @@ export {
   organizationUsageOf,
   type OrganizationUsage,
   claimPendingLogin,
+  readPasswordNominationEmail,
   type ClaimInput,
   type ClaimOutcome,
   hasLoginAccess,

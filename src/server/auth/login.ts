@@ -40,6 +40,8 @@ type LoginInput = {
   // 会員登録の画面から始めた往復（oauth_states.is_signup）。真なら、アカウントも組織も招待も無い人を denied にせずアカウントを作る。通常のログインは偽
   signup?: boolean;
   passwordProof?: PasswordSessionProof;
+  // パスワードの管理者指名で、URL の秘密から引いて資格情報と結び付けたメールアドレス。
+  passwordClaimEmail?: string;
 };
 
 async function findAccountId(env: Env, provider: string, subject: string): Promise<string | undefined> {
@@ -116,12 +118,18 @@ async function ensureAccount(env: Env, input: LoginInput, existing: string | und
   }
 }
 
-// 招待の URL の秘密と、ID トークンの確かめたメールアドレスで、待っている指名と招待を結ぶ。結べなければ undefined。
-// メールアドレスが無い（email_verified が真でない）、そろえられない、Google 以外の手段、のときは DB を引かずに結べないものとする
+// URL の秘密と、その手段で本人を確かめたメールアドレスで指名と招待を結ぶ。
+// Google は ID トークンから、パスワードは指名の秘密から引いて資格情報と結び付けたメールアドレスを使う。
 async function claimWaitingRow(env: Env, input: LoginInput, tokenHash: string): Promise<ClaimOutcome | undefined> {
   const { provider, profile, now } = input;
-  const email = profile.verifiedEmail == null ? undefined : normalizeEmail(profile.verifiedEmail);
-  if (provider !== 'google' || email === undefined) return undefined;
+  const claimEmail =
+    provider === 'google'
+      ? profile.verifiedEmail
+      : provider === 'password' && input.passwordProof?.subject === profile.subject
+        ? input.passwordClaimEmail
+        : undefined;
+  const email = claimEmail == null ? undefined : normalizeEmail(claimEmail);
+  if (email === undefined) return undefined;
   return claimPendingLogin(env, {
     tokenHash,
     email,

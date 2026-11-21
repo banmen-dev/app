@@ -41,6 +41,8 @@ describe('headers', () => {
     const file = headersFile(html);
     assert.match(file, /\n\/invite\n {2}! Referrer-Policy\n {2}Referrer-Policy: no-referrer\n/);
     assert.match(file, /\n\/invite\/\n {2}! Referrer-Policy\n {2}Referrer-Policy: no-referrer\n/);
+    assert.match(file, /\n\/invite\/password\n {2}! Referrer-Policy\n {2}Referrer-Policy: no-referrer\n/);
+    assert.match(file, /\n\/invite\/password\/\n {2}! Referrer-Policy\n {2}Referrer-Policy: no-referrer\n/);
     // 画面全体の値は変えない
     assert.match(file, /^\/\*\n[\s\S]*? {2}Referrer-Policy: strict-origin-when-cross-origin\n/);
   });

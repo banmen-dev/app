@@ -10,7 +10,7 @@ export const fixedHeaders = {
 // 招待の URL を開く画面（/invite#<秘密>）。この画面からの読み込みと移動に Referer を付けない。フラグメントは Referer に付かないが、
 // 秘密を持つ画面なので、念のため URL のオリジンも外へ送らない。
 // `/*` の固定のヘッダーに足されて `a, b` と並ばないよう、_headers では `! Referrer-Policy` で外してから付ける
-export const invitePagePaths = ['/invite', '/invite/'] as const;
+export const invitePagePaths = ['/invite', '/invite/', '/invite/password', '/invite/password/'] as const;
 export const invitePageReferrerPolicy = 'no-referrer';
 
 // kit.csp の型は書き換えられる配列を求めるので、as const の読み取り専用の配列にせず、値の文字列だけを絞る

@@ -16,7 +16,7 @@
 //     （organization_id と account_id の一意）に当たりうる。そのとき、この UPDATE を見直す
 //   - claimPendingLogin: 招待の URL の秘密のハッシュで引いた1行の組織の ID（と、招待ならその組織のワークスペース）で絞って書く
 import { sql, type Expression, type ExpressionBuilder, type SqlBool } from 'kysely';
-import { WAITING_USER_NAME_IN_LOG } from '../../shared/claim-token.ts';
+import { WAITING_PASSWORD_USER_NAME_IN_LOG, WAITING_USER_NAME_IN_LOG } from '../../shared/claim-token.ts';
 import type { OrganizationKind } from '../../shared/organization-kind.ts';
 import type { AdminStatus } from '../../shared/operations/operator/list-organizations.ts';
 import { uuidv7 } from '../uuid.ts';
@@ -522,11 +522,11 @@ export async function linkLoginToAccountIn(
 export type ClaimInput = {
   // 招待の URL の秘密の SHA-256（小文字の16進）
   tokenHash: string;
-  // ID トークンのメールアドレスをそろえた値（normalizeEmail）。待つ行の login_email と完全に一致したときだけ結ぶ
+  // 本人を確かめた手段のメールアドレスをそろえた値。待つ行の login_email と完全に一致したときだけ結ぶ
   email: string;
-  // 結ぶ人のログイン（Google の sub）
+  // 結ぶ人のログイン（Google の sub またはパスワード資格情報の UUID）
   login: LoginId;
-  // users.name に書き直す、Google のプロフィールの名前
+  // users.name に書き直すログインのプロフィールの名前
   name: string;
   now: Date;
 };
@@ -541,6 +541,7 @@ type PendingClaim = {
   // 招待のときだけ
   workspaceId: string | null;
   email: string | null;
+  provider: string;
   createdAt: string;
 };
 
@@ -552,7 +553,7 @@ export function pendingUserStatement(db: OrganizationEntry, tokenHash: string, n
   return db.statement((q) =>
     q
       .selectFrom('users')
-      .select(['id', 'organization_id', 'login_email', 'created_at'])
+      .select(['id', 'organization_id', 'login_email', 'login_provider', 'is_admin', 'created_at'])
       .where('claim_token_hash', '=', tokenHash)
       .where('login_subject', 'is', null)
       .where('disabled_at', 'is', null)
@@ -566,7 +567,7 @@ export function pendingInvitationStatement(db: OrganizationEntry, tokenHash: str
     q
       .selectFrom('invitations as i')
       .innerJoin('workspaces as w', 'w.id', 'i.workspace_id')
-      .select(['i.id', 'i.workspace_id', 'w.organization_id', 'i.login_email', 'i.created_at'])
+      .select(['i.id', 'i.workspace_id', 'w.organization_id', 'i.login_email', 'i.login_provider', 'i.created_at'])
       .where('i.claim_token_hash', '=', tokenHash)
       .where('i.login_subject', 'is', null)
       .where('i.status', '=', 'pending')
@@ -581,12 +582,14 @@ async function findPendingClaim(
 ): Promise<PendingClaim | undefined> {
   const user = await db.first(pendingUserStatement(db, tokenHash, now));
   if (user !== undefined) {
+    if (user.login_provider === 'password' && user.is_admin !== 1) return undefined;
     return {
       kind: 'user',
       id: user.id,
       organizationId: user.organization_id,
       workspaceId: null,
       email: user.login_email,
+      provider: user.login_provider,
       createdAt: user.created_at,
     };
   }
@@ -598,6 +601,7 @@ async function findPendingClaim(
     organizationId: invitation.organization_id,
     workspaceId: invitation.workspace_id,
     email: invitation.login_email,
+    provider: invitation.login_provider,
     createdAt: invitation.created_at,
   };
 }
@@ -613,10 +617,23 @@ async function activeOrganizationSlug(env: Env, organizationId: string): Promise
   return row?.slug;
 }
 
+// 有効なパスワードの管理者指名を持つ人にだけ、入力欄に出すメールアドレスを渡す。
+export async function readPasswordNominationEmail(env: Env, tokenHash: string, now: Date): Promise<string | undefined> {
+  for (const db of crossOrganizationEntries(env)) {
+    const user = await db.first(pendingUserStatement(db, tokenHash, now));
+    if (user === undefined) continue;
+    if (user.login_provider !== 'password' || user.is_admin !== 1 || user.login_email === null) return undefined;
+    if ((await activeOrganizationSlug(env, user.organization_id)) === undefined) return undefined;
+    return user.login_email;
+  }
+  return undefined;
+}
+
 // 結ぶ文が共有する値。どの文も、待っている行の ID と組織の ID、秘密のハッシュ、時刻を同じ値で条件に持つ
 type ClaimContext = {
   pending: PendingClaim;
   tokenHash: string;
+  email: string;
   nowIso: string;
   login: LoginId;
 };
@@ -635,7 +652,10 @@ function waitingUserIsValid(eb: Builder, c: ClaimContext) {
       // 無効にされた待つ行は結べない（読んでから書くまでに無効にされた場合も外す）
       .where('wu.disabled_at', 'is', null)
       .where('wu.claim_token_hash', '=', c.tokenHash)
-      .where('wu.claim_expires_at', '>', c.nowIso),
+      .where('wu.claim_expires_at', '>', c.nowIso)
+      .where('wu.login_provider', '=', c.login.provider)
+      .where('wu.login_email', '=', c.email)
+      .$if(c.login.provider === 'password', (q) => q.where('wu.is_admin', '=', 1)),
   );
 }
 
@@ -650,6 +670,8 @@ function waitingInvitationIsValid(eb: Builder, c: ClaimContext) {
       .where('wi.login_subject', 'is', null)
       .where('wi.claim_token_hash', '=', c.tokenHash)
       .where('wi.claim_expires_at', '>', c.nowIso)
+      .where('wi.login_provider', '=', c.login.provider)
+      .where('wi.login_email', '=', c.email)
       .where('wi.status', '=', 'pending'),
   );
 }
@@ -772,11 +794,16 @@ function claimLogStatement(
 
 // 運用者の指名（users）を結ぶ文。書く文の並びは、統合を先に、sub を埋める文を後にする（docs/data-model.md の 6）。
 //   - 同じ組織に同じ sub の行があれば、その行を管理者にして無効を解き、待っていた行を消す
-//   - 無ければ、待っていた行に sub を埋め、メールアドレス、秘密のハッシュ、期限を空にし、名前を Google のプロフィールの名前に書き直す
+//   - 無ければ、待っていた行に sub を埋め、メールアドレス、秘密のハッシュ、期限を空にし、名前をログインのプロフィールの名前に書き直す
 // 待っていた行より後に無効にされた同じ sub の行があれば、どの文も何も書かない
 function userClaimStatements(db: OrganizationEntry, c: ClaimContext, name: string) {
   const { pending, login, nowIso } = c;
   const sameLoginExists = (eb: Builder) => eb.exists(sameLoginUsers(eb, c).select('su.id'));
+  const mergeCompleted = (eb: Builder) =>
+    eb.and([
+      waitingUserIsValid(eb, c),
+      eb.exists(sameLoginUsers(eb, c).select('su.id').where('su.is_admin', '=', 1).where('su.disabled_at', 'is', null)),
+    ]);
   return [
     claimLogStatement(
       db,
@@ -800,7 +827,7 @@ function userClaimStatements(db: OrganizationEntry, c: ClaimContext, name: strin
         actorUserId: pending.id,
         changes: JSON.stringify({
           login_subject: [null, login.subject],
-          name: [WAITING_USER_NAME_IN_LOG, name],
+          name: [login.provider === 'password' ? WAITING_PASSWORD_USER_NAME_IN_LOG : WAITING_USER_NAME_IN_LOG, name],
         }),
       },
       (eb) => eb.and([userClaimIsOpen(eb, c), eb.not(sameLoginExists(eb))]),
@@ -816,24 +843,18 @@ function userClaimStatements(db: OrganizationEntry, c: ClaimContext, name: strin
     ),
     // 待っていた行を実際に消せるときだけ、その受信通知も同じ batch で先に消す。
     db.statement((q) =>
-      q.deleteFrom('notifications').where(
-        'user_id',
-        'in',
-        q
-          .selectFrom('users')
-          .select('id')
-          .where('id', '=', pending.id)
-          .where('organization_id', '=', pending.organizationId)
-          .where('login_subject', 'is', null)
-          .where('disabled_at', 'is', null)
-          .where('claim_token_hash', '=', c.tokenHash)
-          .where('claim_expires_at', '>', nowIso)
-          .where((eb) =>
-            eb.exists(
-              sameLoginUsers(eb, c).select('su.id').where('su.is_admin', '=', 1).where('su.disabled_at', 'is', null),
-            ),
-          ),
-      ),
+      q
+        .deleteFrom('notifications')
+        .where(
+          'user_id',
+          'in',
+          q
+            .selectFrom('users')
+            .select('id')
+            .where('id', '=', pending.id)
+            .where('organization_id', '=', pending.organizationId)
+            .where(mergeCompleted),
+        ),
     ),
     // 統合した後に、待っていた行を消す。統合先が無効でない管理者になっていることも条件にする
     db.statement((q) =>
@@ -841,15 +862,7 @@ function userClaimStatements(db: OrganizationEntry, c: ClaimContext, name: strin
         .deleteFrom('users')
         .where('id', '=', pending.id)
         .where('organization_id', '=', pending.organizationId)
-        .where('login_subject', 'is', null)
-        .where('disabled_at', 'is', null)
-        .where('claim_token_hash', '=', c.tokenHash)
-        .where('claim_expires_at', '>', nowIso)
-        .where((eb) =>
-          eb.exists(
-            sameLoginUsers(eb, c).select('su.id').where('su.is_admin', '=', 1).where('su.disabled_at', 'is', null),
-          ),
-        ),
+        .where(mergeCompleted),
     ),
     db.statement((q) =>
       q
@@ -928,13 +941,15 @@ export async function claimPendingLoginIn(
   for (const db of entries) {
     const pending = await findPendingClaim(db, input.tokenHash, input.now);
     if (pending === undefined) continue;
-    if (pending.email !== input.email) return undefined;
+    if (pending.email !== input.email || pending.provider !== input.login.provider) return undefined;
+    if (input.login.provider === 'password' && pending.kind !== 'user') return undefined;
     const slug = await activeOrganizationSlug(env, pending.organizationId);
     if (slug === undefined) return undefined;
 
     const context: ClaimContext = {
       pending,
       tokenHash: input.tokenHash,
+      email: input.email,
       // 読み取りを終えた後の時刻。読んだ後で期限を越えた待つ行は、書く文の「有効」の条件で外れる
       nowIso: writeClock().toISOString(),
       login: input.login,

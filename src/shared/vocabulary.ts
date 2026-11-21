@@ -1510,6 +1510,11 @@ export const dictionary = defineDictionary({
   operatorGoogleEmailExample: '例: mio.hoshino@example.com',
   operatorGoogleEmailHint:
     'その人が招待の URL を開き、このメールアドレスの Google アカウントでログインすると、{admin}として入れます。招待の URL は14日で切れます。',
+  operatorPasswordName: 'メールアドレスとパスワード',
+  operatorPasswordEmailHint:
+    '本人が指名の URL を開き、パスワードの設定または確認をすると、{admin}として入れます。指名の URL は14日で切れます。',
+  operatorPasswordEmailInvalid:
+    'メールアドレスの形に合いません。英数字などの ASCII の文字だけで、本人のメールアドレスを入れてください。',
   operatorErrorEmailRequired: 'メールアドレスを入れてください。',
   operatorErrorEmailInvalid:
     'メールアドレスの形に合いません。英数字などの ASCII の文字だけで、本人が Google に登録した綴りのまま入れてください。',
@@ -1546,7 +1551,7 @@ export const dictionary = defineDictionary({
     'この slug の{organization}は、もう作られています。次の URL を確かめてください。誰を{admin}に指名したかは、ここでは分かりません。',
   // 招待の URL は作った直後の応答にしか出ないので、ここでは出せない。出し直すには指名し直す（新しい招待の URL が出る）
   operatorExistingAdminPending:
-    '指名された{admin}は、まだログインしていません。Google で指名したときの招待の URL は、ここでは出せません。URL を渡せていなければ、一覧の「{admin}を指名」から指名し直してください。新しい招待の URL が出ます。',
+    '指名された{admin}は、まだログインしていません。メールアドレスで指名したときの URL は、ここでは出せません。URL を渡せていなければ、一覧の「{admin}を指名」から指名し直してください。新しい招待の URL が出ます。',
   operatorExistingAdminExpired:
     '指名された{admin}の招待の URL は、期限が切れています。URL はもう出せないので、一覧の「{admin}を指名」から指名し直してください。',
   operatorExistingAdminActive: '{admin}は、もうログインしています。',
@@ -1588,19 +1593,26 @@ export const dictionary = defineDictionary({
   operatorInviteReissue:
     'URL を失ったときや期限が切れたときは、一覧の「{admin}を指名」から指名し直すと、新しい招待の URL が出ます。',
 
+  operatorPasswordInviteLead: 'Scrum Guild はメールを送りません。{admin}になる人に、次の指名の URL を伝えてください。',
+  operatorPasswordInviteUrlLabel: '指名の URL',
+  operatorPasswordInviteTell: '指名したメールアドレス',
+  operatorPasswordInviteCopied: '指名の URL をコピーしました',
+  operatorPasswordInviteReissue:
+    'URL を失ったときや期限が切れたときは、一覧の「{admin}を指名」から指名し直すと、新しい指名の URL が出ます。',
+
   // 管理者の指名し直し（一覧の各行のボタンと、そのダイアログ）。{name} は組織の名前
   operatorReassignAction: '{admin}を指名',
   operatorReassignLabel: '「{name}」の{admin}を指名',
   operatorReassignTitle: '{admin}を指名し直す',
   // ダイアログの最初の文。開いたときの一覧の管理者の状態で変える
   operatorReassignLeadNone:
-    '「{name}」には今{admin}がいません。新しい{admin}を、GitHub のユーザー名か Google のメールアドレスで指名します。',
+    '「{name}」には今{admin}がいません。新しい{admin}を、GitHub のユーザー名かメールアドレスで指名します。',
   operatorReassignLeadPending:
-    '「{name}」の{admin}は指名済みで、まだログインしていません。{admin}を、GitHub のユーザー名か Google のメールアドレスで指名し直します。',
+    '「{name}」の{admin}は指名済みで、まだログインしていません。{admin}を、GitHub のユーザー名かメールアドレスで指名し直します。',
   operatorReassignLeadExpired:
-    '「{name}」の{admin}の招待の URL は、期限が切れています。{admin}を、GitHub のユーザー名か Google のメールアドレスで指名し直します。',
+    '「{name}」の{admin}の招待の URL は、期限が切れています。{admin}を、GitHub のユーザー名かメールアドレスで指名し直します。',
   operatorReassignLeadActive:
-    '「{name}」には、ログインした{admin}がいます。{admin}が辞めたときなどに、新しい{admin}を、GitHub のユーザー名か Google のメールアドレスで指名します。今の{admin}は外れません。',
+    '「{name}」には、ログインした{admin}がいます。{admin}が辞めたときなどに、新しい{admin}を、GitHub のユーザー名かメールアドレスで指名します。今の{admin}は外れません。',
   operatorReassignVia: '{admin}のログインの手段',
   operatorReassignGithubUserHint:
     'GitHub のユーザー ID に解決します。「確かめる」を押して、指名する人を見て確かめてから指名します。',
@@ -1684,6 +1696,24 @@ export const dictionary = defineDictionary({
     'いまログインを受け付けられません。時間をおいてもう一度試してください。続くときは運用者に連絡してください。',
   // ログインの画面の、会員登録への入口。アカウントがまだ無い人向け（ログインのボタンはアカウントを作らない）
   loginSignupLink: '初めての人は会員登録',
+
+  passwordNominationTitle: '管理者の登録',
+  passwordNominationRetry: 'もう一度確認する',
+  passwordNominationLoading: '指名の URL を確認しています',
+  passwordNominationConfirmation: 'パスワード（確認）',
+  passwordNominationConfirm: '確認して組織に入る',
+  passwordNominationRegister: '登録して組織に入る',
+  passwordNominationSubmitting: '登録しています',
+  passwordNominationUnusable:
+    'この指名の URL は使えません。登録済みの場合はログインしてください。期限切れや取り消しの場合は、運用者に確認してください。',
+  passwordNominationTooMany: '試行が多すぎます。しばらく待ってから、もう一度試してください。',
+  passwordNominationInvalid: '入力を受け付けられませんでした。表示名とパスワードを確かめてください。',
+  passwordNominationNameInvalid: '表示名を1〜100文字で入力してください。改行や制御文字は使えません。',
+  passwordNominationPasswordInvalid: 'パスワードは12〜128文字で入力してください。',
+  passwordNominationMismatch: 'パスワードと確認欄が一致しません。',
+  passwordNominationUnavailable: '手続きを確認できませんでした。もう一度試すか、登録済みの場合はログインしてください。',
+  passwordNominationAccountCreated:
+    'このメールアドレスにはすでにアカウントがあります。現在のパスワードを入れてください。',
 
   // 会員登録の画面（/signup。枠の外）。招待の無い人が GitHub か Google でアカウントを作る。パスワードでの登録は無い。
   // 失敗の理由（?error=）はログインの画面に戻して出すので、この画面には出し口を持たない
@@ -2098,13 +2128,13 @@ export const dictionary = defineDictionary({
   orgHistoryPlanChanged: 'プランを{from}から{to}に変更しました',
   orgHistoryPlanStarted: 'プランを{to}にしました',
   orgHistoryAdminDesignated: '{name}を{admin}に指名しました',
-  // Google の招待で指名し、本人がまだログインしていない（名前はメールアドレスなので出さない）
-  orgHistoryAdminDesignatedGoogle: 'Google で招待した人を{admin}に指名しました',
-  orgHistoryAdminLoginLinked: '{name}が Google でログインし、{admin}の指名を受けました',
-  orgHistoryAdminDesignationMerged: 'Google の招待で、{name}を{admin}にしました',
-  // 運用者が管理者を指名し直したときに、まだログインしていない前の指名を取り消した。Google の招待で待っていた人は名前が分からない
+  // メールアドレスで指名し、本人がまだログインしていない（名前はメールアドレスなので出さない）
+  orgHistoryAdminDesignatedByEmail: 'メールアドレスで指定した人を{admin}に指名しました',
+  orgHistoryAdminLoginLinked: '{name}がログインし、{admin}の指名を受けました',
+  orgHistoryAdminDesignationMerged: '指名の URL で、{name}を{admin}にしました',
+  // 運用者が管理者を指名し直したときに、まだログインしていない前の指名を取り消した。メールアドレスで待っていた人は名前が分からない
   orgHistoryAdminDesignationRemoved: '{name}への{admin}の指名を取り消しました',
-  orgHistoryAdminDesignationRemovedNoName: 'Google で招待した人への{admin}の指名を取り消しました',
+  orgHistoryAdminDesignationRemovedNoName: 'メールアドレスで指定した人への{admin}の指名を取り消しました',
   orgHistoryAdminRevoked: '{name}の{admin}を解除しました',
   orgHistoryUserDisabled: '{name}を無効にしました',
   orgHistoryUserEnabled: '{name}を有効に戻しました',
