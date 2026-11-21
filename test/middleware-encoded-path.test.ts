@@ -90,12 +90,22 @@ describe('符号化した行の終わりを含むパス', () => {
   // 設定が壊れていれば、ルートに当たるかに関わらず 500 になる。飛ばされると 404 か、ハンドラーの応答になる
   describe('設定の検査', () => {
     const brokenEnvs = [
-      { label: 'OPERATOR_LOGIN_IDS の形が合わない', patch: { OPERATOR_LOGIN_IDS: 'github:abc' } },
-      { label: 'PUBLIC_ORIGIN が手元でない http', patch: { PUBLIC_ORIGIN: 'http://example.com' } },
+      // reason は、src/server/app.ts のその検査がログに出す理由。500 がどの検査から出たかを確かめる
+      {
+        label: 'OPERATOR_LOGIN_IDS の形が合わない',
+        patch: { OPERATOR_LOGIN_IDS: 'github:abc' },
+        reason: 'OPERATOR_LOGIN_IDS に形の合わない項目がある',
+      },
+      {
+        label: 'PUBLIC_ORIGIN が手元でない http',
+        patch: { PUBLIC_ORIGIN: 'http://example.com' },
+        reason: 'PUBLIC_ORIGIN が https でも、手元のホストへの http でもない',
+      },
       {
         // テストの環境の PUBLIC_ORIGIN に頼らず、本番の形の https を明示する
         label: 'DEV_NOW が本番の公開 URL で設定されている',
         patch: { PUBLIC_ORIGIN: 'https://scrum-guild.example', DEV_NOW: '2026-10-26T10:00:00+09:00' },
+        reason: 'DEV_NOW が、手元のホストへの http でない PUBLIC_ORIGIN で設定されている',
       },
     ];
     const apps = [
@@ -112,17 +122,27 @@ describe('符号化した行の終わりを含むパス', () => {
       brokenEnvs.flatMap((b) => encodedCases.map((c) => ({ ...c, appName: a.name, app: a.app, ...b }))),
     );
 
-    test.each(matrix)('$appName: $label なら $method $path も 500 にする', async ({ app, patch, path, method }) => {
-      const broken = Object.assign({}, env, patch) as unknown as Env;
-      const error = vi.spyOn(console, 'error').mockImplementation(() => {});
-      try {
-        const res = await app.request(path, init(method), broken);
-        expect(res.status).toBe(500);
-        expect(await res.json()).toEqual({ error: { code: 'internal', message: 'internal error' } });
-        expect(res.headers.get('content-security-policy')).toBe(apiCsp);
-      } finally {
-        error.mockRestore();
-      }
-    });
+    test.each(matrix)(
+      '$appName: $label なら $method $path も 500 にする',
+      async ({ app, patch, reason, path, method }) => {
+        const broken = Object.assign({}, env, patch) as unknown as Env;
+        const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+        try {
+          const res = await app.request(path, init(method), broken);
+          expect(res.status).toBe(500);
+          expect(await res.json()).toEqual({ error: { code: 'internal', message: 'internal error' } });
+          expect(res.headers.get('content-security-policy')).toBe(apiCsp);
+          // ほかの検査や onError ではなく、その検査が1回だけ止めた
+          expect(error).toHaveBeenCalledTimes(1);
+          expect(JSON.parse(error.mock.calls[0]![0] as string)).toMatchObject({
+            level: 'error',
+            code: 'internal',
+            reason,
+          });
+        } finally {
+          error.mockRestore();
+        }
+      },
+    );
   });
 });
