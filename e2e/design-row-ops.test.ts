@@ -1,39 +1,9 @@
-import { readFileSync } from 'node:fs';
+import { openCatalog } from './design-samples.ts';
 import { expect, test } from './fixtures.ts';
-import type { Page } from '@playwright/test';
 import { A11Y_THEMES, applyTheme } from './helpers.ts';
 
 // 見本（design/）の、行で直に操作する部品（空の行、チップ、「⋯」、自動保存、取り消せるトースト、「/」の小窓）を
-// バックログとスプリントの見本で通す。見本はアプリの配信対象外なので、共有の見本ファイルをそのまま返す。
-const files: Record<string, string> = {
-  'backlog.html': 'text/html',
-  'index.html': 'text/html',
-  'sprint.html': 'text/html',
-  'epic.html': 'text/html',
-  'tokens.css': 'text/css',
-  'components.css': 'text/css',
-  'icons.js': 'text/javascript',
-  'art.js': 'text/javascript',
-  'sample-data.js': 'text/javascript',
-  'kit.js': 'text/javascript',
-  'image-crop.js': 'text/javascript',
-};
-
-async function openSample(page: Page, name: 'backlog.html' | 'sprint.html' | 'index.html' | ''): Promise<string[]> {
-  await page.route('**/__design-catalog/**', async (route) => {
-    const file = new URL(route.request().url()).pathname.split('/').pop() || 'index.html';
-    const contentType = files[file];
-    if (!contentType) return route.fulfill({ status: 404, body: '' });
-    await route.fulfill({ contentType, body: readFileSync(new URL(`../design/${file}`, import.meta.url)) });
-  });
-  for (const host of ['fonts.googleapis.com', 'fonts.gstatic.com']) {
-    await page.route(`https://${host}/**`, (route) => route.fulfill({ body: '' }));
-  }
-  const errors: string[] = [];
-  page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto(`/__design-catalog/${name}`);
-  return errors;
-}
+// バックログとスプリントの見本で通す。
 
 test('見本の近道一覧はスプリントとカタログだけにカードの3項目を出し、バックログへ混ぜない', async ({ page }) => {
   const labels = [
@@ -42,7 +12,7 @@ test('見本の近道一覧はスプリントとカタログだけにカード�
     '列の末尾の空の行に題を打ち、タスクを足す',
   ];
   for (const name of ['sprint.html', 'backlog.html', 'index.html', ''] as const) {
-    const errors = await openSample(page, name);
+    const errors = await openCatalog(page, name);
     await page.locator('body').click({ position: { x: 1, y: 1 } });
     await page.keyboard.press('?');
     const dialog = page.locator('#dialog');
@@ -56,7 +26,7 @@ test('見本の近道一覧はスプリントとカタログだけにカード�
 });
 
 test('見本のバックログ: 空の行に題を打って Enter で足し、続けて打てる。Esc では作らない', async ({ page }) => {
-  const errors = await openSample(page, 'backlog.html');
+  const errors = await openCatalog(page, 'backlog.html');
   const draft = page.locator('input[data-draft="root:backlog"]');
   await draft.fill('見本で足す一件目');
   await draft.press('Enter');
@@ -80,7 +50,7 @@ test('見本のバックログ: 空の行に題を打って Enter で足し、�
 });
 
 test('見本のバックログ: 変換中の Enter では作らない', async ({ page }) => {
-  await openSample(page, 'backlog.html');
+  const errors = await openCatalog(page, 'backlog.html');
   const draft = page.locator('input[data-draft="root:backlog"]');
   await draft.fill('へんかんちゅう');
   const count = await page.locator('.entry-title').count();
@@ -92,10 +62,11 @@ test('見本のバックログ: 変換中の Enter では作らない', async ({
   });
   await expect(page.locator('.entry-title')).toHaveCount(count);
   await expect(draft).toHaveValue('へんかんちゅう');
+  expect(errors).toEqual([]);
 });
 
 test('見本のバックログ: 「⋯」のメニューと、削除の取り消し、ストーリーの確認のダイアログ', async ({ page }) => {
-  await openSample(page, 'backlog.html');
+  const errors = await openCatalog(page, 'backlog.html');
   const row = page.locator('.entry').first();
   const toggle = row.locator('.row-menu-btn');
   // 広い幅では行に触れるまで「⋯」は出ない
@@ -133,12 +104,13 @@ test('見本のバックログ: 「⋯」のメニューと、削除の取り消
   await expect(page.locator('#dialog .dialog-body')).toContainText(await storyRow.locator('a.tree-link').innerText());
   await page.locator('#dialog .btn.is-danger').click();
   await expect(drawer).toBeHidden();
+  expect(errors).toEqual([]);
 });
 
 test('見本のバックログ: ストーリーの題のリンクで引き出しが開き、完了の帯、自動保存、前後の移動、真ん中の形が動く', async ({
   page,
 }) => {
-  const errors = await openSample(page, 'backlog.html');
+  const errors = await openCatalog(page, 'backlog.html');
   const links = page.locator('.tree-row.is-story a.tree-link');
   const first = await links.first().textContent();
   await links.first().click();
@@ -186,18 +158,19 @@ test('見本のバックログ: ストーリーの題のリンクで引き出し
 
 test('見本のバックログ: 幅 390px では「⋯」が常に出て 44px 四方', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await openSample(page, 'backlog.html');
+  const errors = await openCatalog(page, 'backlog.html');
   const toggle = page.locator('.entry .row-menu-btn').first();
   await expect(toggle).toHaveCSS('opacity', '1');
   const box = await toggle.boundingBox();
   expect(box!.width).toBeGreaterThanOrEqual(44);
   expect(box!.height).toBeGreaterThanOrEqual(44);
+  expect(errors).toEqual([]);
 });
 
 test('見本の引き出し: 「編集」「保存」のボタンが無く、欄を離れると保存の状態が出る。「/」の小窓が開く', async ({
   page,
 }) => {
-  const errors = await openSample(page, 'backlog.html');
+  const errors = await openCatalog(page, 'backlog.html');
   await page.locator('a.entry-title').first().click();
   const drawer = page.locator('#drawer');
   await expect(drawer.locator('[data-drawer-input="title"]')).toBeVisible();
@@ -242,7 +215,7 @@ test('見本の引き出し: 「編集」「保存」のボタンが無く、欄
 });
 
 test('見本のスプリント: 列の末尾の空の行に題を打って Enter で、その列にカードが足される', async ({ page }) => {
-  await openSample(page, 'sprint.html');
+  const errors = await openCatalog(page, 'sprint.html');
   const draft = page.locator('input[data-draft^="col:"]').first();
   await draft.fill('列に足すカード');
   await draft.press('Enter');
@@ -252,10 +225,11 @@ test('見本のスプリント: 列の末尾の空の行に題を打って Enter
   await page.keyboard.type('次のカード');
   await page.keyboard.press('Enter');
   await expect(page.locator('.card-title').filter({ hasText: /^次のカード$/ })).toHaveCount(1);
+  expect(errors).toEqual([]);
 });
 
 test('見本のスプリント: 足しても、ほかの列の空の行の書きかけは残る', async ({ page }) => {
-  await openSample(page, 'sprint.html');
+  const errors = await openCatalog(page, 'sprint.html');
   const drafts = page.locator('input[data-draft^="col:"]');
   await drafts.nth(1).fill('書きかけ');
   await drafts.first().fill('足すカード');
@@ -263,21 +237,23 @@ test('見本のスプリント: 足しても、ほかの列の空の行の書き
   await expect(page.locator('.card-title').filter({ hasText: /^足すカード$/ })).toHaveCount(1);
   await expect(drafts.first()).toHaveValue('');
   await expect(drafts.nth(1)).toHaveValue('書きかけ');
+  expect(errors).toEqual([]);
 });
 
 test('見本のバックログ: 幅 390px で「⋯」を開くと、メニューが読める幅で画面の中に収まる', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await openSample(page, 'backlog.html');
+  const errors = await openCatalog(page, 'backlog.html');
   await page.locator('.entry .row-menu-btn').first().click();
   const list = page.locator('.row-menu-list:not([hidden])');
   const box = (await list.boundingBox())!;
   expect(box.width).toBeGreaterThanOrEqual(150);
   expect(box.x).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width).toBeLessThanOrEqual(390);
+  expect(errors).toEqual([]);
 });
 
 test('見本のスプリント: 先頭の列のカードのメニューが、盤面に切られず画面の中に収まる', async ({ page }) => {
-  await openSample(page, 'sprint.html');
+  const errors = await openCatalog(page, 'sprint.html');
   await page.locator('.board-col').first().locator('.card .row-menu-btn').first().click();
   const box = (await page.locator('.row-menu-list:not([hidden])').boundingBox())!;
   expect(box.x).toBeGreaterThanOrEqual(0);
@@ -285,10 +261,11 @@ test('見本のスプリント: 先頭の列のカードのメニューが、盤
   const viewport = page.viewportSize()!;
   expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
   expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+  expect(errors).toEqual([]);
 });
 
 test('見本のバックログ: 続けて消した2件を古い方から取り消しても、元の並びに戻る', async ({ page }) => {
-  await openSample(page, 'backlog.html');
+  const errors = await openCatalog(page, 'backlog.html');
   const titles = page.locator('.tree > div:has(> .entry) > .entry .entry-title');
   const before = await titles.allTextContents();
   for (let i = 0; i < 2; i++) {
@@ -299,12 +276,13 @@ test('見本のバックログ: 続けて消した2件を古い方から取り�
   await page.locator('.toast-action').first().click();
   await page.locator('.toast-action').first().click();
   expect(await titles.allTextContents()).toEqual(before);
+  expect(errors).toEqual([]);
 });
 
 test('見本のバックログ: 空の行の書きかけは別の行の操作で消えず、チップを選んだ後もフォーカスが戻る', async ({
   page,
 }) => {
-  await openSample(page, 'backlog.html');
+  const errors = await openCatalog(page, 'backlog.html');
   const story = page.locator('input[data-draft^="story:"]').first();
   await story.fill('書きかけのA');
   const root = page.locator('input[data-draft="root:backlog"]');
@@ -318,12 +296,13 @@ test('見本のバックログ: 空の行の書きかけは別の行の操作で
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
   await expect(page.locator(`[data-chip-for="${key}"]`)).toBeFocused();
+  expect(errors).toEqual([]);
 });
 
 test('見本の引き出し: 「/」の小窓は開き直すと先頭が選ばれ、キャレットを離して Enter しても本文を壊さない', async ({
   page,
 }) => {
-  await openSample(page, 'backlog.html');
+  const errors = await openCatalog(page, 'backlog.html');
   await page.locator('a.entry-title').first().click();
   const body = page.locator('#drawer [data-drawer-input="body"]');
   await body.fill('');
@@ -344,10 +323,11 @@ test('見本の引き出し: 「/」の小窓は開き直すと先頭が選ば�
   await page.keyboard.press('Control+End');
   await page.keyboard.press('Enter');
   await expect(body).toHaveValue('A\n/\nB\n');
+  expect(errors).toEqual([]);
 });
 
 test('見本の引き出し: タイトルとリンクを保存すると、見出しと「開く」が保存した値に替わる', async ({ page }) => {
-  await openSample(page, 'backlog.html');
+  const errors = await openCatalog(page, 'backlog.html');
   await page.locator('a.entry-title').first().click();
   const drawer = page.locator('#drawer');
   await drawer.locator('[data-drawer-input="title"]').fill('見出しも替わる');
@@ -360,11 +340,12 @@ test('見本の引き出し: タイトルとリンクを保存すると、見出
   await link.fill('');
   await link.press('Enter');
   await expect(drawer.locator('a[data-drawer-open]')).toHaveCount(0);
+  expect(errors).toEqual([]);
 });
 
 test('見本のバックログ: 幅390pxで横送りした各チップを44px四方で押せる', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await openSample(page, 'backlog.html');
+  const errors = await openCatalog(page, 'backlog.html');
   const chips = page.locator('.tree .entry.has-attrs .entry-chips').first().locator('.chip-btn');
   await expect(chips).toHaveCount(5);
   for (const theme of A11Y_THEMES) {
@@ -395,10 +376,11 @@ test('見本のバックログ: 幅390pxで横送りした各チップを44px四
       expect(result.hits, theme).toBe(true);
     }
   }
+  expect(errors).toEqual([]);
 });
 
 test('見本のバックログ: 下の行を先に、上の行を後に消し、古い方から取り消しても元の並びに戻る', async ({ page }) => {
-  await openSample(page, 'backlog.html');
+  const errors = await openCatalog(page, 'backlog.html');
   const rows = '.tree > div:has(> .entry) > .entry';
   const titles = page.locator(`${rows} .entry-title`);
   const before = await titles.allTextContents();
@@ -411,10 +393,11 @@ test('見本のバックログ: 下の行を先に、上の行を後に消し、
   await page.locator('.toast-action').first().click();
   await page.locator('.toast-action').first().click();
   expect(await titles.allTextContents()).toEqual(before);
+  expect(errors).toEqual([]);
 });
 
 test('見本のバックログ: ?story=<ID> で、ストーリーの引き出しが直接開く', async ({ page }) => {
-  const errors = await openSample(page, 'backlog.html');
+  const errors = await openCatalog(page, 'backlog.html');
   await page.goto('/__design-catalog/backlog.html?story=s4');
   const drawer = page.locator('#drawer');
   await expect(drawer).toBeVisible();
@@ -426,7 +409,7 @@ test('見本のバックログ: ?story=<ID> で、ストーリーの引き出し
 test('見本のバックログ: ストーリーの引き出しの「親を移す」は、開いているストーリーの親を移す。不正な ?story= では開かない', async ({
   page,
 }) => {
-  const errors = await openSample(page, 'backlog.html');
+  const errors = await openCatalog(page, 'backlog.html');
   const links = page.locator('.tree-row.is-story a.tree-link');
   const second = await links.nth(1).innerText();
   await links.nth(1).click();
@@ -445,15 +428,16 @@ test('見本のバックログ: ストーリーの引き出しの「親を移す
 });
 
 test('見本のバックログ: 配下の未完了が残るストーリーは、完了にするを押しても完了にならない', async ({ page }) => {
-  await openSample(page, 'backlog.html');
+  const errors = await openCatalog(page, 'backlog.html');
   await page.locator('.tree-row.is-story a.tree-link').first().click();
   const drawer = page.locator('#drawer');
   await drawer.locator('[data-story-done]').click({ force: true });
   await expect(drawer.locator('.hanko')).toHaveCount(0);
+  expect(errors).toEqual([]);
 });
 
 test('見本のチップ: ロックの理由、読み込み中、再試行と離脱済みの候補', async ({ page }) => {
-  await openSample(page, 'backlog.html');
+  const errors = await openCatalog(page, 'backlog.html');
   const examples = page.locator('.attr-chip-examples');
   await examples.locator('summary').click();
   const locked = examples.locator('[data-chip-example="locked"] .chip-btn').first();
@@ -488,12 +472,13 @@ test('見本のチップ: ロックの理由、読み込み中、再試行と離
   const left = examples.locator('[data-chip-example="left"] .attr-chip').last();
   await expect(left.locator(':scope > .avatar')).toHaveClass(/is-left/);
   await expect(left.locator('.chip-btn .avatar')).toHaveCount(0);
+  expect(errors).toEqual([]);
 });
 
 for (const theme of ['simple_light', 'simple_dark', 'modern']) {
   test(`見本のチップ: ${theme}、320px・文字150%で長い担当名が収まる`, async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 900 });
-    await openSample(page, 'backlog.html');
+    const errors = await openCatalog(page, 'backlog.html');
     await page.evaluate((value) => {
       document.documentElement.dataset.theme = value;
       document.documentElement.style.fontSize = '150%';
@@ -526,12 +511,13 @@ for (const theme of ['simple_light', 'simple_dark', 'modern']) {
     const wrapper = (await row.locator('.attr-chip').last().boundingBox())!;
     expect(wrapper.width).toBeLessThanOrEqual(endBox.width);
     expect(wrapper.x + wrapper.width).toBeLessThanOrEqual(endBox.x + endBox.width + 1);
+    expect(errors).toEqual([]);
   });
 }
 
 test('カタログの横送りの見本で属性と行の操作を選んでも、同じ見本へフォーカスが戻る', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const errors = await openSample(page, 'index.html');
+  const errors = await openCatalog(page, 'index.html');
   const points = page.locator('#tree [data-chip-for="t15:pts"]');
   await expect(page.locator('[data-chip-for="t15:pts"]')).toHaveCount(1);
   await points.click();
@@ -547,7 +533,7 @@ test('カタログの横送りの見本で属性と行の操作を選んでも�
 });
 
 test('見本のエピックとストーリー: 題だけで木に作り、引き出しで詳細を書く', async ({ page }) => {
-  const errors = await openSample(page, 'backlog.html');
+  const errors = await openCatalog(page, 'backlog.html');
   const epicDraft = page.locator('[data-draft="new-epic:root"]');
   await epicDraft.fill('追加したエピック');
   await epicDraft.press('Enter');
@@ -591,7 +577,7 @@ test('見本のエピックとストーリー: 題だけで木に作り、引き
 });
 
 test('見本のエピック: URLから開き、題・期日を保存し、削除確認を引き出しに重ねる', async ({ page }) => {
-  const errors = await openSample(page, 'backlog.html');
+  const errors = await openCatalog(page, 'backlog.html');
   await page.goto('/__design-catalog/backlog.html?epic_id=e1&keep=1');
   const drawer = page.locator('aside#drawer');
   await expect(drawer).toBeVisible();
@@ -611,7 +597,7 @@ test('見本のエピック: URLから開き、題・期日を保存し、削除
 });
 
 test('見本のエピック: 選んだエピックの詳細画面に移り、同じ引き出しを開く', async ({ page }) => {
-  const errors = await openSample(page, 'backlog.html');
+  const errors = await openCatalog(page, 'backlog.html');
   await page.locator('a[data-epic-id="e2"]').click();
   const drawer = page.locator('aside#drawer');
   const title = await drawer.locator('#drawer-edit-title').inputValue();

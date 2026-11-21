@@ -1,37 +1,21 @@
-import { readFileSync } from 'node:fs';
 import type { Page } from '@playwright/test';
+import { openCatalog, routeDesignCatalog } from './design-samples.ts';
 import { expect, test } from './fixtures.ts';
 import { A11Y_THEMES, applyTheme, findA11yViolations, formatA11yViolations } from './helpers.ts';
 
-// アプリの配信対象外の見本を、既存の design-catalog.test.ts と同じ方法で開く。seed の認証は使わない。
+// アプリの配信対象外の見本を、ほかの見本の e2e と同じ design-samples.ts の関数で開く。seed の認証は使わない。
 // #1237: 全セクションの確認をまとめ、ブラウザとの往復で検査時間を使い切らない。
 // カタログ全体の axe 検査を60秒以内で確かめる。各 assertion の待ちは延ばさない。
 test.setTimeout(60_000);
 
+// 見本の HTML を差し替えるテストのルートが優先されるよう、見本のルートを先に登録する（後に登録したルートが先に当たる）。
 test.beforeEach(async ({ page }) => {
-  const files: Record<string, string> = {
-    'index.html': 'text/html',
-    'tokens.css': 'text/css',
-    'components.css': 'text/css',
-    'icons.js': 'text/javascript',
-    'art.js': 'text/javascript',
-    'sample-data.js': 'text/javascript',
-    'kit.js': 'text/javascript',
-    'image-crop.js': 'text/javascript',
-  };
-  await page.route('**/__design-catalog/**', async (route) => {
-    const name = new URL(route.request().url()).pathname.split('/').pop()!;
-    const contentType = files[name];
-    if (!contentType) return route.fulfill({ status: 404, body: '' });
-    await route.fulfill({ contentType, body: readFileSync(new URL(`../design/${name}`, import.meta.url)) });
-  });
-  for (const host of ['fonts.googleapis.com', 'fonts.gstatic.com']) {
-    await page.route(`https://${host}/**`, (route) => route.fulfill({ body: '' }));
-  }
+  await routeDesignCatalog(page);
 });
 
-async function openCatalog(page: Page): Promise<void> {
-  await page.goto('/__design-catalog/index.html');
+// カタログを開き、目次と全セクションの表示を確かめる。開いた後のページの例外を返す。
+async function openCatalogSections(page: Page): Promise<string[]> {
+  const errors = await openCatalog(page);
   await expect(page.getByRole('heading', { level: 1, name: 'デザインシステム', exact: true })).toBeVisible();
   const links = page.locator('#toc a');
   const hrefs = await links.evaluateAll((elements) => elements.map((element) => element.getAttribute('href')));
@@ -45,6 +29,7 @@ async function openCatalog(page: Page): Promise<void> {
     '目次とセクションが対応しない',
   ).toEqual(hrefs);
   await expect(page.locator('#main > .cat-block:visible'), 'セクションが非表示').toHaveCount(hrefs.length);
+  return errors;
 }
 
 for (const [name, body] of [
@@ -70,7 +55,7 @@ for (const [name, body] of [
     await page.route('**/__design-catalog/index.html', (route) =>
       route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<h1>デザインシステム</h1>${body}` }),
     );
-    await expect(openCatalog(page)).rejects.toThrow(name);
+    await expect(openCatalogSections(page)).rejects.toThrow(name);
   });
 }
 
@@ -85,16 +70,17 @@ for (const width of [1280, 390]) {
   for (const theme of A11Y_THEMES) {
     test(`見本のカタログの axe: ${width}px / ${theme}`, async ({ page }) => {
       await page.setViewportSize({ width, height: 1000 });
-      await test.step('カタログの全セクションを表示する', () => openCatalog(page));
+      const errors = await test.step('カタログの全セクションを表示する', () => openCatalogSections(page));
       await test.step('テーマを適用する', () => applyTheme(page, theme));
       await test.step('カタログ全体を axe で検査する', () => expectAccessibleCatalog(page));
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      expect(errors).toEqual([]);
     });
   }
 }
 
 test('壊したカタログの無名ボタンと低コントラスト文字で、検査が落ちる', async ({ page }) => {
-  await openCatalog(page);
+  const errors = await openCatalogSections(page);
   await applyTheme(page, A11Y_THEMES[0]);
   await page.locator('#main').evaluate((main) => {
     const broken = document.createElement('div');
@@ -107,4 +93,5 @@ test('壊したカタログの無名ボタンと低コントラスト文字で�
   const checked = expectAccessibleCatalog(page);
   await expect(checked).rejects.toThrow(/- button-name: #broken-button/);
   await expect(checked).rejects.toThrow(/- color-contrast: #broken-contrast/);
+  expect(errors).toEqual([]);
 });
