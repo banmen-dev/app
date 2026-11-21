@@ -2,7 +2,10 @@
 // 未完了のタスクが残るあいだは「完了にする」が押せず、残りの件数が出る。完了と取り消しを断られたら、理由を知らせて読み直す。
 // seed のセッション（seed/sessions.ts）の Cookie で開く。あおば開発の管理者はミナト。CSP の違反も確かめる
 import type { Page } from '@playwright/test';
+import { storyComplete } from '../src/shared/operations/story/index.ts';
+import { backlogTree } from '../src/shared/operations/task/index.ts';
 import { expect, test } from './fixtures.ts';
+import { failOperation, rewriteOperation } from './operations.ts';
 import {
   addEpicRow,
   addStoryRow,
@@ -180,12 +183,9 @@ test('スクラムの言葉: 配下の無いストーリーは完了にでき、
   page.on('request', (request) => {
     if (request.url().endsWith('/backlog-tree')) reloaded++;
   });
-  await page.route('**/story-complete', (route) =>
-    route.fulfill({
-      status: 409,
-      json: { error: { code: 'conflict', message: 'conflict', details: { reason: 'open_tasks' } } },
-    }),
-  );
+  const unrouteStoryComplete = await failOperation(page, storyComplete, { slug: 'aoba' }, 409, 'conflict', {
+    details: { reason: 'open_tasks' },
+  });
   await chooseRowAction(story, '検知を早くする', '完了にする');
   await expect(
     page
@@ -193,7 +193,7 @@ test('スクラムの言葉: 配下の無いストーリーは完了にでき、
       .filter({ hasText: '未完了のタスクが残っているため、完了にできません。一覧を読み直します' }),
   ).toBeVisible();
   await expect.poll(() => reloaded).toBeGreaterThan(0);
-  await page.unroute('**/story-complete');
+  await unrouteStoryComplete();
 
   // 配下にタスクが1件も無くても完了にできる
   await chooseRowAction(story, '検知を早くする', '完了にする');
@@ -224,15 +224,13 @@ const SEED_ROOT_STORY = 'ポイントの付与と失効を管理画面で確か�
 
 test('クリアしたエピックの下の完了したストーリーは、取り消しを押せず、理由を出す', async ({ page }) => {
   // 木の応答で、seed のエピックを完了に、その下のストーリーを完了にする
-  await page.route('**/api/aoba/backlog-tree', async (route) => {
-    const response = await route.fetch();
-    const body = (await response.json()) as { epics: { completed_at: string | null; stories: object[] }[] };
+  await rewriteOperation(page, backlogTree, { slug: 'aoba' }, (body) => {
     const epics = body.epics.map((epic) => ({
       ...epic,
       completed_at: '2026-10-22T00:00:00.000Z',
       stories: epic.stories.map((story) => ({ ...story, completed_at: '2026-10-21T00:00:00.000Z' })),
     }));
-    await route.fulfill({ response, json: { ...body, epics } });
+    return { ...body, epics };
   });
   let sent = 0;
   page.on('request', (request) => {
@@ -253,11 +251,9 @@ test('クリアしたエピックの下の完了したストーリーは、取�
 });
 
 test('中止したエピックの下のストーリーは、完了にするを押せず、理由を出す', async ({ page }) => {
-  await page.route('**/api/aoba/backlog-tree', async (route) => {
-    const response = await route.fetch();
-    const body = (await response.json()) as { epics: { canceled_at: string | null }[] };
+  await rewriteOperation(page, backlogTree, { slug: 'aoba' }, (body) => {
     const epics = body.epics.map((epic) => ({ ...epic, canceled_at: '2026-10-22T00:00:00.000Z' }));
-    await route.fulfill({ response, json: { ...body, epics } });
+    return { ...body, epics };
   });
   let sent = 0;
   page.on('request', (request) => {

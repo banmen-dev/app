@@ -1,7 +1,9 @@
 // ワークスペースの設定の画面（区分とリポジトリ）と、木の行のチップと引き出しでの使い方。
 // seed のセッション（seed/sessions.ts）の Cookie で開く。行を足すテストは、自分で作ったワークスペースで行う（seed の行は他の e2e も読むため）
 import type { Page } from '@playwright/test';
+import { categoryRepositoryList } from '../src/shared/operations/definition/index.ts';
 import { expect, test } from './fixtures.ts';
+import { failOperation } from './operations.ts';
 import {
   addStoryRow,
   addTaskRow,
@@ -174,12 +176,18 @@ test.describe('リーダー（あおば開発のミナト）', () => {
     await expect(page.getByLabel('新しい区分の名前')).toBeFocused();
 
     // 書いた後の読み直しが失敗しても、前の一覧を残し、更新できなかったことと「もう一度試す」を出す
-    await page.route('**/api/aoba/category-repository-list', (route) => route.fulfill({ status: 503, body: '' }));
+    const unrouteCategoryRepositoryList = await failOperation(
+      page,
+      categoryRepositoryList,
+      { slug: 'aoba' },
+      503,
+      'unavailable',
+    );
     await page.getByLabel('新しい区分の名前').fill('追加案件');
     await page.getByRole('button', { name: '区分を足す' }).click();
     await expect(page.getByRole('alert').filter({ hasText: '一覧を更新できませんでした' })).toBeVisible();
     await expect(page.getByRole('list', { name: '区分の一覧' }).getByText('保守', { exact: true })).toBeVisible();
-    await page.unroute('**/api/aoba/category-repository-list');
+    await unrouteCategoryRepositoryList();
     await page.getByRole('button', { name: 'もう一度試す' }).click();
     await expect(page.getByRole('alert').filter({ hasText: '一覧を更新できませんでした' })).toHaveCount(0);
     await expect(page.getByRole('list', { name: '区分の一覧' }).getByText('追加案件', { exact: true })).toBeVisible();
