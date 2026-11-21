@@ -22,7 +22,8 @@ export async function routeDesignCatalog(page: Page): Promise<void> {
   await page.route(`**${PREFIX}**`, async (route) => {
     const pathname = new URL(route.request().url()).pathname;
     const name = pathname.slice(pathname.indexOf(PREFIX) + PREFIX.length) || 'index.html';
-    const contentType = name.includes('/') ? undefined : CONTENT_TYPES[name.split('.').pop()!];
+    const extension = /^[^/]+\.([a-z]+)$/.exec(name)?.[1];
+    const contentType = extension && Object.hasOwn(CONTENT_TYPES, extension) ? CONTENT_TYPES[extension] : undefined;
     const file = new URL(`../design/${name}`, import.meta.url);
     if (!contentType || !existsSync(file)) return route.fulfill({ status: 404, body: '' });
     await route.fulfill({ contentType, body: readFileSync(file) });
