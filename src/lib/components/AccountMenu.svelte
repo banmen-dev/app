@@ -43,8 +43,10 @@
   let root = $state<HTMLElement>();
   let button = $state<HTMLButtonElement>();
 
-  // 読み上げの名前に、見た目にある管理者の印も含める
-  const label = $derived(t('accountMenuLabel', { name: isAdmin ? `${name}（${t('admin')}）` : name }));
+  // 読み上げの名前は、見える文字（名前、管理者の印、レベルの数）を同じ順で先頭に含める（WCAG 2.5.3）
+  const label = $derived(
+    t('accountMenuLabel', { name: [name, isAdmin ? t('admin') : '', level].filter(Boolean).join(' ') }),
+  );
 
   let profile = $state<HTMLAnchorElement>();
   $effect.pre(() => {
