@@ -682,7 +682,8 @@ test('枠の外からダッシュボードへの遅い移動で、広い紙と2�
   expect(loadingBox.x).toBe(loadedBox.x);
 });
 
-for (const width of [1280, 390]) {
+// 760 と 761 は、紙の内側の左右が --space-4 と --space-6 に切り替わる境目
+for (const width of [1280, 761, 760, 390]) {
   test(`ダッシュボードの初回の骨組みも ${width}px の紙の幅に揃える`, async ({ page, context, baseURL }) => {
     await signIn(context, baseURL, 'member');
     await page.setViewportSize({ width, height: 900 });
@@ -701,7 +702,8 @@ for (const width of [1280, 390]) {
       await expect(boot.locator('.boot-pane')).toHaveCount(2);
       loadingBox = await shownBox(boot);
       loadingPaneOffset = await boot.evaluate(
-        (sheet) => sheet.querySelector('.boot-pane')!.getBoundingClientRect().left - sheet.getBoundingClientRect().left,
+        (sheet) =>
+          sheet.querySelector('.boot-pane > i')!.getBoundingClientRect().left - sheet.getBoundingClientRect().left,
       );
     } finally {
       release();
@@ -711,11 +713,12 @@ for (const width of [1280, 390]) {
     const loadedBox = await shownBox(page.locator('.gate-sheet'));
     expect(loadingBox.width).toBe(loadedBox.width);
     expect(loadingBox.x).toBe(loadedBox.x);
-    // 面の左端（紙の内側の余白と、面が枠も余白も持たないこと）も読み込み後にそろえる
+    // 面の中身の左端（紙の内側の余白に、面の枠と内側の余白が足されないこと）も、骨組みの帯と読み込み後の見出しでそろえる
     const loadedPaneOffset = await page
       .locator('.gate-sheet')
       .evaluate(
-        (sheet) => sheet.querySelector('.pane')!.getBoundingClientRect().left - sheet.getBoundingClientRect().left,
+        (sheet) =>
+          sheet.querySelector('.pane > .pane-head')!.getBoundingClientRect().left - sheet.getBoundingClientRect().left,
       );
     expect(loadingPaneOffset!).toBeCloseTo(loadedPaneOffset, 0);
   });
