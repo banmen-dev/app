@@ -223,7 +223,14 @@
               {#if personalOrganization !== undefined}
                 {@render workspacesStatus()}
                 <div class="org-block">
-                  <a class="choice" href={resolve('/[slug]', { slug: personalOrganization.slug })}>
+                  <a
+                    class="choice"
+                    href={resolve('/[slug]', { slug: personalOrganization.slug })}
+                    aria-label={t('dashboardPersonalHomeLabel', {
+                      personal: t('personalOrganizationName'),
+                      address: `${page.url.host}/${personalOrganization.slug}/`,
+                    })}
+                  >
                     <div>
                       <b>{t('dashboardPersonalHome')}</b>
                       <span class="mono">{page.url.host}/{personalOrganization.slug}/</span>

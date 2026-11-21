@@ -1184,6 +1184,8 @@ export const dictionary = defineDictionary({
   dashboardPersonalMissing: '自分だけで使う{workspace}を置く「{personal}」を作れます。期限はなく無料です。',
   // 自分用の面の、自分用のホームへ入る行の名前。面の見出しが既に「自分用」なので、行では組織の名前を繰り返さない
   dashboardPersonalHome: 'ホーム',
+  // 同じ行の読み上げの名前。リンクの一覧では面の見出しが聞こえないので、自分用のホームであることと行き先を伝える
+  dashboardPersonalHomeLabel: '{personal}のホーム {address}',
   // チーム用の{organization}が無く、自分用だけに入れる人の組織の面
   dashboardNoTeamOrganization: 'チームで使う{organization}はまだありません。管理者から招待が届くと、ここに出ます。',
   organizationChooseNote: 'あとから、画面の左上（狭い幅では上の帯）の組織の切り替えで選び直せます。',

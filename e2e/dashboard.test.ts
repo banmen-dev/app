@@ -240,7 +240,7 @@ for (const path of ['/', '/aoba'] as const) {
             ? {
                 ...entry,
                 workspaces: [
-                  { id: '019a0000-0000-7000-8000-000000000a05', name: '社内ツール', role: 'member' as const },
+                  { id: '019a0000-0000-7000-8000-000000000a06', name: '社内ツール', role: 'member' as const },
                 ],
               }
             : entry,
@@ -346,6 +346,8 @@ test('自分用の面に自分用のホームへの行を置き、自分用だ�
   // 面の見出しが「自分用」なので、ホームへの行は「ホーム」と URL にし、「自分用」を繰り返さない
   await expect(personalPane.locator('.org-block > a.choice b')).toHaveText('ホーム');
   await expect(personalPane.locator('.org-block > a.choice')).not.toContainText('自分用');
+  // 読み上げの名前は、面の見出しが聞こえないリンクの一覧でも自分用のホームと分かるようにする
+  await expect(personalPane.locator('.org-block > a.choice')).toHaveAccessibleName(/^自分用のホーム \S+\/mio-solo\/$/);
   await expect(personalPane.getByRole('list', { name: '自分用で所属するワークスペース', exact: true })).toBeVisible();
   const organizations = page.getByRole('region', { name: '組織', exact: true });
   await expect(organizations.getByRole('link', { name: /ひばり工房/ })).toHaveAttribute('href', '/hibari/invitations');
