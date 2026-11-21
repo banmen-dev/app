@@ -58,7 +58,7 @@ test('招待があれば読み上げから外した点と件数を出し、項�
   expect(html).toContain('class="account-menu-badge" aria-hidden="true">招待 2');
   expect(html).toContain('class="visually-hidden">、届いた招待 2件');
   const buttonName = (body: string) => /<button\b[^>]*aria-label="([^"]*)"/.exec(body)![1];
-  expect(buttonName(html)).toBe('ミナト（管理者）。アカウントのメニュー');
+  expect(buttonName(html)).toBe('ミ ミナト 管理者 3。アカウントのメニュー');
   expect(buttonName(html)).toBe(buttonName(renderWith()));
 });
 

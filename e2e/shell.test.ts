@@ -496,7 +496,7 @@ test.describe('組織が2つの人（ミナト）', () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(today);
     await page.getByRole('button', { name: 'メニューを畳む' }).click();
-    const org = page.getByRole('button', { name: 'あおば開発。組織を切り替える' });
+    const org = page.getByRole('button', { name: '組織 あおば開発。組織を切り替える' });
     await expect(org).toBeVisible();
     // 招待が無いときは印を出さない
     await expect(org.locator('.org-menu-invite')).toHaveCount(0);
@@ -1116,7 +1116,7 @@ test('角のマスにマーク、組織の名前、開閉のボタンが1行で�
   await page.goto(`${today}/me`);
   const head = page.locator('.binding-head');
   const brand = head.getByRole('link', { name: 'Scrum Guild', exact: true });
-  const org = head.getByRole('button', { name: 'あおば開発。組織を切り替える' });
+  const org = head.getByRole('button', { name: '組織 あおば開発。組織を切り替える' });
   const toggle = head.getByRole('button', { name: 'メニューを畳む' });
   await expect(org).toBeVisible();
   await expect(org.locator('b')).toHaveText('あおば開発');
