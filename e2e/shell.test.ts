@@ -9,7 +9,7 @@ import {
 } from '../src/shared/operations/organization/index.ts';
 import { orgWikiTree } from '../src/shared/operations/wiki/index.ts';
 import { expect, test } from './fixtures.ts';
-import { failOperation, mockOperation, routeOperation } from './operations.ts';
+import { failOperation, mockOperation, rewriteOperation, routeOperation } from './operations.ts';
 import {
   expectFocusReturned,
   expectModalFocus,
@@ -894,7 +894,14 @@ for (const width of [390, 672]) {
   test(`幅 ${width}px で本文が短くても、上に旧メニューの空きが出ない`, async ({ page }) => {
     const height = 2000;
     await page.setViewportSize({ width, height });
-    // 最近の更新の面は、ほかのテストが作った行で長さが決まる。この確かめは本文が短いときの枠の組みなので、空にする
+    // ほかのテストが同じ D1 に足した行で本文が伸びないよう、既定のワークスペース1件だけを表示する。
+    await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (organization) => ({
+      ...organization,
+      workspaces: organization.workspaces.filter(({ id }) => id === AOBA_WORKSPACE_ID),
+    }));
+    // 短い本文のレイアウトを確かめるため、共有 D1 によって長さが変わるほかの面も空にする。
+    await mockOperation(page, todayOperation, { slug: 'aoba' }, { tasks: [], sprint_goals: [] });
+    await mockOperation(page, firstSteps, { slug: 'aoba' }, { role: null, steps: [] });
     await mockOperation(page, recentActivity, { slug: 'aoba' }, { entries: [], next: null });
     await page.goto(today);
     await expect(page.getByRole('heading', { level: 1, name: '今日やること' })).toBeVisible();
