@@ -221,7 +221,7 @@ test.describe('届いた招待（ハルカ）', () => {
       await expect(page.getByRole('heading', { level: 1, name: '今日やること' })).toBeVisible();
       await expect(inviteDot(page)).toBeVisible();
       await expect(inviteDot(page)).toHaveAttribute('aria-hidden', 'true');
-      await expect(accountButton(page)).toHaveAccessibleName('ハルカ。アカウントのメニュー');
+      await expect(accountButton(page)).toHaveAccessibleName('ハ ハルカ 1。アカウントのメニュー');
       await accountButton(page).click();
       await expect(profileItem(page).locator('.account-menu-badge')).toHaveText('招待 2');
       await expect(profileItem(page)).toHaveAccessibleName(/マイプロフィール\s*、届いた招待 2件/);
@@ -231,7 +231,7 @@ test.describe('届いた招待（ハルカ）', () => {
       await page.reload();
       await expect(page.getByRole('heading', { level: 1, name: '今日やること' })).toBeVisible();
       await expect(inviteDot(page)).toHaveCount(0);
-      await expect(accountButton(page)).toHaveAccessibleName('ハルカ。アカウントのメニュー');
+      await expect(accountButton(page)).toHaveAccessibleName('ハ ハルカ 1。アカウントのメニュー');
       await accountButton(page).click();
       await expect(profileItem(page).locator('.account-menu-badge')).toHaveCount(0);
       await expect(profileItem(page)).toHaveAccessibleName('マイプロフィール');
