@@ -2,7 +2,9 @@
 // 引き出しから完了にすると、完了の印と日時に替わる → 空にすると、どこにも出なくなる。
 // seed のセッション（seed/sessions.ts）の Cookie で開く。行を足すので、自分で作ったワークスペースで行う
 import type { Page } from '@playwright/test';
+import { workspaceDodUpdate } from '../src/shared/operations/workspace/index.ts';
 import { expect, test } from './fixtures.ts';
+import { routeOperation } from './operations.ts';
 import { addTaskRow, createWorkspace, signIn, watchViolations } from './helpers.ts';
 
 test.use({ timezoneId: 'Asia/Tokyo' });
@@ -109,9 +111,9 @@ test('完成の定義が長すぎると、送らずに欄の下に理由を出�
   const field = page.getByRole('textbox', { name: 'Markdown' });
   await field.fill('あ'.repeat(100_001));
   let sent = false;
-  await page.route('**/api/aoba/workspace-dod-update', (route) => {
+  await routeOperation(page, workspaceDodUpdate, { slug: 'aoba' }, (call) => {
     sent = true;
-    return route.continue();
+    return call.passThrough();
   });
   await page.getByRole('region', { name: '完成の定義', exact: true }).getByRole('button', { name: '保存する' }).click();
   await expect(page.getByRole('alert').filter({ hasText: '完成の定義は 100,000 字までです' })).toBeVisible();

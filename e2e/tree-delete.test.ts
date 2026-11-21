@@ -2,7 +2,10 @@
 // 選ぶ確認を開き、削除したら木を読み直す。削除できない人には削除のボタンを出さない。
 // seed のセッション（seed/sessions.ts）の Cookie で開く。あおば開発の管理者はミナト、一般のユーザーはハルカ。CSP の違反も確かめる
 import type { Locator, Page } from '@playwright/test';
+import { epicDelete } from '../src/shared/operations/epic/index.ts';
+import { storyDelete, storyGet } from '../src/shared/operations/story/index.ts';
 import { expect, test } from './fixtures.ts';
+import { failOperation, rewriteOperation, routeOperation } from './operations.ts';
 import {
   addEpicRow,
   addStoryRow,
@@ -162,12 +165,10 @@ test('作ったワークスペース: 配下の無いエピックは選ばせず
   await expect(confirm.getByRole('radio')).toHaveCount(0);
 
   // 権限が無い（別の画面で外された）と断られたら、確認を開いたまま理由を出す
-  await page.route('**/epic-delete', (route) =>
-    route.fulfill({ status: 403, json: { error: { code: 'forbidden', message: 'forbidden' } } }),
-  );
+  const unrouteEpicDelete = await failOperation(page, epicDelete, { slug: 'aoba' }, 403, 'forbidden');
   await confirm.getByRole('button', { name: '削除する' }).click();
   await expect(confirm.getByRole('alert')).toHaveText('作った人とリーダーだけが削除できます');
-  await page.unroute('**/epic-delete');
+  await unrouteEpicDelete();
 
   await confirm.getByRole('button', { name: '削除する' }).click();
   await expect(epicDialog).toBeHidden();
@@ -193,11 +194,10 @@ test('確認は開いたときに件数とまとめて削除できるかを読�
   // 応答を待たせて、読んでいる間は削除を押せないことも確かめる
   let release: () => void = () => {};
   const held = new Promise<void>((resolve) => (release = resolve));
-  await page.route('**/story-get', async (route) => {
-    const response = await route.fetch();
-    const body = (await response.json()) as Record<string, unknown>;
+  const unrouteStoryGet = await routeOperation(page, storyGet, { slug: 'aoba' }, async (call) => {
+    const body = await call.fetch();
     await held;
-    await route.fulfill({ response, json: { ...body, can_delete_children: false, children: { tasks: 3 } } });
+    await call.fulfill({ ...body, can_delete_children: false, children: { tasks: 3 } });
   });
   await askDeleteStory(storyDialog, '問い合わせの窓口');
   const confirm = page.getByRole('dialog', { name: 'ストーリーを削除する' });
@@ -216,7 +216,7 @@ test('確認は開いたときに件数とまとめて削除できるかを読�
     '配下に他の人が作ったものがあるため、まとめて削除できるのはリーダーだけです。',
   );
   await expect(confirm.getByRole('radio', { name: /配下を親なしで残す/ })).toBeChecked();
-  await page.unroute('**/story-get');
+  await unrouteStoryGet();
 
   // 残す削除はできる
   await submit.click();
@@ -241,11 +241,10 @@ test('確認を開いた後の読み直しで配下が無くなったら、選�
   // 別の画面で配下のタスクが外された形にする。応答を待たせて、選択肢にフォーカスが置かれてから差し替える
   let release: () => void = () => {};
   const held = new Promise<void>((resolve) => (release = resolve));
-  await page.route('**/story-get', async (route) => {
-    const response = await route.fetch();
-    const body = (await response.json()) as Record<string, unknown>;
+  const unrouteStoryGet = await routeOperation(page, storyGet, { slug: 'aoba' }, async (call) => {
+    const body = await call.fetch();
     await held;
-    await route.fulfill({ response, json: { ...body, children: { tasks: 0 } } });
+    await call.fulfill({ ...body, children: { tasks: 0 } });
   });
   await askDeleteStory(storyDialog, '請求書の発行');
   const confirm = page.getByRole('dialog', { name: 'ストーリーを削除する' });
@@ -254,7 +253,7 @@ test('確認を開いた後の読み直しで配下が無くなったら、選�
   await expect(confirm.getByRole('radio')).toHaveCount(0);
   await expect(confirm.getByRole('button', { name: 'やめる' })).toBeFocused();
   await expect(confirm.getByRole('status').filter({ hasText: '配下のタスクはありません。' })).toHaveCount(1);
-  await page.unroute('**/story-get');
+  await unrouteStoryGet();
 });
 
 test('読み直しで削除できなくなったら主ボタンを押せなくし、閉じた後に届いた 404 では元のダイアログを閉じない', async ({
@@ -273,15 +272,14 @@ test('読み直しで削除できなくなったら主ボタンを押せなく�
 
   // 別の画面でリーダーから外された形にする。主ボタンは押せず、押しても送らない
   let deletes = 0;
-  await page.route('**/story-delete', async (route) => {
+  const unrouteStoryDelete = await routeOperation(page, storyDelete, { slug: 'aoba' }, async (call) => {
     deletes++;
-    await route.continue();
+    await call.passThrough();
   });
-  await page.route('**/story-get', async (route) => {
-    const response = await route.fetch();
-    const body = (await response.json()) as Record<string, unknown>;
-    await route.fulfill({ response, json: { ...body, can_delete: false } });
-  });
+  const unrouteStoryGet = await rewriteOperation(page, storyGet, { slug: 'aoba' }, (body) => ({
+    ...body,
+    can_delete: false,
+  }));
   await askDeleteStory(storyDialog, '在庫の通知');
   const submit = confirm.getByRole('button', { name: '削除する' });
   await expect(confirm.getByRole('alert')).toHaveText('作った人とリーダーだけが削除できます');
@@ -291,16 +289,16 @@ test('読み直しで削除できなくなったら主ボタンを押せなく�
   expect(deletes).toBe(0);
   await confirm.getByRole('button', { name: 'やめる' }).click();
   await expect(confirm).toBeHidden();
-  await page.unroute('**/story-get');
+  await unrouteStoryGet();
 
   // 読み直しの応答が届く前に確認を閉じ、その後に 404 が届いても、元のダイアログは開いたまま
   let release: () => void = () => {};
   const held = new Promise<void>((resolve) => (release = resolve));
   let answered: () => void = () => {};
   const done = new Promise<void>((resolve) => (answered = resolve));
-  await page.route('**/story-get', async (route) => {
+  const unrouteMissingStoryGet = await routeOperation(page, storyGet, { slug: 'aoba' }, async (call) => {
     await held;
-    await route.fulfill({ status: 404, json: { error: { code: 'not_found', message: 'not found' } } });
+    await call.fail(404, 'not_found', { message: 'not found' });
     answered();
   });
   await askDeleteStory(storyDialog, '在庫の通知');
@@ -312,8 +310,8 @@ test('読み直しで削除できなくなったら主ボタンを押せなく�
   await page.waitForLoadState('networkidle');
   await expect(storyDialog).toBeVisible();
   await expectFocusReturned(page, menu);
-  await page.unroute('**/story-get');
-  await page.unroute('**/story-delete');
+  await unrouteMissingStoryGet();
+  await unrouteStoryDelete();
 });
 
 // seed のワークスペース（受託開発チーム）。エピック「ポイントの交換先を増やす」とストーリーは、管理者のミナトが作った

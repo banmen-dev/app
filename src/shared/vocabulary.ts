@@ -1229,7 +1229,7 @@ export const dictionary = defineDictionary({
   createPersonalOrganizationSubmit: '自分用を作る',
   createPersonalOrganizationSubmitting: '自分用の{organization}を作っています',
   organizationList: 'ダッシュボード',
-  // 組織の切り替えのボタンと一覧の読み上げの名前。{name} は今の組織の名前
+  // 組織の切り替えのボタンと一覧の読み上げの名前。{name} はボタンに見える文字の並び
   organizationSwitchLabel: '{name}。組織を切り替える',
   organizationListLabel: '入れる組織',
   workspaceSwitchLabel: '{workspace} {name}。切り替える',
