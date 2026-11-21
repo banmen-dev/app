@@ -51,7 +51,8 @@
 .screens span { font-size: var(--text-xs); color: var(--color-muted); }
 .cat-panel { position: static; width: 100%; max-width: 400px; height: 560px; border: 1px solid var(--color-line); }
 .cat-drawer { position: static; width: 100%; max-width: 620px; box-shadow: var(--shadow-sheet); border: 1px solid var(--color-line); border-left: var(--rule-double); padding: var(--space-5); overflow: visible; }
-.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4); align-items: start; }
+/* 列の最小を min(300px, 100%) にし、320px の幅の見本の枠（内側 248px）でも1列が枠の幅まで縮んで、横にはみ出さない */
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: var(--space-4); align-items: start; }
 /* アカウントのメニューの見本の枠。760px 以下の画面では一覧が帯を基準に広がり、枠の下端から始まって次の見本に重なるので、
    見本の中ではボタンの下、右端に合わせて開く広い幅の形に戻す。枠の中でメニューを伸ばさない（一覧の top: 100% がボタンの下になる） */
 .account-menu-frame { position: relative; display: flex; justify-content: flex-end; align-items: flex-start; }
