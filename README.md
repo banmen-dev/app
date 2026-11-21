@@ -7,6 +7,7 @@
 ## 始め方
 
 Node は `.node-version`、pnpm は `package.json` の `packageManager` の版を使います。
+ワークツリーで始める場合は、[ワークツリーで作業する](docs/development.md#ワークツリーで作業する) に従って pnpm の保存先を確認し、依存を入れてから下の `pnpm db:seed` 以降を実行します。
 
 ```sh
 pnpm install
