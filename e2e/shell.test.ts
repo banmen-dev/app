@@ -1,8 +1,15 @@
 import type { Locator, Page } from '@playwright/test';
-import { myOrganizations, recentActivity } from '../src/shared/operations/organization/index.ts';
 import { tokenCreate } from '../src/shared/operations/session/index.ts';
+import {
+  firstSteps,
+  myOrganizations,
+  organizationInfo,
+  recentActivity,
+  today as todayOperation,
+} from '../src/shared/operations/organization/index.ts';
+import { orgWikiTree } from '../src/shared/operations/wiki/index.ts';
 import { expect, test } from './fixtures.ts';
-import { failOperation, mockOperation } from './operations.ts';
+import { failOperation, mockOperation, routeOperation } from './operations.ts';
 import {
   expectFocusReturned,
   expectModalFocus,
@@ -181,7 +188,7 @@ test('760px 以下では、押したタブの読み込みを待つ間も先に�
   await expect(favoritesTab).toHaveAttribute('aria-current', 'page');
 
   // 今日やることの読み込み（today と firstSteps の操作）を止めておき、待っている間の見た目を確かめる
-  const release = await holdOperations(page, /\/api\/aoba\/(today|first-steps)(\?|$)/);
+  const release = await holdOperations(page, todayOperation, firstSteps);
   await todayTab.click();
   await expect(todayTab).toHaveAttribute('data-selected', '');
   await expect(favoritesTab).not.toHaveAttribute('data-selected');
@@ -207,7 +214,7 @@ test('760px 以下でタブで無い画面へ移る間は、今のタブの印�
   await expect(favoritesTab).toHaveAttribute('data-selected', '');
 
   // 組織の Wiki（タブに無い画面）の読み込みを止め、浮きメニューから移る
-  const release = await holdOperations(page, /\/api\/aoba\/org-wiki-tree(\?|$)/);
+  const release = await holdOperations(page, orgWikiTree);
   await page.getByRole('button', { name: 'すべてのメニュー', exact: true }).click();
   await page
     .getByRole('dialog')
@@ -271,14 +278,18 @@ test.describe('画面の入れ替え（View Transitions）', () => {
 
 // 行き先の操作の応答を止めておき、返す関数で流す。流した後に来た呼び出しもそのまま通す。
 // 流した直後に unroute すると、止めていた呼び出しが既に処理済みになり route が投げるので、テストの終わりまで外さない
-async function holdOperations(page: Page, pattern: RegExp): Promise<() => void> {
-  let release!: () => void;
-  const gate = new Promise<void>((resolve) => (release = resolve));
-  await page.route(pattern, async (route) => {
-    await gate;
-    await route.fallback();
-  });
-  return release;
+async function holdOperations(
+  page: Page,
+  ...operations: (typeof todayOperation | typeof firstSteps | typeof orgWikiTree)[]
+): Promise<() => void> {
+  const gate = Promise.withResolvers<void>();
+  for (const operation of operations) {
+    await routeOperation(page, operation, { slug: 'aoba' }, async (call) => {
+      await gate.promise;
+      await call.passThrough();
+    });
+  }
+  return gate.resolve;
 }
 
 // 選んだタブの縁の色（--color-line）。待つ間の行き先のタブが、現在地と同じ見た目になることを確かめる
@@ -511,9 +522,9 @@ test.describe('組織が2つの人（ミナト）', () => {
   });
 
   test('畳んだ列で別の組織へ移っている間は、札に「移っています」を出したままにする', async ({ page }) => {
-    await page.route('**/api/hibari/organization', async (route) => {
+    await routeOperation(page, organizationInfo, { slug: 'hibari' }, async (call) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      await route.continue();
+      await call.passThrough();
     });
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(today);
@@ -530,9 +541,9 @@ test.describe('組織が2つの人（ミナト）', () => {
 
   test('畳んだ列で移っている最中に組織の一覧を開くと、札は一覧に重ねず、閉じるとまた出る', async ({ page }) => {
     // 一覧を開き直して確かめる間、移り終わらないよう長めに待たせる
-    await page.route('**/api/hibari/organization', async (route) => {
+    await routeOperation(page, organizationInfo, { slug: 'hibari' }, async (call) => {
       await new Promise((resolve) => setTimeout(resolve, 4000));
-      await route.continue();
+      await call.passThrough();
     });
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(today);
@@ -572,16 +583,12 @@ test.describe('組織が2つの人（ミナト）', () => {
   });
 
   test('畳んだ列でも、届いた招待があることが印と読み上げで分かる', async ({ page }) => {
-    await page.route('**/api/my-organizations', (route) =>
-      route.fulfill({
-        json: {
-          organizations: [{ slug: 'aoba', name: 'あおば開発', kind: 'team' }],
-          invitations: [{ organization_name: 'つばめ商会', slug: 'tsubame' }],
-          suspended: [],
-          operator: false,
-        },
-      }),
-    );
+    await mockOperation(page, myOrganizations, {
+      organizations: [{ slug: 'aoba', name: 'あおば開発', kind: 'team' }],
+      invitations: [{ organization_name: 'つばめ商会', slug: 'tsubame' }],
+      suspended: [],
+      operator: false,
+    });
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(today);
     await page.getByRole('button', { name: 'メニューを畳む' }).click();
