@@ -594,6 +594,7 @@ export function rootOpenTasksStatement(db: OrganizationDb, workspaceId: string, 
         ...sprintRefColumns,
       ])
       .where('tasks.completed_at', 'is', null)
+      // 親なしでは担当者の索引も候補にする。どの索引を使ってもワークスペースの条件で照合する。
       .$if(assignee !== undefined, (qb) =>
         qb.where('tasks.assignee_user_id', assignee === null ? 'is' : '=', assignee!),
       )
