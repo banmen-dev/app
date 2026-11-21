@@ -170,6 +170,47 @@ describe('organization-history', () => {
     expect(history.entries[0]!.actor).toEqual({ kind: 'user', id: target.admin.userId, name: '星野 澪' });
   });
 
+  test('既存の上限変更のログから、有効な上限の差分だけを返す', async () => {
+    const target = await createTarget();
+    const cases = [
+      {
+        changes: {
+          member_limit: [15, 50],
+          attachment_quota_bytes: [512 * 1024 ** 2, 1024 ** 3],
+          attachment_quota_warned_at: [minutesLater(0), null],
+        },
+        event: {
+          kind: 'organization_quota_changed',
+          member_limit: [15, 50],
+          attachment_quota_bytes: [512 * 1024 ** 2, 1024 ** 3],
+        },
+      },
+      {
+        changes: { member_limit: [50, 50], attachment_quota_bytes: [null, '100'] },
+        event: { kind: 'other' },
+      },
+      {
+        changes: { attachment_quota_warned_at: [minutesLater(0), null] },
+        event: { kind: 'other' },
+      },
+      {
+        changes: { plan: ['unknown', 'business'], billing_interval: ['monthly', 'monthly'], member_limit: [15, 50] },
+        event: { kind: 'other' },
+      },
+    ];
+    for (const [index, { changes }] of cases.entries()) {
+      await log(target.organization, {
+        operator: OPERATOR_LOGIN_ID,
+        changes_json: JSON.stringify(changes),
+        created_at: minutesLater(-index),
+      });
+    }
+    const { entries } = await read(target);
+    expect(entries.map(({ actor, event }) => ({ actor, event }))).toEqual(
+      cases.map(({ event }) => ({ actor: { kind: 'operator' }, event })),
+    );
+  });
+
   test(`${ORGANIZATION_HISTORY_PAGE_SIZE} 件ずつ返し、カーソルで続きを重なりも抜けも無く読める（同じ日時は id で並ぶ）`, async () => {
     const target = await createTarget();
     const total = ORGANIZATION_HISTORY_PAGE_SIZE * 2 + 7;

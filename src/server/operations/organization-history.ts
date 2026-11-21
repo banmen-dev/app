@@ -176,8 +176,23 @@ function storageChange(changes: Changes): HistoryEvent | undefined {
   };
 }
 
-function organizationEvent(action: string, changes: Changes): HistoryEvent {
-  switch (action) {
+function limitChange(changes: Changes, column: string): [number, number] | undefined {
+  const [from, to] = pairOf(changes, column) ?? [];
+  if (
+    typeof from === 'number' &&
+    typeof to === 'number' &&
+    Number.isSafeInteger(from) &&
+    Number.isSafeInteger(to) &&
+    from >= 0 &&
+    to >= 0 &&
+    from !== to
+  ) {
+    return [from, to];
+  }
+}
+
+function organizationEvent(changes: Changes, row: HistoryRow): HistoryEvent {
+  switch (row.action) {
     case 'create':
       return { kind: 'organization_created', name: textOrNull(pairOf(changes, 'name')?.[1]) };
     case 'suspend':
@@ -191,6 +206,18 @@ function organizationEvent(action: string, changes: Changes): HistoryEvent {
       if (storage !== undefined) return storage;
       const plan = planChange(changes);
       if (plan !== undefined) return plan;
+      // 契約・追加容量の記録にも上限は入る。契約の項目が壊れた行を上限の直接変更として扱わない
+      if (row.by_operator && row.actor_user_id === null && !('plan' in changes || 'billing_interval' in changes)) {
+        const memberLimit = limitChange(changes, 'member_limit');
+        const quotaBytes = limitChange(changes, 'attachment_quota_bytes');
+        if (memberLimit !== undefined || quotaBytes !== undefined) {
+          return {
+            kind: 'organization_quota_changed',
+            ...(memberLimit === undefined ? {} : { member_limit: memberLimit }),
+            ...(quotaBytes === undefined ? {} : { attachment_quota_bytes: quotaBytes }),
+          };
+        }
+      }
       // vocabulary は言葉づかいを選べた頃に残した行の項目
       if ('vocabulary' in changes || 'theme' in changes) return { kind: 'organization_settings_changed' };
       return { kind: 'other' };
@@ -221,7 +248,7 @@ function historyEvent(row: HistoryRow): HistoryEvent {
   const changes = parseChanges(row.changes_json);
   switch (row.entity_type) {
     case 'organization':
-      return organizationEvent(row.action, changes);
+      return organizationEvent(changes, row);
     case 'user':
       return userEvent(row.action, changes, row);
     case 'workspace':

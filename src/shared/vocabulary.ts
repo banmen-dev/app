@@ -2124,6 +2124,9 @@ export const dictionary = defineDictionary({
   orgHistorySuspensionChanged: '停止の理由を解約に切り替えました（消す予定日 {date}）',
   orgHistorySuspensionChangedTemporary: '停止の理由を一時的な停止に切り替えました',
   orgHistoryOrganizationSettingsChanged: '{organization}の設定を変更しました',
+  orgHistoryMemberLimitChange: '人数の上限を {from}\u00a0人から {to}\u00a0人に',
+  orgHistoryAttachmentQuotaChange: '添付ファイルの上限を {from} から {to} に',
+  orgHistoryQuotaChanged: '{changes}変えました',
   // {from} と {to} は契約（planTerms）
   orgHistoryPlanChanged: 'プランを{from}から{to}に変更しました',
   orgHistoryPlanStarted: 'プランを{to}にしました',
