@@ -51,41 +51,7 @@ export interface UiExclusion {
   issue: number;
 }
 
-// 上の帯のアカウントのボタン。aria-label が見える文字（「ミナト 管理者 1」）を含まず、
-// WCAG 2.5.3（見える名前を読み上げの名前に含める）に当たる。ダイアログか引き出しを開いた状態では、
-// 後ろの画面が読み上げから外れるので axe も見ない。開いていない画面にだけ置く。
-// 直すには辞書の文言（accountMenuLabel）と、見える文字の組み方を決め直す。
-// 角のマスの組織のボタンは、見える文字が組織の名前だけで読み上げの名前に含まれるので、除外しない
-const HEADER_MENU_LABEL_ISSUE = 343;
-
-export const uiExclusions: readonly UiExclusion[] = [
-  ...(
-    [
-      'today',
-      'favorites',
-      'backlog',
-      'backlog-attr-menu',
-      'backlog-attr-due-panel',
-      'epic',
-      'inbox',
-      'connections',
-      'plan',
-      'sprint',
-      'members',
-      'workspace-settings',
-      'admin',
-    ] as const
-  ).flatMap((screen): UiExclusion[] => [
-    {
-      check: 'label-content-name-mismatch',
-      selector: '.account-menu-button',
-      screen,
-      reason:
-        'アカウントのメニューのボタンの aria-label が、見える名前、役割、レベルの数字の並びを含まない。文言の決め直しが要る',
-      issue: HEADER_MENU_LABEL_ISSUE,
-    },
-  ]),
-];
+export const uiExclusions: readonly UiExclusion[] = [];
 
 // その画面とその種類の除外
 export function exclusionsFor(

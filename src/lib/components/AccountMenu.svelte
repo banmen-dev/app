@@ -43,8 +43,14 @@
   let root = $state<HTMLElement>();
   let button = $state<HTMLButtonElement>();
 
-  // 読み上げの名前に、見た目にある管理者の印も含める
-  const label = $derived(t('accountMenuLabel', { name: isAdmin ? `${name}（${t('admin')}）` : name }));
+  // 頭文字のアバターも含め、見える文字を同じ順で先頭に入れる（WCAG 2.5.3）。
+  // アバター画像の読み込み結果で、読み上げの名前が変わらないようにする。
+  const initial = $derived([...name][0] ?? '?');
+  const label = $derived(
+    t('accountMenuLabel', {
+      name: [initial, name, isAdmin ? t('admin') : '', String(level)].filter(Boolean).join(' '),
+    }),
+  );
 
   let profile = $state<HTMLAnchorElement>();
   $effect.pre(() => {
