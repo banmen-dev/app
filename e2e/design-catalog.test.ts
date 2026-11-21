@@ -112,7 +112,7 @@ for (const width of [1280, 1024, 761, 760, 390, 320]) {
         pageWidths.set(theme, await page.evaluate(() => document.documentElement.scrollWidth));
       });
     }
-    // 他の既存の見本は 320/390px で横にはみ出す。今回の見本が幅を増やさないことを、節を消した後の幅とテーマごとに比べて確かめる。
+    // 見本の節が幅を増やさないことを、節を消した後の幅とテーマごとに比べて確かめる（カタログ全体が 320px ではみ出さないことは、末尾のテストで見る）。
     await section.evaluate((el) => el.remove());
     for (const theme of THEMES) {
       await pickTheme(theme);
@@ -420,3 +420,60 @@ for (const width of [390, 320]) {
     expect(errors).toEqual([]);
   });
 }
+
+test('見本のカタログ: 320px で、3つのテーマともページが横にはみ出さない', async ({ page }) => {
+  const files: Record<string, string> = {
+    'index.html': 'text/html',
+    'tokens.css': 'text/css',
+    'components.css': 'text/css',
+    'icons.js': 'text/javascript',
+    'art.js': 'text/javascript',
+    'sample-data.js': 'text/javascript',
+    'kit.js': 'text/javascript',
+    'image-crop.js': 'text/javascript',
+  };
+  await page.route('**/__design-catalog/**', async (route) => {
+    const name = new URL(route.request().url()).pathname.split('/').pop()!;
+    const contentType = files[name];
+    if (!contentType) return route.fulfill({ status: 404, body: '' });
+    await route.fulfill({ contentType, body: readFileSync(new URL(`../design/${name}`, import.meta.url)) });
+  });
+  // CI のネットワークやフォント取得の成否で寸法が変わらないようにする。
+  for (const host of ['fonts.googleapis.com', 'fonts.gstatic.com']) {
+    await page.route(`https://${host}/**`, (route) => route.fulfill({ body: '' }));
+  }
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  const width = 320;
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto('/__design-catalog/index.html');
+  await expect(page.locator('#assistant .assist-sheet')).toBeVisible();
+  for (const theme of THEMES) {
+    await test.step(theme, async () => {
+      await page.locator(`[data-pick-theme][value="${theme}"]`).check();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      // 落ちたときに直す所が分かるよう、右端を越えた要素のうち、親は越えていない一番外側のものを節の id つきで挙げる。
+      // 中で横に送る入れ物（overflow-x が visible でないもの。引き出しや Markdown のコード）の中身は、ページを広げないので数えず、
+      // 入れ物そのものが越えたときだけ挙げる
+      const read = await page.evaluate((viewport) => {
+        const over = (el: Element) => el.getBoundingClientRect().right > viewport + 0.5;
+        const clipped = (el: Element) => {
+          for (let parent = el.parentElement; parent && parent !== document.body; parent = parent.parentElement) {
+            if (getComputedStyle(parent).overflowX !== 'visible') return true;
+          }
+          return false;
+        };
+        const offenders = [...document.querySelectorAll('body *')]
+          .filter((el) => el.getBoundingClientRect().width > 0 && over(el) && !over(el.parentElement!) && !clipped(el))
+          .map(
+            (el) =>
+              `${el.closest('section[id]')?.id ?? '-'} ${el.tagName.toLowerCase()}.${el.getAttribute('class') ?? ''}`,
+          );
+        return { scrollWidth: document.documentElement.scrollWidth, offenders };
+      }, width);
+      expect(read.offenders).toEqual([]);
+      expect(read.scrollWidth).toBeLessThanOrEqual(width);
+    });
+  }
+  expect(errors).toEqual([]);
+});
