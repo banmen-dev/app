@@ -179,11 +179,28 @@ export function shardFor(
 }
 
 function main(argv: readonly string[]): void {
-  if (argv.length !== 2 || !argv.every((arg) => /^[0-9]+$/.test(arg))) {
-    throw new Error('使い方: node scripts/e2e-shard.ts <i> <n>（どちらも整数。i は 1 以上 n 以下）');
+  const [index, total, separate, ...rest] = argv;
+  if (
+    index === undefined ||
+    total === undefined ||
+    ![index, total].every((arg) => /^[0-9]+$/.test(arg)) ||
+    rest.length > 0 ||
+    (separate !== undefined && !FILE_NAME.test(separate))
+  ) {
+    throw new Error('使い方: node scripts/e2e-shard.ts <i> <n> [別実行するテストのファイル名]');
   }
-  const [i, n] = argv.map(Number) as [number, number];
-  const shard = shardFor(i, n, listE2eFiles(), readWeights());
+  const files = listE2eFiles();
+  if (separate !== undefined && !files.includes(separate)) {
+    throw new Error(`別実行するテストが見つからない: ${separate}`);
+  }
+  const i = Number(index);
+  const n = Number(total);
+  const shard = shardFor(
+    i,
+    n,
+    files.filter((file) => file !== separate),
+    readWeights(),
+  );
   // 標準出力はワークフローが $(...) で受けて pnpm e2e に渡すので、ファイルの一覧だけを書く
   console.error(
     `shard ${i}/${n}: ${shard.files.length} files, weight ${shard.weightSum} s, estimate ${shard.seconds} s (without setup)`,

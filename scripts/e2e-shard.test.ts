@@ -295,6 +295,19 @@ describe('node scripts/e2e-shard.ts', () => {
     assert.deepEqual(out.flat().sort(), listE2eFiles().map(toPlaywrightArg));
   });
 
+  test('別実行するテストを除いたファイルを、重みで割り当てる', () => {
+    const separate = 'password-admin-nomination.test.ts';
+    const result = run('1', '1', separate);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(
+      result.stdout.trim().split(' '),
+      listE2eFiles()
+        .filter((file) => file !== separate)
+        .map(toPlaywrightArg),
+    );
+    assert.notEqual(run('1', '1', 'missing.test.ts').status, 0);
+  });
+
   test('不正な引数と空のシャードは非 0 で、標準出力に何も出さない', () => {
     const emptyShard = String(listE2eFiles().length + 1);
     for (const args of [

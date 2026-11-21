@@ -182,21 +182,6 @@ jobs:
       - uses: ./.github/actions/playwright
       # 手元の D1 を tmpfs に置き、ディスクの fsync 待ちでサーバーごと止まるのを避ける（#1149）
       - uses: ./.github/actions/local-d1-tmpfs
-      # 割り当ては scripts/e2e-shard.ts（ファイルごとの重みで割る）。FILES=$(...) の失敗（不正な引数、空のシャード）は -e で止める。
-      # ファイル引数なしの e2e-run normal/dev は全件を走らせるので、割り当てスクリプトが空なら非 0 で落とす
-      - run: |
-          FILES=$(node scripts/e2e-shard.ts ${{ matrix.shard }} ${{ strategy.job-total }})
-          node scripts/e2e-run.ts normal $FILES
-      - if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: e2e-${{ matrix.shard }}-attempt-${{ github.run_attempt }}
-          # 再実行前の trace を残すため、実行回数ごとに別名で保存する
-          path: |
-            test-results/
-            playwright-report/
-          retention-days: 14
-
       # このランナーの別実行でだけ、公開前のパスワード指名を有効にしてブラウザーで確かめる。
       - name: パスワードの管理者指名を有効にして検証
         if: matrix.shard == 1
@@ -212,6 +197,20 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: e2e-password-nomination-attempt-${{ github.run_attempt }}
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 14
+      # 割り当ては scripts/e2e-shard.ts（ファイルごとの重みで割る）。FILES=$(...) の失敗（不正な引数、空のシャード）は -e で止める。
+      # ファイル引数なしの e2e-run normal/dev は全件を走らせるので、割り当てスクリプトが空なら非 0 で落とす
+      - run: |
+          FILES=$(node scripts/e2e-shard.ts ${{ matrix.shard }} ${{ strategy.job-total }} password-admin-nomination.test.ts)
+          node scripts/e2e-run.ts normal $FILES
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-${{ matrix.shard }}-attempt-${{ github.run_attempt }}
+          # 再実行前の trace を残すため、実行回数ごとに別名で保存する
           path: |
             test-results/
             playwright-report/
@@ -244,7 +243,7 @@ jobs:
       # 割り当ては scripts/e2e-shard.ts（ファイルごとの重みで割る）。FILES=$(...) の失敗（不正な引数、空のシャード）は -e で止める。
       # ファイル引数なしの e2e-run normal/dev は全件を走らせるので、割り当てスクリプトが空なら非 0 で落とす
       - run: |
-          FILES=$(node scripts/e2e-shard.ts ${{ matrix.shard }} ${{ strategy.job-total }})
+          FILES=$(node scripts/e2e-shard.ts ${{ matrix.shard }} ${{ strategy.job-total }} password-admin-nomination.test.ts)
           node scripts/e2e-run.ts dev $FILES
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
