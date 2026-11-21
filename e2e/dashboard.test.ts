@@ -259,27 +259,35 @@ for (const path of ['/', '/aoba'] as const) {
     const styles = await rows.evaluateAll((elements) =>
       elements.map((element) => {
         const role = getComputedStyle(element.querySelector('.pane-link-role')!);
-        const name = getComputedStyle(element.querySelector('b')!);
+        // 薄い文字の色は、行の中で --color-muted を解決した値と比べる
+        const probe = document.createElement('span');
+        probe.style.color = 'var(--color-muted)';
+        element.append(probe);
+        const muted = getComputedStyle(probe).color;
+        probe.remove();
         return {
           frame: [
             role.borderTopWidth,
             role.borderRightWidth,
             role.borderBottomWidth,
             role.borderLeftWidth,
+            role.outlineStyle,
             role.boxShadow,
             role.backgroundColor,
             role.backgroundImage,
+            role.paddingLeft,
+            role.paddingRight,
           ].join(' '),
           fontSize: role.fontSize,
-          paler: role.color !== name.color,
+          muted: role.color === muted,
         };
       }),
     );
     for (const style of styles) {
       expect(style).toEqual({
-        frame: '0px 0px 0px 0px none rgba(0, 0, 0, 0) none',
+        frame: '0px 0px 0px 0px none none rgba(0, 0, 0, 0) none 0px 0px',
         fontSize: '12px',
-        paler: true,
+        muted: true,
       });
     }
   });
