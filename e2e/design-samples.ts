@@ -18,7 +18,6 @@ const routed = new WeakSet<Page>();
 
 export async function routeDesignCatalog(page: Page): Promise<void> {
   if (routed.has(page)) return;
-  routed.add(page);
   await page.route(`**${PREFIX}**`, async (route) => {
     const pathname = new URL(route.request().url()).pathname;
     const name = pathname.slice(pathname.indexOf(PREFIX) + PREFIX.length) || 'index.html';
@@ -32,6 +31,7 @@ export async function routeDesignCatalog(page: Page): Promise<void> {
   for (const host of ['fonts.googleapis.com', 'fonts.gstatic.com']) {
     await page.route(`https://${host}/**`, (route) => route.fulfill({ body: '' }));
   }
+  routed.add(page);
 }
 
 // 見本のファイル（既定はカタログの index.html）を開き、開いた後に起きたページの例外を集める配列を返す。
