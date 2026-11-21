@@ -523,7 +523,7 @@ const SECTIONS = [
     `<div class="notice-grid">${sprintNotice("sp14")}${raidNotice("e1")}${raidNotice("e2", { cleared: true })}</div>` +
     `<div class="progress-summary">${progress(8, 31, { markerPercent: 8 / 14 * 100, markerLabel: "経過 8 / 14 日（57%）", detailed: true })}<span class="progress-remaining">残り 7 日</span></div>` +
     `<div class="progress-summary">${progress(0, 0, { markerPercent: 100, markerLabel: "経過 14 / 14 日（100%）", detailed: true })}<span class="progress-remaining">残り 0 日</span></div>`,
-    ["進み具合の棒に任意の経過目盛りを重ねる。完了割合が目盛りより低くても警告色にしない。合計0ptは空の棒で割合を出さない。", "クリアしたエピックには完了の印を付ける。", "スプリントゴールの文（.notice-title.is-goal）は、書いた改行を残し（white-space: pre-line）、長い語は折り返す。ゴールを書かずに始めたスプリントは、貼り紙を出さない。"], ".notice .is-raid .is-cleared / .notice-label .notice-title .notice-title.is-goal .notice-meta .notice-facts .notice-foot / .day-ticks / .progress")],
+    ["進み具合の棒に任意の経過目盛りを重ねる。完了割合が目盛りより低くても警告色にしない。合計0ptは空の棒で割合を出さない。", "クリアしたエピックには完了の印を付ける。", "スプリントゴールの貼り紙にはラベルとゴールを出し、今日やることの画面ではワークスペース名も添える。ゴールの文（.notice-title.is-goal）は、書いた改行を残し（white-space: pre-line）、長い語は折り返す。ゴールを書かずに始めたスプリントは、貼り紙を出さない。"], ".notice .is-raid .is-cleared / .notice-label .notice-title .notice-title.is-goal .notice-meta .notice-facts .notice-foot / .progress")],
   ["records", "記録", () => block("records", "記録（レベルと積載量）", "計器の見た目。経験値のゲージは10の目盛り、積載量は5%の目盛りで、許容幅の両端を縦線で示す。",
     `<div class="two">${levelPanel()}<section class="panel"><div class="panel-title"><b>${t("capacity")}</b>判定の5つ</div>${capacityRows()}${load("社内ツール", "配分 40%", 30.4, 30.0, { lead: avatarOf("u1") })}</section></div>` +
     `<div class="cat-row">${SQ.teamXp()}<span class="field-hint">チーム全体の経験値（バックログの画面の見出しの中）</span></div>` +

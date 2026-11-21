@@ -800,12 +800,6 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
 .notice.is-raid .notice-label { color: var(--color-xp); }
 .notice.is-cleared { border-top-color: var(--color-done); }
 
-/* 日の目盛り（スプリントの何日目か） */
-.day-ticks { display: flex; gap: var(--space-half); }
-.day-ticks i { flex: 1; height: 4px; background: var(--color-rule); }
-.day-ticks i.is-past { background: var(--color-accent); opacity: 0.55; }
-.day-ticks i.is-today { background: var(--color-accent); }
-
 /* 進み（完了 / 全体） */
 .progress { display: flex; align-items: center; gap: var(--space-2); flex: 1; min-width: 120px; }
 .progress-bar { position: relative; flex: 1; min-width: 0; height: 6px; background: var(--color-gauge); overflow: hidden; }

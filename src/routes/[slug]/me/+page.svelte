@@ -8,6 +8,7 @@
   import Icon from '../../../lib/components/Icon.svelte';
   import LevelPanel from '../../../lib/components/LevelPanel.svelte';
   import MeInvitations from '../../../lib/components/MeInvitations.svelte';
+  import MePasswordSetting from '../../../lib/components/MePasswordSetting.svelte';
   import MeThemeSetting from '../../../lib/components/MeThemeSetting.svelte';
   import PageHead from '../../../lib/components/PageHead.svelte';
   import Section from '../../../lib/components/Section.svelte';
@@ -264,6 +265,10 @@
     {/if}
   </aside>
 </div>
+
+{#if data.loginProvider === 'password'}
+  <MePasswordSetting />
+{/if}
 
 <ApiTokensSetting
   initial={data.tokens}

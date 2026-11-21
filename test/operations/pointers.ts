@@ -501,6 +501,9 @@ export const pointers: Pointers = {
       invitation_id: (await createInvitation(target.organization, workspace.id, target.admin.userId!, caller.login)).id,
     };
   },
+  'password-change': {
+    noReference: { current_password: 'guild-password-before', new_password: 'guild-password-after' },
+  },
   'token-create': { noReference: { name: '分離の検査', scope: 'read' } },
   'consent-record': { noReference: { terms_version: TERMS_VERSION, privacy_version: PRIVACY_VERSION } },
   // 呼ぶ人の行を指す。取消は二度目も成功するので、呼ぶたびに作らなくてよいが、作り直して他の検査と独立にする
