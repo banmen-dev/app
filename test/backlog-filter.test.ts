@@ -723,7 +723,7 @@ describe('実行計画', () => {
     );
 
     // ストーリーの削除（keep）で配下のタスクを親なしの末尾へ移す文。末尾の位置を読む副問い合わせは別名なしの tasks で、
-    // 移されるタスク（別名 t）は tasks_story で引く
+    // 移されるタスク（別名 t）は story_id の索引で引く
     test('ストーリーの削除（keep）で、親のないタスクの末尾の位置を決める文', async () => {
       const { db, workspaceId, target } = await analyzedWorld();
       const owner = target.admin.userId!;
@@ -745,9 +745,30 @@ describe('実行計画', () => {
       if (plan === undefined) return;
       expect(plan).toMatch(/SEARCH tasks USING (COVERING )?INDEX tasks_workspace_tray/);
       expect(plan).not.toMatch(/\btasks USING (COVERING )?INDEX tasks_story\b/);
+      expect(plan).not.toMatch(/SEARCH t USING (?:COVERING )?INDEX tasks_workspace_/);
       expect(plan).toMatch(
         /SEARCH t USING (COVERING )?INDEX tasks_story(?: \(story_id=\?\)|_fk \(story_id=\? AND deleted_at=\?\))/,
       );
+    });
+
+    test('並べ替えで、ストーリー配下の兄弟を位置順の索引で引く', async () => {
+      const { db, workspaceId, target } = await analyzedWorld();
+      const owner = target.admin.userId!;
+      const story = await createStory(target.organization, workspaceId, owner);
+      const moving = await createTask(target.organization, workspaceId, owner, { story_id: story.id, position: 'a2' });
+      const after = await createTask(target.organization, workspaceId, owner, { story_id: story.id, position: 'a0' });
+      await createTask(target.organization, workspaceId, owner, { story_id: story.id, position: 'a1' });
+      const siblings = siblingStatements(db, workspaceId, story.id, moving.id);
+
+      for (const statement of [siblings.last(), siblings.first(), siblings.next(after)]) {
+        const plan = await planOf(statement);
+        expect(plan, plan).toMatch(/SEARCH tasks USING INDEX tasks_story \(story_id=\?/);
+        // position の順を索引で得る。id が第2ソートキーなので同じ position 内の並べ替えは許容する。
+        expect(plan, plan).not.toMatch(/USE TEMP B-TREE FOR ORDER BY/);
+      }
+      expect(await planOf(siblings.ties(after))).toMatch(/USING INDEX tasks_story \(story_id=\? AND position=\?\)/);
+      expect(await planOf(siblings.byId(after.id))).toMatch(/USING INDEX sqlite_autoindex_tasks_1 \(id=\?\)/);
+      expect(await db.first(siblings.byId(after.id))).toEqual({ id: after.id, position: after.position });
     });
 
     test('ストーリー配下の末尾は tasks_story の位置順で引く', async () => {

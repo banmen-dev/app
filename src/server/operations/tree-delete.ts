@@ -617,7 +617,7 @@ function keepTaskStatements(db: OrganizationDb, context: DeleteContext, storyId:
                 eb.val(deletedAt).as('created_at'),
               ];
             })
-            .where('t.workspace_id', '=', workspaceId)
+            .where(unindexed('t.workspace_id'), '=', workspaceId)
             .where('t.story_id', '=', storyId)
             .where('t.deleted_at', 'is', null)
             .where((eb) => eb.exists(guardRow(q, context, root))),
@@ -656,7 +656,7 @@ function keepTaskStatements(db: OrganizationDb, context: DeleteContext, storyId:
                 eb.fn.countAll<number>().over(),
               ).as('position'),
             ])
-            .where('t.workspace_id', '=', workspaceId)
+            .where(unindexed('t.workspace_id'), '=', workspaceId)
             .where('t.story_id', '=', storyId)
             .where('t.deleted_at', 'is', null)
             .where((eb) => eb.exists(guardRow(q, context, root)))

@@ -1749,11 +1749,14 @@ function siblingTasks(
   workspaceId: string,
   storyId: string | null,
   taskId: string,
+  lookup: 'position' | 'id' = 'position',
 ) {
-  return backlogTasksUnder(from, workspaceId, storyId).where('tasks.id', '!=', taskId);
+  const table = storyId !== null && lookup === 'position' ? tasksByStoryPosition : 'tasks';
+  return backlogTasksUnder(from, workspaceId, storyId, table).where('tasks.id', '!=', taskId);
 }
 
-// 並べ替えで兄弟を引く文。親なしの分岐は backlogTasksUnder が story_id を索引に使わせない
+// 並べ替えで兄弟を引く文。ストーリー配下は位置順の索引を使い、ID が分かるときは主キーで引けるようにする。
+// 親なしの分岐は backlogTasksUnder が story_id を索引に使わせない
 // （test/backlog-filter.test.ts が ANALYZE の後の実行計画で確かめる）
 export function siblingStatements(db: OrganizationDb, workspaceId: string, storyId: string | null, taskId: string) {
   const columns = ['tasks.id', 'tasks.position'] as const;
@@ -1776,7 +1779,7 @@ export function siblingStatements(db: OrganizationDb, workspaceId: string, story
       ),
     byId: (afterId: string) =>
       db.statement((q) =>
-        siblingTasks(q, workspaceId, storyId, taskId).select(columns).where('tasks.id', '=', afterId),
+        siblingTasks(q, workspaceId, storyId, taskId, 'id').select(columns).where('tasks.id', '=', afterId),
       ),
     ties: (after: Positioned) =>
       db.statement((q) =>
