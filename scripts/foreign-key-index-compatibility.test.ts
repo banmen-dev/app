@@ -101,12 +101,22 @@ function taskLookup(db: DatabaseSync, sql: string, ...args: string[]): string {
   return lookup;
 }
 
+function equalityColumns(lookup: string): string[] {
+  return Array.from(lookup.matchAll(/(\w+)=\?/g), ([, column]) => column!).sort();
+}
+
 function assertRepositoryLookup(db: DatabaseSync, workspace: string) {
   const lookup = taskLookup(db, `${oldList} AND repositories.id = ?`, workspace, hotRepository);
-  assert.match(
-    lookup,
-    /USING (?:COVERING )?INDEX tasks_repository_fk \(repository_id=\? AND story_id=\? AND deleted_at=\? AND completed_at=\?\)/,
-  );
+  assert.match(lookup, /USING (?:COVERING )?INDEX tasks_repository_fk \(/);
+  assert.deepEqual(equalityColumns(lookup), ['completed_at', 'deleted_at', 'repository_id', 'story_id']);
+}
+
+function backlogLookupsWithoutRepository(db: DatabaseSync, workspace: string, owner: string) {
+  return [
+    taskLookup(db, oldList, workspace),
+    taskLookup(db, `${oldList} AND +tasks.assignee_user_id = ?`, workspace, owner),
+    taskLookup(db, oldCounts, workspace),
+  ];
 }
 
 test('0040 を統計のない旧版の DB に当てても、リポジトリ指定ではストーリーごとに絞る', () => {
@@ -126,20 +136,42 @@ test('0040 を統計のない旧版の DB に当てても、リポジトリ指�
   }
 });
 
-test('0040 を既存統計のある旧版の DB に当てても、バックログをストーリーごとに絞る', () => {
+test('競合索引以外の統計だけを採った旧版で、読み取りが増える3経路を再現する', () => {
   const { db, workspace, owner } = beforeMigration();
   try {
-    db.exec('ANALYZE');
+    db.exec('ANALYZE tasks_story_open');
+    const existingStats = db.prepare("SELECT idx FROM sqlite_stat1 WHERE tbl = 'tasks' ORDER BY idx").all();
+    assert.deepEqual(
+      existingStats.map((row) => row.idx),
+      ['tasks_story_open'],
+    );
     db.exec(readFileSync(new URL(migration, migrations), 'utf8'));
-    assertRepositoryLookup(db, workspace);
-    for (const lookup of [
-      taskLookup(db, oldList, workspace),
-      taskLookup(db, `${oldList} AND +tasks.assignee_user_id = ?`, workspace, owner),
-      taskLookup(db, oldCounts, workspace),
-    ]) {
-      assert.match(lookup, /story_id=\?/);
-    }
+    // SQLite の計画が改善して再現しなくなったら、運用文書も見直す。
+    const lookups = backlogLookupsWithoutRepository(db, workspace, owner);
+    assert.equal(
+      lookups.filter(
+        (lookup) => lookup.includes('tasks_workspace_tray') && !equalityColumns(lookup).includes('story_id'),
+      ).length,
+      3,
+      lookups.join('\n'),
+    );
   } finally {
     db.close();
+  }
+});
+
+test('競合索引の統計がある旧版では、0040 の適用後もバックログをストーリーごとに絞る', () => {
+  for (const analyze of ['ANALYZE tasks_workspace_tray', 'ANALYZE']) {
+    const { db, workspace, owner } = beforeMigration();
+    try {
+      db.exec(analyze);
+      db.exec(readFileSync(new URL(migration, migrations), 'utf8'));
+      assertRepositoryLookup(db, workspace);
+      for (const lookup of backlogLookupsWithoutRepository(db, workspace, owner)) {
+        assert.ok(equalityColumns(lookup).includes('story_id'), `${analyze}: ${lookup}`);
+      }
+    } finally {
+      db.close();
+    }
   }
 });
