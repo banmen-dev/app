@@ -207,7 +207,7 @@ jobs:
             sed -i 's/^export const PASSWORD_LOGIN_ENABLED: boolean = false;$/export const PASSWORD_LOGIN_ENABLED: boolean = true;/' "$flag"
           fi
           grep -Fx 'export const PASSWORD_LOGIN_ENABLED: boolean = true;' "$flag"
-          node scripts/e2e-run.ts normal e2e/password-admin-nomination.test.ts
+          node scripts/e2e-run.ts normal --require-executed e2e/password-admin-nomination.test.ts
       - if: ${{ !cancelled() && matrix.shard == 1 }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
