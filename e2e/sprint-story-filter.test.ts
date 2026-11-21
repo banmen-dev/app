@@ -312,6 +312,171 @@ test('絞り込みと列の畳み・保存・下書き・移動先フォーカ�
   await expect(todoToggle).toHaveAttribute('aria-expanded', 'false');
 });
 
+test('カードのどこに乗っても同じストーリーを強調し、隙間では保ち、見出し・親のないカード・盤の外では外す', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signIn(context, baseURL, 'admin');
+  await mockOperation(page, sprintBoard, { slug: 'aoba' }, sample());
+  await page.goto(PATH);
+  const highlighted = page.locator('.card.is-story-highlighted');
+  const dimmed = page.locator('.card.is-story-dimmed');
+  const cardOf = (title: string) =>
+    page.locator('.card').filter({ has: page.getByRole('link', { name: title, exact: true }) });
+  const storyCard = cardOf('管理画面にポイント履歴の一覧を出す');
+  const plainCard = cardOf('障害時の連絡手順を書く');
+  await storyCard.locator('.card-foot').hover();
+  await expect(highlighted).toHaveCount(3);
+  await expect(dimmed).toHaveCount(1);
+  // 同じ列のカードの間の隙間（列の地）では、直前のカードの強調を保つ
+  const upper = (await storyCard.boundingBox())!;
+  const lower = (await plainCard.boundingBox())!;
+  const gap = { x: upper.x + upper.width / 2, y: (upper.y + upper.height + lower.y) / 2 };
+  await page.mouse.move(gap.x, gap.y);
+  expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.classList.contains('board-col'), gap)).toBe(
+    true,
+  );
+  await expect(highlighted).toHaveCount(3);
+  // 別の列の同じストーリーのカードへ直に移っても強調したまま
+  await cardOf('付与の履歴を返す API を作る').locator('.card-foot').hover();
+  await expect(highlighted).toHaveCount(3);
+  await plainCard.locator('.card-foot').hover();
+  await expect(highlighted).toHaveCount(0);
+  await expect(dimmed).toHaveCount(0);
+  await storyCard.locator('.card-title').hover();
+  await expect(highlighted).toHaveCount(3);
+  await page.locator('.board-col-head').first().hover();
+  await expect(highlighted).toHaveCount(0);
+  // ポインタはフォーカスより先。親のないカードに乗れば消し、盤を出たらフォーカスの強調に戻す
+  await page
+    .getByRole('button', { name: `ストーリーで絞り込む: ${STORY.title}`, exact: true })
+    .first()
+    .focus();
+  await expect(highlighted).toHaveCount(3);
+  await plainCard.locator('.card-foot').hover();
+  await expect(highlighted).toHaveCount(0);
+  await page.getByRole('heading', { level: 1 }).hover();
+  await expect(highlighted).toHaveCount(3);
+  // ポインタを盤に置いたまま、キーボードで親名へ移ったら、フォーカスしたストーリーを先にする
+  await plainCard.locator('.card-foot').hover();
+  await expect(highlighted).toHaveCount(0);
+  await page
+    .getByRole('button', { name: `ストーリーで絞り込む: ${STORY.title}`, exact: true })
+    .nth(1)
+    .focus();
+  await expect(highlighted).toHaveCount(3);
+});
+
+test('ポインタが乗ったまま消したカードの強調を残さない', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'admin');
+  const board = sample();
+  const task = board.columns[0]!.tasks[0]!;
+  task.can_delete = true;
+  await routeOperation(page, sprintBoard, { slug: 'aoba' }, (call) => call.fulfill(board));
+  await routeOperation(page, taskDelete, { slug: 'aoba' }, (call) => {
+    board.columns[0]!.tasks = board.columns[0]!.tasks.filter((item) => item.id !== task.id);
+    return call.fulfill({ task_id: task.id });
+  });
+  await page.goto(PATH);
+  const card = page.locator(`[data-card-id="${task.id}"]`);
+  await card.locator('.card-foot').hover();
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(3);
+  await card.locator('.row-menu-btn').click();
+  await card.getByRole('menuitem', { name: 'このタスクを削除する', exact: true }).click();
+  await expect(page.locator('.card')).toHaveCount(3);
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(0);
+  await expect(page.locator('.card.is-story-dimmed')).toHaveCount(0);
+});
+
+test('隙間で保った強調のストーリーが盤から消えたら、残ったカードを暗くしたままにしない', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signIn(context, baseURL, 'admin');
+  const board = structuredClone(SAMPLE_BOARD);
+  const task = board.columns[0]!.tasks[0]!;
+  task.can_delete = true;
+  await routeOperation(page, sprintBoard, { slug: 'aoba' }, (call) => call.fulfill(board));
+  await routeOperation(page, taskDelete, { slug: 'aoba' }, (call) => {
+    board.columns[0]!.tasks = board.columns[0]!.tasks.filter((item) => item.id !== task.id);
+    return call.fulfill({ task_id: task.id });
+  });
+  await page.goto(PATH);
+  const card = page.locator(`[data-card-id="${task.id}"]`);
+  await card.locator('.card-foot').hover();
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(1);
+  // 列と列の間（盤の地）へ動かす。列の高さが変わっても、ポインタの下は盤の地のまま
+  const left = (await page.locator('.board-col').nth(0).boundingBox())!;
+  const right = (await page.locator('.board-col').nth(1).boundingBox())!;
+  const box = (await card.boundingBox())!;
+  const point = { x: (left.x + left.width + right.x) / 2, y: box.y + box.height / 2 };
+  await page.mouse.move(point.x, point.y);
+  expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.classList.contains('board'), point)).toBe(
+    true,
+  );
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(1);
+  await expect(page.locator('.card.is-story-dimmed')).toHaveCount(3);
+  // ポインタを動かさずに、キーボードで「⋯」から削除する
+  await card.locator('.row-menu-btn').press('Enter');
+  await card.getByRole('menuitem', { name: 'このタスクを削除する', exact: true }).press('Enter');
+  await expect(page.locator('.card')).toHaveCount(3);
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(0);
+  await expect(page.locator('.card.is-story-dimmed')).toHaveCount(0);
+});
+
+test('タッチで押している間は、同じストーリーの強調で他のカードを暗くしない', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'admin');
+  await mockOperation(page, sprintBoard, { slug: 'aoba' }, sample());
+  await page.goto(PATH);
+  const card = page.locator(`[data-card-id="${SAMPLE_BOARD.columns[0]!.tasks[0]!.id}"]`);
+  // タップは指を離すと pointerleave まで進むので、押した直後（pointerenter）の状態を種類ごとに作って比べる
+  await card.dispatchEvent('pointerenter', { pointerType: 'touch' });
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(0);
+  await expect(page.locator('.card.is-story-dimmed')).toHaveCount(0);
+  await card.dispatchEvent('pointerenter', { pointerType: 'mouse' });
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(3);
+  // タッチに持ち替えてカードに触れたら、保っていたマウスの強調も外す
+  await card.locator('.card-foot').dispatchEvent('pointerover', { pointerType: 'touch' });
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(0);
+  await expect(page.locator('.card.is-story-dimmed')).toHaveCount(0);
+  // 見出しに触れたときも外す
+  await card.dispatchEvent('pointerenter', { pointerType: 'mouse' });
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(3);
+  await page.locator('.board-col-head').first().dispatchEvent('pointerover', { pointerType: 'touch' });
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(0);
+});
+
+test('隙間で保った強調のストーリーのカードを列ごと畳んだら、残ったカードを暗くしたままにしない', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signIn(context, baseURL, 'admin');
+  await mockOperation(page, sprintBoard, { slug: 'aoba' }, SAMPLE_BOARD);
+  await page.goto(PATH);
+  const card = page.locator(`[data-card-id="${SAMPLE_BOARD.columns[0]!.tasks[0]!.id}"]`);
+  await card.locator('.card-foot').hover();
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(1);
+  const left = (await page.locator('.board-col').nth(0).boundingBox())!;
+  const right = (await page.locator('.board-col').nth(1).boundingBox())!;
+  const box = (await card.boundingBox())!;
+  await page.mouse.move((left.x + left.width + right.x) / 2, box.y + box.height / 2);
+  await expect(page.locator('.card.is-story-dimmed')).toHaveCount(3);
+  // ポインタを動かさずに、キーボードでそのカードの列を畳む
+  const toggle = page.getByRole('button', { name: '未着手の開閉', exact: true });
+  await toggle.press('Enter');
+  await expect(card).toHaveCount(0);
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(0);
+  await expect(page.locator('.card.is-story-dimmed')).toHaveCount(0);
+  // 開き直してカードが戻っても、捨てた強調を出し直さない
+  await toggle.press('Enter');
+  await expect(card).toHaveCount(1);
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(0);
+  await expect(page.locator('.card.is-story-dimmed')).toHaveCount(0);
+});
+
 test('最後の対象カードを削除したら中立の案内で絞り込みを解除する', async ({ page, context, baseURL }) => {
   await signIn(context, baseURL, 'admin');
   const board = structuredClone(SAMPLE_BOARD);

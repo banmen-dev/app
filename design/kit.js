@@ -3976,20 +3976,54 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   document.addEventListener("input", (ev) => { if (ev.target.closest("[data-storage-choice]")) syncStorageDialog(); });
 
 
-  // ストーリーの親名の操作も、カードの見本の範囲だけで働く。
-  function highlightStoryExample(event, active) {
-    const trigger = event.target.closest?.("[data-story-filter]");
-    if (!trigger || (event.relatedTarget && trigger.contains(event.relatedTarget))) return;
-    const board = trigger.closest(".story-board");
-    board?.querySelectorAll(".card").forEach((card) => {
-      card.classList.toggle("is-story-highlighted", active && card.dataset.storyId === trigger.dataset.storyFilter);
-      card.classList.toggle("is-story-dimmed", active && card.dataset.storyId !== trigger.dataset.storyFilter);
+  // ストーリーの親名の操作も、カードの見本の範囲だけで働く。本番の SprintCard とスプリントの画面の trackStoryHover に合わせる。
+  // ポインタはカードのどこに乗っても、そのカードのストーリーを強調する（親のないカードは消す）。カードの隙間（列と盤の地）では直前の強調を保ち、
+  // 見出しや足す行に移るか盤を出たら外す。ポインタがある間はフォーカスより先で、外れたら親名のボタンのフォーカスの強調に戻す。親名へフォーカスが移ったときはフォーカスを先にする。タッチでは強調しない。
+  const storyHover = new WeakMap();
+  const storyFocus = new WeakMap();
+  function paintStoryExample(scope) {
+    const hover = storyHover.get(scope);
+    const cards = [...scope.querySelectorAll(".card")];
+    // 保った強調のストーリーが盤から消えていれば、フォーカスの強調に戻す
+    const hovering = hover === null || (hover !== undefined && cards.some((card) => card.dataset.storyId === hover));
+    // 消えたストーリーの強調は捨て、同じストーリーが戻っても出し直さない
+    if (hover !== undefined && !hovering) storyHover.delete(scope);
+    const storyId = hovering ? hover : (storyFocus.get(scope) ?? null);
+    cards.forEach((card) => {
+      card.classList.toggle("is-story-highlighted", storyId !== null && card.dataset.storyId === storyId);
+      card.classList.toggle("is-story-dimmed", storyId !== null && card.dataset.storyId !== storyId);
     });
   }
-  document.addEventListener("pointerover", (event) => highlightStoryExample(event, true));
-  document.addEventListener("pointerout", (event) => highlightStoryExample(event, false));
-  document.addEventListener("focusin", (event) => highlightStoryExample(event, true));
-  document.addEventListener("focusout", (event) => highlightStoryExample(event, false));
+  document.addEventListener("pointerover", (event) => {
+    const scope = event.target.closest?.(".story-board");
+    if (!scope) return;
+    const card = event.target.closest(".card");
+    // タッチでは強調を付けず、カードに触れたら保っていた強調も外す
+    if (card && event.pointerType !== "touch") storyHover.set(scope, card.dataset.storyId || null);
+    else if (event.target.matches(".board, .board-col")) return;
+    else storyHover.delete(scope);
+    paintStoryExample(scope);
+  });
+  document.addEventListener("pointerout", (event) => {
+    const board = event.target.closest?.(".story-board .board");
+    if (!board || (event.relatedTarget && board.contains(event.relatedTarget))) return;
+    const scope = board.closest(".story-board");
+    storyHover.delete(scope);
+    paintStoryExample(scope);
+  });
+  function focusStoryExample(event, active) {
+    const trigger = event.target.closest?.("[data-story-filter]");
+    const scope = trigger?.closest(".story-board");
+    if (!scope) return;
+    // キーボードで親名へ移ったら、保ったポインタの強調を捨ててフォーカスを先にする
+    if (active) {
+      storyFocus.set(scope, trigger.dataset.storyFilter);
+      storyHover.delete(scope);
+    } else storyFocus.delete(scope);
+    paintStoryExample(scope);
+  }
+  document.addEventListener("focusin", (event) => focusStoryExample(event, true));
+  document.addEventListener("focusout", (event) => focusStoryExample(event, false));
   document.addEventListener("click", (event) => {
     const trigger = event.target.closest?.("[data-story-filter], [data-story-clear]");
     const root = trigger?.closest(".story-board");
