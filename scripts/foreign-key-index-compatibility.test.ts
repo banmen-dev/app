@@ -84,11 +84,19 @@ function taskLookup(db: DatabaseSync, sql: string, ...args: string[]): string {
   return lookup;
 }
 
+function assertRepositoryLookup(db: DatabaseSync, workspace: string) {
+  const lookup = taskLookup(db, `${oldList} AND repositories.id = ?`, workspace, hotRepository);
+  assert.match(lookup, /story_id=\?/);
+  if (lookup.includes('tasks_repository_fk')) {
+    assert.match(lookup, /\(repository_id=\? AND story_id=\? AND deleted_at=\? AND completed_at=\?\)/);
+  }
+}
+
 test('0040 を統計のない旧版の DB に当てても、リポジトリ指定ではストーリーごとに絞る', () => {
   const { db, workspace, owner } = beforeMigration();
   try {
     db.exec(readFileSync(new URL(migration, migrations), 'utf8'));
-    assert.match(taskLookup(db, `${oldList} AND repositories.id = ?`, workspace, hotRepository), /story_id=\?/);
+    assertRepositoryLookup(db, workspace);
     // この構成では旧版の一覧と集計がワークスペースの範囲を引き直しうる。新版の索引指定は D1 のテストで確かめる。
     for (const lookup of [
       taskLookup(db, oldList, workspace),
@@ -108,10 +116,10 @@ test('0040 を既存統計のある旧版の DB に当てても、バックロ�
   try {
     db.exec('ANALYZE');
     db.exec(readFileSync(new URL(migration, migrations), 'utf8'));
+    assertRepositoryLookup(db, workspace);
     for (const lookup of [
       taskLookup(db, oldList, workspace),
       taskLookup(db, `${oldList} AND +tasks.assignee_user_id = ?`, workspace, owner),
-      taskLookup(db, `${oldList} AND repositories.id = ?`, workspace, hotRepository),
       taskLookup(db, oldCounts, workspace),
     ]) {
       assert.match(lookup, /story_id=\?/);
