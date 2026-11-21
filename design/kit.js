@@ -1635,10 +1635,11 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       <input class="input is-inline" id="drawer-edit-link" type="url" data-drawer-input="link" placeholder="リンクを足す（https://）" value="${esc(drawer.drafts.link ?? x.link ?? "")}" autocomplete="off"${err ? ` aria-describedby="drawer-edit-link-error"` : ""}>
       <span class="field-error" id="drawer-edit-link-error" role="alert" data-drawer-error="link"${err ? "" : " hidden"}>${err ? `${icon("alert")}${err}` : ""}</span>${saveStateHtml("link")}</div>${open}`;
   }
-  function drawerBodyHtml(x) {
-    if (drawerReadOnly()) return `<div class="field is-unboxed"><span class="field-label">本文</span><div class="doc-box${x.body ? "" : " is-empty"}">${x.body ? mdBody(x.body) : "まだ書かれていません。"}</div></div>`;
-    if (x.src) return `<div class="field is-unboxed"><span class="field-label">本文</span><div class="doc-box"><p class="props-note">取り込み元の本文は <span class="mono">${esc(x.src.key)}</span> で開いて読みます。ここには Scrum Guild のメモを書けます。</p></div></div>`;
-    return `<div class="field is-unboxed"><div class="field-head"><label class="field-label" for="drawer-edit-body">本文</label>${saveStateHtml("body")}</div>
+  function drawerBodyHtml(x, unboxed = false) {
+    const fieldClass = unboxed ? "field is-unboxed" : "field";
+    if (drawerReadOnly()) return `<div class="${fieldClass}"><span class="field-label">本文</span><div class="doc-box${x.body ? "" : " is-empty"}">${x.body ? mdBody(x.body) : "まだ書かれていません。"}</div></div>`;
+    if (x.src) return `<div class="${fieldClass}"><span class="field-label">本文</span><div class="doc-box"><p class="props-note">取り込み元の本文は <span class="mono">${esc(x.src.key)}</span> で開いて読みます。ここには Scrum Guild のメモを書けます。</p></div></div>`;
+    return `<div class="${fieldClass}"><div class="field-head"><label class="field-label" for="drawer-edit-body">${unboxed ? `${icon("pen")} ` : ""}本文</label>${saveStateHtml("body")}</div>
       <div class="slash-wrap"><textarea class="textarea is-inline" id="drawer-edit-body" data-drawer-input="body" data-slash aria-describedby="drawer-edit-body-hint" placeholder="まだ書かれていません。押して書きます">${esc(drawer.drafts.body ?? (x.body || []).join("\n"))}</textarea></div>
       <span class="field-hint" id="drawer-edit-body-hint">Markdown で書けます。見出しは <code>#</code> が小見出しの大きさから始まります。行の先頭で <code>/</code> を打つと、見出しや箇条書きを入れる小窓が開きます。</span></div>`;
   }
@@ -1740,7 +1741,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       ${drawerReadOnly() ? `<div class="callout is-info">${icon("shield")}<span>終了した${t("workspace")}の${t("task")}は、読み取りだけできます</span></div>` : ""}
       ${drawerTitleHtml(x)}
       ${x.srcDone && !x.doneAt ? `<div class="callout is-ok">${icon("check")}<span>取り込み元で完了になりました。完了にするかはここで決めます。</span></div>` : ""}
-      ${drawerBodyHtml(x)}
+      ${drawerBodyHtml(x, true)}
       <dl class="props is-compact">
         <div><dt>${t("column")}</dt><dd>${colName(x) ? `<span class="status-dot is-wrap">${esc(colName(x))}</span>` : "—"}</dd></div>
         <div><dt>${t("assignee")}</dt><dd>${drawerAssigneeHtml(x)}</dd></div>

@@ -161,6 +161,14 @@ for (const width of [390, 1280]) {
     await expect
       .poll(() => drawer.locator('.props').evaluate((element) => element.scrollWidth - element.clientWidth))
       .toBeLessThanOrEqual(1);
+    // 空欄には編集面の点線を残し、本文リンクのフォーカスの輪郭が入る余白を取る。
+    const editSurface = drawer
+      .locator('.edit-surface')
+      .filter({ has: page.getByRole('button', { name: '本文を書く', exact: true }) });
+    await expect(editSurface).toHaveCSS('border-top-style', 'dashed');
+    await expect(editSurface).not.toHaveCSS('border-top-color', 'rgba(0, 0, 0, 0)');
+    await expect(editSurface.locator('.doc-box')).toHaveCSS('padding-left', '4px');
+    await expect(editSurface.locator('.doc-box')).toHaveCSS('padding-right', '4px');
     // 鉛筆を添えた欄名からも本文を書き始められる。
     await body.click({ position: { x: 8, y: 8 } });
     await expect(drawer.getByRole('textbox', { name: '本文', exact: true })).toBeFocused();
