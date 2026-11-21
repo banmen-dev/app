@@ -1705,7 +1705,7 @@ export const dictionary = defineDictionary({
   passwordNominationRegister: '登録して組織に入る',
   passwordNominationSubmitting: '登録しています',
   passwordNominationUnusable:
-    'この指名の URL は使えません。期限切れ、使用済み、または取り消しの場合は、運用者に確認してください。',
+    'この指名の URL は使えません。登録済みの場合はログインしてください。期限切れや取り消しの場合は、運用者に確認してください。',
   passwordNominationTooMany: '試行が多すぎます。しばらく待ってから、もう一度試してください。',
   passwordNominationInvalid: '入力を受け付けられませんでした。表示名とパスワードを確かめてください。',
   passwordNominationNameInvalid: '表示名を1〜100文字で入力してください。改行や制御文字は使えません。',

@@ -55,8 +55,8 @@
       const response = await request('inspect', { claim_token: token });
       if (pendingToken !== token) return;
       if (!response.ok) {
-        if (response.status === 404) clear();
-        else error = responseMessage(response.status);
+        if (response.status === 404) invalidate();
+        else error = response.status === 429 ? 'passwordNominationTooMany' : 'passwordNominationUnavailable';
         return;
       }
 
@@ -92,7 +92,7 @@
       if (hasFragment) await goto(resolve(PASSWORD_INVITE_PATH), { replace: true });
       if (pendingToken !== token) return;
       if (!PASSWORD_LOGIN_ENABLED || location.href.includes('#') || !CLAIM_TOKEN_PATTERN.test(token)) {
-        clear();
+        invalidate();
         return;
       }
       await inspect(token);
@@ -118,6 +118,10 @@
     displayName = '';
     loading = false;
     submitting = false;
+  }
+
+  function invalidate(): void {
+    clear();
     error = 'passwordNominationUnusable';
   }
 
@@ -159,7 +163,7 @@
       if (pendingToken !== token) return;
       if (!response.ok) {
         error = responseMessage(response.status);
-        if (response.status === 404) clear();
+        if (response.status === 404) invalidate();
         if (response.status === 401 && !existing) {
           await inspect(token);
           if (pendingToken === token && nomination?.existing_account) {
@@ -178,8 +182,10 @@
         error = 'passwordNominationUnavailable';
         return;
       }
-      clear();
       location.assign(returnTo);
+      pendingToken = '';
+      password = '';
+      confirmation = '';
     } catch {
       if (pendingToken === token) error = 'passwordNominationUnavailable';
     } finally {
