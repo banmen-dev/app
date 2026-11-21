@@ -3986,6 +3986,8 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const cards = [...scope.querySelectorAll(".card")];
     // 保った強調のストーリーが盤から消えていれば、フォーカスの強調に戻す
     const hovering = hover === null || (hover !== undefined && cards.some((card) => card.dataset.storyId === hover));
+    // 消えたストーリーの強調は捨て、同じストーリーが戻っても出し直さない
+    if (hover !== undefined && !hovering) storyHover.delete(scope);
     const storyId = hovering ? hover : (storyFocus.get(scope) ?? null);
     cards.forEach((card) => {
       card.classList.toggle("is-story-highlighted", storyId !== null && card.dataset.storyId === storyId);

@@ -188,6 +188,10 @@
       ? hoveredStory
       : focusedStory,
   );
+  // 盤から消えたストーリーの保った強調は無視するだけでなく捨て、同じストーリーが盤に戻っても古い強調を出さない
+  $effect(() => {
+    if (typeof hoveredStory === 'string' && !visibleStoryIds.has(hoveredStory)) hoveredStory = undefined;
+  });
   // カードの隙間（列の地と盤の地）では直前のカードの強調を保ち、ちらつかせない。見出しや足す行など、ほかの部分に移るか盤を出たら外す
   function trackStoryHover(node: HTMLElement): () => void {
     const over = (event: PointerEvent): void => {

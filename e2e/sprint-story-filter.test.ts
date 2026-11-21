@@ -456,8 +456,14 @@ test('隙間で保った強調のストーリーのカードを列ごと畳ん�
   await page.mouse.move((left.x + left.width + right.x) / 2, box.y + box.height / 2);
   await expect(page.locator('.card.is-story-dimmed')).toHaveCount(3);
   // ポインタを動かさずに、キーボードでそのカードの列を畳む
-  await page.getByRole('button', { name: '未着手の開閉', exact: true }).press('Enter');
+  const toggle = page.getByRole('button', { name: '未着手の開閉', exact: true });
+  await toggle.press('Enter');
   await expect(card).toHaveCount(0);
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(0);
+  await expect(page.locator('.card.is-story-dimmed')).toHaveCount(0);
+  // 開き直してカードが戻っても、捨てた強調を出し直さない
+  await toggle.press('Enter');
+  await expect(card).toHaveCount(1);
   await expect(page.locator('.card.is-story-highlighted')).toHaveCount(0);
   await expect(page.locator('.card.is-story-dimmed')).toHaveCount(0);
 });
