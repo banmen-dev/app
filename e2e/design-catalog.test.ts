@@ -422,31 +422,9 @@ for (const width of [390, 320]) {
 }
 
 test('見本のカタログ: 320px で、3つのテーマともページが横にはみ出さない', async ({ page }) => {
-  const files: Record<string, string> = {
-    'index.html': 'text/html',
-    'tokens.css': 'text/css',
-    'components.css': 'text/css',
-    'icons.js': 'text/javascript',
-    'art.js': 'text/javascript',
-    'sample-data.js': 'text/javascript',
-    'kit.js': 'text/javascript',
-    'image-crop.js': 'text/javascript',
-  };
-  await page.route('**/__design-catalog/**', async (route) => {
-    const name = new URL(route.request().url()).pathname.split('/').pop()!;
-    const contentType = files[name];
-    if (!contentType) return route.fulfill({ status: 404, body: '' });
-    await route.fulfill({ contentType, body: readFileSync(new URL(`../design/${name}`, import.meta.url)) });
-  });
-  // CI のネットワークやフォント取得の成否で寸法が変わらないようにする。
-  for (const host of ['fonts.googleapis.com', 'fonts.gstatic.com']) {
-    await page.route(`https://${host}/**`, (route) => route.fulfill({ body: '' }));
-  }
-  const errors: string[] = [];
-  page.on('pageerror', (error) => errors.push(error.message));
   const width = 320;
   await page.setViewportSize({ width, height: 900 });
-  await page.goto('/__design-catalog/index.html');
+  const errors = await openCatalog(page);
   await expect(page.locator('#assistant .assist-sheet')).toBeVisible();
   for (const theme of THEMES) {
     await test.step(theme, async () => {
