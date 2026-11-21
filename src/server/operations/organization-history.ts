@@ -92,14 +92,14 @@ function userEvent(action: string, changes: Changes, row: HistoryRow): HistoryEv
       : { kind: 'other' };
   }
   if (action !== 'update') return { kind: 'other' };
-  // Google の招待で指名した人の初めてのログイン（本人が、待つ行の空の sub を埋めた）
+  // 指名 URL で待つ行を結んだとき（本人が、待つ行の空の sub を埋めた）
   const loginSubject = pairOf(changes, 'login_subject');
   if (loginSubject !== undefined) {
     return loginSubject[0] === null && bySelf(row)
       ? { kind: 'admin_login_linked', name: personName(changes, row) }
       : { kind: 'other' };
   }
-  // Google の招待で指名した人が、同じ組織に既にいた（本人の行を管理者にして無効を解いた、統合の記録。
+  // 指名 URL で結んだ人が、同じ組織に既にいた（本人の行を管理者にして無効を解いた、統合の記録。
   // 列は is_admin と disabled_at だけ）。別の管理者が有効に戻して管理者にした記録とは、した人で分ける。
   // 管理者の無効化（user-disable）は、同じ文で解除するので is_admin（1 から 0）と disabled_at（空から日時）の両方を持ち、無効化と読む
   if (isAdmin !== undefined && disabledAt !== undefined) {

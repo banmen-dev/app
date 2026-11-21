@@ -2128,11 +2128,11 @@ export const dictionary = defineDictionary({
   orgHistoryPlanChanged: 'プランを{from}から{to}に変更しました',
   orgHistoryPlanStarted: 'プランを{to}にしました',
   orgHistoryAdminDesignated: '{name}を{admin}に指名しました',
-  // Google の招待で指名し、本人がまだログインしていない（名前はメールアドレスなので出さない）
+  // メールアドレスで指名し、本人がまだログインしていない（名前はメールアドレスなので出さない）
   orgHistoryAdminDesignatedByEmail: 'メールアドレスで指定した人を{admin}に指名しました',
   orgHistoryAdminLoginLinked: '{name}がログインし、{admin}の指名を受けました',
   orgHistoryAdminDesignationMerged: '指名の URL で、{name}を{admin}にしました',
-  // 運用者が管理者を指名し直したときに、まだログインしていない前の指名を取り消した。Google の招待で待っていた人は名前が分からない
+  // 運用者が管理者を指名し直したときに、まだログインしていない前の指名を取り消した。メールアドレスで待っていた人は名前が分からない
   orgHistoryAdminDesignationRemoved: '{name}への{admin}の指名を取り消しました',
   orgHistoryAdminDesignationRemovedNoName: 'メールアドレスで指定した人への{admin}の指名を取り消しました',
   orgHistoryAdminRevoked: '{name}の{admin}を解除しました',
