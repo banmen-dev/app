@@ -2,7 +2,7 @@ import { invalidate } from '$app/navigation';
 import { navigating } from '$app/state';
 
 // 画面の移動（goto、リンク、戻る／進む）と、保存した後の読み直し（invalidate）の順をそろえる。
-// SvelteKit（3.1.0 で確かめた。client.js の _invalidate と navigate）は、移動の途中に始まった invalidate の読み直しを、
+// SvelteKit（3.1.0 と 3.4.0 で確かめた。client.js の _invalidate と navigate）は、移動の途中に始まった invalidate の読み直しを、
 // 移動が先に画面を替えると捨て（current が替わる）、移動の終わりに読み直しの印（invalidated）も消す。
 // 保存の応答と引き出しを閉じる操作が重なると、読み直しが失われ、画面が保存の前の値のまま残り、読み直しの失敗も知らせない（#1331）。
 // そこで、保存の後の読み直しは、移動の途中（navigating が立っている間）なら、その移動が決着してから始める。

@@ -48,7 +48,8 @@ export const KNOWN_DEV_WARNINGS: readonly KnownDevWarning[] = [
 // 直す見込みが無いので KNOWN_DEV_WARNINGS に入れず、代わりに確かめる場所を instead に書く。
 // window_fetch_in_load: SvelteKit（runtime/client/fetcher.js）は、async のスタックが読めるかを check_stack_trace という名前の
 // 関数がスタックに出るかで決める。build（Rolldown）がその関数を名前の無い即時の関数に畳むので、build した画面では常に読めないとみなし、
-// load の中かでなく、load が1つでも走っている間の window.fetch をすべて警告にする。保存の後の invalidate の load と、
+// load の中かでなく、load が1つでも走っている間の window.fetch をすべて警告にする（3.4.0 でも同じ。#1354。判定の側の文字列
+// includes(`check_stack_trace`) は build に残るので、名前の grep が当たっても、関数の名前が残ったことにはならない）。保存の後の invalidate の load と、
 // 次の操作のイベントが送る callOperation が重なるだけで出て、どの操作でも出うるので、中身や画面のパスでは絞れない
 type UnjudgeableDevWarning = { name: string; reason: string; instead: string };
 

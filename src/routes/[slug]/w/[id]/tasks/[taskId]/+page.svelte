@@ -27,7 +27,7 @@
   let afterReturn: (() => Promise<void>) | null = null;
 
   afterNavigate(({ from, type }) => {
-    // 直接開いた（type は enter）ときも `from` は渡るが、`from.url` は null
+    // 直接開いた（type は enter）ときは `from` が null（SvelteKit 3.1.0 までは `from` が渡り、`from.url` が null）
     if (!from?.url || from.params?.taskId) return;
     const handoff = consumeOverlayHandoff();
     const url = new URL(from.url);
