@@ -195,7 +195,7 @@ describe('レビュー依頼の同期と保存', () => {
     let targetCalls = 0;
     f.state.page = async ({ target }) => {
       if (!target) return { items: f.state.discovery, next: null };
-      // 両方が同じ版を読み終えてから、最初の照合だけに新しい依頼回を返す。
+      // 両方に同じ依頼回を返す。先行の応答は両方が版を読み終えるまで、後続の応答は復帰と再配置が済むまで待つ。
       targetCalls++;
       if (targetCalls === 1) {
         await bothReading.promise;
