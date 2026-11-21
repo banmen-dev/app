@@ -69,7 +69,7 @@ export function historyEventText(event: HistoryEntry['event'], translate: Transl
           });
     case 'admin_designated':
       return event.name === null
-        ? translate('orgHistoryAdminDesignatedGoogle', words)
+        ? translate('orgHistoryAdminDesignatedByEmail', words)
         : translate('orgHistoryAdminDesignated', { ...words, name: event.name });
     case 'admin_login_linked':
       return translate('orgHistoryAdminLoginLinked', { ...words, name: person(event.name) });
