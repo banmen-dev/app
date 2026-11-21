@@ -44,6 +44,16 @@ test('親名のポインタとフォーカスで列をまたいで強調し、UR
   await parents.first().hover();
   await expect(page.locator('.card.is-story-highlighted')).toHaveCount(3);
   await expect(page.locator('.card.is-story-dimmed')).toHaveCount(1);
+  // 親名の1行でなく、カードの下の段に乗っても同じストーリーを強調する。親のないカードに移れば消す
+  const cardOf = (title: string) => page.locator('.card').filter({ has: page.getByRole('link', { name: title }) });
+  await cardOf('付与の履歴を返す API を作る').locator('.card-foot').hover();
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(3);
+  await expect(page.locator('.card.is-story-dimmed')).toHaveCount(1);
+  await cardOf('障害時の連絡手順を書く').locator('.card-foot').hover();
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(0);
+  await expect(page.locator('.card.is-story-dimmed')).toHaveCount(0);
+  await parents.first().hover();
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(3);
   await page.getByRole('heading', { level: 1 }).hover();
   await expect(page.locator('.card.is-story-highlighted')).toHaveCount(0);
   await parents.first().focus();

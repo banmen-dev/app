@@ -159,6 +159,7 @@
 
 <!-- キーは中のリンクとボタンから届く。書き込めるカードは完了カードも選べる（tabindex は 0 か未指定だけ） -->
 <!-- 選んだときは題を名前に、ポイントと担当の要約と動かし方の見えない説明を読む（中の印は role="img" で、選んだだけでは読まれないため） -->
+<!-- 同じストーリーの強調は、親の名前の1行だけでなくカードのどこにポインタが乗っても働かせる（狭い行だけでは強調がちらつき、追いにくい） -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <article
@@ -177,6 +178,8 @@
   aria-labelledby={selectable ? titleId : undefined}
   aria-describedby={selectable ? [summaryId, hintId].filter(Boolean).join(' ') : undefined}
   data-card-id={task.id}
+  onpointerenter={() => onstoryhover?.(task.story?.id ?? null)}
+  onpointerleave={() => onstoryhover?.(null)}
   onkeydown={keydown}
 >
   {#if selectable}<span class="visually-hidden" id={summaryId}>{summary}</span>{/if}
@@ -186,8 +189,6 @@
       data-story-filter={task.story.id}
       type="button"
       aria-label={t('sprintStoryFilterLabel', { story: t('story'), title: task.story.title })}
-      onpointerenter={() => onstoryhover?.(task.story!.id)}
-      onpointerleave={() => onstoryhover?.(null)}
       onfocus={() => onstoryfocus?.(task.story!.id)}
       onblur={() => onstoryfocus?.(null)}
       onclick={() => onstoryfilter?.(task.story!.id)}><Icon name="flag" /> {task.story.title}</button

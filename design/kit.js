@@ -3977,19 +3977,26 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
 
 
   // ストーリーの親名の操作も、カードの見本の範囲だけで働く。
-  function highlightStoryExample(event, active) {
-    const trigger = event.target.closest?.("[data-story-filter]");
-    if (!trigger || (event.relatedTarget && trigger.contains(event.relatedTarget))) return;
-    const board = trigger.closest(".story-board");
-    board?.querySelectorAll(".card").forEach((card) => {
-      card.classList.toggle("is-story-highlighted", active && card.dataset.storyId === trigger.dataset.storyFilter);
-      card.classList.toggle("is-story-dimmed", active && card.dataset.storyId !== trigger.dataset.storyFilter);
+  // ポインタはカードのどこに乗っても、そのカードのストーリーを強調する（親名の1行だけでは狭くてちらつく）。フォーカスは親名のボタンだけ。
+  function highlightStoryExample(trigger, storyId, active) {
+    trigger.closest(".story-board")?.querySelectorAll(".card").forEach((card) => {
+      card.classList.toggle("is-story-highlighted", active && card.dataset.storyId === storyId);
+      card.classList.toggle("is-story-dimmed", active && card.dataset.storyId !== storyId);
     });
   }
-  document.addEventListener("pointerover", (event) => highlightStoryExample(event, true));
-  document.addEventListener("pointerout", (event) => highlightStoryExample(event, false));
-  document.addEventListener("focusin", (event) => highlightStoryExample(event, true));
-  document.addEventListener("focusout", (event) => highlightStoryExample(event, false));
+  function hoverStoryExample(event, active) {
+    const card = event.target.closest?.(".story-board .card");
+    if (!card || (event.relatedTarget && card.contains(event.relatedTarget))) return;
+    highlightStoryExample(card, card.dataset.storyId, active && !!card.dataset.storyId);
+  }
+  function focusStoryExample(event, active) {
+    const trigger = event.target.closest?.("[data-story-filter]");
+    if (trigger) highlightStoryExample(trigger, trigger.dataset.storyFilter, active);
+  }
+  document.addEventListener("pointerover", (event) => hoverStoryExample(event, true));
+  document.addEventListener("pointerout", (event) => hoverStoryExample(event, false));
+  document.addEventListener("focusin", (event) => focusStoryExample(event, true));
+  document.addEventListener("focusout", (event) => focusStoryExample(event, false));
   document.addEventListener("click", (event) => {
     const trigger = event.target.closest?.("[data-story-filter], [data-story-clear]");
     const root = trigger?.closest(".story-board");
