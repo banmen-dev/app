@@ -1,7 +1,5 @@
-import { openCatalog } from './design-samples.ts';
+import { CATALOG_THEMES, openCatalog } from './design-samples.ts';
 import { expect, test } from './fixtures.ts';
-
-const THEMES = ['simple_light', 'simple_dark', 'modern'] as const;
 
 // 操作部品の枠（#859）。入力欄とボタンの枠は --color-control-edge の値で、記録の区切り線（--color-line）とは別
 const controlEdge: Record<string, string> = {
@@ -198,7 +196,7 @@ test('見本のカタログ: 320px で、3つのテーマともページが横�
   await page.setViewportSize({ width, height: 900 });
   const errors = await openCatalog(page);
   await expect(page.locator('#assistant .assist-sheet')).toBeVisible();
-  for (const theme of THEMES) {
+  for (const theme of CATALOG_THEMES) {
     await test.step(theme, async () => {
       await page.locator(`[data-pick-theme][value="${theme}"]`).check();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
