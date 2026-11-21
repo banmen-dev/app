@@ -87,7 +87,7 @@ function liveRoot(from: From, workspaceId: string, root: Root, forbidCleared = f
 
 // 他の人の作った、削除していない配下。根がストーリーなら手で作った配下のタスク、エピックなら配下のストーリーか、その下の手で作ったタスク
 // （完了したものも含む）。取り込んだタスクは削除せずアーカイブへ移すだけで、作った人もいないので数えない。
-// タスクは tasks_story、ストーリーは stories_workspace_epic の索引で引く。あるかだけを見るので1行まで
+// タスクは story_id、ストーリーは workspace_id と epic_id の索引で引く。あるかだけを見るので1行まで
 function othersUnderRoot(from: From, workspaceId: string, root: Root, userId: string) {
   if (root.kind === 'story') {
     return from
@@ -142,7 +142,7 @@ function guardRow(from: From, context: DeleteContext, root: Root) {
 
 // 配下のタスク（delete で消すかアーカイブへ移す）の ID。根がストーリーならその下、エピックなら配下の削除していないストーリーの下の、
 // 削除していないタスク。完了したものも含む。imported で手で作ったものか取り込んだものに絞る。
-// どちらも story_id で tasks_story の索引に乗せる。エピックは配下のストーリーを stories_workspace_epic で引いてからタスクを引くよう、
+// どちらも story_id の索引に乗せる。エピックは workspace_id と epic_id で配下のストーリーを絞ってからタスクを引くよう、
 // FROM stories CROSS JOIN tasks で順序を固定する（INNER JOIN や story_id IN (...) では、SQLite が tasks_workspace_tray で
 // ワークスペースの全タスクを走査する計画を選ぶ。backlog-tree と同じ）
 // imported が null なら、どちらも

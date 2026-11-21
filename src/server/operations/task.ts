@@ -60,7 +60,7 @@ type Tables = OrganizationTables;
 // 木の読み取りと、末尾の位置を決める読み取りと、並べ替えの兄弟を引く読み取りが同じ範囲を使う。
 // tasks_story は story_id が NULL の行を全組織のぶん持ち（workspace_id を持たない）、ANALYZE の後は SQLite が NULL を別々の値と
 // 数えて tasks_story を選び、全組織の親のないタスクを読んでから絞る計画に変わる。親なしの分岐は列を索引に使わせず（unindexed）、
-// tasks_workspace_tray で引かせる。ストーリーの分岐は story_id の等号で tasks_story を使う
+// tasks_workspace_tray で引かせる。ストーリーの分岐は story_id の等号条件で引く
 // （docs/data-model.md の「バックログの木」。test/backlog-filter.test.ts が ANALYZE の後の実行計画で確かめる）
 function backlogTasksUnder(
   from: Pick<QueryCreator<Tables>, 'selectFrom'>,
@@ -417,8 +417,7 @@ type TaskPoints = 0 | 1 | 2 | 3 | 5 | 8 | 13 | null;
 
 // ストーリー（親のないものとエピックの下のもの）の配下の、削除していないバックログのタスク。ストーリーから引いてタスクを結ぶ
 // （FROM stories CROSS JOIN tasks）。SQLite は INNER JOIN だと、親のないタスクも含めた tasks_workspace_tray を先に走査する計画を
-// 選ぶので、CROSS JOIN で順序を固定し、ストーリー側を `stories_workspace_epic` の先頭の列（workspace_id）で、タスク側を
-// `tasks_story`（story_id, position の部分索引。未完了だけを読む文は `tasks_story_open`）で引く（結ぶ条件は WHERE に書く）。
+// 選ぶので、CROSS JOIN で順序を固定し、ストーリー側を workspace_id、タスク側を story_id の索引で引く。結ぶ条件は WHERE に書く。
 // 両側をワークスペースで絞る
 function tasksUnderStories(from: Pick<QueryCreator<Tables>, 'selectFrom'>, workspaceId: string) {
   return from
@@ -458,12 +457,12 @@ export type BacklogTreeFilter = {
   words: readonly string[];
 };
 
-// ストーリーの下の未完了のタスク。ORDER BY を付けると SQLite が tasks_story_open を使わない計画を選ぶので、並べるのは読んだ後に行う。
+// ストーリーの下の未完了のタスク。未完了行を絞れる索引を活かすため、並べ替えは読んだ後に行う。
 // 区分は親から引き継ぐので、タスク自身の区分は読まない。
 // 絞り込みは WHERE に足す。区分、エピック、検索は、タスクか親（ストーリー、その親のエピック）のどれかが当たれば当たり
 // （区分とエピックは親から引き継ぐので、親で決まる）。担当、依頼先、リポジトリは、タスク自身で決める。
 // 担当と依頼先の列は索引に使わせない（tasks_story_open を足す前は、SQLite が tasks_story の代わりに tasks_assignee_user をストーリーごとに
-// 引く計画を選び、5 万件で 10 秒かかった。tasks_story_open があれば今はそれを選ぶが、計画が揺れないよう止めておく。
+// 引く計画を選び、5 万件で 10 秒かかった。ストーリーごとの未完了行を直接引ける計画を保つ。
 // 依頼先の tasks_delegatee_completed も同じ理由で止める。test/backlog-filter.test.ts が実行計画で確かめる）
 export function openStoryTasksStatement(db: OrganizationDb, workspaceId: string, filter: BacklogTreeFilter) {
   const { assignee, delegatee, category, repository, epic, words } = filter;
