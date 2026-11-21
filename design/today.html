@@ -52,8 +52,9 @@ SQ.mount("today", () => {
     .sort(([, a], [, b]) => {
       const left = D.workspaces[a.ws].name;
       const right = D.workspaces[b.ws].name;
-      if (left === right) return a.ws.localeCompare(b.ws);
-      return left < right ? -1 : 1;
+      if (left !== right) return left < right ? -1 : 1;
+      if (a.ws === b.ws) return 0;
+      return a.ws < b.ws ? -1 : 1;
     })
     .map(([id]) => sprintNotice(id)).join("");
   const todayEmpty = hasWs

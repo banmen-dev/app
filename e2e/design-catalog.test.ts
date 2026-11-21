@@ -386,6 +386,50 @@ test('スプリントの見本: ゴールの貼り紙はラベルとゴールだ
   expect(errors).toEqual([]);
 });
 
+for (const screen of ['today.html', 'sprint.html']) {
+  test(`ゴールが空のスプリントの見本では貼り紙を置かない: ${screen}`, async ({ page }) => {
+    const errors = await openCatalog(page, screen);
+    const goals = page.locator('.notice-title.is-goal');
+    await expect(goals.first()).toBeVisible();
+    await page.evaluate(() => {
+      const { SQ } = window as unknown as {
+        SQ: { D: { sprints: Record<string, { goal?: string }> }; redraw: () => void };
+      };
+      for (const sprint of Object.values(SQ.D.sprints)) sprint.goal = '';
+      SQ.redraw();
+    });
+    await expect(goals).toHaveCount(0);
+    await expect(page.locator('.notice-grid')).toHaveCount(0);
+    await expect(page.locator('.page-title')).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+}
+
+test('組織のホームの見本: 390px で長いワークスペース名とスプリント名がタスク行に収まる', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const errors = await openCatalog(page, 'today.html');
+  const longName = 'DevelopmentTeam'.repeat(6);
+  await page.evaluate((name) => {
+    const { SQ } = window as unknown as {
+      SQ: { D: { workspaces: { wa: { name: string } }; sprints: { sp14: { name: string } } }; redraw: () => void };
+    };
+    SQ.D.workspaces.wa.name = name;
+    SQ.D.sprints.sp14.name = name;
+    SQ.redraw();
+  }, longName);
+
+  const row = page.locator('.entry').filter({ has: page.locator('[data-task="t8"]') });
+  await expect(row.locator('.entry-meta .tag')).toHaveText(longName);
+  await expect(row.locator('.entry-meta .is-name')).toHaveText(`スプリント：${longName}`);
+  await expect(row.locator('.entry-chips').getByRole('img', { name: 'ミナト' })).toBeVisible();
+  await expect(row.locator('.entry-actions .done-btn')).toBeVisible();
+  expect(await row.evaluate((element) => element.scrollWidth)).toBeLessThanOrEqual(
+    await row.evaluate((element) => element.clientWidth),
+  );
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  expect(errors).toEqual([]);
+});
+
 test('スマホの見本の浮きメニューから組織作成を開ける（#1102）', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const errors = await openCatalog(page, 'today.html');
