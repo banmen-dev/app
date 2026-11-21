@@ -119,12 +119,24 @@ function backlogLookupsWithoutRepository(db: DatabaseSync, workspace: string, ow
   ];
 }
 
-test('0040 を統計のない旧版の DB に当てても、リポジトリ指定ではストーリーごとに絞る', () => {
-  const { db, workspace } = beforeMigration();
+// SQLite の計画が改善して再現しなくなったら、運用文書も見直す。
+function assertLegacyWorkspaceLookups(db: DatabaseSync, workspace: string, owner: string) {
+  const lookups = backlogLookupsWithoutRepository(db, workspace, owner);
+  assert.equal(
+    lookups.filter((lookup) => lookup.includes('tasks_workspace_tray') && !equalityColumns(lookup).includes('story_id'))
+      .length,
+    3,
+    lookups.join('\n'),
+  );
+}
+
+test('統計のない旧版の DB に 0040 を適用した後のリポジトリ指定と配下の検索計画を確かめる', () => {
+  const { db, workspace, owner } = beforeMigration();
   try {
     assert.equal(db.prepare("SELECT name FROM sqlite_schema WHERE name = 'sqlite_stat1'").get(), undefined);
     db.exec(readFileSync(new URL(migration, migrations), 'utf8'));
     assertRepositoryLookup(db, workspace);
+    assertLegacyWorkspaceLookups(db, workspace, owner);
     const stats = db.prepare('SELECT idx FROM sqlite_stat1 ORDER BY idx').all();
     assert.deepEqual(
       stats.map((row) => row.idx),
@@ -146,15 +158,7 @@ test('競合索引以外の統計だけを採った旧版で、読み取りが�
       ['tasks_story_open'],
     );
     db.exec(readFileSync(new URL(migration, migrations), 'utf8'));
-    // SQLite の計画が改善して再現しなくなったら、運用文書も見直す。
-    const lookups = backlogLookupsWithoutRepository(db, workspace, owner);
-    assert.equal(
-      lookups.filter(
-        (lookup) => lookup.includes('tasks_workspace_tray') && !equalityColumns(lookup).includes('story_id'),
-      ).length,
-      3,
-      lookups.join('\n'),
-    );
+    assertLegacyWorkspaceLookups(db, workspace, owner);
   } finally {
     db.close();
   }
