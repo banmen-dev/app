@@ -439,6 +439,29 @@ test('タッチで押している間は、同じストーリーの強調で他�
   await expect(page.locator('.card.is-story-highlighted')).toHaveCount(3);
 });
 
+test('隙間で保った強調のストーリーのカードを列ごと畳んだら、残ったカードを暗くしたままにしない', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signIn(context, baseURL, 'admin');
+  await mockOperation(page, sprintBoard, { slug: 'aoba' }, SAMPLE_BOARD);
+  await page.goto(PATH);
+  const card = page.locator(`[data-card-id="${SAMPLE_BOARD.columns[0]!.tasks[0]!.id}"]`);
+  await card.locator('.card-foot').hover();
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(1);
+  const left = (await page.locator('.board-col').nth(0).boundingBox())!;
+  const right = (await page.locator('.board-col').nth(1).boundingBox())!;
+  const box = (await card.boundingBox())!;
+  await page.mouse.move((left.x + left.width + right.x) / 2, box.y + box.height / 2);
+  await expect(page.locator('.card.is-story-dimmed')).toHaveCount(3);
+  // ポインタを動かさずに、キーボードでそのカードの列を畳む
+  await page.getByRole('button', { name: '未着手の開閉', exact: true }).press('Enter');
+  await expect(card).toHaveCount(0);
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(0);
+  await expect(page.locator('.card.is-story-dimmed')).toHaveCount(0);
+});
+
 test('最後の対象カードを削除したら中立の案内で絞り込みを解除する', async ({ page, context, baseURL }) => {
   await signIn(context, baseURL, 'admin');
   const board = structuredClone(SAMPLE_BOARD);

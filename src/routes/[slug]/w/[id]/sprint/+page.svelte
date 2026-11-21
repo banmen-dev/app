@@ -174,9 +174,13 @@
   // ポインタの強調（undefined はカードの上にいない）が、親名のボタンのフォーカスより先。親のないカードに乗れば、フォーカスがあっても消す
   let hoveredStory = $state<string | null | undefined>(undefined);
   let focusedStory = $state<string | null>(null);
-  // 隙間で保った強調のストーリーが盤から消えたら（削除や読み直し）、保った強調を捨ててフォーカスの強調に戻す
+  // 隙間で保った強調のストーリーが盤から消えたら（削除、読み直し、列を畳んで描かなくなった）、保った強調を捨ててフォーカスの強調に戻す
   const visibleStoryIds = $derived(
-    new Set(visibleColumns.flatMap((column) => column.tasks.map((task) => task.story?.id ?? null))),
+    new Set(
+      visibleColumns
+        .filter((column) => !collapsedColumns.isCollapsed(column.id))
+        .flatMap((column) => column.tasks.map((task) => task.story?.id ?? null)),
+    ),
   );
   const highlightedStory = $derived(
     hoveredStory === null || (hoveredStory !== undefined && visibleStoryIds.has(hoveredStory))
