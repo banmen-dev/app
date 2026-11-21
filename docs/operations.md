@@ -11,6 +11,7 @@
 手で wrangler を動かす操作（D1 を作る、rollback、DB の復元、triggers の当て直し）の前に行う。
 
 1. `pnpm install` を済ませ、リポジトリのルートで実行する。wrangler はルートの `wrangler.jsonc` を読む
+   ワークツリーで準備する場合は、[ワークツリーで作業する](development.md#ワークツリーで作業する) に従い、先に pnpm の保存先を確認する。
 2. `pnpm exec wrangler login` でログインする
 3. `pnpm exec wrangler whoami` で、ucan-lab のアカウント（`71293a3c23974c311b4c82b3f977049b`）を選んでいることを確かめる。複数のアカウントを持っていると、別のアカウントに作ったり戻したりする
 
@@ -789,7 +790,7 @@ Wiki、お気に入り（`favorites`）、依頼先（`delegatees`）、組織�
 
 元の位置へ戻す: `file` は build で圧縮したファイルなので、`clientVersion` の版を手元で同じに build し、ソースマップで元のファイルと行に戻す。`clientVersion` は画面が送る値なので、`vX.Y.Z` の形か16進の SHA であることを確かめてから使う（`-` で始まる値やブランチ名を git に渡さない）。`vX.Y.Z` なら、そのタグを完全な名前（`refs/tags/vX.Y.Z`）で下の `<版か SHA>` に使う。SHA（#1165 より前の版）なら、`git fetch origin` の後に `git merge-base --is-ancestor <SHA> origin/main` が 0 で終わる（`main` に入ったコミットである）ことを確かめてから使う。ブランチを push できる人が選んだコミットを、運用者の端末で build しないため。
 
-1. その版のワークツリーを切る: `git fetch --tags origin && git worktree add worktrees/client-error-<版か SHA の先頭7字> <版か SHA>`。切ったワークツリーで `pnpm install`
+1. その版のワークツリーを切る: `git fetch --tags origin && git worktree add worktrees/client-error-<版か SHA の先頭7字> <版か SHA>`。切ったワークツリーで [ワークツリーで作業する](development.md#ワークツリーで作業する) に従い、pnpm の保存先を確認してから依存を入れる。
 2. 本番と同じ版で、ソースマップを出して build する: `APP_VERSION=<clientVersion の値> pnpm exec vite build --sourcemap hidden`。`hidden` は JS に参照を足さないので、出る JS は本番と同じ（2026-10-27 に確かめた）。`build<file>` があることを確かめる。無ければ版か依存が違う
 3. 行と列を戻す（`column` は1から数え、ソースマップは0から数えるので1を引く）
 
