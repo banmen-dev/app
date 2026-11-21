@@ -30,8 +30,8 @@
   const blocks = $derived(parseMarkdown(doc.body));
   const title = $derived(t(kind === 'terms' ? 'termsTitle' : 'privacyTitle'));
 
-  // SPA の最初の読み込み（type が 'enter'）では from は null になる（SvelteKit 3.4.0。3.1.0 までは url の無い入れ物が渡った）。
-  // どちらの版でも決まるよう、from の有無でなく、type で直に開いたかを決める
+  // SPA の最初の読み込み（type が 'enter'）では from は null になる（SvelteKit の create_navigation）。
+  // 直に開いたかは type で決める
   // 規約とポリシーの間の移動は履歴を積まず（data-sveltekit-replacestate）、「アプリの中から来たか」を最初の1回の判定のまま引き継ぐ。
   // 積むと、戻るボタンが元の画面でなくもう一方のページに戻り、直に開いたタブでは戻る先の無いボタンが出る
   let cameFromApp = $state(cameFromAppMemo);

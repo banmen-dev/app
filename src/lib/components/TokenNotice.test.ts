@@ -43,7 +43,7 @@ test('読み取りに失敗したら再試行を出し、確認の操作は出�
   expect(html).not.toContain('確かめた');
 });
 
-// SvelteKit 3.4.0 は、最初の読み込み（type が 'enter'）の from を null にする（3.1.0 までは url の無い入れ物だった）
+// SvelteKit は、最初の読み込み（type が 'enter'）の from を null にする
 test('初回の経路で from が null でもナビゲーションを止めない', () => {
   afterNavigate.mockClear();
   body({ count: 0, latest: null });
