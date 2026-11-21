@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { openCatalog } from './design-samples.ts';
 import { expect, test } from './fixtures.ts';
 
 const THEMES = ['simple_light', 'simple_dark', 'modern'] as const;
@@ -9,34 +9,8 @@ for (const width of [1280, 1024, 761, 760, 390, 320]) {
   test(`長い名前のメニューの見本: ${width}px / 3つのテーマ`, async ({ page }) => {
     // 3テーマの比較と既存幅との再比較は、CIのtraceで合計30秒近く掛かる。各検査の待ちは増やさず、全体に余裕を持たせる。
     test.setTimeout(60_000);
-    // カタログはアプリの配信対象外なので、共有の見本ファイルをそのまま返す。
-    const files: Record<string, string> = {
-      'index.html': 'text/html',
-      'tokens.css': 'text/css',
-      'components.css': 'text/css',
-      'icons.js': 'text/javascript',
-      'art.js': 'text/javascript',
-      'sample-data.js': 'text/javascript',
-      'kit.js': 'text/javascript',
-      'image-crop.js': 'text/javascript',
-    };
-    await page.route('**/__design-catalog/**', async (route) => {
-      const name = new URL(route.request().url()).pathname.split('/').pop()!;
-      const contentType = files[name];
-      if (!contentType) return route.fulfill({ status: 404, body: '' });
-      await route.fulfill({
-        contentType,
-        body: readFileSync(new URL(`../design/${name}`, import.meta.url)),
-      });
-    });
-    // CI のネットワークやフォント取得の成否で寸法が変わらないようにする。
-    for (const host of ['fonts.googleapis.com', 'fonts.gstatic.com']) {
-      await page.route(`https://${host}/**`, (route) => route.fulfill({ body: '' }));
-    }
-    const errors: string[] = [];
-    page.on('pageerror', (error) => errors.push(error.message));
     await page.setViewportSize({ width: 390, height: 1000 });
-    await page.goto('/__design-catalog/index.html');
+    const errors = await openCatalog(page);
     await page.locator('#toc a[href="#nav-wrapping"]').click();
     await expect(page).toHaveURL(/#nav-wrapping$/);
     const section = page.locator('#nav-wrapping');
@@ -152,29 +126,7 @@ for (const width of [1280, 1024, 761, 760, 390, 320]) {
 test('見本の引き出し: タブを切り替えても、作り直しても、書きかけのコメントを残し、別のタスクへ移ると捨てる', async ({
   page,
 }) => {
-  // スプリントの見本を共有の見本ファイルのまま返す（アプリの配信対象外）。
-  const files: Record<string, string> = {
-    'sprint.html': 'text/html',
-    'tokens.css': 'text/css',
-    'components.css': 'text/css',
-    'icons.js': 'text/javascript',
-    'art.js': 'text/javascript',
-    'sample-data.js': 'text/javascript',
-    'kit.js': 'text/javascript',
-    'image-crop.js': 'text/javascript',
-  };
-  await page.route('**/__design-catalog/**', async (route) => {
-    const name = new URL(route.request().url()).pathname.split('/').pop()!;
-    const contentType = files[name];
-    if (!contentType) return route.fulfill({ status: 404, body: '' });
-    await route.fulfill({ contentType, body: readFileSync(new URL(`../design/${name}`, import.meta.url)) });
-  });
-  for (const host of ['fonts.googleapis.com', 'fonts.gstatic.com']) {
-    await page.route(`https://${host}/**`, (route) => route.fulfill({ body: '' }));
-  }
-  const errors: string[] = [];
-  page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('/__design-catalog/sprint.html');
+  const errors = await openCatalog(page, 'sprint.html');
   const tasks = page.locator('[data-task]');
   const firstId = await tasks.first().getAttribute('data-task');
   const secondId = await tasks.nth(1).getAttribute('data-task');
@@ -316,26 +268,7 @@ const controlEdge: Record<string, string> = {
 };
 // カタログを開くのは1回にし、テーマはページを開いたまま切り替える（テーマごとに開き直さない）。どのテーマで落ちたかは test.step の名前で分かる
 test('操作部品の枠の色: 3つのテーマ', async ({ page }) => {
-  const files: Record<string, string> = {
-    'index.html': 'text/html',
-    'tokens.css': 'text/css',
-    'components.css': 'text/css',
-    'icons.js': 'text/javascript',
-    'art.js': 'text/javascript',
-    'sample-data.js': 'text/javascript',
-    'kit.js': 'text/javascript',
-    'image-crop.js': 'text/javascript',
-  };
-  await page.route('**/__design-catalog/**', async (route) => {
-    const name = new URL(route.request().url()).pathname.split('/').pop()!;
-    const contentType = files[name];
-    if (!contentType) return route.fulfill({ status: 404, body: '' });
-    await route.fulfill({ contentType, body: readFileSync(new URL(`../design/${name}`, import.meta.url)) });
-  });
-  for (const host of ['fonts.googleapis.com', 'fonts.gstatic.com']) {
-    await page.route(`https://${host}/**`, (route) => route.fulfill({ body: '' }));
-  }
-  await page.goto('/__design-catalog/index.html');
+  const errors = await openCatalog(page);
   for (const [theme, edge] of Object.entries(controlEdge)) {
     await test.step(theme, async () => {
       await page.locator(`[data-pick-theme][value="${theme}"]`).check();
@@ -351,33 +284,13 @@ test('操作部品の枠の色: 3つのテーマ', async ({ page }) => {
       }
     });
   }
+  expect(errors).toEqual([]);
 });
 
 test('見本のカタログ: 「ストーリーを直す（引き出し）」の入口は、本物の引き出しを開き、カタログの節を壊さない', async ({
   page,
 }) => {
-  const files: Record<string, string> = {
-    'index.html': 'text/html',
-    'tokens.css': 'text/css',
-    'components.css': 'text/css',
-    'icons.js': 'text/javascript',
-    'art.js': 'text/javascript',
-    'sample-data.js': 'text/javascript',
-    'kit.js': 'text/javascript',
-    'image-crop.js': 'text/javascript',
-  };
-  await page.route('**/__design-catalog/**', async (route) => {
-    const name = new URL(route.request().url()).pathname.split('/').pop()!;
-    const contentType = files[name];
-    if (!contentType) return route.fulfill({ status: 404, body: '' });
-    await route.fulfill({ contentType, body: readFileSync(new URL(`../design/${name}`, import.meta.url)) });
-  });
-  for (const host of ['fonts.googleapis.com', 'fonts.gstatic.com']) {
-    await page.route(`https://${host}/**`, (route) => route.fulfill({ body: '' }));
-  }
-  const errors: string[] = [];
-  page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('/__design-catalog/index.html');
+  const errors = await openCatalog(page);
   const section = page.locator('#task-drawer');
   const before = await section.locator('.cat-drawer').count();
   expect(before).toBeGreaterThan(0);
@@ -394,28 +307,7 @@ test('見本のカタログ: 「ストーリーを直す（引き出し）」の
 });
 
 test('見本の削除の確認: クリア済みのエピックを配下を残して削除すると断られ、確認は閉じない', async ({ page }) => {
-  const files: Record<string, string> = {
-    'index.html': 'text/html',
-    'tokens.css': 'text/css',
-    'components.css': 'text/css',
-    'icons.js': 'text/javascript',
-    'art.js': 'text/javascript',
-    'sample-data.js': 'text/javascript',
-    'kit.js': 'text/javascript',
-    'image-crop.js': 'text/javascript',
-  };
-  await page.route('**/__design-catalog/**', async (route) => {
-    const name = new URL(route.request().url()).pathname.split('/').pop()!;
-    const contentType = files[name];
-    if (!contentType) return route.fulfill({ status: 404, body: '' });
-    await route.fulfill({ contentType, body: readFileSync(new URL(`../design/${name}`, import.meta.url)) });
-  });
-  for (const host of ['fonts.googleapis.com', 'fonts.gstatic.com']) {
-    await page.route(`https://${host}/**`, (route) => route.fulfill({ body: '' }));
-  }
-  const errors: string[] = [];
-  page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('/__design-catalog/index.html');
+  const errors = await openCatalog(page);
   const dialog = page.locator('#dialog');
 
   // まとめて削除できる人: 「残す」は最初から選べず、理由が出る。どちらも未選択で、選ぶまで押せず、選ぶと閉じられる
@@ -446,26 +338,8 @@ test('見本の削除の確認: クリア済みのエピックを配下を残し
 });
 
 test('スマホの見本の浮きメニューから組織作成を開ける（#1102）', async ({ page }) => {
-  const files: Record<string, string> = {
-    'today.html': 'text/html',
-    'tokens.css': 'text/css',
-    'components.css': 'text/css',
-    'icons.js': 'text/javascript',
-    'art.js': 'text/javascript',
-    'sample-data.js': 'text/javascript',
-    'kit.js': 'text/javascript',
-    'image-crop.js': 'text/javascript',
-  };
-  await page.route('**/__design-mobile/**', async (route) => {
-    const file = new URL(route.request().url()).pathname.split('/').pop()!;
-    if (!files[file]) return route.fulfill({ status: 404, body: '' });
-    await route.fulfill({
-      contentType: files[file],
-      body: readFileSync(new URL(`../design/${file}`, import.meta.url)),
-    });
-  });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/__design-mobile/today.html');
+  const errors = await openCatalog(page, 'today.html');
   await page.getByRole('button', { name: 'すべてのメニュー', exact: true }).click();
   const menu = page.locator('#mobile-menu');
   await expect(menu.getByRole('heading', { name: 'メニュー', exact: true })).toBeVisible();
@@ -477,30 +351,11 @@ test('スマホの見本の浮きメニューから組織作成を開ける（#1
   await expect(create).toBeFocused();
   await create.fill('こもれび工房');
   await expect(create).toHaveValue('こもれび工房');
+  expect(errors).toEqual([]);
 });
 
 test('見本のカタログ: エピックは引き出しで開き、読み取り専用と削除権限を示す', async ({ page }) => {
-  const files: Record<string, string> = {
-    'index.html': 'text/html',
-    'tokens.css': 'text/css',
-    'components.css': 'text/css',
-    'icons.js': 'text/javascript',
-    'art.js': 'text/javascript',
-    'sample-data.js': 'text/javascript',
-    'kit.js': 'text/javascript',
-    'image-crop.js': 'text/javascript',
-  };
-  await page.route('**/__design-catalog/**', async (route) => {
-    const name = new URL(route.request().url()).pathname.split('/').pop()!;
-    if (!files[name]) return route.fulfill({ status: 404, body: '' });
-    await route.fulfill({
-      contentType: files[name],
-      body: readFileSync(new URL(`../design/${name}`, import.meta.url)),
-    });
-  });
-  const errors: string[] = [];
-  page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('/__design-catalog/index.html');
+  const errors = await openCatalog(page);
   await expect(
     page.locator('[data-dialog="createEpic"], [data-dialog="createStory"], [data-dialog="editEpic"]'),
   ).toHaveCount(0);
@@ -521,29 +376,8 @@ for (const width of [390, 320]) {
   test(`見本のカタログ: ワークスペースの行は ${width}px で長い名前を折り返し、ロールと chevron を折り返さずに縦の中央に置く`, async ({
     page,
   }) => {
-    const files: Record<string, string> = {
-      'index.html': 'text/html',
-      'tokens.css': 'text/css',
-      'components.css': 'text/css',
-      'icons.js': 'text/javascript',
-      'art.js': 'text/javascript',
-      'sample-data.js': 'text/javascript',
-      'kit.js': 'text/javascript',
-      'image-crop.js': 'text/javascript',
-    };
-    await page.route('**/__design-catalog/**', async (route) => {
-      const name = new URL(route.request().url()).pathname.split('/').pop()!;
-      const contentType = files[name];
-      if (!contentType) return route.fulfill({ status: 404, body: '' });
-      await route.fulfill({ contentType, body: readFileSync(new URL(`../design/${name}`, import.meta.url)) });
-    });
-    for (const host of ['fonts.googleapis.com', 'fonts.gstatic.com']) {
-      await page.route(`https://${host}/**`, (route) => route.fulfill({ body: '' }));
-    }
-    const errors: string[] = [];
-    page.on('pageerror', (error) => errors.push(error.message));
     await page.setViewportSize({ width, height: 900 });
-    await page.goto('/__design-catalog/index.html');
+    const errors = await openCatalog(page);
     const rows = page.locator('section[aria-labelledby="pane-demo-workspaces"] .pane-link');
     await expect(rows).toHaveCount(3);
     const row = rows.nth(2);
@@ -588,31 +422,9 @@ for (const width of [390, 320]) {
 }
 
 test('見本のカタログ: 320px で、3つのテーマともページが横にはみ出さない', async ({ page }) => {
-  const files: Record<string, string> = {
-    'index.html': 'text/html',
-    'tokens.css': 'text/css',
-    'components.css': 'text/css',
-    'icons.js': 'text/javascript',
-    'art.js': 'text/javascript',
-    'sample-data.js': 'text/javascript',
-    'kit.js': 'text/javascript',
-    'image-crop.js': 'text/javascript',
-  };
-  await page.route('**/__design-catalog/**', async (route) => {
-    const name = new URL(route.request().url()).pathname.split('/').pop()!;
-    const contentType = files[name];
-    if (!contentType) return route.fulfill({ status: 404, body: '' });
-    await route.fulfill({ contentType, body: readFileSync(new URL(`../design/${name}`, import.meta.url)) });
-  });
-  // CI のネットワークやフォント取得の成否で寸法が変わらないようにする。
-  for (const host of ['fonts.googleapis.com', 'fonts.gstatic.com']) {
-    await page.route(`https://${host}/**`, (route) => route.fulfill({ body: '' }));
-  }
-  const errors: string[] = [];
-  page.on('pageerror', (error) => errors.push(error.message));
   const width = 320;
   await page.setViewportSize({ width, height: 900 });
-  await page.goto('/__design-catalog/index.html');
+  const errors = await openCatalog(page);
   await expect(page.locator('#assistant .assist-sheet')).toBeVisible();
   for (const theme of THEMES) {
     await test.step(theme, async () => {
