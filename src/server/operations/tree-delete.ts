@@ -175,7 +175,7 @@ function epicTasks(from: From, workspaceId: string, epicId: string) {
 }
 
 // 移す先の最後の位置（1行）。tailPosition の last に渡す
-function lastStoryPosition(from: From, workspaceId: string) {
+export function lastStoryPosition(from: From, workspaceId: string) {
   return from
     .selectFrom('stories as a')
     .select('a.position')

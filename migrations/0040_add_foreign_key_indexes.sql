@@ -12,7 +12,7 @@ CREATE INDEX categories_workspace_fk ON categories (workspace_id, deleted_at, po
 CREATE INDEX repositories_workspace_fk ON repositories (workspace_id, deleted_at, position);
 CREATE INDEX connections_workspace_fk ON connections (workspace_id, deleted_at);
 CREATE INDEX epics_workspace_fk ON epics (workspace_id, deleted_at, position);
-CREATE INDEX stories_workspace_fk ON stories (workspace_id, epic_id, deleted_at);
+CREATE INDEX stories_workspace_fk ON stories (workspace_id, epic_id, deleted_at, position);
 CREATE INDEX sprints_workspace_fk ON sprints (workspace_id);
 CREATE INDEX tasks_workspace_fk ON tasks (workspace_id);
 CREATE INDEX thanks_workspace_fk ON thanks (workspace_id);

@@ -941,7 +941,7 @@
 
 - 索引: `(workspace_id, epic_id, position) WHERE deleted_at IS NULL`。
 - 索引（外部キーの検査）: `(created_by)`、`(completed_by) WHERE completed_by IS NOT NULL`。
-- 索引（外部キーの検査）: `(workspace_id, epic_id, deleted_at)`、`(epic_id) WHERE epic_id IS NOT NULL`、`(category_id) WHERE category_id IS NOT NULL`。
+- 索引（外部キーの検査）: `(workspace_id, epic_id, deleted_at, position)`、`(epic_id) WHERE epic_id IS NOT NULL`、`(category_id) WHERE category_id IS NOT NULL`。
 - 親を変えたら、新しい親の末尾の `position` を振る。
 - 並べ替えと親の移動（`story-move`）は、`tasks` の「並べ替えと親の移動」と同じ決まりで、親は `epic_id`（null は親なし）、直前の行は `after_story_id`。違うのは次のとおり。移す先のエピックが無ければ（別の組織を含む）404、親を変えるとき、移す先のエピックも、今の親のエピックも、完了しているか中止していれば（`epics.completed_at` か `canceled_at` が空でない）409（`conflict`、理由は `parent_completed`。親なしへ出す場合も同じ。完了済みのストーリーを出すと、クリア済みのエピックが空になり、同じストーリーで別のエピックをもう一度クリアできるため。書く文も今の親が終わっていないことを条件にする）。同じエピックの中の並べ替えは、エピックが完了か中止していてもできる。完了したストーリーも動かせる。エピックの下へ移したら `category_id` を空にし、空にした区分は `tasks` と同じく履歴の `category` に残す。親が変わったときの履歴は `{"epic": [前, 後]}`（値は `{id, title}` か null）。
 - `title` は `tasks.title` と同じ決まり（前後の空白を除いて 1〜200 字）。`acceptance_criteria_md` と `body_md` はそれぞれ 1 万字まで（コードポイントで数え、改行とタブ以外の制御文字と見えない文字は断る）。改行は `\n` にそろえ、前後の空行と末尾の空白だけを落とし、先頭の行の字下げは残す。空は `NULL`。列の CHECK（10 万字）は、決まりを超えた書き込みを止める保険。`link_url` は http と https の URL だけで 2048 字まで。ユーザー名とパスワードを含む URL は断り、保存する値は解釈した URL（`new URL(...).href`）にそろえる。`due_on` は暦に存在する日付で、空は `NULL`。

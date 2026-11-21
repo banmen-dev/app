@@ -14,6 +14,7 @@ import { MIN_POINTS_FOR_EXPERIENCE } from '../../shared/task.ts';
 import {
   previousStatementChanged,
   sprintLeftLogSql,
+  tasksByStoryPosition,
   titleContainsAll,
   unindexed,
   type ExpressionBuilder,
@@ -66,9 +67,10 @@ function backlogTasksUnder(
   from: Pick<QueryCreator<Tables>, 'selectFrom'>,
   workspaceId: string,
   storyId: string | null,
+  table: 'tasks' | typeof tasksByStoryPosition = 'tasks',
 ) {
   const tasks = from
-    .selectFrom('tasks')
+    .selectFrom(table)
     .where('tasks.workspace_id', '=', workspaceId)
     .where('tasks.tray', '=', 'backlog')
     .where('tasks.deleted_at', 'is', null);
@@ -79,8 +81,12 @@ function backlogTasksUnder(
 
 // 起票で、親の配下（親なしなら親のないタスク）の末尾の位置を決めるために、いちばん後ろの行の position を読む文
 export function lastPositionStatement(db: OrganizationDb, workspaceId: string, storyId: string | null) {
+  const table = storyId === null ? 'tasks' : tasksByStoryPosition;
   return db.statement((q) =>
-    backlogTasksUnder(q, workspaceId, storyId).select('tasks.position').orderBy('tasks.position', 'desc').limit(1),
+    backlogTasksUnder(q, workspaceId, storyId, table)
+      .select('tasks.position')
+      .orderBy('tasks.position', 'desc')
+      .limit(1),
   );
 }
 

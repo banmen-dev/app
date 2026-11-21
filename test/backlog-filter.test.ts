@@ -744,13 +744,12 @@ describe('実行計画', () => {
       );
     });
 
-    test('ストーリーの配下を引く文は、索引で対象のストーリーに絞る', async () => {
+    test('ストーリー配下の末尾は tasks_story の位置順で引く', async () => {
       const { db, workspaceId, target } = await analyzedWorld();
       const story = await createStory(target.organization, workspaceId, target.admin.userId!);
       const plan = await planOf(lastPositionStatement(db, workspaceId, story.id));
-      expect(plan).toMatch(
-        /USING (COVERING )?INDEX tasks_story(?: \(story_id=\?\)|_fk \(story_id=\? AND deleted_at=\?\))/,
-      );
+      expect(plan).toMatch(/USING INDEX tasks_story \(story_id=\?\)/);
+      expect(plan).not.toMatch(/TEMP B-TREE/);
     });
   });
 });
