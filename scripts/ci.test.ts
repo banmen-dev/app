@@ -189,6 +189,20 @@ describe('ciOkVerdict', () => {
     });
   }
 
+  test('main への push は e2e-dev と e2e-repeat が skipped なら通す', () => {
+    const input: Needs = {
+      changes: { result: 'success', outputs: { docs_only: 'false', dev_build: 'false', repeat: 'false' } },
+      check: { result: 'success' },
+      test: { result: 'success' },
+      'test-node': { result: 'success' },
+      migration: { result: 'success' },
+      e2e: { result: 'success' },
+      'e2e-dev': { result: 'skipped' },
+      'e2e-repeat': { result: 'skipped' },
+    };
+    assert.equal(ciOkVerdict(input).ok, true);
+  });
+
   describe('開発モードの e2e（e2e-dev）は dev_build で期待が変わる', () => {
     function withDev(docsOnly: string, devBuild: string | undefined, dev: string, other = 'success'): Needs {
       const outputs: Record<string, string> = { docs_only: docsOnly };

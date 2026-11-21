@@ -56,12 +56,16 @@ jobs:
           set -o pipefail
           git diff --name-only --no-renames -z "$BASE_SHA...$HEAD_SHA" | node scripts/changes.ts | tee -a "$GITHUB_OUTPUT"
 
-      - name: main は差分によらず全検査する
+      - name: main の検査対象を実行イベントで決める
         if: github.event_name != 'pull_request'
         id: main
         run: |
           echo 'docs_only=false' >> "$GITHUB_OUTPUT"
-          echo 'dev_build=true' >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            echo 'dev_build=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'dev_build=true' >> "$GITHUB_OUTPUT"
+          fi
           echo 'repeat=false' >> "$GITHUB_OUTPUT"
 
       # --diff-filter=AM: 消したテストは回せないので、足したか変えたものだけを渡す。リネームは --no-renames で消すと足すに分かれ、
@@ -194,8 +198,8 @@ jobs:
           retention-days: 14
 
   # 開発モードの build（NODE_ENV=development）で e2e を流し、Svelte と SvelteKit の開発時の警告が出たテストを落とす（#375。e2e/fixtures.ts）。
-  # 本番の build では警告が出ないので、上の e2e では拾えない。画面のコード、依存、e2e と build の仕組みが変わった PR だけ走らせる
-  # （scripts/ci.ts の needsDevBuild）。走らないときは ci-ok が skipped を期待する
+  # 定期・手動実行と、画面のコード、依存、e2e や build の仕組みが変わった PR で走らせる（scripts/ci.ts の needsDevBuild）。
+  # main への push では飛ばす。走らないときは ci-ok が skipped を期待する
   e2e-dev:
     needs: changes
     if: needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.dev_build == 'true'
