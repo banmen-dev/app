@@ -45,7 +45,7 @@ const createActions = (primary) => `<button class="btn ${primary ? "is-primary" 
 // 組織ごとのワークスペースの行（組織のホームのワークスペースの面と同じ .pane-list と .pane-link）。押すとバックログへ移る
 const workspaceRows = (rows) => rows.length === 0
   ? `<p class="workspace-note">所属する${t("workspace")}はありません。</p>`
-  : `<ul class="pane-list" aria-label="所属する${t("workspace")}">${rows.map((w) => `<li><a class="pane-link" href="backlog.html"><b>${esc(w.name)}</b><span class="chip">${t(w.role)}</span>${icon("chevron")}</a></li>`).join("")}</ul>`;
+  : `<ul class="pane-list" aria-label="所属する${t("workspace")}">${rows.map((w) => `<li><a class="pane-link" href="backlog.html"><b>${esc(w.name)}</b><span class="pane-link-role">${t(w.role)}</span>${icon("chevron")}</a></li>`).join("")}</ul>`;
 // 組織ごとの、自分が所属する閉じていないワークスペース（見本の値）
 const dashboardWorkspaces = {
   aoba: [{ name: "受託開発チーム", role: "leader" }, { name: "社内ツール", role: "member" }],
@@ -53,7 +53,7 @@ const dashboardWorkspaces = {
 };
 // 自分用の面。組織の面と同じ枠に、自分用のホームへの行と自分用のワークスペースを並べ、最後に「ワークスペースを作る」を置く
 const personalSheet = () => pane("p-personal", t("personalOrganizationName"), `
-      <div class="org-block"><a class="choice" href="today.html"><div><b>${t("personalOrganizationName")}</b><span class="mono">scrum-guild.dev/mio-solo/</span></div>${icon("chevron")}</a><div class="org-block-body">${workspaceRows([{ name: "読書の記録", role: "leader" }, { name: "家の用事", role: "leader" }])}</div></div>
+      <div class="org-block"><a class="choice" href="today.html"><div><b>${t("dashboardPersonalHome")}</b><span class="mono">scrum-guild.dev/mio-solo/</span></div>${icon("chevron")}</a><div class="org-block-body">${workspaceRows([{ name: "読書の記録", role: "leader" }, { name: "家の用事", role: "leader" }])}</div></div>
       <div class="form-actions"><button class="btn is-sm" type="button" data-toast="見本のため、作りません">${icon("plus")}${t("workspace")}を作る</button></div>
     `);
 // 組織の面。組織ごとの枠（.org-block）に、組織の行と、所属するワークスペースを並べる。読めなかった組織は短い案内にする
