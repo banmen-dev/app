@@ -323,6 +323,7 @@ describe('cookieOnly の logout', () => {
       'my-billing-organizations',
       'onboarding-status',
       'operator-billing-admin-invite',
+      'password-change',
       'token-create',
       'token-list',
       'token-notice',

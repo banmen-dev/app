@@ -79,6 +79,7 @@ import { logoutOperation, meOperation } from './session.ts';
 import { accountProfileSaveOperation, onboardingStatusOperation } from './onboarding.ts';
 import { onboardingWorkspacePrepareOperation } from './onboarding-workspace.ts';
 import { consentRecordOperation, consentStatusOperation } from './consent.ts';
+import { passwordChangeOperation } from './password.ts';
 import { credentialsRevokeAllOperation } from './credentials.ts';
 import { tokenCreateOperation, tokenListOperation, tokenRevokeOperation } from './token.ts';
 import { tokenNoticeOperation, tokenNoticeSeenOperation } from './token-notice.ts';
@@ -227,6 +228,7 @@ const listedOperations: readonly ImplementedOperation[] = [
   tokenNoticeOperation,
   tokenNoticeSeenOperation,
   credentialsRevokeAllOperation,
+  passwordChangeOperation,
   epicCreateOperation,
   epicGetOperation,
   epicDetailOperation,

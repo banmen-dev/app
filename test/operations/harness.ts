@@ -356,18 +356,22 @@ export function defineOperationChecks(
     }
 
     if (isOutsideOperation(definition)) {
-      test(
-        refusesToken(definition) ? 'API トークンでは運用者でも 403' : 'ログインしている運用者は成功する',
-        async () => {
-          const res = await post(app, definition, { ...(await as(operator)), body: await input(own) });
-          if (refusesToken(definition)) {
-            expect(res.status).toBe(403);
-            expect(await errorCodeOf(res)).toBe('forbidden');
-          } else {
-            await expectOk(res);
-          }
-        },
-      );
+      // 標準の運用者は GitHub のアカウント。パスワードのアカウントが成功することは password-change.test.ts で確かめる。
+      const passwordChange = definition.name === 'password-change';
+      const expected = refusesToken(definition)
+        ? 'API トークンでは運用者でも 403'
+        : passwordChange
+          ? 'GitHub のアカウントでは運用者でも 403'
+          : 'ログインしている運用者は成功する';
+      test(expected, async () => {
+        const res = await post(app, definition, { ...(await as(operator)), body: await input(own) });
+        if (refusesToken(definition) || passwordChange) {
+          expect(res.status).toBe(403);
+          expect(await errorCodeOf(res)).toBe('forbidden');
+        } else {
+          await expectOk(res);
+        }
+      });
       if (definition.permission === 'operator') {
         test('運用者でない人は 403', async () => {
           const res = await post(app, definition, { ...(await as(own.admin)), body: await input(own) });
