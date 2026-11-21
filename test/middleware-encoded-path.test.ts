@@ -92,7 +92,11 @@ describe('符号化した行の終わりを含むパス', () => {
     const brokenEnvs = [
       { label: 'OPERATOR_LOGIN_IDS の形が合わない', patch: { OPERATOR_LOGIN_IDS: 'github:abc' } },
       { label: 'PUBLIC_ORIGIN が手元でない http', patch: { PUBLIC_ORIGIN: 'http://example.com' } },
-      { label: 'DEV_NOW が本番の公開 URL で設定されている', patch: { DEV_NOW: '2026-10-26T10:00:00+09:00' } },
+      {
+        // テストの環境の PUBLIC_ORIGIN に頼らず、本番の形の https を明示する
+        label: 'DEV_NOW が本番の公開 URL で設定されている',
+        patch: { PUBLIC_ORIGIN: 'https://scrum-guild.example', DEV_NOW: '2026-10-26T10:00:00+09:00' },
+      },
     ];
     const apps = [
       { name: '本番と同じアプリ', app: createApp() },
