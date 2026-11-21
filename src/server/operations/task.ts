@@ -1887,7 +1887,7 @@ export const taskMoveOperation = implement(taskMove, async ({ db, actor, workspa
         .$if(after !== null, (qb) =>
           qb.where((eb) =>
             eb.exists(
-              siblingTasks(q, workspaceId, parentId, taskId)
+              siblingTasks(q, workspaceId, parentId, taskId, 'id')
                 .select('tasks.id')
                 .where('tasks.id', '=', after!.id)
                 .where('tasks.position', '=', after!.position),

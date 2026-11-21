@@ -669,7 +669,7 @@ function keepTaskStatements(db: OrganizationDb, context: DeleteContext, storyId:
           updated_at: deletedAt,
         }))
         .whereRef('tasks.id', '=', 'n.id')
-        .where('tasks.workspace_id', '=', workspaceId),
+        .where(unindexed('tasks.workspace_id'), '=', workspaceId),
     ),
   ];
 }

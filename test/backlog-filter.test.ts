@@ -746,6 +746,8 @@ describe('実行計画', () => {
       expect(plan).toMatch(/SEARCH tasks USING (COVERING )?INDEX tasks_workspace_tray/);
       expect(plan).not.toMatch(/\btasks USING (COVERING )?INDEX tasks_story\b/);
       expect(plan).not.toMatch(/SEARCH t USING (?:COVERING )?INDEX tasks_workspace_/);
+      // 末尾の検索とは別に、UPDATE は移す行を n.id から主キーで引く。
+      expect(plan).toMatch(/SEARCH tasks USING INDEX sqlite_autoindex_tasks_1 \(id=\?\)/);
       expect(plan).toMatch(
         /SEARCH t USING (COVERING )?INDEX tasks_story(?: \(story_id=\?\)|_fk \(story_id=\? AND deleted_at=\?\))/,
       );
@@ -764,7 +766,10 @@ describe('実行計画', () => {
         const plan = await planOf(statement);
         expect(plan, plan).toMatch(/SEARCH tasks USING INDEX tasks_story \(story_id=\?/);
         // position の順を索引で得る。id が第2ソートキーなので同じ position 内の並べ替えは許容する。
-        expect(plan, plan).not.toMatch(/USE TEMP B-TREE FOR ORDER BY/);
+        const sorts = plan.split('\n').filter((detail) => detail.includes('TEMP B-TREE'));
+        for (const sort of sorts) {
+          expect(sort).toMatch(/FOR (?:RIGHT PART|LAST TERM) OF (?:THE )?ORDER BY/);
+        }
       }
       expect(await planOf(siblings.ties(after))).toMatch(/USING INDEX tasks_story \(story_id=\? AND position=\?\)/);
       expect(await planOf(siblings.byId(after.id))).toMatch(/USING INDEX sqlite_autoindex_tasks_1 \(id=\?\)/);
