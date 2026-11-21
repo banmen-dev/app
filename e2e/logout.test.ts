@@ -188,7 +188,7 @@ test.describe('組織の中（アカウントのメニュー）', () => {
         await call.fail(503, 'unavailable');
       });
       await page.goto('/aoba');
-      await expect(accountButton(page)).toHaveAttribute('aria-label', 'ミナト 管理者 1。アカウントのメニュー');
+      await expect(accountButton(page)).toHaveAttribute('aria-label', 'ミ ミナト 管理者 1。アカウントのメニュー');
       const status = page.locator('.account-menu [role="status"]');
       await expect(status).toHaveText('');
       await accountButton(page).click();
