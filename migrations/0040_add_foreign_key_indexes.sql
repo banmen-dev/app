@@ -27,7 +27,9 @@ CREATE INDEX stories_epic_fk ON stories (epic_id) WHERE epic_id IS NOT NULL;
 CREATE INDEX tasks_story_fk ON tasks (story_id, deleted_at, completed_at, id) WHERE story_id IS NOT NULL;
 CREATE INDEX tasks_sprint_fk ON tasks (sprint_id) WHERE sprint_id IS NOT NULL;
 CREATE INDEX tasks_column_fk ON tasks (column_id) WHERE column_id IS NOT NULL;
-CREATE INDEX tasks_repository_fk ON tasks (repository_id) WHERE repository_id IS NOT NULL;
+-- 旧版のバックログがこの索引を選んでも、ストーリーごとの未完了行まで絞る。
+CREATE INDEX tasks_repository_fk ON tasks (repository_id, story_id, deleted_at, completed_at)
+  WHERE repository_id IS NOT NULL;
 CREATE INDEX tasks_category_fk ON tasks (category_id) WHERE category_id IS NOT NULL;
 CREATE INDEX completions_category_fk ON completions (category_id) WHERE category_id IS NOT NULL;
 CREATE INDEX sprint_entries_sprint_fk ON sprint_entries (sprint_id);

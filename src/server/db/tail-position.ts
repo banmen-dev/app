@@ -6,6 +6,11 @@ export const tasksByStoryPosition = sql<OrganizationTables['tasks']>`tasks`.as<'
   sql`tasks INDEXED BY tasks_story`,
 );
 
+// ストーリーごとに、削除していない未完了のタスクだけを引く。
+export const openTasksByStory = sql<OrganizationTables['tasks']>`tasks`.as<'tasks'>(
+  sql`tasks INDEXED BY tasks_story_open`,
+);
+
 // 並び（position）の末尾に、複数の行を1つの文で元の並びのまま振る値（エピックとストーリーの削除で配下を移すとき）。
 // 値は「移す先の最後の値（無ければ a0。fractional-indexing の generateKeyBetween(null, null) と同じ）」の後ろに、
 // 元の並びの順番（1 始まり）を、行の数の桁にそろえた10進数で足し、V で閉じたもの。

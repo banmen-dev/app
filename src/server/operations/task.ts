@@ -12,6 +12,7 @@ import { backlogTree, taskComplete, taskCreate, taskMove } from '../../shared/op
 import { searchWordsOf } from '../../shared/backlog-filter.ts';
 import { MIN_POINTS_FOR_EXPERIENCE } from '../../shared/task.ts';
 import {
+  openTasksByStory,
   previousStatementChanged,
   sprintLeftLogSql,
   tasksByStoryPosition,
@@ -425,16 +426,46 @@ type TaskPoints = 0 | 1 | 2 | 3 | 5 | 8 | 13 | null;
 // （FROM stories CROSS JOIN tasks）。SQLite は INNER JOIN だと、親のないタスクも含めた tasks_workspace_tray を先に走査する計画を
 // 選ぶので、CROSS JOIN で順序を固定し、ストーリー側を workspace_id、タスク側を story_id の索引で引く。結ぶ条件は WHERE に書く。
 // 両側をワークスペースで絞る
-function tasksUnderStories(from: Pick<QueryCreator<Tables>, 'selectFrom'>, workspaceId: string) {
+function tasksUnderStories(
+  from: Pick<QueryCreator<Tables>, 'selectFrom'>,
+  workspaceId: string,
+  table: typeof openTasksByStory,
+) {
   return from
     .selectFrom('stories')
-    .crossJoin('tasks')
+    .crossJoin(table)
     .whereRef('tasks.story_id', '=', 'stories.id')
     .whereRef('tasks.workspace_id', '=', 'stories.workspace_id')
     .where('stories.workspace_id', '=', workspaceId)
     .where('stories.deleted_at', 'is', null)
     .where('tasks.tray', '=', 'backlog')
     .where('tasks.deleted_at', 'is', null);
+}
+
+// ストーリーごとの、完了した件数とポイントの合計。未見積もりは 0
+export function storyTaskCountsStatement(db: OrganizationDb, workspaceId: string) {
+  return db.statement((q) =>
+    tasksUnderStories(q, workspaceId, tasksByStoryPosition)
+      .select((eb) => [
+        'stories.id as story_id',
+        eb.fn
+          .sum<number>(eb.case().when('tasks.completed_at', 'is not', null).then(1).else(0).end())
+          .as('completed_count'),
+        eb.fn.sum<number>(eb.case().when('tasks.completed_at', 'is', null).then(1).else(0).end()).as('open_count'),
+        eb.fn
+          .sum<number>(
+            eb
+              .case()
+              .when('tasks.completed_at', 'is not', null)
+              .then(eb.fn.coalesce('tasks.points', eb.lit(0)))
+              .else(0)
+              .end(),
+          )
+          .as('points_done'),
+        eb.fn.sum<number>(eb.fn.coalesce('tasks.points', eb.lit(0))).as('points_all'),
+      ])
+      .groupBy('stories.id'),
+  );
 }
 
 // users の行の人が、そのワークスペースに今所属していて担当にできる人か（activeMemberName、member-list と同じ条件）
@@ -467,14 +498,12 @@ export type BacklogTreeFilter = {
 // 区分は親から引き継ぐので、タスク自身の区分は読まない。
 // 絞り込みは WHERE に足す。区分、エピック、検索は、タスクか親（ストーリー、その親のエピック）のどれかが当たれば当たり
 // （区分とエピックは親から引き継ぐので、親で決まる）。担当、依頼先、リポジトリは、タスク自身で決める。
-// 担当と依頼先の列は索引に使わせない（tasks_story_open を足す前は、SQLite が tasks_story の代わりに tasks_assignee_user をストーリーごとに
-// 引く計画を選び、5 万件で 10 秒かかった。ストーリーごとの未完了行を直接引ける計画を保つ。
-// 依頼先とリポジトリの索引も同じ理由で止める。test/backlog-filter.test.ts が実行計画で確かめる）
+// ストーリーごとに担当、依頼先、リポジトリやワークスペースの索引を引き直さないように、tasks_story_open を指定する。
 export function openStoryTasksStatement(db: OrganizationDb, workspaceId: string, filter: BacklogTreeFilter) {
   const { assignee, delegatee, category, repository, epic, words } = filter;
   const organizationId = db.organizationId;
   return db.statement((q) =>
-    tasksUnderStories(q, workspaceId)
+    tasksUnderStories(q, workspaceId, openTasksByStory)
       .leftJoin('users', (join) =>
         join.onRef('users.id', '=', 'tasks.assignee_user_id').on('users.organization_id', '=', organizationId),
       )
@@ -518,9 +547,7 @@ export function openStoryTasksStatement(db: OrganizationDb, workspaceId: string,
       .$if(delegatee !== undefined, (qb) =>
         qb.where(unindexed('tasks.delegatee_id'), delegatee === null ? 'is' : '=', delegatee!),
       )
-      .$if(repository !== undefined, (qb) =>
-        qb.where(unindexed('repositories.id'), repository === null ? 'is' : '=', repository!),
-      )
+      .$if(repository !== undefined, (qb) => qb.where('repositories.id', repository === null ? 'is' : '=', repository!))
       .$if(category !== undefined, (qb) =>
         qb.where((eb) => {
           // 引き継ぎを解いた区分の ID（親のないストーリーは自身の区分、エピックの下ならエピックの区分）。
@@ -769,29 +796,7 @@ export const backlogTreeOperation = implement(backlogTree, async ({ db, actor, w
         .orderBy('stories.id'),
     ),
     openStoryTasksStatement(db, workspaceId, filter),
-    // ストーリーごとの、完了した件数とポイントの合計。未見積もりは 0
-    db.statement((q) =>
-      tasksUnderStories(q, workspaceId)
-        .select((eb) => [
-          'stories.id as story_id',
-          eb.fn
-            .sum<number>(eb.case().when('tasks.completed_at', 'is not', null).then(1).else(0).end())
-            .as('completed_count'),
-          eb.fn.sum<number>(eb.case().when('tasks.completed_at', 'is', null).then(1).else(0).end()).as('open_count'),
-          eb.fn
-            .sum<number>(
-              eb
-                .case()
-                .when('tasks.completed_at', 'is not', null)
-                .then(eb.fn.coalesce('tasks.points', eb.lit(0)))
-                .else(0)
-                .end(),
-            )
-            .as('points_done'),
-          eb.fn.sum<number>(eb.fn.coalesce('tasks.points', eb.lit(0))).as('points_all'),
-        ])
-        .groupBy('stories.id'),
-    ),
+    storyTaskCountsStatement(db, workspaceId),
     rootOpenTasksStatement(db, workspaceId, filter),
     rootCompletedCountStatement(db, workspaceId),
     backlogCountsStatement(db, workspaceId),

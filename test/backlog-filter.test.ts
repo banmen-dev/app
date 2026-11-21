@@ -12,6 +12,7 @@ import { implementedOperations } from '../src/server/operations/index.ts';
 import {
   lastPositionStatement,
   openStoryTasksStatement,
+  storyTaskCountsStatement,
   rootCompletedCountStatement,
   rootOpenTasksStatement,
   siblingStatements,
@@ -609,14 +610,19 @@ describe('実行計画', () => {
         await queryPlanForTest(env, openStoryTasksStatement(db, target.workspace.id, { words: [], ...filter }))
       ).join('\n');
       expect(plan).toMatch(/SEARCH stories USING INDEX stories_workspace_(?:epic|fk) \(workspace_id=\?/);
-      expect(plan).toMatch(
-        /SEARCH tasks USING INDEX tasks_story_(?:open \(story_id=\?\)|fk \(story_id=\? AND deleted_at=\? AND completed_at=\?\))/,
-      );
+      expect(plan).toMatch(/SEARCH tasks USING INDEX tasks_story_open \(story_id=\?\)/);
       expect(plan).not.toContain('tasks_assignee_user');
       expect(plan).not.toContain('tasks_delegatee_completed');
       expect(plan).not.toMatch(/^\s*SCAN tasks\b/m);
     },
   );
+
+  test('完了件数とポイントはストーリーごとのタスクを索引で集計する', async () => {
+    const target = await createTarget();
+    const db = orgDb(env, target.organization.verified);
+    const plan = (await queryPlanForTest(env, storyTaskCountsStatement(db, target.workspace.id))).join('\n');
+    expect(plan).toMatch(/SEARCH tasks USING INDEX tasks_story \(story_id=\?\)/);
+  });
 
   // ANALYZE の後、tasks_story の統計は story_id の NULL を別々の値と数える。ストーリーごとの行が少なく、全組織の親なしの行が多い形にして、
   // 親なしの文が story_id を索引に使わせず tasks_workspace_tray で引くことを確かめる
