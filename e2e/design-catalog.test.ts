@@ -399,11 +399,32 @@ for (const screen of ['today.html', 'sprint.html']) {
       SQ.redraw();
     });
     await expect(goals).toHaveCount(0);
-    await expect(page.locator('.notice-grid')).toHaveCount(0);
+    await expect(page.locator(screen === 'today.html' ? '.notice-grid' : '.notice')).toHaveCount(0);
     await expect(page.locator('.page-title')).toBeVisible();
     expect(errors).toEqual([]);
   });
 }
+
+test('組織のホームの見本: 同名のワークスペースの貼り紙は ID 順に並ぶ', async ({ page }) => {
+  const errors = await openCatalog(page, 'today.html');
+  const goals = page.locator('.notice-grid > .notice .notice-title.is-goal');
+  await expect(goals).toHaveCount(2);
+  const original = await goals.allTextContents();
+  await page.evaluate(() => {
+    const { SQ } = window as unknown as {
+      SQ: {
+        D: { workspaces: Record<string, { name: string }>; sprints: Record<string, unknown> };
+        redraw: () => void;
+      };
+    };
+    SQ.D.workspaces.wb.name = SQ.D.workspaces.wa.name;
+    SQ.D.sprints = Object.fromEntries(Object.entries(SQ.D.sprints).reverse());
+    SQ.redraw();
+  });
+  await expect(page.locator('.notice-grid .notice-meta')).toHaveText(['受託開発チーム', '受託開発チーム']);
+  await expect(goals).toHaveText(original);
+  expect(errors).toEqual([]);
+});
 
 test('組織のホームの見本: 390px で長いワークスペース名とスプリント名がタスク行に収まる', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
