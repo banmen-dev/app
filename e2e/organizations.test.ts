@@ -55,7 +55,7 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
     await expect(page.locator('.me')).toContainText('ハルカ');
     await expect(page.locator('.me .chip')).toHaveCount(0);
     // 1組織でもダッシュボードに戻れる。招待が無いので印は出ない
-    await expect(menuButton(page)).toHaveAttribute('aria-label', 'あおば開発。組織を切り替える');
+    await expect(menuButton(page)).toHaveAttribute('aria-label', '組織 あおば開発。組織を切り替える');
     await expect(page.locator('.org-menu-invite')).toHaveCount(0);
     await menuButton(page).click();
     await expect(menuLinks(page)).toHaveText(['あおば開発', 'ダッシュボード']);
@@ -405,7 +405,7 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
     await expect(menuLinks(page).nth(0).locator('svg')).toHaveCount(1);
     await expect(menuLinks(page).nth(1)).not.toHaveAttribute('aria-current', /.*/);
     // ボタンとリストには、読み上げの名前がある
-    await expect(menuButton(page)).toHaveAttribute('aria-label', 'あおば開発。組織を切り替える');
+    await expect(menuButton(page)).toHaveAttribute('aria-label', '組織 あおば開発。組織を切り替える');
     await expect(page.getByRole('list', { name: '入れる組織' })).toBeVisible();
     await menuLinks(page).nth(1).click();
 
@@ -518,6 +518,19 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
     await expect(page.getByRole('heading', { level: 2, name: '届いた招待' })).toBeVisible();
   });
 
+  test('狭い幅で招待があるときは、ボタンの読み上げの名前を見える文字と同じ順にする', async ({ page }) => {
+    await mockOperation(page, myOrganizations, AOBA_WITH_INVITATION);
+    await page.setViewportSize({ width: 390, height: 800 });
+    await page.goto('/aoba');
+    await page.getByRole('button', { name: 'すべてのメニュー', exact: true }).click();
+    const button = menuButton(page);
+    await expect(button.locator('.org-menu-label')).toBeVisible();
+    await expect(button.locator('b')).toHaveText('あおば開発');
+    await expect(button.locator('.chip')).toBeVisible();
+    await expect(button).toHaveAccessibleName('組織 あおば開発 届いた招待あり。組織を切り替える');
+    expect(await findA11yViolations(page, '.org-menu-button')).toEqual([]);
+  });
+
   test('今の組織の名前は、入れる組織の一覧の名前を使う。一覧に無いときだけ組織の操作の名前を使う', async ({ page }) => {
     await patchOrganization(page, 'aoba', (body) => {
       body.organization.name = '操作の名前';
@@ -535,21 +548,27 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
     await expect(menuButton(page)).toContainText('操作の名前');
   });
 
-  test('別の組織へ移っている間は、ボタンに「移っています」を出す', async ({ page }) => {
+  test('別の組織へ移っている間は、ボタンの表示と読み上げの名前に「移っています」を出す', async ({ page }) => {
+    const { promise: gate, resolve: release } = Promise.withResolvers<void>();
     await routeOperation(page, organizationInfo, { slug: 'hibari' }, async (call) => {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await gate;
       await call.passThrough();
     });
-    await page.goto('/aoba');
-    await menuButton(page).click();
-    await menuLinks(page).nth(1).click();
-    // リンクを選んだら、移る前に、隠れるリンクではなくボタンにフォーカスを戻して閉じる
-    await expect(menuButton(page)).toBeFocused();
-    await expect(menuButton(page)).toHaveAttribute('aria-expanded', 'false');
-    await expect(menuButton(page)).toContainText('移っています');
-    await expect(page.locator('.org-menu [role="status"]')).toHaveText('移っています');
+    try {
+      await page.goto('/aoba');
+      await menuButton(page).click();
+      await menuLinks(page).nth(1).click();
+      // リンクを選んだら、移る前に、隠れるリンクではなくボタンにフォーカスを戻して閉じる
+      await expect(menuButton(page)).toBeFocused();
+      await expect(menuButton(page)).toHaveAttribute('aria-expanded', 'false');
+      await expect(menuButton(page)).toContainText('移っています');
+      await expect(menuButton(page)).toHaveAccessibleName('組織 移っています。組織を切り替える');
+      await expect(page.locator('.org-menu [role="status"]')).toHaveText('移っています');
+    } finally {
+      release();
+    }
     await expect(page).toHaveURL(/\/hibari$/);
-    await expect(menuButton(page)).toContainText('ひばり工房');
+    await expect(menuButton(page)).toHaveAccessibleName('組織 ひばり工房。組織を切り替える');
     await expect(page.locator('.org-menu [role="status"]')).toHaveText('');
   });
 
@@ -649,6 +668,7 @@ test('組織からダッシュボードへの遅い移動では、元の画面�
     await menuButton(page).click();
     await menuLinks(page).last().click();
     await expect(menuButton(page)).toContainText('移っています');
+    await expect(menuButton(page)).toHaveAccessibleName('組織 移っています。組織を切り替える');
     await expect(page.locator('.org-menu [role="status"]')).toHaveText('移っています');
     await expect(page.getByRole('heading', { level: 1, name: '今日やること' })).toBeVisible();
     await expect(page.locator('.loading-overlay')).toHaveCount(0);
