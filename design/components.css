@@ -800,12 +800,6 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
 .notice.is-raid .notice-label { color: var(--color-xp); }
 .notice.is-cleared { border-top-color: var(--color-done); }
 
-/* 日の目盛り（スプリントの何日目か） */
-.day-ticks { display: flex; gap: var(--space-half); }
-.day-ticks i { flex: 1; height: 4px; background: var(--color-rule); }
-.day-ticks i.is-past { background: var(--color-accent); opacity: 0.55; }
-.day-ticks i.is-today { background: var(--color-accent); }
-
 /* 進み（完了 / 全体） */
 .progress { display: flex; align-items: center; gap: var(--space-2); flex: 1; min-width: 120px; }
 .progress-bar { position: relative; flex: 1; min-width: 0; height: 6px; background: var(--color-gauge); overflow: hidden; }
@@ -885,7 +879,7 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
 .news-link:hover .ico, .news-link:focus-visible .ico { color: var(--color-accent); }
 .news-body { margin: 0; font-size: var(--text-sm); line-height: var(--leading-body); overflow-wrap: anywhere; }
 @media (max-width: 760px), (pointer: coarse) { .news-link { min-height: 44px; } }
-/* ダッシュボード: 761px 以上は左3、右2の2列。左の列（.dashboard-main）に面を上から並べ、右の列（.dashboard-side）に最近の更新の面を置く（組織のホーム）。
+/* ダッシュボード: 761px 以上は左3、右2の2列。左の列（.dashboard-main）と右の列（.dashboard-side）に、それぞれ面を上から並べる。
    右の列に置く面が無いときは、右の列の要素を置かず、列の幅だけを空けておく（空の要素は置かない）。760px 以下は1列で、左の列、右の列の順に縦に並べる */
 .dashboard { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-8); align-items: start; min-width: 0; }
 .dashboard-main, .dashboard-side { display: grid; gap: var(--space-8); align-content: start; min-width: 0; }

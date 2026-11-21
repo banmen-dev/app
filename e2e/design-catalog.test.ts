@@ -337,6 +337,120 @@ test('見本の削除の確認: クリア済みのエピックを配下を残し
   expect(errors).toEqual([]);
 });
 
+test('組織のホームの見本: タスク行とゴールの貼り紙に本番と同じ情報を出す', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  const errors = await openCatalog(page, 'today.html');
+  const rows = page.locator('.entry');
+  await expect(rows.first()).toBeVisible();
+  await expect(rows.locator('.status-dot, .is-carry')).toHaveCount(0);
+  await expect(rows.locator('.entry-meta').getByText('区分：', { exact: true })).toHaveCount(0);
+
+  const carried = rows.filter({ has: page.locator('[data-task="t8"]') });
+  await expect(carried.locator('.entry-meta .tag')).toHaveText('受託開発チーム');
+  await expect(carried.locator('.entry-meta .is-name')).toHaveText('スプリント：第14回');
+  await expect(carried.locator('.props-note')).toHaveText('1日前に印を付けた');
+  await expect(carried.getByText('決済の失敗をすぐ検知できる', { exact: true })).toHaveCount(0);
+  await expect(carried.locator('.entry-chips .chip')).toContainText('期日切れ');
+  await expect(carried.locator('.entry-chips .pts')).toHaveText('1');
+  await expect(carried.locator('.entry-chips').getByRole('img', { name: 'ミナト' })).toBeVisible();
+
+  const imported = rows.filter({ has: page.locator('[data-task="t11"]') });
+  await expect(imported.locator('.entry-meta .is-name')).toHaveText(['スプリント：第14回', 'リポジトリ：shop']);
+  await expect(imported.locator('.source-key')).toHaveText('acme/shop#418');
+  const sourceDone = rows.filter({ has: page.locator('[data-task="t12"]') });
+  await expect(sourceDone.locator('.source-key')).toHaveText('SHOP-131');
+  await expect(sourceDone.locator('.chip.is-ok')).toHaveText('取り込み元で完了');
+  await expect(page.locator('.tally').filter({ hasText: '取り込み元で完了' }).locator('.is-ok dd')).toHaveText('1');
+
+  const goals = page.locator('.notice-grid > .notice');
+  await expect(goals).toHaveCount(2);
+  for (const [i, workspace] of ['受託開発チーム', '社内ツール'].entries()) {
+    const goal = goals.nth(i);
+    await expect(goal.locator(':scope > *')).toHaveCount(3);
+    await expect(goal.locator('.notice-label')).toHaveText('スプリントゴール');
+    await expect(goal.locator('.notice-title.is-goal')).not.toBeEmpty();
+    await expect(goal.locator('.notice-meta')).toHaveText(workspace);
+  }
+  expect(errors).toEqual([]);
+});
+
+test('スプリントの見本: ゴールの貼り紙はラベルとゴールだけを出す', async ({ page }) => {
+  const errors = await openCatalog(page, 'sprint.html');
+  const goal = page.locator('.notice').filter({ has: page.locator('.notice-title.is-goal') });
+  await expect(goal).toBeVisible();
+  await expect(goal.locator(':scope > *')).toHaveCount(2);
+  await expect(goal.locator('.notice-label')).toHaveText('スプリントゴール');
+  await expect(goal.locator('.notice-title.is-goal')).toHaveText(
+    '会員ポイントの付与を管理画面で確かめられる所まで進め、決済の障害の検知を入れる',
+  );
+  expect(errors).toEqual([]);
+});
+
+for (const screen of ['today.html', 'sprint.html']) {
+  test(`ゴールが空のスプリントの見本では貼り紙を置かない: ${screen}`, async ({ page }) => {
+    const errors = await openCatalog(page, screen);
+    const goals = page.locator('.notice-title.is-goal');
+    await expect(goals.first()).toBeVisible();
+    await page.evaluate(() => {
+      const { SQ } = window as unknown as {
+        SQ: { D: { sprints: Record<string, { goal?: string }> }; redraw: () => void };
+      };
+      for (const sprint of Object.values(SQ.D.sprints)) sprint.goal = '';
+      SQ.redraw();
+    });
+    await expect(goals).toHaveCount(0);
+    await expect(page.locator(screen === 'today.html' ? '.notice-grid' : '.notice')).toHaveCount(0);
+    await expect(page.locator('.page-title')).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+}
+
+test('組織のホームの見本: 同名のワークスペースの貼り紙は ID 順に並ぶ', async ({ page }) => {
+  const errors = await openCatalog(page, 'today.html');
+  const goals = page.locator('.notice-grid > .notice .notice-title.is-goal');
+  await expect(goals).toHaveCount(2);
+  const original = await goals.allTextContents();
+  await page.evaluate(() => {
+    const { SQ } = window as unknown as {
+      SQ: {
+        D: { workspaces: Record<string, { name: string }>; sprints: Record<string, unknown> };
+        redraw: () => void;
+      };
+    };
+    SQ.D.workspaces.wb.name = SQ.D.workspaces.wa.name;
+    SQ.D.sprints = Object.fromEntries(Object.entries(SQ.D.sprints).reverse());
+    SQ.redraw();
+  });
+  await expect(page.locator('.notice-grid .notice-meta')).toHaveText(['受託開発チーム', '受託開発チーム']);
+  await expect(goals).toHaveText(original);
+  expect(errors).toEqual([]);
+});
+
+test('組織のホームの見本: 390px で長いワークスペース名とスプリント名がタスク行に収まる', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const errors = await openCatalog(page, 'today.html');
+  const longName = 'DevelopmentTeam'.repeat(6);
+  await page.evaluate((name) => {
+    const { SQ } = window as unknown as {
+      SQ: { D: { workspaces: { wa: { name: string } }; sprints: { sp14: { name: string } } }; redraw: () => void };
+    };
+    SQ.D.workspaces.wa.name = name;
+    SQ.D.sprints.sp14.name = name;
+    SQ.redraw();
+  }, longName);
+
+  const row = page.locator('.entry').filter({ has: page.locator('[data-task="t8"]') });
+  await expect(row.locator('.entry-meta .tag')).toHaveText(longName);
+  await expect(row.locator('.entry-meta .is-name')).toHaveText(`スプリント：${longName}`);
+  await expect(row.locator('.entry-chips').getByRole('img', { name: 'ミナト' })).toBeVisible();
+  await expect(row.locator('.entry-actions .done-btn')).toBeVisible();
+  expect(await row.evaluate((element) => element.scrollWidth)).toBeLessThanOrEqual(
+    await row.evaluate((element) => element.clientWidth),
+  );
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  expect(errors).toEqual([]);
+});
+
 test('スマホの見本の浮きメニューから組織作成を開ける（#1102）', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const errors = await openCatalog(page, 'today.html');
