@@ -377,6 +377,43 @@ test('ポインタが乗ったまま消したカードの強調を残さない',
   await expect(page.locator('.card.is-story-dimmed')).toHaveCount(0);
 });
 
+test('隙間で保った強調のストーリーが盤から消えたら、残ったカードを暗くしたままにしない', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signIn(context, baseURL, 'admin');
+  const board = structuredClone(SAMPLE_BOARD);
+  const task = board.columns[0]!.tasks[0]!;
+  task.can_delete = true;
+  await routeOperation(page, sprintBoard, { slug: 'aoba' }, (call) => call.fulfill(board));
+  await routeOperation(page, taskDelete, { slug: 'aoba' }, (call) => {
+    board.columns[0]!.tasks = board.columns[0]!.tasks.filter((item) => item.id !== task.id);
+    return call.fulfill({ task_id: task.id });
+  });
+  await page.goto(PATH);
+  const card = page.locator(`[data-card-id="${task.id}"]`);
+  await card.locator('.card-foot').hover();
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(1);
+  // 列と列の間（盤の地）へ動かす。列の高さが変わっても、ポインタの下は盤の地のまま
+  const left = (await page.locator('.board-col').nth(0).boundingBox())!;
+  const right = (await page.locator('.board-col').nth(1).boundingBox())!;
+  const box = (await card.boundingBox())!;
+  const point = { x: (left.x + left.width + right.x) / 2, y: box.y + box.height / 2 };
+  await page.mouse.move(point.x, point.y);
+  expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.classList.contains('board'), point)).toBe(
+    true,
+  );
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(1);
+  await expect(page.locator('.card.is-story-dimmed')).toHaveCount(3);
+  // ポインタを動かさずに、キーボードで「⋯」から削除する
+  await card.locator('.row-menu-btn').press('Enter');
+  await card.getByRole('menuitem', { name: 'このタスクを削除する', exact: true }).press('Enter');
+  await expect(page.locator('.card')).toHaveCount(3);
+  await expect(page.locator('.card.is-story-highlighted')).toHaveCount(0);
+  await expect(page.locator('.card.is-story-dimmed')).toHaveCount(0);
+});
+
 test('最後の対象カードを削除したら中立の案内で絞り込みを解除する', async ({ page, context, baseURL }) => {
   await signIn(context, baseURL, 'admin');
   const board = structuredClone(SAMPLE_BOARD);
