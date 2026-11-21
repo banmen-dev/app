@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, test } from 'node:test';
+import { load } from 'js-yaml';
 import {
   ciOkVerdict,
   countListedTests,
@@ -158,6 +162,39 @@ describe('parseNulSeparated', () => {
   });
 });
 
+describe('ci.yml の main の検査対象', () => {
+  const workflow = load(readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8')) as {
+    jobs: { changes: { steps: { id?: string; run?: string }[] } };
+  };
+  const main = workflow.jobs.changes.steps.find((step) => step.id === 'main');
+  assert.ok(main?.run, 'changes の main ステップに run が無い');
+  const script = main.run;
+
+  for (const [event, devBuild] of [
+    ['push', 'false'],
+    ['schedule', 'true'],
+    ['workflow_dispatch', 'true'],
+  ]) {
+    test(`${event} では dev_build=${devBuild} を出す`, (t) => {
+      const dir = mkdtempSync(join(tmpdir(), 'ci-main-'));
+      t.after(() => rmSync(dir, { recursive: true, force: true }));
+      const output = join(dir, 'output');
+      const run = spawnSync('bash', ['-e', '-c', script], {
+        cwd: dir,
+        encoding: 'utf8',
+        env: { GITHUB_EVENT_NAME: event, GITHUB_OUTPUT: output },
+      });
+      assert.ifError(run.error);
+      assert.equal(run.status, 0, run.stderr);
+      assert.deepEqual(readFileSync(output, 'utf8').trimEnd().split('\n').sort(), [
+        `dev_build=${devBuild}`,
+        'docs_only=false',
+        'repeat=false',
+      ]);
+    });
+  }
+});
+
 describe('ciOkVerdict', () => {
   function needs(changes: string, docsOnly: string | undefined, ...heavy: string[]): Needs {
     const jobs: Needs = {
@@ -188,6 +225,20 @@ describe('ciOkVerdict', () => {
       assert.equal(ciOkVerdict(input).ok, ok);
     });
   }
+
+  test('main への push は e2e-dev と e2e-repeat が skipped なら通す', () => {
+    const input: Needs = {
+      changes: { result: 'success', outputs: { docs_only: 'false', dev_build: 'false', repeat: 'false' } },
+      check: { result: 'success' },
+      test: { result: 'success' },
+      'test-node': { result: 'success' },
+      migration: { result: 'success' },
+      e2e: { result: 'success' },
+      'e2e-dev': { result: 'skipped' },
+      'e2e-repeat': { result: 'skipped' },
+    };
+    assert.equal(ciOkVerdict(input).ok, true);
+  });
 
   describe('開発モードの e2e（e2e-dev）は dev_build で期待が変わる', () => {
     function withDev(docsOnly: string, devBuild: string | undefined, dev: string, other = 'success'): Needs {
