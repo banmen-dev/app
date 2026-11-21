@@ -115,9 +115,7 @@ test('0040 を統計のない旧版の DB に当てても、リポジトリ指�
     assert.equal(db.prepare("SELECT name FROM sqlite_schema WHERE name = 'sqlite_stat1'").get(), undefined);
     db.exec(readFileSync(new URL(migration, migrations), 'utf8'));
     assertRepositoryLookup(db, workspace);
-    const stats = db
-      .prepare("SELECT idx FROM sqlite_stat1 WHERE idx IN ('stories_workspace_fk', 'tasks_workspace_fk') ORDER BY idx")
-      .all();
+    const stats = db.prepare('SELECT idx FROM sqlite_stat1 ORDER BY idx').all();
     assert.deepEqual(
       stats.map((row) => row.idx),
       ['stories_workspace_fk', 'tasks_workspace_fk'],
