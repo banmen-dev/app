@@ -3,13 +3,12 @@
 // 改行などに当たらず、`%0A` や `%E2%80%A8` を含むパスでワイルドカードのミドルウェアを飛ばした（GHSA-h7mg-cq63-vhpq。#1353）。
 // 飛ばされると、応答に Content-Security-Policy などのヘッダーが付かない
 import { env, exports } from 'cloudflare:workers';
-import type { Hono } from 'hono';
 import { describe, expect, test, vi } from 'vitest';
 import { createApp } from '../src/server/app.ts';
-import type { AppEnv } from '../src/server/app-env.ts';
 import { apiCacheControl, apiCsp, attachmentCsp, fixedHeaders } from '../src/shared/security-headers.ts';
 
-// 行の終わりとして扱われうる文字（LF、CR、NEL、LS、PS）を、パーセントで符号化したもの
+// 行の終わりとして扱われうる文字（LF、CR、NEL、LS、PS）を、パーセントで符号化したもの。NEL（U+0085）は正規表現の `.` に
+// 当たるので 4.13.13 でも飛ばされず、回帰の確かめだけになる（advisory の直しを確かめるのは LF、CR、LS、PS）
 const lineTerminators = ['%0A', '%0D', '%0D%0A', '%C2%85', '%E2%80%A8', '%E2%80%A9'] as const;
 
 type Case = { path: string; method: 'GET' | 'POST'; binary: boolean };
@@ -74,13 +73,15 @@ describe('符号化した行の終わりを含むパス', () => {
     test('SmartRouter が RegExpRouter を選んでいる（選ばなくなったら、この組は確かめる意味を失う）', async () => {
       const res = await app.request('/api/health', {}, env);
       await res.body?.cancel();
-      const router = (app as Hono<AppEnv>).router as { activeRouter?: { name: string } };
+      // SmartRouter の activeRouter は hono の型に出ていない項目。hono の更新で名前が変わったら、ここが落ちる
+      const router = app.router as { activeRouter?: { name: string } };
       expect(router.activeRouter?.name).toBe('RegExpRouter');
     });
 
-    test.each(cases)('$method $path にもセキュリティのヘッダーが付く', async ({ path, method, binary }) => {
+    // 操作を持たないので、バイナリの操作のパスも 404 になり、添付の CSP にはならない。API の値だけを許す
+    test.each(cases)('$method $path にもセキュリティのヘッダーが付く', async ({ path, method }) => {
       const res = await app.request(path, init(method), env);
-      await expectSecurityHeaders(res, binary);
+      await expectSecurityHeaders(res, false);
     });
   });
 
