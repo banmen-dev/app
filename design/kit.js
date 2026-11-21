@@ -3978,7 +3978,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
 
   // ストーリーの親名の操作も、カードの見本の範囲だけで働く。本番の SprintCard とスプリントの画面の trackStoryHover に合わせる。
   // ポインタはカードのどこに乗っても、そのカードのストーリーを強調する（親のないカードは消す）。カードの隙間（列と盤の地）では直前の強調を保ち、
-  // 見出しや足す行に移るか盤を出たら外す。ポインタがある間はフォーカスより先で、外れたら親名のボタンのフォーカスの強調に戻す。タッチでは強調しない。
+  // 見出しや足す行に移るか盤を出たら外す。ポインタがある間はフォーカスより先で、外れたら親名のボタンのフォーカスの強調に戻す。親名へフォーカスが移ったときはフォーカスを先にする。タッチでは強調しない。
   const storyHover = new WeakMap();
   const storyFocus = new WeakMap();
   function paintStoryExample(scope) {
@@ -4012,8 +4012,11 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const trigger = event.target.closest?.("[data-story-filter]");
     const scope = trigger?.closest(".story-board");
     if (!scope) return;
-    if (active) storyFocus.set(scope, trigger.dataset.storyFilter);
-    else storyFocus.delete(scope);
+    // キーボードで親名へ移ったら、保ったポインタの強調を捨ててフォーカスを先にする
+    if (active) {
+      storyFocus.set(scope, trigger.dataset.storyFilter);
+      storyHover.delete(scope);
+    } else storyFocus.delete(scope);
     paintStoryExample(scope);
   }
   document.addEventListener("focusin", (event) => focusStoryExample(event, true));

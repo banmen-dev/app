@@ -987,7 +987,11 @@
                     {task}
                     {highlightedStory}
                     onstoryhover={(id) => (hoveredStory = id)}
-                    onstoryfocus={(id) => (focusedStory = id)}
+                    onstoryfocus={(id) => {
+                      focusedStory = id;
+                      // キーボードで親名へ移ったら、隙間で保ったポインタの強調より、フォーカスしたストーリーを先にする
+                      if (id !== null) hoveredStory = undefined;
+                    }}
                     onstoryfilter={(id) => void filterStory(id)}
                     href="{sprintHref}?task={encodeURIComponent(task.id)}{cardStoryQuery}"
                     edges={canWrite ? edgesOf(visibleColumns, task.id) : null}

@@ -354,6 +354,14 @@ test('カードのどこに乗っても同じストーリーを強調し、隙�
   await expect(highlighted).toHaveCount(0);
   await page.getByRole('heading', { level: 1 }).hover();
   await expect(highlighted).toHaveCount(3);
+  // ポインタを盤に置いたまま、キーボードで親名へ移ったら、フォーカスしたストーリーを先にする
+  await plainCard.locator('.card-foot').hover();
+  await expect(highlighted).toHaveCount(0);
+  await page
+    .getByRole('button', { name: `ストーリーで絞り込む: ${STORY.title}`, exact: true })
+    .nth(1)
+    .focus();
+  await expect(highlighted).toHaveCount(3);
 });
 
 test('ポインタが乗ったまま消したカードの強調を残さない', async ({ page, context, baseURL }) => {
