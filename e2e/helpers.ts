@@ -119,6 +119,7 @@ export async function expectNoA11yViolations(page: Page, screen: UiScreen): Prom
 }
 
 // axe で確かめるテーマ。コントラストはテーマで変わり、言葉では変わらないので、言葉はスクラムの言葉だけにする（docs/design.md）
+// 画面採点の対象を絞っても、axe はこの3テーマを毎回検査する。
 export const A11Y_THEMES = ['simple_light', 'simple_dark', 'modern'] as const;
 
 // 落ち着いた画面に3つのテーマを順に当てて axe を走らせ、違反の無いことと、その画面の除外がどれかのテーマで当たったことを確かめる。
