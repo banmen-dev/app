@@ -26,6 +26,11 @@ export const PLAN_LIMITS = {
   { member_limit: number; attachment_quota_bytes: number }
 >;
 
+// 未契約の組織は、人数上限を満たす最初の定額プランか個別から始める。teamPlans は上限の昇順。
+export function initialTeamPlan(memberLimit: number): TeamPlan {
+  return teamPlans.find((plan) => plan !== 'custom' && PLAN_LIMITS[plan].member_limit >= memberLimit) ?? 'custom';
+}
+
 // 追加容量の1口あたりの容量（バイト）
 export const EXTRA_10GB_BYTES = 10 * GIB;
 export const EXTRA_50GB_BYTES = 50 * GIB;

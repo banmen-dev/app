@@ -16,7 +16,13 @@ import {
 } from '../src/shared/operations/operator/index.ts';
 import { organizationInfo } from '../src/shared/operations/organization/index.ts';
 import { organizationHistory } from '../src/shared/operations/organization/organization-history.ts';
-import { contractLimits, PLAN_LIMITS, type BillingInterval, type TeamPlan } from '../src/shared/organization-plan.ts';
+import {
+  contractLimits,
+  initialTeamPlan,
+  PLAN_LIMITS,
+  type BillingInterval,
+  type TeamPlan,
+} from '../src/shared/organization-plan.ts';
 import { createOrganization, createUser } from './factories.ts';
 import { errorCodeOf, post } from './operations/harness.ts';
 import {
@@ -142,6 +148,20 @@ describe('契約から決まる上限', () => {
       attachment_quota_bytes: 11 * GIB,
     });
   });
+});
+
+test.each([
+  [1, 'small'],
+  [3, 'small'],
+  [4, 'team'],
+  [15, 'team'],
+  [16, 'business'],
+  [30, 'business'],
+  [31, 'pro'],
+  [50, 'pro'],
+  [51, 'custom'],
+] as const)('未契約で人数の上限が%i人なら %s を選ぶ', (limit, plan) => {
+  expect(initialTeamPlan(limit)).toBe(plan);
 });
 
 describe('契約の変更', () => {

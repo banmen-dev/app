@@ -10,6 +10,7 @@
   import {
     billingIntervals,
     contractLimits,
+    initialTeamPlan,
     PLAN_LIMITS,
     teamPlans,
     type BillingInterval,
@@ -136,9 +137,7 @@
       plan = contract.plan;
       interval = contract.billing_interval;
     } else {
-      plan =
-        teamPlans.find((value) => value !== 'custom' && PLAN_LIMITS[value].member_limit >= organization.seats.limit) ??
-        'custom';
+      plan = initialTeamPlan(organization.seats.limit);
       interval = contract?.billing_interval ?? 'monthly';
     }
     members = (contract?.plan === 'custom' ? contract.custom_member_limit : null) ?? organization.seats.limit;
