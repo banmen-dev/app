@@ -20,11 +20,7 @@ test.describe('テーマの節（ハルカ）', () => {
     await signIn(context, baseURL, 'member');
   });
 
-  test('選択肢は4つのテーマだけで、選んだ瞬間に保存して画面に当て、開き直しても続く', async ({
-    page,
-    context,
-    baseURL,
-  }) => {
+  test('選択肢は4つのテーマだけで、選んだ瞬間に保存して画面に当て、開き直しても続く', async ({ page }) => {
     const collect = await watchViolations(page);
     await page.goto('/aoba/me');
     const section = themeSection(page);
@@ -71,17 +67,23 @@ test.describe('テーマの節（ハルカ）', () => {
       await page.reload();
       await expect(themeSection(page).getByRole('radio', { name: /^シンプル（ダーク）/ })).toBeChecked();
       expect(await htmlTheme(page)).toBe('simple_dark');
-
-      // 画面の自己レビューと同じ入口からテーマを用意しても、開き直した画面へ反映される。
-      await setSeedTheme(context, baseURL!, 'simple_light');
-      await page.reload();
-      await expect(themeSection(page).getByRole('radio', { name: /^シンプル（ライト）/ })).toBeChecked();
     } finally {
       // 失敗してもハルカのテーマを残さない（seed は選んでいない状態）
       await page.waitForLoadState('networkidle');
       await resetAobaMemberTheme();
     }
     expect(await collect()).toEqual([]);
+  });
+
+  test('画面採点用のヘルパーで保存したテーマがプロフィールに反映される', async ({ page, context, baseURL }) => {
+    try {
+      await setSeedTheme(context, baseURL!, 'simple_light');
+      await page.goto('/aoba/me');
+      await expect(themeSection(page).getByRole('radio', { name: /^シンプル（ライト）/ })).toBeChecked();
+      await expect.poll(() => htmlTheme(page)).toBe('simple_light');
+    } finally {
+      await resetAobaMemberTheme();
+    }
   });
 
   test('保存に失敗したら、選択と画面を送る前の値に戻し、理由を画面に出す', async ({ page }) => {
