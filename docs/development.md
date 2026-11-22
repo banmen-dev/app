@@ -950,7 +950,7 @@ git の保護フックと CI は既存のものを使う。
 | 運用者の権限（運用者だけの操作の定義） | `src/shared/operations/operator/` |
 | 権限の検査（操作の定義を登録する関数。Origin、セッション、権限、組織とワークスペースの確かめを順に行う）と、それが頼るもの | `src/server/operations/register.ts`、`guards.ts`、`token-scope.ts`（API トークンで呼べるかの判定）、`implement.ts`、`operation-log.ts`（権限の検査と処理に渡すもの、ログの項目）、`src/server/app.ts`、`src/server/errors.ts`（応答の形、運用者の一覧が壊れたときの 500）、`src/shared/operations/define.ts`（権限の種類と実行時の検査）、`src/shared/session-cookie.ts`（Cookie の名前と属性） |
 | 取り込み元の処理（顧客のデータ） | `src/server/import/` |
-| wrangler の設定（見本の Worker の `wrangler.design.jsonc` も含む）、デプロイのスクリプト、依存 | `wrangler*.jsonc` など、`scripts/`、`package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`、`patches/`、`.npmrc`、Node の版の指定 |
+| wrangler の設定（見本の Worker の `wrangler.design.jsonc` も含む）、デプロイのスクリプト、依存、人が手元から出す旧 URL の転送用の Worker（転送先を決める。#1421） | `wrangler*.jsonc` など、`src/legacy-redirect/`、`scripts/`、`package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`、`patches/`、`.npmrc`、Node の版の指定 |
 | lint の設定（組織で絞る層を守る規則を含む） | `eslint.config.*` |
 | GitHub と Claude の設定、git のフック | `.github/`、`.claude/settings.json`、`.claude/hooks/`、`.mcp.json`、`.githooks/` |
 | Codex のエージェントと設定（sandbox とネットワークを変えられる）、Codex が読む決まりとスキル（入れ子も含む） | `.codex/`、`.agents/`、`AGENTS.md`、`AGENTS.override.md` |

@@ -9,5 +9,10 @@
   "send_metrics": false,
   "workers_dev": true,
   // 版ごとのプレビュー URL は作らない
-  "preview_urls": false
+  "preview_urls": false,
+  // 呼び出しごとのログは URL のパスとクエリを残す。名前を変える前に始めたログインの戻り（OAuth の code）が
+  // 旧 URL に届きうるので、ダッシュボードの既定に任せずログごと切る（Worker は自分でログを出さない）
+  "observability": {
+    "enabled": false
+  }
 }
