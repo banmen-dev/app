@@ -44,6 +44,9 @@ jobs:
         with:
           node-version-file: .node-version
 
+      - name: ワークツリーの pnpm 保存先の手順を確かめる
+        run: node scripts/check-worktree-pnpm.ts
+
       # --no-renames: リネームを移動先の名前だけで見ると、src/ から docs/ への移動が文書だけに見えるため。
       # -z: 日本語や空白を含む名前を git が引用して書き換えないようにするため
       - id: docs
