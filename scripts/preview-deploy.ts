@@ -1,10 +1,13 @@
 import { previewBranchNumber } from '../src/shared/preview-branch.ts';
 import {
   isIsolatedPreviewSubdomain,
+  isPreviewDatabaseName,
   LEGACY_PREVIEW_SUBDOMAIN,
+  PREVIEW_DATABASE_PATTERN,
+  previewDatabaseName,
   previewOrigin,
 } from '../src/shared/preview-cloudflare.ts';
-import { PREVIEW_DATABASE_PATTERN, PRODUCTION_DATABASE_ID, UUID_PATTERN } from './preview-config.ts';
+import { PRODUCTION_DATABASE_ID, UUID_PATTERN } from './preview-config.ts';
 
 export type PreviewDatabase = { name: string; uuid: string };
 
@@ -25,7 +28,7 @@ function databaseValue(value: unknown): PreviewDatabase {
   if (typeof name !== 'string' || name.length === 0 || typeof uuid !== 'string' || !UUID_PATTERN.test(uuid)) {
     throw new Error('D1 の名前と ID を読めませんでした');
   }
-  if (name.startsWith('scrum-guild-pr-') && uuid.toLowerCase() === PRODUCTION_DATABASE_ID) {
+  if (isPreviewDatabaseName(name) && uuid.toLowerCase() === PRODUCTION_DATABASE_ID) {
     throw new Error('本番の D1 はプレビューに使えません');
   }
   return { name, uuid };
@@ -84,7 +87,7 @@ export async function deployPreview(deps: PreviewDeps): Promise<void> {
     return;
   }
 
-  const name = `scrum-guild-pr-${number}`;
+  const name = previewDatabaseName(number!);
   const previous = databases.find((database) => database.name === name);
   if (previous) {
     deps.log(`プレビューの D1 を作り直します: ${name}`);

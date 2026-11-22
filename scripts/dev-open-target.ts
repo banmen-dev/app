@@ -1,7 +1,12 @@
 // pnpm dev:open の引数の読み取りと、開く先の判定。通信とブラウザは scripts/dev-open.ts が受け持つ。
 // 止める理由は例外でなく結果の reason で返す（scripts/ci.ts の ciOkVerdict と同じ形）
 import { SEED_SESSIONS } from '../seed/sessions.ts';
-import { isIsolatedPreviewSubdomain, LEGACY_PREVIEW_SUBDOMAIN } from '../src/shared/preview-cloudflare.ts';
+import {
+  isIsolatedPreviewSubdomain,
+  LEGACY_PREVIEW_SUBDOMAIN,
+  previewAlias,
+  PREVIEW_ORIGIN_PATTERN,
+} from '../src/shared/preview-cloudflare.ts';
 import { resolvedReturnTo, safeReturnTo } from '../src/shared/return-to.ts';
 import { sessionCookieName } from '../src/shared/session-cookie.ts';
 import { devPorts, devPublicOrigin } from './dev-ports.ts';
@@ -25,8 +30,13 @@ export const DEFAULT_PATH = '/';
 // remote は本番と別のプレビューだけ。URL の正規化で別の表記になる値も断る。
 export function isPreviewOrigin(origin: string, subdomain?: string): boolean {
   if (subdomain !== undefined && !isIsolatedPreviewSubdomain(subdomain)) return false;
-  const match = /^https:\/\/pr-[1-9][0-9]*-scrum-guild-preview\.([a-z0-9-]+)\.workers\.dev$/.exec(origin);
-  return match?.[1] === (subdomain ?? LEGACY_PREVIEW_SUBDOMAIN) && new URL(origin).origin === origin;
+  const match = PREVIEW_ORIGIN_PATTERN.exec(origin);
+  return (
+    !!match &&
+    previewAlias(match[1]).length <= 63 &&
+    match[2] === (subdomain ?? LEGACY_PREVIEW_SUBDOMAIN) &&
+    new URL(origin).origin === origin
+  );
 }
 
 const LOCAL_HOSTNAMES: ReadonlySet<string> = new Set(['localhost', '127.0.0.1']);

@@ -4,9 +4,9 @@ import { deployPreview, type PreviewDatabase, type PreviewDeps } from './preview
 
 const SHA = 'a'.repeat(40);
 const PRODUCTION_ID = '7fc32f51-8771-4122-aa5d-3b69c07ff861';
-const OLD = { name: 'scrum-guild-pr-374', uuid: '11111111-1111-4111-8111-111111111111' };
+const OLD = { name: 'banmen-pr-374', uuid: '11111111-1111-4111-8111-111111111111' };
 const NEW = { name: OLD.name, uuid: '22222222-2222-4222-8222-222222222222' };
-const OTHER = { name: 'scrum-guild-pr-275', uuid: '33333333-3333-4333-8333-333333333333' };
+const OTHER = { name: 'banmen-pr-275', uuid: '33333333-3333-4333-8333-333333333333' };
 const PROD = { name: 'scrum-guild', uuid: PRODUCTION_ID };
 
 function fake(overrides: Partial<PreviewDeps> = {}) {
@@ -48,7 +48,7 @@ test('自分の D1 だけを作り直し、新しい ID とコミットをプレ
   assert.deepEqual(f.events, ['list', `delete:${OLD.name}`, `create:${OLD.name}`, 'publish']);
   assert.deepEqual(f.deleted, [OLD]);
   assert.deepEqual(f.published, [
-    { number: '374', origin: 'https://pr-374-scrum-guild-preview.ucan-lab.workers.dev', database: NEW, commitSha: SHA },
+    { number: '374', origin: 'https://pr-374-banmen-preview.ucan-lab.workers.dev', database: NEW, commitSha: SHA },
   ]);
 });
 
@@ -114,7 +114,7 @@ test('main は閉じた PR の D1 だけを消し、作成とアップロード�
 });
 
 test('開いた PR がなければプレビューの D1 だけ消す', async () => {
-  const unrelated = { name: 'scrum-guild-preview', uuid: '44444444-4444-4444-8444-444444444444' };
+  const unrelated = { name: 'banmen-preview', uuid: '44444444-4444-4444-8444-444444444444' };
   const f = fake({
     env: { WORKERS_CI: '1', WORKERS_CI_BRANCH: 'main' },
     listDatabases: async () => [PROD, OLD, OTHER, unrelated],
@@ -122,6 +122,17 @@ test('開いた PR がなければプレビューの D1 だけ消す', async () 
   });
   await deployPreview(f.deps);
   assert.deepEqual(f.deleted, [OLD, OTHER]);
+});
+
+test('改名前の接頭辞の D1 は掃除の対象にしない（人が専用アカウントで消す）', async () => {
+  const legacy = { name: 'scrum-guild-pr-275', uuid: '55555555-5555-4555-8555-555555555555' };
+  const f = fake({
+    env: { WORKERS_CI: '1', WORKERS_CI_BRANCH: 'main' },
+    listDatabases: async () => [PROD, OLD, legacy],
+    openBranches: async () => [],
+  });
+  await deployPreview(f.deps);
+  assert.deepEqual(f.deleted, [OLD]);
 });
 
 test('同じ番号の別の開いたブランチも生存中として残す', async () => {

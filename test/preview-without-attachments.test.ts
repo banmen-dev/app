@@ -12,7 +12,7 @@ import { createTarget, testEnv } from './operations/world.ts';
 // Workers の型は本番の設定から生成される。このテストだけで、実際のプレビューと同様に R2 バインディングを外す。
 const previewEnv = {
   ...testEnv,
-  PUBLIC_ORIGIN: 'https://pr-1406-scrum-guild-preview.scrum-guild-preview.workers.dev',
+  PUBLIC_ORIGIN: 'https://pr-1406-banmen-preview.banmen-preview.workers.dev',
   PREVIEW_WITHOUT_ATTACHMENTS: '1',
   ATTACHMENTS: undefined,
 } as unknown as Env;

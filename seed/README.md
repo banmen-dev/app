@@ -8,7 +8,7 @@ pnpm db:seed
 
 流すのは `scripts/db-seed.ts` で、手元の D1 に全マイグレーションを当て、マイグレーションの記録を除く全部の表の行を消してから入れ直す。手で足した行も消えるので、何度流しても同じ状態に戻せる。`--now <ISO 8601 の日時>` を付けると、その日時に流したものとして日付を作る（e2e が使う。下の「日付」）。
 
-このコマンドは引き続き `--local` 専用。リモートの seed は、Workers Builds 専用の `scripts/deploy-preview.ts` が名前と UUID を検査した新規の `scrum-guild-pr-<番号>` だけに流す。SQL とセッションの期限の生成は、ローカルと同じ `scripts/seed.ts` を使う。プレビューを開くには `pnpm dev:open --origin https://pr-<番号>-scrum-guild-preview.ucan-lab.workers.dev [who] [path]` と Access のサービストークンを使う（`docs/development.md` の「プレビュー」）。
+このコマンドは引き続き `--local` 専用。リモートの seed は、Workers Builds 専用の `scripts/deploy-preview.ts` が名前と UUID を検査した新規の `banmen-pr-<番号>` だけに流す。SQL とセッションの期限の生成は、ローカルと同じ `scripts/seed.ts` を使う。プレビューを開くには `pnpm dev:open --origin https://pr-<番号>-banmen-preview.<プレビュー用サブドメイン>.workers.dev [who] [path]` と Access のサービストークン、環境変数 `CLOUDFLARE_PREVIEW_SUBDOMAIN` を使う（`docs/development.md` の「プレビュー」）。
 
 | ファイル | 中身 |
 | --- | --- |

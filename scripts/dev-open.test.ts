@@ -57,7 +57,7 @@ test('前面化に失敗しても、開いたブラウザを閉じずに人が�
 
 test('プレビューを開く CLI は Service Worker を止め、Secure Cookie と Access の経路を読み込み前に設定する', () => {
   const entry = new URL('./dev-open.ts', import.meta.url).href;
-  const origin = 'https://pr-374-scrum-guild-preview.ucan-lab.workers.dev';
+  const origin = 'https://pr-374-banmen-preview.ucan-lab.workers.dev';
   const playwrightMock = `
     import assert from 'node:assert/strict';
     const origin = ${JSON.stringify(origin)};
@@ -188,9 +188,6 @@ test('プレビューを開く CLI は Service Worker を止め、Secure Cookie 
   assert.ifError(result.error);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /REMOTE_CLI_CONFIGURED/);
-  assert.match(
-    result.stdout,
-    /admin として https:\/\/pr-374-scrum-guild-preview\.ucan-lab\.workers\.dev\/aoba を開いた/,
-  );
+  assert.match(result.stdout, /admin として https:\/\/pr-374-banmen-preview\.ucan-lab\.workers\.dev\/aoba を開いた/);
   assert.doesNotMatch(result.stdout + result.stderr, /cli-test-access-id|cli-test-access-secret/);
 });
