@@ -1,6 +1,6 @@
-// GitHub Webhook の受信と、scrum-guild-preview の Builds の起動専用。
+// GitHub Webhook の受信と、banmen-preview の Builds の起動専用。
 {
-  "name": "scrum-guild-preview-trigger",
+  "name": "banmen-preview-trigger",
   "main": "src/server/preview-trigger/worker.ts",
   "compatibility_date": "2026-10-01",
   // 外へテレメトリを送らない。.claude/settings.json の WRANGLER_SEND_METRICS は Claude のセッションにしか効かないので、

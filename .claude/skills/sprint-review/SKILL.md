@@ -138,7 +138,7 @@ MCP で代えるときは、一覧を `list_issues`（`labels` に `status:accep
 | 本番 | 本番でしか起きないこと（デプロイ、本物のログイン、ドメイン、Workers Logs）。または、下の基準で書き込みが無く、対象 PR すべてが本番の版に含まれると確認できた画面の条件 | 人が自分のブラウザで開く。セッションは URL と操作を出す |
 | 手元 | 書き込みのある画面のふるまい、ロールの違い、seed のデータで足りること。書き込みが無くても本番の版に対象 PR を含むと確認できない画面の条件 | 下の「手元を立てる」。人が頼んだときだけ、セッションが操作する（下の「セッションが手元の Chrome で操作する」） |
 | 手元の preview | 本番と同じ配り方に頼ること（CSP とセキュリティのヘッダー、画面の資産の配信） | `pnpm dev` の代わりに `pnpm preview` を立て、`pnpm dev:open --preview` で開く |
-| PR ごとのプレビュー | 手元と同じ。Access と Builds の用意が済んでいること | `pnpm dev:open --origin https://pr-<Issue番号>-scrum-guild-preview.ucan-lab.workers.dev <who> <path>`。環境変数 `CF_ACCESS_CLIENT_ID`・`CF_ACCESS_CLIENT_SECRET` が必要（`docs/development.md` の「プレビュー」） |
+| PR ごとのプレビュー | 手元と同じ。Access と Builds の用意が済んでいること | `pnpm dev:open --origin https://pr-<Issue番号>-banmen-preview.<プレビュー用サブドメイン>.workers.dev <who> <path>`。環境変数 `CF_ACCESS_CLIENT_ID`・`CF_ACCESS_CLIENT_SECRET`・`CLOUDFLARE_PREVIEW_SUBDOMAIN` が必要（`docs/development.md` の「プレビュー」） |
 | PR の記録 | 画面で見られないこと（`batch()` で1つのトランザクションにした、履歴の行、CI の時間、テストの件数） | 下の「画面で見られない条件」 |
 
 書き込みの有無は、手順 5 の宣言の「書き込み」と同じ基準で先に分ける。通常の画面の条件を本番に回すのは、「無し」と判断できたものだけにし、本番の版の確認後に提案する。本番でしか起きない条件は、書き込みがあっても上の本番の対象とし、手順 5 の宣言と記録を行う。読み取りの API も `POST` なので、HTTP のメソッドだけで分けない。ログイン・ログアウトや読み込みで行を書くかが不明なものは「無し」にせず、人に聞いて決める。

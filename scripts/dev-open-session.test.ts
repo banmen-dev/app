@@ -100,7 +100,7 @@ describe('checkDevOpenSession', () => {
 });
 
 test('プレビューの preflight は Access、secure Cookie、Origin を付け、リダイレクトを辿らない', async () => {
-  const origin = 'https://pr-374-scrum-guild-preview.ucan-lab.workers.dev';
+  const origin = 'https://pr-374-banmen-preview.ucan-lab.workers.dev';
   const env = { CF_ACCESS_CLIENT_ID: 'test-id', CF_ACCESS_CLIENT_SECRET: 'test-secret' };
   const remote = resolveDevOpenTarget(['--origin', origin, 'operator'], env);
   assert.ok(remote.ok);

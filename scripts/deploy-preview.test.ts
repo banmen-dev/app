@@ -5,10 +5,15 @@ import path from 'node:path';
 import { test } from 'node:test';
 import ts from 'typescript';
 import { openPreviewBranches, publishPreview } from './deploy-preview.ts';
+import {
+  PREVIEW_DATABASE_PREFIX,
+  PREVIEW_TRIGGER_WORKER_NAME,
+  PREVIEW_WORKER_NAME,
+} from '../src/shared/preview-cloudflare.ts';
 import { previewConfig, PRODUCTION_DATABASE_ID } from './preview-config.ts';
 
 const SHA = 'a'.repeat(40);
-const DB = { name: 'scrum-guild-pr-374', uuid: '11111111-1111-4111-8111-111111111111' };
+const DB = { name: 'banmen-pr-374', uuid: '11111111-1111-4111-8111-111111111111' };
 
 test('ランタイムと資産・bindingの共通設定は本番とずれない', () => {
   const text = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
@@ -36,6 +41,33 @@ test('ランタイムと資産・bindingの共通設定は本番とずれない'
   assert.deepEqual(preview.observability, production.observability);
 });
 
+test('起動専用 Worker の名前は共通の定数と一致する', () => {
+  const text = readFileSync(new URL('../wrangler.preview-trigger.jsonc', import.meta.url), 'utf8');
+  const parsed = ts.parseConfigFileTextToJson('wrangler.preview-trigger.jsonc', text);
+  assert.equal(parsed.error, undefined);
+  assert.equal((parsed.config as { name: string }).name, PREVIEW_TRIGGER_WORKER_NAME);
+  assert.equal(PREVIEW_TRIGGER_WORKER_NAME, 'banmen-preview-trigger');
+});
+
+test('名前は正規表現にそのまま埋め込める形', () => {
+  for (const name of [PREVIEW_WORKER_NAME, PREVIEW_TRIGGER_WORKER_NAME, PREVIEW_DATABASE_PREFIX]) {
+    assert.match(name, /^[a-z0-9-]+$/);
+  }
+});
+
+test('設定は alias のラベルが63文字までの番号だけを受け付ける', () => {
+  const config = (digits: number) => {
+    const number = '1'.repeat(digits);
+    return previewConfig(number, { ...DB, name: `banmen-pr-${number}` }, SHA, '/workspace/app');
+  };
+  assert.equal(new URL(config(45).vars.PUBLIC_ORIGIN).hostname.split('.')[0].length, 63);
+  assert.throws(() => config(46));
+});
+
+test('改名前の名前の D1 では設定を作らない', () => {
+  assert.throws(() => previewConfig('374', { ...DB, name: 'scrum-guild-pr-374' }, SHA, '/workspace/app'));
+});
+
 test('拒否する本番IDは本番の設定と一致する', () => {
   const production = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
   const ids = [...production.matchAll(/"database_id"\s*:\s*"([^"]+)"/g)].map((match) => match[1]);
@@ -44,8 +76,8 @@ test('拒否する本番IDは本番の設定と一致する', () => {
 
 test('設定は本番の binding を持たず、cron と呼び出しログを無効にする', () => {
   const config = previewConfig('374', DB, SHA, '/workspace/app');
-  assert.equal(config.name, 'scrum-guild-preview');
-  assert.equal(config.vars.PUBLIC_ORIGIN, 'https://pr-374-scrum-guild-preview.ucan-lab.workers.dev');
+  assert.equal(config.name, 'banmen-preview');
+  assert.equal(config.vars.PUBLIC_ORIGIN, 'https://pr-374-banmen-preview.ucan-lab.workers.dev');
   assert.equal(config.vars.APP_VERSION, SHA);
   assert.equal(config.vars.OPERATOR_LOGIN_IDS, 'github:9000000000000001');
   assert.deepEqual(config.d1_databases, [
@@ -54,7 +86,7 @@ test('設定は本番の binding を持たず、cron と呼び出しログを無
   assert.equal('r2_buckets' in config, false);
   assert.deepEqual(config.vars, {
     APP_VERSION: SHA,
-    PUBLIC_ORIGIN: 'https://pr-374-scrum-guild-preview.ucan-lab.workers.dev',
+    PUBLIC_ORIGIN: 'https://pr-374-banmen-preview.ucan-lab.workers.dev',
     OPERATOR_LOGIN_IDS: 'github:9000000000000001',
     PREVIEW_WITHOUT_ATTACHMENTS: '1',
   });
@@ -69,7 +101,7 @@ test('設定生成は本番・別番号のDBと不正な版や番号を拒否す
     ['374', { ...DB, uuid: PRODUCTION_DATABASE_ID }, SHA],
     ['374', { ...DB, name: 'scrum-guild' }, SHA],
     ['275', DB, SHA],
-    ['374\n', { ...DB, name: 'scrum-guild-pr-374\n' }, SHA],
+    ['374\n', { ...DB, name: 'banmen-pr-374\n' }, SHA],
     ['374', DB, SHA + '\n'],
     ['374', { ...DB, uuid: DB.uuid + '\n' }, SHA],
   ] as const)

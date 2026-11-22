@@ -41,7 +41,7 @@ Node は `.node-version`（26）、pnpm は `package.json` の `packageManager` 
 - URL を直接開く最初の読み込みを測る: `pnpm bench:boot`（本番ビルド・gzip・使い捨て D1・Chromium で Fast/Slow 3G の表示時間と転送量を測る。`docs/development.md` の「URL を直接開く最初の読み込みを測る」）
 - バックログの木を 5 万件で測る: `pnpm bench:backlog`（使い捨ての D1 で `wrangler dev --local` を立てて測る。`docs/development.md` の「バックログの木を 5 万件で測る」）
 - 手元の D1 にマイグレーションを当て、全部の行を消して seed を入れ直す: `pnpm db:seed`（ログインに使うトークンは `seed/sessions.ts`）
-- seed のセッションでログインした手元か PR のプレビューを、見えるブラウザで開く: `pnpm dev:open [--preview | --origin <origin>] [who] [path]`（例 `pnpm dev:open admin /aoba`。手元では先に `pnpm db:seed` と `pnpm dev` を済ませる。PR は `--origin https://pr-<番号>-scrum-guild-preview.ucan-lab.workers.dev` と環境変数 `CF_ACCESS_CLIENT_ID`・`CF_ACCESS_CLIENT_SECRET` を使う（`docs/development.md` の「プレビュー」）。手元のポートは `pnpm dev` と同じ決め方。環境変数 `DEV_PORT_OFFSET` で立てたときだけ同じ値を付ける）
+- seed のセッションでログインした手元か PR のプレビューを、見えるブラウザで開く: `pnpm dev:open [--preview | --origin <origin>] [who] [path]`（例 `pnpm dev:open admin /aoba`。手元では先に `pnpm db:seed` と `pnpm dev` を済ませる。PR は `--origin https://pr-<番号>-banmen-preview.<プレビュー用サブドメイン>.workers.dev` と環境変数 `CF_ACCESS_CLIENT_ID`・`CF_ACCESS_CLIENT_SECRET`・`CLOUDFLARE_PREVIEW_SUBDOMAIN` を使う（`docs/development.md` の「プレビュー」）。手元のポートは `pnpm dev` と同じ決め方。環境変数 `DEV_PORT_OFFSET` で立てたときだけ同じ値を付ける）
 
 開発用のサーバーとポート、版の渡し方は `docs/development.md` の「手元で動かす」。
 

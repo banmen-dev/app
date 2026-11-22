@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { SEED_SESSIONS } from '../seed/sessions.ts';
-import { parseDevOpenArgs, resolveDevOpenTarget } from './dev-open-target.ts';
+import { isPreviewOrigin, parseDevOpenArgs, resolveDevOpenTarget } from './dev-open-target.ts';
 
 // ワークツリーの名前から導いたオフセットに依らず、既定のポート（5173、8787）を見る
 const DEFAULT_ENV = { DEV_PORT_OFFSET: '0' };
@@ -109,7 +109,7 @@ describe('resolveDevOpenTarget', () => {
   });
 });
 
-const PREVIEW_ORIGIN = 'https://pr-374-scrum-guild-preview.ucan-lab.workers.dev';
+const PREVIEW_ORIGIN = 'https://pr-374-banmen-preview.ucan-lab.workers.dev';
 const ACCESS_ENV = { CF_ACCESS_CLIENT_ID: 'test-id', CF_ACCESS_CLIENT_SECRET: 'test-secret' };
 
 test('プレビューは全 seed ロールを secure Cookie の名前で開く。ローカルポート設定は使わない', () => {
@@ -129,7 +129,8 @@ test('プレビューは全 seed ロールを secure Cookie の名前で開く�
 test('プレビュー以外の origin と origin の曖昧な指定を断る', () => {
   for (const origin of [
     'https://scrum-guild.ucan-lab.workers.dev',
-    'http://pr-374-scrum-guild-preview.ucan-lab.workers.dev',
+    'https://pr-374-scrum-guild-preview.ucan-lab.workers.dev',
+    'http://pr-374-banmen-preview.ucan-lab.workers.dev',
     `${PREVIEW_ORIGIN}\n`,
     `${PREVIEW_ORIGIN}/`,
     `${PREVIEW_ORIGIN}/aoba`,
@@ -160,4 +161,10 @@ test('プレビューには Access の両方の値が必要で、理由に秘密
     assert.match(reason, /両方が必要/);
     assert.doesNotMatch(reason, /secret-id|secret-value/);
   }
+});
+
+test('alias のラベルが63文字の origin は受け付け、64文字は断る', () => {
+  const origin = (digits: number) => `https://pr-${'1'.repeat(digits)}-banmen-preview.ucan-lab.workers.dev`;
+  assert.equal(isPreviewOrigin(origin(45)), true);
+  assert.equal(isPreviewOrigin(origin(46)), false);
 });
