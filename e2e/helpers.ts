@@ -439,7 +439,8 @@ async function measureLayout(
   );
 }
 
-// 狭い幅の検査で回すテーマ。シンプルのライトとダークの2つにする（docs/design.md の「狭い幅と押せる範囲を機械で確かめる」）
+// 狭い幅の検査で回すテーマ。書体と寸法はライトとダークで同じだが、axe と同じ2つにそろえ、ダークでも同じ幅で崩れないことを保つ
+// （docs/design.md の「狭い幅と押せる範囲を機械で確かめる」）
 export const LAYOUT_THEMES = ['simple_light', 'simple_dark'] as const;
 
 type LayoutFound = LayoutViolation & { combinations: string[] };

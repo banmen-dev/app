@@ -1440,7 +1440,7 @@
       </ol>
       <h6 class="doc-h5">見出し5</h6>
       <h6 class="doc-h6">見出し6</h6>
-      <blockquote><p>見た目は4つのテーマで確かめる。</p><p>色は役割の変数だけを使う。</p></blockquote>
+      <blockquote><p>見た目はライトとダークで確かめる。</p><p>色は役割の変数だけを使う。</p></blockquote>
       <pre tabindex="0" role="region" aria-label="${t("markdownCodeRegion")}"><code>pnpm test
 pnpm check
 const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、枠をはみ出さず、横にスクロールする";</code></pre>

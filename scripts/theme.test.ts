@@ -55,6 +55,8 @@ describe('テーマの先当て（static/theme-init.js）', () => {
     assert.equal(runThemeInit(storageWith('retro')).theme, undefined);
     // 消した中世風を覚えていても当てない（属性なしのシンプル（自動）で描く）
     assert.equal(runThemeInit(storageWith('medieval')).theme, undefined);
+    // 消したネオン（modern）も、覚えていても当てない
+    assert.equal(runThemeInit(storageWith('modern')).theme, undefined);
   });
 
   test('localStorage が使えなくても落ちない', () => {

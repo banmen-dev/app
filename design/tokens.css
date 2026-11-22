@@ -57,8 +57,6 @@
   /* ---- 書体（全テーマ共通） ---- */
   --family-gothic: "Noto Sans JP", "Hiragino Sans", "Yu Gothic UI", sans-serif;
   --family-mono: var(--family-gothic);
-  --family-tech: var(--family-gothic);
-  --family-tech-gothic: var(--family-gothic);
 }
 
 /* ===== シンプル（ライト）。data-theme がないときもこれ =====

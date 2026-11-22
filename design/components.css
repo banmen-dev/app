@@ -24,8 +24,7 @@ h1, h2, h3 { text-wrap: balance; }
   fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
   vertical-align: -0.16em;
 }
-/* ゲームの物のアイコンのうち、経験値（crystal）とレベル（crest）は経験値の色にする。
-   クリア報酬（chest）は .tier の段階の色を、感謝（heart）は文字の色をそのまま受ける（docs/design.md の「ゲームの物のアイコン」） */
+/* 経験値の色のアイコン（Icon の tone="xp"）。ゲームの物のアイコンは消し、今は使う所が無い（経験値の見た目と一緒に #1432 で外す） */
 .ico.is-xp { color: var(--color-xp); }
 [hidden] { display: none !important; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -940,8 +939,6 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
 .emblem.is-sm.is-longer > span { font-size: 6px; }
 .xp-num { font-family: var(--font-stat); font-weight: 700; font-size: var(--text-stat); line-height: 1; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .xp-num small { font-size: var(--text-sm); color: var(--color-muted); font-weight: 600; margin-left: var(--space-1); }
-/* 合計の前の経験値のアイコン（crystal）。大きな数字に合わせすぎず、数字の高さに収める */
-.xp-num > .ico { width: 0.75em; height: 0.75em; margin-right: var(--space-1); vertical-align: -0.02em; }
 .xp-sub { font-size: var(--text-xs); color: var(--color-muted); }
 .xp-sub b { font-family: var(--font-stat); color: var(--color-xp); font-weight: 700; }
 
@@ -980,7 +977,6 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
 .breakdown > div { display: flex; justify-content: space-between; gap: var(--space-3); font-size: var(--text-sm); }
 /* 区切りの無い長いワークスペースの名前も、面の幅で折り返す（数は折らない） */
 .breakdown dt { color: var(--color-muted); min-width: 0; overflow-wrap: anywhere; }
-.breakdown dt > .ico { margin-right: var(--space-1); }
 .breakdown dd { margin: 0; flex: none; font-family: var(--font-stat); font-weight: 600; font-variant-numeric: tabular-nums; }
 .breakdown .is-total dt { color: var(--color-fg); font-weight: 700; }
 
@@ -992,8 +988,6 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
 .team-xp { display: inline-flex; align-items: baseline; gap: var(--space-2); margin: 0; justify-self: start; font-size: var(--text-sm); color: var(--color-muted); }
 .team-xp b { font-family: var(--font-stat); font-weight: 700; font-size: var(--text-lg); color: var(--color-xp); font-variant-numeric: tabular-nums; }
 .team-xp small { font-size: var(--text-xs); font-weight: 600; }
-/* ラベルの前の経験値のアイコン（crystal）。並びは文字の下端で揃えるので、アイコンだけ高さの中ほどに置く */
-.team-xp > .ico { align-self: center; }
 
 /* 積載量（5% の目盛り。許容幅の両端を縦線で示す） */
 .load { display: grid; gap: var(--space-1); }
@@ -2298,7 +2292,7 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
  * 全画面の右下に、読み込んだ画面の build の版を小さく出す。トーストが下に空ける --space-4 の余白に収め（狭い画面の置き方は下のメディアクエリ）、
  * 操作を受けない（pointer-events: none）。重なる部品（上の帯、引き出し、ダイアログ、トースト）より下に置く。
  * 薄さは opacity や --color-faint でなく大きさで出す（axe の文字のコントラスト 4.5:1 を保つため）。
- * 地を塗るのは、下を流れる要素や現代風の地のグラデーションでコントラストが変わらないようにするため。
+ * 地を塗るのは、下を流れる要素でコントラストが変わらないようにするため。
  * CI の e2e の版は 40 桁の SHA なので、狭い幅ではみ出さないよう省略する。
  * 切るのは横だけにする（overflow-x: clip、overflow-y: visible）。Noto Sans JP の字の上下の幅（約 1.45em）は行の高さより大きく、
  * 縦も切ると下に突き出る字（e2e の版や preview のタグの g、p、y）の下端が欠ける。行の高さを字の幅まで広げると、上端が --space-4 の余白を越える。
