@@ -1813,7 +1813,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   // ストーリーの引き出し（本番の StoryDrawer。枠はタスクと同じ Drawer）。バックログの木のストーリーの題（a.tree-link。?story=<ID>）から開く。
   // 帯は種類の印「ストーリー」（完了なら「完了」の印）、「⋯」（親を移す、削除。削除できない人には削除を出さず、理由を本文の下に出す）、前後、開き方（横と真ん中）、閉じる。
   // 題、リンク、受け入れ基準、本文はいつも書ける欄で自動保存（タスクと同じ）。期日は選んだら保存する（区分の選択は見本では保存しない）。完了の帯は、配下の未完了のタスクが残るあいだと、
-  // 親のエピックが完了か中止しているあいだ、完了にする・取り消すを aria-disabled にして理由を添える。コメントと履歴と感謝は無い
+  // 親のエピックが完了か中止しているあいだ、完了にする・取り消すを aria-disabled にして理由を添える。コメントと履歴は無い
   const storyAcText = (st) => st.acMd ?? (st.ac || []).map((a) => `- ${a}`).join("\n");
   function storyMenuHtml(st) {
     const items = [{ attr: `data-dialog="moveStory" data-story-id="${drawer.id}"`, label: "親を移す", icon: "swap" },

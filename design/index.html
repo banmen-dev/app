@@ -301,7 +301,6 @@ const SECTIONS = [
       <button class="btn is-quiet" type="button" aria-disabled="true">あとで</button>
       <button class="btn is-on" type="button" aria-pressed="true" disabled>${t("wikiReorder")}</button>
       <span class="field-hint" id="cat-disabled-hint">確認して印を付けると進めます</span>
-      <button class="btn is-sm is-on" type="button" aria-pressed="true">${avatar("ハルカ", 28)}ハルカ</button>
       <button class="link-btn" type="button">戻す</button>
     </div>
     <div class="cat-row">
@@ -867,7 +866,7 @@ const SECTIONS = [
      <div class="field"><span class="field-label">終了した${t("workspace")}（読み取り専用。「⋯」と直す口と完了の操作を出さない）</span>${drawerDemo("st9", "s4", [], { kind: "story", view: "readonly" })}</div>
      <div class="field"><span class="field-label">読み込み中と、読めなかったとき（もう一度試す）</span>${drawerDemo("st10", "s4", [], { kind: "story", view: "loading" })}${drawerDemo("st11", "s4", [], { kind: "story", view: "failed" })}</div>`,
     [`帯は、種類の印「${t("story")}」（<code>.chip</code>）、完了していれば「${t("done")}」の印（<code>.chip.is-ok</code>）、「⋯」（<code>.row-menu</code>）、右に前後・開き方・閉じるを並べる。「⋯」はホバーする行が無いので、広い幅でも常に出す（<code>.drawer .row-menu-btn</code>）。項目は「親を移す」と「この${t("story")}を削除する」（<code>is-danger</code>）。削除は引き出しの上に確認のダイアログを開き、削除したら引き出しも閉じる。`,
-     `欄の順は、題、期日、${t("category")}（親の${t("epic")}があれば引き継ぎで、選べない）、リンク、${t("ac")}、本文、完了の帯。題、リンク、${t("ac")}、本文はいつも入力欄で自動保存し、期日は選んだら保存する（タスクと同じ。保存の状態は <code>.save-state</code>）。コメント、変更の履歴、添付、感謝、今日やるは無い。`,
+     `欄の順は、題、期日、${t("category")}（親の${t("epic")}があれば引き継ぎで、選べない）、リンク、${t("ac")}、本文、完了の帯。題、リンク、${t("ac")}、本文はいつも入力欄で自動保存し、期日は選んだら保存する（タスクと同じ。保存の状態は <code>.save-state</code>）。コメント、変更の履歴、添付、今日やるは無い。`,
      `完了の帯（<code>.done-bar</code>）は、木の行の「${t("complete")}」と同じ規則。配下の未完了のタスクが残るあいだと、親の${t("epic")}が${t("done")}か中止しているあいだは、押してもフォーカスが残るよう <code>aria-disabled</code> にし、理由（<code>.props-note</code>）を <code>aria-describedby</code> で結ぶ。完了したら完了の印（<code>.hanko</code>）へフォーカスを移す。`,
      `前後のボタン（<code>[</code>、<code>]</code>）は、開いた画面に今見えているストーリーの題のリンクの順で移る。端では <code>aria-disabled</code>。書きかけがあるときの確認はタスクと同じ。`],
     ".drawer .drawer-top .row-menu .row-menu-btn .chip.is-ok .props .done-bar .done-bar-done .hanko .save-state .field-hint / SQ.drawerHtml（drawer.kind = story）/ a.tree-link[data-story]")],
