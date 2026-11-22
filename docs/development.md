@@ -527,7 +527,7 @@ Wrangler の assets で本番ビルドを SPA として配り、ループバッ�
 
 `sg`（`cli/`）は API トークンで操作を呼ぶコマンドラインのクライアント。操作の定義を取り込まず、呼ぶたびに `operation-list` で一覧を取り、その JSON Schema から入力を作る。
 
-- 設定: `sg config set url <URL>` と `sg config set token`（トークンは標準入力から読む。引数では受けない）で接続先を設定する。`config set org|workspace <値>` で既定の組織とワークスペース、`config use <名前>` で既定の接続先、`config show` でトークンを伏せた設定を扱う。`config` も `--profile <名前>` で接続先を選ぶ。保存先は `$XDG_CONFIG_HOME/banmen/config.json`（未設定、空、相対パスなら `~/.config/banmen/config.json`）で、0600 で書く。そこに無いときは、名前を改める前の置き場所（`scrum-guild/config.json`）を読み、次に書いたときに `banmen` へ書く（前の置き場所のファイルは消さない）。接続先の名前に `__proto__`、`constructor`、`prototype` は使えない
+- 設定: `sg config set url <URL>` と `sg config set token`（トークンは標準入力から読む。引数では受けない）で接続先を設定する。`config set org|workspace <値>` で既定の組織とワークスペース、`config use <名前>` で既定の接続先、`config show` でトークンを伏せた設定を扱う。`config` も `--profile <名前>` で接続先を選ぶ。保存先は `$XDG_CONFIG_HOME/banmen/config.json`（未設定、空、相対パスなら `~/.config/banmen/config.json`）で、0600 で書く。そこに無いときは、名前を改める前の置き場所（`scrum-guild/config.json`）を読み、次に書いたときに `banmen` へ書く。前の置き場所のファイルは消さないので、トークンが残る。移った後は前のファイルを消し、要らなくなったトークンは失効させる。接続先の名前に `__proto__`、`constructor`、`prototype` は使えない
 - 環境変数: `SG_URL`、`SG_TOKEN`、`SG_ORG`、`SG_WORKSPACE`、`SG_PROFILE` が設定に勝ち、`--profile` が `SG_PROFILE` に勝つ。空の値は未設定と同じ。`SG_URL` と `SG_TOKEN` は両方を設定する（片方だけなら使い方の誤り）。別の出どころの URL とトークンを組み合わせて、トークンを意図しない宛先へ送らないため
 - URL: `https:` か、ループバック（`localhost`、`127.0.0.1`、`[::1]`）への `http:` だけ。認証情報、問い合わせ（`?`）、断片（`#`）を含む URL は使えない（パスは含めてよく、その下に `/api` を足す）。リダイレクトは追わず、3xx は API のエラーにする。30 秒で応答が無ければ打ち切る
 - 同意: トークンの持ち主が今の版の規約に同意するまで、`sg ops` を含むすべての呼び出し（`me` と `consent-status` を除く）は 403 の `terms_required` になる。同意は `cookieOnly` なので、持ち主が画面（`/consent`）でする（同意の門は「操作の定義」）。

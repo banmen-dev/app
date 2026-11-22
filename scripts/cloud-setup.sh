@@ -32,7 +32,7 @@ is_repo() { [ -f "$1/package.json" ] && grep -qE '"name": "(banmen|scrum-guild)"
 
 # 走る時点の clone の置き場所は文書に書かれていないので、いくつかの場所を見る
 repo=""
-for dir in "$PWD" /home/user/app /home/user/banmen /home/user/scrum-guild /root/scrum-guild /workspace/scrum-guild; do
+for dir in "$PWD" /home/user/app /root/app /workspace/app /home/user/banmen /home/user/scrum-guild /root/scrum-guild /workspace/scrum-guild; do
   if is_repo "$dir"; then
     repo="$dir"
     break
@@ -44,7 +44,7 @@ if [ -z "$repo" ]; then
       repo=$(dirname "$found")
       break
     fi
-  done < <(find /home /root /workspace -maxdepth 3 -name package.json \( -path '*banmen*' -o -path '*scrum-guild*' -o -path '*/app/*' \) 2>/dev/null)
+  done < <(find /home /root /workspace -maxdepth 3 -name package.json \( -path '*banmen*' -o -path '*scrum-guild*' \) 2>/dev/null)
 fi
 if [ -n "$repo" ]; then
   info "リポジトリ: $repo"

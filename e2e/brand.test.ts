@@ -131,8 +131,9 @@ async function expectHorizontalBrand(page: Page, singleLine = false): Promise<vo
     expect(rect.right).toBeLessThanOrEqual(inner.right + 1);
     expect(rect.bottom).toBeLessThanOrEqual(inner.bottom + 1);
   }
-  // ブランド内の文字は読ませず、サービス名を1回だけ残す
-  await expect(art.locator('..').getByText('Banmen', { exact: true })).toHaveCount(1);
+  // ブランド内の文字は読ませず、サービス名を1回だけ残す（見える文字と読み上げの名前は同じ「Banmen」なので、読み上げの側を数える）
+  await expect(art.locator('..').locator('.visually-hidden', { hasText: /^Banmen$/ })).toHaveCount(1);
+  await expect(art.locator('..').locator('.visually-hidden')).toHaveCount(1);
 }
 
 test('文字を拡大してもロゴの名前が白い下地に収まる', async ({ page }) => {

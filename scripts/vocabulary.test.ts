@@ -61,4 +61,9 @@ describe('言葉の辞書', () => {
     assert.equal(manifest.name, dictionary.appName);
     assert.equal(manifest.short_name, dictionary.appName);
   });
+
+  // ロゴの見える文字（brandName）と読み上げの名前（appName）が食い違うと WCAG 2.5.3 に反する（docs/design.md の「ロゴ」）
+  test('ロゴの横の文字はサービス名と同じ', () => {
+    assert.equal(dictionary.brandName, dictionary.appName);
+  });
 });

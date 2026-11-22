@@ -70,7 +70,7 @@ export const newsItems: readonly NewsItem[] = [
   {
     date: '2026-11-22',
     title: 'サービスの名前を Banmen に改めました',
-    body: 'Scrum Guild から Banmen（バンメン）に改めました。朝会で全員が見る「盤面」が由来です。使い方とデータは変わりません。',
+    body: 'Scrum Guild から Banmen に改めました。使い方とデータは変わりません。',
   },
   {
     date: '2026-11-15',

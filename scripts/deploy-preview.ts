@@ -51,7 +51,7 @@ export function publishPreview(
   const root = process.cwd();
   // 設定を検査してから一時ファイルやコマンドを作る。
   const config = previewConfig(input.number, input.database, input.commitSha, root, input.subdomain);
-  const directory = mkdtempSync(path.join(tmpdir(), 'scrum-guild-preview-'));
+  const directory = mkdtempSync(path.join(tmpdir(), 'banmen-preview-'));
   try {
     const configFile = path.join(directory, 'wrangler.json');
     const seedFile = path.join(directory, 'seed.sql');
