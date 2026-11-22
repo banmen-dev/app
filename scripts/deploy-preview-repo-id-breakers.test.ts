@@ -17,7 +17,8 @@ test('掃除の宛先は Worker の PREVIEW_REPOSITORY_ID の宛先を使う', a
     return [];
   });
   assert.equal(urls.length, 1);
-  assert.ok(urls[0].startsWith(`https://api.github.com/repositories/${PREVIEW_REPOSITORY_ID}/pulls?`));
+  // 期待値は本体と同じ定数から作らず直書きする（定数を取り違えても落ちるように）。
+  assert.ok(urls[0].startsWith('https://api.github.com/repositories/1425341812/pulls?'));
 });
 
 test('2ページ目で id が読めなければ、1ページ目の結果を返さずに例外にする', async () => {
