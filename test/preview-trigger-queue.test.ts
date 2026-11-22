@@ -119,7 +119,7 @@ describe('同じ Issue のプレビュービルドを順に実行する', () => 
     await Promise.allSettled([h.queue().run()]);
 
     expect(h.deps.start).toHaveBeenCalledExactlyOnceWith(first);
-    expect(h.state()?.active).toEqual({ request: first, id: null });
+    expect(h.state()?.active).toEqual({ request: first, id: null, attemptedAt: expect.any(Number) });
 
     h.setHead(second);
     await h.queue().enqueue(second);

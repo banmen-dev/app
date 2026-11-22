@@ -31,25 +31,25 @@ export function previewRequestFromPullRequest(value: unknown): PreviewRequest | 
   return issue ? { issue, pr: pr.number, branch: head.ref, sha: head.sha } : null;
 }
 
-async function readBody(request: Request): Promise<Uint8Array<ArrayBuffer> | null> {
-  if (Number(request.headers.get('content-length')) > BODY_LIMIT) return null;
+export async function readPreviewBody(request: Request, limit = BODY_LIMIT): Promise<Uint8Array<ArrayBuffer> | null> {
+  if (Number(request.headers.get('content-length')) > limit) return null;
   if (!request.body) return new Uint8Array();
   const reader = request.body.getReader();
-  let body = new Uint8Array(4096);
+  let body = new Uint8Array(Math.min(4096, limit));
   let bytes = 0;
   try {
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
       const end = bytes + value.byteLength;
-      if (end > BODY_LIMIT) {
+      if (end > limit) {
         // 配信側がまだ送信中でも、残りの本文を待つ必要はない。
         void reader.cancel().catch(() => {});
         return null;
       }
       // チャンクごとの配列を持たず、小さなチャンクが続いても本文の上限に収める。
       if (end > body.byteLength) {
-        const expanded = new Uint8Array(Math.min(BODY_LIMIT, Math.max(end, body.byteLength * 2)));
+        const expanded = new Uint8Array(Math.min(limit, Math.max(end, body.byteLength * 2)));
         expanded.set(body);
         body = expanded;
       }
@@ -88,7 +88,7 @@ export async function handlePreviewWebhook(
 
   const signature = request.headers.get('x-hub-signature-256');
   if (!signature || !/^sha256=[0-9a-f]{64}$/.test(signature)) return new Response(null, { status: 401 });
-  const body = await readBody(request).catch(() => undefined);
+  const body = await readPreviewBody(request).catch(() => undefined);
   if (body === undefined) return new Response(null, { status: 400 });
   if (body === null) return new Response(null, { status: 413 });
   if (!(await verifySignature(secret, signature, body))) return new Response(null, { status: 401 });

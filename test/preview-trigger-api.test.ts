@@ -5,8 +5,9 @@ import type { PreviewRequest } from '../src/server/preview-trigger/webhook.ts';
 const accountId = 'a'.repeat(32);
 const workerTag = 'b'.repeat(32);
 const triggerId = '182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e';
+const buildTokenId = '84c98460-ff84-4ab5-a1ab-d453d8f7df46';
 const buildId = '023e105f-2f42-4f8b-a1c1-73f6a2a30c0f';
-const config = { accountId, workerTag, triggerId, token: 'TEST_TOKEN' };
+const config = { accountId, workerTag, triggerId, buildTokenId, token: 'TEST_TOKEN' };
 const request = { issue: '42', pr: 81, branch: '42-report/section', sha: 'a'.repeat(40) } satisfies PreviewRequest;
 const latest = { ...request, sha: 'b'.repeat(40) };
 const repository = { id: 1425341812, full_name: 'scrum-guild-dev/app' };
@@ -29,6 +30,7 @@ const settings = {
     build_command: 'APP_VERSION=$(git rev-parse HEAD) && export APP_VERSION && pnpm build',
     deploy_command: 'node scripts/deploy-preview.ts',
     root_directory: '/',
+    build_token_uuid: buildTokenId,
   },
 };
 const trigger = {

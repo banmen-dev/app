@@ -1,4 +1,6 @@
 import { previewBranchNumber } from '../../shared/preview-branch.ts';
+import { isIsolatedPreviewAccount } from '../../shared/preview-cloudflare.ts';
+import { PreviewBuildRejected } from './queue.ts';
 import {
   PREVIEW_REPOSITORY,
   PREVIEW_REPOSITORY_ID,
@@ -10,6 +12,7 @@ type PreviewApiConfig = {
   accountId: string;
   workerTag: string;
   triggerId: string;
+  buildTokenId: string;
   token: string;
 };
 
@@ -19,6 +22,8 @@ const parkedBranch = 'preview-builds-parked';
 const buildCommand = 'APP_VERSION=$(git rev-parse HEAD) && export APP_VERSION && pnpm build';
 const deployCommand = 'node scripts/deploy-preview.ts';
 const httpTimeoutMs = 5_000;
+// 競合・タイムアウト・5xx は、Cloudflare が起動を受理した可能性がある。
+const unacceptedBuildStatuses = new Set([400, 401, 403, 404, 422, 429]);
 
 function record(value: unknown): Record<string, unknown> | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
@@ -34,16 +39,17 @@ async function readJson(response: Response): Promise<unknown> {
 }
 
 export function createPreviewApi(config: PreviewApiConfig, fetcher: typeof fetch = fetch) {
-  const { accountId, workerTag, triggerId, token } = config;
+  const { accountId, workerTag, triggerId, buildTokenId, token } = config;
   if (
-    !accountIdPattern.test(accountId) ||
+    !isIsolatedPreviewAccount(accountId) ||
     !accountIdPattern.test(workerTag) ||
     !uuidPattern.test(triggerId) ||
+    !uuidPattern.test(buildTokenId) ||
     !token
   ) {
     throw new Error('Invalid preview Builds configuration');
   }
-  const buildsApi = `https://api.cloudflare.com/client/v4/accounts/${accountId}/builds`;
+  const buildsApi = `https://api.cloudflare.com/client/v4/accounts/${accountId.toLowerCase()}/builds`;
   const workerPath = `/workers/${workerTag}`;
 
   async function cloudflare(path: string, method: 'GET' | 'POST' = 'GET', body?: object): Promise<unknown> {
@@ -56,7 +62,14 @@ export function createPreviewApi(config: PreviewApiConfig, fetcher: typeof fetch
       redirect: 'manual',
       signal: AbortSignal.timeout(httpTimeoutMs),
     });
-    if (!response.ok) throw new Error(`Preview Builds API ${method} failed (${response.status})`);
+    if (!response.ok) {
+      const message = `Preview Builds API ${method} failed (${response.status})`;
+      if (method === 'POST' && unacceptedBuildStatuses.has(response.status)) {
+        const failure = record(await readJson(response).catch(() => undefined));
+        if (failure?.success === false) throw new PreviewBuildRejected(message);
+      }
+      throw new Error(message);
+    }
     const envelope = record(await readJson(response));
     if (envelope?.success !== true || envelope.result === undefined) {
       throw new Error(`Preview Builds API ${method} returned an invalid response`);
@@ -76,7 +89,8 @@ export function createPreviewApi(config: PreviewApiConfig, fetcher: typeof fetch
       config?.previews_enabled !== false ||
       settings?.build_command !== buildCommand ||
       settings.deploy_command !== deployCommand ||
-      settings.root_directory !== '/'
+      settings.root_directory !== '/' ||
+      settings.build_token_uuid !== buildTokenId
     ) {
       throw new Error('Preview Worker Builds settings do not match');
     }
@@ -90,6 +104,7 @@ export function createPreviewApi(config: PreviewApiConfig, fetcher: typeof fetch
       trigger.build_command !== buildCommand ||
       trigger.deploy_command !== deployCommand ||
       trigger.root_directory !== '/' ||
+      trigger.build_token_uuid !== buildTokenId ||
       !Array.isArray(branches) ||
       branches.length !== 1 ||
       branches[0] !== parkedBranch
@@ -145,6 +160,24 @@ export function createPreviewApi(config: PreviewApiConfig, fetcher: typeof fetch
       const id = result?.build_uuid;
       if (typeof id !== 'string' || !uuidPattern.test(id)) throw new Error('Preview build UUID is missing or invalid');
       return id;
+    },
+
+    async verifyRecovery(id: string, request: PreviewRequest, attemptedAt: number): Promise<boolean> {
+      if (!uuidPattern.test(id)) return false;
+      const result = record(await cloudflare(`/builds/${id}`));
+      const metadata = record(result?.build_trigger_metadata);
+      const trigger = record(result?.trigger);
+      const createdAt = result?.created_on;
+      return (
+        result?.build_uuid === id &&
+        trigger?.trigger_uuid === triggerId &&
+        trigger.external_script_id === workerTag &&
+        metadata?.build_trigger_source === 'api' &&
+        metadata.branch === request.branch &&
+        metadata.commit_hash === request.sha &&
+        typeof createdAt === 'string' &&
+        Date.parse(createdAt) >= attemptedAt
+      );
     },
 
     async finished(id: string): Promise<boolean> {

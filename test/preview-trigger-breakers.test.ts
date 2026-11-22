@@ -6,6 +6,7 @@ import type { PreviewRequest } from '../src/server/preview-trigger/webhook.ts';
 const accountId = 'a'.repeat(32);
 const workerTag = 'b'.repeat(32);
 const triggerId = '182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e';
+const buildTokenId = '84c98460-ff84-4ab5-a1ab-d453d8f7df46';
 const request: PreviewRequest = { issue: '42', pr: 81, branch: '42-preview', sha: 'c'.repeat(40) };
 const repo = { id: 1425341812, full_name: 'scrum-guild-dev/app' };
 const parked = 'preview-builds-parked';
@@ -13,6 +14,7 @@ const commands = {
   build_command: 'APP_VERSION=$(git rev-parse HEAD) && export APP_VERSION && pnpm build',
   deploy_command: 'node scripts/deploy-preview.ts',
   root_directory: '/',
+  build_token_uuid: buildTokenId,
 };
 const workerUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/builds/workers/${workerTag}`;
 const config = {
@@ -51,7 +53,7 @@ function previewApi(mismatch = {}, updatedAt = '2026-11-22T00:05:00Z') {
     }
     return new Response(null, { status: 500 });
   });
-  return createPreviewApi({ accountId, workerTag, triggerId, token: 'TEST_TOKEN' }, fetcher);
+  return createPreviewApi({ accountId, workerTag, triggerId, buildTokenId, token: 'TEST_TOKEN' }, fetcher);
 }
 
 test.each([

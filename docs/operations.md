@@ -352,13 +352,13 @@ seed のセッションのトークン（`seed/sessions.ts`）と API トーク�
 
 ## プレビュー環境
 
-本番と別の Worker と D1 で PR の版を確かめる。アカウントの設定と初回の確認は人が行う。セッションからデプロイ、リモート D1 の作成・seed、Access や本番の設定変更は行わない。配信と削除の仕組み、ロールの切り替えは `docs/development.md` の「プレビュー」。
+PR の版は本番を載せていない専用 Cloudflare アカウントの Worker と D1 で確かめる。本番アカウントに既にある Worker、R2、Access の設定はそのままにする。アカウントの設定と初回の確認は人が行う。セッションからデプロイ、リモート D1 の作成・seed、Access や本番の設定変更は行わない。配信と削除の仕組み、ロールの切り替えは `docs/development.md` の「プレビュー」。
 
 ### 用意するもの
 
-1. Workers & Pages に `scrum-guild-preview` を作る。本番 `scrum-guild` と見本 `scrum-guild-design` の接続は変えない。初めは Builds を無効にしておく
-2. Worker の Settings の Domains & Routes で `workers.dev` と Preview URLs を有効にし、Cloudflare Access を有効にする。Zero Trust のアプリで許可する人のメールアドレスを絞り、さらに Service Auth の方針で、この用途専用のサービストークンを許可する。Worker の通常 URL だけでなく、`pr-374-scrum-guild-preview.ucan-lab.workers.dev` などの alias と版の URL、`/api/*` も保護する。Access 無しで開ける URL を残さない。既存の本番に Access を付ける操作ではない
-3. R2 に `scrum-guild-preview-attachments` を作る。本番のバケットは指定しない。プレビュー間で共有され、D1 を消しても中身は残るので、架空の添付だけを入れ、不要な中身は人が定期的に消す
+1. プレビュー専用アカウントの Workers & Pages に `scrum-guild-preview` を作る。本番 `scrum-guild` と見本 `scrum-guild-design` の接続は変えない。初めは Builds を無効にしておく
+2. Worker の Settings の Domains & Routes で `workers.dev` と Preview URLs を有効にし、Cloudflare Access を有効にする。Zero Trust のアプリで許可する人のメールアドレスを絞り、さらに Service Auth の方針で、この用途専用のサービストークンを許可する。Worker の通常 URL だけでなく、`pr-374-scrum-guild-preview.<プレビュー用サブドメイン>.workers.dev` などの alias と版の URL、`/api/*` も保護する。Access 無しで開ける URL を残さない。既存の本番に Access を付ける操作ではない
+3. 専用アカウントの R2 に `scrum-guild-preview-attachments` を作る。本番のバケットは指定しない。プレビュー間で共有され、D1 を消しても中身は残るので、架空の添付だけを入れ、不要な中身は人が定期的に消す
 4. プレビュー Worker に `CONNECTION_CREDENTIAL_KEYS` を Secret として登録する。鍵の書式は上の「シークレット」を参照し、本番とは別の鍵を作る。seed の運用者は生成設定の `OPERATOR_LOGIN_IDS` で指定する。GitHub/Google OAuth、メール、外部連携の本番の秘密は入れない。seed ログインで確かめる
 5. `scrum-guild-dev/app` へ2本目の Workers Builds を接続する。初回は Disable builds のまま下の表を保存し、Access の未認証リクエストが拒否されることを確認してから有効に戻す。D1 はスクリプトが作るため手で作らない。番号付き PR の起動は下の専用 Worker に任せる。
 
@@ -372,24 +372,35 @@ seed のセッションのトークン（`seed/sessions.ts`）と API トーク�
 | Path | `/` |
 | build watch paths | Include `*`、Exclude は空 |
 | 同じ Issue のビルド | 専用 Worker が前のビルドの停止を確認してから起動する。手動で起動する場合も前の停止を待つ |
-| Builds の環境変数 | `CLOUDFLARE_ACCOUNT_ID`（32桁のアカウント ID）。`WORKERS_CI=1` と `WORKERS_CI_BRANCH` は Builds が渡すものを使う |
-| API トークン | Builds が作った専用トークン。Account: Workers Scripts: Edit、D1: Edit、Account Settings: Read と、Builds が要する User Details: Read、Memberships: Read。R2 の binding 確認に必要になったときだけ Workers R2 Storage: Read を足す。本番のトークンを流用しない。`CLOUDFLARE_API_TOKEN` としてデプロイのコマンドでも使えることを確認する |
+| Builds の環境変数 | 専用アカウントの `CLOUDFLARE_ACCOUNT_ID` と、専用アカウントの workers.dev サブドメイン `CLOUDFLARE_PREVIEW_SUBDOMAIN`（`.workers.dev` を除いた名前）。`WORKERS_CI=1` と `WORKERS_CI_BRANCH` は Builds が渡す |
+| API トークン | Resources を専用アカウント1件だけに絞ったユーザートークン。Account: Workers Scripts Edit、D1 Edit、Account Settings Read と、Builds が要する User Details Read、Memberships Read。必要な場合だけ同じ専用アカウントの Workers R2 Storage Read を追加する。All accounts と本番アカウントは対象に含めない |
 
 ### 番号付き PR から Builds を起動する
 
-GitHub のリポジトリ Webhook と、`wrangler.preview-trigger.jsonc` で別に配信する専用 Worker `scrum-guild-preview-trigger` を使う。Webhook は HMAC で認証され、番号付きの作業ブランチから `main` を指す、同一リポジトリ内の PR だけがビルドを依頼できる。本番の Worker、プレビュー画面の Access、R2 の設定はそのまま使う。
+GitHub のリポジトリ Webhook と、`wrangler.preview-trigger.jsonc` で別に配信する専用 Worker `scrum-guild-preview-trigger` を使う。Webhook は HMAC で認証され、番号付きの作業ブランチから `main` を指す、同一リポジトリ内の PR だけがビルドを依頼できる。起動先は専用アカウントに限る。本番の Worker や既存の Access と R2 はそのままにする。
 
 1. 共通プレビュー Worker の Builds の自動起動を上の表に揃え、ブランチ固定のデプロイフックがあれば起動元から外す。GitHub の `preview-builds-parked` は Builds の接続にだけ使う。作成後は push しないよう更新を制限する。Builds は有効にし、非本番の自動起動は無効のままにする。
-2. Cloudflare の [Builds API](https://developers.cloudflare.com/workers/ci-cd/builds/api-reference/) で、`scrum-guild-preview` の Worker タグと、その接続のトリガー UUID を確認する。起動専用 Worker の変数 `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_PREVIEW_WORKER_TAG`（Worker タグ）、`CLOUDFLARE_PREVIEW_TRIGGER_ID`（トリガー UUID）に設定する。接続先リポジトリやコマンドが違う場合、受信側は Builds を起動しない。
-3. 起動専用 Worker の Secret `CLOUDFLARE_BUILD_TRIGGER_TOKEN` に、該当アカウントの Workers Builds Configuration Edit（Workers CI Write）だけを持つユーザー API トークンを設定する。起動のトークンと Builds がデプロイに使うトークンを分ける。GitHub Actions にどちらのトークンも置かない。
+2. Cloudflare の [Builds API](https://developers.cloudflare.com/workers/ci-cd/builds/api-reference/) で、`scrum-guild-preview` の Worker タグと、その接続のトリガー UUID を確認する。起動専用 Worker の変数 `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_PREVIEW_WORKER_TAG`（Worker タグ）、`CLOUDFLARE_PREVIEW_TRIGGER_ID`（トリガー UUID）に設定する。Cloudflare ダッシュボードで配信用トークンの Resources が専用アカウント1件だけであることを確認し、そのトークンの UUID を `CLOUDFLARE_PREVIEW_BUILD_TOKEN_ID` に設定する。起動側は本番アカウントを拒み、接続先・コマンド・トークンが一致するときだけ Builds を起動する。
+3. 起動専用 Worker の Secret `CLOUDFLARE_BUILD_TRIGGER_TOKEN` に、専用アカウント1件の Workers Builds Configuration Edit（Workers CI Write）だけを持つユーザー API トークンを設定する。起動のトークンと Builds がデプロイに使うトークンを分ける。GitHub Actions にどちらのトークンも置かない。
 4. 起動専用 Worker の Secret `GITHUB_WEBHOOK_SECRET` と、`scrum-guild-dev/app` の Webhook の Secret に同じ十分に長い乱数を設定する。Content type は `application/json`、イベントは Pull requests、配信先は専用 Worker の HTTPS URL の `/github/webhook`。受信 Worker が GitHub から直接到達できることを確かめる。プレビュー画面にかかる Access の設定は変えない。
 5. 架空データ用の番号付き PR で、受付後に対象ブランチとコミット SHA の Builds が1件起き、`WORKERS_CI_BRANCH` が対象ブランチと一致し、`pr-<Issue番号>` が Access の背後に出ることを確認する。PR を更新したときに同じ Issue のビルドが重ならないことも確認する。fork や番号なしの PR は受け付けても Builds は起動しない。
 
-ビルドの起動結果が通信切断などで分からなくなった場合は、同じ Issue の二重起動を避けるためその Issue のキューを止める。Cloudflare の起動専用 Worker のアラームエラーと、共通 Worker のビルド履歴を照合してから開発者に引き継ぐ。動作を止めるときは GitHub の Webhook を無効にし、開始済みの Builds が止まったことを確認する。
+#### Builds のキューを復旧する
+
+Cloudflare が起動を明確に拒否した場合と、GitHub や Builds の状態を一時的に読めない場合は、次のアラームで再試行する。起動の応答を受け取れず受理されたか分からない場合、同じ Issue では次の起動を保留する。
+
+起動専用 Worker の Secret `PREVIEW_RECOVERY_SECRET` に、Webhook の Secret と別の十分に長い乱数を設定する。この値は復旧を担当する運用者だけに渡す。復旧の操作は専用 Worker の HTTPS URL の `/operator/preview-queues/<Issue番号>` へ `Authorization: Bearer <復旧用の値>` を付けて行う。
+
+1. `GET` で起動保留の状態を読む。`attempt` が `null` なら、起動結果の不明による保留は無い。`attempt.sha` と `attempt.attemptedAt`（ミリ秒）を控える。
+2. Cloudflare のビルド履歴で、その試行以降に同じブランチと SHA で始まったビルドを照合する。該当する場合は同じ URL に `POST` し、JSON に控えた `sha` と `attemptedAt`、`"resolution": "attach"`、`"buildId": "<Build UUID>"` を渡す。専用 Worker もトリガー、Worker、ブランチ、SHA、起動元と時刻を照合し、特定したビルドの停止を待ってから次へ進む。
+3. Cloudflare 側でその試行が受理されていないことを確認できた場合だけ、`"resolution": "not-started"` を使い、控えた `sha` と `attemptedAt` を添えて `POST` する。キューは待機中の要求を優先し、GitHub の最新 head を確かめ直す。ビルド履歴が読めない場合や受理されたか判断できない場合は保留を続ける。
+4. 復旧を受け付けると `204` を返す。`409` の場合は、状態が変わったか指定したビルドが一致していないので、`GET` から確認し直す。
+
+動作を止めるときは GitHub の Webhook を無効にし、開始済みの Builds が止まったことを確認する。
 
 `--preview-alias` の名前は `pr-<Issue番号>`。英字で始まり英数字とハイフンから成る名前とし、Worker 名と合わせた DNS ラベルは63文字以下に制限する。wrangler 4.153.0 のオプションと alias の規則をコードで確認しているが、カスタムの非本番デプロイのコマンドで GitHub の PR に URL が自動表示されるかは、初回の実ビルドで確認する。表示されなければ Builds のログに出る URL、または番号から組み立てた上記の URL を PR の確認に使う。GitHub へデプロイの鍵や Access トークンを登録して補わない。
 
-Builds は PR の先頭のコードを、アカウント全体の Workers Scripts と D1 を編集できるトークンで動かす。Worker・D1 の名前と本番 ID の検査は手違いへの踏み線であり、悪意ある PR や依存に対する隔離ではない。同じアカウントでは本番の Worker と D1 に届きうる（R2 の binding も同様）。Issue #374 で決めたとおり本番を運用していない間の前提で始め、ベータの前に、別 Cloudflare アカウントへ移すか preview builds を止めるかを人が判断し、Issue に残す。fork のコードはこの接続でビルドしない。
+Builds は PR のコードを実行する。D1 作成に必要な権限はアカウント単位なので、本番を載せない専用アカウントと、そのアカウントにだけ権限を持つ配信用トークンを前提にする。トークンの権限は発行画面で人が確認し、Builds の選択が変わっていないことは UUID で照合する。専用アカウントを用意するまで自動起動は有効にしない。
 
 掃除の GitHub API は公開リポジトリの認証なし読み取りだけを使う。共有 IP のレート制限（通常60リクエスト/時）などの 403 や、非公開化による 404 は空の PR 一覧とみなさず、削除せずに失敗する。Builds の失敗を確認し、上限の回復後に `main` のビルドを再実行する。非公開化する前にはこの接続の Builds を止め、読み取り専用の認証方法を別途用意してから掃除を再開する。デプロイの鍵を GitHub に置く対応ではない。
 
@@ -407,7 +418,7 @@ export CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET
 
 1. 本番 `/api/health` の版と、seed セッション・API トークンが本番で 401 になることを控える（上の「seed のセッションが本番に入ったとき」）。番号付きの PR ブランチをビルドし、Builds のログで D1 の作成、全マイグレーション、seed、`versions upload` の成功を見る。特に標準入力を閉じた Builds で `migrations apply --remote` が確認待ちにならないことと、`PRAGMA defer_foreign_keys` から始まる seed SQL を `d1 execute --remote --file` で新規 D1 へ投入できることを確認する（Node／SQLite のテストだけでは実証済みと扱わない）
 2. サービストークンも Access のログイン Cookie も無い別のブラウザで、alias の画面と `/api/health` が Access に拒否されることを確認する。版の URL と通常 URL も同じく確認する。通ったら Builds を止め、Access の対象を修正してから続ける
-3. 人の端末で Access のトークンの ID と Secret を `CF_ACCESS_CLIENT_ID`、`CF_ACCESS_CLIENT_SECRET` の環境変数に設定し、`pnpm dev:open --origin https://pr-374-scrum-guild-preview.ucan-lab.workers.dev admin /aoba` を実行する。`member /aoba`、`operator /operator` に替えて各画面が出ること、画面と `/api/health` の版が PR のコミットであることを確認する。トークンを git、Issue、PR、スクリーンショット、シェル履歴へ貼らない
+3. 人の端末で Access のトークンの ID と Secret を `CF_ACCESS_CLIENT_ID`、`CF_ACCESS_CLIENT_SECRET` の環境変数に設定し、`CLOUDFLARE_PREVIEW_SUBDOMAIN` に確認済みの専用アカウントのサブドメインを設定してから、`pnpm dev:open --origin https://pr-374-scrum-guild-preview.<プレビュー用サブドメイン>.workers.dev admin /aoba` を実行する。`member /aoba`、`operator /operator` に替えて各画面が出ること、画面と `/api/health` の版が PR のコミットであることを確認する。トークンを git、Issue、PR、スクリーンショット、シェル履歴へ貼らない
 4. マイグレーションを含むブランチでも確認し、別番号の D1 が変わらないこと、本番の版と seed の 401 が前のままなことを見る。プレビューのビルド失敗は本番のロールバックを起こさない
 5. PR を閉じて `main` のビルドを動かし、対応する D1 だけが消え、開いた PR の D1 と本番が残ることを確認する。GitHub の読み取りが失敗したときは削除せずビルドが失敗する。通常の削除は次の `main` ビルドまで遅れる。容量の上限に達する前に人が再実行する
 
