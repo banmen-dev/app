@@ -9,11 +9,17 @@ import ts from 'typescript';
 
 const ROOT = new URL('..', import.meta.url);
 
+// wrangler は wrangler.json と wrangler.toml も読む（.github/labeler.yml も wrangler の設定として扱う）ので列挙に含め、
+// JSONC として読めない .toml は readJsonc で落とす。設定はルートだけに置く
 const configs = readdirSync(ROOT)
-  .filter((name) => /^wrangler.*\.jsonc$/.test(name))
+  .filter((name) => /^wrangler.*\.(jsonc?|toml)$/i.test(name))
   .sort();
 
 function readJsonc(name: string): Record<string, unknown> {
+  assert.ok(
+    !/\.toml$/i.test(name),
+    `${name}: 設定は JSONC で置く（.toml は send_metrics をこのテストで確かめられない）`,
+  );
   const parsed = ts.parseConfigFileTextToJson(name, readFileSync(new URL(name, ROOT), 'utf8'));
   assert.equal(parsed.error, undefined, `${name} を読めない`);
   return parsed.config as Record<string, unknown>;
@@ -26,7 +32,8 @@ describe('ルートの wrangler*.jsonc のテレメトリ', () => {
 
   for (const name of configs) {
     test(`${name} は send_metrics: false を置く`, () => {
-      assert.equal(readJsonc(name).send_metrics, false);
+      const value = readJsonc(name).send_metrics;
+      assert.equal(value, false, `${name}: send_metrics は ${JSON.stringify(value)}`);
     });
   }
 });
