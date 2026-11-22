@@ -72,7 +72,8 @@ function databaseList(value: unknown): PreviewDatabase[] {
   return databases;
 }
 
-type CleanupResult = { deleted: PreviewDatabase[]; abortReason?: string };
+// gone は削除が 404 を返したもの。消えたことを確かめていないので、残りの数から引かない。
+type CleanupResult = { deleted: PreviewDatabase[]; gone: PreviewDatabase[]; abortReason?: string };
 
 // ログに出す理由。fetch や子プロセスの例外の本文は URL や認証情報を含みうるので、名前だけにする。
 function abortReason(error: unknown): string {
@@ -96,14 +97,16 @@ function openNumbersFrom(branches: unknown): Set<string> {
   return new Set((branches as string[]).map(previewBranchNumber).filter((value) => value !== undefined));
 }
 
-// 並行する別番号のビルドが先に同じ D1 を消すと 404 になる。消えているので削除済みとして扱う。
-async function deleteUnlessGone(deps: PreviewDeps, database: PreviewDatabase): Promise<void> {
+// 並行する別番号のビルドが先に同じ D1 を消すと 404 になる。打ち切らずに続け、'gone' を返す。
+// API の経路の食い違いでも 404 になりうるので、呼び出し側は消せた数に入れない。
+async function deleteUnlessGone(deps: PreviewDeps, database: PreviewDatabase): Promise<'deleted' | 'gone'> {
   try {
     await deps.deleteDatabase(database);
+    return 'deleted';
   } catch (error) {
     if (error instanceof PreviewHttpError && error.status === 404) {
-      deps.log(`既に消えていました: ${database.name}`);
-      return;
+      deps.log(`削除が 404 を返しました（既に消えたと見て続けます）: ${database.name}`);
+      return 'gone';
     }
     throw error;
   }
@@ -117,34 +120,36 @@ async function cleanupClosedPreviews(
   keep?: string,
 ): Promise<CleanupResult> {
   const deleted: PreviewDatabase[] = [];
+  const gone: PreviewDatabase[] = [];
   let openNumbers: Set<string>;
   try {
     openNumbers = openNumbersFrom(await deps.openBranches());
   } catch (error) {
-    return { deleted, abortReason: `開いた PR を読めませんでした（${abortReason(error)}）` };
+    return { deleted, gone, abortReason: `開いた PR を読めませんでした（${abortReason(error)}）` };
   }
   // 起動専用 Worker は開いた PR のブランチだけをビルドする。自分が一覧に無ければ、一覧が欠けていると見て消さない。
   if (keep !== undefined && !openNumbers.has(keep)) {
-    return { deleted, abortReason: '開いた PR の一覧にこのビルドの番号がありません' };
+    return { deleted, gone, abortReason: '開いた PR の一覧にこのビルドの番号がありません' };
   }
   for (const database of databases) {
     const previewNumber = PREVIEW_DATABASE_PATTERN.exec(database.name)?.[1];
     if (!previewNumber || previewNumber === keep || openNumbers.has(previewNumber)) continue;
     deps.log(`閉じた PR の D1 を削除します: ${database.name}`);
     try {
-      await deleteUnlessGone(deps, database);
+      const outcome = await deleteUnlessGone(deps, database);
+      (outcome === 'deleted' ? deleted : gone).push(database);
     } catch (error) {
-      return { deleted, abortReason: `${database.name} を削除できませんでした（${abortReason(error)}）` };
+      return { deleted, gone, abortReason: `${database.name} を削除できませんでした（${abortReason(error)}）` };
     }
-    deleted.push(database);
   }
-  return { deleted };
+  return { deleted, gone };
 }
 
 function logCleanup(deps: PreviewDeps, before: number, result: CleanupResult): void {
   const after = before - result.deleted.length;
   const names = result.deleted.map((database) => database.name).join(', ') || 'なし';
-  deps.log(`閉じた PR の D1 の掃除: 前 ${before} 個、後 ${after} 個、削除 ${names}`);
+  const goneNames = result.gone.length ? `、404 ${result.gone.map((database) => database.name).join(', ')}` : '';
+  deps.log(`閉じた PR の D1 の掃除: 前 ${before} 個、後 ${after} 個、削除 ${names}${goneNames}`);
   if (result.abortReason) deps.log(`閉じた PR の D1 の掃除を打ち切りました: ${result.abortReason}`);
 }
 
@@ -177,7 +182,7 @@ export async function deployPreview(deps: PreviewDeps): Promise<void> {
   logCleanup(deps, databases.length, result);
   // 自分の D1 も数える。作り直しで先に消すが、並行するビルドが同じ枠を取りうるため（#1456）。
   const remaining = databases.length - result.deleted.length;
-  const deletedIds = new Set(result.deleted.map((database) => database.uuid.toLowerCase()));
+  const deletedIds = new Set([...result.deleted, ...result.gone].map((database) => database.uuid.toLowerCase()));
   const kept = databases.filter((database) => !deletedIds.has(database.uuid.toLowerCase()));
   if (result.abortReason) {
     if (remaining >= PREVIEW_CLEANUP_CONTINUE_BELOW) {

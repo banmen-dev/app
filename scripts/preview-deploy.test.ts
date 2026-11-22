@@ -470,8 +470,14 @@ test('並行するビルドが先に消した D1 の 404 は削除済みとし�
   });
   await deployPreview(f.deps);
   assert.equal(f.events.filter((event) => event.startsWith('delete:')).length, 8);
-  assert.ok(f.logs.includes(`既に消えていました: ${closed[0].name}`));
-  assert.ok(f.logs.some((line) => line.startsWith('閉じた PR の D1 の掃除: 前 8 個、後 0 個、')));
+  assert.ok(f.logs.includes(`削除が 404 を返しました（既に消えたと見て続けます）: ${closed[0].name}`));
+  // 404 は消えたと確かめていないので、後の数から引かない。
+  assert.ok(
+    f.logs.some(
+      (line) =>
+        line.startsWith('閉じた PR の D1 の掃除: 前 8 個、後 1 個、') && line.endsWith(`、404 ${closed[0].name}`),
+    ),
+  );
   assert.equal(f.published.length, 1);
 });
 
@@ -483,6 +489,8 @@ test('自分の D1 の作り直しで 404 なら、消えているものとし�
     },
   });
   await deployPreview(f.deps);
+  assert.deepEqual(f.events, ['list', 'branches', `delete:${OLD.name}`, `create:${OLD.name}`, 'publish']);
+  assert.ok(f.logs.includes(`削除が 404 を返しました（既に消えたと見て続けます）: ${OLD.name}`));
   assert.equal(f.published.length, 1);
 });
 
@@ -497,3 +505,32 @@ for (const status of [400, 403, 500]) {
     assert.ok(!f.events.some((event) => event.startsWith('create:')));
   });
 }
+
+test('404 で済ませた D1 は残りの数から引かず、閾値を通り抜けない', async () => {
+  // 閉じた D1 が 3 個（2 個は 404）、ほかに開いた 6 個で計 9 個。3 個目の削除で失敗して打ち切る。
+  const closed = [CLOSED_A, CLOSED_B, { name: 'banmen-pr-1433', uuid: '88888888-8888-4888-8888-888888888888' }];
+  const open = databasesOf(5);
+  const f = fake({
+    listDatabases: async () => [OTHER, ...closed, ...open],
+    openBranches: async () => ['275-task-complete', '374-preview', ...open.map((db) => `${db.name.slice(10)}-x`)],
+    deleteDatabase: async (db) => {
+      f.events.push(`delete:${db.name}`);
+      if (db.name === closed[2].name) throw new PreviewHttpError(500);
+      throw new PreviewHttpError(404);
+    },
+  });
+  await assert.rejects(deployPreview(f.deps));
+  assert.ok(!f.events.some((event) => event.startsWith('create:')));
+  assert.ok(f.logs.some((line) => line.startsWith('閉じた PR の D1 の掃除: 前 9 個、後 9 個、削除 なし、404 ')));
+});
+
+test(`開いた PR の一覧に自分の番号が無く、D1 が ${PREVIEW_CLEANUP_CONTINUE_BELOW} 個以上なら作る前に止まる`, async () => {
+  const f = fake({
+    listDatabases: async () => [OLD, ...databasesOf(PREVIEW_CLEANUP_CONTINUE_BELOW - 1)],
+    openBranches: async () => ['275-task-complete'],
+  });
+  await assert.rejects(deployPreview(f.deps));
+  // 掃除で何も消さず、自分の D1 も消しも作りもしない。
+  assert.deepEqual(f.events, []);
+  assert.ok(f.logs.includes('閉じた PR の D1 の掃除を打ち切りました: 開いた PR の一覧にこのビルドの番号がありません'));
+});
