@@ -14,9 +14,8 @@ const epicPersonSchema = z.object({ id: z.string(), name: z.string(), left: z.bo
 // エピックの画面を開くときに、画面が出すものを1回で読む。閉じたワークスペースでも読める。
 // 無いエピック（別の組織・別のワークスペース・削除済みを含む）は 404。
 // - requester: 依頼主。離脱済み（left）でも名前を出す（担当の判定と同じ）
-// - reward_tier と reward_xp: クリア報酬の段階と額（額は src/shared/experience.ts の XP_EPIC_REWARD）。いまはクリアしても払わない（#1430）
-// - party: 討伐隊（epic_party_members の行、入った順）。離脱済みの人も含む。level は組織の中の本人の経験値の合計から出し、
-//   合計の数値は返さない
+// - reward_tier: クリア報酬の段階。いまはクリアしても払わない（#1430）
+// - party: 討伐隊（epic_party_members の行、入った順）。離脱済みの人も含む
 // - stories: 配下の削除していないストーリー（position の順。完了したものも含む）。points_done と points_all は、削除していない
 //   配下のタスクのポイントの合計（未見積もりは 0。points_done は完了したタスクだけ）で、バックログの木と同じ数え方
 // - today と week_start: ワークスペースのタイムゾーンでの今日と週の始まり（0〜6、0 が日曜）。期日の印を決める（backlog-tree と同じ。
@@ -29,7 +28,7 @@ const epicPersonSchema = z.object({ id: z.string(), name: z.string(), left: z.bo
 export const epicDetail = defineOperation({
   name: 'epic-detail',
   description:
-    'エピックの画面の中身を返す。欄、依頼主、クリア報酬の段階と額、討伐隊、配下のストーリー（完了とポイントつき）、呼んだ人が管理できるか、討伐隊に入れるか、入っているか',
+    'エピックの画面の中身を返す。欄、依頼主、クリア報酬の段階、討伐隊、配下のストーリー（完了とポイントつき）、呼んだ人が管理できるか、討伐隊に入れるか、入っているか',
   mode: 'read',
   permission: 'member',
   workspace: true,
@@ -51,8 +50,7 @@ export const epicDetail = defineOperation({
     }),
     requester: epicPersonSchema,
     reward_tier: z.enum(epicRewardTiers),
-    reward_xp: z.number().int(),
-    party: z.array(epicPersonSchema.extend({ level: z.number().int(), joined_via: z.enum(epicJoinedVias) })),
+    party: z.array(epicPersonSchema.extend({ joined_via: z.enum(epicJoinedVias) })),
     stories: z.array(
       z.object({
         id: z.string(),

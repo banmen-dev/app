@@ -153,7 +153,7 @@ async function startServer(assets: string) {
 }
 async function read(index: number, operation: BacklogOperation) {
   const condition = backlogCases[index]!;
-  const name = (['backlog-tree', 'category-repository-list', 'experience-team-total'] as const)[operation];
+  const name = (['backlog-tree', 'category-repository-list'] as const)[operation];
   const response = await fetch(`${origin}/api/${backlogSlug}/${name}`, {
     method: 'POST',
     redirect: 'error',
@@ -182,7 +182,6 @@ type ApiSample = {
   reverse: boolean;
   trial: number;
   definitions: number | null;
-  experience: number | null;
   primary: number;
   load: number;
   total: number;
@@ -196,7 +195,6 @@ type BrowserSample = {
   primary: number;
   trial: number;
   definitions: number;
-  experience: number;
   choices: number;
   load: number;
   ready: number;
@@ -322,11 +320,10 @@ async function ready(page: Page, index: number, started: number, previousVersion
     })(),
     choicesReady,
   );
-  await page.waitForFunction(() => performance.getEntriesByName('bench:experience').length > 0);
+  await page.waitForFunction(() => performance.getEntriesByName('bench:definitions').length > 0);
   await drained(page);
   const rest = await page.evaluate(() => ({
     definitions: performance.getEntriesByName('bench:definitions').at(-1)!.startTime,
-    experience: performance.getEntriesByName('bench:experience').at(-1)!.startTime,
     shell: Math.max(
       0,
       ...performance
@@ -344,7 +341,6 @@ async function ready(page: Page, index: number, started: number, previousVersion
     load: value.load - started,
     ready: value.ready - started,
     definitions: rest.definitions - started,
-    experience: rest.experience - started,
     choices: choices - started,
     shell: Math.max(0, rest.shell - started),
   };
@@ -407,7 +403,6 @@ try {
                 reverse,
                 primary: value.primary,
                 definitions: value.definitions,
-                experience: value.teamTotal,
                 load: value.ready,
                 total: value.total,
               });

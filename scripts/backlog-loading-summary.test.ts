@@ -47,7 +47,8 @@ test('計測時の実行コード6件を保存済みハッシュと照合でき�
   }
 });
 
-function fixture(rounds = 2): BacklogReport {
+// legacy: 3操作の時点（経験値の値あり）。false は #1432 の後の計測（experience を持たない）。
+function fixture(rounds = 2, legacy = true): BacklogReport {
   const report: BacklogReport = {
     runs: 20,
     rounds,
@@ -70,7 +71,7 @@ function fixture(rounds = 2): BacklogReport {
               load: trial + 2,
               total: trial + 3,
               definitions: variant === 'A' ? null : trial + 1,
-              experience: variant === 'A' ? null : trial + 2,
+              ...(legacy ? { experience: variant === 'A' ? null : trial + 2 } : {}),
             });
           for (const entry of backlogEntries)
             for (const variant of ['B', 'C'] as const)
@@ -84,7 +85,7 @@ function fixture(rounds = 2): BacklogReport {
                 primary: 10,
                 load: variant === 'B' ? 50 : 20,
                 definitions: 30,
-                experience: 40,
+                ...(legacy ? { experience: 40 } : {}),
                 choices: 100,
                 shell: 0,
                 ready: 1000,
@@ -307,7 +308,7 @@ test('正常な生データの配列順が替わっても全表・採否は一�
 for (const stream of ['api', 'browser'] as const)
   for (const secondary of ['definitions', 'experience'] as const)
     test(`${stream} B: ${secondary}がload復帰より遅い不可能な計測値を拒否する`, () => {
-      const p = fixture();
+      const p = fixture(2, true);
       const sample = p[stream].find((x) => x.variant === 'B')!;
       sample[secondary] = sample.load + 1;
       assert.throws(() => summarizeBacklog(p));
@@ -327,4 +328,47 @@ test('Cでは従の完了がload復帰より遅くても合法として集計す
       x.experience = x.load + 2;
     }
   assert.doesNotThrow(() => summarizeBacklog(p));
+});
+
+test('経験値を持たない新しい計測（省略とnullの両方）を集計し、表では「—」にする', () => {
+  const legacy = summarizeBacklog(fixture());
+  const omitted = fixture(2, false);
+  const nulled = fixture(2, false);
+  for (const x of [...nulled.api, ...nulled.browser]) x.experience = null;
+  for (const p of [omitted, nulled]) {
+    const result = summarizeBacklog(p);
+    assert.equal(result.eligible, legacy.eligible);
+    assert.deepEqual(result.comparisons, legacy.comparisons);
+    assert.ok(result.apiRows.every((row) => row.experience === null));
+    assert.ok(result.browserRows.every((row) => row.experience === null));
+    assert.ok(result.markdown.includes('| 主完了 | 区分・リポジトリ完了 | 経験値完了 |'));
+    assert.match(result.markdown, /\| 1 \| .+ \| 正 \| B \| 10\.00 \/ 19\.00 \| 10\.00 \/ 19\.00 \| — \|/);
+    assert.match(result.markdown, /\| 直接表示 \| B \| 10\.00 \/ 10\.00 \| 30\.00 \/ 30\.00 \| — \|/);
+  }
+  assert.ok(legacy.apiRows.slice(1, 3).every((row) => row.experience !== null));
+});
+
+test('経験値を持たない新しい計測でも、順序と B の待ちの検査は従の区分・リポジトリに効く', () => {
+  const api = fixture(2, false);
+  api.api.find((x) => x.variant === 'B')!.definitions = 2000;
+  assert.throws(() => summarizeBacklog(api));
+  const browser = fixture(2, false);
+  const sample = browser.browser.find((x) => x.variant === 'B')!;
+  sample.definitions = sample.load + 1;
+  assert.throws(() => summarizeBacklog(browser));
+});
+
+test('経験値の値がセル内で一部だけ欠けたデータを拒否する', () => {
+  const api = fixture();
+  delete api.api.find((x) => x.variant === 'B')!.experience;
+  assert.throws(() => summarizeBacklog(api), /経験値/);
+  const browser = fixture();
+  browser.browser[0]!.experience = null;
+  assert.throws(() => summarizeBacklog(browser), /経験値/);
+});
+
+test('Aが経験値を持つデータは拒否する', () => {
+  const p = fixture(2, false);
+  p.api.find((x) => x.variant === 'A')!.experience = 1;
+  assert.throws(() => summarizeBacklog(p));
 });

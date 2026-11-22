@@ -1,11 +1,9 @@
 import { backlogTree } from '../src/shared/operations/task/index.ts';
 import { categoryRepositoryList } from '../src/shared/operations/definition/index.ts';
-import { experienceTeamTotal } from '../src/shared/operations/experience/index.ts';
 
 export const backlogOutputs = {
   'backlog-tree': backlogTree.output,
   'category-repository-list': categoryRepositoryList.output,
-  'experience-team-total': experienceTeamTotal.output,
 };
 
 // 片方の失敗後も、並行したもう片方の待ちを回収してからブラウザを閉じる。

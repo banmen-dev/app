@@ -129,13 +129,4 @@ test('レビューの完了印と再依頼後の受信箱を表示し、同じ�
   await row.getByRole('button', { name: /完了にする/ }).click();
   expect((await completed).ok()).toBe(true);
   await expect(row.getByRole('img', { name: '再依頼されたレビュー: 完了' })).toBeVisible();
-  await page.goto('/aoba/me');
-  const grants = page
-    .getByRole('table', { name: '経験値の明細' })
-    .locator('tbody tr', { hasText: '再依頼されたレビュー' })
-    .filter({ hasText: `レビュー受信箱-${suffix}` });
-  // 完了しても経験値は付かない（#1431）
-  // 明細の表が読み込まれてから、行が無いことを見る（seed の付与の行で表は出る）
-  await expect(page.getByRole('table', { name: '経験値の明細' }).locator('tbody tr').first()).toBeVisible();
-  await expect(grants).toHaveCount(0);
 });

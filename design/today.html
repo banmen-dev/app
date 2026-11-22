@@ -61,7 +61,7 @@ SQ.mount("today", () => {
   const todayEmpty = hasWs
     ? SQ.emptyState("sun", `今日やる${t("task")}はまだありません`,
         `${t("backlog")}や${t("sprint")}の行の左端にある太陽を押すと、ここに並びます。`,
-        `<a class="btn is-sm" href="${SQ.firstHref("backlog.html")}">${t("backlog")}を開く</a>`, undefined, "sun")
+        `<a class="btn is-sm" href="${SQ.firstHref("backlog.html")}">${t("backlog")}を開く</a>`, "sun")
     // ワークスペースが無いときの案内はワークスペースの面に出すので、ここは線画の無い短い1行にして案内を重ねない
     : `<div class="book"><div class="book-empty">${t("workspace")}に所属すると、自分が担当する${t("task")}がここに並びます。</div></div>`;
   // 今日やる以外の区分は、空なら出さない
@@ -72,7 +72,7 @@ SQ.mount("today", () => {
   const workspaceBody = hasWs
     ? paneList(Object.keys(D.workspaces).map((id) => ({ href: `backlog.html?workspace=${encodeURIComponent(id)}`, name: D.workspaces[id].name, role: D.workspaces[id].role })))
     : SQ.emptyState("sun", `まだ${t("workspace")}がありません`, `最初の${t("workspace")}を作ります。最初の${t("leader")}を1人決めて作ります。`,
-        `<button class="btn is-sm" type="button">${SQ.icon("plus")}${t("workspace")}を作る</button>`, undefined, "map");
+        `<button class="btn is-sm" type="button">${SQ.icon("plus")}${t("workspace")}を作る</button>`, "map");
   const workspacePane = pane("p-workspaces", t("workspace"), workspaceBody, { count: hasWs ? Object.keys(D.workspaces).length : null, hint: hasWs ? t("workspacePaneHint").replace("{backlog}", t("backlog")) : "" });
   const todayPane = pane("p-today", "今日やること", `
         ${goals ? `<div class="notice-grid">${goals}</div>` : ""}

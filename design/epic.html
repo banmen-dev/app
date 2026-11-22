@@ -19,7 +19,7 @@
 <script>
 "use strict";
 // エピック（レイド）の詳細
-const { D, t, icon, esc, section, emptyState, pageHead, avatarOf, emblem, tier, dueChip, progress, book, storyPts, raidNotice, attachments, filesOf } = SQ;
+const { D, t, icon, esc, section, emptyState, pageHead, avatarOf, tier, dueChip, progress, book, storyPts, raidNotice, attachments, filesOf } = SQ;
 // 引き出しで直した見本も、移動先の画面へ渡す（本番のデータ保存は行わない）。
 try {
   const preview = JSON.parse(sessionStorage.getItem("sq-design-epic-preview") || "null");
@@ -38,7 +38,7 @@ SQ.mount("epic", () => {
   const allDone = stories.length > 0 && openStories === 0;
   const party = e.party.map((u) => {
     const x = SQ.user(u);
-    return `<li>${avatarOf(u)}<span class="party-list-text">${esc(x.name)}${x.left ? `<span class="props-note">${t("leftMember")}</span>` : ""}</span>${u === e.requester ? `<span class="role">${t("requester")}</span>` : ""}${emblem(x.level, true)}</li>`;
+    return `<li>${avatarOf(u)}<span class="party-list-text">${esc(x.name)}${x.left ? `<span class="props-note">${t("leftMember")}</span>` : ""}</span>${u === e.requester ? `<span class="role">${t("requester")}</span>` : ""}</li>`;
   }).join("");
   return `
     ${pageHead(`${t("epic")}・${e.cat ? esc(D.categories[e.cat].name) : `${t("category")}なし`}`, esc(e.title), [

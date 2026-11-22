@@ -175,7 +175,7 @@ test('絞り込み中も完了の丸を出さず、最後の未完了列から�
     board.columns[2]!.tasks = [];
     task.completed_at = '2026-10-20T00:00:00.000Z';
     board.columns[3]!.tasks.push(task);
-    await call.fulfill({ task_id: task.id, completed_at: task.completed_at, left_sprint: false, xp_granted: 0 });
+    await call.fulfill({ task_id: task.id, completed_at: task.completed_at, left_sprint: false });
   });
   await page.goto(`${PATH}?story=${STORY.id}`);
   await expect(page.locator('.card')).toHaveCount(3);

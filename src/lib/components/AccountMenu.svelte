@@ -5,20 +5,17 @@
   import { logoutState, performLogout } from '../logout-action.svelte.ts';
   import { t } from '../vocabulary.svelte.ts';
   import Avatar from './Avatar.svelte';
-  import Emblem from './Emblem.svelte';
   import Icon from './Icon.svelte';
 
   // kit.js の accountMenuHtml。上の帯の自分の名前を押すと開くメニューで、中は「マイプロフィール」、管理者だけ「組織の管理」、最後に「ログアウト」。
   // 開閉は OrganizationSwitcher と同じ: ボタン、メニューの外を押す、Tab でメニューの外へ出る、Esc。
   // メニューの中にフォーカスがあるときに閉じたら、ボタンへフォーカスを戻す（隠れた要素にフォーカスを残さない）。
   // ログアウトを押しても閉じない。結果が返るまで項目を止めて「ログアウトしています」を見せ、失敗したら項目を戻す
-  // level は自分のレベル。名前（と管理者の印）の横に小さい紋章で出す（kit.js の accountMenuHtml と同じ並び）
   let {
     userId,
     image = null,
     name,
     isAdmin,
-    level,
     slug,
     invitationCount = 0,
     invitationStatus,
@@ -28,7 +25,6 @@
     image?: string | null;
     name: string;
     isAdmin: boolean;
-    level: number;
     slug: string;
     invitationCount?: number;
     invitationStatus?: Snippet;
@@ -48,7 +44,7 @@
   const initial = $derived([...name][0] ?? '?');
   const label = $derived(
     t('accountMenuLabel', {
-      name: [initial, name, isAdmin ? t('admin') : '', String(level)].filter(Boolean).join(' '),
+      name: [initial, name, isAdmin ? t('admin') : ''].filter(Boolean).join(' '),
     }),
   );
 
@@ -104,8 +100,7 @@
       <!-- 760px 以下では隠してアバターだけにする（読み上げの名前は aria-label に残る） -->
       <span class="me-detail"
         >{name}
-        {#if isAdmin}<span class="chip">{t('admin')}</span>{/if}
-        <Emblem {level} small /></span
+        {#if isAdmin}<span class="chip">{t('admin')}</span>{/if}</span
       >
     </span>
     {#if invitationCount > 0}<span class="account-menu-invite" aria-hidden="true"></span>{/if}

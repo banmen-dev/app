@@ -300,7 +300,7 @@ test.describe('届いた招待（ハルカ）', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'マイプロフィール' })).toBeFocused();
     // 招待が無くなっても、ほかの節は残る
     await expect(themeSection(page)).toBeVisible();
-    await expect(page.getByRole('heading', { level: 2, name: '経験値の明細' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'API トークン' })).toBeVisible();
     expect(await collect()).toEqual([]);
   });
 
@@ -351,7 +351,7 @@ test.describe('届いた招待（ハルカ）', () => {
     await page.reload();
     await expect(page.getByText('届いた招待を読み込めませんでした')).toBeVisible();
     await expect(themeSection(page)).toBeVisible();
-    await expect(page.getByRole('heading', { level: 2, name: '経験値の明細' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'API トークン' })).toBeVisible();
     state.listStatus = 200;
     state.invitations = [invitation()];
     await page.getByRole('button', { name: 'もう一度試す（届いた招待）' }).click();

@@ -122,7 +122,6 @@
       image={organization.me.avatar_url}
       name={organization.me.name}
       isAdmin={organization.me.is_admin}
-      level={organization.me.level}
       slug={data.slug}
       invitationCount={invitations.count ?? 0}
       invitationState={invitations.loading ? 'loading' : invitations.count === null ? 'failed' : 'ready'}

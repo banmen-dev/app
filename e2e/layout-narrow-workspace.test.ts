@@ -66,7 +66,6 @@ test('バックログの先頭2行が390×844pxに入り、補助情報を各1�
     for (const button of [summary, filters, help]) await expect(button).toHaveAttribute('aria-expanded', 'false');
     await expect(bar.getByRole('searchbox')).toBeVisible();
     await expect(header.getByText('未完了のタスク', { exact: true })).toBeVisible();
-    await expect(header.locator('.team-xp')).toBeHidden();
     await expect(page.locator('.breadcrumb')).toHaveCount(0);
     await expect(header.locator('.mobile-page-tools')).toHaveCount(1);
     for (const label of ['未見積もり', 'スプリントに入っていない']) {
@@ -102,7 +101,6 @@ test('バックログの先頭2行が390×844pxに入り、補助情報を各1�
       );
     }
     for (const button of [summary, filters, help]) await expect(button).toHaveAttribute('aria-expanded', 'true');
-    await expect(header.locator('.team-xp')).toBeVisible();
     for (const label of ['未見積もり', 'スプリントに入っていない']) {
       const item = header.locator('.tally > div').filter({ has: page.getByText(label, { exact: true }) });
       await expect(item.locator('dt')).toBeVisible();
@@ -145,7 +143,6 @@ test('390pxで閉じた絞り込みにも条件数と解除を残し、広い幅
   for (const width of [761, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await expect(bar.getByRole('combobox')).toHaveCount(4);
-    await expect(page.locator('.page-head .team-xp')).toBeVisible();
     await expect(page.locator('.page-head .page-eyebrow')).toBeVisible();
     await expect(page.locator('.order-help .action-note')).toBeVisible();
     await expect(page.locator('.narrow-disclosure-toggle:visible')).toHaveCount(0);

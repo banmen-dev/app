@@ -1012,8 +1012,6 @@ export const taskCompleteOperation = implement(taskComplete, async ({ db, actor,
         task_id: taskId,
         completed_at: at.toISOString(),
         left_sprint: placement.kind === 'planned',
-        // 経験値は付けない（#1430）。項目は経験値の画面を外す PR まで 0 で残す
-        xp_granted: 0,
       };
     }
     // 先に読んだ値ではなく、書いた結果で決める。読んでから書くまでに閉じたなら 409 の workspace_closed、

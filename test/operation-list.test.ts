@@ -195,6 +195,15 @@ describe('本番の一覧', () => {
     });
   }
 
+  // CLI の sg ops はこの一覧を出す。経験値とレベルの操作は外した（#1432）
+  test('経験値の操作（experience-*）を載せない', async () => {
+    const person = await createLoginPerson();
+    for (const credential of ['cookie', 'write'] as const) {
+      const listed = namesOf(await list(realApp, person, credential));
+      expect(listed.filter((name) => name.startsWith('experience-'))).toEqual([]);
+    }
+  });
+
   test('各項目の範囲、権限、mode、説明が定義と一致し、入力と出力の JSON Schema が object', async () => {
     const person = await createLoginPerson();
     const listed = await list(realApp, person, 'write');

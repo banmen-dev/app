@@ -65,7 +65,6 @@ test.describe('今日やることの画面', () => {
     const overdue = page.locator('.entry .chip.is-danger');
     await expect(notice).toHaveCount(1);
     await expect(overdue).toHaveCount(1);
-    await expect(page.locator('.gauge')).toHaveCount(0);
 
     for (const [theme, edge, radius] of [
       ['simple_light', '2px', '4px'],
@@ -77,19 +76,6 @@ test.describe('今日やることの画面', () => {
       // 状態の印の枠は透明（地の色で示す）
       const borderColor = await overdue.evaluate((el) => getComputedStyle(el).borderTopColor);
       expect(borderColor, theme).toBe('rgba(0, 0, 0, 0)');
-    }
-  });
-
-  test('プロフィールの経験値ゲージは2つの見た目で従来の丸みを保つ', async ({ page }) => {
-    await page.goto('/aoba/me');
-    const gauge = page.locator('.gauge');
-    await expect(gauge).toHaveCount(1);
-    for (const [theme, radius] of [
-      ['simple_light', '6px'],
-      ['simple_dark', '6px'],
-    ] as const) {
-      await applyTheme(page, theme);
-      await expect(gauge, theme).toHaveCSS('border-top-left-radius', radius);
     }
   });
 

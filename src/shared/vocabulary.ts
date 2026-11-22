@@ -705,8 +705,7 @@ export const dictionary = defineDictionary({
   firstStepJoinedTitle: '{workspace}「{name}」に入る',
   firstStepJoinedNote: 'この{workspace}の{backlog}と{sprint}を使えます。',
   firstStepPrepareTaskTitle: '自分の{task}を用意する',
-  firstStepPrepareTaskNote:
-    '{backlog}の空の行に題を入れて作ります。{points}を1以上振ったまま完了にすると、起票の経験値が付きます。',
+  firstStepPrepareTaskNote: '{backlog}の空の行に題を入れて作ります。',
   firstStepBecameLeaderTitle: '{workspace}「{name}」の{leader}になる',
   firstStepBecameLeaderNote: '{member}の招待と、{backlog}の準備を進められます。',
   firstStepInviteTitle: '{member}を招待する',
@@ -857,7 +856,6 @@ export const dictionary = defineDictionary({
   pointsUnsetTitle: '未見積もり',
   // 完了の操作の読み上げの名前。同じ名前のボタンが並ぶので、どのタスクかを添える
   taskCompleteLabel: '{complete}: {title}',
-  taskCompletedXp: '+{amount} {unit}',
   taskCompleted: '{task}を{done}にしました',
   taskCompleteFailed: '{done}にできませんでした。もう一度試してください。',
   taskAlreadyDone: 'この{task}は、すでに{done}です',
@@ -1784,17 +1782,17 @@ export const dictionary = defineDictionary({
   memberRemoveLabel: '{name}を外す',
   memberLeave: '抜ける',
   memberLeaveLabel: '{workspaceName}から抜ける',
-  membersActionNote: '外すと、その人の未完了の{task}は担当なしに戻ります。完了の記録と経験値は残ります。',
+  membersActionNote: '外すと、その人の未完了の{task}は担当なしに戻ります。完了の記録は残ります。',
   memberWorking: '{member}を更新しています',
   memberRemoveTitle: '{name}を外しますか',
   memberRemoveText:
-    '{name}は{workspace}から外れます。担当していた未完了の{task}は担当なしに戻ります。完了の記録と経験値は残ります。戻すには、もう一度招待します。',
+    '{name}は{workspace}から外れます。担当していた未完了の{task}は担当なしに戻ります。完了の記録は残ります。戻すには、もう一度招待します。',
   memberLeaveTitle: '{workspaceName}から抜けますか',
   memberLeaveText:
-    '担当していた未完了の{task}は担当なしに戻ります。完了の記録と経験値は残ります。戻るには、もう一度招待を受けてください。',
+    '担当していた未完了の{task}は担当なしに戻ります。完了の記録は残ります。戻るには、もう一度招待を受けてください。',
   // 管理者でなく、ほかに所属するワークスペースが無い人が抜けるとき
   memberLeaveLastText:
-    'ほかに所属している{workspace}が無いので、抜けると、この{organization}に入れなくなります。担当していた未完了の{task}は担当なしに戻ります。完了の記録と経験値は残ります。戻るには、もう一度招待を受けてください。',
+    'ほかに所属している{workspace}が無いので、抜けると、この{organization}に入れなくなります。担当していた未完了の{task}は担当なしに戻ります。完了の記録は残ります。戻るには、もう一度招待を受けてください。',
   memberDemoteTitle: '自分を一般に戻しますか',
   memberDemoteText:
     '一般に戻すと、ロールの付け替え、招待、{member}を外すことができなくなります。{leader}に戻るには、ほかの{leader}か{admin}に頼んでください。',
@@ -2010,7 +2008,7 @@ export const dictionary = defineDictionary({
   // {admin}、{organization}、{workspace}、{task} は、辞書の言葉を画面が渡す。{name} はユーザーの名前
   userSectionTitle: 'ユーザー',
   userSectionDesc:
-    '{admin}は他のユーザーを{admin}に指名でき、解除もできます。最後の{admin}は解除できません。無効にした人は{organization}に入れず、すべての{workspace}から外れます。名前、完了の記録、経験値は残ります。',
+    '{admin}は他のユーザーを{admin}に指名でき、解除もできます。最後の{admin}は解除できません。無効にした人は{organization}に入れず、すべての{workspace}から外れます。名前と完了の記録は残ります。',
   userTally: 'ユーザー',
   userListLabel: '{organization}のユーザーの一覧',
   userWorkspaceCountHeader: '所属',
@@ -2029,7 +2027,7 @@ export const dictionary = defineDictionary({
   userEnableLabel: '{name}を有効に戻す',
   userDisableTitle: '{name}を無効にしますか？',
   userDisableText:
-    '{name}はこの{organization}に入れなくなります。すべての{workspace}から外れ、担当していた未完了の{task}は担当なしに戻り、承諾待ちの招待は取り消します。完了の記録と経験値は残ります。',
+    '{name}はこの{organization}に入れなくなります。すべての{workspace}から外れ、担当していた未完了の{task}は担当なしに戻り、承諾待ちの招待は取り消します。完了の記録は残ります。',
   userDisableAdminNote: '{admin}の指名も解除します。',
   userDisableEnableNote:
     '有効に戻しても所属と{admin}の指名は戻りません。もう一度使ってもらうには、{workspace}に招待し直してください。',
@@ -2232,7 +2230,7 @@ export const dictionary = defineDictionary({
   bodyEmpty: 'まだ書かれていません。',
   bodyEditHint: 'Markdown で書けます。見出しは # が小見出しの大きさから始まります。',
   dueClear: 'クリア',
-  // 完了したタスクのポイントは直せない（経験値とスプリントの集計が、完了の記録の値を使うため）
+  // 完了したタスクのポイントは直せない（スプリントの集計が、完了の記録の値を使うため）
   taskPointsLocked: '{done}した{task}の{points}は直せません',
   // 取り込んだタスクは、タイトルとリンクを直せず、削除でなくアーカイブで外す（取り込み元のキーと期限は、取り込みの Issue で足す）
   taskImportedNote: '取り込んだ{task}のタイトルは、ここでは直せません',
@@ -2253,7 +2251,7 @@ export const dictionary = defineDictionary({
   // 担当の選択（引き出しと起票のダイアログ）。候補は、そのワークスペースに今所属している人
   assigneeCandidatesFailed: '{assignee}の候補を読み込めませんでした',
   assigneeNotMember: '選んだ人は、もうこの{workspace}に所属していません。{assignee}を選び直してください',
-  // 完了したタスクの担当は替えない（完了の経験値と完了の記録が、完了した時点の担当を使うため）
+  // 完了したタスクの担当は替えない（完了の記録が、完了した時点の担当を使うため）
   taskAssigneeLocked: '{done}した{task}の{assignee}は替えられません',
   taskAssigneeDone: 'この{task}は{done}になっているため、{assignee}は替えられません。',
   // バックログの行の依頼先のチップ（自分用の組織だけ。付いた行にだけ出す）と、絞り込みの「なし」
@@ -2271,7 +2269,7 @@ export const dictionary = defineDictionary({
   taskDelete: 'この{task}を削除する',
   taskDeleteWho: '削除できるのは作った人と{leader}です。',
   taskDeleteText: '「{title}」を削除します。削除したものは画面から消え、この版では戻せません。',
-  taskDeleteHint: '完了の記録と経験値は残ります。',
+  taskDeleteHint: '完了の記録は残ります。',
   taskDeleteConfirm: '削除する',
   taskDeleteCancel: 'やめる',
   taskDeleting: '削除しています',
@@ -2684,44 +2682,12 @@ export const dictionary = defineDictionary({
   sprintCardBusyReopening: '{done}を戻しています。終わってからもう一度試してください。',
   // 完了を戻して、{column}へ移した（task-reopen）
   sprintCardReopened: '「{title}」の{done}を戻し、{column}へ移しました',
-  // 経験値とレベル（kit.js の levelPanel と emblem、me.html の「経験値の明細」）。経験値の数値と明細は本人にだけ出す
-  levelLabel: 'レベル {level}',
-  levelShort: 'LV',
-  levelPanelTitle: 'レベル',
-  levelPanelNote: '経験値は本人だけに見えます',
+  // 経験値の単位。エピックのクリア報酬の額に添える（#1434 で外す）
   xpUnit: 'XP',
-  levelToNext: '次のレベルまで',
-  levelProspect: '見込み',
-  levelSubSeparator: '・',
-  levelGaugeLabel: '次のレベルまでの {confirmed}% を確定、{prospective}% が見込み',
-  levelLegendConfirmed: '確定',
-  levelLegendProspect: '見込み（{task}の{done}で確定）',
-  levelBreakdownLabel: '{workspace}ごとの経験値',
-  levelBreakdownTotal: 'すべての{workspace}',
-  levelLoadFailed: 'レベルを読み込めませんでした',
-  levelThanksReceived: '受け取った感謝',
-  xpPlus: '+{value}',
-  meExperienceTitle: '経験値の明細',
-  meExperienceDescription: '本人だけが見られます。打ち消しは負の値で残ります。手で足し引きする操作はありません。',
-  xpHeaderConfirmedAt: '確定日時',
-  xpHeaderAction: '行動',
-  xpHeaderContent: '内容',
-  xpNoContent: '（なし）',
-  xpActionTaskCreated: '起票',
-  xpActionTaskDetailed: '詳細',
-  xpActionTaskCompleted: '完了',
-  xpActionReview: 'レビュー',
-  xpActionHelp: '手助け',
-  xpActionStoryCompleted: 'ストーリーの完了',
-  xpActionEpicReward: 'クリア報酬',
-  xpActionReversal: '{action}の打ち消し',
-  xpEmptyTitle: '経験値の明細はまだありません',
-  xpEmptyText: '{task}を{complete}と、起票や{done}の経験値がここに並びます。',
-  xpContentHidden: '（今所属していない{workspace}の内容は表示しません）',
   retrySection: 'もう一度試す（{section}）',
   // 画面は出さない（開発の状況の説明になるため）。積載量の欄が入る（#66）ときに言い方を決め直す
   meOtherSettingsNote:
-    '今は経験値、API トークン、テーマ、届いた招待を扱えます。1日の基準、稼働期間、休み、月の基準の上書き、積載量の合計は、これから足します。',
+    '今は API トークン、テーマ、届いた招待を扱えます。1日の基準、稼働期間、休み、月の基準の上書き、積載量の合計は、これから足します。',
   // パスワードの変更（マイプロフィールの節）
   mePasswordChange: 'パスワードを変える',
   mePasswordCurrent: '現在のパスワード',
@@ -2822,11 +2788,6 @@ export const dictionary = defineDictionary({
   apiTokenEmptyTitle: '発行済みの API トークンはありません',
   apiTokenEmptyText: '発行すると、ここに並びます。',
   apiTokenLoadFailed: 'API トークンを読み込めませんでした',
-  xpLedgerFailedTitle: '経験値の明細を読み込めませんでした',
-  xpLoadMore: '続きを読む',
-  xpLoadMoreFailed: '続きを読み込めませんでした。もう一度試してください',
-  xpAllLoaded: '明細をすべて表示しました',
-  teamXpLabel: 'チーム全体の経験値',
 
   // 日付に曜日を添える（kit.js の withWeekday）。曜日は 0 が日曜
   dateWithWeekday: '{date}（{weekday}）',
@@ -2931,8 +2892,7 @@ export const dictionary = defineDictionary({
   detailFieldsLimitNote: '{kind}は {max} 件まで足せます（いま {count} 件）。',
   detailFieldsLimitReached:
     '{kind}は {max} 件に達しているため、これ以上は足せません。使わないものを削除すると足せます。',
-  detailFieldDeleteText:
-    '削除した欄は{task}の{detail}に出なくなり、{detail}の経験値の判定からも外れます。元には戻せません。',
+  detailFieldDeleteText: '削除した欄は{task}の{detail}に出なくなります。元には戻せません。',
   fieldValueEmpty: 'まだ書かれていません。',
   // 決まった欄の「書く」ボタン。本文の「編集」と、読み上げの名前も文字も重ならないようにする
   fieldValueWrite: '書く',

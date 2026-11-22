@@ -1,7 +1,6 @@
 // epic-detail（エピックの画面の読み取り）の振る舞い。
 // 組織の分離と権限の種類ごとの許可と拒否は、一覧を回す test/operation-registry.test.ts が確かめる
 import { describe, expect, test } from 'vitest';
-import { XP_EPIC_REWARD, levelOf } from '../src/shared/experience.ts';
 import { epicDetail } from '../src/shared/operations/epic/index.ts';
 import { createApp } from '../src/server/app.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
@@ -37,8 +36,7 @@ type DetailBody = {
   };
   requester: Person_;
   reward_tier: string;
-  reward_xp: number;
-  party: (Person_ & { level: number; joined_via: string })[];
+  party: (Person_ & { joined_via: string })[];
   stories: { id: string; title: string; completed_at: string | null; points_done: number; points_all: number }[];
   can_manage: boolean;
 };
@@ -58,7 +56,7 @@ async function read(target: Target, epicId: string, person: Person = target.memb
 }
 
 describe('epic-detail', () => {
-  test('欄、依頼主、クリア報酬の段階と額を返し、討伐隊とストーリーが無ければ空で返す', async () => {
+  test('欄、依頼主、クリア報酬の段階を返し（額は返さない）、討伐隊とストーリーが無ければ空で返す', async () => {
     const target = await createTarget();
     const category = await createCategory(target.organization, target.workspace.id, { name: '営業' });
     const requester = await createUser(target.organization, { name: '青木 遥' });
@@ -91,24 +89,9 @@ describe('epic-detail', () => {
     });
     expect(body.requester).toEqual({ id: requester.id, name: '青木 遥', left: false });
     expect(body.reward_tier).toBe('large');
-    expect(body.reward_xp).toBe(600);
+    expect(body).not.toHaveProperty('reward_xp');
     expect(body.party).toEqual([]);
     expect(body.stories).toEqual([]);
-  });
-
-  test('クリア報酬の額は、段階ごとに小 100、中 300、大 600', async () => {
-    const target = await createTarget();
-    const amounts: Record<string, number> = {};
-    for (const tier of ['small', 'medium', 'large'] as const) {
-      const epic = await createEpic(target.organization, target.workspace.id, target.admin.userId!, {
-        reward_tier: tier,
-      });
-      const body = await read(target, epic.id);
-      expect(body.reward_tier).toBe(tier);
-      amounts[tier] = body.reward_xp;
-    }
-    expect(amounts).toEqual({ small: 100, medium: 300, large: 600 });
-    expect(XP_EPIC_REWARD).toEqual(amounts);
   });
 
   test('完了と中止の日時を返し、削除した区分は null にする', async () => {
@@ -154,7 +137,7 @@ describe('epic-detail', () => {
     expect((await read(target, other.id)).requester.left).toBe(true);
   });
 
-  test('討伐隊は入った順に、名前、離脱済みか、入り方、レベルを返す。経験値の数値は返さない', async () => {
+  test('討伐隊は入った順に、名前、離脱済みか、入り方を返す。レベルと経験値は返さない', async () => {
     const target = await createTarget();
     const adminId = target.admin.userId!;
     const epic = await createEpic(target.organization, target.workspace.id, adminId);
@@ -167,11 +150,8 @@ describe('epic-detail', () => {
     const gone = await createUser(target.organization, { name: '離れた 人' });
     await createMembership(target.organization, target.workspace.id, gone.id, { left_at: AT, left_on: '2026-10-20' });
 
-    // 組織の中の合計から出す。別のワークスペースで稼いだ分も含み、打ち消しも引く
+    // 経験値の明細があっても、レベルも数値も返さない（#1432）
     await createXpGrant(target.organization, target.workspace.id, veteran.id, { amount: 300 });
-    await createXpGrant(target.organization, target.otherWorkspace.id, veteran.id, { amount: 250 });
-    await createXpGrant(target.organization, target.workspace.id, veteran.id, { amount: -50 });
-    await createXpGrant(target.organization, target.workspace.id, gone.id, { amount: 120 });
 
     await createEpicPartyMember(target.organization, epic.id, veteran.id, {
       joined_via: 'self',
@@ -193,16 +173,14 @@ describe('epic-detail', () => {
     const body = await read(target, epic.id);
 
     expect(body.party).toEqual([
-      { id: veteran.id, name: '古参 太郎', left: false, level: levelOf(500), joined_via: 'self' },
-      { id: newcomer.id, name: '新人 花子', left: false, level: 1, joined_via: 'assigned' },
-      { id: gone.id, name: '離れた 人', left: true, level: levelOf(120), joined_via: 'task_assignee' },
+      { id: veteran.id, name: '古参 太郎', left: false, joined_via: 'self' },
+      { id: newcomer.id, name: '新人 花子', left: false, joined_via: 'assigned' },
+      { id: gone.id, name: '離れた 人', left: true, joined_via: 'task_assignee' },
     ]);
-    expect(body.party[0]!.level).toBe(3);
-    // 数値は応答に入れない
     for (const member of body.party) {
-      expect(Object.keys(member).sort()).toEqual(['id', 'joined_via', 'left', 'level', 'name']);
+      expect(Object.keys(member).sort()).toEqual(['id', 'joined_via', 'left', 'name']);
     }
-    expect(JSON.stringify(body)).not.toMatch(/"(total|amount|xp)"/);
+    expect(JSON.stringify(body)).not.toMatch(/"(total|amount|xp|level|reward_xp)"/);
   });
 
   test('配下のストーリーを並びの順に返し、完了と、削除していないタスクのポイントの合計を数える', async () => {

@@ -72,6 +72,3 @@ export const icons = {
 } as const;
 
 export type IconName = keyof typeof icons;
-
-// アイコンの色。xp は経験値の色（.ico.is-xp）。kit.js の icon の tone と同じ
-export type IconTone = 'xp';

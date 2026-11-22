@@ -1,9 +1,8 @@
 import { todayIn } from '../../shared/clock.ts';
-import { XP_EPIC_REWARD, levelOf, type EpicRewardTier } from '../../shared/experience.ts';
+import type { EpicRewardTier } from '../../shared/experience.ts';
 import { epicDetail, type EpicJoinedVia } from '../../shared/operations/epic/index.ts';
 import { ApiError } from '../errors.ts';
 import { amountOf } from './aggregate.ts';
-import { epicPartyExperienceTotalsStatement } from './experience.ts';
 import { implement } from './implement.ts';
 import { activeMemberName, isLeaderOrAdmin } from './write-guards.ts';
 
@@ -18,7 +17,7 @@ export const epicDetailOperation = implement(epicDetail, async ({ db, actor, wor
   // users の行が無い人（型の上だけ）は、どの行にも当たらない空の ID で読む
   const actorUserId = actor.userId ?? '';
 
-  const [epicResult, partyResult, storiesResult, totalsResult, settingsResult, joinableResult] = await db.batch([
+  const [epicResult, partyResult, storiesResult, settingsResult, joinableResult] = await db.batch([
     db.statement((q) =>
       q
         .selectFrom('epics')
@@ -110,7 +109,6 @@ export const epicDetailOperation = implement(epicDetail, async ({ db, actor, wor
         .orderBy('stories.position')
         .orderBy('stories.id'),
     ),
-    epicPartyExperienceTotalsStatement(db, workspaceId, epicId),
     db.statement((q) =>
       q
         .selectFrom('workspaces')
@@ -126,7 +124,6 @@ export const epicDetailOperation = implement(epicDetail, async ({ db, actor, wor
   const settings = settingsResult.rows[0];
   if (epic === undefined || settings === undefined) throw new ApiError(404, 'not_found');
 
-  const totals = new Map(totalsResult.rows.map((row) => [row.user_id, amountOf(row.total)]));
   // reward_tier と joined_via は列の CHECK が守る値。列挙に無い値が来ても、出力のスキーマ（z.enum）が 500 で止める
   const rewardTier = epic.reward_tier as EpicRewardTier;
   return {
@@ -151,12 +148,10 @@ export const epicDetailOperation = implement(epicDetail, async ({ db, actor, wor
       left: epic.requester_membership_id === null,
     },
     reward_tier: rewardTier,
-    reward_xp: XP_EPIC_REWARD[rewardTier],
     party: partyResult.rows.map((row) => ({
       id: row.id,
       name: row.name,
       left: row.membership_id === null,
-      level: levelOf(totals.get(row.id) ?? 0),
       joined_via: row.joined_via as EpicJoinedVia,
     })),
     stories: storiesResult.rows.map((row) => ({

@@ -87,7 +87,7 @@ SQ.mount("backlog", () => {
       ${pageHead(D.workspaces.wa.name, t("backlog"), [])}
       ${SQTaskTemplates.backlogAction()}
       ${SQ.emptyState("board", `まだ${t("task")}がありません`,
-        `${t("task")}を優先する順に並べる場所です。下の空の行に題を入れて、最初の${t("task")}を作ります。`, "", undefined, "notice")}
+        `${t("task")}を優先する順に並べる場所です。下の空の行に題を入れて、最初の${t("task")}を作ります。`, "", "notice")}
       <section class="section" aria-label="${t("backlog")}の${t("task")}"><div class="tree">
         ${SQ.draftRow("new-epic", "root", `${t("epic")}を足す`)}${SQ.draftRow("new-story", "root", `${t("story")}を足す`)}${SQ.draftRow("root", "backlog", `${t("task")}を足す`)}
       </div></section>`;

@@ -68,18 +68,12 @@ export const screens: Screen[] = [
   },
   {
     route: '/[slug]/me',
-    operations: [
-      op('experience-summary'),
-      op('experience-grants'),
-      op('token-list', {}, false, true),
-      op('invitation-list'),
-      op('me', {}, false, true),
-    ],
+    operations: [op('token-list', {}, false, true), op('invitation-list'), op('me', {}, false, true)],
   },
   { route: '/[slug]/w/[id]/+layout', operations: [w('workspace')] },
   {
     route: '/[slug]/w/[id]',
-    operations: [w('backlog-tree'), w('category-repository-list', true), w('experience-team-total', true)],
+    operations: [w('backlog-tree'), w('category-repository-list', true)],
   },
   { route: '/[slug]/w/[id]/plan', operations: [w('sprint-list'), w('plan-summary', true)] },
   { route: '/[slug]/w/[id]/sprint', operations: [w('sprint-board')] },

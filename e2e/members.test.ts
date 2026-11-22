@@ -55,9 +55,9 @@ test.describe('リーダー（あおば開発のミナト）', () => {
     const rows = members.locator('tbody tr');
     await expect(rows).toHaveCount(2);
     // 名前の前に頭文字の円（その文字も td の文字に入る）
-    // 名前の後ろにレベルの小さい紋章（数字だけ。ほかのファイルの e2e がタスクを完了にすると上がりうる）
-    await expect(rows.nth(0).locator('td').nth(0)).toHaveText(/^ミミナト\d+$/);
-    await expect(rows.nth(0).locator('.emblem.is-sm')).toHaveAttribute('aria-label', /^レベル \d+$/);
+    // 名前の後ろにレベルの紋章を添えない（#1432）
+    await expect(rows.nth(0).locator('td').nth(0)).toHaveText('ミミナト');
+    await expect(rows.nth(0).locator('.emblem')).toHaveCount(0);
     // 名前は横の文字が読むので、アバターは読み上げから外す
     const avatar = rows.nth(0).locator('td').nth(0).locator('.avatar');
     await expect(avatar).toBeVisible();
@@ -74,7 +74,7 @@ test.describe('リーダー（あおば開発のミナト）', () => {
     ]);
     await expect(rows.nth(1).getByRole('button', { name: 'ハルカを外す' })).toHaveText('外す');
     await expect(page.locator('.action-note')).toHaveText(
-      '外すと、その人の未完了のタスクは担当なしに戻ります。完了の記録と経験値は残ります。',
+      '外すと、その人の未完了のタスクは担当なしに戻ります。完了の記録は残ります。',
     );
 
     // 承諾待ちの招待。招待した日はワークスペースのタイムゾーン（東京）の日付
@@ -266,8 +266,8 @@ test.describe('リーダー（あおば開発のミナト）', () => {
     const minato = rows.nth(0).locator('.avatar');
     await expect(minato.locator('img')).toHaveAttribute('src', 'https://avatars.githubusercontent.com/u/7300001');
     await expect(minato.locator('img')).toBeVisible();
-    // 画像のある人は頭文字を出さない（名前の後ろはレベルの紋章の数字）
-    await expect(rows.nth(0).locator('td').nth(0)).toHaveText(/^ミナト\d+$/);
+    // 画像のある人は頭文字を出さない
+    await expect(rows.nth(0).locator('td').nth(0)).toHaveText('ミナト');
     const haruka = rows.nth(1).locator('.avatar');
     await expect(haruka).toHaveText('ハ');
     await expect(haruka.locator('img')).toHaveCount(0);
@@ -299,7 +299,7 @@ test.describe('リーダー（あおば開発のミナト）', () => {
     // やめると送らない
     await remove.click();
     await expect(dialog).toContainText(
-      'ハルカはワークスペースから外れます。担当していた未完了のタスクは担当なしに戻ります。完了の記録と経験値は残ります。戻すには、もう一度招待します。',
+      'ハルカはワークスペースから外れます。担当していた未完了のタスクは担当なしに戻ります。完了の記録は残ります。戻すには、もう一度招待します。',
     );
     await dialog.getByRole('button', { name: 'やめる' }).click();
     await expect(dialog).toBeHidden();
@@ -492,7 +492,6 @@ test.describe('リーダー（あおば開発のミナト）', () => {
           role: 'leader',
           joined_on: '2026-10-01',
           avatar_url: null,
-          level: 12,
         },
       ],
       // Google の招待は手段の列に期限か「期限切れ」が並び、その列も広がる

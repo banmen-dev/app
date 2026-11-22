@@ -1,11 +1,12 @@
 import { expect, test } from 'vitest';
 import { word } from '../shared/vocabulary.ts';
 import { sprintLabel, sprintLabelWithPeriod, completedMessage } from './sprint-label.ts';
-test('完了の知らせは実際の経験値を次の1行に添え、0なら省く', () => {
-  expect(completedMessage(false, 40, word)).toBe(`${completedMessage(false, 0, word)}\n+40 XP`);
-  expect(completedMessage(false, 0, word)).not.toContain('XP');
-  expect(completedMessage(true, 15, word)).toBe(`${completedMessage(true, 0, word)}\n+15 XP`);
-  expect(completedMessage(true, 0, word)).toContain('から外れました');
+test('完了の知らせは1行で、始まっていないスプリントから外れたら添える', () => {
+  expect(completedMessage(false, word)).not.toContain('\n');
+  expect(completedMessage(false, word)).not.toContain('から外れました');
+  expect(completedMessage(true, word)).toBe(
+    `${completedMessage(false, word)}。${word('taskLeftPlannedSprint', { sprint: word('sprint') })}`,
+  );
 });
 
 for (const [name, label, withPeriod] of [

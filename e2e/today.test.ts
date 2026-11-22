@@ -654,7 +654,7 @@ function removeTask(tasks: TodayTask[], id: unknown): void {
 }
 
 // 印、完了、戻すの操作。今日の読み取りと、3 つの操作を、行の状態を持つ応答に差し替える（操作の後の読み直しで、行が区分を移る）
-async function routeTodayState(page: Page, tasks: TodayTask[], xpGranted = 40) {
+async function routeTodayState(page: Page, tasks: TodayTask[]) {
   const calls: { operation: string; input: unknown }[] = [];
   await routeOperation(page, today, { slug: 'aoba' }, (call) => call.fulfill({ tasks, sprint_goals: [] }));
   await routeOperation(page, taskTodayMark, { slug: 'aoba' }, (call) => {
@@ -674,7 +674,6 @@ async function routeTodayState(page: Page, tasks: TodayTask[], xpGranted = 40) {
       task_id: task.id,
       completed_at: task.completed_at,
       left_sprint: false,
-      xp_granted: xpGranted,
     });
   });
   await routeOperation(page, taskReopen, { slug: 'aoba' }, (call) => {
@@ -725,8 +724,8 @@ test('完了にすると今日の完了に移って静止でなく判を押す�
 
   await page.getByRole('button', { name: '完了にする: 終わらせる' }).click();
   const done = region(page, '今日の完了').locator('.entry', { hasText: '終わらせる' });
-  await expect(page.getByRole('status').filter({ hasText: '+40 XP' })).toBeVisible();
-  const toastText = page.getByRole('status').filter({ hasText: '+40 XP' }).locator('span');
+  await expect(page.getByRole('status').filter({ hasText: 'タスクを完了にしました' })).toBeVisible();
+  const toastText = page.getByRole('status').filter({ hasText: 'タスクを完了にしました' }).locator('span');
   await expect(toastText).toHaveCSS('white-space', 'pre-line');
   const toastBox = await toastText.boundingBox();
   expect(toastBox).not.toBeNull();
@@ -745,10 +744,10 @@ test('完了にすると今日の完了に移って静止でなく判を押す�
   expect(calls.map((call) => call.operation)).toEqual(['task-complete', 'task-reopen']);
 });
 
-test('経験値の付かない完了ではXPの行を出さない', async ({ page }) => {
-  await routeTodayState(page, [row('経験値なし', { today_on: TODAY, points: 0 })], 0);
+test('完了の知らせに経験値を出さない', async ({ page }) => {
+  await routeTodayState(page, [row('見積もり済み', { today_on: TODAY, points: 3 })]);
   await page.goto('/aoba');
-  await page.getByRole('button', { name: '完了にする: 経験値なし' }).click();
+  await page.getByRole('button', { name: '完了にする: 見積もり済み' }).click();
   const toast = page.getByRole('status').filter({ hasText: 'タスクを完了にしました' });
   await expect(toast).toBeVisible();
   await expect(toast).not.toContainText('XP');

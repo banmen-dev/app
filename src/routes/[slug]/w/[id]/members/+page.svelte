@@ -6,7 +6,6 @@
   import { callOperation, type ApiResult } from '../../../../../lib/api.ts';
   import Avatar from '../../../../../lib/components/Avatar.svelte';
   import ConfirmDialog from '../../../../../lib/components/ConfirmDialog.svelte';
-  import Emblem from '../../../../../lib/components/Emblem.svelte';
   import EmptyState from '../../../../../lib/components/EmptyState.svelte';
   import Icon from '../../../../../lib/components/Icon.svelte';
   import LoadFailed from '../../../../../lib/components/LoadFailed.svelte';
@@ -309,7 +308,7 @@
                       name={member.name}
                       image={member.avatar_url}
                       decorative
-                    />{member.name}<Emblem level={member.level} small /></span
+                    />{member.name}</span
                   ></td
                 >
                 <td data-label={t('memberRoleHeader')}>

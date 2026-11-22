@@ -13,7 +13,7 @@ const closed = {
 function view(overrides: { is_admin: boolean; has_workspaces: boolean; workspaces: OrganizationView['workspaces'] }) {
   return {
     organization: { name: '架空の組織', kind: 'team', has_workspaces: overrides.has_workspaces },
-    me: { id: 'u1', name: '架空の人', is_admin: overrides.is_admin, theme: 'simple', level: 1 },
+    me: { id: 'u1', name: '架空の人', is_admin: overrides.is_admin, theme: 'simple', avatar_url: null },
     trial: null,
     storage: null,
     plan: null,

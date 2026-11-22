@@ -1088,10 +1088,6 @@ export const pointers: Pointers = {
       target_column_id: destination.id,
     };
   },
-  // 呼んだ人の分だけを読み、入力は行を指さない（明細の続きの位置は行を指さず、別の組織の位置でも読む範囲が変わるだけ）
-  'experience-summary': { noReference: {} },
-  'experience-grants': { noReference: {} },
-  'experience-team-total': async (target) => ({ workspace_id: target.workspace.id }),
   'epic-move': async (target) => ({
     workspace_id: target.workspace.id,
     epic_id: (await createEpic(target.organization, target.workspace.id, target.admin.userId!)).id,

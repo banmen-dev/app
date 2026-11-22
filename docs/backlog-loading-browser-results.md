@@ -67,6 +67,9 @@ pnpm exec node scripts/backlog-loading-browser-bench.ts --runs 20 --rounds 2 --o
 pnpm exec node scripts/backlog-loading-summary.ts /tmp/backlog-loading.json /tmp/backlog-summary
 ```
 
+2026-11-22 に #1432 で経験値の操作（experience-team-total）を外したので、現行の計測器は従を区分とリポジトリの一覧（category-repository-list）の1つだけで測る。
+上の正式結果と下の表は3操作の時点のもので、再集計は経験値の値を持つ正式データも、持たない新しい計測も受け付ける（表の経験値の列は値が無ければ「—」）。
+
 Node は `.node-version`、pnpm は `packageManager` の版を使い、Chromium を Playwright の実行環境に用意する。計測器は既存の DB や `.dev.vars` を使わず、一時ディレクトリに設定と使い捨て D1 を作る。Wrangler は必ず `--local` で起動する。製品ソースを編集せず、Vite の計測専用変換で B/C・正逆順の4ビルドを作り、通常の build を退避・復元する。通信・HTTP・JSON・画面例外を検出し、保存失敗や計測中断でも各停止・削除を試みる。既存の #1318 の計測器・後片付け・gzip 配信を参照・再利用し、変更はしていない。
 
 | 比較 | 取得と待ち方 | 用途 |

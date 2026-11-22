@@ -19,7 +19,7 @@
 <script>
 "use strict";
 // メンバー: ロール、配分、招待
-const { D, t, icon, esc, pageHead, avatarOf, emblem, user, loginTarget } = SQ;
+const { D, t, icon, esc, pageHead, avatarOf, user, loginTarget } = SQ;
 
 SQ.mount("members", () => {
   const now = D.members.filter((m) => !m.left);
@@ -28,7 +28,7 @@ SQ.mount("members", () => {
     const u = user(m.who);
     const allocOptions = `<option ${m.alloc == null ? "selected" : ""}>未設定</option>` + Array.from({ length: 21 }, (_, i) => i * 5).map((v) => `<option ${m.alloc === v ? "selected" : ""}>${v}%</option>`).join("");
     return `<tr>
-      <td class="is-name"><span class="person">${avatarOf(m.who)}${esc(u.name)}${emblem(u.level, true)}</span></td>
+      <td class="is-name"><span class="person">${avatarOf(m.who)}${esc(u.name)}</span></td>
       <td data-label="ロール"><select class="select" aria-label="${esc(u.name)}のロール"><option ${m.role === "leader" ? "selected" : ""}>${t("leader")}</option><option ${m.role === "member" ? "selected" : ""}>一般</option></select></td>
       <td class="mono" data-label="参加日">${m.joined}</td>
       <td data-label="配分（11月）"><select class="select" aria-label="${esc(u.name)}の11月の配分">${allocOptions}</select></td>

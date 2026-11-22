@@ -8,7 +8,6 @@
   import ClearCelebration from '../../../../../../lib/components/ClearCelebration.svelte';
   import DefinitionChip from '../../../../../../lib/components/DefinitionChip.svelte';
   import DueChip from '../../../../../../lib/components/DueChip.svelte';
-  import Emblem from '../../../../../../lib/components/Emblem.svelte';
   import EmptyState from '../../../../../../lib/components/EmptyState.svelte';
   import EpicPartyAssignDialog from '../../../../../../lib/components/EpicPartyAssignDialog.svelte';
   import EpicRequesterDialog from '../../../../../../lib/components/EpicRequesterDialog.svelte';
@@ -421,7 +420,7 @@
           </div>
           <div>
             <dt>{t('reward')}</dt>
-            <dd><EpicTier tier={detail.reward_tier} xp={detail.reward_xp} /></dd>
+            <dd><EpicTier tier={detail.reward_tier} /></dd>
           </div>
           <div>
             <dt>{t('due')}</dt>
@@ -472,7 +471,6 @@
                   {member.name}{#if member.left}<span class="props-note">{t('leftMember')}</span>{/if}
                 </span>
                 {#if member.id === detail.requester.id}<span class="role">{t('requester')}</span>{/if}
-                <Emblem level={member.level} small />
               </li>
             {/each}
           </ul>

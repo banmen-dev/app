@@ -22,7 +22,6 @@
   import Markdown from '../../../../lib/components/Markdown.svelte';
   import MoveParentDialog from '../../../../lib/components/MoveParentDialog.svelte';
   import PageHead from '../../../../lib/components/PageHead.svelte';
-  import TeamExperience from '../../../../lib/components/TeamExperience.svelte';
   import TaskEntry from '../../../../lib/components/TaskEntry.svelte';
   import DraftRow from '../../../../lib/components/DraftRow.svelte';
   import TreeEpic from '../../../../lib/components/TreeEpic.svelte';
@@ -701,7 +700,7 @@
         // 別の画面で先に完了にされていたときは、同じ完了の印で示し、知らせる
         showToast(
           result.ok
-            ? completedMessage(result.data.left_sprint, result.data.xp_granted, t)
+            ? completedMessage(result.data.left_sprint, t)
             : t('taskAlreadyDone', { task: t('task'), done: t('done') }),
           'check',
         );
@@ -1464,10 +1463,6 @@
     note={reloadFailureNote(workspace.id) ?? undefined}
   />
 {:else if workspace && tree}
-  <!-- チーム全体の経験値は、読めたときだけ見出しの中に出す（読めなくても画面は開く） -->
-  {#snippet teamExperience()}
-    {#if data.teamTotal !== null}<TeamExperience total={data.teamTotal} />{/if}
-  {/snippet}
   <PageHead
     title={t('backlog')}
     narrowSummary={t('backlogSummary')}
@@ -1478,7 +1473,6 @@
       { tone: 'warn', label: t('pointsUnsetTitle'), count: tallies.unestimated_count },
       { label: t('backlogTallyUnscheduled', { sprint: t('sprint') }), count: tallies.unscheduled_count },
     ]}
-    meta={data.teamTotal === null ? undefined : teamExperience}
   ></PageHead>
 
   <!-- 完成の定義（components.css の .dod）。木の上に1つだけ畳んで置き、行ごとには繰り返さない。空なら出さない。

@@ -22,21 +22,21 @@ window.SQ_DATA = (function () {
     // 自分が入れる組織。組織ごとに名前、レベル、経験値が別になる
     // plan は契約（プランと支払いの周期）。無いチーム用の組織は「未契約」、自分用は「パーソナル」の印を出す
     organizations: [
-      { slug: "aoba", name: "あおば開発", level: 7, admin: true },
-      { slug: "hibari", name: "ひばり工房", level: 3 },
+      { slug: "aoba", name: "あおば開発", admin: true },
+      { slug: "hibari", name: "ひばり工房" },
     ],
     // 入れる組織のうち、停止している組織（組織の選択に、押せない行で出す。入れる組織の一覧には並べない）
     suspendedOrganizations: [{ slug: "nagi", name: "なぎ設計" }],
 
     users: {
-      u1: { name: "ミナト", hue: 172, level: 7, role: "leader" },
-      u2: { name: "ハルカ", hue: 28, level: 9, role: "member" },
-      u3: { name: "ソウタ", hue: 220, level: 5, role: "member" },
-      u4: { name: "リン", hue: 320, level: 6, role: "member" },
-      u5: { name: "カイ", hue: 90, level: 4, role: "member", left: true },
+      u1: { name: "ミナト", hue: 172, role: "leader" },
+      u2: { name: "ハルカ", hue: 28, role: "member" },
+      u3: { name: "ソウタ", hue: 220, role: "member" },
+      u4: { name: "リン", hue: 320, role: "member" },
+      u5: { name: "カイ", hue: 90, role: "member", left: true },
       // 組織の管理のユーザーの表だけに出る人（どのワークスペースにも所属しない）。長い名前の折り返しと、一度も入っていない人の行を見る
-      u6: { name: "長谷川・アレクサンドラ・美咲・ロドリゲス", hue: 250, level: 1, role: "member", left: true },
-      u7: { name: "ツムギ", hue: 140, level: 1, role: "member", left: true },
+      u6: { name: "長谷川・アレクサンドラ・美咲・ロドリゲス", hue: 250, role: "member", left: true },
+      u7: { name: "ツムギ", hue: 140, role: "member", left: true },
     },
     workspaces: {
       // role は自分（D.me）のロール。組織のホームのワークスペースの面に出る
@@ -172,13 +172,6 @@ window.SQ_DATA = (function () {
       ],
     },
 
-    // 受託開発チームのチーム全体の経験値（全員の合計の1つの数。人ごとの値は見せない）
-    teamXp: 8420,
-    level: { level: 7, xp: 2550, toNext: 250, soon: 140, gotPct: 64, soonPct: 20, rows: [["受託開発チーム", 1780], ["社内ツール", 770]], total: 2550 },
-
-    // 自分が受け取った感謝の数（組織の合計。本人の面にだけ出す）
-    thanksReceived: 9,
-
     // 第14回の積載量。基準と作業量は時間
     capacity: [
       { who: "u1", alloc: 60, base: 45.6, work: 56.0, off: "10/23 半日" },
@@ -292,16 +285,6 @@ Object.assign(window.SQ_DATA, {
     timeOff: [["2026-10-23", "半日"], ["2026-11-02", "終日"], ["2026-11-24", "終日"]],
     overrides: [["2026-12", 120]],
     allocTotals: [["2026-10", 100], ["2026-11", 110]],
-    // 経験値の明細。確定日時、行動、内容、値、ワークスペース。打ち消しは元の行動に「の打ち消し」を添え、負の値で出す
-    xp: [
-      ["2026/10/20 09:40", "完了", "決済通知のメール文面を直す", 20, "受託開発チーム"],
-      ["2026/10/20 09:40", "起票", "決済通知のメール文面を直す", 10, "受託開発チーム"],
-      ["2026/10/09 12:10", "詳細", "会員ランクの判定を夜間に回す", 15, "社内ツール"],
-      ["2026/10/09 12:10", "完了", "会員ランクの判定を夜間に回す", 20, "社内ツール"],
-      ["2026/10/06 16:00", "手助け", "ハルカさんへの感謝", 15, "受託開発チーム"],
-      ["2026/10/03 11:00", "完了の打ち消し", "ログ出力の整理", -20, "受託開発チーム"],
-      ["2026/09/18 10:30", "完了", null, 30, "旧サイト保守"],
-    ],
   },
 
   admin: {

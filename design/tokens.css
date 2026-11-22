@@ -48,9 +48,6 @@
   --duration-stamp: 260ms;
   --duration-celebrate: 420ms; /* クリアの判子が出る */
   --duration-flash: 800ms;   /* 落とした行の背景を戻す。変えたら src/lib/drop-flash.svelte.ts の FLASH_MS（印を外すまで）も、これより少し長くそろえる */
-  --color-glint: rgb(255 255 255 / 0.75);   /* ゲージの先端の光の線。どのテーマでも白 */
-  --duration-gauge: 700ms;   /* 経験値のゲージの確定の塗りが伸びる。見込みの斜線はこの後に --duration-gauge-soon で続く */
-  --duration-gauge-soon: 300ms;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1); /* 少し行き過ぎて戻る。ショートカットのヒントが角から出る */
 
@@ -82,9 +79,9 @@
   --color-accent-soft: #e8effc;
   --color-stamp: #cf222e;       /* 通知の数と未読の点 */
   --color-done: var(--color-ok);  /* 完了の印とクリア */
-  --color-xp: #8a5a00;          /* 経験値とレベルだけに使う */
+  --color-gold: #8a5a00;        /* 今日やるの印、エピックの区分と貼り紙 */
   --color-favorite: #997000;  /* お気に入りの塗った星だけ */
-  --color-xp-soft: #f6ecd6;
+  --color-gold-soft: #f6ecd6;
 
   /* ---- 色: 状態 ---- */
   --color-danger: #b42318;
@@ -139,9 +136,9 @@
     --color-on-accent: #0b1220;
     --color-accent-soft: #18233a;
     --color-stamp: #ff7b72;
-    --color-xp: #e3b341;
+    --color-gold: #e3b341;
     --color-favorite: #f5cc45;  /* お気に入りの塗った星だけ */
-    --color-xp-soft: #3a2e12;
+    --color-gold-soft: #3a2e12;
     --color-danger: #ff8178;
     --color-danger-soft: #3d1f1d;
     --color-warn: #f0a85a;
@@ -171,9 +168,9 @@
   --color-on-accent: #0b1220;
   --color-accent-soft: #18233a;
   --color-stamp: #ff7b72;
-  --color-xp: #e3b341;
+  --color-gold: #e3b341;
   --color-favorite: #f5cc45;  /* お気に入りの塗った星だけ */
-  --color-xp-soft: #3a2e12;
+  --color-gold-soft: #3a2e12;
   --color-danger: #ff8178;
   --color-danger-soft: #3d1f1d;
   --color-warn: #f0a85a;

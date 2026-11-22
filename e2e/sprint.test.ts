@@ -1091,7 +1091,6 @@ test.describe('カードのドラッグ', () => {
         task_id: completingId,
         completed_at: '2026-10-20T00:00:00.000Z',
         left_sprint: false,
-        xp_granted: 40,
       });
     });
     const unrouteMove = await mockOperation(page, taskColumnMove, { slug: 'aoba' }, { task_id: 'x', column_id: 'y' });
@@ -1419,7 +1418,6 @@ test('進み具合は完了ポイントと経過日数を1本の棒で示し、�
       task_id: task.id,
       completed_at: '2026-10-20T09:00:00.000Z',
       left_sprint: false,
-      xp_granted: 0,
     });
   });
   await page.goto(`${AOBA_TEAM}/sprint`);

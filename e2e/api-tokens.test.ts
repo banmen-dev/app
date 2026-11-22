@@ -233,9 +233,8 @@ test('一覧が空なら空の状態を出し、読めなければこの節に�
   const failing = await failOperation(page, tokenList, 500, 'internal');
   await page.goto('/aoba/me');
   await expect(section.getByText('API トークンを読み込めませんでした')).toBeVisible();
-  // ほかの節（経験値の明細）は生きている
-  await expect(page.getByRole('heading', { level: 2, name: '経験値の明細' })).toBeVisible();
-  await expect(page.getByText('経験値の明細を読み込めませんでした')).toHaveCount(0);
+  // ほかの節（テーマ）は生きている
+  await expect(page.getByRole('heading', { level: 2, name: 'テーマ' })).toBeVisible();
   await failing();
 
   await section.getByRole('button', { name: 'もう一度試す（API トークン）' }).click();
@@ -358,7 +357,7 @@ test('有効なトークンが上限に達していたら、断られた理由�
   });
 }
 
-// 5列の表は、横の面と並ぶ本文（.layout-main）に入れると PC の幅で押しつぶされるので、経験値の明細と同じく .layout-aside の下に全幅で置く
+// 5列の表は、.setting（見出しの列 260px）に入れると PC の幅で押しつぶされるので、本文（.content）の幅いっぱいに置く
 for (const width of [1100, 1280, 1440]) {
   test(`${width}px の幅では、API トークンの節が本文の幅より広く出て、表が横にはみ出さず、「取り消す」が同じ行の別のセルに重ならない`, async ({
     page,
@@ -376,7 +375,8 @@ for (const width of [1100, 1280, 1440]) {
       const table = document.querySelector('table[aria-label="発行済みの API トークン"]')!;
       const wrap = table.closest('.table-wrap')!;
       const section = table.closest('.section')!;
-      const main = document.querySelector('.layout-main')!;
+      const content = document.querySelector('#content')!;
+      const contentStyle = getComputedStyle(content);
       const row = [...table.querySelectorAll('tbody tr')].find((tr) => tr.textContent?.includes(rowName))!;
       const button = row.querySelector('td.is-actions button')!.getBoundingClientRect();
       const overlaps = [...row.querySelectorAll('td:not(.is-actions)')].map((td) => {
@@ -389,7 +389,8 @@ for (const width of [1100, 1280, 1440]) {
         sectionWidth: section.getBoundingClientRect().width,
         // .setting（見出しの列 260px）に入れていないこと
         inSetting: table.closest('.setting') !== null,
-        mainWidth: main.getBoundingClientRect().width,
+        contentWidth:
+          content.clientWidth - parseFloat(contentStyle.paddingLeft) - parseFloat(contentStyle.paddingRight),
         buttonRight: button.right,
         buttonWidth: button.width,
         overlaps,
@@ -397,8 +398,8 @@ for (const width of [1100, 1280, 1440]) {
     }, name);
     expect(measured.overflow).toBeLessThanOrEqual(0);
     expect(measured.pageOverflow).toBeLessThanOrEqual(0);
-    // 本文（.layout-main）の中でなく、その外の全幅に置かれている
-    expect(measured.sectionWidth).toBeGreaterThan(measured.mainWidth);
+    // 本文の幅いっぱいに置かれている
+    expect(measured.sectionWidth).toBeGreaterThanOrEqual(measured.contentWidth - 1);
     expect(measured.inSetting).toBe(false);
     expect(measured.buttonRight).toBeLessThanOrEqual(width);
     expect(measured.buttonWidth).toBeGreaterThan(0);

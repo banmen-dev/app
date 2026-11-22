@@ -29,14 +29,13 @@
   // ワークスペースを作った直後の既定値は requirements.md の「機能」の冒頭。
   // 決まった欄の名前は作ったときに付けたまま、訳さない
   function freshData(role) {
-    const me = { ...D.users[D.me], level: 1, role: role === "member" ? "member" : "leader" };
+    const me = { ...D.users[D.me], role: role === "member" ? "member" : "leader" };
     const common = {
-      organizations: [{ ...D.organizations[0], level: 1, admin: role === "admin" }], receivedInvites: [],
+      organizations: [{ ...D.organizations[0], admin: role === "admin" }], receivedInvites: [],
       tasks: [], inbox: [], archive: [], epics: {}, stories: {}, sprints: {}, comments: {}, history: {}, files: {},
       connections: [], notifications: [], completions: [], audit: [], capacity: [], invitations: [],
       categories: {}, repositories: {}, detailFields: ["受け入れ基準"], definitionOfDone: [], pointRates: [["2026-10", 4]], workspaceHolidays: [],
       storage: { ...D.storage, used: 0, byWorkspace: [] },
-      level: { level: 1, xp: 0, toNext: 100, soon: 0, gotPct: 0, soonPct: 0 },
     };
     if (role === "admin") {
       return { ...common, users: { [D.me]: me }, workspaces: {}, members: [], seats: { ...D.seats, used: 1 },
@@ -491,7 +490,7 @@
     consentLoadFailed: "同意の状態を読み込めませんでした。もう一度試してください。", consentSubmitting: "同意を記録しています", consentRecordFailed: "同意を記録できませんでした。もう一度試してください。",
     legalRevised: "改定日: {date}", consentRevisedTerms: "利用規約が改められました", consentRevisedPrivacy: "プライバシーポリシーが改められました",
     consentRevisedBoth: "利用規約とプライバシーポリシーが改められました",
-    markdownTableRegion: "表", teamXpLabel: "チーム全体の経験値", filterLabel: "{backlog}の絞り込み", backlogSearch: "タイトルで探す",
+    markdownTableRegion: "表", filterLabel: "{backlog}の絞り込み", backlogSearch: "タイトルで探す",
     filterAll: "{label}: すべて", filterMe: "自分", unassigned: "担当なし", leftMember: "（離脱済み）", categoryNone: "{category}なし",
     backlogSummary: "集計", backlogFilters: "絞り込み", backlogFiltersCount: "絞り込み（{count}条件）",
     backlogPriority: "上ほど優先", backlogOrderHelp: "並べ替えの使い方",
@@ -510,8 +509,7 @@
   // 線画。装飾なので読み上げから外す（本番の Art.svelte）。種類は art.js の ARTS
   // lead は「最初にやること」の先頭に置く小さい形（.art.is-lead）
   const art = (id, lead) => `<svg class="${lead ? "art is-lead" : "art"}" aria-hidden="true"><use href="#a-${id}"/></svg>`;
-  // tone は "xp" で経験値の色（.ico.is-xp）。本番の Icon と同じく "xp" だけを受ける
-  const icon = (id, tone) => `<svg class="${tone === "xp" ? "ico is-xp" : "ico"}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+  const icon = (id) => `<svg class="ico" aria-hidden="true"><use href="#i-${id}"/></svg>`;
   const md = (d) => `${+d.slice(5, 7)}/${+d.slice(8, 10)}`;
   const sumPts = (list) => list.reduce((a, x) => a + (x.pts || 0), 0);
 
@@ -596,13 +594,6 @@
     if (!uid) return avatar(null, 0, opts);
     const u = user(uid);
     return avatar(u.name, u.hue, { ...opts, left: u.left });
-  }
-  function emblem(level, sm) {
-    const digits = String(level).length;
-    const size = digits === 3 ? " is-long" : digits > 3 ? " is-longer" : "";
-    return sm
-      ? `<span class="emblem is-sm${size}" role="img" aria-label="レベル ${level}"><span>${level}</span></span>`
-      : `<span class="emblem${size}" role="img" aria-label="レベル ${level}"><span><small>LV</small>${level}</span></span>`;
   }
   function pts(p) {
     return p == null
@@ -787,9 +778,8 @@
   }
   // 空の状態。何が出る場所かと、次に何をすればよいかを書く。actions は押す操作の HTML。
   // title と text も HTML として埋め込むので、利用者のデータは esc してから渡す
-  // tone はアイコンの色（icon の tone。本番の EmptyState の iconTone）
-  function emptyState(ic, title, text, actions = "", tone, artName) {
-    return `<div class="empty">${artName ? art(artName) : icon(ic, tone)}<b>${title}</b>${text ? `<span>${text}</span>` : ""}${actions ? `<div class="form-actions">${actions}</div>` : ""}</div>`;
+  function emptyState(ic, title, text, actions = "", artName) {
+    return `<div class="empty">${artName ? art(artName) : icon(ic)}<b>${title}</b>${text ? `<span>${text}</span>` : ""}${actions ? `<div class="form-actions">${actions}</div>` : ""}</div>`;
   }
 
   // 最初にやること。済んだかは今のデータから決まるので、閉じた印を持たない。
@@ -961,7 +951,7 @@
   function wikiHit(p, path, where, current = false) {
     return `<li><a class="wiki-link" href="#${p.id}" data-wiki-page="${p.id}"${current ? ' aria-current="page"' : ""}>${esc(p.title)}<span class="props-note">${esc(path)}</span><span class="props-note">${where === "title" ? "題に一致" : "本文に一致"}</span></a></li>`;
   }
-  // meta は集計の下に置く1行（バックログの画面のチーム全体の経験値 teamXp など）
+  // meta は集計の下に置く1行
   let narrowDisclosureId = 0;
   function narrowDisclosure(label, body) {
     const id = `narrow-disclosure-${++narrowDisclosureId}`;
@@ -1233,37 +1223,6 @@
     const marker = markerPercent === undefined ? "" : `<i class="progress-marker" style="left:${Math.max(0, Math.min(100, markerPercent))}%" aria-hidden="true"></i>`;
     const visibleValue = detailed ? `${esc(t("done"))} <span class="progress-value">${done} / ${all} pt</span>${all > 0 ? `<span class="progress-value">（${pct}%）</span>` : ""}` : esc(value);
     return `<span class="progress${detailed ? " is-detailed" : ""}"><span class="progress-bar${marker ? " has-marker" : ""}" role="img" aria-label="${esc(label + (marker && markerLabel ? `、${markerLabel}` : ""))}"><span class="progress-fill" style="width:${pct}%"></span>${marker}</span><span class="progress-num">${visibleValue}</span>${marker && markerLabel ? `<span class="progress-legend">${esc(markerLabel)}</span>` : ""}</span>`;
-  }
-
-  // レベルの面
-  function levelPanel(l = D.level, thanks = D.thanksReceived) {
-    return `<section class="panel" aria-labelledby="level-panel-title">
-      <div class="panel-title"><h2 id="level-panel-title">レベル</h2>経験値は本人だけに見えます</div>
-      <div class="level">${emblem(l.level)}
-        <div><div class="xp-num">${l.xp.toLocaleString()}<small>XP</small></div>
-        <div class="xp-sub">次のレベルまで <b>${l.toNext}</b>・見込み <b>+${l.soon}</b></div></div>
-      </div>
-      <div class="gauge-row"><span class="gauge-end" aria-hidden="true">LV ${l.level}</span>
-        <div class="gauge" role="img" aria-label="次のレベルまでの ${l.gotPct}% を確定、${l.soonPct}% が見込み"><span class="gauge-got" style="width:${l.gotPct}%"></span><span class="gauge-soon" style="width:${l.soonPct}%"></span></div>
-        <span class="gauge-end is-next" aria-hidden="true">LV ${l.level + 1}</span></div>
-      <div class="legend"><span><i class="is-got"></i>確定</span><span><i class="is-soon"></i>見込み（${t("task")}の${t("done")}で確定）</span></div>
-      ${l.rows ? `<div role="group" aria-label="${t("workspace")}ごとの経験値"><dl class="breakdown">${l.rows.map(([n, v]) => `<div><dt>${esc(n)}</dt><dd>${v.toLocaleString()}</dd></div>`).join("")}
-        <div class="is-total"><dt>すべての${t("workspace")}</dt><dd>${l.total.toLocaleString()}</dd></div></dl></div>` : ""}
-      ${levelThanks(thanks)}
-    </section>`;
-  }
-  // レベルの面の末尾の、受け取った感謝の数（組織の合計。0 のときも出す）。内訳と同じ部品（.breakdown）の1行
-  function levelThanks(count) {
-    return `<div role="group" aria-label="受け取った感謝"><dl class="breakdown"><div><dt>受け取った感謝</dt><dd>${count.toLocaleString()}</dd></div></dl></div>`;
-  }
-
-  // チーム全体の経験値。ワークスペースの全員の合計の1つの数で、人ごとの値は出さない。バックログの画面の見出しの中に置く
-  function teamXp(total = D.teamXp) {
-    return `<p class="team-xp">${t("teamXpLabel")}<b>${total.toLocaleString()}</b><small>XP</small></p>`;
-  }
-  // 経験値の明細の値。付与は経験値の色、打ち消し（負の値）は赤
-  function xpDelta(v) {
-    return `<span class="xp-delta ${v < 0 ? "is-minus" : ""}">${v > 0 ? "+" : ""}${v}</span>`;
   }
 
   // 積載量の1行。opts: tolerance、none（未見積もりの件数）、unset（配分未設定）、lead（名前の前に置く HTML）
@@ -3623,10 +3582,10 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   function accountMenuHtml({ invitationState = "ready", open = accountMenuOpen, id = "account-menu-list", live = true, busy = false, admin = !!D.organizations.find((org) => org.slug === D.organization)?.admin, invitationCount = (D.receivedInvites || []).length } = {}) {
     const name = user(D.me).name;
     const badge = admin ? t("admin") : "";
-    // 名前、管理者の札、紋章は .me-detail にまとめ、760px 以下ではアバターだけにする
-    const who = `${avatarOf(D.me, { image: user(D.me).avatar_url })} <span class="me-detail">${esc(name)}${admin ? ` <span class="chip">${t("admin")}</span>` : ""} ${emblem(user(D.me).level, true)}</span>`;
-    // 見えている頭文字、名前、管理者の札、レベルの数字を、表示順に名前へ含める。
-    const label = t("accountMenuLabel").replace("{name}", `${[...name][0]} ${name}${badge ? ` ${badge}` : ""} ${user(D.me).level}`);
+    // 名前と管理者の札は .me-detail にまとめ、760px 以下ではアバターだけにする
+    const who = `${avatarOf(D.me, { image: user(D.me).avatar_url })} <span class="me-detail">${esc(name)}${admin ? ` <span class="chip">${t("admin")}</span>` : ""}</span>`;
+    // 見えている頭文字、名前、管理者の札を、表示順に名前へ含める。
+    const label = t("accountMenuLabel").replace("{name}", `${[...name][0]} ${name}${badge ? ` ${badge}` : ""}`);
     const count = invitationCount;
     const pending = invitationState === "loading" || invitationState === "retrying";
     const status = invitationState === "ready" ? "" : `<li class="account-menu-status"><span role="${pending ? "status" : "alert"}">${t(pending ? "invitationCountLoading" : "invitationCountFailed")}</span>${invitationState === "loading" ? "" : `<button class="btn is-sm" type="button" ${pending ? 'aria-disabled="true"' : ""} ${live ? 'data-toast="見本のため、招待件数は読み直しません"' : ""}>${t(pending ? "retrying" : "retry")}</button>`}</li>`;
@@ -4748,8 +4707,8 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     D, t, brandMark, brandSymbol, googleMark, githubMark, THEMES, THEME_LABEL, THEME_NOTE, esc, icon, md, sumPts, cycleTheme, setTheme, applyTheme, mount,
     onRedraw: (fn) => extraRedraws.push(fn), openDrawer, drawerHtml, drawerState: drawer, flashRow,
     user, task, tasksWhere, repoTag, categoryTag, sprintTag, repoPicker, sprintLabel, colName, categoryOf, storyPts, epicPts, dueOf,
-    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, emblem, pts, dueChip, taskDue, tier, sourceKey, entry, rowMenu, orderItems, draftRow, attrChip, book, section, foldedSection, pane, paneList, newsList, dashboard, activity, activityLoading, activityFailed, activityEmptyNoWorkspace, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
-    narrowDisclosure, card, board, treeStory, treeEpic, completedTasks, sprintNotice, raidNotice, progress, levelPanel, teamXp, xpDelta, load, capacityRows,
+    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, pts, dueChip, taskDue, tier, sourceKey, entry, rowMenu, orderItems, draftRow, attrChip, book, section, foldedSection, pane, paneList, newsList, dashboard, activity, activityLoading, activityFailed, activityEmptyNoWorkspace, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
+    narrowDisclosure, card, board, treeStory, treeEpic, completedTasks, sprintNotice, raidNotice, progress, load, capacityRows,
     openDialog, closeDialog, toast, celebrate, miniCap, redraw: () => redrawAll(), DIALOGS, loginTarget, orgMenuHtml, workspaceMenuHtml, accountMenuHtml, breadcrumbHtml,
     filesOf, fileThumb, fileRow, dropzone, attachments, markdownEditor, markdownToolbarHtml, mdBody, markdownSample, meter, storageBytes,
     PROVIDER, ASSIST_KEY, assistMsg, assistBlocked, assistSuggest, openAssist,

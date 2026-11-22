@@ -1,6 +1,6 @@
 import type { Page, Request } from '@playwright/test';
-import { experienceSummary } from '../src/shared/operations/experience/index.ts';
 import { myOrganizations, organizationInfo } from '../src/shared/operations/organization/index.ts';
+import { tokenList } from '../src/shared/operations/session/index.ts';
 import { expect, test } from './fixtures.ts';
 import { signIn } from './helpers.ts';
 import { failOperation, routeOperation } from './operations.ts';
@@ -24,12 +24,9 @@ async function captured(page: Page, waiting: Promise<Request>): Promise<Record<s
 test('最初の描画で投げた例外も送る', async ({ page, context, baseURL }) => {
   // くもラボの一般のユーザー（組織の値を書き換えない）
   await signIn(context, baseURL, 'lookMember');
-  // ワークスペースの内訳を配列でなくし、経験値の欄（LevelPanel）の描画で TypeError を起こす
-  await routeOperation(page, experienceSummary, { slug: 'kumo' }, (call) =>
-    call.route.fulfill({
-      status: 200,
-      json: { total: 0, level: 1, level_start: 0, next_level_at: 100, prospective: 0, workspaces: { length: 1 } },
-    }),
+  // API トークンの一覧の行を null にし、API トークンの節（ApiTokensSetting）の描画で TypeError を起こす
+  await routeOperation(page, tokenList, (call) =>
+    call.route.fulfill({ status: 200, json: { tokens: [null], can_create: true } }),
   );
   const waiting = page.waitForRequest(isReport);
   await page.goto('/kumo/me');

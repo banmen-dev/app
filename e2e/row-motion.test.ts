@@ -303,7 +303,7 @@ for (const reduced of [false, true]) {
       task.completed_at = '2026-11-04T03:00:00.000Z';
       task.is_today_completed = true;
       task.reopenable = true;
-      return call.fulfill({ task_id: taskId, completed_at: task.completed_at, left_sprint: false, xp_granted: 0 });
+      return call.fulfill({ task_id: taskId, completed_at: task.completed_at, left_sprint: false });
     });
     const removeFailure = await failOperation(page, taskComplete, { slug: 'aoba' }, 500, 'internal');
     await page.goto('/aoba');
