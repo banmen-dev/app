@@ -5,10 +5,9 @@ import { expect, test } from './fixtures.ts';
 const controlEdge: Record<string, string> = {
   simple_light: 'rgb(133, 135, 142)',
   simple_dark: 'rgb(110, 110, 120)',
-  modern: 'rgb(70, 115, 159)',
 };
 // カタログを開くのは1回にし、テーマはページを開いたまま切り替える（テーマごとに開き直さない）。どのテーマで落ちたかは test.step の名前で分かる
-test('操作部品の枠の色: 3つのテーマ', async ({ page }) => {
+test('操作部品の枠の色: 2つのテーマ', async ({ page }) => {
   const errors = await openCatalog(page);
   for (const [theme, edge] of Object.entries(controlEdge)) {
     await test.step(theme, async () => {
@@ -191,7 +190,7 @@ for (const width of [390, 320]) {
   });
 }
 
-test('見本のカタログ: 320px で、3つのテーマともページが横にはみ出さない', async ({ page }) => {
+test('見本のカタログ: 320px で、2つのテーマともページが横にはみ出さない', async ({ page }) => {
   const width = 320;
   await page.setViewportSize({ width, height: 900 });
   const errors = await openCatalog(page);

@@ -107,7 +107,7 @@ test.describe('招待だけが届いた人（ヒナタ）', () => {
   }) => {
     const collect = await watchViolations(page);
     // 自分のテーマを覚えた人。招待の画面は組織のテーマを持たず、今当たっているテーマのまま
-    await page.addInitScript(() => localStorage.setItem('sg-theme', 'modern'));
+    await page.addInitScript(() => localStorage.setItem('sg-theme', 'simple_dark'));
     await stubInvitedOnly(page, {
       invitations: [
         invitation({ role: 'leader' }),
@@ -122,8 +122,8 @@ test.describe('招待だけが届いた人（ヒナタ）', () => {
     await page.goto('/hibari');
     await expect(page).toHaveURL(/\/hibari$/);
     await expect(page.getByRole('heading', { level: 1, name: '届いた招待' })).toBeVisible();
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'modern');
-    expect(await page.evaluate(() => localStorage.getItem('sg-theme'))).toBe('modern');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'simple_dark');
+    expect(await page.evaluate(() => localStorage.getItem('sg-theme'))).toBe('simple_dark');
     await expect(
       page.getByText('ひばり工房から届いた招待です。承諾すると、そのワークスペースに入れます。'),
     ).toBeVisible();

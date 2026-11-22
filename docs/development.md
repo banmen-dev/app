@@ -193,7 +193,7 @@ Wikiの一括取り込みは、`requestRateLimit` の要求枠（本文を読む
 
 ### テーマの先当て
 
-- `html` の `data-theme` の値は `src/shared/theme.ts` の `themes`（`simple`、`simple_light`、`simple_dark`、`modern` の4つ。`modern` の名前はネオン）。属性がなければシンプル（自動）。DB の列挙は消した中世風の `medieval` も許すが、アプリは書かない。
+- `html` の `data-theme` の値は `src/shared/theme.ts` の `themes`（`simple`、`simple_light`、`simple_dark` の3つ）。属性がなければシンプル（自動）。DB の列挙は消した中世風の `medieval` とネオンの `modern` も許すが、アプリは書かない。
 - 当てたテーマは `localStorage` の `sg-theme` に覚える（`src/lib/theme.svelte.ts` の `setTheme`）。
 - 描く前の先当ては `static/theme-init.js` の役目。`src/app.html` の head が同期（`async` と `defer` なし）で読み、覚えている値を `data-theme` に入れる。インラインにすると CSP のハッシュから漏れて止まるので、自分のオリジンのファイルにしてある。`localStorage` が使えない、値が壊れているときは何もせず、属性なしで描く。
 - `static/theme-init.js` は同期で読むので、小さなファイルでも読み終えるまで HTML の解析が止まる。`_headers` では `Cache-Control` を指定せず、Cloudflare の既定（毎回確かめる）のまま配る。描画のたびに「変わっていないか」の問い合わせが1往復増えるが、ファイルは数百バイトで、ちらつきを無くす利点が上回るので受け入れた。名前にハッシュを入れて `immutable` にすれば往復は無くなる一方、`app.html` から名前を引く仕掛けが要り、遅れが問題になってから足せば足りる。

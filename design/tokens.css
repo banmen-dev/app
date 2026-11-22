@@ -1,12 +1,11 @@
 /*
  * Banmen のデザイントークン
- * テーマは4つ。html の data-theme で選ぶ（なければシンプル（自動））。
+ * テーマは3つ。html の data-theme で選ぶ（なければシンプル（自動））。
  *   simple        シンプル（自動）。OS の明暗に合わせる
  *   simple_light  シンプル（ライト）
  *   simple_dark   シンプル（ダーク）
- *   modern        ネオン。近未来の端末のウィンドウ（暗い地に光る枠）。ダークだけ
  * 色は役割で名前を付ける。部品は素の色の値を直接使わず、ここの変数だけを使う。
- * テーマで変わるのは、色、書体、角、線、影だけ。テーマごとの飾りは components.css の末尾にまとめる。
+ * テーマで変わるのは、色、書体、角、線、影だけ。テーマごとの飾りは置かない。
  */
 
 /* ===== テーマによらない値 ===== */
@@ -47,7 +46,7 @@
   /* ---- 動き ---- */
   --duration-fast: 120ms;
   --duration-stamp: 260ms;
-  --duration-celebrate: 420ms; /* クリアの判子とネオンのウィンドウが出る */
+  --duration-celebrate: 420ms; /* クリアの判子が出る */
   --duration-flash: 800ms;   /* 落とした行の背景を戻す。変えたら src/lib/drop-flash.svelte.ts の FLASH_MS（印を外すまで）も、これより少し長くそろえる */
   --color-glint: rgb(255 255 255 / 0.75);   /* ゲージの先端の光の線。どのテーマでも白 */
   --duration-gauge: 700ms;   /* 経験値のゲージの確定の塗りが伸びる。見込みの斜線はこの後に --duration-gauge-soon で続く */
@@ -58,8 +57,6 @@
   /* ---- 書体（全テーマ共通） ---- */
   --family-gothic: "Noto Sans JP", "Hiragino Sans", "Yu Gothic UI", sans-serif;
   --family-mono: var(--family-gothic);
-  --family-tech: var(--family-gothic);
-  --family-tech-gothic: var(--family-gothic);
 }
 
 /* ===== シンプル（ライト）。data-theme がないときもこれ =====
@@ -189,52 +186,5 @@
   --color-tier-large: #f2dc6a;
   --shadow-sheet: 0 1px 2px rgb(0 0 0 / 0.4);
   --shadow-float: 0 12px 32px -12px rgb(0 0 0 / 0.7);
-  color-scheme: dark;
-}
-
-/* ===== ネオン。近未来の端末のウィンドウ ===== */
-:root[data-theme="modern"] {
-  --color-bg: #060a12;
-  --color-surface: #0b1322;
-  --color-sunken: #070d18;
-  --color-line: #1f3b5c;
-  --color-control-edge: #46739f;
-  --color-rule: #142740;
-  --color-fg: #dce9f7;
-  --color-muted: #8ea6c0;
-  --color-faint: #5c7591;
-  --color-accent: #4cc8ff;      /* 光る青。操作と選択、ウィンドウの枠 */
-  --color-on-accent: #04121c;
-  --color-accent-soft: #0e2a44;
-  --color-stamp: #ff6f8e;
-  --color-xp: #b69cff;          /* 紫。経験値とレベルだけに使う */
-  --color-favorite: #f5cc45;  /* お気に入りの塗った星だけ */
-  --color-xp-soft: #231b42;
-  --color-danger: #ff7a7a;
-  --color-danger-soft: #3a1520;
-  --color-warn: #ffb35c;
-  --color-warn-soft: #34230f;
-  --color-ok: #5ee6a8;
-  --color-ok-soft: #0f2e25;
-  --color-gauge: #12233a;
-  --color-tier-small: #f0915f;
-  --color-tier-medium: #a3afbd;
-  --color-tier-large: #ecc9b0;  /* 紫に寄せた淡い金。色相が銅に近づくので、銅より淡く、銀より明るくして明るさで分ける */
-
-  --font-display: var(--family-tech-gothic);
-  --font-stat: var(--family-tech);
-  --weight-display: 700;
-
-  --radius-1: 2px;
-  --radius-2: 3px;
-  --radius-show: var(--radius-1);
-  --rule-double: 1px solid var(--color-line);
-  --edge-top: 5px;              /* 貼り紙、ダイアログ、枠の外の紙は、末尾のテーマの飾りが 1px にする */
-  --chip-state-edge: currentColor;
-  --pts-edge: var(--color-accent);
-  --shadow-sheet: 0 0 0 1px rgb(76 200 255 / 0.25), 0 0 18px -6px rgb(76 200 255 / 0.55);
-  --shadow-panel: 0 0 0 1px rgb(76 200 255 / 0.18), 0 0 22px -10px rgb(76 200 255 / 0.6);
-  --surface-panel: linear-gradient(180deg, rgb(76 200 255 / 0.07), transparent 60%), var(--color-surface);
-  --shadow-float: 0 0 0 1px rgb(76 200 255 / 0.35), 0 0 40px -8px rgb(76 200 255 / 0.45);
   color-scheme: dark;
 }

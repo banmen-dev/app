@@ -68,11 +68,11 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
 
   test('自分のテーマを当て、localStorage にも覚える', async ({ page }) => {
     await patchOrganization(page, 'aoba', (body) => {
-      body.me.theme = 'modern';
+      body.me.theme = 'simple_dark';
     });
     await page.goto('/aoba');
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'modern');
-    expect(await page.evaluate(() => localStorage.getItem('sg-theme'))).toBe('modern');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'simple_dark');
+    expect(await page.evaluate(() => localStorage.getItem('sg-theme'))).toBe('simple_dark');
   });
 
   test('管理者の印は、スクラムの言葉の「管理者」になる', async ({ page }) => {
@@ -249,11 +249,11 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
 
   test('組織の外の画面は、テーマを既定に戻し、覚えたテーマも消す', async ({ page }) => {
     await patchOrganization(page, 'aoba', (body) => {
-      body.me.theme = 'modern';
+      body.me.theme = 'simple_dark';
     });
     await page.goto('/aoba');
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'modern');
-    expect(await page.evaluate(() => localStorage.getItem('sg-theme'))).toBe('modern');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'simple_dark');
+    expect(await page.evaluate(() => localStorage.getItem('sg-theme'))).toBe('simple_dark');
 
     // 見つからない画面（組織の外）。文書ごと読み直すので、確かめるのはテーマの属性と localStorage
     await page.goto('/hibari');
@@ -292,7 +292,7 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
     await routeOperation(page, organizationInfo, AOBA, async (call) => {
       await new Promise((resolve) => setTimeout(resolve, 1200));
       const output = await call.fetch();
-      await call.fulfill({ ...output, me: { ...output.me, theme: 'modern' } });
+      await call.fulfill({ ...output, me: { ...output.me, theme: 'simple_dark' } });
     });
     await page
       .getByRole('region', { name: '組織', exact: true })
@@ -312,7 +312,7 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
     const loadingMain = await shownBox(page.locator('.layout-main'));
     await expect(page.getByRole('heading', { level: 1, name: '今日やること' })).toBeVisible();
     await expect(page.locator('.skeleton-frame')).toHaveCount(0);
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'modern');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'simple_dark');
     const loadedBinding = await shownBox(page.locator('.binding'));
     const loadedTopbar = await shownBox(page.locator('.topbar'));
     const loadedHead = await shownBox(page.locator('.page-head'));
@@ -386,7 +386,7 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
       body.me.name = 'ミナト（あおば）';
     });
     await patchOrganization(page, 'hibari', (body) => {
-      body.me.theme = 'modern';
+      body.me.theme = 'simple_light';
       body.me.name = 'ミナト（ひばり）';
     });
     await page.goto('/aoba');
@@ -413,8 +413,8 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
     await expect(page.locator('.me')).toContainText('ミナト（ひばり）');
     // ひばり工房では一般のユーザーなので、管理者の印は無い
     await expect(page.locator('.me .chip')).toHaveCount(0);
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'modern');
-    expect(await page.evaluate(() => localStorage.getItem('sg-theme'))).toBe('modern');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'simple_light');
+    expect(await page.evaluate(() => localStorage.getItem('sg-theme'))).toBe('simple_light');
     // 選んだら閉じ、今の組織が替わっている
     await expect(menuButton(page)).toHaveAttribute('aria-expanded', 'false');
     await expect(menuButton(page)).toContainText('ひばり工房');
@@ -836,7 +836,7 @@ test.describe('ログインしていない人と、組織が無い人', () => {
     await expect(page.locator('a.choice')).toHaveText([/あおば開発/, /つばめ商会/]);
     await expect(page.getByRole('heading', { level: 2, name: '届いた招待' })).toBeVisible();
     await expect(page.getByRole('link', { name: /つばめ商会/ })).toHaveAttribute('href', '/tsubame/invitations');
-    // 届いた招待の行は記録の面（.panel）ではない。.panel はネオンで光るため
+    // 届いた招待の行は記録の面（.panel）ではない
     await expect(page.locator('.panel')).toHaveCount(0);
   });
 
@@ -875,7 +875,7 @@ test.describe('ログインしていない人と、組織が無い人', () => {
 
   test('組織の選択の画面は、テーマを既定に戻す', async ({ page, context, baseURL }) => {
     await signIn(context, baseURL, 'admin');
-    await page.addInitScript(() => localStorage.setItem('sg-theme', 'modern'));
+    await page.addInitScript(() => localStorage.setItem('sg-theme', 'simple_dark'));
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
     await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.*/);

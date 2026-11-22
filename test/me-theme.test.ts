@@ -50,55 +50,57 @@ describe('me-theme-update', () => {
       leader: await userRow(target.organization, target.leader.userId!),
     };
 
-    const res = await update(target, target.member, { theme: 'modern' });
+    const res = await update(target, target.member, { theme: 'simple_dark' });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ theme: 'modern' });
+    expect(await res.json()).toEqual({ theme: 'simple_dark' });
 
     const after = await userRow(target.organization, target.member.userId!);
-    expect(after.theme).toBe('modern');
+    expect(after.theme).toBe('simple_dark');
     expect(after.updated_at).not.toBe(before.updated_at);
     expect(await userRow(target.organization, target.admin.userId!)).toEqual(others.admin);
     expect(await userRow(target.organization, target.leader.userId!)).toEqual(others.leader);
 
     // 組織の枠の値: 自分のテーマが入る。組織の既定のテーマは返さない。選んでいないほかの人はシンプル（自動）
     const info = await infoOf(target, target.member);
-    expect(info.me.theme).toBe('modern');
+    expect(info.me.theme).toBe('simple_dark');
     expect(info.organization).not.toHaveProperty('theme');
     expect((await infoOf(target, target.leader)).me.theme).toBe('simple');
   });
 
-  test('4つのテーマをどれも書ける', async () => {
+  test('3つのテーマをどれも書ける', async () => {
     const target = await createTarget();
-    for (const theme of ['simple', 'simple_light', 'simple_dark', 'modern']) {
+    for (const theme of ['simple', 'simple_light', 'simple_dark']) {
       const res = await update(target, target.leader, { theme });
       expect(res.status).toBe(200);
       expect((await userRow(target.organization, target.leader.userId!)).theme).toBe(theme);
     }
   });
 
-  test('null（組織の既定に従う）と、消した中世風（medieval）は 400 で、何も書かれない', async () => {
+  test('null（組織の既定に従う）と、消した中世風（medieval）とネオン（modern）は 400 で、何も書かれない', async () => {
     const target = await createTarget();
-    await update(target, target.member, { theme: 'modern' });
-    for (const theme of [null, 'medieval']) {
+    await update(target, target.member, { theme: 'simple_dark' });
+    for (const theme of [null, 'medieval', 'modern']) {
       const res = await update(target, target.member, { theme });
       expect(res.status).toBe(400);
     }
-    expect((await userRow(target.organization, target.member.userId!)).theme).toBe('modern');
+    expect((await userRow(target.organization, target.member.userId!)).theme).toBe('simple_dark');
   });
 
-  test('DB に残った中世風（medieval）の行は、組織の枠でシンプル（自動）として返る', async () => {
+  test('DB に残った中世風（medieval）とネオン（modern）の行は、組織の枠でシンプル（自動）として返る', async () => {
     const target = await createTarget();
     const db = orgDb(env, target.organization.verified);
-    await db.batch([
-      db.statement((q) =>
-        q
-          .updateTable('users')
-          .set({ theme: 'medieval' })
-          .where('id', '=', target.member.userId!)
-          .where('organization_id', '=', target.organization.id),
-      ),
-    ]);
-    expect((await infoOf(target, target.member)).me.theme).toBe('simple');
+    for (const theme of ['medieval', 'modern'] as const) {
+      await db.batch([
+        db.statement((q) =>
+          q
+            .updateTable('users')
+            .set({ theme })
+            .where('id', '=', target.member.userId!)
+            .where('organization_id', '=', target.organization.id),
+        ),
+      ]);
+      expect((await infoOf(target, target.member)).me.theme).toBe('simple');
+    }
   });
 
   test('同じ値をもう一度送っても成功する（最後に書いた値が残る）', async () => {
@@ -112,8 +114,8 @@ describe('me-theme-update', () => {
     const target = await createTarget();
     expect((await update(target, target.admin, { theme: 'simple_light' })).status).toBe(200);
     expect((await userRow(target.organization, target.admin.userId!)).theme).toBe('simple_light');
-    expect((await update(target, target.bystander, { theme: 'modern' })).status).toBe(200);
-    expect((await userRow(target.organization, target.bystander.userId!)).theme).toBe('modern');
+    expect((await update(target, target.bystander, { theme: 'simple_dark' })).status).toBe(200);
+    expect((await userRow(target.organization, target.bystander.userId!)).theme).toBe('simple_dark');
   });
 
   test('変更の履歴（change_logs）に残さず、組織の変更の履歴の画面にも出ない', async () => {
@@ -125,7 +127,7 @@ describe('me-theme-update', () => {
     };
     const before = await changeLogCount(target.organization);
     const entriesBefore = await readHistory();
-    await update(target, target.member, { theme: 'modern' });
+    await update(target, target.member, { theme: 'simple_dark' });
     await update(target, target.member, { theme: 'simple_light' });
     expect(await changeLogCount(target.organization)).toBe(before);
     expect(await readHistory()).toEqual(entriesBefore);
@@ -144,17 +146,17 @@ describe('me-theme-update', () => {
     const res = await post(app, meThemeUpdate, {
       slug: target.slug,
       token: target.member.token,
-      body: { theme: 'modern' },
+      body: { theme: 'simple_dark' },
     });
     expect(res.status).toBe(200);
-    expect((await userRow(target.organization, target.member.userId!)).theme).toBe('modern');
+    expect((await userRow(target.organization, target.member.userId!)).theme).toBe('simple_dark');
     expect((await userRow(other.organization, there.id)).theme).toBeNull();
   });
 
   test('別の組織の slug で呼ぶと、自分の組織の行は変わらない（その組織に入れない人は 404）', async () => {
     const target = await createTarget();
     const other = await createTarget();
-    const res = await update(other, target.member, { theme: 'modern' });
+    const res = await update(other, target.member, { theme: 'simple_dark' });
     expect(res.status).toBe(404);
     expect(await errorCodeOf(res)).toBe('not_found');
     expect((await userRow(target.organization, target.member.userId!)).theme).toBeNull();
@@ -163,7 +165,7 @@ describe('me-theme-update', () => {
 
   test('承諾待ちの招待だけの人（users の行が無い人）は 404 で、何も書かれない', async () => {
     const target = await createTarget();
-    const res = await update(target, target.invitee, { theme: 'modern' });
+    const res = await update(target, target.invitee, { theme: 'simple_dark' });
     expect(res.status).toBe(404);
     const db = orgDb(env, target.organization.verified);
     const themed = await db.rows(
@@ -186,9 +188,9 @@ describe('me-theme-update', () => {
     }
     expect((await userRow(target.organization, target.member.userId!)).theme).toBeNull();
 
-    const res = await update(target, target.member, { theme: 'modern', user_id: target.admin.userId });
+    const res = await update(target, target.member, { theme: 'simple_dark', user_id: target.admin.userId });
     expect(res.status).toBe(200);
     expect((await userRow(target.organization, target.admin.userId!)).theme).toBeNull();
-    expect((await userRow(target.organization, target.member.userId!)).theme).toBe('modern');
+    expect((await userRow(target.organization, target.member.userId!)).theme).toBe('simple_dark');
   });
 });

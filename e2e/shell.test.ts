@@ -626,7 +626,7 @@ test('書体を自分のオリジンから読み込み、外へ通信しない',
 test('覚えたテーマを、body ができる前に当てる', async ({ page }) => {
   const collect = await watchViolations(page);
   await page.addInitScript(() => {
-    localStorage.setItem('sg-theme', 'modern');
+    localStorage.setItem('sg-theme', 'simple_dark');
     const seen: { theme: string | undefined; bodyExists: boolean }[] = [];
     (window as unknown as { __themeSeen: typeof seen }).__themeSeen = seen;
     new MutationObserver(() => {
@@ -640,7 +640,31 @@ test('覚えたテーマを、body ができる前に当てる', async ({ page }
   const seen = await page.evaluate(
     () => (window as unknown as { __themeSeen: { theme: string | undefined; bodyExists: boolean }[] }).__themeSeen,
   );
-  expect(seen[0]).toEqual({ theme: 'modern', bodyExists: false });
+  expect(seen[0]).toEqual({ theme: 'simple_dark', bodyExists: false });
+  expect(await collect()).toEqual([]);
+});
+
+// 消したテーマ（ネオン）を覚えていた人は、先当てで当てず、属性なし（シンプル（自動））で描く。画面が読み込まれた後に、自分のテーマ（simple）が当たる
+test('前に覚えたネオンの値は先当てせず、シンプル（自動）で描く', async ({ page }) => {
+  const collect = await watchViolations(page);
+  await page.addInitScript(() => {
+    localStorage.setItem('sg-theme', 'modern');
+    const seen: { theme: string | undefined; bodyExists: boolean }[] = [];
+    (window as unknown as { __themeSeen: typeof seen }).__themeSeen = seen;
+    new MutationObserver(() => {
+      seen.push({ theme: document.documentElement.dataset.theme, bodyExists: document.body !== null });
+    }).observe(document, { attributes: true, attributeFilter: ['data-theme'], subtree: true });
+  });
+  await page.goto(today);
+  await expect(page.getByRole('heading', { level: 1, name: '今日やること' })).toBeVisible();
+
+  const seen = await page.evaluate(
+    () => (window as unknown as { __themeSeen: { theme: string | undefined; bodyExists: boolean }[] }).__themeSeen,
+  );
+  // body ができる前には何も当たらず、modern が当たったことも無い
+  expect(seen.filter((entry) => !entry.bodyExists)).toEqual([]);
+  expect(seen.filter((entry) => entry.theme === 'modern')).toEqual([]);
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'simple');
   expect(await collect()).toEqual([]);
 });
 

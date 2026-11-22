@@ -4,7 +4,7 @@ import { operationPath } from '../src/shared/operations/define.ts';
 import { meThemeUpdate } from '../src/shared/operations/organization/me-theme-update.ts';
 import { isLoopbackHttpOrigin, sessionCookieName } from '../src/shared/session-cookie.ts';
 
-export const CAPTURE_THEMES = ['simple_light', 'simple_dark', 'modern'] as const;
+export const CAPTURE_THEMES = ['simple_light', 'simple_dark'] as const;
 export type CaptureTheme = (typeof CAPTURE_THEMES)[number];
 
 export const DESKTOP_VIEWPORT = { width: 1280, height: 900 };

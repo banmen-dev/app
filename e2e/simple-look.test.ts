@@ -1,5 +1,5 @@
 // シンプルの見た目と密度（#828）。docs/design.md の「テーマごとの違い」の「角と線」と、「どのテーマにも共通すること」の「密度」。
-// シンプルだけが細い上の色の線、小さな角、枠の無い状態の印になり、見せ場のゲージの角と、ネオンは今の形のまま残ることと、
+// シンプルだけが細い上の色の線、小さな角、枠の無い状態の印になり、見せ場のゲージの角が今の形のまま残ることと、
 // 761px 以上でマウスだけで操作する画面だけ行を詰め、760px 以下と指で押す画面では押せる範囲 44px のための余白を残すことを確かめる。
 // 今日やることの画面は、行と貼り紙を決めるため `today` の応答をテストの中で組む（実行する日にも seed の日付にも依存しない）。
 // バックログの木、メンバーの表、計画のレーンは seed のまま開く
@@ -58,7 +58,7 @@ test.describe('今日やることの画面', () => {
     await prepareToday(page, context, baseURL);
   });
 
-  test('シンプルは上の色の線が細く角が小さく、状態の印に枠を引かない。ネオンは今の形のまま', async ({ page }) => {
+  test('シンプルは上の色の線が細く角が小さく、状態の印に枠を引かない', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/aoba');
     const notice = page.locator('.notice');
@@ -67,33 +67,26 @@ test.describe('今日やることの画面', () => {
     await expect(overdue).toHaveCount(1);
     await expect(page.locator('.gauge')).toHaveCount(0);
 
-    for (const [theme, edge, radius, framed] of [
-      ['simple_light', '2px', '4px', false],
-      ['simple_dark', '2px', '4px', false],
-      // ネオンの貼り紙は、テーマの飾りが光る枠の 1px にする
-      ['modern', '1px', '2px', true],
+    for (const [theme, edge, radius] of [
+      ['simple_light', '2px', '4px'],
+      ['simple_dark', '2px', '4px'],
     ] as const) {
       await applyTheme(page, theme);
       await expect(notice, theme).toHaveCSS('border-top-width', edge);
       await expect(notice, theme).toHaveCSS('border-top-left-radius', radius);
-      // 状態の印の枠は、シンプルでは透明（地の色で示す）、ほかは文字と同じ色
-      const border = await overdue.evaluate((el) => {
-        const style = getComputedStyle(el);
-        return { color: style.borderTopColor, matchesText: style.borderTopColor === style.color };
-      });
-      if (framed) expect(border.matchesText, theme).toBe(true);
-      else expect(border.color, theme).toBe('rgba(0, 0, 0, 0)');
+      // 状態の印の枠は透明（地の色で示す）
+      const borderColor = await overdue.evaluate((el) => getComputedStyle(el).borderTopColor);
+      expect(borderColor, theme).toBe('rgba(0, 0, 0, 0)');
     }
   });
 
-  test('プロフィールの経験値ゲージは3つの見た目で従来の丸みを保つ', async ({ page }) => {
+  test('プロフィールの経験値ゲージは2つの見た目で従来の丸みを保つ', async ({ page }) => {
     await page.goto('/aoba/me');
     const gauge = page.locator('.gauge');
     await expect(gauge).toHaveCount(1);
     for (const [theme, radius] of [
       ['simple_light', '6px'],
       ['simple_dark', '6px'],
-      ['modern', '2px'],
     ] as const) {
       await applyTheme(page, theme);
       await expect(gauge, theme).toHaveCSS('border-top-left-radius', radius);
@@ -134,7 +127,7 @@ test.describe('今日やることの画面', () => {
     await expect(entry).toBeVisible();
 
     // 詰めるのは全テーマで同じ
-    for (const theme of ['simple_light', 'simple_dark', 'modern']) {
+    for (const theme of ['simple_light', 'simple_dark']) {
       await applyTheme(page, theme);
       await expect(entry, theme).toHaveCSS('padding-top', '8px');
       await expect(entry, theme).toHaveCSS('min-height', '48px');
@@ -195,7 +188,7 @@ test.describe('バックログの木、メンバーの表、計画のレーン',
     await expect(cell).toHaveCSS('padding-top', '8px');
   });
 
-  test('計画のレーンの上の色の線は、シンプルだけ細い', async ({ page }) => {
+  test('計画のレーンの上の色の線は、シンプルでは細い', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(`${WORKSPACE_PATH}/plan`);
     const lane = page.locator('.lane').first();
@@ -203,7 +196,6 @@ test.describe('バックログの木、メンバーの表、計画のレーン',
     for (const [theme, edge] of [
       ['simple_light', '2px'],
       ['simple_dark', '2px'],
-      ['modern', '5px'],
     ] as const) {
       await applyTheme(page, theme);
       await expect(lane, theme).toHaveCSS('border-top-width', edge);

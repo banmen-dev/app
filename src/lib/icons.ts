@@ -40,7 +40,6 @@ export const icons = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
   search: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>',
-  heart: '<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/>',
   chevron: '<path d="M9 6l6 6-6 6"/>',
   trend: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
   shield: '<path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/>',
@@ -69,14 +68,10 @@ export const icons = {
   // 引き出しの開き方の「ページ全体」。Lucide の maximize（https://lucide.dev/icons/maximize、lucide-static 1.70.0、ISC）。Feather 由来で MIT も適用（licenses/lucide.txt）
   maximize:
     '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
-  // ゲームの物（経験値、クリア報酬、レベル）。感謝は heart。使う範囲は docs/design.md の「ゲームの物のアイコン」
-  crystal: '<path d="M8 4h8l4 5-8 11L4 9z"/><path d="M4 9h16M9 9l3 11 3-11M10 4L9 9M14 4l1 5"/>',
-  chest: '<path d="M4 11h16v9H4z"/><path d="M4 11V9a5 5 0 0 1 5-5h6a5 5 0 0 1 5 5v2"/><path d="M10 11v3h4v-3"/>',
-  crest: '<path d="M12 4l7 3.5v7.7L12 20l-7-4.8V7.5z"/><path d="M9 10.5l3 2.5 3-2.5"/>',
   more: '<path d="M5 12h.01M12 12h.01M19 12h.01"/>',
 } as const;
 
 export type IconName = keyof typeof icons;
 
-// アイコンの色。xp は経験値の色（.ico.is-xp）で、ゲームの物の経験値（crystal）とレベル（crest）に使う。kit.js の icon の tone と同じ
+// アイコンの色。xp は経験値の色（.ico.is-xp）。kit.js の icon の tone と同じ
 export type IconTone = 'xp';

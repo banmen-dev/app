@@ -1,6 +1,6 @@
 // クリア報酬の段階の色（銅、銀、金）のコントラストを、トークンの値から計算して守る。
 // 段階の印は地を持たず、地になりうる色の上に直に乗る（docs/design.md の「報酬の段階の色」）。
-// e2e の axe は、ネオンの面のグラデーションの上の文字を保留にして見ないので、描画に頼らずここで確かめる。
+// 地になりうる色の組をすべて、描画に頼らずここで確かめる。
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
@@ -42,7 +42,6 @@ function readBlock(selector: string, index = 0, expected = 1): string {
 const blocks = {
   'シンプル（ライト）': readBlock(':root', 1, 2),
   'シンプル（ダーク）': readBlock(':root[data-theme="simple_dark"]'),
-  ネオン: readBlock(':root[data-theme="modern"]'),
 };
 
 // シンプル（自動）の prefers-color-scheme の側。simple_dark と同じ値を二重に持つ
