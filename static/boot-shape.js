@@ -23,7 +23,7 @@
     if (parts.length === 1) return 'today';
     var page = parts[1];
     if (parts.length === 2 && page === 'admin') return 'settings';
-    if (parts.length === 2 && page === 'me') return 'aside';
+    if (parts.length === 2 && page === 'me') return 'settings';
     if (parts.length === 2 && page === 'favorites') return 'list';
     if (parts.length === 2 && page === 'notifications') return 'list';
     if (page === 'wiki' && parts.length <= 3) return 'wiki';

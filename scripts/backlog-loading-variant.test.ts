@@ -21,14 +21,13 @@ const taskEntry = read('lib/components/TaskEntry.svelte');
 
 for (const variant of ['B', 'C'] as const)
   for (const reverse of [false, true]) {
-    test(`${variant}/${reverse}: 主と従2つを同時に開始し、指定した応答だけを待つ`, async () => {
+    test(`${variant}/${reverse}: 主と従を同時に開始し、指定した応答だけを待つ`, async () => {
       const code = ts.transpileModule(backlogLoadingSource(loadSource, variant, reverse), {
         compilerOptions: { module: ts.ModuleKind.CommonJS },
       }).outputText;
       type Values = {
         tree: unknown;
         definitions: unknown;
-        teamTotal: unknown;
         filter: unknown;
         readVersion: number;
         loadedAt: number;
@@ -44,7 +43,6 @@ for (const variant of ['B', 'C'] as const)
         require: () => ({
           backlogTree: 'tree',
           categoryRepositoryList: 'definitions',
-          experienceTeamTotal: 'experience',
           isUnauthenticated: () => false,
           startBacklogRead: () => 23,
           filterFromParams: () => filter,
@@ -62,7 +60,7 @@ for (const variant of ['B', 'C'] as const)
       });
       assert.deepEqual(
         called.map((x) => x.name),
-        reverse ? ['experience', 'definitions', 'tree'] : ['tree', 'definitions', 'experience'],
+        reverse ? ['definitions', 'tree'] : ['tree', 'definitions'],
       );
       assert.equal(
         JSON.stringify(called.find((x) => x.name === 'tree')!.input),
@@ -78,17 +76,15 @@ for (const variant of ['B', 'C'] as const)
       assert.equal(marks.includes('bench:load'), variant === 'C');
       pending.get('definitions')!({ ok: true, data: { categories: [1], repositories: [2] } });
       await setImmediate();
-      assert.equal(returned, variant === 'C');
-      pending.get('experience')!({ ok: true, data: { total: 19 } });
+      assert.equal(returned, true);
       const values = await result;
       assert.equal(JSON.stringify(await values.definitions), JSON.stringify({ categories: [1], repositories: [2] }));
-      assert.equal(await values.teamTotal, 19);
+      assert.equal('teamTotal' in values, false);
       assert.equal(JSON.stringify(values.tree), JSON.stringify({ tasks: ['target'] }));
       assert.equal(values.filter, filter);
       assert.equal(values.loadedAt, 17);
       assert.equal(values.readVersion, 23);
-      for (const mark of ['bench:load', 'bench:primary', 'bench:definitions', 'bench:experience'])
-        assert.ok(marks.includes(mark));
+      for (const mark of ['bench:load', 'bench:primary', 'bench:definitions']) assert.ok(marks.includes(mark));
     });
   }
 

@@ -87,7 +87,7 @@ SQ.mount("backlog", () => {
       ${pageHead(D.workspaces.wa.name, t("backlog"), [])}
       ${SQTaskTemplates.backlogAction()}
       ${SQ.emptyState("board", `まだ${t("task")}がありません`,
-        `${t("task")}を優先する順に並べる場所です。下の空の行に題を入れて、最初の${t("task")}を作ります。`, "", undefined, "notice")}
+        `${t("task")}を優先する順に並べる場所です。下の空の行に題を入れて、最初の${t("task")}を作ります。`, "", "notice")}
       <section class="section" aria-label="${t("backlog")}の${t("task")}"><div class="tree">
         ${SQ.draftRow("new-epic", "root", `${t("epic")}を足す`)}${SQ.draftRow("new-story", "root", `${t("story")}を足す`)}${SQ.draftRow("root", "backlog", `${t("task")}を足す`)}
       </div></section>`;
@@ -97,7 +97,7 @@ SQ.mount("backlog", () => {
       ["", "board", `未完了の${t("task")}`, open.length],
       ["is-warn", "", "未見積もり", open.filter((x) => x.pts == null).length],
       ["", "", `${t("sprint")}に入っていない`, open.filter((x) => !x.sprint).length],
-    ], "", SQ.teamXp(), t("backlogSummary"))}
+    ], "", "", t("backlogSummary"))}
     ${SQTaskTemplates.backlogAction()}
     ${D.definitionOfDone.length ? `<details class="dod"><summary>${t("dod")}</summary><div class="doc-box"><ul>${D.definitionOfDone.map((d) => `<li>${SQ.esc(d)}</li>`).join("")}</ul></div></details>` : ""}
     <section class="section" aria-label="${t("backlog")}の${t("task")}">

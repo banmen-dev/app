@@ -195,6 +195,19 @@ describe('本番の一覧', () => {
     });
   }
 
+  // CLI の sg ops はこの一覧を出す。経験値とレベルの操作は外した（#1432）。このテストが見るのは操作の名前と説明だけで、
+  // 出力の項目（level、reward_xp、xp_granted）が無いことは各操作のテスト（member-list、organization、epic-detail、task）が見る
+  test('経験値とレベルの操作を載せず、説明にも経験値とレベルを書かない', async () => {
+    const person = await createLoginPerson();
+    for (const credential of ['cookie', 'write'] as const) {
+      const listed = await list(realApp, person, credential);
+      expect(listed.map((item) => item.name).filter((name) => /(^|-)(experience|xp|level)(-|$)/.test(name))).toEqual(
+        [],
+      );
+      expect(listed.filter((item) => /経験値|レベル/.test(item.description)).map((item) => item.name)).toEqual([]);
+    }
+  });
+
   test('各項目の範囲、権限、mode、説明が定義と一致し、入力と出力の JSON Schema が object', async () => {
     const person = await createLoginPerson();
     const listed = await list(realApp, person, 'write');

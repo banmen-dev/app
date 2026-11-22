@@ -19,7 +19,7 @@
 <script>
 "use strict";
 // メンバー: ロール、配分、招待
-const { D, t, icon, esc, pageHead, avatarOf, emblem, user, loginTarget } = SQ;
+const { D, t, icon, esc, pageHead, avatarOf, user, loginTarget } = SQ;
 
 SQ.mount("members", () => {
   const now = D.members.filter((m) => !m.left);
@@ -28,7 +28,7 @@ SQ.mount("members", () => {
     const u = user(m.who);
     const allocOptions = `<option ${m.alloc == null ? "selected" : ""}>未設定</option>` + Array.from({ length: 21 }, (_, i) => i * 5).map((v) => `<option ${m.alloc === v ? "selected" : ""}>${v}%</option>`).join("");
     return `<tr>
-      <td class="is-name"><span class="person">${avatarOf(m.who)}${esc(u.name)}${emblem(u.level, true)}</span></td>
+      <td class="is-name"><span class="person">${avatarOf(m.who)}${esc(u.name)}</span></td>
       <td data-label="ロール"><select class="select" aria-label="${esc(u.name)}のロール"><option ${m.role === "leader" ? "selected" : ""}>${t("leader")}</option><option ${m.role === "member" ? "selected" : ""}>一般</option></select></td>
       <td class="mono" data-label="参加日">${m.joined}</td>
       <td data-label="配分（11月）"><select class="select" aria-label="${esc(u.name)}の11月の配分">${allocOptions}</select></td>
@@ -44,7 +44,7 @@ SQ.mount("members", () => {
     ])}
     <section class="section"><div class="section-head"><h2 class="section-title">所属している人</h2><span class="section-hint">配分は11月の値。他の${t("workspace")}の配分は見えません</span></div>
       <div class="table-wrap"><table class="table is-stacked"><thead><tr><th class="is-name">名前</th><th>ロール</th><th>参加日</th><th>配分（11月）</th><th class="is-actions"><span class="visually-hidden">操作</span></th></tr></thead><tbody>${rows}</tbody></table></div>
-      <p class="action-note">外すと、その人の未完了の${t("task")}は担当なしに戻ります。完了の記録と経験値は残ります。</p>
+      <p class="action-note">外すと、その人の未完了の${t("task")}は担当なしに戻ります。完了の記録は残ります。</p>
     </section>
     <section class="section"><div class="section-head"><h2 class="section-title">招待する</h2><span class="section-hint">${t("organization")}の人数 ${D.seats.used} / ${D.seats.limit} 人</span></div>
       <div class="panel">

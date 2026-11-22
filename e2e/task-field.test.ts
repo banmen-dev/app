@@ -96,11 +96,11 @@ test('設定で欄を足す → 欄が空でも木と見出しに未記入は出
   await drawer.getByRole('button', { name: '閉じる' }).click();
   await expect(drawer).toBeHidden();
 
-  // 欄を削除すると、その欄は引き出しに出なくなる。確認の文は、詳細の経験値の判定から外れることを伝える
+  // 欄を削除すると、その欄は引き出しに出なくなる。確認の文は、引き出しに出なくなることを伝える
   await openSettings(page);
   await page.getByRole('button', { name: '削除: 受け入れ基準' }).click();
   const confirm = page.getByRole('dialog', { name: '「受け入れ基準」を削除する' });
-  await expect(confirm).toContainText('詳細の経験値の判定からも外れます');
+  await expect(confirm).toContainText('の詳細に出なくなります。元には戻せません');
   await expect(confirm.getByText(/未記入/)).toHaveCount(0);
   await confirm.getByRole('button', { name: '削除する' }).click();
   await expect(fields.locator('li')).toHaveText([/影響範囲/]);
@@ -167,62 +167,4 @@ test('計画の画面の先のスプリントとスプリントに入れるダ�
   await expect(sub).toContainText('1 件');
   await expect(sub).toContainText('未見積もり 1 件');
   await expect(sub).not.toContainText('未記入');
-});
-
-// 詳細の見込みは数えるが、完了しても明細は増えず、戻しても打ち消しを書かない（#1431）。本物のAPIとプロフィールの表示で確かめる。
-test('欄を埋めたタスクの詳細20は見込みに出るが、完了しても戻しても明細は増えない', async ({ page, baseURL }) => {
-  const suffix = crypto.randomUUID();
-  const name = `詳細の経験値チーム ${suffix}`;
-  const title = `通知の受け入れ条件を整える ${suffix}`;
-  await createWorkspace(page, name);
-  const workspaceId = new URL(page.url()).pathname.split('/').at(-1)!;
-  const call = async (operation: string, body: Record<string, unknown>) => {
-    const response = await page.request.post(`/api/aoba/${operation}`, {
-      headers: { Origin: new URL(baseURL!).origin, 'Content-Type': 'application/json' },
-      data: { workspace_id: workspaceId, ...body },
-    });
-    expect(response.status()).toBe(200);
-    return response;
-  };
-  const created = await call('task-create', { title, points: 1 });
-  const { task } = await created.json();
-  const listed = await call('detail-field-list', {});
-  const { fields } = await listed.json();
-  expect(fields).toHaveLength(1);
-
-  // 引き出しから実際に欄を書く。
-  await page.reload();
-  await page.getByRole('link', { name: title, exact: true }).click();
-  const drawer = page.getByRole('dialog', { name: title });
-  await drawer.getByRole('button', { name: '受け入れ基準を書く' }).click();
-  const input = drawer.getByRole('textbox', { name: '受け入れ基準', exact: true });
-  await input.fill('通知を一度だけ表示する');
-  const saved = page.waitForResponse(
-    (response) => response.url().endsWith('/task-field-set') && response.request().method() === 'POST',
-  );
-  await input.blur();
-  expect((await saved).ok()).toBe(true);
-
-  const summaryResponse = page.waitForResponse(
-    (response) => response.url().endsWith('/experience-summary') && response.request().method() === 'POST',
-  );
-  await page.goto('/aoba/me');
-  const shown = await (await summaryResponse).json();
-  const workspace = page.locator('.breakdown > div', { has: page.locator('dt', { hasText: name }) });
-  await expect(workspace.locator('dd')).toHaveText('0');
-  expect(shown.workspaces.find((row: { id: string }) => row.id === workspaceId).prospective).toBe(30);
-  await expect(page.locator('.xp-sub')).toContainText(`見込み +${shown.prospective.toLocaleString('ja-JP')}`);
-  await call('task-complete', { task_id: task.id });
-  await page.reload();
-  const rows = page.getByRole('table', { name: '経験値の明細' }).locator('tbody tr', { hasText: title });
-  // 明細の表が読み込まれてから、行が無いことを見る（seed の付与の行で表は出る）
-  await expect(page.getByRole('table', { name: '経験値の明細' }).locator('tbody tr').first()).toBeVisible();
-  await expect(rows).toHaveCount(0);
-  await expect(workspace.locator('dd')).toHaveText('0');
-  await call('task-reopen', { task_id: task.id });
-  await page.reload();
-  await expect(workspace.locator('dd')).toHaveText('0');
-  const reopened = await call('experience-summary', {});
-  expect((await reopened.json()).workspaces.find((row: { id: string }) => row.id === workspaceId).prospective).toBe(30);
-  await expect(rows).toHaveCount(0);
 });

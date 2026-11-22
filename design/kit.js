@@ -29,14 +29,13 @@
   // ワークスペースを作った直後の既定値は requirements.md の「機能」の冒頭。
   // 決まった欄の名前は作ったときに付けたまま、訳さない
   function freshData(role) {
-    const me = { ...D.users[D.me], level: 1, role: role === "member" ? "member" : "leader" };
+    const me = { ...D.users[D.me], role: role === "member" ? "member" : "leader" };
     const common = {
-      organizations: [{ ...D.organizations[0], level: 1, admin: role === "admin" }], receivedInvites: [],
+      organizations: [{ ...D.organizations[0], admin: role === "admin" }], receivedInvites: [],
       tasks: [], inbox: [], archive: [], epics: {}, stories: {}, sprints: {}, comments: {}, history: {}, files: {},
       connections: [], notifications: [], completions: [], audit: [], capacity: [], invitations: [],
       categories: {}, repositories: {}, detailFields: ["受け入れ基準"], definitionOfDone: [], pointRates: [["2026-10", 4]], workspaceHolidays: [],
       storage: { ...D.storage, used: 0, byWorkspace: [] },
-      level: { level: 1, xp: 0, toNext: 100, soon: 0, gotPct: 0, soonPct: 0 },
     };
     if (role === "admin") {
       return { ...common, users: { [D.me]: me }, workspaces: {}, members: [], seats: { ...D.seats, used: 1 },
@@ -491,7 +490,7 @@
     consentLoadFailed: "同意の状態を読み込めませんでした。もう一度試してください。", consentSubmitting: "同意を記録しています", consentRecordFailed: "同意を記録できませんでした。もう一度試してください。",
     legalRevised: "改定日: {date}", consentRevisedTerms: "利用規約が改められました", consentRevisedPrivacy: "プライバシーポリシーが改められました",
     consentRevisedBoth: "利用規約とプライバシーポリシーが改められました",
-    markdownTableRegion: "表", teamXpLabel: "チーム全体の経験値", filterLabel: "{backlog}の絞り込み", backlogSearch: "タイトルで探す",
+    markdownTableRegion: "表", filterLabel: "{backlog}の絞り込み", backlogSearch: "タイトルで探す",
     filterAll: "{label}: すべて", filterMe: "自分", unassigned: "担当なし", leftMember: "（離脱済み）", categoryNone: "{category}なし",
     backlogSummary: "集計", backlogFilters: "絞り込み", backlogFiltersCount: "絞り込み（{count}条件）",
     backlogPriority: "上ほど優先", backlogOrderHelp: "並べ替えの使い方",
@@ -510,8 +509,7 @@
   // 線画。装飾なので読み上げから外す（本番の Art.svelte）。種類は art.js の ARTS
   // lead は「最初にやること」の先頭に置く小さい形（.art.is-lead）
   const art = (id, lead) => `<svg class="${lead ? "art is-lead" : "art"}" aria-hidden="true"><use href="#a-${id}"/></svg>`;
-  // tone は "xp" で経験値の色（.ico.is-xp）。本番の Icon と同じく "xp" だけを受ける
-  const icon = (id, tone) => `<svg class="${tone === "xp" ? "ico is-xp" : "ico"}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+  const icon = (id) => `<svg class="ico" aria-hidden="true"><use href="#i-${id}"/></svg>`;
   const md = (d) => `${+d.slice(5, 7)}/${+d.slice(8, 10)}`;
   const sumPts = (list) => list.reduce((a, x) => a + (x.pts || 0), 0);
 
@@ -596,13 +594,6 @@
     if (!uid) return avatar(null, 0, opts);
     const u = user(uid);
     return avatar(u.name, u.hue, { ...opts, left: u.left });
-  }
-  function emblem(level, sm) {
-    const digits = String(level).length;
-    const size = digits === 3 ? " is-long" : digits > 3 ? " is-longer" : "";
-    return sm
-      ? `<span class="emblem is-sm${size}" role="img" aria-label="レベル ${level}"><span>${level}</span></span>`
-      : `<span class="emblem${size}" role="img" aria-label="レベル ${level}"><span><small>LV</small>${level}</span></span>`;
   }
   function pts(p) {
     return p == null
@@ -782,9 +773,8 @@
   }
   // 空の状態。何が出る場所かと、次に何をすればよいかを書く。actions は押す操作の HTML。
   // title と text も HTML として埋め込むので、利用者のデータは esc してから渡す
-  // tone はアイコンの色（icon の tone。本番の EmptyState の iconTone）
-  function emptyState(ic, title, text, actions = "", tone, artName) {
-    return `<div class="empty">${artName ? art(artName) : icon(ic, tone)}<b>${title}</b>${text ? `<span>${text}</span>` : ""}${actions ? `<div class="form-actions">${actions}</div>` : ""}</div>`;
+  function emptyState(ic, title, text, actions = "", artName) {
+    return `<div class="empty">${artName ? art(artName) : icon(ic)}<b>${title}</b>${text ? `<span>${text}</span>` : ""}${actions ? `<div class="form-actions">${actions}</div>` : ""}</div>`;
   }
 
   // 最初にやること。済んだかは今のデータから決まるので、閉じた印を持たない。
@@ -795,7 +785,7 @@
       { title: `${t("workspace")}「${esc(firstWsName())}」に入る`, note: `この${t("workspace")}の${t("backlog")}と${t("sprint")}を使えます。`, done: true },
       // 取り込み元だけで回す人は起票者にならないので、接続の登録でも済んだことにする
       { title: `自分の${t("task")}を用意する`, done: D.tasks.some((x) => x.creator === D.me) || D.connections.some((c) => c.owner === D.me),
-        note: `「${t("create")}」で作るか、Backlog や GitHub を${t("connection")}として登録して、自分の担当分を${t("inbox")}に取り込みます。${t("points")}を1以上振ったまま完了にすると、起票の経験値が付きます。`,
+        note: `「${t("create")}」で作るか、Backlog や GitHub を${t("connection")}として登録して、自分の担当分を${t("inbox")}に取り込みます。`,
         action: (p) => `<button class="btn is-sm ${p}" type="button" data-dialog="createTask">${icon("plus")}${t("create")}</button>
           <a class="btn is-sm" href="${firstHref("connections.html")}">${t("connection")}を登録する</a>` },
       { title: `今日やる${t("task")}に印を付ける`, optional: true, done: D.tasks.some((x) => x.who === D.me && x.todayOn),
@@ -956,7 +946,7 @@
   function wikiHit(p, path, where, current = false) {
     return `<li><a class="wiki-link" href="#${p.id}" data-wiki-page="${p.id}"${current ? ' aria-current="page"' : ""}>${esc(p.title)}<span class="props-note">${esc(path)}</span><span class="props-note">${where === "title" ? "題に一致" : "本文に一致"}</span></a></li>`;
   }
-  // meta は集計の下に置く1行（バックログの画面のチーム全体の経験値 teamXp など）
+  // meta は集計の下に置く1行
   let narrowDisclosureId = 0;
   function narrowDisclosure(label, body) {
     const id = `narrow-disclosure-${++narrowDisclosureId}`;
@@ -1206,37 +1196,6 @@
     const marker = markerPercent === undefined ? "" : `<i class="progress-marker" style="left:${Math.max(0, Math.min(100, markerPercent))}%" aria-hidden="true"></i>`;
     const visibleValue = detailed ? `${esc(t("done"))} <span class="progress-value">${done} / ${all} pt</span>${all > 0 ? `<span class="progress-value">（${pct}%）</span>` : ""}` : esc(value);
     return `<span class="progress${detailed ? " is-detailed" : ""}"><span class="progress-bar${marker ? " has-marker" : ""}" role="img" aria-label="${esc(label + (marker && markerLabel ? `、${markerLabel}` : ""))}"><span class="progress-fill" style="width:${pct}%"></span>${marker}</span><span class="progress-num">${visibleValue}</span>${marker && markerLabel ? `<span class="progress-legend">${esc(markerLabel)}</span>` : ""}</span>`;
-  }
-
-  // レベルの面
-  function levelPanel(l = D.level, thanks = D.thanksReceived) {
-    return `<section class="panel" aria-labelledby="level-panel-title">
-      <div class="panel-title"><h2 id="level-panel-title">レベル</h2>経験値は本人だけに見えます</div>
-      <div class="level">${emblem(l.level)}
-        <div><div class="xp-num">${l.xp.toLocaleString()}<small>XP</small></div>
-        <div class="xp-sub">次のレベルまで <b>${l.toNext}</b>・見込み <b>+${l.soon}</b></div></div>
-      </div>
-      <div class="gauge-row"><span class="gauge-end" aria-hidden="true">LV ${l.level}</span>
-        <div class="gauge" role="img" aria-label="次のレベルまでの ${l.gotPct}% を確定、${l.soonPct}% が見込み"><span class="gauge-got" style="width:${l.gotPct}%"></span><span class="gauge-soon" style="width:${l.soonPct}%"></span></div>
-        <span class="gauge-end is-next" aria-hidden="true">LV ${l.level + 1}</span></div>
-      <div class="legend"><span><i class="is-got"></i>確定</span><span><i class="is-soon"></i>見込み（${t("task")}の${t("done")}で確定）</span></div>
-      ${l.rows ? `<div role="group" aria-label="${t("workspace")}ごとの経験値"><dl class="breakdown">${l.rows.map(([n, v]) => `<div><dt>${esc(n)}</dt><dd>${v.toLocaleString()}</dd></div>`).join("")}
-        <div class="is-total"><dt>すべての${t("workspace")}</dt><dd>${l.total.toLocaleString()}</dd></div></dl></div>` : ""}
-      ${levelThanks(thanks)}
-    </section>`;
-  }
-  // レベルの面の末尾の、受け取った感謝の数（組織の合計。0 のときも出す）。内訳と同じ部品（.breakdown）の1行
-  function levelThanks(count) {
-    return `<div role="group" aria-label="受け取った感謝"><dl class="breakdown"><div><dt>受け取った感謝</dt><dd>${count.toLocaleString()}</dd></div></dl></div>`;
-  }
-
-  // チーム全体の経験値。ワークスペースの全員の合計の1つの数で、人ごとの値は出さない。バックログの画面の見出しの中に置く
-  function teamXp(total = D.teamXp) {
-    return `<p class="team-xp">${t("teamXpLabel")}<b>${total.toLocaleString()}</b><small>XP</small></p>`;
-  }
-  // 経験値の明細の値。付与は経験値の色、打ち消し（負の値）は赤
-  function xpDelta(v) {
-    return `<span class="xp-delta ${v < 0 ? "is-minus" : ""}">${v > 0 ? "+" : ""}${v}</span>`;
   }
 
   // 積載量の1行。opts: tolerance、none（未見積もりの件数）、unset（配分未設定）、lead（名前の前に置く HTML）
@@ -1635,10 +1594,10 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const saved = fieldsText(x);
     const label = `${icon("pen")} ${t("detail")}・${t("ac")}`;
     if (drawerReadOnly()) {
-      return `<div class="field is-unboxed"><span class="field-label">${label}</span><div class="doc-box${saved ? "" : " is-empty"}">${saved ? mdBody(saved.split("\n")) : `まだ書かれていません。${t("task")}を完了にした時点ですべて埋まっていると、最後に書いた人に経験値が付きます。`}</div></div>`;
+      return `<div class="field is-unboxed"><span class="field-label">${label}</span><div class="doc-box${saved ? "" : " is-empty"}">${saved ? mdBody(saved.split("\n")) : `まだ書かれていません。`}</div></div>`;
     }
     return `<div class="field is-unboxed"><div class="field-head"><label class="field-label" for="drawer-edit-fields">${label}</label>${saveStateHtml("fields")}</div>
-      <div class="slash-wrap"><textarea class="textarea is-inline" id="drawer-edit-fields" data-drawer-input="fields" data-slash placeholder="まだ書かれていません。${t("task")}を完了にした時点ですべて埋まっていると、最後に書いた人に経験値が付きます。">${esc(drawer.drafts.fields ?? saved)}</textarea></div></div>`;
+      <div class="slash-wrap"><textarea class="textarea is-inline" id="drawer-edit-fields" data-drawer-input="fields" data-slash placeholder="まだ書かれていません。">${esc(drawer.drafts.fields ?? saved)}</textarea></div></div>`;
   }
   // コメントの1件。見出し（名前、日時、編集済み）の右に、許された操作だけを出す（自分のコメントは「編集」と「削除」、
   // リーダーは人のコメントの「削除」）。「編集」は本文がその場で書く欄に替わり、「削除」は確かめてから消す。
@@ -2465,7 +2424,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
              ? `${t("done")}した${t("epic")}は、配下の${t("story")}を親なしで残して削除できません。${t("requester")}か${t("leader")}に、${t("epic")}の${t("done")}を取り消してもらってください。`
              : `${t("done")}した${t("epic")}は、配下の${t("story")}を親なしで残して削除できません。「配下もまとめて削除する」を選ぶか、先に${t("epic")}の${t("done")}を取り消してください。`}</span>` : ""}${opts.leaderOnly ? `<span class="field-hint" id="d-del-leader">配下に他の人が作ったものがあるため、まとめて削除できるのは${t("leader")}だけです。</span>` : ""}</div>`
          : `<p class="field-hint">配下の${t(kind === "epic" ? "story" : "task")}はありません。</p>`}
-       <p class="field-hint">完了の記録と経験値は残ります。</p>`,
+       <p class="field-hint">完了の記録は残ります。</p>`,
       `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button>${opts.cleared
         ? `<button class="btn is-danger" type="button" aria-disabled="true" aria-describedby="d-del-cleared"${opts.leaderOnly ? "" : " data-delete-needs-choice"}>削除する</button>`
         : `<button class="btn is-danger" type="button" data-close-dialog${` data-close-tree-drawer="${kind}:${id}"`} data-toast="${t(kind)}を削除しました">削除する</button>`}`);
@@ -2603,7 +2562,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
          <span class="field-hint">${t("category")}は親なしの${t("task")}だけが持ちます。親を選んでいるあいだは、この欄の代わりに親の${t("category")}を「親から引き継ぎ」で示します。</span></div>
        <div class="field"><span class="field-label">${t("points")}</span>
          <div class="segmented" role="radiogroup">${["未", 0, 1, 2, 3, 5, 8, 13].map((v, i) => `<label><input type="radio" name="d-pts" ${i === 0 ? "checked" : ""}><span>${v}</span></label>`).join("")}</div>
-         <span class="field-hint">「未」は未見積もり。起票の経験値は、1 以上の${t("points")}が振られたまま${t("task")}が完了すると付きます。</span></div>
+         <span class="field-hint">「未」は未見積もり。</span></div>
        <div class="field"><span class="field-label">添付ファイル</span>${attachments("new", { button: true })}
          <span class="field-hint">保存せずに閉じると、上げたファイルは 1 日で消えます。</span></div>`,
       `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="${t("backlog")}の末尾に足しました">${t("create")}</button>`),
@@ -2655,7 +2614,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       `<p>この${t("epic")}を中止しますか。中止は後で取り消せます。</p>`,
       `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="中止しました">中止する</button>`),
     editRecord: () => openDialog("完了の記録を直す",
-      `<p class="props-note">「ランク表示の文言を直す」の記録です。直しても経験値は動きません。直したことは変更の履歴に残ります。</p>
+      `<p class="props-note">「ランク表示の文言を直す」の記録です。直したことは変更の履歴に残ります。</p>
        <div class="form-row">
          <label class="field" for="d-rp"><span class="field-label">${t("points")}</span><select class="select" id="d-rp">${[0, 1, 2, 3, 5, 8, 13].map((v) => `<option ${v === 1 ? "selected" : ""}>${v}</option>`).join("")}</select></label>
          <label class="field" for="d-rat"><span class="field-label">完了日時</span><input class="input" id="d-rat" value="2026-10-07 10:30"></label>
@@ -2683,7 +2642,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     disableUser: (el) => {
       const name = esc(el?.dataset.name ?? user("u3").name);
       openDialog(`${name}を無効にしますか？`,
-        `<p>${name}はこの${t("organization")}に入れなくなります。すべての${t("workspace")}から外れ、担当していた未完了の${t("task")}は担当なしに戻り、承諾待ちの招待は取り消します。完了の記録と経験値は残ります。</p>
+        `<p>${name}はこの${t("organization")}に入れなくなります。すべての${t("workspace")}から外れ、担当していた未完了の${t("task")}は担当なしに戻り、承諾待ちの招待は取り消します。完了の記録は残ります。</p>
          ${el?.dataset.admin === "true" ? `<p>${t("admin")}の指名も解除します。</p>` : ""}
          <p>有効に戻しても所属と${t("admin")}の指名は戻りません。もう一度使ってもらうには、${t("workspace")}に招待し直してください。</p>`,
         `<button class="btn is-primary" type="button" data-close-dialog>やめる</button><button class="btn is-danger" type="button" data-close-dialog data-toast="${name}を無効にしました">無効にする</button>`);
@@ -3573,10 +3532,10 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   function accountMenuHtml({ invitationState = "ready", open = accountMenuOpen, id = "account-menu-list", live = true, busy = false, admin = !!D.organizations.find((org) => org.slug === D.organization)?.admin, invitationCount = (D.receivedInvites || []).length } = {}) {
     const name = user(D.me).name;
     const badge = admin ? t("admin") : "";
-    // 名前、管理者の札、紋章は .me-detail にまとめ、760px 以下ではアバターだけにする
-    const who = `${avatarOf(D.me, { image: user(D.me).avatar_url })} <span class="me-detail">${esc(name)}${admin ? ` <span class="chip">${t("admin")}</span>` : ""} ${emblem(user(D.me).level, true)}</span>`;
-    // 見えている頭文字、名前、管理者の札、レベルの数字を、表示順に名前へ含める。
-    const label = t("accountMenuLabel").replace("{name}", `${[...name][0]} ${name}${badge ? ` ${badge}` : ""} ${user(D.me).level}`);
+    // 名前と管理者の札は .me-detail にまとめ、760px 以下ではアバターだけにする
+    const who = `${avatarOf(D.me, { image: user(D.me).avatar_url })} <span class="me-detail">${esc(name)}${admin ? ` <span class="chip">${t("admin")}</span>` : ""}</span>`;
+    // 見えている頭文字、名前、管理者の札を、表示順に名前へ含める。
+    const label = t("accountMenuLabel").replace("{name}", `${[...name][0]} ${name}${badge ? ` ${badge}` : ""}`);
     const count = invitationCount;
     const pending = invitationState === "loading" || invitationState === "retrying";
     const status = invitationState === "ready" ? "" : `<li class="account-menu-status"><span role="${pending ? "status" : "alert"}">${t(pending ? "invitationCountLoading" : "invitationCountFailed")}</span>${invitationState === "loading" ? "" : `<button class="btn is-sm" type="button" ${pending ? 'aria-disabled="true"' : ""} ${live ? 'data-toast="見本のため、招待件数は読み直しません"' : ""}>${t(pending ? "retrying" : "retry")}</button>`}</li>`;
@@ -4119,7 +4078,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       x.doneAt = "10/20 10:12"; if (x.sprint && x.col) x.prevCol = x.col, x.col = "done";
       stamped.add(x.id); redrawAll();
       if (page?.current === "today") flashRow(document.querySelector(`[aria-labelledby="s-done"] [data-task="${x.id}"]`)?.closest(".entry"));
-      toast(`${icon("check")}<span>${t("task")}を${t("done")}にしました${x.pts > 0 ? "\n+40 XP" : ""}</span>`);
+      toast(`${icon("check")}<span>${t("task")}を${t("done")}にしました</span>`);
       document.querySelector(`#content [data-undo="${x.id}"]`)?.focus();
       return;
     }
@@ -4681,8 +4640,8 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     D, t, brandMark, brandSymbol, googleMark, githubMark, THEMES, THEME_LABEL, THEME_NOTE, esc, icon, md, sumPts, cycleTheme, setTheme, applyTheme, mount,
     onRedraw: (fn) => extraRedraws.push(fn), openDrawer, drawerHtml, drawerState: drawer, flashRow,
     user, task, tasksWhere, repoTag, categoryTag, sprintTag, repoPicker, sprintLabel, colName, categoryOf, storyPts, epicPts, dueOf,
-    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, emblem, pts, dueChip, taskDue, sourceKey, entry, rowMenu, orderItems, draftRow, attrChip, book, section, foldedSection, pane, paneList, newsList, dashboard, activity, activityLoading, activityFailed, activityEmptyNoWorkspace, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
-    narrowDisclosure, card, board, treeStory, treeEpic, completedTasks, sprintNotice, progress, levelPanel, teamXp, xpDelta, load, capacityRows,
+    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, pts, dueChip, taskDue, sourceKey, entry, rowMenu, orderItems, draftRow, attrChip, book, section, foldedSection, pane, paneList, newsList, dashboard, activity, activityLoading, activityFailed, activityEmptyNoWorkspace, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
+    narrowDisclosure, card, board, treeStory, treeEpic, completedTasks, sprintNotice, progress, load, capacityRows,
     openDialog, closeDialog, toast, miniCap, redraw: () => redrawAll(), DIALOGS, loginTarget, orgMenuHtml, workspaceMenuHtml, accountMenuHtml, breadcrumbHtml,
     filesOf, fileThumb, fileRow, dropzone, attachments, markdownEditor, markdownToolbarHtml, mdBody, markdownSample, meter, storageBytes,
     PROVIDER, ASSIST_KEY, assistMsg, assistBlocked, assistSuggest, openAssist,

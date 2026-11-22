@@ -1,11 +1,8 @@
 import { now } from '../../shared/clock.ts';
-import { levelOf } from '../../shared/experience.ts';
 import { myOrganizations, organizationInfo } from '../../shared/operations/organization/index.ts';
 import { themeOf } from '../../shared/theme.ts';
 import { ApiError } from '../errors.ts';
 import { readOrganizationStorageUsage } from '../db/index.ts';
-import { amountOf } from './aggregate.ts';
-import { userExperienceTotalStatement } from './experience.ts';
 import { implement } from './implement.ts';
 import { contractOf } from './organization-contract.ts';
 
@@ -33,7 +30,7 @@ export const organizationInfoOperation = implement(
 
     // 画面に返す値を読む。書き込みは混ぜず、書き込みが失敗しても画面は開く
     // アバターは共通の表（account_logins）も引くので、組織の中の表の batch とは別の問い合わせにして、並べて待つ
-    const [[userResult, workspaceResult, anyWorkspaceResult, experienceResult], avatars] = await Promise.all([
+    const [[userResult, workspaceResult, anyWorkspaceResult], avatars] = await Promise.all([
       db.batch([
         db.statement((q) =>
           q
@@ -56,8 +53,6 @@ export const organizationInfoOperation = implement(
         db.statement((q) =>
           q.selectFrom('workspaces').select('id').where('organization_id', '=', db.organizationId).limit(1),
         ),
-        // アカウントのメニューの紋章に出すレベルの元。合計そのものは返さない
-        userExperienceTotalStatement(db, userId),
       ] as const),
       tools.avatarsOf([userId]),
     ]);
@@ -111,7 +106,6 @@ export const organizationInfoOperation = implement(
         name: user.name,
         is_admin: actor.isAdmin,
         theme: themeOf(user.theme),
-        level: levelOf(amountOf(experienceResult.rows[0]?.total)),
         avatar_url: avatars.get(userId) ?? null,
       },
       trial:

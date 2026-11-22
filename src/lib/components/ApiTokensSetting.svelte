@@ -161,7 +161,7 @@
     // 押したボタンが消えるので、節の題へフォーカスを移し、読めたことを読み上げに伝える
     status = t('apiTokenLoaded');
     await tick();
-    // 見出しは Tab の順に入れず、プログラムからだけフォーカスを置く（マイプロフィールの「経験値の明細」の読み直しと同じ）
+    // 見出しは Tab の順に入れず、プログラムからだけフォーカスを置く
     const heading = document.getElementById(sectionId);
     heading?.setAttribute('tabindex', '-1');
     heading?.focus();
@@ -384,7 +384,7 @@
   >
 {/snippet}
 
-<!-- 5列の表を持つので、.setting（見出しの列 260px）には入れず、経験値の明細と同じ Section で全幅に出す -->
+<!-- 5列の表を持つので、.setting（見出しの列 260px）には入れず、Section で全幅に出す -->
 <Section id={sectionId} title={t('apiTokenTitle')}>
   <p class="action-note">{t('apiTokenDesc')}</p>
   {#if !allowedToCreate}

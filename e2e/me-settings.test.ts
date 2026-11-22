@@ -235,7 +235,7 @@ test.describe('届いた招待（ハルカ）', () => {
       await expect(page.getByRole('heading', { level: 1, name: '今日やること' })).toBeVisible();
       await expect(inviteDot(page)).toBeVisible();
       await expect(inviteDot(page)).toHaveAttribute('aria-hidden', 'true');
-      await expect(accountButton(page)).toHaveAccessibleName('ハ ハルカ 1。アカウントのメニュー');
+      await expect(accountButton(page)).toHaveAccessibleName('ハ ハルカ。アカウントのメニュー');
       await accountButton(page).click();
       await expect(profileItem(page).locator('.account-menu-badge')).toHaveText('招待 2');
       await expect(profileItem(page)).toHaveAccessibleName(/マイプロフィール\s*、届いた招待 2件/);
@@ -245,7 +245,7 @@ test.describe('届いた招待（ハルカ）', () => {
       await page.reload();
       await expect(page.getByRole('heading', { level: 1, name: '今日やること' })).toBeVisible();
       await expect(inviteDot(page)).toHaveCount(0);
-      await expect(accountButton(page)).toHaveAccessibleName('ハ ハルカ 1。アカウントのメニュー');
+      await expect(accountButton(page)).toHaveAccessibleName('ハ ハルカ。アカウントのメニュー');
       await accountButton(page).click();
       await expect(profileItem(page).locator('.account-menu-badge')).toHaveCount(0);
       await expect(profileItem(page)).toHaveAccessibleName('マイプロフィール');
@@ -300,7 +300,7 @@ test.describe('届いた招待（ハルカ）', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'マイプロフィール' })).toBeFocused();
     // 招待が無くなっても、ほかの節は残る
     await expect(themeSection(page)).toBeVisible();
-    await expect(page.getByRole('heading', { level: 2, name: '経験値の明細' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'API トークン' })).toBeVisible();
     expect(await collect()).toEqual([]);
   });
 
@@ -351,7 +351,7 @@ test.describe('届いた招待（ハルカ）', () => {
     await page.reload();
     await expect(page.getByText('届いた招待を読み込めませんでした')).toBeVisible();
     await expect(themeSection(page)).toBeVisible();
-    await expect(page.getByRole('heading', { level: 2, name: '経験値の明細' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'API トークン' })).toBeVisible();
     state.listStatus = 200;
     state.invitations = [invitation()];
     await page.getByRole('button', { name: 'もう一度試す（届いた招待）' }).click();

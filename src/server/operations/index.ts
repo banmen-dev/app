@@ -39,7 +39,6 @@ import {
 import { attachmentDownloadOperation, attachmentUploadOperation } from './attachment.ts';
 import { operationListOperationFor } from './operation-list.ts';
 import { backlogCompletedTasksOperation } from './backlog-completed-tasks.ts';
-import { experienceGrantsOperation, experienceSummaryOperation, experienceTeamTotalOperation } from './experience.ts';
 import { invitationCreateOperation, invitationRevokeOperation, inviteeResolveOperation } from './invitation.ts';
 import {
   invitationAcceptOperation,
@@ -237,9 +236,6 @@ const listedOperations: readonly ImplementedOperation[] = [
   epicUncancelOperation,
   epicCompleteOperation,
   epicReopenOperation,
-  experienceSummaryOperation,
-  experienceGrantsOperation,
-  experienceTeamTotalOperation,
   storyCreateOperation,
   storyGetOperation,
   storyUpdateOperation,

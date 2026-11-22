@@ -47,7 +47,7 @@ test('2テーマで日本語と数字の全ての太さを自前の書体で描�
     canvas.height = 60;
     const ctx = canvas.getContext('2d')!;
     const samples = [];
-    for (const text of ['今日やること経験値バックログ', 'Aa0123456789']) {
+    for (const text of ['今日やること完了バックログ', 'Aa0123456789']) {
       const weights = [];
       for (const weight of [400, 500, 600, 700, 900]) {
         const font = `${weight} 24px "Noto Sans JP"`;

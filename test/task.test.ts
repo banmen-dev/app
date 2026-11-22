@@ -804,15 +804,15 @@ describe('backlog-tree', () => {
 });
 
 describe('task-complete', () => {
-  test('tasks、completions、change_logs を書く。xp_grants は書かず、xp_granted は 0', async () => {
+  test('tasks、completions、change_logs を書く。xp_grants は書かず、応答に xp_granted を含めない', async () => {
     const target = await createTarget();
     const task = await createTask(target.organization, target.workspace.id, target.leader.userId!, { points: 3 });
 
     const res = await complete(target, target.member, task.id);
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { task_id: string; completed_at: string; xp_granted: number };
+    const body = (await res.json()) as { task_id: string; completed_at: string };
     expect(body.task_id).toBe(task.id);
-    expect(body.xp_granted).toBe(0);
+    expect(body).not.toHaveProperty('xp_granted');
 
     const records = await recordsOf(target, task.id);
     expect(records.task).toMatchObject({ completed_at: body.completed_at, completed_by: target.member.userId });
@@ -854,7 +854,7 @@ describe('task-complete', () => {
     const task = await createTask(target.organization, target.workspace.id, target.admin.userId!, { points });
     const response = await complete(target, target.member, task.id);
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ xp_granted: 0 });
+    expect(await response.json()).not.toHaveProperty('xp_granted');
 
     const records = await recordsOf(target, task.id);
     expect(records.grants).toEqual([]);
@@ -1348,7 +1348,7 @@ describe('完了と経験値', () => {
 
     const res = await complete(target, target.member, task.id);
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ xp_granted: 0 });
+    expect(await res.json()).not.toHaveProperty('xp_granted');
 
     expect(await xpGrantCount(target)).toBe(0);
     const db = orgDb(env, target.organization.verified);

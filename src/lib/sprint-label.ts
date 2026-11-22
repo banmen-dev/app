@@ -23,8 +23,7 @@ export function sprintLabelWithPeriod(sprint: SprintNaming, t: Translate): strin
 
 // タスクを完了にしたときの知らせ。始まっていないスプリントの中で完了してスプリントから外れたら（task-complete の left_sprint）、
 // 「始まっていない<スプリント>から外れました」を添える
-export function completedMessage(leftSprint: boolean, xpGranted: number, t: Translate): string {
+export function completedMessage(leftSprint: boolean, t: Translate): string {
   const done = t('taskCompleted', { task: t('task'), done: t('done') });
-  const message = leftSprint ? `${done}。${t('taskLeftPlannedSprint', { sprint: t('sprint') })}` : done;
-  return xpGranted > 0 ? `${message}\n${t('taskCompletedXp', { amount: xpGranted, unit: t('xpUnit') })}` : message;
+  return leftSprint ? `${done}。${t('taskLeftPlannedSprint', { sprint: t('sprint') })}` : done;
 }

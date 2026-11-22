@@ -121,7 +121,6 @@ test('作成者の変更の失敗と成功を、ダイアログとトースト�
         role: 'member' as const,
         joined_on: '2026-10-01',
         avatar_url: null,
-        level: 1,
       },
     ],
   }));

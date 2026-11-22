@@ -4,7 +4,6 @@ import { filterFromParams, filterInput } from '../../../../lib/backlog-filter.ts
 import { startBacklogRead } from '../../../../lib/backlog-tallies.ts';
 import { isUnauthenticated, loginUrl } from '../../../../lib/login-redirect.ts';
 import { categoryRepositoryList } from '../../../../shared/operations/definition/index.ts';
-import { experienceTeamTotal } from '../../../../shared/operations/experience/index.ts';
 import { backlogTree } from '../../../../shared/operations/task/index.ts';
 import type { PageLoad } from './$types';
 
@@ -17,7 +16,6 @@ import type { PageLoad } from './$types';
 // SvelteKit は読んだ問い合わせのキーだけを見るので、引き出しの `?task=` が替わっても、この load は走り直らない。
 // url の残りは 401 のときだけ読む（読むと、移るたびにこの load が走り直る）。
 // `app:backlog-tree` は、引き出しが欄を保存した後に、木だけを読み直す印（枠の読み直しが一時的に失敗しても、引き出しと書きかけを失わないため）。
-// チーム全体の経験値（teamTotal）は木と並べて読み、読めなければ null で、見出しに出さないだけにする（画面は壊さない）。
 // 依頼先の名簿は、自分用の組織だけ画面（+page.svelte）が読む（チーム用の組織の最初の読み込みに要求を足さないため）
 export const load: PageLoad = async ({ params, fetch, url, depends }) => {
   depends('app:backlog-tree');
@@ -26,10 +24,9 @@ export const load: PageLoad = async ({ params, fetch, url, depends }) => {
   const readVersion = startBacklogRead();
   const filter = filterFromParams(url.searchParams);
   const options = { slug: params.slug, fetcher: fetch };
-  const [result, definitions, teamTotal] = await Promise.all([
+  const [result, definitions] = await Promise.all([
     callOperation(backlogTree, { workspace_id: params.id, ...filterInput(filter) }, options),
     callOperation(categoryRepositoryList, { workspace_id: params.id }, options),
-    callOperation(experienceTeamTotal, { workspace_id: params.id }, options),
   ]);
   if (isUnauthenticated(result)) redirect(307, loginUrl(url));
   return {
@@ -38,6 +35,5 @@ export const load: PageLoad = async ({ params, fetch, url, depends }) => {
     readVersion,
     filter,
     definitions: definitions.ok ? definitions.data : null,
-    teamTotal: teamTotal.ok ? teamTotal.data.total : null,
   };
 };

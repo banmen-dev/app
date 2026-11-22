@@ -7,6 +7,8 @@ import { backlogCases } from './backlog-loading-fixture.ts';
 
 export const backlogEntries = ['direct', 'navigation', 'invalidate', 'filter'] as const;
 const ms = z.number().finite().nonnegative();
+// 経験値の従は #1432 で外した。2026-11-17 の正式データ（3操作）は値を持ち、新しい計測は持たない。
+const legacyMs = ms.nullable().optional();
 const common = {
   round: z.number().int().min(1),
   case: z
@@ -29,7 +31,7 @@ const reportSchema = z.object({
       ...common,
       variant: z.enum(['A', 'B', 'C']),
       definitions: ms.nullable(),
-      experience: ms.nullable(),
+      experience: legacyMs,
       total: ms,
     }),
   ),
@@ -39,7 +41,7 @@ const reportSchema = z.object({
       variant: z.enum(['B', 'C']),
       entry: z.enum(backlogEntries),
       definitions: ms,
-      experience: ms,
+      experience: legacyMs,
       ready: ms.positive(),
       choices: ms.positive(),
       shell: ms,
@@ -53,6 +55,13 @@ const distribution = (values: number[]): Distribution => ({
   p50: percentile(values, 0.5),
   p95: percentile(values, 0.95),
 });
+// 経験値の列は、セルの全試行に値があるときだけ集計する。一部だけ値があるデータは拒否する。
+function legacyDistribution(values: (number | null | undefined)[]): Distribution | null {
+  const present = values.filter((value) => value !== null && value !== undefined);
+  if (present.length === 0) return null;
+  if (present.length !== values.length) throw new Error('経験値の計測値がセル内で欠けています');
+  return distribution(present);
+}
 const formatted = (value: Distribution | null) =>
   value === null ? '—' : `${value.p50.toFixed(2)} / ${value.p95.toFixed(2)}`;
 const entryNames = { direct: '直接表示', navigation: '画面内遷移', invalidate: '再読み取り', filter: '絞り込み変更' };
@@ -79,14 +88,15 @@ export function summarizeBacklog(value: unknown) {
     groups.set(id, group);
   }
   for (const x of report.api) {
+    const experience = x.experience ?? null;
     if (
-      (x.variant === 'A') !== (x.definitions === null && x.experience === null) ||
-      (x.variant !== 'A' && (x.definitions === null || x.experience === null))
+      (x.variant === 'A') !== (x.definitions === null && experience === null) ||
+      (x.variant !== 'A' && x.definitions === null)
     )
       throw new Error('APIの方式と従の計測値が一致しません');
-    if (x.primary > x.load || x.load > x.total || (x.definitions ?? 0) > x.total || (x.experience ?? 0) > x.total)
+    if (x.primary > x.load || x.load > x.total || (x.definitions ?? 0) > x.total || (experience ?? 0) > x.total)
       throw new Error('APIの完了時点の順序が不正です');
-    if (x.variant === 'B' && Math.max(x.primary, x.definitions!, x.experience!) > x.load)
+    if (x.variant === 'B' && Math.max(x.primary, x.definitions!, experience ?? 0) > x.load)
       throw new Error('API Bはすべての応答を待ってからloadを返します');
     add(apiGroups, key(x.round, x.case, x.reverse, x.variant), x);
   }
@@ -94,7 +104,7 @@ export function summarizeBacklog(value: unknown) {
     if (x.hasTask !== backlogCases[x.case]!.hasTask) throw new Error('タスクの条件が不正です');
     if (x.primary > x.load || x.load > x.ready || x.definitions > x.choices)
       throw new Error('ブラウザの完了時点の順序が不正です');
-    if (x.variant === 'B' && Math.max(x.primary, x.definitions, x.experience) > x.load)
+    if (x.variant === 'B' && Math.max(x.primary, x.definitions, x.experience ?? 0) > x.load)
       throw new Error('ブラウザ Bはすべての応答を待ってからloadを返します');
     add(browserGroups, key(x.round, x.case, x.reverse, x.variant, x.entry), x);
   }
@@ -134,7 +144,7 @@ export function summarizeBacklog(value: unknown) {
             variant,
             primary: distribution(samples.map((x) => x.primary)),
             definitions: variant === 'A' ? null : distribution(samples.map((x) => x.definitions!)),
-            experience: variant === 'A' ? null : distribution(samples.map((x) => x.experience!)),
+            experience: variant === 'A' ? null : legacyDistribution(samples.map((x) => x.experience)),
             load: distribution(samples.map((x) => x.load)),
             total: distribution(samples.map((x) => x.total)),
           };
@@ -157,7 +167,7 @@ export function summarizeBacklog(value: unknown) {
               hasTask,
               primary: distribution(samples.map((x) => x.primary)),
               definitions: distribution(samples.map((x) => x.definitions)),
-              experience: distribution(samples.map((x) => x.experience)),
+              experience: legacyDistribution(samples.map((x) => x.experience)),
               load: distribution(samples.map((x) => x.load)),
               ready: distribution(samples.map((x) => x.ready)),
               choices: distribution(samples.map((x) => x.choices)),

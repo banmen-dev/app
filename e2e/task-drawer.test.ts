@@ -177,7 +177,10 @@ test('完了したタスクのポイントは直せず、理由を添える。�
   const row = page.locator('.entry', { hasText: '済んだ依頼' });
   await row.getByRole('link', { name: '済んだ依頼' }).click();
   const drawer = page.getByRole('dialog', { name: '済んだ依頼' });
+  // 行のポイントは保存の応答より先に変わる。保存を待たずに完了にすると、保存が完了の後に届いて 409 になるので、応答を待つ
+  const pointsSaved = waitForResponses(page, '/task-update');
   await drawer.getByRole('radio', { name: '3', exact: true }).check();
+  await pointsSaved;
   await expect(row.getByRole('button', { name: 'ポイント: 3 pt' })).toBeVisible();
   await drawer.getByRole('button', { name: '完了にする', exact: true }).click();
   // 経験値は付かないので、トーストに XP の行を出さない（#1431）
@@ -213,8 +216,7 @@ test('完了したタスクのポイントは直せず、理由を添える。�
   await saved;
   await expect(toasts).toHaveText(['保存しました']);
   await expect(drawer.getByRole('button', { name: 'クリア' })).toBeVisible();
-  // 後ろのバックログも読み直し終えている（完了の行は畳まれる。完了しても経験値は付かない）
-  await expect(page.locator('.page-head .team-xp')).toHaveText('チーム全体の経験値0XP');
+  // 後ろのバックログも読み直し終えている（完了の行は畳まれる）
   await expect(page.locator('.tree-folded.is-root')).toHaveText('親のない完了 1 件を折りたたんでいます');
 });
 

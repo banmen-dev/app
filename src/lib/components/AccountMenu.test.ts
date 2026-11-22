@@ -10,7 +10,7 @@ vi.mock('$app/paths', () => ({
   resolve: (route: string, { slug }: { slug: string } = { slug: '' }) => route.replace('[slug]', slug),
 }));
 
-const props = { userId: 'user-1', name: 'ミナト', isAdmin: true, level: 3, slug: 'aoba', invitationCount: 0 };
+const props = { userId: 'user-1', name: 'ミナト', isAdmin: true, slug: 'aoba', invitationCount: 0 };
 const renderWith = (overrides: Partial<typeof props> = {}) =>
   render(AccountMenu, { props: { ...props, ...overrides } }).body;
 const list = (html: string) => /<ul\b[^>]*>(.*?)<\/ul>/s.exec(html)![1]!;
@@ -58,7 +58,7 @@ test('招待があれば読み上げから外した点と件数を出し、項�
   expect(html).toContain('class="account-menu-badge" aria-hidden="true">招待 2');
   expect(html).toContain('class="visually-hidden">、届いた招待 2件');
   const buttonName = (body: string) => /<button\b[^>]*aria-label="([^"]*)"/.exec(body)![1];
-  expect(buttonName(html)).toBe('ミ ミナト 管理者 3。アカウントのメニュー');
+  expect(buttonName(html)).toBe('ミ ミナト 管理者。アカウントのメニュー');
   expect(buttonName(html)).toBe(buttonName(renderWith()));
 });
 

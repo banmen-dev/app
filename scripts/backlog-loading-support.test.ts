@@ -51,7 +51,7 @@ test('選択肢が先に失敗しても木の操作待ちを回収する', async
   await checked;
 });
 
-for (const name of ['backlog-tree', 'category-repository-list', 'experience-team-total']) {
+for (const name of ['backlog-tree', 'category-repository-list']) {
   test(`${name}のHTTP200でも不正JSONを成功にしない`, async () => {
     const checks = new BacklogBrowserChecks();
     checks.response(`/api/bench/${name}`, 200, async () => ({}));
@@ -72,16 +72,15 @@ test('従のJSON解析完了を待ち、解析失敗を検出する', async () =
 test('通信、HTTPエラー、画面例外を正常試行に混ぜない', async () => {
   for (const kind of ['network', 'http', 'page']) {
     const checks = new BacklogBrowserChecks();
-    if (kind === 'network') checks.requestFailed('/api/bench/experience-team-total', 'reset');
+    if (kind === 'network') checks.requestFailed('/api/bench/category-repository-list', 'reset');
     if (kind === 'http') checks.response('/api/bench/workspace', 403, async () => ({}));
     if (kind === 'page') checks.pageError('rejection');
     await assert.rejects(checks.assertSuccess());
   }
 });
-test('正常な従2件を検証し次の試行も受け付ける', async () => {
+test('正常な従を検証し次の試行も受け付ける', async () => {
   const checks = new BacklogBrowserChecks();
   checks.response('/api/bench/category-repository-list', 200, async () => ({ categories: [], repositories: [] }));
-  checks.response('/api/bench/experience-team-total', 200, async () => ({ total: 0 }));
   await checks.assertSuccess();
   await checks.assertSuccess();
 });

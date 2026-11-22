@@ -22,7 +22,6 @@
   import Markdown from '../../../../lib/components/Markdown.svelte';
   import MoveParentDialog from '../../../../lib/components/MoveParentDialog.svelte';
   import PageHead from '../../../../lib/components/PageHead.svelte';
-  import TeamExperience from '../../../../lib/components/TeamExperience.svelte';
   import TaskEntry from '../../../../lib/components/TaskEntry.svelte';
   import DraftRow from '../../../../lib/components/DraftRow.svelte';
   import TreeEpic from '../../../../lib/components/TreeEpic.svelte';
@@ -95,7 +94,7 @@
   // 動かした並びは読み直すまで画面に持ち、読み直したら捨てる（読み直した値が送った後の並び）。
   // 送り終える前に木が読み直されたら、送り終えた後にもう一度読み直す（捨てた移動があれば知らせる）。
   // 見出しは見本どおり画面の名前（掲示板／バックログ）で、小見出しがワークスペースの名前。見出しの右に、エピックを作るボタン、
-  // ストーリーを作るボタンと起票のボタン。見出しの集計の下に、チーム全体の経験値（読めたときだけ）。
+  // ストーリーを作るボタンと起票のボタン。
   // 閉じていれば、作る操作と完了の操作は出さない（ストーリーの引き出しは読み取り専用で開く。閉じていることはワークスペースの枠の帯が伝える）。
   // ストーリーの題はリンクで、押すと `?story=<ID>` の引き出し（StoryDrawer。+layout.svelte が置く）を開く。開いた行の順は trackStoryOrder が引き出しの前後の移動へ渡す。
   // エピックの行の題はエピックの画面へのリンクで、エピックを直すダイアログはその画面の見出しの横から開く（ここのダイアログは作るだけ）。
@@ -701,7 +700,7 @@
         // 別の画面で先に完了にされていたときは、同じ完了の印で示し、知らせる
         showToast(
           result.ok
-            ? completedMessage(result.data.left_sprint, result.data.xp_granted, t)
+            ? completedMessage(result.data.left_sprint, t)
             : t('taskAlreadyDone', { task: t('task'), done: t('done') }),
           'check',
         );
@@ -1464,10 +1463,6 @@
     note={reloadFailureNote(workspace.id) ?? undefined}
   />
 {:else if workspace && tree}
-  <!-- チーム全体の経験値は、読めたときだけ見出しの中に出す（読めなくても画面は開く） -->
-  {#snippet teamExperience()}
-    {#if data.teamTotal !== null}<TeamExperience total={data.teamTotal} />{/if}
-  {/snippet}
   <PageHead
     title={t('backlog')}
     narrowSummary={t('backlogSummary')}
@@ -1478,7 +1473,6 @@
       { tone: 'warn', label: t('pointsUnsetTitle'), count: tallies.unestimated_count },
       { label: t('backlogTallyUnscheduled', { sprint: t('sprint') }), count: tallies.unscheduled_count },
     ]}
-    meta={data.teamTotal === null ? undefined : teamExperience}
   ></PageHead>
 
   <!-- 完成の定義（components.css の .dod）。木の上に1つだけ畳んで置き、行ごとには繰り返さない。空なら出さない。

@@ -11,13 +11,12 @@ function replaceOnce(source: string, before: string, after: string): string {
 
 // 計測ビルドだけの成功経路の試作。製品の失敗・認証・再試行の実装ではない。
 export function backlogLoadingSource(source: string, variant: BacklogVariant, reverse: boolean): string {
-  const start = source.indexOf('  const [result, definitions, teamTotal] = await Promise.all([');
+  const start = source.indexOf('  const [result, definitions] = await Promise.all([');
   const end = source.indexOf('\n};', start);
   if (start < 0 || end < 0) throw new Error('バックログの load の形が変わりました。計測器を見直してください');
   const calls = [
     "const primary = callOperation(backlogTree, { workspace_id: params.id, ...filterInput(filter) }, options).then((result) => { performance.mark('bench:primary'); return result; });",
     "const definitionRead = callOperation(categoryRepositoryList, { workspace_id: params.id }, options).then((result) => { performance.mark('bench:definitions'); return result; });",
-    "const experienceRead = callOperation(experienceTeamTotal, { workspace_id: params.id }, options).then((result) => { performance.mark('bench:experience'); return result; });",
   ];
   if (reverse) calls.reverse();
   return (
@@ -25,7 +24,7 @@ export function backlogLoadingSource(source: string, variant: BacklogVariant, re
     calls.join('\n') +
     `
   const result = await primary;
-  ${variant === 'B' ? 'const [definitions, teamTotal] = await Promise.all([definitionRead, experienceRead]);' : ''}
+  ${variant === 'B' ? 'const definitions = await definitionRead;' : ''}
   if (isUnauthenticated(result)) redirect(307, loginUrl(url));
   performance.mark('bench:load');
   return {
@@ -34,7 +33,6 @@ export function backlogLoadingSource(source: string, variant: BacklogVariant, re
     readVersion,
     filter,
     definitions: ${variant === 'B' ? 'definitions.ok ? definitions.data : null' : 'definitionRead.then((value) => value.ok ? value.data : null)'},
-    teamTotal: ${variant === 'B' ? 'teamTotal.ok ? teamTotal.data.total : null' : 'experienceRead.then((value) => value.ok ? value.data.total : null)'},
   };` +
     source.slice(end)
   );
@@ -42,15 +40,10 @@ export function backlogLoadingSource(source: string, variant: BacklogVariant, re
 
 export function backlogLoadingComponent(source: string, variant: BacklogVariant): string {
   // 必要な表示位置も確認し、形が変わったときは別の指標を黙って測らない。
-  for (const needle of [
-    'let { data }: PageProps = $props();',
-    'definitions: data.definitions,',
-    '<BacklogFilterBar',
-    'data.teamTotal',
-  ])
+  for (const needle of ['let { data }: PageProps = $props();', 'definitions: data.definitions,', '<BacklogFilterBar'])
     if (!source.includes(needle)) throw new Error('バックログの表示が変わりました。計測器を見直してください');
   if (variant === 'C') {
-    source = source.replaceAll('data.definitions', 'benchDefinitions').replaceAll('data.teamTotal', 'benchTeamTotal');
+    source = source.replaceAll('data.definitions', 'benchDefinitions');
     source = replaceOnce(
       source,
       'definitions: benchDefinitions,',
@@ -67,7 +60,6 @@ export function backlogLoadingComponent(source: string, variant: BacklogVariant)
       ? `
   let benchDefinitions = $state<Awaited<typeof data.definitions> | null>(null);
   let benchDefinitionsReady = $state(false);
-  let benchTeamTotal = $state<Awaited<typeof data.teamTotal> | null>(null);
   $effect(() => {
     const definitions = data.definitions;
     benchDefinitions = null;
@@ -78,13 +70,6 @@ export function backlogLoadingComponent(source: string, variant: BacklogVariant)
       benchDefinitions = value;
       benchDefinitionsReady = true;
     });
-    return () => { stale = true; };
-  });
-  $effect(() => {
-    const total = data.teamTotal;
-    benchTeamTotal = null;
-    let stale = false;
-    void Promise.resolve(total).then((value) => { if (!stale) benchTeamTotal = value; });
     return () => { stale = true; };
   });
 `

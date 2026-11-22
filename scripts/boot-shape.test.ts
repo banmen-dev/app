@@ -113,7 +113,7 @@ describe('最初の読み込みの骨組みの形（static/boot-shape.js）', ()
   test('形ごとに本文の骨組みを組み立て、帯の数は移る間の骨組み（LoadingSheet）と同じ', () => {
     const sampleRoute: Record<LoadingShape, string> = {
       today: '/[slug]',
-      aside: '/[slug]/me',
+      aside: '/[slug]/w/[id]/epics/[epicId]',
       tree: '/[slug]/w/[id]',
       board: '/[slug]/w/[id]/sprint',
       plan: '/[slug]/w/[id]/plan',

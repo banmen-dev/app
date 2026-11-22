@@ -24,7 +24,7 @@ for (const mode of ['A', 'B', 'C'] satisfies BacklogMode[]) {
         },
         () => clock,
       );
-      assert.deepEqual(called, mode === 'A' ? [0] : reverse ? [2, 1, 0] : [0, 1, 2]);
+      assert.deepEqual(called, mode === 'A' ? [0] : reverse ? [1, 0] : [0, 1]);
       const finish = (operation: BacklogOperation, at: number) => {
         clock = at;
         resolvers.get(operation)!({
@@ -40,15 +40,12 @@ for (const mode of ['A', 'B', 'C'] satisfies BacklogMode[]) {
       if (mode !== 'A') {
         assert.deepEqual(validated, []);
         finish(1, 130);
-        await setImmediate();
-        finish(2, 150);
       }
       assert.deepEqual(await running, {
         primary: 10,
         definitions: mode === 'A' ? null : 30,
-        teamTotal: mode === 'A' ? null : 50,
-        ready: mode === 'B' ? 50 : 10,
-        total: mode === 'A' ? 10 : 50,
+        ready: mode === 'B' ? 30 : 10,
+        total: mode === 'A' ? 10 : 30,
       });
       assert.deepEqual(validated, called);
     });
@@ -66,11 +63,11 @@ test('C: 従が先に終わる場合も主を待つ', async () => {
     },
     () => clock,
   );
-  assert.deepEqual(result, { primary: 30, definitions: 20, teamTotal: 10, ready: 30, total: 30 });
+  assert.deepEqual(result, { primary: 20, definitions: 10, ready: 20, total: 20 });
 });
 
 for (const mode of ['B', 'C'] satisfies BacklogMode[]) {
-  for (const failed of [0, 1, 2] satisfies BacklogOperation[]) {
+  for (const failed of [0, 1] satisfies BacklogOperation[]) {
     test(`${mode}: ${failed}の失敗後も残る応答と不正な出力を全て回収する`, { timeout: 5000 }, async () => {
       const resolvers: (() => void)[] = [];
       let validated = 0;
@@ -95,9 +92,9 @@ for (const mode of ['B', 'C'] satisfies BacklogMode[]) {
       const checked = assert
         .rejects(running, (error: unknown) => {
           assert.ok(error instanceof AggregateError);
-          assert.equal(error.errors.length, 3);
+          assert.equal(error.errors.length, 2);
           assert.ok(error.errors.includes(original));
-          assert.equal(error.errors.filter((item) => item === invalid).length, 2);
+          assert.equal(error.errors.filter((item) => item === invalid).length, 1);
           return true;
         })
         .then(() => {
@@ -105,13 +102,10 @@ for (const mode of ['B', 'C'] satisfies BacklogMode[]) {
         });
       await setImmediate();
       assert.equal(settled, false);
-      assert.equal(resolvers.length, 2, '同期throwでも後続の要求を開始する');
+      assert.equal(resolvers.length, 1, '同期throwでも後続の要求を開始する');
       resolvers[0]();
-      await setImmediate();
-      assert.equal(settled, false);
-      resolvers[1]();
       await checked;
-      assert.equal(validated, 2);
+      assert.equal(validated, 1);
     });
   }
 }

@@ -26,14 +26,12 @@ export const organizationInfo = defineOperation({
       // 組織にワークスペースが1つでもあるか（所属していないものと、閉じたものを含む）。最初のワークスペースを作る案内の判定に使う
       has_workspaces: z.boolean(),
     }),
-    // level は自分のレベル（組織の中の経験値の合計から出す）。アカウントのメニューの紋章に使い、経験値の数値は返さない
     me: z.object({
       id: z.string(),
       name: z.string(),
       is_admin: z.boolean(),
       // 自分で選んだテーマ。選んでいない（users.theme が NULL）なら simple
       theme,
-      level: z.number().int(),
       // 自分のアバター。上げたプロフィール画像（配る URL）があればそれ、無ければログインの手段のアイコン、それも無ければ null
       avatar_url: z.string().nullable(),
     }),

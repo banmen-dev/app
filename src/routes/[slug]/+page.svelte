@@ -193,7 +193,7 @@
         if (result.ok) {
           if (!justDoneIds.includes(task.id)) justDoneIds = [...justDoneIds, task.id];
           return {
-            notice: notify(completedMessage(result.data.left_sprint, result.data.xp_granted, t), 'check'),
+            notice: notify(completedMessage(result.data.left_sprint, t), 'check'),
             reload: true,
             focus,
             flash: true,

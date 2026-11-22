@@ -576,7 +576,6 @@ describe('organization', () => {
       name: '星野 澪',
       is_admin: false,
       theme: 'simple',
-      level: 1,
       avatar_url: null,
     });
     expect(result.workspaces).toEqual([
