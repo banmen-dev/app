@@ -356,7 +356,7 @@ PR の版は本番を載せていない専用 Cloudflare アカウントの Work
 
 ### 用意するもの
 
-1. プレビュー専用アカウントの Workers & Pages に `banmen-preview` を作る。本番 `scrum-guild` と見本 `scrum-guild-design` の接続は変えない。初めは Builds を無効にしておく
+1. プレビュー専用アカウントの Workers & Pages に `banmen-preview` を作る。本番 `scrum-guild` と見本 `banmen-design` の接続は変えない。初めは Builds を無効にしておく
 2. Worker の Settings の Domains & Routes で `workers.dev` と Preview URLs を有効にし、Cloudflare Access を有効にする。Zero Trust のアプリで許可する人のメールアドレスを絞り、さらに Service Auth の方針で、この用途専用のサービストークンを許可する。Worker の通常 URL だけでなく、`pr-374-banmen-preview.<プレビュー用サブドメイン>.workers.dev` などの alias と版の URL、`/api/*` も保護する。Access 無しで開ける URL を残さない。既存の本番に Access を付ける操作ではない
 3. 専用アカウントの R2 は有効化しない。共有プレビューでは添付ファイルとプロフィール画像の操作を無効にする。
 4. プレビュー Worker に `CONNECTION_CREDENTIAL_KEYS` を Secret として登録する。鍵の書式は上の「シークレット」を参照し、本番とは別の鍵を作る。seed の運用者は生成設定の `OPERATOR_LOGIN_IDS` で指定する。GitHub/Google OAuth、メール、外部連携の本番の秘密は入れない。seed ログインで確かめる
