@@ -470,7 +470,6 @@ export const taskUpdateOperation = implement(taskUpdate, async ({ db, actor, wor
 
 // 担当を替える（null で外す）。読んだ担当から替わるときだけ、「読んだ担当のまま、読んだ今日やるの印のまま、完了していない、
 // 新しい担当が今所属している、ワークスペースが開いている」という条件つきで書き、同じ文で今日やるの印を消す。
-// 担当を付けたら、同じ batch() で、タスクの親のストーリーの親のエピックの討伐隊に担当を足す（taskAssigneePartyStatements）。
 // 通らなかったら読み直して、やり直す（task-update と同じ。3 回まで）
 export const taskAssignOperation = implement(taskAssign, async ({ db, actor, workspace, input }) => {
   const actorUserId = actorUserIdOf(actor);

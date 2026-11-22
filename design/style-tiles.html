@@ -201,17 +201,14 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .row-end { display: flex; gap: 8px; align-items: center; }
 .row.done b { color: var(--muted); }
 
-.raid { border: 1px solid var(--line); background: var(--surface); border-radius: var(--r); padding: 14px; display: grid; gap: 10px; position: relative; }
-.raid-top { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
-.raid-title { font-family: var(--head); font-weight: var(--head-w); font-size: 1.1rem; line-height: 1.4; }
-.raid-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; font-size: 12px; }
-.raid-facts dt { color: var(--muted); }
-.raid-facts dd { margin: 0; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 13px; }
-.raid-facts dl { margin: 0; display: grid; gap: 2px; }
-.reward { font-family: var(--num); font-weight: 700; }
-.party { display: flex; }
-.party .avatar + .avatar { margin-left: -6px; }
-.raid-foot { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.epic-card { border: 1px solid var(--line); background: var(--surface); border-radius: var(--r); padding: 14px; display: grid; gap: 10px; position: relative; }
+.epic-card-top { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
+.epic-card-title { font-family: var(--head); font-weight: var(--head-w); font-size: 1.1rem; line-height: 1.4; }
+.epic-card-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; font-size: 12px; }
+.epic-card-facts dt { color: var(--muted); }
+.epic-card-facts dd { margin: 0; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+.epic-card-facts dl { margin: 0; display: grid; gap: 2px; }
+.epic-card-foot { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .progress { flex: 1; min-width: 90px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
 .progress span { display: block; height: 100%; background: var(--accent); }
 
@@ -247,11 +244,11 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .tile[data-tile="a"] .row { min-height: 48px; }
 .tile[data-tile="a"] .pts { background: transparent; border: 1px solid var(--a-accent); }
 .tile[data-tile="a"] .btn.primary { letter-spacing: 0.08em; }
-.tile[data-tile="a"] .raid {
+.tile[data-tile="a"] .epic-card {
   border-top: 6px solid var(--a-accent);
   box-shadow: 0 1px 0 var(--a-line), 3px 4px 0 -1px var(--a-rule);
 }
-.tile[data-tile="a"] .raid-top { letter-spacing: 0.3em; color: var(--a-accent); font-weight: 700; }
+.tile[data-tile="a"] .epic-card-top { letter-spacing: 0.3em; color: var(--a-accent); font-weight: 700; }
 .tile[data-tile="a"] .hanko {
   position: absolute; right: 70px; top: 50%; translate: 0 -50%; rotate: -12deg;
   width: 40px; height: 40px; border: 2px solid var(--a-stamp); border-radius: 50%;
@@ -279,7 +276,7 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
   --r: 4px; --tile-r: 10px;
   border: 1px solid var(--b-line);
 }
-.tile[data-tile="b"] .rows, .tile[data-tile="b"] .raid, .tile[data-tile="b"] .btn {
+.tile[data-tile="b"] .rows, .tile[data-tile="b"] .epic-card, .tile[data-tile="b"] .btn {
   box-shadow: inset 0 1px 0 var(--b-panel-hi);
 }
 .tile[data-tile="b"] .tile-name { letter-spacing: 0.04em; }
@@ -298,11 +295,8 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
   background: var(--b-xp); color: var(--b-bg);
   font-family: var(--num); font-weight: 700; font-size: 16px; line-height: 1;
 }
-.tile[data-tile="b"] .raid { border-left: 4px solid var(--rarity); }
+.tile[data-tile="b"] .epic-card { border-left: 4px solid var(--rarity); }
 .tile[data-tile="b"] .rarity { font-family: var(--num); font-weight: 700; letter-spacing: 0.12em; color: var(--rarity); font-size: 11px; }
-.tile[data-tile="b"] .tiers { display: flex; gap: 6px; flex-wrap: wrap; }
-.tile[data-tile="b"] .tier { font-family: var(--num); font-size: 11px; font-weight: 700; padding: 1px 8px; border: 1px solid var(--rarity); color: var(--rarity); border-radius: 2px; letter-spacing: 0.08em; }
-.tile[data-tile="b"] .reward { color: var(--b-rare-3); }
 .tile[data-tile="b"] .stat-num { font-family: var(--num); font-size: 1.6rem; font-weight: 700; line-height: 1; }
 
 /* ================= C. 静かな作戦室 ================= */
@@ -328,14 +322,6 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .tile[data-tile="c"] .bar, .tile[data-tile="c"] .cap { height: 4px; }
 .tile[data-tile="c"] .cap .band { top: -4px; bottom: -4px; }
 .tile[data-tile="c"] .lv { font-size: 12px; }
-.tile[data-tile="c"] .toast {
-  display: flex; gap: 10px; align-items: center;
-  border: 1px solid var(--c-line); background: var(--c-surface); border-radius: var(--r);
-  padding: 10px 12px; font-size: 13px; box-shadow: 0 6px 20px -8px rgb(0 0 0 / 0.25);
-}
-.tile[data-tile="c"] .toast .spark { color: var(--c-accent); animation: spark 1.6s ease-out 1; }
-.tile[data-tile="c"] .toast b { font-weight: 700; }
-@keyframes spark { 0% { transform: scale(0.4) rotate(-40deg); opacity: 0; } 40% { transform: scale(1.3) rotate(10deg); opacity: 1; } 100% { transform: none; } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
 .foot-note {
@@ -355,7 +341,6 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
   <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
   <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
   <symbol id="i-git" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="12" r="2"/><path d="M6 8v8M8 6h4a4 4 0 0 1 4 4"/></symbol>
-  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 2v6M12 16v6M2 12h6M16 12h6M5 5l3.5 3.5M15.5 15.5L19 19M5 19l3.5-3.5M15.5 8.5L19 5"/></symbol>
 </svg>
 
 <header class="page-head">
@@ -368,15 +353,15 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
   </div>
 </header>
 <main class="tiles" id="tiles"></main>
-<p class="foot-note">部品: 色、文字、ボタン、状態の印、タスクの行、レイドのカード、レベルと積載量。</p>
+<p class="foot-note">部品: 色、文字、ボタン、状態の印、タスクの行、エピックのカード、レベルと積載量。</p>
 
 <script>
 "use strict";
 const WORDS = {
-  epic: "エピック", requester: "作成者", party: "参加者",
-  accept: "参加する", detail: "詳細", points: "ポイント",
+  epic: "エピック", requester: "作成者",
+  detail: "詳細", points: "ポイント",
   due: "期日", capacity: "作業量と基準", over: "超過",
-  done: "完了", complete: "完了にする", reward: "クリア報酬",
+  done: "完了", complete: "完了にする",
   task: "タスク", sprint: "スプリント",
 };
 const w = (k) => WORDS[k];
@@ -401,7 +386,7 @@ function tile(T) {
     : `<div class="meter"><div class="meter-top"><span class="lv">Lv 7</span><span class="note">次まで 160</span><span class="v">1,240 XP</span></div>
        <div class="bar" role="img" aria-label="経験値 64%、見込み 20%"><span class="got" style="width:64%"></span><span class="soon" style="width:20%"></span></div>
        <span class="note">縞は見込み（${w("task")}の完了で確定）+90</span></div>`;
-  const raidRarity = b ? ` style="--rarity:var(--b-rare-3)"` : "";
+  const epicRarity = b ? ` style="--rarity:var(--b-rare-3)"` : "";
   return `
   <section class="tile" data-tile="${T.id}" aria-label="案 ${T.id.toUpperCase()}">
     <div class="tile-head">
@@ -426,7 +411,7 @@ function tile(T) {
       <span class="lbl">ボタンと印</span>
       <div class="btns">
         <button class="btn primary" type="button">${icon("check")}${w("complete")}</button>
-        <button class="btn" type="button">${w("accept")}</button>
+        <button class="btn" type="button">${w("detail")}を開く</button>
         <button class="btn ghost" type="button">あとで</button>
         <button class="btn" type="button" disabled>終了する</button>
       </div>
@@ -436,7 +421,6 @@ function tile(T) {
         <span class="chip srcdone">${icon("check")}取り込み元で完了</span>
         <span class="pts" title="${w("points")}">5</span>
       </div>
-      ${b ? `<div class="tiers"><span class="tier" style="--rarity:var(--b-rare-1)">小 · 100</span><span class="tier" style="--rarity:var(--b-rare-2)">中 · 300</span><span class="tier" style="--rarity:var(--b-rare-3)">大 · 600</span></div>` : ""}
     </div>
 
     <div class="blk">
@@ -463,17 +447,14 @@ function tile(T) {
 
     <div class="blk">
       <span class="lbl">${w("epic")}のカード</span>
-      <div class="raid"${raidRarity}>
-        <div class="raid-top">${a ? "依 頼 書" : b ? `<span class="rarity">LEGENDARY · 大</span>` : `${icon("flag")}${w("epic")}・追加案件`}</div>
-        <div class="raid-title">会員ポイント制度を公開する</div>
-        <div class="raid-facts">
+      <div class="epic-card"${epicRarity}>
+        <div class="epic-card-top">${a ? "依 頼 書" : b ? `<span class="rarity">EPIC</span>` : `${icon("flag")}${w("epic")}・追加案件`}</div>
+        <div class="epic-card-title">会員ポイント制度を公開する</div>
+        <div class="epic-card-facts">
           <dl><dt>${w("requester")}</dt><dd>${av("ハ", 28)}ハルカ ${a ? `<span class="seal" aria-hidden="true">印</span>` : ""}</dd></dl>
-          <dl><dt>${w("reward")}</dt><dd><span class="reward">大 · 600 XP</span></dd></dl>
           <dl><dt>${w("due")}</dt><dd><span class="chip">${icon("clock")}11/20</span></dd></dl>
-          <dl><dt>${w("party")}</dt><dd><span class="party">${av("ハ", 28)}${av("ミ", 172)}${av("ソ", 220)}</span></dd></dl>
         </div>
-        <div class="raid-foot"><span class="key">4 / 24 pt</span><span class="progress"><span style="width:17%"></span></span>
-          <button class="btn ${c ? "" : "primary"}" type="button">${w("accept")}</button></div>
+        <div class="epic-card-foot"><span class="key">4 / 24 pt</span><span class="progress"><span style="width:17%"></span></span></div>
       </div>
     </div>
 
@@ -485,7 +466,6 @@ function tile(T) {
         <div class="cap" role="img" aria-label="基準 45.6 時間、作業量 56.0 時間"><span class="band" style="left:69%;width:20%"></span><span class="fill" style="width:89%"></span></div>
         <span class="state">${icon("alert")}${w("over")}</span>
       </div>
-      ${c ? `<div class="toast" role="status"><span class="spark">${icon("spark")}</span><span><b>${w("epic")}をクリアしました</b>　${w("party")}の3人に 600 XP</span></div>` : ""}
     </div>
   </section>`;
 }

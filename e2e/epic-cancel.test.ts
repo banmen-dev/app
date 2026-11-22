@@ -39,7 +39,7 @@ test.beforeEach(async ({ context, baseURL }) => {
   await signIn(context, baseURL, 'admin');
 });
 
-test('中止は確認してから送り、中止中は受注・割り振り・報酬・完了の操作が消え、取り消すと戻る', async ({ page }) => {
+test('中止は確認してから送り、中止中は作成者の付け替えと完了の操作が消え、取り消すと戻る', async ({ page }) => {
   const calls = await statefulEpic(page);
   const collect = await watchViolations(page);
   await page.goto(PATH);
@@ -47,7 +47,7 @@ test('中止は確認してから送り、中止中は受注・割り振り・�
   await cancel.click();
   const confirm = page.getByRole('dialog', { name: 'エピックを中止する' });
   await expect(confirm.getByRole('button', { name: 'やめる' })).toBeFocused();
-  await expect(confirm).toContainText('すでに確定した経験値は残ります');
+  await expect(confirm).toContainText('中止は後で取り消せます');
   await page.keyboard.press('Escape');
   await expect(cancel).toBeFocused();
   expect(calls()).toBe(0);
@@ -57,13 +57,11 @@ test('中止は確認してから送り、中止中は受注・割り振り・�
   await expect(undo).toBeFocused();
   await expect(page.locator('.chip', { hasText: '中止' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'エピックを完了にする', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '参加者に割り振る', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'クリア報酬を変える', exact: true })).toHaveCount(0);
-  await expect(page.locator('[data-party-join]')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '作成者を替える', exact: true })).toHaveCount(0);
   await undo.click();
   await expect(cancel).toBeFocused();
   await expect(page.getByRole('button', { name: 'エピックを完了にする', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: '参加者に割り振る', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '作成者を替える', exact: true })).toBeVisible();
   expect(calls()).toBe(1);
   expect(await collect()).toEqual([]);
 });

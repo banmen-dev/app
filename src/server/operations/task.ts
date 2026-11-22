@@ -24,7 +24,6 @@ import {
   refOf,
   repositoryRow,
 } from './definition-refs.ts';
-import { taskAssigneePartyStatements } from './epic-party.ts';
 import { implement } from './implement.ts';
 import { sprintRefColumns, sprintRefOf, type SprintRefRow } from './sprint-refs.ts';
 import { openSprint } from './sprint.ts';
@@ -309,20 +308,7 @@ export const taskCreateOperation = implement(taskCreate, async ({ db, actor, wor
             ),
         ),
     ),
-    // 担当つきで親のストーリーの下に作ったら、そのストーリーの親の進行中のエピックの討伐隊に、担当を task_assignee で足す
-    // （既にいれば何もしない）。直前のタスクの履歴が入った（= タスクを作れた）ときだけ。親のないタスクと担当なしでは文を足さない
-    ...(assignee === null || parent === null
-      ? []
-      : taskAssigneePartyStatements(db, {
-          workspaceId,
-          taskId,
-          assignee,
-          actorUserId,
-          at,
-          taskUpdatedAt: createdAt,
-        })),
-    // スプリントの列に作ったら、入った行を足す（作った行がある = 入れ先の条件を通ったときだけ）。入れ込みと作成は同じ batch() で書く。
-    // 担当の文は直前の文の結果に頼るので、その後ろに置く
+    // スプリントの列に作ったら、入った行を足す（作った行がある = 入れ先の条件を通ったときだけ）。入れ込みと作成は同じ batch() で書く
     ...(target === null
       ? []
       : [

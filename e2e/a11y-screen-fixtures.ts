@@ -82,7 +82,7 @@ export const a11yScreens: {
     path: `${WORKSPACE}/epics/${EPIC_ID}`,
     ready: (page) => [
       page.getByRole('heading', { level: 1, name: 'ポイントの交換先を増やす' }),
-      page.getByRole('heading', { level: 2, name: '参加者' }),
+      page.getByRole('heading', { level: 2, name: '概要' }),
     ],
   },
   {

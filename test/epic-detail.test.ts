@@ -4,17 +4,7 @@ import { describe, expect, test } from 'vitest';
 import { epicDetail } from '../src/shared/operations/epic/index.ts';
 import { createApp } from '../src/server/app.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
-import {
-  AT,
-  createCategory,
-  createEpic,
-  createEpicPartyMember,
-  createMembership,
-  createStory,
-  createTask,
-  createUser,
-  createXpGrant,
-} from './factories.ts';
+import { AT, createCategory, createEpic, createMembership, createStory, createTask, createUser } from './factories.ts';
 import { errorCodeOf, post } from './operations/harness.ts';
 import { createTarget, type Person, type Target } from './operations/world.ts';
 
@@ -35,8 +25,6 @@ type DetailBody = {
     canceled_at: string | null;
   };
   requester: Person_;
-  reward_tier: string;
-  party: (Person_ & { joined_via: string })[];
   stories: { id: string; title: string; completed_at: string | null; points_done: number; points_all: number }[];
   can_manage: boolean;
 };
@@ -56,7 +44,7 @@ async function read(target: Target, epicId: string, person: Person = target.memb
 }
 
 describe('epic-detail', () => {
-  test('欄、依頼主、クリア報酬の段階を返し（額は返さない）、討伐隊とストーリーが無ければ空で返す', async () => {
+  test('欄と依頼主を返し、ストーリーが無ければ空で返す。クリア報酬と討伐隊は返さない', async () => {
     const target = await createTarget();
     const category = await createCategory(target.organization, target.workspace.id, { name: '営業' });
     const requester = await createUser(target.organization, { name: '青木 遥' });
@@ -67,7 +55,6 @@ describe('epic-detail', () => {
       due_on: '2026-12-20',
       link_url: 'https://example.com/epic',
       category_id: category.id,
-      reward_tier: 'large',
       requester_user_id: requester.id,
     });
 
@@ -88,10 +75,10 @@ describe('epic-detail', () => {
       canceled_at: null,
     });
     expect(body.requester).toEqual({ id: requester.id, name: '青木 遥', left: false });
-    expect(body.reward_tier).toBe('large');
-    expect(body).not.toHaveProperty('reward_xp');
-    expect(body.party).toEqual([]);
     expect(body.stories).toEqual([]);
+    for (const key of ['reward_tier', 'reward_xp', 'party', 'can_join', 'joined']) {
+      expect(body).not.toHaveProperty(key);
+    }
   });
 
   test('完了と中止の日時を返し、削除した区分は null にする', async () => {
@@ -135,52 +122,6 @@ describe('epic-detail', () => {
       requester_user_id: elsewhere.id,
     });
     expect((await read(target, other.id)).requester.left).toBe(true);
-  });
-
-  test('討伐隊は入った順に、名前、離脱済みか、入り方を返す。レベルと経験値は返さない', async () => {
-    const target = await createTarget();
-    const adminId = target.admin.userId!;
-    const epic = await createEpic(target.organization, target.workspace.id, adminId);
-    const otherEpic = await createEpic(target.organization, target.workspace.id, adminId);
-
-    const veteran = await createUser(target.organization, { name: '古参 太郎' });
-    await createMembership(target.organization, target.workspace.id, veteran.id);
-    const newcomer = await createUser(target.organization, { name: '新人 花子' });
-    await createMembership(target.organization, target.workspace.id, newcomer.id);
-    const gone = await createUser(target.organization, { name: '離れた 人' });
-    await createMembership(target.organization, target.workspace.id, gone.id, { left_at: AT, left_on: '2026-10-20' });
-
-    // 経験値の明細があっても、レベルも数値も返さない（#1432）
-    await createXpGrant(target.organization, target.workspace.id, veteran.id, { amount: 300 });
-
-    await createEpicPartyMember(target.organization, epic.id, veteran.id, {
-      joined_via: 'self',
-      joined_at: '2026-10-20T00:00:00.000Z',
-    });
-    await createEpicPartyMember(target.organization, epic.id, newcomer.id, {
-      joined_via: 'assigned',
-      added_by: adminId,
-      joined_at: '2026-10-21T00:00:00.000Z',
-    });
-    await createEpicPartyMember(target.organization, epic.id, gone.id, {
-      joined_via: 'task_assignee',
-      added_by: adminId,
-      joined_at: '2026-10-22T00:00:00.000Z',
-    });
-    // ほかのエピックの討伐隊は混ざらない
-    await createEpicPartyMember(target.organization, otherEpic.id, target.member.userId!);
-
-    const body = await read(target, epic.id);
-
-    expect(body.party).toEqual([
-      { id: veteran.id, name: '古参 太郎', left: false, joined_via: 'self' },
-      { id: newcomer.id, name: '新人 花子', left: false, joined_via: 'assigned' },
-      { id: gone.id, name: '離れた 人', left: true, joined_via: 'task_assignee' },
-    ]);
-    for (const member of body.party) {
-      expect(Object.keys(member).sort()).toEqual(['id', 'joined_via', 'left', 'name']);
-    }
-    expect(JSON.stringify(body)).not.toMatch(/"(total|amount|xp|level|reward_xp)"/);
   });
 
   test('配下のストーリーを並びの順に返し、完了と、削除していないタスクのポイントの合計を数える', async () => {
@@ -294,16 +235,5 @@ describe('epic-detail', () => {
       expect(res.status, id).toBe(404);
       expect(await errorCodeOf(res)).toBe('not_found');
     }
-  });
-
-  test('別のワークスペースのエピックの討伐隊は、自分のワークスペースの ID では読めない', async () => {
-    const target = await createTarget();
-    const epic = await createEpic(target.organization, target.otherWorkspace.id, target.admin.userId!);
-    await createEpicPartyMember(target.organization, epic.id, target.bystander.userId!);
-
-    // 自分のワークスペースの ID で別のワークスペースのエピックを指しても、討伐隊の人の名前は漏れない
-    const res = await detail(target, epic.id);
-    expect(res.status).toBe(404);
-    expect(JSON.stringify(await res.json())).not.toContain(target.bystander.userId!);
   });
 });

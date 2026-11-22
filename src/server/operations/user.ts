@@ -22,7 +22,6 @@ import { removeAvatarObjects } from '../avatars/remove.ts';
 import { ApiError } from '../errors.ts';
 import { uuidv7 } from '../uuid.ts';
 import { implement } from './implement.ts';
-import { removeDepartedPartyMemberStatements } from './membership-party.ts';
 import { removeDepartedAvatarObjects, removeDepartedAvatarStatement } from './organization-departure.ts';
 import { readSeats } from './invitation.ts';
 import type { OrganizationTools } from './organization-tools.ts';
@@ -334,7 +333,7 @@ export const userAdminUpdateOperation = implement(
 // 8. memberships（left_on はワークスペースのタイムゾーンの今日、left_at）
 // 3〜8 は閉じたワークスペースも含めたすべてのワークスペースに当て、「この要求で無効になった（disabled_at がこの要求の時刻）」を条件にする。
 // 記録はどれも、変える文より前に置く（変えた後では対象の行を選べない）。行の ID は SQL の中で作るので、件数によらず文の数は決まっている。
-// 完了したタスク、完了の記録、経験値は変えない。討伐隊の履歴と削除も同じ batch に入れる。接続は #67 で足す。
+// 完了したタスク、完了の記録、経験値は変えない。接続は #67 で足す。
 // 最後に、その人のプロフィール画像の行（user_avatars）を同じ条件で消す（変更の履歴は残さない）。R2 のファイルは batch の後に消し、
 // 失敗は件数だけをログに出す。有効に戻しても画像は戻さない
 export const userDisableOperation = implement(userDisable, async ({ db, actor, input, attachmentStorage }) => {
@@ -548,7 +547,6 @@ export const userDisableOperation = implement(userDisable, async ({ db, actor, i
           ]),
         ),
     ),
-    ...removeDepartedPartyMemberStatements(db, { userId, actorUserId, successLogId: disableLogId, at }),
     removeAvatar,
   ];
   const results = await db.batch(statements);

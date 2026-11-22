@@ -14,7 +14,7 @@ import { actorUserIdOf, changeLogColumns, isLeaderOrAdmin, openWorkspace, throwI
 
 // エピックのクリアと取り消し（docs/data-model.md の epics と「書き込みの単位」）。書き方はストーリーの完了と取り消し
 // （story.ts）と同じで、先に読んで断る順を決め、書く文は読んだ値を条件にした UPDATE と、直前の文に結んだ履歴にする。
-// 通らなければ読み直して決め直す。経験値は付けない（#1430）
+// 通らなければ読み直して決め直す
 
 type Tables = OrganizationTables;
 
@@ -192,8 +192,7 @@ export const epicCompleteOperation = implement(epicComplete, async ({ db, actor,
     ]);
 
     if ((results[0]?.changes ?? 0) > 0) {
-      // 経験値は付けないので、額と人数は 0（出力の形はクリア報酬を外す #1434 まで保つ）
-      return { epic_id: epicId, completed_at: completedAt, reward_xp: 0, recipient_count: 0 };
+      return { epic_id: epicId, completed_at: completedAt };
     }
     // 閉じていれば 409 の workspace_closed。そうでなければ読み直して決め直す（上の順）。それでも断る理由が無ければ、やり直す
     await throwIfClosed(db, workspaceId);

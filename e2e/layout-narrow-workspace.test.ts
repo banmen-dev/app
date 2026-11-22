@@ -158,7 +158,7 @@ test('エピックの画面が 390px で横にはみ出さず、押せる要素�
   await expectNarrowLayout(page, 'epic', async (w) => {
     await page.goto(`${WORKSPACE}/epics/${EPIC_ID}`);
     await expect(page.getByRole('heading', { level: 1, name: 'ポイントの交換先を増やす' })).toBeVisible();
-    await expect(page.getByRole('heading', { level: 2, name: w('party') })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: w('epicPageRequest') })).toBeVisible();
     await expectWorkspaceWords(page, w);
   });
 });

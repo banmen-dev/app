@@ -82,7 +82,7 @@ document.addEventListener("click", (event) => {
     const title = `${t(kind)}の見本 ${sequence}`;
     if (kind === "task") D.tasks.push({ id, title, ws: "wa", creator: D.me });
     else if (kind === "story") D.stories[id] = { title, ac: [], body: [], creator: D.me };
-    else D.epics[id] = { title, cat: "k1", tier: "small", party: [], body: [], creator: D.me };
+    else D.epics[id] = { title, cat: "k1", body: [], creator: D.me };
     additions.push({ id, kind });
     SQ.redraw();
     SQ.flashRow(document.querySelector(`[data-motion-row="${id}"] .entry, [data-motion-row="${id}"] .tree-row`));

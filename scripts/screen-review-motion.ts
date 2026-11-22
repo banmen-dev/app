@@ -1,10 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { errors, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test';
+import type { Browser, BrowserContext, Locator, Page } from '@playwright/test';
 import { DESKTOP_VIEWPORT, setCaptureViewport, type CaptureTheme } from '../e2e/screen-capture.ts';
-import { operationPath } from '../src/shared/operations/define.ts';
-import { epicDetail } from '../src/shared/operations/epic/epic-detail.ts';
-import { storyComplete } from '../src/shared/operations/story/story-complete.ts';
 import { word } from '../src/shared/vocabulary.ts';
 
 type MotionOptions = {
@@ -19,7 +16,7 @@ type MotionOptions = {
   composeFrames: (frames: string[], labels: string[], output: string) => Promise<void>;
 };
 
-type EffectName = 'stamp' | 'toast' | 'clear';
+type EffectName = 'stamp' | 'toast';
 type AnimationTiming = {
   effect: EffectName;
   name: string;
@@ -29,39 +26,25 @@ type AnimationTiming = {
 };
 type MotionWindow = Window & { screenReviewAnimations?: Map<Animation, AnimationTiming> };
 type FrameTarget = { effect: EffectName; area: Locator };
-type MotionCase = 'task-complete' | 'epic-clear';
+type MotionCase = 'task-complete';
 type Media = 'no-preference' | 'reduce';
 
 const slug = 'aoba';
-const workspaceId = '019a0000-0000-7000-8000-000000000401';
-const epicId = '019a0000-0000-7000-8000-000000000b01';
 const taskTitle = '障害時の連絡手順を書く';
 const framePositions = [0, 0.15, 0.5, 1];
 // 動きを減らす設定で許容する、ごく短い変化の上限。
 const maxReducedDurationMs = 50;
 
 // reduce では成果を表示する範囲を、その子孫の動きも含めて観測する。
-const motionScopes = { stamp: '.entry.is-done', toast: '.toasts', clear: '.celebrate' } as const;
+const motionScopes = { stamp: '.entry.is-done', toast: '.toasts' } as const;
 
 export function motionAnimationSelectors(media: Media) {
   return media === 'no-preference'
-    ? { stamp: '.hanko', toast: '.toast', clear: '.celebrate-stamp' }
+    ? { stamp: '.hanko', toast: '.toast' }
     : {
         stamp: `${motionScopes.stamp}, ${motionScopes.stamp} *`,
         toast: `${motionScopes.toast}, ${motionScopes.toast} *`,
-        clear: `${motionScopes.clear}, ${motionScopes.clear} *`,
       };
-}
-
-export async function expectNoCelebration(celebration: Pick<Locator, 'waitFor'>) {
-  // 通常のクリア演出の長さ（420ms）を超えるまで、遅れて出る要素も監視する。
-  try {
-    await celebration.waitFor({ state: 'attached', timeout: 500 });
-  } catch (error) {
-    if (error instanceof errors.TimeoutError) return;
-    throw error;
-  }
-  throw new Error('動きを減らす設定でクリアの演出が表示されました');
 }
 
 async function watchAnimations(page: Page, media: Media) {
@@ -158,46 +141,6 @@ async function startTaskCompletion(page: Page, origin: string, media: Media): Pr
   ];
 }
 
-async function startEpicClear(page: Page, origin: string, media: Media): Promise<FrameTarget[]> {
-  const headers = { Origin: origin };
-  const detail = await page.request.post(`${origin}${operationPath(epicDetail, slug)}`, {
-    headers,
-    data: { workspace_id: workspaceId, epic_id: epicId },
-    maxRedirects: 0,
-  });
-  if (!detail.ok()) throw new Error(`クリアの準備で ${epicDetail.name} が失敗しました (${detail.status()})`);
-  const { stories } = epicDetail.output.parse(await detail.json());
-  // seed のこのエピックは、配下のタスクは完了済みだがストーリーは未完了。
-  for (const story of stories.filter((story) => story.completed_at === null)) {
-    const response = await page.request.post(`${origin}${operationPath(storyComplete, slug)}`, {
-      headers,
-      data: { workspace_id: workspaceId, story_id: story.id },
-      maxRedirects: 0,
-    });
-    if (!response.ok()) throw new Error(`クリアの準備で ${storyComplete.name} が失敗しました (${response.status()})`);
-  }
-  await page.goto(`${origin}/${slug}/w/${workspaceId}/epics/${epicId}`);
-  const clear = page.getByRole('button', { name: word('clear'), exact: true });
-  await clear.waitFor();
-  await page.evaluate(() => document.fonts.ready.then(() => undefined));
-  await watchAnimations(page, media);
-  await clear.click();
-
-  const celebration = page.locator(motionScopes.clear);
-  const sheet = celebration.locator('.celebrate-sheet');
-  if (media === 'no-preference') {
-    await sheet.waitFor();
-  } else {
-    await page
-      .locator(motionScopes.toast)
-      .locator('.toast:visible')
-      .filter({ hasText: word('epicClearedToastEmpty', { epic: word('epic'), done: word('done') }) })
-      .waitFor();
-    await expectNoCelebration(celebration);
-  }
-  return [{ effect: 'clear', area: sheet }];
-}
-
 async function captureEffect(
   page: Page,
   target: FrameTarget,
@@ -248,7 +191,7 @@ export async function captureReviewMotion(options: MotionOptions): Promise<void>
     error?: string;
   }[] = [];
   for (const theme of options.themes) {
-    for (const motion of ['task-complete', 'epic-clear'] as const) {
+    for (const motion of ['task-complete'] as const) {
       for (const media of ['no-preference', 'reduce'] as const) {
         const result: (typeof results)[number] = { theme, motion, media, status: 'passed', timings: [] };
         results.push(result);
@@ -266,11 +209,7 @@ export async function captureReviewMotion(options: MotionOptions): Promise<void>
             const page = await context.newPage();
             await setCaptureViewport(page, DESKTOP_VIEWPORT);
             await page.clock.setFixedTime(options.fixedTime);
-            const targets = await (motion === 'task-complete' ? startTaskCompletion : startEpicClear)(
-              page,
-              options.origin,
-              media,
-            );
+            const targets = await startTaskCompletion(page, options.origin, media);
             const [width, appliedTheme] = await page.evaluate(() => [
               innerWidth,
               document.documentElement.dataset.theme,

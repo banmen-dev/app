@@ -2,28 +2,13 @@
 import { env } from 'cloudflare:workers';
 import { describe, expect, test } from 'vitest';
 import type { AnyOperationDefinition } from '../src/shared/operations/define.ts';
-import {
-  epicCancel,
-  epicComplete,
-  epicPartyAssign,
-  epicPartyJoin,
-  epicRewardUpdate,
-  epicUncancel,
-} from '../src/shared/operations/epic/index.ts';
+import { epicCancel, epicComplete, epicUncancel } from '../src/shared/operations/epic/index.ts';
 import { storyComplete, storyReopen } from '../src/shared/operations/story/index.ts';
 import { createApp } from '../src/server/app.ts';
 import { orgDb } from '../src/server/db/index.ts';
 import { envWithD1Hooks } from '../src/server/db/testing.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
-import {
-  AT,
-  createEpic,
-  createEpicPartyMember,
-  createStory,
-  createTask,
-  createWorkspace,
-  createXpGrant,
-} from './factories.ts';
+import { AT, createEpic, createStory, createTask, createWorkspace, createXpGrant } from './factories.ts';
 import { errorCodeOf, post } from './operations/harness.ts';
 import { createTarget, testEnv, type Person, type Target } from './operations/world.ts';
 
@@ -197,7 +182,7 @@ describe('epic-cancel / epic-uncancel', () => {
     expect(await logsOf(target, epic.id)).toEqual([]);
   });
 
-  test('中止と取り消しは配下の完了・討伐隊・確定済みの経験値を変えない', async () => {
+  test('中止と取り消しは配下の完了・確定済みの経験値を変えない', async () => {
     const target = await createTarget();
     const epic = await epicOf(target);
     const story = await createStory(target.organization, target.workspace.id, target.admin.userId!, {
@@ -208,7 +193,6 @@ describe('epic-cancel / epic-uncancel', () => {
     const task = await createTask(target.organization, target.workspace.id, target.member.userId!, {
       story_id: story.id,
     });
-    await createEpicPartyMember(target.organization, epic.id, target.member.userId!);
     await createXpGrant(target.organization, target.workspace.id, target.member.userId!, { task_id: task.id });
     await createXpGrant(target.organization, target.workspace.id, target.member.userId!, {
       action: 'story_completed',
@@ -231,14 +215,10 @@ describe('epic-cancel / epic-uncancel', () => {
           ),
         ),
       ).toEqual(story);
-      const party = await db.rows(
-        db.statement((q) => q.selectFrom('epic_party_members').select('user_id').where('epic_id', '=', epic.id)),
-      );
-      expect(party).toEqual([{ user_id: target.member.userId }]);
     }
   });
 
-  test('中止中は受注・割り振り・報酬・クリア・配下の完了と取り消しを拒み、中止を戻すとまた操作できる', async () => {
+  test('中止中はクリア・配下の完了と取り消しを拒み、中止を戻すとまた操作できる', async () => {
     const target = await createTarget();
     const epic = await epicOf(target);
     const open = await createStory(target.organization, target.workspace.id, target.admin.userId!, {
@@ -252,9 +232,6 @@ describe('epic-cancel / epic-uncancel', () => {
     });
     expect((await call(epicCancel, target, epic.id)).status).toBe(200);
     const actions = [
-      () => call(epicPartyJoin, target, epic.id, target.member),
-      () => call(epicPartyAssign, target, epic.id, target.leader, testEnv, { user_id: target.leader.userId }),
-      () => call(epicRewardUpdate, target, epic.id, target.leader, testEnv, { reward_tier: 'large' }),
       () => call(epicComplete, target, epic.id),
       () => call(storyComplete, target, epic.id, target.leader, testEnv, { story_id: open.id }),
       () => call(storyReopen, target, epic.id, target.leader, testEnv, { story_id: done.id }),
@@ -263,7 +240,7 @@ describe('epic-cancel / epic-uncancel', () => {
     expect((await call(epicUncancel, target, epic.id)).status).toBe(200);
     for (const action of actions) {
       // クリアは配下の未完了を残しているので、最後にまとめて行う。
-      if (action === actions[3]) continue;
+      if (action === actions[0]) continue;
       expect((await action()).status).toBe(200);
     }
     expect((await call(storyComplete, target, epic.id, target.leader, testEnv, { story_id: done.id })).status).toBe(
@@ -280,7 +257,6 @@ describe('epic-cancel / epic-uncancel', () => {
       completed_at: AT,
       completed_by: target.admin.userId!,
     });
-    await createEpicPartyMember(target.organization, epic.id, target.member.userId!);
     const first = order === 'cancel-first' ? epicCancel : epicComplete;
     const second = order === 'cancel-first' ? epicComplete : epicCancel;
     let winner: Response | undefined;
