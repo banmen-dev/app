@@ -688,17 +688,21 @@ describe('deploy-production.ts', () => {
 // Worker の名前が workers.dev の URL を決めるので、名前と PUBLIC_ORIGIN と煙のテストの URL は同じ Release で変える
 // （docs/operations.md の「本番の URL を banmen に移す」）。どれか1つだけ直すと、煙のテストが届かないか、更新系が Origin の検査で 403 になる
 describe('本番の Worker の名前と URL', () => {
-  const parsed = ts.parseConfigFileTextToJson('wrangler.jsonc', readFileSync('wrangler.jsonc', 'utf8'));
-  assert.equal(parsed.error, undefined, 'wrangler.jsonc を読めない');
-  const config = parsed.config as { name: string; vars: { PUBLIC_ORIGIN: string } };
+  const file = fileURLToPath(new URL('../wrangler.jsonc', import.meta.url));
+  const config = () => {
+    const parsed = ts.parseConfigFileTextToJson(file, readFileSync(file, 'utf8'));
+    assert.equal(parsed.error, undefined, 'wrangler.jsonc を読めない');
+    return parsed.config as { name: string; vars: { PUBLIC_ORIGIN: string } };
+  };
 
   test('煙のテストの URL は PUBLIC_ORIGIN と同じ', () => {
-    assert.equal(PRODUCTION_URL, config.vars.PUBLIC_ORIGIN);
+    assert.equal(PRODUCTION_URL, config().vars.PUBLIC_ORIGIN);
   });
 
   test('URL の workers.dev の名前は wrangler.jsonc の name と同じで、banmen', () => {
-    assert.equal(config.name, 'banmen');
-    assert.equal(new URL(PRODUCTION_URL).hostname, `${config.name}.ucan-lab.workers.dev`);
+    const { name } = config();
+    assert.equal(name, 'banmen');
+    assert.equal(new URL(PRODUCTION_URL).hostname, `${name}.ucan-lab.workers.dev`);
     assert.equal(new URL(PRODUCTION_URL).origin, PRODUCTION_URL);
   });
 
