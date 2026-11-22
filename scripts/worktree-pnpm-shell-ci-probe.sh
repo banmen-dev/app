@@ -2,4 +2,5 @@
 set -euo pipefail
 
 cd worktrees/pnpm-example
-pnpm install --frozen-lockfile
+pnpm store path
+pnpm install --frozen-lockfile --store-dir "$PWD/node_modules/.pnpm-store"
