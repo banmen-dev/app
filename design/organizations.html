@@ -53,13 +53,13 @@ const dashboardWorkspaces = {
 };
 // 自分用の面。組織の面と同じ枠に、自分用のホームへの行と自分用のワークスペースを並べ、最後に「ワークスペースを作る」を置く
 const personalSheet = () => pane("p-personal", t("personalOrganizationName"), `
-      <div class="org-block"><a class="choice" href="today.html"><div><b>${t("dashboardPersonalHome")}</b><span class="mono">scrum-guild.dev/mio-solo/</span></div>${icon("chevron")}</a><div class="org-block-body">${workspaceRows([{ name: "読書の記録", role: "leader" }, { name: "家の用事", role: "leader" }])}</div></div>
+      <div class="org-block"><a class="choice" href="today.html"><div><b>${t("dashboardPersonalHome")}</b><span class="mono">banmen.ucan-lab.workers.dev/mio-solo/</span></div>${icon("chevron")}</a><div class="org-block-body">${workspaceRows([{ name: "読書の記録", role: "leader" }, { name: "家の用事", role: "leader" }])}</div></div>
       <div class="form-actions"><button class="btn is-sm" type="button" data-toast="見本のため、作りません">${icon("plus")}${t("workspace")}を作る</button></div>
     `);
 // 組織の面。組織ごとの枠（.org-block）に、組織の行と、所属するワークスペースを並べる。読めなかった組織は短い案内にする
 const organizationsSheet = () => pane("p-organizations", t("organization"), `
       <div class="org-blocks">
-        ${D.organizations.map((k) => `<div class="org-block"><a class="choice" href="today.html"><div><b>${esc(k.name)}</b><span class="mono">scrum-guild.dev/${esc(k.slug)}/</span></div>${icon("chevron")}</a><div class="org-block-body">${k.slug in dashboardWorkspaces ? workspaceRows(dashboardWorkspaces[k.slug]) : `<p class="workspace-note">${t("workspace")}を読み込めませんでした。組織のホームから開けます。</p>`}</div></div>`).join("")}
+        ${D.organizations.map((k) => `<div class="org-block"><a class="choice" href="today.html"><div><b>${esc(k.name)}</b><span class="mono">banmen.ucan-lab.workers.dev/${esc(k.slug)}/</span></div>${icon("chevron")}</a><div class="org-block-body">${k.slug in dashboardWorkspaces ? workspaceRows(dashboardWorkspaces[k.slug]) : `<p class="workspace-note">${t("workspace")}を読み込めませんでした。組織のホームから開けます。</p>`}</div></div>`).join("")}
       </div>
       <p class="gate-note">あとから、画面の左上（狭い幅では上の帯）の${t("organization")}の切り替えで選び直せます。</p>
       <div class="form-actions"><button class="btn is-sm" type="button" data-dialog="createMyOrganization">${t("organization")}を作る</button></div>
@@ -159,7 +159,7 @@ function render() {
     <section class="gate-sheet">
       <h2 class="dialog-title">入れる${t("organization")}と停止している${t("organization")}がある人</h2>
       <div class="choice-list">
-        ${D.organizations.map((k) => `<a class="choice" href="today.html"><div><b>${esc(k.name)}</b><span class="mono">scrum-guild.dev/${esc(k.slug)}/</span></div>${icon("chevron")}</a>`).join("")}
+        ${D.organizations.map((k) => `<a class="choice" href="today.html"><div><b>${esc(k.name)}</b><span class="mono">banmen.ucan-lab.workers.dev/${esc(k.slug)}/</span></div>${icon("chevron")}</a>`).join("")}
       </div>
       <div class="form-actions">${createActions(false)}</div>
       <div class="form-actions"><a class="btn is-sm" href="billing.html">${t("billingOpen")}</a><button class="btn is-sm is-quiet" type="button" data-toast="見本のため、ログアウトしません">${t("logout")}</button></div>
@@ -168,7 +168,7 @@ function render() {
     <section class="gate-sheet">
       <h2 class="dialog-title">運用者</h2>
       <div class="choice-list">
-        ${D.organizations.map((k) => `<a class="choice" href="today.html"><div><b>${esc(k.name)}</b><span class="mono">scrum-guild.dev/${esc(k.slug)}/</span></div>${icon("chevron")}</a>`).join("")}
+        ${D.organizations.map((k) => `<a class="choice" href="today.html"><div><b>${esc(k.name)}</b><span class="mono">banmen.ucan-lab.workers.dev/${esc(k.slug)}/</span></div>${icon("chevron")}</a>`).join("")}
       </div>
       <div class="form-actions">${createActions(false)}</div>
       <div class="form-actions"><a class="btn is-sm" href="billing.html">${t("billingOpen")}</a><a class="btn is-sm" href="operator.html">運用の画面へ</a><button class="btn is-sm is-quiet" type="button" data-toast="見本のため、ログアウトしません">${t("logout")}</button></div>

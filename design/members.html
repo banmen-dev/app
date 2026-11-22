@@ -53,7 +53,7 @@ SQ.mount("members", () => {
           <div class="field"><span class="field-label" id="invite-role-label">ロール</span><div class="segmented" role="radiogroup" aria-labelledby="invite-role-label"><label><input type="radio" name="role" checked><span>一般</span></label><label><input type="radio" name="role"><span>${t("leader")}</span></label></div></div>
           <button class="btn is-primary" type="button" data-invite-link="login" data-invite-done="招待しました" data-invite-kind="workspace">${icon("mail")}招待する</button>
         </div>
-        <span class="field-hint">Banmen は招待をメールで送りません。Google の招待は、招待したときに出る招待の URL（14日で切れます）を本人に伝えてください。GitHub の招待は、次の${t("organization")}の URL を伝えてください。 <span class="mono wrap-anywhere">https://scrum-guild.dev/${esc(D.organization)}/</span></span>
+        <span class="field-hint">Banmen は招待をメールで送りません。Google の招待は、招待したときに出る招待の URL（14日で切れます）を本人に伝えてください。GitHub の招待は、次の${t("organization")}の URL を伝えてください。 <span class="mono wrap-anywhere">https://banmen.ucan-lab.workers.dev/${esc(D.organization)}/</span></span>
       </div>
       <div class="panel">
         <div class="callout is-warn">${icon("alert")}<span>${t("organization")}の人数が上限（${D.seats.limit} 人）に達しているため、新しい人は招待できません。すでに${t("organization")}にいる人は招待できます。上限を上げるには${t("admin")}に相談してください。</span></div>
