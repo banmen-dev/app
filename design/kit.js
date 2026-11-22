@@ -60,6 +60,18 @@
   // ---- 言葉の辞書（各キーはスクラムの言葉の文字列1つ） ----
   const DICT = {
     brandName: "Banmen",
+    taskTemplateEmpty: "テンプレートがまだありません。",
+    taskTemplateAskLeader: "ワークスペースのリーダーにテンプレートの作成を依頼してください。",
+    taskTemplateManage: "テンプレートの設定を開く",
+    taskTemplateChooseTask: "作るタスクを1件以上選んでください。",
+    taskTemplateChooseDestination: "追加先を選んでください。",
+    taskTemplateEnterTarget: "対象を入力してください。",
+    taskTemplateEnterStart: "開始日を入力してください。",
+    taskTemplateTitleLimit: "差し込み後の題を200字以内にしてください。",
+    taskTemplateDueLimit: "期日が暦の範囲を超えています。",
+    taskTemplateOmitted: "削除された決まった欄、区分、リポジトリの値は使わずに作ります。",
+    taskTemplateChanged: "担当に選べるメンバーが変わりました。まだ作成されていません。最新の内容を確認してください。",
+    taskTemplateItemLimit: "1つのテンプレートに登録できるタスクは50件までです。",
     organizationList: "ダッシュボード",
     avatarTitle: "プロフィール画像",
     avatarDescription: "この組織だけで使う画像。PNG、JPEG、WebP を選び、正方形に切り抜いて上げます。",
@@ -459,7 +471,7 @@
     paneActivity: "最近の更新", activityEmptyTitle: "まだ更新はありません", activityEmptyText: "所属する{workspace}の{task}、{story}、{epic}の変更とコメントが、ここに新しい順に並びます。", activityEmptyNoWorkspaceText: "{workspace}に所属すると、{task}、{story}、{epic}の更新がここに並びます。",
     activityCreated: "{actor}が作成した", activityUpdated: "{actor}が{fields}を変更した", activityChanged: "{actor}が変更した", activityCompleted: "{actor}が{done}にした", activityReopened: "{actor}が{done}を戻した", activityCommented: "{actor}がコメントした",
     activityMore: "さらに読む", activityLoadFailed: "最近の更新を読み込めませんでした。", activityMoreFailed: "続きを読み込めませんでした。もう一度試してください。",
-    workspace: "ワークスペース", inbox: "受信箱", backlog: "バックログ", sprint: "スプリント", plan: "計画", epic: "エピック", story: "ストーリー",
+    workspace: "ワークスペース", inbox: "受信箱", backlog: "バックログ", sprint: "スプリント", plan: "計画", epic: "エピック", story: "ストーリー", taskTemplate: "テンプレート",
     menuCollapse: "メニューを畳む", menuExpand: "メニューを広げる", breadcrumb: "パンくず", organizationMoving: "移っています",
     personalOrganizationName: "自分用", dashboardPersonalHome: "ホーム", createPersonalOrganizationAction: "自分用を作る",
     task: "タスク", archive: "アーカイブ", connection: "接続", sprintGoal: "スプリントゴール", detail: "詳細", ac: "受け入れ基準", due: "期日",
@@ -1868,6 +1880,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       </dl>
       ${storyAcHtml(st)}
       ${drawerBodyHtml(st)}
+      ${!ro && !st.doneAt && !drawer.parentFinished && page?.current === "backlog" && window.SQTaskTemplates?.canApply() ? `<div class="form-actions"><button class="btn" type="button" data-template-apply="${esc(drawer.id)}">${t("taskTemplate")}から${t("task")}を足す</button></div>` : ""}
       ${storyDoneBarHtml(st, remaining)}
       ${!ro && !drawer.canDelete ? `<div class="form-actions"><span class="field-hint">削除できるのは作った人と${t("leader")}です。</span></div>` : ""}`;
   }
