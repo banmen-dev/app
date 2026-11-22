@@ -16,6 +16,7 @@
   import { assistKeyEdit, linkPasteEdit, type AssistEdit } from '../markdown-assist.ts';
   import { MARKDOWN_FORMATS, toolbarEdit, type MarkdownFormat } from '../markdown-toolbar.ts';
   import { filterSlashItems, moveSlashSelection, slashEdit, slashQuery, type SlashItem } from '../markdown-slash.ts';
+  import { previewWithoutAttachments } from '../preview-without-attachments.ts';
   import { t } from '../vocabulary.svelte.ts';
   import Icon from './Icon.svelte';
 
@@ -58,6 +59,11 @@
     // 添付を切った欄にファイルを落とすか貼ったときに、欄の下に出す知らせ。省くと何も出さない
     filesNotice?: string;
   } = $props();
+
+  const attachmentsEnabled = $derived(attachments && !previewWithoutAttachments);
+  const disabledFilesNotice = $derived(
+    filesNotice ?? (attachments && previewWithoutAttachments ? t('previewAttachmentsUnavailable') : undefined),
+  );
 
   type Upload = {
     key: number;
@@ -154,7 +160,7 @@
 
   // 添付を切った欄の「ファイルを上げられません」は、本文が変わったら（書く、小窓で入れる、外から差し替わる）消す
   function clearFilesNotice(): void {
-    if (filesNotice !== undefined && notice === filesNotice) notice = null;
+    if (disabledFilesNotice !== undefined && notice === disabledFilesNotice) notice = null;
   }
 
   function synchronizePositions(): void {
@@ -172,7 +178,7 @@
   }
 
   function add(list: FileList | File[], anchor = input?.selectionStart ?? value.length): void {
-    if (!attachments || readonly || quota || !slug || !workspaceId) return;
+    if (!attachmentsEnabled || readonly || quota || !slug || !workspaceId) return;
     notice = null;
     for (const file of Array.from(list)) {
       if (attachmentIds.length + active().length >= ATTACHMENTS_PER_SAVE) {
@@ -405,10 +411,10 @@
 
   // 添付を切った欄にファイルが来たときの知らせ。続けて同じ知らせを出しても読み上げるよう、一度消してから出す
   async function rejectFiles(): Promise<void> {
-    if (filesNotice === undefined || readonly) return;
+    if (disabledFilesNotice === undefined || readonly) return;
     notice = null;
     await tick();
-    if (!destroyed) notice = filesNotice;
+    if (!destroyed) notice = disabledFilesNotice;
   }
 
   function paste(event: ClipboardEvent): void {
@@ -416,7 +422,7 @@
     // 添付を切った欄に、ファイルだけ（ファイル名の並びだけの文字を含む）を貼ったときは、何も入れずに知らせる。
     // 文字も一緒のとき（表計算のセルのコピーなど）は、下の文字の貼り付けに任せる（ブラウザの貼り付けなので Ctrl+Z で戻せる）
     if (
-      !attachments &&
+      !attachmentsEnabled &&
       clipboard?.files.length &&
       clipboardTextToInsert(clipboard.getData('text/plain'), Array.from(clipboard.files)) === ''
     ) {
@@ -424,7 +430,7 @@
       void rejectFiles();
       return;
     }
-    if (!attachments || !clipboard?.files.length) {
+    if (!attachmentsEnabled || !clipboard?.files.length) {
       // 文字を選んで URL を1つ貼ったときだけリンクにする。ファイルの貼り付けは下のまま
       const edit =
         readonly || !input
@@ -463,7 +469,7 @@
     if (!event.dataTransfer?.types.includes('Files') && !event.dataTransfer?.files.length) return;
     event.preventDefault();
     event.stopPropagation();
-    if (!attachments) {
+    if (!attachmentsEnabled) {
       void rejectFiles();
       return;
     }
@@ -477,10 +483,10 @@
   class="markdown-editor"
   aria-busy={uploading}
   ondragover={(event) => {
-    if (!attachments && event.dataTransfer?.types.includes('Files')) event.preventDefault();
+    if (!attachmentsEnabled && event.dataTransfer?.types.includes('Files')) event.preventDefault();
   }}
   ondrop={(event) => {
-    if (!attachments) drop(event);
+    if (!attachmentsEnabled) drop(event);
   }}
 >
   <span class="visually-hidden" role="status" aria-live="polite">{removalNotice}</span>
@@ -582,7 +588,7 @@
       {/each}
     </div>
   {/if}
-  {#if attachments}
+  {#if attachmentsEnabled}
     <div
       class="dropzone"
       class:is-disabled={readonly || quota}
