@@ -71,8 +71,8 @@ describe('epic-detail', () => {
       link_url: 'https://example.com/epic',
       category: { id: category.id, name: '営業' },
       completed_at: null,
+      canceled_at: null,
     });
-    expect(body.epic).not.toHaveProperty('canceled_at');
     expect(body.requester).toEqual({ id: requester.id, name: '青木 遥', left: false });
     expect(body.stories).toEqual([]);
     for (const key of ['reward_tier', 'reward_xp', 'party', 'can_join', 'joined', 'can_change_requester']) {

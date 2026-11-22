@@ -306,8 +306,11 @@ describe('plan-summary のエピックごとの残り', () => {
     await epicWith(target, { position: 'a3', deleted_at: '2026-10-21T00:00:00.000Z' });
     await createEpic(target.organization, target.otherWorkspace.id, target.admin.userId!, { position: 'a4' });
     await taskIn(target, (await storyIn(target, completed.id)).id, { points: 5 });
+    await taskIn(target, (await storyIn(target, canceled.id)).id, { points: 3 });
     const body = await read(target);
     expect(body.epics.map((epic) => epic.id)).toEqual([open.id, canceled.id]);
+    // 前に中止したエピックの配下も数える
+    expect(body.epics[1]).toMatchObject({ points_done: 0, points_all: 3 });
   });
 
   test('エピックの残りは、バックログの木のエピックの points_done と points_all から引いた値と同じ', async () => {

@@ -49,7 +49,7 @@
   const stale = $derived(data.detail === null && detail !== null && !data.notFound);
   const slug = $derived(page.params.slug ?? '');
   const canWrite = $derived(workspace !== null && workspace.closedAt === null);
-  // ダイアログで直した後に、この画面の値を読み直している間（invalidate は navigating を立てない）
+  // 完了か取り消しの後に、この画面の値を読み直している間（invalidate は navigating を立てない）
   let refreshing = $state(false);
   const reloading = $derived(
     refreshing || (navigating.to !== null && navigating.to.url.pathname === page.url.pathname),
@@ -82,7 +82,7 @@
   // クリアできない理由。配下が無い、未完了が残っている
   const clearBlocked = $derived(detail !== null && (detail.stories.length === 0 || openStoryCount > 0));
 
-  // ダイアログで直した。この画面の値だけを読み直す（枠は読み直さない）
+  // 完了か取り消しの後に、この画面の値だけを読み直す（枠は読み直さない）
   async function saved(): Promise<void> {
     refreshing = true;
     try {

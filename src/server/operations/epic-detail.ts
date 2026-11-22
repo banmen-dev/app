@@ -112,6 +112,7 @@ export const epicDetailOperation = implement(epicDetail, async ({ db, actor, wor
           ? null
           : { id: epic.category_ref_id, name: epic.category_name },
       completed_at: epic.completed_at,
+      canceled_at: null,
     },
     requester: {
       id: epic.requester_user_id,

@@ -883,6 +883,7 @@
           due_on: made.due_on,
           link_url: made.link_url,
           completed_at: null,
+          canceled_at: null,
           category: null,
           stories: [],
           points_done: 0,

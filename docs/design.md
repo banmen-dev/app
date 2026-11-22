@@ -799,7 +799,7 @@ Linear の提供画像7枚を参考に、登録 → プロフィール（個人�
 | `dueChip` | `DueChip.svelte` | 期日の印。今日の日付と週の始まりは、API が返したワークスペースの値を渡す。判定は `src/shared/due.ts` |
 | `progress` | `Progress.svelte` | 完了 / 全体のポイントの進み具合（`.progress`）。棒の幅は `style:width` で渡す（`style` 属性の文字列は CSP に止められる）。任意の `markerPercent` に経過の目盛りの割合、`markerLabel` に意味を渡すと、`style:left` の目盛りと見える凡例を出す。`detailed` は「完了 X / Y pt（P%）」の表示で、合計0なら割合を出さない。既定の読み上げは「<完了> X / Y <ポイント>」、詳細表示と目盛りを指定したときは「完了 7 / 10 pt（70%）、経過 8 / 14 日（57%）」 |
 | `.source-key.is-wrap` | `src/routes/[slug]/w/[id]/epics/[epicId]/+page.svelte` の中 | 長い URL を載せる所の折り返し（`white-space: normal; overflow-wrap: anywhere`）。引き出しの中は `.drawer .source-key` が同じ指定を持つ。URL の横に `aria-label` 付きの「開く」（`a.btn.is-sm`）を置く。見本はカタログの「印と囲みの知らせ」 |
-| `.props`、`.panel` | `src/routes/[slug]/w/[id]/epics/[epicId]/+page.svelte` の中 | エピックの画面の右の列。依頼書（`.panel` の中の `.props`。依頼主、期日、区分）。離脱済みの人は名前に「（離脱済み）」（`.props-note`）を添える。依頼書の面の下の操作は `.actions-col`（<依頼主>を替える）。右の列は `.layout-side.is-static`（貼り付けない） |
+| `.props`、`.panel` | `src/routes/[slug]/w/[id]/epics/[epicId]/+page.svelte` の中 | エピックの画面の右の列。依頼書（`.panel` の中の `.props`。依頼主、期日、区分）。離脱済みの人は名前に「（離脱済み）」（`.props-note`）を添える。完了の面の操作は `.actions-col` に置く。右の列は `.layout-side.is-static`（貼り付けない） |
 | `setting`（ワークスペースの節の中身） | `src/lib/components/admin/WorkspacesSetting.svelte`、`SectionBoundary.svelte`、`section-load.svelte.ts` | 組織の管理の節の部品。`Setting` を使い、読み込みの状態は `SectionLoad`、その表示（読み込み中、失敗、読み直しの失敗）は `SectionBoundary` に任せて、自分では一覧と操作だけを持つ。「終了する」と「再開する」は、前の節の組織の管理の項目 |
 | `setting`（ユーザーの節の中身） | `src/lib/components/admin/UsersSetting.svelte` | 前の節の「ユーザーの節」。見本は `admin.html` の「ユーザー」。無効にする前の確認と自分の解除の確認は `ConfirmDialog`（下の `DIALOGS.disableUser`、`DIALOGS.revokeSelfAdmin`） |
 | `DIALOGS.disableUser`、`DIALOGS.revokeSelfAdmin` | `ConfirmDialog.svelte`（`UsersSetting.svelte` の中） | ユーザーを無効にする前の確認（管理者なら指名も解除する文を添える）と、自分の管理者を解除する前の確認。どちらも `danger`。見本は `admin.html` の「無効にする」（`data-dialog="disableUser"`、行の `data-name` と `data-admin` で文を作る）と、自分の行の切り替え（`data-dialog="revokeSelfAdmin"`。確認を待つ間、切り替えは今の値のまま）。本文は見本と本番で同じ文 |
@@ -1046,7 +1046,7 @@ Linear の提供画像7枚を参考に、登録 → プロフィール（個人�
 - 今日やることの「依頼中」の区分は見本（`design/today.html`）に置かない。依頼先は自分用の組織だけの機能で、見本の組織（あおば開発）はチーム用のため。区分の位置、行の注記、太陽を出さない出し分けは、この文書の今日やることの節と `e2e/today.test.ts` で決める。
 - ストーリーは別の画面を持たず、バックログの木の空の行で作り、木の行の題から開く引き出しで直す（親のないストーリーの居場所が、エピックの画面には無いため）。配下のタスクと完了の操作は木の行に並べる。エピックの下のストーリーは、バックログの木のエピックの行の配下に並べ、エピックの画面には題と完了の印と完了 / 全体のポイントだけを出す（ストーリーの欄と配下のタスクは、木の行から開く）。
 - エピックの作成は、バックログの木の末尾の空の行で行う（依頼主は作った人）。タイトル、本文、期日、リンク、区分の変更は、木のエピックの行の題か、エピックの画面の見出しの横の「直す」から開くエピックの引き出しで行う。
-- エピックの画面は、右の列に依頼書（依頼主、期日、区分）と完了の面を、左の列に概要（本文とリンク）と配下のストーリーを置く。依頼主がワークスペースを離れていても、名前に「（離脱済み）」を添えて出す。配下が無いときは「<ストーリー>はまだありません」を出す。依頼書の面の下に、リーダーには「<依頼主>を替える」を置く。見本は `design/epic.html`。
+- エピックの画面は、右の列に依頼書（依頼主、期日、区分）と完了の面を、左の列に概要（本文とリンク）と配下のストーリーを置く。依頼主がワークスペースを離れていても、名前に「（離脱済み）」を添えて出す。配下が無いときは「<ストーリー>はまだありません」を出す。依頼書の面には操作を置かない（「<依頼主>を替える」は #1435 で外した）。見本は `design/epic.html`。
 - 組織の単位の変更の履歴（組織の作成、管理者の指名と解除、ユーザーの無効化と有効化、組織の設定の変更、運用者の操作、ワークスペースの作成と終了と再開）は、組織の管理の画面の中に出し、別の画面を持たない。所属などワークスペースの中の変更は出さない。
 - スプリントのどの列も、頭の開閉ボタン（`.board-col-toggle`、名前は「<列名>の開閉」、`aria-expanded`）で折りたためる。畳むとカードと完成の定義を描かず、空の行は書きかけとエラーを保持して隠し（開いたラッパーはgridで入力とエラーの間を`--space-2`空け、hiddenの間は表示しない）、名前・件数・ポイントのある頭だけの帯にする（`.board-col.is-collapsed`）。狭い幅と指の画面ではボタンを44px以上にし、頭は幅と開閉状態によらず必要なら折り返す。件数とポイントの数・単位は途中で改行しない。見本は `design/sprint.html?collapsed` とカタログ。
   - 開閉はワークスペースIDごとの `localStorage`（`sg-sprint-columns-collapsed:<ID>`）に列IDの一覧として覚え、再読み込みしても保つ。同じワークスペースの次のスプリントでも保ち、ほかのワークスペースには及ばない。消えた列のIDは無視する。保存が拒まれても今の画面では開閉できる。別タブの保存と消去を反映し、不正な値と別の保存領域のイベントは無視する。

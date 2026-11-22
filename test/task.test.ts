@@ -715,9 +715,8 @@ describe('backlog-tree', () => {
     expect(body.epics[0]!.stories[0]).not.toHaveProperty('epic_id');
     expect(body.epics[0]!.stories[1]!.tasks.map((task) => task.id)).toEqual([open.id]);
     expect(body.epics[1]).toMatchObject({ stories: [], points_done: 0, points_all: 0 });
-    // 前に中止したエピック（中止の列が残る行）も、ふつうのエピックとして出し、中止の日時は載せない
-    expect(body.epics[2]).toMatchObject({ completed_at: null });
-    expect(body.epics[2]).not.toHaveProperty('canceled_at');
+    // 前に中止したエピック（中止の列が残る行）も、ふつうのエピックとして出す。canceled_at は前の版の画面のために常に null（#1438 で消す）
+    expect(body.epics[2]).toMatchObject({ completed_at: null, canceled_at: null });
     // エピックの下のストーリーは、親のないストーリーの段に入らない
     expect(body.stories.map((story) => story.id)).toEqual([root.id]);
   });

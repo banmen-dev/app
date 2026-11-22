@@ -65,6 +65,8 @@ export const backlogEpicSchema = z.object({
   link_url: z.string().nullable(),
   // 完了（クリア）した日時。入っていれば、ストーリーの親に選べない
   completed_at: z.string().nullable(),
+  // 中止は外した（#1435）。前の版の画面の束が `canceled_at !== null` で中止を判定するので、1版だけ常に null で返す。#1438 で消す
+  canceled_at: z.null(),
   // 振った区分。配下のストーリーとタスクが引き継ぐ。無ければ null
   category: definitionRefSchema.nullable(),
   // 配下の削除していないストーリー（position の順。完了したものも含む）

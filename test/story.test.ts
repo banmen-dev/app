@@ -987,11 +987,9 @@ describe('story-get', () => {
       completed_at: stamp,
       deleted_at: deletedAt,
     });
-    for (const epic of [cleared]) {
-      const story = await createStory(target.organization, target.workspace.id, adminId, { epic_id: epic.id });
-      const body = (await (await get(target, story.id)).json()) as { parent_finished: boolean };
-      expect(body.parent_finished).toBe(false);
-    }
+    const story = await createStory(target.organization, target.workspace.id, adminId, { epic_id: cleared.id });
+    const body = (await (await get(target, story.id)).json()) as { parent_finished: boolean };
+    expect(body.parent_finished).toBe(false);
   });
 
   test('閉じたワークスペースでも読める', async () => {
