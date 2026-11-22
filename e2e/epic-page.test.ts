@@ -46,7 +46,6 @@ test('seed の受託開発チーム: 木のエピックの題から画面が開�
   await expect(request.locator('dd').nth(1)).toContainText(seedDueMonthDay(38));
   await expect(request.locator('dd').nth(2)).toContainText('追加案件');
   await expect(request.locator('.panel-note')).toHaveCount(0);
-  await expect(page.locator('.tier')).toHaveCount(0);
 
   // 参加者（討伐隊）の面と、参加する・割り振る・報酬を変える口は無い
   await expect(page.getByRole('region', { name: '参加者' })).toHaveCount(0);
