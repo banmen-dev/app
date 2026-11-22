@@ -171,7 +171,7 @@ describe('story-complete', () => {
     });
   });
 
-  test('配下のタスクを完了の操作で完了にしてから完了にしても、経験値の行は増えない（討伐隊がいても）', async () => {
+  test('配下のタスクを完了の操作で完了にしてから完了にしても、経験値の行は増えない', async () => {
     const target = await createTarget();
     const story = await emptyStory(target);
     const assigned = await createTask(target.organization, target.workspace.id, target.admin.userId!, {
@@ -195,6 +195,22 @@ describe('story-complete', () => {
     expect((await complete(target, story.id)).status).toBe(200);
     expect(await workspaceGrantCount(target)).toBe(before);
     expect(await storyGrants(target, story.id)).toEqual([]);
+  });
+
+  test('前の版の完了で付いた task_completed の明細がある配下でも、完了にして story_completed を書かない', async () => {
+    const target = await createTarget();
+    const story = await emptyStory(target);
+    const member = target.member.userId!;
+    const task = await completedTask(target, story.id, member);
+    // この版を出す前の完了で、配下のタスクに付いた明細（前の版ではこれを受け取った人にストーリーの完了の経験値が付いた）
+    const grant = await createXpGrant(target.organization, target.workspace.id, member, {
+      action: 'task_completed',
+      task_id: task.id,
+      amount: 30,
+    });
+
+    expect((await complete(target, story.id)).status).toBe(200);
+    expect(await workspaceGrants(target)).toEqual([{ id: grant.id, amount: 30, reverses_grant_id: null }]);
   });
 
   test('配下にタスクが1件も無いストーリーも完了にでき、経験値の行も書かない', async () => {
