@@ -8,7 +8,8 @@ import type { ErrorBody } from '../shared/errors.ts';
 export const LEGACY_REDIRECT_TARGET = 'https://banmen.ucan-lab.workers.dev';
 
 // 新しい URL の Hono は、パスの百分率符号を decodeURI で解いてから振り分ける（%25 は残す）。
-// 解けない並びはそのまま残す（Hono の tryDecodeURI と同じ）。/%61pi/health も API への要求として扱うため、解いた形で判定する
+// 解けない並びはそのまま残す（Hono の tryDecodeURI と同じ）。/%61pi/health も API への要求として扱うため、解いた形で判定する。
+// 資産の振り分け（run_worker_first）が符号を解くかは確かめていないが、解かずに画面へ届くパスも 410 にする側に倒す
 function tryDecodeURI(path: string): string {
   const input = path.includes('%25') ? path.replaceAll('%25', '%2525') : path;
   try {

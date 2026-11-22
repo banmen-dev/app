@@ -76,9 +76,11 @@ export async function deployLegacyRedirect(deps: LegacyRedirectDeps): Promise<nu
   // 旧 URL を本番の Worker が使っている間は、上書きしないために置かない。404 か、置いた後のやり直しの 410 の moved だけ進む
   try {
     const old = await deps.request(`${LEGACY_ORIGIN}/api/health`, REQUEST_TIMEOUT_MS);
-    if (old.status !== 404 && !isMoved(old)) {
+    // Worker の無い名前の 404 は JSON でない。API のエラーの形の 404 は、本番の Worker が答えている
+    const noWorker = old.status === 404 && !isErrorBody(old.body);
+    if (!noWorker && !isMoved(old)) {
       deps.error(
-        `旧 URL の /api/health が 404 でも 410 の moved でもありません（状態 ${old.status}）。本番の Worker が残っているおそれがあるので、転送用の Worker は置きません`,
+        `旧 URL の /api/health が Worker の無い 404（本文が JSON のエラーでない）でも 410 の moved でもありません（状態 ${old.status}）。本番の Worker が残っているおそれがあるので、転送用の Worker は置きません`,
       );
       return 1;
     }
@@ -115,6 +117,22 @@ export async function deployLegacyRedirect(deps: LegacyRedirectDeps): Promise<nu
   return 1;
 }
 
+// 入口が使う本物の問い合わせ（deploy-legacy-redirect-review.test.ts が手元の HTTP サーバーで確かめる）
+export async function fetchReply(
+  url: string,
+  timeoutMs: number,
+): Promise<{ status: number; location: string | null; body: unknown }> {
+  const res = await fetch(url, {
+    // リダイレクトは辿らない。Location をそのまま確かめる
+    redirect: 'manual',
+    signal: AbortSignal.timeout(timeoutMs),
+    cache: 'no-store',
+  });
+  // 本文は JSON として読めたときだけ使う。読めなければ null
+  const body: unknown = await res.json().catch(() => null);
+  return { status: res.status, location: res.headers.get('location'), body };
+}
+
 // デプロイのコマンドは pnpm の外で動くので、node_modules/.bin が PATH に無い
 const wranglerBin = path.join('node_modules', '.bin', 'wrangler');
 
@@ -129,17 +147,7 @@ if (typeof import.meta.main !== 'boolean') {
 
 if (import.meta.main) {
   const status = await deployLegacyRedirect({
-    request: async (url, timeoutMs) => {
-      const res = await fetch(url, {
-        // リダイレクトは辿らない。Location をそのまま確かめる
-        redirect: 'manual',
-        signal: AbortSignal.timeout(timeoutMs),
-        cache: 'no-store',
-      });
-      // 本文は JSON として読めたときだけ使う。読めなければ null
-      const body: unknown = await res.json().catch(() => null);
-      return { status: res.status, location: res.headers.get('location'), body };
-    },
+    request: fetchReply,
     wrangler: (args) => {
       // 標準入力を閉じ、確認を待って止まらないようにする
       const result = spawnSync(wranglerBin, args, { stdio: ['ignore', 'inherit', 'inherit'] });

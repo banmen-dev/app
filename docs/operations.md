@@ -568,12 +568,12 @@ WHERE tbl = 'tasks' AND idx = 'tasks_workspace_tray';
 
 - コードは `src/legacy-redirect/worker.ts`、設定は `wrangler.legacy-redirect.jsonc`（name `scrum-guild`。binding、シークレット、cron を持たない）。Workers Builds にはつながず、人が手元から出す
 - 画面の GET と HEAD は、302 で同じパスとクエリのまま新しい URL へ送る。Location に断片を付けないので、ブラウザが元の断片（招待の秘密）を引き継ぎ、秘密はサーバーに届かない（RFC 9110 の 10.2.2）。独自ドメインへ移すときに転送先を差し替えられるよう、ブラウザに長く残る 301 にしない
-- `/api` と `/api/` の下、GET と HEAD 以外は、410 と API のエラーの形の本文（`code` は `moved`、`details.location` に新しい URL）を返す。CLI は 3xx を追わず、別のオリジンへトークンを送らせないため。新しい URL の API（Hono）はパスの百分率符号を解いてから振り分けるので、`/%61pi/health` のように符号にした形も、解いた形で `/api` の下なら 410 にする
+- `/api` と `/api/` の下、GET と HEAD 以外は、410 と API のエラーの形の本文（`code` は `moved`、`details.location` に新しい URL）を返す。CLI は 3xx を追わず、別のオリジンへトークンを送らせないため。新しい URL の API（Hono）はパスの百分率符号を解いてから振り分けるので、`/%61pi/health` のように符号にした形も、解いた形で `/api` の下なら 410 にする（新しい URL の資産の振り分け（`run_worker_first`）が符号を解くかは確かめていない。解かなければ画面に届くパスも 410 にするが、API のトークンを別のオリジンへ送らない側に倒す）
 - 転送先は `LEGACY_REDIRECT_TARGET` に固定し、リクエストの Host などから組まない
 
 ### 置き方
 
-本番の Worker の名前を変え、新しい URL の `/api/health` が ok を返すのを確かめ、ダッシュボードの Workers & Pages に旧名 `scrum-guild` の Worker が無いこと（やり直しなら転送用の Worker だけであること）を見てから、本番と同じアカウントにログインした手元のリポジトリのルートで打つ。スクリプトは公開 URL の応答で判定するので、旧名の Worker が workers.dev を切った状態で残っていると見分けられない。
+本番の Worker の名前を変え、名前に合わせた Release を publish し、新しい URL でログインと更新が通るのを確かめ（`/api/health` の ok は前の版でも返るので、それだけでは足りない）、ダッシュボードの Workers & Pages に旧名 `scrum-guild` の Worker が無いこと（やり直しなら転送用の Worker だけであること）を見てから、本番と同じアカウントにログインした手元のリポジトリのルートで打つ。スクリプトは公開 URL の応答で判定するので、旧名の Worker が workers.dev を切った状態で残っていると見分けられない。
 
 ```bash
 node scripts/deploy-legacy-redirect.ts
@@ -582,7 +582,7 @@ node scripts/deploy-legacy-redirect.ts
 スクリプトは、次の両方を満たすときだけ `wrangler deploy -c wrangler.legacy-redirect.jsonc` を呼ぶ。名前を変える前に打つと、同じ名前の本番の Worker を転送用で上書きするため。
 
 - 新しい URL の `/api/health` が 200 で ok を返す
-- 旧 URL の `/api/health` が 404（Worker が無い）か、転送用の Worker の 410 の `moved`（やり直し）を返す。届かない、200、503 などほかの応答では止まる（本番の D1 が落ちて 503 を返している間も、旧名はまだ本番の Worker のため）
+- 旧 URL の `/api/health` が Worker の無い名前の 404（本文が API のエラーの形でない。本番の Worker が返す `not_found` の 404 では止まる）か、転送用の Worker の 410 の `moved`（やり直し）を返す。届かない、200、503 などほかの応答では止まる（本番の D1 が落ちて 503 を返している間も、旧名はまだ本番の Worker のため）
 
 置いた後は、旧 URL の `/` が新しい URL の `/` への 302 に、旧 URL の `/api/health` が 410 の `moved` になるまで、1分（5秒おきに13回）まで確かめ直す。届かなければ失敗で終わる。置いた Worker はそのまま残るので、ダッシュボードで動きを確かめ、要らなければ下の「外し方」で消す。止まったときは、理由がエラーに出る。テストは `scripts/deploy-legacy-redirect*.test.ts`（外への作用を差し替える）と `test/legacy-redirect*.test.ts`（Workers の実行環境）。
 

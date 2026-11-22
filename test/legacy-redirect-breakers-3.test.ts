@@ -55,3 +55,17 @@ describe('崩し: 応答のヘッダーは Location のほかに転送先も受�
     expect(await res.text()).not.toContain(SECRET);
   });
 });
+
+// done-check のレビュー（falsification-qa）: 302 に鮮度を付けると、301 を避けた前提（転送先を後で差し替える）が崩れる
+describe('レビュー: 応答をキャッシュさせない', () => {
+  test('302 と 410 は cache-control が no-store で、expires を付けない', async () => {
+    for (const res of [
+      await exports.default.fetch('https://scrum-guild.ucan-lab.workers.dev/aoba?x=1', { redirect: 'manual' }),
+      await exports.default.fetch('https://scrum-guild.ucan-lab.workers.dev/api/health', { redirect: 'manual' }),
+    ]) {
+      expect(res.headers.get('cache-control')).toBe('no-store');
+      expect(res.headers.get('expires')).toBeNull();
+      await res.body?.cancel();
+    }
+  });
+});
