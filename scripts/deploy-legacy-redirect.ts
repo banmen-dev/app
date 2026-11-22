@@ -20,7 +20,8 @@ export const VERIFY_MAX_ATTEMPTS = VERIFY_TIMEOUT_MS / VERIFY_INTERVAL_MS + 1;
 const WRANGLER_CONFIG = 'wrangler.legacy-redirect.jsonc';
 
 export type LegacyRedirectDeps = {
-  // GET して、状態、Location、JSON の本文（読めなければ null）を返す。リダイレクトは辿らない。届かなければ投げる
+  // GET して、状態、Location、JSON の本文（読み切れて JSON でなければ null）を返す。リダイレクトは辿らない。
+  // 届かないときと、本文を読み切れないときは投げる
   request: (url: string, timeoutMs: number) => Promise<{ status: number; location: string | null; body: unknown }>;
   // wrangler を引数で動かし、終了コードを返す
   wrangler: (args: string[]) => { status: number };
