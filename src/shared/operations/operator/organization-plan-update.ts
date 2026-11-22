@@ -18,13 +18,13 @@ export const organizationContract = z.object({
 // 契約の行を書き、同じ batch() で organizations の人数と添付ファイルの上限を契約から決まる値にし、お試しの期限を空にする
 // （有料のプランにしたらお試しを終える）。停止中の組織も書けるが、再開はしない。
 // expected は画面が見ていた前の契約（未契約なら null）。今の契約がそれと違えば（確認を開いた後に別の運用者が変えた）409 の conflict。
-// 今の契約が送った値と同じなら何も書かず、今の値を返す。自分用の組織は 409 の conflict（reason: personal_organization）、無い slug は 404。
+// 今の契約が送った値と同じで、上限が契約から決まる値と一致すれば何も書かず、今の値を返す。自分用の組織は 409 の conflict（reason: personal_organization）、無い slug は 404。
 // 解約で消す予定日を過ぎた組織は、消している途中で契約の行を足さないよう 409 の purge_due（境目は再開と同じ）。
-// 履歴は action が update で、changes_json はプランと支払いの周期の組と、変わった列（上限、お試しの期限）の前後の値。履歴を書けなくても変更は成功として返す
+// 履歴は action が update で、変わった列の前後の値を残す。契約を変えたときはプランと支払いの周期を組で残す。履歴を書けなくても変更は成功として返す
 export const organizationPlanUpdate = defineOperation({
   name: 'organization-plan-update',
   description:
-    'チーム用の組織の契約（チーム、ビジネス、個別と支払いの周期）を変え、人数と添付ファイルの上限を契約から決め、お試しを終える。個別は人数とGB整数の標準容量を指定する。expected は画面が見ていた前の契約（未契約なら null）で、今の契約と違えば 409。消す予定日を過ぎた解約の組織は 409 の purge_due',
+    'チーム用の組織の契約（スモール、チーム、ビジネス、プロ、個別と支払いの周期）を変え、人数と添付ファイルの上限を契約から決め、お試しを終える。個別は人数とGB整数の標準容量を指定する。expected は画面が見ていた前の契約（未契約なら null）で、今の契約と違えば 409。消す予定日を過ぎた解約の組織は 409 の purge_due',
   mode: 'write',
   permission: 'operator',
   input: z

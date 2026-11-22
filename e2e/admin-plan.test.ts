@@ -46,7 +46,7 @@ test('契約のある組織の管理者には、契約、追加容量の口数�
               extra_10gb_units: 0,
               extra_50gb_units: 1,
             },
-            member_limit: 50,
+            member_limit: 30,
             attachment_quota_bytes: 150 * GIB,
           },
   }));
@@ -54,13 +54,47 @@ test('契約のある組織の管理者には、契約、追加容量の口数�
   const section = page.getByRole('region', { name: 'プラン', exact: true });
   await expect(section.locator('dd').first()).toHaveText('ビジネス・年払い');
   await expect(section).toContainText('+50\u00a0GB\u00a0×\u00a01\u00a0口');
-  await expect(section).toContainText('50\u00a0人');
+  await expect(section).toContainText('30\u00a0人');
   await expect(section).toContainText('150\u00a0GB');
   await expect(section).not.toContainText('未契約');
   await expect(section).toContainText('運用者に問い合わせてください。');
   // 同じ organization 操作を読む容量の節も待ち、差し替え中の応答をテスト終了で切らない
   await expect(page.getByRole('region', { name: '添付ファイルと Wiki の容量' }).locator('table')).toBeVisible();
 });
+
+for (const { plan, name, members, quota } of [
+  { plan: 'small', name: 'スモール', members: 3, quota: 10 },
+  { plan: 'pro', name: 'プロ', members: 50, quota: 100 },
+] as const) {
+  test(`組織の管理に${name}の契約名と上限を出す`, async ({ page, context, baseURL }) => {
+    await signIn(context, baseURL, 'admin');
+    await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (output) => ({
+      ...output,
+      trial: null,
+      plan:
+        output.plan === null
+          ? null
+          : {
+              contract: {
+                plan,
+                billing_interval: 'monthly' as const,
+                custom_member_limit: null,
+                custom_attachment_quota_bytes: null,
+                extra_10gb_units: 0,
+                extra_50gb_units: 0,
+              },
+              member_limit: members,
+              attachment_quota_bytes: quota * GIB,
+            },
+    }));
+    await page.goto('/aoba/admin');
+    const section = page.getByRole('region', { name: 'プラン', exact: true });
+    await expect(section.locator('dd').first()).toHaveText(`${name}・月払い`);
+    await expect(section).toContainText(`${members}\u00a0人`);
+    await expect(section).toContainText(`${quota}\u00a0GB`);
+    await expect(page.getByRole('region', { name: '添付ファイルと Wiki の容量' }).locator('table')).toBeVisible();
+  });
+}
 
 test('個別の契約は管理者のプランの節に名前と人数、追加容量を含む上限が出る', async ({ page, context, baseURL }) => {
   await signIn(context, baseURL, 'admin');
