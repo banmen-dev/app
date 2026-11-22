@@ -14,7 +14,7 @@ import {
 } from '../e2e/screen-capture.ts';
 import { composeContactSheet, composePair, frameComposer } from './screen-review-images.ts';
 import { captureReviewMotion } from './screen-review-motion.ts';
-import { reviewCaptureTime, screenReviewOptions } from './screen-review-options.ts';
+import { reviewCaptureTime, screenReviewOptions, screenReviewOutput } from './screen-review-options.ts';
 import { launchChromium, localReviewRuntime, serveReference } from './screen-review-runtime.ts';
 
 const PIN_TITLE = '障害時の連絡手順を書く';
@@ -127,7 +127,7 @@ async function main() {
   const options = screenReviewOptions(process.argv.slice(2));
   const root = process.cwd();
   const fixedTime = reviewCaptureTime(new Date());
-  const output = resolve(root, 'test-results', 'screen-review', options.screen, options.state, options.round);
+  const output = screenReviewOutput(root, options);
   const exclusions = options.exclusions && (await readFile(resolve(root, options.exclusions)));
   await mkdir(output, { recursive: true });
   const lock = join(output, '.capture-in-progress');

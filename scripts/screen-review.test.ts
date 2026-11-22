@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Page } from '@playwright/test';
 import { NARROW_VIEWPORT, setCaptureViewport } from '../e2e/screen-capture.ts';
 import { comparisonBands } from './screen-review-images.ts';
-import { reviewCaptureTime, screenReviewOptions } from './screen-review-options.ts';
+import { reviewCaptureTime, screenReviewOptions, screenReviewOutput } from './screen-review-options.ts';
 import { serveReference } from './screen-review-runtime.ts';
 
 test('画面名だけなら対応する状態を選び、周と除外の指定を受け取る', () => {
@@ -86,4 +87,11 @@ test('見本の組織のマークを WebP で配り、見本の外のファイ�
   } finally {
     reference.close();
   }
+});
+
+test('撮影成果物は E2E の出力ディレクトリの外に置く', () => {
+  const root = process.cwd();
+  const output = screenReviewOutput(root, screenReviewOptions(['today', 'list', '--round', '2']));
+  assert.equal(relative(root, output), ['screen-review-results', 'today', 'list', '2'].join('/'));
+  assert.ok(relative(resolve(root, 'test-results'), output).startsWith('..'));
 });

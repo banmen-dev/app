@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
 export function screenReviewOptions(args: string[]) {
@@ -20,4 +21,8 @@ export function reviewCaptureTime(now: Date): Date {
   day.setUTCDate(day.getUTCDate() - sinceWednesday);
   if (day.getTime() > now.getTime()) day.setUTCDate(day.getUTCDate() - 7);
   return day;
+}
+
+export function screenReviewOutput(root: string, options: ReturnType<typeof screenReviewOptions>): string {
+  return resolve(root, 'screen-review-results', options.screen, options.state, options.round);
 }
