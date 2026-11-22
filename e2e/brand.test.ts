@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures.ts';
 import { signIn } from './helpers.ts';
 
-const themes = ['simple_light', 'simple_dark', 'modern'];
+const themes = ['simple_light', 'simple_dark'];
 
 test('可逆 WebP のマークは PNG の寸法・透過・合成後の色を保つ（#1236）', async ({ page }) => {
   await page.goto('/login');

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import type { Page } from '@playwright/test';
 
-export const CATALOG_THEMES = ['simple_light', 'simple_dark', 'modern'] as const;
+export const CATALOG_THEMES = ['simple_light', 'simple_dark'] as const;
 
 // 見本（design/）はアプリの配信対象外なので、e2e では /__design-catalog/ の下へ design/ の直下のファイルをそのまま返す。
 // 返すのは直下にある HTML、CSS、JS だけにし、下のフォルダ（brand/ の画像、fonts/）、ほかの拡張子、無いファイルは 404 にする。

@@ -119,10 +119,10 @@ export async function expectNoA11yViolations(page: Page, screen: UiScreen): Prom
 }
 
 // axe で確かめるテーマ。コントラストはテーマで変わり、言葉では変わらないので、言葉はスクラムの言葉だけにする（docs/design.md）
-// 画面採点の対象を絞っても、axe はこの3テーマを毎回検査する。
-export const A11Y_THEMES = ['simple_light', 'simple_dark', 'modern'] as const;
+// 画面採点の対象を絞っても、axe はこの2テーマを毎回検査する。
+export const A11Y_THEMES = ['simple_light', 'simple_dark'] as const;
 
-// 落ち着いた画面に3つのテーマを順に当てて axe を走らせ、違反の無いことと、その画面の除外がどれかのテーマで当たったことを確かめる。
+// 落ち着いた画面に2つのテーマを順に当てて axe を走らせ、違反の無いことと、その画面の除外がどれかのテーマで当たったことを確かめる。
 // 同じ要素の同じ違反は、出たテーマをまとめて1件にする。exclusions は、壊した HTML で確かめるときだけ差し替える。
 // axe が判定を保留した文字のコントラストの数は、テーマごとにテストの annotation に出す（保留が増えても違反にならないため、見えるようにする）
 export async function expectNoA11yViolationsInThemes(
@@ -439,9 +439,8 @@ async function measureLayout(
   );
 }
 
-// 狭い幅の検査で回すテーマ。崩れ方は書体（字幅と行の高さ）で変わり、色では変わらないので、書体の違う2つにする。
-// シンプルのダークはライトと書体が同じなので回さない（docs/design.md の「狭い幅と押せる範囲を機械で確かめる」）
-export const LAYOUT_THEMES = ['simple_light', 'modern'] as const;
+// 狭い幅の検査で回すテーマ。シンプルのライトとダークの2つにする（docs/design.md の「狭い幅と押せる範囲を機械で確かめる」）
+export const LAYOUT_THEMES = ['simple_light', 'simple_dark'] as const;
 
 type LayoutFound = LayoutViolation & { combinations: string[] };
 

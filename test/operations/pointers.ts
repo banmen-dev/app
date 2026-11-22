@@ -379,7 +379,7 @@ export const pointers: Pointers = {
     leader_user_id: target.admin.userId,
   }),
   // 呼んだ人自身の users.theme を書く。入力は組織の中の行を指さない（人は ID でなく呼んだ人で決まる）
-  'me-theme-update': { noReference: { theme: 'modern' } },
+  'me-theme-update': { noReference: { theme: 'simple_dark' } },
   // 自分のプロフィール画像（Issue #1265）。上げる・外す操作は入力に人の ID を持たず、呼んだ人の行だけを触る。
   // 上げる本文は一覧の検査の SMALL_FILE（1×1 の PNG）。外す操作は画像が無くても成功する
   'me-avatar-upload': { noReference: {} },

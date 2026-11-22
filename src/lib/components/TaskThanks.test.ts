@@ -57,7 +57,8 @@ test('送れる人には自分と送付済み以外への送付口、本人が�
   // 見える文字は短く、相手の名前は読み上げの名前（aria-label）に持たせる
   expect(body).toContain('aria-label="送付済みの人 への感謝を取り消す"');
   expect(body).toContain('>取り消す</button>');
-  expect(body).toContain('#i-heart');
+  // ゲームのアイコンは外した（#1436）
+  expect(body).not.toContain('#i-heart');
 });
 
 test('送れない人、完了済み、閉じたワークスペースでは送り手と受取人の一覧だけを出す', () => {

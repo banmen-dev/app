@@ -103,7 +103,6 @@
 
 <section class="field wrap-anywhere" aria-labelledby={`${ids}-thanks`} aria-busy={sending}>
   <h3 class="field-label" id={`${ids}-thanks`} tabindex="-1" bind:this={heading}>
-    <Icon name="heart" />
     {t('thanks')}
   </h3>
   {#if task.thanks.length === 0}

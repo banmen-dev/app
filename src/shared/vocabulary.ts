@@ -1937,12 +1937,10 @@ export const dictionary = defineDictionary({
   themeSimple: 'シンプル（自動）',
   themeSimpleLight: 'シンプル（ライト）',
   themeSimpleDark: 'シンプル（ダーク）',
-  themeModern: 'ネオン',
   // テーマの説明。見本の design/kit.js の THEME_NOTE と同じ文（src/shared/theme.ts の themeNoteKeys）
   themeNoteSimple: '業務の道具として落ち着いた見た目。OS のライトとダークに合わせる',
   themeNoteSimpleLight: '業務の道具として落ち着いた見た目。いつも明るい地',
   themeNoteSimpleDark: '業務の道具として落ち着いた見た目。いつも暗い地',
-  themeNoteModern: '近未来の端末のウィンドウ。暗い地に光る枠',
 
   // お試しの期限（組織の管理の画面。期限の日付は運用者の一覧も使う）
   orgTrialTitle: 'お試し',

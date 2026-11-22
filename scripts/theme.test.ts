@@ -73,18 +73,20 @@ describe('テーマの先当て（static/theme-init.js）', () => {
 });
 
 describe('テーマの値', () => {
-  test('選べるのは4つ（中世風は消した）', () => {
-    assert.deepEqual([...themes], ['simple', 'simple_light', 'simple_dark', 'modern']);
+  test('選べるのはシンプルの3つ（中世風とネオンは消した）', () => {
+    assert.deepEqual([...themes], ['simple', 'simple_light', 'simple_dark']);
   });
 
-  test('現代風（modern）の名前はネオン', () => {
-    assert.equal(dictionary[themeLabelKeys.modern], 'ネオン');
+  test('辞書にネオンの名前と説明が残っていない', () => {
+    assert.equal('themeModern' in dictionary, false);
+    assert.equal('themeNoteModern' in dictionary, false);
   });
 
-  test('users.theme の値を画面のテーマにする。NULL と消した中世風はシンプル（自動）', () => {
+  test('users.theme の値を画面のテーマにする。NULL と消した中世風とネオンはシンプル（自動）', () => {
     for (const theme of themes) assert.equal(themeOf(theme), theme);
     assert.equal(themeOf(null), 'simple');
     assert.equal(themeOf('medieval'), 'simple');
+    assert.equal(themeOf('modern'), 'simple');
   });
 
   test('どのテーマにも辞書の名前がある', () => {
@@ -106,8 +108,8 @@ describe('テーマの値', () => {
       setItem: (key, value) => void data.set(key, value),
       removeItem: (key) => void data.delete(key),
     };
-    storeTheme(storage, 'modern');
-    assert.equal(data.get(themeStorageKey), 'modern');
+    storeTheme(storage, 'simple_dark');
+    assert.equal(data.get(themeStorageKey), 'simple_dark');
     storeTheme(storage, null);
     assert.equal(data.has(themeStorageKey), false);
 
@@ -122,7 +124,7 @@ describe('テーマの値', () => {
         throw new Error('SecurityError');
       },
     };
-    assert.doesNotThrow(() => storeTheme(broken, 'modern'));
+    assert.doesNotThrow(() => storeTheme(broken, 'simple_dark'));
     assert.doesNotThrow(() => storeTheme(broken, null));
   });
 });

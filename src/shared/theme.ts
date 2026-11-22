@@ -3,12 +3,13 @@
 // scripts/ と Worker の型の検査からも読むので、Node の型の除去で動く書き方に留め（enum を使わない）、DOM の型に頼らない。
 import type { DictionaryKey } from './vocabulary.ts';
 
-// 自分で選べるテーマ（users.theme）。属性がなければシンプル（自動）。modern の名前はネオン（値は前の名前のまま）。
-// DB の CHECK はほかに medieval（消した中世風）も許すが、アプリは書かない（0027 のマイグレーションが NULL に戻した）
-export const themes = ['simple', 'simple_light', 'simple_dark', 'modern'] as const;
+// 自分で選べるテーマ（users.theme）。属性がなければシンプル（自動）。
+// DB の CHECK はほかに medieval（消した中世風）と modern（消したネオン）も許すが、アプリは書かない
+// （0027 と 0041 のマイグレーションが NULL に戻した）
+export const themes = ['simple', 'simple_light', 'simple_dark'] as const;
 export type Theme = (typeof themes)[number];
 
-// users.theme の値を、画面に返すテーマにする。選んでいない（NULL）と、アプリが書かない値（消した medieval）は simple
+// users.theme の値を、画面に返すテーマにする。選んでいない（NULL）と、アプリが書かない値（消した medieval と modern）は simple
 export function themeOf(value: string | null): Theme {
   return themes.find((theme) => theme === value) ?? 'simple';
 }
@@ -19,7 +20,6 @@ export const themeLabelKeys: Record<Theme, DictionaryKey> = {
   simple: 'themeSimple',
   simple_light: 'themeSimpleLight',
   simple_dark: 'themeSimpleDark',
-  modern: 'themeModern',
 };
 
 // テーマごとの説明の辞書のキー。中身は見本の design/kit.js の THEME_NOTE と同じ文（scripts/design-parity.test.ts が突き合わせる）
@@ -27,7 +27,6 @@ export const themeNoteKeys: Record<Theme, DictionaryKey> = {
   simple: 'themeNoteSimple',
   simple_light: 'themeNoteSimpleLight',
   simple_dark: 'themeNoteSimpleDark',
-  modern: 'themeNoteModern',
 };
 
 // 描く前に読むので、static/theme-init.js と同じキーにする

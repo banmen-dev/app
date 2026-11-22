@@ -524,7 +524,7 @@ a.breadcrumb-item:hover { color: var(--color-fg); text-decoration: underline; }
 .btn.is-sm { padding: var(--space-1) var(--space-3); font-size: var(--text-xs); }
 /* Google のボタン（Google のブランドの決まり）。ロゴは公式の4色の G で変えない。地と枠と文字は Google のブランドの固定色なので、
    トークンを通さず色を直に書く。明暗はアプリのテーマに合わせる: テーマの指定が無い既定とシンプル（自動）だけ OS の明暗に従い、
-   シンプル（ダーク）とネオンはダーク版、シンプル（ライト）はライト版。書体と角丸はアプリのもの（Roboto を足さず、
+   シンプル（ダーク）はダーク版、シンプル（ライト）はライト版。書体と角丸はアプリのもの（Roboto を足さず、
    公式の角丸にもしない。意図的な例外）。ロゴと文字の間は公式の 10px */
 .btn.is-google {
   --google-bg: #fff; --google-line: #747775; --google-fg: #1f1f1f; --google-hover: rgb(31 31 31 / 0.08);
@@ -539,7 +539,7 @@ a.breadcrumb-item:hover { color: var(--color-fg); text-decoration: underline; }
     --google-bg: #131314; --google-line: #8e918f; --google-fg: #e3e3e3; --google-hover: rgb(227 227 227 / 0.08);
   }
 }
-:root[data-theme="simple_dark"] .btn.is-google, :root[data-theme="modern"] .btn.is-google {
+:root[data-theme="simple_dark"] .btn.is-google {
   --google-bg: #131314; --google-line: #8e918f; --google-fg: #e3e3e3; --google-hover: rgb(227 227 227 / 0.08);
 }
 /* aria-disabled は、押しても何も起きないが、フォーカスは残したいボタン（読み直している最中の「もう一度試す」など） */
@@ -648,7 +648,7 @@ a.breadcrumb-item:hover { color: var(--color-fg); text-decoration: underline; }
 .chip.is-warn { color: var(--color-warn); background: var(--color-warn-soft); border-color: var(--chip-state-edge); }
 .chip.is-ok { color: var(--color-ok); background: var(--color-ok-soft); border-color: var(--chip-state-edge); }
 /* 完了とクリアの印。完了の印（.hanko）と同じ役の色で、テーマが変える。地は色を混ぜず --color-surface のままにする。
-   混ぜない地での比は、シンプル 5.37、シンプル（ダーク）8.54、ネオン 11.82 */
+   混ぜない地での比は、シンプル 5.37、シンプル（ダーク）8.54 */
 .chip.is-done { color: var(--color-done); background: var(--color-surface); border-color: currentColor; }
 .chip.is-carry { border-style: dashed; }
 /* 区分とリポジトリの名前の印。名前は利用者が付ける（50 字まで）ので、行の幅を超えたら折り返して全文を出す。アイコンは縮めない */
@@ -827,7 +827,7 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
 .panel-note { font-size: var(--text-xs); color: var(--color-muted); }
 
 /* ===== 面（見出しと中身を持つ枠）とダッシュボードの並び =====
-   .panel は数値と計器の面（ネオンで光る）。.pane は一覧や区分を載せる面で、光らせず、見出しの下に線を引く。
+   .panel は数値と計器の面。.pane は一覧や区分を載せる面で、光らせず、見出しの下に線を引く。
    中の節（.section）は一段小さい見出し（--text-lg）にし、面の見出しの下に入れ子で読める段にする */
 .pane { background: var(--surface-panel); border: 1px solid var(--color-line); border-radius: var(--radius-1); padding: var(--space-6); display: grid; gap: var(--space-3); min-width: 0; }
 .pane-head { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; padding-bottom: var(--space-3); border-bottom: var(--rule-double); }
@@ -839,7 +839,7 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
 /* 枠の外の紙（.gate-sheet。全組織のダッシュボード）に載せた面は、紙が既に枠なので、自分の枠と地と内側の余白を外す。
    面の区切りは見出しの下の線（.pane-head）と面の間の余白（.dashboard の --space-8）だけにし、紙と面の枠が入れ子に重ならないようにする。
    .gate-sheet の中の .pane は、どの画面でも常にこの形にする。面の中の部品（組織のまとまり、台帳、行）の枠は残す。
-   枠の中の画面（組織のホーム）の面は枠のまま。全組織のダッシュボードは既定のテーマに戻すので、ネオンの面の地（--surface-panel）は使わない */
+   枠の中の画面（組織のホーム）の面は枠のまま */
 .gate-sheet .pane { border: 0; background: transparent; padding: 0; }
 /* 面の中の、押すと移る行の一覧（ワークスペース）。行の間は細い線で区切る */
 .pane-list { list-style: none; margin: 0; padding: 0; display: grid; }
@@ -912,7 +912,7 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
 }
 
 .level { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3); align-items: center; }
-/* 紋章は縁（要素の背景）、線（::before）、面（::after）の3層。形は全レベルで同じ六角で、テーマの飾りが層の色と太さだけを変える。
+/* 紋章は縁（要素の背景）、線（::before）、面（::after）の3層。形は全レベルで同じ六角。
    clip-path は自分の外へ出る影を切るので、光は面の内側（inset の影）で出す */
 .emblem {
   --emblem-hex: polygon(50% 0, 100% 22%, 100% 70%, 50% 100%, 0 70%, 0 22%);
@@ -1206,7 +1206,7 @@ a.brand { color: inherit; text-decoration: none; }
 /* レーンの中の囲みは幅が狭い（3 列で約 280px）。操作は本文の下の 1 行に置き、本文を広く取る */
 .lane .callout { padding: var(--space-3); }
 .lane .callout-actions { flex-basis: 100%; margin-left: 0; }
-/* 囲みの中のリンクは、本文と同じ色に下線を引く（既定のリンクの青は、ダークとネオンの地で読めない） */
+/* 囲みの中のリンクは、本文と同じ色に下線を引く（既定のリンクの青は、ダークの地で読めない） */
 .callout a { color: inherit; text-decoration: underline; text-underline-offset: 0.2em; }
 .callout a.btn { text-decoration: none; }
 .callout.is-ok { color: var(--color-ok); background: var(--color-ok-soft); }
@@ -2446,7 +2446,7 @@ button.file-name:hover { text-decoration-color: currentColor; }
 /* ===== AI のアシスタント（パレットと横の欄） =====
  * パレットは上の帯のボタンで開く、画面の上に重ねる入力。続けて話すときは横の欄へ移す。
  * 横の欄は、本文を寄せても潰れない広い画面（1500px 以上）では本文を左へ寄せ、それより狭いと右に重ねる。
- * タスクの詳細の引き出しは横の欄の上に出る。操作の色は押せる所だけに使い、アシスタントの印は形と文字で示す。ネオンでも光らせない。
+ * タスクの詳細の引き出しは横の欄の上に出る。操作の色は押せる所だけに使い、アシスタントの印は形と文字で示す。
  */
 .kbd {
   font-family: var(--font-mono); font-size: 10px; line-height: 1; padding: var(--space-1); white-space: nowrap;
@@ -2642,40 +2642,6 @@ body.has-assist .toasts { right: calc(400px + var(--space-4)); }
   .wiki-node .order-actions .icon-btn { width: 44px; height: 44px; }
   .crumbs a, .crumbs .link-btn { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
   .wiki-side .search { min-height: 44px; }
-}
-
-/* ===== テーマの飾り =====
- * テーマの違いは tokens.css の変数で表す。変数で表せない飾りだけをここに置き、この一覧から増やさない。
- * 完了の印、クリアの演出、ネオンの光。
- */
-/* ネオン: 端末のウィンドウの光 */
-:root[data-theme="modern"] body { --page-background: radial-gradient(1200px 600px at 75% -10%, rgb(76 200 255 / 0.09), transparent 70%) fixed, var(--color-bg); }
-:root[data-theme="modern"] .hanko { background: none; box-shadow: 0 0 10px -3px var(--color-done); }
-/* 要素自身の背景は文字と合う面の色にする（axe は擬似要素の背景を見ず、要素の背景を地として読むため）。縁は ::before（inset 0）が描く */
-:root[data-theme="modern"] .emblem {
-  --emblem-line: var(--color-xp);
-  --emblem-face: color-mix(in srgb, var(--color-xp) 14%, var(--color-surface));
-  --emblem-w1: 0px; --emblem-w2: 1.5px;
-  background: var(--emblem-face);
-  color: var(--color-xp); text-shadow: 0 0 8px var(--color-xp);
-}
-:root[data-theme="modern"] .emblem::after { box-shadow: inset 0 0 8px color-mix(in srgb, var(--color-xp) 60%, transparent); }
-/* 小さい紋章（24px）は、内側の光が面全体を明るくして数字の地との差を縮めるので、光を出さない */
-:root[data-theme="modern"] .emblem.is-sm { --emblem-w1: 0px; --emblem-w2: 1px; text-shadow: none; }
-:root[data-theme="modern"] .emblem.is-sm::after { box-shadow: none; }
-:root[data-theme="modern"] .gauge-got { box-shadow: 0 0 10px var(--color-xp); }
-:root[data-theme="modern"] .xp-num, :root[data-theme="modern"] .stat-num { text-shadow: 0 0 14px color-mix(in srgb, var(--color-xp) 60%, transparent); }
-:root[data-theme="modern"] .panel-title b, :root[data-theme="modern"] .panel-title h2, :root[data-theme="modern"] .notice-label { text-shadow: 0 0 8px color-mix(in srgb, currentColor 70%, transparent); }
-:root[data-theme="modern"] .notice, :root[data-theme="modern"] .dialog-sheet, :root[data-theme="modern"] .celebrate-sheet, :root[data-theme="modern"] .gate-sheet { border-top-width: 1px; }
-:root[data-theme="modern"] .celebrate-stamp {
-  width: auto; height: auto; border-radius: var(--radius-1); padding: var(--space-3) var(--space-6);
-  border: 1px solid var(--color-accent); color: var(--color-accent); background: var(--color-accent-soft);
-  box-shadow: 0 0 24px -4px var(--color-accent); text-shadow: 0 0 10px var(--color-accent);
-  animation: system-in var(--duration-celebrate) var(--ease-out) 1;
-}
-@keyframes system-in {
-  0% { opacity: 0; transform: scaleY(0.2); filter: brightness(2); }
-  100% { opacity: 1; transform: none; filter: none; }
 }
 
 /* Native progress avoids inline styles under the application's CSP. */

@@ -510,7 +510,7 @@
   // 線画。装飾なので読み上げから外す（本番の Art.svelte）。種類は art.js の ARTS
   // lead は「最初にやること」の先頭に置く小さい形（.art.is-lead）
   const art = (id, lead) => `<svg class="${lead ? "art is-lead" : "art"}" aria-hidden="true"><use href="#a-${id}"/></svg>`;
-  // tone は "xp" で経験値の色（.ico.is-xp）。ゲームの物の経験値（crystal）とレベル（crest）に使う。本番の Icon と同じく "xp" だけを受ける
+  // tone は "xp" で経験値の色（.ico.is-xp）。本番の Icon と同じく "xp" だけを受ける
   const icon = (id, tone) => `<svg class="${tone === "xp" ? "ico is-xp" : "ico"}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
   const md = (d) => `${+d.slice(5, 7)}/${+d.slice(8, 10)}`;
   const sumPts = (list) => list.reduce((a, x) => a + (x.pts || 0), 0);
@@ -625,7 +625,7 @@
   function tier(size) {
     const map = { small: ["小", 100], medium: ["中", 300], large: ["大", 600] };
     const [label, xp] = map[size];
-    return `<span class="tier is-${size}">${icon("chest")}${label} · <b>${xp}</b> XP</span>`;
+    return `<span class="tier is-${size}">${label} · <b>${xp}</b> XP</span>`;
   }
   function sourceKey(x) {
     return x.src ? `<span class="source-key">${icon(SRC[x.src.kind].icon)} ${esc(x.src.key)}</span>` : "";
@@ -787,7 +787,7 @@
   }
   // 空の状態。何が出る場所かと、次に何をすればよいかを書く。actions は押す操作の HTML。
   // title と text も HTML として埋め込むので、利用者のデータは esc してから渡す
-  // tone はアイコンの色（icon の tone。本番の EmptyState の iconTone）。ゲームの物のアイコンを置くときに使う
+  // tone はアイコンの色（icon の tone。本番の EmptyState の iconTone）
   function emptyState(ic, title, text, actions = "", tone, artName) {
     return `<div class="empty">${artName ? art(artName) : icon(ic, tone)}<b>${title}</b>${text ? `<span>${text}</span>` : ""}${actions ? `<div class="form-actions">${actions}</div>` : ""}</div>`;
   }
@@ -1240,7 +1240,7 @@
     return `<section class="panel" aria-labelledby="level-panel-title">
       <div class="panel-title"><h2 id="level-panel-title">レベル</h2>経験値は本人だけに見えます</div>
       <div class="level">${emblem(l.level)}
-        <div><div class="xp-num">${icon("crystal", "xp")}${l.xp.toLocaleString()}<small>XP</small></div>
+        <div><div class="xp-num">${l.xp.toLocaleString()}<small>XP</small></div>
         <div class="xp-sub">次のレベルまで <b>${l.toNext}</b>・見込み <b>+${l.soon}</b></div></div>
       </div>
       <div class="gauge-row"><span class="gauge-end" aria-hidden="true">LV ${l.level}</span>
@@ -1252,14 +1252,14 @@
       ${levelThanks(thanks)}
     </section>`;
   }
-  // レベルの面の末尾の、受け取った感謝の数（組織の合計。0 のときも出す）。内訳と同じ部品（.breakdown）の1行。感謝のアイコン（heart）は文字の色
+  // レベルの面の末尾の、受け取った感謝の数（組織の合計。0 のときも出す）。内訳と同じ部品（.breakdown）の1行
   function levelThanks(count) {
-    return `<div role="group" aria-label="受け取った感謝"><dl class="breakdown"><div><dt>${icon("heart")}受け取った感謝</dt><dd>${count.toLocaleString()}</dd></div></dl></div>`;
+    return `<div role="group" aria-label="受け取った感謝"><dl class="breakdown"><div><dt>受け取った感謝</dt><dd>${count.toLocaleString()}</dd></div></dl></div>`;
   }
 
   // チーム全体の経験値。ワークスペースの全員の合計の1つの数で、人ごとの値は出さない。バックログの画面の見出しの中に置く
   function teamXp(total = D.teamXp) {
-    return `<p class="team-xp">${icon("crystal", "xp")}${t("teamXpLabel")}<b>${total.toLocaleString()}</b><small>XP</small></p>`;
+    return `<p class="team-xp">${t("teamXpLabel")}<b>${total.toLocaleString()}</b><small>XP</small></p>`;
   }
   // 経験値の明細の値。付与は経験値の色、打ち消し（負の値）は赤
   function xpDelta(v) {
@@ -1782,7 +1782,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
         ${D.definitionOfDone.length ? `<div class="done-bar-dod"><h3 class="done-bar-dod-title" id="drawer-dod">${t("dod")}</h3><div class="done-bar-dod-body" tabindex="0" role="region" aria-labelledby="drawer-dod">${dodDoc()}</div></div>` : ""}
       </div>
       <div class="field">
-        <span class="field-label">${icon("heart")} 感謝</span>
+        <span class="field-label">感謝</span>
         <div class="thanks">${others.map((u) => {
           const on = drawer.thanked.has(u);
           return `<button class="btn is-sm ${on ? "is-on" : ""}" type="button" data-thank="${u}" aria-pressed="${on}">${avatarOf(u)}${esc(user(u).name)}${on ? " に送った" : " に送る"}</button>`;
@@ -4637,16 +4637,15 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   const extraRedraws = [];
   function redrawAll() { redraw(); extraRedraws.forEach((fn) => fn()); if (assist.open) renderAssist(); }
 
-  // ---- テーマの切り替え（シンプル（自動）→ シンプル（ライト）→ シンプル（ダーク）→ ネオン） ----
+  // ---- テーマの切り替え（シンプル（自動）→ シンプル（ライト）→ シンプル（ダーク）） ----
   // 値は DB の列挙と同じ。null は自分で選んでいない状態で、シンプル（自動）として出す。
   // 本番では、ユーザーが選んだテーマを data-theme に入れる
-  const THEMES = ["simple", "simple_light", "simple_dark", "modern"];
-  const THEME_LABEL = { simple: "シンプル（自動）", simple_light: "シンプル（ライト）", simple_dark: "シンプル（ダーク）", modern: "ネオン" };
+  const THEMES = ["simple", "simple_light", "simple_dark"];
+  const THEME_LABEL = { simple: "シンプル（自動）", simple_light: "シンプル（ライト）", simple_dark: "シンプル（ダーク）" };
   const THEME_NOTE = {
     simple: "業務の道具として落ち着いた見た目。OS のライトとダークに合わせる",
     simple_light: "業務の道具として落ち着いた見た目。いつも明るい地",
     simple_dark: "業務の道具として落ち着いた見た目。いつも暗い地",
-    modern: "近未来の端末のウィンドウ。暗い地に光る枠",
   };
   let theme = null;
   try { theme = localStorage.getItem("sq-design-theme"); } catch (e) { /* なくても動く */ }

@@ -81,7 +81,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
   });
 
   test(`組織への移動の紙は重ねて消える（${reducedMotion}）`, async ({ page, context, baseURL }) => {
-    // 3テーマの axe は開発用ビルドでも最後まで検査する。フェードの時間の期待値は120msのまま。
+    // 2テーマの axe は開発用ビルドでも最後まで検査する。フェードの時間の期待値は120msのまま。
     if (reducedMotion === 'no-preference') test.setTimeout(90_000);
     if (reducedMotion === 'no-preference') await page.setViewportSize({ width: 1280, height: 320 });
     await page.emulateMedia({ reducedMotion });
@@ -92,7 +92,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     await routeOperation(page, organizationInfo, { slug: 'aoba' }, async (call) => {
       await gate;
       const body = await call.fetch();
-      body.me.theme = 'modern';
+      body.me.theme = 'simple_dark';
       await call.fulfill(body);
     });
     await page.evaluate(() => {
@@ -130,7 +130,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
             );
         seen.shape = overlay.querySelector('[data-shape]')?.getAttribute('data-shape') ?? '';
         seen.title = document.title;
-        seen.background = style.backgroundImage;
+        seen.background = style.backgroundColor;
         seen.scrollTop = overlay.scrollTop;
         seen.fixed = style.position === 'fixed';
         seen.hidden = overlay.inert && overlay.getAttribute('aria-hidden') === 'true';
@@ -145,22 +145,22 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     let before = { background: '', pageBackground: '', scrollTop: 0 };
     if (reducedMotion === 'no-preference') {
       before = await page.evaluate(() => {
-        document.documentElement.dataset.theme = 'modern';
+        document.documentElement.dataset.theme = 'simple_dark';
         const overlay = document.querySelector<HTMLElement>('.loading-overlay')!;
         overlay.scrollTop = 60;
-        const pageBackground = getComputedStyle(document.body).backgroundImage;
-        const background = getComputedStyle(overlay).backgroundImage;
+        const pageBackground = getComputedStyle(document.body).backgroundColor;
+        const background = getComputedStyle(overlay).backgroundColor;
         return { background, pageBackground, scrollTop: overlay.scrollTop };
       });
       expect(before.background).toBe(before.pageBackground);
-      expect(before.background).toContain('radial-gradient');
+      expect(before.background).not.toBe('rgba(0, 0, 0, 0)');
       expect(before.scrollTop).toBeGreaterThan(0);
     }
     release();
     const heading = page.getByRole('heading', { level: 1, name: '今日やること' });
     await expect(heading).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('.loading-overlay')).toHaveCount(0);
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'modern');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'simple_dark');
     const seen = await page.evaluate(
       () =>
         (

@@ -20,53 +20,55 @@ test.describe('テーマの節（ハルカ）', () => {
     await signIn(context, baseURL, 'member');
   });
 
-  test('選択肢は4つのテーマだけで、選んだ瞬間に保存して画面に当て、開き直しても続く', async ({ page }) => {
+  test('選択肢は3つのテーマだけで、選んだ瞬間に保存して画面に当て、開き直しても続く', async ({ page }) => {
     const collect = await watchViolations(page);
     await page.goto('/aoba/me');
     const section = themeSection(page);
     await expect(section.getByRole('heading', { level: 2, name: 'テーマ' })).toBeVisible();
     await expect(section).toContainText('画面の見た目。選ぶとすぐに変わります。自分だけに効きます。');
     // 組織の既定に従う選択肢は無い。テーマを選んでいない人は、シンプル（自動）
-    await expect(section.getByRole('radio')).toHaveCount(4);
+    await expect(section.getByRole('radio')).toHaveCount(3);
     await expect(section.getByRole('radio', { name: /^シンプル（自動）/ })).toBeChecked();
     await expect(section.getByRole('radio', { name: /^シンプル（ライト）/ })).toBeVisible();
     await expect(section.getByRole('radio', { name: /^シンプル（ダーク）/ })).toBeVisible();
-    await expect(section.getByRole('radio', { name: /^ネオン/ })).toBeVisible();
+    await expect(section.getByRole('radio', { name: /^ネオン/ })).toHaveCount(0);
     await expect(section.getByRole('radio', { name: /組織の既定に従う/ })).toHaveCount(0);
     await expect(section.getByRole('radio', { name: /中世風|現代風/ })).toHaveCount(0);
     await expect.poll(() => htmlTheme(page)).toBe('simple');
 
     try {
       const saved = page.waitForResponse((res) => res.url().endsWith('/api/aoba/me-theme-update') && res.ok());
-      await section.getByRole('radio', { name: /^ネオン/ }).check();
+      await section.getByRole('radio', { name: /^シンプル（ダーク）/ }).check();
       // 保存を待たずに、画面へ当たる
-      await expect.poll(() => htmlTheme(page)).toBe('modern');
-      expect((await saved).request().postDataJSON()).toEqual({ theme: 'modern' });
-      await expect(page.getByRole('status').filter({ hasText: 'テーマを「ネオン」に変えました' })).toBeAttached();
+      await expect.poll(() => htmlTheme(page)).toBe('simple_dark');
+      expect((await saved).request().postDataJSON()).toEqual({ theme: 'simple_dark' });
+      await expect(
+        page.getByRole('status').filter({ hasText: 'テーマを「シンプル（ダーク）」に変えました' }),
+      ).toBeAttached();
 
       // 開き直しても続く（枠が読んだ自分のテーマ）
       await page.reload();
-      await expect(section.getByRole('radio', { name: /^ネオン/ })).toBeChecked();
-      expect(await htmlTheme(page)).toBe('modern');
+      await expect(section.getByRole('radio', { name: /^シンプル（ダーク）/ })).toBeChecked();
+      expect(await htmlTheme(page)).toBe('simple_dark');
 
       // 別の画面へ移って戻っても、選んだままに見える
       await page.locator('.nav-item', { hasText: '今日やること' }).click();
       await expect(page).toHaveURL(/\/aoba$/);
-      expect(await htmlTheme(page)).toBe('modern');
+      expect(await htmlTheme(page)).toBe('simple_dark');
       await page.getByRole('button', { name: /アカウントのメニュー$/ }).click();
       await page.locator('.account-menu-list').getByRole('link', { name: 'マイプロフィール', exact: true }).click();
-      await expect(themeSection(page).getByRole('radio', { name: /^ネオン/ })).toBeChecked();
+      await expect(themeSection(page).getByRole('radio', { name: /^シンプル（ダーク）/ })).toBeChecked();
 
       // ほかのテーマへ替えても保存され、読み直しても残る
       const changed = page.waitForResponse((res) => res.url().endsWith('/api/aoba/me-theme-update') && res.ok());
       await themeSection(page)
-        .getByRole('radio', { name: /^シンプル（ダーク）/ })
+        .getByRole('radio', { name: /^シンプル（ライト）/ })
         .check();
-      expect((await changed).request().postDataJSON()).toEqual({ theme: 'simple_dark' });
-      await expect.poll(() => htmlTheme(page)).toBe('simple_dark');
+      expect((await changed).request().postDataJSON()).toEqual({ theme: 'simple_light' });
+      await expect.poll(() => htmlTheme(page)).toBe('simple_light');
       await page.reload();
-      await expect(themeSection(page).getByRole('radio', { name: /^シンプル（ダーク）/ })).toBeChecked();
-      expect(await htmlTheme(page)).toBe('simple_dark');
+      await expect(themeSection(page).getByRole('radio', { name: /^シンプル（ライト）/ })).toBeChecked();
+      expect(await htmlTheme(page)).toBe('simple_light');
     } finally {
       // 失敗してもハルカのテーマを残さない（seed は選んでいない状態）
       await page.waitForLoadState('networkidle');
@@ -96,16 +98,16 @@ test.describe('テーマの節（ハルカ）', () => {
     const before = await htmlTheme(page);
 
     // 失敗で選択がすぐ戻るので、check()（押した後に状態が変わったかを確かめる）でなく click() で押す
-    await section.getByRole('radio', { name: /^ネオン/ }).click();
+    await section.getByRole('radio', { name: /^シンプル（ダーク）/ }).click();
     await expect(section.getByRole('alert')).toHaveText('テーマを変えられませんでした。もう一度試してください。');
     await expect(section.getByRole('radio', { name: /^シンプル（自動）/ })).toBeChecked();
-    await expect(section.getByRole('radio', { name: /^ネオン/ })).not.toBeChecked();
+    await expect(section.getByRole('radio', { name: /^シンプル（ダーク）/ })).not.toBeChecked();
     expect(await htmlTheme(page)).toBe(before);
 
     // 次に選ぶと理由は消え、通れば保存される
     await page.unroute('**/api/aoba/me-theme-update');
-    await page.route('**/api/aoba/me-theme-update', (route) => route.fulfill({ json: { theme: 'simple_dark' } }));
-    await section.getByRole('radio', { name: /^シンプル（ダーク）/ }).click();
+    await page.route('**/api/aoba/me-theme-update', (route) => route.fulfill({ json: { theme: 'simple_light' } }));
+    await section.getByRole('radio', { name: /^シンプル（ライト）/ }).click();
     await expect(section.getByRole('alert')).toHaveText('');
   });
 
@@ -126,14 +128,14 @@ test.describe('テーマの節（ハルカ）', () => {
 
     await section.getByRole('radio', { name: /^シンプル（ダーク）/ }).check();
     await expect.poll(() => sent.length).toBe(1);
-    await section.getByRole('radio', { name: /^ネオン/ }).check();
+    await section.getByRole('radio', { name: /^シンプル（ライト）/ }).check();
     // 1回目が返るまで、2つ目は送らない。選択と画面は先に変わる
-    await expect.poll(() => htmlTheme(page)).toBe('modern');
+    await expect.poll(() => htmlTheme(page)).toBe('simple_light');
     expect(sent).toEqual([{ theme: 'simple_dark' }]);
     release();
 
-    await expect.poll(() => sent).toEqual([{ theme: 'simple_dark' }, { theme: 'modern' }]);
-    await expect(section.getByRole('radio', { name: /^ネオン/ })).toBeChecked();
+    await expect.poll(() => sent).toEqual([{ theme: 'simple_dark' }, { theme: 'simple_light' }]);
+    await expect(section.getByRole('radio', { name: /^シンプル（ライト）/ })).toBeChecked();
   });
 });
 
@@ -144,7 +146,7 @@ test.describe('テーマを選んでいる人と選んでいない人（くも�
     await signIn(context, baseURL, 'lookMember');
     await page.goto('/kumo/me');
     const section = themeSection(page);
-    await expect(section.getByRole('radio')).toHaveCount(4);
+    await expect(section.getByRole('radio')).toHaveCount(3);
     await expect(section.getByRole('radio', { name: /^シンプル（自動）/ })).toBeChecked();
     await expect.poll(() => htmlTheme(page)).toBe('simple');
   });
