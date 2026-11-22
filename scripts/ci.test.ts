@@ -198,6 +198,7 @@ describe('ci.yml の main の検査対象', () => {
 describe('ciOkVerdict', () => {
   function needs(changes: string, docsOnly: string | undefined, ...heavy: string[]): Needs {
     const jobs: Needs = {
+      'worktree-pnpm': { result: 'success' },
       changes: { result: changes, outputs: docsOnly === undefined ? {} : { docs_only: docsOnly } },
     };
     heavy.forEach((result, i) => {
@@ -226,8 +227,24 @@ describe('ciOkVerdict', () => {
     });
   }
 
+  test('文書だけでも保存先検査の成功を求め、失敗したジョブをまとめて出す', () => {
+    const input: Needs = {
+      ...needs('success', 'true', 'skipped'),
+      'worktree-pnpm': { result: 'success' },
+    };
+    assert.deepEqual(ciOkVerdict(input), { ok: true });
+    input['worktree-pnpm'].result = 'failure';
+    input.job0.result = 'failure';
+    const failed = ciOkVerdict(input);
+    assert.match(failed.ok ? '' : failed.reason, /worktree-pnpm=failure.*job0=failure/);
+    delete input['worktree-pnpm'];
+    const missing = ciOkVerdict(input);
+    assert.match(missing.ok ? '' : missing.reason, /worktree-pnpm/);
+  });
+
   test('main への push は e2e-dev と e2e-repeat が skipped なら通す', () => {
     const input: Needs = {
+      'worktree-pnpm': { result: 'success' },
       changes: { result: 'success', outputs: { docs_only: 'false', dev_build: 'false', repeat: 'false' } },
       check: { result: 'success' },
       test: { result: 'success' },
@@ -244,7 +261,12 @@ describe('ciOkVerdict', () => {
     function withDev(docsOnly: string, devBuild: string | undefined, dev: string, other = 'success'): Needs {
       const outputs: Record<string, string> = { docs_only: docsOnly };
       if (devBuild !== undefined) outputs.dev_build = devBuild;
-      return { changes: { result: 'success', outputs }, check: { result: other }, 'e2e-dev': { result: dev } };
+      return {
+        'worktree-pnpm': { result: 'success' },
+        changes: { result: 'success', outputs },
+        check: { result: other },
+        'e2e-dev': { result: dev },
+      };
     }
 
     const devCases: [string, Needs, boolean][] = [
@@ -272,7 +294,10 @@ describe('ciOkVerdict', () => {
 
     test('Object.prototype の名前（toString など）のジョブを、条件付きのジョブと取り違えない', () => {
       for (const name of ['toString', 'constructor', 'hasOwnProperty', 'valueOf', '__proto__']) {
-        const input: Needs = { changes: { result: 'success', outputs: { docs_only: 'false', dev_build: 'false' } } };
+        const input: Needs = {
+          'worktree-pnpm': { result: 'success' },
+          changes: { result: 'success', outputs: { docs_only: 'false', dev_build: 'false' } },
+        };
         Object.defineProperty(input, name, { value: { result: 'skipped' }, enumerable: true });
         assert.equal(ciOkVerdict(input).ok, false, name);
       }
@@ -280,6 +305,7 @@ describe('ciOkVerdict', () => {
 
     test('dev_build はほかのジョブの期待を変えない', () => {
       const input: Needs = {
+        'worktree-pnpm': { result: 'success' },
         changes: { result: 'success', outputs: { docs_only: 'false', dev_build: 'false' } },
         e2e: { result: 'skipped' },
       };
@@ -292,6 +318,7 @@ describe('ciOkVerdict', () => {
       const outputs: Record<string, string> = { docs_only: docsOnly, dev_build: 'true' };
       if (repeat !== undefined) outputs.repeat = repeat;
       return {
+        'worktree-pnpm': { result: 'success' },
         changes: { result: 'success', outputs },
         check: { result: docsOnly === 'true' ? 'skipped' : 'success' },
         'e2e-dev': { result: docsOnly === 'true' ? 'skipped' : 'success' },

@@ -109,7 +109,7 @@ const conditionalJobs = new Map([
   ['e2e-repeat', 'repeat'],
 ]);
 
-// changes を除く needs のジョブすべてを重いジョブとして見る。ジョブを足したときは needs に入れれば判定に入る。
+// changes と worktree-pnpm は毎回成功を求める。ほかの needs のジョブは文書だけかどうかで期待が変わる。
 // 文書だけなら重いジョブがすべて skipped、そうでなければすべて success のときだけ通す。
 // ただし conditionalJobs のジョブは、文書だけでなくても changes の出力が偽なら skipped を期待する。
 // 出力が 'true' でも 'false' でもなければ（changes の出力の欠け）、判定を誤ったとみて通さない
@@ -118,7 +118,8 @@ export function ciOkVerdict(needs: Needs): { ok: true } | { ok: false; reason: s
   if (changes?.result !== 'success') {
     return { ok: false, reason: `changes が success でない（${changes?.result ?? '無し'}）` };
   }
-  const heavy = Object.entries(needs).filter(([name]) => name !== 'changes');
+  const guard = needs['worktree-pnpm']?.result ?? '無し';
+  const heavy = Object.entries(needs).filter(([name]) => name !== 'changes' && name !== 'worktree-pnpm');
   if (heavy.length === 0) return { ok: false, reason: '重いジョブが needs に無い' };
 
   const docsOnly = changes.outputs?.docs_only === 'true';
@@ -136,10 +137,12 @@ export function ciOkVerdict(needs: Needs): { ok: true } | { ok: false; reason: s
     const output = conditionalJobs.get(name);
     return output === undefined || changes.outputs?.[output] === 'true' ? 'success' : 'skipped';
   };
-  const unexpected = heavy.filter(([name, job]) => job.result !== expectedOf(name));
+  const unexpected = heavy
+    .filter(([name, job]) => job.result !== expectedOf(name))
+    .map(([name, job]) => `${name}=${job.result}（期待は ${expectedOf(name)}）`);
+  if (guard !== 'success') unexpected.unshift(`worktree-pnpm=${guard}（期待は success）`);
   if (unexpected.length > 0) {
-    const list = unexpected.map(([name, job]) => `${name}=${job.result}（期待は ${expectedOf(name)}）`).join(', ');
-    return { ok: false, reason: `期待と違うジョブがある: ${list}` };
+    return { ok: false, reason: `期待と違うジョブがある: ${unexpected.join(', ')}` };
   }
   return { ok: true };
 }

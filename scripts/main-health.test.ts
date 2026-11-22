@@ -136,7 +136,12 @@ test('main の CI と通知の起動条件・権限を保つ', () => {
     load(readFileSync(new URL(`../.github/workflows/${name}.yml`, import.meta.url), 'utf8')) as Record<string, unknown>;
   const ci = read('ci') as {
     on: Record<string, unknown>;
-    jobs: { changes: { outputs: Record<string, string>; steps: { id?: string; if?: string; run?: string }[] } };
+    jobs: {
+      changes: { outputs: Record<string, string>; steps: { id?: string; if?: string; run?: string }[] };
+      'worktree-pnpm': { needs?: string[]; if?: string; steps: { if?: string; run?: string }[] };
+      check: { needs: string };
+      'ci-ok': { needs: string[] };
+    };
     permissions: unknown;
   };
   assert.deepEqual(ci.on.push, { branches: ['main'] });
@@ -146,6 +151,15 @@ test('main の CI と通知の起動条件・権限を保つ', () => {
   for (const output of ['docs_only=false', 'dev_build=true', 'repeat=false']) assert.ok(main?.run?.includes(output));
   for (const id of ['docs', 'repeat'])
     assert.equal(ci.jobs.changes.steps.find((step) => step.id === id)?.if, "github.event_name == 'pull_request'");
+  const guard = ci.jobs['worktree-pnpm'];
+  assert.equal(guard.if, undefined);
+  assert.equal(guard.needs, undefined);
+  assert.equal(ci.jobs.check.needs, 'changes');
+  const pnpmCheck = guard.steps.find((step) => step.run === 'node scripts/check-worktree-pnpm.ts');
+  assert.ok(pnpmCheck);
+  assert.equal(pnpmCheck.if, undefined);
+  assert.ok(ci.jobs['ci-ok'].needs.includes('changes'));
+  assert.ok(ci.jobs['ci-ok'].needs.includes('worktree-pnpm'));
   assert.deepEqual(ci.permissions, { contents: 'read' });
   const monitor = read('main-health') as { on: Record<string, unknown>; permissions: unknown };
   assert.deepEqual(monitor.on.workflow_run, { workflows: ['ci'], branches: ['main'], types: ['completed'] });
