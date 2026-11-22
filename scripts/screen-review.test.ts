@@ -3,9 +3,10 @@ import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
 import { join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Page } from '@playwright/test';
+import { errors, type Page } from '@playwright/test';
 import { NARROW_VIEWPORT, setCaptureViewport } from '../e2e/screen-capture.ts';
 import { comparisonBands } from './screen-review-images.ts';
+import { expectNoCelebration, motionAnimationSelectors } from './screen-review-motion.ts';
 import { reviewCaptureTime, screenReviewOptions, screenReviewOutput } from './screen-review-options.ts';
 import { serveReference } from './screen-review-runtime.ts';
 
@@ -111,4 +112,38 @@ test('db:seed の撮影オプションで引数が欠けていれば D1 を変�
     assert.equal(result.status, 1);
     assert.match(result.stderr, message);
   }
+});
+
+test('動きを減らす設定は、判子・通知・クリアの領域とその子孫を観測する', () => {
+  assert.deepEqual(motionAnimationSelectors('reduce'), {
+    stamp: '.entry.is-done, .entry.is-done *',
+    toast: '.toasts, .toasts *',
+    clear: '.celebrate, .celebrate *',
+  });
+  assert.deepEqual(motionAnimationSelectors('no-preference'), {
+    stamp: '.hanko',
+    toast: '.toast',
+    clear: '.celebrate-stamp',
+  });
+});
+
+test('クリアの演出が遅れて出れば失敗し、観測期間中に出なければ成功する', async () => {
+  const wait = async (options?: { state?: string; timeout?: number }) => {
+    assert.deepEqual(options, { state: 'attached', timeout: 500 });
+  };
+  await assert.rejects(expectNoCelebration({ waitFor: wait }), /クリアの演出が表示/);
+  await expectNoCelebration({
+    async waitFor(options) {
+      await wait(options);
+      throw new errors.TimeoutError('観測期間中に現れなかった');
+    },
+  });
+  await assert.rejects(
+    expectNoCelebration({
+      async waitFor() {
+        throw new Error('画面を閉じた');
+      },
+    }),
+    /画面を閉じた/,
+  );
 });

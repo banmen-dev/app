@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { Browser, BrowserContext, Locator, Page } from '@playwright/test';
+import { errors, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test';
 import { DESKTOP_VIEWPORT, setCaptureViewport, type CaptureTheme } from '../e2e/screen-capture.ts';
 import { operationPath } from '../src/shared/operations/define.ts';
 import { epicDetail } from '../src/shared/operations/epic/epic-detail.ts';
@@ -20,7 +20,13 @@ type MotionOptions = {
 };
 
 type EffectName = 'stamp' | 'toast' | 'clear';
-type AnimationTiming = { effect: EffectName; name: string; durationMs: number | null; iterations: number | null };
+type AnimationTiming = {
+  effect: EffectName;
+  name: string;
+  element: string;
+  durationMs: number | null;
+  iterations: number | null;
+};
 type MotionWindow = Window & { screenReviewAnimations?: Map<Animation, AnimationTiming> };
 type FrameTarget = { effect: EffectName; area: Locator };
 type MotionCase = 'task-complete' | 'epic-clear';
@@ -37,15 +43,30 @@ const maxReducedDurationMs = 50;
 // reduce では成果を表示する範囲を、その子孫の動きも含めて観測する。
 const motionScopes = { stamp: '.entry.is-done', toast: '.toasts', clear: '.celebrate' } as const;
 
-async function watchAnimations(page: Page, media: Media) {
-  const freeze = media === 'no-preference';
-  const selectors = freeze
+export function motionAnimationSelectors(media: Media) {
+  return media === 'no-preference'
     ? { stamp: '.hanko', toast: '.toast', clear: '.celebrate-stamp' }
     : {
         stamp: `${motionScopes.stamp}, ${motionScopes.stamp} *`,
         toast: `${motionScopes.toast}, ${motionScopes.toast} *`,
         clear: `${motionScopes.clear}, ${motionScopes.clear} *`,
       };
+}
+
+export async function expectNoCelebration(celebration: Pick<Locator, 'waitFor'>) {
+  // 通常のクリア演出の長さ（420ms）を超えるまで、遅れて出る要素も監視する。
+  try {
+    await celebration.waitFor({ state: 'attached', timeout: 500 });
+  } catch (error) {
+    if (error instanceof errors.TimeoutError) return;
+    throw error;
+  }
+  throw new Error('動きを減らす設定でクリアの演出が表示されました');
+}
+
+async function watchAnimations(page: Page, media: Media) {
+  const freeze = media === 'no-preference';
+  const selectors = motionAnimationSelectors(media);
   await page.evaluate(
     ({ freeze, selectors }) => {
       if (matchMedia('(prefers-reduced-motion: reduce)').matches === freeze) {
@@ -171,7 +192,7 @@ async function startEpicClear(page: Page, origin: string, media: Media): Promise
       .locator('.toast:visible')
       .filter({ hasText: word('epicClearedToastEmpty', { epic: word('epic'), done: word('done') }) })
       .waitFor();
-    if (await celebration.count()) throw new Error('動きを減らす設定でクリアの演出が表示されました');
+    await expectNoCelebration(celebration);
   }
   return [{ effect: 'clear', area: sheet }];
 }
@@ -260,10 +281,13 @@ export async function captureReviewMotion(options: MotionOptions): Promise<void>
             }
             result.timings = await readAnimationTimings(page);
             if (media === 'reduce') {
-              if (
-                result.timings.some((timing) => timing.durationMs === null || timing.durationMs > maxReducedDurationMs)
-              ) {
-                throw new Error(`動きを減らす設定でも ${maxReducedDurationMs}ms を超える演出が流れました`);
+              const longMotion = result.timings.find(
+                (timing) => timing.durationMs === null || timing.durationMs > maxReducedDurationMs,
+              );
+              if (longMotion) {
+                throw new Error(
+                  `動きを減らす設定で長い演出が流れました（${longMotion.element}、${longMotion.name}、${longMotion.durationMs ?? '時間不明'}ms）`,
+                );
               }
               continue;
             }
