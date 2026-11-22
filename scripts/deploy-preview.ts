@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { SEED_SESSIONS } from '../seed/sessions.ts';
+import { isIsolatedPreviewAccount, isIsolatedPreviewSubdomain } from '../src/shared/preview-cloudflare.ts';
 import { deployPreview, type PreviewDatabase } from './preview-deploy.ts';
 import { previewConfig } from './preview-config.ts';
 import { seedSql } from './seed.ts';
@@ -44,12 +45,12 @@ export async function openPreviewBranches(fetchJson = jsonRequest): Promise<stri
 }
 
 export function publishPreview(
-  input: { number: string; database: PreviewDatabase; commitSha: string },
+  input: { number: string; database: PreviewDatabase; commitSha: string; subdomain?: string },
   run = spawnSync,
 ) {
   const root = process.cwd();
   // 設定を検査してから一時ファイルやコマンドを作る。
-  const config = previewConfig(input.number, input.database, input.commitSha, root);
+  const config = previewConfig(input.number, input.database, input.commitSha, root, input.subdomain);
   const directory = mkdtempSync(path.join(tmpdir(), 'scrum-guild-preview-'));
   try {
     const configFile = path.join(directory, 'wrangler.json');
@@ -78,12 +79,23 @@ export function publishPreview(
   }
 }
 
+export function previewBuildEnvironment(env: Record<string, string | undefined>): {
+  account: string;
+  token: string;
+  subdomain: string;
+} {
+  if (env.WORKERS_CI !== '1') throw new Error('Workers Builds の外では動かしません');
+  const account = env.CLOUDFLARE_ACCOUNT_ID;
+  const token = env.CLOUDFLARE_API_TOKEN;
+  const subdomain = env.CLOUDFLARE_PREVIEW_SUBDOMAIN;
+  if (!isIsolatedPreviewAccount(account) || !token?.trim())
+    throw new Error('Builds には本番と別の Cloudflare アカウントと API トークンが必要です');
+  if (!isIsolatedPreviewSubdomain(subdomain)) throw new Error('プレビュー専用の workers.dev サブドメインが必要です');
+  return { account, token, subdomain };
+}
+
 async function main() {
-  if (process.env.WORKERS_CI !== '1') throw new Error('Workers Builds の外では動かしません');
-  const account = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const token = process.env.CLOUDFLARE_API_TOKEN;
-  if (!account || !/^[0-9a-f]{32}$/i.test(account) || !token)
-    throw new Error('Builds の Cloudflare アカウントと API トークンが必要です');
+  const { account, token, subdomain } = previewBuildEnvironment(process.env);
   const head = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   if (head.status !== 0) throw new Error('コミットの SHA を取れませんでした');
   async function api(route: string, method = 'GET', body?: unknown) {
@@ -113,7 +125,7 @@ async function main() {
     },
     openBranches: () => openPreviewBranches(),
     publish: async (input) => {
-      publishPreview(input);
+      publishPreview({ ...input, subdomain });
     },
     log: (message) => console.log(message),
   });

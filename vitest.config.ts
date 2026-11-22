@@ -1,13 +1,17 @@
-// 3つのプロジェクトで動かす。scripts/ のテストは node --test で動かす（pnpm test）。
+// scripts/ のテストは node --test で動かす（pnpm test）。
 // - workers: API のテストを Workers の実行環境で動かす（test/）。テストの D1 には、test/apply-migrations.ts が全マイグレーションを当てる。読むのは Node の側でしかできないので、ここで読んで binding で渡す
+// - preview-trigger: プレビュー起動 Worker の Durable Object を別の構成で動かす
 // - web: 画面のコードのテストを node の環境で動かす（src/ の *.test.ts）。Workers の実行環境では .svelte を描けないため、svelte/server の render で HTML にして確かめる
 // - web-client: 部品の配線（`*.svelte.ts` の $effect）を、DOM なしのブラウザ向けの実行で確かめる（src/ の *.svelte.test.ts）
 import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-plugin';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { defineConfig } from 'vitest/config';
+import { previewTriggerOutbound, testBindings } from './test/preview-trigger-outbound.ts';
 
 export default defineConfig(async () => {
   const migrations = await readD1Migrations('./migrations');
+  const previewConcurrencyTest = 'test/preview-trigger-concurrency.test.ts';
+  const outbound = { node: previewTriggerOutbound() };
   return {
     test: {
       projects: [
@@ -27,8 +31,22 @@ export default defineConfig(async () => {
           test: {
             name: 'workers',
             include: ['test/**/*.test.ts'],
+            exclude: [previewConcurrencyTest],
             setupFiles: ['./test/apply-migrations.ts'],
           },
+        },
+        {
+          plugins: [
+            cloudflareTest({
+              wrangler: { configPath: './wrangler.preview-trigger.jsonc' },
+              miniflare: {
+                bindings: testBindings,
+                outboundService: outbound,
+                serviceBindings: { PREVIEW_FIXTURE: outbound },
+              },
+            }),
+          ],
+          test: { name: 'preview-trigger', include: [previewConcurrencyTest] },
         },
         {
           plugins: [svelte({ configFile: false, compilerOptions: { runes: true } })],

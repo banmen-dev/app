@@ -1,3 +1,9 @@
+import { previewBranchNumber } from '../src/shared/preview-branch.ts';
+import {
+  isIsolatedPreviewSubdomain,
+  LEGACY_PREVIEW_SUBDOMAIN,
+  previewOrigin,
+} from '../src/shared/preview-cloudflare.ts';
 import { PREVIEW_DATABASE_PATTERN, PRODUCTION_DATABASE_ID, UUID_PATTERN } from './preview-config.ts';
 
 export type PreviewDatabase = { name: string; uuid: string };
@@ -12,11 +18,6 @@ export type PreviewDeps = {
   publish: (input: { number: string; origin: string; database: PreviewDatabase; commitSha: string }) => Promise<void>;
   log: (message: string) => void;
 };
-
-function branchNumber(branch: string): string | undefined {
-  const number = /^([1-9][0-9]*)-[a-zA-Z0-9][a-zA-Z0-9/_-]*$/.exec(branch)?.[1];
-  return number && `pr-${number}-scrum-guild-preview`.length <= 63 ? number : undefined;
-}
 
 function databaseValue(value: unknown): PreviewDatabase {
   if (typeof value !== 'object' || value === null) throw new Error('D1 の一覧に不正な項目があります');
@@ -47,8 +48,12 @@ function databaseList(value: unknown): PreviewDatabase[] {
 
 export async function deployPreview(deps: PreviewDeps): Promise<void> {
   if (deps.env.WORKERS_CI !== '1') throw new Error('Workers Builds の外では動かしません');
+  const subdomain = deps.env.CLOUDFLARE_PREVIEW_SUBDOMAIN;
+  if (subdomain !== undefined && !isIsolatedPreviewSubdomain(subdomain)) {
+    throw new Error('プレビュー専用の workers.dev サブドメインが必要です');
+  }
   const branch = deps.env.WORKERS_CI_BRANCH;
-  const number = typeof branch === 'string' ? branchNumber(branch) : undefined;
+  const number = typeof branch === 'string' ? previewBranchNumber(branch) : undefined;
   if (branch !== 'main' && !number) throw new Error('プレビューのブランチを判定できません');
   if (typeof deps.commitSha !== 'string' || !/^[0-9a-f]{40}$/i.test(deps.commitSha)) {
     throw new Error('コミットの SHA を判定できません');
@@ -69,7 +74,7 @@ export async function deployPreview(deps: PreviewDeps): Promise<void> {
     ) {
       throw new Error('開いた PR のブランチ一覧を読めませんでした');
     }
-    const openNumbers = new Set((branches as string[]).map(branchNumber).filter((value) => value !== undefined));
+    const openNumbers = new Set((branches as string[]).map(previewBranchNumber).filter((value) => value !== undefined));
     for (const database of databases) {
       const previewNumber = PREVIEW_DATABASE_PATTERN.exec(database.name)?.[1];
       if (!previewNumber || openNumbers.has(previewNumber)) continue;
@@ -94,7 +99,7 @@ export async function deployPreview(deps: PreviewDeps): Promise<void> {
   ) {
     throw new Error('作成した D1 の名前または ID がプレビューに使えません');
   }
-  const origin = `https://pr-${number}-scrum-guild-preview.ucan-lab.workers.dev`;
+  const origin = previewOrigin(number!, subdomain ?? LEGACY_PREVIEW_SUBDOMAIN);
   // branch の検査で、main 以外なら number が存在することを確かめている。
   await deps.publish({ number: number!, origin, database, commitSha: deps.commitSha });
   deps.log(`プレビュー: ${origin}`);

@@ -8,6 +8,7 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures.ts';
 import { signIn, watchViolations } from './helpers.ts';
 import { resetAobaMemberTheme } from './local-d1.ts';
+import { setSeedTheme } from './screen-capture.ts';
 
 const AOBA_WORKSPACE_ID = '019a0000-0000-7000-8000-000000000401';
 
@@ -72,6 +73,17 @@ test.describe('テーマの節（ハルカ）', () => {
       await resetAobaMemberTheme();
     }
     expect(await collect()).toEqual([]);
+  });
+
+  test('画面採点用のヘルパーで保存したテーマがプロフィールに反映される', async ({ page, context, baseURL }) => {
+    try {
+      await setSeedTheme(context, baseURL!, 'simple_light');
+      await page.goto('/aoba/me');
+      await expect(themeSection(page).getByRole('radio', { name: /^シンプル（ライト）/ })).toBeChecked();
+      await expect.poll(() => htmlTheme(page)).toBe('simple_light');
+    } finally {
+      await resetAobaMemberTheme();
+    }
   });
 
   test('保存に失敗したら、選択と画面を送る前の値に戻し、理由を画面に出す', async ({ page }) => {

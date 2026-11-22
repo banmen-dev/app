@@ -7,7 +7,13 @@ export function accessHeaders(
   target: DevOpenTarget,
   env: Record<string, string | undefined>,
 ): Record<string, string> {
-  if (!target.remoteOrigin || !isPreviewOrigin(target.remoteOrigin) || target.origin !== target.remoteOrigin) return {};
+  if (
+    !target.remoteOrigin ||
+    !isPreviewOrigin(target.remoteOrigin, env.CLOUDFLARE_PREVIEW_SUBDOMAIN) ||
+    target.origin !== target.remoteOrigin
+  ) {
+    return {};
+  }
   if (new URL(url).origin !== target.remoteOrigin) return {};
   if (!env.CF_ACCESS_CLIENT_ID?.trim() || !env.CF_ACCESS_CLIENT_SECRET?.trim()) {
     throw new Error('プレビューには CF_ACCESS_CLIENT_ID と CF_ACCESS_CLIENT_SECRET の両方が必要');
