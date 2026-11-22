@@ -5,6 +5,8 @@
   "name": "scrum-guild",
   "main": "src/legacy-redirect/worker.ts",
   "compatibility_date": "2026-10-01",
+  // 人の手元から出すので、外へテレメトリを送らないよう設定に置く（wrangler.jsonc と同じ）
+  "send_metrics": false,
   "workers_dev": true,
   // 版ごとのプレビュー URL は作らない
   "preview_urls": false
