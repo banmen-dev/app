@@ -4,10 +4,14 @@ import { posix } from 'node:path';
 import { parseNulSeparated } from './ci.ts';
 
 const worktree = /ワークツリー|\bworktrees?\b/i;
-const worktreeSetup = /\bworktree\s+(?:add|move)\b|ワークツリー(?:を(?:切|作|用意)|(?:に|へ)移動)/i;
+const worktreeSetup =
+  /\bworktree\s+(?:add|move)\b|ワークツリー(?:を(?:切|作|用意|使)|(?:に|へ)移動|(?:内)?で(?:以下|次の))/i;
+const cloneCommand = /^[ \t]*(?:\$[ \t]+)?git[ \t]+clone\b/m;
+const normalCheckout =
+  /(?:クローン(?:直後|した作業コピー)?では?|本体の作業コピーで)(?:以下|次の|実行(?:する|して|します))|本体の作業コピー(?:に|へ)移動(?:する|して|します)/;
 const shellWorktree = /\bworktree\s+(?:add|move)\b|(?:\b|-C)worktrees\/|\$(?:\{worktree\}|worktree\b)/i;
 // pnpm は -C などで作業ディレクトリを渡せる。引用したパスやシェルの行継続も読む。
-const directoryOption = String.raw`(?:-C(?:[ \t]+|=)?|--(?:dir|prefix)(?:[ \t]+|=))("[^"\n]*"|'[^'\n]*'|[^\s\x60;&|()]+)`;
+const directoryOption = String.raw`(?:-C(?:[ \t]+|=)?|--dir(?:[ \t]+|=))("[^"\n]*"|'[^'\n]*'|[^\s\x60;&|()]+)`;
 const trailingDirectory = new RegExp('[ \\t]+' + directoryOption);
 const pnpm = '\\bpnpm(?:[ \\t]+' + directoryOption + String.raw`)?(?:[ \t]|\\\r?\n)+`;
 const install = new RegExp(pnpm + '(?:install|i|ci)(?![\\w-])', 'g');
@@ -84,11 +88,11 @@ function commandDirectory(match: RegExpMatchArray, text: string): string {
   return posix.normalize(directory.replace(/^(["'])(.*)\1$/, '$2')).replace(/(.+)\/$/, '$1');
 }
 
-function checkBlock(path: string, block: Block, previous?: Block): number[] {
+function checkBlock(path: string, block: Block, priorCommands = '', previous?: Block): number[] {
   const content = block.fenced ? withoutShellComments(block.text) : block.text;
   const preceding =
     previous?.section === block.section ? (previous.fenced ? withoutShellComments(previous.text) : previous.text) : '';
-  // 箇条書きの次の項目へはリンクを引き継がない。保存先確認のコマンドは直前の項目から引き継ぐ。
+  // 開発文書への参照は同じ手順か、その直前の説明から読む。
   const linked = linksToGuide(path, content) || (!listItem.test(content) && linksToGuide(path, preceding));
   if (!path.endsWith('.sh') && linked) return [];
   return [...content.matchAll(install)].flatMap((match) => {
@@ -96,7 +100,7 @@ function checkBlock(path: string, block: Block, previous?: Block): number[] {
     // 文中の「pnpm install の prepare」のような説明は、実行手順として扱わない。
     if (!block.fenced && /^[^\x60\n]*\x60\s*(?:の|を(?:していない|動かさない))/.test(content.slice(end))) return [];
     const before = content.slice(0, match.index);
-    const precedingCommands = preceding + '\n' + before;
+    const precedingCommands = priorCommands + '\n' + before;
     // cd/pushd より前に表示した保存先は、移動後の確認に数えない。
     const currentDirectory = precedingCommands.split(/(?:^|[\n;&])[ \t]*(?:cd|pushd)[ \t]/).at(-1)!;
     const directory = commandDirectory(match, content);
@@ -121,28 +125,39 @@ export function findWorktreePnpmInstalls(path: string, source: string): number[]
 
   const problems: number[] = [];
   let previous: Block | undefined;
-  let setupSeen = false;
-  let worktreeList = false;
+  let scope: 'worktree' | 'checkout' | undefined;
+  let priorCommands = '';
   // HTML コメントを表示上の手順・確認として数えず、元の行番号は保つ。
   const visibleSource = source.replace(/<!--[^]*?-->/g, (comment) => comment.replace(/[^\n]/g, ' '));
   for (const block of markdownBlocks(visibleSource)) {
     if (previous?.section !== block.section) {
-      setupSeen = false;
-      worktreeList = false;
+      scope = undefined;
+      priorCommands = '';
     }
-    const nearby = previous?.section === block.section ? previous.text : '';
-    setupSeen ||= worktreeSetup.test(block.text);
-    const nearbyWorktree = worktree.test(nearby);
-    worktreeList = listItem.test(block.text) && (worktreeList || (!listItem.test(nearby) && nearbyWorktree));
+    const content = block.fenced ? withoutShellComments(block.text) : block.text;
     const tableRow = block.text.trimStart().startsWith('|');
-    // 表の行はそれぞれ独立した手順なので、前の段落のワークツリー作成を引き継がない。
-    if (
-      worktree.test(block.heading) ||
-      worktree.test(block.text) ||
-      (!tableRow && (setupSeen || worktreeList || (block.fenced && nearbyWorktree)))
-    ) {
-      problems.push(...checkBlock(path, block, previous));
+    // 表の各行は独立した手順として扱う。本文の確認は同じ節で作業場所を切り替えるまで有効。
+    const previousProse = previous?.section === block.section && !previous.fenced ? previous.text : '';
+    const startsWorktreeList = listItem.test(content) && !listItem.test(previousProse) && worktree.test(previousProse);
+    if (!tableRow) {
+      const changesToCheckout = block.fenced ? cloneCommand.test(content) : normalCheckout.test(content);
+      if (changesToCheckout) {
+        scope = 'checkout';
+        priorCommands = '';
+      } else if (worktreeSetup.test(content) || startsWorktreeList) {
+        if (scope !== 'worktree' && !startsWorktreeList) priorCommands = '';
+        scope = 'worktree';
+      }
     }
+    const followsWorktreeProse = block.fenced && worktree.test(previousProse);
+    if (
+      worktree.test(content) ||
+      (scope !== 'checkout' &&
+        (worktree.test(block.heading) || (!tableRow && (scope === 'worktree' || followsWorktreeProse))))
+    ) {
+      problems.push(...checkBlock(path, block, tableRow ? '' : priorCommands, tableRow ? undefined : previous));
+    }
+    if (!tableRow) priorCommands += content + '\n';
     previous = block;
   }
   return problems;

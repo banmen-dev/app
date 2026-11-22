@@ -28,7 +28,7 @@ describe('ワークツリーの pnpm 保存先の確認', () => {
   });
 
   test('作業場所を説明した直後の番号付き手順を検出する', () => {
-    const content = '手元のワークツリーを使う。\n\n1. Node の版を確認する。\n2. `pnpm install` を実行する。';
+    const content = '手元のワークツリーを利用します。\n\n1. Node の版を確認する。\n2. `pnpm install` を実行する。';
     assert.deepEqual(findWorktreePnpmInstalls(path, content), [4]);
   });
 
@@ -45,6 +45,23 @@ describe('ワークツリーの pnpm 保存先の確認', () => {
       findWorktreePnpmInstalls(path, `- ワークツリーで ${guide} に従い、` + '`pnpm install` を実行する。'),
       [],
     );
+  });
+
+  test('保存先を表示した後に説明が挟まっても同じ手順の確認として扱う', () => {
+    const content = `### ワークツリーの準備\n\n${fence('pnpm store path')}\n\n表示が指す場所を見て、使うコマンドを決める。\n\n${fence('pnpm install --frozen-lockfile')}`;
+    assert.deepEqual(findWorktreePnpmInstalls(path, content), []);
+  });
+
+  test('同じ節で通常のクローンに切り替わればワークツリーの手順として扱わない', () => {
+    const content = `### 手元の準備\n\n${fence('git worktree add worktrees/example origin/main')}\n\n通常のクローンでは以下を実行する。\n\n${fence('pnpm install --frozen-lockfile')}`;
+    assert.deepEqual(findWorktreePnpmInstalls(path, content), []);
+  });
+
+  test('通常の作業コピーで実行しない旨の注記は作業場所を切り替えない', () => {
+    for (const note of ['本体の作業コピーでは実行しない。', 'この手順では `git clone` は行わない。']) {
+      const content = `### ワークツリーの準備\n\n${note}\n\n${fence('pnpm install')}`;
+      assert.deepEqual(findWorktreePnpmInstalls(path, content), [6]);
+    }
   });
 
   test('別の節や別の箇条書きにあるリンクでは通さない', () => {
