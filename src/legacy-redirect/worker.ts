@@ -6,8 +6,26 @@ import type { ErrorBody } from '../shared/errors.ts';
 // 転送先。末尾の / は付けない
 export const LEGACY_REDIRECT_TARGET = 'https://banmen.ucan-lab.workers.dev';
 
+// 新しい URL の Hono は、パスの百分率符号を decodeURI で解いてから振り分ける（%25 は残す）。
+// 解けない並びはそのまま残す（Hono の tryDecodeURI と同じ）。/%61pi/health も API への要求として扱うため、解いた形で判定する
+function tryDecodeURI(path: string): string {
+  const input = path.includes('%25') ? path.replaceAll('%25', '%2525') : path;
+  try {
+    return decodeURI(input);
+  } catch {
+    return input.replace(/(?:%[0-9A-Fa-f]{2})+/g, (match) => {
+      try {
+        return decodeURI(match);
+      } catch {
+        return match;
+      }
+    });
+  }
+}
+
 function isApiPath(pathname: string): boolean {
-  return pathname === '/api' || pathname.startsWith('/api/');
+  const decoded = tryDecodeURI(pathname);
+  return [pathname, decoded].some((p) => p === '/api' || p.startsWith('/api/'));
 }
 
 function moved(): Response {

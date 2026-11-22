@@ -14,6 +14,8 @@ export const LEGACY_ORIGIN = 'https://scrum-guild.ucan-lab.workers.dev';
 export const VERIFY_TIMEOUT_MS = 60_000;
 export const VERIFY_INTERVAL_MS = 5_000;
 export const REQUEST_TIMEOUT_MS = 10_000;
+// 壁時計は戻りうる（now は Date.now）ので、時計の上限に加えて回数でも打ち切る。最初の1回と、間隔ごとの1回
+export const VERIFY_MAX_ATTEMPTS = VERIFY_TIMEOUT_MS / VERIFY_INTERVAL_MS + 1;
 
 const WRANGLER_CONFIG = 'wrangler.legacy-redirect.jsonc';
 
@@ -97,7 +99,7 @@ export async function deployLegacyRedirect(deps: LegacyRedirectDeps): Promise<nu
     }
     deps.log(`旧 URL の転送の確認: ${attempt}回目はまだです（${reason}）`);
     const remaining = started + VERIFY_TIMEOUT_MS - deps.now();
-    if (remaining <= 0) break;
+    if (remaining <= 0 || attempt >= VERIFY_MAX_ATTEMPTS) break;
     await deps.sleep(Math.min(VERIFY_INTERVAL_MS, remaining));
   }
   deps.error(
