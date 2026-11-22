@@ -58,7 +58,7 @@ describe('clientErrorFile', () => {
   );
 
   test.each([
-    'https://scrum-guild.example.test/_app/immutable/chunks/abc.js',
+    'https://banmen.example.test/_app/immutable/chunks/abc.js',
     'https://cdn.example.test/evil.js',
     '/_app/immutable/chunks/abc.js?token=secret',
     '/_app/immutable/chunks/abc.js#frag',

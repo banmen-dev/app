@@ -171,16 +171,54 @@
       .catch(() => showToast(t('sprintStoryFilterClearFailed'), 'alert'));
   });
   const visibleColumns = $derived(storyColumns(columns, storyId));
-  let hoveredStory = $state<string | null>(null);
+  // ポインタの強調（undefined はカードの上にいない）が、親名のボタンのフォーカスより先。親のないカードに乗れば、フォーカスがあっても消す。
+  // ただし親名へフォーカスが移ったときは、ポインタの強調を捨ててフォーカスを先にする（onstoryfocus）
+  let hoveredStory = $state<string | null | undefined>(undefined);
   let focusedStory = $state<string | null>(null);
-  const highlightedStory = $derived(hoveredStory ?? focusedStory);
+  // 隙間で保った強調のストーリーが盤から消えたら（削除、読み直し、列を畳んで描かなくなった）、保った強調を捨ててフォーカスの強調に戻す
+  const visibleStoryIds = $derived(
+    new Set(
+      visibleColumns
+        .filter((column) => !collapsedColumns.isCollapsed(column.id))
+        .flatMap((column) => column.tasks.map((task) => task.story?.id ?? null)),
+    ),
+  );
+  const highlightedStory = $derived(
+    hoveredStory === null || (hoveredStory !== undefined && visibleStoryIds.has(hoveredStory))
+      ? hoveredStory
+      : focusedStory,
+  );
+  // 盤から消えたストーリーの保った強調は無視するだけでなく捨て、同じストーリーが盤に戻っても古い強調を出さない
+  $effect(() => {
+    if (typeof hoveredStory === 'string' && !visibleStoryIds.has(hoveredStory)) hoveredStory = undefined;
+  });
+  // カードの隙間（列の地と盤の地）では直前のカードの強調を保ち、ちらつかせない。見出しや足す行など、ほかの部分に移るか盤を出たら外す
+  function trackStoryHover(node: HTMLElement): () => void {
+    const over = (event: PointerEvent): void => {
+      const target = event.target;
+      // 強調を付けるのはカードの側で、タッチでは付けない。外す側はタッチでも通し、持ち替えの前の強調を残さない（カードに触れたときも外す）
+      if (!(target instanceof Element)) return;
+      if (target === node || target.classList.contains('board-col')) return;
+      if (target.closest('.card') && event.pointerType !== 'touch') return;
+      hoveredStory = undefined;
+    };
+    const leave = (): void => {
+      hoveredStory = undefined;
+    };
+    node.addEventListener('pointerover', over);
+    node.addEventListener('pointerleave', leave);
+    return () => {
+      node.removeEventListener('pointerover', over);
+      node.removeEventListener('pointerleave', leave);
+    };
+  }
   async function filterStory(id: string | null): Promise<void> {
     const previous = storyId;
     const title =
       id === null
         ? null
         : columns.flatMap((column) => column.tasks).find((task) => task.story?.id === id)?.story?.title;
-    hoveredStory = null;
+    hoveredStory = undefined;
     focusedStory = null;
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- 現在の経路のstory問い合わせだけを替える
     await goto(storyHref(page.url, id), { reset: false });
@@ -923,7 +961,7 @@
         {@attach canWrite ? (node) => dnd.wrap(node) : undefined}
       >
         <!-- 引き出しの前後のボタンの順は、ボードに今見えているカード（左の列から右へ、列の中は上から下） -->
-        <div class="board" style:--board-cols={columns.length} {@attach trackTaskOrder}>
+        <div class="board" style:--board-cols={columns.length} {@attach trackTaskOrder} {@attach trackStoryHover}>
           {#each visibleColumns as column (column.id)}
             <section
               class="board-col"
@@ -960,7 +998,11 @@
                     {task}
                     {highlightedStory}
                     onstoryhover={(id) => (hoveredStory = id)}
-                    onstoryfocus={(id) => (focusedStory = id)}
+                    onstoryfocus={(id) => {
+                      focusedStory = id;
+                      // キーボードで親名へ移ったら、隙間で保ったポインタの強調より、フォーカスしたストーリーを先にする
+                      if (id !== null) hoveredStory = undefined;
+                    }}
                     onstoryfilter={(id) => void filterStory(id)}
                     href="{sprintHref}?task={encodeURIComponent(task.id)}{cardStoryQuery}"
                     edges={canWrite ? edgesOf(visibleColumns, task.id) : null}

@@ -4,8 +4,11 @@
 // 足された行（新しい日時で先頭に来る）が多いと、seed の行は最初の 50 件の外へ押し出される（並べて繰り返す --repeat-each で起きる）。
 // そこで seed の行を見るテストは、一番古い seed の行が出るまで「古い履歴を読む」で読み足す。
 // 「古い履歴を読む」の振る舞いは、応答を差し替えて確かめる（seed の行は 50 件に満たない）
-import type { Page, Route } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import type { OutputOf } from '../src/shared/operations/define.ts';
+import { organizationHistory } from '../src/shared/operations/organization/index.ts';
 import { expect, test } from './fixtures.ts';
+import { mockOperation, routeOperation } from './operations.ts';
 import { mockSeedAdminLists, signIn, watchViolations } from './helpers.ts';
 
 test.use({ timezoneId: 'Asia/Tokyo' });
@@ -37,15 +40,15 @@ async function readToOldestSeedRow(page: Page): Promise<void> {
   }
 }
 
-type Entry = { id: string; created_at: string; actor: unknown; event: unknown };
+type Entry = OutputOf<typeof organizationHistory>['entries'][number];
 
 // 差し替える応答の行。id は UUIDv7 の形の架空の値
-function entry(index: number, text: string): Entry {
+function entry(index: number, content: string | Entry['event'], actor: Entry['actor'] = { kind: 'system' }): Entry {
   return {
     id: `019a0000-0000-7000-8000-${String(index).padStart(12, '0')}`,
     created_at: new Date(Date.UTC(2026, 9, 20, 0, 0) - index * 60_000).toISOString(),
-    actor: { kind: 'system' },
-    event: { kind: 'workspace_created', workspace_name: text },
+    actor,
+    event: typeof content === 'string' ? { kind: 'workspace_created', workspace_name: content } : content,
   };
 }
 
@@ -102,21 +105,60 @@ test.describe('管理者（あおば開発のミナト）', () => {
     expect(await collect()).toEqual([]);
   });
 
+  test('運用者が変更した上限と前後の値を履歴に表示する', async ({ page }) => {
+    const operator = { kind: 'operator' } as const;
+    const gib = 1024 ** 3;
+    await mockOperation(
+      page,
+      organizationHistory,
+      { slug: 'aoba' },
+      {
+        entries: [
+          entry(1, { kind: 'organization_quota_changed', member_limit: [50, 60] }, operator),
+          entry(
+            2,
+            { kind: 'organization_quota_changed', attachment_quota_bytes: [512 * 1024 ** 2, 30 * gib] },
+            operator,
+          ),
+          entry(
+            3,
+            {
+              kind: 'organization_quota_changed',
+              member_limit: [15, 50],
+              attachment_quota_bytes: [gib, 512 * 1024 ** 2],
+            },
+            operator,
+          ),
+        ],
+        next: null,
+      },
+    );
+    await page.goto('/aoba/admin');
+
+    const table = tableOf(page);
+    await expect(table.getByRole('cell', { name: '運用者', exact: true })).toHaveCount(3);
+    await expect(table.locator('tbody tr td:last-child')).toHaveText([
+      '人数の上限を 50 人から 60 人に変えました',
+      '添付ファイルの上限を 512 MB から 30 GB に変えました',
+      '人数の上限を 15 人から 50 人に、添付ファイルの上限を 1 GB から 512 MB に変えました',
+    ]);
+  });
+
   test('「古い履歴を読む」で次のページを後ろに足し、最後まで読んだら終わりの文へフォーカスを移す', async ({ page }) => {
     const first = [entry(1, '一番目'), entry(2, '二番目')];
     const second = [entry(3, '三番目')];
     const bodies: unknown[] = [];
     let release: () => void = () => {};
     const released = new Promise<void>((resolve) => (release = resolve));
-    await page.route('**/api/aoba/organization-history', async (route: Route) => {
-      const body = route.request().postDataJSON() as { before?: unknown };
+    await routeOperation(page, organizationHistory, { slug: 'aoba' }, async (call) => {
+      const body = call.input;
       bodies.push(body);
       if (body.before === undefined) {
-        await route.fulfill({ json: { entries: first, next: cursorOf(first[1]!) } });
+        await call.fulfill({ entries: first, next: cursorOf(first[1]!) });
         return;
       }
       await released;
-      await route.fulfill({ json: { entries: second, next: null } });
+      await call.fulfill({ entries: second, next: null });
     });
     await page.goto('/aoba/admin');
     const section = sectionOf(page);
@@ -147,15 +189,15 @@ test.describe('管理者（あおば開発のミナト）', () => {
   test('続きを読めなかったら、読めた行を残したまま理由を出し、もう一度押すと読める', async ({ page }) => {
     const first = [entry(1, '一番目')];
     let failNext = true;
-    await page.route('**/api/aoba/organization-history', async (route: Route) => {
-      const body = route.request().postDataJSON() as { before?: unknown };
+    await routeOperation(page, organizationHistory, { slug: 'aoba' }, async (call) => {
+      const body = call.input;
       if (body.before === undefined) {
-        await route.fulfill({ json: { entries: first, next: cursorOf(first[0]!) } });
+        await call.fulfill({ entries: first, next: cursorOf(first[0]!) });
       } else if (failNext) {
         failNext = false;
-        await route.fulfill({ status: 500, json: { error: { code: 'internal', message: 'x' } } });
+        await call.fail(500, 'internal', { message: 'x' });
       } else {
-        await route.fulfill({ json: { entries: [entry(2, '二番目')], next: cursorOf(entry(2, '二番目')) } });
+        await call.fulfill({ entries: [entry(2, '二番目')], next: cursorOf(entry(2, '二番目')) });
       }
     });
     await page.goto('/aoba/admin');
@@ -175,9 +217,7 @@ test.describe('管理者（あおば開発のミナト）', () => {
   });
 
   test('履歴が無ければ、空の状態を出す', async ({ page }) => {
-    await page.route('**/api/aoba/organization-history', (route) =>
-      route.fulfill({ json: { entries: [], next: null } }),
-    );
+    await mockOperation(page, organizationHistory, { slug: 'aoba' }, { entries: [], next: null });
     await page.goto('/aoba/admin');
     await expect(sectionOf(page).getByText('まだ変更の履歴がありません')).toBeVisible();
     await expect(tableOf(page)).toHaveCount(0);
@@ -196,16 +236,17 @@ test.describe('管理者（あおば開発のミナト）', () => {
   for (const width of [320, 1280]) {
     test(`${width}px の幅で、空白の無い50字の名前も内容の列で折り返し、横にはみ出さない`, async ({ page }) => {
       const long = 'W'.repeat(50);
-      await page.route('**/api/aoba/organization-history', (route) =>
-        route.fulfill({
-          json: {
-            entries: [
-              { ...entry(1, long), actor: { kind: 'user', id: '019a0000-0000-7000-8000-000000000301', name: long } },
-              { ...entry(2, long), actor: { kind: 'user', id: '019a0000-0000-7000-8000-000000000999', name: null } },
-            ],
-            next: null,
-          },
-        }),
+      await mockOperation(
+        page,
+        organizationHistory,
+        { slug: 'aoba' },
+        {
+          entries: [
+            { ...entry(1, long), actor: { kind: 'user', id: '019a0000-0000-7000-8000-000000000301', name: long } },
+            { ...entry(2, long), actor: { kind: 'user', id: '019a0000-0000-7000-8000-000000000999', name: null } },
+          ],
+          next: null,
+        },
       );
       await page.setViewportSize({ width, height: 800 });
       await page.goto('/aoba/admin');
@@ -231,9 +272,9 @@ test.describe('一般のユーザー（あおば開発のハルカ）', () => {
 
   test('組織の管理の画面は「見つからない」で、変更の履歴の節は出ない', async ({ page }) => {
     let historyCalls = 0;
-    await page.route('**/api/aoba/organization-history', (route) => {
+    await routeOperation(page, organizationHistory, { slug: 'aoba' }, (call) => {
       historyCalls++;
-      return route.continue();
+      return call.passThrough();
     });
     await page.goto('/aoba/admin');
     await expect(page.getByRole('heading', { level: 1, name: '画面が見つかりません' })).toBeVisible();

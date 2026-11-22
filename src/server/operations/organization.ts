@@ -4,7 +4,8 @@ import { myOrganizations, organizationInfo } from '../../shared/operations/organ
 import { themeOf } from '../../shared/theme.ts';
 import { ApiError } from '../errors.ts';
 import { readOrganizationStorageUsage } from '../db/index.ts';
-import { amountOf, userExperienceTotalStatement } from './experience.ts';
+import { amountOf } from './aggregate.ts';
+import { userExperienceTotalStatement } from './experience.ts';
 import { implement } from './implement.ts';
 import { contractOf } from './organization-contract.ts';
 

@@ -68,7 +68,7 @@ describe('ログイン後に戻る画面のパス', () => {
   test('バックスラッシュを拒むのはパスだけ。クエリとフラグメントでは拒まない', () => {
     for (const value of ['/a?x=\\y', '/a?next=\\evil.example', '/a#\\x', '/a?x=1#\\']) {
       assert.equal(safeReturnTo(value), value, value);
-      assert.equal(resolvedReturnTo(value, 'https://scrum-guild.example'), value, value);
+      assert.equal(resolvedReturnTo(value, 'https://banmen.example'), value, value);
     }
     for (const value of ['/a\\b', '/a\\b?x=1', '/\\evil.example', '/a/\\']) {
       assert.equal(safeReturnTo(value), DEFAULT_RETURN_TO, value);
@@ -89,7 +89,7 @@ describe('ログイン後に戻る画面のパス', () => {
   });
 
   test('resolvedReturnTo は、safeReturnTo を通さずに単体で呼んでも、第2の検査として効く', () => {
-    const origin = 'https://scrum-guild.example';
+    const origin = 'https://banmen.example';
     // safeReturnTo が先に落とす値でも、resolvedReturnTo は自分で、解決した後の値を見て落とす
     for (const value of [
       '/.//evil.example',
@@ -107,7 +107,7 @@ describe('ログイン後に戻る画面のパス', () => {
   });
 
   test('解決した後の値でも検査する: 解決で別のサイトになる書き方、api と login の別名は /', () => {
-    const origin = 'https://scrum-guild.example';
+    const origin = 'https://banmen.example';
     for (const value of dotted) {
       const resolved = resolvedReturnTo(value, origin);
       // 別のサイトに移る書き方は、解決した後に `//` で始まるので `/` に落ちる。`/a/.` のように、解決で `/a/` になるだけの値は、

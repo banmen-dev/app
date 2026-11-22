@@ -174,7 +174,8 @@ describe('CI とクラウドで共有する e2e の実行', () => {
       ['e2e-repeat', 'repeat'],
     ]) {
       const steps = workflow.jobs[job!]!.steps;
-      const run = steps.findIndex((step) => step.run?.includes(`node scripts/e2e-run.ts ${mode}`));
+      const command = `node scripts/e2e-run.ts ${mode}`;
+      const run = steps.findIndex((step) => step.run?.includes(mode === 'repeat' ? command : `${command} $FILES`));
       assert.ok(run >= 0);
       // 手元の D1 を tmpfs に置く段は、wrangler を動かす e2e より前に、実行と同じ条件で置く（#1149）
       const tmpfs = steps.findIndex((step) => step.uses === './.github/actions/local-d1-tmpfs');

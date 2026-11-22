@@ -14,12 +14,12 @@ const linked: NewsItem = {
 test('一覧が空なら、面を置かない', () => {
   const { body } = render(NewsPane, { props: { items: [] } });
   expect(body).not.toContain('pane');
-  expect(body).not.toContain('Scrum Guild のニュース');
+  expect(body).not.toContain('Banmen のニュース');
 });
 
 test('面の見出しは h2、各件の題は h3 で、日付と題と本文を一覧の順に出す', () => {
   const { body } = render(NewsPane, { props: { items: [plain, linked] } });
-  expect(body).toMatch(/<h2[^>]*>Scrum Guild のニュース<\/h2>/);
+  expect(body).toMatch(/<h2[^>]*>Banmen のニュース<\/h2>/);
   expect(body.match(/<h3 class="news-title">/g)).toHaveLength(2);
   expect(body).toContain('<time class="news-date" datetime="2026-11-15">2026-11-15</time>');
   expect(body.indexOf('架空の知らせ')).toBeLessThan(body.indexOf('架空のリンク付きの知らせ'));

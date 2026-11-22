@@ -84,7 +84,7 @@ export async function readOrganizationPlanRow(env: Env, db: OrganizationDb): Pro
 // 無ければログインの手段のアイコン（account_logins.avatar_url。共通の表）。組織の中の表（users と user_avatars）を organization_id で絞って
 // 1回の batch で引き、共通の表（account_logins）を別の問い合わせで引いて、アプリで合わせる（結合しない）。
 // account_logins の行は、users の行に結んだアカウントのものだけを使う（アカウントに結ばれる前の行は null。手段と ID だけで引くと、
-// 管理者が任意の GitHub の人に Scrum Guild のアカウントがあるかを知れてしまう）。ログインしたことの無い人と、アバターの無い人も null。
+// 管理者が任意の GitHub の人に Banmen のアカウントがあるかを知れてしまう）。ログインしたことの無い人と、アバターの無い人も null。
 // 別の組織の ID と、存在しない ID はキーを持たない
 export async function userAvatarsOf(
   env: Env,

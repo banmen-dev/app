@@ -3,7 +3,13 @@
 // seed の休日は流した日の週の月曜（W）から 15、35、71 日（月曜か火曜）。登録して消すのは、それより後の W+101（木曜）と
 // W+107（水曜）で、seed の休日と重ねず、一覧の先頭も seed の休日のままにする
 import type { Page } from '@playwright/test';
+import {
+  organizationHolidayAdd,
+  organizationHolidayDelete,
+  organizationHolidayList,
+} from '../src/shared/operations/organization/index.ts';
 import { expect, test } from './fixtures.ts';
+import { failOperation, mockOperation, routeOperation } from './operations.ts';
 import { mockSeedAdminLists, signIn, watchViolations } from './helpers.ts';
 import { seedWeek } from './seed-dates.ts';
 
@@ -86,9 +92,9 @@ test.describe('管理者（あおば開発のミナト）', () => {
 
   test('登録できる行が無ければ送らず、理由を出す', async ({ page }) => {
     let addCalls = 0;
-    await page.route('**/api/aoba/organization-holiday-add', (route) => {
+    await routeOperation(page, organizationHolidayAdd, { slug: 'aoba' }, (call) => {
       addCalls++;
-      return route.continue();
+      return call.passThrough();
     });
     await page.goto('/aoba/admin');
     const section = sectionOf(page);
@@ -102,9 +108,9 @@ test.describe('管理者（あおば開発のミナト）', () => {
 
   test('登録できる行が上限の 100 を超えたら送らず、分けて登録するよう出す', async ({ page }) => {
     let addCalls = 0;
-    await page.route('**/api/aoba/organization-holiday-add', (route) => {
+    await routeOperation(page, organizationHolidayAdd, { slug: 'aoba' }, (call) => {
       addCalls++;
-      return route.continue();
+      return call.passThrough();
     });
     await page.goto('/aoba/admin');
     const section = sectionOf(page);
@@ -140,13 +146,11 @@ test.describe('管理者（あおば開発のミナト）', () => {
 
   test('消すときに、別の画面で先に消されていた（404）なら、見つからなかったと知らせて読み直す', async ({ page }) => {
     const { seedSecond } = holidayDates();
-    await page.route('**/api/aoba/organization-holiday-delete', (route) =>
-      route.fulfill({ status: 404, json: { error: { code: 'not_found', message: 'x' } } }),
-    );
+    await failOperation(page, organizationHolidayDelete, { slug: 'aoba' }, 404, 'not_found', { message: 'x' });
     let listCalls = 0;
-    await page.route('**/api/aoba/organization-holiday-list', (route) => {
+    await routeOperation(page, organizationHolidayList, { slug: 'aoba' }, (call) => {
       listCalls++;
-      return route.continue();
+      return call.passThrough();
     });
     await page.goto('/aoba/admin');
     const section = sectionOf(page);
@@ -164,9 +168,9 @@ test.describe('管理者（あおば開発のミナト）', () => {
     let release: () => void = () => {};
     const released = new Promise<void>((resolve) => (release = resolve));
     // seed の行を消さないよう、応答は 404 に差し替える（フォーカスを移す処理は成功と同じ道を通る）
-    await page.route('**/api/aoba/organization-holiday-delete', async (route) => {
+    await routeOperation(page, organizationHolidayDelete, { slug: 'aoba' }, async (call) => {
       await released;
-      await route.fulfill({ status: 404, json: { error: { code: 'not_found', message: 'x' } } });
+      await call.fail(404, 'not_found', { message: 'x' });
     });
     await page.goto('/aoba/admin');
     const section = sectionOf(page);
@@ -182,9 +186,9 @@ test.describe('管理者（あおば開発のミナト）', () => {
   test('送っている間は欄を readonly にし、送れた後に残す行は押した時点の内容から作る', async ({ page }) => {
     let release: () => void = () => {};
     const released = new Promise<void>((resolve) => (release = resolve));
-    await page.route('**/api/aoba/organization-holiday-add', async (route) => {
+    await routeOperation(page, organizationHolidayAdd, { slug: 'aoba' }, async (call) => {
       await released;
-      await route.fulfill({ json: { added: 1, skipped: 0 } });
+      await call.fulfill({ added: 1, skipped: 0 });
     });
     await page.goto('/aoba/admin');
     const section = sectionOf(page);
@@ -219,10 +223,11 @@ test.describe('管理者（あおば開発のミナト）', () => {
   });
 
   test('320px の幅で空白の無い40字の名前でも、日付は1行のまま折れない', async ({ page }) => {
-    await page.route('**/api/aoba/organization-holiday-list', (route) =>
-      route.fulfill({
-        json: { holidays: [{ holiday_on: '2027-11-03', name: 'SoukyuKaihatsuKyokaiSouritsuKinenbiKyuj' }] },
-      }),
+    await mockOperation(
+      page,
+      organizationHolidayList,
+      { slug: 'aoba' },
+      { holidays: [{ holiday_on: '2027-11-03', name: 'SoukyuKaihatsuKyokaiSouritsuKinenbiKyuj' }] },
     );
     await page.setViewportSize({ width: 320, height: 800 });
     await page.goto('/aoba/admin');

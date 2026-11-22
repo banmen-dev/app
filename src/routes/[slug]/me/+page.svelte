@@ -8,12 +8,14 @@
   import Icon from '../../../lib/components/Icon.svelte';
   import LevelPanel from '../../../lib/components/LevelPanel.svelte';
   import MeInvitations from '../../../lib/components/MeInvitations.svelte';
+  import MePasswordSetting from '../../../lib/components/MePasswordSetting.svelte';
   import MeThemeSetting from '../../../lib/components/MeThemeSetting.svelte';
   import PageHead from '../../../lib/components/PageHead.svelte';
   import Section from '../../../lib/components/Section.svelte';
   import { formatDateTime } from '../../../lib/format-datetime.ts';
   import { formatCount } from '../../../lib/format.ts';
   import { isUnauthenticated, loginUrl } from '../../../lib/login-redirect.ts';
+  import { previewWithoutAttachments } from '../../../lib/preview-without-attachments.ts';
   import { t } from '../../../lib/vocabulary.svelte.ts';
   import type { ExperienceAction } from '../../../shared/experience.ts';
   import type { OutputOf } from '../../../shared/operations/define.ts';
@@ -229,14 +231,16 @@
   <div class="layout-main">
     {#if data.organization}
       <div class="settings">
-        {#key slug}
-          <MeAvatarSetting
-            {slug}
-            userId={data.organization.me.id}
-            name={data.organization.me.name}
-            image={data.organization.me.avatar_url}
-          />
-        {/key}
+        {#if !previewWithoutAttachments}
+          {#key slug}
+            <MeAvatarSetting
+              {slug}
+              userId={data.organization.me.id}
+              name={data.organization.me.name}
+              image={data.organization.me.avatar_url}
+            />
+          {/key}
+        {/if}
         <MeThemeSetting {slug} theme={data.organization.me.theme} />
       </div>
     {/if}
@@ -265,6 +269,10 @@
   </aside>
 </div>
 
+{#if data.loginProvider === 'password'}
+  <MePasswordSetting />
+{/if}
+
 <ApiTokensSetting
   initial={data.tokens}
   canCreate={data.canCreateToken}
@@ -278,9 +286,8 @@
     <EmptyState icon="alert" title={t('xpLedgerFailedTitle')} text={t('loadFailedText')} actions={grantsRetryActions} />
   {:else if rows.length === 0}
     <EmptyState
-      icon="crystal"
-      iconTone="xp"
-      art="chest"
+      icon="inbox"
+      art="notice"
       title={t('xpEmptyTitle')}
       text={t('xpEmptyText', { task: t('task'), complete: t('complete'), done: t('done') })}
     />
@@ -294,7 +301,7 @@
             <th>{t('workspace')}</th>
             <th>{t('xpHeaderAction')}</th>
             <th class="is-name">{t('xpHeaderContent')}</th>
-            <th class="is-num"><Icon name="crystal" tone="xp" /> {t('xpUnit')}</th>
+            <th class="is-num">{t('xpUnit')}</th>
           </tr>
         </thead>
         <tbody>

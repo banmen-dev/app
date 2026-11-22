@@ -10,7 +10,7 @@ window.SQ_DATA = (function () {
     todayLabel: "2026年10月20日（火）",
     // 組織のホームのニュース（本番は src/lib/news.ts）。日付は YYYY-MM-DD。href は https:// で始まるものだけで、あれば題が新しいタブで開く
     news: [
-      { date: "2026-10-20", title: "組織のホームがダッシュボードになりました", body: "ワークスペースと今日やることを左の列に並べました。ここには Scrum Guild からの知らせが載ります。" },
+      { date: "2026-10-20", title: "組織のホームがダッシュボードになりました", body: "ワークスペースと今日やることを左の列に並べました。ここには Banmen からの知らせが載ります。" },
       { date: "2026-10-12", title: "見本のリンク付きの知らせ", body: "リンクのある知らせは、題を押すと新しいタブで開きます。題の後ろの印が目印です。", href: "https://example.com/news/sample" },
     ],
     me: "u1",
@@ -277,7 +277,6 @@ Object.assign(window.SQ_DATA, {
     { kind: "comment", at: "10/16 09:06", read: false, who: "u3", text: "ソウタさんが「ポイント付与のバッチを作る」にコメントしました", task: "t1" },
     { kind: "party", at: "10/15 13:20", read: false, who: "u2", text: "ハルカさんがあなたをエピック「会員ポイント制度を公開する」の参加者に割り振りました" },
     { kind: "error", at: "10/20 10:00", read: true, text: "接続「ミナトの GitHub」の取り込みに失敗しています（503）。次の同期で再試行します" },
-    { kind: "thanks", at: "10/14 18:30", read: true, who: "u4", text: "リンさんから「障害時の連絡手順を書く」で感謝が届きました" },
     { kind: "reward", at: "10/10 10:00", read: true, who: "u2", text: "エピック「会員ポイント制度を公開する」のクリア報酬が 中 から 大 に変わりました" },
   ],
   receivedInvites: [
@@ -348,10 +347,10 @@ Object.assign(window.SQ_DATA, {
       { slug: "kaze-labo", name: "かぜラボ", users: 1, limit: 15, wss: 0, tasks: 0, quota: 30, lastUsed: "2026/10/21 08:30", created: "2026/10/21 08:20", admins: 1, selfCreated: true, trialEndsOn: "2026-11-20", trialExpired: false },
       // 自分用の組織（personal）。種類の印を付け、人数 / 上限の列は空（ダッシュ）、上限に達した印と管理者の状態の印を出さず、管理者の指名と上限の変更を置かない
       { slug: "mio-solo", name: "自分用", users: 1, limit: 1, wss: 2, tasks: 37, quota: 1, usedBytes: 37, lastUsed: "2026/10/22 07:55", created: "2026/10/10 21:40", admins: 1, personal: true },
-      { slug: "kumo-lab", name: "くもラボ", plan: "ビジネス・月払い", users: 38, limit: 50, wss: 4, tasks: 3410, quota: 100, lastUsed: "2026/10/18 11:03", created: "2026/07/10 09:45", admins: 0 },
+      { slug: "kumo-lab", name: "くもラボ", plan: "プロ・月払い", users: 38, limit: 50, wss: 4, tasks: 3410, quota: 100, lastUsed: "2026/10/18 11:03", created: "2026/07/10 09:45", admins: 0 },
       // 停止中の自分用。停止の理由の切り替えと再開はできる
       { slug: "hoshi-solo", name: "自分用", users: 1, limit: 1, wss: 1, tasks: 4, quota: 1, lastUsed: "2026/09/05 12:10", created: "2026/08/20 18:00", admins: 1, personal: true, suspended: "2026-09-30" },
-      { slug: "nagi", name: "なぎ設計", plan: "チーム・月払い", users: 2, limit: 15, wss: 1, tasks: 96, quota: 30, lastUsed: "2026/09/02 15:21", created: "2026/08/01 16:30", admins: 1, suspended: "2026-09-30", purgeOn: "2026-10-30" },
+      { slug: "nagi", name: "なぎ設計", plan: "スモール・月払い", users: 2, limit: 3, wss: 1, tasks: 96, quota: 10, lastUsed: "2026/09/02 15:21", created: "2026/08/01 16:30", admins: 1, suspended: "2026-09-30", purgeOn: "2026-10-30" },
       // 消す予定日を過ぎた解約の組織（purgeDue）。管理者の指名、再開、停止の理由の切り替えを出さず、できない理由を出す
       { slug: "kiri", name: "きり製作所", plan: "チーム・月払い", users: 3, limit: 15, wss: 1, tasks: 41, quota: 30, lastUsed: "2026/08/28 10:05", created: "2026/05/20 13:10", admins: 1, suspended: "2026-09-10", purgeOn: "2026-10-10", purgeDue: true },
     ],

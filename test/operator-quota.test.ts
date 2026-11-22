@@ -79,7 +79,7 @@ async function changeQuotaBy(token: string, slug: string, quota: Quota, options:
   return post(app, organizationQuotaUpdate, { token, body: { slug, ...quota, expected }, env: options.env });
 }
 
-describe('値段の段階', () => {
+describe('未契約の組織の上限の段階', () => {
   test('小さい組織は 15 人と 30 GB、標準は 50 人と 100 GB。小さい組織は列の既定と同じ', () => {
     expect(
       quotaTiers.map(({ member_limit, attachment_quota_bytes }) => ({ member_limit, attachment_quota_bytes })),
@@ -305,7 +305,7 @@ describe('作成の既定', () => {
       now: new Date(),
     });
     expect(created).not.toBe('slug_taken');
-    const small = quotaTiers.find((tier) => tier.id === 'small')!;
+    const small = quotaTiers.find((tier) => tier.id === 'small_organization')!;
     expect(await currentQuotaOf(slug)).toEqual({
       member_limit: small.member_limit,
       attachment_quota_bytes: small.attachment_quota_bytes,
@@ -369,7 +369,7 @@ describe('変更の履歴', () => {
     expect(JSON.parse(quotaOnly!.changes_json)).toEqual({ attachment_quota_bytes: [100 * GIB, 200 * GIB] });
   });
 
-  test('組織の変更の履歴（organization-history）に、運用者の操作として1件出る', async () => {
+  test('組織の変更の履歴に、運用者が変えた上限だけを前後の値で返す', async () => {
     const target = await createTarget();
     const read = async () =>
       (
@@ -378,11 +378,33 @@ describe('変更の履歴', () => {
         }
       ).entries;
     const before = await read();
-    expect((await changeQuotaBy(await operatorToken(), target.slug, STANDARD)).status).toBe(200);
+    const token = await operatorToken();
+    const changes = [
+      {
+        quota: STANDARD,
+        event: {
+          kind: 'organization_quota_changed',
+          member_limit: [15, 50],
+          attachment_quota_bytes: [30 * GIB, 100 * GIB],
+        },
+      },
+      {
+        quota: { ...STANDARD, member_limit: 60 },
+        event: { kind: 'organization_quota_changed', member_limit: [50, 60] },
+      },
+      {
+        quota: { member_limit: 60, attachment_quota_bytes: 512 * 1024 ** 2 },
+        event: { kind: 'organization_quota_changed', attachment_quota_bytes: [100 * GIB, 512 * 1024 ** 2] },
+      },
+    ];
+    for (const { quota } of changes) {
+      expect((await changeQuotaBy(token, target.slug, quota)).status).toBe(200);
+    }
     const after = await read();
-    expect(after).toHaveLength(before.length + 1);
-    // 新しい順なので先頭。上限の変更は専用の種類を持たず、知らない組と同じ other で出す
-    expect(after[0]).toMatchObject({ actor: { kind: 'operator' }, event: { kind: 'other' } });
+    expect(after).toHaveLength(before.length + changes.length);
+    expect(after.map(({ actor, event }) => ({ actor, event }))).toEqual(
+      expect.arrayContaining(changes.map(({ event }) => ({ actor: { kind: 'operator' }, event }))),
+    );
   });
 
   test('履歴を書けなくても変更は成功し、ログに組織の ID、前後の値、日時、例外の名前だけを残す', async () => {

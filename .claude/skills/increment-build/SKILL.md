@@ -39,7 +39,7 @@ git worktree add worktrees/<名前> -b <名前> origin/main
 ```
 
 `post-checkout` が `status:in-progress` を付けて `status:refining` を外す。
-ワークツリーで `pnpm install` を走らせる（依存はワークツリーごとに入れる。`docs/development.md` の「ワークツリーで作業する」）。
+ワークツリーのルートで [ワークツリーで作業する](../../../docs/development.md#ワークツリーで作業する) に従い、`pnpm store path` で保存先を確認してから依存を入れる。
 以降の git、`pnpm`、`done-check` は、ワークツリーの絶対パスの中で行う。Bash のカレントは呼び出しごとに本体へ戻るので、コマンドごとに `cd <絶対パス> ||` を付けるか `git -C <絶対パス>` で打つ。
 
 クラウドのセッションはワークツリーを切らず、ラベルを手で付け替える（`docs/development.md` の「Issue の状態」）。

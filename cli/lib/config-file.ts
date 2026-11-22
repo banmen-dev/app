@@ -3,15 +3,22 @@ import type { Config, ConfigStore } from './main.ts';
 import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
-export function fileConfigStore(path: string): ConfigStore {
+async function readConfig(path: string): Promise<Config | undefined> {
+  try {
+    return JSON.parse(await readFile(path, 'utf8')) as Config;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    throw error;
+  }
+}
+
+// legacyPath は改める前の置き場所。path に無いときだけ読み、書くのは常に path（次に書いたときに移る）
+export function fileConfigStore(path: string, legacyPath?: string): ConfigStore {
   return {
     async read() {
-      try {
-        return JSON.parse(await readFile(path, 'utf8')) as Config;
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
-        throw error;
-      }
+      const config = await readConfig(path);
+      if (config !== undefined || legacyPath === undefined) return config;
+      return readConfig(legacyPath);
     },
     async write(config) {
       await mkdir(dirname(path), { recursive: true });

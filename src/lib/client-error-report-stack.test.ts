@@ -4,7 +4,7 @@ import { describe, expect, test } from 'vitest';
 import type { ClientErrorReport } from '../shared/client-error.ts';
 import { createClientErrorReporter } from './client-error-report.ts';
 
-const ORIGIN = 'https://scrum-guild.example.test';
+const ORIGIN = 'https://banmen.example.test';
 
 function setup() {
   const sent: ClientErrorReport[] = [];

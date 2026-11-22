@@ -44,7 +44,7 @@ test.describe('リーダー（あおば開発のミナト）', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'メンバー' })).toBeVisible();
     await expect(page.locator('.page-eyebrow')).toHaveText('受託開発チーム');
     await expect(page.locator('.nav-item[aria-current="page"]')).toHaveText('メンバー');
-    await expect(page).toHaveTitle('メンバー・受託開発チーム - Scrum Guild');
+    await expect(page).toHaveTitle('メンバー・受託開発チーム - Banmen');
 
     // 頭の数字は所属、リーダー、招待中
     const tally = page.locator('.tally > div');
@@ -692,10 +692,8 @@ test.describe('リーダー（ひばり工房のリン）', () => {
     await expect(page.getByLabel('GitHub のユーザー名')).toHaveCount(0);
     await expect(page.getByRole('button', { name: '確かめる' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: '招待する' })).toBeDisabled();
-    await expect(
-      page.locator('.panel .field-hint', { hasText: 'Scrum Guild は招待をメールで送りません。' }),
-    ).toHaveText(
-      /^Scrum Guild は招待をメールで送りません。Google の招待は、招待したときに出る招待の URL（14日で切れます）を本人に伝えてください。GitHub の招待は、次の組織の URL を伝えてください。\s*http:\/\/localhost:\d+\/hibari\/$/,
+    await expect(page.locator('.panel .field-hint', { hasText: 'Banmen は招待をメールで送りません。' })).toHaveText(
+      /^Banmen は招待をメールで送りません。Google の招待は、招待したときに出る招待の URL（14日で切れます）を本人に伝えてください。GitHub の招待は、次の組織の URL を伝えてください。\s*http:\/\/localhost:\d+\/hibari\/$/,
     );
 
     // 形の合わないアドレスは欄の下に出す

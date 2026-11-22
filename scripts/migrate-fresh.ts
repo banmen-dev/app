@@ -16,7 +16,7 @@ if (files.length === 0) {
 }
 
 // 手元の .wrangler/state を使うと、前に当てた状態から始まってしまう
-const persistTo = mkdtempSync(path.join(tmpdir(), 'scrum-guild-d1-'));
+const persistTo = mkdtempSync(path.join(tmpdir(), 'banmen-d1-'));
 
 function run(command: string, args: string[], failure: string): void {
   const result = spawnSync(command, args, { stdio: 'inherit' });

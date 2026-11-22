@@ -1,16 +1,16 @@
-// エピックのクリアと取り消し（epic-complete、epic-reopen）の振る舞い（クリア報酬の付与と打ち消し、競合、変更の履歴）。
+// エピックのクリアと取り消し（epic-complete、epic-reopen）の振る舞い（経験値の行を書かないこと、競合、変更の履歴）。
 // 組織の分離と権限の種類ごとの許可と拒否は、一覧を回す test/operation-registry.test.ts が確かめる
 import { env } from 'cloudflare:workers';
 import { describe, expect, test } from 'vitest';
-import { XP_EPIC_REWARD } from '../src/shared/experience.ts';
 import { epicComplete, epicDelete, epicReopen } from '../src/shared/operations/epic/index.ts';
-import { storyMove } from '../src/shared/operations/story/index.ts';
+import { storyComplete, storyMove } from '../src/shared/operations/story/index.ts';
+import { taskComplete } from '../src/shared/operations/task/index.ts';
 import { createApp } from '../src/server/app.ts';
 import { deleteStatements } from '../src/server/operations/tree-delete.ts';
 import { orgDb } from '../src/server/db/index.ts';
 import { envWithD1Hooks } from '../src/server/db/testing.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
-import { AT, createEpic, createEpicPartyMember, createMembership, createStory, createUser } from './factories.ts';
+import { AT, createEpic, createEpicPartyMember, createStory, createTask, createXpGrant } from './factories.ts';
 import { post } from './operations/harness.ts';
 import { createTarget, testEnv, type Person, type Target } from './operations/world.ts';
 
@@ -56,8 +56,8 @@ function racing(match: (sqls: readonly string[]) => boolean, change: () => Promi
   });
 }
 
-// クリアする前の状態の読み取り（エピック、配下の件数、受け取り手）
-const readsEpic = (sqls: readonly string[]) => sqls[0]?.startsWith('select "epics"."reward_tier"') === true;
+// クリアする前の状態の読み取り（エピック、配下の件数）
+const readsEpic = (sqls: readonly string[]) => sqls[0]?.startsWith('select "epics"."requester_user_id"') === true;
 
 function epicOf(target: Target, overrides: Parameters<typeof createEpic>[3] = {}) {
   return createEpic(target.organization, target.workspace.id, target.admin.userId!, overrides);
@@ -96,12 +96,27 @@ async function rewardGrants(target: Target, epicId: string) {
   );
 }
 
-async function balances(target: Target, epicId: string) {
-  const totals: Record<string, number> = {};
-  for (const grant of await rewardGrants(target, epicId)) {
-    totals[grant.user_id] = (totals[grant.user_id] ?? 0) + grant.amount;
-  }
-  return totals;
+// このワークスペースの経験値の行の数（エピックに結ばれない行も数える）
+async function workspaceGrantCount(target: Target) {
+  const db = orgDb(env, target.organization.verified);
+  const rows = await db.rows(
+    db.statement((q) => q.selectFrom('xp_grants').select('id').where('workspace_id', '=', target.workspace.id)),
+  );
+  return rows.length;
+}
+
+// このワークスペースの経験値の行（打ち消しの行が増えていないかを見る）
+async function workspaceGrants(target: Target) {
+  const db = orgDb(env, target.organization.verified);
+  return db.rows(
+    db.statement((q) =>
+      q
+        .selectFrom('xp_grants')
+        .select(['id', 'amount', 'reverses_grant_id'])
+        .where('workspace_id', '=', target.workspace.id)
+        .orderBy('id'),
+    ),
+  );
 }
 
 async function logsOf(target: Target, epicId: string) {
@@ -135,13 +150,9 @@ async function readyEpic(target: Target, overrides: Parameters<typeof createEpic
 }
 
 describe('epic-complete', () => {
-  test('今所属している討伐隊の全員に、段階の額を1行ずつ付け、変更の履歴を残す', async () => {
+  test('クリアして、完了の記録と変更の履歴を残し、経験値の行は書かない（応答の reward_xp と recipient_count は 0）', async () => {
     const target = await createTarget();
     const epic = await readyEpic(target);
-    // 抜けた人には付けない
-    const leaver = await createUser(target.organization);
-    await createMembership(target.organization, target.workspace.id, leaver.id, { left_on: '2026-10-10', left_at: AT });
-    await createEpicPartyMember(target.organization, epic.id, leaver.id);
 
     const res = await clear(target, epic.id, target.leader);
     expect(res.status).toBe(200);
@@ -151,24 +162,49 @@ describe('epic-complete', () => {
       reward_xp: number;
       recipient_count: number;
     };
-    expect(body).toMatchObject({ epic_id: epic.id, reward_xp: XP_EPIC_REWARD.medium, recipient_count: 2 });
+    expect(body).toMatchObject({ epic_id: epic.id, reward_xp: 0, recipient_count: 0 });
 
     const row = await epicRow(target, epic.id);
     expect(row.completed_at).toBe(body.completed_at);
     expect(row.completed_by).toBe(target.leader.userId);
-    const grants = await rewardGrants(target, epic.id);
-    expect(grants.map((g) => [g.user_id, g.action, g.amount, g.reverses_grant_id, g.confirmed_at]).sort()).toEqual(
-      [
-        [target.member.userId, 'epic_reward', 300, null, body.completed_at],
-        [target.leader.userId, 'epic_reward', 300, null, body.completed_at],
-      ].sort(),
-    );
-    expect(
-      grants.every((g) => g.dedupe_key.startsWith(`epic_reward:${epic.id}:${g.user_id}:${body.completed_at}:`)),
-    ).toBe(true);
+    expect(await rewardGrants(target, epic.id)).toEqual([]);
+    expect(await workspaceGrantCount(target)).toBe(0);
     const logs = await logsOf(target, epic.id);
     expect(logs).toHaveLength(1);
     expect(logs[0]).toMatchObject({ actor: target.leader.userId, action: 'complete' });
+  });
+
+  test('タスクとストーリーを完了の操作で完了にしてから、討伐隊のいるエピックをクリアしても、経験値の行は増えない', async () => {
+    const target = await createTarget();
+    const epic = await epicOf(target, { reward_tier: 'large' });
+    await createEpicPartyMember(target.organization, epic.id, target.member.userId!);
+    await createEpicPartyMember(target.organization, epic.id, target.leader.userId!);
+    const story = await storyUnder(target, epic.id, { completed_at: null, completed_by: null });
+    const task = await createTask(target.organization, target.workspace.id, target.admin.userId!, {
+      story_id: story.id,
+      points: 2,
+      assignee_user_id: target.leader.userId,
+    });
+    const completeTask = await post(app, taskComplete, {
+      slug: target.slug,
+      token: target.member.token,
+      body: { workspace_id: target.workspace.id, task_id: task.id },
+    });
+    expect(completeTask.status).toBe(200);
+    const completeStory = await post(app, storyComplete, {
+      slug: target.slug,
+      token: target.member.token,
+      body: { workspace_id: target.workspace.id, story_id: story.id },
+    });
+    expect(completeStory.status).toBe(200);
+    const before = await workspaceGrantCount(target);
+
+    const res = await clear(target, epic.id);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ epic_id: epic.id, reward_xp: 0, recipient_count: 0 });
+    expect((await epicRow(target, epic.id)).completed_at).not.toBeNull();
+    expect(await workspaceGrantCount(target)).toBe(before);
+    expect(await rewardGrants(target, epic.id)).toEqual([]);
   });
 
   test('依頼主は一般のメンバーでもクリアできる。依頼主でもリーダーでもないメンバーは 403 で、何も書かない', async () => {
@@ -184,7 +220,7 @@ describe('epic-complete', () => {
     expect((await clear(target, own.id, target.member)).status).toBe(200);
   });
 
-  test('討伐隊が0人でもクリアでき、報酬は誰にも付かない', async () => {
+  test('討伐隊が0人でもクリアでき、報酬の行も書かない', async () => {
     const target = await createTarget();
     const epic = await epicOf(target);
     await storyUnder(target, epic.id);
@@ -239,7 +275,7 @@ describe('epic-complete', () => {
     const again = await clear(target, epic.id);
     expect(again.status).toBe(409);
     expect(await errorOf(again)).toEqual({ code: 'conflict', reason: 'completed' });
-    expect(await rewardGrants(target, epic.id)).toHaveLength(2);
+    expect(await rewardGrants(target, epic.id)).toEqual([]);
   });
 
   test('閉じたワークスペースでは 409 の workspace_closed で、何も書かない', async () => {
@@ -261,7 +297,7 @@ describe('epic-complete', () => {
     expect((await epicRow(other, foreign.id)).completed_at).toBeNull();
   });
 
-  test('止めた時計で同時に2回クリアしても、記録と報酬は1人1行', async () => {
+  test('止めた時計で同時に2回クリアしても、記録は1回分', async () => {
     const target = await createTarget();
     const epic = await readyEpic(target);
     const frozen = clockAt('2026-10-26T01:00:00.000Z');
@@ -270,11 +306,11 @@ describe('epic-complete', () => {
       clear(target, epic.id, target.leader, frozen),
     ]);
     expect(results.map((res) => res.status).sort()).toEqual([200, 409]);
-    expect(await rewardGrants(target, epic.id)).toHaveLength(2);
+    expect(await rewardGrants(target, epic.id)).toEqual([]);
     expect(await logsOf(target, epic.id)).toHaveLength(1);
   });
 
-  test('2つの画面から同時にクリアすると、片方は 409 の conflict（completed）で、報酬は1人1行', async () => {
+  test('2つの画面から同時にクリアすると、片方は 409 の conflict（completed）で、記録は1回分', async () => {
     const target = await createTarget();
     const epic = await readyEpic(target);
     let second: Response | undefined;
@@ -286,24 +322,7 @@ describe('epic-complete', () => {
     expect(first.status).toBe(409);
     expect(await errorOf(first)).toEqual({ code: 'conflict', reason: 'completed' });
     expect((await epicRow(target, epic.id)).completed_by).toBe(target.admin.userId);
-    expect(await rewardGrants(target, epic.id)).toHaveLength(2);
-    expect(await logsOf(target, epic.id)).toHaveLength(1);
-  });
-
-  test('読んでから書くまでに討伐隊が増えたら、読み直してやり直し、増えた人にも付ける', async () => {
-    const target = await createTarget();
-    const epic = await epicOf(target, { reward_tier: 'small' });
-    await storyUnder(target, epic.id);
-    await createEpicPartyMember(target.organization, epic.id, target.member.userId!);
-    const raced = racing(readsEpic, async () => {
-      await createEpicPartyMember(target.organization, epic.id, target.leader.userId!);
-    });
-    const res = await clear(target, epic.id, target.leader, raced);
-    expect(res.status).toBe(200);
-    expect(await balances(target, epic.id)).toEqual({
-      [target.member.userId!]: XP_EPIC_REWARD.small,
-      [target.leader.userId!]: XP_EPIC_REWARD.small,
-    });
+    expect(await rewardGrants(target, epic.id)).toEqual([]);
     expect(await logsOf(target, epic.id)).toHaveLength(1);
   });
 
@@ -450,11 +469,27 @@ describe('epic-complete', () => {
 });
 
 describe('epic-reopen', () => {
-  test('クリアを取り消し、その回の報酬をすべて打ち消し、もう一度クリアすると付け直す', async () => {
+  test('前の版のクリアで付いた epic_reward の明細は、取り消しても打ち消さず、そのまま残す', async () => {
+    const target = await createTarget();
+    const epic = await readyEpic(target);
+    expect((await clear(target, epic.id)).status).toBe(200);
+    // この版を出す前のクリアで付いた明細（打ち消されていない行）
+    const grant = await createXpGrant(target.organization, target.workspace.id, target.member.userId!, {
+      action: 'epic_reward',
+      epic_id: epic.id,
+      amount: 300,
+    });
+
+    expect((await reopen(target, epic.id, target.leader)).status).toBe(200);
+    expect(await workspaceGrants(target)).toEqual([{ id: grant.id, amount: 300, reverses_grant_id: null }]);
+  });
+
+  test('クリアを取り消しても打ち消しの行は書かず、もう一度クリアできる', async () => {
     const target = await createTarget();
     const epic = await readyEpic(target);
     expect((await clear(target, epic.id)).status).toBe(200);
     const firstRow = await epicRow(target, epic.id);
+    expect(await workspaceGrantCount(target)).toBe(0);
 
     const res = await reopen(target, epic.id, target.leader);
     expect(res.status).toBe(200);
@@ -462,20 +497,14 @@ describe('epic-reopen', () => {
     const reopened = await epicRow(target, epic.id);
     expect(reopened.completed_at).toBeNull();
     expect(reopened.completed_by).toBeNull();
-    const grants = await rewardGrants(target, epic.id);
-    expect(grants).toHaveLength(4);
-    const reversals = grants.filter((g) => g.reverses_grant_id !== null);
-    expect(reversals.map((g) => [g.action, g.amount])).toEqual([
-      ['epic_reward', -300],
-      ['epic_reward', -300],
-    ]);
-    expect(reversals.every((g) => g.dedupe_key === `reversal:${g.reverses_grant_id}`)).toBe(true);
-    expect(await balances(target, epic.id)).toEqual({ [target.member.userId!]: 0, [target.leader.userId!]: 0 });
+    expect(await workspaceGrantCount(target)).toBe(0);
 
-    // もう一度クリアすると、新しい回の報酬が付く
-    expect((await clear(target, epic.id)).status).toBe(200);
+    // もう一度クリアできる。経験値の行は増えない
+    const again = await clear(target, epic.id);
+    expect(again.status).toBe(200);
+    expect(await again.json()).toMatchObject({ reward_xp: 0, recipient_count: 0 });
     expect((await epicRow(target, epic.id)).completed_at).not.toBe(firstRow.completed_at);
-    expect(await balances(target, epic.id)).toEqual({ [target.member.userId!]: 300, [target.leader.userId!]: 300 });
+    expect(await workspaceGrantCount(target)).toBe(0);
 
     const actions = (await logsOf(target, epic.id)).map((log) => log.action);
     expect(actions).toEqual(['complete', 'reopen', 'complete']);
@@ -485,7 +514,7 @@ describe('epic-reopen', () => {
     });
   });
 
-  test('止めた時計で、クリア、取り消し、クリアを同じ時刻に流しても落ちず、2回目のクリアで報酬を付け直す', async () => {
+  test('止めた時計で、クリア、取り消し、クリアを同じ時刻に流しても落ちない', async () => {
     const target = await createTarget();
     const epic = await readyEpic(target);
     const frozen = clockAt('2026-10-26T01:00:00.000Z');
@@ -493,64 +522,25 @@ describe('epic-reopen', () => {
     expect((await reopen(target, epic.id, target.leader, frozen)).status).toBe(200);
     const again = await clear(target, epic.id, target.leader, frozen);
     expect(again.status).toBe(200);
-    expect(await again.json()).toMatchObject({ recipient_count: 2 });
+    expect(await again.json()).toMatchObject({ recipient_count: 0 });
     expect((await epicRow(target, epic.id)).completed_at).toBe('2026-10-26T01:00:00.000Z');
-    // 付与2行、打ち消し2行、付け直し2行。合計は 300 ずつ
-    expect(await rewardGrants(target, epic.id)).toHaveLength(6);
-    expect(await balances(target, epic.id)).toEqual({ [target.member.userId!]: 300, [target.leader.userId!]: 300 });
+    expect(await workspaceGrantCount(target)).toBe(0);
   });
 
-  test('クリアと取り消しを2回ずつ流しても、合計は 0 で、打ち消しは元の付与を1回ずつだけ指す', async () => {
+  test('クリアと取り消しを2回ずつ流しても、経験値の行は増えない', async () => {
     const target = await createTarget();
     const epic = await readyEpic(target);
     for (let round = 0; round < 2; round++) {
       expect((await clear(target, epic.id)).status).toBe(200);
       expect((await reopen(target, epic.id)).status).toBe(200);
     }
-    const grants = await rewardGrants(target, epic.id);
-    expect(grants).toHaveLength(8);
-    expect(await balances(target, epic.id)).toEqual({ [target.member.userId!]: 0, [target.leader.userId!]: 0 });
-    const reversed = grants.filter((g) => g.reverses_grant_id !== null).map((g) => g.reverses_grant_id);
-    expect(new Set(reversed).size).toBe(4);
-  });
-
-  test('読んでから書くまでに受け取り手が所属を外れたら、その人には付けず、応答の人数も付いた数にする', async () => {
-    const target = await createTarget();
-    const epic = await readyEpic(target);
-    const raced = racing(readsEpic, async () => {
-      const db = orgDb(env, target.organization.verified);
-      await db.run(
-        db.statement((q) =>
-          q
-            .updateTable('memberships')
-            .set({ left_on: '2026-10-30', left_at: AT })
-            .where('workspace_id', '=', target.workspace.id)
-            .where('user_id', '=', target.member.userId!),
-        ),
-      );
-    });
-    const res = await clear(target, epic.id, target.leader, raced);
-    expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ recipient_count: 1 });
-    expect(await balances(target, epic.id)).toEqual({ [target.leader.userId!]: 300 });
-  });
-
-  test('受け取った人が所属を外れていても、取り消すと打ち消す', async () => {
-    const target = await createTarget();
-    const epic = await readyEpic(target);
-    expect((await clear(target, epic.id)).status).toBe(200);
-    const db = orgDb(env, target.organization.verified);
-    await db.run(
-      db.statement((q) =>
-        q
-          .updateTable('memberships')
-          .set({ left_on: '2026-10-30', left_at: AT })
-          .where('workspace_id', '=', target.workspace.id)
-          .where('user_id', '=', target.member.userId!),
-      ),
-    );
-    expect((await reopen(target, epic.id)).status).toBe(200);
-    expect(await balances(target, epic.id)).toEqual({ [target.member.userId!]: 0, [target.leader.userId!]: 0 });
+    expect(await workspaceGrantCount(target)).toBe(0);
+    expect((await logsOf(target, epic.id)).map((log) => log.action)).toEqual([
+      'complete',
+      'reopen',
+      'complete',
+      'reopen',
+    ]);
   });
 
   test('クリアしていなければ 409 の conflict（not_completed）、中止したエピックは 409 の epic_finished', async () => {
@@ -569,7 +559,7 @@ describe('epic-reopen', () => {
     expect((await clear(target, epic.id)).status).toBe(200);
     expect((await reopen(target, epic.id, target.member)).status).toBe(403);
     expect((await epicRow(target, epic.id)).completed_at).not.toBeNull();
-    expect(await rewardGrants(target, epic.id)).toHaveLength(2);
+    expect(await rewardGrants(target, epic.id)).toEqual([]);
 
     const own = await readyEpic(target, { requester_user_id: target.member.userId! });
     expect((await clear(target, own.id, target.member)).status).toBe(200);
@@ -585,7 +575,7 @@ describe('epic-reopen', () => {
     expect((await epicRow(target, epic.id)).completed_at).toBe(AT);
   });
 
-  test('2つの画面から同時に取り消すと、片方は 409 の conflict（not_completed）で、打ち消しは1回分', async () => {
+  test('2つの画面から同時に取り消すと、片方は 409 の conflict（not_completed）で、履歴は1回分', async () => {
     const target = await createTarget();
     const epic = await readyEpic(target);
     expect((await clear(target, epic.id)).status).toBe(200);
@@ -597,7 +587,8 @@ describe('epic-reopen', () => {
     expect(second?.status).toBe(200);
     expect(first.status).toBe(409);
     expect(await errorOf(first)).toEqual({ code: 'conflict', reason: 'not_completed' });
-    expect((await rewardGrants(target, epic.id)).filter((g) => g.reverses_grant_id !== null)).toHaveLength(2);
+    expect(await rewardGrants(target, epic.id)).toEqual([]);
+    expect((await logsOf(target, epic.id)).map((log) => log.action)).toEqual(['complete', 'reopen']);
   });
 
   test('別の組織のエピックと存在しない ID は 404', async () => {

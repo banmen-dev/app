@@ -134,7 +134,8 @@ test('レビューの完了印と再依頼後の受信箱を表示し、同じ�
     .getByRole('table', { name: '経験値の明細' })
     .locator('tbody tr', { hasText: '再依頼されたレビュー' })
     .filter({ hasText: `レビュー受信箱-${suffix}` });
-  await expect(grants).toHaveCount(1);
-  await expect(grants.locator('.tag')).toHaveText('レビュー');
-  await expect(grants.locator('.xp-delta')).toHaveText('+30');
+  // 完了しても経験値は付かない（#1431）
+  // 明細の表が読み込まれてから、行が無いことを見る（seed の付与の行で表は出る）
+  await expect(page.getByRole('table', { name: '経験値の明細' }).locator('tbody tr').first()).toBeVisible();
+  await expect(grants).toHaveCount(0);
 });

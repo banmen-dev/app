@@ -22,7 +22,7 @@ test('リーダーはスプリントを作り、直し、重なりを断られ�
   // メニューの「計画」から開く。まだスプリントが無いので、空の状態と作るボタンが出る
   await page.getByRole('link', { name: '計画' }).click();
   await expect(page.getByRole('heading', { level: 1, name: '計画' })).toBeVisible();
-  await expect(page).toHaveTitle('計画・スプリントのワークスペース - Scrum Guild');
+  await expect(page).toHaveTitle('計画・スプリントのワークスペース - Banmen');
   await expect(page.getByText('まだスプリントがありません')).toBeVisible();
 
   // 1つ目を作る。最終日は開始日と長さから決まり、曜日を添える

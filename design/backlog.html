@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Scrum Guild バックログ</title>
+<title>Banmen バックログ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;900&display=swap">
@@ -16,6 +16,7 @@
 <script src="art.js"></script>
 <script src="sample-data.js"></script>
 <script src="kit.js"></script>
+<script src="task-templates.js"></script>
 <script>
 "use strict";
 // バックログ: エピック、ストーリー、タスクの木。並びが優先順位
@@ -84,6 +85,7 @@ SQ.mount("backlog", () => {
   if (!SQ.tasksWhere((x) => x.ws === "wa").length && !Object.keys(D.epics).length && !Object.keys(D.stories).length) {
     return `
       ${pageHead(D.workspaces.wa.name, t("backlog"), [])}
+      ${SQTaskTemplates.backlogAction()}
       ${SQ.emptyState("board", `まだ${t("task")}がありません`,
         `${t("task")}を優先する順に並べる場所です。下の空の行に題を入れて、最初の${t("task")}を作ります。`, "", undefined, "notice")}
       <section class="section" aria-label="${t("backlog")}の${t("task")}"><div class="tree">
@@ -96,6 +98,7 @@ SQ.mount("backlog", () => {
       ["is-warn", "", "未見積もり", open.filter((x) => x.pts == null).length],
       ["", "", `${t("sprint")}に入っていない`, open.filter((x) => !x.sprint).length],
     ], "", SQ.teamXp(), t("backlogSummary"))}
+    ${SQTaskTemplates.backlogAction()}
     ${D.definitionOfDone.length ? `<details class="dod"><summary>${t("dod")}</summary><div class="doc-box"><ul>${D.definitionOfDone.map((d) => `<li>${SQ.esc(d)}</li>`).join("")}</ul></div></details>` : ""}
     <section class="section" aria-label="${t("backlog")}の${t("task")}">
     ${filterBar(open)}

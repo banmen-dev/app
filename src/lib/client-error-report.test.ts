@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { clientErrorReportSchema, type ClientErrorReport } from '../shared/client-error.ts';
 import { createClientErrorReporter } from './client-error-report.ts';
 
-const ORIGIN = 'https://scrum-guild.example.test';
+const ORIGIN = 'https://banmen.example.test';
 const CHUNK = `${ORIGIN}/_app/immutable/chunks/abc.js`;
 
 type ErrorEventLike = { message: string; filename: string; lineno: number; colno: number; error: unknown };

@@ -3,7 +3,7 @@ import { PRIVACY_VERSION, TERMS_VERSION } from '../src/lib/legal/versions.ts';
 import { findOverflowViolations, findTargetSizeViolations, NARROW_VIEWPORT, watchViolations } from './helpers.ts';
 
 // 利用規約（/terms）とプライバシーポリシー（/privacy）。ログインしていない人が、ログインの画面に移されずに読める（Issue #646）。
-// どのテストも、Cookie の無い（ログインしていない）page で開く。axe は e2e/a11y-screens.test.ts が、3つのテーマで確かめる。
+// どのテストも、Cookie の無い（ログインしていない）page で開く。axe は e2e/a11y-screens.test.ts が、2つのテーマで確かめる。
 // 文面は人が直すので、文の言い回しは固定せず、画面の見出し、短い語、版（src/lib/legal/versions.ts）で確かめる
 
 const pages = [
@@ -23,7 +23,7 @@ for (const { path, title, version } of pages) {
 
     await page.goto(path);
     await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
-    await expect(page).toHaveTitle(`${title} - Scrum Guild`);
+    await expect(page).toHaveTitle(`${title} - Banmen`);
     // 条の見出し（h2）と本文がある
     await expect(page.getByRole('heading', { level: 2 }).first()).toBeVisible();
     await expect(page.getByRole('heading', { name: '改定の履歴' })).toHaveCount(0);
@@ -78,7 +78,7 @@ test('/login?return_to=… から規約へ移り、「前の画面に戻る」�
   const related = page.getByRole('group', { name: '関連するページ' });
   // アプリの中から移ってきたので、戻るボタンを出す（/ へのリンクは出さない）
   await expect(related.getByRole('button', { name: '前の画面に戻る' })).toBeVisible();
-  await expect(related.getByRole('link', { name: 'Scrum Guild を開く' })).toHaveCount(0);
+  await expect(related.getByRole('link', { name: 'Banmen を開く' })).toHaveCount(0);
   await related.getByRole('button', { name: '前の画面に戻る' }).click();
 
   await expect(page).toHaveURL(/\/login\?return_to=%2Faoba$/);
@@ -107,11 +107,11 @@ test('/login?return_to=… から規約、ポリシーと移っても、「前�
 test('/terms を直に開いてポリシーへ移っても、戻るボタンを出さず / へのリンクのまま', async ({ page }) => {
   await page.goto('/terms');
   const related = page.getByRole('group', { name: '関連するページ' });
-  await expect(related.getByRole('link', { name: 'Scrum Guild を開く' })).toBeVisible();
+  await expect(related.getByRole('link', { name: 'Banmen を開く' })).toBeVisible();
   await related.getByRole('link', { name: 'プライバシーポリシー' }).click();
   await expect(page).toHaveURL(/\/privacy$/);
   await expect(page.getByRole('heading', { level: 1, name: 'プライバシーポリシー' })).toBeVisible();
-  await expect(related.getByRole('link', { name: 'Scrum Guild を開く' })).toBeVisible();
+  await expect(related.getByRole('link', { name: 'Banmen を開く' })).toBeVisible();
   await expect(related.getByRole('button', { name: '前の画面に戻る' })).toHaveCount(0);
 });
 
@@ -120,10 +120,10 @@ test('/terms を直に開いたときは、戻るボタンの代わりに / へ�
 }) => {
   await page.goto('/terms');
   const related = page.getByRole('group', { name: '関連するページ' });
-  await expect(related.getByRole('link', { name: 'Scrum Guild を開く' })).toBeVisible();
+  await expect(related.getByRole('link', { name: 'Banmen を開く' })).toBeVisible();
   await expect(related.getByRole('button', { name: '前の画面に戻る' })).toHaveCount(0);
 
-  await related.getByRole('link', { name: 'Scrum Guild を開く' }).click();
+  await related.getByRole('link', { name: 'Banmen を開く' }).click();
   await expect(page).toHaveURL(/\/login/);
   await expect(page.getByRole('heading', { level: 1, name: 'ログイン' })).toBeVisible();
 });
@@ -150,7 +150,7 @@ test('招待の画面（/invite）から、利用規約とプライバシーポ�
     await expect(opened).toHaveURL(new RegExp(`${path}$`));
     // 新しいタブは直に開いた画面なので、戻るボタンの代わりに / へのリンクを出す
     await expect(
-      opened.getByRole('group', { name: '関連するページ' }).getByRole('link', { name: 'Scrum Guild を開く' }),
+      opened.getByRole('group', { name: '関連するページ' }).getByRole('link', { name: 'Banmen を開く' }),
     ).toBeVisible();
     await opened.close();
     // 元の画面は、秘密を持ったまま残り、ログインのボタンを押せる
@@ -186,7 +186,7 @@ test('/terms の先頭近くにも、元の画面へ戻る操作がある（直�
 }) => {
   await page.goto('/terms');
   const top = page.getByRole('group', { name: '元の画面へ' });
-  await expect(top.getByRole('link', { name: 'Scrum Guild を開く' })).toBeVisible();
+  await expect(top.getByRole('link', { name: 'Banmen を開く' })).toBeVisible();
   const box = await top.boundingBox();
   expect(box && box.y).toBeLessThan(400);
 

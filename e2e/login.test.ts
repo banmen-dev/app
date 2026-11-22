@@ -26,7 +26,7 @@ test('/login は枠の外に GitHub のボタンを出す', async ({ page }) => 
   // 左のメニューも上の帯も出ない
   await expect(page.locator('.app')).toHaveCount(0);
   await expect(page.getByRole('navigation')).toHaveCount(0);
-  await expect(page).toHaveTitle('ログイン - Scrum Guild');
+  await expect(page).toHaveTitle('ログイン - Banmen');
 });
 
 // ログインの画面は枠の外で、主な画面の機械の検査（e2e/a11y-*.test.ts、e2e/layout-narrow*.test.ts）に入っていないので、ここで確かめる。
@@ -83,7 +83,7 @@ test('Google のボタンは GitHub と同じ幅で、ロゴが出る', async ({
 });
 
 // Google のボタンの明暗は、テーマの指定が無い既定とシンプル（自動）だけ OS の明暗に従い、
-// ダークのテーマ（simple_dark、modern）はダーク版、ライトのテーマ（simple_light）はライト版になる
+// ダークのテーマ（simple_dark）はダーク版、ライトのテーマ（simple_light）はライト版になる
 const googleLight = { background: 'rgb(255, 255, 255)', border: 'rgb(116, 119, 117)', color: 'rgb(31, 31, 31)' };
 const googleDark = { background: 'rgb(19, 19, 20)', border: 'rgb(142, 145, 143)', color: 'rgb(227, 227, 227)' };
 const googleThemes: [theme: string | null, os: 'light' | 'dark', expected: typeof googleLight][] = [
@@ -93,7 +93,6 @@ const googleThemes: [theme: string | null, os: 'light' | 'dark', expected: typeo
   ['simple', 'dark', googleDark],
   ['simple_light', 'dark', googleLight],
   ['simple_dark', 'light', googleDark],
-  ['modern', 'light', googleDark],
 ];
 
 for (const [theme, os, expected] of googleThemes) {

@@ -41,17 +41,14 @@ test.describe('マイプロフィール（ミナト）', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'マイプロフィール' })).toBeVisible();
     await expect(page.locator('.page-eyebrow')).toHaveText('ミナト');
     await expect(page.locator('.account-menu-list a[aria-current="page"]')).toHaveText('マイプロフィール');
-    await expect(page).toHaveTitle('マイプロフィール - Scrum Guild');
+    await expect(page).toHaveTitle('マイプロフィール - Banmen');
 
     // レベルの面。紋章（大）、合計、次のレベルまでと見込み、ゲージ、凡例、ワークスペースごとの内訳
     const panel = page.getByRole('region', { name: 'レベル' });
     await expect(panel.locator('.emblem:not(.is-sm)')).toHaveAttribute('aria-label', /^レベル \d+$/);
     await expect(panel.locator('.xp-num')).toHaveText(/^[\d,]+XP$/);
-    // 合計の前に経験値のアイコン（crystal）。経験値の色で、読み上げから外す。題には紋章と重ねないのでアイコンを付けない
-    const totalIcon = panel.locator('.xp-num > svg.ico');
-    await expect(totalIcon).toHaveClass(/\bis-xp\b/);
-    await expect(totalIcon).toHaveAttribute('aria-hidden', 'true');
-    await expect(totalIcon.locator('use')).toHaveAttribute('href', '#i-crystal');
+    // ゲームのアイコンは外した（#1436）。合計にも題にもアイコンを付けない
+    await expect(panel.locator('.xp-num svg')).toHaveCount(0);
     await expect(panel.locator('h2 svg')).toHaveCount(0);
     await expect(panel.locator('.xp-sub')).toHaveText(/^次のレベルまで [\d,]+・見込み \+[\d,]+$/);
     await expect(panel.locator('.gauge')).toHaveAttribute(
@@ -80,11 +77,8 @@ test.describe('マイプロフィール（ミナト）', () => {
     await expect(page.getByRole('heading', { level: 2, name: '経験値の明細' })).toBeVisible();
     const table = page.getByRole('table', { name: '経験値の明細' });
     await expect(table.locator('thead th')).toHaveText(['確定日時', 'ワークスペース', '行動', '内容', 'XP']);
-    // XP の列の見出しに経験値のアイコン（crystal）。読み上げの名前は文字の「XP」だけ
-    const headerIcon = table.locator('thead th').last().locator('svg.ico');
-    await expect(headerIcon).toHaveClass(/\bis-xp\b/);
-    await expect(headerIcon).toHaveAttribute('aria-hidden', 'true');
-    await expect(headerIcon.locator('use')).toHaveAttribute('href', '#i-crystal');
+    // XP の列の見出しは文字の「XP」だけ（ゲームのアイコンは外した。#1436）
+    await expect(table.locator('thead th').last().locator('svg')).toHaveCount(0);
     await expect(table.getByRole('columnheader', { name: 'XP', exact: true })).toHaveCount(1);
     const seeded = table.locator('tbody tr', { hasText: '付与の履歴を返す API を作る' });
     await expect(seeded).toHaveCount(2);
@@ -108,8 +102,12 @@ test.describe('マイプロフィール（ミナト）', () => {
     await expect(panel.locator('.xp-sub')).toHaveText('次のレベルまで 100・見込み +0');
     await expect(panel.locator('.gauge-end')).toHaveText(['LV 1', 'LV 2']);
     const breakdown = panel.getByRole('group', { name: 'ワークスペースごとの経験値' });
-    await expect(breakdown.locator('dt')).toHaveText(['社内ツール', 'すべてのワークスペース']);
-    await expect(breakdown.locator('dd')).toHaveText(['0', '0']);
+    // ダッシュボードのテストがひばり工房にワークスペースを作るため、seed の行と合計を個別に見る。
+    const tools = breakdown.locator('dl > div').filter({ has: page.getByText('社内ツール', { exact: true }) });
+    await expect(tools.locator('dd')).toHaveText('0');
+    const total = breakdown.locator('.is-total');
+    await expect(total.locator('dt')).toHaveText('すべてのワークスペース');
+    await expect(total.locator('dd')).toHaveText('0');
     // 受け取った感謝は無い（0 と出す）
     await expect(panel.getByRole('group', { name: '受け取った感謝' }).locator('dd')).toHaveText('0');
 
@@ -381,11 +379,8 @@ test.describe('チーム全体の経験値（バックログの画面）', () =>
     await page.goto(`/aoba/w/${AOBA_WORKSPACE_ID}`);
     await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();
     await expect(page.locator('.page-head .team-xp')).toHaveText(/^チーム全体の経験値[\d,]+XP$/);
-    // ラベルの前に経験値のアイコン（crystal）。経験値の色で、読み上げから外す
-    const icon = page.locator('.page-head .team-xp > svg.ico');
-    await expect(icon).toHaveClass(/\bis-xp\b/);
-    await expect(icon).toHaveAttribute('aria-hidden', 'true');
-    await expect(icon.locator('use')).toHaveAttribute('href', '#i-crystal');
+    // ゲームのアイコンは外した（#1436）。ラベルの前にアイコンを付けない
+    await expect(page.locator('.page-head .team-xp svg')).toHaveCount(0);
   });
 
   test('読めなくても、バックログの画面は開き、合計だけを出さない', async ({ page, context, baseURL }) => {

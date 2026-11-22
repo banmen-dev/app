@@ -7,6 +7,7 @@
 // wrangler dev の手元のエクスプローラーなら、同じ workerd の中で Worker と同じ D1 のオブジェクトが文を順に流す
 import { devPorts } from '../scripts/dev-ports.ts';
 import { sessionInserts, tokenHash } from '../scripts/seed.ts';
+import { SEED_PASSWORD_LOGINS } from '../seed/passwords.ts';
 import { SEED_SESSIONS } from '../seed/sessions.ts';
 
 const EXPLORER_D1_URL = `http://localhost:${devPorts(process.env).api}/cdn-cgi/local/explorer/api/d1/database`;
@@ -206,12 +207,17 @@ export async function refreshSeedSessionCreatedAt(who: keyof typeof SEED_SESSION
   ]);
 }
 
-// パスワードのログインで作られたアカウント（手段 `password`）の同意の行を消す。seed のパスワードの人（seed/passwords.ts）は
+// seed のパスワードの人（seed/passwords.ts）の同意の行だけを消す。seed のパスワードの人は
 // 初めてのログインでアカウントができ、同意の行を持たない。同意まで通した後の繰り返し（--repeat-each）でも、
 // ログインの直後に同意の画面へ移る状態から始めるため、パスワードのログインの e2e（e2e/password-login.test.ts）が場面ごとに使う
 export async function resetPasswordAccountConsents(): Promise<void> {
+  const subjects = Object.values(SEED_PASSWORD_LOGINS)
+    .map(({ loginSubject }) => `'${loginSubject}'`)
+    .join(', ');
   await executeLocalD1([
-    `DELETE FROM account_consents WHERE account_id IN (SELECT account_id FROM account_logins WHERE login_provider = 'password');`,
+    `DELETE FROM account_consents WHERE account_id IN (
+      SELECT account_id FROM account_logins WHERE login_provider = 'password' AND login_subject IN (${subjects})
+    );`,
   ]);
 }
 

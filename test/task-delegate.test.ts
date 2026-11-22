@@ -282,7 +282,7 @@ describe('task-delegate', () => {
     });
   });
 
-  test('完了したときの経験値と完了の記録は担当の自分に付く', async () => {
+  test('完了の記録は担当の自分に付き、xp_grants は増えない', async () => {
     const target = await createPersonalTarget();
     const person = await add(target);
     const task = await createTask(target.organization, target.workspace.id, target.admin.userId!, { points: 3 });
@@ -314,8 +314,7 @@ describe('task-delegate', () => {
           .where('task_id', '=', task.id),
       ),
     );
-    expect(xp.length).toBeGreaterThan(0);
-    expect(xp.every((grant) => grant.user_id === target.admin.userId)).toBe(true);
+    expect(xp).toEqual([]);
   });
 
   test('別組織・削除済み・存在しない依頼先は404で何も変えない', async () => {

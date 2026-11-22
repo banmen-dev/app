@@ -169,8 +169,8 @@ test('計画の画面の先のスプリントとスプリントに入れるダ�
   await expect(sub).not.toContainText('未記入');
 });
 
-// 詳細の見込み → 完了で確定 → 戻して見込みへ、を本物のAPIとプロフィールの表示で確かめる。
-test('欄を埋めたタスクの詳細20が見込み・明細・打ち消しに反映される', async ({ page, baseURL }) => {
+// 詳細の見込みは数えるが、完了しても明細は増えず、戻しても打ち消しを書かない（#1431）。本物のAPIとプロフィールの表示で確かめる。
+test('欄を埋めたタスクの詳細20は見込みに出るが、完了しても戻しても明細は増えない', async ({ page, baseURL }) => {
   const suffix = crypto.randomUUID();
   const name = `詳細の経験値チーム ${suffix}`;
   const title = `通知の受け入れ条件を整える ${suffix}`;
@@ -215,14 +215,14 @@ test('欄を埋めたタスクの詳細20が見込み・明細・打ち消しに
   await call('task-complete', { task_id: task.id });
   await page.reload();
   const rows = page.getByRole('table', { name: '経験値の明細' }).locator('tbody tr', { hasText: title });
-  const detailed = rows.filter({ has: page.locator('.tag', { hasText: /^詳細(?:の打ち消し)?$/ }) });
-  await expect(detailed).toHaveCount(1);
-  await expect(detailed.locator('.xp-delta')).toHaveText('+20');
-  await expect(workspace.locator('dd')).toHaveText('60');
+  // 明細の表が読み込まれてから、行が無いことを見る（seed の付与の行で表は出る）
+  await expect(page.getByRole('table', { name: '経験値の明細' }).locator('tbody tr').first()).toBeVisible();
+  await expect(rows).toHaveCount(0);
+  await expect(workspace.locator('dd')).toHaveText('0');
   await call('task-reopen', { task_id: task.id });
   await page.reload();
   await expect(workspace.locator('dd')).toHaveText('0');
   const reopened = await call('experience-summary', {});
   expect((await reopened.json()).workspaces.find((row: { id: string }) => row.id === workspaceId).prospective).toBe(30);
-  await expect(detailed.locator('.xp-delta')).toHaveText(['-20', '+20']);
+  await expect(rows).toHaveCount(0);
 });

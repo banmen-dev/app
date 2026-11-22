@@ -15,6 +15,7 @@ import {
   type Permission,
 } from '../../shared/operations/define.ts';
 import { readApiToken, type ApiToken } from '../auth/api-token.ts';
+import { PASSWORD_LOGIN_ENABLED } from '../../shared/password-login-enabled.ts';
 import { sessionCookieClearOptions, sessionCookieName, sessionCookieOptions } from '../../shared/session-cookie.ts';
 import type { AppEnv } from '../app-env.ts';
 import type { InviteeResolver } from '../auth/login-method.ts';
@@ -39,6 +40,7 @@ import type { CurrentSession, Defer, ImplementedOperation } from './implement.ts
 import { operatorTools, type OperatorTools } from './operator-tools.ts';
 import { organizationTools } from './organization-tools.ts';
 import { logOperation } from './operation-log.ts';
+import { checkAttachmentAvailability, isPreviewWithoutAttachments } from './preview-attachments.ts';
 import { tokenAllows } from './token-scope.ts';
 
 // ログに残す、リクエストの途中で分かった値
@@ -81,6 +83,7 @@ function unreachable(value: never): never {
 export type OperationsAppOptions = {
   // ログインの手段（GitHub）への通信。運用者の操作と組織の中の操作が GitHub のユーザー名を解決するのに使う。テストが差し替える
   fetcher: typeof fetch;
+  passwordLogin?: boolean;
 };
 
 // 運用者の道具と組織の道具に渡す、招待する人の解決器。持つのは GitHub だけ。
@@ -339,7 +342,11 @@ async function execute(
       if (operatorLoginId === undefined) throw new ApiError(403, 'forbidden');
       operator = operatorTools(
         c.env,
-        { loginId: operatorLoginId, requestId: c.get('requestId') },
+        {
+          loginId: operatorLoginId,
+          requestId: c.get('requestId'),
+          passwordLoginEnabled: options.passwordLogin ?? PASSWORD_LOGIN_ENABLED,
+        },
         inviteeResolverOf(c, options),
       );
     }
@@ -385,6 +392,7 @@ async function execute(
     checkOrganizationPermission(definition.permission, actor);
     checkTokenScope(definition, apiToken);
     await enforceRateLimit(c, definition, accountId);
+    const previewWithoutAttachments = isPreviewWithoutAttachments(c.env);
 
     const input =
       definition.response === 'binary'
@@ -396,7 +404,14 @@ async function execute(
         : {};
     const storage =
       definition.storage === 'attachments'
-        ? { attachmentStorage: { delete: (keys: string | string[]) => c.env.ATTACHMENTS.delete(keys) } }
+        ? {
+            attachmentStorage: {
+              // 参加解除などは添付なしの D1 でも使える。R2 に消すものは無い。
+              delete: async (keys: string | string[]) => {
+                if (!previewWithoutAttachments) await c.env.ATTACHMENTS.delete(keys);
+              },
+            },
+          }
         : {};
     const download =
       definition.response === 'binary'
@@ -423,6 +438,7 @@ async function execute(
       }
       assertVerifiedWorkspace(workspace);
       await enforceWeightedRateLimit(c, definition, accountId, input);
+      checkAttachmentAvailability(previewWithoutAttachments, definition, input);
       result = await handler({
         db,
         actor,
@@ -436,6 +452,7 @@ async function execute(
       });
     } else {
       await enforceWeightedRateLimit(c, definition, accountId, input);
+      checkAttachmentAvailability(previewWithoutAttachments, definition, input);
       result = await handler({
         db,
         actor,

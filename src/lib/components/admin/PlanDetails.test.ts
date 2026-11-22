@@ -47,7 +47,7 @@ test('追加容量の口数が無い契約は「なし」と出す', () => {
         extra_10gb_units: 0,
         extra_50gb_units: 0,
       },
-      member_limit: 50,
+      member_limit: 30,
       attachment_quota_bytes: 100 * GIB,
     },
   });

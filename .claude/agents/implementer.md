@@ -1,6 +1,6 @@
 ---
 name: implementer
-description: Scrum Guild の実装専用のエージェント。`increment-build` が、渡した Issue の範囲を実装し、テストも一緒に書かせるときに使う。Claude のセッション内で実装を分担するときに使う。レビューはしない。
+description: Banmen の実装専用のエージェント。`increment-build` が、渡した Issue の範囲を実装し、テストも一緒に書かせるときに使う。Claude のセッション内で実装を分担するときに使う。レビューはしない。
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash"]
 model: sonnet
 effort: high

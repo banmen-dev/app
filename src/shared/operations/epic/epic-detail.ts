@@ -14,7 +14,7 @@ const epicPersonSchema = z.object({ id: z.string(), name: z.string(), left: z.bo
 // エピックの画面を開くときに、画面が出すものを1回で読む。閉じたワークスペースでも読める。
 // 無いエピック（別の組織・別のワークスペース・削除済みを含む）は 404。
 // - requester: 依頼主。離脱済み（left）でも名前を出す（担当の判定と同じ）
-// - reward_tier と reward_xp: クリア報酬の段階と額（額は src/shared/experience.ts の XP_EPIC_REWARD）。払うのはクリアの処理
+// - reward_tier と reward_xp: クリア報酬の段階と額（額は src/shared/experience.ts の XP_EPIC_REWARD）。いまはクリアしても払わない（#1430）
 // - party: 討伐隊（epic_party_members の行、入った順）。離脱済みの人も含む。level は組織の中の本人の経験値の合計から出し、
 //   合計の数値は返さない
 // - stories: 配下の削除していないストーリー（position の順。完了したものも含む）。points_done と points_all は、削除していない

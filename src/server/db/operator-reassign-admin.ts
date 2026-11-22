@@ -5,7 +5,7 @@
 // eslint.config.db-entry.js が守る（appendOperatorChangeLog と同じ守り方）。
 // 書き方は docs/data-model.md の「書き込みの単位」の管理者の指名し直し
 import { sql, type ExpressionBuilder } from 'kysely';
-import { WAITING_USER_NAME_IN_LOG } from '../../shared/claim-token.ts';
+import { WAITING_PASSWORD_USER_NAME_IN_LOG, WAITING_USER_NAME_IN_LOG } from '../../shared/claim-token.ts';
 import { adminDesignationStatements, type AdminNominee } from '../organizations/designate-admin.ts';
 import { uuidv7 } from '../uuid.ts';
 import { orgDb, type OrganizationDb } from './entries.ts';
@@ -42,7 +42,7 @@ type CandidateRow = {
 };
 
 // 指名する人の、この組織の中の行を見分ける条件。GitHub はログインの手段と ID が同じ行と、既にアカウントのある人なら
-// そのアカウントに結ばれた行（別の手段でこの組織に入っている同じ人）。Google は sub が分からないので、いつも無い
+// そのアカウントに結ばれた行（別の手段でこの組織に入っている同じ人）。メールアドレスでの指名は sub が分からないので、いつも無い
 function isNomineeRow(
   nominee: AdminNominee,
   row: { account_id: string | null; login_provider: string; login_subject: string | null },
@@ -126,7 +126,7 @@ type NomineeState = { kind: 'active' } | { kind: 'read'; row: CandidateRow };
 // membership は、ワークスペースの所属を持つ行か（with）、持たない行か（without）。持たない行は消し、持つ行は消せない
 // （memberships.user_id が行を指す。組織の管理者が、まだログインしていない指名の行をワークスペースの最初のリーダーに選べる）
 // ので、残して管理者の印を外す（is_admin = 1 の行だけ）。所属を持つ行はリーダーの候補（login_subject のある行）なので、
-// Google で待つ行（login_subject が空で、招待の秘密を持つ）は含まれない
+// メールアドレスで待つ行（login_subject が空で、招待の秘密を持つ）は含まれない
 function removableWhere(
   db: OrganizationDb,
   nomineeUserId: string,
@@ -173,7 +173,7 @@ function removableWhere(
 //   2. 所属を持たない前の指名を DELETE する
 //   3. 所属を持つ前の指名ごとの change_logs（user の update、{"is_admin":[1,0]}。履歴の「管理者の解除」）を作る
 //   4. 所属を持つ前の指名の管理者の印を外す（UPDATE で is_admin = 0）
-// 同じ batch() の中なので、記録の文と書く文は同じ行に当たる。消す記録は行の前の値を残す。Google で待つ行（login_subject が空）は、
+// 同じ batch() の中なので、記録の文と書く文は同じ行に当たる。消す記録は行の前の値を残す。メールアドレスで待つ行（login_subject が空）は、
 // メールアドレス、秘密のハッシュ、期限を入れず、名前は仮の名前にし、login_subject の列を持たない
 function removeStatements(
   db: OrganizationDb,
@@ -207,7 +207,12 @@ function removeStatements(
               eb.ref('users.id').as('entity_id'),
               eb.val('delete').as('action'),
               sql<string>`case when users.login_subject is null
-                then json_object('is_admin', json_array(users.is_admin, null), 'name', json_array(${WAITING_USER_NAME_IN_LOG}, null), 'login_provider', json_array(users.login_provider, null))
+                then json_object(
+                  'is_admin', json_array(users.is_admin, null),
+                  'name', json_array(case when users.login_provider = 'password'
+                    then ${WAITING_PASSWORD_USER_NAME_IN_LOG} else ${WAITING_USER_NAME_IN_LOG} end, null),
+                  'login_provider', json_array(users.login_provider, null)
+                )
                 else json_object('is_admin', json_array(users.is_admin, null), 'name', json_array(users.name, null), 'login_provider', json_array(users.login_provider, null), 'login_subject', json_array(users.login_subject, null))
                 end`.as('changes_json'),
               eb.val(input.now.toISOString()).as('created_at'),

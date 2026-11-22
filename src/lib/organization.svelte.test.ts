@@ -27,9 +27,9 @@ const view = (theme: string) =>
 
 test('applyOrganization は自分のテーマを当てて覚えても、言葉づかいを覚えず、言葉はスクラムの言葉のまま', async () => {
   const { store, dataset, organization, vocabulary } = await load({});
-  organization.applyOrganization(view('modern'));
-  expect(dataset.theme).toBe('modern');
-  expect(store.get('sg-theme')).toBe('modern');
+  organization.applyOrganization(view('simple_dark'));
+  expect(dataset.theme).toBe('simple_dark');
+  expect(store.get('sg-theme')).toBe('simple_dark');
   expect([...store.keys()]).not.toContain('sg-vocabulary');
   expect(vocabulary.t('workspace')).toBe('ワークスペース');
 });

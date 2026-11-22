@@ -1,0 +1,647 @@
+{
+  "runs": 20,
+  "rounds": 2,
+  "eligible": false,
+  "qualifyingEntries": [],
+  "regressions": [
+    {
+      "round": 1,
+      "entry": "direct",
+      "metric": "detail",
+      "baseline": 1227.1999999997206,
+      "candidate": 1358.3999999999069,
+      "savingMs": -131.20000000018626,
+      "savingPercent": -10.691003911360507,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 1,
+      "entry": "direct",
+      "metric": "edit",
+      "baseline": 1154.2000000001863,
+      "candidate": 1274.2000000001863,
+      "savingMs": -120,
+      "savingPercent": -10.396811644427364,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 1,
+      "entry": "reload",
+      "metric": "detail",
+      "baseline": 894.2000000001863,
+      "candidate": 1046.8999999999069,
+      "savingMs": -152.6999999997206,
+      "savingPercent": -17.076716618171414,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 1,
+      "entry": "reload",
+      "metric": "edit",
+      "baseline": 802.1000000000931,
+      "candidate": 920.2999999998137,
+      "savingMs": -118.1999999997206,
+      "savingPercent": -14.736317167398937,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 1,
+      "entry": "reload",
+      "metric": "choices",
+      "baseline": 1025.6000000000931,
+      "candidate": 1216.7000000001863,
+      "savingMs": -191.10000000009313,
+      "savingPercent": -18.632995319820182,
+      "improvement": false,
+      "regression": true
+    }
+  ],
+  "reasons": [
+    "同じ経路の操作開始 p95 の改善が独立2巡で再現していません。",
+    "正式指標に100ms以上かつ10%以上の悪化が見つかりました。"
+  ],
+  "browser": [
+    {
+      "round": 1,
+      "entry": "direct",
+      "variant": "A",
+      "detail": {
+        "p50": 1039.8999999999069,
+        "p95": 1227.1999999997206
+      },
+      "edit": {
+        "p50": 980,
+        "p95": 1154.2000000001863
+      },
+      "choices": {
+        "p50": 1195.9000000003725,
+        "p95": 1371.3000000002794
+      },
+      "drawerChoices": {
+        "p50": 109.89999999990687,
+        "p95": 131.70000000018626
+      }
+    },
+    {
+      "round": 1,
+      "entry": "direct",
+      "variant": "B",
+      "detail": {
+        "p50": 1066.8999999999069,
+        "p95": 1212.3999999999069
+      },
+      "edit": {
+        "p50": 1009.7999999998137,
+        "p95": 1140.8000000002794
+      },
+      "choices": {
+        "p50": 1219.1999999997206,
+        "p95": 1368.1999999997206
+      },
+      "drawerChoices": {
+        "p50": 107.60000000009313,
+        "p95": 131.6999999997206
+      }
+    },
+    {
+      "round": 1,
+      "entry": "direct",
+      "variant": "C",
+      "detail": {
+        "p50": 1110,
+        "p95": 1358.3999999999069
+      },
+      "edit": {
+        "p50": 1026.2000000001863,
+        "p95": 1274.2000000001863
+      },
+      "choices": {
+        "p50": 1270.6999999997206,
+        "p95": 1494.1000000000931
+      },
+      "drawerChoices": {
+        "p50": 110.40000000037253,
+        "p95": 180.5
+      }
+    },
+    {
+      "round": 1,
+      "entry": "navigation",
+      "variant": "A",
+      "detail": {
+        "p50": 176.29999999981374,
+        "p95": 211.79999999981374
+      },
+      "edit": {
+        "p50": 161.59999999962747,
+        "p95": 196.6999999997206
+      },
+      "choices": {
+        "p50": 345.6999999997206,
+        "p95": 411
+      },
+      "drawerChoices": {
+        "p50": 102.70000000018626,
+        "p95": 127.89999999990687
+      }
+    },
+    {
+      "round": 1,
+      "entry": "navigation",
+      "variant": "B",
+      "detail": {
+        "p50": 185,
+        "p95": 248.8000000002794
+      },
+      "edit": {
+        "p50": 162.39999999990687,
+        "p95": 214.90000000037253
+      },
+      "choices": {
+        "p50": 356.40000000037253,
+        "p95": 441.29999999981374
+      },
+      "drawerChoices": {
+        "p50": 110.60000000009313,
+        "p95": 127.5
+      }
+    },
+    {
+      "round": 1,
+      "entry": "navigation",
+      "variant": "C",
+      "detail": {
+        "p50": 178.89999999990687,
+        "p95": 227.10000000009313
+      },
+      "edit": {
+        "p50": 163.60000000009313,
+        "p95": 214.6999999997206
+      },
+      "choices": {
+        "p50": 357.70000000018626,
+        "p95": 456.29999999981374
+      },
+      "drawerChoices": {
+        "p50": 112,
+        "p95": 143.89999999990687
+      }
+    },
+    {
+      "round": 1,
+      "entry": "reload",
+      "variant": "A",
+      "detail": {
+        "p50": 855.3999999999069,
+        "p95": 894.2000000001863
+      },
+      "edit": {
+        "p50": 735.2999999998137,
+        "p95": 802.1000000000931
+      },
+      "choices": {
+        "p50": 982.7999999998137,
+        "p95": 1025.6000000000931
+      },
+      "drawerChoices": {
+        "p50": 110.09999999962747,
+        "p95": 127.10000000009313
+      }
+    },
+    {
+      "round": 1,
+      "entry": "reload",
+      "variant": "B",
+      "detail": {
+        "p50": 874.7000000001863,
+        "p95": 1066.6000000000931
+      },
+      "edit": {
+        "p50": 758.4000000003725,
+        "p95": 957.3000000002794
+      },
+      "choices": {
+        "p50": 1011.9000000003725,
+        "p95": 1208.6000000000931
+      },
+      "drawerChoices": {
+        "p50": 126.10000000009313,
+        "p95": 170.29999999981374
+      }
+    },
+    {
+      "round": 1,
+      "entry": "reload",
+      "variant": "C",
+      "detail": {
+        "p50": 896.7999999998137,
+        "p95": 1046.8999999999069
+      },
+      "edit": {
+        "p50": 752,
+        "p95": 920.2999999998137
+      },
+      "choices": {
+        "p50": 1009.7000000001863,
+        "p95": 1216.7000000001863
+      },
+      "drawerChoices": {
+        "p50": 111.79999999981374,
+        "p95": 139.60000000009313
+      }
+    },
+    {
+      "round": 2,
+      "entry": "direct",
+      "variant": "A",
+      "detail": {
+        "p50": 1030,
+        "p95": 1138
+      },
+      "edit": {
+        "p50": 958.5,
+        "p95": 1065.7000000001863
+      },
+      "choices": {
+        "p50": 1179,
+        "p95": 1309.5
+      },
+      "drawerChoices": {
+        "p50": 109.8000000002794,
+        "p95": 143.29999999981374
+      }
+    },
+    {
+      "round": 2,
+      "entry": "direct",
+      "variant": "B",
+      "detail": {
+        "p50": 1020.6000000000931,
+        "p95": 1200.2999999998137
+      },
+      "edit": {
+        "p50": 947.2000000001863,
+        "p95": 1105
+      },
+      "choices": {
+        "p50": 1187.6999999997206,
+        "p95": 1352.6999999997206
+      },
+      "drawerChoices": {
+        "p50": 108.6999999997206,
+        "p95": 126
+      }
+    },
+    {
+      "round": 2,
+      "entry": "direct",
+      "variant": "C",
+      "detail": {
+        "p50": 1036.1000000000931,
+        "p95": 1241
+      },
+      "edit": {
+        "p50": 961.3000000002794,
+        "p95": 1154.2000000001863
+      },
+      "choices": {
+        "p50": 1202,
+        "p95": 1409
+      },
+      "drawerChoices": {
+        "p50": 121,
+        "p95": 147
+      }
+    },
+    {
+      "round": 2,
+      "entry": "navigation",
+      "variant": "A",
+      "detail": {
+        "p50": 175.29999999981374,
+        "p95": 210.8000000002794
+      },
+      "edit": {
+        "p50": 158.20000000018626,
+        "p95": 182.29999999981374
+      },
+      "choices": {
+        "p50": 345.70000000018626,
+        "p95": 386.20000000018626
+      },
+      "drawerChoices": {
+        "p50": 97.20000000018626,
+        "p95": 126.89999999990687
+      }
+    },
+    {
+      "round": 2,
+      "entry": "navigation",
+      "variant": "B",
+      "detail": {
+        "p50": 160.5,
+        "p95": 205.79999999981374
+      },
+      "edit": {
+        "p50": 142.8000000002794,
+        "p95": 189.20000000018626
+      },
+      "choices": {
+        "p50": 332.20000000018626,
+        "p95": 370
+      },
+      "drawerChoices": {
+        "p50": 106.39999999990687,
+        "p95": 118.20000000018626
+      }
+    },
+    {
+      "round": 2,
+      "entry": "navigation",
+      "variant": "C",
+      "detail": {
+        "p50": 171.6999999997206,
+        "p95": 225.20000000018626
+      },
+      "edit": {
+        "p50": 151.89999999990687,
+        "p95": 200.09999999962747
+      },
+      "choices": {
+        "p50": 345.39999999990687,
+        "p95": 427.20000000018626
+      },
+      "drawerChoices": {
+        "p50": 110.89999999990687,
+        "p95": 127.6999999997206
+      }
+    },
+    {
+      "round": 2,
+      "entry": "reload",
+      "variant": "A",
+      "detail": {
+        "p50": 889.6000000000931,
+        "p95": 1054.1000000000931
+      },
+      "edit": {
+        "p50": 758.1000000000931,
+        "p95": 952.5
+      },
+      "choices": {
+        "p50": 1055.9000000003725,
+        "p95": 1240.4000000003725
+      },
+      "drawerChoices": {
+        "p50": 125.5,
+        "p95": 159.39999999990687
+      }
+    },
+    {
+      "round": 2,
+      "entry": "reload",
+      "variant": "B",
+      "detail": {
+        "p50": 841.7999999998137,
+        "p95": 979.8000000002794
+      },
+      "edit": {
+        "p50": 742.5,
+        "p95": 858.9000000003725
+      },
+      "choices": {
+        "p50": 994.1000000000931,
+        "p95": 1115.4000000003725
+      },
+      "drawerChoices": {
+        "p50": 110.89999999990687,
+        "p95": 161.09999999962747
+      }
+    },
+    {
+      "round": 2,
+      "entry": "reload",
+      "variant": "C",
+      "detail": {
+        "p50": 789.6000000000931,
+        "p95": 977.2000000001863
+      },
+      "edit": {
+        "p50": 678.1000000000931,
+        "p95": 854.2000000001863
+      },
+      "choices": {
+        "p50": 929.2000000001863,
+        "p95": 1096.6000000000931
+      },
+      "drawerChoices": {
+        "p50": 110.39999999990687,
+        "p95": 144.90000000037253
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "round": 1,
+      "entry": "direct",
+      "metric": "detail",
+      "baseline": 1227.1999999997206,
+      "candidate": 1358.3999999999069,
+      "savingMs": -131.20000000018626,
+      "savingPercent": -10.691003911360507,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 1,
+      "entry": "direct",
+      "metric": "edit",
+      "baseline": 1154.2000000001863,
+      "candidate": 1274.2000000001863,
+      "savingMs": -120,
+      "savingPercent": -10.396811644427364,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 1,
+      "entry": "direct",
+      "metric": "choices",
+      "baseline": 1371.3000000002794,
+      "candidate": 1494.1000000000931,
+      "savingMs": -122.79999999981374,
+      "savingPercent": -8.955006198482367,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "entry": "navigation",
+      "metric": "detail",
+      "baseline": 211.79999999981374,
+      "candidate": 227.10000000009313,
+      "savingMs": -15.300000000279397,
+      "savingPercent": -7.223796034132603,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "entry": "navigation",
+      "metric": "edit",
+      "baseline": 196.6999999997206,
+      "candidate": 214.6999999997206,
+      "savingMs": -18,
+      "savingPercent": -9.15099135741005,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "entry": "navigation",
+      "metric": "choices",
+      "baseline": 411,
+      "candidate": 456.29999999981374,
+      "savingMs": -45.299999999813735,
+      "savingPercent": -11.021897810173659,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "entry": "reload",
+      "metric": "detail",
+      "baseline": 894.2000000001863,
+      "candidate": 1046.8999999999069,
+      "savingMs": -152.6999999997206,
+      "savingPercent": -17.076716618171414,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 1,
+      "entry": "reload",
+      "metric": "edit",
+      "baseline": 802.1000000000931,
+      "candidate": 920.2999999998137,
+      "savingMs": -118.1999999997206,
+      "savingPercent": -14.736317167398937,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 1,
+      "entry": "reload",
+      "metric": "choices",
+      "baseline": 1025.6000000000931,
+      "candidate": 1216.7000000001863,
+      "savingMs": -191.10000000009313,
+      "savingPercent": -18.632995319820182,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 2,
+      "entry": "direct",
+      "metric": "detail",
+      "baseline": 1138,
+      "candidate": 1241,
+      "savingMs": -103,
+      "savingPercent": -9.050966608084359,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "entry": "direct",
+      "metric": "edit",
+      "baseline": 1065.7000000001863,
+      "candidate": 1154.2000000001863,
+      "savingMs": -88.5,
+      "savingPercent": -8.304400863280899,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "entry": "direct",
+      "metric": "choices",
+      "baseline": 1309.5,
+      "candidate": 1409,
+      "savingMs": -99.5,
+      "savingPercent": -7.59831996945399,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "entry": "navigation",
+      "metric": "detail",
+      "baseline": 210.8000000002794,
+      "candidate": 225.20000000018626,
+      "savingMs": -14.399999999906868,
+      "savingPercent": -6.8311195445387956,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "entry": "navigation",
+      "metric": "edit",
+      "baseline": 182.29999999981374,
+      "candidate": 200.09999999962747,
+      "savingMs": -17.799999999813735,
+      "savingPercent": -9.764125068476096,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "entry": "navigation",
+      "metric": "choices",
+      "baseline": 386.20000000018626,
+      "candidate": 427.20000000018626,
+      "savingMs": -41,
+      "savingPercent": -10.616261004655678,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "entry": "reload",
+      "metric": "detail",
+      "baseline": 1054.1000000000931,
+      "candidate": 977.2000000001863,
+      "savingMs": 76.89999999990687,
+      "savingPercent": 7.295323024371508,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "entry": "reload",
+      "metric": "edit",
+      "baseline": 952.5,
+      "candidate": 854.2000000001863,
+      "savingMs": 98.29999999981374,
+      "savingPercent": 10.320209973733725,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "entry": "reload",
+      "metric": "choices",
+      "baseline": 1240.4000000003725,
+      "candidate": 1096.6000000000931,
+      "savingMs": 143.8000000002794,
+      "savingPercent": 11.59303450501743,
+      "improvement": true,
+      "regression": false
+    }
+  ]
+}

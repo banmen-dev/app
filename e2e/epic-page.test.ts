@@ -40,7 +40,7 @@ test('seed の受託開発チーム: 木のエピックの題から画面が開�
 
   await expect(page).toHaveURL(`${WORKSPACE}/epics/${EPIC_ID}`);
   await expect(page.getByRole('heading', { level: 1, name: EPIC_TITLE })).toBeVisible();
-  await expect(page).toHaveTitle(`${EPIC_TITLE} - Scrum Guild`);
+  await expect(page).toHaveTitle(`${EPIC_TITLE} - Banmen`);
   await expect(page.locator('.page-eyebrow')).toHaveText('エピック・追加案件');
   // 概要。本文はエピックの欄
   await expect(page.getByText('貯まったポイントを、送料の割引と提携先の商品券に交換できるようにする。')).toBeVisible();
@@ -52,11 +52,8 @@ test('seed の受託開発チーム: 木のエピックの題から画面が開�
   await expect(request.locator('dd').nth(0)).not.toContainText('離脱済み');
   await expect(request.locator('.tier')).toHaveText('中 · 300 XP');
   await expect(request.locator('.tier')).toHaveClass(/is-medium/);
-  // 先頭にクリア報酬のアイコン（chest）。段階の色を受けるので is-xp は付けず、読み上げから外す
-  const rewardIcon = request.locator('.tier > svg.ico');
-  await expect(rewardIcon.locator('use')).toHaveAttribute('href', '#i-chest');
-  await expect(rewardIcon).toHaveAttribute('aria-hidden', 'true');
-  await expect(rewardIcon).not.toHaveClass(/\bis-xp\b/);
+  // ゲームのアイコンは外した（#1436）。クリア報酬の先頭にアイコンを付けない
+  await expect(request.locator('.tier svg')).toHaveCount(0);
   await expect(request.locator('dd').nth(3)).toContainText('追加案件');
   await expect(request.locator('dd').nth(2)).toContainText(seedDueMonthDay(38));
 

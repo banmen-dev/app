@@ -7,6 +7,8 @@
   import { showToast } from '../toast.svelte.ts';
   import { t } from '../vocabulary.svelte.ts';
   import { EMAIL_MAX_LENGTH } from '../../shared/email.ts';
+  import type { InputOf } from '../../shared/operations/define.ts';
+  import { PASSWORD_LOGIN_ENABLED } from '../../shared/password-login-enabled.ts';
   import { slugProblem } from '../../shared/organization-slug.ts';
   import { formatDateTime } from '../format-datetime.ts';
   import {
@@ -27,7 +29,7 @@
   // ユーザー名、表示名）を見て確かめ、作る。打ち間違いで別の人を管理者にしないため、確かめるまで作れない。
   // 作るときは確かめたユーザー ID を渡し、サーバーが解決し直して違えば断る。作った後は、同じダイアログを完了の表示に切り替え、
   // 組織の URL（コピーできる）と、管理者になる人に伝えることを出す。
-  // Google はメールアドレスで指す（解決する口が無いので確かめる手順は無い）。作った後の表示は招待の URL とコピーのボタンで、
+  // Google とパスワードは、本人のログインで結ぶメールアドレスを指定する。作った後の表示は招待の URL とコピーのボタンで、
   // 閉じると二度と出ないことと期限を添える。招待の URL は応答の本文にだけあり、この画面の状態（created）が閉じるときに捨てる
   //
   // 応答が遅れて届いても、古い入力の結果で今の状態を書き換えない。要求を送るときの世代を覚え、応答のときに世代が
@@ -52,13 +54,13 @@
   };
   // admin が named: この操作で作れた（指名した人を確かめている）。existing: 作れたか分からない失敗の後に、読み直した一覧で
   // 見つけた組織。管理者がダイアログで確かめた人とは限らない（別の運用者が、別の人を指名して作ったかもしれない）ので、
-  // 人の名前は出さず、一覧の管理者の状態だけを持つ。invite: Google の指名で作った（招待の URL はこの状態にだけ持つ）
+  // 人の名前は出さず、一覧の管理者の状態だけを持つ。invite: メールアドレスで指名した（招待の URL はこの状態にだけ持つ）
   type Created = {
     slug: string;
     name: string;
     admin:
       | { kind: 'named'; loginName: string }
-      | { kind: 'invite'; email: string; inviteUrl: string; expiresAt: string }
+      | { kind: 'invite'; password: boolean; email: string; inviteUrl: string; expiresAt: string }
       | { kind: 'existing'; status: AdminStatus };
   };
   type Existing = { slug: string; name: string; sameName: boolean; adminStatus: AdminStatus };
@@ -68,7 +70,7 @@
   let dialog = $state<ReturnType<typeof Dialog>>();
   let slug = $state('');
   let name = $state('');
-  let via = $state<'github' | 'google'>('github');
+  let via = $state<AdminToSend['provider']>('github');
   let username = $state('');
   let email = $state('');
   let resolved = $state<Resolved | null>(null);
@@ -91,15 +93,15 @@
 
   const words = $derived({ organization: t('organization'), admin: t('admin') });
   const organizationUrl = $derived(created === null ? '' : `${page.url.origin}/${created.slug}/`);
-  const inviteUrl = $derived(created?.admin.kind === 'invite' ? created.admin.inviteUrl : '');
   const github = $derived(via === 'github');
+  const password = $derived(via === 'password');
   const creating = $derived(busy === 'creating');
   const usernameDescribedBy = $derived(
     errors.username ? 'operator-username-error operator-username-hint' : 'operator-username-hint',
   );
   const slugDescribedBy = $derived(errors.slug ? 'operator-slug-error operator-slug-hint' : 'operator-slug-hint');
   const emailDescribedBy = $derived(errors.email ? 'operator-email-error operator-email-hint' : 'operator-email-hint');
-  // 「作る」を押せるか。GitHub は確かめた後、Google はメールアドレスを入れた後
+  // 「作る」を押せるか。GitHub は確かめた後、Google とパスワードはメールアドレスを入れた後
   const ready = $derived(github ? resolved !== null : email.trim() !== '');
   // 読み上げの領域の文字。領域は常に置き、文字だけを替える
   const live = $derived(
@@ -186,7 +188,7 @@
     if (known?.code !== undefined) {
       return {
         field: known.code.startsWith('slug_') ? 'slug' : known.code === 'email_invalid' ? 'email' : 'username',
-        key: problemKeys[known.code]!,
+        key: known.code === 'email_invalid' && password ? 'operatorPasswordEmailInvalid' : problemKeys[known.code]!,
         code: known.code,
       };
     }
@@ -308,19 +310,18 @@
     return result.status === 0 || result.status === 200 || result.status === 409 || result.status >= 500;
   }
 
-  // 送る最初の管理者。GitHub は確かめた人（確かめていなければ送らない）、Google は入れたメールアドレス
+  // 送る最初の管理者。GitHub は確かめた人（確かめていなければ送らない）、Google とパスワードは入れたメールアドレス
   // 作れないときは undefined（誤りは errors に入れる）。同期で返す（待つと、押す操作が重なって二重に作れてしまう）
-  type AdminToSend =
-    { provider: 'google'; email: string } | { provider: 'github'; username: string; login_subject: string };
+  type AdminToSend = InputOf<typeof createOrganization>['admin'];
 
   function adminToSend(): AdminToSend | undefined {
-    if (!github) {
+    if (via !== 'github') {
       const value = email.trim();
       if (value === '') {
         errors = { ...errors, email: 'operatorErrorEmailRequired' };
         return undefined;
       }
-      return { provider: 'google', email: value };
+      return { provider: via, email: value };
     }
     if (resolved === null) return undefined;
     // 確かめた人と、欄のユーザー名が違うまま作らない（欄を直したら確かめた結果は捨てるが、念のため送る前にも見る）
@@ -362,6 +363,7 @@
         admin: result.data.invite
           ? {
               kind: 'invite',
+              password: admin.provider === 'password',
               email: result.data.admin_login_name,
               inviteUrl: result.data.invite.url,
               expiresAt: result.data.invite.expires_at,
@@ -504,6 +506,19 @@
           />
           <span>{t('operatorGoogleName')}</span>
         </label>
+        {#if PASSWORD_LOGIN_ENABLED}
+          <label>
+            <input
+              type="radio"
+              name="operator-via"
+              value="password"
+              bind:group={via}
+              disabled={creating}
+              onchange={changeVia}
+            />
+            <span>{t('operatorPasswordName')}</span>
+          </label>
+        {/if}
       </div>
     </div>
     {#if github}
@@ -555,7 +570,9 @@
       {/if}
     {:else}
       <div class="field" class:is-invalid={errors.email}>
-        <label class="field-label" for="operator-email">{t('operatorGoogleEmailLabel')}</label>
+        <label class="field-label" for="operator-email"
+          >{t(password ? 'loginEmailLabel' : 'operatorGoogleEmailLabel')}</label
+        >
         <input
           class="input mono"
           id="operator-email"
@@ -581,7 +598,9 @@
             ><Icon name="alert" />{t(errors.email, words)}</span
           >
         {/if}
-        <span class="field-hint" id="operator-email-hint">{t('operatorGoogleEmailHint', words)}</span>
+        <span class="field-hint" id="operator-email-hint"
+          >{t(password ? 'operatorPasswordEmailHint' : 'operatorGoogleEmailHint', words)}</span
+        >
       </div>
     {/if}
     {#if errors.form}
@@ -607,10 +626,14 @@
       {/if}
     {/if}
   {:else if created.admin.kind === 'invite'}
-    <!-- Google の指名。招待の URL は応答の本文にだけあり、この表示を閉じると二度と出ない -->
-    <p tabindex="-1" bind:this={doneLead}>{t('operatorInviteLead', words)}</p>
+    <!-- メールアドレスでの指名。URL は応答の本文にだけあり、この表示を閉じると二度と出ない -->
+    <p tabindex="-1" bind:this={doneLead}>
+      {t(created.admin.password ? 'operatorPasswordInviteLead' : 'operatorInviteLead', words)}
+    </p>
     <div class="field">
-      <label class="field-label" for="operator-invite-url">{t('operatorInviteUrlLabel')}</label>
+      <label class="field-label" for="operator-invite-url"
+        >{t(created.admin.password ? 'operatorPasswordInviteUrlLabel' : 'operatorInviteUrlLabel')}</label
+      >
       <div class="input-row">
         <input
           class="input mono"
@@ -619,22 +642,31 @@
           readonly
           bind:this={urlInput}
         />
-        <button class="btn" type="button" onclick={() => copy(inviteUrl, 'operatorInviteCopied')}
-          ><Icon name="link" />{t('operatorCopy')}</button
+        <button
+          class="btn"
+          type="button"
+          onclick={() =>
+            created?.admin.kind === 'invite' &&
+            copy(
+              created.admin.inviteUrl,
+              created.admin.password ? 'operatorPasswordInviteCopied' : 'operatorInviteCopied',
+            )}><Icon name="link" />{t('operatorCopy')}</button
         >
       </div>
     </div>
     <div class="callout is-info">
       <Icon name="check" />
       <span>
-        {t('operatorInviteTell')}
+        {t(created.admin.password ? 'operatorPasswordInviteTell' : 'operatorInviteTell')}
         <b class="mono wrap-anywhere">{created.admin.email}</b>
       </span>
     </div>
     <div class="callout is-warn">
       <Icon name="alert" /><span>{t('operatorInviteOnce', { expires: formatDateTime(created.admin.expiresAt) })}</span>
     </div>
-    <p class="field-hint">{t('operatorInviteReissue', words)}</p>
+    <p class="field-hint">
+      {t(created.admin.password ? 'operatorPasswordInviteReissue' : 'operatorInviteReissue', words)}
+    </p>
   {:else}
     <p tabindex="-1" bind:this={doneLead}>
       {t(created.admin.kind === 'named' ? 'operatorDoneLead' : 'operatorExistingLead', words)}

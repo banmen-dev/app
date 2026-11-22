@@ -1,17 +1,10 @@
 import { generateKeyBetween } from 'fractional-indexing';
-import { monthIn, now, todayIn, weekRangeIn } from '../../shared/clock.ts';
-import {
-  XP_HELP,
-  XP_REVIEW,
-  XP_HELP_WEEKLY_LIMIT,
-  XP_TASK_COMPLETED,
-  XP_TASK_CREATED,
-  XP_TASK_DETAILED,
-} from '../../shared/experience.ts';
+import { monthIn, now, todayIn } from '../../shared/clock.ts';
 import { backlogTree, taskComplete, taskCreate, taskMove } from '../../shared/operations/task/index.ts';
 import { searchWordsOf } from '../../shared/backlog-filter.ts';
-import { MIN_POINTS_FOR_EXPERIENCE } from '../../shared/task.ts';
 import {
+  backlogTasksUnder,
+  backlogTasksUnderStories,
   previousStatementChanged,
   sprintLeftLogSql,
   titleContainsAll,
@@ -35,7 +28,6 @@ import { taskAssigneePartyStatements } from './epic-party.ts';
 import { implement } from './implement.ts';
 import { sprintRefColumns, sprintRefOf, type SprintRefRow } from './sprint-refs.ts';
 import { openSprint } from './sprint.ts';
-import { activeTaskGrant, detailedRecipient } from './task-detail-xp.ts';
 import {
   MAX_TIES,
   moveConflict,
@@ -55,27 +47,6 @@ import {
 } from './write-guards.ts';
 
 type Tables = OrganizationTables;
-
-// 削除していないバックログのタスク。親のないタスク（storyId が null）か、ストーリーの配下のタスク。
-// 木の読み取りと、末尾の位置を決める読み取りと、並べ替えの兄弟を引く読み取りが同じ範囲を使う。
-// tasks_story は story_id が NULL の行を全組織のぶん持ち（workspace_id を持たない）、ANALYZE の後は SQLite が NULL を別々の値と
-// 数えて tasks_story を選び、全組織の親のないタスクを読んでから絞る計画に変わる。親なしの分岐は列を索引に使わせず（unindexed）、
-// tasks_workspace_tray で引かせる。ストーリーの分岐は story_id の等号で tasks_story を使う
-// （docs/data-model.md の「バックログの木」。test/backlog-filter.test.ts が ANALYZE の後の実行計画で確かめる）
-function backlogTasksUnder(
-  from: Pick<QueryCreator<Tables>, 'selectFrom'>,
-  workspaceId: string,
-  storyId: string | null,
-) {
-  const tasks = from
-    .selectFrom('tasks')
-    .where('tasks.workspace_id', '=', workspaceId)
-    .where('tasks.tray', '=', 'backlog')
-    .where('tasks.deleted_at', 'is', null);
-  return storyId === null
-    ? tasks.where(unindexed('tasks.story_id'), 'is', null)
-    : tasks.where('tasks.story_id', '=', storyId);
-}
 
 // 起票で、親の配下（親なしなら親のないタスク）の末尾の位置を決めるために、いちばん後ろの行の position を読む文
 export function lastPositionStatement(db: OrganizationDb, workspaceId: string, storyId: string | null) {
@@ -415,21 +386,30 @@ export const taskCreateOperation = implement(taskCreate, async ({ db, actor, wor
 
 type TaskPoints = 0 | 1 | 2 | 3 | 5 | 8 | 13 | null;
 
-// ストーリー（親のないものとエピックの下のもの）の配下の、削除していないバックログのタスク。ストーリーから引いてタスクを結ぶ
-// （FROM stories CROSS JOIN tasks）。SQLite は INNER JOIN だと、親のないタスクも含めた tasks_workspace_tray を先に走査する計画を
-// 選ぶので、CROSS JOIN で順序を固定し、ストーリー側を `stories_workspace_epic` の先頭の列（workspace_id）で、タスク側を
-// `tasks_story`（story_id, position の部分索引。未完了だけを読む文は `tasks_story_open`）で引く（結ぶ条件は WHERE に書く）。
-// 両側をワークスペースで絞る
-function tasksUnderStories(from: Pick<QueryCreator<Tables>, 'selectFrom'>, workspaceId: string) {
-  return from
-    .selectFrom('stories')
-    .crossJoin('tasks')
-    .whereRef('tasks.story_id', '=', 'stories.id')
-    .whereRef('tasks.workspace_id', '=', 'stories.workspace_id')
-    .where('stories.workspace_id', '=', workspaceId)
-    .where('stories.deleted_at', 'is', null)
-    .where('tasks.tray', '=', 'backlog')
-    .where('tasks.deleted_at', 'is', null);
+// ストーリーごとの、完了した件数とポイントの合計。未見積もりは 0
+export function storyTaskCountsStatement(db: OrganizationDb, workspaceId: string) {
+  return db.statement((q) =>
+    backlogTasksUnderStories(q, workspaceId, 'all')
+      .select((eb) => [
+        'stories.id as story_id',
+        eb.fn
+          .sum<number>(eb.case().when('tasks.completed_at', 'is not', null).then(1).else(0).end())
+          .as('completed_count'),
+        eb.fn.sum<number>(eb.case().when('tasks.completed_at', 'is', null).then(1).else(0).end()).as('open_count'),
+        eb.fn
+          .sum<number>(
+            eb
+              .case()
+              .when('tasks.completed_at', 'is not', null)
+              .then(eb.fn.coalesce('tasks.points', eb.lit(0)))
+              .else(0)
+              .end(),
+          )
+          .as('points_done'),
+        eb.fn.sum<number>(eb.fn.coalesce('tasks.points', eb.lit(0))).as('points_all'),
+      ])
+      .groupBy('stories.id'),
+  );
 }
 
 // users の行の人が、そのワークスペースに今所属していて担当にできる人か（activeMemberName、member-list と同じ条件）
@@ -458,18 +438,16 @@ export type BacklogTreeFilter = {
   words: readonly string[];
 };
 
-// ストーリーの下の未完了のタスク。ORDER BY を付けると SQLite が tasks_story_open を使わない計画を選ぶので、並べるのは読んだ後に行う。
+// ストーリーの下の未完了のタスク。未完了行を絞れる索引を活かすため、並べ替えは読んだ後に行う。
 // 区分は親から引き継ぐので、タスク自身の区分は読まない。
 // 絞り込みは WHERE に足す。区分、エピック、検索は、タスクか親（ストーリー、その親のエピック）のどれかが当たれば当たり
 // （区分とエピックは親から引き継ぐので、親で決まる）。担当、依頼先、リポジトリは、タスク自身で決める。
-// 担当と依頼先の列は索引に使わせない（tasks_story_open を足す前は、SQLite が tasks_story の代わりに tasks_assignee_user をストーリーごとに
-// 引く計画を選び、5 万件で 10 秒かかった。tasks_story_open があれば今はそれを選ぶが、計画が揺れないよう止めておく。
-// 依頼先の tasks_delegatee_completed も同じ理由で止める。test/backlog-filter.test.ts が実行計画で確かめる）
+// ストーリーごとに担当、依頼先、リポジトリやワークスペースの索引を引き直さないように、tasks_story_open を指定する。
 export function openStoryTasksStatement(db: OrganizationDb, workspaceId: string, filter: BacklogTreeFilter) {
   const { assignee, delegatee, category, repository, epic, words } = filter;
   const organizationId = db.organizationId;
   return db.statement((q) =>
-    tasksUnderStories(q, workspaceId)
+    backlogTasksUnderStories(q, workspaceId, 'open')
       .leftJoin('users', (join) =>
         join.onRef('users.id', '=', 'tasks.assignee_user_id').on('users.organization_id', '=', organizationId),
       )
@@ -506,13 +484,10 @@ export function openStoryTasksStatement(db: OrganizationDb, workspaceId: string,
         'repositories.name as repository_name',
         ...sprintRefColumns,
       ])
-      .where('tasks.completed_at', 'is', null)
       .$if(assignee !== undefined, (qb) =>
-        qb.where(unindexed('tasks.assignee_user_id'), assignee === null ? 'is' : '=', assignee!),
+        qb.where('tasks.assignee_user_id', assignee === null ? 'is' : '=', assignee!),
       )
-      .$if(delegatee !== undefined, (qb) =>
-        qb.where(unindexed('tasks.delegatee_id'), delegatee === null ? 'is' : '=', delegatee!),
-      )
+      .$if(delegatee !== undefined, (qb) => qb.where('tasks.delegatee_id', delegatee === null ? 'is' : '=', delegatee!))
       .$if(repository !== undefined, (qb) => qb.where('repositories.id', repository === null ? 'is' : '=', repository!))
       .$if(category !== undefined, (qb) =>
         qb.where((eb) => {
@@ -609,6 +584,7 @@ export function rootOpenTasksStatement(db: OrganizationDb, workspaceId: string, 
         ...sprintRefColumns,
       ])
       .where('tasks.completed_at', 'is', null)
+      // 親なしでは担当者の索引も候補にする。どの索引を使ってもワークスペースの条件で照合する。
       .$if(assignee !== undefined, (qb) =>
         qb.where('tasks.assignee_user_id', assignee === null ? 'is' : '=', assignee!),
       )
@@ -762,29 +738,7 @@ export const backlogTreeOperation = implement(backlogTree, async ({ db, actor, w
         .orderBy('stories.id'),
     ),
     openStoryTasksStatement(db, workspaceId, filter),
-    // ストーリーごとの、完了した件数とポイントの合計。未見積もりは 0
-    db.statement((q) =>
-      tasksUnderStories(q, workspaceId)
-        .select((eb) => [
-          'stories.id as story_id',
-          eb.fn
-            .sum<number>(eb.case().when('tasks.completed_at', 'is not', null).then(1).else(0).end())
-            .as('completed_count'),
-          eb.fn.sum<number>(eb.case().when('tasks.completed_at', 'is', null).then(1).else(0).end()).as('open_count'),
-          eb.fn
-            .sum<number>(
-              eb
-                .case()
-                .when('tasks.completed_at', 'is not', null)
-                .then(eb.fn.coalesce('tasks.points', eb.lit(0)))
-                .else(0)
-                .end(),
-            )
-            .as('points_done'),
-          eb.fn.sum<number>(eb.fn.coalesce('tasks.points', eb.lit(0))).as('points_all'),
-        ])
-        .groupBy('stories.id'),
-    ),
+    storyTaskCountsStatement(db, workspaceId),
     rootOpenTasksStatement(db, workspaceId, filter),
     rootCompletedCountStatement(db, workspaceId),
     backlogCountsStatement(db, workspaceId),
@@ -997,18 +951,6 @@ const completionColumns = [
 // 読んでから書くまでに、スプリントか列が変わって書けなかったときにやり直す回数の上限。超えたら 409 の conflict
 const MAX_COMPLETE_ATTEMPTS = 3;
 
-const grantColumns = [
-  'id',
-  'workspace_id',
-  'user_id',
-  'action',
-  'task_id',
-  'completion_id',
-  'amount',
-  'dedupe_key',
-  'confirmed_at',
-] as const;
-
 // 自分の文が入れた完了の記録がある、という条件。後続の文はこれで、先に入った文が通ったかを見る
 function completionExists(eb: Pick<QueryCreator<Tables>, 'selectFrom'>, workspaceId: string, completionId: string) {
   return eb
@@ -1018,191 +960,18 @@ function completionExists(eb: Pick<QueryCreator<Tables>, 'selectFrom'>, workspac
     .where('completions.workspace_id', '=', workspaceId);
 }
 
-type CompletionParams = {
-  workspaceId: string;
-  taskId: string;
-  completionId: string;
-  userId: string;
-  at: string;
-  review: boolean;
-};
-
-// 起票、詳細と完了の経験値の1行。ポイント、起票した人、担当は先に読まず、tasks の行から取る。
-// 条件は、ポイントが 1 以上（完了にした時点の値）と、自分の完了の記録が入ったこと
-function grantStatement(
-  db: OrganizationDb,
-  params: CompletionParams,
-  grant: { id: string; action: 'task_created' | 'task_completed' | 'task_detailed' | 'review'; amount: number },
-) {
-  const { workspaceId, taskId, completionId, userId, at } = params;
-  return db.statement((q) =>
-    q
-      .insertInto('xp_grants')
-      .columns(grantColumns)
-      .expression(
-        q
-          .selectFrom('tasks')
-          .select((eb) => [
-            eb.val(grant.id).as('id'),
-            'tasks.workspace_id as workspace_id',
-            // 起票は作った人へ。完了は完了した時点の担当者へ、担当がいなければ完了にした人へ
-            grant.action === 'task_created'
-              ? eb.ref('tasks.created_by').as('user_id')
-              : grant.action === 'task_detailed'
-                ? detailedRecipient(eb).as('user_id')
-                : eb.fn.coalesce('tasks.assignee_user_id', eb.val(userId)).as('user_id'),
-            eb.val(grant.action).as('action'),
-            'tasks.id as task_id',
-            eb.val(completionId).as('completion_id'),
-            eb.val(grant.amount).as('amount'),
-            eb.val(`${grant.action}:${completionId}`).as('dedupe_key'),
-            eb.val(at).as('confirmed_at'),
-          ])
-          .where((eb) =>
-            eb.and([
-              eb('tasks.id', '=', taskId),
-              eb('tasks.workspace_id', '=', workspaceId),
-              eb('tasks.points', '>=', MIN_POINTS_FOR_EXPERIENCE),
-              ...(grant.action === 'task_created' ? [eb('tasks.created_by', 'is not', null)] : []),
-              // 受け取る人は、このワークスペースに今所属している人だけ（所属していない管理者は経験値の対象にならない）
-              eb.exists(
-                eb
-                  .selectFrom('memberships')
-                  .select('memberships.id')
-                  .where('memberships.workspace_id', '=', workspaceId)
-                  .where('memberships.left_at', 'is', null)
-                  .where(
-                    'memberships.user_id',
-                    '=',
-                    grant.action === 'task_created'
-                      ? eb.ref('tasks.created_by')
-                      : grant.action === 'task_detailed'
-                        ? detailedRecipient(eb)
-                        : eb.fn.coalesce('tasks.assignee_user_id', eb.val(userId)),
-                  ),
-              ),
-              eb.exists(completionExists(q, workspaceId, completionId)),
-              ...(params.review && grant.action !== 'review'
-                ? [eb.not(eb.exists(activeTaskGrant(q, workspaceId, taskId, grant.action)))]
-                : []),
-            ]),
-          ),
-      ),
-  );
-}
-
-const helpColumns = [...grantColumns, 'thank_id', 'helper_sender_user_id'] as const;
-
-type HelpParams = CompletionParams & {
-  // 完了の時刻と同じ週の範囲（UTC の ISO の時刻。始まりは含み、終わりは含まない）
-  weekStart: string;
-  weekEnd: string;
-};
-
-// 手助けの経験値の1行。タスクの感謝1件につき1行で、感謝を受け取った人に付く（送った人は helper_sender_user_id に残す）。
-// 条件は、感謝の行が今もある、受け取る人が今このワークスペースに所属している、自分の完了の記録が入った、
-// 同じ送り手と相手の、打ち消されていない手助け（正の値で、reverses_grant_id で指されていない行）のうち、確定日時が完了と同じ週に入るものが
-// 上限（XP_HELP_WEEKLY_LIMIT）に満たない、の4つ。ポイントの条件は付けない。
-// 件数は書く時点の表を数える。D1 の batch() は1つのトランザクションで、同じ batch の前の文の挿入が次の文に見えるので、
-// 1つのタスクの複数の感謝も、同時に完了にした別のタスクの感謝も、上限を超えない（別の要求の batch() とは交わらない）
-function helpStatement(db: OrganizationDb, params: HelpParams, grant: { id: string; thankId: string }) {
-  const { workspaceId, taskId, completionId, at, weekStart, weekEnd } = params;
-  return db.statement((q) =>
-    q
-      .insertInto('xp_grants')
-      .columns(helpColumns)
-      .expression(
-        q
-          .selectFrom('thanks')
-          .select((eb) => [
-            eb.val(grant.id).as('id'),
-            'thanks.workspace_id as workspace_id',
-            'thanks.recipient_user_id as user_id',
-            eb.val('help').as('action'),
-            'thanks.task_id as task_id',
-            eb.val(completionId).as('completion_id'),
-            eb.val(XP_HELP).as('amount'),
-            eb.val(`help:${grant.thankId}:${completionId}`).as('dedupe_key'),
-            eb.val(at).as('confirmed_at'),
-            'thanks.id as thank_id',
-            'thanks.sender_user_id as helper_sender_user_id',
-          ])
-          .where((eb) =>
-            eb.and([
-              eb('thanks.id', '=', grant.thankId),
-              eb('thanks.workspace_id', '=', workspaceId),
-              eb('thanks.task_id', '=', taskId),
-              // 受け取る人は、このワークスペースに今所属している人だけ
-              eb.exists(
-                eb
-                  .selectFrom('memberships')
-                  .select('memberships.id')
-                  .where('memberships.workspace_id', '=', workspaceId)
-                  .where('memberships.left_at', 'is', null)
-                  .whereRef('memberships.user_id', '=', 'thanks.recipient_user_id'),
-              ),
-              eb.exists(completionExists(q, workspaceId, completionId)),
-              ...(params.review
-                ? [eb.not(eb.exists(activeTaskGrant(q, workspaceId, taskId, 'help', grant.thankId)))]
-                : []),
-              eb(
-                eb
-                  .selectFrom('xp_grants as h')
-                  .select((hb) => hb.fn.countAll<number>().as('count'))
-                  .where('h.workspace_id', '=', workspaceId)
-                  .where('h.action', '=', 'help')
-                  .whereRef('h.user_id', '=', 'thanks.recipient_user_id')
-                  .whereRef('h.helper_sender_user_id', '=', 'thanks.sender_user_id')
-                  .where('h.amount', '>', 0)
-                  .where('h.confirmed_at', '>=', weekStart)
-                  .where('h.confirmed_at', '<', weekEnd)
-                  .where((hb) =>
-                    hb.not(
-                      hb.exists(
-                        hb
-                          .selectFrom('xp_grants as r')
-                          .select('r.id')
-                          .whereRef('r.reverses_grant_id', '=', 'h.id')
-                          .where('r.workspace_id', '=', workspaceId),
-                      ),
-                    ),
-                  ),
-                '<',
-                XP_HELP_WEEKLY_LIMIT,
-              ),
-            ]),
-          ),
-      ),
-  );
-}
-
-// このタスクの感謝を、付ける順（送った順、同じなら id の順）に読む。上限は先に入った行から数えるので、順が結果を決める。ワークスペースで必ず絞る
-function readTaskThanks(db: OrganizationDb, workspaceId: string, taskId: string) {
-  return db.rows(
-    db.statement((q) =>
-      q
-        .selectFrom('thanks')
-        .select('thanks.id')
-        .where('thanks.workspace_id', '=', workspaceId)
-        .where('thanks.task_id', '=', taskId)
-        .orderBy('thanks.created_at')
-        .orderBy('thanks.id'),
-    ),
-  );
-}
-
 export const taskCompleteOperation = implement(taskComplete, async ({ db, actor, workspace, input }) => {
   const userId = actorUserIdOf(actor);
   const organizationId = db.organizationId;
   const workspaceId = workspace.workspaceId;
   const taskId = input.task_id;
 
-  // 計上月と手助けの週を決めるタイムゾーンと週の始まり、履歴に残す自分の名前。ポイント、担当、区分は読まず、書く文が tasks の行から取る
+  // 計上月を決めるタイムゾーン、履歴に残す自分の名前。ポイント、担当、区分は読まず、書く文が tasks の行から取る
   const [workspaceResult, userResult] = await db.batch([
     db.statement((q) =>
       q
         .selectFrom('workspaces')
-        .select(['timezone', 'week_start'])
+        .select(['timezone'])
         .where('id', '=', workspaceId)
         .where('organization_id', '=', organizationId),
     ),
@@ -1211,9 +980,8 @@ export const taskCompleteOperation = implement(taskComplete, async ({ db, actor,
     ),
   ] as const);
   const timezone = workspaceResult.rows[0]?.timezone;
-  const weekStart = workspaceResult.rows[0]?.week_start;
   const userName = userResult.rows[0]?.name;
-  if (timezone === undefined || weekStart === undefined || userName === undefined) throw new ApiError(404, 'not_found');
+  if (timezone === undefined || userName === undefined) throw new ApiError(404, 'not_found');
 
   for (let attempt = 0; attempt < MAX_COMPLETE_ATTEMPTS; attempt++) {
     const target = await readCompleteTarget(db, workspaceId, taskId);
@@ -1226,10 +994,8 @@ export const taskCompleteOperation = implement(taskComplete, async ({ db, actor,
       throw new ApiError(409, 'conflict');
     }
     const placement = await placementOf(db, workspaceId, target);
-    const thanks = await readTaskThanks(db, workspaceId, taskId);
     const at = now();
-    const week = weekRangeIn(timezone, weekStart, at);
-    const { statements, taskIndex, experienceIndex } = completeStatements(db, {
+    const { statements, taskIndex } = completeStatements(db, {
       organizationId,
       workspaceId,
       taskId,
@@ -1237,9 +1003,6 @@ export const taskCompleteOperation = implement(taskComplete, async ({ db, actor,
       userName,
       at,
       billingMonth: monthIn(timezone, at),
-      weekStart: week.start,
-      weekEnd: week.end,
-      thankIds: thanks.map((row) => row.id),
       placement,
       source: target,
     });
@@ -1249,7 +1012,8 @@ export const taskCompleteOperation = implement(taskComplete, async ({ db, actor,
         task_id: taskId,
         completed_at: at.toISOString(),
         left_sprint: placement.kind === 'planned',
-        xp_granted: Number(results[experienceIndex]?.rows[0]?.xp_granted ?? 0),
+        // 経験値は付けない（#1430）。項目は経験値の画面を外す PR まで 0 で残す
+        xp_granted: 0,
       };
     }
     // 先に読んだ値ではなく、書いた結果で決める。読んでから書くまでに閉じたなら 409 の workspace_closed、
@@ -1377,11 +1141,6 @@ type CompleteContext = {
   userName: string;
   at: Date;
   billingMonth: string;
-  // 完了の時刻と同じ週の範囲（手助けの上限を数える。UTC の ISO の時刻で、始まりは含み、終わりは含まない）
-  weekStart: string;
-  weekEnd: string;
-  // このタスクの感謝の ID（手助けを付ける順）
-  thankIds: string[];
   placement: Placement;
   source: Pick<CompleteTarget, 'source_kind' | 'review_cycle' | 'review_revision'>;
 };
@@ -1391,11 +1150,10 @@ type CompleteContext = {
 // （ended_at が自分の時刻）を条件にする。行を閉じる文が負けたら（入っている行が無い、読んでから書くまでに閉じられた）、何も書かない
 function completeStatements(db: OrganizationDb, context: CompleteContext) {
   const { organizationId, workspaceId, taskId, userId, userName, at, billingMonth, placement } = context;
-  const { weekStart, weekEnd, thankIds, source } = context;
+  const { source } = context;
   const review = source.source_kind === 'review_request';
   const completedAt = at.toISOString();
-  const params: CompletionParams = { workspaceId, taskId, completionId: uuidv7(at), userId, at: completedAt, review };
-  const { completionId } = params;
+  const completionId = uuidv7(at);
   // 完了の前にいた列。進行中のスプリントの中の完了だけ（完了を戻す操作 task-reopen が、この列へ戻す）
   const previousColumnId = placement.kind === 'active' ? placement.columnId : null;
   const inSprint = placement.kind === 'outside' ? null : placement;
@@ -1442,35 +1200,8 @@ function completeStatements(db: OrganizationDb, context: CompleteContext) {
     ]);
   };
 
-  // そのタスクの感謝が、読んだときのまま（数と、最も新しい ID）。読んでから書くまでに thanks-send が通ると、手助けの文が届いた感謝を
-  // 知らないまま完了が確定してしまう（完了後は感謝を送れも取り消せもしないので付け直せない）。ここで止めて、読み直してやり直す。
-  // 数だけでは、取り消し1件と送付1件が重なったときに一致してしまう。ID は UUIDv7 で、後から送った感謝は読んだ最大の ID より必ず大きい
-  // （取り消しは行を消すので、読んだ最大の ID の行が消えても最大の ID が変わる）。組織の中の表を、ワークスペースとタスクで絞って読む
-  const latestThankId = thankIds.reduce((latest, id) => (id > latest ? id : latest), '');
-  const thanksAsRead = (eb: ExpressionBuilder<Tables, keyof Tables>) =>
-    eb.and([
-      eb(
-        eb
-          .selectFrom('thanks as counted')
-          .select((cb) => cb.fn.countAll<number>().as('count'))
-          .where('counted.workspace_id', '=', workspaceId)
-          .where('counted.task_id', '=', taskId),
-        '=',
-        thankIds.length,
-      ),
-      eb(
-        eb
-          .selectFrom('thanks as latest')
-          .select((cb) => cb.fn.coalesce(cb.fn.max<string>('latest.id'), cb.val('')).as('latest_id'))
-          .where('latest.workspace_id', '=', workspaceId)
-          .where('latest.task_id', '=', taskId),
-        '=',
-        latestThankId,
-      ),
-    ]);
-
   // 0.（始まっていないスプリントの中だけ）入っている行を removed で閉じる。条件は 1 と同じ前提（読んだスプリントと列のままの、
-  // 未完了のバックログのタスク、閉じていないワークスペース、読んだ数のままの感謝）
+  // 未完了のバックログのタスク、閉じていないワークスペース）
   const closeEntry =
     placement.kind === 'planned'
       ? [
@@ -1486,7 +1217,6 @@ function completeStatements(db: OrganizationDb, context: CompleteContext) {
                 eb.and([
                   eb.exists(openWorkspace(q, organizationId, workspaceId)),
                   eb.exists(sprintAsRead(q)),
-                  thanksAsRead(eb),
                   sourceAsRead(eb),
                   eb.exists(
                     q
@@ -1528,7 +1258,6 @@ function completeStatements(db: OrganizationDb, context: CompleteContext) {
         .where('completed_at', 'is', null)
         .where('deleted_at', 'is', null)
         .where((eb) => eb.exists(openWorkspace(q, organizationId, workspaceId)))
-        .where((eb) => thanksAsRead(eb))
         .where((eb) => sourceAsRead(eb))
         .$if(placement.kind === 'outside', (qb) => qb.where('sprint_id', 'is', null))
         .$if(inSprint !== null, (qb) =>
@@ -1636,16 +1365,7 @@ function completeStatements(db: OrganizationDb, context: CompleteContext) {
           ),
         ]
       : []),
-    // 3. xp_grants。起票、完了と詳細、続けてそのタスクの感謝1件につき手助け1行（感謝の順。上限は前の文の挿入を数えて守る）
-    grantStatement(db, params, { id: uuidv7(at), action: 'task_created', amount: XP_TASK_CREATED }),
-    grantStatement(db, params, {
-      id: uuidv7(at),
-      action: review ? 'review' : 'task_completed',
-      amount: review ? XP_REVIEW : XP_TASK_COMPLETED,
-    }),
-    grantStatement(db, params, { id: uuidv7(at), action: 'task_detailed', amount: XP_TASK_DETAILED }),
-    ...thankIds.map((thankId) => helpStatement(db, { ...params, weekStart, weekEnd }, { id: uuidv7(at), thankId })),
-    // 4. change_logs。3 と同じく、自分の完了の記録が入ったときだけ
+    // 3. change_logs。自分の完了の記録が入ったときだけ
     db.statement((q) =>
       q
         .insertInto('change_logs')
@@ -1683,7 +1403,7 @@ function completeStatements(db: OrganizationDb, context: CompleteContext) {
             .where((eb) => eb.exists(completionExists(q, workspaceId, completionId))),
         ),
     ),
-    // 5. 始まっていないスプリントの中の完了だけ。スプリントから外した変更の履歴（名前は書くときの今の名前）。
+    // 4. 始まっていないスプリントの中の完了だけ。スプリントから外した変更の履歴（名前は書くときの今の名前）。
     // 3 と同じく、自分の完了の記録が入ったときだけ
     ...(placement.kind === 'planned'
       ? [
@@ -1713,21 +1433,9 @@ function completeStatements(db: OrganizationDb, context: CompleteContext) {
         ]
       : []),
   ];
-  // 同じ batch 内で今回の完了で本人に付いた分だけを合計する。受取人や上限の判定を二重に実装しない。
-  // 更新が負けた要求には固有の completionId の付与が無いため、SUM は 0 になる。
-  const experience = db.statement((q) =>
-    q
-      .selectFrom('xp_grants')
-      .select((eb) => eb.fn.coalesce(eb.fn.sum<number>('amount'), eb.val(0)).as('xp_granted'))
-      .where('workspace_id', '=', workspaceId)
-      .where('task_id', '=', taskId)
-      .where('completion_id', '=', completionId)
-      .where('user_id', '=', userId),
-  );
   return {
-    statements: [...statements, experience] as const,
+    statements,
     taskIndex: closeEntry.length,
-    experienceIndex: statements.length,
   };
 }
 
@@ -1737,11 +1445,13 @@ function siblingTasks(
   workspaceId: string,
   storyId: string | null,
   taskId: string,
+  lookup: 'position' | 'id' = 'position',
 ) {
-  return backlogTasksUnder(from, workspaceId, storyId).where('tasks.id', '!=', taskId);
+  return backlogTasksUnder(from, workspaceId, storyId, lookup).where('tasks.id', '!=', taskId);
 }
 
-// 並べ替えで兄弟を引く文。親なしの分岐は backlogTasksUnder が story_id を索引に使わせない
+// 並べ替えで兄弟を引く文。ストーリー配下は位置順の索引を使い、ID が分かるときは主キーで引けるようにする。
+// 親なしの分岐は backlogTasksUnder が story_id を索引に使わせない
 // （test/backlog-filter.test.ts が ANALYZE の後の実行計画で確かめる）
 export function siblingStatements(db: OrganizationDb, workspaceId: string, storyId: string | null, taskId: string) {
   const columns = ['tasks.id', 'tasks.position'] as const;
@@ -1764,7 +1474,7 @@ export function siblingStatements(db: OrganizationDb, workspaceId: string, story
       ),
     byId: (afterId: string) =>
       db.statement((q) =>
-        siblingTasks(q, workspaceId, storyId, taskId).select(columns).where('tasks.id', '=', afterId),
+        siblingTasks(q, workspaceId, storyId, taskId, 'id').select(columns).where('tasks.id', '=', afterId),
       ),
     ties: (after: Positioned) =>
       db.statement((q) =>
@@ -1922,7 +1632,7 @@ export const taskMoveOperation = implement(taskMove, async ({ db, actor, workspa
         .$if(after !== null, (qb) =>
           qb.where((eb) =>
             eb.exists(
-              siblingTasks(q, workspaceId, parentId, taskId)
+              siblingTasks(q, workspaceId, parentId, taskId, 'id')
                 .select('tasks.id')
                 .where('tasks.id', '=', after!.id)
                 .where('tasks.position', '=', after!.position),

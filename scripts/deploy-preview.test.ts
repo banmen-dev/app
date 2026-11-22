@@ -14,12 +14,14 @@ test('ランタイムと資産・bindingの共通設定は本番とずれない'
   const text = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
   const parsed = ts.parseConfigFileTextToJson('wrangler.jsonc', text);
   assert.equal(parsed.error, undefined);
-  const production = parsed.config as ReturnType<typeof previewConfig>;
+  const production = parsed.config as ReturnType<typeof previewConfig> & {
+    r2_buckets: { binding: string; bucket_name: string }[];
+  };
   const preview = previewConfig('374', DB, SHA, '/workspace/app');
   assert.deepEqual(
     Object.keys(preview).sort(),
     Object.keys(production)
-      .filter((key) => key !== '$schema')
+      .filter((key) => key !== '$schema' && key !== 'r2_buckets')
       .sort(),
   );
   assert.equal(preview.compatibility_date, production.compatibility_date);
@@ -30,8 +32,7 @@ test('ランタイムと資産・bindingの共通設定は本番とずれない'
   assert.equal(preview.d1_databases[0].binding, production.d1_databases[0].binding);
   assert.equal(preview.d1_databases.length, production.d1_databases.length);
   assert.equal(preview.d1_databases[0].migrations_dir, `/workspace/app/${production.d1_databases[0].migrations_dir}`);
-  assert.equal(preview.r2_buckets[0].binding, production.r2_buckets[0].binding);
-  assert.equal(preview.r2_buckets.length, production.r2_buckets.length);
+  assert.deepEqual(production.r2_buckets, [{ binding: 'ATTACHMENTS', bucket_name: 'scrum-guild-attachments' }]);
   assert.deepEqual(preview.observability, production.observability);
 });
 
@@ -50,11 +51,12 @@ test('設定は本番の binding を持たず、cron と呼び出しログを無
   assert.deepEqual(config.d1_databases, [
     { binding: 'DB', database_name: DB.name, database_id: DB.uuid, migrations_dir: '/workspace/app/migrations' },
   ]);
-  assert.deepEqual(config.r2_buckets, [{ binding: 'ATTACHMENTS', bucket_name: 'scrum-guild-preview-attachments' }]);
+  assert.equal('r2_buckets' in config, false);
   assert.deepEqual(config.vars, {
     APP_VERSION: SHA,
     PUBLIC_ORIGIN: 'https://pr-374-scrum-guild-preview.ucan-lab.workers.dev',
     OPERATOR_LOGIN_IDS: 'github:9000000000000001',
+    PREVIEW_WITHOUT_ATTACHMENTS: '1',
   });
   assert.equal(config.workers_dev, true);
   assert.deepEqual(config.triggers.crons, []);
@@ -112,24 +114,60 @@ test('マイグレーション失敗後はseedやuploadをせず一時ファイ�
   assert.ok(!existsSync(configFile));
 });
 
+const REPOSITORY_ID = 1425341812;
+
 test('GitHubは全ページを取得し、forkのPRを生存中の根拠にしない', async () => {
   const urls: string[] = [];
   const branches = await openPreviewBranches(async (url) => {
     urls.push(url);
-    const own = { head: { ref: '374-preview', repo: { full_name: 'scrum-guild-dev/app' } } };
+    const own = { head: { ref: '374-preview', repo: { id: REPOSITORY_ID, full_name: 'scrum-guild-dev/app' } } };
     return urls.length === 1
       ? Array.from({ length: 100 }, () => own)
-      : [{ head: { ref: '275-x', repo: { full_name: 'someone/fork' } } }];
+      : [{ head: { ref: '275-x', repo: { id: 9, full_name: 'someone/fork' } } }];
   });
   assert.equal(urls.length, 2);
   assert.match(urls[1], /page=2$/);
+  assert.equal(branches.length, 100);
   assert.ok(branches.every((branch) => branch === '374-preview'));
+});
+
+test('開いたPRの一覧は名前でなくリポジトリIDの宛先で読む', async () => {
+  const urls: string[] = [];
+  await openPreviewBranches(async (url) => {
+    urls.push(url);
+    return urls.length === 1
+      ? Array.from({ length: 100 }, () => ({
+          head: { ref: '374-preview', repo: { id: REPOSITORY_ID, full_name: 'scrum-guild-dev/app' } },
+        }))
+      : [];
+  });
+  assert.deepEqual(urls, [
+    'https://api.github.com/repositories/1425341812/pulls?state=open&per_page=100&page=1',
+    'https://api.github.com/repositories/1425341812/pulls?state=open&per_page=100&page=2',
+  ]);
+  assert.ok(urls.every((url) => !url.includes('/repos/')));
+});
+
+test('リポジトリ名が改名後でも、IDが同じならPRのブランチを数える', async () => {
+  const branches = await openPreviewBranches(async () => [
+    { head: { ref: '374-preview', repo: { id: REPOSITORY_ID, full_name: 'renamed-guild/app' } } },
+    { head: { ref: '375-preview', repo: { id: REPOSITORY_ID } } },
+  ]);
+  assert.deepEqual(branches, ['374-preview', '375-preview']);
+});
+
+test('名前が同じでもIDが異なるforkのPRは数えない', async () => {
+  const branches = await openPreviewBranches(async () => [
+    { head: { ref: '275-task', repo: { id: REPOSITORY_ID + 1, full_name: 'scrum-guild-dev/app' } } },
+    { head: { ref: '374-preview', repo: { id: REPOSITORY_ID, full_name: 'scrum-guild-dev/app' } } },
+  ]);
+  assert.deepEqual(branches, ['374-preview']);
 });
 
 test('削除済みforkは掃除を止めず、同じ番号の自リポジトリのPRだけ残す', async () => {
   const branches = await openPreviewBranches(async () => [
     { head: { ref: '275-task', repo: null } },
-    { head: { ref: '374-preview', repo: { full_name: 'scrum-guild-dev/app' } } },
+    { head: { ref: '374-preview', repo: { id: REPOSITORY_ID, full_name: 'scrum-guild-dev/app' } } },
   ]);
   assert.deepEqual(branches, ['374-preview']);
 });
@@ -143,6 +181,21 @@ test('GitHubの欠落・不明な応答を空の一覧として扱わない', as
     [{ head: { ref: '374-preview', repo: { full_name: 1 } } }],
   ]) {
     await assert.rejects(openPreviewBranches(async () => value));
+  }
+});
+
+test('head.repo.id が無い・数値でない応答は、名前が同じでも例外にする', async () => {
+  for (const repo of [
+    { full_name: 'scrum-guild-dev/app' },
+    { id: '1425341812', full_name: 'scrum-guild-dev/app' },
+    { id: null, full_name: 'scrum-guild-dev/app' },
+    { id: [REPOSITORY_ID], full_name: 'scrum-guild-dev/app' },
+  ]) {
+    await assert.rejects(
+      openPreviewBranches(async () => [{ head: { ref: '374-preview', repo } }]),
+      /開いた PR のブランチを読めませんでした/,
+      JSON.stringify(repo),
+    );
   }
 });
 

@@ -36,7 +36,7 @@ test('プロフィールで全員の個人用URLを設定し、招待時まで�
   await page.getByRole('button', { name: account, exact: true }).click();
   await expect(page.getByLabel('個人用のURL', { exact: true })).toHaveValue('');
   await page.reload();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Scrum Guild をはじめる');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Banmen をはじめる');
   expect(writes).toEqual([]);
 });
 
@@ -68,7 +68,7 @@ test('招待する場合だけ組織を追加し、個人用URLとチーム用UR
   await expect(page).toHaveURL('/signup');
 });
 
-for (const theme of ['simple_light', 'simple_dark', 'modern']) {
+for (const theme of ['simple_light', 'simple_dark']) {
   for (const withTeam of [false, true]) {
     test(`390pxのプロフィールと招待の流れ（${theme}・チーム追加${withTeam ? 'あり' : 'なし'}）`, async ({ page }) => {
       await page.setViewportSize(NARROW_VIEWPORT);

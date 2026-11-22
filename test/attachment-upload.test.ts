@@ -363,7 +363,7 @@ describe('ファイル名が使えないと、何も書かずに 400 の invalid
     ['向きを変える制御を含む', 'gnp‮.exe'],
     ['ゼロ幅の空白を含む', 'a​b.png'],
     ['BOM を含む', '﻿a.png'],
-    ['行の区切りを含む', 'a b.png'],
+    ['行の区切りを含む', 'a\u2028b.png'],
   ])('%s', async (_label, fileName) => {
     await expectError(await upload(target, { fileName }), 400, 'invalid_input');
     await expectNothingWritten(target);

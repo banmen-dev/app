@@ -51,7 +51,7 @@ function freezeNow(): Date {
 describe('名前の Unicode', () => {
   test('全角空白、BOM、改行だけの名前は空と同じに 400。前後の全角空白は除く', async () => {
     const person = await createLoginPerson();
-    for (const name of ['　', '　　', '﻿', ' ', '  ', ' 　\t ']) {
+    for (const name of ['　', '　　', '﻿', ' ', '\u2028\u2029', ' 　\t ']) {
       const res = await create(person, { name, scope: 'read' });
       expect(res.status, JSON.stringify(name)).toBe(400);
     }

@@ -183,20 +183,7 @@ function throwIfNotReopenable(target: Awaited<ReturnType<typeof readReopenTarget
   if (reason !== null) throw reopenConflict(reason);
 }
 
-const reversalColumns = [
-  'id',
-  'workspace_id',
-  'user_id',
-  'action',
-  'task_id',
-  'completion_id',
-  'amount',
-  'reverses_grant_id',
-  'dedupe_key',
-  'confirmed_at',
-] as const;
-
-// 自分の履歴の行がある、という条件。打ち消しと記録の削除は、これで自分の更新が通ったことを見る
+// 自分の履歴の行がある、という条件。記録の削除は、これで自分の更新が通ったことを見る
 // （履歴は直前の UPDATE が行を変えたときだけ入り、id はこの要求だけの値なので、止めた時計でも負けた要求とは一致しない）
 function ownLog(from: From, workspaceId: string, logId: string) {
   return from
@@ -234,8 +221,8 @@ async function destinationOf(db: OrganizationDb, workspaceId: string, target: Re
   return { sprintId, column, position: generateKeyBetween(last?.column_position ?? null, null) };
 }
 
-// 書く順は、tasks の条件つきの UPDATE、change_logs（直前の文が変えたときだけ）、打ち消し、completions の削除。
-// 後ろの2つは自分の履歴が入ったことを条件にする。2つの要求が同時に戻しても、後の要求の UPDATE は完了した日時が変わって通らず、何も書かない
+// 書く順は、tasks の条件つきの UPDATE、change_logs（直前の文が変えたときだけ）、completions の削除。
+// completions の削除（と依頼回の接続の解除）は自分の履歴が入ったことを条件にする。2つの要求が同時に戻しても、後の要求の UPDATE は完了した日時が変わって通らず、何も書かない
 export const taskReopenOperation = implement(taskReopen, async ({ db, actor, workspace, input }) => {
   const userId = actorUserIdOf(actor);
   const organizationId = db.organizationId;
@@ -247,35 +234,6 @@ export const taskReopenOperation = implement(taskReopen, async ({ db, actor, wor
   const { task, completion } = target;
   const completedAt = task.completed_at!;
   const destination = await destinationOf(db, workspaceId, target);
-
-  // 打ち消す付与。その完了の記録で付いた、打ち消されていない経験値（起票、詳細、完了、手助け。所属を外れた人の分も取り消す）。
-  // 完了した日時が読んだ値のままなら（書く文の条件）、読んでから書くまでにこの記録の付与は増えない
-  const grants =
-    completion === null
-      ? []
-      : await db.rows(
-          db.statement((q) =>
-            q
-              .selectFrom('xp_grants as g')
-              .select(['g.id', 'g.user_id', 'g.action', 'g.amount'])
-              .where('g.workspace_id', '=', workspaceId)
-              .where('g.completion_id', '=', completion.id)
-              .where('g.task_id', '=', taskId)
-              .where('g.reverses_grant_id', 'is', null)
-              .where((eb) =>
-                eb.not(
-                  eb.exists(
-                    eb
-                      .selectFrom('xp_grants as r')
-                      .select('r.id')
-                      .whereRef('r.reverses_grant_id', '=', 'g.id')
-                      .where('r.workspace_id', '=', workspaceId),
-                  ),
-                ),
-              )
-              .orderBy('g.id'),
-          ),
-        );
 
   const at = now();
   const reopenedAt = at.toISOString();
@@ -403,44 +361,7 @@ export const taskReopenOperation = implement(taskReopen, async ({ db, actor, wor
             .where(previousStatementChanged),
         ),
     ),
-    // 3. 打ち消しの明細。元の行を指し、負の値を足す（story-reopen と同じ形）
-    ...grants.map((grant) =>
-      db.statement((q) =>
-        q
-          .insertInto('xp_grants')
-          .columns(reversalColumns)
-          .expression(
-            q
-              .selectNoFrom((eb) => [
-                eb.val(uuidv7(at)).as('id'),
-                eb.val(workspaceId).as('workspace_id'),
-                eb.val(grant.user_id).as('user_id'),
-                eb.val(grant.action).as('action'),
-                eb.val(taskId).as('task_id'),
-                eb.val(completion!.id).as('completion_id'),
-                eb.val(-grant.amount).as('amount'),
-                eb.val(grant.id).as('reverses_grant_id'),
-                eb.val(`reversal:${grant.id}`).as('dedupe_key'),
-                eb.val(reopenedAt).as('confirmed_at'),
-              ])
-              .where((eb) =>
-                eb.and([
-                  eb.exists(ownLog(eb, workspaceId, logId)),
-                  eb.not(
-                    eb.exists(
-                      eb
-                        .selectFrom('xp_grants')
-                        .select('xp_grants.id')
-                        .where('xp_grants.reverses_grant_id', '=', grant.id)
-                        .where('xp_grants.workspace_id', '=', workspaceId),
-                    ),
-                  ),
-                ]),
-              ),
-          ),
-      ),
-    ),
-    // 4. completions。戻した完了の記録を消す（前の完了の記録は残る）
+    // 3. completions。戻した完了の記録を消す（前の完了の記録は残る）
     ...(completion === null
       ? []
       : [

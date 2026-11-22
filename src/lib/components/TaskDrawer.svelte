@@ -45,6 +45,7 @@
     type TaskOpenMode,
   } from '../drawer.svelte.ts';
   import { formatDateTime } from '../format-datetime.ts';
+  import { previewWithoutAttachments } from '../preview-without-attachments.ts';
   import { completedMessage, sprintLabel, sprintPeriod } from '../sprint-label.ts';
   import { historyEntryView } from '../task-history.ts';
   import { pauseToast, showToast } from '../toast.svelte.ts';
@@ -64,12 +65,11 @@
   import TaskComments from './TaskComments.svelte';
   import TaskAttachments from './TaskAttachments.svelte';
   import TaskFieldValues from './TaskFieldValues.svelte';
-  import TaskThanks from './TaskThanks.svelte';
 
   // タスクの詳細の引き出しの中身（kit.js の drawerHtml）。`?task=<ID>` が付いている間、画面の枠（/[slug]/w/[id] のレイアウト）が置く。
   // 開いたら task-detail で1件を読む（本文は長いので、木には載せない）。読んでいる間は読み込み中を出し、読めなければ
   // （404 以外）もう一度試すを出す（フォーカスもそこへ置く）。404 は、トーストで知らせて閉じ、画面が木を読み直す（onremoved）。
-  // ワークスペースの決まった欄は、属性の下、本文の前に欄ごとに並べる（TaskFieldValues。値は Markdown で、
+  // ワークスペースの決まった欄は、属性の下に欄ごとに並べる（TaskFieldValues。値は Markdown で、
   // task-detail の fields を読み、保存は task-field-set で、読んだ値のままなら書き、
   // 同時に直されていれば断って読み直す）。
   // 欄ごとに、その場で直す。ポイントと期日は選んだら保存し、タイトル、リンク、本文は AutoSaveEdit で確定する（本文は Markdown の部品で描く）。
@@ -1503,11 +1503,9 @@
         {workspaceId}
         menuVisible={!workspaceClosed}
       />
-      <span class="chip"
-        ><Icon name={task.is_imported ? 'link' : 'pen'} />{task.is_imported
-          ? t('taskImportedChip', { task: t('task') })
-          : t('taskManualChip', { task: t('task') })}</span
-      >
+      {#if task.is_imported}
+        <span class="chip"><Icon name="link" />{t('taskImportedChip', { task: t('task') })}</span>
+      {/if}
       {#if done}<span class="chip is-ok"><Icon name="check" />{t('done')}</span>{/if}
     {/if}
   {/snippet}
@@ -1556,7 +1554,40 @@
       <span class="props-note">{t('taskImportedNote', { task: t('task') })}</span>
     {/if}
 
-    <dl class="props">
+    <div class="field is-unboxed">
+      {#if canWrite}
+        <AutoSaveEdit
+          value={task.body_md ?? ''}
+          label={t('fieldBody')}
+          multiline
+          markdown={{ slug, workspaceId }}
+          hint={t('bodyEditHint')}
+          problem={bodyProblem}
+          save={saveBody}
+          normalize={(raw) => normalizeLongText(raw) ?? ''}
+          ondirty={(value) => (dirty.body = value)}
+          onbegin={beginBody}
+        >
+          {#snippet view(begin)}
+            <!-- 描いた本文そのものを押せば書ける。面いっぱいに透明なボタンを敷き、キーボードと読み上げの入口にする（本文の中のリンクは上に重なり、押せるまま） -->
+            <div class="edit-surface" onclick={(event) => beginFromSurface(event, begin)} role="presentation">
+              <button class="edit-surface-button" type="button" onclick={begin}
+                >{t('bodyEditLabel', { field: t('fieldBody') })}</button
+              >
+              <div class="edit-surface-body">
+                <span class="field-label"><Icon name="pen" /> {t('fieldBody')}</span>
+                {@render bodyView()}
+              </div>
+            </div>
+          {/snippet}
+        </AutoSaveEdit>
+      {:else}
+        <span class="field-label">{t('fieldBody')}</span>
+        {@render bodyView()}
+      {/if}
+    </div>
+
+    <dl class="props is-compact">
       <div>
         <dt>{t('column')}</dt>
         <dd>
@@ -1742,9 +1773,12 @@
       <div>
         <dt>{t('drawerParent')}</dt>
         <dd>
-          {#if taskContext.story}<Icon name="flag" />
-            {taskContext.story.title}{#if taskContext.epic}<span class="props-note">{taskContext.epic.title}</span
-              >{/if}{:else}{t('taskParentNone')}{/if}
+          {#if taskContext.story}
+            <span><Icon name="flag" /> {taskContext.story.title}</span>
+            {#if taskContext.epic}<span class="props-note">{taskContext.epic.title}</span>{/if}
+          {:else}
+            {t('taskParentNone')}
+          {/if}
         </dd>
       </div>
       <div>
@@ -1915,7 +1949,7 @@
       </div>
     </dl>
 
-    <!-- 決まった欄（ワークスペースで定義した欄ごと）。本文の前に置く -->
+    <!-- 決まった欄（ワークスペースで定義した欄ごと） -->
     <TaskFieldValues
       {slug}
       {workspaceId}
@@ -1929,49 +1963,20 @@
       ondirty={(value) => (dirty.fields = value)}
     />
 
-    <div class="field">
-      {#if canWrite}
-        <AutoSaveEdit
-          value={task.body_md ?? ''}
-          label={t('fieldBody')}
-          multiline
-          markdown={{ slug, workspaceId }}
-          hint={t('bodyEditHint')}
-          problem={bodyProblem}
-          save={saveBody}
-          normalize={(raw) => normalizeLongText(raw) ?? ''}
-          ondirty={(value) => (dirty.body = value)}
-          onbegin={beginBody}
-        >
-          {#snippet view(begin)}
-            <span class="field-label">{t('fieldBody')}</span>
-            <!-- 描いた本文そのものを押せば書ける。面いっぱいに透明なボタンを敷き、キーボードと読み上げの入口にする（本文の中のリンクは上に重なり、押せるまま） -->
-            <div class="edit-surface" onclick={(event) => beginFromSurface(event, begin)} role="presentation">
-              <button class="edit-surface-button" type="button" onclick={begin}
-                >{t('bodyEditLabel', { field: t('fieldBody') })}</button
-              >
-              <div class="edit-surface-body">{@render bodyView()}</div>
-            </div>
-          {/snippet}
-        </AutoSaveEdit>
-      {:else}
-        <span class="field-label">{t('fieldBody')}</span>
-        {@render bodyView()}
-      {/if}
-    </div>
-
-    <TaskAttachments
-      {slug}
-      {workspaceId}
-      {taskId}
-      {canWrite}
-      revision={attachmentRevision}
-      ondeleted={(id) => {
-        deletedAttachments.urls.push(operationPath(attachmentDownload, slug, { id }));
-        onchanged();
-      }}
-      {onstale}
-    />
+    {#if !previewWithoutAttachments}
+      <TaskAttachments
+        {slug}
+        {workspaceId}
+        {taskId}
+        {canWrite}
+        revision={attachmentRevision}
+        ondeleted={(id) => {
+          deletedAttachments.urls.push(operationPath(attachmentDownload, slug, { id }));
+          onchanged();
+        }}
+        {onstale}
+      />
+    {/if}
 
     <!-- 完了の帯（kit.js の drawerHtml の .done-bar）。完了していて戻せるときは、日時の横に「戻す」 -->
     {#if task.completed_at !== null || canWrite || definitionOfDone !== null}
@@ -2020,20 +2025,6 @@
         {/if}
       </div>
     {/if}
-
-    <TaskThanks
-      {slug}
-      {workspaceId}
-      {task}
-      {currentUserId}
-      {canWrite}
-      {candidates}
-      {candidatesLoading}
-      {candidatesFailed}
-      onretry={() => void loadCandidates()}
-      onrefresh={refresh}
-      {onstale}
-    />
 
     <!-- コメントと変更の履歴のタブ（kit.js の drawerHtml の .tabs）。中身は外さずに隠す（書きかけのコメントを、タブを切り替えても保つ）。
          左右の矢印キーと Home、End でタブを移り、移った先を選ぶ -->

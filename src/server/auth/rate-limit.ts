@@ -211,9 +211,18 @@ export async function consumePasswordLoginRateLimits(
 ): Promise<boolean> {
   const limits = ipRateLimits(ip, { network: 'password', ipv6Site: 'password48' }, PASSWORD_LOGIN_RATE_LIMITS);
   if (emailHash !== undefined) {
-    limits.push({ key: `password-email:${emailHash}`, policy: PASSWORD_LOGIN_RATE_LIMITS.email });
+    limits.push(passwordEmailRateLimit(emailHash));
   }
   return consumePeekedRateLimits(env, limits, now);
+}
+
+function passwordEmailRateLimit(emailHash: string): LoginRateLimit {
+  return { key: `password-email:${emailHash}`, policy: PASSWORD_LOGIN_RATE_LIMITS.email };
+}
+
+// 指名の URL からは先に IP の枠を数える。メールアドレスは有効な指名から分かった時点で通常ログインと同じ枠を数える。
+export function consumePasswordEmailRateLimit(env: Env, emailHash: string, now: Date): Promise<boolean> {
+  return consumePeekedRateLimits(env, [passwordEmailRateLimit(emailHash)], now);
 }
 
 export type LoginStartRateLimit = { allowed: true } | { allowed: false; limitedBy: 'ip' | 'global' };

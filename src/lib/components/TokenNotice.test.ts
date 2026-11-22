@@ -43,14 +43,13 @@ test('読み取りに失敗したら再試行を出し、確認の操作は出�
   expect(html).not.toContain('確かめた');
 });
 
-test('初回の経路で from.url が未初期化でもナビゲーションを止めない', () => {
+// SvelteKit は、最初の読み込み（type が 'enter'）の from を null にする
+test('初回の経路で from が null でもナビゲーションを止めない', () => {
   afterNavigate.mockClear();
   body({ count: 0, latest: null });
   const callback = afterNavigate.mock.calls.at(-1)?.[0];
   expect(callback).toBeTypeOf('function');
-  expect(() =>
-    callback({ type: 'enter', from: { params: {}, url: null }, to: { url: new URL('http://localhost/aoba') } }),
-  ).not.toThrow();
+  expect(() => callback({ type: 'enter', from: null, to: { url: new URL('http://localhost/aoba') } })).not.toThrow();
 });
 
 test('初回応答が保留中でも通知の遷移監視を登録し、すぐには読み込みの帯を出さない', () => {

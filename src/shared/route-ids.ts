@@ -25,6 +25,7 @@ export const ROUTE_IDS: readonly string[] = [
   '/auth/setup',
   '/consent',
   '/invite',
+  '/invite/password',
   '/login',
   '/operator',
   '/privacy',

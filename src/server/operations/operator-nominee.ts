@@ -1,7 +1,8 @@
 // 運用者が管理者に指名する人の指し方（組織の作成の最初の管理者と、管理者の指名し直し）。両方の処理が同じ手順を使う。
 // GitHub はユーザー名を解決し直し、運用者が確かめたユーザー ID と一致するかを確かめ、既にアカウントがあるかを共通の DB で引く。
-// Google はメールアドレスをそろえ、待つ行の招待の URL の秘密を作る（docs/data-model.md の「メールアドレスで待つ指名と招待」）
+// Google とパスワードはメールアドレスをそろえ、待つ行の招待の URL の秘密を作る（docs/data-model.md の「メールアドレスで待つ指名と招待」）
 import { normalizeEmail } from '../../shared/email.ts';
+import type { EmailAdminNomineeInput } from '../../shared/operations/operator/create-organization.ts';
 import type { CreateOrganizationProblem, ReassignAdminProblem } from '../../shared/operations/operator/index.ts';
 import type { ResolvedInvitee } from '../auth/login-method.ts';
 import type { commonDb } from '../db/index.ts';
@@ -66,20 +67,22 @@ export async function githubNominee(
   return { provider: 'github', subject: invitee.subject, name: invitee.loginName, accountId };
 }
 
-// Google の指名する人。sub が分かる前なので解決せず、待つ行の値（そろえたメールアドレス、秘密のハッシュ、期限）を作る。
+// メールアドレスで指名する人。本人がログインするまで、待つ行の値（メールアドレス、秘密のハッシュ、期限）を持つ。
 // 秘密（claimToken）は応答の本文にだけ入れ、DB には SHA-256 だけを持つ。そろえられないメールアドレスは断る
-export async function googleNominee(
-  rawEmail: string,
+export async function emailNominee(
+  operator: OperatorTools,
+  admin: EmailAdminNomineeInput,
   now: Date,
 ): Promise<{ nominee: AdminNominee; email: string; claimToken: string; claimExpiresAt: string }> {
-  const email = normalizeEmail(rawEmail);
+  if (admin.provider === 'password' && !operator.passwordLoginEnabled) throw new ApiError(404, 'not_found');
+  const email = normalizeEmail(admin.email);
   if (email === undefined) throw invalid('admin.email', 'email_invalid', 'メールアドレスの形に合わない');
   const { claimToken, claimTokenHash, claimExpiresAt } = await newClaimSecret(now);
   return {
     nominee: {
-      provider: 'google',
+      provider: admin.provider,
       waiting: { email, claimTokenHash, claimExpiresAt },
-      // 待つ間の users.name はメールアドレス（結ぶときに Google のプロフィールの名前に書き直す）
+      // 待つ間の users.name はメールアドレス（結ぶときに本人の表示名に書き直す）
       name: email,
       accountId: null,
     },

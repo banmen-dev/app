@@ -43,19 +43,35 @@ describe('historyEventText', () => {
       [{ kind: 'organization_settings_changed' }, '組織の設定を変更しました'],
       [
         {
-          kind: 'organization_plan_changed',
-          from: null,
-          to: { plan: 'team', billing_interval: 'monthly' },
+          kind: 'organization_quota_changed',
+          member_limit: [15, 50],
+          attachment_quota_bytes: [30 * 1024 ** 3, 100 * 1024 ** 3],
         },
-        'プランをチーム・月払いにしました',
+        '人数の上限を 15\u00a0人から 50\u00a0人に、添付ファイルの上限を 30\u00a0GB から 100\u00a0GB に変えました',
+      ],
+      [
+        { kind: 'organization_quota_changed', member_limit: [50, 1_000] },
+        '人数の上限を 50\u00a0人から 1,000\u00a0人に変えました',
+      ],
+      [
+        { kind: 'organization_quota_changed', attachment_quota_bytes: [512 * 1024 ** 2, 1024 ** 3] },
+        '添付ファイルの上限を 512\u00a0MB から 1\u00a0GB に変えました',
       ],
       [
         {
           kind: 'organization_plan_changed',
-          from: { plan: 'team', billing_interval: 'monthly' },
-          to: { plan: 'business', billing_interval: 'yearly' },
+          from: null,
+          to: { plan: 'small', billing_interval: 'monthly' },
         },
-        'プランをチーム・月払いからビジネス・年払いに変更しました',
+        'プランをスモール・月払いにしました',
+      ],
+      [
+        {
+          kind: 'organization_plan_changed',
+          from: { plan: 'business', billing_interval: 'monthly' },
+          to: { plan: 'pro', billing_interval: 'yearly' },
+        },
+        'プランをビジネス・月払いからプロ・年払いに変更しました',
       ],
       [
         {
@@ -73,12 +89,16 @@ describe('historyEventText', () => {
         },
         '追加容量を+10\u00a0GB 0\u00a0口・+50\u00a0GB 0\u00a0口（未契約）から+10\u00a0GB 1\u00a0口・+50\u00a0GB 0\u00a0口（月払い）に変更しました',
       ],
+      [
+        { kind: 'organization_quota_changed', attachment_quota_bytes: [1024 ** 3, 1024 ** 3 + 1] },
+        '添付ファイルの上限を 1\u00a0GB から 1.0000000009\u00a0GB に変えました',
+      ],
       [{ kind: 'admin_designated', name: 'ミナト' }, 'ミナトを管理者に指名しました'],
-      [{ kind: 'admin_designated', name: null }, 'Google で招待した人を管理者に指名しました'],
-      [{ kind: 'admin_login_linked', name: 'ハルカ' }, 'ハルカが Google でログインし、管理者の指名を受けました'],
-      [{ kind: 'admin_designation_merged', name: 'ハルカ' }, 'Google の招待で、ハルカを管理者にしました'],
+      [{ kind: 'admin_designated', name: null }, 'メールアドレスで指定した人を管理者に指名しました'],
+      [{ kind: 'admin_login_linked', name: 'ハルカ' }, 'ハルカがログインし、管理者の指名を受けました'],
+      [{ kind: 'admin_designation_merged', name: 'ハルカ' }, '指名の URL で、ハルカを管理者にしました'],
       [{ kind: 'admin_designation_removed', name: 'ソラ' }, 'ソラへの管理者の指名を取り消しました'],
-      [{ kind: 'admin_designation_removed', name: null }, 'Google で招待した人への管理者の指名を取り消しました'],
+      [{ kind: 'admin_designation_removed', name: null }, 'メールアドレスで指定した人への管理者の指名を取り消しました'],
       [{ kind: 'admin_revoked', name: 'リン' }, 'リンの管理者を解除しました'],
       [{ kind: 'user_disabled', name: null }, '名前の分からない人を無効にしました'],
       [{ kind: 'user_enabled', name: 'カイ' }, 'カイを有効に戻しました'],

@@ -6,6 +6,7 @@ import type { AnyOperationDefinition } from '../define.ts';
 import { tokenCreate, tokenList, tokenRevoke } from './token.ts';
 import { tokenNotice, tokenNoticeSeen } from './token-notice.ts';
 import { credentialsRevokeAll } from './credentials.ts';
+import { passwordChange } from './password.ts';
 import { operationList } from './operation-list.ts';
 import { consentRecord, consentStatus } from './consent.ts';
 import { accountProfileSave, onboardingStatus } from './onboarding.ts';
@@ -61,5 +62,6 @@ export const sessionOperations: readonly AnyOperationDefinition[] = [
   tokenNotice,
   tokenNoticeSeen,
   credentialsRevokeAll,
+  passwordChange,
   operationList,
 ];

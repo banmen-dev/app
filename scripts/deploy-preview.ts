@@ -4,11 +4,11 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { SEED_SESSIONS } from '../seed/sessions.ts';
+import { PREVIEW_REPOSITORY_ID } from '../src/server/preview-trigger/webhook.ts';
+import { isIsolatedPreviewAccount, isIsolatedPreviewSubdomain } from '../src/shared/preview-cloudflare.ts';
 import { deployPreview, type PreviewDatabase } from './preview-deploy.ts';
 import { previewConfig } from './preview-config.ts';
 import { seedSql } from './seed.ts';
-
-const REPOSITORY = 'scrum-guild-dev/app';
 
 // JSON 以外のエラー本文や認証情報をログに流さない。
 async function jsonRequest(url: string, init: RequestInit): Promise<unknown> {
@@ -24,9 +24,9 @@ export async function openPreviewBranches(fetchJson = jsonRequest): Promise<stri
   const branches: string[] = [];
   for (let page = 1; ; page++) {
     const data = await fetchJson(
-      `https://api.github.com/repos/${REPOSITORY}/pulls?state=open&per_page=100&page=${page}`,
+      `https://api.github.com/repositories/${PREVIEW_REPOSITORY_ID}/pulls?state=open&per_page=100&page=${page}`,
       {
-        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'scrum-guild-preview' },
+        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'banmen-preview' },
       },
     );
     if (!Array.isArray(data)) throw new Error('開いた PR の一覧を読めませんでした');
@@ -36,21 +36,22 @@ export async function openPreviewBranches(fetchJson = jsonRequest): Promise<stri
       }
       // 元の fork が削除された PR は repo:null になる。同じリポジトリのブランチではない。
       if (pr.head.repo === null) continue;
-      if (typeof pr.head.repo?.full_name !== 'string') throw new Error('開いた PR のブランチを読めませんでした');
-      if (pr.head.repo.full_name === REPOSITORY) branches.push(pr.head.ref);
+      if (!Number.isSafeInteger(pr.head.repo?.id)) throw new Error('開いた PR のブランチを読めませんでした');
+      // 組織の改名で止まらないよう、名前でなく起動専用 Worker と同じリポジトリ ID で照合する。
+      if (pr.head.repo.id === PREVIEW_REPOSITORY_ID) branches.push(pr.head.ref);
     }
     if (data.length < 100) return branches;
   }
 }
 
 export function publishPreview(
-  input: { number: string; database: PreviewDatabase; commitSha: string },
+  input: { number: string; database: PreviewDatabase; commitSha: string; subdomain?: string },
   run = spawnSync,
 ) {
   const root = process.cwd();
   // 設定を検査してから一時ファイルやコマンドを作る。
-  const config = previewConfig(input.number, input.database, input.commitSha, root);
-  const directory = mkdtempSync(path.join(tmpdir(), 'scrum-guild-preview-'));
+  const config = previewConfig(input.number, input.database, input.commitSha, root, input.subdomain);
+  const directory = mkdtempSync(path.join(tmpdir(), 'banmen-preview-'));
   try {
     const configFile = path.join(directory, 'wrangler.json');
     const seedFile = path.join(directory, 'seed.sql');
@@ -78,12 +79,25 @@ export function publishPreview(
   }
 }
 
+export function previewBuildEnvironment(env: Record<string, string | undefined>): {
+  account: string;
+  token: string;
+  subdomain: string;
+} {
+  if (env.WORKERS_CI !== '1') throw new Error('Workers Builds の外では動かしません');
+  const account = env.CLOUDFLARE_ACCOUNT_ID;
+  const token = env.CLOUDFLARE_API_TOKEN;
+  const subdomain = env.CLOUDFLARE_PREVIEW_SUBDOMAIN;
+  if (!isIsolatedPreviewAccount(account) || !token?.trim())
+    throw new Error('Builds には本番と別の Cloudflare アカウントと API トークンが必要です');
+  if (!isIsolatedPreviewSubdomain(subdomain)) throw new Error('プレビュー専用の workers.dev サブドメインが必要です');
+  if (env.VITE_PREVIEW_WITHOUT_ATTACHMENTS !== '1')
+    throw new Error('共有プレビューでは添付 UI を無効にする設定が必要です');
+  return { account, token, subdomain };
+}
+
 async function main() {
-  if (process.env.WORKERS_CI !== '1') throw new Error('Workers Builds の外では動かしません');
-  const account = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const token = process.env.CLOUDFLARE_API_TOKEN;
-  if (!account || !/^[0-9a-f]{32}$/i.test(account) || !token)
-    throw new Error('Builds の Cloudflare アカウントと API トークンが必要です');
+  const { account, token, subdomain } = previewBuildEnvironment(process.env);
   const head = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   if (head.status !== 0) throw new Error('コミットの SHA を取れませんでした');
   async function api(route: string, method = 'GET', body?: unknown) {
@@ -113,7 +127,7 @@ async function main() {
     },
     openBranches: () => openPreviewBranches(),
     publish: async (input) => {
-      publishPreview(input);
+      publishPreview({ ...input, subdomain });
     },
     log: (message) => console.log(message),
   });

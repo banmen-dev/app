@@ -108,7 +108,7 @@ test('自分用の面にワークスペースと作る入口、組織の面に�
   const mainPanes = page.locator('.dashboard-main > .pane > .pane-head > .pane-title');
   await expect(mainPanes).toHaveText(['自分用', '組織', '全組織の今日やること']);
   const sidePanes = page.locator('.dashboard-side > .pane > .pane-head > .pane-title');
-  await expect(sidePanes).toHaveText(['最近の更新', 'Scrum Guild のニュース']);
+  await expect(sidePanes).toHaveText(['最近の更新', 'Banmen のニュース']);
 
   const activityPane = page.getByRole('region', { name: '最近の更新', exact: true });
   const first = activityPane.locator('.activity-row').first();
@@ -135,11 +135,163 @@ test('狭い幅では1列に積み、左の列の面の下に最近の更新と�
   await page.goto('/');
   const organizationsBox = await page.getByRole('region', { name: '組織', exact: true }).boundingBox();
   const activityBox = await page.getByRole('region', { name: '最近の更新', exact: true }).boundingBox();
-  const newsBox = await page.getByRole('region', { name: 'Scrum Guild のニュース', exact: true }).boundingBox();
+  const newsBox = await page.getByRole('region', { name: 'Banmen のニュース', exact: true }).boundingBox();
   expect(organizationsBox!.y).toBeLessThan(activityBox!.y);
   expect(activityBox!.y + activityBox!.height).toBeLessThanOrEqual(newsBox!.y);
   expect(await findOverflowViolations(page)).toEqual([]);
 });
+
+// 紙の中の面は枠と地と内側の余白を持たない。紙の内側の左右は 760px 以下が --space-4、761px 以上が --space-6
+for (const [width, inset] of [
+  [390, 16],
+  [760, 16],
+  [761, 24],
+  [1280, 24],
+] as const) {
+  test(`${width}px で紙の中の面は枠と内側の余白を持たず、組織のまとまりを紙の内側の端から並べる`, async ({ page }) => {
+    await mockOperation(page, myOrganizations, {
+      organizations: [aoba, hibari, personal],
+      invitations: [],
+      suspended: [],
+      operator: false,
+    });
+    await mockOperation(page, myWorkspaces, workspaces);
+    await mockOperation(page, myRecentActivity, activity);
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/');
+    const pane = page.getByRole('region', { name: '組織', exact: true });
+    await expect(
+      pane
+        .locator('.org-block')
+        .first()
+        .getByRole('link', { name: /受託開発チーム/ }),
+    ).toBeVisible();
+    await expect(page.locator('.loading-overlay')).toHaveCount(0);
+    // 紙は面の祖先から取り、紙と組織のまとまりの位置は同じ時点で読む（読む間に面が伸びて紙が動いても、差は保たれる）
+    const measured = await pane.evaluate((element) => {
+      const sheet = element.closest('.gate-sheet')!;
+      const frames = [...sheet.querySelectorAll('.pane')].map((each) => {
+        const style = getComputedStyle(each);
+        return [
+          style.borderTopWidth,
+          style.borderRightWidth,
+          style.borderBottomWidth,
+          style.borderLeftWidth,
+          style.paddingTop,
+          style.paddingRight,
+          style.paddingBottom,
+          style.paddingLeft,
+          style.backgroundColor,
+          style.backgroundImage,
+        ].join(' ');
+      });
+      const block = element.querySelector('.org-block')!.getBoundingClientRect();
+      return { frames, offset: block.left - sheet.getBoundingClientRect().left };
+    });
+    expect(measured.frames.length).toBeGreaterThan(1);
+    for (const frame of measured.frames) {
+      expect(frame).toBe('0px 0px 0px 0px 0px 0px 0px 0px rgba(0, 0, 0, 0) none');
+    }
+    // 紙の枠 1px と、紙の内側の左右だけ内へ入る
+    expect(measured.offset).toBeCloseTo(1 + inset, 0);
+  });
+}
+
+test('組織のホームの面は、枠の中の画面なので枠と内側の余白を持ったままにする', async ({ page }) => {
+  await page.goto('/aoba');
+  await expect(page.locator('.pane').first()).toBeVisible();
+  const frames = await page.locator('.pane').evaluateAll((elements) =>
+    elements.map((element) => {
+      const style = getComputedStyle(element);
+      return {
+        inSheet: element.closest('.gate-sheet') !== null,
+        border: style.borderTopWidth,
+        padding: style.paddingLeft,
+      };
+    }),
+  );
+  expect(frames.length).toBeGreaterThan(1);
+  for (const frame of frames) expect(frame).toEqual({ inSheet: false, border: '1px', padding: '24px' });
+});
+
+// ワークスペースの行のロールは、札の枠と地を持たない小さく薄い文字だけにする（全組織のダッシュボードと組織のホームで同じ）
+for (const path of ['/', '/aoba'] as const) {
+  test(`${path} のワークスペースの行は、ロールを枠の無い小さく薄い文字で出す`, async ({ page }) => {
+    // 差し替えでは、リーダーの行とメンバーの行を両方出す
+    const expected =
+      path === '/'
+        ? [
+            ['読書の記録', 'リーダー'],
+            ['受託開発チーム', 'リーダー'],
+            ['社内ツール', 'メンバー'],
+          ]
+        : [['受託開発チーム', 'リーダー']];
+    if (path === '/') {
+      await mockOperation(page, myOrganizations, {
+        organizations: [aoba, hibari, personal],
+        invitations: [],
+        suspended: [],
+        operator: false,
+      });
+      await mockOperation(page, myWorkspaces, {
+        ...workspaces,
+        organizations: workspaces.organizations.map((entry) =>
+          entry.organization.slug === hibari.slug
+            ? {
+                ...entry,
+                workspaces: [
+                  { id: '019a0000-0000-7000-8000-000000000a06', name: '社内ツール', role: 'member' as const },
+                ],
+              }
+            : entry,
+        ),
+      });
+      await mockOperation(page, myRecentActivity, activity);
+    }
+    await page.goto(path);
+    const rows = page.locator('.pane-link');
+    for (const [name, role] of expected) {
+      const row = page.getByRole('link', { name: new RegExp(name) }).and(rows);
+      await expect(row.locator('.pane-link-role')).toHaveText(role);
+    }
+    if (path === '/') await expect(rows).toHaveCount(expected.length);
+    await expect(rows.locator('.chip')).toHaveCount(0);
+    const styles = await rows.evaluateAll((elements) =>
+      elements.map((element) => {
+        const role = getComputedStyle(element.querySelector('.pane-link-role')!);
+        // 薄い文字の色は、行の中で --color-muted を解決した値と比べる
+        const probe = document.createElement('span');
+        probe.style.color = 'var(--color-muted)';
+        element.append(probe);
+        const muted = getComputedStyle(probe).color;
+        probe.remove();
+        return {
+          frame: [
+            role.borderTopWidth,
+            role.borderRightWidth,
+            role.borderBottomWidth,
+            role.borderLeftWidth,
+            role.outlineStyle,
+            role.boxShadow,
+            role.backgroundColor,
+            role.backgroundImage,
+            role.paddingLeft,
+            role.paddingRight,
+          ].join(' '),
+          fontSize: role.fontSize,
+          muted: role.color === muted,
+        };
+      }),
+    );
+    for (const style of styles) {
+      expect(style).toEqual({
+        frame: '0px 0px 0px 0px none none rgba(0, 0, 0, 0) none 0px 0px',
+        fontSize: '12px',
+        muted: true,
+      });
+    }
+  });
+}
 
 test('チーム用だけの人の自分用の面には、自分用を作る入口を出す', async ({ page }) => {
   await mockOperation(page, myOrganizations, {
@@ -191,6 +343,11 @@ test('自分用の面に自分用のホームへの行を置き、自分用だ�
   await page.goto('/');
   const personalPane = page.getByRole('region', { name: '自分用', exact: true });
   await expect(personalPane.locator('.org-block > a.choice')).toHaveAttribute('href', '/mio-solo');
+  // 面の見出しが「自分用」なので、ホームへの行は「ホーム」と URL にし、「自分用」を繰り返さない
+  await expect(personalPane.locator('.org-block > a.choice b')).toHaveText('ホーム');
+  await expect(personalPane.locator('.org-block > a.choice')).not.toContainText('自分用');
+  // 読み上げの名前は、面の見出しが聞こえないリンクの一覧でも自分用のホームと分かるようにする
+  await expect(personalPane.locator('.org-block > a.choice')).toHaveAccessibleName(/^自分用のホーム \S+\/mio-solo\/$/);
   await expect(personalPane.getByRole('list', { name: '自分用で所属するワークスペース', exact: true })).toBeVisible();
   const organizations = page.getByRole('region', { name: '組織', exact: true });
   await expect(organizations.getByRole('link', { name: /ひばり工房/ })).toHaveAttribute('href', '/hibari/invitations');

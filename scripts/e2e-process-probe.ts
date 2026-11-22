@@ -86,7 +86,7 @@ export function parseIoSyscall(text: string, arch = process.arch) {
 // 任意のパス・ファイル名を成果物に出さない。既知の D1 状態ファイルだけを識別する。
 export function identifyD1File(path: string) {
   const match =
-    /\/(?:\.wrangler\/state|dev\/shm\/scrum-guild-wrangler-state)\/(v3\/d1\/miniflare-D1DatabaseObject\/[a-f0-9]{64}\.sqlite(?:-wal|-shm|-journal)?)$/.exec(
+    /\/(?:\.wrangler\/state|dev\/shm\/banmen-wrangler-state)\/(v3\/d1\/miniflare-D1DatabaseObject\/[a-f0-9]{64}\.sqlite(?:-wal|-shm|-journal)?)$/.exec(
       path,
     );
   return match?.[1] ?? null;

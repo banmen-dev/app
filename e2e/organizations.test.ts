@@ -29,13 +29,6 @@ const AOBA_WITH_INVITATION: OutputOf<typeof myOrganizations> = {
 // 組織の切り替え（メニューの上の開閉するメニュー）
 const menuButton = (page: Page) => page.locator('.org-menu-button');
 
-// 入れる組織を seed の組織だけに絞る。ほかのテスト（e2e/storage-quota-integration.test.ts など）は、試験の間だけ
-// 共有の seed のアカウントを一時的な組織に入れるので、並べて走ると一覧に混ざる。一覧そのものを確かめるテストだけが使う
-const onlySeedOrganizations = (page: Page) =>
-  rewriteOperation(page, myOrganizations, (output) => ({
-    ...output,
-    organizations: output.organizations.filter((organization) => ['aoba', 'hibari'].includes(organization.slug)),
-  }));
 const menuLinks = (page: Page) => page.locator('.org-menu-list a');
 
 // 横にはみ出していないか
@@ -49,11 +42,10 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
 
   test('/ のダッシュボードから組織へ入り、切り替えからダッシュボードに戻れる', async ({ page }) => {
     const collect = await watchViolations(page);
-    await onlySeedOrganizations(page);
     await page.goto('/');
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Scrum Guild のニュース' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Banmen のニュース' })).toBeVisible();
     await page
       .getByRole('region', { name: '組織', exact: true })
       .getByRole('link', { name: /あおば開発/ })
@@ -63,7 +55,7 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
     await expect(page.locator('.me')).toContainText('ハルカ');
     await expect(page.locator('.me .chip')).toHaveCount(0);
     // 1組織でもダッシュボードに戻れる。招待が無いので印は出ない
-    await expect(menuButton(page)).toHaveAttribute('aria-label', 'あおば開発。組織を切り替える');
+    await expect(menuButton(page)).toHaveAttribute('aria-label', '組織 あおば開発。組織を切り替える');
     await expect(page.locator('.org-menu-invite')).toHaveCount(0);
     await menuButton(page).click();
     await expect(menuLinks(page)).toHaveText(['あおば開発', 'ダッシュボード']);
@@ -76,11 +68,11 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
 
   test('自分のテーマを当て、localStorage にも覚える', async ({ page }) => {
     await patchOrganization(page, 'aoba', (body) => {
-      body.me.theme = 'modern';
+      body.me.theme = 'simple_dark';
     });
     await page.goto('/aoba');
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'modern');
-    expect(await page.evaluate(() => localStorage.getItem('sg-theme'))).toBe('modern');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'simple_dark');
+    expect(await page.evaluate(() => localStorage.getItem('sg-theme'))).toBe('simple_dark');
   });
 
   test('管理者の印は、スクラムの言葉の「管理者」になる', async ({ page }) => {
@@ -134,7 +126,7 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
     for (const slug of ['hibari', 'no-such-organization']) {
       await page.goto(`/${slug}`);
       await expect(page.getByRole('heading', { level: 1, name: '組織が見つかりません' })).toBeVisible();
-      await expect(page).toHaveTitle('組織が見つかりません - Scrum Guild');
+      await expect(page).toHaveTitle('組織が見つかりません - Banmen');
       await expect(page.locator('.nav')).toHaveCount(0);
       // 見出しが出た後も骨組みは120ms退場する。比較するのは退場後の同じ最終画面。
       await expect(page.locator('#boot-loading, .loading-overlay')).toHaveCount(0);
@@ -192,7 +184,7 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
     const collect = await watchViolations(page);
     await page.goto('/aoba');
     await expect(page.getByRole('heading', { level: 1, name: '組織は停止しています' })).toBeVisible();
-    await expect(page).toHaveTitle('組織は停止しています - Scrum Guild');
+    await expect(page).toHaveTitle('組織は停止しています - Banmen');
     await expect(page.getByText('この組織は停止しています。運用者に問い合わせてください。')).toBeVisible();
     await expect(page.getByRole('heading', { name: '組織が見つかりません' })).toHaveCount(0);
     await expect(page.locator('.nav')).toHaveCount(0);
@@ -234,7 +226,7 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
       await call.passThrough();
     });
     await page.goto('/aoba');
-    await expect(page).toHaveTitle('読み込めませんでした - Scrum Guild');
+    await expect(page).toHaveTitle('読み込めませんでした - Banmen');
     const retry = page.getByRole('button', { name: 'もう一度試す' });
     const status = page.locator('.empty [role="status"]');
     await expect(retry).toHaveAttribute('aria-disabled', 'false');
@@ -257,11 +249,11 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
 
   test('組織の外の画面は、テーマを既定に戻し、覚えたテーマも消す', async ({ page }) => {
     await patchOrganization(page, 'aoba', (body) => {
-      body.me.theme = 'modern';
+      body.me.theme = 'simple_dark';
     });
     await page.goto('/aoba');
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'modern');
-    expect(await page.evaluate(() => localStorage.getItem('sg-theme'))).toBe('modern');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'simple_dark');
+    expect(await page.evaluate(() => localStorage.getItem('sg-theme'))).toBe('simple_dark');
 
     // 見つからない画面（組織の外）。文書ごと読み直すので、確かめるのはテーマの属性と localStorage
     await page.goto('/hibari');
@@ -300,7 +292,7 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
     await routeOperation(page, organizationInfo, AOBA, async (call) => {
       await new Promise((resolve) => setTimeout(resolve, 1200));
       const output = await call.fetch();
-      await call.fulfill({ ...output, me: { ...output.me, theme: 'modern' } });
+      await call.fulfill({ ...output, me: { ...output.me, theme: 'simple_dark' } });
     });
     await page
       .getByRole('region', { name: '組織', exact: true })
@@ -308,7 +300,7 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
       .click();
     // 少し遅れて、見出しと題名を持つ読み込み中の表示を出す。読み上げの領域は常に置いてあり、文字だけが替わる
     await expect(page.getByRole('heading', { level: 1, name: '読み込んでいます' })).toBeVisible();
-    await expect(page).toHaveTitle('読み込んでいます - Scrum Guild');
+    await expect(page).toHaveTitle('読み込んでいます - Banmen');
     await expect(page.locator('[role="status"].visually-hidden').first()).toHaveText('読み込んでいます');
     // 行き先が組織の枠なので、骨組みは紙ではなく枠の形で、左のメニューの幅と上の帯の高さは読み込んだ後と同じ。
     // 本文は今日やることの組み（本文だけの1列）で、本文の位置も読み込んだ後と同じ
@@ -320,7 +312,7 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
     const loadingMain = await shownBox(page.locator('.layout-main'));
     await expect(page.getByRole('heading', { level: 1, name: '今日やること' })).toBeVisible();
     await expect(page.locator('.skeleton-frame')).toHaveCount(0);
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'modern');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'simple_dark');
     const loadedBinding = await shownBox(page.locator('.binding'));
     const loadedTopbar = await shownBox(page.locator('.topbar'));
     const loadedHead = await shownBox(page.locator('.page-head'));
@@ -370,7 +362,6 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
 
   test('/ を開くと組織の選択の画面になり、選ぶとその組織に入る', async ({ page }) => {
     const collect = await watchViolations(page);
-    await onlySeedOrganizations(page);
     await page.goto('/');
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
@@ -395,10 +386,9 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
       body.me.name = 'ミナト（あおば）';
     });
     await patchOrganization(page, 'hibari', (body) => {
-      body.me.theme = 'modern';
+      body.me.theme = 'simple_light';
       body.me.name = 'ミナト（ひばり）';
     });
-    await onlySeedOrganizations(page);
     await page.goto('/aoba');
     await expect(page.locator('.me')).toContainText('ミナト（あおば）');
     await expect(page.locator('.me .chip')).toHaveText('管理者');
@@ -415,7 +405,7 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
     await expect(menuLinks(page).nth(0).locator('svg')).toHaveCount(1);
     await expect(menuLinks(page).nth(1)).not.toHaveAttribute('aria-current', /.*/);
     // ボタンとリストには、読み上げの名前がある
-    await expect(menuButton(page)).toHaveAttribute('aria-label', 'あおば開発。組織を切り替える');
+    await expect(menuButton(page)).toHaveAttribute('aria-label', '組織 あおば開発。組織を切り替える');
     await expect(page.getByRole('list', { name: '入れる組織' })).toBeVisible();
     await menuLinks(page).nth(1).click();
 
@@ -423,8 +413,8 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
     await expect(page.locator('.me')).toContainText('ミナト（ひばり）');
     // ひばり工房では一般のユーザーなので、管理者の印は無い
     await expect(page.locator('.me .chip')).toHaveCount(0);
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'modern');
-    expect(await page.evaluate(() => localStorage.getItem('sg-theme'))).toBe('modern');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'simple_light');
+    expect(await page.evaluate(() => localStorage.getItem('sg-theme'))).toBe('simple_light');
     // 選んだら閉じ、今の組織が替わっている
     await expect(menuButton(page)).toHaveAttribute('aria-expanded', 'false');
     await expect(menuButton(page)).toContainText('ひばり工房');
@@ -528,6 +518,19 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
     await expect(page.getByRole('heading', { level: 2, name: '届いた招待' })).toBeVisible();
   });
 
+  test('狭い幅で招待があるときは、ボタンの読み上げの名前を見える文字と同じ順にする', async ({ page }) => {
+    await mockOperation(page, myOrganizations, AOBA_WITH_INVITATION);
+    await page.setViewportSize({ width: 390, height: 800 });
+    await page.goto('/aoba');
+    await page.getByRole('button', { name: 'すべてのメニュー', exact: true }).click();
+    const button = menuButton(page);
+    await expect(button.locator('.org-menu-label')).toBeVisible();
+    await expect(button.locator('b')).toHaveText('あおば開発');
+    await expect(button.locator('.chip')).toBeVisible();
+    await expect(button).toHaveAccessibleName('組織 あおば開発 届いた招待あり。組織を切り替える');
+    expect(await findA11yViolations(page, '.org-menu-button')).toEqual([]);
+  });
+
   test('今の組織の名前は、入れる組織の一覧の名前を使う。一覧に無いときだけ組織の操作の名前を使う', async ({ page }) => {
     await patchOrganization(page, 'aoba', (body) => {
       body.organization.name = '操作の名前';
@@ -545,21 +548,27 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
     await expect(menuButton(page)).toContainText('操作の名前');
   });
 
-  test('別の組織へ移っている間は、ボタンに「移っています」を出す', async ({ page }) => {
+  test('別の組織へ移っている間は、ボタンの表示と読み上げの名前に「移っています」を出す', async ({ page }) => {
+    const { promise: gate, resolve: release } = Promise.withResolvers<void>();
     await routeOperation(page, organizationInfo, { slug: 'hibari' }, async (call) => {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await gate;
       await call.passThrough();
     });
-    await page.goto('/aoba');
-    await menuButton(page).click();
-    await menuLinks(page).nth(1).click();
-    // リンクを選んだら、移る前に、隠れるリンクではなくボタンにフォーカスを戻して閉じる
-    await expect(menuButton(page)).toBeFocused();
-    await expect(menuButton(page)).toHaveAttribute('aria-expanded', 'false');
-    await expect(menuButton(page)).toContainText('移っています');
-    await expect(page.locator('.org-menu [role="status"]')).toHaveText('移っています');
+    try {
+      await page.goto('/aoba');
+      await menuButton(page).click();
+      await menuLinks(page).nth(1).click();
+      // リンクを選んだら、移る前に、隠れるリンクではなくボタンにフォーカスを戻して閉じる
+      await expect(menuButton(page)).toBeFocused();
+      await expect(menuButton(page)).toHaveAttribute('aria-expanded', 'false');
+      await expect(menuButton(page)).toContainText('移っています');
+      await expect(menuButton(page)).toHaveAccessibleName('組織 移っています。組織を切り替える');
+      await expect(page.locator('.org-menu [role="status"]')).toHaveText('移っています');
+    } finally {
+      release();
+    }
     await expect(page).toHaveURL(/\/hibari$/);
-    await expect(menuButton(page)).toContainText('ひばり工房');
+    await expect(menuButton(page)).toHaveAccessibleName('組織 ひばり工房。組織を切り替える');
     await expect(page.locator('.org-menu [role="status"]')).toHaveText('');
   });
 
@@ -586,7 +595,6 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
 
   test('390px の幅でも、組織の切り替えが出て、各組織へ移れ、一覧に戻れる', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 });
-    await onlySeedOrganizations(page);
     await page.goto('/aoba');
     await page.getByRole('button', { name: 'すべてのメニュー', exact: true }).click();
     await expect(menuButton(page)).toBeVisible();
@@ -660,6 +668,7 @@ test('組織からダッシュボードへの遅い移動では、元の画面�
     await menuButton(page).click();
     await menuLinks(page).last().click();
     await expect(menuButton(page)).toContainText('移っています');
+    await expect(menuButton(page)).toHaveAccessibleName('組織 移っています。組織を切り替える');
     await expect(page.locator('.org-menu [role="status"]')).toHaveText('移っています');
     await expect(page.getByRole('heading', { level: 1, name: '今日やること' })).toBeVisible();
     await expect(page.locator('.loading-overlay')).toHaveCount(0);
@@ -693,7 +702,8 @@ test('枠の外からダッシュボードへの遅い移動で、広い紙と2�
   expect(loadingBox.x).toBe(loadedBox.x);
 });
 
-for (const width of [1280, 390]) {
+// 760 と 761 は、紙の内側の左右が --space-4 と --space-6 に切り替わる境目
+for (const width of [1280, 761, 760, 390]) {
   test(`ダッシュボードの初回の骨組みも ${width}px の紙の幅に揃える`, async ({ page, context, baseURL }) => {
     await signIn(context, baseURL, 'member');
     await page.setViewportSize({ width, height: 900 });
@@ -705,11 +715,16 @@ for (const width of [1280, 390]) {
     });
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     let loadingBox;
+    let loadingPaneOffset: number | undefined;
     try {
       const boot = page.locator('#boot-loading .boot-skeleton');
       await expect(boot).toBeVisible();
       await expect(boot.locator('.boot-pane')).toHaveCount(2);
       loadingBox = await shownBox(boot);
+      loadingPaneOffset = await boot.evaluate(
+        (sheet) =>
+          sheet.querySelector('.boot-pane > i')!.getBoundingClientRect().left - sheet.getBoundingClientRect().left,
+      );
     } finally {
       release();
     }
@@ -718,6 +733,14 @@ for (const width of [1280, 390]) {
     const loadedBox = await shownBox(page.locator('.gate-sheet'));
     expect(loadingBox.width).toBe(loadedBox.width);
     expect(loadingBox.x).toBe(loadedBox.x);
+    // 面の中身の左端（紙の内側の余白に、面の枠と内側の余白が足されないこと）も、骨組みの帯と読み込み後の見出しでそろえる
+    const loadedPaneOffset = await page
+      .locator('.gate-sheet')
+      .evaluate(
+        (sheet) =>
+          sheet.querySelector('.pane > .pane-head')!.getBoundingClientRect().left - sheet.getBoundingClientRect().left,
+      );
+    expect(loadingPaneOffset!).toBeCloseTo(loadedPaneOffset, 0);
   });
 }
 
@@ -748,7 +771,7 @@ for (const width of [1280, 390]) {
       '届いた招待',
       '停止している組織',
       '最近の更新',
-      'Scrum Guild のニュース',
+      'Banmen のニュース',
     ]);
     await expect(page.locator('.nav, .topbar')).toHaveCount(0);
     const main = await shownBox(page.locator('.dashboard-main'));
@@ -813,7 +836,7 @@ test.describe('ログインしていない人と、組織が無い人', () => {
     await expect(page.locator('a.choice')).toHaveText([/あおば開発/, /つばめ商会/]);
     await expect(page.getByRole('heading', { level: 2, name: '届いた招待' })).toBeVisible();
     await expect(page.getByRole('link', { name: /つばめ商会/ })).toHaveAttribute('href', '/tsubame/invitations');
-    // 届いた招待の行は記録の面（.panel）ではない。.panel はネオンで光るため
+    // 届いた招待の行は記録の面（.panel）ではない
     await expect(page.locator('.panel')).toHaveCount(0);
   });
 
@@ -852,7 +875,7 @@ test.describe('ログインしていない人と、組織が無い人', () => {
 
   test('組織の選択の画面は、テーマを既定に戻す', async ({ page, context, baseURL }) => {
     await signIn(context, baseURL, 'admin');
-    await page.addInitScript(() => localStorage.setItem('sg-theme', 'modern'));
+    await page.addInitScript(() => localStorage.setItem('sg-theme', 'simple_dark'));
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
     await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.*/);

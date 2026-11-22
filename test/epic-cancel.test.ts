@@ -299,7 +299,7 @@ describe('epic-cancel / epic-uncancel', () => {
     expect(row.canceled_at !== null).toBe(order === 'cancel-first');
     expect(row.completed_at !== null).toBe(order === 'clear-first');
     expect(await logsOf(target, epic.id)).toHaveLength(1);
-    expect(await xpOf(target)).toHaveLength(order === 'clear-first' ? 1 : 0);
+    expect(await xpOf(target)).toEqual([]);
   });
 
   test.each([epicCancel, epicUncancel])(

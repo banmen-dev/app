@@ -108,7 +108,9 @@ node .claude/skills/acceptance-video/record.mjs --check <steps.json>
 
 ### 3. 手元を立てる
 
-`sprint-review` の手順 3 の「手元を立てる」と同じに、`origin/main` の detached のワークツリー（`worktrees/review-<日付>`）で `pnpm install` と `pnpm preview` を行う。`pnpm preview` は build を含み、バックグラウンドで走らせる。ポートは `.dev-port-offset` で変わり、ぶつかったときの直し方も `sprint-review` と同じ。環境変数 `DEV_PORT_OFFSET` は付けずに立てる（`record.mjs` は、環境変数を読まずに、ワークツリーの名前と `.dev-port-offset` からポートを決めるため）。
+`sprint-review` の手順 3 の「手元を立てる」と同じに、`origin/main` の detached のワークツリー（`worktrees/review-<日付>`）を使う。
+ワークツリーのルートで [ワークツリーで作業する](../../../docs/development.md#ワークツリーで作業する) に従い、`pnpm store path` で保存先を確認してから依存を入れる。
+`pnpm preview` は build を含むので、同じワークツリーでバックグラウンドで走らせる。ポートは `.dev-port-offset` で変わり、ぶつかったときの直し方も `sprint-review` と同じ。環境変数 `DEV_PORT_OFFSET` は付けずに立てる（`record.mjs` は、環境変数を読まずに、ワークツリーの名前と `.dev-port-offset` からポートを決めるため）。
 
 応答するまで待つ。ポートは `node -e "import('./scripts/dev-ports.ts').then(m=>console.log(m.devPorts({}).api))"` で引く。
 

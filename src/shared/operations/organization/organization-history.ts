@@ -34,6 +34,9 @@ const storageTerms = z.object({
   billing_interval: z.enum(billingIntervals),
 });
 
+const limitValue = z.number().int().nonnegative();
+const limitChange = z.tuple([limitValue, limitValue]);
+
 // 内容。entity_type と action（と changes_json の列）の組ごとに、画面の文に要る値だけを持つ。changes_json はそのまま返さない。
 // 人の名前（name）は、記録にそのときの名前があればそれを、無ければ users の今の名前。分からなければ null
 const event = z.discriminatedUnion('kind', [
@@ -45,6 +48,14 @@ const event = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('organization_suspension_changed'), purge_on: z.string().nullable() }),
   // 組織の設定（言葉づかい、既定のテーマ）の変更。どちらも今は変えられず、過去の行だけが出る
   z.object({ kind: z.literal('organization_settings_changed') }),
+  // 運用者の上限の変更。変わった上限だけを [前, 後] で返す
+  z
+    .object({
+      kind: z.literal('organization_quota_changed'),
+      member_limit: limitChange.optional(),
+      attachment_quota_bytes: limitChange.optional(),
+    })
+    .refine((change) => change.member_limit !== undefined || change.attachment_quota_bytes !== undefined),
   // 運用者の契約の変更。from は前の契約（未契約なら null）、to は変えた後の契約
   z.object({ kind: z.literal('organization_plan_changed'), from: contractTerms.nullable(), to: contractTerms }),
   z.object({

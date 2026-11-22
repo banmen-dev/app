@@ -31,7 +31,6 @@ import {
   createStory,
   createTask,
   createTaskSource,
-  createThanks,
   createUser,
   createWorkspace,
 } from '../factories.ts';
@@ -379,7 +378,7 @@ export const pointers: Pointers = {
     leader_user_id: target.admin.userId,
   }),
   // 呼んだ人自身の users.theme を書く。入力は組織の中の行を指さない（人は ID でなく呼んだ人で決まる）
-  'me-theme-update': { noReference: { theme: 'modern' } },
+  'me-theme-update': { noReference: { theme: 'simple_dark' } },
   // 自分のプロフィール画像（Issue #1265）。上げる・外す操作は入力に人の ID を持たず、呼んだ人の行だけを触る。
   // 上げる本文は一覧の検査の SMALL_FILE（1×1 の PNG）。外す操作は画像が無くても成功する
   'me-avatar-upload': { noReference: {} },
@@ -501,6 +500,9 @@ export const pointers: Pointers = {
       invitation_id: (await createInvitation(target.organization, workspace.id, target.admin.userId!, caller.login)).id,
     };
   },
+  'password-change': {
+    noReference: { current_password: 'guild-password-before', new_password: 'guild-password-after' },
+  },
   'token-create': { noReference: { name: '分離の検査', scope: 'read' } },
   'consent-record': { noReference: { terms_version: TERMS_VERSION, privacy_version: PRIVACY_VERSION } },
   // 呼ぶ人の行を指す。取消は二度目も成功するので、呼ぶたびに作らなくてよいが、作り直して他の検査と独立にする
@@ -573,7 +575,7 @@ export const pointers: Pointers = {
   }),
   'organization-plan-update': async () => ({
     slug: (await createOrganization()).slug,
-    plan: 'business',
+    plan: 'small',
     billing_interval: 'yearly',
     expected: null,
   }),
@@ -763,25 +765,6 @@ export const pointers: Pointers = {
       })
     ).id,
   }),
-  'thanks-send': async (target, caller) => {
-    const sender = personOf(target, caller) ?? target.admin;
-    const recipient = sender.userId === target.member.userId ? target.leader : target.member;
-    const task = await createTask(target.organization, target.workspace.id, sender.userId!);
-    return { workspace_id: target.workspace.id, task_id: task.id, recipient_user_id: recipient.userId! };
-  },
-  'thanks-revoke': async (target, caller) => {
-    const sender = personOf(target, caller) ?? target.admin;
-    const recipient = sender.userId === target.member.userId ? target.leader : target.member;
-    const task = await createTask(target.organization, target.workspace.id, sender.userId!);
-    const thanks = await createThanks(
-      target.organization,
-      target.workspace.id,
-      task.id,
-      sender.userId!,
-      recipient.userId!,
-    );
-    return { workspace_id: target.workspace.id, thanks_id: thanks.id };
-  },
   'task-detail': async (target) => ({
     workspace_id: target.workspace.id,
     task_id: (await createTask(target.organization, target.workspace.id, target.admin.userId!)).id,

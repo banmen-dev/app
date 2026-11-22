@@ -261,7 +261,7 @@ describe('離脱', () => {
     expect((await membershipsOf(other, other.member.userId!, other.workspace.id))[0]!.left_at).toBeNull();
   });
 
-  test('外れた人が担当していた未完了のタスクは担当なしになり、完了したタスク、完了の記録、経験値は残る', async () => {
+  test('外れた人が担当していた未完了のタスクは担当なしになり、完了したタスクと完了の記録は残り、xp_grants は増えない', async () => {
     const target = await createTarget();
     const userId = target.member.userId!;
     const open = await createTask(target.organization, target.workspace.id, userId, { assignee_user_id: userId });
@@ -302,7 +302,7 @@ describe('離脱', () => {
     const completionsBefore = await countOf('completions');
     const grantsBefore = await countOf('xp_grants');
     expect(completionsBefore).toBe(1);
-    expect(grantsBefore).toBeGreaterThan(0);
+    expect(grantsBefore).toBe(0);
 
     const res = await leave(target, target.leader, userId);
     expect(res.status).toBe(200);

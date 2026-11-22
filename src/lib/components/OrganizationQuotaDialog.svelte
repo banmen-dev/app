@@ -15,7 +15,7 @@
   import Icon from './Icon.svelte';
 
   // 組織の人数と添付ファイルの上限を変えるダイアログ（design/kit.js の changeQuota）。運用の画面だけが使う。
-  // 値段の段階（quotaTiers）か「ほかの値」から選ぶ。今の上限に合う段階を選んだ状態で開き、どれにも合わなければ「ほかの値」を
+  // 未契約の組織の上限の段階（quotaTiers）か「ほかの値」から選ぶ。今の上限に合う段階を選んだ状態で開き、どれにも合わなければ「ほかの値」を
   // 今の値（容量は GB の整数に丸め、1 GB 未満は 1）で埋めて開く。容量の欄は表示のための丸めなので、触っていなければ
   // 今のバイト数をそのまま送る（512 MB の組織の人数だけを変えても、容量は 512 MB のまま）。
   // ほかの値は 1 以上、上限以下の整数だけを送り、外れたら送る前に欄の下で断る。
@@ -33,7 +33,7 @@
   let open = $state(false);
   let dialog = $state<ReturnType<typeof Dialog>>();
   let target = $state<{ slug: string; name: string; current: Current } | null>(null);
-  let choice = $state<Choice>('small');
+  let choice = $state<Choice>('small_organization');
   let members = $state<number | null>(null);
   let sizeGb = $state<number | null>(null);
   // 容量の欄を触ったか。触っていなければ、丸めた欄の値でなく今のバイト数を使う
@@ -202,7 +202,7 @@
         }),
   );
   const tierNames = $derived({
-    small: t('operatorQuotaTierSmall', { organization: t('organization') }),
+    small_organization: t('operatorQuotaTierSmall', { organization: t('organization') }),
     standard: t('operatorQuotaTierStandard'),
   });
 </script>

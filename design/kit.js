@@ -59,7 +59,19 @@
 
   // ---- 言葉の辞書（各キーはスクラムの言葉の文字列1つ） ----
   const DICT = {
-    brandName: "スクラムギルド",
+    brandName: "Banmen",
+    taskTemplateEmpty: "テンプレートがまだありません。",
+    taskTemplateAskLeader: "ワークスペースのリーダーにテンプレートの作成を依頼してください。",
+    taskTemplateManage: "テンプレートの設定を開く",
+    taskTemplateChooseTask: "作るタスクを1件以上選んでください。",
+    taskTemplateChooseDestination: "追加先を選んでください。",
+    taskTemplateEnterTarget: "対象を入力してください。",
+    taskTemplateEnterStart: "開始日を入力してください。",
+    taskTemplateTitleLimit: "差し込み後の題を200字以内にしてください。",
+    taskTemplateDueLimit: "期日が暦の範囲を超えています。",
+    taskTemplateOmitted: "削除された決まった欄、区分、リポジトリの値は使わずに作ります。",
+    taskTemplateChanged: "担当に選べるメンバーが変わりました。まだ作成されていません。最新の内容を確認してください。",
+    taskTemplateItemLimit: "1つのテンプレートに登録できるタスクは50件までです。",
     organizationList: "ダッシュボード",
     avatarTitle: "プロフィール画像",
     avatarDescription: "この組織だけで使う画像。PNG、JPEG、WebP を選び、正方形に切り抜いて上げます。",
@@ -268,7 +280,7 @@
   onboardingDisclosure: "操作できるデザインの見本です。入力は保存されず、登録・送信・外部接続は行われません。",
   onboardingExit: "プレビューを閉じる",
   onboardingStep: "{total} ステップ中 {current}",
-  onboardingAccount: "Scrum Guild をはじめる",
+  onboardingAccount: "Banmen をはじめる",
   onboardingAccountLead: "チームの仕事を、一歩ずつ前へ。まずはアカウントを選びましょう。",
   onboardingOrganization: "{organization}を作成",
   onboardingOrganizationLead: "チームが集まる場所に、名前を付けましょう。",
@@ -455,13 +467,13 @@
     wikiRestoreFailed: "戻せませんでした。もう一度試してください。",
 
     workspaceSwitchLabel: "{workspace} {name}。切り替える", workspaceSwitchListLabel: "所属する{workspace}",
-    workspacePaneHint: "押すと{backlog}を開きます", paneNews: "{app} のニュース", appName: "Scrum Guild",
+    workspacePaneHint: "押すと{backlog}を開きます", paneNews: "{app} のニュース", appName: "Banmen",
     paneActivity: "最近の更新", activityEmptyTitle: "まだ更新はありません", activityEmptyText: "所属する{workspace}の{task}、{story}、{epic}の変更とコメントが、ここに新しい順に並びます。", activityEmptyNoWorkspaceText: "{workspace}に所属すると、{task}、{story}、{epic}の更新がここに並びます。",
     activityCreated: "{actor}が作成した", activityUpdated: "{actor}が{fields}を変更した", activityChanged: "{actor}が変更した", activityCompleted: "{actor}が{done}にした", activityReopened: "{actor}が{done}を戻した", activityCommented: "{actor}がコメントした",
     activityMore: "さらに読む", activityLoadFailed: "最近の更新を読み込めませんでした。", activityMoreFailed: "続きを読み込めませんでした。もう一度試してください。",
-    workspace: "ワークスペース", inbox: "受信箱", backlog: "バックログ", sprint: "スプリント", plan: "計画", epic: "エピック", story: "ストーリー",
+    workspace: "ワークスペース", inbox: "受信箱", backlog: "バックログ", sprint: "スプリント", plan: "計画", epic: "エピック", story: "ストーリー", taskTemplate: "テンプレート",
     menuCollapse: "メニューを畳む", menuExpand: "メニューを広げる", breadcrumb: "パンくず", organizationMoving: "移っています",
-    personalOrganizationName: "自分用", createPersonalOrganizationAction: "自分用を作る",
+    personalOrganizationName: "自分用", dashboardPersonalHome: "ホーム", createPersonalOrganizationAction: "自分用を作る",
     task: "タスク", archive: "アーカイブ", connection: "接続", sprintGoal: "スプリントゴール", detail: "詳細", ac: "受け入れ基準", due: "期日",
     points: "ポイント", assignee: "担当", category: "区分", capacity: "作業量と基準", over: "超過", done: "完了", column: "列",
     doneToday: "今日の完了", complete: "完了にする", requester: "作成者", party: "参加者", accept: "参加する", leave: "参加をやめる",
@@ -498,7 +510,7 @@
   // 線画。装飾なので読み上げから外す（本番の Art.svelte）。種類は art.js の ARTS
   // lead は「最初にやること」の先頭に置く小さい形（.art.is-lead）
   const art = (id, lead) => `<svg class="${lead ? "art is-lead" : "art"}" aria-hidden="true"><use href="#a-${id}"/></svg>`;
-  // tone は "xp" で経験値の色（.ico.is-xp）。ゲームの物の経験値（crystal）とレベル（crest）に使う。本番の Icon と同じく "xp" だけを受ける
+  // tone は "xp" で経験値の色（.ico.is-xp）。本番の Icon と同じく "xp" だけを受ける
   const icon = (id, tone) => `<svg class="${tone === "xp" ? "ico is-xp" : "ico"}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
   const md = (d) => `${+d.slice(5, 7)}/${+d.slice(8, 10)}`;
   const sumPts = (list) => list.reduce((a, x) => a + (x.pts || 0), 0);
@@ -540,7 +552,7 @@
     const list = tasksWhere((x) => x.story && D.stories[x.story].epic === eid);
     return { done: sumPts(list.filter((x) => x.doneAt)), all: sumPts(list) };
   }
-  // 表示する期日。Scrum Guild で振った期日、なければ取り込み元の期限
+  // 表示する期日。Banmen で振った期日、なければ取り込み元の期限
   function dueOf(x) {
     if (x.due) return { date: x.due, fromSource: false };
     if (x.src && x.src.due) return { date: x.src.due, fromSource: true };
@@ -568,12 +580,14 @@
   // opts.image はログインの手段の側のアバターの画像の URL（指名する人を確かめるときなど）。画像が読めないときは頭文字に戻す
   // （Avatar.svelte と同じ）。見本の画像は SAMPLE_PHOTO のような架空の data URI にし、外の URL を読まない
   function avatar(name, hue, opts = {}) {
-    if (!name) return `<span class="avatar is-none ${opts.lg ? "is-lg" : ""}" title="担当なし">?</span>`;
+    const label = name ? `${esc(name)}${opts.left ? "（離脱済み）" : ""}` : "担当なし";
+    const accessibility = opts.labelled ? ` role="img" aria-label="${label}"` : "";
+    if (!name) return `<span class="avatar is-none ${opts.lg ? "is-lg" : ""}" title="${label}"${accessibility}>?</span>`;
     const initial = esc([...name][0]);
     const inner = opts.image
       ? `<img src="${esc(opts.image)}" alt="" referrerpolicy="no-referrer" data-initial="${initial}" onerror="this.replaceWith(document.createTextNode(this.dataset.initial))">`
       : initial;
-    return `<span class="avatar ${opts.lg ? "is-lg" : ""} ${opts.left ? "is-left" : ""}" style="--h:${hue}" title="${esc(name)}${opts.left ? "（離脱済み）" : ""}">${inner}</span>`;
+    return `<span class="avatar ${opts.lg ? "is-lg" : ""} ${opts.left ? "is-left" : ""}" style="--h:${hue}" title="${label}"${accessibility}>${inner}</span>`;
   }
   // 見本のアバターの画像（架空の人の絵。data URI なので外へ通信しない）と、読み込めない画像（頭文字に戻る例）
   const SAMPLE_PHOTO = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><rect width="36" height="36" fill="#c9a24b"/><circle cx="18" cy="14" r="6" fill="#fffaf0"/><path d="M6 33c1-8 6-11 12-11s11 3 12 11z" fill="#fffaf0"/></svg>')}`;
@@ -611,7 +625,7 @@
   function tier(size) {
     const map = { small: ["小", 100], medium: ["中", 300], large: ["大", 600] };
     const [label, xp] = map[size];
-    return `<span class="tier is-${size}">${icon("chest")}${label} · <b>${xp}</b> XP</span>`;
+    return `<span class="tier is-${size}">${label} · <b>${xp}</b> XP</span>`;
   }
   function sourceKey(x) {
     return x.src ? `<span class="source-key">${icon(SRC[x.src.kind].icon)} ${esc(x.src.key)}</span>` : "";
@@ -627,7 +641,7 @@
   function categoryTag(id) {
     return id ? nameChip("tag", t("category"), D.categories[id].name) : "";
   }
-  // 入っているスプリント（本番の DefinitionChip の sprint）。名前が無ければ期間。バックログの木の行にだけ出す
+  // 入っているスプリント（本番の DefinitionChip の sprint）。名前が無ければ期間
   function sprintTag(x) {
     if (!x.sprint || !D.sprints[x.sprint]) return "";
     const s = D.sprints[x.sprint];
@@ -646,8 +660,8 @@
     const item = (id, label) => `<label><input type="radio" name="${name}" value="${id || ""}" ${opts.for ? `data-repo-for="${opts.for}"` : ""} ${sel === id ? "checked" : ""}><span>${esc(label)}</span></label>`;
     return `<div class="segmented" role="radiogroup" aria-label="リポジトリ">${item(null, "なし")}${ids.map((id) => item(id, D.repositories[id].name)).join("")}</div>`;
   }
-  function taskFlags(x) {
-    const carried = x.todayOn && x.todayOn < D.today && !x.doneAt;
+  function taskFlags(x, showCarry = true) {
+    const carried = showCarry && x.todayOn && x.todayOn < D.today && !x.doneAt;
     return `${carried ? `<span class="chip is-carry">${icon("redo")}持ち越し</span>` : ""}
       ${x.srcDone && !x.doneAt ? `<span class="chip is-ok">${icon("check")}取り込み元で完了</span>` : ""}`;
   }
@@ -734,7 +748,8 @@
     return mark && mark.drop ? ` data-drop="${mark.drop}"` : "";
   }
 
-  // 台帳の1行。opts: showWs, showParent（既定 true）, showAssignee, showSprint（入っているスプリントの印。バックログの木）,
+  // 台帳の1行。opts: showWs, showAssignee（アバターのオプションも渡せる）, showSprint（入っているスプリントの印）,
+  // showParent, showStatus, showCarry, showCategory（既定 true）,
   // order（並べ替えの操作。{ first, last, parent, across }。「⋯」のメニューに入る）,
   // mark（ドラッグの状態。dropAttr）
   function entry(x, opts = {}) {
@@ -752,13 +767,13 @@
         ${title}
         <span class="entry-meta">
           ${opts.showWs ? `<span class="tag">${esc(D.workspaces[x.ws].name)}</span>` : ""}
-          ${opts.showSprint ? sprintTag(x) : ""}${compact ? "" : repoTag(x)}${!compact && !x.story ? categoryTag(x.cat) : ""}${sourceKey(x)}
+          ${opts.showSprint ? sprintTag(x) : ""}${compact ? "" : repoTag(x)}${!compact && !x.story && opts.showCategory !== false ? categoryTag(x.cat) : ""}${sourceKey(x)}
           ${showParent && parent ? `<span>${icon("flag")} ${esc(parent)}</span>` : ""}
-          ${compact && x.todayOn === D.today ? `<span class="entry-today">${icon("sun")}今日やる</span>` : ""}${x.doneAt ? `<span>${t("done")} ${esc(x.doneAt)}</span>` : colName(x) ? `<span class="status-dot">${esc(colName(x))}</span>` : ""}
-          ${taskFlags(x)}${opts.meta ? opts.meta(x) : ""}
+          ${compact && x.todayOn === D.today ? `<span class="entry-today">${icon("sun")}今日やる</span>` : ""}${opts.showStatus === false ? "" : x.doneAt ? `<span>${t("done")} ${esc(x.doneAt)}</span>` : colName(x) ? `<span class="status-dot">${esc(colName(x))}</span>` : ""}
+          ${taskFlags(x, opts.showCarry)}${opts.meta ? opts.meta(x) : ""}
         </span>
       </div>
-      <div class="entry-end"><div class="entry-attributes"><div class="entry-chips"${compact ? ` role="group" aria-label="${esc(x.title)}"` : ""}>${compact ? attrChip(x, "due") + attrChip(x, "repo") + attrChip(x, "cat") : taskDue(x)}${opts.hidePts ? "" : compact ? attrChip(x, "pts") : pts(x.pts)}${opts.showAssignee ? (compact ? attrChip(x, "who") : avatarOf(x.who)) : ""}</div></div><div class="entry-actions">${compact ? rowMenu(x.title, [
+      <div class="entry-end"><div class="entry-attributes"><div class="entry-chips"${compact ? ` role="group" aria-label="${esc(x.title)}"` : ""}>${compact ? attrChip(x, "due") + attrChip(x, "repo") + attrChip(x, "cat") : taskDue(x)}${opts.hidePts ? "" : compact ? attrChip(x, "pts") : pts(x.pts)}${opts.showAssignee ? (compact ? attrChip(x, "who") : avatarOf(x.who, opts.showAssignee)) : ""}</div></div><div class="entry-actions">${compact ? rowMenu(x.title, [
         { attr: `data-sun="${x.id}"`, label: x.todayOn === D.today ? "今日やるを外す" : "今日やる", icon: "sun" },
         ...orderItems(opts.order),
         { attr: `data-task-delete="${x.id}"`, label: `この${t("task")}を削除する`, icon: "trash", danger: true },
@@ -768,11 +783,11 @@
   // opts.empty があれば、空のときに台帳の代わりに出す（emptyState で作る）
   function book(list, opts = {}) {
     if (!list.length && opts.empty) return opts.empty;
-    return `<div class="book">${list.length ? list.map((x) => entry(x, opts)).join("") : `<div class="book-empty">ありません</div>`}</div>`;
+    return `<div class="book${opts.compact ? " is-compact" : ""}">${list.length ? list.map((x) => entry(x, opts)).join("") : `<div class="book-empty">ありません</div>`}</div>`;
   }
   // 空の状態。何が出る場所かと、次に何をすればよいかを書く。actions は押す操作の HTML。
   // title と text も HTML として埋め込むので、利用者のデータは esc してから渡す
-  // tone はアイコンの色（icon の tone。本番の EmptyState の iconTone）。ゲームの物のアイコンを置くときに使う
+  // tone はアイコンの色（icon の tone。本番の EmptyState の iconTone）
   function emptyState(ic, title, text, actions = "", tone, artName) {
     return `<div class="empty">${artName ? art(artName) : icon(ic, tone)}<b>${title}</b>${text ? `<span>${text}</span>` : ""}${actions ? `<div class="form-actions">${actions}</div>` : ""}</div>`;
   }
@@ -795,7 +810,7 @@
     leader: () => [
       { title: `${t("workspace")}「${esc(firstWsName())}」の${t("leader")}になる`, note: `${t("member")}の招待と、${t("backlog")}の準備を進められます。`, done: true },
       { title: "メンバーを招待する", optional: true, done: D.invitations.length > 0 || D.members.filter((m) => !m.left).length > 1,
-        note: `GitHub のユーザー名か Google のメールアドレスで招待し、${t("organization")}の URL（Google なら招待の URL）を本人に伝えます。Scrum Guild は招待をメールで送りません。`,
+        note: `GitHub のユーザー名か Google のメールアドレスで招待し、${t("organization")}の URL（Google なら招待の URL）を本人に伝えます。Banmen は招待をメールで送りません。`,
         action: (p) => `<a class="btn is-sm ${p}" href="${firstHref("members.html")}">メンバーを招待する</a>` },
       { title: `${t("backlog")}に最初の${t("task")}を入れる`, done: D.tasks.some((x) => x.ws === D.workspace),
         note: `「${t("create")}」で作るか、${t("inbox")}に届いたものを入れます。メンバーが入る前に並べておくと、何から始めるかが伝わります。`,
@@ -860,7 +875,7 @@
   }
   // 面の中の、押すと移る行の一覧。rows は { href, name, role } の配列（role は leader か member）
   function paneList(rows) {
-    return `<ul class="pane-list">${rows.map((r) => `<li><a class="pane-link" href="${esc(r.href)}"><b>${esc(r.name)}</b><span class="chip">${esc(t(r.role))}</span>${icon("chevron")}</a></li>`).join("")}</ul>`;
+    return `<ul class="pane-list">${rows.map((r) => `<li><a class="pane-link" href="${esc(r.href)}"><b>${esc(r.name)}</b><span class="pane-link-role">${esc(t(r.role))}</span>${icon("chevron")}</a></li>`).join("")}</ul>`;
   }
   // 面の中の、ニュースの一覧。items は { date, title, body, href? } の配列で、新しい順に5件まで出す（本番は src/lib/news.ts の latestNews）。
   // 題は h3。href は src/lib/news.ts の isNewsHref と同じ形（https:// で始まり、正規化しても変わらず、ユーザー情報が無い）のときだけリンクにし、
@@ -1182,12 +1197,11 @@
   // スプリントゴールの貼り紙
   function sprintNotice(id, opts = {}) {
     const s = D.sprints[id];
-    const ticks = Array.from({ length: s.days }, (_, i) => `<i class="${i < s.dayIndex ? "is-past" : i === s.dayIndex ? "is-today" : ""}"></i>`).join("");
+    if (!s.goal) return "";
     return `<article class="notice">
       <span class="notice-label">${t("sprintGoal")}</span>
       <p class="notice-title is-goal">${esc(s.goal)}</p>
-      <div class="notice-meta">${opts.showWs !== false ? `<span>${esc(D.workspaces[s.ws].name)}</span>` : ""}<span>${sprintLabel(id)}</span>${s.name ? `<span class="mono">${md(s.start)}〜${md(s.end)}</span>` : ""}<span>残り ${s.days - s.dayIndex} 日</span></div>
-      <div class="day-ticks" role="img" aria-label="${s.days} 日のうち ${Math.min(s.dayIndex + 1, s.days)} 日目">${ticks}</div>
+      ${opts.showWs !== false ? `<div class="notice-meta"><span>${esc(D.workspaces[s.ws].name)}</span></div>` : ""}
     </article>`;
   }
   // レイドの貼り紙（一覧や計画の中で使う小さな形）
@@ -1226,7 +1240,7 @@
     return `<section class="panel" aria-labelledby="level-panel-title">
       <div class="panel-title"><h2 id="level-panel-title">レベル</h2>経験値は本人だけに見えます</div>
       <div class="level">${emblem(l.level)}
-        <div><div class="xp-num">${icon("crystal", "xp")}${l.xp.toLocaleString()}<small>XP</small></div>
+        <div><div class="xp-num">${l.xp.toLocaleString()}<small>XP</small></div>
         <div class="xp-sub">次のレベルまで <b>${l.toNext}</b>・見込み <b>+${l.soon}</b></div></div>
       </div>
       <div class="gauge-row"><span class="gauge-end" aria-hidden="true">LV ${l.level}</span>
@@ -1238,14 +1252,14 @@
       ${levelThanks(thanks)}
     </section>`;
   }
-  // レベルの面の末尾の、受け取った感謝の数（組織の合計。0 のときも出す）。内訳と同じ部品（.breakdown）の1行。感謝のアイコン（heart）は文字の色
+  // レベルの面の末尾の、受け取った感謝の数（組織の合計。0 のときも出す）。内訳と同じ部品（.breakdown）の1行
   function levelThanks(count) {
-    return `<div role="group" aria-label="受け取った感謝"><dl class="breakdown"><div><dt>${icon("heart")}受け取った感謝</dt><dd>${count.toLocaleString()}</dd></div></dl></div>`;
+    return `<div role="group" aria-label="受け取った感謝"><dl class="breakdown"><div><dt>受け取った感謝</dt><dd>${count.toLocaleString()}</dd></div></dl></div>`;
   }
 
   // チーム全体の経験値。ワークスペースの全員の合計の1つの数で、人ごとの値は出さない。バックログの画面の見出しの中に置く
   function teamXp(total = D.teamXp) {
-    return `<p class="team-xp">${icon("crystal", "xp")}${t("teamXpLabel")}<b>${total.toLocaleString()}</b><small>XP</small></p>`;
+    return `<p class="team-xp">${t("teamXpLabel")}<b>${total.toLocaleString()}</b><small>XP</small></p>`;
   }
   // 経験値の明細の値。付与は経験値の色、打ち消し（負の値）は赤
   function xpDelta(v) {
@@ -1426,7 +1440,7 @@
       </ol>
       <h6 class="doc-h5">見出し5</h6>
       <h6 class="doc-h6">見出し6</h6>
-      <blockquote><p>見た目は4つのテーマで確かめる。</p><p>色は役割の変数だけを使う。</p></blockquote>
+      <blockquote><p>見た目はライトとダークで確かめる。</p><p>色は役割の変数だけを使う。</p></blockquote>
       <pre tabindex="0" role="region" aria-label="${t("markdownCodeRegion")}"><code>pnpm test
 pnpm check
 const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、枠をはみ出さず、横にスクロールする";</code></pre>
@@ -1471,7 +1485,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   // drafts は書いている途中の欄の値（title、link、body、fields）。手を止めるか欄を離れると保存し、保存した値と同じになる
   // view は見本の状態の切り替え（読み込み中、読めない、閉じたワークスペースの読み取り専用）。errors は欄の下に出す理由
   // commentEditing は直している途中のコメントの番号
-  const drawer = { id: null, tab: "comments", thanked: new Set(), opener: null, mode: readDrawerMode(), view: null, errors: {}, drafts: {}, commentEditing: null,
+  const drawer = { id: null, tab: "comments", opener: null, mode: readDrawerMode(), view: null, errors: {}, drafts: {}, commentEditing: null,
     // 見本の状態の切り替え（カタログの drawerDemo が使う）。commentsView はコメントの読み込み（loading、failed、reloadFailed）
     // adjacent は前後のタスク（{ prev, next }。順を渡さない画面は null）。undefined なら画面の行から求める（drawerAdjacent）
     commentsView: null, commentViewer: null, commentBlocked: null, adjacent: undefined,
@@ -1635,10 +1649,11 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       <input class="input is-inline" id="drawer-edit-link" type="url" data-drawer-input="link" placeholder="リンクを足す（https://）" value="${esc(drawer.drafts.link ?? x.link ?? "")}" autocomplete="off"${err ? ` aria-describedby="drawer-edit-link-error"` : ""}>
       <span class="field-error" id="drawer-edit-link-error" role="alert" data-drawer-error="link"${err ? "" : " hidden"}>${err ? `${icon("alert")}${err}` : ""}</span>${saveStateHtml("link")}</div>${open}`;
   }
-  function drawerBodyHtml(x) {
-    if (drawerReadOnly()) return `<div class="field"><span class="field-label">本文</span><div class="doc-box${x.body ? "" : " is-empty"}">${x.body ? mdBody(x.body) : "まだ書かれていません。"}</div></div>`;
-    if (x.src) return `<div class="field"><span class="field-label">本文</span><div class="doc-box"><p class="props-note">取り込み元の本文は <span class="mono">${esc(x.src.key)}</span> で開いて読みます。ここには Scrum Guild のメモを書けます。</p></div></div>`;
-    return `<div class="field"><div class="field-head"><label class="field-label" for="drawer-edit-body">本文</label>${saveStateHtml("body")}</div>
+  function drawerBodyHtml(x, unboxed = false) {
+    const fieldClass = unboxed ? "field is-unboxed" : "field";
+    if (drawerReadOnly()) return `<div class="${fieldClass}"><span class="field-label">本文</span><div class="doc-box${x.body ? "" : " is-empty"}">${x.body ? mdBody(x.body) : "まだ書かれていません。"}</div></div>`;
+    if (x.src) return `<div class="${fieldClass}"><span class="field-label">本文</span><div class="doc-box"><p class="props-note">取り込み元の本文は <span class="mono">${esc(x.src.key)}</span> で開いて読みます。ここには Banmen のメモを書けます。</p></div></div>`;
+    return `<div class="${fieldClass}"><div class="field-head"><label class="field-label" for="drawer-edit-body">${unboxed ? `${icon("pen")} ` : ""}本文</label>${saveStateHtml("body")}</div>
       <div class="slash-wrap"><textarea class="textarea is-inline" id="drawer-edit-body" data-drawer-input="body" data-slash aria-describedby="drawer-edit-body-hint" placeholder="まだ書かれていません。押して書きます">${esc(drawer.drafts.body ?? (x.body || []).join("\n"))}</textarea></div>
       <span class="field-hint" id="drawer-edit-body-hint">Markdown で書けます。見出しは <code>#</code> が小見出しの大きさから始まります。行の先頭で <code>/</code> を打つと、見出しや箇条書きを入れる小窓が開きます。</span></div>`;
   }
@@ -1647,9 +1662,9 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const saved = fieldsText(x);
     const label = `${icon("pen")} ${t("detail")}・${t("ac")}`;
     if (drawerReadOnly()) {
-      return `<div class="field"><span class="field-label">${label}</span><div class="doc-box${saved ? "" : " is-empty"}">${saved ? mdBody(saved.split("\n")) : `まだ書かれていません。${t("task")}を完了にした時点ですべて埋まっていると、最後に書いた人に経験値が付きます。`}</div></div>`;
+      return `<div class="field is-unboxed"><span class="field-label">${label}</span><div class="doc-box${saved ? "" : " is-empty"}">${saved ? mdBody(saved.split("\n")) : `まだ書かれていません。${t("task")}を完了にした時点ですべて埋まっていると、最後に書いた人に経験値が付きます。`}</div></div>`;
     }
-    return `<div class="field"><div class="field-head"><label class="field-label" for="drawer-edit-fields">${label}</label>${saveStateHtml("fields")}</div>
+    return `<div class="field is-unboxed"><div class="field-head"><label class="field-label" for="drawer-edit-fields">${label}</label>${saveStateHtml("fields")}</div>
       <div class="slash-wrap"><textarea class="textarea is-inline" id="drawer-edit-fields" data-drawer-input="fields" data-slash placeholder="まだ書かれていません。${t("task")}を完了にした時点ですべて埋まっていると、最後に書いた人に経験値が付きます。">${esc(drawer.drafts.fields ?? saved)}</textarea></div></div>`;
   }
   // コメントの1件。見出し（名前、日時、編集済み）の右に、許された操作だけを出す（自分のコメントは「編集」と「削除」、
@@ -1724,13 +1739,12 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const older = (D.olderComments || {})[x.id] || 0;
     const commentsView = drawer.commentsView;
     const history = D.history[x.id] || [];
-    const others = Object.keys(D.users).filter((u) => u !== D.me && !user(u).left);
     // 変更の履歴の列の名前（本番は src/lib/task-history.ts の表）。作成は作ったときの値を、変更は前と後を、欄ごとの行（.history-changes）で出す
     const HIST = { title: "タイトル", points: t("points"), due: t("due"), assignee: t("assignee") };
     if (drawer.view === "loading" || drawer.view === "failed") return drawerStateHtml();
     return `
       <div class="drawer-top">
-        <span class="chip">${icon(x.src ? SRC[x.src.kind].icon : "pen")}${x.src ? SRC[x.src.kind].label : `手で作った${t("task")}`}</span>
+        ${x.src ? `<span class="chip">${icon(SRC[x.src.kind].icon)}${SRC[x.src.kind].label}</span>` : ""}
         ${x.src ? `<span class="source-key">${esc(x.src.key)}</span><span class="chip">取り込み元: ${esc(x.src.status)}</span>` : ""}
         <span class="drawer-tools">
           ${drawerStepButtons()}${drawerModeButtons()}
@@ -1740,13 +1754,14 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       ${drawerReadOnly() ? `<div class="callout is-info">${icon("shield")}<span>終了した${t("workspace")}の${t("task")}は、読み取りだけできます</span></div>` : ""}
       ${drawerTitleHtml(x)}
       ${x.srcDone && !x.doneAt ? `<div class="callout is-ok">${icon("check")}<span>取り込み元で完了になりました。完了にするかはここで決めます。</span></div>` : ""}
-      <dl class="props">
+      ${drawerBodyHtml(x, true)}
+      <dl class="props is-compact">
         <div><dt>${t("column")}</dt><dd>${colName(x) ? `<span class="status-dot is-wrap">${esc(colName(x))}</span>` : "—"}</dd></div>
         <div><dt>${t("assignee")}</dt><dd>${drawerAssigneeHtml(x)}</dd></div>
         ${drawerDelegateeHtml(x)}
         <div><dt>${t("points")}</dt><dd>${drawerPointsHtml(x)}</dd></div>
         <div><dt>${t("due")}</dt><dd>${drawerDueHtml(x)}</dd></div>
-        <div><dt>親</dt><dd>${parent ? `${icon("flag")} ${esc(parent.title)}${epic ? `<span class="props-note">${esc(epic.title)}</span>` : ""}` : "なし"}</dd></div>
+        <div><dt>親</dt><dd>${parent ? `<span>${icon("flag")} ${esc(parent.title)}</span>${epic ? `<span class="props-note">${esc(epic.title)}</span>` : ""}` : "なし"}</dd></div>
         <div><dt>${t("sprint")}</dt><dd>${x.sprint ? esc(sprintLabel(x.sprint)) : t("backlog")}</dd></div>
         <div><dt>リポジトリ</dt><dd>${repoPicker("drawer-repo", x.repo || null, { for: x.id })}</dd></div>
         <div><dt>${cat && cat.inherited ? t("category") : `<label for="drawer-cat">${t("category")}</label>`}</dt><dd>${cat && cat.inherited
@@ -1756,7 +1771,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
         <div><dt>今日やる</dt><dd><button class="sun" type="button" data-sun="${x.id}" aria-pressed="${x.todayOn === D.today}" aria-label="今日やる: ${esc(x.title)}" aria-disabled="false">${icon("sun")}</button>${x.todayOn === D.today ? "今日やる" : ""}</dd></div>
       </dl>
       ${drawerFieldsHtml(x)}
-      ${drawerBodyHtml(x)}
       <div class="field">
         <span class="field-label">${icon("clip")} 添付ファイル ${filesOf(x.id).filter((f) => !f.state).length || ""}</span>
         ${attachments(x.id)}
@@ -1765,14 +1779,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
         ${x.doneAt ? `<span class="done-bar-done"><span class="hanko" role="img" aria-label="${t("done")}">${icon("check")}</span><span>${t("done")} ${esc(x.doneAt)}</span><button class="link-btn" type="button" data-undo="${x.id}" aria-label="${t("done")}を戻す: ${esc(x.title)}" aria-disabled="false">戻す</button></span>`
           : `<button class="btn is-primary" type="button" data-done="${x.id}">${icon("check")}${t("complete")}</button>`}
         ${D.definitionOfDone.length ? `<div class="done-bar-dod"><h3 class="done-bar-dod-title" id="drawer-dod">${t("dod")}</h3><div class="done-bar-dod-body" tabindex="0" role="region" aria-labelledby="drawer-dod">${dodDoc()}</div></div>` : ""}
-      </div>
-      <div class="field">
-        <span class="field-label">${icon("heart")} 感謝</span>
-        <div class="thanks">${others.map((u) => {
-          const on = drawer.thanked.has(u);
-          return `<button class="btn is-sm ${on ? "is-on" : ""}" type="button" data-thank="${u}" aria-pressed="${on}">${avatarOf(u)}${esc(user(u).name)}${on ? " に送った" : " に送る"}</button>`;
-        }).join("")}</div>
-        <span class="field-hint">送れるのは${t("assignee")}だけ（${t("assignee")}がいなければ作った人）。${t("task")}が完了すると相手に経験値が付きます。完了までは取り消せます。</span>
       </div>
       <div>
         <div class="tabs" role="tablist" aria-label="コメントと変更の履歴">
@@ -1807,7 +1813,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   // ストーリーの引き出し（本番の StoryDrawer。枠はタスクと同じ Drawer）。バックログの木のストーリーの題（a.tree-link。?story=<ID>）から開く。
   // 帯は種類の印「ストーリー」（完了なら「完了」の印）、「⋯」（親を移す、削除。削除できない人には削除を出さず、理由を本文の下に出す）、前後、開き方（横と真ん中）、閉じる。
   // 題、リンク、受け入れ基準、本文はいつも書ける欄で自動保存（タスクと同じ）。期日は選んだら保存する（区分の選択は見本では保存しない）。完了の帯は、配下の未完了のタスクが残るあいだと、
-  // 親のエピックが完了か中止しているあいだ、完了にする・取り消すを aria-disabled にして理由を添える。コメントと履歴と感謝は無い
+  // 親のエピックが完了か中止しているあいだ、完了にする・取り消すを aria-disabled にして理由を添える。コメントと履歴は無い
   const storyAcText = (st) => st.acMd ?? (st.ac || []).map((a) => `- ${a}`).join("\n");
   function storyMenuHtml(st) {
     const items = [{ attr: `data-dialog="moveStory" data-story-id="${drawer.id}"`, label: "親を移す", icon: "swap" },
@@ -1865,6 +1871,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       </dl>
       ${storyAcHtml(st)}
       ${drawerBodyHtml(st)}
+      ${!ro && !st.doneAt && !drawer.parentFinished && page?.current === "backlog" && window.SQTaskTemplates?.canApply() ? `<div class="form-actions"><button class="btn" type="button" data-template-apply="${esc(drawer.id)}">${t("taskTemplate")}から${t("task")}を足す</button></div>` : ""}
       ${storyDoneBarHtml(st, remaining)}
       ${!ro && !drawer.canDelete ? `<div class="form-actions"><span class="field-hint">削除できるのは作った人と${t("leader")}です。</span></div>` : ""}`;
   }
@@ -1926,7 +1933,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     if (!keep) drawer.canDelete = true;
     drawer.view = kind === "epic" && opener instanceof HTMLElement && opener.dataset.epicReadonly === "true" ? "readonly" : null;
     if (kind === "epic" && opener instanceof HTMLElement) drawer.canDelete = opener.dataset.epicCanDelete !== "false";
-    drawer.kind = kind; drawer.id = id; drawer.tab = "comments"; drawer.thanked = new Set(); drawer.opener = opener || null; drawer.errors = {}; drawer.drafts = {}; drawer.commentEditing = null;
+    drawer.kind = kind; drawer.id = id; drawer.tab = "comments"; drawer.opener = opener || null; drawer.errors = {}; drawer.drafts = {}; drawer.commentEditing = null;
     document.getElementById("drawer")?.replaceChildren();
   }
   // 直している欄の今の入力。再描画しても書きかけを残すため、描き直す前に写す
@@ -2755,7 +2762,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="見本のため、${t("organization")}は作りません">自分用を作る</button>`),
     // 作った後。組織の URL とコピー、管理者になる人に伝えること
     organizationCreated: () => openDialog(`${t("organization")}を作りました`,
-      `<p>Scrum Guild はメールを送りません。${t("admin")}になる人に、次の URL とログインの手段を伝えてください。</p>
+      `<p>Banmen はメールを送りません。${t("admin")}になる人に、次の URL とログインの手段を伝えてください。</p>
        <div class="field"><label class="field-label" for="d-ou">${t("organization")}の URL</label>
          <div class="input-row"><input class="input mono" id="d-ou" value="https://scrum-guild.dev/sakura-dev/" readonly>
            <button class="btn" type="button" data-toast="URL をコピーしました">${icon("link")}コピー</button></div></div>
@@ -2775,7 +2782,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" id="d-rb" type="button" data-reassign-admin="d-ra" disabled>指名する</button>`),
     // 指名し直した後（GitHub）。組織の URL とコピー、管理者になる人に伝えること
     adminReassigned: () => openDialog(`${t("admin")}を指名しました`,
-      `<p>Scrum Guild はメールを送りません。${t("admin")}になる人に、次の URL とログインの手段を伝えてください。</p>
+      `<p>Banmen はメールを送りません。${t("admin")}になる人に、次の URL とログインの手段を伝えてください。</p>
        <div class="field"><label class="field-label" for="d-ru">${t("organization")}の URL</label>
          <div class="input-row"><input class="input mono" id="d-ru" value="https://scrum-guild.dev/kumo-lab/" readonly>
            <button class="btn" type="button" data-toast="URL をコピーしました">${icon("link")}コピー</button></div></div>
@@ -2808,7 +2815,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       `<p class="wrap-anywhere">「あおば開発」の上限を変えます。今は人数 5&nbsp;人（上限 15&nbsp;人）、添付ファイルと Wiki の合計 ${D.storage.used}&nbsp;GB（上限 30&nbsp;GB）です。</p>
        <div class="field"><span class="field-label" id="d-ql">新しい上限</span>
          <div class="choice-list" role="radiogroup" aria-labelledby="d-ql">
-           <label class="choice"><input type="radio" name="d-q" value="small" data-quota-choice checked><div><b>小さい${t("organization")}</b><span>15&nbsp;人・30&nbsp;GB</span></div></label>
+           <label class="choice"><input type="radio" name="d-q" value="small_organization" data-quota-choice checked><div><b>小さい${t("organization")}</b><span>15&nbsp;人・30&nbsp;GB</span></div></label>
            <label class="choice"><input type="radio" name="d-q" value="standard" data-quota-choice><div><b>標準</b><span>50&nbsp;人・100&nbsp;GB</span></div></label>
            <label class="choice"><input type="radio" name="d-q" value="other" data-quota-choice><div><b>ほかの値</b><span>51&nbsp;人以上の${t("organization")}のために値を入れます。</span></div></label>
          </div></div>
@@ -2821,10 +2828,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
        <p class="field-hint">容量の上限を今の合計より小さくすると、合計が下がるまで新しく添付できません。上限を上げて合計が80%を下回ると、次に80%を超えたときに管理者へまた通知します。</p>
        <p class="field-hint">上限の変更は${t("organization")}の変更の履歴に、運用者の操作として残ります。</p>`,
       `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" id="d-qs" aria-disabled="true" aria-describedby="d-qu">変える</button>`),
-    // 契約（プランと支払いの周期）の変更（本番の OrganizationPlanDialog）。見本は「くもラボ」（ビジネス・月払い、停止もお試しもしていない）の状態。
-    // 今の契約を選んだ状態で開き、選び直すと変えた後の上限（d-pa）と、今の人数や合計が超えるときの注意を出す。
-    // 未契約の組織の上限が下がる注意（d-pl2）、お試しが終わる注記（d-pt）、停止したままの注記（d-pp）、未契約の組織の注記（d-pn）は、
-    // 本番では組織の状態で出す。見本の「くもラボ」は契約済みで停止もお試しもしていないので、どれも hidden で置く
     changeStorage: (trigger) => {
       const d = trigger.dataset;
       const personal = d.storagePersonal === "true";
@@ -2844,12 +2847,19 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
         `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" id="d-storage-submit" aria-disabled="true">変える</button>`);
       syncStorageDialog();
     },
-    changePlan: () => openDialog("プランを変える",
-      `<p class="wrap-anywhere">「くもラボ」のプランを変えます。今はビジネス・月払いで、人数 38&nbsp;人（上限 50&nbsp;人）、添付ファイルと Wiki の合計 42&nbsp;GB（上限 100&nbsp;GB）です。</p>
+    // 本番の OrganizationPlanDialog。通常のプロ契約と、上限を揃えられる旧ビジネス契約を見られる
+    changePlan: (trigger) => {
+      const legacy = trigger.hasAttribute("data-plan-legacy");
+      const currentPlan = legacy ? "business" : "pro";
+      const used = legacy ? 28 : 38;
+      openDialog("プランを変える",
+      `<p class="wrap-anywhere">「くもラボ」のプランを変えます。今は${legacy ? "ビジネス" : "プロ"}・月払いで、人数 ${used}&nbsp;人（上限 50&nbsp;人）、添付ファイルと Wiki の合計 42&nbsp;GB（上限 100&nbsp;GB）です。</p>
        <div class="field"><span class="field-label" id="d-pl">プラン</span>
          <div class="choice-list" role="radiogroup" aria-labelledby="d-pl">
+           <label class="choice"><input type="radio" name="d-p" value="small" data-plan-choice><div><b>スモール</b><span>3&nbsp;人・10&nbsp;GB</span></div></label>
            <label class="choice"><input type="radio" name="d-p" value="team" data-plan-choice><div><b>チーム</b><span>15&nbsp;人・30&nbsp;GB</span></div></label>
-           <label class="choice"><input type="radio" name="d-p" value="business" data-plan-choice checked><div><b>ビジネス</b><span>50&nbsp;人・100&nbsp;GB</span></div></label>
+           <label class="choice"><input type="radio" name="d-p" value="business" data-plan-choice ${legacy ? "checked" : ""}><div><b>ビジネス</b><span>30&nbsp;人・100&nbsp;GB</span></div></label>
+           <label class="choice"><input type="radio" name="d-p" value="pro" data-plan-choice ${legacy ? "" : "checked"}><div><b>プロ</b><span>50&nbsp;人・100&nbsp;GB</span></div></label>
            <label class="choice"><input type="radio" name="d-p" value="custom" data-plan-choice><div><b>個別</b><span>相談して決めた人数と標準の容量</span></div></label>
          </div></div>
        <div class="form-row is-start" id="d-p-custom" hidden>
@@ -2865,13 +2875,16 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
        <p class="field-hint" id="d-p-invalid" hidden>人数と標準の添付容量を範囲内の整数で入力すると、変更後の上限と超過の注意を確認できます。</p>
        <p class="field-hint" id="d-pa" hidden>変えた後の上限は 50&nbsp;人・100&nbsp;GB です。</p>
        <div class="callout is-warn" id="d-pl2" hidden>${icon("alert")}<span>今の上限（120&nbsp;人・500&nbsp;GB）より下がります。契約を付けると、上限を「人数と容量の上限を変える」で値に戻せなくなります。</span></div>
+       <div class="callout is-warn" id="d-p-current-lower" hidden>${icon("alert")}<span>このプランを保存すると、今の上限（50&nbsp;人・100&nbsp;GB）より下がります。</span></div>
        <div class="callout is-warn" id="d-po" hidden>${icon("alert")}<span>今の人数（38&nbsp;人）が、変えた後の上限（15&nbsp;人）を超えます。今いる人はそのまま残り、上限を下回るまで新しい人の招待と管理者への指名だけを止めます。</span></div>
        <div class="callout is-warn" id="d-pq" hidden>${icon("alert")}<span>選んだ上限は今の合計より小さいため、合計が下がるまで新しく添付できなくなります。</span></div>
        <p class="field-hint" id="d-pt" hidden>お試しはここで終わり、期限で止まらなくなります。</p>
        <p class="field-hint" id="d-pp" hidden>停止中の${t("organization")}は、契約しても停止したままです。使えるようにするには、続けて再開してください。</p>
        <p class="field-hint" id="d-pn" hidden>人数と添付ファイルの上限はプランの値になり、「人数と容量の上限を変える」では変えられなくなります。</p>
        <p class="field-hint">プランの変更は${t("organization")}の変更の履歴に、運用者の操作として残ります。</p>`,
-      `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" id="d-plan-submit" aria-disabled="true" aria-describedby="d-pu">変える</button>`),
+      `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" id="d-plan-submit" data-plan-current="${currentPlan}" data-plan-used="${used}" aria-disabled="true" aria-describedby="d-pu">変える</button>`);
+      syncPlanDialog();
+    },
     suspendOrganization: () => {
       openDialog(`${t("organization")}を停止する`,
       `<p>ひばり工房を停止します。停止すると誰も入れなくなり、取り込みと日をまたぐ処理も止まります。データは残り、再開すれば元どおりに使えます。</p>
@@ -3551,9 +3564,9 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   const orgName = (k) => (k.kind === "personal" ? t("personalOrganizationName") : k.name);
   function orgMenuHtml({ open = orgMenuOpen, id = "org-menu-list", live = true, orgs = D.organizations, suspended = [], invited = (D.receivedInvites || []).length > 0, moving = false, canCreatePersonal = ![...orgs, ...suspended].some((k) => k.kind === "personal") } = {}) {
     const current = orgs.find((k) => k.slug === D.organization) || orgs[0];
-    const label = `${t("organization")}${moving ? t("organizationMoving") : orgName(current)}${invited ? "届いた招待あり" : ""}。${t("organization")}を切り替える`;
-    const shown = moving ? t("organizationMoving") : esc(orgName(current));
-    return `<div class="org-menu"><button class="org-menu-button" type="button" aria-expanded="${open}" aria-controls="${id}" aria-label="${esc(label)}" ${moving ? 'data-moving="true"' : ""} ${live ? "data-org-menu" : ""}><span class="org-menu-label">${t("organization")}</span><b>${shown}</b>${invited ? '<span class="chip">届いた招待あり</span>' : ""}${invited ? '<span class="org-menu-invite" aria-hidden="true"></span>' : ""}${brandSymbol}${icon("chevron")}<span class="nav-tip" aria-hidden="true">${shown}${invited && !moving ? "<small>届いた招待あり</small>" : ""}</span></button><span class="visually-hidden" role="status">${moving ? t("organizationMoving") : ""}</span>
+    const shown = moving ? t("organizationMoving") : orgName(current);
+    const label = `${[t("organization"), shown, invited ? "届いた招待あり" : ""].filter(Boolean).join(" ")}。${t("organization")}を切り替える`;
+    return `<div class="org-menu"><button class="org-menu-button" type="button" aria-expanded="${open}" aria-controls="${id}" aria-label="${esc(label)}" ${moving ? 'data-moving="true"' : ""} ${live ? "data-org-menu" : ""}><span class="org-menu-label">${t("organization")}</span> <b>${esc(shown)}</b>${invited ? ' <span class="chip">届いた招待あり</span>' : ""}${invited ? '<span class="org-menu-invite" aria-hidden="true"></span>' : ""}${brandSymbol}${icon("chevron")}<span class="nav-tip" aria-hidden="true">${esc(shown)}${invited && !moving ? " <small>届いた招待あり</small>" : ""}</span></button><span class="visually-hidden" role="status">${moving ? t("organizationMoving") : ""}</span>
       <ul class="org-menu-list" id="${id}" aria-label="入れる${t("organization")}" ${open ? "" : "hidden"}>${orgs.map((k) => `<li><a href="today.html"${k.slug === current.slug ? ' aria-current="page"' : ""}><span class="org-menu-name">${esc(orgName(k))}</span>${k.slug === current.slug ? icon("check") : ""}</a></li>`).join("")}<li class="is-aside"><a href="organizations.html"><span class="org-menu-name">${t("organizationList")}</span>${invited ? '<span class="org-menu-note">招待が届いています</span>' : ""}</a></li><li class="is-aside"><button type="button" ${live ? 'data-dialog="createMyOrganization"' : ""}><span class="org-menu-name">${t("organization")}を作る</span></button></li>${canCreatePersonal ? `<li class="is-aside"><button type="button" ${live ? 'data-dialog="createPersonalOrganization"' : ""}><span class="org-menu-name">${t("createPersonalOrganizationAction")}</span></button></li>` : ""}</ul></div>`;
   }
   function setOrgMenu(open, focus) {
@@ -3760,7 +3773,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     <div class="app">
       <aside class="binding" aria-label="メニュー"><div class="binding-inner">
         <div class="binding-head">
-          <a class="brand" href="index.html" title="デザインシステムのカタログへ">${brandSymbol}<span class="visually-hidden">Scrum Guild</span></a>
+          <a class="brand" href="index.html" title="デザインシステムのカタログへ">${brandSymbol}<span class="visually-hidden">Banmen</span></a>
           <div id="org-menu-slot"></div>
           <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="${!navCollapsed}" aria-controls="app-nav" aria-label="${t(navCollapsed ? "menuExpand" : "menuCollapse")}">${icon("panel")}<span class="nav-tip" aria-hidden="true">${t(navCollapsed ? "menuExpand" : "menuCollapse")}</span></button>
         </div>
@@ -3831,10 +3844,12 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   const LOGIN_VIA = {
     github: { name: "GitHub", label: "GitHub のユーザー名", example: "例: kotone-dev" },
     google: { name: "Google", label: "Google のメールアドレス", example: "例: mio.hoshino@example.com" },
+    password: { name: "メールアドレスとパスワード", label: "メールアドレス", example: "例: mio.hoshino@example.com" },
   };
   // action は欄の右に並べるボタン（確かめるなど）。入力欄とボタンだけを .input-row に並べ、ヒントはその下に出す
   function loginTarget(id, { title = "ログインの手段", hints = {}, disabled = false, action = "" } = {}) {
-    const vias = Object.keys(LOGIN_VIA);
+    const vias = ["github", "google"];
+    if (hints.password) vias.push("password");
     const radios = vias.map((k, i) => `<label><input type="radio" name="${id}-via" value="${k}" data-login-via="${id}" ${i === 0 ? "checked" : ""} ${disabled ? "disabled" : ""}><span>${LOGIN_VIA[k].name}</span></label>`).join("");
     const hintHtml = vias.filter((k) => hints[k]).map((k) => `<span class="field-hint" data-login-hint="${k}" ${k === vias[0] ? "" : "hidden"}>${hints[k]}</span>`).join("");
     return `<div class="field"><span class="field-label">${title}</span><div class="segmented" role="radiogroup" aria-label="${title}">${radios}</div></div>
@@ -3847,11 +3862,13 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   const adminHints = () => ({
     github: `GitHub のユーザー ID に解決します。その人が GitHub でログインすると、この${t("organization")}の${t("admin")}として入れます。`,
     google: `その人が招待の URL を開き、このメールアドレスの Google アカウントでログインすると、${t("admin")}として入れます。招待の URL は14日で切れます。`,
+    password: `本人が指名の URL を開き、パスワードの設定または確認をすると、${t("admin")}として入れます。指名の URL は14日で切れます。`,
   });
   // 運用者が管理者を指名し直すときの、手段ごとの説明（GitHub は確かめてから指名する）
   const reassignHints = () => ({
     github: "GitHub のユーザー ID に解決します。「確かめる」を押して、指名する人を見て確かめてから指名します。",
     google: adminHints().google,
+    password: adminHints().password,
   });
   // 招待と指名を決めたあと。Google なら、このときだけ出る招待の URL をダイアログで見せる。
   // reissue を付けると、URL を失ったときと期限が切れたときの直し方（指名し直し）を添える（運用者の指名）。
@@ -3859,18 +3876,23 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   // workspace を付けると、ワークスペースへの招待（メンバーの画面）の文にする（本番の MemberInvite.svelte と辞書の inviteUrl* と同じ文）
   function inviteLink(id, done, reissue = false, workspace = false) {
     const via = document.querySelector(`[data-login-via="${id}"]:checked`)?.value;
-    if (via !== "google") { closeDialog(); toast(`${icon("check")}${esc(done)}`); return; }
-    const lead = workspace
-      ? `招待しました。Scrum Guild はメールを送りません。この招待の URL を本人に伝えてください。本人がこの URL を開き、招待したメールアドレスの Google アカウントでログインすると、招待を承諾して${t("workspace")}に入れます。`
+    if (via !== "google" && via !== "password") { closeDialog(); toast(`${icon("check")}${esc(done)}`); return; }
+    const password = via === "password";
+    const urlLabel = password ? "指名の URL" : "招待の URL";
+    const path = password ? "/invite/password" : "/invite";
+    const lead = password
+      ? `${esc(done)}。Banmen はメールを送りません。本人に次の指名の URL を伝えてください。`
+      : workspace
+      ? `招待しました。Banmen はメールを送りません。この招待の URL を本人に伝えてください。本人がこの URL を開き、招待したメールアドレスの Google アカウントでログインすると、招待を承諾して${t("workspace")}に入れます。`
       : `${esc(done)}。この URL を本人に伝えてください。本人がこの URL を開き、招待したメールアドレスの Google アカウントでログインすると入れます。`;
-    openDialog("招待の URL",
+    openDialog(urlLabel,
       `<p>${lead}</p>
-       <div class="field"><label class="field-label" for="d-iu">招待の URL</label>
-         <div class="input-row"><input class="input mono" id="d-iu" value="https://scrum-guild.dev/invite#Qm7tX2vLr9aKpE4wZc8hN3bYd6fGs1uJ0oTiRl5eWxA" readonly>
-           <button class="btn" type="button" data-toast="招待の URL をコピーしました">${icon("link")}コピー</button></div></div>
-       <div class="callout is-info">${icon("check")}<span>次のメールアドレスの Google アカウントでログインするよう伝えてください。<b class="mono wrap-anywhere">mio.hoshino@example.com</b></span></div>
+       <div class="field"><label class="field-label" for="d-iu">${urlLabel}</label>
+         <div class="input-row"><input class="input mono" id="d-iu" value="https://scrum-guild.dev${path}#Qm7tX2vLr9aKpE4wZc8hN3bYd6fGs1uJ0oTiRl5eWxA" readonly>
+           <button class="btn" type="button" data-toast="${urlLabel} をコピーしました">${icon("link")}コピー</button></div></div>
+       <div class="callout is-info">${icon("check")}<span>${password ? "指名したメールアドレス" : "次のメールアドレスの Google アカウントでログインするよう伝えてください。"} <b class="mono wrap-anywhere">mio.hoshino@example.com</b></span></div>
        <div class="callout is-warn">${icon("alert")}<span>この URL はこの画面を閉じると二度と出せません。期限は14日（2026/11/09 09:00 まで）です。期限までに本人へ伝えてください。</span></div>
-       ${reissue ? `<p class="field-hint">URL を失ったときや期限が切れたときは、一覧の「${t("admin")}を指名」から指名し直すと、新しい招待の URL が出ます。</p>` : ""}
+       ${reissue ? `<p class="field-hint">URL を失ったときや期限が切れたときは、一覧の「${t("admin")}を指名」から指名し直すと、新しい${urlLabel}が出ます。</p>` : ""}
        ${workspace ? `<p class="field-hint">URL を失ったときや期限が切れたときは、同じメールアドレスで招待し直すと、新しい招待の URL が出ます（期限が切れた後は、${t("organization")}の人数が上限なら招待し直せません）。招待し直すと（ほかの${t("leader")}が招待し直したときも）、前の招待の URL は使えなくなります。</p>` : ""}`,
       `<button class="btn is-primary" type="button" data-close-dialog>閉じる</button>`);
   }
@@ -3887,10 +3909,10 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     // 管理者の指名し直しのダイアログも同じ（確かめるボタン d-rz、確かめた人 d-rv、指名する d-rb）
     const ids = { "d-ka": ["d-kz", "d-kv", "d-kb"], "d-ra": ["d-rz", "d-rv", "d-rb"] }[el.dataset.loginVia];
     if (ids && document.getElementById(ids[2])) {
-      const google = el.value === "google";
-      document.getElementById(ids[0]).hidden = google;
+      const needsLookup = el.value === "github";
+      document.getElementById(ids[0]).hidden = !needsLookup;
       document.getElementById(ids[1]).hidden = true;
-      document.getElementById(ids[2]).disabled = !google;
+      document.getElementById(ids[2]).disabled = needsLookup;
     }
   });
 
@@ -3901,7 +3923,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const submit = document.getElementById("d-qs");
     if (!chosen || !submit) return;
     document.getElementById("d-qo").hidden = chosen.value !== "other";
-    const same = chosen.value === "small" ||
+    const same = chosen.value === "small_organization" ||
       (chosen.value === "other" && document.getElementById("d-qm").value === "15" && document.getElementById("d-qg").value === "30");
     submit.setAttribute("aria-disabled", String(same));
     document.getElementById("d-qu").hidden = !same;
@@ -3915,8 +3937,8 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   };
   document.addEventListener("change", (ev) => { if (ev.target.closest("[data-quota-choice]")) syncQuotaDialog(); });
 
-  // 契約の変更のダイアログ: 見本の今の契約（ビジネス・月払い）を選んでいる間は「変える」を aria-disabled にし、理由（d-pu）を添える。
-  // チームを選ぶと、今の人数（38 人）が上限を超える注意と、今の合計が上限を超える注意を出す（本番の OrganizationPlanDialog と同じ）
+  // 契約の変更のダイアログ: 契約と上限の両方が今の値と同じなら「変える」を無効にする。旧ビジネスの50人枠を揃えるときは上限の低下を知らせる
+  const planLimits = { small: [3, 10], team: [15, 30], business: [30, 100], pro: [50, 100] };
   const syncPlanDialog = () => {
     const plan = document.querySelector('input[name="d-p"]:checked');
     const interval = document.querySelector('input[name="d-pi"]:checked');
@@ -3924,18 +3946,22 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     if (!plan || !interval || !submit) return;
     const custom = plan.value === "custom";
     document.getElementById("d-p-custom").hidden = !custom;
-    const members = custom ? Number(document.getElementById("d-p-members").value) : plan.value === "team" ? 15 : 50;
-    const size = custom ? Number(document.getElementById("d-p-size").value) : plan.value === "team" ? 30 : 100;
+    const [members, size] = custom
+      ? [Number(document.getElementById("d-p-members").value), Number(document.getElementById("d-p-size").value)]
+      : planLimits[plan.value];
     const valid = Number.isInteger(members) && members >= 1 && members <= 10000 && Number.isInteger(size) && size >= 1 && size <= 102400;
-    const same = plan.value === "business" && interval.value === "monthly";
+    const samePlan = plan.value === submit.dataset.planCurrent;
+    const used = Number(submit.dataset.planUsed);
+    const same = samePlan && interval.value === "monthly" && members === 50 && size === 100;
+    document.getElementById("d-p-current-lower").hidden = !valid || !samePlan || (members >= 50 && size >= 100);
     submit.setAttribute("aria-disabled", String(same));
     document.getElementById("d-p-invalid").hidden = valid;
     document.getElementById("d-pu").hidden = !same;
     const after = document.getElementById("d-pa");
     after.hidden = same || !valid;
     after.textContent = `変えた後の上限は ${members} 人・${size} GB です。`;
-    document.getElementById("d-po").hidden = !valid || members >= 38;
-    document.querySelector("#d-po span").textContent = `今の人数（38 人）が、変えた後の上限（${members} 人）を超えます。今いる人はそのまま残り、上限を下回るまで新しい人の招待と管理者への指名だけを止めます。`;
+    document.getElementById("d-po").hidden = !valid || members >= used;
+    document.querySelector("#d-po span").textContent = `今の人数（${used} 人）が、変えた後の上限（${members} 人）を超えます。今いる人はそのまま残り、上限を下回るまで新しい人の招待と管理者への指名だけを止めます。`;
     document.getElementById("d-pq").hidden = !valid || size >= 42;
     submit.removeAttribute("data-close-dialog");
     submit.removeAttribute("data-toast");
@@ -3976,20 +4002,54 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   document.addEventListener("input", (ev) => { if (ev.target.closest("[data-storage-choice]")) syncStorageDialog(); });
 
 
-  // ストーリーの親名の操作も、カードの見本の範囲だけで働く。
-  function highlightStoryExample(event, active) {
-    const trigger = event.target.closest?.("[data-story-filter]");
-    if (!trigger || (event.relatedTarget && trigger.contains(event.relatedTarget))) return;
-    const board = trigger.closest(".story-board");
-    board?.querySelectorAll(".card").forEach((card) => {
-      card.classList.toggle("is-story-highlighted", active && card.dataset.storyId === trigger.dataset.storyFilter);
-      card.classList.toggle("is-story-dimmed", active && card.dataset.storyId !== trigger.dataset.storyFilter);
+  // ストーリーの親名の操作も、カードの見本の範囲だけで働く。本番の SprintCard とスプリントの画面の trackStoryHover に合わせる。
+  // ポインタはカードのどこに乗っても、そのカードのストーリーを強調する（親のないカードは消す）。カードの隙間（列と盤の地）では直前の強調を保ち、
+  // 見出しや足す行に移るか盤を出たら外す。ポインタがある間はフォーカスより先で、外れたら親名のボタンのフォーカスの強調に戻す。親名へフォーカスが移ったときはフォーカスを先にする。タッチでは強調しない。
+  const storyHover = new WeakMap();
+  const storyFocus = new WeakMap();
+  function paintStoryExample(scope) {
+    const hover = storyHover.get(scope);
+    const cards = [...scope.querySelectorAll(".card")];
+    // 保った強調のストーリーが盤から消えていれば、フォーカスの強調に戻す
+    const hovering = hover === null || (hover !== undefined && cards.some((card) => card.dataset.storyId === hover));
+    // 消えたストーリーの強調は捨て、同じストーリーが戻っても出し直さない
+    if (hover !== undefined && !hovering) storyHover.delete(scope);
+    const storyId = hovering ? hover : (storyFocus.get(scope) ?? null);
+    cards.forEach((card) => {
+      card.classList.toggle("is-story-highlighted", storyId !== null && card.dataset.storyId === storyId);
+      card.classList.toggle("is-story-dimmed", storyId !== null && card.dataset.storyId !== storyId);
     });
   }
-  document.addEventListener("pointerover", (event) => highlightStoryExample(event, true));
-  document.addEventListener("pointerout", (event) => highlightStoryExample(event, false));
-  document.addEventListener("focusin", (event) => highlightStoryExample(event, true));
-  document.addEventListener("focusout", (event) => highlightStoryExample(event, false));
+  document.addEventListener("pointerover", (event) => {
+    const scope = event.target.closest?.(".story-board");
+    if (!scope) return;
+    const card = event.target.closest(".card");
+    // タッチでは強調を付けず、カードに触れたら保っていた強調も外す
+    if (card && event.pointerType !== "touch") storyHover.set(scope, card.dataset.storyId || null);
+    else if (event.target.matches(".board, .board-col")) return;
+    else storyHover.delete(scope);
+    paintStoryExample(scope);
+  });
+  document.addEventListener("pointerout", (event) => {
+    const board = event.target.closest?.(".story-board .board");
+    if (!board || (event.relatedTarget && board.contains(event.relatedTarget))) return;
+    const scope = board.closest(".story-board");
+    storyHover.delete(scope);
+    paintStoryExample(scope);
+  });
+  function focusStoryExample(event, active) {
+    const trigger = event.target.closest?.("[data-story-filter]");
+    const scope = trigger?.closest(".story-board");
+    if (!scope) return;
+    // キーボードで親名へ移ったら、保ったポインタの強調を捨ててフォーカスを先にする
+    if (active) {
+      storyFocus.set(scope, trigger.dataset.storyFilter);
+      storyHover.delete(scope);
+    } else storyFocus.delete(scope);
+    paintStoryExample(scope);
+  }
+  document.addEventListener("focusin", (event) => focusStoryExample(event, true));
+  document.addEventListener("focusout", (event) => focusStoryExample(event, false));
   document.addEventListener("click", (event) => {
     const trigger = event.target.closest?.("[data-story-filter], [data-story-clear]");
     const root = trigger?.closest(".story-board");
@@ -4121,11 +4181,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       e.party = e.party.includes(D.me) ? e.party.filter((u) => u !== D.me) : [...e.party, D.me];
       redrawAll(); return;
     }
-    if ((el = hit("data-thank"))) {
-      const u = el.dataset.thank;
-      drawer.thanked.has(u) ? drawer.thanked.delete(u) : drawer.thanked.add(u);
-      renderDrawer(); return;
-    }
     if ((el = hit("data-tab"))) { setDrawerTab(el.dataset.tab); return; }
     // コメントの「編集」「取り消し」「保存」「削除」と、新しいコメントの「送る」（見本の中だけで書き換える）
     if ((el = hit("data-comment-edit"))) {
@@ -4221,13 +4276,13 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       return;
     }
     if ((el = hit("data-reassign-admin"))) {
-      if (document.querySelector(`[data-login-via="${el.dataset.reassignAdmin}"]:checked`)?.value === "google") inviteLink(el.dataset.reassignAdmin, `${t("admin")}を指名しました`, true);
+      if (["google", "password"].includes(document.querySelector(`[data-login-via="${el.dataset.reassignAdmin}"]:checked`)?.value)) inviteLink(el.dataset.reassignAdmin, `${t("admin")}を指名しました`, true);
       else DIALOGS.adminReassigned();
       return;
     }
     // Google の指名は、組織の URL の代わりに招待の URL を出す
     if ((el = hit("data-org-create"))) {
-      if (document.querySelector(`[data-login-via="${el.dataset.orgCreate}"]:checked`)?.value === "google") inviteLink(el.dataset.orgCreate, `${t("organization")}を作りました`);
+      if (["google", "password"].includes(document.querySelector(`[data-login-via="${el.dataset.orgCreate}"]:checked`)?.value)) inviteLink(el.dataset.orgCreate, `${t("organization")}を作りました`);
       else DIALOGS.organizationCreated();
       return;
     }
@@ -4568,16 +4623,15 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   const extraRedraws = [];
   function redrawAll() { redraw(); extraRedraws.forEach((fn) => fn()); if (assist.open) renderAssist(); }
 
-  // ---- テーマの切り替え（シンプル（自動）→ シンプル（ライト）→ シンプル（ダーク）→ ネオン） ----
+  // ---- テーマの切り替え（シンプル（自動）→ シンプル（ライト）→ シンプル（ダーク）） ----
   // 値は DB の列挙と同じ。null は自分で選んでいない状態で、シンプル（自動）として出す。
   // 本番では、ユーザーが選んだテーマを data-theme に入れる
-  const THEMES = ["simple", "simple_light", "simple_dark", "modern"];
-  const THEME_LABEL = { simple: "シンプル（自動）", simple_light: "シンプル（ライト）", simple_dark: "シンプル（ダーク）", modern: "ネオン" };
+  const THEMES = ["simple", "simple_light", "simple_dark"];
+  const THEME_LABEL = { simple: "シンプル（自動）", simple_light: "シンプル（ライト）", simple_dark: "シンプル（ダーク）" };
   const THEME_NOTE = {
     simple: "業務の道具として落ち着いた見た目。OS のライトとダークに合わせる",
     simple_light: "業務の道具として落ち着いた見た目。いつも明るい地",
     simple_dark: "業務の道具として落ち着いた見た目。いつも暗い地",
-    modern: "近未来の端末のウィンドウ。暗い地に光る枠",
   };
   let theme = null;
   try { theme = localStorage.getItem("sq-design-theme"); } catch (e) { /* なくても動く */ }

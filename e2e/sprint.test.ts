@@ -135,7 +135,7 @@ test('リーダーはゴールを書いてスプリントを始め、2つ目は�
   // 左のメニューの「スプリント」から、スプリントの画面を開く。見出しはスプリントの名前、ゴールは貼り紙、列は列の順で完了が最後
   await page.getByRole('link', { name: 'スプリント', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: '第1回' })).toBeVisible();
-  await expect(page).toHaveTitle('第1回・出発の見張り番 - Scrum Guild');
+  await expect(page).toHaveTitle('第1回・出発の見張り番 - Banmen');
   await expect(page.locator('.notice-title')).toHaveText(GOAL);
   await expect(page.locator('.board-col-name')).toHaveText(['未着手', '作業中', 'レビュー', '完了']);
   await expect(titlesIn(page, '未着手')).toHaveText(['A札', 'B札', 'C札']);
@@ -1253,7 +1253,7 @@ for (const [name, label] of [
     );
     await page.goto(`${AOBA_TEAM}/sprint`);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(label);
-    await expect(page).toHaveTitle(`${label}・受託開発チーム - Scrum Guild`);
+    await expect(page).toHaveTitle(`${label}・受託開発チーム - Banmen`);
     await page
       .locator('.page-head')
       .getByRole('button', { name: /^操作: / })

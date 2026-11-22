@@ -46,8 +46,7 @@ async function grants(target: Target, taskId: string) {
         .selectFrom('xp_grants')
         .selectAll()
         .where('workspace_id', '=', target.workspace.id)
-        .where('task_id', '=', taskId)
-        .where('action', '=', 'task_detailed'),
+        .where('task_id', '=', taskId),
     ),
   );
 }
@@ -71,7 +70,7 @@ async function setup(points: number | null = 1, imported = false) {
 
 describe('詳細の経験値', () => {
   test.each([false, true])(
-    '最後の更新者の見込みと確定に20を足す（取り込み=%s）。同時の完了でも1回だけ',
+    '最後の更新者の見込みは数えるが、完了しても明細は増えない（取り込み=%s）。同時の完了でも増えない',
     async (imported) => {
       const { target, task } = await setup(1, imported);
       expect(await summary(target)).toMatchObject({ total: 0, prospective: imported ? 20 : 30 });
@@ -81,25 +80,19 @@ describe('詳細の経験値', () => {
         call(target, taskComplete, { task_id: task.id }, target.admin, [200, 409]),
       ]);
       expect(results.some((res) => res.status === 200)).toBe(true);
-      const rows = await grants(target, task.id);
-      expect(rows).toHaveLength(1);
-      expect(rows[0]).toMatchObject({
-        user_id: target.member.userId,
-        amount: 20,
-        dedupe_key: `task_detailed:${rows[0].completion_id}`,
-      });
-      expect(await summary(target)).toMatchObject({ total: imported ? 20 : 30, prospective: 0 });
+      expect(await grants(target, task.id)).toHaveLength(0);
+      expect(await summary(target)).toMatchObject({ total: 0, prospective: 0 });
     },
   );
 
-  test.each([0, null])('ポイント%sなら見込みにも確定にも付けない', async (points) => {
+  test.each([0, null])('ポイント%sなら見込みに数えず、完了しても明細を増やさない', async (points) => {
     const { target, task } = await setup(points);
     expect((await summary(target)).prospective).toBe(0);
     await call(target, taskComplete, { task_id: task.id });
     expect(await grants(target, task.id)).toHaveLength(0);
   });
 
-  test.each(['未記入', '欄0件'] as const)('%sなら付かない', async (kind) => {
+  test.each(['未記入', '欄0件'] as const)('%sなら完了しても明細を増やさない', async (kind) => {
     const { target, task, last, db } = await setup();
     if (kind === '未記入')
       await db.run(
@@ -118,7 +111,7 @@ describe('詳細の経験値', () => {
     expect(await grants(target, task.id)).toHaveLength(0);
   });
 
-  test('削除した欄の新しい値は無視し、同時刻ならfield_idの降順で受取人を固定する', async () => {
+  test('削除した欄の新しい値は無視し、同時刻ならfield_idの降順で見込みの受取人を固定する。完了しても明細は増えない', async () => {
     const { target, task, first, last, db } = await setup();
     await db.run(
       db.statement((q) => q.updateTable('task_field_values').set({ updated_at: AT }).where('task_id', '=', task.id)),
@@ -130,7 +123,7 @@ describe('詳細の経験値', () => {
     const winner = first.id > last.id ? target.admin : target.member;
     expect((await summary(target, winner)).prospective).toBe(winner === target.member ? 30 : 20);
     await call(target, taskComplete, { task_id: task.id });
-    expect((await grants(target, task.id))[0].user_id).toBe(winner.userId);
+    expect(await grants(target, task.id)).toHaveLength(0);
   });
 
   test('最後の更新者が離脱済みなら繰り上げない', async () => {
@@ -150,33 +143,6 @@ describe('詳細の経験値', () => {
     expect((await summary(target, target.admin)).prospective).toBe(0);
     await call(target, taskComplete, { task_id: task.id }, target.admin);
     expect(await grants(target, task.id)).toHaveLength(0);
-  });
-
-  test('確定後の欄変更では動かず、戻すと打ち消し、同じ時刻の再完了は新しい受取人に付ける', async () => {
-    const { target, task, last } = await setup();
-    await call(target, taskComplete, { task_id: task.id });
-    await call(
-      target,
-      taskFieldSet,
-      { task_id: task.id, field_id: last.id, value_md: '書き直し', read_md: '- 影響する画面を挙げてある' },
-      target.admin,
-    );
-    expect((await grants(target, task.id))[0]).toMatchObject({ user_id: target.member.userId, amount: 20 });
-    await call(target, taskReopen, { task_id: task.id });
-    expect((await summary(target, target.admin)).prospective).toBe(20);
-    await call(target, taskComplete, { task_id: task.id });
-    const rows = await grants(target, task.id);
-    expect(rows).toHaveLength(3);
-    expect(
-      rows
-        .filter((r) => r.amount === 20)
-        .map((r) => r.user_id)
-        .sort(),
-    ).toEqual([target.member.userId, target.admin.userId].sort());
-    expect(rows.find((r) => r.amount === -20)?.reverses_grant_id).toBe(
-      rows.find((r) => r.user_id === target.member.userId && r.amount === 20)?.id,
-    );
-    expect(new Set(rows.filter((r) => r.amount === 20).map((r) => r.completion_id)).size).toBe(2);
   });
 
   test.each(['閉鎖', '削除', '受信箱', 'アーカイブ'] as const)('%sのタスクの詳細は見込みから外す', async (state) => {
@@ -246,17 +212,18 @@ describe('詳細の経験値', () => {
     expect((await summary(target, target.admin)).prospective).toBe(20);
   });
 
-  test('確定後に欄を追加・削除しても明細を動かさず、再完了では現在の未記入を判定する', async () => {
+  test('完了・再完了しても明細は増えず、取り消した後の見込みは現在の未記入を判定する', async () => {
     const { target, task } = await setup();
     await call(target, taskComplete, { task_id: task.id });
     const before = await grants(target, task.id);
     await createDetailField(target.organization, target.workspace.id, { name: '完了後の新しい欄' });
+    expect(before).toEqual([]);
     expect(await grants(target, task.id)).toEqual(before);
     await call(target, taskReopen, { task_id: task.id });
+    expect(await grants(target, task.id)).toEqual([]);
     expect((await summary(target)).prospective).toBe(10);
     await call(target, taskComplete, { task_id: task.id });
-    const rows = await grants(target, task.id);
-    expect(rows.map((row) => row.amount).sort((a, b) => a - b)).toEqual([-20, 20]);
+    expect(await grants(target, task.id)).toEqual([]);
   });
 
   test('詳細の見込みは本人が書いた値の索引からタスク候補を引き、バックログ全件を読まない', async () => {
@@ -277,14 +244,17 @@ describe('詳細の経験値', () => {
     expect((await summary(target)).prospective).toBe(30);
   });
 
-  test.each([false, true])('別ワークスペースの欄と値を判定に使わない（別組織=%s）', async (differentOrganization) => {
-    const { target, task } = await setup();
-    const foreign = differentOrganization ? await createTarget() : null;
-    const other = foreign?.workspace ?? (await createWorkspace(target.organization, target.admin.userId!));
-    const field = await createDetailField(foreign?.organization ?? target.organization, other.id);
-    await createTaskFieldValue(target.organization, task.id, field.id, target.admin.userId!, { updated_at: AT });
-    expect((await summary(target)).prospective).toBe(30);
-    await call(target, taskComplete, { task_id: task.id });
-    expect((await grants(target, task.id))[0].user_id).toBe(target.member.userId);
-  });
+  test.each([false, true])(
+    '別ワークスペースの欄と値を見込みの判定に使わない（別組織=%s）',
+    async (differentOrganization) => {
+      const { target, task } = await setup();
+      const foreign = differentOrganization ? await createTarget() : null;
+      const other = foreign?.workspace ?? (await createWorkspace(target.organization, target.admin.userId!));
+      const field = await createDetailField(foreign?.organization ?? target.organization, other.id);
+      await createTaskFieldValue(target.organization, task.id, field.id, target.admin.userId!, { updated_at: AT });
+      expect((await summary(target)).prospective).toBe(30);
+      await call(target, taskComplete, { task_id: task.id });
+      expect(await grants(target, task.id)).toHaveLength(0);
+    },
+  );
 });

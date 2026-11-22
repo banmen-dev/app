@@ -25,7 +25,8 @@ Issue が無い直接依頼では、会話から目的、完了条件、変え�
 指定された作業用ワークツリーがあれば、ブランチと既存差分を確かめてそこを使う。
 無ければ `AGENTS.md` と `docs/development.md` の「ワークツリーで作業する」に従って作る。
 以降のコマンドにはその絶対パスを作業ディレクトリとして渡す。本体の `main` に編集を戻さない。
-依存が必要なら、そのワークツリーで `pnpm install --frozen-lockfile` を行う。
+依存が必要なら、[ワークツリーで作業する](../../../docs/development.md#ワークツリーで作業する) の手順に従う。
+作業用ワークツリーのルートで `pnpm store path` を実行し、保存先を確認してから依存を入れる。
 
 [共通の受け入れ条件](../../../docs/agent-workflows/acceptance.md) を読み、触る範囲に合うものを適用する。
 API の追加は `add-operation`、マイグレーションは `d1-migration`、画面は `docs/design.md` を基準に作り、動きを足したら `review-animations` の `SKILL.md` で点検する。

@@ -4,7 +4,7 @@ import { describe, expect, test } from 'vitest';
 import type { ClientErrorReport } from '../shared/client-error.ts';
 import { createClientErrorReporter } from './client-error-report.ts';
 
-const ORIGIN = 'https://scrum-guild.example.test';
+const ORIGIN = 'https://banmen.example.test';
 
 function setup() {
   const sent: ClientErrorReport[] = [];
@@ -49,7 +49,7 @@ describe('ErrorEvent の filename がオリジンを持たない URL', () => {
 
   test('資格情報の入った同じオリジンの URL は、資格情報を落としたパスにする', () => {
     const { reporter, sent } = setup();
-    reporter.onError(errorEvent('https://user:pass-376@scrum-guild.example.test/_app/immutable/chunks/abc.js'));
+    reporter.onError(errorEvent('https://user:pass-376@banmen.example.test/_app/immutable/chunks/abc.js'));
     expect(sent[0]?.location).toEqual({ file: '/_app/immutable/chunks/abc.js', line: 3, column: 4 });
   });
 });

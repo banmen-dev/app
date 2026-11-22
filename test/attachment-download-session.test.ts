@@ -64,9 +64,6 @@ describe.each(['https://guild.example', 'http://127.0.0.1:5173'])('配信時の 
   });
 
   test('1時間たっていないセッションの Cookie は出し直さない', async () => {
-    // ファクトリーの固定の有効期限を過ぎても、このテストが期限切れで落ちないようにする。
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date('2026-12-01T00:00:00.000Z'));
     const target = await createTarget();
     const used = new Date().toISOString();
     const session = await createSessionWithToken(target.member.accountId, {

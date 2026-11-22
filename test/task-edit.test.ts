@@ -97,7 +97,7 @@ async function logsOf(target: Target, taskId: string) {
   );
 }
 
-// 一般のメンバーが作って完了にしたタスク（完了の記録と経験値は、task-complete が書く。経験値はワークスペースに所属する人にだけ付く）
+// 一般のメンバーが作って完了にしたタスク（完了の記録は task-complete が書く。経験値は書かない）
 async function completedTask(target: Target, overrides: Parameters<typeof createTask>[3] = {}) {
   const task = await createTask(target.organization, target.workspace.id, target.member.userId!, {
     points: 3,
@@ -140,8 +140,6 @@ describe('task-detail', () => {
       category: null,
       repository: null,
       sprint: null,
-      thanks: [],
-      can_send_thanks: true,
     });
     for (const person of [target.leader, target.admin]) {
       expect(((await (await detail(target, task.id, person)).json()) as { task: Detail }).task.can_delete).toBe(true);
@@ -488,7 +486,7 @@ describe('task-update', () => {
   });
 
   describe('完了したタスクのポイント', () => {
-    test('直す要求は 409 の conflict で、何も書かない。経験値の元の値と履歴は動かない', async () => {
+    test('直す要求は 409 の conflict で、何も書かない。ポイントの元の値と履歴は動かない', async () => {
       const target = await createTarget();
       const task = await completedTask(target);
       const before = await rowOf(target, task.id);
@@ -908,7 +906,7 @@ describe('task-delete', () => {
     expect(await logsOf(target, task.id)).toEqual([]);
   });
 
-  test('経験値の付いたタスクも論理削除で、完了の記録と経験値は残る。ストーリーの合計からは外れる', async () => {
+  test('完了したタスクも論理削除で、完了の記録は残り、xp_grants は増えない。ストーリーの合計からは外れる', async () => {
     const target = await createTarget();
     const story = await createStory(target.organization, target.workspace.id, target.admin.userId!);
     const task = await completedTask(target, { story_id: story.id });
@@ -928,7 +926,7 @@ describe('task-delete', () => {
     const completions = await countOf('completions');
     const grants = await countOf('xp_grants');
     expect(completions).toBe(1);
-    expect(grants).toBe(2);
+    expect(grants).toBe(0);
 
     expect((await remove(target, task.id, target.admin)).status).toBe(200);
     expect(await countOf('completions')).toBe(completions);

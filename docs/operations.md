@@ -11,6 +11,7 @@
 手で wrangler を動かす操作（D1 を作る、rollback、DB の復元、triggers の当て直し）の前に行う。
 
 1. `pnpm install` を済ませ、リポジトリのルートで実行する。wrangler はルートの `wrangler.jsonc` を読む
+   ワークツリーで準備する場合は、[ワークツリーで作業する](development.md#ワークツリーで作業する) に従い、先に pnpm の保存先を確認する。
 2. `pnpm exec wrangler login` でログインする
 3. `pnpm exec wrangler whoami` で、ucan-lab のアカウント（`71293a3c23974c311b4c82b3f977049b`）を選んでいることを確かめる。複数のアカウントを持っていると、別のアカウントに作ったり戻したりする
 
@@ -167,7 +168,7 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
 
    | 項目 | 本番 | 開発用 |
    | --- | --- | --- |
-   | Application name | Scrum Guild | Scrum Guild (dev) |
+   | Application name | Banmen | Banmen (dev) |
    | Homepage URL | `https://scrum-guild.ucan-lab.workers.dev` | `http://localhost:5173` |
    | Redirect URI | `https://scrum-guild.ucan-lab.workers.dev/api/auth/github/callback` | `http://localhost:5173/api/auth/github/callback` |
 
@@ -186,7 +187,7 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
 
 ログインは、種類が「ウェブ アプリケーション」の OAuth クライアント1つで行う（`docs/development.md` の「Google のログイン」）。本番用と開発用は別の Google Cloud プロジェクトに作る。同意画面の公開の状態が違い、開発用を「テスト」のままにしておくため。スコープは `openid`、`email`、`profile` だけで、機密のスコープを使わないので Google の審査は要らない。
 
-1. Google Cloud コンソールでプロジェクトを作る（本番は `Scrum Guild`、開発用は `Scrum Guild (dev)` など）
+1. Google Cloud コンソールでプロジェクトを作る（本番は `Banmen`、開発用は `Banmen (dev)` など）
 2. Google Auth Platform の「ブランディング」で、アプリ名、ユーザーサポートメール、デベロッパーの連絡先を入れる
 3. 「対象」で、ユーザーの種類を「外部」にする。公開の状態は、本番は「本番環境」に進める。開発用は「テスト」のままにして、確かめる人の Google アカウントを「テストユーザー」に登録する（「テスト」の間は、登録したテストユーザーしかログインできない）
 4. 「データへのアクセス」で、スコープに `openid`、`.../auth/userinfo.email`、`.../auth/userinfo.profile` の3つだけを足す
@@ -351,34 +352,57 @@ seed のセッションのトークン（`seed/sessions.ts`）と API トーク�
 
 ## プレビュー環境
 
-本番と別の Worker と D1 で PR の版を確かめる。アカウントの設定と初回の確認は人が行う。セッションからデプロイ、リモート D1 の作成・seed、Access や本番の設定変更は行わない。配信と削除の仕組み、ロールの切り替えは `docs/development.md` の「プレビュー」。
+PR の版は本番を載せていない専用 Cloudflare アカウントの Worker と D1 で確かめる。本番アカウントに既にある Worker、R2、Access の設定はそのままにする。アカウントの設定と初回の確認は人が行う。セッションからデプロイ、リモート D1 の作成・seed、Access や本番の設定変更は行わない。配信と削除の仕組み、ロールの切り替えは `docs/development.md` の「プレビュー」。
 
 ### 用意するもの
 
-1. Workers & Pages に `scrum-guild-preview` を作る。本番 `scrum-guild` と見本 `scrum-guild-design` の接続は変えない。初めは Builds を無効にしておく
-2. Worker の Settings の Domains & Routes で `workers.dev` と Preview URLs を有効にし、Cloudflare Access を有効にする。Zero Trust のアプリで許可する人のメールアドレスを絞り、さらに Service Auth の方針で、この用途専用のサービストークンを許可する。Worker の通常 URL だけでなく、`pr-374-scrum-guild-preview.ucan-lab.workers.dev` などの alias と版の URL、`/api/*` も保護する。Access 無しで開ける URL を残さない。既存の本番に Access を付ける操作ではない
-3. R2 に `scrum-guild-preview-attachments` を作る。本番のバケットは指定しない。プレビュー間で共有され、D1 を消しても中身は残るので、架空の添付だけを入れ、不要な中身は人が定期的に消す
+1. プレビュー専用アカウントの Workers & Pages に `scrum-guild-preview` を作る。本番 `scrum-guild` と見本 `scrum-guild-design` の接続は変えない。初めは Builds を無効にしておく
+2. Worker の Settings の Domains & Routes で `workers.dev` と Preview URLs を有効にし、Cloudflare Access を有効にする。Zero Trust のアプリで許可する人のメールアドレスを絞り、さらに Service Auth の方針で、この用途専用のサービストークンを許可する。Worker の通常 URL だけでなく、`pr-374-scrum-guild-preview.<プレビュー用サブドメイン>.workers.dev` などの alias と版の URL、`/api/*` も保護する。Access 無しで開ける URL を残さない。既存の本番に Access を付ける操作ではない
+3. 専用アカウントの R2 は有効化しない。共有プレビューでは添付ファイルとプロフィール画像の操作を無効にする。
 4. プレビュー Worker に `CONNECTION_CREDENTIAL_KEYS` を Secret として登録する。鍵の書式は上の「シークレット」を参照し、本番とは別の鍵を作る。seed の運用者は生成設定の `OPERATOR_LOGIN_IDS` で指定する。GitHub/Google OAuth、メール、外部連携の本番の秘密は入れない。seed ログインで確かめる
-5. `scrum-guild-dev/app` へ2本目の Workers Builds を接続する。初回は Disable builds のまま下の表を保存し、Access の未認証リクエストが拒否されることを確認してから有効に戻す。D1 はスクリプトが作るため手で作らない
+5. `scrum-guild-dev/app` へ2本目の Workers Builds を接続する。初回は Disable builds のまま下の表を保存し、Access の未認証リクエストが拒否されることを確認してから有効に戻す。D1 はスクリプトが作るため手で作らない。番号付き PR の起動は下の専用 Worker に任せる。
 
 | 項目 | 値 |
 | --- | --- |
 | Worker | `scrum-guild-preview` |
-| 本番ブランチ（この接続だけ） | `main`（配信せず不要 D1 の掃除だけ） |
-| Enable Preview builds | 有効。対象ブランチを番号付きの作業ブランチに絞り、fork と `production` を含めない |
+| 本番ブランチ（プレビュー Worker の接続だけ） | `preview-builds-parked`。通常の push が来ないよう GitHub 側で作成・更新を制限する |
+| 非本番ブランチの自動ビルド | 無効。起動は Webhook を受けた専用 Worker から Builds API に限定する |
 | ビルドのコマンド | `APP_VERSION=$(git rev-parse HEAD) && export APP_VERSION && pnpm build` |
-| デプロイのコマンドと非本番ブランチのデプロイのコマンド | 両方 `node scripts/deploy-preview.ts`。非本番側の既定の `wrangler versions upload` を残さない |
+| デプロイのコマンド | `node scripts/deploy-preview.ts`。番号付きのブランチを受け取ったときに版をアップロードする |
 | Path | `/` |
 | build watch paths | Include `*`、Exclude は空 |
-| 同じブランチのビルド | 古いビルドを取り消す設定を有効にし、デプロイ段の再実行は前の終了後に行う |
-| Builds の環境変数 | `CLOUDFLARE_ACCOUNT_ID`（32桁のアカウント ID）。`WORKERS_CI=1` と `WORKERS_CI_BRANCH` は Builds が渡すものを使う |
-| API トークン | Builds が作った専用トークン。Account: Workers Scripts: Edit、D1: Edit、Account Settings: Read と、Builds が要する User Details: Read、Memberships: Read。R2 の binding 確認に必要になったときだけ Workers R2 Storage: Read を足す。本番のトークンを流用しない。`CLOUDFLARE_API_TOKEN` としてデプロイのコマンドでも使えることを確認する |
+| 同じ Issue のビルド | 専用 Worker が前のビルドの停止を確認してから起動する。手動で起動する場合も前の停止を待つ |
+| Builds の環境変数 | 専用アカウントの `CLOUDFLARE_ACCOUNT_ID` と、専用アカウントの workers.dev サブドメイン `CLOUDFLARE_PREVIEW_SUBDOMAIN`（`.workers.dev` を除いた名前）、`VITE_PREVIEW_WITHOUT_ATTACHMENTS=1`。 `WORKERS_CI=1` と `WORKERS_CI_BRANCH` は Builds が渡す |
+| API トークン | Resources を専用アカウント1件だけに絞ったユーザートークン。Account: Workers Scripts Edit、D1 Edit、Account Settings Read と、Builds が要する User Details Read、Memberships Read。All accounts と本番アカウントは対象に含めない |
 
-番号付きブランチの例は `374-pr-preview`。Builds の対象は信頼する人の同一リポジトリのブランチだけに絞り、`claude/*`、`feature/*`、`production`、fork を含めない。Cloudflare の include/exclude のパターンの方言で数字の範囲を表せるとは仮定せず、初回は人が許可した具体的なブランチ名を include に登録して確かめる。スクリプトも番号の無いブランチを変更前に拒否する。
+### 番号付き PR から Builds を起動する
+
+GitHub のリポジトリ Webhook と、`wrangler.preview-trigger.jsonc` で別に配信する専用 Worker `scrum-guild-preview-trigger` を使う。Webhook は HMAC で認証され、番号付きの作業ブランチから `main` を指す、同一リポジトリ内の PR だけがビルドを依頼できる。同一リポジトリかは、名前でなくリポジトリ ID（`1425341812`）だけで照合する。GitHub の Organization やリポジトリを改名しても、Webhook、GitHub API の照会、Builds の接続先の照合は変えずに続けられる。照合は Builds の接続に保存された名前を見ないので、改名した後は、プレビュー Worker の Builds の接続先が新しい名前を指していることを Cloudflare のダッシュボードで確かめる（古い名前が残っていれば接続し直す）。ID は `gh api repos/<owner>/<repo> --jq .id` で確かめられ、改名や移管では変わらない。リポジトリを作り直して ID が変わったときは、`src/server/preview-trigger/webhook.ts` の `PREVIEW_REPOSITORY_ID`（掃除の `scripts/deploy-preview.ts` も同じ定数を読む）と、この節と `docs/development.md` の「プレビュー」の ID を直し、起動専用 Worker を再デプロイする。起動先は専用アカウントに限る。本番の Worker や既存の Access と R2 はそのままにする。
+
+1. 共通プレビュー Worker の Builds の自動起動を上の表に揃え、ブランチ固定のデプロイフックがあれば起動元から外す。GitHub の `preview-builds-parked` は Builds の接続にだけ使う。作成後は push しないよう更新を制限する。Builds は有効にし、非本番の自動起動は無効のままにする。
+2. Cloudflare の [Builds API](https://developers.cloudflare.com/workers/ci-cd/builds/api-reference/) で、`scrum-guild-preview` の Worker タグと、その接続のトリガー UUID を確認する。起動専用 Worker の変数 `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_PREVIEW_WORKER_TAG`（Worker タグ）、`CLOUDFLARE_PREVIEW_TRIGGER_ID`（トリガー UUID）に設定する。Cloudflare ダッシュボードで配信用トークンの Resources が専用アカウント1件だけであることを確認し、そのトークンの UUID を `CLOUDFLARE_PREVIEW_BUILD_TOKEN_ID` に設定する。起動側は本番アカウントを拒み、接続先・コマンド・トークンが一致するときだけ Builds を起動する。
+3. 起動専用 Worker の Secret `CLOUDFLARE_BUILD_TRIGGER_TOKEN` に、専用アカウント1件の Workers Builds Configuration Edit（Workers CI Write）だけを持つユーザー API トークンを設定する。起動のトークンと Builds がデプロイに使うトークンを分ける。GitHub Actions にどちらのトークンも置かない。
+4. 起動専用 Worker の Secret `GITHUB_WEBHOOK_SECRET` と、`scrum-guild-dev/app` の Webhook の Secret に同じ十分に長い乱数を設定する。Content type は `application/json`、イベントは Pull requests、配信先は専用 Worker の HTTPS URL の `/github/webhook`。受信 Worker が GitHub から直接到達できることを確かめる。プレビュー画面にかかる Access の設定は変えない。
+5. 架空データ用の番号付き PR で、受付後に対象ブランチとコミット SHA の Builds が1件起き、`WORKERS_CI_BRANCH` が対象ブランチと一致し、`pr-<Issue番号>` が Access の背後に出ることを確認する。PR を更新したときに同じ Issue のビルドが重ならないことも確認する。fork や番号なしの PR は受け付けても Builds は起動しない。
+
+#### Builds のキューを復旧する
+
+Cloudflare が起動を明確に拒否した場合と、GitHub や Builds の状態を一時的に読めない場合は、次のアラームで再試行する。起動の応答を受け取れず受理されたか分からない場合、同じ Issue では次の起動を保留する。
+
+GitHub や Cloudflare の応答を待っている間も、Webhook を受け付けて最新の要求を保存する。同じ Issue のビルドは一つずつ進め、起動の応答を待っている試行には復旧操作を適用しない。
+
+起動専用 Worker の Secret `PREVIEW_RECOVERY_SECRET` に、Webhook の Secret と別の十分に長い乱数を設定する。この値は復旧を担当する運用者だけに渡す。復旧の操作は専用 Worker の HTTPS URL の `/operator/preview-queues/<Issue番号>` へ `Authorization: Bearer <復旧用の値>` を付けて行う。
+
+1. `GET` で起動保留の状態を読む。`attempt` が `null` なら、起動結果の不明による保留は無い。`attempt.sha` と `attempt.attemptedAt`（ミリ秒）を控える。
+2. Cloudflare のビルド履歴で、その試行以降に同じブランチと SHA で始まったビルドを照合する。該当する場合は同じ URL に `POST` し、JSON に控えた `sha` と `attemptedAt`、`"resolution": "attach"`、`"buildId": "<Build UUID>"` を渡す。Cloudflare は Webhook から Builds API で起動したビルドを `manual` と記録することがある。専用 Worker は起動元が `api` または `manual` で、トリガー、Worker、ブランチ、SHA、時刻がすべて一致したビルドを採用し、その停止を待ってから次へ進む。
+3. Cloudflare 側でその試行が受理されていないことを確認できた場合だけ、`"resolution": "not-started"` を使い、控えた `sha` と `attemptedAt` を添えて `POST` する。キューは待機中の要求を優先し、GitHub の最新 head を確かめ直す。ビルド履歴が読めない場合や受理されたか判断できない場合は保留を続ける。
+4. 復旧を受け付けると `204` を返す。`409` の場合は、状態が変わったか指定したビルドが一致していないので、`GET` から確認し直す。
+
+動作を止めるときは GitHub の Webhook を無効にし、開始済みの Builds が止まったことを確認する。
 
 `--preview-alias` の名前は `pr-<Issue番号>`。英字で始まり英数字とハイフンから成る名前とし、Worker 名と合わせた DNS ラベルは63文字以下に制限する。wrangler 4.153.0 のオプションと alias の規則をコードで確認しているが、カスタムの非本番デプロイのコマンドで GitHub の PR に URL が自動表示されるかは、初回の実ビルドで確認する。表示されなければ Builds のログに出る URL、または番号から組み立てた上記の URL を PR の確認に使う。GitHub へデプロイの鍵や Access トークンを登録して補わない。
 
-Builds は PR の先頭のコードを、アカウント全体の Workers Scripts と D1 を編集できるトークンで動かす。Worker・D1 の名前と本番 ID の検査は手違いへの踏み線であり、悪意ある PR や依存に対する隔離ではない。同じアカウントでは本番の Worker と D1 に届きうる（R2 の binding も同様）。Issue #374 で決めたとおり本番を運用していない間の前提で始め、ベータの前に、別 Cloudflare アカウントへ移すか preview builds を止めるかを人が判断し、Issue に残す。fork のコードはこの接続でビルドしない。
+Builds は PR のコードを実行する。D1 作成に必要な権限はアカウント単位なので、本番を載せない専用アカウントと、そのアカウントにだけ権限を持つ配信用トークンを前提にする。トークンの権限は発行画面で人が確認し、Builds の選択が変わっていないことは UUID で照合する。専用アカウントを用意するまで自動起動は有効にしない。
 
 掃除の GitHub API は公開リポジトリの認証なし読み取りだけを使う。共有 IP のレート制限（通常60リクエスト/時）などの 403 や、非公開化による 404 は空の PR 一覧とみなさず、削除せずに失敗する。Builds の失敗を確認し、上限の回復後に `main` のビルドを再実行する。非公開化する前にはこの接続の Builds を止め、読み取り専用の認証方法を別途用意してから掃除を再開する。デプロイの鍵を GitHub に置く対応ではない。
 
@@ -396,11 +420,11 @@ export CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET
 
 1. 本番 `/api/health` の版と、seed セッション・API トークンが本番で 401 になることを控える（上の「seed のセッションが本番に入ったとき」）。番号付きの PR ブランチをビルドし、Builds のログで D1 の作成、全マイグレーション、seed、`versions upload` の成功を見る。特に標準入力を閉じた Builds で `migrations apply --remote` が確認待ちにならないことと、`PRAGMA defer_foreign_keys` から始まる seed SQL を `d1 execute --remote --file` で新規 D1 へ投入できることを確認する（Node／SQLite のテストだけでは実証済みと扱わない）
 2. サービストークンも Access のログイン Cookie も無い別のブラウザで、alias の画面と `/api/health` が Access に拒否されることを確認する。版の URL と通常 URL も同じく確認する。通ったら Builds を止め、Access の対象を修正してから続ける
-3. 人の端末で Access のトークンの ID と Secret を `CF_ACCESS_CLIENT_ID`、`CF_ACCESS_CLIENT_SECRET` の環境変数に設定し、`pnpm dev:open --origin https://pr-374-scrum-guild-preview.ucan-lab.workers.dev admin /aoba` を実行する。`member /aoba`、`operator /operator` に替えて各画面が出ること、画面と `/api/health` の版が PR のコミットであることを確認する。トークンを git、Issue、PR、スクリーンショット、シェル履歴へ貼らない
+3. 人の端末で Access のトークンの ID と Secret を `CF_ACCESS_CLIENT_ID`、`CF_ACCESS_CLIENT_SECRET` の環境変数に設定し、`CLOUDFLARE_PREVIEW_SUBDOMAIN` に確認済みの専用アカウントのサブドメインを設定してから、`pnpm dev:open --origin https://pr-374-scrum-guild-preview.<プレビュー用サブドメイン>.workers.dev admin /aoba` を実行する。`member /aoba`、`operator /operator` に替えて各画面が出ること、画面と `/api/health` の版が PR のコミットであることを確認する。トークンを git、Issue、PR、スクリーンショット、シェル履歴へ貼らない
 4. マイグレーションを含むブランチでも確認し、別番号の D1 が変わらないこと、本番の版と seed の 401 が前のままなことを見る。プレビューのビルド失敗は本番のロールバックを起こさない
 5. PR を閉じて `main` のビルドを動かし、対応する D1 だけが消え、開いた PR の D1 と本番が残ることを確認する。GitHub の読み取りが失敗したときは削除せずビルドが失敗する。通常の削除は次の `main` ビルドまで遅れる。容量の上限に達する前に人が再実行する
 
-この用意と実 URL の確認は、コードのテストだけでは済んだと扱わない。プレビューをやめるときは、この Worker の Builds を無効にしてから、専用 D1 と R2、Access の方針とサービストークン、Worker を人が片付ける。本番の接続は変えない。
+この用意と実 URL の確認は、コードのテストだけでは済んだと扱わない。プレビューをやめるときは、この Worker の Builds を無効にしてから、専用 D1、Access の方針とサービストークン、Worker を人が片付ける。本番の接続は変えない。
 
 ## 戻し方
 
@@ -469,6 +493,30 @@ rollback で戻るのは、版が持つものすべて。コードと設定の�
 
 - D1 のデータとスキーマ（下の「DB を戻す」）
 - cron やルート（triggers）の変更。`wrangler deploy` が版と一緒に反映する。triggers を変えた版を戻すときは、手元（上の「手元の準備」）で戻し先の版のコミットを checkout し、その `wrangler.jsonc` で `wrangler triggers deploy` を実行して当て直す。今の `production` で実行すると、戻したい triggers をもう一度当てるだけになる。今の `wrangler.jsonc` の triggers は、毎分（`* * * * *`）の期限切れ・保持期限後の行の掃除と容量警告の再試行、および毎時 0 分（`0 * * * *`）のお試しの期限切れの停止と未添付ファイルの掃除、という2つの式
+
+### 外部キー検査用の索引を適用したあとで旧版を使う
+
+`0040_add_foreign_key_indexes.sql` は、Workers Builds がコードを切り替える前に索引を追加する。rollback でコードを旧版に戻しても索引は残る。検証用 SQLite では、既存の索引統計がない場合と、`tasks_story_open` にだけ統計がある場合の両方で、適用後の旧版がバックログの無絞り込み・担当絞り込み・配下集計のたびに、ストーリーごとにワークスペースのタスクを読み直す計画を再現した。旧版を動かす間は、大きなワークスペースでこれらの読み取りが遅くなることがある。検証用 DB の `tasks_workspace_tray` に統計がある場合の旧版と、新版のコードでは、ストーリー単位の索引検索を確認した（[データモデルの #406](data-model.md#406-の適用と旧版の実行計画)）。
+
+本番 D1 の既存統計は未確認。Release を出す運用者が、適用前に Cloudflare のダッシュボードでタスクを持つ D1 の Console を開き、次の `SELECT` で `sqlite_stat1` の有無を確かめる。
+
+```sql
+SELECT name
+FROM sqlite_schema
+WHERE type = 'table' AND name = 'sqlite_stat1';
+```
+
+表が見つかった場合は、`tasks_workspace_tray` の統計に限って読む。
+
+```sql
+SELECT idx
+FROM sqlite_stat1
+WHERE tbl = 'tasks' AND idx = 'tasks_workspace_tray';
+```
+
+検証用 SQLite では、ほかのタスク索引に統計があっても、`tasks_workspace_tray` に統計がないと旧版で読み取りが増える場合があった。表や対象の行が無い場合、または読み取り権限のため確認できない場合は、旧版で遅くなる前提で適用と切り替えを判断する。対象の統計があっても、実操作の遅延と失敗を次の手順で確認する。
+
+適用前に、普段使う大きなワークスペースで無絞り込みと担当絞り込みのバックログをそれぞれ複数回開き、`backlog-tree` の応答時間の範囲と失敗を控える。適用から切り替えまでの間と rollback の直後に、同じワークスペースと操作を再確認し、ログ・メトリクスで応答時間と失敗を比べる。同じ条件で2回続けて応答時間が適用前の範囲を超えるか、新たなタイムアウトまたはエラーが1件でも出たら、追加の配信を止めて対象の版と操作を記録する。新版が正常に動くなら旧版に留める時間を短くし、旧版が必要なら原因を解消した版を用意する。DB を適用前に戻すと、その後の書き込みも失われる。
 
 ### DB を戻す
 
@@ -598,18 +646,27 @@ Workers Logs で `job: "suspend-expired-trials"` のログを見る。
 
 ベータの間は決済サービスとつながない。支払いをアプリの外（請求書、振込など）で受けたら、その組織の契約を運用の画面で切り替える（`docs/business.md` の「契約と支払いの管理」）。
 
-1. 組織の行の添付ファイルの上限の列で、値の下の契約の印（「チーム・月払い」の形。契約の無いチーム用の組織は「未契約」）を確かめ、「プランを変える」を押す。今の契約を選んだ状態でダイアログが開く（未契約なら、人数の上限が50人以上ならビジネス、それ以外はチームを、月払いで選ぶ）
-2. プラン（チーム、ビジネス、個別）と支払いの周期（月払い、年払い）を選び、「変える」を押す。一覧の契約の印と、人数と添付ファイルの上限が変わる
+1. 組織の行の添付ファイルの上限の列で、値の下の契約の印（「チーム・月払い」の形。契約の無いチーム用の組織は「未契約」）を確かめ、「プランを変える」を押す。今の契約を選んだ状態でダイアログが開く（未契約なら今の人数の上限を満たす最小の定額プランを月払いで選ぶ。50人を超える場合は個別を選ぶ）
+2. プラン（スモール、チーム、ビジネス、プロ、個別）と支払いの周期（月払い、年払い）を選び、「変える」を押す。一覧の契約の印と、人数と添付ファイルの上限が変わる
 
-- 上限はプランの値になる（チームは15人と30GB、ビジネスは50人と100GB。追加容量の口数があれば容量に足す）。契約のある組織の行には「人数と容量の上限を変える」が出ない
+- 上限はプランの値になる（スモールは3人と10GB、チームは15人と30GB、ビジネスは30人と100GB、プロは50人と100GB。追加容量の口数があれば容量に足す）。契約のある組織の行には「人数と容量の上限を変える」が出ない
 - 個別に決めた上限を契約にする場合は「個別」を選び、人数（1〜10,000人）と標準の添付容量（1〜102,400GBの整数）を入れる。人数は51人以上に限らない。追加容量は標準容量に足し、通常プランへ戻しても口数は残す。確認に上限の低下や今の人数・使用量の超過が出たら、付けてよいかを確かめる。個別の値が空の古い契約は、先に「プランを変える」で値を設定してから追加容量を変更する
 - お試し中の組織は、契約するとお試しが終わり、期限で止まらない。期限切れで止まっていた組織は、契約しても止まったままなので、続けて「再開する」を押す
 - 停止中の組織も切り替えられる。プランを下げて人数が上限を超えても、今いる人は残り、上限を下回るまで、まだ数えられていない人の招待と管理者への指名だけが止まる。確認に注意が出る
 - 自分用の組織の行には「プランを変える」が出ない（API は 409 の `personal_organization`）。解約で消す予定日を過ぎた組織の行にも出ない（API は 409 の `purge_due`）
 - 契約を外して未契約に戻す操作は無い。払われなくなったら一時的な停止にし、やめるなら解約で停止する（上の「停止と再開」）。契約の期間（更新日）はアプリに持たないので、更新の時期は運用者がアプリの外で管理する
 - ダイアログを開いた後に別の画面で契約が変わっていたら「状態が変わっていました」と出て変わらない。読み直した一覧を見て、必要なら変え直す
-- 変更は、その組織の変更の履歴（`action` が `update`、契約の組と変わった列の前後の値）に残り、組織の管理の画面には「プランをチーム・月払いからビジネス・年払いに変更しました」の形で出る。履歴の書き込みに失敗したときの扱いは停止と同じ（Workers Logs の `operation` は `organization-plan-update`）
+- 変更はその組織の変更の履歴に残る。組織の管理の画面では、契約が変わると前後の契約を、同じ契約で上限を揃えると変わった上限の前後の値を出す。履歴の書き込みに失敗したときの扱いは停止と同じ（Workers Logs の `operation` は `organization-plan-update`）
 - 個別契約の導入前の版へコードを戻して通常プランへ切り替えると、使われない個別の2列が残る場合がある。旧版はその列を参照せず、現在の版で契約を書き直すと空に戻る。個別値のCHECKは列単体の範囲だけを守り、プランとの組は制約にしない。
+
+#### 既存の50人ビジネス契約を付け替える
+
+新しいプランを選べる Release が本番に出た後、運用者が組織ごとに行う。既存の人数上限は、運用者が保存するまで50人のまま。
+
+1. 運用の画面で契約の印が「ビジネス」で人数の上限が50人の組織を見つける。契約条件と実際の人数を確認し、「プランを変える」を開く。
+2. 30人に揃えるなら「ビジネス」を選んだまま、50人を維持するなら「プロ」を選ぶ。支払いの周期を確認する。ビジネスのままなら今の上限より下がることを表示する。今の人数が30人を超えると、人数の超過も表示する。今いる人は残り、人数が上限を下回るまで新しい人の招待と管理者への指名が制限される。
+3. 変更後の人数と容量を確認し、「変える」を押す。標準容量はどちらも100GBで、既存の追加容量の口数を引き継ぐ。
+4. 一覧で、ビジネスなら上限30人、プロなら上限50人になったことと、契約の印・容量を確認する。
 
 ### 追加容量を変える
 
@@ -643,6 +700,13 @@ Workers Logs で `job: "suspend-expired-trials"` のログを見る。
 - 自分用の組織（`kind` が `personal`）には指名し直せない。行に「管理者を指名」が出ず、管理者の状態の印も出ない（API は 409 の `personal_organization`）。自分用は持ち主の1人だけで使い、運用者の指名で2人目の管理者が入らないようにするため。最初の管理者を書けず、組織の行も戻せなかった二重の失敗で、管理者のいない自分用が残ったときは、そのアカウントの自分用の枠が塞がり、指名し直しでも直せない。直すときは、その組織を「解約」で停止し（上の「停止と再開」）、消す予定日を過ぎてから下の「解約した組織のデータを消す」で行を消す。行が消えれば、本人は自分用を作り直せる
 - 運用者が自分を管理者に指名するのは、画面が断る自分の GitHub のログインに限らず、手順として行わない。自分の Google のメールアドレスで指名して招待の URL を自分で開くことと、アカウントに結んでいない別の GitHub のアカウントで指名することは、仕組みでは止められない（`docs/requirements.md` の「組織と運用者」）
 - 組織の中を見る必要があるときは、その組織の管理者に頼んで、組織のユーザーとして招待か指名をしてもらう
+
+### パスワードで指名された人が登録できないとき
+
+- 期限切れ、取り消し、URL の紛失の場合は、指名した本人とメールアドレスを確認し、指名し直して新しい URL を本人にだけ渡す。前にパスワードを設定した人は、次の指名でそのパスワードを使う。
+- URL を使い切った後に画面が止まった場合は、まず設定したパスワードで通常のログインを試す。
+- 指名し直しても本人の知らないパスワードを求められるときは、同じアドレスの資格情報がすでにある。資格情報は組織間で共通なので、指名をやり直しても変わらない。#259 の再設定手段が使えるまでは、本人が使える GitHub または Google の手段で指名する。使える別の手段が無いときは運用側で個別に対応する。
+- パスワード指名を有効化した版を戻すときは、発行済みの指名の扱いを確認する。古い版ではログイン手段を確認して結ぶ修正が入っていないため、有効なパスワード指名を残した状態でその版へ戻さない。
 
 ### 削除した Wiki のページを戻す
 
@@ -786,7 +850,7 @@ Wiki、お気に入り（`favorites`）、依頼先（`delegatees`）、組織�
 
 元の位置へ戻す: `file` は build で圧縮したファイルなので、`clientVersion` の版を手元で同じに build し、ソースマップで元のファイルと行に戻す。`clientVersion` は画面が送る値なので、`vX.Y.Z` の形か16進の SHA であることを確かめてから使う（`-` で始まる値やブランチ名を git に渡さない）。`vX.Y.Z` なら、そのタグを完全な名前（`refs/tags/vX.Y.Z`）で下の `<版か SHA>` に使う。SHA（#1165 より前の版）なら、`git fetch origin` の後に `git merge-base --is-ancestor <SHA> origin/main` が 0 で終わる（`main` に入ったコミットである）ことを確かめてから使う。ブランチを push できる人が選んだコミットを、運用者の端末で build しないため。
 
-1. その版のワークツリーを切る: `git fetch --tags origin && git worktree add worktrees/client-error-<版か SHA の先頭7字> <版か SHA>`。切ったワークツリーで `pnpm install`
+1. その版のワークツリーを切る: `git fetch --tags origin && git worktree add worktrees/client-error-<版か SHA の先頭7字> <版か SHA>`。切ったワークツリーで [ワークツリーで作業する](development.md#ワークツリーで作業する) に従い、pnpm の保存先を確認してから依存を入れる。
 2. 本番と同じ版で、ソースマップを出して build する: `APP_VERSION=<clientVersion の値> pnpm exec vite build --sourcemap hidden`。`hidden` は JS に参照を足さないので、出る JS は本番と同じ（2026-10-27 に確かめた）。`build<file>` があることを確かめる。無ければ版か依存が違う
 3. 行と列を戻す（`column` は1から数え、ソースマップは0から数えるので1を引く）
 

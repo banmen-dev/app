@@ -9,22 +9,25 @@
 //      どれもハッシュを今の回数で1回回す（無いときはダミーの値で）。応答の形と所要時間でメールアドレスの有無を見分けさせない
 //   5. completeLogin。アカウントが無く、入れる組織も招待も無いことは、パスワードが合った後にだけ 403 forbidden の details.reason（denied）で
 //      伝える。結ぶ書き込みの失敗は 503 unavailable。成功は 200 { return_to } とセッションの Cookie
-// パスワード、ハッシュ、メールアドレスはログにも応答にも出さない。
+// 通常のログインでは、パスワード、ハッシュ、メールアドレスはログにも応答にも出さない。
 // 人が差分を読む領域（docs/development.md の「マージの判定」）
-import { Hono, type Context } from 'hono';
+import { Hono, type Context, type MiddlewareHandler } from 'hono';
 import { getCookie, setCookie } from 'hono/cookie';
 import { z } from 'zod';
+import { CLAIM_TOKEN_PATTERN } from '../../shared/claim-token.ts';
 import { normalizeEmail } from '../../shared/email.ts';
 import { normalizePassword } from '../../shared/password.ts';
 import { resolvedReturnTo, safeReturnTo } from '../../shared/return-to.ts';
 import { sessionCookieName, sessionCookieOptions } from '../../shared/session-cookie.ts';
+import { shortTextProblem } from '../../shared/text-rules.ts';
 import type { AppEnv } from '../app-env.ts';
-import { commonDb } from '../db/index.ts';
+import { commonDb, readPasswordNominationEmail } from '../db/index.ts';
 import { ApiError } from '../errors.ts';
 import { readBodyText, requireOrigin } from '../operations/guards.ts';
+import { uuidv7 } from '../uuid.ts';
 import { completeLogin } from './login.ts';
 import { hashPassword, passwordHashNeedsUpgrade, verifyDummyPassword, verifyPassword } from './password-hash.ts';
-import { consumePasswordLoginRateLimits } from './rate-limit.ts';
+import { consumeLoginRateLimits, consumePasswordEmailRateLimit, consumePasswordLoginRateLimits } from './rate-limit.ts';
 import { sha256Hex } from './tokens.ts';
 
 export const PASSWORD_LOGIN_MAX_BODY_BYTES = 4096;
@@ -40,8 +43,18 @@ const loginBodySchema = z
   })
   .strict();
 
+const nominationInspectSchema = z.object({ claim_token: z.string() }).strict();
+const nominationAcceptSchema = nominationInspectSchema.extend({
+  password: z.string(),
+  password_confirmation: z.string().optional(),
+  display_name: z.string().optional(),
+});
+
+type NominationAcceptBody = z.output<typeof nominationAcceptSchema>;
+type Nomination = { email: string; tokenHash: string };
+
 // ログの1行。login-routes.ts の log と同じ形。パスワード、ハッシュ、メールアドレスは出さない
-function log(c: Context<AppEnv>, entry: { outcome: string; accountId?: string }): void {
+function log(c: Context<AppEnv>, entry: { outcome: string; accountId?: string; step?: string }): void {
   console.log(
     JSON.stringify({
       level: 'info',
@@ -54,6 +67,14 @@ function log(c: Context<AppEnv>, entry: { outcome: string; accountId?: string })
   );
 }
 
+function logNomination(step: 'nomination_inspect' | 'nomination_accept'): MiddlewareHandler<AppEnv> {
+  return async (c, next) => {
+    await next();
+    const outcome = c.error instanceof ApiError ? c.error.code : c.res.ok ? 'ok' : 'internal';
+    log(c, { step, outcome });
+  };
+}
+
 // Origin が公開する URL と一致し、Sec-Fetch-Site があれば same-origin だけ（none のアドレス欄やほかのサイトからの送信を断る）
 function requireSameOrigin(c: Context<AppEnv>): void {
   requireOrigin(c);
@@ -61,7 +82,7 @@ function requireSameOrigin(c: Context<AppEnv>): void {
   if (site !== undefined && site !== 'same-origin') throw new ApiError(403, 'forbidden');
 }
 
-async function readLoginBody(c: Context<AppEnv>): Promise<z.output<typeof loginBodySchema>> {
+async function readPasswordBody<T>(c: Context<AppEnv>, schema: z.ZodType<T>): Promise<T> {
   const contentType = c.req.header('Content-Type')?.split(';')[0]?.trim().toLowerCase();
   if (contentType !== 'application/json') throw new ApiError(400, 'invalid_input');
   let body: unknown;
@@ -71,13 +92,13 @@ async function readLoginBody(c: Context<AppEnv>): Promise<z.output<typeof loginB
     // 大きすぎる本文（readBodyText の 413）も、壊れた JSON も、同じ 400 にする
     throw new ApiError(400, 'invalid_input');
   }
-  const parsed = loginBodySchema.safeParse(body);
+  const parsed = schema.safeParse(body);
   // 誰でも呼べる口なので、どの項目が合わないか（details）は返さない
   if (!parsed.success) throw new ApiError(400, 'invalid_input');
   return parsed.data;
 }
 
-type Credential = { login_subject: string; password_hash: string; display_name: string };
+type Credential = { login_subject: string; password_hash: string; password_changed_at: string; display_name: string };
 
 async function findCredential(env: Env, email: string): Promise<Credential | undefined> {
   const db = commonDb(env);
@@ -85,7 +106,7 @@ async function findCredential(env: Env, email: string): Promise<Credential | und
     db.statement((q) =>
       q
         .selectFrom('password_credentials')
-        .select(['login_subject', 'password_hash', 'display_name'])
+        .select(['login_subject', 'password_hash', 'password_changed_at', 'display_name'])
         .where('email', '=', email),
     ),
   );
@@ -138,6 +159,84 @@ async function upgradeHashIfNeeded(c: Context<AppEnv>, credential: Credential, p
   }
 }
 
+async function readNomination(env: Env, token: string, now: Date): Promise<Nomination> {
+  if (!CLAIM_TOKEN_PATTERN.test(token)) throw new ApiError(404, 'not_found');
+  const tokenHash = await sha256Hex(token);
+  const email = await readPasswordNominationEmail(env, tokenHash, now);
+  if (email === undefined) throw new ApiError(404, 'not_found');
+  return { email, tokenHash };
+}
+
+async function createNominationCredential(
+  env: Env,
+  nomination: Nomination,
+  password: string,
+  displayName: string,
+): Promise<Credential | undefined> {
+  const passwordHash = await hashPassword(password);
+  const now = new Date();
+  const { email, tokenHash } = nomination;
+  // ハッシュを作る間に取り消されたり期限を過ぎたりした指名から、資格情報を作らない。
+  if ((await readPasswordNominationEmail(env, tokenHash, now)) !== email) throw new ApiError(404, 'not_found');
+  const at = now.toISOString();
+  const credential = {
+    login_subject: uuidv7(now),
+    display_name: displayName,
+    password_hash: passwordHash,
+    password_changed_at: at,
+  };
+  const db = commonDb(env);
+  const [result] = await db.batch([
+    db.statement((q) =>
+      q
+        .insertInto('password_credentials')
+        .values({ ...credential, email, created_at: at, updated_at: at })
+        .onConflict((oc) => oc.column('email').doNothing()),
+    ),
+  ]);
+  return result.changes === 1 ? credential : undefined;
+}
+
+async function credentialForNomination(
+  env: Env,
+  nomination: Nomination,
+  body: NominationAcceptBody,
+): Promise<Credential> {
+  const { email } = nomination;
+  const password = normalizePassword(body.password);
+  let credential = await findCredential(env, email);
+  if (credential === undefined) {
+    const name = body.display_name?.trim() ?? '';
+    if (
+      password === undefined ||
+      body.password_confirmation === undefined ||
+      normalizePassword(body.password_confirmation) !== password ||
+      !name.isWellFormed() ||
+      shortTextProblem(name, 100) !== null
+    ) {
+      throw new ApiError(400, 'invalid_input');
+    }
+    const created = await createNominationCredential(env, nomination, password, name);
+    if (created !== undefined) return created;
+    // 同じメールアドレスの登録が並行したときは、先に保存された資格情報で照合する。
+    credential = await findCredential(env, email);
+    if (credential === undefined) throw new ApiError(503, 'unavailable');
+  }
+  if (password === undefined || !(await verifyPassword(password, credential.password_hash))) {
+    throw new ApiError(401, 'invalid_credentials');
+  }
+
+  // 照合中に変更されていれば、指名を消費する前に再入力を求める。セッションの発行時にも変更時刻を検査する。
+  const current = await findCredential(env, email);
+  if (
+    current?.login_subject !== credential.login_subject ||
+    current.password_changed_at !== credential.password_changed_at
+  ) {
+    throw new ApiError(401, 'invalid_credentials');
+  }
+  return credential;
+}
+
 export function passwordLoginRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
@@ -148,7 +247,7 @@ export function passwordLoginRoutes(): Hono<AppEnv> {
       log(c, { outcome: 'forbidden_origin' });
       throw err;
     }
-    const body = await readLoginBody(c);
+    const body = await readPasswordBody(c, loginBodySchema);
 
     const email = normalizeEmail(body.email);
     const emailHash = email === undefined ? undefined : await sha256Hex(email);
@@ -176,6 +275,7 @@ export function passwordLoginRoutes(): Hono<AppEnv> {
       },
       now,
       replacedSessionToken: getCookie(c, sessionCookie),
+      passwordProof: { subject: credential.login_subject, changedAt: credential.password_changed_at },
       requestId: c.get('requestId'),
     });
     if (!outcome.ok) {
@@ -192,6 +292,58 @@ export function passwordLoginRoutes(): Hono<AppEnv> {
     return c.json({
       return_to: resolvedReturnTo(safeReturnTo(body.return_to), new URL(c.env.PUBLIC_ORIGIN).origin),
     });
+  });
+
+  // 指名の URL からの登録。秘密は本文でだけ受け、メールアドレスと資格情報の有無は有効な指名を持つ人にだけ返す。
+  app.post('/nomination/inspect', logNomination('nomination_inspect'), async (c) => {
+    requireSameOrigin(c);
+    const body = await readPasswordBody(c, nominationInspectSchema);
+    const now = new Date();
+    if (!(await consumeLoginRateLimits(c.env, c.req.header('CF-Connecting-IP'), now))) {
+      throw new ApiError(429, 'rate_limited');
+    }
+    const { email } = await readNomination(c.env, body.claim_token, now);
+    return c.json({ email, existing_account: (await findCredential(c.env, email)) !== undefined });
+  });
+
+  app.post('/nomination/accept', logNomination('nomination_accept'), async (c) => {
+    requireSameOrigin(c);
+    const body = await readPasswordBody(c, nominationAcceptSchema);
+    const now = new Date();
+    if (!(await consumePasswordLoginRateLimits(c.env, c.req.header('CF-Connecting-IP'), undefined, now))) {
+      throw new ApiError(429, 'rate_limited');
+    }
+    const nomination = await readNomination(c.env, body.claim_token, now);
+    if (!(await consumePasswordEmailRateLimit(c.env, await sha256Hex(nomination.email), now))) {
+      throw new ApiError(429, 'rate_limited');
+    }
+    const credential = await credentialForNomination(c.env, nomination, body);
+    const sessionCookie = sessionCookieName(c.env.PUBLIC_ORIGIN);
+    const outcome = await completeLogin(c.env, {
+      provider: PROVIDER,
+      profile: {
+        subject: credential.login_subject,
+        loginName: credential.display_name,
+        displayName: credential.display_name,
+        avatarUrl: null,
+      },
+      now: new Date(),
+      replacedSessionToken: getCookie(c, sessionCookie),
+      passwordProof: { subject: credential.login_subject, changedAt: credential.password_changed_at },
+      claimTokenHash: nomination.tokenHash,
+      passwordClaimEmail: nomination.email,
+      requestId: c.get('requestId'),
+    });
+    if (!outcome.ok) {
+      if (outcome.reason === 'invite') throw new ApiError(404, 'not_found');
+      throw new ApiError(503, 'unavailable');
+    }
+    if (outcome.claimed?.kind !== 'user') throw new ApiError(503, 'unavailable');
+
+    // 指名の結び付けでは、既存ハッシュの反復回数も書き換えない。
+    setCookie(c, sessionCookie, outcome.sessionToken, sessionCookieOptions(c.env.PUBLIC_ORIGIN));
+    const destination = safeReturnTo(`/${outcome.claimed.organizationSlug}`);
+    return c.json({ return_to: resolvedReturnTo(destination, new URL(c.env.PUBLIC_ORIGIN).origin) });
   });
 
   return app;

@@ -23,7 +23,8 @@ import {
 } from '../db/index.ts';
 import { ApiError } from '../errors.ts';
 import { uuidv7 } from '../uuid.ts';
-import { amountOf, memberExperienceTotalsStatement } from './experience.ts';
+import { amountOf } from './aggregate.ts';
+import { memberExperienceTotalsStatement } from './experience.ts';
 import { implement } from './implement.ts';
 import { readSeats } from './invitation.ts';
 import type { OrganizationTools } from './organization-tools.ts';

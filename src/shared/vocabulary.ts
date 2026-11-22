@@ -221,7 +221,7 @@ export const dictionary = defineDictionary({
   onboardingDisclosure: '操作できるデザインの見本です。入力は保存されず、登録・送信・外部接続は行われません。',
   onboardingExit: 'プレビューを閉じる',
   onboardingStep: '{total} ステップ中 {current}',
-  onboardingAccount: 'Scrum Guild をはじめる',
+  onboardingAccount: 'Banmen をはじめる',
   onboardingAccountLead: 'チームの仕事を、一歩ずつ前へ。まずはアカウントを選びましょう。',
   onboardingOrganization: '{organization}を作成',
   onboardingOrganizationLead: 'チームが集まる場所に、名前を付けましょう。',
@@ -263,6 +263,7 @@ export const dictionary = defineDictionary({
   attachmentLoadMore: 'さらに読む',
   attachmentMoreFailed: '続きの添付ファイルを読み込めませんでした。もう一度試してください。',
   attachmentNone: '添付ファイルはありません。',
+  previewAttachmentsUnavailable: 'このプレビューではファイルを添付できません。',
   attachmentListTitle: '添付ファイル',
   attachmentListFailed: '添付ファイルの一覧を読み込めませんでした。',
   attachmentDeleteAction: '削除する',
@@ -530,6 +531,19 @@ export const dictionary = defineDictionary({
   plan: '計画',
   epic: 'エピック',
   story: 'ストーリー',
+  taskTemplate: 'テンプレート',
+  taskTemplateEmpty: 'テンプレートがまだありません。',
+  taskTemplateAskLeader: 'ワークスペースのリーダーにテンプレートの作成を依頼してください。',
+  taskTemplateManage: 'テンプレートの設定を開く',
+  taskTemplateChooseTask: '作るタスクを1件以上選んでください。',
+  taskTemplateChooseDestination: '追加先を選んでください。',
+  taskTemplateEnterTarget: '対象を入力してください。',
+  taskTemplateEnterStart: '開始日を入力してください。',
+  taskTemplateTitleLimit: '差し込み後の題を200字以内にしてください。',
+  taskTemplateDueLimit: '期日が暦の範囲を超えています。',
+  taskTemplateOmitted: '削除された決まった欄、区分、リポジトリの値は使わずに作ります。',
+  taskTemplateChanged: '担当に選べるメンバーが変わりました。まだ作成されていません。最新の内容を確認してください。',
+  taskTemplateItemLimit: '1つのテンプレートに登録できるタスクは50件までです。',
   task: 'タスク',
   archive: 'アーカイブ',
   connection: '接続',
@@ -563,8 +577,8 @@ export const dictionary = defineDictionary({
   // ---- 本番の画面の文言 ----
   delegatee: '依頼先',
   // 枠の共通の文言
-  appName: 'Scrum Guild',
-  brandName: 'スクラムギルド',
+  appName: 'Banmen',
+  brandName: 'Banmen',
   pageTitle: '{page} - {app}',
   menu: 'メニュー',
   mobileTabs: 'よく使う画面',
@@ -697,7 +711,7 @@ export const dictionary = defineDictionary({
   firstStepBecameLeaderNote: '{member}の招待と、{backlog}の準備を進められます。',
   firstStepInviteTitle: '{member}を招待する',
   firstStepInviteNote:
-    'GitHub のユーザー名か Google のメールアドレスで招待し、{organization}の URL（Google なら招待の URL）を本人に伝えます。Scrum Guild は招待をメールで送りません。',
+    'GitHub のユーザー名か Google のメールアドレスで招待し、{organization}の URL（Google なら招待の URL）を本人に伝えます。Banmen は招待をメールで送りません。',
   firstStepFirstTaskTitle: '{backlog}に最初の{task}を入れる',
   firstStepFirstTaskNote: '空の行に題を入れて作ります。{member}が入る前に並べておくと、何から始めるかが伝わります。',
   firstStepSprintTitle: '最初の{sprint}を作って始める',
@@ -1182,6 +1196,10 @@ export const dictionary = defineDictionary({
   dashboardNoWorkspace: '所属する{workspace}はありません。',
   // 自分用の面。自分用の{organization}がまだ無い人に、作る入口と一緒に出す
   dashboardPersonalMissing: '自分だけで使う{workspace}を置く「{personal}」を作れます。期限はなく無料です。',
+  // 自分用の面の、自分用のホームへ入る行の名前。面の見出しが既に「自分用」なので、行では組織の名前を繰り返さない
+  dashboardPersonalHome: 'ホーム',
+  // 同じ行の読み上げの名前。リンクの一覧では面の見出しが聞こえないので、自分用のホームであることと行き先を伝える
+  dashboardPersonalHomeLabel: '{personal}のホーム {address}',
   // チーム用の{organization}が無く、自分用だけに入れる人の組織の面
   dashboardNoTeamOrganization: 'チームで使う{organization}はまだありません。管理者から招待が届くと、ここに出ます。',
   organizationChooseNote: 'あとから、画面の左上（狭い幅では上の帯）の組織の切り替えで選び直せます。',
@@ -1225,7 +1243,7 @@ export const dictionary = defineDictionary({
   createPersonalOrganizationSubmit: '自分用を作る',
   createPersonalOrganizationSubmitting: '自分用の{organization}を作っています',
   organizationList: 'ダッシュボード',
-  // 組織の切り替えのボタンと一覧の読み上げの名前。{name} は今の組織の名前
+  // 組織の切り替えのボタンと一覧の読み上げの名前。{name} はボタンに見える文字の並び
   organizationSwitchLabel: '{name}。組織を切り替える',
   organizationListLabel: '入れる組織',
   workspaceSwitchLabel: '{workspace} {name}。切り替える',
@@ -1473,6 +1491,7 @@ export const dictionary = defineDictionary({
   // 未契約の組織で、今の上限より下がるとき。{members} と {quota} は今の上限
   operatorPlanLimitsLower:
     '今の上限（{members} 人・{quota}）より下がります。契約を付けると、上限を「人数と容量の上限を変える」で値に戻せなくなります。',
+  operatorPlanCurrentLimitsLower: 'このプランを保存すると、今の上限（{members} 人・{quota}）より下がります。',
   operatorPlanNote:
     '人数と添付ファイルの上限はプランの値になり、「人数と容量の上限を変える」では変えられなくなります。',
   // {used} は今の人数、{limit} は変えた後の人数の上限
@@ -1506,6 +1525,11 @@ export const dictionary = defineDictionary({
   operatorGoogleEmailExample: '例: mio.hoshino@example.com',
   operatorGoogleEmailHint:
     'その人が招待の URL を開き、このメールアドレスの Google アカウントでログインすると、{admin}として入れます。招待の URL は14日で切れます。',
+  operatorPasswordName: 'メールアドレスとパスワード',
+  operatorPasswordEmailHint:
+    '本人が指名の URL を開き、パスワードの設定または確認をすると、{admin}として入れます。指名の URL は14日で切れます。',
+  operatorPasswordEmailInvalid:
+    'メールアドレスの形に合いません。英数字などの ASCII の文字だけで、本人のメールアドレスを入れてください。',
   operatorErrorEmailRequired: 'メールアドレスを入れてください。',
   operatorErrorEmailInvalid:
     'メールアドレスの形に合いません。英数字などの ASCII の文字だけで、本人が Google に登録した綴りのまま入れてください。',
@@ -1542,7 +1566,7 @@ export const dictionary = defineDictionary({
     'この slug の{organization}は、もう作られています。次の URL を確かめてください。誰を{admin}に指名したかは、ここでは分かりません。',
   // 招待の URL は作った直後の応答にしか出ないので、ここでは出せない。出し直すには指名し直す（新しい招待の URL が出る）
   operatorExistingAdminPending:
-    '指名された{admin}は、まだログインしていません。Google で指名したときの招待の URL は、ここでは出せません。URL を渡せていなければ、一覧の「{admin}を指名」から指名し直してください。新しい招待の URL が出ます。',
+    '指名された{admin}は、まだログインしていません。メールアドレスで指名したときの URL は、ここでは出せません。URL を渡せていなければ、一覧の「{admin}を指名」から指名し直してください。新しい招待の URL が出ます。',
   operatorExistingAdminExpired:
     '指名された{admin}の招待の URL は、期限が切れています。URL はもう出せないので、一覧の「{admin}を指名」から指名し直してください。',
   operatorExistingAdminActive: '{admin}は、もうログインしています。',
@@ -1565,7 +1589,7 @@ export const dictionary = defineDictionary({
 
   // 作った後の表示
   operatorDoneTitle: '{organization}を作りました',
-  operatorDoneLead: 'Scrum Guild はメールを送りません。{admin}になる人に、次の URL とログインの手段を伝えてください。',
+  operatorDoneLead: 'Banmen はメールを送りません。{admin}になる人に、次の URL とログインの手段を伝えてください。',
   operatorDoneUrlLabel: '{organization}の URL',
   operatorCopy: 'コピー',
   operatorCopied: 'URL をコピーしました',
@@ -1573,7 +1597,7 @@ export const dictionary = defineDictionary({
   operatorDoneTell: 'GitHub の {name} でログインするよう伝えてください。',
   // Google の指名で作った後の表示。招待の URL はこの画面にだけ出る
   operatorInviteLead:
-    'Scrum Guild はメールを送りません。{admin}になる人に、次の招待の URL を伝えてください。本人がこの URL を開き、指名したメールアドレスの Google アカウントでログインすると、{organization}に入れます。',
+    'Banmen はメールを送りません。{admin}になる人に、次の招待の URL を伝えてください。本人がこの URL を開き、指名したメールアドレスの Google アカウントでログインすると、{organization}に入れます。',
   operatorInviteUrlLabel: '招待の URL',
   operatorInviteCopied: '招待の URL をコピーしました',
   operatorInviteOnce:
@@ -1584,19 +1608,26 @@ export const dictionary = defineDictionary({
   operatorInviteReissue:
     'URL を失ったときや期限が切れたときは、一覧の「{admin}を指名」から指名し直すと、新しい招待の URL が出ます。',
 
+  operatorPasswordInviteLead: 'Banmen はメールを送りません。{admin}になる人に、次の指名の URL を伝えてください。',
+  operatorPasswordInviteUrlLabel: '指名の URL',
+  operatorPasswordInviteTell: '指名したメールアドレス',
+  operatorPasswordInviteCopied: '指名の URL をコピーしました',
+  operatorPasswordInviteReissue:
+    'URL を失ったときや期限が切れたときは、一覧の「{admin}を指名」から指名し直すと、新しい指名の URL が出ます。',
+
   // 管理者の指名し直し（一覧の各行のボタンと、そのダイアログ）。{name} は組織の名前
   operatorReassignAction: '{admin}を指名',
   operatorReassignLabel: '「{name}」の{admin}を指名',
   operatorReassignTitle: '{admin}を指名し直す',
   // ダイアログの最初の文。開いたときの一覧の管理者の状態で変える
   operatorReassignLeadNone:
-    '「{name}」には今{admin}がいません。新しい{admin}を、GitHub のユーザー名か Google のメールアドレスで指名します。',
+    '「{name}」には今{admin}がいません。新しい{admin}を、GitHub のユーザー名かメールアドレスで指名します。',
   operatorReassignLeadPending:
-    '「{name}」の{admin}は指名済みで、まだログインしていません。{admin}を、GitHub のユーザー名か Google のメールアドレスで指名し直します。',
+    '「{name}」の{admin}は指名済みで、まだログインしていません。{admin}を、GitHub のユーザー名かメールアドレスで指名し直します。',
   operatorReassignLeadExpired:
-    '「{name}」の{admin}の招待の URL は、期限が切れています。{admin}を、GitHub のユーザー名か Google のメールアドレスで指名し直します。',
+    '「{name}」の{admin}の招待の URL は、期限が切れています。{admin}を、GitHub のユーザー名かメールアドレスで指名し直します。',
   operatorReassignLeadActive:
-    '「{name}」には、ログインした{admin}がいます。{admin}が辞めたときなどに、新しい{admin}を、GitHub のユーザー名か Google のメールアドレスで指名します。今の{admin}は外れません。',
+    '「{name}」には、ログインした{admin}がいます。{admin}が辞めたときなどに、新しい{admin}を、GitHub のユーザー名かメールアドレスで指名します。今の{admin}は外れません。',
   operatorReassignVia: '{admin}のログインの手段',
   operatorReassignGithubUserHint:
     'GitHub のユーザー ID に解決します。「確かめる」を押して、指名する人を見て確かめてから指名します。',
@@ -1680,6 +1711,24 @@ export const dictionary = defineDictionary({
     'いまログインを受け付けられません。時間をおいてもう一度試してください。続くときは運用者に連絡してください。',
   // ログインの画面の、会員登録への入口。アカウントがまだ無い人向け（ログインのボタンはアカウントを作らない）
   loginSignupLink: '初めての人は会員登録',
+
+  passwordNominationTitle: '管理者の登録',
+  passwordNominationRetry: 'もう一度確認する',
+  passwordNominationLoading: '指名の URL を確認しています',
+  passwordNominationConfirmation: 'パスワード（確認）',
+  passwordNominationConfirm: '確認して組織に入る',
+  passwordNominationRegister: '登録して組織に入る',
+  passwordNominationSubmitting: '登録しています',
+  passwordNominationUnusable:
+    'この指名の URL は使えません。登録済みの場合はログインしてください。期限切れや取り消しの場合は、運用者に確認してください。',
+  passwordNominationTooMany: '試行が多すぎます。しばらく待ってから、もう一度試してください。',
+  passwordNominationInvalid: '入力を受け付けられませんでした。表示名とパスワードを確かめてください。',
+  passwordNominationNameInvalid: '表示名を1〜100文字で入力してください。改行や制御文字は使えません。',
+  passwordNominationPasswordInvalid: 'パスワードは12〜128文字で入力してください。',
+  passwordNominationMismatch: 'パスワードと確認欄が一致しません。',
+  passwordNominationUnavailable: '手続きを確認できませんでした。もう一度試すか、登録済みの場合はログインしてください。',
+  passwordNominationAccountCreated:
+    'このメールアドレスにはすでにアカウントがあります。現在のパスワードを入れてください。',
 
   // 会員登録の画面（/signup。枠の外）。招待の無い人が GitHub か Google でアカウントを作る。パスワードでの登録は無い。
   // 失敗の理由（?error=）はログインの画面に戻して出すので、この画面には出し口を持たない
@@ -1784,7 +1833,7 @@ export const dictionary = defineDictionary({
   inviteSubmitting: '招待しています',
   // 続けて組織の URL を出す（長い URL を折り返せるよう、URL は別の要素にする）
   inviteSendNote:
-    'Scrum Guild は招待をメールで送りません。Google の招待は、招待したときに出る招待の URL（14日で切れます）を本人に伝えてください。GitHub の招待は、次の{organization}の URL を伝えてください。',
+    'Banmen は招待をメールで送りません。Google の招待は、招待したときに出る招待の URL（14日で切れます）を本人に伝えてください。GitHub の招待は、次の{organization}の URL を伝えてください。',
   // Google の招待。メールアドレスで指し、確かめる手順は無い
   inviteGoogleEmailLabel: 'Google のメールアドレス',
   inviteGoogleEmailExample: '例: mio.hoshino@example.com',
@@ -1796,7 +1845,7 @@ export const dictionary = defineDictionary({
   // Google で招待した後のダイアログ。招待の URL はこの画面にだけ出る
   inviteUrlTitle: '招待の URL',
   inviteUrlLead:
-    '招待しました。Scrum Guild はメールを送りません。この招待の URL を本人に伝えてください。本人がこの URL を開き、招待したメールアドレスの Google アカウントでログインすると、招待を承諾して{workspace}に入れます。',
+    '招待しました。Banmen はメールを送りません。この招待の URL を本人に伝えてください。本人がこの URL を開き、招待したメールアドレスの Google アカウントでログインすると、招待を承諾して{workspace}に入れます。',
   inviteUrlLabel: '招待の URL',
   inviteCopy: 'コピー',
   inviteUrlCopied: '招待の URL をコピーしました',
@@ -1888,12 +1937,10 @@ export const dictionary = defineDictionary({
   themeSimple: 'シンプル（自動）',
   themeSimpleLight: 'シンプル（ライト）',
   themeSimpleDark: 'シンプル（ダーク）',
-  themeModern: 'ネオン',
   // テーマの説明。見本の design/kit.js の THEME_NOTE と同じ文（src/shared/theme.ts の themeNoteKeys）
   themeNoteSimple: '業務の道具として落ち着いた見た目。OS のライトとダークに合わせる',
   themeNoteSimpleLight: '業務の道具として落ち着いた見た目。いつも明るい地',
   themeNoteSimpleDark: '業務の道具として落ち着いた見た目。いつも暗い地',
-  themeNoteModern: '近未来の端末のウィンドウ。暗い地に光る枠',
 
   // お試しの期限（組織の管理の画面。期限の日付は運用者の一覧も使う）
   orgTrialTitle: 'お試し',
@@ -2090,17 +2137,20 @@ export const dictionary = defineDictionary({
   orgHistorySuspensionChanged: '停止の理由を解約に切り替えました（消す予定日 {date}）',
   orgHistorySuspensionChangedTemporary: '停止の理由を一時的な停止に切り替えました',
   orgHistoryOrganizationSettingsChanged: '{organization}の設定を変更しました',
+  orgHistoryMemberLimitChange: '人数の上限を {from}\u00a0人から {to}\u00a0人に',
+  orgHistoryAttachmentQuotaChange: '添付ファイルの上限を {from} から {to} に',
+  orgHistoryQuotaChanged: '{changes}変えました',
   // {from} と {to} は契約（planTerms）
   orgHistoryPlanChanged: 'プランを{from}から{to}に変更しました',
   orgHistoryPlanStarted: 'プランを{to}にしました',
   orgHistoryAdminDesignated: '{name}を{admin}に指名しました',
-  // Google の招待で指名し、本人がまだログインしていない（名前はメールアドレスなので出さない）
-  orgHistoryAdminDesignatedGoogle: 'Google で招待した人を{admin}に指名しました',
-  orgHistoryAdminLoginLinked: '{name}が Google でログインし、{admin}の指名を受けました',
-  orgHistoryAdminDesignationMerged: 'Google の招待で、{name}を{admin}にしました',
-  // 運用者が管理者を指名し直したときに、まだログインしていない前の指名を取り消した。Google の招待で待っていた人は名前が分からない
+  // メールアドレスで指名し、本人がまだログインしていない（名前はメールアドレスなので出さない）
+  orgHistoryAdminDesignatedByEmail: 'メールアドレスで指定した人を{admin}に指名しました',
+  orgHistoryAdminLoginLinked: '{name}がログインし、{admin}の指名を受けました',
+  orgHistoryAdminDesignationMerged: '指名の URL で、{name}を{admin}にしました',
+  // 運用者が管理者を指名し直したときに、まだログインしていない前の指名を取り消した。メールアドレスで待っていた人は名前が分からない
   orgHistoryAdminDesignationRemoved: '{name}への{admin}の指名を取り消しました',
-  orgHistoryAdminDesignationRemovedNoName: 'Google で招待した人への{admin}の指名を取り消しました',
+  orgHistoryAdminDesignationRemovedNoName: 'メールアドレスで指定した人への{admin}の指名を取り消しました',
   orgHistoryAdminRevoked: '{name}の{admin}を解除しました',
   orgHistoryUserDisabled: '{name}を無効にしました',
   orgHistoryUserEnabled: '{name}を有効に戻しました',
@@ -2163,7 +2213,6 @@ export const dictionary = defineDictionary({
   drawerAtLast: '最後です',
   // ストーリーの引き出しから親（エピック）を移した知らせ
   storyParentMoved: '{story}の親を移しました',
-  taskManualChip: '手で作った{task}',
   taskImportedChip: '取り込んだ{task}',
   taskDrawerLoadFailed: 'この{task}を読み込めませんでした。もう一度試してください。',
   // タイトルとリンクの値のボタンの、読み上げに添える文（押すと入力欄になる）
@@ -2276,30 +2325,6 @@ export const dictionary = defineDictionary({
   storyDeleteNoChildren: '配下の{task}はありません。',
   epicDeleted: '{epic}を削除しました',
   storyDeleted: '{story}を削除しました',
-  thanks: '感謝',
-  thanksNone: 'なし',
-  thanksEmpty: 'まだ感謝は送られていません。',
-  // コメントの「送る」ボタンと名前が重ならないよう、「送る」を含めない
-  thanksSend: '{name} に感謝する',
-  // 行の右端に寄せる部品（.party-list-end）は縮まないので、見える文字は短くし、相手の名前は読み上げの名前に回す
-  thanksRevoke: '{name} への感謝を取り消す',
-  thanksRevokeShort: '取り消す',
-  thanksSent: '感謝を送りました',
-  thanksRevoked: '感謝を取り消しました',
-  thanksFromTo: '{sender} から {recipient} に送った感謝',
-  thanksSelf: '自分には感謝を送れません。',
-  thanksDuplicate: 'この相手には、すでに感謝を送っています。',
-  thanksCompleted: '完了した{task}の感謝は送れず、取り消せません。',
-  thanksForbidden: '感謝を送る権限、または取り消す権限がありません。',
-  thanksNotFound: '対象の{task}、相手、または感謝が見つかりません。',
-  thanksFailed: '感謝の操作に失敗しました。もう一度試してください。',
-  thanksRefreshFailed: '感謝の操作は完了しましたが、最新の一覧を読み込めませんでした。',
-  thanksCandidatesFailed: '感謝を送る相手を読み込めませんでした。',
-  // 担当の欄の「もう一度試す」と同じ引き出しに並ぶので、名前を分ける
-  thanksCandidatesRetry: '相手を読み直す',
-  thanksCandidatesEmpty: '感謝を送れる相手はいません。',
-  thanksHint:
-    '送れるのは{assignee}だけ（{assignee}がいなければ作った人）です。完了するまでは、送った本人が取り消せます。',
   // 変更の履歴（引き出しの「変更の履歴」の節。src/lib/task-history.ts が列の名前と値を文にする）
   historyTitle: '変更の履歴',
   historyEmpty: 'まだ変更はありません。',
@@ -2673,6 +2698,20 @@ export const dictionary = defineDictionary({
   // 画面は出さない（開発の状況の説明になるため）。積載量の欄が入る（#66）ときに言い方を決め直す
   meOtherSettingsNote:
     '今は経験値、API トークン、テーマ、届いた招待を扱えます。1日の基準、稼働期間、休み、月の基準の上書き、積載量の合計は、これから足します。',
+  // パスワードの変更（マイプロフィールの節）
+  mePasswordChange: 'パスワードを変える',
+  mePasswordCurrent: '現在のパスワード',
+  mePasswordNew: '新しいパスワード',
+  mePasswordConfirm: '新しいパスワード（確認）',
+  mePasswordSessionNote: '変更すると、ほかの端末やブラウザーではログインし直す必要があります。',
+  mePasswordHint: '12〜128文字',
+  mePasswordInvalid: '新しいパスワードは12〜128文字で入力してください。',
+  mePasswordMismatch: '新しいパスワードと確認欄が一致しません。',
+  mePasswordIncorrect: '現在のパスワードが違います。',
+  mePasswordRateLimited: 'パスワード変更の試行が多すぎます。しばらく待ってから試してください。',
+  mePasswordFailed: 'パスワードを変えられませんでした。もう一度試してください。',
+  mePasswordSaving: 'パスワードを変えています',
+  mePasswordChanged: 'パスワードを変えました。',
   // 自分のテーマ（マイプロフィールの節。選んだ瞬間に保存する）。{label} はテーマの名前
   meThemeDesc: '画面の見た目。選ぶとすぐに変わります。自分だけに効きます。',
   meThemeSaving: 'テーマを保存しています',
