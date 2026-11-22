@@ -706,16 +706,17 @@ describe('epic-detail の can_change_requester', () => {
     expect(await detailOf(target, epic.id, target.member)).toEqual({ can_manage: false, can_change_requester: false });
   });
 
-  test('替えた後の epic-detail は、新しい依頼主と段階と額を返す', async () => {
+  test('替えた後の epic-detail は、新しい依頼主と段階を返す（額は返さない。#1432）', async () => {
     const target = await namedTarget();
     const epic = await epicOf(target);
     expect((await requester(target, epic.id, target.member.userId!)).status).toBe(200);
     expect((await reward(target, epic.id, 'large')).status).toBe(200);
     const res = await call(epicDetail, target, target.leader, { epic_id: epic.id });
-    expect(await res.json()).toMatchObject({
+    const body = await res.json();
+    expect(body).toMatchObject({
       requester: { id: target.member.userId, name: '若葉 湊', left: false },
       reward_tier: 'large',
-      reward_xp: XP_EPIC_REWARD.large,
     });
+    expect(body).not.toHaveProperty('reward_xp');
   });
 });
