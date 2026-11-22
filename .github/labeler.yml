@@ -30,6 +30,8 @@ needs-human:
           - "src/shared/session-cookie.ts"
           # 取り込み元の処理
           - "src/server/import/**"
+          # 人が手元から出す旧 URL の転送用の Worker（転送先を決める）
+          - "src/legacy-redirect/**"
           # wrangler の設定（見本の Worker の wrangler.design.jsonc も含む）、デプロイのスクリプト、依存
           - "wrangler*.jsonc"
           - "wrangler*.json"
