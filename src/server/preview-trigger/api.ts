@@ -172,7 +172,8 @@ export function createPreviewApi(config: PreviewApiConfig, fetcher: typeof fetch
         result?.build_uuid === id &&
         trigger?.trigger_uuid === triggerId &&
         trigger.external_script_id === workerTag &&
-        metadata?.build_trigger_source === 'api' &&
+        // Cloudflare は Builds API から起動したビルドを manual と記録することがある。
+        (metadata?.build_trigger_source === 'api' || metadata?.build_trigger_source === 'manual') &&
         metadata.branch === request.branch &&
         metadata.commit_hash === request.sha &&
         typeof createdAt === 'string' &&

@@ -80,8 +80,12 @@ describe('Cloudflare Builds の起動 POST が受理されたか', () => {
 });
 
 describe('保留中の試行と Build UUID の照合', () => {
-  it('同じトリガー・Worker・ブランチ・SHAと時刻に合うビルドだけを採用する', async () => {
-    const { api: client, fetcher } = api(() => Response.json({ success: true, result: matchingBuild }));
+  it.each(['api', 'manual'])('%s と記録された同じ試行のビルドを採用する', async (source) => {
+    const result = {
+      ...matchingBuild,
+      build_trigger_metadata: { ...metadata, build_trigger_source: source },
+    };
+    const { api: client, fetcher } = api(() => Response.json({ success: true, result }));
 
     await expect(client.verifyRecovery(buildId, request, attemptedAt)).resolves.toBe(true);
     expect(fetcher).toHaveBeenCalledExactlyOnceWith(
@@ -96,13 +100,32 @@ describe('保留中の試行と Build UUID の照合', () => {
     ['別の Worker', { trigger: { ...trigger, external_script_id: 'c'.repeat(32) } }],
     ['別のブランチ', { build_trigger_metadata: { ...metadata, branch: '42-elsewhere' } }],
     ['別の SHA', { build_trigger_metadata: { ...metadata, commit_hash: 'd'.repeat(40) } }],
-    ['手動で起動', { build_trigger_metadata: { ...metadata, build_trigger_source: 'manual' } }],
     ['試行の1ミリ秒前に起動', { created_on: '2026-11-22T00:04:00.199Z' }],
     ['時刻が壊れている', { created_on: 'invalid' }],
     ['トリガーが無い', { trigger: undefined }],
     ['メタデータが無い', { build_trigger_metadata: undefined }],
   ])('%sのビルドを復旧に使わない', async (_label, overrides) => {
-    const { api: client } = api(() => Response.json({ success: true, result: { ...matchingBuild, ...overrides } }));
+    const fixture = { ...matchingBuild, ...overrides };
+    for (const source of ['api', 'manual']) {
+      const result = {
+        ...fixture,
+        build_trigger_metadata: fixture.build_trigger_metadata && {
+          ...fixture.build_trigger_metadata,
+          build_trigger_source: source,
+        },
+      };
+      const { api: client } = api(() => Response.json({ success: true, result }));
+
+      await expect(client.verifyRecovery(buildId, request, attemptedAt)).resolves.toBe(false);
+    }
+  });
+
+  it.each(['push', 'pull_request', 'unknown'])('%s と記録されたビルドを復旧に使わない', async (source) => {
+    const result = {
+      ...matchingBuild,
+      build_trigger_metadata: { ...metadata, build_trigger_source: source },
+    };
+    const { api: client } = api(() => Response.json({ success: true, result }));
 
     await expect(client.verifyRecovery(buildId, request, attemptedAt)).resolves.toBe(false);
   });

@@ -394,7 +394,7 @@ GitHub や Cloudflare の応答を待っている間も、Webhook を受け付�
 起動専用 Worker の Secret `PREVIEW_RECOVERY_SECRET` に、Webhook の Secret と別の十分に長い乱数を設定する。この値は復旧を担当する運用者だけに渡す。復旧の操作は専用 Worker の HTTPS URL の `/operator/preview-queues/<Issue番号>` へ `Authorization: Bearer <復旧用の値>` を付けて行う。
 
 1. `GET` で起動保留の状態を読む。`attempt` が `null` なら、起動結果の不明による保留は無い。`attempt.sha` と `attempt.attemptedAt`（ミリ秒）を控える。
-2. Cloudflare のビルド履歴で、その試行以降に同じブランチと SHA で始まったビルドを照合する。該当する場合は同じ URL に `POST` し、JSON に控えた `sha` と `attemptedAt`、`"resolution": "attach"`、`"buildId": "<Build UUID>"` を渡す。専用 Worker もトリガー、Worker、ブランチ、SHA、起動元と時刻を照合し、特定したビルドの停止を待ってから次へ進む。
+2. Cloudflare のビルド履歴で、その試行以降に同じブランチと SHA で始まったビルドを照合する。該当する場合は同じ URL に `POST` し、JSON に控えた `sha` と `attemptedAt`、`"resolution": "attach"`、`"buildId": "<Build UUID>"` を渡す。Cloudflare は Webhook から Builds API で起動したビルドを `manual` と記録することがある。専用 Worker は起動元が `api` または `manual` で、トリガー、Worker、ブランチ、SHA、時刻がすべて一致したビルドを採用し、その停止を待ってから次へ進む。
 3. Cloudflare 側でその試行が受理されていないことを確認できた場合だけ、`"resolution": "not-started"` を使い、控えた `sha` と `attemptedAt` を添えて `POST` する。キューは待機中の要求を優先し、GitHub の最新 head を確かめ直す。ビルド履歴が読めない場合や受理されたか判断できない場合は保留を続ける。
 4. 復旧を受け付けると `204` を返す。`409` の場合は、状態が変わったか指定したビルドが一致していないので、`GET` から確認し直す。
 
