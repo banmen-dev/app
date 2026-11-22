@@ -38,14 +38,18 @@ function isMoved(reply: { status: number; body: unknown }): boolean {
   return reply.status === 410 && isErrorBody(reply.body) && reply.body.error.code === 'moved';
 }
 
-// 置いた後の旧 URL が転送を始めているか。始めていなければ、その理由を返す
-async function checkRedirecting(deps: LegacyRedirectDeps): Promise<string | undefined> {
+// 置いた後の旧 URL が転送を始めているか。始めていなければ、その理由を返す。
+// 1回の問い合わせの打ち切りは、期限までの残りで縮める（上限の VERIFY_TIMEOUT_MS を延ばさない）。残りが無ければ問い合わせない
+async function checkRedirecting(deps: LegacyRedirectDeps, deadline: number): Promise<string | undefined> {
+  const timeoutMs = () => Math.min(REQUEST_TIMEOUT_MS, deadline - deps.now());
   try {
-    const root = await deps.request(`${LEGACY_ORIGIN}/`, REQUEST_TIMEOUT_MS);
+    if (timeoutMs() <= 0) return '確かめの上限に達しました';
+    const root = await deps.request(`${LEGACY_ORIGIN}/`, timeoutMs());
     if (root.status !== 302 || root.location !== `${LEGACY_REDIRECT_TARGET}/`) {
       return `旧 URL の / が 302 で ${LEGACY_REDIRECT_TARGET}/ へ送っていません（状態 ${root.status}、Location ${root.location ?? '無し'}）`;
     }
-    const api = await deps.request(`${LEGACY_ORIGIN}/api/health`, REQUEST_TIMEOUT_MS);
+    if (timeoutMs() <= 0) return '確かめの上限に達しました';
+    const api = await deps.request(`${LEGACY_ORIGIN}/api/health`, timeoutMs());
     if (!isMoved(api)) return `旧 URL の /api/health が 410 の moved ではありません（状態 ${api.status}）`;
     return undefined;
   } catch (err) {
@@ -90,17 +94,20 @@ export async function deployLegacyRedirect(deps: LegacyRedirectDeps): Promise<nu
   }
 
   const started = deps.now();
+  const deadline = started + VERIFY_TIMEOUT_MS;
   let reason: string | undefined;
   for (let attempt = 1; ; attempt++) {
-    reason = await checkRedirecting(deps);
+    reason = await checkRedirecting(deps, deadline);
     if (reason === undefined) {
       deps.log(`旧 URL の転送の確認: ${attempt}回目で効きました（${Math.round((deps.now() - started) / 1000)}秒）`);
       return 0;
     }
     deps.log(`旧 URL の転送の確認: ${attempt}回目はまだです（${reason}）`);
-    const remaining = started + VERIFY_TIMEOUT_MS - deps.now();
+    const remaining = deadline - deps.now();
     if (remaining <= 0 || attempt >= VERIFY_MAX_ATTEMPTS) break;
     await deps.sleep(Math.min(VERIFY_INTERVAL_MS, remaining));
+    // 待っているうちに期限が来たら、問い合わせずに打ち切る
+    if (deadline - deps.now() <= 0) break;
   }
   deps.error(
     `旧 URL の転送の確認: ${VERIFY_TIMEOUT_MS / 1000}秒待っても効きませんでした（${reason}）。転送用の Worker は置いています。Cloudflare のダッシュボードで旧 URL の Worker を確かめてください`,
