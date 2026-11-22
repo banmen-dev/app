@@ -5,7 +5,7 @@ import { join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { errors, type Page } from '@playwright/test';
 import { NARROW_VIEWPORT, setCaptureViewport } from '../e2e/screen-capture.ts';
-import { comparisonBands } from './screen-review-images.ts';
+import { comparisonBands, referenceFontFailure } from './screen-review-images.ts';
 import { expectNoCelebration, motionAnimationSelectors } from './screen-review-motion.ts';
 import { reviewCaptureTime, screenReviewOptions, screenReviewOutput } from './screen-review-options.ts';
 import { serveReference } from './screen-review-runtime.ts';
@@ -146,4 +146,15 @@ test('クリアの演出が遅れて出れば失敗し、観測期間中に出�
     }),
     /画面を閉じた/,
   );
+});
+
+test('見本の外部フォントの通信と HTTP の失敗だけを記録する', () => {
+  const stylesheet = 'https://fonts.googleapis.com/css2';
+  const font = 'https://fonts.gstatic.com/font.woff2';
+  assert.equal(referenceFontFailure(stylesheet), '外部フォントの通信に失敗');
+  assert.equal(referenceFontFailure(font, 503), '外部フォントの HTTP 503');
+  assert.equal(referenceFontFailure(font, 304), undefined);
+  assert.equal(referenceFontFailure('https://fonts.googleapis.com.example.com/font', 404), undefined);
+  assert.equal(referenceFontFailure('https://example.com/image.png'), undefined);
+  assert.equal(referenceFontFailure('not a URL', 400), undefined);
 });

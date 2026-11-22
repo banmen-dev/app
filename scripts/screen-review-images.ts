@@ -38,12 +38,21 @@ export function comparisonBands(height: number) {
   });
 }
 
+export function referenceFontFailure(url: string, status?: number): string | undefined {
+  if (!URL.canParse(url)) return;
+  const host = new URL(url).hostname;
+  if (host !== 'fonts.googleapis.com' && host !== 'fonts.gstatic.com') return;
+  if (status === undefined) return '外部フォントの通信に失敗';
+  if (status >= 400) return `外部フォントの HTTP ${status}`;
+}
+
 export async function composePair(
   page: Page,
   appPath: string,
   referencePath: string,
   directory: string,
   label: string,
+  referenceFontWarning: boolean,
 ) {
   const [app, reference] = await Promise.all([png(appPath), png(referencePath)]);
   const images = [app, reference];
@@ -53,7 +62,7 @@ export async function composePair(
     const columns = images.map((image, side) => {
       const caption = side === 0 ? 'App' : 'Reference';
       return `<section style="width:${image.width}px">
-        <h2>${caption} · ${label} · ${index + 1}/${bands.length}</h2>
+        <h2>${caption} · ${label} · ${index + 1}/${bands.length}${side === 1 && referenceFontWarning ? ' [フォント未確認]' : ''}</h2>
         <div style="height:${band.height}px; overflow:hidden">
           <img src="${image.src}" alt="" style="margin-top:-${band.offset}px">
         </div>

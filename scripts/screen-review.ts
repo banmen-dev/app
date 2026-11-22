@@ -13,7 +13,7 @@ import {
   setSeedTheme,
 } from '../e2e/screen-capture.ts';
 import { word } from '../src/shared/vocabulary.ts';
-import { composeContactSheet, composePair, frameComposer } from './screen-review-images.ts';
+import { composeContactSheet, composePair, frameComposer, referenceFontFailure } from './screen-review-images.ts';
 import { captureReviewMotion } from './screen-review-motion.ts';
 import { reviewCaptureTime, screenReviewOptions, screenReviewOutput } from './screen-review-options.ts';
 import { launchChromium, localReviewRuntime, serveReference } from './screen-review-runtime.ts';
@@ -84,17 +84,12 @@ async function captureToday(
             throw new Error(`実装のフォントを読み込めません（${label}）`);
 
           const reference = await referenceContext.newPage();
-          const isExternalFont = (url: string) => {
-            const host = new URL(url).hostname;
-            return host === 'fonts.googleapis.com' || host === 'fonts.gstatic.com';
+          const recordFontFailure = (url: string, status?: number) => {
+            const failure = referenceFontFailure(url, status);
+            if (failure) referenceFontFailures.add(failure);
           };
-          reference.on('requestfailed', (request) => {
-            if (isExternalFont(request.url())) referenceFontFailures.add('外部フォントの通信に失敗');
-          });
-          reference.on('response', (response) => {
-            if (!response.ok() && isExternalFont(response.url()) && response.status() >= 400)
-              referenceFontFailures.add(`外部フォントの HTTP ${response.status()}`);
-          });
+          reference.on('requestfailed', (request) => recordFontFailure(request.url()));
+          reference.on('response', (response) => recordFontFailure(response.url(), response.status()));
           await reference.addInitScript((value) => localStorage.setItem('sq-design-theme', value), theme);
           await reference.goto(`${referenceOrigin}/today.html`, { waitUntil: 'domcontentloaded' });
           await reference.getByRole('heading', { level: 1, name: '今日やること', exact: true }).waitFor();
@@ -112,7 +107,14 @@ async function captureToday(
         } finally {
           await Promise.all([appContext.close(), referenceContext.close()]);
         }
-        const images = await composePair(comparison, appPath, referencePath, pairs, label);
+        const images = await composePair(
+          comparison,
+          appPath,
+          referencePath,
+          pairs,
+          label,
+          referenceFontFailures.size > 0,
+        );
         results.push({
           theme,
           viewport,
