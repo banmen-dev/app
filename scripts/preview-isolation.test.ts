@@ -13,6 +13,7 @@ const buildEnv = {
   CLOUDFLARE_ACCOUNT_ID: account,
   CLOUDFLARE_API_TOKEN: token,
   CLOUDFLARE_PREVIEW_SUBDOMAIN: subdomain,
+  VITE_PREVIEW_WITHOUT_ATTACHMENTS: '1',
 };
 
 test('Workers Builds のプレビュー専用アカウントとサブドメインだけを受け入れる', () => {
@@ -21,6 +22,7 @@ test('Workers Builds のプレビュー専用アカウントとサブドメイ�
 
 for (const [label, invalid] of [
   ['Workers Builds 外', { WORKERS_CI: undefined }],
+  ['添付 UI の無効化なし', { VITE_PREVIEW_WITHOUT_ATTACHMENTS: undefined }],
   ['CI 値が 1 以外', { WORKERS_CI: 'true' }],
   ['アカウントなし', { CLOUDFLARE_ACCOUNT_ID: undefined }],
   ['アカウント ID が不正', { CLOUDFLARE_ACCOUNT_ID: 'another' }],

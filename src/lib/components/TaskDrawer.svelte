@@ -45,6 +45,7 @@
     type TaskOpenMode,
   } from '../drawer.svelte.ts';
   import { formatDateTime } from '../format-datetime.ts';
+  import { previewWithoutAttachments } from '../preview-without-attachments.ts';
   import { completedMessage, sprintLabel, sprintPeriod } from '../sprint-label.ts';
   import { historyEntryView } from '../task-history.ts';
   import { pauseToast, showToast } from '../toast.svelte.ts';
@@ -1963,18 +1964,20 @@
       ondirty={(value) => (dirty.fields = value)}
     />
 
-    <TaskAttachments
-      {slug}
-      {workspaceId}
-      {taskId}
-      {canWrite}
-      revision={attachmentRevision}
-      ondeleted={(id) => {
-        deletedAttachments.urls.push(operationPath(attachmentDownload, slug, { id }));
-        onchanged();
-      }}
-      {onstale}
-    />
+    {#if !previewWithoutAttachments}
+      <TaskAttachments
+        {slug}
+        {workspaceId}
+        {taskId}
+        {canWrite}
+        revision={attachmentRevision}
+        ondeleted={(id) => {
+          deletedAttachments.urls.push(operationPath(attachmentDownload, slug, { id }));
+          onchanged();
+        }}
+        {onstale}
+      />
+    {/if}
 
     <!-- 完了の帯（kit.js の drawerHtml の .done-bar）。完了していて戻せるときは、日時の横に「戻す」 -->
     {#if task.completed_at !== null || canWrite || definitionOfDone !== null}
