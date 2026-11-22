@@ -789,6 +789,7 @@ Codex が探索する入口は `.agents/skills/`。原本を複製せず、共�
 | `pr` | Codex 用の入口。PR の状態に合う共有手順を読み、承認範囲と E2E の CI 実行方針を優先する |
 | `increment-build` | Codex 用の `SKILL.md`。着手の判定と受け入れ条件は `docs/agent-workflows/` を参照し、実装の進行は Codex が受け持つ |
 | `done-check` | Codex 用の `SKILL.md`。検査・点検基準は `docs/agent-workflows/`、レビューの役割は共有定義を参照し、未コミット・新規ファイルも点検する |
+| `screen-review` | Codex 用の入口から、[共通の撮影手順](agent-workflows/screen-review.md) と採点役の定義を使う。会話履歴を引き継がない Codex の採点役に比較画像、演出のコマ、同じ版の設計文書、除外一覧を渡す |
 
 リンクはリポジトリ内の相対パスなので、ワークツリーと clone の中でも同じ原本を指す。
 工程の2つを Claude 用スキル全体へのリンクにしない。Claude の道具呼び出し、自動コミットと PR 作成まで実行してしまうため。
@@ -854,6 +855,7 @@ git の保護フックと CI は既存のものを使う。
 | `falsification-qa` | 足した（2026-10-29、#488）。作った側ではなく壊す側に立ち、差分の実装が間違っていることを示す入力と手順を探す。境界値とその外側、不正な順序、並行と再送、外部依存の異常系、組織と権限の越境、たまたま通る入力、テストの期待値の妥当性（ハードコード、実装と同じロジックの期待値、意味の無い assertion、`.only` と `.skip` の残り）を見る。指摘には壊れる入力、手順、起きる結果を必ず書かせ、書けないものは出させない。報告は `finding-verifier` にそのまま渡せる形。D1 のデータが壊れる筋書きは `database-reviewer`、攻撃者を決めた筋書きは `security-reviewer` に任せる。呼ぶ場面は、ほかのレビューのエージェントと同じく `.claude/skills/ai-review/reviewers.md` の表で決める |
 | `finding-verifier` | 足した。CRITICAL と HIGH の指摘の前提をコードと文書で確かめ、成り立たないと示せたものだけを反証とする。CI の AI レビューはすべての CRITICAL と HIGH を、`done-check` は直さないつもりのものを渡す |
 | `ui-reviewer` | 足した。画面の差分のコードを `docs/design.md` とチェックリストの `ui.md` に突き合わせ、色の役割、テーマ、状態、アクセシビリティ、狭い幅での崩れを見る。観点を当てた後に、PR の確認を疑って画面を壊す筋書きを組み立てる。撮った画像での採点は `screen-review` が受け持つ |
+| `screen-review`、`screen-critic` | 足した（#74）。[画面の自己レビュー](agent-workflows/screen-review.md) では進行役が実装と見本を撮り、採点役が画像を設計の原則に照らす。新しい画面や全画面に効く変更では `done-check` から回す |
 | `sprint-pick` | `backlog-pick` として足した（2026-10-26）。2026-10-30 に名前を `sprint-pick` に改め、自分にアサインされた今のスプリントの Issue を先に出し、スプリントの外は人が頼んだときだけ選ぶ形にした。着手できるものが無いときは、人の番、待ち、計画の分が済んだ（`sprint-plan` で足すか、外から1件選ぶか、止めるかを人に聞く）、外にも無い（起票）の順に次の手を推す。開いている Issue と PR から着手できるものを選び、変えるファイルが重ならないレーンに組み、セッションに貼るプロンプトを出す。前に要るものは GitHub の依存関係（blocked by）だけから読む。本文に人と決める分岐が残る Issue は `backlog-refine` で、ほかは `increment-build` で始めるプロンプトにし、選んだ理由を添える（2026-10-28、#383）。1つのレーンは1つの Issue にし、選ぶセッションはプロンプトを出すだけで作業を始めない（2026-10-29） |
 | `implementer` | 実装専用の役割。Claude は `.claude/agents/implementer.md`、Codex は `.codex/agents/implementer.toml` を、それぞれ同じ製品の進行役から使う。受け入れ条件は `docs/agent-workflows/acceptance.md` から必要なものを渡す。製品間の呼び出しや利用上限時の自動切り替えはしない |
 | `increment-build` | 1つの Issue を着手確認、範囲の整理、記録、ワークツリー、実装、done-check まで進める。通常はメインが実装し、独立して任せる効果がある作業だけ同じ製品で分担する。守る仕組み、認証・認可、Workers のランタイムではテスト・実装・崩す役を分ける。詳細は各製品の入口と共通の作業基準 |
@@ -910,7 +912,6 @@ git の保護フックと CI は既存のものを使う。
 
 | スキル | 中身 | 時期 |
 | --- | --- | --- |
-| `screen-review` | 画面の自己レビュー（#74） | 最初の数画面が動いてから |
 | `incident` | 本番で壊れたときの手順。Workers Logs を読む、`wrangler rollback` で戻す、D1 の Time Travel を使う | 運用の手順書と一緒に |
 
 クラウドのセッションで依存を入れる SessionStart のフックは、上の「Claude の設定とフック」にある。
@@ -1448,7 +1449,7 @@ GitHub のアカウントも Google のアカウントも使わない人のた�
   - 開く前に `POST /api/me` を1回呼び、ブラウザを開かずに止まる条件を見分ける。画面で使うときと同じく、この呼び出しでも seed のセッションの期限が延びる（前回から1時間以上たっていれば、そこから30日）。つながらないときは `pnpm dev`（`--preview` のときは `pnpm preview`）を立てる案内、401 のときは `pnpm db:seed` の案内（seed を流していない、30日で切れた、別のワークツリーの D1 を見ている。`operator` は `.dev.vars` の `OPERATOR_LOGIN_IDS` で決まるので、ワークツリーに `.dev.vars` が無いときや、その `OPERATOR_LOGIN_IDS` に seed の運用者の `github:9000000000000001` が無いときも 401 になる。直し方は上の「ワークツリーで作業する」と、この節の `OPERATOR_LOGIN_IDS` の決まり。直したら立て直す）、10秒答えないときと、そのほかの 2xx 以外（リダイレクトは辿らない）は状態を出す。Chromium を起動できないときは、入っていなければ `pnpm exec playwright install chromium` を流すよう案内する（画面を出せない SSH の先や CI では使えない）。止まるときの終了コードは 1
   - 引数の誤りも、Cookie を置かず通信もせずに止まる。同じ種類（who か path）が2つ以上、`--preview`・`--origin` 以外のフラグ、知らない who（選べるキーと説明を並べる）、受け付けない path。path はログイン後の戻り先と同じ基準（`safeReturnTo`）で、`//host`、バックスラッシュ、ドット区間、完全な URL、相対パス、最初の区間が `api` か `login` のパス（`/api/me`、`/login?x=1`。`/apiary` は開ける）は、`/` に直さず止める。完全な URL を受け付けないのは、ポートがオフセット（`DEV_PORT_OFFSET`、`.dev-port-offset`、ワークツリーの名前）で決まり、受け付ける範囲だけが広がるため。ローカル指定の origin は http の `localhost` か `127.0.0.1` だけ。明示した `--origin` でのみ上のプレビューの HTTPS origin を許可し、本番や任意の外部 URL には seed のトークンを送らない
   - 毎回新しい context に Cookie を置くので、普段のブラウザの Cookie とも、別のワークツリーを開いたブラウザの Cookie とも混ざらない（localhost の Cookie はポートで分かれない）。複数の人を並べるときは端末を2つ使い、それぞれで `pnpm dev:open admin` と `pnpm dev:open member` を打つ（1回に開くのは1人）。ブラウザを閉じるか Ctrl+C で終わる
-- テーマは、本物の設定の API（マイプロフィール）で切り替えてから撮る（言葉はスクラムの言葉に固定）。撮影のための URL のパラメータは作らない
+- [画面の自己レビュー](agent-workflows/screen-review.md) は、使い捨てのローカル D1 に seed を流し、セッションの Cookie を置いて開く。実装のテーマはマイプロフィールの正規 API、見本のテーマは `sq-design-theme` で切り替える。スクラムの言葉を使い、実装の URL には既存の経路を使う
 - 「今日」は、`.dev.vars` の `DEV_NOW`（ISO 8601、時差付き。例 `2026-10-26T10:00:00+09:00`）で固定できる。置くと `now()`（`src/shared/clock.ts`）がその時刻を返し続け、時刻は進まない（日付だけ固定して時刻を進めると、時刻を画面に出したときに写りが変わるため）。完了日時を含めて画面の写りが毎回同じになる。時刻が止まるので、同じ人が2回完了にした要求（ダブルクリック、2つのタブ）は同じ完了日時を持ち、タスクの完了の文はこれを見分ける条件を持つ（`docs/data-model.md` の「書き込みの単位」）。値は Worker のミドルウェア（`src/server/dev-clock.ts`）が `clock.ts` に渡す（`clock.ts` は `scripts/` からも読むので `cloudflare:workers` を import しない）。`pnpm dev` と `pnpm preview` は開き直すと反映される。説明は `.dev.vars.example`。seed のスプリントと期日は流した日時から作るので、`DEV_NOW` を置いたときは `pnpm db:seed --now <DEV_NOW と同じ値>` で流し、seed の今日を揃える（下の「開発とテストでのログイン」）
   - 本番に入れない守り: `PUBLIC_ORIGIN` がループバックのホスト（`localhost`、`127.0.0.1`、`[::1]`）への http でないのに `DEV_NOW` があれば、API（`/api`）のすべてのリクエストを 500 にする。画面の資産は Worker を通らないので含まない。値が空でも、解釈できない日時（時差が無い、存在しない日付）でも同じ。`PUBLIC_ORIGIN` の検査と同じ形のミドルウェアで、デプロイの煙のテスト（`/api/health`）が見つけて前の版へ戻す。起動は止めない
 - 開発用の GitHub OAuth App と Google の OAuth クライアントを別に作り、手で本物のログインを確かめるときに使う。Google の開発用のクライアントは同意画面を「テスト」のままにし、確かめる人をテストユーザーに登録する

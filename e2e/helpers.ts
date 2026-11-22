@@ -1,13 +1,14 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type BrowserContext, type Locator, type Page, type Response } from '@playwright/test';
-import { SEED_SESSIONS } from '../seed/sessions.ts';
+import type { SEED_SESSIONS } from '../seed/sessions.ts';
 import { userList } from '../src/shared/operations/organization/user.ts';
 import { workspaceList } from '../src/shared/operations/workspace/workspace-list.ts';
 import { workspaceCreate } from '../src/shared/operations/workspace/workspace-create.ts';
-import { sessionCookieName } from '../src/shared/session-cookie.ts';
 import { word, type DictionaryKey, type TemplateParams } from '../src/shared/vocabulary.ts';
 import { mockOperation } from './operations.ts';
 import { refreshSeedSessionCreatedAt } from './local-d1.ts';
+import { addSeedSessionCookie, CAPTURE_THEMES, NARROW_VIEWPORT, setCaptureViewport } from './screen-capture.ts';
+
 import {
   exclusionsFor,
   formatStaleExclusions,
@@ -16,6 +17,8 @@ import {
   type UiExclusion,
   type UiScreen,
 } from './ui-exclusions.ts';
+
+export { NARROW_VIEWPORT } from './screen-capture.ts';
 
 // axe で確かめる規則。WCAG 2.2 の A と AA（文字のコントラストを含む）。best-practice は入れない（#320）
 export const A11Y_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
@@ -116,7 +119,7 @@ export async function expectNoA11yViolations(page: Page, screen: UiScreen): Prom
 }
 
 // axe で確かめるテーマ。コントラストはテーマで変わり、言葉では変わらないので、言葉はスクラムの言葉だけにする（docs/design.md）
-export const A11Y_THEMES = ['simple_light', 'simple_dark', 'modern'] as const;
+export const A11Y_THEMES = CAPTURE_THEMES;
 
 // 落ち着いた画面に3つのテーマを順に当てて axe を走らせ、違反の無いことと、その画面の除外がどれかのテーマで当たったことを確かめる。
 // 同じ要素の同じ違反は、出たテーマをまとめて1件にする。exclusions は、壊した HTML で確かめるときだけ差し替える。
@@ -168,9 +171,6 @@ export interface LayoutViolation {
 
 // 押せる範囲の一辺。docs/design.md の「押せる範囲」。760px 以下か pointer: coarse で効く
 export const TARGET_SIZE = 44;
-
-// 幅 390px の画面。高さは、よくあるスマホの縦置きの値にする
-export const NARROW_VIEWPORT = { width: 390, height: 844 };
 
 // 見えている押せる要素について、中心と、中心から上下左右と斜めに 21px の点を document.elementFromPoint で調べ、
 // 要素自身か子孫（入力欄は結び付いた label も）に当たることを確かめる。見た目を小さく保ち ::before と ::after で
@@ -514,7 +514,7 @@ export async function expectNarrowLayout(
   screen: UiScreen,
   open: (w: (key: DictionaryKey, params?: TemplateParams) => string) => Promise<void>,
 ): Promise<void> {
-  await page.setViewportSize(NARROW_VIEWPORT);
+  await setCaptureViewport(page, NARROW_VIEWPORT);
   const check = createLayoutCheck(screen);
   await open((key, params) => word(key, params));
   await page.waitForLoadState('networkidle');
@@ -602,9 +602,7 @@ export async function signIn(
 ): Promise<void> {
   if (baseURL === undefined) throw new Error('baseURL が無い');
   await refreshSeedSessionCreatedAt(who);
-  await context.addCookies([
-    { name: sessionCookieName(baseURL), value: SEED_SESSIONS[who].token, url: baseURL, httpOnly: true },
-  ]);
+  await addSeedSessionCookie(context, baseURL, who);
 }
 
 // 組織の管理の画面の上の2つの節（ユーザーとワークスペースの一覧）を、あおば開発の seed（seed/data.sql）の行に固定する。

@@ -8,6 +8,7 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures.ts';
 import { signIn, watchViolations } from './helpers.ts';
 import { resetAobaMemberTheme } from './local-d1.ts';
+import { setSeedTheme } from './screen-capture.ts';
 
 const AOBA_WORKSPACE_ID = '019a0000-0000-7000-8000-000000000401';
 
@@ -19,7 +20,11 @@ test.describe('テーマの節（ハルカ）', () => {
     await signIn(context, baseURL, 'member');
   });
 
-  test('選択肢は4つのテーマだけで、選んだ瞬間に保存して画面に当て、開き直しても続く', async ({ page }) => {
+  test('選択肢は4つのテーマだけで、選んだ瞬間に保存して画面に当て、開き直しても続く', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
     const collect = await watchViolations(page);
     await page.goto('/aoba/me');
     const section = themeSection(page);
@@ -66,6 +71,11 @@ test.describe('テーマの節（ハルカ）', () => {
       await page.reload();
       await expect(themeSection(page).getByRole('radio', { name: /^シンプル（ダーク）/ })).toBeChecked();
       expect(await htmlTheme(page)).toBe('simple_dark');
+
+      // 画面の自己レビューと同じ入口からテーマを用意しても、開き直した画面へ反映される。
+      await setSeedTheme(context, baseURL!, 'simple_light');
+      await page.reload();
+      await expect(themeSection(page).getByRole('radio', { name: /^シンプル（ライト）/ })).toBeChecked();
     } finally {
       // 失敗してもハルカのテーマを残さない（seed は選んでいない状態）
       await page.waitForLoadState('networkidle');

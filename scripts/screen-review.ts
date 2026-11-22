@@ -1,0 +1,229 @@
+import { randomUUID } from 'node:crypto';
+import { constants } from 'node:fs';
+import { copyFile, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, relative, resolve } from 'node:path';
+import type { Browser, BrowserContextOptions, Page } from '@playwright/test';
+import {
+  addSeedSessionCookie,
+  CAPTURE_THEMES,
+  captureScreen,
+  DESKTOP_VIEWPORT,
+  NARROW_VIEWPORT,
+  setSeedTheme,
+} from '../e2e/screen-capture.ts';
+import { composeContactSheet, composePair, frameComposer } from './screen-review-images.ts';
+import { captureReviewMotion } from './screen-review-motion.ts';
+import { reviewCaptureTime, screenReviewOptions } from './screen-review-options.ts';
+import { launchChromium, localReviewRuntime, serveReference } from './screen-review-runtime.ts';
+
+const PIN_TITLE = '障害時の連絡手順を書く';
+const PINNED_LIST = '今日やると決めたもの';
+const STATIC_OPTIONS: BrowserContextOptions = {
+  locale: 'ja-JP',
+  timezoneId: 'Asia/Tokyo',
+  colorScheme: 'light',
+  deviceScaleFactor: 1,
+  reducedMotion: 'reduce',
+};
+
+async function appToday(page: Page, origin: string, fixedTime: Date) {
+  await page.clock.setFixedTime(fixedTime);
+  await page.goto(`${origin}/aoba`, { waitUntil: 'domcontentloaded' });
+  await page.getByRole('heading', { level: 1, name: '今日やること', exact: true }).waitFor();
+  await page.getByRole('heading', { level: 2, name: 'ワークスペース', exact: true }).waitFor();
+  return page.getByRole('region', { name: PINNED_LIST, exact: true });
+}
+
+async function prepareToday(browser: Browser, origin: string, fixedTime: Date) {
+  const context = await browser.newContext({ ...STATIC_OPTIONS, viewport: DESKTOP_VIEWPORT });
+  try {
+    await addSeedSessionCookie(context, origin, 'admin');
+    const page = await context.newPage();
+    const list = await appToday(page, origin, fixedTime);
+    await page.getByRole('button', { name: `今日やる: ${PIN_TITLE}`, exact: true }).click();
+    await list.getByText(PIN_TITLE, { exact: true }).waitFor();
+  } finally {
+    await context.close();
+  }
+}
+
+async function captureToday(
+  browser: Browser,
+  appOrigin: string,
+  referenceOrigin: string,
+  directory: string,
+  fixedTime: Date,
+) {
+  const originals = join(directory, 'originals');
+  const pairs = join(directory, 'pairs');
+  await Promise.all([mkdir(originals), mkdir(pairs)]);
+  await prepareToday(browser, appOrigin, fixedTime);
+  const comparison = await browser.newPage();
+  const results = [];
+  try {
+    for (const theme of CAPTURE_THEMES) {
+      for (const viewport of [DESKTOP_VIEWPORT, NARROW_VIEWPORT]) {
+        const label = `${theme}-${viewport.width}`;
+        const appPath = join(originals, `${label}-app.png`);
+        const referencePath = join(originals, `${label}-reference.png`);
+        const appContext = await browser.newContext({ ...STATIC_OPTIONS, viewport });
+        const referenceContext = await browser.newContext({ ...STATIC_OPTIONS, viewport });
+        try {
+          await addSeedSessionCookie(appContext, appOrigin, 'admin');
+          await setSeedTheme(appContext, appOrigin, theme);
+          const app = await appContext.newPage();
+          const list = await appToday(app, appOrigin, fixedTime);
+          await list.getByText(PIN_TITLE, { exact: true }).waitFor();
+          await captureScreen(app, viewport, theme, appPath);
+          if (await app.evaluate(() => Array.from(document.fonts).some((font) => font.status === 'error')))
+            throw new Error(`実装のフォントを読み込めません（${label}）`);
+
+          const reference = await referenceContext.newPage();
+          await reference.addInitScript((value) => localStorage.setItem('sq-design-theme', value), theme);
+          await reference.goto(`${referenceOrigin}/today.html`, { waitUntil: 'domcontentloaded' });
+          await reference.getByRole('heading', { level: 1, name: '今日やること', exact: true }).waitFor();
+          await reference.getByRole('heading', { level: 3, name: PINNED_LIST }).waitFor();
+          await reference
+            .locator('img:visible')
+            .evaluateAll((images) => Promise.all(images.map((image) => (image as HTMLImageElement).decode())));
+          await captureScreen(reference, viewport, theme, referencePath);
+        } finally {
+          await Promise.all([appContext.close(), referenceContext.close()]);
+        }
+        const images = await composePair(comparison, appPath, referencePath, pairs, label);
+        results.push({
+          theme,
+          viewport,
+          app: relative(directory, appPath),
+          reference: relative(directory, referencePath),
+          pairs: images.map((file) => relative(directory, file)),
+        });
+        console.log(`撮影済み ${theme} ${viewport.width}px`);
+      }
+    }
+    await composeContactSheet(
+      comparison,
+      results.flatMap(({ pairs: files }) => files.map((file) => join(directory, file))),
+      join(directory, 'contact-sheet.png'),
+    );
+    return results;
+  } finally {
+    await comparison.close();
+  }
+}
+
+async function saveRound(staging: string, output: string) {
+  const files = ['originals', 'pairs', 'motion', 'contact-sheet.png', 'design.md', 'exclusions.md', 'capture.json'];
+  // capture.json は最後に置く。途中で移動が止まった周は採点資料として使わない。
+  await rm(join(output, 'capture.json'), { force: true });
+  for (const name of files) {
+    await rm(join(output, name), { recursive: true, force: true });
+    await rename(join(staging, name), join(output, name));
+  }
+}
+
+async function main() {
+  const options = screenReviewOptions(process.argv.slice(2));
+  const root = process.cwd();
+  const fixedTime = reviewCaptureTime(new Date());
+  const output = resolve(root, 'test-results', 'screen-review', options.screen, options.state, options.round);
+  const exclusions = options.exclusions && (await readFile(resolve(root, options.exclusions)));
+  await mkdir(output, { recursive: true });
+  const lock = join(output, '.capture-in-progress');
+  try {
+    await mkdir(lock);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST')
+      throw new Error(`この周の撮影はすでに実行中です: ${output}`, { cause: error });
+    throw error;
+  }
+
+  const abort = new AbortController();
+  let browser: Browser | undefined;
+  const interrupt = () => {
+    abort.abort(new Error('撮影を中断しました'));
+    void browser?.close().catch(() => undefined);
+  };
+  process.once('SIGINT', interrupt);
+  process.once('SIGTERM', interrupt);
+  const staging = join(lock, 'output');
+  let scratch: string | undefined;
+  let runtime: ReturnType<typeof localReviewRuntime> | undefined;
+  let reference: Awaited<ReturnType<typeof serveReference>> | undefined;
+  try {
+    scratch = await mkdtemp(join(tmpdir(), 'screen-review-'));
+    await mkdir(staging);
+    runtime = localReviewRuntime(root, scratch, fixedTime, `screen-review-${randomUUID()}`, abort.signal);
+    reference = await serveReference(root);
+    browser = await launchChromium(runtime.options);
+    await runtime.resetSeed();
+    await runtime.start();
+    const images = await captureToday(browser, runtime.origin, reference.origin, staging, fixedTime);
+    await captureReviewMotion({
+      browser,
+      origin: runtime.origin,
+      fixedTime,
+      outputDir: staging,
+      resetSeed: runtime.resetSeed,
+      themes: CAPTURE_THEMES,
+      signIn: addSeedSessionCookie,
+      setTheme: setSeedTheme,
+      composeFrames: frameComposer(browser),
+    });
+    await copyFile(join(root, 'docs/design.md'), join(staging, 'design.md'));
+    if (exclusions) await writeFile(join(staging, 'exclusions.md'), exclusions);
+    else {
+      await copyFile(join(output, 'exclusions.md'), join(staging, 'exclusions.md'), constants.COPYFILE_EXCL).catch(
+        async (error: NodeJS.ErrnoException) => {
+          if (error.code !== 'ENOENT') throw error;
+          await writeFile(join(staging, 'exclusions.md'), '# 除外一覧\n\nなし。\n');
+        },
+      );
+    }
+    await writeFile(
+      join(staging, 'capture.json'),
+      JSON.stringify(
+        {
+          screen: options.screen,
+          state: options.state,
+          round: Number(options.round),
+          fixedTime: fixedTime.toISOString(),
+          browser: browser.version(),
+          images,
+          contactSheet: 'contact-sheet.png',
+          motion: 'motion/results.json',
+          design: 'design.md',
+          exclusions: 'exclusions.md',
+        },
+        null,
+        2,
+      ) + '\n',
+    );
+    abort.signal.throwIfAborted();
+    await saveRound(staging, output);
+    console.log(`撮影が完了しました。採点資料: ${output}`);
+  } catch (error) {
+    const failed = join(output, `failed-${randomUUID()}`);
+    try {
+      await rename(staging, failed);
+      await writeFile(join(failed, 'failure.txt'), error instanceof Error ? error.message : String(error));
+      console.error(`失敗した時点までの資料: ${failed}`);
+    } catch (saveError) {
+      console.error('撮影失敗時の資料を保存できません', saveError);
+    }
+    throw error;
+  } finally {
+    process.off('SIGINT', interrupt);
+    process.off('SIGTERM', interrupt);
+    await Promise.allSettled([browser?.close(), runtime?.close()]);
+    reference?.close();
+    if (scratch) await rm(scratch, { recursive: true, force: true });
+    await rm(lock, { recursive: true, force: true });
+  }
+}
+
+void main().catch((error: unknown) => {
+  console.error(error instanceof Error ? error.message : error);
+  process.exitCode = 1;
+});
