@@ -595,7 +595,7 @@ WHERE tbl = 'tasks' AND idx = 'tasks_workspace_tray';
 - `main` だけ先に `banmen` になると、その間に出した Release で、Workers Builds が名前の食い違いで止まるか、デプロイのスクリプトが `banmen` を無い Worker と見て、別の Worker `banmen` を戻し先無しで作る。その Worker はシークレットを持たないが、本番の D1 と R2 の binding と2つの cron を持つ。デプロイの前にマイグレーションも当たる。手元の `wrangler secret put` と `wrangler rollback` も、無い Worker `banmen` に向かう。別の `banmen` ができてしまったら、cron が本番の D1 に走るので、すぐにダッシュボードで消す（名前が埋まっていると、本番の名前も変えられない）
 - 名前だけ先に変えると、前の版が新しい URL で動く。`PUBLIC_ORIGIN` が旧 URL のままなので、更新系の API は Origin の検査で 403 になり、ログインの戻り先は旧 URL（404）に向かう
 
-PR を開けている間に急ぎの直しを本番へ出すときは、直しを先に `main` に入れて、いつもどおり Release を出す。#1423 の PR は `sync-base` で追従させる。
+PR を開けている間に急ぎの直しを本番へ出すときは、直しを先に `main` に入れて、いつもどおり Release を出す。#1423 の PR は `sync-base` で追従させる。その Release には、既に `main` にある #1422（Cookie の名前の変更）が入るので、旧 URL のままでも全員がログインし直す。publish の前にチームへ知らせる。
 
 当日に変わること。
 
@@ -614,7 +614,7 @@ PR を開けている間に急ぎの直しを本番へ出すときは、直し�
 
 ### 当日
 
-1. #1423 の PR をマージし、Releases の下書きに #1422 と #1423 が入ったことを見る。ここから手順 3 までは、手元から本番へ `wrangler` を打たない
+1. #1423 の PR をマージし、Releases の下書きに #1422 と #1423 が入ったことを見る。ここから手順 3 までは、手元から本番へ `wrangler` を打たず、手順 2 が済むまで Release を publish しない（上の「`main` だけ先に `banmen` になると」）
 2. ダッシュボードの Workers & Pages で `scrum-guild` を開き、Settings の General の Name を `banmen` に変える。続けて、Settings の Variables and Secrets にシークレットが、Triggers に2つの cron が、Builds に接続（ブランチ `production`）が残っていることを見る。名前を変え終えた時刻を、UTC の ISO 8601（例 `2026-11-25T01:00:00.000Z`）で控える。手順 5 で使う。名前を変えた後は、旧 URL も新しい URL も新しいセッションを作らない（旧 URL は 404、新しい URL の前の版は戻り先が旧 URL）ので、この時刻より前の行が、名前を変える前に作られた行のすべてになる
 3. すぐに Release を publish する（上の「出し方」）。Builds のログで、煙のテストが `https://banmen.ucan-lab.workers.dev/api/health` で版の一致と seed のトークンの拒否まで通ったことを見る
 4. 新しい URL で、次を確かめる。`/api/health` は前の版でも ok を返すので、それだけでは足りない
@@ -641,7 +641,7 @@ PR を開けている間に急ぎの直しを本番へ出すときは、直し�
 - 手順 4 の確かめで壊れていると分かったとき: 名前が `banmen` のうちに、手元で `wrangler rollback <前の版の ID> --message "<理由>"` を打ち（上の「コードを戻す」。`wrangler.jsonc` の `name` が `banmen` なので、この順なら `--name` は要らない）、続けて名前を `scrum-guild` に戻す
 - 手順 5 の後: 上と同じく戻す。消した旧セッションは戻らないので、全員が旧 URL でもログインし直す
 - 手順 6 の後: 先に転送用の Worker を消してから（下の「外し方」）、上と同じく戻す。旧名が空いていないと名前を戻せない
-- 手順 7 の後: 戻す前に、GitHub OAuth App に旧 URL の Redirect URI と Homepage URL を、Google のクライアントに旧 URL のリダイレクト URI を登録し直す。Google は反映に時間がかかるので、旧 URL の戻り先でログインが通るのを待ってから、上と同じく戻す
+- 手順 7 の後: 戻す前に、GitHub OAuth App に旧 URL の Redirect URI と Homepage URL を、Google のクライアントに旧 URL のリダイレクト URI を登録し直す。旧 URL は転送用の Worker が受けているので、戻す前には旧 URL でログインを試せない。Google の反映には数分から数時間かかるので、登録し直してから時間を置いて、上と同じく戻す。戻した後に旧 URL で GitHub と Google のログインを確かめる。Google の反映が済むまでは Google のログインだけが `redirect_uri_mismatch` で止まり、GitHub のログインは通る
 
 戻したら、`main` の #1423 の変更を revert する PR を入れ、`main` と本番の名前を揃えてから、ほかの Release を出す（上の「戻したあと」）。やり直す日に、revert を戻す PR を開けておき、この手順を初めからたどる。「前日まで」の手順 2 と 3 で足した戻り先は、やり直す日の手順 7 まで両方の URL を残す。
 
