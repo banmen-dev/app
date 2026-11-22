@@ -1245,8 +1245,14 @@ PR の版は、本番を載せない専用 Cloudflare アカウントの Worker 
 
 見本（`design/`）を、開発者でない人に見せるための2つ目の Worker で配信する（2026-10-23 に決めた）。
 
-- 設定はリポジトリのルートの `wrangler.design.jsonc`。`design/` を静的なファイルとして返すだけで、コード、D1、R2、シークレットを持たない。設定を `design/` の中に置くと設定そのものが配信されるので、外に置く
-- URL は `https://scrum-guild-design.ucan-lab.workers.dev/`。URL の先頭は Worker の名前。名前はダッシュボードの Worker の設定（General の Name）で変え、設定の `name` も同じ名前にそろえる。Access のアプリは URL でなく Worker に付くので、名前を変えた直後から新しい URL を守り、古い URL は 404 を返した（2026-10-24、#17）。設定の `name` だけが先に変わっていた間も、Workers Builds はつないだ Worker へのデプロイを通した。`ucan-lab` はアカウントの `workers.dev` のサブドメインで、変えるとアカウントのすべての Worker の URL が変わる
+- 設定はリポジトリのルートの `wrangler.design.jsonc`。`design/` を静的なファイルとして返すだけで、コード、D1、R2、シークレットを持たない。本番の `wrangler.jsonc` と同じく `send_metrics: false` を置き、Workers Builds と人の手元のどちらからもテレメトリを送らない。設定を `design/` の中に置くと設定そのものが配信されるので、外に置く
+- URL は `https://banmen-design.ucan-lab.workers.dev/`（`scrum-guild-design` から改める。設定の `name` は改め、ダッシュボードの名前は人が下の手順で変える。#1425）。URL の先頭は Worker の名前。名前はダッシュボードの Worker の設定（General の Name）で変え、設定の `name` も同じ名前にそろえる。Access のアプリは URL でなく Worker に付くので、名前を変えた直後から新しい URL を守り、古い URL は 404 を返した（2026-10-24、#17）。設定の `name` だけが先に変わっていた間も、Workers Builds はつないだ Worker へのデプロイを通した。`ucan-lab` はアカウントの `workers.dev` のサブドメインで、変えるとアカウントのすべての Worker の URL が変わる
+- 名前を変えるのは人で、セッションはデプロイもダッシュボードの操作もしない。#1425 の手順は次のとおり。Workers Builds はつないだ Worker へデプロイするので、ダッシュボードの名前の変更と、設定の `name` を変える PR のマージは、どちらが先でも動く（#17 の前例）。見本は手元から `wrangler deploy` しない（設定の名前の Worker が新しく作られ、Access の外で配られる）
+  1. Workers & Pages で `scrum-guild-design` を開き、Settings の General の Name を `banmen-design` に変える
+  2. Access にログインしていないブラウザ（シークレットウィンドウ）で `https://banmen-design.ucan-lab.workers.dev/` を開き、Access のログインに送られることを見る。許可した人のブラウザで開けることも見る。ログインに送られずに見本が出たら、すぐに Domains & Routes で `workers.dev` を無効にし、Access のアプリが新しいホスト名を覆うよう直してから、`workers.dev` を戻して確かめ直す
+  3. 古い URL `https://scrum-guild-design.ucan-lab.workers.dev/` が 404 を返すことを見る。転送はしない（Access で絞った少人数なので、見る人にチャットで新しい URL を知らせる）。空いた `scrum-guild-design` の名前で Worker を作り直さない（古い URL で Access の外に出る）
+  4. PR のマージの後、Builds のデプロイが通ったことを Deployments で見る。通らなければ Retry build を押す。Workers & Pages に意図しない Worker が増えていないことも見る
+  5. Zero Trust の Access controls の Applications で、見本のアプリの名前と覆う URL が新しい Worker の名前に変わったかを見る。覆う URL が古いままなら新しいホスト名に直して手順 2 をやり直す。名前が古いまま残るなら `banmen-design - Cloudflare Workers` に改め、下の Access の行のアプリ名も直す
 - 本番と同じく Workers Builds が `main` から反映する。ビルドのコマンドは空で、デプロイのコマンドは `npx wrangler deploy -c wrangler.design.jsonc`。build watch paths は `design/*` と `wrangler.design.jsonc` だけにし、preview builds は有効にしない
 - API トークンは、Workers Builds が自動で作ったもの（`scrum-guild-design build token`。もとの名前は `team-leveling-design build token`）を使っている。2026-10-25 に、本番と同じく編集で Workers Scripts: Edit、Account Settings: Read、User Details: Read、Memberships: Read の4つに絞り、名前を改め、Retry build でデプロイが通ることを確かめた。見本は D1 を使わない。Builds の設定の「API token」には、名前を変えた後も古い名前が出る（Builds が名前を写して持っている）
 - `workers.dev` の URL を Cloudflare Access（Zero Trust の無料の枠、50人まで）で守る。Access のアプリ（`scrum-guild-design - Cloudflare Workers`）は Worker の本番とプレビューの URL を覆い、セッションは1か月。ログインの手段は Cloudflare アカウントとワンタイム PIN。版ごとのプレビュー URL は設定の `preview_urls` で作らない

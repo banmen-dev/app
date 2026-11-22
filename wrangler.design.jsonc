@@ -1,8 +1,10 @@
 // 見本（design/）を配信するだけの Worker。コードを持たず、D1、R2、シークレットもつながない。
 // 本番の Worker とは別に Workers Builds が main から反映する（docs/development.md の「見本の Worker」）。
 {
-  "name": "scrum-guild-design",
+  "name": "banmen-design",
   "compatibility_date": "2026-10-01",
+  // Workers Builds と人の手元からも外へテレメトリを送らないよう設定に置く（wrangler.jsonc と同じ）
+  "send_metrics": false,
   "assets": {
     "directory": "./design"
   },
