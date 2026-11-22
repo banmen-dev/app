@@ -127,6 +127,7 @@ test('GitHubは全ページを取得し、forkのPRを生存中の根拠にし�
   });
   assert.equal(urls.length, 2);
   assert.match(urls[1], /page=2$/);
+  assert.equal(branches.length, 100);
   assert.ok(branches.every((branch) => branch === '374-preview'));
 });
 

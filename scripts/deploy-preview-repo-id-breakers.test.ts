@@ -6,7 +6,11 @@ import { openPreviewBranches } from './deploy-preview.ts';
 // 掃除の照合を崩す手口。既存のテストに無い型の揺れ・ページ送り・値の一致を確かめる。
 const own = (ref: string) => ({ head: { ref, repo: { id: PREVIEW_REPOSITORY_ID } } });
 
-test('掃除の宛先は Worker の PREVIEW_REPOSITORY_ID と同じ ID を使う', async () => {
+test('Worker と掃除が読む ID は scrum-guild-dev/app の ID（1425341812）', () => {
+  assert.equal(PREVIEW_REPOSITORY_ID, 1425341812);
+});
+
+test('掃除の宛先は Worker の PREVIEW_REPOSITORY_ID の宛先を使う', async () => {
   const urls: string[] = [];
   await openPreviewBranches(async (url) => {
     urls.push(url);
@@ -40,7 +44,15 @@ test('head.repo が undefined・配列のときは削除済み fork と同じ扱
 });
 
 test('id が小数・BigInt 風の文字列・Infinity なら例外にする', async () => {
-  for (const id of [PREVIEW_REPOSITORY_ID + 0.5, '1425341812n', ' 1425341812', Number.POSITIVE_INFINITY, Number.NaN]) {
+  for (const id of [
+    PREVIEW_REPOSITORY_ID + 0.5,
+    '1425341812n',
+    ' 1425341812',
+    Number.POSITIVE_INFINITY,
+    Number.NaN,
+    Number.MAX_SAFE_INTEGER + 2,
+    1e21,
+  ]) {
     await assert.rejects(
       openPreviewBranches(async () => [{ head: { ref: '374-preview', repo: { id } } }]),
       /開いた PR のブランチを読めませんでした/,
