@@ -377,7 +377,7 @@ PR の版は本番を載せていない専用 Cloudflare アカウントの Work
 
 ### 番号付き PR から Builds を起動する
 
-GitHub のリポジトリ Webhook と、`wrangler.preview-trigger.jsonc` で別に配信する専用 Worker `scrum-guild-preview-trigger` を使う。Webhook は HMAC で認証され、番号付きの作業ブランチから `main` を指す、同一リポジトリ内の PR だけがビルドを依頼できる。同一リポジトリかは、名前でなくリポジトリ ID（`1425341812`）だけで照合する。GitHub の Organization やリポジトリを改名しても、Webhook、GitHub API の照会、Builds の接続先の照合は変えずに続けられる。起動先は専用アカウントに限る。本番の Worker や既存の Access と R2 はそのままにする。
+GitHub のリポジトリ Webhook と、`wrangler.preview-trigger.jsonc` で別に配信する専用 Worker `scrum-guild-preview-trigger` を使う。Webhook は HMAC で認証され、番号付きの作業ブランチから `main` を指す、同一リポジトリ内の PR だけがビルドを依頼できる。同一リポジトリかは、名前でなくリポジトリ ID（`1425341812`）だけで照合する。GitHub の Organization やリポジトリを改名しても、Webhook、GitHub API の照会、Builds の接続先の照合は変えずに続けられる。照合は Builds の接続に保存された名前を見ないので、改名した後は、プレビュー Worker の Builds の接続先が新しい名前を指していることを Cloudflare のダッシュボードで確かめる（古い名前が残っていれば接続し直す）。起動先は専用アカウントに限る。本番の Worker や既存の Access と R2 はそのままにする。
 
 1. 共通プレビュー Worker の Builds の自動起動を上の表に揃え、ブランチ固定のデプロイフックがあれば起動元から外す。GitHub の `preview-builds-parked` は Builds の接続にだけ使う。作成後は push しないよう更新を制限する。Builds は有効にし、非本番の自動起動は無効のままにする。
 2. Cloudflare の [Builds API](https://developers.cloudflare.com/workers/ci-cd/builds/api-reference/) で、`scrum-guild-preview` の Worker タグと、その接続のトリガー UUID を確認する。起動専用 Worker の変数 `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_PREVIEW_WORKER_TAG`（Worker タグ）、`CLOUDFLARE_PREVIEW_TRIGGER_ID`（トリガー UUID）に設定する。Cloudflare ダッシュボードで配信用トークンの Resources が専用アカウント1件だけであることを確認し、そのトークンの UUID を `CLOUDFLARE_PREVIEW_BUILD_TOKEN_ID` に設定する。起動側は本番アカウントを拒み、接続先・コマンド・トークンが一致するときだけ Builds を起動する。
