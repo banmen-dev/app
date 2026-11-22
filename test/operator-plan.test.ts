@@ -36,7 +36,7 @@ afterEach(() => {
 
 const GIB = 1024 ** 3;
 const TEAM = { member_limit: 15, attachment_quota_bytes: 30 * GIB };
-const BUSINESS = { member_limit: 50, attachment_quota_bytes: 100 * GIB };
+const BUSINESS = { member_limit: 30, attachment_quota_bytes: 100 * GIB };
 const AT = '2026-10-20T00:00:00.000Z';
 
 const operatorToken = async () => (await withNewSession(await getOperator())).token;
@@ -129,12 +129,12 @@ async function changePlanBy(
 }
 
 describe('契約から決まる上限', () => {
-  test('チームは 15 人と 30 GB、ビジネスは 50 人と 100 GB、パーソナルは 1 人と 1 GB。追加容量は口数を足す', () => {
+  test('チームは 15 人と 30 GB、ビジネスは 30 人と 100 GB、パーソナルは 1 人と 1 GB。追加容量は口数を足す', () => {
     expect(PLAN_LIMITS.team).toEqual(TEAM);
     expect(PLAN_LIMITS.business).toEqual(BUSINESS);
     expect(PLAN_LIMITS.personal).toEqual({ member_limit: 1, attachment_quota_bytes: GIB });
     expect(contractLimits({ plan: 'business', extra_10gb_units: 2, extra_50gb_units: 1 })).toEqual({
-      member_limit: 50,
+      member_limit: 30,
       attachment_quota_bytes: 170 * GIB,
     });
     expect(contractLimits({ plan: 'personal', extra_10gb_units: 1, extra_50gb_units: 0 })).toEqual({
@@ -197,7 +197,7 @@ describe('契約の変更', () => {
     expect(listed.organizations.find((entry) => entry.slug === organization.slug)?.contract).toBeNull();
   });
 
-  test('チームからビジネス・年払いに変えると 50 人と 100 GB、チームに戻すと 15 人と 30 GB', async () => {
+  test('チームからビジネス・年払いに変えると 30 人と 100 GB、チームに戻すと 15 人と 30 GB', async () => {
     const organization = await createOrganization();
     const token = await operatorToken();
     expect((await changePlanBy(token, organization.slug, { plan: 'team', billing_interval: 'monthly' })).status).toBe(
@@ -212,6 +212,58 @@ describe('契約の変更', () => {
       200,
     );
     expect(await organizationRow(organization.id)).toMatchObject(TEAM);
+  });
+
+  test.each([
+    ['business', 30],
+    ['pro', 50],
+  ] as const)('旧ビジネスを %s で保存すると上限が %i 人になり、追加容量を維持する', async (plan, limit) => {
+    const organization = await createOrganization({ member_limit: 50, attachment_quota_bytes: 110 * GIB });
+    await insertContract(organization.id, { plan: 'business', billing_interval: 'yearly', extra_10gb_units: 1 });
+    const token = await operatorToken();
+    const admin = await createPerson({ organization, admin: true });
+    const res = await changePlanBy(token, organization.slug, { plan, billing_interval: 'yearly' });
+    const limits = { member_limit: limit, attachment_quota_bytes: 110 * GIB };
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ contract: { plan, extra_10gb_units: 1 }, ...limits });
+    expect(await organizationRow(organization.id)).toMatchObject(limits);
+
+    const history = await post(app, organizationHistory, { slug: organization.slug, token: admin.token });
+    expect(history.status).toBe(200);
+    expect(await history.json()).toMatchObject({
+      entries: [
+        {
+          actor: { kind: 'operator' },
+          event:
+            plan === 'business'
+              ? { kind: 'organization_quota_changed', member_limit: [50, 30] }
+              : {
+                  kind: 'organization_plan_changed',
+                  from: { plan: 'business', billing_interval: 'yearly' },
+                  to: { plan: 'pro', billing_interval: 'yearly' },
+                },
+        },
+      ],
+    });
+    const retried = await changePlanBy(token, organization.slug, { plan, billing_interval: 'yearly' });
+    expect(retried.status).toBe(200);
+    expect(await changeLogsOf(organization.id)).toHaveLength(1);
+  });
+
+  test('人数が揃っていても容量がずれていれば同じ契約で揃え、古い expected での書き込みは断る', async () => {
+    const organization = await createOrganization({ ...BUSINESS, attachment_quota_bytes: 90 * GIB });
+    const terms = { plan: 'business', billing_interval: 'monthly' } as const;
+    await insertContract(organization.id, terms);
+    const token = await operatorToken();
+    const stale = await changePlanBy(token, organization.slug, terms, { expected: null });
+    expect(stale.status).toBe(409);
+    expect(await organizationRow(organization.id)).toMatchObject({ attachment_quota_bytes: 90 * GIB });
+
+    const res = await changePlanBy(token, organization.slug, terms);
+    expect(res.status).toBe(200);
+    expect(await organizationRow(organization.id)).toMatchObject(BUSINESS);
+    const [entry] = await changeLogsOf(organization.id);
+    expect(JSON.parse(entry!.changes_json)).toEqual({ attachment_quota_bytes: [90 * GIB, 100 * GIB] });
   });
 
   test('人数がチームの上限を超える組織もチームに下げられ、今いる人は残り、一覧の人数が上限を超える', async () => {
@@ -333,11 +385,12 @@ describe('契約の変更', () => {
     expect(await errorCodeOf(res)).toBe('not_found');
   });
 
-  test('チームとビジネス以外のプランと、知らない支払いの周期は 400 の invalid_input', async () => {
+  test('自分用と未知のプラン、標準値のない個別、未知の支払いの周期は 400 の invalid_input', async () => {
     const organization = await createOrganization();
     const token = await operatorToken();
     for (const body of [
       { plan: 'personal', billing_interval: 'monthly' },
+      { plan: 'unknown', billing_interval: 'monthly' },
       { plan: 'custom', billing_interval: 'monthly' },
       { plan: 'team', billing_interval: 'weekly' },
     ]) {
@@ -663,7 +716,7 @@ describe('契約の変更', () => {
     expect(res.status).toBe(200);
     expect(await contractRow(organization.id)).toMatchObject({ extra_10gb_units: 2, extra_50gb_units: 1 });
     expect(await organizationRow(organization.id)).toMatchObject({
-      member_limit: 50,
+      member_limit: 30,
       attachment_quota_bytes: 170 * GIB,
     });
   });
@@ -773,7 +826,7 @@ describe('変更の履歴', () => {
     expect(JSON.parse(started!.changes_json)).toEqual({
       plan: [null, 'business'],
       billing_interval: [null, 'monthly'],
-      member_limit: [15, 50],
+      member_limit: [15, 30],
       attachment_quota_bytes: [30 * GIB, 100 * GIB],
       trial_ends_on: ['2026-12-01', null],
       attachment_quota_warned_at: [AT, null],
@@ -835,7 +888,7 @@ describe('変更の履歴', () => {
       action: 'update',
       organizationId: organization.id,
       error: 'Error',
-      changes: { plan: [null, 'business'], billing_interval: [null, 'yearly'], member_limit: [15, 50] },
+      changes: { plan: [null, 'business'], billing_interval: [null, 'yearly'], member_limit: [15, 30] },
     });
     expect(logged[0]).not.toContain('secret SQL detail');
   });
@@ -844,7 +897,7 @@ describe('変更の履歴', () => {
 describe.each([
   ['small', 3, 10],
   ['pro', 50, 100],
-] as const)('新しいプラン %s を読む版', (plan, members, quota) => {
+] as const)('プラン %s の契約', (plan, members, quota) => {
   async function setup() {
     const organization = await createOrganization({ member_limit: members, attachment_quota_bytes: quota * GIB });
     await insertContract(organization.id, { plan, billing_interval: 'monthly' });
@@ -926,14 +979,14 @@ describe.each([
       ]),
     });
   });
-  test('新プランの選択は400で断る', async () => {
-    const { organization, token } = await setup();
-    const rejected = await post(app, organizationPlanUpdate, {
-      token,
-      body: { slug: organization.slug, plan, billing_interval: 'monthly', expected: null },
-    });
-    expect(rejected.status).toBe(400);
-    expect(await errorCodeOf(rejected)).toBe('invalid_input');
+  test('未契約の組織に契約を保存し、標準の人数と容量を設定する', async () => {
+    const organization = await createOrganization();
+    const res = await changePlanBy(await operatorToken(), organization.slug, { plan, billing_interval: 'monthly' });
+    const limits = { member_limit: members, attachment_quota_bytes: quota * GIB };
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ contract: { plan, billing_interval: 'monthly' }, ...limits });
+    expect(await organizationRow(organization.id)).toMatchObject(limits);
+    expect(await contractRow(organization.id)).toMatchObject({ plan, billing_interval: 'monthly' });
   });
 });
 

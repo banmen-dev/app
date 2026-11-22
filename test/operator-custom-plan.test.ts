@@ -100,7 +100,7 @@ describe('個別の契約', () => {
     });
   });
 
-  test('50GBを1口足すと250GBになり、ビジネスへ変えると個別の値を空にして50人・150GBになる', async () => {
+  test('50GBを1口足すと250GBになり、ビジネスへ変えると個別の値を空にして30人・150GBになる', async () => {
     const { organization, operator } = await setup();
     const response = await post(app, organizationStorageUpdate, {
       token: operator,
@@ -138,11 +138,11 @@ describe('個別の契約', () => {
         custom_attachment_quota_bytes: null,
         extra_50gb_units: 1,
       },
-      member_limit: 50,
+      member_limit: 30,
       attachment_quota_bytes: 150 * GIB,
     });
     expect(await rows(organization.id)).toMatchObject({
-      organization: { member_limit: 50, attachment_quota_bytes: 150 * GIB },
+      organization: { member_limit: 30, attachment_quota_bytes: 150 * GIB },
       contract: { plan: 'business', custom_member_limit: null, custom_attachment_quota_bytes: null },
     });
   });
@@ -271,7 +271,7 @@ describe('個別の契約の入力の範囲', () => {
     expect((await rows(organization.id)).contract).toBeUndefined();
   });
 
-  test.each(['team', 'business'])('%s に個別の値を付けると400で契約を作らない', async (plan) => {
+  test.each(['small', 'team', 'business', 'pro'])('%s に個別の値を付けると400で契約を作らない', async (plan) => {
     const organization = await createOrganization();
     const operator = (await withNewSession(await getOperator())).token;
     const response = await post(app, organizationPlanUpdate, {

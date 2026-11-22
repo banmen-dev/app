@@ -61,17 +61,17 @@ describe('historyEventText', () => {
         {
           kind: 'organization_plan_changed',
           from: null,
-          to: { plan: 'team', billing_interval: 'monthly' },
+          to: { plan: 'small', billing_interval: 'monthly' },
         },
-        'プランをチーム・月払いにしました',
+        'プランをスモール・月払いにしました',
       ],
       [
         {
           kind: 'organization_plan_changed',
-          from: { plan: 'team', billing_interval: 'monthly' },
-          to: { plan: 'business', billing_interval: 'yearly' },
+          from: { plan: 'business', billing_interval: 'monthly' },
+          to: { plan: 'pro', billing_interval: 'yearly' },
         },
-        'プランをチーム・月払いからビジネス・年払いに変更しました',
+        'プランをビジネス・月払いからプロ・年払いに変更しました',
       ],
       [
         {

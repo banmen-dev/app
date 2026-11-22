@@ -2824,7 +2824,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
        <p class="field-hint">容量の上限を今の合計より小さくすると、合計が下がるまで新しく添付できません。上限を上げて合計が80%を下回ると、次に80%を超えたときに管理者へまた通知します。</p>
        <p class="field-hint">上限の変更は${t("organization")}の変更の履歴に、運用者の操作として残ります。</p>`,
       `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" id="d-qs" aria-disabled="true" aria-describedby="d-qu">変える</button>`),
-    // 契約（プランと支払いの周期）の変更（本番の OrganizationPlanDialog）。見本は「くもラボ」（ビジネス・月払い、停止もお試しもしていない）の状態。
+    // 契約（プランと支払いの周期）の変更（本番の OrganizationPlanDialog）。見本は「くもラボ」（プロ・月払い、停止もお試しもしていない）の状態。
     // 今の契約を選んだ状態で開き、選び直すと変えた後の上限（d-pa）と、今の人数や合計が超えるときの注意を出す。
     // 未契約の組織の上限が下がる注意（d-pl2）、お試しが終わる注記（d-pt）、停止したままの注記（d-pp）、未契約の組織の注記（d-pn）は、
     // 本番では組織の状態で出す。見本の「くもラボ」は契約済みで停止もお試しもしていないので、どれも hidden で置く
@@ -2848,11 +2848,13 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       syncStorageDialog();
     },
     changePlan: () => openDialog("プランを変える",
-      `<p class="wrap-anywhere">「くもラボ」のプランを変えます。今はビジネス・月払いで、人数 38&nbsp;人（上限 50&nbsp;人）、添付ファイルと Wiki の合計 42&nbsp;GB（上限 100&nbsp;GB）です。</p>
+      `<p class="wrap-anywhere">「くもラボ」のプランを変えます。今はプロ・月払いで、人数 38&nbsp;人（上限 50&nbsp;人）、添付ファイルと Wiki の合計 42&nbsp;GB（上限 100&nbsp;GB）です。</p>
        <div class="field"><span class="field-label" id="d-pl">プラン</span>
          <div class="choice-list" role="radiogroup" aria-labelledby="d-pl">
+           <label class="choice"><input type="radio" name="d-p" value="small" data-plan-choice><div><b>スモール</b><span>3&nbsp;人・10&nbsp;GB</span></div></label>
            <label class="choice"><input type="radio" name="d-p" value="team" data-plan-choice><div><b>チーム</b><span>15&nbsp;人・30&nbsp;GB</span></div></label>
-           <label class="choice"><input type="radio" name="d-p" value="business" data-plan-choice checked><div><b>ビジネス</b><span>50&nbsp;人・100&nbsp;GB</span></div></label>
+           <label class="choice"><input type="radio" name="d-p" value="business" data-plan-choice><div><b>ビジネス</b><span>30&nbsp;人・100&nbsp;GB</span></div></label>
+           <label class="choice"><input type="radio" name="d-p" value="pro" data-plan-choice checked><div><b>プロ</b><span>50&nbsp;人・100&nbsp;GB</span></div></label>
            <label class="choice"><input type="radio" name="d-p" value="custom" data-plan-choice><div><b>個別</b><span>相談して決めた人数と標準の容量</span></div></label>
          </div></div>
        <div class="form-row is-start" id="d-p-custom" hidden>
@@ -3927,8 +3929,9 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   };
   document.addEventListener("change", (ev) => { if (ev.target.closest("[data-quota-choice]")) syncQuotaDialog(); });
 
-  // 契約の変更のダイアログ: 見本の今の契約（ビジネス・月払い）を選んでいる間は「変える」を aria-disabled にし、理由（d-pu）を添える。
+  // 契約の変更のダイアログ: 見本の今の契約（プロ・月払い）を選んでいる間は「変える」を aria-disabled にし、理由（d-pu）を添える。
   // チームを選ぶと、今の人数（38 人）が上限を超える注意と、今の合計が上限を超える注意を出す（本番の OrganizationPlanDialog と同じ）
+  const planLimits = { small: [3, 10], team: [15, 30], business: [30, 100], pro: [50, 100] };
   const syncPlanDialog = () => {
     const plan = document.querySelector('input[name="d-p"]:checked');
     const interval = document.querySelector('input[name="d-pi"]:checked');
@@ -3936,10 +3939,11 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     if (!plan || !interval || !submit) return;
     const custom = plan.value === "custom";
     document.getElementById("d-p-custom").hidden = !custom;
-    const members = custom ? Number(document.getElementById("d-p-members").value) : plan.value === "team" ? 15 : 50;
-    const size = custom ? Number(document.getElementById("d-p-size").value) : plan.value === "team" ? 30 : 100;
+    const [members, size] = custom
+      ? [Number(document.getElementById("d-p-members").value), Number(document.getElementById("d-p-size").value)]
+      : planLimits[plan.value];
     const valid = Number.isInteger(members) && members >= 1 && members <= 10000 && Number.isInteger(size) && size >= 1 && size <= 102400;
-    const same = plan.value === "business" && interval.value === "monthly";
+    const same = plan.value === "pro" && interval.value === "monthly";
     submit.setAttribute("aria-disabled", String(same));
     document.getElementById("d-p-invalid").hidden = valid;
     document.getElementById("d-pu").hidden = !same;

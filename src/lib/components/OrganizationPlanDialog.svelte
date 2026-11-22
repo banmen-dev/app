@@ -27,8 +27,8 @@
   import Icon from './Icon.svelte';
 
   // チーム用の組織の契約（プランと支払いの周期）を変えるダイアログ（design/kit.js の changePlan）。運用の画面だけが使う。
-  // 今の契約を選んだ状態で開く。未契約なら、今の人数の上限がビジネスの値以上ならビジネス、それ以外はチームを、月払いで選ぶ。
-  // 今と同じ契約のままでは「変える」を押しても無視する（サーバーは何も書かずに今の値を返す）。
+  // 今の契約を選んだ状態で開く。未契約なら、今の人数の上限を満たす最小の定額プランか個別を、月払いで選ぶ。
+  // 契約と上限が今の値と同じなら「変える」を押しても無視する。
   // 開いたときの契約（未契約なら null）を expected に添えて送り、開いた後に別の運用者が変えていればサーバーが 409 で断る。
   // 変えた後の上限は契約から決まる（追加容量の口数は残す）。変えた後の上限を出し、今の人数が上限を超えるとき、今の合計が容量を超えるときは
   // 注意を出す。未契約の組織の上限（51人以上の個別の値など）より下がるときは、契約を付けると値で決め直せなくなることも注意する。
@@ -136,7 +136,9 @@
       plan = contract.plan;
       interval = contract.billing_interval;
     } else {
-      plan = organization.seats.limit >= PLAN_LIMITS.business.member_limit ? 'business' : 'team';
+      plan =
+        teamPlans.find((value) => value !== 'custom' && PLAN_LIMITS[value].member_limit >= organization.seats.limit) ??
+        'custom';
       interval = contract?.billing_interval ?? 'monthly';
     }
     members = (contract?.plan === 'custom' ? contract.custom_member_limit : null) ?? organization.seats.limit;
@@ -173,7 +175,10 @@
       target.contract.plan === plan &&
       target.contract.billing_interval === interval &&
       target.contract.custom_member_limit === customValues.custom_member_limit &&
-      target.contract.custom_attachment_quota_bytes === customValues.custom_attachment_quota_bytes,
+      target.contract.custom_attachment_quota_bytes === customValues.custom_attachment_quota_bytes &&
+      next !== null &&
+      target.member_limit === next.member_limit &&
+      target.attachment_quota_bytes === next.attachment_quota_bytes,
   );
 
   async function submit(event: SubmitEvent): Promise<void> {
@@ -245,7 +250,13 @@
           storage: usageText(target.attachment_used_bytes),
         }),
   );
-  const planNames = $derived({ team: t('planTeam'), business: t('planBusiness'), custom: t('planCustom') });
+  const planNames = $derived({
+    small: t('planSmall'),
+    team: t('planTeam'),
+    business: t('planBusiness'),
+    pro: t('planPro'),
+    custom: t('planCustom'),
+  });
   const intervalNames = $derived({ monthly: t('billingMonthly'), yearly: t('billingYearly') });
 </script>
 

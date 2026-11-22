@@ -305,7 +305,7 @@ describe('作成の既定', () => {
       now: new Date(),
     });
     expect(created).not.toBe('slug_taken');
-    const small = quotaTiers.find((tier) => tier.id === 'small')!;
+    const small = quotaTiers.find((tier) => tier.id === 'small_organization')!;
     expect(await currentQuotaOf(slug)).toEqual({
       member_limit: small.member_limit,
       attachment_quota_bytes: small.attachment_quota_bytes,
