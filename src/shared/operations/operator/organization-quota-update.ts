@@ -10,6 +10,7 @@ export const MEMBER_LIMIT_MAX = 10_000;
 export const ATTACHMENT_QUOTA_MAX_BYTES = 100 * 1024 ** 4; // 100 TB
 
 // 未契約の組織に使う上限の選択肢。小さい組織はチーム、標準はプロと同じ上限を使う。サーバーは上限の値を受ける
+// small_organization は未契約の上限の選択肢で、契約プランの small と区別する。
 export const quotaTiers = [
   { id: 'small_organization', ...PLAN_LIMITS.team },
   { id: 'standard', ...PLAN_LIMITS.pro },
