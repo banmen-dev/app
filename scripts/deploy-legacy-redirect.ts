@@ -128,8 +128,15 @@ export async function fetchReply(
     signal: AbortSignal.timeout(timeoutMs),
     cache: 'no-store',
   });
-  // 本文は JSON として読めたときだけ使う。読めなければ null
-  const body: unknown = await res.json().catch(() => null);
+  // 本文を読み切れなければ投げる（届かないとして止まる）。途中で切れた本文を「JSON でない」と取り違え、
+  // Worker の無い名前の 404 とみなして本番の Worker を上書きしないため。読み切れて JSON でなければ null
+  const text = await res.text();
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    body = null;
+  }
   return { status: res.status, location: res.headers.get('location'), body };
 }
 

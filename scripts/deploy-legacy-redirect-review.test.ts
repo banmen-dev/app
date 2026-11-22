@@ -93,6 +93,11 @@ describe('本物の問い合わせ（fetchReply）', () => {
       } else if (req.url === '/json') {
         res.writeHead(410, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ error: { code: 'moved', message: 'moved' } }));
+      } else if (req.url === '/truncated') {
+        // 長さを宣言して、本文の途中で切る（読み取りが途中で打ち切られた応答）
+        res.writeHead(404, { 'content-type': 'application/json', 'content-length': '1000' });
+        res.write('{"error":{"code":"not_fou');
+        setTimeout(() => res.socket?.destroy(), 20);
       } else if (req.url === '/hang') {
         // 答えない
       }
@@ -123,6 +128,10 @@ describe('本物の問い合わせ（fetchReply）', () => {
     const reply = await fetchReply(`${origin}/json`, 2_000);
     assert.equal(reply.status, 410);
     assert.deepEqual(reply.body, { error: { code: 'moved', message: 'moved' } });
+  });
+
+  test('本文を読み切れなければ、JSON でないとみなさず投げる（Worker の無い 404 と取り違えない）', async () => {
+    await assert.rejects(fetchReply(`${origin}/truncated`, 2_000));
   });
 
   test('答えなければ打ち切りの時間で投げる', async () => {
