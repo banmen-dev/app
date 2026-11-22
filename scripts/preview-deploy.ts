@@ -172,7 +172,8 @@ export async function deployPreview(deps: PreviewDeps): Promise<void> {
     // 人が手で掃除する入口。作成しないので、打ち切りは失敗として Builds に残す。
     const result = await cleanupClosedPreviews(deps, databases);
     logCleanup(deps, databases.length, result);
-    if (result.abortReason) throw new Error('閉じた PR の D1 の掃除を打ち切りました');
+    // 404 の D1 は消えたと確かめていないので、手の入口では人に見えるよう失敗にする。
+    if (result.abortReason || result.gone.length > 0) throw new Error('閉じた PR の D1 を掃除しきれませんでした');
     return;
   }
 
@@ -182,9 +183,8 @@ export async function deployPreview(deps: PreviewDeps): Promise<void> {
   logCleanup(deps, databases.length, result);
   // 自分の D1 も数える。作り直しで先に消すが、並行するビルドが同じ枠を取りうるため（#1456）。
   const remaining = databases.length - result.deleted.length;
-  const deletedIds = new Set([...result.deleted, ...result.gone].map((database) => database.uuid.toLowerCase()));
-  const kept = databases.filter((database) => !deletedIds.has(database.uuid.toLowerCase()));
-  if (result.abortReason) {
+  // 404 の D1 は消えたと確かめていないので、打ち切ったときと同じく数で続けるかを決める。
+  if (result.abortReason || result.gone.length > 0) {
     if (remaining >= PREVIEW_CLEANUP_CONTINUE_BELOW) {
       // deploy-preview.ts は例外の本文を出さないので、止める理由はログに出す。
       deps.log(
@@ -192,10 +192,13 @@ export async function deployPreview(deps: PreviewDeps): Promise<void> {
       );
       throw new Error('閉じた PR の D1 を掃除できず、D1 の数が多いので止めました');
     }
-    deps.log(`警告: D1 が ${remaining} 個で ${PREVIEW_CLEANUP_CONTINUE_BELOW} 個未満なので、掃除せずに配信を続けます`);
+    deps.log(
+      `警告: D1 が ${remaining} 個で ${PREVIEW_CLEANUP_CONTINUE_BELOW} 個未満なので、掃除しきれないまま配信を続けます`,
+    );
   }
 
-  const previous = kept.find((database) => database.name === name);
+  // 自分の番号は掃除の対象から外しているので、先に読んだ一覧から探せる。
+  const previous = databases.find((database) => database.name === name);
   if (previous) {
     deps.log(`プレビューの D1 を作り直します: ${name}`);
     await deleteUnlessGone(deps, previous);

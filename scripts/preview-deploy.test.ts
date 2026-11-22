@@ -454,7 +454,7 @@ test('main の掃除は GitHub の失敗をビルドの失敗にし、ログに�
   assert.ok(f.logs.includes('閉じた PR の D1 の掃除を打ち切りました: 開いた PR を読めませんでした（HTTP 403）'));
 });
 
-test('並行するビルドが先に消した D1 の 404 は削除済みとして扱い、掃除を続ける', async () => {
+test('並行するビルドが先に消した D1 の 404 では打ち切らずに掃除を続け、消せた数には入れない', async () => {
   const closed = Array.from({ length: 8 }, (_, index) => ({
     name: `banmen-pr-${1001 + index}`,
     uuid: `${String(index).padStart(8, '0')}-2222-4222-8222-222222222222`,
@@ -533,4 +533,48 @@ test(`開いた PR の一覧に自分の番号が無く、D1 が ${PREVIEW_CLEAN
   // 掃除で何も消さず、自分の D1 も消しも作りもしない。
   assert.deepEqual(f.events, []);
   assert.ok(f.logs.includes('閉じた PR の D1 の掃除を打ち切りました: 開いた PR の一覧にこのビルドの番号がありません'));
+});
+
+test(`閉じた D1 の削除がすべて 404 で、D1 が ${PREVIEW_CLEANUP_CONTINUE_BELOW} 個以上残るなら作る前に止まる`, async () => {
+  const closed = Array.from({ length: PREVIEW_CLEANUP_CONTINUE_BELOW }, (_, index) => ({
+    name: `banmen-pr-${1001 + index}`,
+    uuid: `${String(index).padStart(8, '0')}-3333-4333-8333-333333333333`,
+  }));
+  const f = fake({
+    listDatabases: async () => [OLD, ...closed],
+    openBranches: async () => ['374-preview'],
+    deleteDatabase: async (db) => {
+      f.events.push(`delete:${db.name}`);
+      throw new PreviewHttpError(404);
+    },
+  });
+  await assert.rejects(deployPreview(f.deps));
+  assert.ok(!f.events.includes(`delete:${OLD.name}`));
+  assert.ok(!f.events.some((event) => event.startsWith('create:')));
+  assert.deepEqual(f.published, []);
+});
+
+test(`閉じた D1 の削除が 404 でも、D1 が ${PREVIEW_CLEANUP_CONTINUE_BELOW} 個未満なら警告して続ける`, async () => {
+  const f = fake({
+    listDatabases: async () => [OLD, CLOSED_A],
+    deleteDatabase: async (db) => {
+      f.events.push(`delete:${db.name}`);
+      if (db.name === CLOSED_A.name) throw new PreviewHttpError(404);
+    },
+  });
+  await deployPreview(f.deps);
+  assert.ok(f.logs.some((line) => line.startsWith('警告: D1 が 2 個')));
+  assert.equal(f.published.length, 1);
+});
+
+test('main の掃除で 404 の D1 があれば、ビルドを失敗にして人に見せる', async () => {
+  const f = fake({
+    env: { WORKERS_CI: '1', WORKERS_CI_BRANCH: 'main' },
+    openBranches: async () => ['275-task-complete'],
+    deleteDatabase: async () => {
+      throw new PreviewHttpError(404);
+    },
+  });
+  await assert.rejects(deployPreview(f.deps));
+  assert.ok(f.logs.some((line) => line.startsWith('閉じた PR の D1 の掃除: 前 3 個、後 3 個、削除 なし、404 ')));
 });
