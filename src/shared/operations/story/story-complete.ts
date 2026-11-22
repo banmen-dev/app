@@ -22,13 +22,11 @@ export function storyCompletionConflictReasonOf(details: unknown): StoryCompleti
 
 // ストーリーを手で完了にする。配下に削除していない未完了のバックログのタスクがあれば 409 の conflict（open_tasks）。
 // 親のエピックが完了か中止していれば 409 の conflict（parent_completed。完了にすると取り消せなくなるため）。
-// 配下にタスクが1件も無いストーリーも完了にできる。完了の経験値（story_completed）は、配下のタスクで打ち消されていない
-// 完了の経験値（task_completed）を受け取った人に1人1回ずつ、今そのワークスペースに所属している人だけに付ける。
+// 配下にタスクが1件も無いストーリーも完了にできる。経験値（xp_grants）は付けない（#1430）。
 // 変更の履歴（entity_type = 'story'、complete）も同じ batch() で書く。無いストーリー（別の組織を含む）は 404
 export const storyComplete = defineOperation({
   name: 'story-complete',
-  description:
-    '配下のタスクがすべて完了したストーリーを完了にし、配下のタスクで完了の経験値を受け取った人に経験値を付ける',
+  description: '配下のタスクがすべて完了したストーリーを完了にする',
   mode: 'write',
   permission: 'member',
   workspace: true,

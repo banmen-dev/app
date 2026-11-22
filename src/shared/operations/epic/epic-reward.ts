@@ -11,7 +11,7 @@ import { defineOperation } from '../define.ts';
 // - 今と同じ値への変更は、何も書かず（履歴も残さず）200 で changed を偽にする
 // - 履歴は entity_type = 'epic'、action = 'update' で、{"reward_tier": [前, 後]} と {"requester": [{id, name}, {id, name}]}
 
-// クリア報酬の段階を変える。依頼主とリーダー（管理者を含む）だけ。reward_xp は段階の額（XP_EPIC_REWARD）で、払うのはクリアの処理
+// クリア報酬の段階を変える。依頼主とリーダー（管理者を含む）だけ。reward_xp は段階の額（XP_EPIC_REWARD）で、いまはクリアしても払わない（#1430）
 export const epicRewardUpdate = defineOperation({
   name: 'epic-reward-update',
   description: 'エピックの依頼主とリーダーが、クリア報酬の段階を変える。今と同じ段階なら何もしない',

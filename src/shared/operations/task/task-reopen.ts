@@ -16,15 +16,14 @@ export function taskReopenConflictReasonOf(details: unknown): TaskReopenConflict
 }
 
 // タスクの完了を戻す。完了した日時と完了にした人を空に戻し、その完了の記録（completions の completed_at が tasks.completed_at と
-// 同じ行）を消し、その記録で付いた打ち消されていない経験値（completion_id がその記録のもの）を打ち消しの明細で取り消す。
+// 同じ行）を消す。経験値の打ち消しの明細は書かない（#1430。前に確定した明細も残す）。
 // 進行中のスプリントの中で完了したタスクは、完了の前にいた列（previous_column_id。空か、削除したか、完了の列なら先頭の完了でない列）の、
 // そのスプリントでの末尾へ戻す。スプリントの外で完了したタスクは列なしのまま。sprint_entries は書かない。
 // 変更の履歴（entity_type = 'task'、reopen）も同じ batch() で書く。無いタスク（別の組織を含む）は 404、
 // 断る理由は taskReopenConflictReasons。sprint_id と column_id は戻した後の値（スプリントの外なら null）
 export const taskReopen = defineOperation({
   name: 'task-reopen',
-  description:
-    'タスクの完了を戻し、完了の前にいた列へ戻す。完了の記録を消し、その完了で付いた経験値を打ち消し、変更の履歴も同時に書く',
+  description: 'タスクの完了を戻し、完了の前にいた列へ戻す。完了の記録を消し、変更の履歴も同時に書く',
   mode: 'write',
   permission: 'member',
   workspace: true,

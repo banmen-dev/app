@@ -13,6 +13,7 @@ import {
 } from '../../shared/operations/experience/index.ts';
 import { MIN_POINTS_FOR_EXPERIENCE } from '../../shared/task.ts';
 import type { OrganizationDb } from '../db/index.ts';
+import { amountOf } from './aggregate.ts';
 import { activeTaskGrant, detailedRecipient } from './task-detail-xp.ts';
 import { implement } from './implement.ts';
 import { actorUserIdOf } from './write-guards.ts';
@@ -78,12 +79,6 @@ export function epicPartyExperienceTotalsStatement(db: OrganizationDb, workspace
       )
       .groupBy('g.user_id'),
   );
-}
-
-// SUM と COUNT の結果を数にする（D1 は整数で返す。null と数でない値は 0 として扱う）。合計を読むどの処理もこれを使う
-export function amountOf(value: unknown): number {
-  const number = Number(value ?? 0);
-  return Number.isFinite(number) ? number : 0;
 }
 
 // 名前の昇順、同じ名前は ID の昇順。JavaScript の文字列の比較（UTF-16 の符号単位の順）で並べる。

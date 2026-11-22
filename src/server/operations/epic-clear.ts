@@ -1,9 +1,7 @@
 import { now } from '../../shared/clock.ts';
-import { XP_EPIC_REWARD, type EpicRewardTier } from '../../shared/experience.ts';
 import { epicComplete, epicReopen } from '../../shared/operations/epic/index.ts';
 import type { EpicClearConflictReason } from '../../shared/operations/epic/epic-clear.ts';
 import {
-  jsonList,
   previousStatementChanged,
   type OrganizationDb,
   type OrganizationTables,
@@ -14,14 +12,11 @@ import { uuidv7 } from '../uuid.ts';
 import { implement } from './implement.ts';
 import { actorUserIdOf, changeLogColumns, isLeaderOrAdmin, openWorkspace, throwIfClosed } from './write-guards.ts';
 
-// エピックのクリアと取り消し（docs/data-model.md の epics、xp_grants と「書き込みの単位」）。書き方はストーリーの完了と取り消し
-// （story.ts）と同じで、先に読んで断る順を決め、書く文は読んだ値を条件にした UPDATE、直前の文に結んだ履歴、
-// 履歴の行を条件にした経験値の明細にする。通らなければ読み直して決め直す
+// エピックのクリアと取り消し（docs/data-model.md の epics と「書き込みの単位」）。書き方はストーリーの完了と取り消し
+// （story.ts）と同じで、先に読んで断る順を決め、書く文は読んだ値を条件にした UPDATE と、直前の文に結んだ履歴にする。
+// 通らなければ読み直して決め直す。経験値は付けない（#1430）
 
 type Tables = OrganizationTables;
-
-// batch() の結果の並び: 0 が epics の UPDATE、1 が履歴、2 からが受け取り手ごとの付与
-const GRANTS_FROM = 2;
 
 // 同時の書き込みに負けたときにやり直す回数の上限。超えたら 409 の conflict（changed）
 const MAX_ATTEMPTS = 3;
@@ -40,52 +35,10 @@ function storiesUnder(from: Pick<QueryCreator<Tables>, 'selectFrom'>, workspaceI
     .where('stories.deleted_at', 'is', null);
 }
 
-// クリア報酬を受け取る人の、討伐隊の行。今そのワークスペースに所属している人だけ。
-// epic_party_members は workspace_id を持たないので、ワークスペースで絞ったエピックを結ぶ
-function recipientRows(from: Pick<QueryCreator<Tables>, 'selectFrom'>, workspaceId: string, epicId: string) {
-  return from
-    .selectFrom('epic_party_members as p')
-    .innerJoin('epics', 'epics.id', 'p.epic_id')
-    .where('p.epic_id', '=', epicId)
-    .where('epics.workspace_id', '=', workspaceId)
-    .where((eb) =>
-      eb.exists(
-        eb
-          .selectFrom('memberships')
-          .select('memberships.id')
-          .whereRef('memberships.user_id', '=', 'p.user_id')
-          .where('memberships.workspace_id', '=', workspaceId)
-          .where('memberships.left_at', 'is', null),
-      ),
-    );
-}
-
-// 自分の履歴の行がある、という条件。経験値の付与と打ち消しは、これで自分の更新が通ったことを見る
-// （履歴は直前の UPDATE が行を変えたときだけ入り、id はこの要求だけの値なので、止めた時計でも負けた要求とは一致しない）
-function ownLog(from: Pick<QueryCreator<Tables>, 'selectFrom'>, workspaceId: string, logId: string) {
-  return from
-    .selectFrom('change_logs')
-    .select('change_logs.id')
-    .where('change_logs.id', '=', logId)
-    .where('change_logs.workspace_id', '=', workspaceId);
-}
-
-const grantColumns = [
-  'id',
-  'workspace_id',
-  'user_id',
-  'action',
-  'epic_id',
-  'amount',
-  'reverses_grant_id',
-  'dedupe_key',
-  'confirmed_at',
-] as const;
-
-// 読んだエピックの状態。クリアしたか、中止したか、依頼主、段階、クリアにした人（履歴の「前」に使う名前）、
-// 配下のストーリーの件数と未完了の件数、報酬の受け取り手
+// 読んだエピックの状態。クリアしたか、中止したか、依頼主、クリアにした人（履歴の「前」に使う名前）、
+// 配下のストーリーの件数と未完了の件数
 async function readEpic(db: OrganizationDb, workspaceId: string, epicId: string) {
-  const [epicResult, countResult, recipientResult] = await db.batch([
+  const [epicResult, countResult] = await db.batch([
     db.statement((q) =>
       q
         .selectFrom('epics')
@@ -93,7 +46,6 @@ async function readEpic(db: OrganizationDb, workspaceId: string, epicId: string)
           join.onRef('done_by.id', '=', 'epics.completed_by').on('done_by.organization_id', '=', db.organizationId),
         )
         .select([
-          'epics.reward_tier',
           'epics.requester_user_id',
           'epics.completed_at',
           'epics.completed_by',
@@ -112,15 +64,12 @@ async function readEpic(db: OrganizationDb, workspaceId: string, epicId: string)
         .where('stories.workspace_id', '=', workspaceId)
         .where('stories.deleted_at', 'is', null),
     ),
-    db.statement((q) => recipientRows(q, workspaceId, epicId).select('p.user_id').orderBy('p.user_id')),
   ] as const);
   const row = epicResult.rows[0];
   if (row === undefined) return undefined;
   const total = Number(countResult.rows[0]?.total ?? 0);
   const done = Number(countResult.rows[0]?.done ?? 0);
   return {
-    // 列の CHECK が守る値
-    rewardTier: row.reward_tier as EpicRewardTier,
     requesterUserId: row.requester_user_id,
     completedAt: row.completed_at,
     completedBy: row.completed_by,
@@ -128,7 +77,6 @@ async function readEpic(db: OrganizationDb, workspaceId: string, epicId: string)
     canceled: row.canceled_at !== null,
     storyCount: total,
     openCount: total - done,
-    recipients: recipientResult.rows.map((r) => r.user_id),
   };
 }
 
@@ -167,8 +115,7 @@ async function clearableEpic(
 }
 
 // クリアする。UPDATE の条件は、同じワークスペースの削除していない、クリアも中止もしていないエピック、閉じていないワークスペース、
-// 読んだ段階のまま、依頼主かリーダー、配下の削除していないストーリーが1件以上あり未完了が無いこと、
-// 討伐隊の今所属している人が読んだ人の外に増えていないこと。通らなかったら、読み直して決め直す（受け取り手が変わっただけなら、やり直す）
+// 依頼主かリーダー、配下の削除していないストーリーが1件以上あり未完了が無いこと。通らなかったら、読み直して決め直す
 export const epicCompleteOperation = implement(epicComplete, async ({ db, actor, workspace, input }) => {
   const userId = actorUserIdOf(actor);
   const organizationId = db.organizationId;
@@ -185,7 +132,7 @@ export const epicCompleteOperation = implement(epicComplete, async ({ db, actor,
   if (user === undefined) throw new ApiError(404, 'not_found');
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const epic = await clearableEpic(
+    await clearableEpic(
       db,
       workspaceId,
       await readEpic(db, workspaceId, epicId),
@@ -195,8 +142,6 @@ export const epicCompleteOperation = implement(epicComplete, async ({ db, actor,
     const at = now();
     const completedAt = at.toISOString();
     const logId = uuidv7(at);
-    const { recipients, rewardTier } = epic;
-    const amount = XP_EPIC_REWARD[rewardTier];
     const results = await db.batch([
       db.statement((q) =>
         q
@@ -207,22 +152,12 @@ export const epicCompleteOperation = implement(epicComplete, async ({ db, actor,
           .where('deleted_at', 'is', null)
           .where('completed_at', 'is', null)
           .where('canceled_at', 'is', null)
-          // 読んだ段階のまま（払う額がずれないように）
-          .where('reward_tier', '=', rewardTier)
           .$if(!leader, (qb) => qb.where('requester_user_id', '=', userId))
           .where((eb) =>
             eb.and([
               eb.exists(openWorkspace(q, organizationId, workspaceId)),
               eb.exists(storiesUnder(q, workspaceId, epicId)),
               eb.not(eb.exists(storiesUnder(q, workspaceId, epicId).where('stories.completed_at', 'is', null))),
-              eb.not(
-                eb.exists(
-                  recipientRows(q, workspaceId, epicId)
-                    .select('p.user_id')
-                    // 受け取り手が多くても bind の上限に当たらないよう、一覧は1つの値で渡す
-                    .where('p.user_id', 'not in', jsonList(recipients)),
-                ),
-              ),
             ]),
           ),
       ),
@@ -254,44 +189,11 @@ export const epicCompleteOperation = implement(epicComplete, async ({ db, actor,
               .where(previousStatementChanged),
           ),
       ),
-      // 受け取り手に1人1行ずつ。書くときにも、討伐隊にいて今所属していることを確かめる
-      ...recipients.map((recipient) => {
-        // 回のキー。止めた時計（DEV_NOW）で、クリア、取り消し、クリアを同じ時刻に流しても付け直せるよう、この要求の履歴の ID も含める
-        const dedupeKey = `epic_reward:${epicId}:${recipient}:${completedAt}:${logId}`;
-        return db.statement((q) =>
-          q
-            .insertInto('xp_grants')
-            .columns(grantColumns)
-            .expression(
-              q
-                .selectNoFrom((eb) => [
-                  eb.val(uuidv7(at)).as('id'),
-                  eb.val(workspaceId).as('workspace_id'),
-                  eb.val(recipient).as('user_id'),
-                  eb.val('epic_reward').as('action'),
-                  eb.val(epicId).as('epic_id'),
-                  eb.val(amount).as('amount'),
-                  eb.val(null).as('reverses_grant_id'),
-                  eb.val(dedupeKey).as('dedupe_key'),
-                  eb.val(completedAt).as('confirmed_at'),
-                ])
-                .where((eb) =>
-                  eb.and([
-                    eb.exists(ownLog(eb, workspaceId, logId)),
-                    eb.exists(
-                      recipientRows(eb, workspaceId, epicId).select('p.user_id').where('p.user_id', '=', recipient),
-                    ),
-                  ]),
-                ),
-            ),
-        );
-      }),
     ]);
 
     if ((results[0]?.changes ?? 0) > 0) {
-      // 付けた人数は、付与の文が実際に行を足した数（読んでから書くまでに討伐隊を抜けた人には付かない）
-      const granted = results.slice(GRANTS_FROM).filter((result) => (result.changes ?? 0) > 0).length;
-      return { epic_id: epicId, completed_at: completedAt, reward_xp: amount, recipient_count: granted };
+      // 経験値は付けないので、額と人数は 0（出力の形は経験値の画面を外す PR まで保つ）
+      return { epic_id: epicId, completed_at: completedAt, reward_xp: 0, recipient_count: 0 };
     }
     // 閉じていれば 409 の workspace_closed。そうでなければ読み直して決め直す（上の順）。それでも断る理由が無ければ、やり直す
     await throwIfClosed(db, workspaceId);
@@ -336,32 +238,6 @@ export const epicReopenOperation = implement(epicReopen, async ({ db, actor, wor
     (e) => leader || e.requesterUserId === userId,
   );
   const completedAt = epic.completedAt!;
-
-  // 打ち消す付与。このエピックの、打ち消されていないクリア報酬。クリアした日時が読んだ値のままなら（書く文の条件）、
-  // 読んでから書くまでに新しい付与は入らない（入るのは、取り消してからもう一度クリアしたときだけ）
-  const grants = await db.rows(
-    db.statement((q) =>
-      q
-        .selectFrom('xp_grants as g')
-        .select(['g.id', 'g.user_id', 'g.amount'])
-        .where('g.epic_id', '=', epicId)
-        .where('g.workspace_id', '=', workspaceId)
-        .where('g.action', '=', 'epic_reward')
-        .where('g.reverses_grant_id', 'is', null)
-        .where((eb) =>
-          eb.not(
-            eb.exists(
-              eb
-                .selectFrom('xp_grants as r')
-                .select('r.id')
-                .whereRef('r.reverses_grant_id', '=', 'g.id')
-                .where('r.workspace_id', '=', workspaceId),
-            ),
-          ),
-        )
-        .orderBy('g.id'),
-    ),
-  );
 
   const at = now();
   const reopenedAt = at.toISOString();
@@ -409,42 +285,6 @@ export const epicReopenOperation = implement(epicReopen, async ({ db, actor, wor
             ])
             .where(previousStatementChanged),
         ),
-    ),
-    // 打ち消しの明細。元の行を指し、負の値を足す
-    ...grants.map((grant) =>
-      db.statement((q) =>
-        q
-          .insertInto('xp_grants')
-          .columns(grantColumns)
-          .expression(
-            q
-              .selectNoFrom((eb) => [
-                eb.val(uuidv7(at)).as('id'),
-                eb.val(workspaceId).as('workspace_id'),
-                eb.val(grant.user_id).as('user_id'),
-                eb.val('epic_reward').as('action'),
-                eb.val(epicId).as('epic_id'),
-                eb.val(-grant.amount).as('amount'),
-                eb.val(grant.id).as('reverses_grant_id'),
-                eb.val(`reversal:${grant.id}`).as('dedupe_key'),
-                eb.val(reopenedAt).as('confirmed_at'),
-              ])
-              .where((eb) =>
-                eb.and([
-                  eb.exists(ownLog(eb, workspaceId, logId)),
-                  eb.not(
-                    eb.exists(
-                      eb
-                        .selectFrom('xp_grants')
-                        .select('xp_grants.id')
-                        .where('xp_grants.reverses_grant_id', '=', grant.id)
-                        .where('xp_grants.workspace_id', '=', workspaceId),
-                    ),
-                  ),
-                ]),
-              ),
-          ),
-      ),
     ),
   ]);
 

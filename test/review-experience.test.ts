@@ -4,15 +4,11 @@ import { createApp } from '../src/server/app.ts';
 import { orgDb, readReviewTarget, reviewUpdateStatements } from '../src/server/db/index.ts';
 import { envWithD1Hooks } from '../src/server/db/testing.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
-import { experienceSummary } from '../src/shared/operations/experience/index.ts';
 import { taskComplete, taskReopen } from '../src/shared/operations/task/index.ts';
 import {
   createConnection,
   createTask,
   createTaskSource,
-  createDetailField,
-  createTaskFieldValue,
-  createThanks,
   createBoardColumn,
   createSprint,
   createSprintEntry,
@@ -138,8 +134,8 @@ async function nextCycle(s: Awaited<ReturnType<typeof setup>>) {
   );
 }
 
-describe('レビュー依頼の回ごとの経験値', () => {
-  test('提出・終了の同期検知は印だけを変え、完了記録と経験値を作らない', async () => {
+describe('レビュー依頼の回ごとの完了', () => {
+  test('提出・終了の同期検知は印だけを変え完了記録を作らず、人の完了でも経験値の明細は増えない', async () => {
     const s = await setup();
     await syncReview(s, 'request-1', true);
     expect(await completions(s)).toEqual([]);
@@ -155,86 +151,62 @@ describe('レビュー依頼の回ごとの経験値', () => {
     );
     expect(source?.is_source_done).toBe(1);
     expect((await call(s.target, s.task.id)).status).toBe(200);
-    expect(await grants(s)).toMatchObject([{ action: 'review', amount: 30 }]);
+    expect(await grants(s)).toEqual([]);
   });
 
-  test('人が完了した時だけ review を担当者へ付け、依頼回と完了を結ぶ', async () => {
+  test('人が完了した時だけ依頼回と完了を結び、経験値の明細は増えない', async () => {
     const s = await setup({ assignee: 'leader' });
     expect(await grants(s)).toEqual([]);
-    expect((await call(s.target, s.task.id)).status).toBe(200);
-    const rows = await grants(s);
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ action: 'review', amount: 30, user_id: s.target.leader.userId });
-    expect(rows[0].dedupe_key).toBe(`review:${rows[0].completion_id}`);
+    const response = await call(s.target, s.task.id);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ xp_granted: 0 });
+    expect(await grants(s)).toEqual([]);
+    const records = await completions(s);
+    expect(records).toHaveLength(1);
     const cycles = await s.db.rows(
       s.db.statement((q) => q.selectFrom('review_request_cycles').selectAll().where('task_id', '=', s.task.id)),
     );
     expect(cycles).toHaveLength(1);
-    expect(cycles[0].completion_id).toBe(rows[0].completion_id);
+    expect(cycles[0].completion_id).toBe(records[0].id);
   });
 
-  test('担当なしなら完了した人へ付け、同じ依頼回の再送と並行完了で二重に付けない', async () => {
+  test('同じ依頼回の再送と並行完了で二重に完了記録を作らない', async () => {
     const s = await setup();
     const responses = await Promise.all([call(s.target, s.task.id), call(s.target, s.task.id)]);
     expect(responses.map((r) => r.status).sort()).toEqual([200, 409]);
     expect((await call(s.target, s.task.id)).status).toBe(409);
-    expect(await grants(s)).toMatchObject([{ action: 'review', amount: 30, user_id: s.target.member.userId }]);
+    expect(await grants(s)).toEqual([]);
     expect(await completions(s)).toHaveLength(1);
   });
 
-  test.each([0, null])('ポイント %s は完了記録だけを作り、経験値を付けない', async (points) => {
+  test.each([0, null])('ポイント %s でも完了記録を作り、経験値の明細は増えない', async (points) => {
     const s = await setup({ points });
     expect((await call(s.target, s.task.id)).status).toBe(200);
     expect(await grants(s)).toEqual([]);
     expect(await completions(s)).toHaveLength(1);
   });
 
-  test('所属していない担当者には付けず、実行者への付け替えもしない', async () => {
-    const s = await setup({ assignee: 'admin' });
-    await s.db.run(
-      s.db.statement((q) =>
-        q
-          .updateTable('memberships')
-          .set({ left_at: AT, left_on: '2026-11-01' })
-          .where('workspace_id', '=', s.target.workspace.id)
-          .where('user_id', '=', s.target.admin.userId!),
-      ),
-    );
-    expect((await call(s.target, s.task.id)).status).toBe(200);
-    expect(await grants(s)).toEqual([]);
-  });
-
-  test('通常の取り消しは当該回を打ち消し、同じ回の再完了は正味1回分になる', async () => {
+  test('通常の取り消しは当該回の完了記録を消し、同じ回の再完了は完了記録1件に戻る', async () => {
     const s = await setup();
     expect((await call(s.target, s.task.id)).status).toBe(200);
     expect((await call(s.target, s.task.id, taskReopen)).status).toBe(200);
     expect(await completions(s)).toEqual([]);
     expect((await call(s.target, s.task.id)).status).toBe(200);
-    const rows = await grants(s);
-    expect(rows.every((r) => r.action === 'review')).toBe(true);
-    expect(rows.reduce((sum, r) => sum + r.amount, 0)).toBe(30);
+    expect(await grants(s)).toEqual([]);
     expect(await completions(s)).toHaveLength(1);
   });
 
-  test('同じ時刻の再依頼後も過去を残し、次回の人の完了で付け、取り消しは次回だけ', async () => {
+  test('同じ時刻の再依頼後も過去の完了を残し、取り消しは次回の完了だけを消す', async () => {
     const s = await setup();
     expect((await call(s.target, s.task.id)).status).toBe(200);
     const first = (await completions(s))[0];
     await nextCycle(s);
-    expect(await grants(s)).toHaveLength(1);
     expect(await completions(s)).toHaveLength(1);
     expect((await call(s.target, s.task.id)).status).toBe(200);
     expect(await completions(s)).toHaveLength(2);
-    expect((await grants(s)).filter((r) => r.action === 'review' && r.amount === 30)).toHaveLength(2);
     expect((await call(s.target, s.task.id, taskReopen)).status).toBe(200);
     expect(await completions(s)).toMatchObject([{ id: first.id }]);
-    expect((await grants(s)).reduce((sum, r) => sum + r.amount, 0)).toBe(30);
-  });
-
-  test('移行前の依頼回なしのレビュー依頼も通常完了XPに混ぜない', async () => {
-    const s = await setup({ cycle: null });
-    expect((await call(s.target, s.task.id)).status).toBe(200);
-    expect(await grants(s)).toMatchObject([{ action: 'review', amount: 30 }]);
+    expect(await grants(s)).toEqual([]);
   });
 
   test('依頼回なしで完了した旧行を初回同期した後でも当該完了を取り消せる', async () => {
@@ -245,10 +217,9 @@ describe('レビュー依頼の回ごとの経験値', () => {
     expect(await completions(s)).toMatchObject([{ id: first.id }]);
     expect((await call(s.target, s.task.id, taskReopen)).status).toBe(200);
     expect(await completions(s)).toEqual([]);
-    expect((await grants(s)).reduce((sum, r) => sum + r.amount, 0)).toBe(0);
     expect((await call(s.target, s.task.id)).status).toBe(200);
     expect(await completions(s)).toHaveLength(1);
-    expect((await grants(s)).reduce((sum, r) => sum + r.amount, 0)).toBe(30);
+    expect(await grants(s)).toEqual([]);
   });
 
   test('旧未接続完了と現在回の完了が同時刻でも、現在回の取り消しは過去を残す', async () => {
@@ -261,56 +232,7 @@ describe('レビュー依頼の回ごとの経験値', () => {
     expect(await completions(s)).toHaveLength(2);
     expect((await call(s.target, s.task.id, taskReopen)).status).toBe(200);
     expect(await completions(s)).toMatchObject([{ id: first.id }]);
-    expect((await grants(s)).reduce((sum, r) => sum + r.amount, 0)).toBe(30);
-  });
-
-  test('再依頼の同じ詳細と感謝には重ねて付けず、現在回の取消も過去の付与を残す', async () => {
-    const s = await setup();
-    const field = await createDetailField(s.target.organization, s.target.workspace.id);
-    await createTaskFieldValue(s.target.organization, s.task.id, field.id, s.target.member.userId!);
-    await createThanks(
-      s.target.organization,
-      s.target.workspace.id,
-      s.task.id,
-      s.target.leader.userId!,
-      s.target.member.userId!,
-    );
-    expect((await call(s.target, s.task.id)).status).toBe(200);
-    const first = await grants(s);
-    expect(first.filter((r) => r.action === 'task_detailed')).toMatchObject([{ amount: 20 }]);
-    expect(first.filter((r) => r.action === 'help')).toMatchObject([{ amount: 10 }]);
-    await nextCycle(s);
-    expect((await call(s.target, s.task.id)).status).toBe(200);
-    const second = await grants(s);
-    expect(second.filter((r) => r.action === 'task_detailed')).toHaveLength(1);
-    expect(second.filter((r) => r.action === 'help')).toHaveLength(1);
-    expect(second.reduce((sum, r) => sum + r.amount, 0)).toBe(90);
-    expect((await call(s.target, s.task.id, taskReopen)).status).toBe(200);
-    const reopened = await grants(s);
-    expect(reopened.filter((r) => r.amount < 0)).toMatchObject([{ action: 'review', amount: -30 }]);
-    expect(reopened.reduce((sum, r) => sum + r.amount, 0)).toBe(60);
-  });
-
-  test('前回の詳細経験値が残る再依頼では、次回の詳細見込みを数えない', async () => {
-    const s = await setup();
-    const field = await createDetailField(s.target.organization, s.target.workspace.id);
-    await createTaskFieldValue(s.target.organization, s.task.id, field.id, s.target.member.userId!);
-    expect((await call(s.target, s.task.id)).status).toBe(200);
-    expect((await grants(s)).filter((r) => r.action === 'task_detailed')).toMatchObject([{ amount: 20 }]);
-    await nextCycle(s);
-    const response = await post(app, experienceSummary, {
-      slug: s.target.slug,
-      token: s.target.member.token,
-      body: {},
-      env: clock,
-    });
-    expect(response.status).toBe(200);
-    const summary = (await response.json()) as {
-      prospective: number;
-      workspaces: { id: string; prospective: number }[];
-    };
-    expect(summary.prospective).toBe(0);
-    expect(summary.workspaces.find((w) => w.id === s.target.workspace.id)?.prospective).toBe(0);
+    expect(await grants(s)).toEqual([]);
   });
 
   test.each([false, true])('現在の依頼回の行が欠けていたら409で何も書かない（旧回の行=%s）', async (oldCycle) => {
@@ -340,19 +262,6 @@ describe('レビュー依頼の回ごとの経験値', () => {
     );
     expect(row?.completed_at).toBeNull();
   });
-
-  test.each([null, 'leader'] as const)(
-    'レビュー経験値の応答額は実行者自身が受け取った分だけ（担当=%s）',
-    async (assignee) => {
-      const s = await setup({ assignee });
-      const response = await call(s.target, s.task.id);
-      expect(response.status).toBe(200);
-      expect(await response.json()).toMatchObject({ xp_granted: assignee === null ? 30 : 0 });
-      expect(await grants(s)).toMatchObject([
-        { action: 'review', amount: 30, user_id: assignee === null ? s.target.member.userId : s.target.leader.userId },
-      ]);
-    },
-  );
 
   test.each(['planned', 'active'] as const)(
     '%sスプリントのレビュー完了・取消で、進行中の配置だけを復元し予定の所属は外したままにする',
@@ -386,7 +295,7 @@ describe('レビュー依頼の回ごとの経験値', () => {
       );
       const response = await call(s.target, s.task.id);
       expect(response.status).toBe(200);
-      expect(await response.json()).toMatchObject({ left_sprint: status === 'planned', xp_granted: 30 });
+      expect(await response.json()).toMatchObject({ left_sprint: status === 'planned', xp_granted: 0 });
       expect(await completions(s)).toMatchObject([
         {
           sprint_id: status === 'active' ? sprint.id : null,
@@ -425,7 +334,7 @@ describe('レビュー依頼の回ごとの経験値', () => {
         { ended_at: status === 'active' ? null : AT, outcome: status === 'active' ? null : 'removed' },
       ]);
       expect(await completions(s)).toEqual([]);
-      expect((await grants(s)).reduce((sum, r) => sum + r.amount, 0)).toBe(0);
+      expect(await grants(s)).toEqual([]);
       const row = await s.db.first(
         s.db.statement((q) =>
           q
@@ -454,7 +363,7 @@ describe('レビュー依頼の回ごとの経験値', () => {
     },
   );
 
-  test('完了対象の読み取り後に依頼回の版が進んだら読み直して完了し二重付与しない', async () => {
+  test('完了対象の読み取り後に依頼回の版が進んだら読み直して完了し、二重に完了しない', async () => {
     const s = await setup();
     let changed = false;
     let reads = 0;
@@ -484,14 +393,13 @@ describe('レビュー依頼の回ごとの経験値', () => {
     expect(changed).toBe(true);
     expect(reads).toBeGreaterThanOrEqual(2);
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ xp_granted: 30 });
+    expect(await response.json()).toMatchObject({ xp_granted: 0 });
     expect(await completions(s)).toHaveLength(1);
-    expect(await grants(s)).toMatchObject([{ action: 'review', amount: 30 }]);
     expect((await call(s.target, s.task.id)).status).toBe(409);
-    expect(await grants(s)).toHaveLength(1);
+    expect(await grants(s)).toEqual([]);
   });
 
-  test('読み取り後に新しい依頼回へ変わったら次回だけに完了を接続し、再送にも二重付与しない', async () => {
+  test('読み取り後に新しい依頼回へ変わったら次回だけに完了を接続し、再送にも二重に完了しない', async () => {
     const s = await setup();
     let changed = false;
     let reads = 0;
@@ -542,7 +450,7 @@ describe('レビュー依頼の回ごとの経験値', () => {
       { review_cycle: 'request-2', completion_id: records[0].id },
     ]);
     expect((await call(s.target, s.task.id)).status).toBe(409);
-    expect(await grants(s)).toMatchObject([{ action: 'review', amount: 30 }]);
+    expect(await grants(s)).toEqual([]);
   });
 
   test('別組織のレビュー依頼のIDは404で、元タスクの完了記録も経験値も作らない', async () => {
@@ -560,9 +468,9 @@ describe('レビュー依頼の回ごとの経験値', () => {
     expect(await grants(s)).toEqual([]);
   });
 
-  test('PR の完了は従来どおり task_completed を付ける', async () => {
+  test('PR の完了でも経験値の明細は増えない', async () => {
     const s = await setup({ kind: 'pull_request', cycle: null });
     expect((await call(s.target, s.task.id)).status).toBe(200);
-    expect(await grants(s)).toMatchObject([{ action: 'task_completed', amount: 30 }]);
+    expect(await grants(s)).toEqual([]);
   });
 });
