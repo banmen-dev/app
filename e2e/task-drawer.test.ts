@@ -181,7 +181,9 @@ test('完了したタスクのポイントは直せず、理由を添える。�
   await expect(row.getByRole('button', { name: 'ポイント: 3 pt' })).toBeVisible();
   await drawer.getByRole('button', { name: '完了にする', exact: true }).click();
   // 経験値は付かないので、トーストに XP の行を出さない（#1431）
-  await expect(page.getByRole('status').filter({ hasText: 'タスクを完了にしました' })).not.toContainText('XP');
+  const toast = page.getByRole('status').filter({ hasText: 'タスクを完了にしました' }).last();
+  await expect(toast).toBeVisible();
+  await expect(toast).not.toContainText('XP');
   // 引き出しで完了すると背面の木は読み直して行を畳む。そのまま開いた引き出しで確かめる。
   await expect(drawer.getByText('完了したタスクのポイントは直せません')).toBeVisible();
   // 理由の文は、ポイントの欄の説明に結ばれる。読み取り専用でも、選んだ値は薄めずに読める

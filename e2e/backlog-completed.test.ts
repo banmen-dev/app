@@ -43,7 +43,9 @@ test('親なしと配下の完了をキーボードで開閉し、詳細を開�
     await page.getByRole('button', { name: `${done}にする: ${title}`, exact: true }).click();
     await completed;
     // 経験値は付かないので、トーストに XP の行を出さない（#1431）
-    await expect(page.getByRole('status').filter({ hasText: 'タスクを完了にしました' })).not.toContainText('XP');
+    const toast = page.getByRole('status').filter({ hasText: 'タスクを完了にしました' }).last();
+    await expect(toast).toBeVisible();
+    await expect(toast).not.toContainText('XP');
   }
   await page.reload();
   let fail = true;
