@@ -29,7 +29,7 @@ const fixtureIndex = process.argv.indexOf('--fixture-at');
 const fixtureTime = fixtureIndex < 0 ? new Date() : new Date(process.argv[fixtureIndex + 1] ?? '');
 if (!Number.isFinite(fixtureTime.getTime())) throw new Error('--fixture-at が不正です');
 const origin = `http://127.0.0.1:${port}`;
-const dir = mkdtempSync(path.join(tmpdir(), 'scrum-guild-loading-'));
+const dir = mkdtempSync(path.join(tmpdir(), 'banmen-loading-'));
 // 秘密の設定ファイルを探索しないよう、一時ディレクトリに独立した wrangler 設定を作る。
 const root = process.cwd();
 const config = path.join(dir, 'wrangler.json');

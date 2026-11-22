@@ -25,7 +25,7 @@ test.describe('アカウントのメニュー', () => {
     await list.getByRole('link', { name: 'マイプロフィール', exact: true }).click();
     await expect(page).toHaveURL(/\/aoba\/me$/);
     await expect(page.getByRole('heading', { level: 1, name: 'マイプロフィール' })).toBeVisible();
-    await expect(page).toHaveTitle('マイプロフィール - Scrum Guild');
+    await expect(page).toHaveTitle('マイプロフィール - Banmen');
     await expect(button).toHaveAttribute('aria-expanded', 'false');
     await expect(list).toBeHidden();
     await button.click();

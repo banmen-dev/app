@@ -104,7 +104,7 @@ describe('入口（cli/sg.ts）を子プロセスで動かす', () => {
       assert.equal(setToken.code, 0);
       assert.ok(!setToken.stdout.includes(TOKEN) && !setToken.stderr.includes(TOKEN));
 
-      const path = join(home, 'xdg', 'scrum-guild', 'config.json');
+      const path = join(home, 'xdg', 'banmen', 'config.json');
       assert.equal(statSync(path).mode & 0o777, 0o600);
       assert.equal(JSON.parse(readFileSync(path, 'utf8')).profiles.main.token, TOKEN);
 
@@ -142,13 +142,13 @@ describe('入口（cli/sg.ts）を子プロセスで動かす', () => {
   });
 
   // XDG Base Directory の決まり: XDG_CONFIG_HOME が空なら、未設定と同じく $HOME/.config を使う。
-  // docs/development.md も「未設定なら ~/.config/scrum-guild/config.json」、Issue の前提も ~/.config/scrum-guild/config.json
-  test('XDG_CONFIG_HOME が空の文字列なら、~/.config/scrum-guild/config.json に書く', async () => {
+  // docs/development.md も「未設定なら ~/.config/banmen/config.json」、Issue の前提も ~/.config/banmen/config.json
+  test('XDG_CONFIG_HOME が空の文字列なら、~/.config/banmen/config.json に書く', async () => {
     const home = tempDir();
     try {
       const result = await sg(['config', 'set', 'url', serverUrl], { HOME: home, XDG_CONFIG_HOME: '' });
       assert.equal(result.code, 0, result.stderr);
-      assert.ok(existsSync(join(home, '.config', 'scrum-guild', 'config.json')));
+      assert.ok(existsSync(join(home, '.config', 'banmen', 'config.json')));
     } finally {
       rmSync(home, { recursive: true, force: true });
     }
@@ -219,7 +219,7 @@ describe('設定ファイルを書けないとき（Issue: 終了コード 3 は
   test('書けない場所の設定ファイルへの config set は、つながらない（3、connection_failed）にしない', async (context) => {
     if (process.getuid?.() === 0) return context.skip('root は権限を無視する');
     const dir = tempDir();
-    const locked = join(dir, 'scrum-guild');
+    const locked = join(dir, 'banmen');
     mkdirSync(locked);
     chmodSync(locked, 0o500);
     try {

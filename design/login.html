@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Scrum Guild ログイン</title>
+<title>Banmen ログイン</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;900&display=swap">
@@ -25,7 +25,7 @@ const { t, icon, esc } = SQ;
 function render() {
   document.getElementById("gate").innerHTML = `<div class="gate"><div class="gate-stack">
     <section class="gate-sheet">
-      <div class="gate-brand">${SQ.brandMark}<span class="visually-hidden">Scrum Guild</span></div>
+      <div class="gate-brand">${SQ.brandMark}<span class="visually-hidden">Banmen</span></div>
       <h1 class="gate-title">ログイン</h1>
       <p>いずれかの${t("organization")}に所属しているか、招待されている人がログインできます。招待されたときの手段でログインしてください。</p>
       <div class="gate-group">
@@ -40,7 +40,7 @@ function render() {
     </section>
     <p class="gate-note"><a href="signup.html">会員登録と利用開始の見本へ</a></p>
     <section class="gate-sheet">
-      <h2 class="dialog-title">Scrum Guild への招待</h2>
+      <h2 class="dialog-title">Banmen への招待</h2>
       <p>招待されたメールアドレスの Google アカウントでログインしてください。</p>
       <button class="btn is-wide is-google" type="button">${SQ.googleMark}Google でログイン</button>
       <div class="callout is-warn">${icon("alert")}<span>この招待の URL は使えません。期限が切れたか、取り消されたか、招待されたのと別のアカウントでログインしています。招待した人に確かめるか、届いた招待の URL をもう一度開いてください。もう入れる${t("organization")}がある人は、下のボタンからそのままログインできます。</span></div>
@@ -48,8 +48,8 @@ function render() {
       <div class="form-actions" role="group" aria-label="利用規約とプライバシーポリシー"><a class="btn is-sm is-quiet" href="#" target="_blank" rel="noopener noreferrer">利用規約<span class="visually-hidden"> 新しいタブで開きます</span></a><a class="btn is-sm is-quiet" href="#" target="_blank" rel="noopener noreferrer">プライバシーポリシー<span class="visually-hidden"> 新しいタブで開きます</span></a></div>
     </section>
     <section class="gate-sheet">
-      <div class="gate-brand">${SQ.brandMark}<span class="visually-hidden">Scrum Guild</span></div>
-      <h1 class="gate-title">Scrum Guild への招待</h1>
+      <div class="gate-brand">${SQ.brandMark}<span class="visually-hidden">Banmen</span></div>
+      <h1 class="gate-title">Banmen への招待</h1>
       <div class="callout is-warn" role="alert">${icon("alert")}<span>この招待の URL は使えません。招待の URL を開いた直後の画面だけが使えます。戻る・再読み込みをしたときや、URL が欠けているときは、届いた招待の URL をもう一度開いてください。</span></div>
       <div class="form-actions"><a class="btn is-sm is-quiet" href="#">ログインの画面へ</a></div>
       <div class="form-actions" role="group" aria-label="利用規約とプライバシーポリシー"><a class="btn is-sm is-quiet" href="#" target="_blank" rel="noopener noreferrer">利用規約<span class="visually-hidden"> 新しいタブで開きます</span></a><a class="btn is-sm is-quiet" href="#" target="_blank" rel="noopener noreferrer">プライバシーポリシー<span class="visually-hidden"> 新しいタブで開きます</span></a></div>
@@ -107,7 +107,7 @@ function render() {
   </div></div>
   <div class="gate is-reading" style="min-height:0"><div class="gate-stack">
     <section class="gate-sheet">
-      <div class="gate-brand">${SQ.brandMark}<span class="visually-hidden">Scrum Guild</span></div>
+      <div class="gate-brand">${SQ.brandMark}<span class="visually-hidden">Banmen</span></div>
       <h2 class="gate-title">プライバシーポリシー</h2>
       <div class="form-actions" role="group" aria-label="元の画面へ"><button class="btn is-sm is-quiet" type="button">前の画面に戻る</button></div>
       <p>改定日: 2026-10-31</p>
@@ -119,7 +119,7 @@ function render() {
       </div>
       <div class="form-actions" role="group" aria-label="関連するページ"><a class="btn is-sm" href="#">利用規約</a><button class="btn is-sm is-quiet" type="button">前の画面に戻る</button></div>
     </section>
-    <p class="gate-note">利用規約とプライバシーポリシー（/terms、/privacy）の見本です。ログインしていなくても開けます。紙の幅は 720px までで、見出しの直下（改定日の上）にも元の画面へ戻る操作を1つ置き、本文は紙の直下に Markdown で置き、下にもう一方のページへのリンクと、元の画面へ戻る操作を置きます（アプリの中から移ってきたときは「前の画面に戻る」ボタン、直に開いたときは「Scrum Guild を開く」リンク）。改定日は紙の上に本文と同じ大きさで1か所だけ出します。ログインと招待の画面の紙の下にも、両方へのリンクを置きます（招待の画面は、秘密を持つので新しいタブで開きます）。</p>
+    <p class="gate-note">利用規約とプライバシーポリシー（/terms、/privacy）の見本です。ログインしていなくても開けます。紙の幅は 720px までで、見出しの直下（改定日の上）にも元の画面へ戻る操作を1つ置き、本文は紙の直下に Markdown で置き、下にもう一方のページへのリンクと、元の画面へ戻る操作を置きます（アプリの中から移ってきたときは「前の画面に戻る」ボタン、直に開いたときは「Banmen を開く」リンク）。改定日は紙の上に本文と同じ大きさで1か所だけ出します。ログインと招待の画面の紙の下にも、両方へのリンクを置きます（招待の画面は、秘密を持つので新しいタブで開きます）。</p>
   </div></div>`;
 }
 SQ.applyTheme();

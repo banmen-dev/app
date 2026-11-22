@@ -221,7 +221,7 @@ export const dictionary = defineDictionary({
   onboardingDisclosure: '操作できるデザインの見本です。入力は保存されず、登録・送信・外部接続は行われません。',
   onboardingExit: 'プレビューを閉じる',
   onboardingStep: '{total} ステップ中 {current}',
-  onboardingAccount: 'Scrum Guild をはじめる',
+  onboardingAccount: 'Banmen をはじめる',
   onboardingAccountLead: 'チームの仕事を、一歩ずつ前へ。まずはアカウントを選びましょう。',
   onboardingOrganization: '{organization}を作成',
   onboardingOrganizationLead: 'チームが集まる場所に、名前を付けましょう。',
@@ -563,8 +563,8 @@ export const dictionary = defineDictionary({
   // ---- 本番の画面の文言 ----
   delegatee: '依頼先',
   // 枠の共通の文言
-  appName: 'Scrum Guild',
-  brandName: 'スクラムギルド',
+  appName: 'Banmen',
+  brandName: 'Banmen',
   pageTitle: '{page} - {app}',
   menu: 'メニュー',
   mobileTabs: 'よく使う画面',
@@ -697,7 +697,7 @@ export const dictionary = defineDictionary({
   firstStepBecameLeaderNote: '{member}の招待と、{backlog}の準備を進められます。',
   firstStepInviteTitle: '{member}を招待する',
   firstStepInviteNote:
-    'GitHub のユーザー名か Google のメールアドレスで招待し、{organization}の URL（Google なら招待の URL）を本人に伝えます。Scrum Guild は招待をメールで送りません。',
+    'GitHub のユーザー名か Google のメールアドレスで招待し、{organization}の URL（Google なら招待の URL）を本人に伝えます。Banmen は招待をメールで送りません。',
   firstStepFirstTaskTitle: '{backlog}に最初の{task}を入れる',
   firstStepFirstTaskNote: '空の行に題を入れて作ります。{member}が入る前に並べておくと、何から始めるかが伝わります。',
   firstStepSprintTitle: '最初の{sprint}を作って始める',
@@ -1575,7 +1575,7 @@ export const dictionary = defineDictionary({
 
   // 作った後の表示
   operatorDoneTitle: '{organization}を作りました',
-  operatorDoneLead: 'Scrum Guild はメールを送りません。{admin}になる人に、次の URL とログインの手段を伝えてください。',
+  operatorDoneLead: 'Banmen はメールを送りません。{admin}になる人に、次の URL とログインの手段を伝えてください。',
   operatorDoneUrlLabel: '{organization}の URL',
   operatorCopy: 'コピー',
   operatorCopied: 'URL をコピーしました',
@@ -1583,7 +1583,7 @@ export const dictionary = defineDictionary({
   operatorDoneTell: 'GitHub の {name} でログインするよう伝えてください。',
   // Google の指名で作った後の表示。招待の URL はこの画面にだけ出る
   operatorInviteLead:
-    'Scrum Guild はメールを送りません。{admin}になる人に、次の招待の URL を伝えてください。本人がこの URL を開き、指名したメールアドレスの Google アカウントでログインすると、{organization}に入れます。',
+    'Banmen はメールを送りません。{admin}になる人に、次の招待の URL を伝えてください。本人がこの URL を開き、指名したメールアドレスの Google アカウントでログインすると、{organization}に入れます。',
   operatorInviteUrlLabel: '招待の URL',
   operatorInviteCopied: '招待の URL をコピーしました',
   operatorInviteOnce:
@@ -1594,7 +1594,7 @@ export const dictionary = defineDictionary({
   operatorInviteReissue:
     'URL を失ったときや期限が切れたときは、一覧の「{admin}を指名」から指名し直すと、新しい招待の URL が出ます。',
 
-  operatorPasswordInviteLead: 'Scrum Guild はメールを送りません。{admin}になる人に、次の指名の URL を伝えてください。',
+  operatorPasswordInviteLead: 'Banmen はメールを送りません。{admin}になる人に、次の指名の URL を伝えてください。',
   operatorPasswordInviteUrlLabel: '指名の URL',
   operatorPasswordInviteTell: '指名したメールアドレス',
   operatorPasswordInviteCopied: '指名の URL をコピーしました',
@@ -1819,7 +1819,7 @@ export const dictionary = defineDictionary({
   inviteSubmitting: '招待しています',
   // 続けて組織の URL を出す（長い URL を折り返せるよう、URL は別の要素にする）
   inviteSendNote:
-    'Scrum Guild は招待をメールで送りません。Google の招待は、招待したときに出る招待の URL（14日で切れます）を本人に伝えてください。GitHub の招待は、次の{organization}の URL を伝えてください。',
+    'Banmen は招待をメールで送りません。Google の招待は、招待したときに出る招待の URL（14日で切れます）を本人に伝えてください。GitHub の招待は、次の{organization}の URL を伝えてください。',
   // Google の招待。メールアドレスで指し、確かめる手順は無い
   inviteGoogleEmailLabel: 'Google のメールアドレス',
   inviteGoogleEmailExample: '例: mio.hoshino@example.com',
@@ -1831,7 +1831,7 @@ export const dictionary = defineDictionary({
   // Google で招待した後のダイアログ。招待の URL はこの画面にだけ出る
   inviteUrlTitle: '招待の URL',
   inviteUrlLead:
-    '招待しました。Scrum Guild はメールを送りません。この招待の URL を本人に伝えてください。本人がこの URL を開き、招待したメールアドレスの Google アカウントでログインすると、招待を承諾して{workspace}に入れます。',
+    '招待しました。Banmen はメールを送りません。この招待の URL を本人に伝えてください。本人がこの URL を開き、招待したメールアドレスの Google アカウントでログインすると、招待を承諾して{workspace}に入れます。',
   inviteUrlLabel: '招待の URL',
   inviteCopy: 'コピー',
   inviteUrlCopied: '招待の URL をコピーしました',

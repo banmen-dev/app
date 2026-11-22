@@ -501,7 +501,7 @@ test('760px では今日やること、ニュース、ワークスペース、�
   const dashboard = page.locator('.dashboard');
   await expect(dashboard.locator('.pane-title')).toHaveText([
     '今日やること',
-    'Scrum Guild のニュース',
+    'Banmen のニュース',
     'ワークスペース',
     '最近の更新',
   ]);

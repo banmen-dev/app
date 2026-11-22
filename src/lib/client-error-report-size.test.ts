@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest';
 import { CLIENT_ERROR_MAX_BODY_BYTES, type ClientErrorReport } from '../shared/client-error.ts';
 import { createClientErrorReporter } from './client-error-report.ts';
 
-const ORIGIN = 'https://scrum-guild.example.test';
+const ORIGIN = 'https://banmen.example.test';
 
 const rejectionEvent = (reason: unknown): PromiseRejectionEvent => ({ reason }) as unknown as PromiseRejectionEvent;
 

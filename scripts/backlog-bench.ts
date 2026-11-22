@@ -147,7 +147,7 @@ const prepareIndex = process.argv.indexOf('--prepare-only');
 const prepareOnly = prepareIndex === -1 ? undefined : process.argv[prepareIndex + 1];
 if (prepareIndex !== -1 && !prepareOnly) throw new Error('--prepare-only に場所を渡す');
 
-const dir = prepareOnly ?? mkdtempSync(path.join(tmpdir(), 'scrum-guild-bench-'));
+const dir = prepareOnly ?? mkdtempSync(path.join(tmpdir(), 'banmen-bench-'));
 const persist = ['--local', '--persist-to', dir];
 let server: ReturnType<typeof spawn> | undefined;
 try {

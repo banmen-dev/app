@@ -48,7 +48,7 @@ if (
   throw new Error('runs/rounds/port が範囲外です');
 const output = path.resolve(option('--output', path.join(tmpdir(), 'backlog-loading.json')));
 const root = process.cwd();
-const dir = mkdtempSync(path.join(tmpdir(), 'scrum-guild-backlog-'));
+const dir = mkdtempSync(path.join(tmpdir(), 'banmen-backlog-'));
 const origin = `http://127.0.0.1:${port}`;
 const config = path.join(dir, 'wrangler.json');
 const version = `backlog-loading-${randomUUID()}`;

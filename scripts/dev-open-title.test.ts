@@ -68,8 +68,8 @@ function page(title: string, options: { origin?: string; frame?: boolean; head?:
 }
 
 test('元の題を残し、手元の確かめとワークツリー名を付ける', () => {
-  const p = page('バックログ｜Scrum Guild');
-  assert.equal(p.document.title, `${label}｜バックログ｜Scrum Guild`);
+  const p = page('バックログ｜Banmen');
+  assert.equal(p.document.title, `${label}｜バックログ｜Banmen`);
   assert.equal(p.writes, 1);
   p.mutateBody();
   assert.equal(p.writes, 1);

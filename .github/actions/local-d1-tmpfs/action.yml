@@ -13,7 +13,7 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        target=/dev/shm/scrum-guild-wrangler-state
+        target=/dev/shm/banmen-wrangler-state
         if [[ -e .wrangler/state && ! -L .wrangler/state ]]; then
           echo ".wrangler/state が既にディスクにある。e2e の前、wrangler を動かす前に置く" >&2
           exit 1

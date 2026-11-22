@@ -49,14 +49,14 @@ describe('ログインへの戻し方', () => {
   test('今のパスとクエリを encodeURIComponent して return_to に入れる', () => {
     assert.equal(loginUrl({ pathname: '/aoba', search: '' }), '/login?return_to=%2Faoba');
     // 実際の URL（url.pathname と url.search）は、ASCII 以外が符号化済みで渡る
-    const url = new URL('https://scrum-guild.example/aoba/w/019a?tab=a&b=日本語');
+    const url = new URL('https://banmen.example/aoba/w/019a?tab=a&b=日本語');
     assert.equal(url.search, '?tab=a&b=%E6%97%A5%E6%9C%AC%E8%AA%9E');
     assert.equal(
       loginUrl(url),
       `/login?return_to=${encodeURIComponent('/aoba/w/019a?tab=a&b=%E6%97%A5%E6%9C%AC%E8%AA%9E')}`,
     );
     assert.equal(
-      loginUrl(new URL('https://scrum-guild.example/%E3%81%82%E3%81%8A%E3%81%B0')),
+      loginUrl(new URL('https://banmen.example/%E3%81%82%E3%81%8A%E3%81%B0')),
       `/login?return_to=${encodeURIComponent('/%E3%81%82%E3%81%8A%E3%81%B0')}`,
     );
   });

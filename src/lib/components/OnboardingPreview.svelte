@@ -105,7 +105,7 @@
           <div class="field">
             <label class="field-label" for="onboarding-personal-slug">{t('onboardingPersonalUrl')}</label>
             <div class="onboarding-url">
-              <span aria-hidden="true">scrum-guild /</span><input
+              <span aria-hidden="true">banmen /</span><input
                 class="input"
                 id="onboarding-personal-slug"
                 bind:value={personalSlug}
@@ -151,7 +151,7 @@
           <div class="field">
             <label class="field-label" for="onboarding-slug">{t('onboardingTeamUrl')}</label>
             <div class="onboarding-url">
-              <span aria-hidden="true">scrum-guild /</span><input
+              <span aria-hidden="true">banmen /</span><input
                 class="input"
                 id="onboarding-slug"
                 bind:value={slug}

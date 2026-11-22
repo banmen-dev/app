@@ -1,4 +1,4 @@
-// 組織のホームの「Scrum Guild のニュース」の面に出す知らせ。リポジトリに置き、リリースで配る（API と DB は通さない）。
+// 組織のホームの「Banmen のニュース」の面に出す知らせ。リポジトリに置き、リリースで配る（API と DB は通さない）。
 // どの組織のホームでも同じ一覧が出る。足し方は docs/development.md の「ニュースの足し方」
 import { stripHiddenCharacters } from '../shared/hidden-characters.ts';
 
@@ -68,9 +68,14 @@ export function newsItemProblems(item: NewsItem, today: string): string[] {
 // 新しいものを先に書く必要は無い（出すときに日付の新しい順に並べる）が、読みやすいので新しい順に足す
 export const newsItems: readonly NewsItem[] = [
   {
+    date: '2026-11-22',
+    title: 'サービスの名前を Banmen に改めました',
+    body: 'Scrum Guild から Banmen（バンメン）に改めました。朝会で全員が見る「盤面」が由来です。使い方とデータは変わりません。',
+  },
+  {
     date: '2026-11-15',
     title: '組織のホームがダッシュボードになりました',
-    body: 'ワークスペースと今日やることを左の列に並べました。ここには Scrum Guild からの知らせが載ります。',
+    body: 'ワークスペースと今日やることを左の列に並べました。ここには Banmen からの知らせが載ります。',
   },
 ];
 

@@ -7,7 +7,8 @@ import { main, type CliDeps } from './lib/main.ts';
 // XDG の仕様: XDG_CONFIG_HOME は絶対パスのときだけ使う。空や相対パスは未設定と同じ
 const xdgConfigHome = process.env.XDG_CONFIG_HOME;
 const configHome = xdgConfigHome && isAbsolute(xdgConfigHome) ? xdgConfigHome : `${homedir()}/.config`;
-const config = fileConfigStore(`${configHome}/scrum-guild/config.json`);
+// 置き場所は banmen。2026-11-22 に名前を改める前の scrum-guild の設定も、banmen に無いときは読む
+const config = fileConfigStore(`${configHome}/banmen/config.json`, `${configHome}/scrum-guild/config.json`);
 const argv = process.argv.slice(2);
 const deps: CliDeps = {
   fetch,

@@ -45,7 +45,7 @@ type Started = { state: string; location: URL };
 
 async function startGithub(browser: FakeBrowser, query: string): Promise<Started> {
   const response = await browser.request(`/api/auth/github/start${query}`);
-  const location = new URL(response.headers.get('Location') ?? '', 'https://scrum-guild.test');
+  const location = new URL(response.headers.get('Location') ?? '', 'https://banmen.test');
   return { state: location.searchParams.get('state') ?? '', location };
 }
 
@@ -281,7 +281,7 @@ describe('印を付けた往復が完了しないとき、アカウントを作�
     const user = googleUser('検証 失敗');
     const browser = newBrowser('google');
     const response = await browser.request('/api/auth/google/start?signup=1');
-    const location = new URL(response.headers.get('Location') ?? '', 'https://scrum-guild.test');
+    const location = new URL(response.headers.get('Location') ?? '', 'https://banmen.test');
     const state = location.searchParams.get('state') ?? '';
     const before = await countAccounts();
     const code = google.issueCode(user, location, claims);
@@ -507,7 +507,7 @@ describe('応答とログ', () => {
     const gUser = googleUser('ログ 登録', { email: 'signup-log-address@example.test' });
     const gBrowser = newBrowser('google');
     const gStart = await gBrowser.request('/api/auth/google/start?signup=1');
-    const gLocation = new URL(gStart.headers.get('Location') ?? '', 'https://scrum-guild.test');
+    const gLocation = new URL(gStart.headers.get('Location') ?? '', 'https://banmen.test');
     const gCode = google.issueCode(gUser, gLocation);
     await gBrowser.callback({ code: gCode, state: gLocation.searchParams.get('state')! });
     secrets.push(gCode, gLocation.searchParams.get('state')!, gLocation.searchParams.get('nonce')!, gUser.email!);

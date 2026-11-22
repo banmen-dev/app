@@ -34,7 +34,7 @@ const planOptions = planComparisonOptions(process.argv.slice(2));
 const runs = option('--runs', 20, 10000);
 const port = option('--port', 9742, 65534);
 const origin = `http://127.0.0.1:${port}`;
-const dir = mkdtempSync(path.join(tmpdir(), 'scrum-guild-loading-'));
+const dir = mkdtempSync(path.join(tmpdir(), 'banmen-loading-'));
 // 秘密の設定ファイルを探索しないよう、一時ディレクトリに独立した wrangler 設定を作る。
 const root = process.cwd();
 const config = path.join(dir, 'wrangler.json');

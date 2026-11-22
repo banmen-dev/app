@@ -25,7 +25,7 @@ test('自分用の組織の Wiki は組織の表示名で案内する', async ({
   await page.goto('/aoba/wiki');
   await expect(page.locator('.nav-item', { hasText: '自分用の Wiki' })).toBeVisible();
   await expect(page.locator('.page-eyebrow')).toHaveText('自分用');
-  await expect(page).toHaveTitle('Wiki・自分用 - Scrum Guild');
+  await expect(page).toHaveTitle('Wiki・自分用 - Banmen');
 });
 
 for (const theme of A11Y_THEMES) {
@@ -104,7 +104,7 @@ test('組織のメニューから Wiki を開き、親子のページを作っ�
   await page.goto('/aoba');
   await page.locator('.nav-item', { hasText: 'あおば開発の Wiki' }).click();
   await expect(page).toHaveURL(/\/aoba\/wiki$/);
-  await expect(page).toHaveTitle('Wiki・あおば開発 - Scrum Guild');
+  await expect(page).toHaveTitle('Wiki・あおば開発 - Banmen');
   await expect(page.locator('.page-eyebrow')).toHaveText('あおば開発');
   await expect(page.getByText('この組織の全員が、読んで書けます。', { exact: true })).toBeVisible();
   const title = `組織の手順-${crypto.randomUUID().slice(0, 8)}`;
@@ -129,7 +129,7 @@ test('組織のメニューから Wiki を開き、親子のページを作っ�
   await page.getByLabel('本文', { exact: true }).fill(`---\ntitle: 改訂-${title}\n---\n[親の手順](${parentUrl})`);
   await page.getByRole('button', { name: '保存する', exact: true }).click();
   await expect(page.getByRole('heading', { level: 2, name: `改訂-${title}` })).toBeVisible();
-  await expect(page).toHaveTitle(`改訂-${title}・あおば開発 - Scrum Guild`);
+  await expect(page).toHaveTitle(`改訂-${title}・あおば開発 - Banmen`);
   expect(page.url()).toBe(childUrl);
   const parentLink = page.locator('.doc-box a', { hasText: '親の手順' });
   await expect(parentLink).not.toHaveAttribute('target', '_blank');
@@ -257,7 +257,7 @@ test('Wiki の木から親子を作り、番号の URL のまま題と本文を�
   const violations = await watchViolations(page);
   await createWorkspace(page, 'Wikiの手順書');
   await page.locator('.nav-item', { hasText: /^Wiki$/ }).click();
-  await expect(page).toHaveTitle('Wiki・Wikiの手順書 - Scrum Guild');
+  await expect(page).toHaveTitle('Wiki・Wikiの手順書 - Banmen');
   await expect(page.getByRole('heading', { level: 1, name: 'Wiki' })).toBeVisible();
   await expect(page.getByText('ページはまだありません', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'ページを足す', exact: true }).click();

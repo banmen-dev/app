@@ -40,7 +40,7 @@ test('seed の受託開発チーム: 木のエピックの題から画面が開�
 
   await expect(page).toHaveURL(`${WORKSPACE}/epics/${EPIC_ID}`);
   await expect(page.getByRole('heading', { level: 1, name: EPIC_TITLE })).toBeVisible();
-  await expect(page).toHaveTitle(`${EPIC_TITLE} - Scrum Guild`);
+  await expect(page).toHaveTitle(`${EPIC_TITLE} - Banmen`);
   await expect(page.locator('.page-eyebrow')).toHaveText('エピック・追加案件');
   // 概要。本文はエピックの欄
   await expect(page.getByText('貯まったポイントを、送料の割引と提携先の商品券に交換できるようにする。')).toBeVisible();

@@ -41,7 +41,7 @@ test.describe('マイプロフィール（ミナト）', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'マイプロフィール' })).toBeVisible();
     await expect(page.locator('.page-eyebrow')).toHaveText('ミナト');
     await expect(page.locator('.account-menu-list a[aria-current="page"]')).toHaveText('マイプロフィール');
-    await expect(page).toHaveTitle('マイプロフィール - Scrum Guild');
+    await expect(page).toHaveTitle('マイプロフィール - Banmen');
 
     // レベルの面。紋章（大）、合計、次のレベルまでと見込み、ゲージ、凡例、ワークスペースごとの内訳
     const panel = page.getByRole('region', { name: 'レベル' });

@@ -21,7 +21,7 @@ const APPLICATIONS_URL = 'https://api.github.com/applications/';
 const SCOPE = 'read:user';
 const REQUEST_TIMEOUT_MS = 10_000;
 // GitHub の API は User-Agent を要る
-const USER_AGENT = 'scrum-guild';
+const USER_AGENT = 'banmen';
 const API_VERSION = '2022-11-28';
 
 // GitHub のユーザー名: 英数字とハイフンで、39文字まで。ハイフンは先頭、末尾、連続に置けない

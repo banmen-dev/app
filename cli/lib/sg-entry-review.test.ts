@@ -26,7 +26,7 @@ function sg(argv: string[], env: Record<string, string>, cwd: string): Promise<{
 
 describe('XDG_CONFIG_HOME が絶対パスでないとき', () => {
   for (const xdg of ['relative/config', './config', '~/config']) {
-    test(`${xdg} は使わず、~/.config/scrum-guild/config.json に書く`, async () => {
+    test(`${xdg} は使わず、~/.config/banmen/config.json に書く`, async () => {
       const home = mkdtempSync(join(tmpdir(), 'sg-review-home-'));
       const cwd = mkdtempSync(join(tmpdir(), 'sg-review-cwd-'));
       try {
@@ -36,7 +36,7 @@ describe('XDG_CONFIG_HOME が絶対パスでないとき', () => {
           cwd,
         );
         assert.equal(result.code, 0, result.stderr);
-        assert.ok(existsSync(join(home, '.config', 'scrum-guild', 'config.json')));
+        assert.ok(existsSync(join(home, '.config', 'banmen', 'config.json')));
         assert.ok(!existsSync(join(cwd, xdg)), 'カレントディレクトリの下に書かない');
         assert.ok(!existsSync(join(home, xdg)), 'HOME の下の相対パスに書かない');
       } finally {

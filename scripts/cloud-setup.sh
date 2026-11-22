@@ -27,11 +27,12 @@ fetch() {
   curl --proto '=https' --tlsv1.2 -fsSL --connect-timeout 10 --max-time "$limit" "$@"
 }
 
-is_repo() { [ -f "$1/package.json" ] && grep -q '"name": "scrum-guild"' "$1/package.json"; }
+# 名前は 2026-11-22 に scrum-guild から banmen に改めた。改める前の版の clone でも見つけられるよう、両方を見る
+is_repo() { [ -f "$1/package.json" ] && grep -qE '"name": "(banmen|scrum-guild)"' "$1/package.json"; }
 
 # 走る時点の clone の置き場所は文書に書かれていないので、いくつかの場所を見る
 repo=""
-for dir in "$PWD" /home/user/scrum-guild /root/scrum-guild /workspace/scrum-guild; do
+for dir in "$PWD" /home/user/app /home/user/banmen /home/user/scrum-guild /root/scrum-guild /workspace/scrum-guild; do
   if is_repo "$dir"; then
     repo="$dir"
     break
@@ -43,7 +44,7 @@ if [ -z "$repo" ]; then
       repo=$(dirname "$found")
       break
     fi
-  done < <(find /home /root /workspace -maxdepth 3 -name package.json -path '*scrum-guild*' 2>/dev/null)
+  done < <(find /home /root /workspace -maxdepth 3 -name package.json \( -path '*banmen*' -o -path '*scrum-guild*' -o -path '*/app/*' \) 2>/dev/null)
 fi
 if [ -n "$repo" ]; then
   info "リポジトリ: $repo"
@@ -110,7 +111,7 @@ if install_node; then
   # そちらは session-start.sh が CLAUDE_ENV_FILE で先頭に足す。
   # Ubuntu の .bashrc は対話でないと冒頭で return するので、末尾ではなく先頭に置く
   line="export PATH=\"${node_dir}/bin:\$PATH\""
-  echo "$line" >/etc/profile.d/scrum-guild-node.sh
+  echo "$line" >/etc/profile.d/banmen-node.sh
   if ! grep -qxF "$line" /root/.bashrc 2>/dev/null; then
     { echo "$line"; cat /root/.bashrc 2>/dev/null; } >/root/.bashrc.new && mv /root/.bashrc.new /root/.bashrc
   fi

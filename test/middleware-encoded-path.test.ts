@@ -104,7 +104,7 @@ describe('符号化した行の終わりを含むパス', () => {
       {
         // テストの環境の PUBLIC_ORIGIN に頼らず、本番の形の https を明示する
         label: 'DEV_NOW が本番の公開 URL で設定されている',
-        patch: { PUBLIC_ORIGIN: 'https://scrum-guild.example', DEV_NOW: '2026-10-26T10:00:00+09:00' },
+        patch: { PUBLIC_ORIGIN: 'https://banmen.example', DEV_NOW: '2026-10-26T10:00:00+09:00' },
         reason: 'DEV_NOW が、手元のホストへの http でない PUBLIC_ORIGIN で設定されている',
       },
     ];

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Scrum Guild 利用開始の保存と失敗の見本</title>
+<title>Banmen 利用開始の保存と失敗の見本</title>
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="components.css">
 </head>
@@ -59,7 +59,7 @@ const saved = section('saved', 'プロフィール保存済み。招待確認か
 const failed = section('failed', 'プロフィール保存エラー。入力を残して再試行できる状態。', 'onboardingProfile', 'onboardingProfileLead', warning('failed-error', 'onboardingProfileFailed') + profile('failed', false));
 const blocked = `<section id="blocked" class="onboarding-stage" aria-labelledby="blocked-title"><div class="onboarding-content"><p class="field-hint">作成済みの個人用が停止し、入れない状態。リード文と進捗は出さない。</p><div class="onboarding-heading"><h2 id="blocked-title">${text('onboardingBlockedTitle')}</h2></div><div class="callout is-warn">${icon('alert')}<span>${text('onboardingPersonalUnavailable')}</span></div><a class="btn" href="organizations.html">${text('onboardingReturnOrganizations')}</a></div></section>`;
 const invitations = section('invitations', '招待の部分失敗。成功URLとコピー済みの表示を保つ状態。', 'onboardingInvite', 'onboardingInviteLiveLead', `${warning('invitations-error', 'onboardingInvitationsFailed')}<div class="onboarding-fields"><div class="field"><label class="field-label" for="invitation-emails">${text('onboardingGoogleEmails')}</label><textarea class="input" id="invitation-emails" rows="3" maxlength="6000" aria-describedby="invitation-hint invitations-error">yui@example.com, ren@example.com</textarea><p class="field-hint" id="invitation-hint">${text('onboardingInviteLiveNote')}</p></div><div class="onboarding-actions">${button('onboardingCreateInvites')}</div><div class="field" role="group" aria-label="yui@example.com"><label class="field-label" for="invitation-url">yui@example.com</label><input class="input" id="invitation-url" value="https://example.invalid/invite#sample-not-a-secret" readonly><button class="btn" type="button" aria-disabled="true" aria-label="${text('onboardingCopyLink')} yui@example.com">${text('onboardingCopyLink')}</button></div><div class="field" role="group" aria-label="ren@example.com"><p class="field-label">ren@example.com</p><p class="field-hint">${text('onboardingInvitationFailed')}</p></div><p class="field-hint">${text('onboardingInviteSecrets')}</p></div><p class="onboarding-notice wrap-anywhere" role="status">${text('onboardingCopied', { email: 'yui@example.com' })}</p><div class="onboarding-actions">${button('onboardingStartTeam')}</div>`, 4, true);
-document.getElementById('brand').innerHTML = `${SQ.brandMark}<span class="visually-hidden">Scrum Guild</span>`;
+document.getElementById('brand').innerHTML = `${SQ.brandMark}<span class="visually-hidden">Banmen</span>`;
 document.getElementById('states').innerHTML = personalOnly + saved + failed + blocked + invitations;
 SQ.applyTheme();
 </script>

@@ -40,7 +40,7 @@ test.describe('リーダー（あおば開発のミナト）', () => {
     const collect = await watchViolations(page);
     await createWorkspace(page, '設定ワークスペース');
     await openSettings(page);
-    await expect(page).toHaveTitle('設定・設定ワークスペース - Scrum Guild');
+    await expect(page).toHaveTitle('設定・設定ワークスペース - Banmen');
     await expect(page.locator('.nav-item[aria-current="page"]')).toHaveText('設定');
 
     // 空のうちは案内を出す

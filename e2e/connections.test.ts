@@ -52,7 +52,7 @@ test('メニューの「接続」から開くと、ワークスペースの接�
   await page.locator('.nav-item', { hasText: '接続' }).click();
   await expect(page).toHaveURL(new RegExp(`${WORKSPACE}/connections$`));
   await expect(page.getByRole('heading', { level: 1, name: '接続' })).toBeVisible();
-  await expect(page).toHaveTitle('接続 - 受託開発チーム - Scrum Guild');
+  await expect(page).toHaveTitle('接続 - 受託開発チーム - Banmen');
   await expect(page.locator('.nav-item[aria-current="page"]')).toHaveText('接続');
 
   const list = page.getByRole('list', { name: '接続の一覧' });

@@ -80,7 +80,7 @@ test.describe('招待だけが届いた人（ヒナタ）', () => {
 
       await expect(page).toHaveURL(/\/hibari\/invitations$/);
       await expect(page.getByRole('heading', { level: 1, name: '届いた招待' })).toBeVisible();
-      await expect(page).toHaveTitle('届いた招待 - Scrum Guild');
+      await expect(page).toHaveTitle('届いた招待 - Banmen');
       // 枠（左のメニュー）は出さない
       await expect(page.locator('.nav')).toHaveCount(0);
       const row = page.locator('.choice.is-static');

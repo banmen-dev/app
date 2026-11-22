@@ -36,7 +36,7 @@ test('プロフィールで全員の個人用URLを設定し、招待時まで�
   await page.getByRole('button', { name: account, exact: true }).click();
   await expect(page.getByLabel('個人用のURL', { exact: true })).toHaveValue('');
   await page.reload();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Scrum Guild をはじめる');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Banmen をはじめる');
   expect(writes).toEqual([]);
 });
 
