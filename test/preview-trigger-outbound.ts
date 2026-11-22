@@ -1,4 +1,4 @@
-import { PREVIEW_REPOSITORY, PREVIEW_REPOSITORY_ID } from '../src/server/preview-trigger/webhook.ts';
+import { PREVIEW_REPOSITORY_ID } from '../src/server/preview-trigger/webhook.ts';
 
 interface FixtureRequest {
   url?: string;
@@ -39,7 +39,7 @@ export function previewTriggerOutbound() {
   let posts = 0;
   let entered = Promise.withResolvers<void>();
   let released = Promise.withResolvers<void>();
-  const repository = { id: PREVIEW_REPOSITORY_ID, full_name: PREVIEW_REPOSITORY };
+  const repository = { id: PREVIEW_REPOSITORY_ID, full_name: 'scrum-guild-dev/app' };
   const firstSha = 'a'.repeat(40);
 
   function reply(res: FixtureResponse, status: number, body?: unknown) {
@@ -76,7 +76,7 @@ export function previewTriggerOutbound() {
     }
 
     const ok = (result: unknown) => reply(res, 200, { success: true, result });
-    if (url.hostname === github && url.pathname === `/repos/${PREVIEW_REPOSITORY}/pulls/81`) {
+    if (url.hostname === github && url.pathname === `/repositories/${PREVIEW_REPOSITORY_ID}/pulls/81`) {
       await waitAt('lookup');
       return reply(res, 200, {
         number: 81,

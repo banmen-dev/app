@@ -17,7 +17,7 @@ const githubPull = {
   head: { repo: repository, ref: build.branch, sha: build.sha },
   base: { repo: repository, ref: 'main' },
 };
-const githubUrl = `https://api.github.com/repos/scrum-guild-dev/app/pulls/${build.pr}`;
+const githubUrl = `https://api.github.com/repositories/1425341812/pulls/${build.pr}`;
 const workerUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/builds/workers/${workerTag}`;
 
 function harness(settingsToken: string | undefined, triggerToken: string | undefined) {

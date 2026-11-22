@@ -1,12 +1,7 @@
 import { previewBranchNumber } from '../../shared/preview-branch.ts';
 import { isIsolatedPreviewAccount } from '../../shared/preview-cloudflare.ts';
 import { PreviewBuildRejected } from './queue.ts';
-import {
-  PREVIEW_REPOSITORY,
-  PREVIEW_REPOSITORY_ID,
-  previewRequestFromPullRequest,
-  type PreviewRequest,
-} from './webhook.ts';
+import { PREVIEW_REPOSITORY_ID, previewRequestFromPullRequest, type PreviewRequest } from './webhook.ts';
 
 type PreviewApiConfig = {
   accountId: string;
@@ -84,7 +79,6 @@ export function createPreviewApi(config: PreviewApiConfig, fetcher: typeof fetch
     if (
       repository?.provider_type !== 'github' ||
       repository.repo_id !== String(PREVIEW_REPOSITORY_ID) ||
-      `${repository.provider_account_name}/${repository.repo_name}` !== PREVIEW_REPOSITORY ||
       repository.branch !== parkedBranch ||
       config?.previews_enabled !== false ||
       settings?.build_command !== buildCommand ||
@@ -116,12 +110,15 @@ export function createPreviewApi(config: PreviewApiConfig, fetcher: typeof fetch
   return {
     async current(request: PreviewRequest): Promise<PreviewRequest | null> {
       if (!Number.isSafeInteger(request.pr) || request.pr <= 0) return null;
-      const response = await fetcher(`https://api.github.com/repos/${PREVIEW_REPOSITORY}/pulls/${request.pr}`, {
-        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Banmen-Preview-Trigger' },
-        cache: 'no-store',
-        redirect: 'manual',
-        signal: AbortSignal.timeout(httpTimeoutMs),
-      });
+      const response = await fetcher(
+        `https://api.github.com/repositories/${PREVIEW_REPOSITORY_ID}/pulls/${request.pr}`,
+        {
+          headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Banmen-Preview-Trigger' },
+          cache: 'no-store',
+          redirect: 'manual',
+          signal: AbortSignal.timeout(httpTimeoutMs),
+        },
+      );
       if (response.status === 404) return null;
       if (!response.ok) throw new Error(`GitHub PR lookup failed (${response.status})`);
       const pull = record(await readJson(response));

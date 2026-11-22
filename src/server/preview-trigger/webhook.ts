@@ -1,6 +1,8 @@
 import { previewBranchNumber } from '../../shared/preview-branch.ts';
 
-export const PREVIEW_REPOSITORY = 'scrum-guild-dev/app';
+// 組織の改名で止まらないよう、リポジトリは名前でなく ID だけで照合する。
+// 掃除の scripts/deploy-preview.ts も Workers Builds の Node（型の除去）でこのファイルを直に読む。
+// Worker 専用の import や、型の除去で消せない構文（enum など）を足さない。
 export const PREVIEW_REPOSITORY_ID = 1425341812;
 
 export type PreviewRequest = { issue: string; pr: number; branch: string; sha: string; reopenedAt?: string };
@@ -15,7 +17,7 @@ function record(value: unknown): Record<string, unknown> | undefined {
 
 function isPreviewRepository(value: unknown): boolean {
   const repo = record(value);
-  return repo?.id === PREVIEW_REPOSITORY_ID && repo.full_name === PREVIEW_REPOSITORY;
+  return repo?.id === PREVIEW_REPOSITORY_ID;
 }
 
 export function previewRequestFromPullRequest(value: unknown): PreviewRequest | null {

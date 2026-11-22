@@ -4,12 +4,11 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { SEED_SESSIONS } from '../seed/sessions.ts';
+import { PREVIEW_REPOSITORY_ID } from '../src/server/preview-trigger/webhook.ts';
 import { isIsolatedPreviewAccount, isIsolatedPreviewSubdomain } from '../src/shared/preview-cloudflare.ts';
 import { deployPreview, type PreviewDatabase } from './preview-deploy.ts';
 import { previewConfig } from './preview-config.ts';
 import { seedSql } from './seed.ts';
-
-const REPOSITORY = 'scrum-guild-dev/app';
 
 // JSON 以外のエラー本文や認証情報をログに流さない。
 async function jsonRequest(url: string, init: RequestInit): Promise<unknown> {
@@ -25,7 +24,7 @@ export async function openPreviewBranches(fetchJson = jsonRequest): Promise<stri
   const branches: string[] = [];
   for (let page = 1; ; page++) {
     const data = await fetchJson(
-      `https://api.github.com/repos/${REPOSITORY}/pulls?state=open&per_page=100&page=${page}`,
+      `https://api.github.com/repositories/${PREVIEW_REPOSITORY_ID}/pulls?state=open&per_page=100&page=${page}`,
       {
         headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'banmen-preview' },
       },
@@ -37,8 +36,9 @@ export async function openPreviewBranches(fetchJson = jsonRequest): Promise<stri
       }
       // 元の fork が削除された PR は repo:null になる。同じリポジトリのブランチではない。
       if (pr.head.repo === null) continue;
-      if (typeof pr.head.repo?.full_name !== 'string') throw new Error('開いた PR のブランチを読めませんでした');
-      if (pr.head.repo.full_name === REPOSITORY) branches.push(pr.head.ref);
+      if (!Number.isSafeInteger(pr.head.repo?.id)) throw new Error('開いた PR のブランチを読めませんでした');
+      // 組織の改名で止まらないよう、名前でなく起動専用 Worker と同じリポジトリ ID で照合する。
+      if (pr.head.repo.id === PREVIEW_REPOSITORY_ID) branches.push(pr.head.ref);
     }
     if (data.length < 100) return branches;
   }
