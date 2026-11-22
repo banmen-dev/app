@@ -128,7 +128,7 @@ test('プレビューは全 seed ロールを secure Cookie の名前で開く�
 
 test('プレビュー以外の origin と origin の曖昧な指定を断る', () => {
   for (const origin of [
-    'https://scrum-guild.ucan-lab.workers.dev',
+    'https://banmen.ucan-lab.workers.dev',
     'https://pr-374-scrum-guild-preview.ucan-lab.workers.dev',
     'http://pr-374-banmen-preview.ucan-lab.workers.dev',
     `${PREVIEW_ORIGIN}\n`,

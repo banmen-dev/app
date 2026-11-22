@@ -1208,7 +1208,7 @@ PR で変えていない領域のテストが、前の head では通ってい�
 - 版は `wrangler deploy` の1回で上げる。`wrangler versions upload` と `versions deploy` の2段にしないのは、`versions upload` が Worker のまだ無い初回に失敗し、cron やルート（triggers）の変更も反映しないため。版を段階的に流さないので、2段に分ける得も無い
 - rollback には必ず版の ID を渡す。`wrangler rollback` は版を指定しないと、直近のデプロイを除いた履歴から 100% で動いていた版を選ぶ。その間に別のデプロイが挟まると、このスクリプトが切り替える直前の版とずれるため
 - 煙のテストが確かめるのは版、DB への疎通、接続の認証情報の鍵の形。`/api/health` は共通の入口で `SELECT 1` を送り、届いて鍵の形も正しければ 200 の `{ status, database, credentialKeys, version }`、DB に届かなければ 503 の `unavailable` を返す。鍵が無いか形が違うときも 503 を返し、`credentialKeys` は `unavailable` になる。鍵の数、版、値は返さない。503 は失敗として数えるので、D1 に届かない版は上の rollback で戻る（`versionFromHealth` が応答を読む）
-- 煙のテストの URL はスクリプトの定数（`PRODUCTION_URL`）。ドメインへ移すときに直す
+- 煙のテストの URL はスクリプトの定数（`PRODUCTION_URL`）。Worker の名前かドメインを変えるときに、`wrangler.jsonc` の `name` と `PUBLIC_ORIGIN` と同じ Release で直す（`scripts/deploy.test.ts` が揃っていることを確かめる）
 - マイグレーションは自動では戻さない。戻すかは人が決め、ログのブックマークで Time Travel から戻す（`docs/operations.md` の「戻し方」）
 
 マイグレーションの承認は別に挟まない。マイグレーションを含む PR には `needs-human` が付き、人が差分を読んでマージする。本番に当たるのはその PR を含む Release の publish の後なので、publish を本番に当てる承認とみなす。publish の前に、下書きのノートにマイグレーションを含む PR があるかを人が見る。`main` への直接の push ではマイグレーションを入れない。
@@ -1635,7 +1635,7 @@ Hono のミドルウェアで、404 と 500 を含む全応答に付ける。
 
 - 本番の Cloudflare アカウントは ucan-lab 用に新しく作る（2026-10-22 に決めた）。請求と権限を個人のものと分け、法人化や人を足すときに移しやすくする
 - ドメインの名前は未定。ベータの前に取る（取る時期は 2026-10-22 に決めた）。それまでは `workers.dev` の URL で動かす
-- 本番の Worker の名前は `scrum-guild` で、ドメインを取るまでの URL は `https://scrum-guild.ucan-lab.workers.dev/`（2026-10-24 に決めた）。GitHub OAuth App の戻り先もこの URL にする
+- 本番の Worker の名前は `banmen` で、ドメインを取るまでの URL は `https://banmen.ucan-lab.workers.dev/`（2026-11-22 に `docs/naming.md` の「識別子」に合わせて `scrum-guild` から移すと決めた。#1423）。GitHub OAuth App と Google のクライアントの戻り先もこの URL にする。旧 URL `https://scrum-guild.ucan-lab.workers.dev/` は転送用の Worker が新しい URL へ送る。D1 と R2 のバケットは作ったときの名前（`scrum-guild`）のまま残す。移す当日の手順は `docs/operations.md` の「本番の URL を banmen に移す」
 - アカウントは、本番に初めてデプロイする Issue（上の「初版の作る順」の2）で Workers Paid にする（2026-10-24 に決めた）。無料の枠は1回の CPU の時間や外への通信の回数の上限が厳しく、`wrangler dev` ではその上限で止まらないので、本番でだけ落ちる差を最初から無くすため
 - 本番の `workers.dev` は Cloudflare Access で守らない（2026-10-24 に決めた）。アプリに GitHub のログインがあり、入れる組織か届いた招待が無い人は入れないため。Access を挟むと、煙のテストの `/api/health` を通す除外が要り、ドメインを移すときに Access のアプリも作り直すことになる
 - ドメインへ移すときは、公開する URL の設定、GitHub OAuth App の戻り先、Google のクライアントの承認済みのリダイレクト URI、Cookie を直し、移した後にもう一度ログインしてもらう。作ってある招待の URL（`<公開 URL>/invite#<秘密>`）は古いドメインのままなので、結ばれていない指名は作り直す。手順は `docs/operations.md` に書く

@@ -77,7 +77,7 @@ describe('DEV_NOW の守り', () => {
   });
 
   test.each([
-    'https://scrum-guild.ucan-lab.workers.dev',
+    'https://banmen.ucan-lab.workers.dev',
     'https://localhost:8787',
     'http://localhost.evil.example',
     'http://192.168.0.10:8787',
@@ -95,7 +95,7 @@ describe('DEV_NOW の守り', () => {
   test('https の公開 URL では、DEV_NOW の守りが理由として記録される', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     const res = await request({
-      PUBLIC_ORIGIN: 'https://scrum-guild.ucan-lab.workers.dev',
+      PUBLIC_ORIGIN: 'https://banmen.ucan-lab.workers.dev',
       DEV_NOW: '2026-10-26T10:00:00+09:00',
     });
     expect(res.status).toBe(500);

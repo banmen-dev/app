@@ -15,7 +15,7 @@ test('Access は同じプレビューだけに送り、他のプレビュー・�
     'CF-Access-Client-Secret': env.CF_ACCESS_CLIENT_SECRET,
   });
   for (const url of [
-    'https://scrum-guild.ucan-lab.workers.dev/',
+    'https://banmen.ucan-lab.workers.dev/',
     'https://pr-375-banmen-preview.ucan-lab.workers.dev/',
     `${origin}.evil.example/`,
     'https://example.com/',

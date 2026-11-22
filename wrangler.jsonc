@@ -2,7 +2,9 @@
 // デプロイは Cloudflare の Workers Builds だけが行う（docs/development.md の「CD」）。
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "scrum-guild",
+  // ダッシュボードの Worker の名前と合わせる。名前が workers.dev の URL（PUBLIC_ORIGIN、scripts/deploy.ts の PRODUCTION_URL）を決めるので、
+  // 3つは同じ Release で変える（docs/operations.md の「本番の URL を banmen に移す」）
+  "name": "banmen",
   "main": "src/server/index.ts",
   "compatibility_date": "2026-10-01",
   // 外へテレメトリを送らない。.claude/settings.json の WRANGLER_SEND_METRICS は Claude のセッションにしか効かないので、
@@ -19,9 +21,11 @@
     // 上書きする。本番はデプロイのスクリプトが Release のタグ（vX.Y.Z。scripts/release-version.ts）を --var で渡し、手元は scripts/dev.ts の --var
     "APP_VERSION": "dev",
     // 公開する URL。更新系の API の Origin の検査に使う。scripts/dev.ts が pnpm dev と pnpm preview の画面の URL に上書きする。
-    // 独自ドメインへ移すときに直す（docs/operations.md）
-    "PUBLIC_ORIGIN": "https://scrum-guild.ucan-lab.workers.dev"
+    // Worker の名前か独自ドメインを変えるときに直す（docs/operations.md）
+    "PUBLIC_ORIGIN": "https://banmen.ucan-lab.workers.dev"
   },
+  // D1 と R2 のバケットは、作ったときの名前（scrum-guild）のまま残す（#1416 で人が決めた）。作り直すとデータの移し替えが要り、
+  // コードとデプロイのスクリプトは binding（DB、ATTACHMENTS）で引くので、名前は Worker の名前と揃わなくても動く
   "d1_databases": [
     {
       "binding": "DB",

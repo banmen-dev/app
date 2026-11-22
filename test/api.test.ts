@@ -186,7 +186,7 @@ describe('公開する URL（PUBLIC_ORIGIN）の検査', () => {
   };
 
   test.each([
-    'https://scrum-guild.ucan-lab.workers.dev',
+    'https://banmen.ucan-lab.workers.dev',
     'http://localhost:5173',
     'http://localhost:8797',
     'http://127.0.0.1:5173',
@@ -196,7 +196,7 @@ describe('公開する URL（PUBLIC_ORIGIN）の検査', () => {
   });
 
   test.each([
-    'http://scrum-guild.ucan-lab.workers.dev',
+    'http://banmen.ucan-lab.workers.dev',
     'http://example.com',
     'http://localhost.evil.example',
     'http://192.168.0.10:5173',

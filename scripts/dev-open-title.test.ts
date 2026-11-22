@@ -101,7 +101,7 @@ test('空の題にも付け、独立した初期化同士で状態を共有し�
 
 test('本番・別ポート・埋め込みの題を変えない', () => {
   for (const options of [
-    { origin: 'https://scrum-guild.ucan-lab.workers.dev' },
+    { origin: 'https://banmen.ucan-lab.workers.dev' },
     { origin: 'http://localhost:5490' },
     { frame: true },
   ]) {
