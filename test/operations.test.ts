@@ -84,6 +84,16 @@ describe('Cookie の名前', () => {
     expect(httpsWrongName.status).toBe(401);
   });
 
+  // 旧名の Cookie を読む移行のコードは置かない（#1422）。有効なトークンでも旧名なら入れない
+  test('旧名の sg_session の Cookie は読まない', async () => {
+    const person = await createLoginPerson();
+    const httpEnv: Env = Object.assign({}, testEnv, { PUBLIC_ORIGIN: 'http://localhost:5173' });
+    const httpOld = await post(app, whoAmI, { env: httpEnv, headers: { Cookie: `sg_session=${person.token}` } });
+    expect(httpOld.status).toBe(401);
+    const httpsOld = await post(app, whoAmI, { headers: { Cookie: `__Host-sg_session=${person.token}` } });
+    expect(httpsOld.status).toBe(401);
+  });
+
   test('出し直す Cookie も同じ名前と属性', async () => {
     const person = await createLoginPerson({
       sessionOverrides: { last_used_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
