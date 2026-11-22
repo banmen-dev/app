@@ -25,7 +25,7 @@ test('alias と Worker 名の DNS ラベルは63文字まで受け付け、64文
       },
       createDatabase: async (name) => ({ name, uuid: UUID }),
       deleteDatabase: async () => assert.fail('初回なので削除しない'),
-      openBranches: async () => assert.fail('main ではないので GitHub は読まない'),
+      openBranches: async () => [],
       publish: async (input) => {
         assert.equal(new URL(input.origin).hostname.split('.')[0].length, labelLength);
       },
@@ -62,31 +62,40 @@ for (const failureAt of ['execute', 'upload']) {
   });
 }
 
-test('GitHubの後続ページが落ちても先頭ページだけでcleanupを始めない', async () => {
-  let requestedPages = 0;
-  let deleted = false;
-  const deps: PreviewDeps = {
-    env: { WORKERS_CI: '1', WORKERS_CI_BRANCH: 'main' },
-    commitSha: SHA,
-    listDatabases: async () => [{ name: 'banmen-pr-374', uuid: UUID }],
-    createDatabase: async () => assert.fail('cleanup は作成しない'),
-    deleteDatabase: async () => {
-      deleted = true;
-    },
-    openBranches: () =>
-      openPreviewBranches(async () => {
-        if (++requestedPages > 1) throw new Error('GitHub timeout');
-        return Array.from({ length: 100 }, () => ({
-          head: { ref: '275-feature', repo: { id: 1425341812, full_name: 'scrum-guild-dev/app' } },
-        }));
-      }),
-    publish: async () => assert.fail('cleanup は公開しない'),
-    log: () => {},
-  };
-  await assert.rejects(deployPreview(deps), /GitHub timeout/);
-  assert.equal(requestedPages, 2);
-  assert.equal(deleted, false);
-});
+for (const branch of ['main', '374-preview']) {
+  test(`GitHubの後続ページが落ちても先頭ページだけでcleanupを始めない: ${branch}`, async () => {
+    let requestedPages = 0;
+    let deleted = false;
+    const logs: string[] = [];
+    const deps: PreviewDeps = {
+      env: { WORKERS_CI: '1', WORKERS_CI_BRANCH: branch },
+      commitSha: SHA,
+      // 掃除を打ち切ったときに続けるかを分けないよう、作らずに止まる数の D1 を置く。
+      listDatabases: async () =>
+        Array.from({ length: 8 }, (_, index) => ({
+          name: `banmen-pr-${900 + index}`,
+          uuid: `${String(index).padStart(8, '0')}-1111-4111-8111-111111111111`,
+        })),
+      createDatabase: async () => assert.fail('掃除できず D1 が多いので作成しない'),
+      deleteDatabase: async () => {
+        deleted = true;
+      },
+      openBranches: () =>
+        openPreviewBranches(async () => {
+          if (++requestedPages > 1) throw new Error('GitHub timeout');
+          return Array.from({ length: 100 }, () => ({
+            head: { ref: '275-feature', repo: { id: 1425341812, full_name: 'scrum-guild-dev/app' } },
+          }));
+        }),
+      publish: async () => assert.fail('掃除できず D1 が多いので公開しない'),
+      log: (message) => logs.push(message),
+    };
+    await assert.rejects(deployPreview(deps));
+    assert.equal(requestedPages, 2);
+    assert.equal(deleted, false);
+    assert.ok(logs.includes('閉じた PR の D1 の掃除を打ち切りました: 開いた PR を読めませんでした（Error）'));
+  });
+}
 
 test('ブラウザの同一origin通信が失敗したらfulfillせずabortする', async () => {
   const origin = 'https://pr-374-banmen-preview.ucan-lab.workers.dev';
