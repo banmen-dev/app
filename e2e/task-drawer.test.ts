@@ -210,8 +210,8 @@ test('完了したタスクのポイントは直せず、理由を添える。�
   await saved;
   await expect(toasts).toHaveText(['保存しました']);
   await expect(drawer.getByRole('button', { name: 'クリア' })).toBeVisible();
-  // 後ろのバックログも読み直し終えている（完了の経験値が入り、完了の行は畳まれる）
-  await expect(page.locator('.page-head .team-xp')).toHaveText('チーム全体の経験値40XP');
+  // 後ろのバックログも読み直し終えている（完了の行は畳まれる。完了しても経験値は付かない）
+  await expect(page.locator('.page-head .team-xp')).toHaveText('チーム全体の経験値0XP');
   await expect(page.locator('.tree-folded.is-root')).toHaveText('親のない完了 1 件を折りたたんでいます');
 });
 
