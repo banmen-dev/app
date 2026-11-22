@@ -971,6 +971,7 @@
 | id | TEXT | PK | |
 | workspace_id | TEXT | NOT NULL、FK workspaces | |
 | is_imported | INTEGER | NOT NULL | 取り込んだタスク。作ったあとは変えない |
+| created_via | TEXT | NOT NULL、既定 `manual` | `manual`、`template`。移行前の行は `manual` とし、取り込んだタスクは従来どおり `is_imported` で起票の経験値と見込みから外す。将来の `ai` は `docs/ai.md` |
 | tray | TEXT | NOT NULL、`inbox`、`backlog`、`archive` | 置き場所。手で作ったタスクは常に `backlog` |
 | title | TEXT | NOT NULL | 取り込んだタスクは同期で書き直す |
 | body_md | TEXT | | |
@@ -1140,6 +1141,7 @@
 | task_id | TEXT | PK、FK tasks | |
 | field_id | TEXT | PK、FK detail_fields | |
 | value_md | TEXT | NOT NULL | 空にしたら行を消す |
+| filled_via | TEXT | NOT NULL、既定 `manual` | `manual`、`template`。移行前の値は `manual`。値を手で変えたら `manual` にする。正規化後の値が同じときは更新しない。将来の `ai` は `docs/ai.md` |
 | updated_by | TEXT | NOT NULL、FK users | |
 | updated_at | TEXT | NOT NULL | |
 
@@ -1152,7 +1154,57 @@
   - 無いタスク・削除した欄・別のワークスペースと別の組織のタスクと欄は 404（存在しないときと区別しない）。閉じたワークスペースは 409 の `workspace_closed`。出力は書いた後の欄（`{ id, name, value_md }`）。
   - 履歴は `change_logs`（`entity_type = 'task'`、`entity_id` はタスク、`action = 'update'`）に `{"field": [前, 後]}` の形で、値の全文は入れず、欄の `{ id, name }`（その欄に値があった／あるとき。名前は書いた時点の欄の名前）か null（無かった／無くなる）だけを残す。書いた（なし → あり）は `[null, {id, name}]`、直した（あり → あり）は `[{id, name}, {id, name}]`、空にした（あり → なし）は `[{id, name}, null]`。直前の書き込みが行を変えたときだけ、同じ `batch()` で入れる（`previousStatementChanged`）。`task-history` は `field` を `{ id, name }` か null で返し、画面は「『受け入れ基準』を書いた／直した／空にした」と出す。
   - 書き込みの単位は「書き込みの単位」の「決まった欄の値」。
-- 「詳細を書いた」の受け取り手は、削除していない欄が1件以上あり、すべて埋まっているタスクで、その有効な欄の値の `updated_at DESC, field_id DESC` の先頭の行の `updated_by`（同時刻は欄IDで順を固定）。削除した欄と別のワークスペースの欄の値は除外する。その人が現在所属していなければ付けず、前の人へ繰り上げない。付与と見込みは `src/server/operations/task-detail-xp.ts` の同じ式で判定する。
+- 「詳細を書いた」の受け取り手は、削除していない決まった欄がすべて埋まっているとき、手入力した値（`filled_via = 'manual'`）の `updated_at DESC, field_id DESC` の先頭の行の `updated_by`。雛形の値も記入済みとして扱う。手入力の値がなければ、欄が0件の場合も含めて付与と見込みの対象外。同時刻は欄 ID で順を固定し、削除した欄と別のワークスペースの欄の値は除外する。その人が現在所属していなければ付けず、前の人へ繰り上げない。付与と見込みは `src/server/operations/task-detail-xp.ts` の同じ式で判定する。
+
+### task_templates
+
+ワークスペースで繰り返し使う雛形。
+
+| 列 | 型 | 制約 | 説明 |
+| --- | --- | --- | --- |
+| id | TEXT | PK | |
+| workspace_id | TEXT | NOT NULL、FK workspaces | |
+| name | TEXT | NOT NULL | 雛形の名前 |
+| story_title | TEXT | | 空なら既存ストーリーへの追加専用 |
+| story_acceptance_criteria_md | TEXT | | |
+| story_body_md | TEXT | | |
+| story_category_id | TEXT | FK categories | |
+| revision | INTEGER | NOT NULL | 雛形と配下の項目・値をまとめた版。いずれかを変更すると進める |
+
+- `workspaces.organization_id` で組織を確かめ、`workspace_id` で絞る。作成・編集・削除はリーダー（管理者を含む）、適用はメンバー。閉じたワークスペースへの書き込みは断る。
+- ストーリーのタイトルが空ならストーリーの情報を保存しない。本文、受け入れ基準、区分は対応するストーリーの欄と同じ制約に従う。
+- 雛形の作成・編集・削除は項目・値と履歴を含めて1回の `batch()` で書く。適用済みの行とは履歴の写しで結ぶ。解約した組織の消去 SQL（`scripts/purge-organization-sql.ts`）には、値、項目、雛形の順に消す処理をマイグレーションと一緒に足す。コードを戻した後も、雛形の表がある間は追加後の生成器を使う。
+
+### task_template_items
+
+雛形に登録するタスク。1つの雛形に1〜50件。
+
+| 列 | 型 | 制約 | 説明 |
+| --- | --- | --- | --- |
+| id | TEXT | PK | |
+| workspace_id | TEXT | NOT NULL、FK workspaces | |
+| template_id | TEXT | NOT NULL、FK task_templates | 同じワークスペースの雛形 |
+| title | TEXT | NOT NULL | |
+| points | INTEGER | | タスクと同じ |
+| body_md | TEXT | | タスクの本文と同じ |
+| repository_id | TEXT | FK repositories | |
+| due_offset_days | INTEGER | | 空は期日なし。開始日を0日目とする非負の整数 |
+| position | INTEGER | NOT NULL | 雛形の中での順序 |
+
+- `(template_id, position)` を一意にする。組織を確認したワークスペースで絞り、雛形も同じワークスペースに結ぶ。
+- 適用時のタイトルは `{対象}` の差し込み後に検査する。期日が暦の範囲を超える場合は作成前に断る。
+
+### task_template_item_field_values
+
+雛形のタスクの決まった欄の値。
+
+| 列 | 型 | 制約 | 説明 |
+| --- | --- | --- | --- |
+| item_id | TEXT | PK、FK task_template_items | |
+| field_id | TEXT | PK、FK detail_fields | |
+| value_md | TEXT | NOT NULL | タスクの決まった欄と同じ。空は行を持たない |
+
+- `task_field_values` と同じく `workspace_id` を持たず、項目と雛形を通して組織・ワークスペースで絞る。保存時は欄、区分、リポジトリが同じワークスペースにあることを確かめる。適用時に削除済みの欄の値は飛ばし、削除済みの区分・リポジトリは空にする。
 
 ### comments
 
@@ -1598,12 +1650,13 @@ Wiki のページ。組織の Wiki とワークスペースの Wiki で共有す
 | workspace_id | TEXT | FK workspaces | 組織の変更（組織の作成、停止、再開、管理者の指名、ユーザーの無効化、組織の設定の変更、上限の変更）では空 |
 | actor_user_id | TEXT | FK users | 空なら同期などの定期処理か運用者の操作（`operator` も空なら定期処理。お試しの期限切れによる組織の停止は、`operator` も空で書き、画面は「システム」の操作として出す） |
 | operator | TEXT | | 運用者の操作（組織の作成、停止、再開、管理者の指名し直し、上限の変更、契約の変更）のときの運用者のログインの ID（`github:12345`、`google:<sub>` の形） |
-| entity_type | TEXT | NOT NULL | `task`、`story`、`epic`、`comment`、`sprint`、`membership`、`invitation`、`allocation`、`connection`、`completion`、`user`、`workspace`、`organization`、`category`、`repository`、`detail_field`、`delegatee` など |
+| entity_type | TEXT | NOT NULL | `task`、`story`、`epic`、`comment`、`sprint`、`membership`、`invitation`、`allocation`、`connection`、`completion`、`user`、`workspace`、`organization`、`category`、`repository`、`detail_field`、`delegatee`、`task_template` など |
 | entity_id | TEXT | NOT NULL | |
 | action | TEXT | NOT NULL | `create`、`update`、`delete`、`restore`（タスクの削除の取り消し）、`complete`、`reopen`、`archive`、`close` など |
 | changes_json | TEXT | NOT NULL、既定 `'{}'` | `{"列名": [前, 後]}`。人や列は ID と、そのときの表示名を並べて残す |
 | created_at | TEXT | NOT NULL | |
 
+- 雛形で作ったストーリーとタスクの作成の履歴には、雛形の ID とその時点の名前を `changes_json` の `template` に `[null, { id, name }]` で残す。雛形を編集・削除した後も読める。
 - 索引: `(entity_type, entity_id, created_at)`、`(organization_id, created_at)`、`(workspace_id, created_at)`。
 - 索引: `(workspace_id, created_at, id) WHERE entity_type IN ('task', 'story', 'epic') AND action <> 'delete'`（`change_logs_recent_activity`、`migrations/0037_add_recent_activity_indexes.sql`、#1262）。`recent-activity` が、ワークスペースの変更の履歴を新しい順に引く。`change_logs_workspace` は `id` を持たず、種類を後から捨てるので、権限、配分、接続、コメントの編集などの行が続くと、21件を集めるまで長く読む。部分索引は出す行の種類だけを持つ。既存の索引は消さない（`task-history` などは `change_logs_entity` などを使い続ける）。条件は `recent-activity` の文と同じ式を文字のまま書く（`recentChangeRowFilter`）。
 - 続けて直した分のまとめ: タスクの変更（`task-update`）、ストーリーの変更（`story-update`）、エピックの変更（`epic-update`）だけは、自動保存で行が増えて読めなくなるのを防ぐため、同じ人が、同じタスク（ストーリー、エピック）の最新の履歴の行（`action = 'update'`）を最初に書いた時刻（行 ID の UUIDv7 の時刻。まとめても延びない）から5分以内に、同じ1つの欄（タスクは `title`、`points`、`due_on`、`link_url`、`body_md`。ストーリーは `title`、`acceptance_criteria_md`、`body_md`、`due_on`、`link_url`。エピックは `title`、`body_md`、`due_on`、`link_url`。区分などのほかの欄はまとめない）だけをもう一度直すと、行を足さずにその行の「後」の値と `created_at` を書き換える。「前」の値は最初の行のまま残す。したがってまとめた行の `created_at` は最後に直した時刻で、最初に書いた時刻は ID にだけ残る（履歴は `created_at`、`id` の降順で、まとめる行は常にそのタスク（ストーリー、エピック）の最新の行なので、ページ送りでは行が重ならず抜けもしない。表示済みの行の中身が、読み直すまで古いままになるだけ）。別の人、5分を超えた、別の欄、2つ以上の欄、添付つき、元の値へ戻す変更（まとめると「前」と「後」が同じになる。A→B→A→B…と行き来する入力は、毎回新しい行になる）、時計が最初に書いた時刻や最新の行の `created_at` より戻っている、最新の行の `created_at` が日時として読めない、行 ID が UUIDv7 でない（seed、取り込み、古い行。先頭48ビットを時刻と読めない）、間に別の履歴の行が挟まった（最新の行でない。書く文の条件にも「より新しい行が無い」を入れる）ときは、新しい行を足す。列と索引は足さない。書き方は「書き込みの単位」の「タスクの変更」と「ストーリーの変更」と「エピックの変更」。まとめる判定、書き始める前の値（`expected`）の照合、主文の条件、履歴の文は、3 つの操作で同じ処理を使う（`src/server/operations/change-log-merge.ts`。欄の一覧と、値を比べる前に揃える決まり、`entity_type` だけが操作ごとに違う）。窓の長さやまとめない条件を変えるときは、そこ 1 か所を直す。
@@ -1634,6 +1687,7 @@ D1 は対話的なトランザクションを持たない。まとめて書く�
 
 | 操作 | 書くもの |
 | --- | --- |
+| 雛形の適用 | `stories`（新規の場合）、`tasks`、`task_field_values`、`epic_party_members`、`notifications`、`change_logs` を1回の `batch()` で書く。雛形の版、作成先の状態、担当の所属、参照先の有効性を同じトランザクション内で確認し、プレビューとの差が結果に影響する場合は全件を作らず再確認を返す。全書き込みを同じ条件に結び、条件不成立による0件更新を作成成功として返さない。条件不成立や途中の失敗で、ストーリー・タスク・履歴・通知の一部が残らないようにする |
 | お気に入りの付け外し | `favorites` だけを1回の `batch()` で書く。追加は本人・組織・対象の可視性と20行未満を条件にした `INSERT ... SELECT` にし、重複は追加しない。上限の検査も書く文で行い、同時の要求でも20行を超えない。削除は本人と組織で絞る。`change_logs` は書かない |
 | タスクの完了 | `tasks`、`completions`、`review_request_cycles`（レビュー依頼の現在回への完了参照）、`xp_grants`（完了またはレビュー、起票、詳細、手助け）、`change_logs`、`notifications`。`sprint_entries` は書かない（進行中のスプリントの中の完了でも行は開いたまま。終了で閉じる）。ただし始まっていないスプリント（と削除したスプリント）の中の完了だけは、同じ `batch()` でスプリントから外す（`sprint_entries` を `removed` で閉じ、`change_logs` に `{"sprint": [前, null]}`）。文と条件は下の「タスクの完了（`task-complete`）の文と条件」 |
 | タスクの作成 | `tasks`（任意の `body_md` を含む）、`change_logs`（本文がある場合の履歴は `change_logs` の節）。`tasks` の文は `INSERT ... SELECT ... WHERE EXISTS`（閉じていないワークスペース。担当を指すときは、そのワークスペースに今所属している、無効でなく `login_subject` のある人。親を指すときは、同じワークスペースの削除していない、完了していないストーリー）にし、`change_logs`（担当と親も残す）は作った行があるときだけ入れる。何も入らなければ、閉じていれば 409（`workspace_closed`）、親が完了していれば 409（`conflict`）、そうでなければ 404。担当つきで作るときは、続けて `epic_party_members` と `change_logs` を同じ `batch()` に足す（下の「タスクの担当の変更」の討伐隊の文と同じ。条件のタスクの時刻は作った時刻）。入れ先のスプリントと列（`sprint`）を指すときは、同じ `batch()` で `tasks` の `INSERT` に `sprint_id`、`column_id`、`column_position`（その列の中の末尾）を含め、入れ先の条件（削除していない `planned` か `active` のスプリントと、同じワークスペースの削除していない完了でない列）を `WHERE EXISTS` に足す。`change_logs` の `create` に `sprint`（`[null, {id, name}]`）を残し、最後に `sprint_entries` の入った行を足す（作った行があるときだけ。担当の文は直前の文に頼るので、その後ろに置く）。入れ先が断られたら（終了したスプリントは 409（`conflict`、理由は `closed`）、完了の列は 409（理由は `done_column`）、無いスプリントや列と別のワークスペースや別の組織のものは 404）タスクも作られない |

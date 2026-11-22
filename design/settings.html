@@ -16,6 +16,7 @@
 <script src="art.js"></script>
 <script src="sample-data.js"></script>
 <script src="kit.js"></script>
+<script src="task-templates.js"></script>
 <script>
 "use strict";
 // ワークスペースの設定（リーダー）
@@ -71,6 +72,7 @@ SQ.mount("settings", () => `
         <button class="btn is-sm" type="button">${t("retry")}</button><span class="field-hint" role="status">${t("retryFailed")}</span>
         <div class="form-actions"><button class="btn is-primary" type="button">${t("sprintNamingSave")}</button><span class="field-hint" role="status">${t("sprintNamingUnchanged")}</span></div>
       </details>`)}
+    ${SQTaskTemplates.canManage() ? setting(t("taskTemplate"), `繰り返し使う${t("task")}の組を用意します。`, SQTaskTemplates.settings()) : ""}
     ${setting(t("dod"), `すべての${t("task")}に共通する完了の基準。${t("backlog")}の上と、完了の操作の横に出します。`, `
       <div class="field"><label class="field-label" for="dod">Markdown</label><textarea class="textarea" id="dod" rows="8" aria-describedby="dod-hint">${D.definitionOfDone.map((d) => `- ${esc(d)}`).join("\n")}</textarea>
         <span class="field-hint" id="dod-hint">Markdown で書けます。空にして保存すると、どこにも出しません。</span>

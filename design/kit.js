@@ -459,7 +459,7 @@
     paneActivity: "最近の更新", activityEmptyTitle: "まだ更新はありません", activityEmptyText: "所属する{workspace}の{task}、{story}、{epic}の変更とコメントが、ここに新しい順に並びます。", activityEmptyNoWorkspaceText: "{workspace}に所属すると、{task}、{story}、{epic}の更新がここに並びます。",
     activityCreated: "{actor}が作成した", activityUpdated: "{actor}が{fields}を変更した", activityChanged: "{actor}が変更した", activityCompleted: "{actor}が{done}にした", activityReopened: "{actor}が{done}を戻した", activityCommented: "{actor}がコメントした",
     activityMore: "さらに読む", activityLoadFailed: "最近の更新を読み込めませんでした。", activityMoreFailed: "続きを読み込めませんでした。もう一度試してください。",
-    workspace: "ワークスペース", inbox: "受信箱", backlog: "バックログ", sprint: "スプリント", plan: "計画", epic: "エピック", story: "ストーリー",
+    workspace: "ワークスペース", inbox: "受信箱", backlog: "バックログ", sprint: "スプリント", plan: "計画", epic: "エピック", story: "ストーリー", taskTemplate: "テンプレート",
     menuCollapse: "メニューを畳む", menuExpand: "メニューを広げる", breadcrumb: "パンくず", organizationMoving: "移っています",
     personalOrganizationName: "自分用", dashboardPersonalHome: "ホーム", createPersonalOrganizationAction: "自分用を作る",
     task: "タスク", archive: "アーカイブ", connection: "接続", sprintGoal: "スプリントゴール", detail: "詳細", ac: "受け入れ基準", due: "期日",
@@ -1868,6 +1868,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       </dl>
       ${storyAcHtml(st)}
       ${drawerBodyHtml(st)}
+      ${!ro && !st.doneAt && !drawer.parentFinished && page?.current === "backlog" && D.workspace === "wa" ? `<div class="form-actions"><button class="btn" type="button" data-template-apply="${esc(drawer.id)}">${t("taskTemplate")}から${t("task")}を足す</button></div>` : ""}
       ${storyDoneBarHtml(st, remaining)}
       ${!ro && !drawer.canDelete ? `<div class="form-actions"><span class="field-hint">削除できるのは作った人と${t("leader")}です。</span></div>` : ""}`;
   }

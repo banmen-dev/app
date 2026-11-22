@@ -530,6 +530,7 @@ export const dictionary = defineDictionary({
   plan: '計画',
   epic: 'エピック',
   story: 'ストーリー',
+  taskTemplate: 'テンプレート',
   task: 'タスク',
   archive: 'アーカイブ',
   connection: '接続',
