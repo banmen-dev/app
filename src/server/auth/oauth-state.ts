@@ -29,7 +29,7 @@ export function oauthStateCookieClearOptions(publicOrigin: string) {
 
 // セッションの Cookie と同じく、https の公開 URL では `__Host-` を付ける（session-cookie.ts の sessionCookieName を参照）
 export function oauthStateCookieName(publicOrigin: string): string {
-  return isSecureOrigin(publicOrigin) ? '__Host-sg_oauth_state' : 'sg_oauth_state';
+  return isSecureOrigin(publicOrigin) ? '__Host-banmen_oauth_state' : 'banmen_oauth_state';
 }
 
 export type StartedLogin = { state: string; codeChallenge: string; nonce: string | null };

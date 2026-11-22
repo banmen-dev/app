@@ -31,7 +31,7 @@ import {
 
 const app = createApp([...implementedOperations]);
 const provisionalApp = createApp(provisionalOperations);
-const SESSION_COOKIE = '__Host-sg_session';
+const SESSION_COOKIE = '__Host-banmen_session';
 
 async function sessionCount(accountId: string): Promise<number> {
   const db = commonDb(env);

@@ -383,7 +383,7 @@ describe('deploy', () => {
     }
     assert.deepEqual(
       f.seedRequests.map((request) => request.headers.Cookie),
-      Object.values(SEED_SESSIONS).map((seed) => `__Host-sg_session=${seed.token}`),
+      Object.values(SEED_SESSIONS).map((seed) => `__Host-banmen_session=${seed.token}`),
     );
     assert.ok(f.logs.includes(`seed のトークンの確認: ${seedCount}つとも本番が拒みました`));
   });

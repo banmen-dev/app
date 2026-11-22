@@ -164,7 +164,7 @@ describe('受ける', () => {
     const res = await send(report(), {
       ip,
       path: '/api/client-errors?token=query-secret-376',
-      headers: { Cookie: '__Host-sg_session=cookie-secret-376' },
+      headers: { Cookie: '__Host-banmen_session=cookie-secret-376' },
     });
     expect(res.status).toBe(204);
     const raw = String(errorLog.mock.calls[0]?.[0]);

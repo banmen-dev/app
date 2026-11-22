@@ -375,7 +375,7 @@ describe('http の localhost', () => {
     expect(new URL(started.location).searchParams.get('redirect_uri')).toBe(
       'http://localhost:5173/api/auth/github/callback',
     );
-    const stateLine = started.response.headers.getSetCookie().find((line) => line.startsWith('sg_oauth_state='));
+    const stateLine = started.response.headers.getSetCookie().find((line) => line.startsWith('banmen_oauth_state='));
     expect(stateLine).toBeDefined();
     for (const attribute of ['HttpOnly', 'SameSite=Lax', 'Path=/', 'Max-Age=600'])
       expect(stateLine).toContain(attribute);
@@ -384,7 +384,7 @@ describe('http の localhost', () => {
     const code = github.issueCode(user, started.challenge);
     const finished = await browser.callback({ code, state: started.state });
     expect(finished.location).toBe('/aoba');
-    const sessionLine = finished.response.headers.getSetCookie().find((line) => line.startsWith('sg_session='));
+    const sessionLine = finished.response.headers.getSetCookie().find((line) => line.startsWith('banmen_session='));
     expect(sessionLine).toBeDefined();
     for (const attribute of ['HttpOnly', 'SameSite=Lax', 'Path=/']) expect(sessionLine).toContain(attribute);
     expect(sessionLine).not.toContain('Secure');
@@ -401,7 +401,7 @@ describe('http の localhost', () => {
       state: started.state,
     });
     const lines = [...started.response.headers.getSetCookie(), ...finished.response.headers.getSetCookie()];
-    for (const name of ['__Host-sg_oauth_state=', '__Host-sg_session=']) {
+    for (const name of ['__Host-banmen_oauth_state=', '__Host-banmen_session=']) {
       expect(lines.find((line) => line.startsWith(name))).toContain('Secure');
     }
   });

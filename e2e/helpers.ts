@@ -595,7 +595,7 @@ export async function settledScrollY(page: Page): Promise<number> {
 }
 
 // seed のセッション（seed/sessions.ts）の Cookie を置いて、ログインした状態にする。
-// 名前は画面を開く URL で決まる（e2e は pnpm preview の http の localhost なので sg_session）
+// 名前は画面を開く URL で決まる（e2e は pnpm preview の http の localhost なので banmen_session）
 export async function signIn(
   context: BrowserContext,
   baseURL: string | undefined,

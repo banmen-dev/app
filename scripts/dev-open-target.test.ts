@@ -57,7 +57,7 @@ describe('resolveDevOpenTarget', () => {
       path: '/aoba',
       origin: 'http://localhost:5173',
       url: 'http://localhost:5173/aoba',
-      cookieName: 'sg_session',
+      cookieName: 'banmen_session',
       token: SEED_SESSIONS.admin.token,
     });
   });
@@ -120,7 +120,7 @@ test('プレビューは全 seed ロールを secure Cookie の名前で開く�
     });
     assert.ok(result.ok);
     assert.equal(result.origin, PREVIEW_ORIGIN);
-    assert.equal(result.cookieName, '__Host-sg_session');
+    assert.equal(result.cookieName, '__Host-banmen_session');
     assert.equal(result.token, session.token);
     assert.equal(result.url, `${PREVIEW_ORIGIN}/aoba`);
   }

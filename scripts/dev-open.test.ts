@@ -81,7 +81,7 @@ test('プレビューを開く CLI は Service Worker を止め、Secure Cookie 
             async addCookies(cookies) {
               assert.equal(cookies.length, 1);
               const cookie = cookies[0];
-              assert.equal(cookie.name, '__Host-sg_session');
+              assert.equal(cookie.name, '__Host-banmen_session');
               assert.equal(cookie.url, origin);
               assert.equal(cookie.secure, true);
               assert.equal(cookie.httpOnly, true);

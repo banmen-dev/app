@@ -42,7 +42,7 @@ describe('checkDevOpenSession', () => {
     assert.equal(call.init?.redirect, 'manual');
     const headers = new Headers(call.init?.headers);
     assert.equal(headers.get('Origin'), 'http://localhost:5173');
-    assert.equal(headers.get('Cookie'), `sg_session=${SEED_SESSIONS.admin.token}`);
+    assert.equal(headers.get('Cookie'), `banmen_session=${SEED_SESSIONS.admin.token}`);
   });
 
   test('401 は pnpm db:seed を案内する。運用者には .dev.vars も案内する', async () => {
@@ -113,7 +113,7 @@ test('プレビューの preflight は Access、secure Cookie、Origin を付け
   assert.equal(headers.get('CF-Access-Client-Id'), 'test-id');
   assert.equal(headers.get('CF-Access-Client-Secret'), 'test-secret');
   assert.equal(headers.get('Origin'), origin);
-  assert.equal(headers.get('Cookie'), `__Host-sg_session=${SEED_SESSIONS.operator.token}`);
+  assert.equal(headers.get('Cookie'), `__Host-banmen_session=${SEED_SESSIONS.operator.token}`);
   for (const status of [302, 401, 403, 500]) {
     const reason = reasonOf(await checkDevOpenSession(remote, env, respond(status)));
     assert.match(reason, /Workers Builds/);
