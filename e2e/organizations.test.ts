@@ -45,7 +45,7 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
     await page.goto('/');
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole('heading', { level: 1, name: 'ダッシュボード' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Scrum Guild のニュース' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Banmen のニュース' })).toBeVisible();
     await page
       .getByRole('region', { name: '組織', exact: true })
       .getByRole('link', { name: /あおば開発/ })
@@ -126,7 +126,7 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
     for (const slug of ['hibari', 'no-such-organization']) {
       await page.goto(`/${slug}`);
       await expect(page.getByRole('heading', { level: 1, name: '組織が見つかりません' })).toBeVisible();
-      await expect(page).toHaveTitle('組織が見つかりません - Scrum Guild');
+      await expect(page).toHaveTitle('組織が見つかりません - Banmen');
       await expect(page.locator('.nav')).toHaveCount(0);
       // 見出しが出た後も骨組みは120ms退場する。比較するのは退場後の同じ最終画面。
       await expect(page.locator('#boot-loading, .loading-overlay')).toHaveCount(0);
@@ -184,7 +184,7 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
     const collect = await watchViolations(page);
     await page.goto('/aoba');
     await expect(page.getByRole('heading', { level: 1, name: '組織は停止しています' })).toBeVisible();
-    await expect(page).toHaveTitle('組織は停止しています - Scrum Guild');
+    await expect(page).toHaveTitle('組織は停止しています - Banmen');
     await expect(page.getByText('この組織は停止しています。運用者に問い合わせてください。')).toBeVisible();
     await expect(page.getByRole('heading', { name: '組織が見つかりません' })).toHaveCount(0);
     await expect(page.locator('.nav')).toHaveCount(0);
@@ -226,7 +226,7 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
       await call.passThrough();
     });
     await page.goto('/aoba');
-    await expect(page).toHaveTitle('読み込めませんでした - Scrum Guild');
+    await expect(page).toHaveTitle('読み込めませんでした - Banmen');
     const retry = page.getByRole('button', { name: 'もう一度試す' });
     const status = page.locator('.empty [role="status"]');
     await expect(retry).toHaveAttribute('aria-disabled', 'false');
@@ -300,7 +300,7 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
       .click();
     // 少し遅れて、見出しと題名を持つ読み込み中の表示を出す。読み上げの領域は常に置いてあり、文字だけが替わる
     await expect(page.getByRole('heading', { level: 1, name: '読み込んでいます' })).toBeVisible();
-    await expect(page).toHaveTitle('読み込んでいます - Scrum Guild');
+    await expect(page).toHaveTitle('読み込んでいます - Banmen');
     await expect(page.locator('[role="status"].visually-hidden').first()).toHaveText('読み込んでいます');
     // 行き先が組織の枠なので、骨組みは紙ではなく枠の形で、左のメニューの幅と上の帯の高さは読み込んだ後と同じ。
     // 本文は今日やることの組み（本文だけの1列）で、本文の位置も読み込んだ後と同じ
@@ -771,7 +771,7 @@ for (const width of [1280, 390]) {
       '届いた招待',
       '停止している組織',
       '最近の更新',
-      'Scrum Guild のニュース',
+      'Banmen のニュース',
     ]);
     await expect(page.locator('.nav, .topbar')).toHaveCount(0);
     const main = await shownBox(page.locator('.dashboard-main'));

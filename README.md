@@ -1,4 +1,4 @@
-# Scrum Guild
+# Banmen
 
 チームのタスクを集め、ゲームの仕組みで回すサービスです。Cloudflare Workers（Hono、D1、R2）と SvelteKit の SPA モードで作っています。
 

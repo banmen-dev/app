@@ -75,7 +75,7 @@ const listed = JSON.parse(
 const tables = listed.flatMap((r) => r.results.map((row) => row.name));
 
 const data = readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8');
-const dir = mkdtempSync(path.join(tmpdir(), 'scrum-guild-seed-'));
+const dir = mkdtempSync(path.join(tmpdir(), 'banmen-seed-'));
 try {
   const file = path.join(dir, 'seed.sql');
   writeFileSync(file, seedSql(tables, data, Object.values(SEED_SESSIONS), now));

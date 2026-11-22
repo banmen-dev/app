@@ -45,7 +45,7 @@ const route = option('--path', '/aoba');
 const expectedHeading = option('--heading', route === '/aoba' ? '今日やること' : '');
 if (!expectedHeading.trim()) throw new Error('/aoba以外は --heading に目的の画面のh1の文字を指定してください');
 const network = option('--network', 'both');
-const output = option('--output', path.join(tmpdir(), `scrum-guild-boot-${Date.now()}.json`));
+const output = option('--output', path.join(tmpdir(), `banmen-boot-${Date.now()}.json`));
 if (
   !Number.isSafeInteger(runs) ||
   runs < 1 ||
@@ -64,7 +64,7 @@ const root = process.cwd();
 const origin = `http://127.0.0.1:${port}`;
 if (new URL(route, origin).origin !== origin || route.startsWith('/api'))
   throw new Error('画面のパスだけを指定してください');
-const dir = mkdtempSync(path.join(tmpdir(), 'scrum-guild-boot-'));
+const dir = mkdtempSync(path.join(tmpdir(), 'banmen-boot-'));
 const config = path.join(dir, 'wrangler.json');
 const version = `boot-bench-${randomUUID()}`;
 const env = {

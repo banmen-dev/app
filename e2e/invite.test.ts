@@ -37,8 +37,8 @@ test('秘密を読んだらすぐ URL から消し、ボタンを押すまでロ
   // フォームは自分の API に POST し、302 で Google の認可の画面へ移る。Chrome は form-action をリダイレクトの先にも当てるので、
   // Google の認可の画面のホストを許している（許さないと 302 が CSP で止まる）
   expect(response?.headers()['content-security-policy']).toContain("form-action 'self' https://accounts.google.com");
-  await expect(page.getByRole('heading', { level: 1, name: 'Scrum Guild への招待' })).toBeVisible();
-  await expect(page).toHaveTitle('Scrum Guild への招待 - Scrum Guild');
+  await expect(page.getByRole('heading', { level: 1, name: 'Banmen への招待' })).toBeVisible();
+  await expect(page).toHaveTitle('Banmen への招待 - Banmen');
   // 秘密は URL から消える（履歴にも残らない）。組織の名前は出さない
   await expect(page).toHaveURL(/\/invite$/);
   expect(await page.evaluate(() => location.hash)).toBe('');

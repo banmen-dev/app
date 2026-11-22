@@ -39,7 +39,7 @@ test('syscall の ABI を区別し、引数とアドレスを出力しない', (
 
 test('既知の D1 ファイル以外のパスや名前は残さない', () => {
   const relative = `v3/d1/miniflare-D1DatabaseObject/${'a'.repeat(64)}.sqlite`;
-  for (const root of ['/workspace/app/.wrangler/state', '/dev/shm/scrum-guild-wrangler-state']) {
+  for (const root of ['/workspace/app/.wrangler/state', '/dev/shm/banmen-wrangler-state']) {
     for (const suffix of ['', '-wal', '-shm', '-journal']) {
       assert.equal(identifyD1File(`${root}/${relative}${suffix}`), relative + suffix);
     }
@@ -63,7 +63,7 @@ test('syscall と fd を対応付け、読めない場合と PID が変わった
   const relative = `v3/d1/miniflare-D1DatabaseObject/${'b'.repeat(64)}.sqlite-wal`;
   await writeFile(`${root}/30/syscall`, syscallLine(process.arch === 'arm64' ? 82 : 74));
   await writeFile(`${root}/30/stat`, stat(30, 10, 'workerd'));
-  await symlink(`/dev/shm/scrum-guild-wrangler-state/${relative}`, `${root}/30/fd/7`);
+  await symlink(`/dev/shm/banmen-wrangler-state/${relative}`, `${root}/30/fd/7`);
   const sampled = await sampleIoWait(30, 2200, root);
   if (process.arch !== 'x64' && process.arch !== 'arm64') {
     assert.equal(sampled.status, 'unsupported-arch');

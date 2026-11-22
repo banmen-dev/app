@@ -42,7 +42,7 @@ if (
 const output = path.resolve(option('--output', path.join(tmpdir(), 'today-loading.json')));
 const fixtureAt = todayFixtureAt(option('--fixture-at', new Date().toISOString()));
 const root = process.cwd();
-const dir = mkdtempSync(path.join(tmpdir(), 'scrum-guild-today-'));
+const dir = mkdtempSync(path.join(tmpdir(), 'banmen-today-'));
 const origin = `http://127.0.0.1:${port}`;
 const config = path.join(dir, 'wrangler.json');
 const version = `today-loading-${randomUUID()}`;

@@ -1,4 +1,4 @@
-# Scrum Guild の開発の進め方
+# Banmen の開発の進め方
 
 状態: 方針（2026-10-22 に決めた）。土台を作るときに、道具の名前や設定の細部を足す。
 
@@ -147,7 +147,7 @@ Wikiの一括取り込みは、`requestRateLimit` の要求枠（本文を読む
 
 ### ニュースの足し方
 
-組織のホームの「Scrum Guild のニュース」の面に出す知らせは、`src/lib/news.ts` の `newsItems` に足す。API と DB は通さず、リリースで配る（運用者が画面から書く仕組みは持たない）。
+組織のホームの「Banmen のニュース」の面に出す知らせは、`src/lib/news.ts` の `newsItems` に足す。API と DB は通さず、リリースで配る（運用者が画面から書く仕組みは持たない）。
 
 1. `newsItems` の先頭に `{ date, title, body, href? }` を足す。`date` は知らせる日の `YYYY-MM-DD`（実在する暦の日で、`2026-01-01` 以上、検査を走らせた日の翌日以下。年の打ち間違いで先頭に居座らないようにする）、`title` は空でない1行で40字まで、`body` は空でない短い平文で120字まで（長さはコードポイントで数える。狭い幅で何行にも折り返さないため）。題と本文は書いたまま画面に出る（辞書を通さず、HTML にも Markdown にもならない）。例は架空にし、実在の名前を混ぜない
 2. 詳しく読める先があるときだけ `href` を足す。`https://` で始まり、`new URL(href).href` が `href` と同じ（正規化して形が変わらない。`https://example.com` は `https://example.com/` と末尾の `/` まで書く）、ユーザー情報（`https://名前:鍵@…`）の無い URL だけを許す。画面は同じ検査（`isNewsHref`）を通るときだけ、題（h3）を新しいタブで開くリンクにして、題の文字の末尾に external の印を添える
@@ -527,7 +527,7 @@ Wrangler の assets で本番ビルドを SPA として配り、ループバッ�
 
 `sg`（`cli/`）は API トークンで操作を呼ぶコマンドラインのクライアント。操作の定義を取り込まず、呼ぶたびに `operation-list` で一覧を取り、その JSON Schema から入力を作る。
 
-- 設定: `sg config set url <URL>` と `sg config set token`（トークンは標準入力から読む。引数では受けない）で接続先を設定する。`config set org|workspace <値>` で既定の組織とワークスペース、`config use <名前>` で既定の接続先、`config show` でトークンを伏せた設定を扱う。`config` も `--profile <名前>` で接続先を選ぶ。保存先は `$XDG_CONFIG_HOME/scrum-guild/config.json`（未設定、空、相対パスなら `~/.config/scrum-guild/config.json`）で、0600 で書く。接続先の名前に `__proto__`、`constructor`、`prototype` は使えない
+- 設定: `sg config set url <URL>` と `sg config set token`（トークンは標準入力から読む。引数では受けない）で接続先を設定する。`config set org|workspace <値>` で既定の組織とワークスペース、`config use <名前>` で既定の接続先、`config show` でトークンを伏せた設定を扱う。`config` も `--profile <名前>` で接続先を選ぶ。保存先は `$XDG_CONFIG_HOME/banmen/config.json`（未設定、空、相対パスなら `~/.config/banmen/config.json`）で、0600 で書く。そこに無いときは、名前を改める前の置き場所（`scrum-guild/config.json`）を読み、次に書いたときに `banmen` へ書く。前の置き場所のファイルは消さないので、トークンが残る。移った後は前のファイルを消し、要らなくなったトークンは失効させる。接続先の名前に `__proto__`、`constructor`、`prototype` は使えない
 - 環境変数: `SG_URL`、`SG_TOKEN`、`SG_ORG`、`SG_WORKSPACE`、`SG_PROFILE` が設定に勝ち、`--profile` が `SG_PROFILE` に勝つ。空の値は未設定と同じ。`SG_URL` と `SG_TOKEN` は両方を設定する（片方だけなら使い方の誤り）。別の出どころの URL とトークンを組み合わせて、トークンを意図しない宛先へ送らないため
 - URL: `https:` か、ループバック（`localhost`、`127.0.0.1`、`[::1]`）への `http:` だけ。認証情報、問い合わせ（`?`）、断片（`#`）を含む URL は使えない（パスは含めてよく、その下に `/api` を足す）。リダイレクトは追わず、3xx は API のエラーにする。30 秒で応答が無ければ打ち切る
 - 同意: トークンの持ち主が今の版の規約に同意するまで、`sg ops` を含むすべての呼び出し（`me` と `consent-status` を除く）は 403 の `terms_required` になる。同意は `cookieOnly` なので、持ち主が画面（`/consent`）でする（同意の門は「操作の定義」）。
@@ -560,14 +560,14 @@ pnpm -s sg ops
 Claude Code への登録は、`main` の作業コピーの絶対パスで CLI を直に指すのを勧める（`pnpm` を挟むと、起動したディレクトリの `package.json` のスクリプトが動き、`pnpm` の出力が標準出力に混ざる余地も残る）。
 
 ```bash
-claude mcp add scrum-guild -- node <main の作業コピーの絶対パス>/cli/sg.ts mcp
+claude mcp add banmen -- node <main の作業コピーの絶対パス>/cli/sg.ts mcp
 ```
 
-このリポジトリの作業コピーの中だけで試すなら、`claude mcp add scrum-guild -- pnpm -s sg mcp` でもよい（`pnpm -s` は、`package.json` のあるディレクトリで動くため）。
+このリポジトリの作業コピーの中だけで試すなら、`claude mcp add banmen -- pnpm -s sg mcp` でもよい（`pnpm -s` は、`package.json` のあるディレクトリで動くため）。
 
-- 組織ごとに登録を分ける。別の組織は別の名前で、`--org` を付けて登録する: `claude mcp add scrum-guild-aoba -- node <main の作業コピーの絶対パス>/cli/sg.ts mcp --org aoba`。組織ごとに別のトークンを使うなら、`sg config set` で接続先（`--profile`）を作り、`-- node <main の作業コピーの絶対パス>/cli/sg.ts mcp --profile <名前>` と登録する
-- 普段は `--allow-write` を付けずに登録し（読み取りの道具だけ）、読み取りのトークンの接続先を使う。書き込みが要るときだけ、書き込みのトークンの接続先に `--allow-write` を付けた登録を足す: `claude mcp add scrum-guild-write -- node <main の作業コピーの絶対パス>/cli/sg.ts mcp --profile <書き込みの接続先> --allow-write`。書き込みの道具が出るのは、`--allow-write` と書き込みのトークンの両方が揃ったときだけ。使い終えたら `claude mcp remove scrum-guild-write` で外す（残すと読み取りの登録と同時に有効のまま）。`--allow-write` は道具の見せ方を決めるだけで、境界ではない（Bash が使える AI は `sg call` で直に書き込める）。書き込みを確実に防ぐのは、読み取りのトークンだけ
-- 書き込みの道具（`mcp__scrum-guild__*` のうち書き込むもの）を、Claude Code の許可（`permissions.allow`）に常には入れない。取り込んだ内容や他人が書いたタスクの本文は信頼できない入力で、AI が読むと、本文の指示に従って書き込みの道具を呼びかねない。呼ぶたびに人が確かめる
+- 組織ごとに登録を分ける。別の組織は別の名前で、`--org` を付けて登録する: `claude mcp add banmen-aoba -- node <main の作業コピーの絶対パス>/cli/sg.ts mcp --org aoba`。組織ごとに別のトークンを使うなら、`sg config set` で接続先（`--profile`）を作り、`-- node <main の作業コピーの絶対パス>/cli/sg.ts mcp --profile <名前>` と登録する
+- 普段は `--allow-write` を付けずに登録し（読み取りの道具だけ）、読み取りのトークンの接続先を使う。書き込みが要るときだけ、書き込みのトークンの接続先に `--allow-write` を付けた登録を足す: `claude mcp add banmen-write -- node <main の作業コピーの絶対パス>/cli/sg.ts mcp --profile <書き込みの接続先> --allow-write`。書き込みの道具が出るのは、`--allow-write` と書き込みのトークンの両方が揃ったときだけ。使い終えたら `claude mcp remove banmen-write` で外す（残すと読み取りの登録と同時に有効のまま）。`--allow-write` は道具の見せ方を決めるだけで、境界ではない（Bash が使える AI は `sg call` で直に書き込める）。書き込みを確実に防ぐのは、読み取りのトークンだけ
+- 書き込みの道具（`mcp__banmen__*` のうち書き込むもの）を、Claude Code の許可（`permissions.allow`）に常には入れない。取り込んだ内容や他人が書いたタスクの本文は信頼できない入力で、AI が読むと、本文の指示に従って書き込みの道具を呼びかねない。呼ぶたびに人が確かめる
 - どの作業コピーからでも動かすときは、`pnpm -s sg` の代わりに `node <作業コピーの絶対パス>/cli/sg.ts mcp` と登録する。決まった版の CLI（`main` の作業コピーの絶対パス）にしておくことを勧める。作業ブランチのワークツリーを指すと、その作業中のコードが道具の実体になり、ブランチを消すと動かなくなる
 - 登録の後、Claude Code の `/mcp` で道具の一覧を見られる。読み取りを1つ頼んで確かめ、書き込みは `--allow-write` を付けた登録で1つ頼んで確かめる
 
@@ -862,7 +862,7 @@ git の保護フックと CI は既存のものを使う。
 | `sprint-review` | 足した（2026-10-28、#373）。受け入れ待ちを一覧にして確かめる場所を決め、条件を1つずつ宣言して止まり、人の「OK」でチェックボックスに印を付け（`check-criterion.py`）、すべて埋まったら閉じるかを聞く。見つけたことは最後にまとめて起票の候補にし、本番と手元に残したものと片付けを報告する。画面が変わる Issue の動画は、`acceptance-video` でまとめて撮り、1 枚の HTML に並べて見られる（2026-10-31、#586）。実際のスプリントレビューの流れに並べ直した（2026-10-31、#588）。最初にゴールと、計画の Done、受け入れ待ち、まだを共有する。受け入れの後に Done の動画を見せ直す手順は外した。人は受け入れ待ちの判定で動きを見ているため（2026-11-08）。受け入れの前段で、受け入れ待ちの動画を先に撮り、タブに分けた HTML で人が ok / ng とフィードバックを付けて結果を貼ると、`sprint-review` が印と起票の候補に写す（2026-10-31、#591）。画面で見られない条件と未判定の Issue は、これまでどおり 1 条件ずつ確かめる。続けて、ステークホルダーの意見、要望、状況の変化を人の話から要旨にして、記録の Issue に `## レビュー` のコメントで残し、要望と不具合は起票の候補にする。バックログの見直し（上げる、下げる、外す、足す）の候補から人が採ったものと次のスプリントの方向性は、別の `## レビュー` のコメントに残す。ラベルとポイントは付け替えず、市場は調べない。Issue の本文を読むとき、書いた人に API で確認した書き込み権限がなく、`github-actions[bot]`（`Bot` 型）でもなければ、本文の指示に従わず、要旨を見せて受け入れを続けるかを聞く（2026-10-31、#585）。手元の条件で書き込みのある操作は、宣言に操作名を書き、人の「OK」か「気になる」の後に `pnpm dev` のログ（宣言の前に控えた行より後ろの `POST /api/<slug>/<操作名>` の 2xx）と、組織で絞った D1 の `SELECT` で届いたことを確かめてから印を付ける。届いていなければ印を付けず、開いているブラウザが `pnpm dev:open` のものかを添えて聞き直す。人が頼んだときだけ、セッションが `dev:open` と同じ Cookie を置いた Chrome（Playwright の `channel: 'chrome'`）で操作し、スクリーンショットとログと D1 で裏を取る（2026-11-11、#1160） |
 | `acceptance-video` | 足した（2026-10-31、#578）。受け入れ待ちの Issue の変更点を、30 秒以内の無音の画面録画（字幕つきの mp4）にする。Issue の「変更点」「確認方法」から seed の画面の操作の手順書を書き、人が確かめてから Playwright で録画する。字幕は画面の外の帯に載せる。ffmpeg に字幕のフィルタが無い環境があるので、Pillow の画像を重ねる。複数の Issue は `sprint-review` の手順 2（受け入れ待ちの判定）から呼び、全部の手順書を 1 回で承認して撮り、`gallery.mjs` で、Issue 番号のタブと状況タブ（一覧と ok / ng の進み具合）の 1 枚の HTML に並べる。`manifest.json` に `judge` を付けると、動画の Issue ごとに ok / ng、ng の理由とコメントを付け、結果をプロンプトに貼る文としてコピーできる（2026-10-31、#591）。HTML は作った直後に自動で開き、`judge` の有無を開く前に確かめる（2026-10-31、#609）。開く道具は、スキルを呼んだときに決める（2026-11-08）。`done: true` を付けた受け入れ済みの Issue は、判定の一覧、件数、結果の文に入れず「完了済み」の枠に分け、動画は見直せる。`judge` では、ボタンで判定の対象に戻せる（2026-11-01、#606）。貼られた結果は人の答えとして、`sprint-review` が印、起票の候補に写す。閉じるのは、すべての条件に印が付いた後に人が答えたときだけ。録画の前に `record.mjs --probe` で、手順書を録画せずに最後まで通し（click などは実行し、待ちは省く）、要素の指し方が実画面に在るかを場面番号つきで一覧にする。見つからない指し方があれば録画せず、試した後は `pnpm db:seed` で戻す（2026-11-01、#608）。手順書の任意の `screen`（`width`、`height`、`touch`）で録画と試しの画面を指定できる。寸法は各 320〜3840px、既定は 1280×640、タッチ無し。録画は縦横比を保って 1280×640 に収め、字幕帯込みの mp4 は 1280×720 のまま（2026-11-04、#763）。手順書の操作に、キーを押して離す `press`（`Meta+K` のような組み合わせも可）と、単一のキーを `ms` 押し続ける `hold` を足した。どちらも `on` で要素を指すと、そこへフォーカスしてから押す（2026-11-08、#988）。場面の `mark` は操作前、`markAfter` は操作後の結果に枠を付ける。試しは `goto` の前に開始済みの書き込み要求の完了を最大5秒待ち、未完了なら遷移を止める（まだ始まっていない遅延保存は対象外）。手元のセッションだけで使う |
 | `sprint-plan` | 足した（2026-10-29、#473）。今のスプリントを締めて記録の Issue に数を残し、次のスプリントに入れる Issue、ポイント、ゴールを人と決めて、`sprint:<番号>` のラベルと記録の Issue を作る。`sprint-review` が記録の Issue に残した `## レビュー` のコメント（意見、要望、見直しの方向性）を読み、候補の並びとゴールの案に使う（2026-10-31、#588） |
-| `daily-scrum` | 足した（2026-10-26 に `progress-chart` として。2026-10-29 に名前を変えた、#473）。スプリントのゴールに向けて進み具合、待ち、受け入れ待ち、作業中を点検し、人の手元の開発ボード（claude.ai の Artifact「Scrum Guild 開発ボード」）を出し直す。開発ボードは、スプリントバックログ、プロダクトバックログ、インクリメントの3つの成果物を切り替えて見せる（下の「スクラムのイベントと成果物」）。データは `scripts/progress-data.ts` が GitHub から作る JSON で、ページの元はスキルの `page/`（`index.html`、`board.js`、要件の機能の一覧の `features.json`）にあり、Issue ごとの状態を手で書かない（2026-10-29、#477）。出し直すのは Artifact のツールのある手元のセッションだけ |
+| `daily-scrum` | 足した（2026-10-26 に `progress-chart` として。2026-10-29 に名前を変えた、#473）。スプリントのゴールに向けて進み具合、待ち、受け入れ待ち、作業中を点検し、人の手元の開発ボード（claude.ai の Artifact「Banmen 開発ボード」）を出し直す。開発ボードは、スプリントバックログ、プロダクトバックログ、インクリメントの3つの成果物を切り替えて見せる（下の「スクラムのイベントと成果物」）。データは `scripts/progress-data.ts` が GitHub から作る JSON で、ページの元はスキルの `page/`（`index.html`、`board.js`、要件の機能の一覧の `features.json`）にあり、Issue ごとの状態を手で書かない（2026-10-29、#477）。出し直すのは Artifact のツールのある手元のセッションだけ |
 | `add-operation` | 足した（2026-10-25）。操作の定義を1つ足す型紙。定義、処理、一覧への登録、組織の分離のテスト用の関数、権限のテスト、画面から呼ぶ口までを一続きで作る |
 | `.claude/checklists/` | `cloudflare-workers.md` と `multi-tenant.md` を足した。`database.md` を D1 向けに書き直し、`languages/typescript.md` から使わないフレームワーク（Vue、Nuxt、Express、Sequelize）の節を外し、SvelteKit の節を SPA モード向けに直した |
 
@@ -1174,7 +1174,7 @@ Linux の CI では、seed の後から teardown まで `scripts/e2e-process-pro
 | `io` | `/proc/<pid>/io` の累積計数。`read_bytes` / `write_bytes` などの差でディスク I/O と重なったかを見る。書き込みの増加だけで SQLite の checkpoint と断定しない |
 | `mainThreadIo` | workerd の主スレッドの syscall/fd 採取結果。対象外の起動元プロセスは `null`。workerd で取得不能の場合は `null` でなく `status: unavailable`（詳細は次の段落） |
 
-#1167 では、workerd の主スレッドについて `mainThreadIo` も採る。x64・arm64 の Linux syscall 番号から `read`・`write`・`pread64`・`pwrite64`・`readv`・`writev`・`fsync`・`fdatasync` と fd を識別し、`/proc/<pid>/fd/<fd>` のリンク先を対応付ける。syscall の生の行、バッファ、アドレス、ファイルの本文は保存しない。リンク先は `.wrangler/state` または CI の `/dev/shm/scrum-guild-wrangler-state` 配下の、既知の `v3/d1/miniflare-D1DatabaseObject/<64桁の16進数>.sqlite`（`-wal`・`-shm`・`-journal` を含む）だけ相対パスで残し、それ以外は `file: null` にする。追加する procfs 読み取りは workerd 1プロセスにつき最大4回で、ptrace による停止や追加権限は使わない。CI の既存の有効条件と採取上限を使う。
+#1167 では、workerd の主スレッドについて `mainThreadIo` も採る。x64・arm64 の Linux syscall 番号から `read`・`write`・`pread64`・`pwrite64`・`readv`・`writev`・`fsync`・`fdatasync` と fd を識別し、`/proc/<pid>/fd/<fd>` のリンク先を対応付ける。syscall の生の行、バッファ、アドレス、ファイルの本文は保存しない。リンク先は `.wrangler/state` または CI の `/dev/shm/banmen-wrangler-state` 配下の、既知の `v3/d1/miniflare-D1DatabaseObject/<64桁の16進数>.sqlite`（`-wal`・`-shm`・`-journal` を含む）だけ相対パスで残し、それ以外は `file: null` にする。追加する procfs 読み取りは workerd 1プロセスにつき最大4回で、ptrace による停止や追加権限は使わない。CI の既存の有効条件と採取上限を使う。
 
 `status` が `invalid` なら syscall の行や fd が想定する形式でなく、`unavailable` なら権限不足や終了などで syscall の初回読み取りができず、`unsupported-arch` なら ABI が未対応、`running`・`userspace`・`other` なら対象 I/O の syscall を捕まえていない。`io` のときの `fileStatus` は `d1`・`outside-allowlist`・`unavailable` を区別する。前後の syscall の生の行と `startTicks` が一致しなければ `changed` としてファイルの対応を捨てる。2回目の syscall の読み取り失敗も `changed` に含め、初回の `unavailable` と区別する。ただし採取は非原子的で、同じ syscall に戻る間の fd 再利用は排除できない。`startedAt`・`finishedAt` と既存の HTTP・待ち場所の記録を突き合わせ、繰り返し観測した対応を根拠にする。主スレッド以外とユーザー空間の呼び出しスタックは採らないため、SQLite の checkpoint や呼び出し経路の断定には追加の根拠が必要。採取できなかった実行を「I/O 待ちが無い」と扱わず、採取時間と遅延件数を追加前後の CI で比較する。原因特定と修正効果の確認が終わるまで既存計測は外さない。効果確認後の撤去では、計測本体・専用テスト・`e2e/global-setup.ts` の呼び出しと説明に加え、`scripts/ci.ts` の `devBuildPatterns` に追加した2つの計測名、`scripts/ci.test.ts` の対応する2ケース、CI 表の `e2e-dev` の対象一覧からも計測名を外す。
 
@@ -1457,7 +1457,7 @@ GitHub のアカウントも Google のアカウントも使わない人のた�
 
 ## Issue の運用
 
-Issue はエピック、ストーリー、タスクの3階層にし、親子はサブ Issue でつなぐ（2026-10-25 に決めた）。親子の形は Scrum Guild 自体の木（`docs/requirements.md` の「概念」）と同じにする。タスクの親は無しかストーリー、ストーリーの親は無しかエピックで、タスクをエピックの直下に置かない。種別はラベルで表す。2026-11-03 にリポジトリを Organization の `scrum-guild-dev/app` へ移管した後も、既存の運用とスクリプトに合わせてラベルを使う。スプリントとポイントの表し方は、下の「スクラムのイベントと成果物」と「スプリントとポイント」にある。
+Issue はエピック、ストーリー、タスクの3階層にし、親子はサブ Issue でつなぐ（2026-10-25 に決めた）。親子の形は Banmen 自体の木（`docs/requirements.md` の「概念」）と同じにする。タスクの親は無しかストーリー、ストーリーの親は無しかエピックで、タスクをエピックの直下に置かない。種別はラベルで表す。2026-11-03 にリポジトリを Organization の `scrum-guild-dev/app` へ移管した後も、既存の運用とスクリプトに合わせてラベルを使う。スプリントとポイントの表し方は、下の「スクラムのイベントと成果物」と「スプリントとポイント」にある。
 
 | 階層 | GitHub での表し方 | 中身 | 閉じる人と条件 |
 | --- | --- | --- | --- |
@@ -1503,7 +1503,7 @@ Issue はエピック、ストーリー、タスクの3階層にし、親子は�
 | スプリントバックログ | `sprint:<番号>` の付いた Issue と、記録の Issue のゴール | `#sprint`（既定）。ゴール、期間と残りの日数、計画の済み ÷ 計画の棒と受け入れ待ち、途中で足した分、作業中の件数とポイント、依存関係のグラフと、状態の列に並べた Issue。グラフは GitHub の依存関係（blocked by）から、先に要るものを左、待つ側を右に並べ、まだ済んでいない先に要るものを、止めている Issue の数とともに目立たせる。前提はスプリントの外の Issue を経由しても辿る。止めている数は、待たせている辺（前提が開いていて受け入れ待ちでない）だけを辿って届く、済み以外の Issue の数とする。待ちの Issue には待っている番号を出す |
 | インクリメント | 受け入れで閉じた（`completed`）`sprint:<番号>` の Issue。閉じた Issue のラベルは付け替えないので、付いたまま残る。受け入れ待ちはまだ含めない | `#increment`。締めたスプリントごとの、受け入れで閉じた Issue とその PR、ベロシティの推移 |
 
-開発ボードは、`daily-scrum` が出し直す人の手元の Artifact（「Scrum Guild 開発ボード」）で、上の3つを1つの URL で切り替えて見せる（2026-10-29 に決めた。#477）。Issue の状態と数は、出し直すたびに `scripts/progress-data.ts` が GitHub から作るので、手で書かない。要件の機能の一覧だけは GitHub に無いので、スキルの `page/features.json` に置く。`docs/requirements.md` の「機能」、`docs/ai.md` の「決めること」、`docs/design.md` の「画面一覧」を変える PR は、同じ PR で `features.json` とユースケース図（`docs/use-cases.md` と2枚の SVG）も直す（直し方は `daily-scrum` の「機能の一覧を直す」）。`docs/requirements.md` の「メンバーと権限」の権限の表を変える PR も、同じ PR でユースケース図を直す。
+開発ボードは、`daily-scrum` が出し直す人の手元の Artifact（「Banmen 開発ボード」）で、上の3つを1つの URL で切り替えて見せる（2026-10-29 に決めた。#477）。Issue の状態と数は、出し直すたびに `scripts/progress-data.ts` が GitHub から作るので、手で書かない。要件の機能の一覧だけは GitHub に無いので、スキルの `page/features.json` に置く。`docs/requirements.md` の「機能」、`docs/ai.md` の「決めること」、`docs/design.md` の「画面一覧」を変える PR は、同じ PR で `features.json` とユースケース図（`docs/use-cases.md` と2枚の SVG）も直す（直し方は `daily-scrum` の「機能の一覧を直す」）。`docs/requirements.md` の「メンバーと権限」の権限の表を変える PR も、同じ PR でユースケース図を直す。
 
 ### スプリントとポイント
 

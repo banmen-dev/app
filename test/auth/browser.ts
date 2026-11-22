@@ -110,7 +110,7 @@ export class FakeBrowser {
   async start(returnTo?: string, headers?: Record<string, string>): Promise<StartedLogin> {
     const query = returnTo === undefined ? '' : `?return_to=${encodeURIComponent(returnTo)}`;
     const response = await this.request(`/api/auth/${this.provider}/start${query}`, { headers });
-    const location = new URL(response.headers.get('Location') ?? '', 'https://scrum-guild.test');
+    const location = new URL(response.headers.get('Location') ?? '', 'https://banmen.test');
     return {
       response,
       location,
@@ -136,7 +136,7 @@ export class FakeBrowser {
       },
       body: options.body ?? new URLSearchParams({ claim_token: claimToken }).toString(),
     });
-    const location = new URL(response.headers.get('Location') ?? '', 'https://scrum-guild.test');
+    const location = new URL(response.headers.get('Location') ?? '', 'https://banmen.test');
     return {
       response,
       location,

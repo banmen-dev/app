@@ -6,7 +6,7 @@ import { ImportSourceError, type ImportSourceFailure } from '../source.ts';
 
 const REQUEST_TIMEOUT_MS = 10_000;
 const API_VERSION = '2022-11-28';
-const USER_AGENT = 'scrum-guild';
+const USER_AGENT = 'banmen';
 
 export const PAGE_SIZE = 100;
 // リポジトリの `owner/name`。GitHub の名前の文字（英数字、`_`、`.`、`-`）と長さに絞る（画面と DB に入る値のため）

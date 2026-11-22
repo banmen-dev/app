@@ -1,4 +1,4 @@
-# Scrum Guild データモデル
+# Banmen データモデル
 
 状態: 確定。要件定義（`requirements.md`）を D1（SQLite）のテーブルに落としたもの。最初のマイグレーション（`migrations/0001_create_initial_tables.sql`）で、共通の6表と、一本道に要る組織の中の16表を作った。`organization_holidays` は `migrations/0004_add_organization_holidays.sql` で、`comments` は `migrations/0006_add_comments.sql` で、`sprint_entries` と `completions.previous_column_id` は `migrations/0008_add_sprint_entries.sql` で、`epic_party_members` と `thanks` は `migrations/0009_add_epic_party_members_and_thanks.sql` で、共通の表の `password_credentials` は `migrations/0010_add_password_credentials.sql`、`api_tokens` は `migrations/0012_add_api_tokens.sql`、`account_consents` は `migrations/0013_add_account_consents.sql` で足した（ここまでで共通の表は9表になった）。`account_profiles` は `migrations/0023_add_account_profiles.sql` で足した（共通の表は10表）。`organization_contracts` は `migrations/0028_add_organization_contracts.sql` で足した（共通の表は11表）。請求管理者と監査の `billing_administrators`・`billing_admin_events` を #1240 で足した（共通の表は13表）。組織の中の表の `user_avatars`（プロフィール画像）は `migrations/0034_add_user_avatars.sql` で足した（#1265）。残りの表は、使う機能の Issue でマイグレーションを足して作る
 
@@ -985,7 +985,7 @@
 | assignee_user_id | TEXT | FK users | 担当。0〜1人 |
 | delegatee_id | TEXT | FK delegatees | 依頼先。自分用の組織だけで、担当とは別に0〜1人 |
 | points | INTEGER | `NULL` か 0、1、2、3、5、8、13 | 空は未見積もり |
-| due_on | TEXT | | Scrum Guild で振った期日 |
+| due_on | TEXT | | Banmen で振った期日 |
 | today_on | TEXT | | 「今日やる」の印を付けた日付 |
 | completed_at | TEXT | | |
 | completed_by | TEXT | FK users | |

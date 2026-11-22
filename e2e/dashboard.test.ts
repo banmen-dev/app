@@ -108,7 +108,7 @@ test('自分用の面にワークスペースと作る入口、組織の面に�
   const mainPanes = page.locator('.dashboard-main > .pane > .pane-head > .pane-title');
   await expect(mainPanes).toHaveText(['自分用', '組織', '全組織の今日やること']);
   const sidePanes = page.locator('.dashboard-side > .pane > .pane-head > .pane-title');
-  await expect(sidePanes).toHaveText(['最近の更新', 'Scrum Guild のニュース']);
+  await expect(sidePanes).toHaveText(['最近の更新', 'Banmen のニュース']);
 
   const activityPane = page.getByRole('region', { name: '最近の更新', exact: true });
   const first = activityPane.locator('.activity-row').first();
@@ -135,7 +135,7 @@ test('狭い幅では1列に積み、左の列の面の下に最近の更新と�
   await page.goto('/');
   const organizationsBox = await page.getByRole('region', { name: '組織', exact: true }).boundingBox();
   const activityBox = await page.getByRole('region', { name: '最近の更新', exact: true }).boundingBox();
-  const newsBox = await page.getByRole('region', { name: 'Scrum Guild のニュース', exact: true }).boundingBox();
+  const newsBox = await page.getByRole('region', { name: 'Banmen のニュース', exact: true }).boundingBox();
   expect(organizationsBox!.y).toBeLessThan(activityBox!.y);
   expect(activityBox!.y + activityBox!.height).toBeLessThanOrEqual(newsBox!.y);
   expect(await findOverflowViolations(page)).toEqual([]);

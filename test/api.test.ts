@@ -64,7 +64,7 @@ describe('API', () => {
     // どのメソッドを呼んでも失敗する D1
     const unreachable = {
       APP_VERSION: 'dev',
-      PUBLIC_ORIGIN: 'https://scrum-guild.example',
+      PUBLIC_ORIGIN: 'https://banmen.example',
       DB: new Proxy(
         {},
         {

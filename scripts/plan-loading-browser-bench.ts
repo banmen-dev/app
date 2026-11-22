@@ -42,7 +42,7 @@ const output = path.resolve(option('--output', path.join(tmpdir(), 'plan-loading
 if (existsSync(output)) throw new Error(`出力先が既にあります: ${output}`);
 const executablePath = option('--chromium', '') || undefined;
 const root = process.cwd();
-const dir = mkdtempSync(path.join(tmpdir(), 'scrum-guild-plan-'));
+const dir = mkdtempSync(path.join(tmpdir(), 'banmen-plan-'));
 const config = path.join(dir, 'wrangler.json');
 const origin = `http://127.0.0.1:${port}`;
 const version = `plan-loading-browser-${randomUUID()}`;

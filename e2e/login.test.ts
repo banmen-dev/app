@@ -26,7 +26,7 @@ test('/login は枠の外に GitHub のボタンを出す', async ({ page }) => 
   // 左のメニューも上の帯も出ない
   await expect(page.locator('.app')).toHaveCount(0);
   await expect(page.getByRole('navigation')).toHaveCount(0);
-  await expect(page).toHaveTitle('ログイン - Scrum Guild');
+  await expect(page).toHaveTitle('ログイン - Banmen');
 });
 
 // ログインの画面は枠の外で、主な画面の機械の検査（e2e/a11y-*.test.ts、e2e/layout-narrow*.test.ts）に入っていないので、ここで確かめる。

@@ -67,7 +67,7 @@ async function expectHorizontalBrand(page: Page, singleLine = false): Promise<vo
   await expect(art).toHaveAttribute('aria-hidden', 'true');
   await expect(logo).toBeVisible();
   await expect(logo).toHaveAttribute('alt', '');
-  await expect(name).toHaveText('スクラムギルド');
+  await expect(name).toHaveText('Banmen');
   await expect(name).toBeVisible();
   await expect(name).toHaveCSS('color', 'rgb(48, 55, 64)');
   await expect(name).toHaveCSS('font-weight', '700');
@@ -131,8 +131,9 @@ async function expectHorizontalBrand(page: Page, singleLine = false): Promise<vo
     expect(rect.right).toBeLessThanOrEqual(inner.right + 1);
     expect(rect.bottom).toBeLessThanOrEqual(inner.bottom + 1);
   }
-  // ブランド内の文字は読ませず、サービス名を1回だけ残す
-  await expect(art.locator('..').getByText('Scrum Guild', { exact: true })).toHaveCount(1);
+  // ブランド内の文字は読ませず、サービス名を1回だけ残す（見える文字と読み上げの名前は同じ「Banmen」なので、読み上げの側を数える）
+  await expect(art.locator('..').locator('.visually-hidden', { hasText: /^Banmen$/ })).toHaveCount(1);
+  await expect(art.locator('..').locator('.visually-hidden')).toHaveCount(1);
 }
 
 test('文字を拡大してもロゴの名前が白い下地に収まる', async ({ page }) => {
@@ -178,7 +179,7 @@ async function expectCornerSymbol(page: Page): Promise<void> {
   expect(box.x).toBeGreaterThanOrEqual(head.x);
   expect(box.y).toBeGreaterThanOrEqual(head.y);
   expect(box.y + box.height).toBeLessThanOrEqual(head.y + head.height);
-  await expect(brand).toHaveAccessibleName('Scrum Guild');
+  await expect(brand).toHaveAccessibleName('Banmen');
 }
 
 for (const screen of [
@@ -229,7 +230,7 @@ test('畳んだメニューの角のマスは組織のボタンのマークだ�
   await signIn(context, baseURL, 'member');
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/aoba');
-  const brand = page.getByRole('link', { name: 'Scrum Guild', exact: true });
+  const brand = page.getByRole('link', { name: 'Banmen', exact: true });
   await expect(brand).toHaveAttribute('href', '/aoba');
   await expectCornerSymbol(page);
   await page.getByRole('button', { name: 'メニューを畳む' }).click();

@@ -14,7 +14,7 @@ export function createMcpServer(
   options: McpOptions,
 ): { server: Server; idle(): Promise<void> } {
   // version は固定。CLI は npm に出さずリポジトリから動かすので、配る版が無い（package.json にも version が無い）。MCP の initialize に版が要るので置いている
-  const server = new Server({ name: 'scrum-guild', version: '0.1.0' }, { capabilities: { tools: {} } });
+  const server = new Server({ name: 'banmen', version: '0.1.0' }, { capabilities: { tools: {} } });
   const pending = new Set<Promise<unknown>>();
   const track = <T>(work: Promise<T>): Promise<T> => {
     pending.add(work);

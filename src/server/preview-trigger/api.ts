@@ -117,7 +117,7 @@ export function createPreviewApi(config: PreviewApiConfig, fetcher: typeof fetch
     async current(request: PreviewRequest): Promise<PreviewRequest | null> {
       if (!Number.isSafeInteger(request.pr) || request.pr <= 0) return null;
       const response = await fetcher(`https://api.github.com/repos/${PREVIEW_REPOSITORY}/pulls/${request.pr}`, {
-        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Scrum-Guild-Preview-Trigger' },
+        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Banmen-Preview-Trigger' },
         cache: 'no-store',
         redirect: 'manual',
         signal: AbortSignal.timeout(httpTimeoutMs),

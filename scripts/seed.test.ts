@@ -169,7 +169,7 @@ describe('seedSql', () => {
 // 空の D1 に流して中身を数える。wrangler の手元の D1 を使うので数秒かかる
 describe('pnpm db:seed', () => {
   test('2回流しても通り、自分用を含む組織7つと依頼先つきのタスク、全セッション、組織の無い運用者が入る', () => {
-    const persistTo = mkdtempSync(path.join(tmpdir(), 'scrum-guild-seed-test-'));
+    const persistTo = mkdtempSync(path.join(tmpdir(), 'banmen-seed-test-'));
     const root = fileURLToPath(new URL('..', import.meta.url));
     const wrangler = path.join(root, 'node_modules', '.bin', 'wrangler');
     const env = { ...process.env, PATH: `${path.dirname(wrangler)}${path.delimiter}${process.env.PATH}` };

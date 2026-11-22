@@ -168,7 +168,7 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
 
    | 項目 | 本番 | 開発用 |
    | --- | --- | --- |
-   | Application name | Scrum Guild | Scrum Guild (dev) |
+   | Application name | Banmen | Banmen (dev) |
    | Homepage URL | `https://scrum-guild.ucan-lab.workers.dev` | `http://localhost:5173` |
    | Redirect URI | `https://scrum-guild.ucan-lab.workers.dev/api/auth/github/callback` | `http://localhost:5173/api/auth/github/callback` |
 
@@ -187,7 +187,7 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
 
 ログインは、種類が「ウェブ アプリケーション」の OAuth クライアント1つで行う（`docs/development.md` の「Google のログイン」）。本番用と開発用は別の Google Cloud プロジェクトに作る。同意画面の公開の状態が違い、開発用を「テスト」のままにしておくため。スコープは `openid`、`email`、`profile` だけで、機密のスコープを使わないので Google の審査は要らない。
 
-1. Google Cloud コンソールでプロジェクトを作る（本番は `Scrum Guild`、開発用は `Scrum Guild (dev)` など）
+1. Google Cloud コンソールでプロジェクトを作る（本番は `Banmen`、開発用は `Banmen (dev)` など）
 2. Google Auth Platform の「ブランディング」で、アプリ名、ユーザーサポートメール、デベロッパーの連絡先を入れる
 3. 「対象」で、ユーザーの種類を「外部」にする。公開の状態は、本番は「本番環境」に進める。開発用は「テスト」のままにして、確かめる人の Google アカウントを「テストユーザー」に登録する（「テスト」の間は、登録したテストユーザーしかログインできない）
 4. 「データへのアクセス」で、スコープに `openid`、`.../auth/userinfo.email`、`.../auth/userinfo.profile` の3つだけを足す

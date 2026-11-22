@@ -43,7 +43,7 @@ if (
 
 const root = process.cwd();
 const output = path.resolve(args.output);
-const dir = mkdtempSync(path.join(tmpdir(), 'scrum-guild-epic-'));
+const dir = mkdtempSync(path.join(tmpdir(), 'banmen-epic-'));
 const origin = `http://127.0.0.1:${port}`;
 const config = path.join(dir, 'wrangler.json');
 const fixture = path.join(dir, 'seed.sql');

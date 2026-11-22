@@ -15,7 +15,7 @@
   import { t } from '../../lib/vocabulary.svelte.ts';
   import { CLAIM_TOKEN_FIELD, CLAIM_TOKEN_PATTERN } from '../../shared/claim-token.ts';
 
-  // 招待の URL（/invite#<秘密>）を開く画面（design/login.html の「Scrum Guild への招待」）。docs/data-model.md の
+  // 招待の URL（/invite#<秘密>）を開く画面（design/login.html の「Banmen への招待」）。docs/data-model.md の
   // 「メールアドレスで待つ指名と招待」の 1 と 2。
   //   - 秘密は location.hash から読み、すぐ goto の replace で URL を /invite に置き換える（履歴、共有、Referer に残さない。
   //     フラグメントはサーバーに届かないので、読めるのはこの画面だけ）。このページのヘッダーは Referrer-Policy: no-referrer

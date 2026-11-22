@@ -367,7 +367,7 @@ test.describe('高さの低い指で押す画面の左のメニュー', () => {
       await expect(page).toHaveURL(href!);
 
       // 下まで送った後もブランドへ戻れる。
-      const brand = page.getByRole('link', { name: 'Scrum Guild' });
+      const brand = page.getByRole('link', { name: 'Banmen' });
       await brand.scrollIntoViewIfNeeded();
       await expect(brand).toBeInViewport({ ratio: 1 });
       await brand.click({ trial: true });
@@ -832,9 +832,9 @@ test('アバターの色相が当たり、CSP の違反が無い', async ({ page
   expect(await collect()).toEqual([]);
 });
 
-test('画面の題名は「画面 - Scrum Guild」で、メニューには画面のある項目だけが出る', async ({ page }) => {
+test('画面の題名は「画面 - Banmen」で、メニューには画面のある項目だけが出る', async ({ page }) => {
   await page.goto(today);
-  await expect(page).toHaveTitle('今日やること - Scrum Guild');
+  await expect(page).toHaveTitle('今日やること - Banmen');
   // 出る項目はすべて行き先を持つ（画面のある項目だけ）。今の画面は1つだけ
   await expect(page.locator('.nav-item')).not.toHaveCount(0);
   for (const item of await page.locator('.nav-item').all()) await expect(item).toHaveAttribute('href', /^\/aoba/);
@@ -1129,7 +1129,7 @@ test('角のマスにマーク、組織の名前、開閉のボタンが1行で�
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`${today}/me`);
   const head = page.locator('.binding-head');
-  const brand = head.getByRole('link', { name: 'Scrum Guild', exact: true });
+  const brand = head.getByRole('link', { name: 'Banmen', exact: true });
   const org = head.getByRole('button', { name: '組織 あおば開発。組織を切り替える' });
   const toggle = head.getByRole('button', { name: 'メニューを畳む' });
   await expect(org).toBeVisible();
@@ -1167,7 +1167,7 @@ test('組織の一覧が読めず切り替えが無いときも、開閉のボ�
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(today);
   const head = page.locator('.binding-head');
-  await expect(head.getByRole('link', { name: 'Scrum Guild', exact: true })).toBeVisible();
+  await expect(head.getByRole('link', { name: 'Banmen', exact: true })).toBeVisible();
   await expect(head.locator('.org-menu')).toHaveCount(0);
   const toggle = head.getByRole('button', { name: 'メニューを畳む' });
   const headBox = (await head.boundingBox())!;

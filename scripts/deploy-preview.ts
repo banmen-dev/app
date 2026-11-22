@@ -27,7 +27,7 @@ export async function openPreviewBranches(fetchJson = jsonRequest): Promise<stri
     const data = await fetchJson(
       `https://api.github.com/repos/${REPOSITORY}/pulls?state=open&per_page=100&page=${page}`,
       {
-        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'scrum-guild-preview' },
+        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'banmen-preview' },
       },
     );
     if (!Array.isArray(data)) throw new Error('開いた PR の一覧を読めませんでした');
@@ -51,7 +51,7 @@ export function publishPreview(
   const root = process.cwd();
   // 設定を検査してから一時ファイルやコマンドを作る。
   const config = previewConfig(input.number, input.database, input.commitSha, root, input.subdomain);
-  const directory = mkdtempSync(path.join(tmpdir(), 'scrum-guild-preview-'));
+  const directory = mkdtempSync(path.join(tmpdir(), 'banmen-preview-'));
   try {
     const configFile = path.join(directory, 'wrangler.json');
     const seedFile = path.join(directory, 'seed.sql');

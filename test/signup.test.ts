@@ -64,7 +64,7 @@ async function accountLoginRows(user: FakeGithubUser) {
 // 開始から戻り先までを通す。query は開始の URL の末尾（`?signup=1` など）。FakeBrowser.login は signup を付けられないので、ここで組む
 async function roundTrip(browser: FakeBrowser, user: FakeGithubUser, query: string) {
   const response = await browser.request(`/api/auth/github/start${query}`);
-  const location = new URL(response.headers.get('Location') ?? '', 'https://scrum-guild.test');
+  const location = new URL(response.headers.get('Location') ?? '', 'https://banmen.test');
   const state = location.searchParams.get('state') ?? '';
   const code = github.issueCode(user, location.searchParams.get('code_challenge') ?? '');
   const finished = await browser.callback({ code, state });
@@ -73,7 +73,7 @@ async function roundTrip(browser: FakeBrowser, user: FakeGithubUser, query: stri
 
 async function googleRoundTrip(browser: FakeBrowser, user: FakeGoogleUser, query: string) {
   const response = await browser.request(`/api/auth/google/start${query}`);
-  const location = new URL(response.headers.get('Location') ?? '', 'https://scrum-guild.test');
+  const location = new URL(response.headers.get('Location') ?? '', 'https://banmen.test');
   const state = location.searchParams.get('state') ?? '';
   const code = google.issueCode(user, location);
   const finished = await browser.callback({ code, state });
@@ -313,13 +313,13 @@ describe('開始のルート（signup の値）', () => {
     const browser = newBrowser(provider);
     const response = await browser.request(`/api/auth/${provider}/start${query}`);
     expect(response.status).toBe(302);
-    const state = new URL(response.headers.get('Location') ?? '', 'https://scrum-guild.test').searchParams.get('state');
+    const state = new URL(response.headers.get('Location') ?? '', 'https://banmen.test').searchParams.get('state');
     expect((await stateRow(state ?? ''))?.is_signup).toBe(expected);
   });
 
   test('return_to は登録の印と別に、今までどおり保たれる', async () => {
     const response = await newBrowser().request('/api/auth/github/start?signup=1&return_to=%2Faoba%2Fboard');
-    const state = new URL(response.headers.get('Location') ?? '', 'https://scrum-guild.test').searchParams.get('state');
+    const state = new URL(response.headers.get('Location') ?? '', 'https://banmen.test').searchParams.get('state');
     expect(await stateRow(state ?? '')).toMatchObject({ is_signup: 1, return_to: '/aoba/board' });
   });
 
@@ -393,7 +393,7 @@ describe('登録の往復（GitHub）', () => {
     const user = githubUser('signup-flow-tamper');
     const browser = newBrowser();
     const response = await browser.request('/api/auth/github/start');
-    const location = new URL(response.headers.get('Location') ?? '', 'https://scrum-guild.test');
+    const location = new URL(response.headers.get('Location') ?? '', 'https://banmen.test');
     const state = location.searchParams.get('state') ?? '';
     const code = github.issueCode(user, location.searchParams.get('code_challenge') ?? '');
     const before = await countAccounts();

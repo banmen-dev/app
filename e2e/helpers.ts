@@ -705,7 +705,7 @@ export async function createWorkspace(page: Page, name: string): Promise<void> {
   // 見出しは画面の名前（バックログ）、小見出しがワークスペースの名前
   await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();
   await expect(page.locator('.page-eyebrow')).toHaveText(name);
-  await expect(page).toHaveTitle(`バックログ・${name} - Scrum Guild`);
+  await expect(page).toHaveTitle(`バックログ・${name} - Banmen`);
 }
 
 type ModalFocusStage = 'hidden' | 'open' | 'focusIn' | 'close' | 'return';

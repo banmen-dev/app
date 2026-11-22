@@ -59,7 +59,7 @@
 
   // ---- 言葉の辞書（各キーはスクラムの言葉の文字列1つ） ----
   const DICT = {
-    brandName: "スクラムギルド",
+    brandName: "Banmen",
     taskTemplateEmpty: "テンプレートがまだありません。",
     taskTemplateAskLeader: "ワークスペースのリーダーにテンプレートの作成を依頼してください。",
     taskTemplateManage: "テンプレートの設定を開く",
@@ -280,7 +280,7 @@
   onboardingDisclosure: "操作できるデザインの見本です。入力は保存されず、登録・送信・外部接続は行われません。",
   onboardingExit: "プレビューを閉じる",
   onboardingStep: "{total} ステップ中 {current}",
-  onboardingAccount: "Scrum Guild をはじめる",
+  onboardingAccount: "Banmen をはじめる",
   onboardingAccountLead: "チームの仕事を、一歩ずつ前へ。まずはアカウントを選びましょう。",
   onboardingOrganization: "{organization}を作成",
   onboardingOrganizationLead: "チームが集まる場所に、名前を付けましょう。",
@@ -467,7 +467,7 @@
     wikiRestoreFailed: "戻せませんでした。もう一度試してください。",
 
     workspaceSwitchLabel: "{workspace} {name}。切り替える", workspaceSwitchListLabel: "所属する{workspace}",
-    workspacePaneHint: "押すと{backlog}を開きます", paneNews: "{app} のニュース", appName: "Scrum Guild",
+    workspacePaneHint: "押すと{backlog}を開きます", paneNews: "{app} のニュース", appName: "Banmen",
     paneActivity: "最近の更新", activityEmptyTitle: "まだ更新はありません", activityEmptyText: "所属する{workspace}の{task}、{story}、{epic}の変更とコメントが、ここに新しい順に並びます。", activityEmptyNoWorkspaceText: "{workspace}に所属すると、{task}、{story}、{epic}の更新がここに並びます。",
     activityCreated: "{actor}が作成した", activityUpdated: "{actor}が{fields}を変更した", activityChanged: "{actor}が変更した", activityCompleted: "{actor}が{done}にした", activityReopened: "{actor}が{done}を戻した", activityCommented: "{actor}がコメントした",
     activityMore: "さらに読む", activityLoadFailed: "最近の更新を読み込めませんでした。", activityMoreFailed: "続きを読み込めませんでした。もう一度試してください。",
@@ -552,7 +552,7 @@
     const list = tasksWhere((x) => x.story && D.stories[x.story].epic === eid);
     return { done: sumPts(list.filter((x) => x.doneAt)), all: sumPts(list) };
   }
-  // 表示する期日。Scrum Guild で振った期日、なければ取り込み元の期限
+  // 表示する期日。Banmen で振った期日、なければ取り込み元の期限
   function dueOf(x) {
     if (x.due) return { date: x.due, fromSource: false };
     if (x.src && x.src.due) return { date: x.src.due, fromSource: true };
@@ -810,7 +810,7 @@
     leader: () => [
       { title: `${t("workspace")}「${esc(firstWsName())}」の${t("leader")}になる`, note: `${t("member")}の招待と、${t("backlog")}の準備を進められます。`, done: true },
       { title: "メンバーを招待する", optional: true, done: D.invitations.length > 0 || D.members.filter((m) => !m.left).length > 1,
-        note: `GitHub のユーザー名か Google のメールアドレスで招待し、${t("organization")}の URL（Google なら招待の URL）を本人に伝えます。Scrum Guild は招待をメールで送りません。`,
+        note: `GitHub のユーザー名か Google のメールアドレスで招待し、${t("organization")}の URL（Google なら招待の URL）を本人に伝えます。Banmen は招待をメールで送りません。`,
         action: (p) => `<a class="btn is-sm ${p}" href="${firstHref("members.html")}">メンバーを招待する</a>` },
       { title: `${t("backlog")}に最初の${t("task")}を入れる`, done: D.tasks.some((x) => x.ws === D.workspace),
         note: `「${t("create")}」で作るか、${t("inbox")}に届いたものを入れます。メンバーが入る前に並べておくと、何から始めるかが伝わります。`,
@@ -1652,7 +1652,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   function drawerBodyHtml(x, unboxed = false) {
     const fieldClass = unboxed ? "field is-unboxed" : "field";
     if (drawerReadOnly()) return `<div class="${fieldClass}"><span class="field-label">本文</span><div class="doc-box${x.body ? "" : " is-empty"}">${x.body ? mdBody(x.body) : "まだ書かれていません。"}</div></div>`;
-    if (x.src) return `<div class="${fieldClass}"><span class="field-label">本文</span><div class="doc-box"><p class="props-note">取り込み元の本文は <span class="mono">${esc(x.src.key)}</span> で開いて読みます。ここには Scrum Guild のメモを書けます。</p></div></div>`;
+    if (x.src) return `<div class="${fieldClass}"><span class="field-label">本文</span><div class="doc-box"><p class="props-note">取り込み元の本文は <span class="mono">${esc(x.src.key)}</span> で開いて読みます。ここには Banmen のメモを書けます。</p></div></div>`;
     return `<div class="${fieldClass}"><div class="field-head"><label class="field-label" for="drawer-edit-body">${unboxed ? `${icon("pen")} ` : ""}本文</label>${saveStateHtml("body")}</div>
       <div class="slash-wrap"><textarea class="textarea is-inline" id="drawer-edit-body" data-drawer-input="body" data-slash aria-describedby="drawer-edit-body-hint" placeholder="まだ書かれていません。押して書きます">${esc(drawer.drafts.body ?? (x.body || []).join("\n"))}</textarea></div>
       <span class="field-hint" id="drawer-edit-body-hint">Markdown で書けます。見出しは <code>#</code> が小見出しの大きさから始まります。行の先頭で <code>/</code> を打つと、見出しや箇条書きを入れる小窓が開きます。</span></div>`;
@@ -2771,7 +2771,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="見本のため、${t("organization")}は作りません">自分用を作る</button>`),
     // 作った後。組織の URL とコピー、管理者になる人に伝えること
     organizationCreated: () => openDialog(`${t("organization")}を作りました`,
-      `<p>Scrum Guild はメールを送りません。${t("admin")}になる人に、次の URL とログインの手段を伝えてください。</p>
+      `<p>Banmen はメールを送りません。${t("admin")}になる人に、次の URL とログインの手段を伝えてください。</p>
        <div class="field"><label class="field-label" for="d-ou">${t("organization")}の URL</label>
          <div class="input-row"><input class="input mono" id="d-ou" value="https://scrum-guild.dev/sakura-dev/" readonly>
            <button class="btn" type="button" data-toast="URL をコピーしました">${icon("link")}コピー</button></div></div>
@@ -2791,7 +2791,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" id="d-rb" type="button" data-reassign-admin="d-ra" disabled>指名する</button>`),
     // 指名し直した後（GitHub）。組織の URL とコピー、管理者になる人に伝えること
     adminReassigned: () => openDialog(`${t("admin")}を指名しました`,
-      `<p>Scrum Guild はメールを送りません。${t("admin")}になる人に、次の URL とログインの手段を伝えてください。</p>
+      `<p>Banmen はメールを送りません。${t("admin")}になる人に、次の URL とログインの手段を伝えてください。</p>
        <div class="field"><label class="field-label" for="d-ru">${t("organization")}の URL</label>
          <div class="input-row"><input class="input mono" id="d-ru" value="https://scrum-guild.dev/kumo-lab/" readonly>
            <button class="btn" type="button" data-toast="URL をコピーしました">${icon("link")}コピー</button></div></div>
@@ -3782,7 +3782,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     <div class="app">
       <aside class="binding" aria-label="メニュー"><div class="binding-inner">
         <div class="binding-head">
-          <a class="brand" href="index.html" title="デザインシステムのカタログへ">${brandSymbol}<span class="visually-hidden">Scrum Guild</span></a>
+          <a class="brand" href="index.html" title="デザインシステムのカタログへ">${brandSymbol}<span class="visually-hidden">Banmen</span></a>
           <div id="org-menu-slot"></div>
           <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="${!navCollapsed}" aria-controls="app-nav" aria-label="${t(navCollapsed ? "menuExpand" : "menuCollapse")}">${icon("panel")}<span class="nav-tip" aria-hidden="true">${t(navCollapsed ? "menuExpand" : "menuCollapse")}</span></button>
         </div>
@@ -3890,9 +3890,9 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const urlLabel = password ? "指名の URL" : "招待の URL";
     const path = password ? "/invite/password" : "/invite";
     const lead = password
-      ? `${esc(done)}。Scrum Guild はメールを送りません。本人に次の指名の URL を伝えてください。`
+      ? `${esc(done)}。Banmen はメールを送りません。本人に次の指名の URL を伝えてください。`
       : workspace
-      ? `招待しました。Scrum Guild はメールを送りません。この招待の URL を本人に伝えてください。本人がこの URL を開き、招待したメールアドレスの Google アカウントでログインすると、招待を承諾して${t("workspace")}に入れます。`
+      ? `招待しました。Banmen はメールを送りません。この招待の URL を本人に伝えてください。本人がこの URL を開き、招待したメールアドレスの Google アカウントでログインすると、招待を承諾して${t("workspace")}に入れます。`
       : `${esc(done)}。この URL を本人に伝えてください。本人がこの URL を開き、招待したメールアドレスの Google アカウントでログインすると入れます。`;
     openDialog(urlLabel,
       `<p>${lead}</p>

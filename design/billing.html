@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Scrum Guild 請求管理者</title>
+<title>Banmen 請求管理者</title>
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="components.css">
 </head>
@@ -39,7 +39,7 @@ const form = (id, bootstrap = false) => `<form data-billing-form="${id}">
 
 SQ.mount("billing", () => `
   <section class="gate-sheet">
-    <div class="gate-brand">${SQ.brandMark}<span class="visually-hidden">Scrum Guild</span></div>
+    <div class="gate-brand">${SQ.brandMark}<span class="visually-hidden">Banmen</span></div>
     <h1 class="gate-title">${t(state === "failed" ? "loadFailedTitle" : "billingTitle")}</h1>
     ${state === "failed" ? `${SQ.emptyState("alert", t("loadFailedText"), "", `<a class="btn is-sm" href="billing.html">${t("retry")}</a>`)}` : `
       <p>${t("billingLead")}</p>
