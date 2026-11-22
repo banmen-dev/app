@@ -2579,15 +2579,16 @@ test.describe('運用者', () => {
       });
     }
 
-    for (const { plan, label, limit } of [
-      { plan: 'business', label: 'ビジネス', limit: 30 },
-      { plan: 'pro', label: 'プロ', limit: 50 },
+    for (const { plan, label, used, limit } of [
+      { plan: 'business', label: 'ビジネス', used: 28, limit: 30 },
+      { plan: 'business', label: 'ビジネス', used: 38, limit: 30 },
+      { plan: 'pro', label: 'プロ', used: 38, limit: 50 },
     ] as const) {
-      test(`旧ビジネス契約を${label}で保存すると上限が${limit}人になる`, async ({ page }) => {
+      test(`利用${used}人の旧ビジネス契約を${label}で保存すると上限が${limit}人になる`, async ({ page }) => {
         const previous = contract('business', 'monthly');
         const listed = [
           organization({
-            seats: { used: 38, limit: 50 },
+            seats: { used, limit: 50 },
             attachment_quota_bytes: 100 * GIB,
             contract: previous,
           }),
@@ -2597,7 +2598,7 @@ test.describe('運用者', () => {
         await routeOperation(page, organizationPlanUpdate, async (call) => {
           sent = call.input;
           const saved = contract(plan, 'monthly');
-          listed[0] = organization({ ...listed[0], seats: { used: 38, limit }, contract: saved });
+          listed[0] = organization({ ...listed[0], seats: { used, limit }, contract: saved });
           await call.fulfill({
             slug: 'aoba',
             contract: saved,
@@ -2612,7 +2613,10 @@ test.describe('運用者', () => {
         await expect(dialog.getByRole('radio', { name: /^ビジネス/ })).toBeChecked();
         const save = dialog.getByRole('button', { name: '変える' });
         await expect(save).toHaveAttribute('aria-disabled', 'false');
-        await expect(dialog).toContainText('今の人数（38 人）が、変えた後の上限（30 人）を超えます。');
+        await expect(dialog).toContainText('このプランを保存すると、今の上限（50 人・100 GB）より下がります。');
+        if (used > 30) {
+          await expect(dialog).toContainText(`今の人数（${used} 人）が、変えた後の上限（30 人）を超えます。`);
+        }
         if (plan === 'pro') {
           await dialog.getByRole('radio', { name: /^プロ / }).check();
           await expect(dialog.locator('.callout.is-warn')).toHaveCount(0);
@@ -2623,8 +2627,8 @@ test.describe('運用者', () => {
         expect(sent).toEqual({ slug: 'aoba', plan, billing_interval: 'monthly', expected: previous });
         const row = page.locator('.table tbody tr', { hasText: 'あおば開発' });
         const seats = row.locator('td[data-label="人数 / 上限"]');
-        await expect(seats).toContainText(`38 / ${limit}`);
-        await expect(seats.getByText('上限に達した')).toHaveCount(plan === 'business' ? 1 : 0);
+        await expect(seats).toContainText(`${used} / ${limit}`);
+        await expect(seats.getByText('上限に達した')).toHaveCount(used >= limit ? 1 : 0);
         await expect(row.locator('td[data-label="添付・Wiki / 上限"] .chip')).toHaveText(`プラン: ${label}・月払い`);
       });
     }

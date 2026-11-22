@@ -1477,6 +1477,7 @@ export const dictionary = defineDictionary({
   // 未契約の組織で、今の上限より下がるとき。{members} と {quota} は今の上限
   operatorPlanLimitsLower:
     '今の上限（{members} 人・{quota}）より下がります。契約を付けると、上限を「人数と容量の上限を変える」で値に戻せなくなります。',
+  operatorPlanCurrentLimitsLower: 'このプランを保存すると、今の上限（{members} 人・{quota}）より下がります。',
   operatorPlanNote:
     '人数と添付ファイルの上限はプランの値になり、「人数と容量の上限を変える」では変えられなくなります。',
   // {used} は今の人数、{limit} は変えた後の人数の上限

@@ -2811,7 +2811,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       `<p class="wrap-anywhere">「あおば開発」の上限を変えます。今は人数 5&nbsp;人（上限 15&nbsp;人）、添付ファイルと Wiki の合計 ${D.storage.used}&nbsp;GB（上限 30&nbsp;GB）です。</p>
        <div class="field"><span class="field-label" id="d-ql">新しい上限</span>
          <div class="choice-list" role="radiogroup" aria-labelledby="d-ql">
-           <label class="choice"><input type="radio" name="d-q" value="small" data-quota-choice checked><div><b>小さい${t("organization")}</b><span>15&nbsp;人・30&nbsp;GB</span></div></label>
+           <label class="choice"><input type="radio" name="d-q" value="small_organization" data-quota-choice checked><div><b>小さい${t("organization")}</b><span>15&nbsp;人・30&nbsp;GB</span></div></label>
            <label class="choice"><input type="radio" name="d-q" value="standard" data-quota-choice><div><b>標準</b><span>50&nbsp;人・100&nbsp;GB</span></div></label>
            <label class="choice"><input type="radio" name="d-q" value="other" data-quota-choice><div><b>ほかの値</b><span>51&nbsp;人以上の${t("organization")}のために値を入れます。</span></div></label>
          </div></div>
@@ -2824,10 +2824,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
        <p class="field-hint">容量の上限を今の合計より小さくすると、合計が下がるまで新しく添付できません。上限を上げて合計が80%を下回ると、次に80%を超えたときに管理者へまた通知します。</p>
        <p class="field-hint">上限の変更は${t("organization")}の変更の履歴に、運用者の操作として残ります。</p>`,
       `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" id="d-qs" aria-disabled="true" aria-describedby="d-qu">変える</button>`),
-    // 契約（プランと支払いの周期）の変更（本番の OrganizationPlanDialog）。見本は「くもラボ」（プロ・月払い、停止もお試しもしていない）の状態。
-    // 今の契約を選んだ状態で開き、選び直すと変えた後の上限（d-pa）と、今の人数や合計が超えるときの注意を出す。
-    // 未契約の組織の上限が下がる注意（d-pl2）、お試しが終わる注記（d-pt）、停止したままの注記（d-pp）、未契約の組織の注記（d-pn）は、
-    // 本番では組織の状態で出す。見本の「くもラボ」は契約済みで停止もお試しもしていないので、どれも hidden で置く
     changeStorage: (trigger) => {
       const d = trigger.dataset;
       const personal = d.storagePersonal === "true";
@@ -2847,14 +2843,19 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
         `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" id="d-storage-submit" aria-disabled="true">変える</button>`);
       syncStorageDialog();
     },
-    changePlan: () => openDialog("プランを変える",
-      `<p class="wrap-anywhere">「くもラボ」のプランを変えます。今はプロ・月払いで、人数 38&nbsp;人（上限 50&nbsp;人）、添付ファイルと Wiki の合計 42&nbsp;GB（上限 100&nbsp;GB）です。</p>
+    // 本番の OrganizationPlanDialog。通常のプロ契約と、上限を揃えられる旧ビジネス契約を見られる
+    changePlan: (trigger) => {
+      const legacy = trigger.hasAttribute("data-plan-legacy");
+      const currentPlan = legacy ? "business" : "pro";
+      const used = legacy ? 28 : 38;
+      openDialog("プランを変える",
+      `<p class="wrap-anywhere">「くもラボ」のプランを変えます。今は${legacy ? "ビジネス" : "プロ"}・月払いで、人数 ${used}&nbsp;人（上限 50&nbsp;人）、添付ファイルと Wiki の合計 42&nbsp;GB（上限 100&nbsp;GB）です。</p>
        <div class="field"><span class="field-label" id="d-pl">プラン</span>
          <div class="choice-list" role="radiogroup" aria-labelledby="d-pl">
            <label class="choice"><input type="radio" name="d-p" value="small" data-plan-choice><div><b>スモール</b><span>3&nbsp;人・10&nbsp;GB</span></div></label>
            <label class="choice"><input type="radio" name="d-p" value="team" data-plan-choice><div><b>チーム</b><span>15&nbsp;人・30&nbsp;GB</span></div></label>
-           <label class="choice"><input type="radio" name="d-p" value="business" data-plan-choice><div><b>ビジネス</b><span>30&nbsp;人・100&nbsp;GB</span></div></label>
-           <label class="choice"><input type="radio" name="d-p" value="pro" data-plan-choice checked><div><b>プロ</b><span>50&nbsp;人・100&nbsp;GB</span></div></label>
+           <label class="choice"><input type="radio" name="d-p" value="business" data-plan-choice ${legacy ? "checked" : ""}><div><b>ビジネス</b><span>30&nbsp;人・100&nbsp;GB</span></div></label>
+           <label class="choice"><input type="radio" name="d-p" value="pro" data-plan-choice ${legacy ? "" : "checked"}><div><b>プロ</b><span>50&nbsp;人・100&nbsp;GB</span></div></label>
            <label class="choice"><input type="radio" name="d-p" value="custom" data-plan-choice><div><b>個別</b><span>相談して決めた人数と標準の容量</span></div></label>
          </div></div>
        <div class="form-row is-start" id="d-p-custom" hidden>
@@ -2870,13 +2871,16 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
        <p class="field-hint" id="d-p-invalid" hidden>人数と標準の添付容量を範囲内の整数で入力すると、変更後の上限と超過の注意を確認できます。</p>
        <p class="field-hint" id="d-pa" hidden>変えた後の上限は 50&nbsp;人・100&nbsp;GB です。</p>
        <div class="callout is-warn" id="d-pl2" hidden>${icon("alert")}<span>今の上限（120&nbsp;人・500&nbsp;GB）より下がります。契約を付けると、上限を「人数と容量の上限を変える」で値に戻せなくなります。</span></div>
+       <div class="callout is-warn" id="d-p-current-lower" hidden>${icon("alert")}<span>このプランを保存すると、今の上限（50&nbsp;人・100&nbsp;GB）より下がります。</span></div>
        <div class="callout is-warn" id="d-po" hidden>${icon("alert")}<span>今の人数（38&nbsp;人）が、変えた後の上限（15&nbsp;人）を超えます。今いる人はそのまま残り、上限を下回るまで新しい人の招待と管理者への指名だけを止めます。</span></div>
        <div class="callout is-warn" id="d-pq" hidden>${icon("alert")}<span>選んだ上限は今の合計より小さいため、合計が下がるまで新しく添付できなくなります。</span></div>
        <p class="field-hint" id="d-pt" hidden>お試しはここで終わり、期限で止まらなくなります。</p>
        <p class="field-hint" id="d-pp" hidden>停止中の${t("organization")}は、契約しても停止したままです。使えるようにするには、続けて再開してください。</p>
        <p class="field-hint" id="d-pn" hidden>人数と添付ファイルの上限はプランの値になり、「人数と容量の上限を変える」では変えられなくなります。</p>
        <p class="field-hint">プランの変更は${t("organization")}の変更の履歴に、運用者の操作として残ります。</p>`,
-      `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" id="d-plan-submit" aria-disabled="true" aria-describedby="d-pu">変える</button>`),
+      `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" id="d-plan-submit" data-plan-current="${currentPlan}" data-plan-used="${used}" aria-disabled="true" aria-describedby="d-pu">変える</button>`);
+      syncPlanDialog();
+    },
     suspendOrganization: () => {
       openDialog(`${t("organization")}を停止する`,
       `<p>ひばり工房を停止します。停止すると誰も入れなくなり、取り込みと日をまたぐ処理も止まります。データは残り、再開すれば元どおりに使えます。</p>
@@ -3915,7 +3919,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const submit = document.getElementById("d-qs");
     if (!chosen || !submit) return;
     document.getElementById("d-qo").hidden = chosen.value !== "other";
-    const same = chosen.value === "small" ||
+    const same = chosen.value === "small_organization" ||
       (chosen.value === "other" && document.getElementById("d-qm").value === "15" && document.getElementById("d-qg").value === "30");
     submit.setAttribute("aria-disabled", String(same));
     document.getElementById("d-qu").hidden = !same;
@@ -3929,8 +3933,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   };
   document.addEventListener("change", (ev) => { if (ev.target.closest("[data-quota-choice]")) syncQuotaDialog(); });
 
-  // 契約の変更のダイアログ: 見本の今の契約（プロ・月払い）を選んでいる間は「変える」を aria-disabled にし、理由（d-pu）を添える。
-  // チームを選ぶと、今の人数（38 人）が上限を超える注意と、今の合計が上限を超える注意を出す（本番の OrganizationPlanDialog と同じ）
+  // 契約の変更のダイアログ: 契約と上限の両方が今の値と同じなら「変える」を無効にする。旧ビジネスの50人枠を揃えるときは上限の低下を知らせる
   const planLimits = { small: [3, 10], team: [15, 30], business: [30, 100], pro: [50, 100] };
   const syncPlanDialog = () => {
     const plan = document.querySelector('input[name="d-p"]:checked');
@@ -3943,15 +3946,18 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       ? [Number(document.getElementById("d-p-members").value), Number(document.getElementById("d-p-size").value)]
       : planLimits[plan.value];
     const valid = Number.isInteger(members) && members >= 1 && members <= 10000 && Number.isInteger(size) && size >= 1 && size <= 102400;
-    const same = plan.value === "pro" && interval.value === "monthly";
+    const samePlan = plan.value === submit.dataset.planCurrent;
+    const used = Number(submit.dataset.planUsed);
+    const same = samePlan && interval.value === "monthly" && members === 50 && size === 100;
+    document.getElementById("d-p-current-lower").hidden = !valid || !samePlan || (members >= 50 && size >= 100);
     submit.setAttribute("aria-disabled", String(same));
     document.getElementById("d-p-invalid").hidden = valid;
     document.getElementById("d-pu").hidden = !same;
     const after = document.getElementById("d-pa");
     after.hidden = same || !valid;
     after.textContent = `変えた後の上限は ${members} 人・${size} GB です。`;
-    document.getElementById("d-po").hidden = !valid || members >= 38;
-    document.querySelector("#d-po span").textContent = `今の人数（38 人）が、変えた後の上限（${members} 人）を超えます。今いる人はそのまま残り、上限を下回るまで新しい人の招待と管理者への指名だけを止めます。`;
+    document.getElementById("d-po").hidden = !valid || members >= used;
+    document.querySelector("#d-po span").textContent = `今の人数（${used} 人）が、変えた後の上限（${members} 人）を超えます。今いる人はそのまま残り、上限を下回るまで新しい人の招待と管理者への指名だけを止めます。`;
     document.getElementById("d-pq").hidden = !valid || size >= 42;
     submit.removeAttribute("data-close-dialog");
     submit.removeAttribute("data-toast");
