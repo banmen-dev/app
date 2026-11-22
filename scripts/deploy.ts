@@ -10,8 +10,9 @@ import { logout, me } from '../src/shared/operations/session/index.ts';
 import { sessionCookieName } from '../src/shared/session-cookie.ts';
 import { RELEASE_TAG } from './release-version.ts';
 
-// 煙のテストが叩く本番の URL。ドメインへ移すときはここを直す（docs/operations.md の「ドメインへ移す」）
-export const PRODUCTION_URL = 'https://scrum-guild.ucan-lab.workers.dev';
+// 煙のテストが叩く本番の URL。Worker の名前（wrangler.jsonc の name）かドメインを変えるときは、PUBLIC_ORIGIN と同じ Release で直す
+// （docs/operations.md の「本番の URL を banmen に移す」「ドメインへ移す」）
+export const PRODUCTION_URL = 'https://banmen.ucan-lab.workers.dev';
 
 export const SMOKE_INTERVAL_MS = 5_000;
 export const SMOKE_TIMEOUT_MS = 120_000;

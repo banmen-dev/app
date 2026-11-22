@@ -18,7 +18,7 @@
 ### Cloudflare のアカウント
 
 - ucan-lab 用のアカウントは Workers Paid（2026-10-25 にした）。Workers & Pages の「Workers plans」で変える
-- `workers.dev` のサブドメインは `ucan-lab`。本番の URL は `https://scrum-guild.ucan-lab.workers.dev/`。Workers & Pages の Account details の Subdomain で変えられるが、変えるとアカウントのすべての Worker の URL が変わるので触らない
+- `workers.dev` のサブドメインは `ucan-lab`。本番の Worker の名前は `banmen` で、URL は `https://banmen.ucan-lab.workers.dev/`（#1423 で `scrum-guild` から移した。旧 URL は下の「旧 URL の転送」）。D1 と R2 のバケットは作ったときの名前（`scrum-guild`、`scrum-guild-attachments`）のまま残す（#1416 で人が決めた。コードは binding で引くので名前に縛られない）。Workers & Pages の Account details の Subdomain で変えられるが、変えるとアカウントのすべての Worker の URL が変わるので触らない
 - 請求の通知: 予算 $10（自動で作られていたもの）と、使用量の通知（Workers のリクエスト 500万、CPU 時間 1,500万 ms、D1 の書き込み 2,500万行）。届け先はアカウントのメール
 - Zero Trust は無料の枠で有効にしてある。チーム名は `ucan-lab`、ログインの手段にワンタイム PIN を足した。使うのは見本の Worker の Access（`docs/development.md` の「見本の Worker」）
 
@@ -155,7 +155,7 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
 - 空の項目、形に合わない項目、前後の空白、大文字の手段名が1つでもあると、`/api/health` を含むすべての API が 500 の `internal` を返す。運用者でない人に運用者の権限を渡さないよう、一覧を部分的に読まずに止める。ログ（Workers Logs）に項目の位置（`invalidPositions`）だけが出て、値は出ない
 - 未設定は「運用者がいない」として扱う。設定してあって空の文字列にすると、500 になる
 - 最初の運用者は、初めてログインする前に自分の ID をこの一覧に入れる（形と調べ方は上の表）。組織も招待も無い本番では、運用者でない人は GitHub の認可を通っても `/login?error=denied` に戻る（Workers Logs には `step: "callback"`、`outcome: "denied"` が出る）。アカウントを持たない人は、ログインの画面のボタンからは同じ `denied` に戻る（会員登録の画面 `/signup` からなら、アカウントを作ってログインできる）。すでにアカウントがある会員は、一覧が未設定のままでも自分の組織を作って入れる（運用者の画面と、運用者が作る組織の管理者の指名は使えない）
-- シークレットを入れるか変えたら、すぐに `https://scrum-guild.ucan-lab.workers.dev/api/health` を開き、200 で版が返ることを確かめる。500 なら、直前の変更を直す
+- シークレットを入れるか変えたら、すぐに `https://banmen.ucan-lab.workers.dev/api/health` を開き、200 で版が返ることを確かめる。500 なら、直前の変更を直す
 - 運用者を外したら、一覧を変えた版より前の版へ rollback しない。rollback はシークレットも戻し先の版の値に戻すので、外した運用者が戻る（下の「戻るもの、戻らないもの」）
 - 運用者を外しても、その人のアカウントとセッションは消えない。入れる組織が無ければ、ログインでき、組織の選択の画面に「入れる組織がありません」が出るだけで、運用の画面には入れなくなる
 
@@ -169,12 +169,12 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
    | 項目 | 本番 | 開発用 |
    | --- | --- | --- |
    | Application name | Banmen | Banmen (dev) |
-   | Homepage URL | `https://scrum-guild.ucan-lab.workers.dev` | `http://localhost:5173` |
-   | Redirect URI | `https://scrum-guild.ucan-lab.workers.dev/api/auth/github/callback` | `http://localhost:5173/api/auth/github/callback` |
+   | Homepage URL | `https://banmen.ucan-lab.workers.dev` | `http://localhost:5173` |
+   | Redirect URI | `https://banmen.ucan-lab.workers.dev/api/auth/github/callback` | `http://localhost:5173/api/auth/github/callback` |
 
 3. 作った OAuth App の「Client ID」を控え、「Generate a new client secret」で作ったシークレットを控える。シークレットは作った直後にしか見えない
 4. 本番は `wrangler secret put GITHUB_CLIENT_ID` と `wrangler secret put GITHUB_CLIENT_SECRET`（か、ダッシュボードの Worker の Settings → Variables and Secrets）で入れる。開発用は、本体の作業コピーで `.dev.vars.example` を `.dev.vars` に写して `GITHUB_CLIENT_ID` と `GITHUB_CLIENT_SECRET` に入れる（ワークツリーの `.dev.vars` は本体へのリンクなので、直すのは本体の側。`docs/development.md` の「ワークツリーで作業する」）。本番で初めて入れるときは `OPERATOR_LOGIN_IDS` にも自分の ID を入れ、入れないと次の手順のログインは `/login?error=denied` で終わる（上の「シークレット」の `OPERATOR_LOGIN_IDS` の決まり）
-5. 入れたら、本番は `https://scrum-guild.ucan-lab.workers.dev/api/health` を開き、200 が返ることを確かめる。ログインの画面から GitHub のボタンを押し、GitHub の同意画面に戻り先の URL の不一致（`redirect_uri` の誤り）が出ないことを見る
+5. 入れたら、本番は `https://banmen.ucan-lab.workers.dev/api/health` を開き、200 が返ることを確かめる。ログインの画面から GitHub のボタンを押し、GitHub の同意画面に戻り先の URL の不一致（`redirect_uri` の誤り）が出ないことを見る
 
 決まり。
 
@@ -195,11 +195,11 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
 
    | 項目 | 本番 | 開発用 |
    | --- | --- | --- |
-   | 承認済みのリダイレクト URI | `https://scrum-guild.ucan-lab.workers.dev/api/auth/google/callback` | `http://localhost:5173/api/auth/google/callback` |
+   | 承認済みのリダイレクト URI | `https://banmen.ucan-lab.workers.dev/api/auth/google/callback` | `http://localhost:5173/api/auth/google/callback` |
 
 6. 作ったクライアントの「クライアント ID」と「クライアント シークレット」を控える。クライアントシークレットは作った直後にしか全体が見えない
 7. 本番は `wrangler secret put GOOGLE_CLIENT_ID` と `wrangler secret put GOOGLE_CLIENT_SECRET`（か、ダッシュボードの Worker の Settings → Variables and Secrets）で入れる。開発用は `.dev.vars.example` を `.dev.vars` に写して `GOOGLE_CLIENT_ID` と `GOOGLE_CLIENT_SECRET` に入れる。自分の Google でログインを確かめるときは、`OPERATOR_LOGIN_IDS` に `google:<自分の sub>` も足す（次の節）
-8. 入れたら、本番は `https://scrum-guild.ucan-lab.workers.dev/api/health` を開き、200 が返ることを確かめる。ログインの画面から Google のボタンを押し、Google の画面に `redirect_uri_mismatch` が出ないことを見る
+8. 入れたら、本番は `https://banmen.ucan-lab.workers.dev/api/health` を開き、200 が返ることを確かめる。ログインの画面から Google のボタンを押し、Google の画面に `redirect_uri_mismatch` が出ないことを見る
 
 決まり。
 
@@ -454,9 +454,11 @@ export CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET
 
 煙のテストに落ちたときは、スクリプトが自動で戻す。手で戻すのは、煙のテストを通ったが本番で壊れていると分かったときと、自動の rollback が失敗したとき。
 
+Worker の名前を `banmen` に変える前の版（#1423 より前の Release）は選ばない。`PUBLIC_ORIGIN` と Cookie の名前が旧 URL のものに戻り、新しい URL でログインも更新もできなくなる。当日の戻し方と、移した後の注意は下の「本番の URL を banmen に移す」。
+
 1. ダッシュボードの Worker の Deployments か `wrangler deployments list` で、戻したい版の ID を確かめる。版の message が `<vX.Y.Z> <コミットの SHA>`（#1165 より前の版はコミットの SHA だけ）。シークレットを入れ替えた後なら、入れ替えより前の版は選ばない（下の「戻るもの、戻らないもの」）。Create application が出した初期の版（message が無い）は選ばない
 2. 手元（上の「手元の準備」）で `wrangler rollback <版の ID> --message "<理由>"` を実行する。確認が出たら版の ID を見て進める。版の ID は必ず渡す。渡さないと wrangler が履歴から戻し先を選び、意図した版とずれることがある
-3. `https://scrum-guild.ucan-lab.workers.dev/api/health` の `version` が戻した版（`vX.Y.Z`）になったことを確かめる
+3. `https://banmen.ucan-lab.workers.dev/api/health` の `version` が戻した版（`vX.Y.Z`）になったことを確かめる
 4. 下の「戻したあと」に進む
 
 戻し先が無い（デプロイの無い Worker に出した版が煙のテストに落ちた）ときは、ビルドのログに「戻し先が無く、壊れた版が残っています」と出る。直したコミットを `main` に入れ、次の Release を publish して出し直す。
@@ -584,9 +586,67 @@ WHERE tbl = 'tasks' AND idx = 'tasks_workspace_tray';
 - 運用者が作った招待の URL（`<公開 URL>/invite#<秘密>`）は、古いドメインを指したまま残る。移した後は、まだ結ばれていない指名（運用者の一覧で「指名済み、ログイン待ち」と「期限切れ」）を、新しいドメインで作り直す
 - ほかに直すもの（Cookie）は `docs/development.md` の「Cloudflare のアカウントとドメイン」
 
+## 本番の URL を banmen に移す
+
+本番の Worker の名前を `scrum-guild` から `banmen` に変え、公開 URL を `https://scrum-guild.ucan-lab.workers.dev` から `https://banmen.ucan-lab.workers.dev` に移す（#1423、親 #1416）。workers.dev の URL は Worker の名前で決まる。名前に縛られるコードは `wrangler.jsonc` の `name` と `vars` の `PUBLIC_ORIGIN`、`scripts/deploy.ts` の `PRODUCTION_URL` で、3つと転送先（`src/legacy-redirect/worker.ts` の `LEGACY_REDIRECT_TARGET`）が揃っていることを `scripts/deploy.test.ts` が確かめる。D1 と R2 のバケットは名前を変えない（上の「Cloudflare のアカウント」）。
+
+名前の変更と、名前に合わせた Release の publish は、間を空けずにこの順で続けて行う。
+
+- 名前だけ先に変えると、前の版が新しい URL で動く。`PUBLIC_ORIGIN` が旧 URL のままなので、更新系の API は Origin の検査で 403 になり、ログインの戻り先は旧 URL（404）に向かう
+- Release だけ先に出すと、Workers Builds が名前の食い違いで止まるか、デプロイのスクリプトが `banmen` の Worker は無いと見て、シークレットの無い別の Worker `banmen` を戻し先無しで作る。作られていたら、ダッシュボードでその `banmen` を消してから名前を変える（名前が埋まっていると変えられない）
+- このため、名前に合わせたコード（#1423）を `main` に入れてから当日までは、Release を publish しない。同じ Release に、Cookie の名前の変更（#1422。`__Host-sg_session` から `__Host-banmen_session`）も入る
+- 当日までに本番の Worker へ手元から `wrangler` を打つときは、`--name scrum-guild` を付ける（`wrangler.jsonc` の `name` は既に `banmen` なので、付けないと `wrangler secret put` などが無い Worker `banmen` に向かう）。`wrangler d1` は D1 の名前（`scrum-guild`）で引くので変わらない
+
+当日に変わること。
+
+- 全員がログインし直す。旧 URL の Cookie はブラウザが新しい URL へ送らず、Cookie の名前も変わるため
+- ブックマークと作ってある招待の URL は、転送用の Worker（下の「旧 URL の転送」）が新しい URL へ送る。招待の秘密（URL の断片）も引き継がれるので、招待を作り直さなくてよい
+- CLI（`sg`）と MCP の設定の URL（プロファイルの URL か `SG_URL`）は、新しい URL に替える。旧 URL の `/api` は 410 の `moved` を返し、トークンを送らせない。API トークンはそのまま使える
+- ログインの途中だった人（OAuth の state の Cookie を持っていた人）は、もう一度ログインのボタンから始める
+
+### 前日まで
+
+1. ダッシュボードの Workers & Pages に `banmen` という Worker が無いことを確かめる（プレビューの `banmen-preview` は別のアカウント）
+2. 本番の GitHub OAuth App の「Add redirect URI」で、`https://banmen.ucan-lab.workers.dev/api/auth/github/callback` を足す。旧 URL の戻り先は消さずに残す（上の「GitHub OAuth App」）
+3. 本番の Google の OAuth クライアントの承認済みのリダイレクト URI に、`https://banmen.ucan-lab.workers.dev/api/auth/google/callback` を足す。旧 URL のものは残す。反映に数分から数時間かかることがあるので、前日までに済ませる（上の「Google の OAuth クライアント」）
+4. Releases の下書きに、#1422 と #1423 が入っていることと、前の Release の後に publish された Release が無いことを確かめる
+5. チームに、移す日時と上の「当日に変わること」を知らせる
+
+### 当日
+
+1. 名前を変える直前の時刻を、UTC の ISO 8601（例 `2026-11-25T01:00:00.000Z`）で控える。下の手順 5 で使う
+2. ダッシュボードの Workers & Pages で `scrum-guild` を開き、Settings の General の Name を `banmen` に変える。続けて、Settings の Variables and Secrets にシークレットが、Triggers に2つの cron が、Builds に接続（ブランチ `production`）が残っていることを見る
+3. すぐに Release を publish する（上の「出し方」）。Builds のログで、煙のテストが `https://banmen.ucan-lab.workers.dev/api/health` で版の一致と seed のトークンの拒否まで通ったことを見る
+4. 新しい URL で、次を確かめる。`/api/health` は前の版でも ok を返すので、それだけでは足りない
+   - `/api/health` が ok と Release の版（`vX.Y.Z`）を返す
+   - GitHub と Google でログインできる（同意画面に `redirect_uri` の誤りが出ない）
+   - タスクに添付ファイルを上げ、開ける（更新系の API が Origin の検査を通り、R2 に届く）
+5. 名前を変える前に作られたセッションの行を消す。旧 URL の Cookie はブラウザが新しい URL へ送らないので、消しても利用者の手間は増えない。残すと、盗まれた旧トークンを新しい名前の Cookie で新しい URL に送れば、`expires_at`（最大30日）まで使える。手順 4 の確かめのログインは控えた時刻より後に作られるので残る。読めない作成日時の行は、設定の全失効と同じく最古として消す。API トークンは消さない。手元（上の「手元の準備」）で、`<時刻>` を手順 1 の値にして、件数を見てから消す。Claude のセッションは `--remote` の `wrangler d1` を実行しない
+
+   ```bash
+   pnpm exec wrangler d1 execute scrum-guild --remote --command "SELECT count(*) AS n FROM sessions WHERE julianday(created_at) < julianday('<時刻>') OR julianday(created_at) IS NULL"
+   pnpm exec wrangler d1 execute scrum-guild --remote --command "DELETE FROM sessions WHERE julianday(created_at) < julianday('<時刻>') OR julianday(created_at) IS NULL"
+   ```
+
+6. 転送用の Worker を置く（下の「旧 URL の転送」の「置き方」）。置いた後、ブラウザで旧 URL の `/invite#check` を開き、新しい URL の `/invite#check` に着く（断片が残る）ことを見る
+7. 本番の GitHub OAuth App から旧 URL の Redirect URI を消し、Homepage URL を `https://banmen.ucan-lab.workers.dev` に直す。Google のクライアントからも旧 URL のリダイレクト URI を消す
+8. チームに、移し終えたことを知らせる
+
+### 当日に戻すとき
+
+- 手順 3 の煙のテストに落ちて、スクリプトが前の版へ自動で戻したとき: 前の版は新しい URL では動かない（上の「名前だけ先に変える」のと同じ状態）。すぐに名前を `scrum-guild` に戻す。前の版が旧 URL で元どおり動く
+- 手順 4 の確かめで壊れていると分かったとき: 名前が `banmen` のうちに、手元で `wrangler rollback <前の版の ID> --message "<理由>"` を打ち（上の「コードを戻す」。`wrangler.jsonc` の `name` が `banmen` なので、この順なら `--name` は要らない）、続けて名前を `scrum-guild` に戻す。名前を変えた後の版と前の版は、名前と組にしてだけ動く。手順 5 を済ませていたら、全員が旧 URL でログインし直す
+- 手順 6 の後: 先に転送用の Worker を消してから（下の「外し方」）、上と同じく戻す。旧名が空いていないと名前を戻せない
+- 戻したら、原因を直す PR を入れるまで Release を publish しない。`main` には名前を変えるコードが残るので、次の Release は同じ当日の手順でやり直す。「前日まで」の手順 2 と 3 で足した OAuth の戻り先は、両方の URL を残したままにする
+
+### 移し終えた後
+
+- 名前を変える前の版（#1423 より前の Release）へは rollback しない。`PUBLIC_ORIGIN` が旧 URL に、Cookie の名前が `__Host-sg_session` に戻り、新しい URL でログインも更新もできなくなる。壊れたら、直した版を Release で出す（上の「戻したあと」）。どうしても戻すなら、上の「当日に戻すとき」と同じく名前も `scrum-guild` に戻す組で行う
+- 名前を変える前の版で動いている間は、デプロイの煙のテストの seed の確認（`__Host-banmen_session` の Cookie で新しい URL に送る）が、その版を確かめたことにならない。旧コードは新しい名前の Cookie を読まないので、seed の行が残っていても 401 になる。そうした版へ戻したら、上の「seed のセッションが本番に入ったとき」の手順 3 の件数で、seed の行が本番に無いことを確かめる
+
 ## 旧 URL の転送
 
-本番の Worker の名前を `banmen` に変えると、旧 URL（`https://scrum-guild.ucan-lab.workers.dev`）は 404 になる。ブックマークと招待の URL（`<公開 URL>/invite#<秘密>`）を新しい URL（`https://banmen.ucan-lab.workers.dev`）へ送るため、空いた旧名 `scrum-guild` に転送用の Worker を置く（#1421）。当日の流れの中での順番は、本番の URL を移すタスク（#1423）の手順に従う。
+本番の Worker の名前を `banmen` に変えると、旧 URL（`https://scrum-guild.ucan-lab.workers.dev`）は 404 になる。ブックマークと招待の URL（`<公開 URL>/invite#<秘密>`）を新しい URL（`https://banmen.ucan-lab.workers.dev`）へ送るため、空いた旧名 `scrum-guild` に転送用の Worker を置く（#1421）。当日の流れの中での順番は、上の「本番の URL を banmen に移す」の「当日」の手順 6。
 
 - コードは `src/legacy-redirect/worker.ts`、設定は `wrangler.legacy-redirect.jsonc`（name `scrum-guild`。binding、シークレット、cron を持たない）。Workers Builds にはつながず、人が手元から出す
 - 画面の GET と HEAD は、302 で同じパスとクエリのまま新しい URL へ送る。Location に断片を付けないので、ブラウザが元の断片（招待の秘密）を引き継ぎ、秘密はサーバーに届かない（RFC 9110 の 10.2.2）。独自ドメインへ移すときに転送先を差し替えられるよう、ブラウザに長く残る 301 にしない。同じ理由で、302 と 410 には `cache-control: no-store` を付ける
@@ -610,7 +670,7 @@ node scripts/deploy-legacy-redirect.ts
 
 ### 外し方
 
-旧 URL に来る人がいなくなったら、ダッシュボードの Workers & Pages で `scrum-guild` を開き、Settings の Delete で消す。消すと旧 URL は 404 に戻る。消した後で本番の Worker を旧名に戻すことはしない（`PUBLIC_ORIGIN` が新しい URL のため）。転送用の Worker を置くまでは、本番の Worker の名前を戻せば元に戻る。置いた後に戻すときは、先に転送用の Worker を消してから名前を戻す（旧名が空いていないと名前を戻せない）。
+旧 URL に来る人がいなくなったら、ダッシュボードの Workers & Pages で `scrum-guild` を開き、Settings の Delete で消す。消すと旧 URL は 404 に戻る。消した後で本番の Worker を旧名に戻すことはしない（`PUBLIC_ORIGIN` が新しい URL のため）。移す当日に戻すときの手順（名前と版を組で戻す）は、上の「本番の URL を banmen に移す」の「当日に戻すとき」。転送用の Worker を置いた後に戻すときは、先に転送用の Worker を消してから名前を戻す（旧名が空いていないと名前を戻せない）。
 
 ## 組織
 

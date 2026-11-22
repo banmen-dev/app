@@ -84,7 +84,7 @@ describe('開始', () => {
     expect(started.location.origin + started.location.pathname).toBe('https://github.com/login/oauth/authorize');
     const params = started.location.searchParams;
     expect(params.get('client_id')).toBe('test-client-id');
-    expect(params.get('redirect_uri')).toBe('https://scrum-guild.ucan-lab.workers.dev/api/auth/github/callback');
+    expect(params.get('redirect_uri')).toBe('https://banmen.ucan-lab.workers.dev/api/auth/github/callback');
     expect(params.get('scope')).toBe('read:user');
     expect(params.get('code_challenge_method')).toBe('S256');
     expect(started.state).toMatch(/^[A-Za-z0-9_-]{43}$/);

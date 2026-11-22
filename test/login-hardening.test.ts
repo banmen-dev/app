@@ -253,8 +253,8 @@ describe('戻る画面のパス', () => {
     const code = github.issueCode(user, started.challenge);
     const result = await browser.callback({ code, state: started.state });
     expect(result.location).toBe('/');
-    expect(new URL(result.location, 'https://scrum-guild.ucan-lab.workers.dev').origin).toBe(
-      'https://scrum-guild.ucan-lab.workers.dev',
+    expect(new URL(result.location, 'https://banmen.ucan-lab.workers.dev').origin).toBe(
+      'https://banmen.ucan-lab.workers.dev',
     );
   });
 

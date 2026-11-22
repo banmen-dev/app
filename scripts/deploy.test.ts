@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, test } from 'node:test';
+import ts from 'typescript';
 import { SEED_API_TOKENS } from '../seed/api-tokens.ts';
 import { SEED_SESSIONS } from '../seed/sessions.ts';
+import { LEGACY_REDIRECT_TARGET } from '../src/legacy-redirect/worker.ts';
 import { deploy, PRODUCTION_URL, versionFromHealth, type DeployDeps, type WranglerResult } from './deploy.ts';
 
 const SHA = 'abc1234';
@@ -679,5 +682,27 @@ describe('deploy-production.ts', () => {
     const result = spawnSync(process.execPath, [file], { encoding: 'utf8', env: childEnv });
     assert.equal(result.status, 1, result.stderr);
     assert.match(result.stderr, /Workers Builds の外では動かしません/);
+  });
+});
+
+// Worker の名前が workers.dev の URL を決めるので、名前と PUBLIC_ORIGIN と煙のテストの URL は同じ Release で変える
+// （docs/operations.md の「本番の URL を banmen に移す」）。どれか1つだけ直すと、煙のテストが届かないか、更新系が Origin の検査で 403 になる
+describe('本番の Worker の名前と URL', () => {
+  const parsed = ts.parseConfigFileTextToJson('wrangler.jsonc', readFileSync('wrangler.jsonc', 'utf8'));
+  assert.equal(parsed.error, undefined, 'wrangler.jsonc を読めない');
+  const config = parsed.config as { name: string; vars: { PUBLIC_ORIGIN: string } };
+
+  test('煙のテストの URL は PUBLIC_ORIGIN と同じ', () => {
+    assert.equal(PRODUCTION_URL, config.vars.PUBLIC_ORIGIN);
+  });
+
+  test('URL の workers.dev の名前は wrangler.jsonc の name と同じで、banmen', () => {
+    assert.equal(config.name, 'banmen');
+    assert.equal(new URL(PRODUCTION_URL).hostname, `${config.name}.ucan-lab.workers.dev`);
+    assert.equal(new URL(PRODUCTION_URL).origin, PRODUCTION_URL);
+  });
+
+  test('旧 URL の転送先は本番の URL', () => {
+    assert.equal(LEGACY_REDIRECT_TARGET, PRODUCTION_URL);
   });
 });

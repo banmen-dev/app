@@ -60,7 +60,7 @@ const browser =
 
 describe('Cookie の名前', () => {
   test('https の公開 URL では __Host- を付け、http の localhost では付けない', () => {
-    expect(sessionCookieName('https://scrum-guild.ucan-lab.workers.dev')).toBe('__Host-banmen_session');
+    expect(sessionCookieName('https://banmen.ucan-lab.workers.dev')).toBe('__Host-banmen_session');
     expect(sessionCookieName('https://scrum-guild.dev')).toBe('__Host-banmen_session');
     expect(sessionCookieName('http://localhost:5173')).toBe('banmen_session');
     expect(sessionCookieName('http://localhost:8797')).toBe('banmen_session');

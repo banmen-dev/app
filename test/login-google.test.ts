@@ -57,7 +57,7 @@ describe('開始', () => {
     const params = started.location.searchParams;
     expect(params.get('response_type')).toBe('code');
     expect(params.get('client_id')).toBe(FAKE_GOOGLE_CLIENT_ID);
-    expect(params.get('redirect_uri')).toBe('https://scrum-guild.ucan-lab.workers.dev/api/auth/google/callback');
+    expect(params.get('redirect_uri')).toBe('https://banmen.ucan-lab.workers.dev/api/auth/google/callback');
     expect(params.get('scope')).toBe('openid email profile');
     expect(params.get('code_challenge_method')).toBe('S256');
     expect(params.get('code_challenge')).toMatch(/^[A-Za-z0-9_-]{43}$/);
@@ -230,7 +230,7 @@ describe('トークンの交換', () => {
       code: result.code,
       client_id: FAKE_GOOGLE_CLIENT_ID,
       client_secret: FAKE_GOOGLE_CLIENT_SECRET,
-      redirect_uri: 'https://scrum-guild.ucan-lab.workers.dev/api/auth/google/callback',
+      redirect_uri: 'https://banmen.ucan-lab.workers.dev/api/auth/google/callback',
       grant_type: 'authorization_code',
     });
     expect(call!.form.code_verifier).toMatch(/^[A-Za-z0-9_-]{43}$/);

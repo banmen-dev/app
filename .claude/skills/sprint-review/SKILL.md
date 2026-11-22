@@ -146,7 +146,7 @@ MCP で代えるときは、一覧を `list_issues`（`labels` に `status:accep
 本番で確かめられるのは、その Issue の対象 PR すべてを含む Release が publish され、本番に出た後だけ（`main` へのマージは本番に出ない。`docs/development.md` の「CD」）。本番の場所を案に置く前に、本番の版を読み、手順 2 で集めた対象 PR すべてのマージのコミットを含むかを確かめる。
 
 ```bash
-curl -fsS https://scrum-guild.ucan-lab.workers.dev/api/health                      # version が本番の版（vX.Y.Z）
+curl -fsS https://banmen.ucan-lab.workers.dev/api/health                      # version が本番の版（vX.Y.Z）
 git fetch --tags origin
 git merge-base --is-ancestor <PR の merge_commit_sha> refs/tags/<version>           # 対象 PR ごとに実行し、すべて 0 なら本番に出ている
 ```
