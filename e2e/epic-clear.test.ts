@@ -84,6 +84,46 @@ test('動きを減らす設定でも、同じトーストで知らせる', async
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
+test('状態を持つ差し替えで、完了にすると「完了を取り消す」と完了の印が出て、取り消すと「エピックを完了にする」に戻る', async ({
+  page,
+}) => {
+  const collect = await watchViolations(page);
+  let completedAt: string | null = null;
+  let served: Detail | undefined;
+  await routeOperation(page, epicDetail, AOBA, async (call) => {
+    served ??= await call.fetch();
+    await call.fulfill({
+      ...served,
+      stories: served.stories.map((story) => ({ ...story, completed_at: story.completed_at ?? CLEARED_AT })),
+      epic: { ...served.epic, completed_at: completedAt },
+    });
+  });
+  await routeOperation(page, epicComplete, AOBA, async (call) => {
+    completedAt = CLEARED_AT;
+    await call.fulfill(CLEAR_RESPONSE);
+  });
+  await routeOperation(page, epicReopen, AOBA, async (call) => {
+    completedAt = null;
+    await call.fulfill({ epic_id: EPIC_ID });
+  });
+  await page.goto(`${WORKSPACE}/epics/${EPIC_ID}`);
+
+  const panel = page.getByRole('region', { name: 'エピックの完了' });
+  await panel.getByRole('button', { name: 'エピックを完了にする' }).click();
+  await expect(panel.getByRole('button', { name: '完了を取り消す' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'エピックを完了にする' })).toHaveCount(0);
+  await expect(page.locator('.page-head-meta .chip.is-done')).toHaveText('完了');
+  await expect(panel.getByRole('heading', { level: 2, name: 'エピックの完了' })).toBeFocused();
+
+  await panel.getByRole('button', { name: '完了を取り消す' }).click();
+  await expect(panel.getByRole('button', { name: 'エピックを完了にする' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: '完了を取り消す' })).toHaveCount(0);
+  await expect(page.locator('.page-head-meta .chip.is-done')).toHaveCount(0);
+  await expect(panel.getByRole('heading', { level: 2, name: 'エピックの完了' })).toBeFocused();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(await collect()).toEqual([]);
+});
+
 test('未完了のストーリーが残っていると押せず、理由を横に出し、クリアの操作を送らない', async ({ page }) => {
   // 配下のストーリーを1件の未完了にする（seed の状態に頼らない）
   await serveDetail(page, (output) => ({
