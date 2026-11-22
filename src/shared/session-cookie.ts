@@ -60,5 +60,5 @@ export const SESSION_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 // Cookie の名前は公開する URL で決める。https では `__Host-` を付け、サブドメインや http の側から上書きされないようにする
 // （Secure、Path=/、Domain なしを、ブラウザが名前で強制する）。http の localhost では、上の理由で付けない
 export function sessionCookieName(publicOrigin: string): string {
-  return isSecureOrigin(publicOrigin) ? '__Host-sg_session' : 'sg_session';
+  return isSecureOrigin(publicOrigin) ? '__Host-banmen_session' : 'banmen_session';
 }

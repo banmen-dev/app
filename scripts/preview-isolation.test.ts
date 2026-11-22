@@ -52,7 +52,7 @@ test('明示したアカウントのプレビューを secure Cookie 用の対�
   assert.ok(target.ok);
   assert.equal(target.origin, newOrigin);
   assert.equal(target.url, `${newOrigin}/aoba`);
-  assert.equal(target.cookieName, '__Host-sg_session');
+  assert.equal(target.cookieName, '__Host-banmen_session');
   assert.equal(target.who, 'operator');
 });
 

@@ -60,28 +60,38 @@ const browser =
 
 describe('Cookie の名前', () => {
   test('https の公開 URL では __Host- を付け、http の localhost では付けない', () => {
-    expect(sessionCookieName('https://scrum-guild.ucan-lab.workers.dev')).toBe('__Host-sg_session');
-    expect(sessionCookieName('https://scrum-guild.dev')).toBe('__Host-sg_session');
-    expect(sessionCookieName('http://localhost:5173')).toBe('sg_session');
-    expect(sessionCookieName('http://localhost:8797')).toBe('sg_session');
+    expect(sessionCookieName('https://scrum-guild.ucan-lab.workers.dev')).toBe('__Host-banmen_session');
+    expect(sessionCookieName('https://scrum-guild.dev')).toBe('__Host-banmen_session');
+    expect(sessionCookieName('http://localhost:5173')).toBe('banmen_session');
+    expect(sessionCookieName('http://localhost:8797')).toBe('banmen_session');
   });
 
   test('公開 URL に合う名前の Cookie だけを読む', async () => {
     const person = await createLoginPerson();
     const httpEnv: Env = Object.assign({}, testEnv, { PUBLIC_ORIGIN: 'http://localhost:5173' });
-    const httpOk = await post(app, whoAmI, { env: httpEnv, headers: { Cookie: `sg_session=${person.token}` } });
+    const httpOk = await post(app, whoAmI, { env: httpEnv, headers: { Cookie: `banmen_session=${person.token}` } });
     expect(httpOk.status).toBe(200);
     const httpWrongName = await post(app, whoAmI, {
       env: httpEnv,
-      headers: { Cookie: `__Host-sg_session=${person.token}` },
+      headers: { Cookie: `__Host-banmen_session=${person.token}` },
     });
     expect(httpWrongName.status).toBe(401);
 
-    const httpsOk = await post(app, whoAmI, { headers: { Cookie: `__Host-sg_session=${person.token}` } });
+    const httpsOk = await post(app, whoAmI, { headers: { Cookie: `__Host-banmen_session=${person.token}` } });
     expect(httpsOk.status).toBe(200);
     // https の側では、サブドメインから上書きされうる名前の Cookie を読まない
-    const httpsWrongName = await post(app, whoAmI, { headers: { Cookie: `sg_session=${person.token}` } });
+    const httpsWrongName = await post(app, whoAmI, { headers: { Cookie: `banmen_session=${person.token}` } });
     expect(httpsWrongName.status).toBe(401);
+  });
+
+  // 旧名の Cookie を読む移行のコードは置かない（#1422）。有効なトークンでも旧名なら入れない
+  test('旧名の sg_session の Cookie は読まない', async () => {
+    const person = await createLoginPerson();
+    const httpEnv: Env = Object.assign({}, testEnv, { PUBLIC_ORIGIN: 'http://localhost:5173' });
+    const httpOld = await post(app, whoAmI, { env: httpEnv, headers: { Cookie: `sg_session=${person.token}` } });
+    expect(httpOld.status).toBe(401);
+    const httpsOld = await post(app, whoAmI, { headers: { Cookie: `__Host-sg_session=${person.token}` } });
+    expect(httpsOld.status).toBe(401);
   });
 
   test('出し直す Cookie も同じ名前と属性', async () => {
@@ -90,7 +100,7 @@ describe('Cookie の名前', () => {
     });
     const httpEnv: Env = Object.assign({}, testEnv, { PUBLIC_ORIGIN: 'http://localhost:5173' });
     const res = await post(app, whoAmI, { env: httpEnv, token: person.token });
-    expect(res.headers.get('Set-Cookie')).toContain(`sg_session=${person.token}`);
+    expect(res.headers.get('Set-Cookie')).toContain(`banmen_session=${person.token}`);
   });
 });
 

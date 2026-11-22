@@ -68,7 +68,7 @@
     - アカウントのログインの手段と ID は、1回のリクエストで1回だけ引く（`account.logins()`）
   - Origin: Cookie の呼び出しのすべての操作に掛ける（`Authorization: Bearer` の呼び出しには掛けない。下の「API トークン」）。`wrangler.jsonc` の `vars` の `PUBLIC_ORIGIN`（`scripts/dev.ts` が `pnpm dev` と `pnpm preview` の画面の URL で上書きする。下の「ポート」の決め方でずれた値も）と一致しない、または Origin の無い呼び出しは 403 の `forbidden`。検査は本文を読む前。`curl` で呼ぶときの付け方は `-H "Origin: http://localhost:5173"`。`PUBLIC_ORIGIN` に使えるのは、https と、ループバックのホスト（`localhost`、`127.0.0.1`、`[::1]`）への http だけ。それ以外（本番の設定が http になった、値が無い、解釈できない）は、`OPERATOR_LOGIN_IDS` の検査と同じく app のミドルウェアが、`/api/health` を含むすべてのリクエストを 500 にして、デプロイの煙のテストで見つけさせる。綴りだけで決めると、Cookie の Secure と `__Host-` が黙って外れるため。
     - `response: 'binary'` の GET と HEAD は、画像・動画やリンクからの要求に Origin が付かないため、Origin の省略を許す。付いていれば同じ公開 URL と照合し、違えば 403。`Sec-Fetch-Site` があれば `same-origin` と `none` だけを受け、それ以外（`same-site` を含む）は 403。両方のヘッダーが無い HTTP クライアントもセッションの検査へ進める。ほかの POST の検査は変えない。
-  - セッション: Cookie のトークンを SHA-256 にして `sessions` を引く（`src/server/auth/session.ts`）。Cookie の名前は `sessionCookieName(PUBLIC_ORIGIN)`（`src/shared/session-cookie.ts`）で決め、https の公開 URL では `__Host-sg_session`、http の localhost（`pnpm dev`、`pnpm preview`）では `sg_session`。読む側とログインの発行（`src/server/auth/login-routes.ts`）と e2e が同じ関数を使う。無い、形が違う、期限を過ぎた、のどれも 401 の `unauthenticated`。`last_used_at` は前回から1時間以上たったときだけ、読んだ値が変わっていないことを条件に書き直し（並行した呼び出しの片方だけが書く）、`expires_at` を30日後にして、書けたときだけ Cookie を同じ属性で出し直す。書き直しの失敗はログに例外の名前だけを残し、リクエストは続ける。
+  - セッション: Cookie のトークンを SHA-256 にして `sessions` を引く（`src/server/auth/session.ts`）。Cookie の名前は `sessionCookieName(PUBLIC_ORIGIN)`（`src/shared/session-cookie.ts`）で決め、https の公開 URL では `__Host-banmen_session`、http の localhost（`pnpm dev`、`pnpm preview`）では `banmen_session`。読む側とログインの発行（`src/server/auth/login-routes.ts`）と e2e が同じ関数を使う。無い、形が違う、期限を過ぎた、のどれも 401 の `unauthenticated`。`last_used_at` は前回から1時間以上たったときだけ、読んだ値が変わっていないことを条件に書き直し（並行した呼び出しの片方だけが書く）、`expires_at` を30日後にして、書けたときだけ Cookie を同じ属性で出し直す。書き直しの失敗はログに例外の名前だけを残し、リクエストは続ける。
   - API トークン: `Authorization: Bearer sgp_<43文字>` を付けた呼び出しは、API トークンだけで認証する（`src/server/auth/api-token.ts`、`register.ts` の `execute()` の冒頭）。`Authorization` が `Bearer` ちょうどか、`Bearer ` で始まる（大文字小文字を区別する）ヘッダーがあれば、値が空でも Bearer の呼び出し。それ以外の書き方（`bearer`、`Basic`）は Cookie の呼び出しとして扱い、Origin の検査が掛かる。
     - Origin の検査と Cookie の読み取りを飛ばし、応答には Cookie の延長も消去も付けない。ブラウザは `Authorization` を他のサイトからの要求に勝手に付けず、CSRF は成り立たないため
     - トークンの値の形（`API_TOKEN_PATTERN`）を確かめ、SHA-256 にして `api_tokens` を引く。形が違う、行が無い、期限切れ（`expires_at <= now`）、取消済みは、どれも 401 の `unauthenticated`。有効な Cookie が同じリクエストにあっても Cookie に落とさない
@@ -369,7 +369,7 @@ GitHub は無料のプランのまま使う（2026-10-23 に決めた）。無�
 
 vite の転送先も同じ値から作るので、画面は自分のワークツリーの API を呼ぶ。ポートがぶつかったら、勝手に空いたポートへずれずに落ちる（vite の `strictPort`）。ずれた vite が別のワークツリーの API につながると、エラーにならないまま別のブランチの API を叩くため。
 
-ワークツリーを並べて本物のログインを確かめるときの注意: ワークツリーごとに、別のブラウザのプロファイル（Chrome のプロファイル、別のブラウザ、シークレットウィンドウ）で開く。`localhost` の Cookie はポートで分かれず、`sg_session` と `sg_oauth_state` は、ポートの違うワークツリーのあいだで共有される。同じブラウザで開くと、片方のログインがもう片方の Cookie を上書きし、ログインが失敗するか、別のワークツリーのセッションで動いてしまう。
+ワークツリーを並べて本物のログインを確かめるときの注意: ワークツリーごとに、別のブラウザのプロファイル（Chrome のプロファイル、別のブラウザ、シークレットウィンドウ）で開く。`localhost` の Cookie はポートで分かれず、`banmen_session` と `banmen_oauth_state` は、ポートの違うワークツリーのあいだで共有される。同じブラウザで開くと、片方のログインがもう片方の Cookie を上書きし、ログインが失敗するか、別のワークツリーのセッションで動いてしまう。
 
 ### 版
 
@@ -1239,7 +1239,7 @@ PR の版は、本番を載せない専用 Cloudflare アカウントの Worker 
 - 同じ番号のビルドを同時に走らせない。起動専用 Worker は Issue 番号ごとに待ち行列を持ち、進行中のビルドが止まったことを確認してから次の head を起動する。削除と作成は1つのトランザクションにならないため、重なると失敗してプレビューを使えなくなる。再実行で作り直す
 - `.claude/hooks/` は緩めない。フックはエージェントのセッションに適用され、Workers Builds は Claude/Codex を起動しない。セッションから `WORKERS_CI` を付けて実行したり、`--remote` を使って動作確認したりしない。手順は副作用を差し替えた Node のテストで確かめる
 
-ロールを切り替えるときは、`CLOUDFLARE_PREVIEW_SUBDOMAIN` に確認済みの専用アカウントの workers.dev サブドメインを設定し、`pnpm dev:open --origin https://pr-374-banmen-preview.<プレビュー用サブドメイン>.workers.dev admin /aoba`。`admin` を `member` など `seed/sessions.ts` のキーに替えると別のブラウザで開く。運用者は `pnpm dev:open --origin https://pr-374-banmen-preview.<プレビュー用サブドメイン>.workers.dev operator /operator` で開く。`CF_ACCESS_CLIENT_ID` と `CF_ACCESS_CLIENT_SECRET` を人が実行する端末の環境変数に入れる（値は git やコマンド履歴に残さない）。`--origin` はこのプレビューの HTTPS origin だけを許可し、末尾 `/`、本番、任意の URL を拒否する。ローカル用 `--preview` とは併用しない。事前の `/api/me` とブラウザの同じ origin への通信にだけ Access のヘッダーを付け、外部へのリダイレクトには送らない。Service Worker は無効にする。HTTPS の seed Cookie は `__Host-sg_session`、Secure、HttpOnly。ローカルの開き方は変わらない。
+ロールを切り替えるときは、`CLOUDFLARE_PREVIEW_SUBDOMAIN` に確認済みの専用アカウントの workers.dev サブドメインを設定し、`pnpm dev:open --origin https://pr-374-banmen-preview.<プレビュー用サブドメイン>.workers.dev admin /aoba`。`admin` を `member` など `seed/sessions.ts` のキーに替えると別のブラウザで開く。運用者は `pnpm dev:open --origin https://pr-374-banmen-preview.<プレビュー用サブドメイン>.workers.dev operator /operator` で開く。`CF_ACCESS_CLIENT_ID` と `CF_ACCESS_CLIENT_SECRET` を人が実行する端末の環境変数に入れる（値は git やコマンド履歴に残さない）。`--origin` はこのプレビューの HTTPS origin だけを許可し、末尾 `/`、本番、任意の URL を拒否する。ローカル用 `--preview` とは併用しない。事前の `/api/me` とブラウザの同じ origin への通信にだけ Access のヘッダーを付け、外部へのリダイレクトには送らない。Service Worker は無効にする。HTTPS の seed Cookie は `__Host-banmen_session`、Secure、HttpOnly。ローカルの開き方は変わらない。
 
 ### 見本の Worker
 
@@ -1319,7 +1319,7 @@ GitHub App も比べた。人が抜けても取り込みが止まらない、PAT
     - `Sec-Purpose` に `prefetch` と `prerender` を含まない（先読みは、利用者が開いたものではない）
   - ヘッダーを送らない古いブラウザは通す。この場合の限界は `docs/data-model.md` の `rate_limits`
   - 通ったものはレート制限（全体の枠 `login:global` と `login:<IP>`）を数え、`oauth_states` に state、code_verifier（どちらも 32 バイトの乱数の base64url、43文字）、戻る画面のパスを入れる（10分で切れる）
-  - 同じ state を HttpOnly、SameSite=Lax の Cookie にも置く。https では Secure を付けた `__Host-sg_oauth_state`。http の localhost では、Safari が Secure の Cookie を保存しないので、Secure も `__Host-` も付けず `sg_oauth_state`（セッションの Cookie も同じ）
+  - 同じ state を HttpOnly、SameSite=Lax の Cookie にも置く。https では Secure を付けた `__Host-banmen_oauth_state`。http の localhost では、Safari が Secure の Cookie を保存しないので、Secure も `__Host-` も付けず `banmen_oauth_state`（セッションの Cookie も同じ）
   - PKCE（`S256`）の `code_challenge` を付けた GitHub の認可の URL へ 302 で移す
   - `return_to` は自分のサイトのパスだけを受け付ける（`src/shared/return-to.ts`）。条件は、`/` で始まり、`//` で始まらず、`\` を含まず、`.` と `..` の区間（`%2e` を含む）を持たず、印字できる ASCII だけで、512文字まで。最初の区間が `api`、`login`、`signup` のものも除く。`/.//evil.example` のように、URL の解決が区間を畳んで `//evil.example` になる書き方を止めるためで、除いた値は `/` に直す
   - ログインの後に移す先は、URL を解決した後の値（パス、クエリ、フラグメント）も同じ検査に通す。通らなければ `/` を使う。ログインの画面の `return_to` も、同じ関数で整える
@@ -1439,7 +1439,7 @@ GitHub のアカウントも Google のアカウントも使わない人のた�
 - seed（`pnpm db:seed`）が、決まったトークンのセッションをローカルの D1 に入れる。e2e と画面の自己レビューは、その Cookie を置いてログインした画面を開く。トークンは開発用の値で、本番の D1 には入れない
   - seed のセッションで API トークンを発行できるのは、`pnpm db:seed` を流してから10分以内。e2e では `signIn`（`e2e/helpers.ts`）が Cookie を置く前に、その seed のセッションの `created_at` を今に更新する。手元で発行を試すときは、`pnpm db:seed` を流し直す
   - 主なセッション: あおば開発の管理者、あおば開発の一般のユーザー、ひばり工房だけに入れる管理者、どの組織にも属さない運用者（`OPERATOR_LOGIN_IDS` の開発用の値、`.dev.vars.example`）、と、e2e のログアウトが消すための2本（`adminLogout` は管理者と、`operatorLogout` は運用者と同じアカウントの2本目）、くもラボの3人（`lookAdmin`、`lookMember`、`lookThemed`。テーマを選んでいない人と選んでいる人を確かめる e2e（`e2e/me-settings.test.ts`）などが使う。ほかのファイルが確かめる組織と分けた）、くもラボの一般のシオン（`avatarLeaver`。プロフィール画像の e2e（`e2e/profile-avatar.test.ts`）だけが唯一のワークスペースを抜けさせ、画像が消えることを確かめる）。ほかの人を含めた全部の一覧は `seed/README.md` の「セッション」。e2e は共有のセッションをログアウトしない（並列に走る別のテストが 401 で落ちるため）
-  - トークンは `seed/sessions.ts` の1か所に置き、seed はそこから SHA-256 の16進を計算して入れる。e2e も同じ定数を import し、Cookie の名前は `sessionCookieName()` で決める（e2e は `pnpm preview` の http の localhost なので `sg_session`）。中身と流し方は `seed/README.md`
+  - トークンは `seed/sessions.ts` の1か所に置き、seed はそこから SHA-256 の16進を計算して入れる。e2e も同じ定数を import し、Cookie の名前は `sessionCookieName()` で決める（e2e は `pnpm preview` の http の localhost なので `banmen_session`）。中身と流し方は `seed/README.md`
   - セッションの `created_at` と `last_used_at` は seed を流した時刻、`expires_at` はその30日後にする。切れたら seed を流し直す
   - 今日と比べて意味が変わる日付は、seed を流した日時から作る（#1326）。スプリントの期間とそれに付く日時（`started_at`、`closed_at`、`sprint_entries` の `added_at`・`ended_at`、`completions` と完了したタスクの `completed_at`）と組織の休日は、流した日の週の月曜（Asia/Tokyo）から、タスク・ストーリー・エピックの期日は流した日（Asia/Tokyo）から数える。いつ流しても、進行中のスプリントは期間の途中、先のスプリントは今日より後で、期日切れと先の期日が揃う。動かす日付は `seed/data.sql` に引用符の外の印で書き、`scripts/seed-dates.ts` の `fillSeedDates` が埋める（埋めた日時は流した時刻を上限にする）。`data.sql` を直に読むスクリプトとテストも、この関数を通す
   - ほかの日時（作った日、変更の履歴、接続の同期、受信箱、招待、所属の日、最後に入った日、感謝、規約とプライバシーの同意の版）は 2026-10-20 前後の固定の値にする。時が経っても意味が変わらず、e2e が期待値に書いているため

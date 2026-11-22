@@ -23,8 +23,8 @@ export const loginEnv: Env = Object.assign({}, testEnv, {
   GOOGLE_CLIENT_SECRET: FAKE_GOOGLE_CLIENT_SECRET,
 });
 
-export const SESSION_COOKIE = '__Host-sg_session';
-export const STATE_COOKIE = '__Host-sg_oauth_state';
+export const SESSION_COOKIE = '__Host-banmen_session';
+export const STATE_COOKIE = '__Host-banmen_oauth_state';
 
 let browserCount = 0;
 

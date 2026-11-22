@@ -33,7 +33,7 @@ describe.each(['https://guild.example', 'http://127.0.0.1:5173'])('配信時の 
     expect(response.status).toBe(status);
     const cookies = response.headers.getSetCookie();
     expect(cookies).toHaveLength(1);
-    const expectedCookieName = origin.startsWith('https:') ? '__Host-sg_session' : 'sg_session';
+    const expectedCookieName = origin.startsWith('https:') ? '__Host-banmen_session' : 'banmen_session';
     expect(cookies[0]!.split(';')[0]).toBe(`${expectedCookieName}=${session.token}`);
     expect(cookies[0]).toContain('Max-Age=2592000');
     expect(cookies[0]).toContain('Path=/');
