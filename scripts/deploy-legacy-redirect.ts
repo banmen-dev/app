@@ -141,7 +141,9 @@ export async function fetchReply(
 }
 
 // デプロイのコマンドは pnpm の外で動くので、node_modules/.bin が PATH に無い
-const wranglerBin = path.join('node_modules', '.bin', 'wrangler');
+// どのディレクトリから打っても、このリポジトリの wrangler と設定（-c の相対パス）を使うよう、ルートで動かす
+const repoRoot = path.join(import.meta.dirname, '..');
+const wranglerBin = path.join(repoRoot, 'node_modules', '.bin', 'wrangler');
 
 // import しても入口が動かないよう、直に動かしたときだけ呼ぶ（テストや別のスクリプトからの import を守る）。
 // import.meta.main が無い Node（古い版）では、常に偽とみなすと何もしないまま成功に見えるので、理由を出して失敗させる
@@ -157,7 +159,7 @@ if (import.meta.main) {
     request: fetchReply,
     wrangler: (args) => {
       // 標準入力を閉じ、確認を待って止まらないようにする
-      const result = spawnSync(wranglerBin, args, { stdio: ['ignore', 'inherit', 'inherit'] });
+      const result = spawnSync(wranglerBin, args, { cwd: repoRoot, stdio: ['ignore', 'inherit', 'inherit'] });
       if (result.error) {
         console.error(`wrangler を起動できませんでした: ${result.error.message}`);
         return { status: 1 };

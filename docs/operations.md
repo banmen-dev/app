@@ -567,13 +567,13 @@ WHERE tbl = 'tasks' AND idx = 'tasks_workspace_tray';
 本番の Worker の名前を `banmen` に変えると、旧 URL（`https://scrum-guild.ucan-lab.workers.dev`）は 404 になる。ブックマークと招待の URL（`<公開 URL>/invite#<秘密>`）を新しい URL（`https://banmen.ucan-lab.workers.dev`）へ送るため、空いた旧名 `scrum-guild` に転送用の Worker を置く（#1421）。当日の流れの中での順番は、本番の URL を移すタスク（#1423）の手順に従う。
 
 - コードは `src/legacy-redirect/worker.ts`、設定は `wrangler.legacy-redirect.jsonc`（name `scrum-guild`。binding、シークレット、cron を持たない）。Workers Builds にはつながず、人が手元から出す
-- 画面の GET と HEAD は、302 で同じパスとクエリのまま新しい URL へ送る。Location に断片を付けないので、ブラウザが元の断片（招待の秘密）を引き継ぎ、秘密はサーバーに届かない（RFC 9110 の 10.2.2）。独自ドメインへ移すときに転送先を差し替えられるよう、ブラウザに長く残る 301 にしない
+- 画面の GET と HEAD は、302 で同じパスとクエリのまま新しい URL へ送る。Location に断片を付けないので、ブラウザが元の断片（招待の秘密）を引き継ぎ、秘密はサーバーに届かない（RFC 9110 の 10.2.2）。独自ドメインへ移すときに転送先を差し替えられるよう、ブラウザに長く残る 301 にしない。同じ理由で、302 と 410 には `cache-control: no-store` を付ける
 - `/api` と `/api/` の下、GET と HEAD 以外は、410 と API のエラーの形の本文（`code` は `moved`、`details.location` に新しい URL）を返す。CLI は 3xx を追わず、別のオリジンへトークンを送らせないため。新しい URL の API（Hono）はパスの百分率符号を解いてから振り分けるので、`/%61pi/health` のように符号にした形も、解いた形で `/api` の下なら 410 にする（新しい URL の資産の振り分け（`run_worker_first`）が符号を解くかは確かめていない。解かなければ画面に届くパスも 410 にするが、API のトークンを別のオリジンへ送らない側に倒す）
 - 転送先は `LEGACY_REDIRECT_TARGET` に固定し、リクエストの Host などから組まない
 
 ### 置き方
 
-本番の Worker の名前を変え、名前に合わせた Release を publish し、新しい URL でログインと更新が通るのを確かめ（`/api/health` の ok は前の版でも返るので、それだけでは足りない）、ダッシュボードの Workers & Pages に旧名 `scrum-guild` の Worker が無いこと（やり直しなら転送用の Worker だけであること）を見てから、本番と同じアカウントにログインした手元のリポジトリのルートで打つ。スクリプトは公開 URL の応答で判定するので、旧名の Worker が workers.dev を切った状態で残っていると見分けられない。
+本番の Worker の名前を変え、名前に合わせた Release を publish し、新しい URL でログインと更新が通るのを確かめ（`/api/health` の ok は前の版でも返るので、それだけでは足りない）、ダッシュボードの Workers & Pages に旧名 `scrum-guild` の Worker が無いこと（やり直しなら転送用の Worker だけであること）を見てから、本番と同じアカウントにログインした手元で打つ（wrangler と設定は、打ったディレクトリによらずリポジトリのものを使う）。スクリプトは公開 URL の応答で判定するので、旧名の Worker が workers.dev を切った状態で残っていると見分けられない。
 
 ```bash
 node scripts/deploy-legacy-redirect.ts
