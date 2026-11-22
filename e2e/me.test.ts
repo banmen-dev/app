@@ -33,8 +33,7 @@ test.describe('経験値とレベルを出さない', () => {
     await expect(page.getByRole('heading', { name: 'レベル', exact: true })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: '経験値の明細' })).toHaveCount(0);
     await expect(page.locator(GAME_PARTS)).toHaveCount(0);
-    await expect(page.locator('main')).not.toContainText('経験値');
-    await expect(page.locator('main')).not.toContainText('XP');
+    await expect(page.locator('main')).not.toContainText(/レベル|LV|XP|経験値/);
     expect(requests.some((path) => path.includes('/experience-'))).toBe(false);
     expect(await collect()).toEqual([]);
   });
@@ -71,7 +70,7 @@ test.describe('経験値とレベルを出さない', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();
     await expect(page.locator('.tree')).toBeVisible();
     await expect(page.locator('.team-xp')).toHaveCount(0);
-    await expect(page.locator('.page-head')).not.toContainText('経験値');
+    await expect(page.locator('.page-head')).not.toContainText(/レベル|LV|XP|経験値/);
     expect(requests.some((path) => path.includes('/experience-'))).toBe(false);
   });
 

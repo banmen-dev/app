@@ -2,11 +2,8 @@ import { expect, test } from 'vitest';
 import { word } from '../shared/vocabulary.ts';
 import { sprintLabel, sprintLabelWithPeriod, completedMessage } from './sprint-label.ts';
 test('完了の知らせは1行で、始まっていないスプリントから外れたら添える', () => {
-  expect(completedMessage(false, word)).not.toContain('\n');
-  expect(completedMessage(false, word)).not.toContain('から外れました');
-  expect(completedMessage(true, word)).toBe(
-    `${completedMessage(false, word)}。${word('taskLeftPlannedSprint', { sprint: word('sprint') })}`,
-  );
+  expect(completedMessage(false, word)).toBe('タスクを完了にしました');
+  expect(completedMessage(true, word)).toBe('タスクを完了にしました。始まっていないスプリントから外れました');
 });
 
 for (const [name, label, withPeriod] of [
