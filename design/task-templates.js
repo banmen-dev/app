@@ -42,9 +42,13 @@ window.SQTaskTemplates = (() => {
     return { title: "", points: "", body: "", repository: "", offset: "", values: [] };
   }
 
+  function canApply() {
+    return D.workspace === "wa" && !D.workspaces.wa?.closed;
+  }
+
   function canManage() {
     const organization = D.organizations.find(({ slug }) => slug === D.organization);
-    return D.workspace === "wa" && (D.workspaces.wa?.role === "leader" || organization?.admin);
+    return canApply() && (D.workspaces.wa?.role === "leader" || organization?.admin);
   }
 
   function settings() {
@@ -54,7 +58,7 @@ window.SQTaskTemplates = (() => {
         <div class="order-actions">
           <button class="icon-btn" type="button" data-template-edit="${id}" aria-label="${esc(item.name)}を編集" title="編集">${icon("pen")}</button>
           <button class="icon-btn is-danger" type="button" data-template-delete="${id}" aria-label="${esc(item.name)}を削除" title="削除">${icon("trash")}</button>
-        </div></li>`).join("")}</ul>` : `<p>${t("taskTemplate")}がまだありません。</p>`}
+        </div></li>`).join("")}</ul>` : `<p>${t("taskTemplateEmpty")}</p>`}
       <div class="form-actions"><button class="btn" type="button" data-template-edit="">${icon("plus")}${t("taskTemplate")}を作る</button></div>
     </div>`;
   }
@@ -77,7 +81,8 @@ window.SQTaskTemplates = (() => {
           </fieldset>
         </details>
         <div class="form" data-template-rows></div>
-        <div class="form-actions"><button class="btn is-sm" type="button" data-template-add-task>${icon("plus")}${t("task")}を足す</button></div>
+        <div class="form-actions"><button class="btn is-sm" type="button" data-template-add-task aria-describedby="template-item-limit">${icon("plus")}${t("task")}を足す</button>
+          <p class="field-hint" id="template-item-limit" hidden>${t("taskTemplateItemLimit")}</p></div>
       </form>`, dialogButtons("保存する", formId));
     const form = document.getElementById(formId);
     const rowList = form.querySelector("[data-template-rows]");
@@ -112,6 +117,7 @@ window.SQTaskTemplates = (() => {
           <button class="btn is-sm is-danger" type="button" data-template-remove-task ${rows.length === 1 ? "disabled" : ""}>外す</button>
         </div></fieldset>`).join("");
       addButton.disabled = rows.length === 50;
+      form.querySelector("#template-item-limit").hidden = !addButton.disabled;
     }
     function readRows() {
       return Array.from(rowList.children, (row) => {
@@ -184,7 +190,7 @@ window.SQTaskTemplates = (() => {
   }
 
   function backlogAction() {
-    if (D.workspace !== "wa") return "";
+    if (!canApply()) return "";
     return `<div class="form-actions" id="template-apply"><button class="btn" type="button" data-template-apply="">${t("taskTemplate")}から作る</button></div>`;
   }
 
@@ -198,7 +204,10 @@ window.SQTaskTemplates = (() => {
   function applyTemplate(fixedStory) {
     const formId = "template-apply-form";
     if (!templates.size) {
-      openDialog(`${t("taskTemplate")}から作る`, `<p>${t("taskTemplate")}がまだありません。</p>`);
+      openDialog(`${t("taskTemplate")}から作る`, `<p>${t("taskTemplateEmpty")}</p>
+        ${canManage()
+          ? `<div class="form-actions"><a class="btn" href="settings.html?workspace=wa#task-templates">${t("taskTemplateManage")}</a></div>`
+          : `<p>${t("taskTemplateAskLeader")}</p>`}`);
       return;
     }
     const epics = Object.fromEntries(Object.entries(D.epics).filter(([, epic]) => !epic.cleared && !epic.canceled));
@@ -215,7 +224,7 @@ window.SQTaskTemplates = (() => {
         </div>
         <p class="field-hint" id="template-target-hint">作る題の <code>{対象}</code> に差し込みます。</p>
         <div data-template-selection></div>
-        <p class="callout is-warn" role="alert" tabindex="-1" hidden data-template-changed>担当に選べるメンバーが変わりました。まだ作成されていません。最新の内容を確認してください。</p>
+        <p class="callout is-warn" role="alert" tabindex="-1" hidden data-template-changed>${icon("alert")}<span>${t("taskTemplateChanged")}</span></p>
         <section class="panel" aria-labelledby="template-preview-heading">
           <h3 id="template-preview-heading">プレビュー</h3>
           <div data-template-preview></div>
@@ -258,7 +267,11 @@ window.SQTaskTemplates = (() => {
       const storyId = fixedStory || read("story");
       const target = read("target").trim();
       const substitute = (title) => target ? title.replaceAll(token, () => target) : title;
-      const indices = new FormData(form).getAll("include").map(Number);
+      const selected = Array.from(selection.querySelectorAll('[name="include"]'), (input) => {
+        form.elements[`assignee-${input.value}`].disabled = !input.checked;
+        return input.checked ? Number(input.value) : null;
+      });
+      const indices = selected.filter((index) => index !== null);
       const titles = indices.map((i) => template().tasks[i].title);
       if (!add) titles.unshift(template().story);
       form.elements.target.required = titles.some((title) => title.includes(token));
@@ -267,12 +280,12 @@ window.SQTaskTemplates = (() => {
         return { ...task, title: substitute(task.title), due: dueDate(read("start"), task.offset), who: read(`assignee-${i}`) };
       });
       const badTitle = titles.some((title) => Array.from(substitute(title)).length > titleLimit);
-      const problem = !rows.length ? "作るタスクを1件以上選んでください。"
-        : add && !storyId ? "追加先を選んでください。"
-        : form.elements.target.required && !target ? "対象を入力してください。"
-        : !read("start") ? "開始日を入力してください。"
-        : badTitle ? "差し込み後の題を200字以内にしてください。"
-        : rows.some((row) => row.due === null) ? "期日が暦の範囲を超えています。" : "";
+      const problem = !rows.length ? t("taskTemplateChooseTask")
+        : add && !storyId ? t("taskTemplateChooseDestination")
+        : form.elements.target.required && !target ? t("taskTemplateEnterTarget")
+        : !read("start") ? t("taskTemplateEnterStart")
+        : badTitle ? t("taskTemplateTitleLimit")
+        : rows.some((row) => row.due === null) ? t("taskTemplateDueLimit") : "";
       const heading = add ? stories[storyId]?.title || "追加先を選択" : substitute(template().story);
       const epic = add ? null : epics[read("epic")];
       const category = add ? null : D.categories[epic ? epic.cat : template().category];
@@ -283,7 +296,7 @@ window.SQTaskTemplates = (() => {
         <p><strong>${esc(heading)}</strong></p>
         ${epic ? `<p class="field-hint">親の${t("epic")} ${esc(epic.title)}</p>` : ""}
         ${category ? `<p class="field-hint">${t("category")} ${esc(category.name)}${epic ? "（親から引き継ぎ）" : ""}</p>` : ""}
-        ${omitted ? '<p class="callout is-warn">削除された決まった欄、区分、リポジトリの値は使わずに作ります。</p>' : ""}
+        ${omitted ? `<p class="callout is-warn">${icon("alert")}<span>${t("taskTemplateOmitted")}</span></p>` : ""}
         ${add ? `<p class="field-hint">既存の${t("story")}の題や本文などはそのままです。</p>` : ""}
         <ol>${rows.map((row) => `<li>${esc(row.title)}<div class="props-note">${esc(row.due || "期日なし")} ・ ${esc(members[row.who]?.name || "担当なし")}</div></li>`).join("")}</ol>`;
       if (status.textContent !== problem) status.textContent = problem;
@@ -341,9 +354,11 @@ window.SQTaskTemplates = (() => {
   document.addEventListener("click", (event) => {
     const trigger = event.target.closest("[data-template-apply], [data-template-edit], [data-template-delete]");
     if (!trigger) return;
-    if (trigger.hasAttribute("data-template-apply")) applyTemplate(trigger.dataset.templateApply);
+    if (trigger.hasAttribute("data-template-apply")) {
+      if (canApply()) applyTemplate(trigger.dataset.templateApply);
+    }
     else if (canManage() && trigger.hasAttribute("data-template-edit")) editTemplate(trigger.dataset.templateEdit);
     else if (canManage()) deleteTemplate(trigger.dataset.templateDelete);
   });
-  return { canManage, settings, backlogAction };
+  return { canApply, canManage, settings, backlogAction };
 })();

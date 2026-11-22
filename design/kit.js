@@ -60,6 +60,18 @@
   // ---- 言葉の辞書（各キーはスクラムの言葉の文字列1つ） ----
   const DICT = {
     brandName: "スクラムギルド",
+    taskTemplateEmpty: "テンプレートがまだありません。",
+    taskTemplateAskLeader: "ワークスペースのリーダーにテンプレートの作成を依頼してください。",
+    taskTemplateManage: "テンプレートの設定を開く",
+    taskTemplateChooseTask: "作るタスクを1件以上選んでください。",
+    taskTemplateChooseDestination: "追加先を選んでください。",
+    taskTemplateEnterTarget: "対象を入力してください。",
+    taskTemplateEnterStart: "開始日を入力してください。",
+    taskTemplateTitleLimit: "差し込み後の題を200字以内にしてください。",
+    taskTemplateDueLimit: "期日が暦の範囲を超えています。",
+    taskTemplateOmitted: "削除された決まった欄、区分、リポジトリの値は使わずに作ります。",
+    taskTemplateChanged: "担当に選べるメンバーが変わりました。まだ作成されていません。最新の内容を確認してください。",
+    taskTemplateItemLimit: "1つのテンプレートに登録できるタスクは50件までです。",
     organizationList: "ダッシュボード",
     avatarTitle: "プロフィール画像",
     avatarDescription: "この組織だけで使う画像。PNG、JPEG、WebP を選び、正方形に切り抜いて上げます。",
@@ -1868,7 +1880,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       </dl>
       ${storyAcHtml(st)}
       ${drawerBodyHtml(st)}
-      ${!ro && !st.doneAt && !drawer.parentFinished && page?.current === "backlog" && D.workspace === "wa" ? `<div class="form-actions"><button class="btn" type="button" data-template-apply="${esc(drawer.id)}">${t("taskTemplate")}から${t("task")}を足す</button></div>` : ""}
+      ${!ro && !st.doneAt && !drawer.parentFinished && page?.current === "backlog" && window.SQTaskTemplates?.canApply() ? `<div class="form-actions"><button class="btn" type="button" data-template-apply="${esc(drawer.id)}">${t("taskTemplate")}から${t("task")}を足す</button></div>` : ""}
       ${storyDoneBarHtml(st, remaining)}
       ${!ro && !drawer.canDelete ? `<div class="form-actions"><span class="field-hint">削除できるのは作った人と${t("leader")}です。</span></div>` : ""}`;
   }

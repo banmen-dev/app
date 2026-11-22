@@ -972,7 +972,7 @@
 | id | TEXT | PK | |
 | workspace_id | TEXT | NOT NULL、FK workspaces | |
 | is_imported | INTEGER | NOT NULL | 取り込んだタスク。作ったあとは変えない |
-| created_via | TEXT | NOT NULL、既定 `manual` | 列挙は `manual`、`template`。取り込んだタスクの値は `manual`。移行前の行は `manual` とし、取り込んだタスクは従来どおり `is_imported` で起票の経験値と見込みから外す。将来の `ai` は `docs/ai.md` |
+| created_via | TEXT | NOT NULL、既定 `manual` | CHECK で `manual`、`template` に限る。`is_imported = 1` なら `manual`。移行前の行は `manual` とし、取り込んだタスクは従来どおり `is_imported` で起票の経験値と見込みから外す。将来の `ai` は `docs/ai.md` |
 | tray | TEXT | NOT NULL、`inbox`、`backlog`、`archive` | 置き場所。手で作ったタスクは常に `backlog` |
 | title | TEXT | NOT NULL | 取り込んだタスクは同期で書き直す |
 | body_md | TEXT | | |
@@ -1142,7 +1142,7 @@
 | task_id | TEXT | PK、FK tasks | |
 | field_id | TEXT | PK、FK detail_fields | |
 | value_md | TEXT | NOT NULL | 空にしたら行を消す |
-| filled_via | TEXT | NOT NULL、既定 `manual` | `manual`、`template`。移行前の値は `manual`。値を手で変えたら `manual` にする。正規化後の値が同じときは更新しない。将来の `ai` は `docs/ai.md` |
+| filled_via | TEXT | NOT NULL、既定 `manual` | CHECK で `manual`、`template` に限る。移行前の値は `manual`。値を手で変えたら `manual` にする。正規化後の値が同じときは更新しない。将来の `ai` は `docs/ai.md` |
 | updated_by | TEXT | NOT NULL、FK users | |
 | updated_at | TEXT | NOT NULL | |
 
@@ -1175,7 +1175,7 @@
 | updated_at | TEXT | NOT NULL | 雛形と配下を最後に変更した日時 |
 
 - `workspaces.organization_id` で組織を確かめ、`workspace_id` で絞る。作成・編集・削除はリーダー（管理者を含む）、適用はメンバー。閉じたワークスペースへの書き込みは断る。同じワークスペースへの外部キーの参照先として `(workspace_id, id)` を一意にし、`story_category_id` に索引を置く。
-- ストーリーのタイトルが空ならストーリーの情報を保存しない。本文、受け入れ基準、区分は対応するストーリーの欄と同じ制約に従う。
+- ストーリーのタイトルが空ならストーリーの情報を保存しない。本文、受け入れ基準、区分は対応するストーリーの欄と同じ制約に従う。項目と値の本文も、作られるタスク・決まった欄と同じ長さの CHECK を持つ。
 - 雛形の作成・編集・削除は項目・値と履歴を含めて1回の `batch()` で書く。編集と削除は読み取った版を照合し、違う場合は書き込まず再読み込みを返す。適用済みの行とは履歴の写しで結ぶ。解約した組織の消去 SQL（`scripts/purge-organization-sql.ts`）には、値、項目、雛形の順に消す処理をマイグレーションと一緒に足す。コードを戻した後も、雛形の表がある間は追加後の生成器を使う。
 
 ### task_template_items
@@ -1193,8 +1193,9 @@
 | repository_id | TEXT | FK repositories | |
 | due_offset_days | INTEGER | | 空は期日なし。開始日を0日目とする非負の整数 |
 | position | INTEGER | NOT NULL | 雛形の中での順序 |
+| created_at、updated_at | TEXT | NOT NULL | |
 
-- `(template_id, position)` を一意にする。組織を確認したワークスペースで絞り、雛形も同じワークスペースに結ぶ。外部キーの検査に `(workspace_id, template_id)` と `repository_id` の索引を持つ。ポイントはタスクと同じ列挙で検査し、本文と期日のずれは各欄の制約に従う。
+- `(template_id, position)` を一意にする。組織を確認したワークスペースで絞り、雛形も同じワークスペースに結ぶ。外部キーの検査に `(workspace_id, template_id)` と `repository_id` の索引を持つ。ポイントはタスクと同じ列挙の CHECK を持つ。期日のずれは非負の整数の CHECK を持つ。
 - 適用時のタイトルは `{対象}` の差し込み後に検査する。期日が暦の範囲を超える場合は作成前に断る。
 
 ### task_template_item_field_values
@@ -1206,8 +1207,9 @@
 | item_id | TEXT | PK、FK task_template_items | |
 | field_id | TEXT | PK、FK detail_fields | |
 | value_md | TEXT | NOT NULL | タスクの決まった欄と同じ。空は行を持たない |
+| created_at、updated_at | TEXT | NOT NULL | |
 
-- `task_field_values` と同じく `workspace_id` を持たず、項目と雛形を通して組織・ワークスペースで絞る。外部キーの検査のため `field_id` に索引を置く。保存時は欄、区分、リポジトリが同じワークスペースにあることを確かめる。適用時に削除済みの欄の値は飛ばし、削除済みの区分・リポジトリは空にする。
+- `task_field_values` と同じく `workspace_id` を持たず、項目と雛形を通して組織・ワークスペースで絞る。外部キーの検査のため `field_id` に索引を置く。保存時は欄、区分、リポジトリが同じワークスペースにあることを確かめる。プレビュー時点で削除済みの欄の値は飛ばし、削除済みの区分・リポジトリは空にする。プレビュー後に参照先が消えた場合は、除外後の内容で再確認を求める。
 
 ### comments
 
