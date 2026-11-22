@@ -360,22 +360,32 @@ seed のセッションのトークン（`seed/sessions.ts`）と API トーク�
 2. Worker の Settings の Domains & Routes で `workers.dev` と Preview URLs を有効にし、Cloudflare Access を有効にする。Zero Trust のアプリで許可する人のメールアドレスを絞り、さらに Service Auth の方針で、この用途専用のサービストークンを許可する。Worker の通常 URL だけでなく、`pr-374-scrum-guild-preview.ucan-lab.workers.dev` などの alias と版の URL、`/api/*` も保護する。Access 無しで開ける URL を残さない。既存の本番に Access を付ける操作ではない
 3. R2 に `scrum-guild-preview-attachments` を作る。本番のバケットは指定しない。プレビュー間で共有され、D1 を消しても中身は残るので、架空の添付だけを入れ、不要な中身は人が定期的に消す
 4. プレビュー Worker に `CONNECTION_CREDENTIAL_KEYS` を Secret として登録する。鍵の書式は上の「シークレット」を参照し、本番とは別の鍵を作る。seed の運用者は生成設定の `OPERATOR_LOGIN_IDS` で指定する。GitHub/Google OAuth、メール、外部連携の本番の秘密は入れない。seed ログインで確かめる
-5. `scrum-guild-dev/app` へ2本目の Workers Builds を接続する。初回は Disable builds のまま下の表を保存し、Access の未認証リクエストが拒否されることを確認してから有効に戻す。D1 はスクリプトが作るため手で作らない
+5. `scrum-guild-dev/app` へ2本目の Workers Builds を接続する。初回は Disable builds のまま下の表を保存し、Access の未認証リクエストが拒否されることを確認してから有効に戻す。D1 はスクリプトが作るため手で作らない。番号付き PR の起動は下の専用 Worker に任せる。
 
 | 項目 | 値 |
 | --- | --- |
 | Worker | `scrum-guild-preview` |
-| 本番ブランチ（この接続だけ） | `main`（配信せず不要 D1 の掃除だけ） |
-| Enable Preview builds | 有効。対象ブランチを番号付きの作業ブランチに絞り、fork と `production` を含めない |
+| 本番ブランチ（プレビュー Worker の接続だけ） | `preview-builds-parked`。通常の push が来ないよう GitHub 側で作成・更新を制限する |
+| 非本番ブランチの自動ビルド | 無効。起動は Webhook を受けた専用 Worker から Builds API に限定する |
 | ビルドのコマンド | `APP_VERSION=$(git rev-parse HEAD) && export APP_VERSION && pnpm build` |
-| デプロイのコマンドと非本番ブランチのデプロイのコマンド | 両方 `node scripts/deploy-preview.ts`。非本番側の既定の `wrangler versions upload` を残さない |
+| デプロイのコマンド | `node scripts/deploy-preview.ts`。番号付きのブランチを受け取ったときに版をアップロードする |
 | Path | `/` |
 | build watch paths | Include `*`、Exclude は空 |
-| 同じブランチのビルド | 古いビルドを取り消す設定を有効にし、デプロイ段の再実行は前の終了後に行う |
+| 同じ Issue のビルド | 専用 Worker が前のビルドの停止を確認してから起動する。手動で起動する場合も前の停止を待つ |
 | Builds の環境変数 | `CLOUDFLARE_ACCOUNT_ID`（32桁のアカウント ID）。`WORKERS_CI=1` と `WORKERS_CI_BRANCH` は Builds が渡すものを使う |
 | API トークン | Builds が作った専用トークン。Account: Workers Scripts: Edit、D1: Edit、Account Settings: Read と、Builds が要する User Details: Read、Memberships: Read。R2 の binding 確認に必要になったときだけ Workers R2 Storage: Read を足す。本番のトークンを流用しない。`CLOUDFLARE_API_TOKEN` としてデプロイのコマンドでも使えることを確認する |
 
-番号付きブランチの例は `374-pr-preview`。Builds の対象は信頼する人の同一リポジトリのブランチだけに絞り、`claude/*`、`feature/*`、`production`、fork を含めない。Cloudflare の include/exclude のパターンの方言で数字の範囲を表せるとは仮定せず、初回は人が許可した具体的なブランチ名を include に登録して確かめる。スクリプトも番号の無いブランチを変更前に拒否する。
+### 番号付き PR から Builds を起動する
+
+GitHub のリポジトリ Webhook と、`wrangler.preview-trigger.jsonc` で別に配信する専用 Worker `scrum-guild-preview-trigger` を使う。Webhook は HMAC で認証され、番号付きの作業ブランチから `main` を指す、同一リポジトリ内の PR だけがビルドを依頼できる。本番の Worker、プレビュー画面の Access、R2 の設定はそのまま使う。
+
+1. 共通プレビュー Worker の Builds の自動起動を上の表に揃え、ブランチ固定のデプロイフックがあれば起動元から外す。GitHub の `preview-builds-parked` は Builds の接続にだけ使う。作成後は push しないよう更新を制限する。Builds は有効にし、非本番の自動起動は無効のままにする。
+2. Cloudflare の [Builds API](https://developers.cloudflare.com/workers/ci-cd/builds/api-reference/) で、`scrum-guild-preview` の Worker タグと、その接続のトリガー UUID を確認する。起動専用 Worker の変数 `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_PREVIEW_WORKER_TAG`（Worker タグ）、`CLOUDFLARE_PREVIEW_TRIGGER_ID`（トリガー UUID）に設定する。接続先リポジトリやコマンドが違う場合、受信側は Builds を起動しない。
+3. 起動専用 Worker の Secret `CLOUDFLARE_BUILD_TRIGGER_TOKEN` に、該当アカウントの Workers Builds Configuration Edit（Workers CI Write）だけを持つユーザー API トークンを設定する。起動のトークンと Builds がデプロイに使うトークンを分ける。GitHub Actions にどちらのトークンも置かない。
+4. 起動専用 Worker の Secret `GITHUB_WEBHOOK_SECRET` と、`scrum-guild-dev/app` の Webhook の Secret に同じ十分に長い乱数を設定する。Content type は `application/json`、イベントは Pull requests、配信先は専用 Worker の HTTPS URL の `/github/webhook`。受信 Worker が GitHub から直接到達できることを確かめる。プレビュー画面にかかる Access の設定は変えない。
+5. 架空データ用の番号付き PR で、受付後に対象ブランチとコミット SHA の Builds が1件起き、`WORKERS_CI_BRANCH` が対象ブランチと一致し、`pr-<Issue番号>` が Access の背後に出ることを確認する。PR を更新したときに同じ Issue のビルドが重ならないことも確認する。fork や番号なしの PR は受け付けても Builds は起動しない。
+
+ビルドの起動結果が通信切断などで分からなくなった場合は、同じ Issue の二重起動を避けるためその Issue のキューを止める。Cloudflare の起動専用 Worker のアラームエラーと、共通 Worker のビルド履歴を照合してから開発者に引き継ぐ。動作を止めるときは GitHub の Webhook を無効にし、開始済みの Builds が止まったことを確認する。
 
 `--preview-alias` の名前は `pr-<Issue番号>`。英字で始まり英数字とハイフンから成る名前とし、Worker 名と合わせた DNS ラベルは63文字以下に制限する。wrangler 4.153.0 のオプションと alias の規則をコードで確認しているが、カスタムの非本番デプロイのコマンドで GitHub の PR に URL が自動表示されるかは、初回の実ビルドで確認する。表示されなければ Builds のログに出る URL、または番号から組み立てた上記の URL を PR の確認に使う。GitHub へデプロイの鍵や Access トークンを登録して補わない。
 
