@@ -40,7 +40,7 @@ PR #1412 の計測とは別に、基準コミット `61fc0ae`、Chromium 155、�
 # 現行リポジトリから復元する。空いているパスを使う。
 repo=$(git rev-parse --show-toplevel)
 replay=$(mktemp -d)
-git worktree add --detach "$replay/checkout" 61fc0aedfccc07f822899cad9bd1e533fff3124b
+git -c core.hooksPath=/dev/null worktree add --detach "$replay/checkout" 61fc0aedfccc07f822899cad9bd1e533fff3124b
 python3 - "$repo/docs/epic-loading-replication-source.json.gz" "$replay/checkout" <<'PYTHON'
 import gzip, json, re, sys
 from pathlib import Path
@@ -55,6 +55,7 @@ for path, source in snapshot['files'].items():
 PYTHON
 gzip -dc "$repo/docs/epic-loading-replication-samples.json.gz" > "$replay/recorded.json"
 cd "$replay/checkout"
+pnpm store path
 pnpm install --frozen-lockfile --store-dir "$PWD/node_modules/.pnpm-store"
 pnpm exec node scripts/epic-loading-summary.ts "$replay/recorded.json" "$replay/summary"
 ```
