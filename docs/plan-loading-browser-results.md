@@ -29,6 +29,8 @@ B は現行の `sprint-list` → `plan-summary` の並列開始と両応答の�
 
 ## 再現と再集計
 
+新規計測は、データの基準日と実行日の関係が2026-11-22の計測時と同等であることを確認する。Worker と Chromium は実時計で動く。2026-12-05（日本時間）の進行中スプリントの期日を過ぎると期限超過の表示が出る。実行日が離れるとベロシティの集計対象も変わり得るため、その場合の新規計測はここにある試行と別条件として扱う。保存した生データからの再集計は実行日に依存しない。
+
 ```sh
 pnpm exec node scripts/plan-loading-browser-bench.ts --output /tmp/plan-loading-browser-new.json
 pnpm exec node scripts/plan-loading-browser-summary.ts /tmp/plan-loading-browser-new.json /tmp/plan-loading-browser-new-summary
