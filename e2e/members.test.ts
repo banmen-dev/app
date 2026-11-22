@@ -66,7 +66,7 @@ test.describe('リーダー（あおば開発のミナト）', () => {
     await expect(rows.nth(0).locator('td').nth(2)).toHaveText('2026-10-01');
     await expect(rows.nth(0).getByRole('button')).toHaveText('抜ける');
     await expect(rows.nth(0).getByRole('button')).toHaveAccessibleName('受託開発チームから抜ける');
-    await expect(rows.nth(1).locator('td').nth(0)).toHaveText(/^ハハルカ\d+$/);
+    await expect(rows.nth(1).locator('td').nth(0)).toHaveText('ハハルカ');
     await expect(page.getByRole('combobox', { name: 'ハルカのロール' })).toHaveValue('member');
     await expect(page.getByRole('combobox', { name: 'ハルカのロール' }).locator('option')).toHaveText([
       'リーダー',

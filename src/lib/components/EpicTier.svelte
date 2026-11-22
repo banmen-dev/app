@@ -6,12 +6,14 @@
   // 色だけに頼らず、段階の呼び名（小、中、大）を文字で添える。エピックの画面は経験値を出さない（#1432）
   let { tier, xp }: { tier: EpicRewardTier; xp?: number } = $props();
 
+  // {#if} の中の先頭の空白は Svelte が詰めるので、区切りは値で渡す（読み上げの名前が「小 · 100 XP」になる）
+  const separator = ' · ';
+
   const label = $derived(
     tier === 'small' ? t('epicTierSmall') : tier === 'medium' ? t('epicTierMedium') : t('epicTierLarge'),
   );
 </script>
 
 <span class="tier is-{tier}"
-  >{label}{#if xp !== undefined}
-    · <b>{xp}</b> {t('xpUnit')}{/if}</span
+  >{label}{#if xp !== undefined}{separator}<b>{xp}</b> {t('xpUnit')}{/if}</span
 >

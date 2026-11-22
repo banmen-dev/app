@@ -229,7 +229,6 @@ test('参加するとやめるの失敗はトーストで知らせ、割り振�
         role: 'member' as const,
         joined_on: '2026-10-01',
         avatar_url: null,
-        level: 1,
       },
     ],
   }));
@@ -370,7 +369,6 @@ test('クリア報酬の変更と作成者の変更の失敗と成功を、ダ�
         role: 'member' as const,
         joined_on: '2026-10-01',
         avatar_url: null,
-        level: 1,
       },
     ],
   }));
