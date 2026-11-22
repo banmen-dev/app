@@ -520,7 +520,7 @@ rollback で戻るのは、版が持つものすべて。コードと設定の�
 
 - コードは `src/legacy-redirect/worker.ts`、設定は `wrangler.legacy-redirect.jsonc`（name `scrum-guild`。binding、シークレット、cron を持たない）。Workers Builds にはつながず、人が手元から出す
 - 画面の GET と HEAD は、302 で同じパスとクエリのまま新しい URL へ送る。Location に断片を付けないので、ブラウザが元の断片（招待の秘密）を引き継ぎ、秘密はサーバーに届かない（RFC 9110 の 10.2.2）。独自ドメインへ移すときに転送先を差し替えられるよう、ブラウザに長く残る 301 にしない
-- `/api` と `/api/` の下、GET と HEAD 以外は、410 と API のエラーの形の本文（`code` は `moved`、`details.location` に新しい URL）を返す。CLI は 3xx を追わず、別のオリジンへトークンを送らせないため
+- `/api` と `/api/` の下、GET と HEAD 以外は、410 と API のエラーの形の本文（`code` は `moved`、`details.location` に新しい URL）を返す。CLI は 3xx を追わず、別のオリジンへトークンを送らせないため。新しい URL の API（Hono）はパスの百分率符号を解いてから振り分けるので、`/%61pi/health` のように符号にした形も、解いた形で `/api` の下なら 410 にする
 - 転送先は `LEGACY_REDIRECT_TARGET` に固定し、リクエストの Host などから組まない
 
 ### 置き方
@@ -536,7 +536,7 @@ node scripts/deploy-legacy-redirect.ts
 - 新しい URL の `/api/health` が 200 で ok を返す
 - 旧 URL の `/api/health` が 404（Worker が無い）か、転送用の Worker の 410 の `moved`（やり直し）を返す。届かない、200、503 などほかの応答では止まる（本番の D1 が落ちて 503 を返している間も、旧名はまだ本番の Worker のため）
 
-置いた後は、旧 URL の `/` が新しい URL の `/` への 302 に、旧 URL の `/api/health` が 410 の `moved` になるまで、1分まで確かめ直す。届かなければ失敗で終わる。置いた Worker はそのまま残るので、ダッシュボードで動きを確かめ、要らなければ下の「外し方」で消す。止まったときは、理由がエラーに出る。テストは `scripts/deploy-legacy-redirect*.test.ts`（外への作用を差し替える）と `test/legacy-redirect*.test.ts`（Workers の実行環境）。
+置いた後は、旧 URL の `/` が新しい URL の `/` への 302 に、旧 URL の `/api/health` が 410 の `moved` になるまで、1分（5秒おきに13回）まで確かめ直す。届かなければ失敗で終わる。置いた Worker はそのまま残るので、ダッシュボードで動きを確かめ、要らなければ下の「外し方」で消す。止まったときは、理由がエラーに出る。テストは `scripts/deploy-legacy-redirect*.test.ts`（外への作用を差し替える）と `test/legacy-redirect*.test.ts`（Workers の実行環境）。
 
 ### 外し方
 
