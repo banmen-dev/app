@@ -1,4 +1,4 @@
-// #904: 依頼先と担当を一緒に変え、履歴と討伐隊を同じ書き込みで揃える。
+// #904: 依頼先と担当を一緒に変え、履歴を同じ書き込みで揃える。
 import { env } from 'cloudflare:workers';
 import { describe, expect, test } from 'vitest';
 import { createApp } from '../src/server/app.ts';
@@ -77,7 +77,7 @@ async function detail(target: Target, taskId: string) {
 }
 
 describe('task-delegate', () => {
-  test('自動担当を読んだ後に所属が外れたら書かず、担当・討伐隊・履歴を増やさない', async () => {
+  test('自動担当を読んだ後に所属が外れたら書かず、担当・履歴を増やさない', async () => {
     const target = await createPersonalTarget();
     const person = await add(target);
     const epic = await createEpic(target.organization, target.workspace.id, target.admin.userId!);
@@ -110,18 +110,6 @@ describe('task-delegate', () => {
     expect(raced).toBe(true);
     expect(await row(target, task.id)).toEqual(task);
     expect(await logs(target, task.id)).toEqual([]);
-    expect(
-      await db.rows(
-        db.statement((q) =>
-          q
-            .selectFrom('epic_party_members')
-            .innerJoin('epics', 'epics.id', 'epic_party_members.epic_id')
-            .select('epic_party_members.user_id')
-            .where('epics.workspace_id', '=', target.workspace.id)
-            .where('epic_id', '=', epic.id),
-        ),
-      ),
-    ).toEqual([]);
   });
 
   test('完了を戻す直前に名簿が削除されたら競合にし、読み直して解除する', async () => {
@@ -251,7 +239,7 @@ describe('task-delegate', () => {
     expect(await logs(target, task.id)).toEqual([]);
   });
 
-  test('自分を担当にすると、親エピックの討伐隊にも1回だけ加える', async () => {
+  test('自分を担当にしても、親エピックの討伐隊（epic_party_members）に行を入れない', async () => {
     const target = await createPersonalTarget();
     const person = await add(target);
     const epic = await createEpic(target.organization, target.workspace.id, target.admin.userId!);
@@ -274,12 +262,7 @@ describe('task-delegate', () => {
           .where('epic_id', '=', epic.id),
       ),
     );
-    expect(party).toHaveLength(1);
-    expect(party[0]).toMatchObject({
-      user_id: target.admin.userId,
-      joined_via: 'task_assignee',
-      added_by: target.admin.userId,
-    });
+    expect(party).toEqual([]);
   });
 
   test('完了の記録は担当の自分に付き、xp_grants は増えない', async () => {
@@ -499,7 +482,7 @@ describe('task-delegate', () => {
     expect((await logs(target, task.id)).filter((log) => log.action === 'update')).toEqual([]);
   });
 
-  test('タスクの書き込み失敗で依頼先・担当・討伐隊・変更履歴はすべて元のまま', async () => {
+  test('タスクの書き込み失敗で依頼先・担当・変更履歴はすべて元のまま', async () => {
     const target = await createPersonalTarget();
     const person = await add(target);
     const epic = await createEpic(target.organization, target.workspace.id, target.admin.userId!);
@@ -521,18 +504,5 @@ describe('task-delegate', () => {
     }
     expect(await row(target, task.id)).toEqual(task);
     expect(await logs(target, task.id)).toEqual([]);
-    const db = orgDb(env, target.organization.verified);
-    expect(
-      await db.rows(
-        db.statement((q) =>
-          q
-            .selectFrom('epic_party_members')
-            .innerJoin('epics', 'epics.id', 'epic_party_members.epic_id')
-            .select('epic_party_members.user_id')
-            .where('epics.workspace_id', '=', target.workspace.id)
-            .where('epic_id', '=', epic.id),
-        ),
-      ),
-    ).toEqual([]);
   });
 });

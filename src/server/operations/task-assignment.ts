@@ -1,7 +1,6 @@
-// task-assign と task-delegate が共有する、担当を含むタスク更新・履歴・討伐隊の文。
+// task-assign と task-delegate が共有する、担当を含むタスク更新・履歴の文。
 import type { ExpressionBuilder, OrganizationDb, OrganizationTables } from '../db/index.ts';
 import { changeLogStatement, type ChangeMap } from './change-log-merge.ts';
-import { taskAssigneePartyStatements } from './epic-party.ts';
 import { activeMemberName, openWorkspace } from './write-guards.ts';
 
 type TaskExpression = ExpressionBuilder<OrganizationTables, 'tasks'>;
@@ -77,15 +76,5 @@ export function taskAssignmentStatements(
       { entityType: 'task', workspaceId, entityId: taskId },
       { actorUserId, at, changes, mergeTarget: undefined },
     ),
-    ...(assignee === null || (delegation !== undefined && current.assignee_user_id !== null)
-      ? []
-      : taskAssigneePartyStatements(db, {
-          workspaceId,
-          taskId,
-          assignee,
-          actorUserId,
-          at,
-          taskUpdatedAt: stamp,
-        })),
   ];
 }

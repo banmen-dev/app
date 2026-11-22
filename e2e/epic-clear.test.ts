@@ -1,8 +1,8 @@
-// エピックのクリアと取り消し（エピックの画面の「エピックを完了にする」と「完了を取り消す」）と、クリアの演出。
+// エピックの完了と取り消し（エピックの画面の「エピックを完了にする」と「完了を取り消す」）。
 // seed の受託開発チームのエピック「ポイントの交換先を増やす」は、作成者がミナト（管理者）で、配下のストーリーは（タスクは完了しているが）ストーリー自体は完了していないので、
 // クリアできる状態は epic-detail の応答を書き換えて作る。
 // 書き込みの応答は差し替えて確かめるので、seed の行は書き換えない（ほかのファイルと並べて走るため）。
-// 演出は動きを減らす設定（reducedMotion: 'reduce'）では出さず、トーストだけにする
+// 完了の演出は外した（#1434）。動きの設定によらず、トーストだけで知らせる
 import { epicComplete, epicDelete, epicDetail, epicGet, epicReopen } from '../src/shared/operations/epic/index.ts';
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures.ts';
@@ -15,7 +15,7 @@ const EPIC_ID = '019a0000-0000-7000-8000-000000000b01';
 const EPIC_TITLE = 'ポイントの交換先を増やす';
 const CLEARED_AT = '2026-10-22T00:00:00.000Z';
 
-const CLEAR_RESPONSE = { epic_id: EPIC_ID, completed_at: CLEARED_AT, reward_xp: 300, recipient_count: 2 };
+const CLEAR_RESPONSE = { epic_id: EPIC_ID, completed_at: CLEARED_AT };
 
 test.use({ timezoneId: 'Asia/Tokyo' });
 
@@ -50,45 +50,105 @@ function clearedEpic(page: Page) {
   }));
 }
 
-test('配下がすべて完了していれば「エピックを完了にする」が押せ、クリアすると演出が1回出て、Tab は閉じるボタンに留まる', async ({
+test('配下がすべて完了していれば「エピックを完了にする」が押せ、完了にするとトーストだけで知らせ、演出は出さない', async ({
   page,
 }) => {
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
   const collect = await watchViolations(page);
   await allStoriesDone(page);
   await mockOperation(page, epicComplete, AOBA, CLEAR_RESPONSE);
   await page.goto(`${WORKSPACE}/epics/${EPIC_ID}`);
 
   const panel = page.getByRole('region', { name: 'エピックの完了' });
-  await expect(panel.getByText('配下のストーリーはすべて完了になっています。')).toBeVisible();
+  await expect(panel.locator('.panel-note')).toHaveText(
+    '配下のストーリーはすべて完了になっています。エピックを完了にできます。',
+  );
   const clear = panel.getByRole('button', { name: 'エピックを完了にする' });
   await expect(clear).toHaveAttribute('aria-disabled', 'false');
   await clear.click();
 
-  const celebrate = page.locator('.celebrate');
-  await expect(celebrate).toBeVisible();
-  await expect(celebrate.locator('.celebrate-title')).toHaveText(EPIC_TITLE);
-  await expect(celebrate.locator('.celebrate-reward')).toHaveText('参加者の 2 人に 300 XP');
-  const close = celebrate.getByRole('button', { name: '閉じる' });
-  await expect(close).toBeFocused();
-  // Tab を押しても、背後の画面へフォーカスが出ない
-  await page.keyboard.press('Tab');
-  await expect(close).toBeFocused();
-  await page.keyboard.press('Escape');
-  await expect(celebrate).toBeHidden();
+  await expect(page.locator('.toasts:visible .toast').last()).toHaveText('エピックを完了にしました');
+  // 演出（ダイアログ）は開かない
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  // 済んだら面の見出しへフォーカスを移す（続けて押したキーで、入れ替わった取り消しを送らない）
+  await expect(panel.getByRole('heading', { level: 2, name: 'エピックの完了' })).toBeFocused();
   expect(await collect()).toEqual([]);
 });
 
-test('動きを減らす設定では演出を出さず、トーストだけで知らせる', async ({ page }) => {
+test('動きを減らす設定でも、同じトーストで知らせる', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await allStoriesDone(page);
   await mockOperation(page, epicComplete, AOBA, CLEAR_RESPONSE);
   await page.goto(`${WORKSPACE}/epics/${EPIC_ID}`);
   await page.getByRole('button', { name: 'エピックを完了にする' }).click();
+  await expect(page.locator('.toasts:visible .toast').last()).toHaveText('エピックを完了にしました');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('状態を持つ差し替えで、完了にすると「完了を取り消す」と完了の印が出て、取り消すと「エピックを完了にする」に戻る', async ({
+  page,
+}) => {
+  const collect = await watchViolations(page);
+  let completedAt: string | null = null;
+  let served: Detail | undefined;
+  await routeOperation(page, epicDetail, AOBA, async (call) => {
+    served ??= await call.fetch();
+    await call.fulfill({
+      ...served,
+      stories: served.stories.map((story) => ({ ...story, completed_at: story.completed_at ?? CLEARED_AT })),
+      epic: { ...served.epic, completed_at: completedAt },
+    });
+  });
+  await routeOperation(page, epicComplete, AOBA, async (call) => {
+    completedAt = CLEARED_AT;
+    await call.fulfill(CLEAR_RESPONSE);
+  });
+  await routeOperation(page, epicReopen, AOBA, async (call) => {
+    completedAt = null;
+    await call.fulfill({ epic_id: EPIC_ID });
+  });
+  await page.goto(`${WORKSPACE}/epics/${EPIC_ID}`);
+
+  const panel = page.getByRole('region', { name: 'エピックの完了' });
+  await panel.getByRole('button', { name: 'エピックを完了にする' }).click();
+  await expect(panel.getByRole('button', { name: '完了を取り消す' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'エピックを完了にする' })).toHaveCount(0);
+  await expect(panel.getByRole('heading', { level: 2, name: 'エピックの完了' })).toBeFocused();
+
+  await panel.getByRole('button', { name: '完了を取り消す' }).click();
+  await expect(panel.getByRole('button', { name: 'エピックを完了にする' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: '完了を取り消す' })).toHaveCount(0);
+  await expect(panel.getByRole('heading', { level: 2, name: 'エピックの完了' })).toBeFocused();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(await collect()).toEqual([]);
+});
+
+test('別の画面で先に完了にされて断られ、読み直しで「完了を取り消す」に入れ替わったら、見出しへフォーカスを移す', async ({
+  page,
+}) => {
+  let completedAt: string | null = null;
+  let served: Detail | undefined;
+  await routeOperation(page, epicDetail, AOBA, async (call) => {
+    served ??= await call.fetch();
+    await call.fulfill({
+      ...served,
+      stories: served.stories.map((story) => ({ ...story, completed_at: story.completed_at ?? CLEARED_AT })),
+      epic: { ...served.epic, completed_at: completedAt },
+    });
+  });
+  // 送った時点で、別の画面が先に完了にしていた
+  await routeOperation(page, epicComplete, AOBA, async (call) => {
+    completedAt = CLEARED_AT;
+    await call.fail(409, 'conflict', { details: { reason: 'completed' } });
+  });
+  await page.goto(`${WORKSPACE}/epics/${EPIC_ID}`);
+  const panel = page.getByRole('region', { name: 'エピックの完了' });
+  await panel.getByRole('button', { name: 'エピックを完了にする' }).click();
   await expect(page.locator('.toasts:visible .toast').last()).toHaveText(
-    'エピックを完了にしました。参加者の 2 人に 300 XP',
+    'このエピックは、すでに完了です。最新の内容を表示しています',
   );
-  await expect(page.locator('.celebrate')).toHaveCount(0);
+  await expect(panel.getByRole('button', { name: '完了を取り消す' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: '完了を取り消す' })).not.toBeFocused();
+  await expect(panel.getByRole('heading', { level: 2, name: 'エピックの完了' })).toBeFocused();
 });
 
 test('未完了のストーリーが残っていると押せず、理由を横に出し、クリアの操作を送らない', async ({ page }) => {
@@ -109,10 +169,10 @@ test('未完了のストーリーが残っていると押せず、理由を横�
   await expect(panel.getByText('未完了のストーリーが 1 件残っているあいだは、完了にできません。')).toBeVisible();
   const clear = panel.getByRole('button', { name: 'エピックを完了にする' });
   await expect(clear).toHaveAttribute('aria-disabled', 'true');
-  // aria-disabled の押せないボタン。押しても何も送らず、演出も出ない
+  // aria-disabled の押せないボタン。押しても何も送らない
   await clear.click({ force: true });
   await page.waitForLoadState('networkidle');
-  await expect(page.locator('.celebrate')).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(sent).toEqual([]);
 });
 
@@ -124,16 +184,17 @@ test('配下のストーリーが無いエピックは押せず、理由を横�
   await expect(panel.getByRole('button', { name: 'エピックを完了にする' })).toHaveAttribute('aria-disabled', 'true');
 });
 
-test('クリアしたエピックは「完了を取り消す」が出て、取り消しに演出は出さない', async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
+test('完了したエピックは「完了を取り消す」が出て、取り消すとトーストで知らせる', async ({ page }) => {
   await clearedEpic(page);
   await mockOperation(page, epicReopen, AOBA, { epic_id: EPIC_ID });
   await page.goto(`${WORKSPACE}/epics/${EPIC_ID}`);
   const panel = page.getByRole('region', { name: 'エピックの完了' });
   await expect(panel.getByRole('button', { name: 'エピックを完了にする' })).toHaveCount(0);
+  await expect(panel.locator('.panel-note')).toHaveText('完了を取り消すと、完了の印が外れます。');
   await panel.getByRole('button', { name: '完了を取り消す' }).click();
-  await expect(page.locator('.toasts:visible .toast').last()).toContainText('の完了を取り消しました');
-  await expect(page.locator('.celebrate')).toHaveCount(0);
+  await expect(page.locator('.toasts:visible .toast').last()).toHaveText('エピックの完了を取り消しました');
+  await expect(panel.getByRole('heading', { level: 2, name: 'エピックの完了' })).toBeFocused();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
 test('取り消しが断られたら、理由ごとにトーストで知らせる', async ({ page }) => {

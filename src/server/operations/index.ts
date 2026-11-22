@@ -100,8 +100,7 @@ import { epicCreateOperation, epicGetOperation, epicMoveOperation, epicUpdateOpe
 import { epicCancelOperation, epicUncancelOperation } from './epic-cancel.ts';
 import { epicCompleteOperation, epicReopenOperation } from './epic-clear.ts';
 import { epicDetailOperation } from './epic-detail.ts';
-import { epicPartyAssignOperation, epicPartyJoinOperation, epicPartyLeaveOperation } from './epic-party.ts';
-import { epicRequesterUpdateOperation, epicRewardUpdateOperation } from './epic-reward.ts';
+import { epicRequesterUpdateOperation } from './epic-requester.ts';
 import {
   categoryCreateOperation,
   categoryDeleteOperation,
@@ -233,10 +232,6 @@ const listedOperations: readonly ImplementedOperation[] = [
   epicDetailOperation,
   epicUpdateOperation,
   epicMoveOperation,
-  epicPartyJoinOperation,
-  epicPartyLeaveOperation,
-  epicPartyAssignOperation,
-  epicRewardUpdateOperation,
   epicRequesterUpdateOperation,
   epicCancelOperation,
   epicUncancelOperation,

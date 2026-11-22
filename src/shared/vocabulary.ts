@@ -561,10 +561,6 @@ export const dictionary = defineDictionary({
   doneToday: '今日の完了',
   complete: '完了にする',
   requester: '作成者',
-  party: '参加者',
-  accept: '参加する',
-  leave: '参加をやめる',
-  reward: 'クリア報酬',
   clear: 'エピックを完了にする',
   create: '起票',
   leader: 'リーダー',
@@ -1020,47 +1016,24 @@ export const dictionary = defineDictionary({
   // エピックの画面（/[slug]/w/[id]/epics/[epicId]）。見出しの横の「直す」は、エピックのダイアログを開く
   epicPageBack: '{backlog}へ戻る',
   epicPageEdit: '{epic}を直す',
-  // エピックの引き出しの下の、エピックの画面（参加者、報酬、作成者、完了）へのリンク
+  // エピックの引き出しの下の、エピックの画面（作成者、完了）へのリンク
   epicOpenPage: '{epic}の画面を開く',
   epicPageTallyDone: '{done}の{points}',
   epicPageTallyRemaining: '残りの{points}',
   epicPageRequest: '概要',
-  epicPageRewardNote: '{reward}は、完了にした時点の{party}全員に同じ額が入ります。',
-  epicPagePartyCount: '{count} 人',
-  // クリア済みと中止したエピックの報酬の注記（進行中は epicPageRewardNote）
-  epicPageRewardNoteCleared: '{reward}は、完了にした時点の{party}全員に同じ額が入りました。',
-  epicPageRewardNoteCanceled: '中止したので、{reward}は{party}に入りません。',
   // 見える文字のない見出し（概要の節の名前）
   epicPageOverview: '{epic}の本文',
   // 直した後の読み直しに失敗したとき。画面は前に読んだ値のまま
   epicPageStale: '最新の内容を読み込めませんでした。表示は前に読んだ内容です。',
-  epicPagePartyEmpty: '参加者はまだいません。',
   epicPageStories: '配下の{story}',
-  // 参加者の面の操作。「参加する」と「参加をやめる」は accept と leave（見本と同じキー）。割り振りは作成者とリーダーだけに出す
-  epicPageAssign: '{party}に割り振る',
-  epicPartyJoined: '{epic}に参加しました',
-  epicPartyLeft: '{party}から抜けました',
-  // 「参加する」と「参加をやめる」で何も書かなかった（別の画面などで先に変わっていた）。画面は読み直す
-  epicPartyAlreadyChanged: '{party}はもう変わっていました。最新の内容を表示しています',
-  // 「参加する」と「参加をやめる」が 403（ワークスペースに所属していない）
-  epicPartyForbidden: 'この{workspace}に所属していないため、{party}を変えられません',
-  epicPartyUpdating: '{party}を更新しています',
-  // 終わった（完了か中止した）エピックの参加者は変えられない（409 の epic_finished）
-  epicPartyFinished: 'この{epic}は終わっているので、{party}を変えられません',
-  // 書き込みの競合に 3 回続けて負けた（409 の conflict）。画面を読み直すと実際の状態が見え、押し直せる
-  epicPartyConflict: 'ほかの変更と重なりました。もう一度試してください',
-  // 「参加する」と「参加をやめる」が 404。エピックが消えたか、呼んだ人がもう所属していない
-  epicPartyGone: '{epic}が見つからないか、{workspace}に所属していないため、{party}を変えられません',
-  epicPartyFailed: '{party}を更新できませんでした。もう一度試してください',
   // エピックの完了と取り消し。操作は作成者とリーダーだけに出す。完了にできない理由は、押せない操作の横に出す
   epicCancelPanel: '{epic}の中止',
   epicCancel: '{epic}を中止する',
   epicUncancel: '中止を取り消す',
   epicCancelSubmit: '中止する',
-  epicCancelNote: '中止すると、{reward}は入りません。すでに確定した経験値は残ります。',
-  epicUncancelNote: '中止を取り消すと、受注や割り振り、完了の操作を再開できます。',
-  epicCancelConfirm:
-    'この{epic}を中止しますか。{reward}は入りませんが、すでに確定した経験値は残ります。中止は後で取り消せます。',
+  epicCancelNote: '中止すると、{done}にできなくなります。中止は後で取り消せます。',
+  epicUncancelNote: '中止を取り消すと、{done}の操作を再開できます。',
+  epicCancelConfirm: 'この{epic}を中止しますか。中止は後で取り消せます。',
   epicCancelUpdating: '中止の状態を更新しています',
   epicCanceledToast: '{epic}を中止しました',
   epicUncanceledToast: '{epic}の中止を取り消しました',
@@ -1073,18 +1046,13 @@ export const dictionary = defineDictionary({
   epicClearPanel: '{epic}の{done}',
   epicClearNoteOpen: '未完了の{story}が {count} 件残っているあいだは、{done}にできません。',
   epicClearNoteEmpty: '{story}が1件も無い{epic}は、{done}にできません。{story}を足して、すべて{done}にすると押せます。',
-  epicClearNoteReady: '配下の{story}はすべて{done}になっています。{done}にすると、{party}全員に{reward}が入ります。',
-  epicClearNoteCleared: '{done}を取り消すと、入った{reward}もすべて取り消されます。',
+  epicClearNoteReady: '配下の{story}はすべて{done}になっています。{epic}を{done}にできます。',
+  epicClearNoteCleared: '{done}を取り消すと、{done}の印が外れます。',
   epicReopen: '{done}を取り消す',
   epicClearing: '{epic}を{done}にしています',
   epicReopening: '{epic}の{done}を取り消しています',
-  epicClearedToast: '{epic}を{done}にしました。{party}の {count} 人に {xp} {unit}',
-  epicClearedToastEmpty: '{epic}を{done}にしました',
-  epicReopened: '{epic}の{done}を取り消しました。入った{reward}も取り消しました',
-  // 演出。判子の文字と、閉じる前に読ませる額
-  epicCelebrateStamp: 'クリア',
-  epicCelebrateReward: '{party}の {count} 人に {xp} {unit}',
-  epicCelebrateRewardNone: '{party}はいませんでした',
+  epicClearedToast: '{epic}を{done}にしました',
+  epicReopened: '{epic}の{done}を取り消しました',
   // 断られたとき。画面は読み直す
   epicClearOpenStories: '未完了の{story}が残っているため、{done}にできません。最新の内容を表示しています',
   epicClearEmpty: '{story}が1件も無いため、{done}にできません。最新の内容を表示しています',
@@ -1096,37 +1064,11 @@ export const dictionary = defineDictionary({
   epicClearChanged: 'ほかの画面で変わったため、できませんでした。最新の内容を表示しています',
   epicClearFailed: '{done}にできませんでした。もう一度試してください',
   epicReopenFailed: '{done}を取り消せませんでした。もう一度試してください',
-  // 割り振りのダイアログ。候補は member-list の今所属している人のうち、参加者にいない人
-  epicAssignField: '割り振る人',
-  epicAssignHint: '{workspace}に今所属していて、まだ{party}にいない人から選びます。',
-  epicAssignNoCandidates: '割り振れる人がいません。{workspace}の全員が{party}にいます。',
-  epicAssignCandidatesFailed: '割り振れる人を読み込めませんでした。',
-  epicAssignSubmit: '割り振る',
-  epicAssignSubmitting: '割り振っています',
-  epicAssigned: '「{name}」を{party}に割り振りました',
-  epicAssignAlready: '「{name}」はもう{party}にいます',
-  // 割り振りが 404。選んだ人がもう所属していないか、エピックが消えた
-  epicAssignGone: '選んだ人は{workspace}に所属していないか、{epic}が見つかりません。選び直してください。',
-  epicAssignForbidden: '{party}に割り振れるのは、{requester}と{leader}だけです',
-  // 参加者の面の操作。クリア報酬の段階を変えるのは作成者とリーダー、作成者を替えるのはリーダーだけ
-  epicPageChangeReward: '{reward}を変える',
+  // 概要の面の操作。作成者を替えるのはリーダーだけ
   epicPageChangeRequester: '{requester}を替える',
-  // クリア報酬を変えるダイアログ。段階は額つきのラジオで選ぶ
-  epicRewardField: '{reward}の段階',
-  epicRewardUnchanged: '今の段階です。別の段階を選ぶと変えられます。',
-  epicRewardSubmit: '変える',
-  epicRewardSubmitting: '変えています',
-  epicRewardChanged: '{reward}を「{tier}」に変えました',
-  epicRewardAlready: '{reward}はもう「{tier}」です',
-  epicRewardForbidden: '{reward}を変えられるのは、{requester}と{leader}だけです',
-  // 報酬の変更が 409 の epic_finished（終わったエピック）と、conflict（書き込みの競合に 3 回続けて負けた）
-  epicRewardFinished: 'この{epic}は終わっているので、{reward}を変えられません',
-  epicRewardConflict: 'ほかの変更と重なりました。もう一度試してください',
-  epicRewardGone: '{epic}が見つかりません',
-  epicRewardFailed: '{reward}を変えられませんでした。もう一度試してください',
   // 作成者を替えるダイアログ。候補は member-list の今所属している人のうち、今の作成者でない人
   epicRequesterField: '新しい{requester}',
-  epicRequesterHint: '{workspace}に今所属している人から選びます。{party}は変わりません。',
+  epicRequesterHint: '{workspace}に今所属している人から選びます。',
   epicRequesterNoCandidates: '替えられる人がいません。{workspace}に、今の{requester}のほかに所属している人がいません。',
   epicRequesterCandidatesFailed: '替えられる人を読み込めませんでした。',
   epicRequesterSubmit: '替える',
@@ -1149,10 +1091,6 @@ export const dictionary = defineDictionary({
   sprintBoardRemaining: '残り {days} 日',
   epicPageNotFoundTitle: '{epic}が見つかりません',
   epicPageNotFoundText: '削除されたか、この{workspace}にない{epic}です。',
-  // クリア報酬の段階の呼び名。額は経験値の定数（XP_EPIC_REWARD）から出す
-  epicTierSmall: '小',
-  epicTierMedium: '中',
-  epicTierLarge: '大',
   // 親の選択欄で、親のないストーリーをまとめる見出し
   parentRootGroup: '親なしの{story}',
   // タスクを、エピックの下のストーリーへ移したときの知らせ。{epicTitle} は親のストーリーの親のエピックの題

@@ -5,15 +5,10 @@
   import { resolve } from '$app/paths';
   import Avatar from '../../../../../../lib/components/Avatar.svelte';
   import ConfirmDialog from '../../../../../../lib/components/ConfirmDialog.svelte';
-  import ClearCelebration from '../../../../../../lib/components/ClearCelebration.svelte';
   import DefinitionChip from '../../../../../../lib/components/DefinitionChip.svelte';
   import DueChip from '../../../../../../lib/components/DueChip.svelte';
-  import Emblem from '../../../../../../lib/components/Emblem.svelte';
   import EmptyState from '../../../../../../lib/components/EmptyState.svelte';
-  import EpicPartyAssignDialog from '../../../../../../lib/components/EpicPartyAssignDialog.svelte';
   import EpicRequesterDialog from '../../../../../../lib/components/EpicRequesterDialog.svelte';
-  import EpicRewardDialog from '../../../../../../lib/components/EpicRewardDialog.svelte';
-  import EpicTier from '../../../../../../lib/components/EpicTier.svelte';
   import FavoriteButton from '../../../../../../lib/components/FavoriteButton.svelte';
   import Icon from '../../../../../../lib/components/Icon.svelte';
   import LoadFailed from '../../../../../../lib/components/LoadFailed.svelte';
@@ -24,7 +19,6 @@
   import { callOperation } from '../../../../../../lib/api.ts';
   import { focusPageHeading } from '../../../../../../lib/focus-heading.ts';
   import { isUnauthenticated, loginUrl } from '../../../../../../lib/login-redirect.ts';
-  import { prefersReducedMotion } from '../../../../../../lib/reduced-motion.ts';
   import { showToast } from '../../../../../../lib/toast.svelte.ts';
   import { t } from '../../../../../../lib/vocabulary.svelte.ts';
   import {
@@ -32,20 +26,16 @@
     epicUncancel,
     epicClearConflictReasonOf,
     epicComplete,
-    epicPartyJoin,
-    epicPartyLeave,
     epicReopen,
   } from '../../../../../../shared/operations/epic/index.ts';
   import type { PageProps } from './$types';
 
-  // エピックの画面（epic.html）。木のエピックの題から開く。概要（本文、リンク）、依頼主、クリア報酬の段階と額、期日、区分、
-  // 討伐隊の一覧（離脱済みの人も、名前に「（離脱済み）」を添えて出す。レベルは紋章だけで、経験値の数値は API も返さない）、
-  // 配下のストーリー（削除していないもの、並びの順。完了の印と、完了 / 全体のポイント）を出す。
-  // 討伐隊の面の下に、書き込めて終わっていないエピックで、討伐隊に入れる人（can_join）には「受注する」か「抜ける」を、
-  // 依頼主とリーダー（can_manage）には「<討伐隊>に割り振る」（EpicPartyAssignDialog）と「<クリア報酬>を変える」（EpicRewardDialog）を、
-  // リーダー（can_change_requester）には「<依頼主>を替える」（EpicRequesterDialog）を出す。どれも済んだら画面の値を読み直す。
-  // 依頼主とリーダー（can_manage）には、討伐隊の面の下に「<クリア>」と「<完了>を取り消す」の面も出す（クリアできない理由は押せない操作の横に出し、
-  // 配下のストーリーの完了から数える）。クリアしたら演出（ClearCelebration。動きを減らす設定ではトーストだけ）、取り消しには演出を出さない。
+  // エピックの画面（epic.html）。木のエピックの題から開く。概要（本文、リンク）、依頼主（離脱済みの人も、名前に「（離脱済み）」を添えて出す）、
+  // 期日、区分、配下のストーリー（削除していないもの、並びの順。完了の印と、完了 / 全体のポイント）を出す。
+  // 書き込めて終わっていないエピックで、リーダー（can_change_requester）には、概要の面の下に「<依頼主>を替える」（EpicRequesterDialog）を出す。
+  // 済んだら画面の値を読み直す。
+  // 依頼主とリーダー（can_manage）には、概要の面の下に「<完了>にする」と「<完了>を取り消す」の面も出す（完了にできない理由は押せない操作の横に出し、
+  // 配下のストーリーの完了から数える）。どちらも済んだらトーストで知らせる（演出は出さない）。
   // 中止は確認してから送り、取り消しはその場で送る。添付ファイルは後の Issue で足す。
   // 見出しの横の「直す」は、エピックの引き出し（EpicDrawer。`?epic_id=<ID>`。ワークスペースの枠が置く）を開く。書き込めるときだけ出し、終了したワークスペースでは出さない
   // （引き出しの欄は、この画面がすべて読み取りで出している）。直したら画面の値を読み直し（引き出しが `app:epic-detail` を読み直す）、
@@ -87,26 +77,15 @@
             count: pointsDone,
           },
           { label: t('epicPageTallyRemaining', { points: t('points') }), count: pointsAll - pointsDone },
-          { icon: 'users' as const, label: t('party'), count: detail.party.length },
         ],
   );
 
-  let assignDialog = $state<ReturnType<typeof EpicPartyAssignDialog>>();
-  let rewardDialog = $state<ReturnType<typeof EpicRewardDialog>>();
   let requesterDialog = $state<ReturnType<typeof EpicRequesterDialog>>();
-  let celebrating = $state(false);
-  let celebrateTitle = $state('');
-  let celebrateReward = $state('');
   // クリアか取り消しを送っている間。押しても無視する
   let clearBusy = $state(false);
   let cancelBusy = $state(false);
   let cancelConfirm = $state<ReturnType<typeof ConfirmDialog>>();
   const showCancel = $derived(canWrite && detail !== null && detail.can_manage && detail.epic.completed_at === null);
-  // 受注か抜けるを送っている間。押しても無視する
-  let partyBusy = $state(false);
-  // 受注は討伐隊に入れる人（can_join）だけ。抜けるは、討伐隊にいれば（joined）入れる人でなくなっていても出す
-  const showJoin = $derived(canWrite && !finished && detail !== null && (detail.joined || detail.can_join));
-  const showAssign = $derived(canWrite && !finished && detail !== null && detail.can_manage);
   const showClear = $derived(canWrite && !finished && detail !== null && detail.can_manage);
   const showReopen = $derived(
     canWrite &&
@@ -128,46 +107,6 @@
     } finally {
       refreshing = false;
     }
-  }
-
-  // 受注する、抜ける。失敗はどれも、もう一度押しても直らないことが多いので、トーストで知らせて読み直す。
-  // 何も書かなかった（changed が偽。別の画面で先に受注した、抜けた）ときは、済んだとは言わず、もう変わっていたことを知らせる。
-  // 読み直した後は、同じボタン（文字が替わる）へ、無くなっていれば画面の見出しへフォーカスを移す
-  async function toggleJoin(): Promise<void> {
-    if (partyBusy || workspace === null || detail === null) return;
-    const joining = !detail.joined;
-    const input = { workspace_id: workspace.id, epic_id: detail.epic.id };
-    partyBusy = true;
-    try {
-      const result = joining
-        ? await callOperation(epicPartyJoin, input, { slug })
-        : await callOperation(epicPartyLeave, input, { slug });
-      if (!result.ok && isUnauthenticated(result)) {
-        window.location.assign(loginUrl(page.url));
-        return;
-      }
-      const words = { party: t('party'), epic: t('epic'), workspace: t('workspace') };
-      if (result.ok && result.data.changed) showToast(t(joining ? 'epicPartyJoined' : 'epicPartyLeft', words), 'check');
-      else if (result.ok) showToast(t('epicPartyAlreadyChanged', words), 'alert');
-      else if (result.status === 403) {
-        // 権限を失った（ワークスペースから外された）。もう一度押しても直らないので、枠も読み直す
-        showToast(t('epicPartyForbidden', words), 'alert');
-        await invalidate('app:workspace');
-      } else if (result.error?.code === 'workspace_closed') {
-        showToast(t('workspaceClosedReadOnly', words), 'alert');
-        await invalidate('app:workspace');
-      } else if (result.error?.code === 'epic_finished') showToast(t('epicPartyFinished', words), 'alert');
-      else if (result.error?.code === 'conflict') showToast(t('epicPartyConflict', words), 'alert');
-      else if (result.status === 404) showToast(t('epicPartyGone', words), 'alert');
-      else showToast(t('epicPartyFailed', words), 'alert');
-      await saved();
-    } finally {
-      partyBusy = false;
-    }
-    await tick();
-    const button = document.querySelector<HTMLElement>('[data-party-join]');
-    if (button) button.focus();
-    else focusPageHeading();
   }
 
   async function runCancel(trigger: HTMLElement): Promise<void> {
@@ -210,14 +149,7 @@
     else focusPageHeading();
   }
 
-  // 演出を閉じたら、クリアの面の「取り消す」へ（押した主ボタンは読み直しで替わっている）。無ければ見出しへ
-  function focusClearControl(): void {
-    const button = document.querySelector<HTMLElement>('[data-epic-reopen], [data-epic-clear]');
-    if (button) button.focus();
-    else focusPageHeading();
-  }
-
-  // クリアと取り消し。断られた理由ごとに知らせ、どれも読み直す。クリアは成功したら演出（動きを減らす設定ではトーストだけ）
+  // 完了と取り消し。済んだらトーストで知らせ、断られた理由ごとにも知らせ、どれも読み直す
   async function runClear(clearing: boolean, trigger: HTMLElement): Promise<void> {
     if (clearBusy || cancelBusy || workspace === null || detail === null) return;
     const input = { workspace_id: workspace.id, epic_id: detail.epic.id };
@@ -225,46 +157,23 @@
       epic: t('epic'),
       story: t('story'),
       done: t('done'),
-      party: t('party'),
-      reward: t('reward'),
       workspace: t('workspace'),
       requester: t('requester'),
       leader: t('leader'),
     };
-    const title = detail.epic.title;
     clearBusy = true;
+    let succeeded = false;
     try {
-      // 取り消しの結果は、クリアと同じ形（額と人数は 0）に写して扱う
       const result = clearing
         ? await callOperation(epicComplete, input, { slug })
-        : await callOperation(epicReopen, input, { slug }).then((reopened) =>
-            reopened.ok ? { ...reopened, data: { ...reopened.data, reward_xp: 0, recipient_count: 0 } } : reopened,
-          );
+        : await callOperation(epicReopen, input, { slug });
       if (!result.ok && isUnauthenticated(result)) {
         window.location.assign(loginUrl(page.url));
         return;
       }
       if (result.ok) {
-        if (!clearing) showToast(t('epicReopened', words), 'check');
-        else {
-          const { recipient_count: count, reward_xp: xp } = result.data;
-          const rewardText =
-            count === 0
-              ? t('epicCelebrateRewardNone', words)
-              : t('epicCelebrateReward', { party: t('party'), count, xp, unit: t('xpUnit') });
-          if (prefersReducedMotion()) {
-            showToast(
-              count === 0
-                ? t('epicClearedToastEmpty', words)
-                : t('epicClearedToast', { ...words, count, xp, unit: t('xpUnit') }),
-              'check',
-            );
-          } else {
-            celebrateTitle = title;
-            celebrateReward = rewardText;
-            celebrating = true;
-          }
-        }
+        succeeded = true;
+        showToast(t(clearing ? 'epicClearedToast' : 'epicReopened', words), 'check');
       } else {
         const reason = epicClearConflictReasonOf(result.error?.details);
         if (result.status === 403) {
@@ -288,10 +197,14 @@
       clearBusy = false;
     }
     await tick();
-    // 演出を開いたときは、演出が閉じるボタンへフォーカスを移す。それ以外は同じ操作の場所か見出しへ
-    if (celebrating) return;
-    const button = document.querySelector<HTMLElement>('[data-epic-clear], [data-epic-reopen]');
-    if (button) button.focus();
+    // 済んだとき、または断られて読み直した結果、押した操作が反対の操作に入れ替わったとき（別の画面で先に完了や取り消しをした）は、
+    // 面の見出しへ。完了と取り消しは同じ位置で入れ替わり、確認を挟まないので、押した続きのキーで反対の操作を送らないため。
+    // 同じ操作が残っていればそこへ、面が消えていれば押したボタンか画面の見出しへ
+    const same = document.querySelector<HTMLElement>(clearing ? '[data-epic-clear]' : '[data-epic-reopen]');
+    const opposite = document.querySelector<HTMLElement>(clearing ? '[data-epic-reopen]' : '[data-epic-clear]');
+    const heading = succeeded || opposite !== null ? document.querySelector<HTMLElement>('#epic-clear') : null;
+    if (heading) heading.focus();
+    else if (same) same.focus();
     else {
       if (trigger.isConnected) trigger.focus();
       else focusPageHeading();
@@ -403,7 +316,6 @@
       </Section>
     </div>
 
-    <!-- 討伐隊は人数に上限が無いので、脇を貼り付けず本文と一緒にスクロールさせる（.layout-side.is-static） -->
     <aside class="layout-side is-static">
       <section class="panel" aria-labelledby="epic-request">
         <div class="panel-title"><h2 id="epic-request">{t('epicPageRequest')}</h2></div>
@@ -418,10 +330,6 @@
                 decorative
               />{detail.requester.name}{#if detail.requester.left}<span class="props-note">{t('leftMember')}</span>{/if}
             </dd>
-          </div>
-          <div>
-            <dt>{t('reward')}</dt>
-            <dd><EpicTier tier={detail.reward_tier} xp={detail.reward_xp} /></dd>
           </div>
           <div>
             <dt>{t('due')}</dt>
@@ -444,88 +352,29 @@
             </dd>
           </div>
         </dl>
-        <p class="panel-note">
-          {t(
-            epic.canceled_at !== null
-              ? 'epicPageRewardNoteCanceled'
-              : epic.completed_at !== null
-                ? 'epicPageRewardNoteCleared'
-                : 'epicPageRewardNote',
-            { reward: t('reward'), party: t('party') },
-          )}
-        </p>
-      </section>
-
-      <section class="panel" aria-labelledby="epic-party">
-        <div class="panel-title">
-          <h2 id="epic-party">{t('party')}</h2>
-          {t('epicPagePartyCount', { count: detail.party.length })}
-        </div>
-        {#if detail.party.length === 0}
-          <p class="panel-note">{t('epicPagePartyEmpty')}</p>
-        {:else}
-          <ul class="party-list">
-            {#each detail.party as member (member.id)}
-              <li>
-                <Avatar userId={member.id} name={member.name} left={member.left} decorative />
-                <span class="party-list-text">
-                  {member.name}{#if member.left}<span class="props-note">{t('leftMember')}</span>{/if}
-                </span>
-                {#if member.id === detail.requester.id}<span class="role">{t('requester')}</span>{/if}
-                <Emblem level={member.level} small />
-              </li>
-            {/each}
-          </ul>
-        {/if}
-        {#if showJoin || showAssign || showRequesterChange}
+        {#if showRequesterChange}
           <div class="actions-col">
-            {#if showJoin}
-              <button
-                class="btn"
-                class:is-primary={!detail.joined}
-                type="button"
-                data-party-join
-                aria-disabled={partyBusy}
-                onclick={() => void toggleJoin()}
-              >
-                <Icon name="users" />{detail.joined ? t('leave') : t('accept')}
-              </button>
-            {/if}
-            {#if showAssign}
-              <button class="btn" type="button" onclick={(event) => assignDialog?.show(event.currentTarget)}>
-                {t('epicPageAssign', { party: t('party') })}
-              </button>
-              <button class="btn" type="button" onclick={(event) => rewardDialog?.show(event.currentTarget)}>
-                {t('epicPageChangeReward', { reward: t('reward') })}
-              </button>
-            {/if}
-            {#if showRequesterChange}
-              <button class="btn" type="button" onclick={(event) => requesterDialog?.show(event.currentTarget)}>
-                {t('epicPageChangeRequester', { requester: t('requester') })}
-              </button>
-            {/if}
+            <button class="btn" type="button" onclick={(event) => requesterDialog?.show(event.currentTarget)}>
+              {t('epicPageChangeRequester', { requester: t('requester') })}
+            </button>
           </div>
-          <!-- 送っている間の読み上げ。常に置き、中の文字だけを替える -->
-          <span class="visually-hidden" role="status"
-            >{partyBusy ? t('epicPartyUpdating', { party: t('party') }) : ''}</span
-          >
         {/if}
       </section>
 
       {#if showClear || showReopen}
         <section class="panel" aria-labelledby="epic-clear">
           <div class="panel-title">
-            <h2 id="epic-clear">{t('epicClearPanel', { epic: t('epic'), done: t('done') })}</h2>
+            <h2 id="epic-clear" tabindex="-1">{t('epicClearPanel', { epic: t('epic'), done: t('done') })}</h2>
           </div>
           <p class="panel-note" id="epic-clear-note">
             {#if showReopen}
-              {t('epicClearNoteCleared', { done: t('done'), reward: t('reward') })}
+              {t('epicClearNoteCleared', { done: t('done') })}
             {:else if detail.stories.length === 0}
               {t('epicClearNoteEmpty', { story: t('story'), epic: t('epic'), done: t('done') })}
             {:else if openStoryCount > 0}
               {t('epicClearNoteOpen', { story: t('story'), count: openStoryCount, done: t('done') })}
             {:else}
-              {t('epicClearNoteReady', { story: t('story'), done: t('done'), party: t('party'), reward: t('reward') })}
+              {t('epicClearNoteReady', { story: t('story'), done: t('done'), epic: t('epic') })}
             {/if}
           </p>
           <div class="actions-col">
@@ -566,7 +415,7 @@
         <section class="panel" aria-labelledby="epic-cancel-title">
           <div class="panel-title"><h2 id="epic-cancel-title">{t('epicCancelPanel', { epic: t('epic') })}</h2></div>
           <p class="panel-note" id="epic-cancel-note">
-            {t(epic.canceled_at === null ? 'epicCancelNote' : 'epicUncancelNote', { reward: t('reward') })}
+            {t(epic.canceled_at === null ? 'epicCancelNote' : 'epicUncancelNote', { done: t('done') })}
           </p>
           <div class="actions-col">
             <button
@@ -592,33 +441,8 @@
     confirmLabel={t('epicCancelSubmit')}
     cancelLabel={t('cancel')}
   >
-    <p>{t('epicCancelConfirm', { epic: t('epic'), reward: t('reward') })}</p>
+    <p>{t('epicCancelConfirm', { epic: t('epic') })}</p>
   </ConfirmDialog>
-
-  <ClearCelebration
-    bind:open={celebrating}
-    title={celebrateTitle}
-    reward={celebrateReward}
-    onclosed={focusClearControl}
-  />
-
-  <EpicPartyAssignDialog
-    bind:this={assignDialog}
-    {slug}
-    workspaceId={workspace.id}
-    epicId={epic.id}
-    partyIds={detail.party.map((member) => member.id)}
-    onassigned={() => void saved()}
-  />
-
-  <EpicRewardDialog
-    bind:this={rewardDialog}
-    {slug}
-    workspaceId={workspace.id}
-    epicId={epic.id}
-    tier={detail.reward_tier}
-    onchanged={() => void saved()}
-  />
 
   <EpicRequesterDialog
     bind:this={requesterDialog}

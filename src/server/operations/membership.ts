@@ -13,7 +13,6 @@ import {
 import { ApiError } from '../errors.ts';
 import { uuidv7 } from '../uuid.ts';
 import { implement } from './implement.ts';
-import { removeDepartedPartyMemberStatements } from './membership-party.ts';
 import {
   cannotEnterOrganization,
   removeDepartedAvatarObjects,
@@ -154,7 +153,7 @@ export const membershipRoleUpdateOperation = implement(
 // タスクの2文は「この要求で所属が終わった（その所属の行の left_at がこの要求の時刻）」を条件にし、履歴を UPDATE より先に置く
 // （区分の削除の、振っていた行を戻す書き方と同じ。件数によらず文の数は決まっている）。
 // 完了したタスク、完了の記録（completions）、経験値（xp_grants）は変えない。
-// 討伐隊の履歴と削除も同じ batch に入れる。接続（connections）は #67 で足す。
+// 接続（connections）は #67 で足す。
 // 最後に、この要求で組織に入れなくなった（管理者でなく、閉じたワークスペースを含めてほかに今の所属が無い）ときだけ、
 // その人のプロフィール画像の行（user_avatars）を消し、R2 のファイルは batch の後に消す（#1273。所属し直しても戻さない）
 export const membershipLeaveOperation = implement(membershipLeave, async (context) => {
@@ -322,13 +321,6 @@ export const membershipLeaveOperation = implement(membershipLeave, async (contex
           ]),
         ),
     ),
-    ...removeDepartedPartyMemberStatements(db, {
-      userId,
-      actorUserId,
-      workspaceId,
-      successLogId: departureLogId,
-      at,
-    }),
     ...(removingOther
       ? [
           db.statement((q) =>
