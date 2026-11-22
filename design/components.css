@@ -1506,7 +1506,7 @@ label.pick-row:hover { background: var(--color-accent-soft); }
 .epic-body { display: grid; gap: var(--space-3); max-width: 66ch; }
 .epic-body p { line-height: 1.85; }
 
-/* ===== 一覧の行（休日、感謝などの .party-list） ===== */
+/* ===== 一覧の行（休日、休みなどの .party-list） ===== */
 .party-list { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
 .party-list li { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); }
 /* 行の右端に寄せる操作（消すボタンなど） */
