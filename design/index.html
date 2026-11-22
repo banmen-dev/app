@@ -258,7 +258,7 @@ const SECTIONS = [
        <div class="cat-row"><span class="cat-name" style="width:110px">--edge-top</span><span style="width:120px;height:36px;background:var(--color-surface);border:1px solid var(--color-line);border-top:var(--edge-top) solid var(--color-accent);border-radius:var(--radius-1)"></span></div>
        <div class="cat-row"><span class="cat-name" style="width:110px">--shadow-sheet</span><span style="width:120px;height:44px;background:var(--color-surface);border:1px solid var(--color-line);box-shadow:var(--shadow-sheet)"></span></div>
      </div></div>`,
-    ["影は「貼り紙」（--shadow-sheet）、上に浮く物（--shadow-float、引き出しなど）の2つだけ（--shadow-panel は今は影を付けない）。", "区切りの線（--rule-double）は、画面の見出しの下、メニューの境、台帳と木の左端、列の見出しの下に使う。", "角は、記録の部品が --radius-1（シンプルは 4px）、見せ場の経験値と積載量のゲージとクリアの演出が --radius-show（シンプルは 6px）。上の線（--edge-top）は、貼り紙、計画のレーン、ダイアログ、枠の外の紙に使い、シンプルは 2px。色は貼り紙とダイアログが操作の色、計画のレーンと枠の外の紙が無彩色（--color-line。枠の外の紙は先頭のロゴが色を持つため）。", "761px 以上でマウスなどだけで操作する画面は、左のメニュー、行、表、スプリントの列とカードの上下の余白を詰める（どのテーマでも同じ）。狭い幅と指で押す画面は、押せる範囲 44px のための余白を残す。"])],
+    ["影は「貼り紙」（--shadow-sheet）、上に浮く物（--shadow-float、引き出しなど）の2つだけ（--shadow-panel は今は影を付けない）。", "区切りの線（--rule-double）は、画面の見出しの下、メニューの境、台帳と木の左端、列の見出しの下に使う。", "角は、記録の部品が --radius-1（シンプルは 4px）、見せ場の積載量のゲージとクリアの演出が --radius-show（シンプルは 6px）。上の線（--edge-top）は、貼り紙、計画のレーン、ダイアログ、枠の外の紙に使い、シンプルは 2px。色は貼り紙とダイアログが操作の色、計画のレーンと枠の外の紙が無彩色（--color-line。枠の外の紙は先頭のロゴが色を持つため）。", "761px 以上でマウスなどだけで操作する画面は、左のメニュー、行、表、スプリントの列とカードの上下の余白を詰める（どのテーマでも同じ）。狭い幅と指で押す画面は、押せる範囲 44px のための余白を残す。"])],
   ["logo", "ロゴ", () => block("logo", "ロゴ", "提供されたオレンジとチャコールのロゴ。全テーマで白い下地に載せる。枠の外の画面は横組み、組織の枠の左上の角のマスはマーク単体にする。",
     `<div class="two">
       <div class="field"><span class="field-label">左上の角のマス（34px の枠の中のマーク単体）</span><span class="brand">${SQ.brandSymbol}<span class="visually-hidden">Banmen</span></span></div>
@@ -813,7 +813,7 @@ const SECTIONS = [
     `<ul class="feed">${D.notifications.slice(0, 3).map((n) => `<li class="${n.read ? "" : "is-unread"}"><span class="feed-icon">${icon("bell")}</span><span class="feed-main"><span class="feed-text">${SQ.esc(n.text)}</span><span class="feed-at">${n.at}</span></span><button class="btn is-sm is-quiet" type="button">既読にする</button></li>`).join("")}</ul>
      ${SQ.emptyState("inbox", "届いたものはありません", `次の同期で新しく取り込んだ${t("task")}がここに届きます。`)}
      ${SQ.emptyState("board", `まだ${t("task")}がありません`, `${t("task")}を優先する順に並べる場所です。上の「${t("create")}」から最初の${t("task")}を作ります。`, `<button class="btn is-sm" type="button" data-toast="見本なので画面は移りません">${t("connection")}を登録する</button>`, "notice")}`,
-    ["未読は太字と淡い藍の地。", "空の状態は、何が出る場所かと、次に何をすればよいかを書く。自分で起こせることがあれば、その画面へのボタンを1つ添える。", "空の状態のボタンは主ボタンにしない。画面の主な操作は見出しの右に置く。", "空の一覧には、アイコンの代わりに線画（6つ目の引数）を置ける。場面に合うものを選ぶ（下の「線画」）。"], ".feed .is-unread .feed-icon .feed-main .feed-text .feed-at / SQ.emptyState() .empty")],
+    ["未読は太字と淡い藍の地。", "空の状態は、何が出る場所かと、次に何をすればよいかを書く。自分で起こせることがあれば、その画面へのボタンを1つ添える。", "空の状態のボタンは主ボタンにしない。画面の主な操作は見出しの右に置く。", "空の一覧には、アイコンの代わりに線画（5つ目の引数）を置ける。場面に合うものを選ぶ（下の「線画」）。"], ".feed .is-unread .feed-icon .feed-main .feed-text .feed-at / SQ.emptyState() .empty")],
   ["monthly", "月の積載量", () => block("monthly", "月の積載量", "メンバー × 月の表のセル。",
     `<div class="cat-row" style="align-items:flex-start">${[[103.2, 118, 0], [172, 168, 0], [86, 60, 1], [80, 60, 0], "unset", null].map((c) => `<div class="panel" style="padding:var(--space-3)">${SQ.miniCap(c)}</div>`).join("")}</div>`,
     ["スプリントが1つもない月は、余力ありではなく「計画なし」と出す。"], ".mini-cap .is-none .mini-cap-num / .cap.is-mini")],

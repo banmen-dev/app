@@ -72,7 +72,7 @@ SQ.mount("admin", () => `
       </dl>
       ${PLAN_PERSONAL ? `<p class="props-note">自分用の${t("organization")}は、人数が本人1人のパーソナルに決まっています。</p>` : PLAN.terms === null ? `<p class="props-note">まだ契約していません。上限は運用者が決めた値です。</p>` : ""}
       <div class="callout is-info">${icon("mail")}<span>${PLAN_PERSONAL ? "容量を足すときは、運用者に問い合わせてください。" : "プラン、支払いの周期、追加容量を変えるときは、運用者に問い合わせてください。"}</span></div>`)}
-    ${setting("ユーザー", `${t("admin")}は他のユーザーを${t("admin")}に指名でき、解除もできます。最後の${t("admin")}は解除できません。無効にした人は${t("organization")}に入れず、すべての${t("workspace")}から外れます。名前、完了の記録、経験値は残ります。`, `
+    ${setting("ユーザー", `${t("admin")}は他のユーザーを${t("admin")}に指名でき、解除もできます。最後の${t("admin")}は解除できません。無効にした人は${t("organization")}に入れず、すべての${t("workspace")}から外れます。名前と完了の記録は残ります。`, `
       <div class="table-wrap"><table class="table is-stacked" aria-label="${t("organization")}のユーザーの一覧"><thead><tr><th class="is-name">名前</th><th>${t("admin")}</th><th class="is-num">所属</th><th>最後に入った日</th><th class="is-actions"><span class="visually-hidden">操作</span></th></tr></thead>
         <tbody>${A.users.map((r) => {
           const name = esc(user(r.who).name);

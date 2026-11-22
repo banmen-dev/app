@@ -19,7 +19,7 @@ window.SQ_DATA = (function () {
     // AI の機能。組織の管理で管理者が有効にし、送る先を選ぶ。利用量は百万トークンで数え、上限は運用者が決める
     ai: { enabled: true, provider: "claude", used: 1.3, limit: 5, resets: "11/1" },
 
-    // 自分が入れる組織。組織ごとに名前、レベル、経験値が別になる
+    // 自分が入れる組織。組織ごとに名前が別になる
     // plan は契約（プランと支払いの周期）。無いチーム用の組織は「未契約」、自分用は「パーソナル」の印を出す
     organizations: [
       { slug: "aoba", name: "あおば開発", admin: true },
