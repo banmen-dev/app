@@ -1,5 +1,4 @@
-// クリア報酬の段階の色（銅、銀、金）のコントラストを、トークンの値から計算して守る。
-// 段階の印は地を持たず、地になりうる色の上に直に乗る（docs/design.md の「報酬の段階の色」）。
+// 色のコントラストを、トークンの値から計算して守る（操作部品の枠、お気に入りの星）。
 // 地になりうる色の組をすべて、描画に頼らずここで確かめる。
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -12,9 +11,7 @@ const stripComments = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 const tokens = stripComments(read('tokens.css'));
 const components = stripComments(read('components.css'));
 
-const tierNames = ['small', 'medium', 'large'] as const;
 const groundNames = ['bg', 'surface', 'sunken', 'rule', 'accent-soft'] as const;
-const minimumRatio = 4.5;
 
 // 開き括弧の後ろから、対応する閉じ括弧までの中身を返す
 function bodyAfter(source: string, openIndex: number): string {
@@ -100,26 +97,10 @@ function contrast(a: string, b: string): number {
   return (light + 0.05) / (dark + 0.05);
 }
 
-describe('クリア報酬の段階の色のコントラスト', () => {
-  for (const [theme, block] of Object.entries(blocks)) {
-    test(`${theme}: 段階 3色 × 地 5色 のすべてが ${minimumRatio}:1 以上`, () => {
-      const failures: string[] = [];
-      for (const tier of tierNames) {
-        const color = readColor(block, theme, `tier-${tier}`);
-        for (const ground of groundNames) {
-          const ratio = contrast(color, readColor(block, theme, ground));
-          if (ratio < minimumRatio) {
-            failures.push(`${theme} の --color-tier-${tier}（${color}）と --color-${ground} は ${ratio.toFixed(2)}:1`);
-          }
-        }
-      }
-      assert.deepEqual(failures, [], `${minimumRatio}:1 を割る組がある`);
-    });
-  }
-
-  test('シンプル（自動）の prefers-color-scheme の側は、simple_dark と同じ段階と地の値', () => {
+describe('地の色', () => {
+  test('シンプル（自動）の prefers-color-scheme の側は、simple_dark と同じ地の値', () => {
     const dark = blocks['シンプル（ダーク）'];
-    for (const name of [...tierNames.map((tier) => `tier-${tier}`), ...groundNames]) {
+    for (const name of groundNames) {
       assert.equal(
         readValue(autoDarkBlock, 'シンプル（自動）のダークの側', name).toLowerCase(),
         readValue(dark, 'シンプル（ダーク）', name).toLowerCase(),
@@ -175,50 +156,11 @@ describe('操作部品の枠の色のコントラスト', () => {
   });
 });
 
-describe('.tier の色の対応', () => {
-  // 波括弧を入れ子にしない規則だけを、セレクタと宣言の組にする
-  const rules = [...components.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, selector, body]) => ({
-    selector: selector.trim(),
-    colors: [...body.matchAll(/(?:^|[;\s])color:\s*([^;]+?)\s*(?:;|$)/g)].map(([, value]) => value),
-  }));
-
-  for (const tier of tierNames) {
-    test(`.tier.is-${tier} は --color-tier-${tier} を color に使う`, () => {
-      const own = rules.filter((rule) => rule.selector === `.tier.is-${tier}`);
-      assert.equal(
-        own.length,
-        1,
-        `design/components.css の .tier.is-${tier} の規則が ${own.length} 個ある（1つにする）`,
-      );
-      assert.deepEqual(
-        own[0].colors,
-        [`var(--color-tier-${tier})`],
-        `.tier.is-${tier} の color が var(--color-tier-${tier}) でない`,
-      );
-    });
-  }
-
-  test('.tier.is-* を含む別の規則（テーマごとの上書きなど）は、段階の色を変えない', () => {
-    const overrides = rules.filter(
-      (rule) =>
-        /\.tier(?![\w-])/.test(rule.selector) &&
-        !/^\.tier\.is-(small|medium|large)$/.test(rule.selector) &&
-        rule.colors.length > 0,
-    );
-    assert.deepEqual(
-      overrides.map((rule) => `${rule.selector} { color: ${rule.colors.join(', ')} }`),
-      [],
-      '.tier の color を上書きする規則がある。段階の色は --color-tier-* だけで決める（コントラストを tokens.css で守っているため）',
-    );
-  });
-});
-
 describe('お気に入りの星の色', () => {
   const all = { ...blocks, 'シンプル（自動）のダークの側': autoDarkBlock };
   for (const [theme, block] of Object.entries(all)) {
-    test(`${theme}: お気に入りの金と地5色が3:1以上で、報酬の金と別の値`, () => {
+    test(`${theme}: お気に入りの金と地5色が3:1以上`, () => {
       const color = readColor(block, theme, 'favorite');
-      assert.notEqual(color, readColor(block, theme, 'tier-large'));
       for (const ground of groundNames) {
         const ratio = contrast(color, readColor(block, theme, ground));
         assert.ok(ratio >= 3, `${theme} の星（${color}）と --color-${ground} は ${ratio.toFixed(2)}:1`);

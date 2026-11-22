@@ -476,10 +476,10 @@
     personalOrganizationName: "自分用", dashboardPersonalHome: "ホーム", createPersonalOrganizationAction: "自分用を作る",
     task: "タスク", archive: "アーカイブ", connection: "接続", sprintGoal: "スプリントゴール", detail: "詳細", ac: "受け入れ基準", due: "期日",
     points: "ポイント", assignee: "担当", category: "区分", capacity: "作業量と基準", over: "超過", done: "完了", column: "列",
-    doneToday: "今日の完了", complete: "完了にする", requester: "作成者", party: "参加者", accept: "参加する", leave: "参加をやめる",
-    historyCreated: "作成した", historyUpdated: "変更した", reward: "クリア報酬", clear: "エピックを完了にする", create: "起票", leader: "リーダー",
+    doneToday: "今日の完了", complete: "完了にする", requester: "作成者",
+    historyCreated: "作成した", historyUpdated: "変更した", clear: "エピックを完了にする", create: "起票", leader: "リーダー",
     member: "メンバー", dod: "完成の定義", organization: "組織", admin: "管理者", assistant: "アシスタント",
-    epicPageRequest: "概要", epicPagePartyEmpty: "参加者はまだいません。", accountMenuLabel: "{name}。アカウントのメニュー", pageToday: "今日やること", pageMe: "マイプロフィール", pageOrgAdmin: "組織の管理", navInvitationsBadge: "招待 {count}", navInvitationsLabel: "、届いた招待 {count}件", logout: "ログアウト", invitationCountLoading: "招待の件数を読み込んでいます", invitationCountFailed: "招待の件数を読み込めませんでした。",
+    epicPageRequest: "概要", accountMenuLabel: "{name}。アカウントのメニュー", pageToday: "今日やること", pageMe: "マイプロフィール", pageOrgAdmin: "組織の管理", navInvitationsBadge: "招待 {count}", navInvitationsLabel: "、届いた招待 {count}件", logout: "ログアウト", invitationCountLoading: "招待の件数を読み込んでいます", invitationCountFailed: "招待の件数を読み込めませんでした。",
     logoutMoving: "ログアウトしています", loggedOut: "ログアウトしました。", logoutFailed: "ログアウトできませんでした。時間をおいてもう一度試してください。",
     markdownPlainNote: "整形せずに表示しています", markdownNewTab: "新しいタブで開きます", markdownCodeRegion: "コード",
     termsTitle: "利用規約", privacyTitle: "プライバシーポリシー", retry: "もう一度試す", retrying: "読み込んでいます", retryFailed: "まだ読み込めませんでした",
@@ -621,11 +621,6 @@
   function taskDue(x) {
     const d = dueOf(x);
     return d ? dueChip(d.date, { fromSource: d.fromSource, done: !!x.doneAt }) : "";
-  }
-  function tier(size) {
-    const map = { small: ["小", 100], medium: ["中", 300], large: ["大", 600] };
-    const [label, xp] = map[size];
-    return `<span class="tier is-${size}">${label} · <b>${xp}</b> XP</span>`;
   }
   function sourceKey(x) {
     return x.src ? `<span class="source-key">${icon(SRC[x.src.kind].icon)} ${esc(x.src.key)}</span>` : "";
@@ -1202,28 +1197,6 @@
       <span class="notice-label">${t("sprintGoal")}</span>
       <p class="notice-title is-goal">${esc(s.goal)}</p>
       ${opts.showWs !== false ? `<div class="notice-meta"><span>${esc(D.workspaces[s.ws].name)}</span></div>` : ""}
-    </article>`;
-  }
-  // レイドの貼り紙（一覧や計画の中で使う小さな形）
-  function raidNotice(eid, opts = {}) {
-    const q = D.epics[eid];
-    const p = epicPts(eid);
-    const cleared = opts.cleared ?? q.cleared;
-    const joined = q.party.includes(D.me);
-    const pct = p.all ? Math.round((p.done / p.all) * 100) : 0;
-    return `<article class="notice is-raid ${cleared ? "is-cleared" : ""}">
-      <span class="notice-label">${t("epic")}　·　${esc(D.categories[q.cat].name)}</span>
-      <a class="notice-title notice-link" href="epic.html">${esc(q.title)}</a>
-      <dl class="notice-facts">
-        <div><dt>${t("requester")}</dt><dd>${avatarOf(q.requester)}${esc(user(q.requester).name)}</dd></div>
-        <div><dt>${t("reward")}</dt><dd>${tier(q.tier)}</dd></div>
-        <div><dt>${t("due")}</dt><dd>${dueChip(q.due) || "なし"}</dd></div>
-        <div><dt>${t("party")}</dt><dd><span class="avatar-stack">${q.party.map((u) => avatarOf(u)).join("")}</span>${q.party.length}人</dd></div>
-      </dl>
-      <div class="notice-foot">
-        ${progress(p.done, p.all)}
-        ${cleared ? `<span class="hanko" role="img" aria-label="完了">${icon("check")}</span>` : `<button class="btn ${joined ? "" : "is-primary"} is-sm" type="button" data-join="${eid}">${joined ? t("leave") : t("accept")}</button>`}
-      </div>
     </article>`;
   }
   function progress(done, all, { markerPercent, markerLabel, detailed = false } = {}) {
@@ -2286,7 +2259,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     // エピックとストーリーも題だけで作り、同じ空の行へ戻る
     if (kind === "new-epic" || kind === "new-story") {
       const id = `sample-${++draftSeq}`;
-      if (kind === "new-epic") D.epics[id] = { title, cat: null, body: null, due: null, link: null, party: [], requester: D.me, tier: "small" };
+      if (kind === "new-epic") D.epics[id] = { title, cat: null, body: null, due: null, link: null, requester: D.me };
       else D.stories[id] = { title, epic: key === "root" ? null : key, cat: null, ac: [], body: null, due: null, link: null };
       input.value = "";
       redrawAll();
@@ -2416,19 +2389,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   document.addEventListener("focusout", (ev) => { if (slash.ta && ev.target === slash.ta && !(ev.relatedTarget && ev.relatedTarget.closest && ev.relatedTarget.closest(".slash-menu"))) closeSlash(); });
   // 小窓の項目を押す間に欄がフォーカスを失わないよう、押した瞬間の移りを止める
   document.addEventListener("mousedown", (ev) => { if (ev.target.closest && ev.target.closest(".slash-menu")) ev.preventDefault(); });
-
-  // レイドのクリアの演出。判子が押されて、報酬を知らせる。動きを減らす設定では動かさない
-  function celebrate(title, reward) {
-    const el = document.getElementById("celebrate");
-    el.innerHTML = `<div class="celebrate-sheet" role="status">
-      <span class="celebrate-stamp" aria-hidden="true">クリア</span>
-      <p class="celebrate-title">${esc(title)}</p>
-      <p class="celebrate-reward">${reward}</p>
-      <button class="btn" type="button" data-close-celebrate>閉じる</button></div>`;
-    el.hidden = false;
-    el.querySelector("[data-close-celebrate]").focus();
-  }
-  function closeCelebrate() { const el = document.getElementById("celebrate"); if (el && !el.hidden) { el.hidden = true; el.innerHTML = ""; return true; } return false; }
 
   // 月の積載量の小さなセル。cell = [基準, 作業量, 未見積もり] か "unset" か null（計画なし）
   function miniCap(cell) {
@@ -2701,8 +2661,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     deleteStoryEmpty: () => treeDeleteDialog("story", "s4", { empty: true }),
     deleteStoryLeaderOnly: () => treeDeleteDialog("story", "s4", { leaderOnly: true }),
     cancelEpic: () => openDialog(`${t("epic")}を中止する`,
-      `<p>「${esc(D.epics.e1.title)}」を中止します。中止した${t("epic")}に${t("reward")}は出ません。</p>
-       <p class="field-hint">${t("task")}や${t("story")}の完了ですでに確定した経験値は残ります。中止は${t("requester")}と${t("leader")}ができます。</p>`,
+      `<p>この${t("epic")}を中止しますか。中止は後で取り消せます。</p>`,
       `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="中止しました">中止する</button>`),
     editRecord: () => openDialog("完了の記録を直す",
       `<p class="props-note">「ランク表示の文言を直す」の記録です。直しても経験値は動きません。直したことは変更の履歴に残ります。</p>
@@ -3812,7 +3771,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     <div class="scrim" id="scrim" data-close-drawer hidden></div>
     <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" hidden></aside>
     <div class="dialog" id="dialog" hidden></div>
-    <div class="celebrate" id="celebrate" hidden></div>
     <div class="toasts" id="toasts" aria-live="polite"></div>`;
     document.querySelector("[data-switch='theme']").addEventListener("click", cycleTheme);
     document.querySelector("[data-nav-toggle]").addEventListener("click", () => {
@@ -4185,11 +4143,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       x.doneAt = null; if (x.col === "done") x.col = x.prevCol || "c3";
       redrawAll(); return;
     }
-    if ((el = hit("data-join"))) {
-      const e = D.epics[el.dataset.join];
-      e.party = e.party.includes(D.me) ? e.party.filter((u) => u !== D.me) : [...e.party, D.me];
-      redrawAll(); return;
-    }
     if ((el = hit("data-thank"))) {
       const u = el.dataset.thank;
       drawer.thanked.has(u) ? drawer.thanked.delete(u) : drawer.thanked.add(u);
@@ -4380,10 +4333,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       }
       return;
     }
-    if ((el = hit("data-celebrate"))) {
-      const e = D.epics[el.dataset.celebrate];
-      celebrate(e.title, `${t("party")}の ${e.party.length} 人に ${{ small: 100, medium: 300, large: 600 }[e.tier]} XP`); return;
-    }
     if (ev.target.closest("#d-plan-submit")) {
       const submit = document.getElementById("d-plan-submit");
       if (planSubmitting || submit.getAttribute("aria-disabled") === "true") return;
@@ -4423,7 +4372,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       return;
     }
     if ((el = hit("data-toast-dismiss"))) { el.closest(".toast")?.remove(); return; }
-    if (hit("data-close-celebrate") || ev.target.id === "celebrate") { closeCelebrate(); return; }
     if (hit("data-assist-open") && assistAllowed()) { openAssist(assist.open === "panel" ? "panel" : "palette"); return; }
     if ((el = hit("data-assist-ask"))) { askAssist(el.dataset.assistAsk); return; }
     if (hit("data-assist-ctx")) { assist.ctxOff = !assist.ctxOff; document.querySelectorAll("#assist-palette .assist-context, #assist-panel .assist-context").forEach((c) => (c.outerHTML = assistCtx())); document.querySelector(`#assist-input-${assist.open}`)?.focus(); return; }
@@ -4462,7 +4410,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   });
   document.addEventListener("keydown", (ev) => {
     // 運用者の画面（上の帯にボタンがない）では開かない
-    const overlay = !document.getElementById("dialog")?.hidden || !document.getElementById("celebrate")?.hidden;
+    const overlay = !document.getElementById("dialog")?.hidden;
     // Ctrl+K（⌘K）は上の帯の検索へ移る。アシスタントはボタンだけで開く
     if ((ev.ctrlKey || ev.metaKey) && !ev.altKey && !ev.shiftKey && ev.key.toLowerCase() === "k" && !overlay && navSearch.input()) {
       ev.preventDefault();
@@ -4694,7 +4642,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       return pick.includes("+") ? (this.mac ? `⌘${pick.split("+").pop()}` : `Ctrl ${pick.split("+").pop()}`) : pick;
     },
     blocked() {
-      return matchMedia("(hover: none)").matches || !document.getElementById("dialog")?.hidden || !document.getElementById("celebrate")?.hidden;
+      return matchMedia("(hover: none)").matches || !document.getElementById("dialog")?.hidden;
     },
     show() {
       this.timer = 0;
@@ -4748,9 +4696,9 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     D, t, brandMark, brandSymbol, googleMark, githubMark, THEMES, THEME_LABEL, THEME_NOTE, esc, icon, md, sumPts, cycleTheme, setTheme, applyTheme, mount,
     onRedraw: (fn) => extraRedraws.push(fn), openDrawer, drawerHtml, drawerState: drawer, flashRow,
     user, task, tasksWhere, repoTag, categoryTag, sprintTag, repoPicker, sprintLabel, colName, categoryOf, storyPts, epicPts, dueOf,
-    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, emblem, pts, dueChip, taskDue, tier, sourceKey, entry, rowMenu, orderItems, draftRow, attrChip, book, section, foldedSection, pane, paneList, newsList, dashboard, activity, activityLoading, activityFailed, activityEmptyNoWorkspace, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
-    narrowDisclosure, card, board, treeStory, treeEpic, completedTasks, sprintNotice, raidNotice, progress, levelPanel, teamXp, xpDelta, load, capacityRows,
-    openDialog, closeDialog, toast, celebrate, miniCap, redraw: () => redrawAll(), DIALOGS, loginTarget, orgMenuHtml, workspaceMenuHtml, accountMenuHtml, breadcrumbHtml,
+    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, emblem, pts, dueChip, taskDue, sourceKey, entry, rowMenu, orderItems, draftRow, attrChip, book, section, foldedSection, pane, paneList, newsList, dashboard, activity, activityLoading, activityFailed, activityEmptyNoWorkspace, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
+    narrowDisclosure, card, board, treeStory, treeEpic, completedTasks, sprintNotice, progress, levelPanel, teamXp, xpDelta, load, capacityRows,
+    openDialog, closeDialog, toast, miniCap, redraw: () => redrawAll(), DIALOGS, loginTarget, orgMenuHtml, workspaceMenuHtml, accountMenuHtml, breadcrumbHtml,
     filesOf, fileThumb, fileRow, dropzone, attachments, markdownEditor, markdownToolbarHtml, mdBody, markdownSample, meter, storageBytes,
     PROVIDER, ASSIST_KEY, assistMsg, assistBlocked, assistSuggest, openAssist,
     enableAssistOnCatalog: () => { assistOnCatalog = true; },

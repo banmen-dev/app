@@ -44,7 +44,7 @@ SQ.mount("members", () => {
     ])}
     <section class="section"><div class="section-head"><h2 class="section-title">所属している人</h2><span class="section-hint">配分は11月の値。他の${t("workspace")}の配分は見えません</span></div>
       <div class="table-wrap"><table class="table is-stacked"><thead><tr><th class="is-name">名前</th><th>ロール</th><th>参加日</th><th>配分（11月）</th><th class="is-actions"><span class="visually-hidden">操作</span></th></tr></thead><tbody>${rows}</tbody></table></div>
-      <p class="action-note">外すと、その人の未完了の${t("task")}は担当なしに戻り、${t("party")}からも外れます。完了の記録と経験値は残ります。</p>
+      <p class="action-note">外すと、その人の未完了の${t("task")}は担当なしに戻ります。完了の記録と経験値は残ります。</p>
     </section>
     <section class="section"><div class="section-head"><h2 class="section-title">招待する</h2><span class="section-hint">${t("organization")}の人数 ${D.seats.used} / ${D.seats.limit} 人</span></div>
       <div class="panel">

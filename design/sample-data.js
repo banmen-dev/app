@@ -75,8 +75,8 @@ window.SQ_DATA = (function () {
 
     epics: {
       e1: {
-        title: "会員ポイント制度を公開する", cat: "k1", due: "2026-11-20", tier: "large",
-        requester: "u2", creator: "u2", party: ["u2", "u1", "u3", "u5"],
+        title: "会員ポイント制度を公開する", cat: "k1", due: "2026-11-20",
+        requester: "u2", creator: "u2",
         body: [
           "購入額に応じてポイントを付け、次の購入で使えるようにする。年内の公開が先方との約束。",
           "失効は付与から1年。管理画面で付与と失効の履歴を追えることを先方が重視している。",
@@ -84,8 +84,8 @@ window.SQ_DATA = (function () {
         link: "https://example.com/spec/points",
       },
       e2: {
-        title: "決済まわりの障害を減らす", cat: "k2", due: "2026-10-24", tier: "medium",
-        requester: "u1", creator: "u1", party: ["u1", "u4"],
+        title: "決済まわりの障害を減らす", cat: "k2", due: "2026-10-24",
+        requester: "u1", creator: "u1",
         body: ["9月に2回あった決済の取りこぼしを受けて、検知と連絡の流れを整える。"],
       },
     },
@@ -275,10 +275,8 @@ Object.assign(window.SQ_DATA, {
     { kind: "storage", at: "10/20 11:30", read: false, href: "admin.html", text: "添付ファイルの合計が上限の 80% を超えました（25.1 GB / 30 GB）。上限に達すると新しく添付できなくなります" },
     { kind: "srcDone", at: "10/20 10:00", read: false, text: "SHOP-131「請求書 PDF の文字化けを直す」が取り込み元で完了になりました", task: "t12" },
     { kind: "comment", at: "10/16 09:06", read: false, who: "u3", text: "ソウタさんが「ポイント付与のバッチを作る」にコメントしました", task: "t1" },
-    { kind: "party", at: "10/15 13:20", read: false, who: "u2", text: "ハルカさんがあなたをエピック「会員ポイント制度を公開する」の参加者に割り振りました" },
     { kind: "error", at: "10/20 10:00", read: true, text: "接続「ミナトの GitHub」の取り込みに失敗しています（503）。次の同期で再試行します" },
     { kind: "thanks", at: "10/14 18:30", read: true, who: "u4", text: "リンさんから「障害時の連絡手順を書く」で感謝が届きました" },
-    { kind: "reward", at: "10/10 10:00", read: true, who: "u2", text: "エピック「会員ポイント制度を公開する」のクリア報酬が 中 から 大 に変わりました" },
   ],
   receivedInvites: [
     { organization: "ひばり工房", ws: "デザイン相談室", by: "ユイ", role: "member", at: "10/19" },

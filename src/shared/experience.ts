@@ -24,13 +24,10 @@ export const XP_HELP_WEEKLY_LIMIT = 3;
 // ストーリーの完了。配下のタスクで完了の経験値を受け取った人全員に、1人1回ずつ付く（取り消すと打ち消す）
 export const XP_STORY_COMPLETED = 20;
 
-// エピックのクリア報酬の段階（epics.reward_tier の CHECK と同じ並び）と、段階ごとの経験値。
-// 1人1スプリントで約 400 の尺度に対し、大は 1.5 スプリント分。画面に額を出すために持つ。払うのはクリアの処理（epic-complete）で、
-// クリアした時点の段階の額を、そのときの討伐隊のうち今そのワークスペースに所属している人に、1人1行ずつ付ける（取り消すと打ち消す）
+// エピックのクリア報酬の段階（epics.reward_tier の CHECK と同じ並び）。報酬の仕組みは外した（#1434）が、列が残る間は
+// 作るときに既定の段階（src/shared/epic.ts の EPIC_DEFAULT_REWARD_TIER）を書く。列は #1438 で消す
 export const epicRewardTiers = ['small', 'medium', 'large'] as const;
 export type EpicRewardTier = (typeof epicRewardTiers)[number];
-
-export const XP_EPIC_REWARD: Readonly<Record<EpicRewardTier, number>> = { small: 100, medium: 300, large: 600 };
 
 // 経験値の明細の行動（xp_grants.action の CHECK と同じ並び）
 export const experienceActions = [

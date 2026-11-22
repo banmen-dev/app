@@ -11,7 +11,7 @@
 
   // 依頼主を替えるダイアログ（エピックの画面の「<依頼主>を替える」。リーダー（管理者を含む）だけに出る）。
   // 候補は、開くたびに member-list で読む、そのワークスペースに今所属している人のうち、今の依頼主（requesterId。画面が渡す）でない人。
-  // 1人を選んで「替える」を押すと epic-requester-update を送る。討伐隊は変わらない。
+  // 1人を選んで「替える」を押すと epic-requester-update を送る。
   // 替えられたら閉じて、トーストで知らせ、onchanged で画面に読み直させる（別の画面で先に同じ人になっていたときも、閉じてその旨を知らせる）。
   // 選んだ人が所属を外れていた、エピックが消えた（404）ときは、理由を出し、候補を読み直す。終わったエピック（409 の epic_finished）、
   // 書き込みの競合（409 の conflict）、権限が無い（403）は理由を出し、閉じたときに画面を読み直す。閉じたワークスペース（409 の workspace_closed）は理由を出し、
@@ -136,7 +136,6 @@
     submitButton?.focus();
     let focusSelect = false;
     const words = {
-      party: t('party'),
       epic: t('epic'),
       workspace: t('workspace'),
       requester: t('requester'),
@@ -203,7 +202,7 @@
         ? t('epicRequesterCandidatesFailed')
         : candidates.length === 0
           ? t('epicRequesterNoCandidates', { workspace: t('workspace'), requester: t('requester') })
-          : t('epicRequesterHint', { workspace: t('workspace'), party: t('party') }),
+          : t('epicRequesterHint', { workspace: t('workspace') }),
   );
   // 常に置いた読み上げの領域の文字。送っている間、読んでいる間、読めなかったとき、候補が無いときだけ入れる
   // （docs/design.md の「読み上げの領域は常に置き、文字だけを替える」）
