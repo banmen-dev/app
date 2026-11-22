@@ -65,7 +65,6 @@
   import TaskComments from './TaskComments.svelte';
   import TaskAttachments from './TaskAttachments.svelte';
   import TaskFieldValues from './TaskFieldValues.svelte';
-  import TaskThanks from './TaskThanks.svelte';
 
   // タスクの詳細の引き出しの中身（kit.js の drawerHtml）。`?task=<ID>` が付いている間、画面の枠（/[slug]/w/[id] のレイアウト）が置く。
   // 開いたら task-detail で1件を読む（本文は長いので、木には載せない）。読んでいる間は読み込み中を出し、読めなければ
@@ -2026,20 +2025,6 @@
         {/if}
       </div>
     {/if}
-
-    <TaskThanks
-      {slug}
-      {workspaceId}
-      {task}
-      {currentUserId}
-      {canWrite}
-      {candidates}
-      {candidatesLoading}
-      {candidatesFailed}
-      onretry={() => void loadCandidates()}
-      onrefresh={refresh}
-      {onstale}
-    />
 
     <!-- コメントと変更の履歴のタブ（kit.js の drawerHtml の .tabs）。中身は外さずに隠す（書きかけのコメントを、タブを切り替えても保つ）。
          左右の矢印キーと Home、End でタブを移り、移った先を選ぶ -->
