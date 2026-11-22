@@ -5,10 +5,12 @@ import { parseNulSeparated } from './ci.ts';
 
 const worktree = /ワークツリー|\bworktrees?\b/i;
 const worktreeSetup =
-  /\bworktree\s+(?:add|move)\b|ワークツリー(?:を(?:切|作|用意|使)|(?:に|へ)移動|(?:内)?で(?:以下|次の))/i;
+  /\bworktree\s+(?:add|move)\b|ワークツリー(?:を(?:切|作|用意|使)|(?:に|へ)移動|(?:内)?では?(?:以下|次))/i;
 const cloneCommand = /^[ \t]*(?:\$[ \t]+)?git[ \t]+clone\b/m;
 const normalCheckout =
-  /(?:クローン(?:直後|した作業コピー)?では?|本体の作業コピーで)(?:以下|次の|実行(?:する|して|します))|本体の作業コピー(?:に|へ)移動(?:する|して|します)/;
+  /(?:クローン(?:直後|した作業コピー)?では?|本体の作業コピーでは?)(?:(?:以下|次(?:の手順)?)(?:を(?:実行する|実行します|行う|行います))?|実行する|実行します)(?=[ \t]*(?:[。:：]|\n|$))/;
+const moveToCheckout =
+  /本体の作業コピー(?:に|へ)移動(?:する|します|してから(?:以下|次(?:の手順)?)を実行(?:する|します))(?=[ \t]*(?:[。:：]|\n|$))/;
 const shellWorktree = /\bworktree\s+(?:add|move)\b|(?:\b|-C)worktrees\/|\$(?:\{worktree\}|worktree\b)/i;
 // pnpm は -C などで作業ディレクトリを渡せる。引用したパスやシェルの行継続も読む。
 const directoryOption = String.raw`(?:-C(?:[ \t]+|=)?|--dir(?:[ \t]+|=))("[^"\n]*"|'[^'\n]*'|[^\s\x60;&|()]+)`;
@@ -135,13 +137,17 @@ export function findWorktreePnpmInstalls(path: string, source: string): number[]
       priorCommands = '';
     }
     const content = block.fenced ? withoutShellComments(block.text) : block.text;
+    // クローンだけを示すコード例は、そのブロックの中で完結する。
+    if (block.fenced && cloneCommand.test(content) && !shellWorktree.test(content)) {
+      previous = block;
+      continue;
+    }
     const tableRow = block.text.trimStart().startsWith('|');
     // 表の各行は独立した手順として扱う。本文の確認は同じ節で作業場所を切り替えるまで有効。
     const previousProse = previous?.section === block.section && !previous.fenced ? previous.text : '';
     const startsWorktreeList = listItem.test(content) && !listItem.test(previousProse) && worktree.test(previousProse);
     if (!tableRow) {
-      const changesToCheckout = block.fenced ? cloneCommand.test(content) : normalCheckout.test(content);
-      if (changesToCheckout) {
+      if (!block.fenced && (normalCheckout.test(content) || moveToCheckout.test(content))) {
         scope = 'checkout';
         priorCommands = '';
       } else if (worktreeSetup.test(content) || startsWorktreeList) {

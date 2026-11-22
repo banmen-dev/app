@@ -64,6 +64,48 @@ describe('ワークツリーの pnpm 保存先の確認', () => {
     }
   });
 
+  test('通常のクローンの手順からワークツリーに切り替えると検査を再開する', () => {
+    for (const intro of ['ワークツリーでは以下を実行する。', 'ワークツリーでは次を実行する。']) {
+      const content = [
+        '### 準備',
+        'クローン直後では以下を実行する。',
+        fence('pnpm install'),
+        intro,
+        fence('pnpm install'),
+      ].join('\n\n');
+      assert.deepEqual(findWorktreePnpmInstalls(path, content), [12]);
+    }
+  });
+
+  test('肯定形を含む否定の注記で通常のクローンに切り替えない', () => {
+    for (const note of [
+      '本体の作業コピーで実行してはいけない。',
+      '本体の作業コピーに移動する必要はない。',
+      'クローン直後では以下を実行せず、ワークツリーを切る。',
+    ]) {
+      const content = ['### ワークツリー', note, fence('pnpm install')].join('\n\n');
+      assert.deepEqual(findWorktreePnpmInstalls(path, content), [6]);
+    }
+  });
+
+  test('通常のクローンを使う明示的な手順は切り替えとして扱う', () => {
+    for (const note of ['通常のクローンでは次を実行する。', '本体の作業コピーへ移動してから次の手順を実行する。']) {
+      const content = ['### ワークツリーの補足', note, fence('pnpm install')].join('\n\n');
+      assert.deepEqual(findWorktreePnpmInstalls(path, content), []);
+    }
+  });
+
+  test('単独のクローン例は後続の手順の作業場所や保存先確認を変えない', () => {
+    const content = [
+      '### ワークツリーの用意',
+      fence('git worktree add worktrees/example origin/main'),
+      fence('git clone https://example.invalid/sample.git sample\ncd sample\npnpm store path\npnpm install'),
+      '依存の導入に進む。',
+      fence('pnpm install'),
+    ].join('\n\n');
+    assert.deepEqual(findWorktreePnpmInstalls(path, content), [17]);
+  });
+
   test('別の節や別の箇条書きにあるリンクでは通さない', () => {
     const content = `### 参照\n\n${guide}\n\n### ワークツリーの用意\n\n${fence('pnpm install')}`;
     assert.deepEqual(findWorktreePnpmInstalls(path, content), [8]);
