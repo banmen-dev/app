@@ -93,6 +93,7 @@ async function watchAnimations(page: Page, media: Media) {
           animations.set(animation, {
             effect,
             name,
+            element: [target.localName, ...target.classList].join('.'),
             durationMs: typeof endTime === 'number' && Number.isFinite(endTime) ? endTime : null,
             iterations: typeof iterations === 'number' && Number.isFinite(iterations) ? iterations : null,
           });
