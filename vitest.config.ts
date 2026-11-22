@@ -1,6 +1,7 @@
 // scripts/ のテストは node --test で動かす（pnpm test）。
 // - workers: API のテストを Workers の実行環境で動かす（test/）。テストの D1 には、test/apply-migrations.ts が全マイグレーションを当てる。読むのは Node の側でしかできないので、ここで読んで binding で渡す
 // - preview-trigger: プレビュー起動 Worker の Durable Object を別の構成で動かす
+// - legacy-redirect: 旧 URL の転送用の Worker を、その設定（wrangler.legacy-redirect.jsonc）の Workers の実行環境で動かす（test/legacy-redirect*.test.ts）
 // - web: 画面のコードのテストを node の環境で動かす（src/ の *.test.ts）。Workers の実行環境では .svelte を描けないため、svelte/server の render で HTML にして確かめる
 // - web-client: 部品の配線（`*.svelte.ts` の $effect）を、DOM なしのブラウザ向けの実行で確かめる（src/ の *.svelte.test.ts）
 import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-plugin';
@@ -11,6 +12,7 @@ import { previewTriggerOutbound, testBindings } from './test/preview-trigger-out
 export default defineConfig(async () => {
   const migrations = await readD1Migrations('./migrations');
   const previewConcurrencyTest = 'test/preview-trigger-concurrency.test.ts';
+  const legacyRedirectTest = 'test/legacy-redirect*.test.ts';
   const outbound = { node: previewTriggerOutbound() };
   return {
     test: {
@@ -31,7 +33,7 @@ export default defineConfig(async () => {
           test: {
             name: 'workers',
             include: ['test/**/*.test.ts'],
-            exclude: [previewConcurrencyTest],
+            exclude: [previewConcurrencyTest, legacyRedirectTest],
             setupFiles: ['./test/apply-migrations.ts'],
           },
         },
@@ -47,6 +49,10 @@ export default defineConfig(async () => {
             }),
           ],
           test: { name: 'preview-trigger', include: [previewConcurrencyTest] },
+        },
+        {
+          plugins: [cloudflareTest({ wrangler: { configPath: './wrangler.legacy-redirect.jsonc' } })],
+          test: { name: 'legacy-redirect', include: [legacyRedirectTest] },
         },
         {
           plugins: [svelte({ configFile: false, compilerOptions: { runes: true } })],
