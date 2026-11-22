@@ -2,7 +2,7 @@ import { todayIn } from '../../shared/clock.ts';
 import { planSummary, type VelocitySprint } from '../../shared/operations/sprint/index.ts';
 import type { ExpressionBuilder, OrganizationTables } from '../db/index.ts';
 import { ApiError } from '../errors.ts';
-import { amountOf } from './experience.ts';
+import { amountOf } from './aggregate.ts';
 import { implement } from './implement.ts';
 
 // ベロシティの平均に入れる終了したスプリントの数と、平均から除いたことを示す延長したスプリントの最大数

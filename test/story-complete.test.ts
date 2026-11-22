@@ -1,15 +1,14 @@
-// ストーリーの完了と取り消しの振る舞い（経験値の付与と打ち消し、競合、変更の履歴）。
+// ストーリーの完了と取り消しの振る舞い（経験値の行を書かないこと、競合、変更の履歴）。
 // 組織の分離と権限の種類ごとの許可と拒否は、一覧を回す test/operation-registry.test.ts が確かめる
 import { env } from 'cloudflare:workers';
 import { describe, expect, test } from 'vitest';
-import { XP_STORY_COMPLETED } from '../src/shared/experience.ts';
 import { storyComplete, storyReopen } from '../src/shared/operations/story/index.ts';
 import { taskComplete } from '../src/shared/operations/task/index.ts';
 import { createApp } from '../src/server/app.ts';
 import { orgDb } from '../src/server/db/index.ts';
 import { envWithD1Hooks } from '../src/server/db/testing.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
-import { AT, createEpic, createMembership, createStory, createTask, createUser, uuidv7 } from './factories.ts';
+import { AT, createEpic, createStory, createTask } from './factories.ts';
 import { errorCodeOf, post } from './operations/harness.ts';
 import { createTarget, testEnv, type Person, type Target } from './operations/world.ts';
 
@@ -55,7 +54,7 @@ function racing(match: (sqls: readonly string[]) => boolean, change: () => Promi
   });
 }
 
-// 完了にする前の状態の読み取り（ストーリー、未完了の件数、受け取り手）
+// 完了にする前の状態の読み取り（ストーリー、未完了の件数）
 const readsCompletion = (sqls: readonly string[]) =>
   sqls[0]?.startsWith(
     'select "stories"."id", "stories"."completed_at", "epics"."completed_at" as "epic_completed_at"',
@@ -85,13 +84,13 @@ async function storyGrants(target: Target, storyId: string) {
   );
 }
 
-// 受け取った人ごとの合計
-async function balances(target: Target, storyId: string) {
-  const totals: Record<string, number> = {};
-  for (const grant of await storyGrants(target, storyId)) {
-    totals[grant.user_id] = (totals[grant.user_id] ?? 0) + grant.amount;
-  }
-  return totals;
+// このワークスペースの経験値の行の数（ストーリーに結ばれない行も数える）
+async function workspaceGrantCount(target: Target) {
+  const db = orgDb(env, target.organization.verified);
+  const rows = await db.rows(
+    db.statement((q) => q.selectFrom('xp_grants').select('id').where('workspace_id', '=', target.workspace.id)),
+  );
+  return rows.length;
 }
 
 async function logsOf(target: Target, storyId: string) {
@@ -110,9 +109,9 @@ async function logsOf(target: Target, storyId: string) {
   );
 }
 
-// 完了したタスクと、その完了の経験値（task_completed）。打ち消しの行も足せる
-async function completedTask(target: Target, storyId: string, userId: string, options: { deleted?: boolean } = {}) {
-  const task = await createTask(target.organization, target.workspace.id, target.admin.userId!, {
+// 完了したタスク（経験値の行は書かない。タスクの完了も経験値を付けない）
+function completedTask(target: Target, storyId: string, userId: string, options: { deleted?: boolean } = {}) {
+  return createTask(target.organization, target.workspace.id, target.admin.userId!, {
     story_id: storyId,
     points: 3,
     assignee_user_id: userId,
@@ -120,50 +119,6 @@ async function completedTask(target: Target, storyId: string, userId: string, op
     completed_by: userId,
     deleted_at: options.deleted ? AT : null,
   });
-  const grantId = await insertGrant(target, { user_id: userId, task_id: task.id, amount: 30 });
-  return { task, grantId };
-}
-
-async function insertGrant(
-  target: Target,
-  values: { user_id: string; task_id: string; amount: number; reverses_grant_id?: string },
-) {
-  const db = orgDb(env, target.organization.verified);
-  const id = uuidv7();
-  await db.run(
-    db.statement((q) =>
-      q.insertInto('xp_grants').values({
-        id,
-        workspace_id: target.workspace.id,
-        user_id: values.user_id,
-        action: 'task_completed',
-        task_id: values.task_id,
-        story_id: null,
-        epic_id: null,
-        completion_id: uuidv7(),
-        thank_id: null,
-        helper_sender_user_id: null,
-        amount: values.amount,
-        reverses_grant_id: values.reverses_grant_id ?? null,
-        dedupe_key:
-          values.reverses_grant_id === undefined ? `task_completed:${id}` : `reversal:${values.reverses_grant_id}`,
-        confirmed_at: AT,
-      }),
-    ),
-  );
-  return id;
-}
-
-// このワークスペースに今所属する人（ほかの値は factories の既定）
-async function newMember(target: Target, overrides: { left?: boolean } = {}) {
-  const user = await createUser(target.organization, { name: '若葉 律' });
-  await createMembership(
-    target.organization,
-    target.workspace.id,
-    user.id,
-    overrides.left ? { left_on: '2026-10-20', left_at: AT } : {},
-  );
-  return user.id;
 }
 
 function emptyStory(target: Target, overrides: Parameters<typeof createStory>[3] = {}) {
@@ -171,24 +126,14 @@ function emptyStory(target: Target, overrides: Parameters<typeof createStory>[3]
 }
 
 describe('story-complete', () => {
-  test('配下のタスクで完了の経験値を受け取った人に、1人1回ずつ経験値を付け、変更の履歴を残す', async () => {
+  test('完了にして、完了した日時と人と変更の履歴を残し、経験値の行は書かない', async () => {
     const target = await createTarget();
     const story = await emptyStory(target);
     const member = target.member.userId!;
-    const leader = target.leader.userId!;
-    // ハルカは2件のタスクで受け取っていても1回
     await completedTask(target, story.id, member);
     await completedTask(target, story.id, member);
-    await completedTask(target, story.id, leader);
-    // 所属を外れた人、打ち消された付与、削除したタスクの付与は数えない
-    await completedTask(target, story.id, await newMember(target, { left: true }));
-    const reversed = await newMember(target);
-    const { task, grantId } = await completedTask(target, story.id, reversed);
-    await insertGrant(target, { user_id: reversed, task_id: task.id, amount: -30, reverses_grant_id: grantId });
-    await completedTask(target, story.id, await newMember(target), { deleted: true });
-    // 別のストーリーの付与も数えない
-    const other = await emptyStory(target);
-    await completedTask(target, other.id, await newMember(target));
+    await completedTask(target, story.id, target.leader.userId!);
+    await completedTask(target, story.id, target.admin.userId!, { deleted: true });
 
     const res = await complete(target, story.id);
     expect(res.status).toBe(200);
@@ -200,18 +145,8 @@ describe('story-complete', () => {
       updated_at: body.completed_at,
     });
 
-    const grants = await storyGrants(target, story.id);
-    expect(grants.map((grant) => grant.user_id).sort()).toEqual([member, leader].sort());
-    for (const grant of grants) {
-      expect(grant).toMatchObject({
-        action: 'story_completed',
-        amount: XP_STORY_COMPLETED,
-        task_id: null,
-        reverses_grant_id: null,
-        confirmed_at: body.completed_at,
-        dedupe_key: `story_completed:${story.id}:${grant.user_id}:${body.completed_at}`,
-      });
-    }
+    expect(await storyGrants(target, story.id)).toEqual([]);
+    expect(await workspaceGrantCount(target)).toBe(0);
 
     const logs = await logsOf(target, story.id);
     expect(logs).toHaveLength(1);
@@ -222,7 +157,7 @@ describe('story-complete', () => {
     });
   });
 
-  test('タスクの完了の操作で付いた経験値の受け取り手に付く（担当のいないタスクは完了にした人）', async () => {
+  test('配下のタスクを完了の操作で完了にしてから完了にしても、経験値の行は増えない（討伐隊がいても）', async () => {
     const target = await createTarget();
     const story = await emptyStory(target);
     const assigned = await createTask(target.organization, target.workspace.id, target.admin.userId!, {
@@ -242,14 +177,13 @@ describe('story-complete', () => {
       });
       expect(res.status).toBe(200);
     }
+    const before = await workspaceGrantCount(target);
     expect((await complete(target, story.id)).status).toBe(200);
-    expect(await balances(target, story.id)).toEqual({
-      [target.leader.userId!]: XP_STORY_COMPLETED,
-      [target.member.userId!]: XP_STORY_COMPLETED,
-    });
+    expect(await workspaceGrantCount(target)).toBe(before);
+    expect(await storyGrants(target, story.id)).toEqual([]);
   });
 
-  test('配下にタスクが1件も無いストーリーも完了にでき、経験値は誰にも付かない', async () => {
+  test('配下にタスクが1件も無いストーリーも完了にでき、経験値の行も書かない', async () => {
     const target = await createTarget();
     const story = await emptyStory(target);
     expect((await complete(target, story.id)).status).toBe(200);
@@ -340,7 +274,7 @@ describe('story-complete', () => {
     expect(await errorOf(res)).toEqual({ code: 'conflict', reason: 'completed' });
   });
 
-  test('2つの画面から同時に完了にすると、片方は 409 の conflict で、記録と経験値は1回分', async () => {
+  test('2つの画面から同時に完了にすると、片方は 409 の conflict で、記録は1回分', async () => {
     const target = await createTarget();
     const story = await emptyStory(target);
     await completedTask(target, story.id, target.member.userId!);
@@ -355,11 +289,11 @@ describe('story-complete', () => {
     expect(first.status).toBe(409);
     expect(await errorOf(first)).toEqual({ code: 'conflict', reason: 'completed' });
     expect((await storyRow(target, story.id))!.completed_by).toBe(target.leader.userId);
-    expect(await storyGrants(target, story.id)).toHaveLength(2);
+    expect(await storyGrants(target, story.id)).toEqual([]);
     expect(await logsOf(target, story.id)).toHaveLength(1);
   });
 
-  test('止めた時計で同じ人が2回完了にしても、記録と経験値は1回分', async () => {
+  test('止めた時計で同じ人が2回完了にしても、記録は1回分', async () => {
     const target = await createTarget();
     const story = await emptyStory(target);
     await completedTask(target, story.id, target.member.userId!);
@@ -369,7 +303,7 @@ describe('story-complete', () => {
       complete(target, story.id, target.member, frozen),
     ]);
     expect(results.map((res) => res.status).sort()).toEqual([200, 409]);
-    expect(await storyGrants(target, story.id)).toHaveLength(1);
+    expect(await storyGrants(target, story.id)).toEqual([]);
     expect(await logsOf(target, story.id)).toHaveLength(1);
   });
 
@@ -384,133 +318,6 @@ describe('story-complete', () => {
     expect(await errorOf(res)).toEqual({ code: 'conflict', reason: 'open_tasks' });
     expect((await storyRow(target, story.id))!.completed_at).toBeNull();
     expect(await logsOf(target, story.id)).toEqual([]);
-  });
-
-  test('受け取り手が0人と読んだ後に1人増えても、やり直してその人に付ける', async () => {
-    const target = await createTarget();
-    const story = await emptyStory(target);
-    // 配下のタスクは完了しているが、まだ完了の経験値の付与が無い（読んだ受け取り手は0人）
-    const task = await createTask(target.organization, target.workspace.id, target.admin.userId!, {
-      story_id: story.id,
-      completed_at: AT,
-      completed_by: target.member.userId!,
-    });
-    const raced = racing(readsCompletion, async () => {
-      await insertGrant(target, { user_id: target.member.userId!, task_id: task.id, amount: 30 });
-    });
-    const res = await complete(target, story.id, target.member, raced);
-    expect(res.status).toBe(200);
-    expect(await balances(target, story.id)).toEqual({ [target.member.userId!]: XP_STORY_COMPLETED });
-  });
-
-  test('受け取り手が100人を超えても（D1 の1文の bind の上限）、完了にでき、全員に付ける', async () => {
-    const target = await createTarget();
-    const story = await emptyStory(target);
-    const db = orgDb(env, target.organization.verified);
-    const userIds: string[] = [];
-    const statements = [];
-    for (let index = 0; index < 110; index++) {
-      const userId = uuidv7();
-      const taskId = uuidv7();
-      userIds.push(userId);
-      statements.push(
-        db.statement((q) =>
-          q.insertInto('users').values({
-            id: userId,
-            organization_id: target.organization.id,
-            account_id: null,
-            login_provider: 'github',
-            login_subject: `${8100000 + index}${crypto.randomUUID().slice(0, 4).replace(/\D/g, '1')}`,
-            login_email: null,
-            claim_token_hash: null,
-            claim_expires_at: null,
-            name: `冒険者 ${index}`,
-            is_admin: 0,
-            work_start_on: null,
-            work_end_on: null,
-            disabled_at: null,
-            last_seen_at: null,
-            theme: null,
-            created_at: AT,
-            updated_at: AT,
-          }),
-        ),
-        db.statement((q) =>
-          q.insertInto('memberships').values({
-            id: uuidv7(),
-            workspace_id: target.workspace.id,
-            user_id: userId,
-            role: 'member',
-            joined_on: '2026-10-01',
-            left_on: null,
-            joined_at: AT,
-            left_at: null,
-          }),
-        ),
-        db.statement((q) =>
-          q.insertInto('tasks').values({
-            id: taskId,
-            workspace_id: target.workspace.id,
-            is_imported: 0,
-            tray: 'backlog',
-            title: `見積もり ${index}`,
-            body_md: null,
-            link_url: null,
-            story_id: story.id,
-            category_id: null,
-            repository_id: null,
-            sprint_id: null,
-            column_id: null,
-            assignee_user_id: userId,
-            points: 1,
-            due_on: null,
-            today_on: null,
-            completed_at: AT,
-            completed_by: userId,
-            position: 'a0',
-            column_position: null,
-            created_by: target.admin.userId!,
-            created_at: AT,
-            updated_at: AT,
-            deleted_at: null,
-          }),
-        ),
-      );
-    }
-    await db.batch(statements);
-    for (const [index, userId] of userIds.entries()) {
-      const tasks = await db.rows(
-        db.statement((q) =>
-          q
-            .selectFrom('tasks')
-            .select('id')
-            .where('workspace_id', '=', target.workspace.id)
-            .where('assignee_user_id', '=', userId),
-        ),
-      );
-      expect(tasks, String(index)).toHaveLength(1);
-      await insertGrant(target, { user_id: userId, task_id: tasks[0]!.id, amount: 30 });
-    }
-
-    const res = await complete(target, story.id);
-    expect(res.status).toBe(200);
-    expect(await storyGrants(target, story.id)).toHaveLength(110);
-  });
-
-  test('読んでから書くまでに受け取り手が増えたら、読み直してやり直し、増えた人にも付ける', async () => {
-    const target = await createTarget();
-    const story = await emptyStory(target);
-    await completedTask(target, story.id, target.member.userId!);
-    const raced = racing(readsCompletion, async () => {
-      await completedTask(target, story.id, target.leader.userId!);
-    });
-    const res = await complete(target, story.id, target.member, raced);
-    expect(res.status).toBe(200);
-    expect(await balances(target, story.id)).toEqual({
-      [target.member.userId!]: XP_STORY_COMPLETED,
-      [target.leader.userId!]: XP_STORY_COMPLETED,
-    });
-    expect(await logsOf(target, story.id)).toHaveLength(1);
   });
 
   test('別の組織・別のワークスペース・削除済み・存在しないストーリーは 404', async () => {
@@ -541,7 +348,7 @@ describe('story-complete', () => {
 });
 
 describe('story-reopen', () => {
-  test('完了を取り消し、付けた経験値を打ち消し、もう一度完了にすると付け直す', async () => {
+  test('完了を取り消しても打ち消しの行は書かず、もう一度完了にできる', async () => {
     const target = await createTarget();
     const story = await emptyStory(target);
     const member = target.member.userId!;
@@ -550,6 +357,7 @@ describe('story-reopen', () => {
     await completedTask(target, story.id, leader);
     const completing = await complete(target, story.id, target.member, clockAt('2026-10-26T01:00:00.000Z'));
     const first = (await completing.json()) as { completed_at: string };
+    expect(await workspaceGrantCount(target)).toBe(0);
 
     const res = await reopen(target, story.id, target.leader, clockAt('2026-10-26T02:00:00.000Z'));
     expect(res.status).toBe(200);
@@ -559,33 +367,13 @@ describe('story-reopen', () => {
       completed_by: null,
       updated_at: '2026-10-26T02:00:00.000Z',
     });
-    const afterReopen = await storyGrants(target, story.id);
-    expect(afterReopen).toHaveLength(4);
-    const originals = afterReopen.filter((grant) => grant.amount > 0);
-    for (const original of originals) {
-      const reversal = afterReopen.find((grant) => grant.reverses_grant_id === original.id);
-      expect(reversal).toMatchObject({
-        user_id: original.user_id,
-        action: 'story_completed',
-        story_id: story.id,
-        amount: -XP_STORY_COMPLETED,
-        dedupe_key: `reversal:${original.id}`,
-        confirmed_at: '2026-10-26T02:00:00.000Z',
-      });
-    }
-    expect(await balances(target, story.id)).toEqual({ [member]: 0, [leader]: 0 });
+    expect(await workspaceGrantCount(target)).toBe(0);
 
-    // もう一度完了にすると、新しい回のキーで付け直す
+    // もう一度完了にでき、もう一度取り消せる。経験値の行は増えない
     expect((await complete(target, story.id, target.member, clockAt('2026-10-26T03:00:00.000Z'))).status).toBe(200);
-    expect(await balances(target, story.id)).toEqual({ [member]: XP_STORY_COMPLETED, [leader]: XP_STORY_COMPLETED });
-    const keys = (await storyGrants(target, story.id)).map((grant) => grant.dedupe_key);
-    expect(keys).toContain(`story_completed:${story.id}:${member}:2026-10-26T03:00:00.000Z`);
-    expect(keys).toContain(`story_completed:${story.id}:${member}:${first.completed_at}`);
-
-    // 2回目の取り消しは、2回目の付与だけを打ち消す
+    expect((await storyRow(target, story.id))!.completed_at).toBe('2026-10-26T03:00:00.000Z');
     expect((await reopen(target, story.id, target.member, clockAt('2026-10-26T04:00:00.000Z'))).status).toBe(200);
-    expect(await balances(target, story.id)).toEqual({ [member]: 0, [leader]: 0 });
-    expect(await storyGrants(target, story.id)).toHaveLength(8);
+    expect(await workspaceGrantCount(target)).toBe(0);
 
     const logs = await logsOf(target, story.id);
     expect(logs.map((log) => log.action)).toEqual(['complete', 'reopen', 'complete', 'reopen']);
@@ -596,7 +384,7 @@ describe('story-reopen', () => {
     });
   });
 
-  test('止めた時計で、完了、取り消し、完了を同じ時刻に流しても落ちず、2回目の完了は同じキーの付与を付け直さない', async () => {
+  test('止めた時計で、完了、取り消し、完了を同じ時刻に流しても落ちない', async () => {
     const target = await createTarget();
     const story = await emptyStory(target);
     await completedTask(target, story.id, target.member.userId!);
@@ -605,30 +393,7 @@ describe('story-reopen', () => {
     expect((await reopen(target, story.id, target.member, frozen)).status).toBe(200);
     expect((await complete(target, story.id, target.member, frozen)).status).toBe(200);
     expect((await storyRow(target, story.id))!.completed_at).toBe('2026-10-26T01:00:00.000Z');
-    // 開発用の時計だけで起きる。完了の回のキー（完了した日時を含む）が同じなので、付与と打ち消しの1組だけが残り、合計は 0
-    expect(await storyGrants(target, story.id)).toHaveLength(2);
-    expect(await balances(target, story.id)).toEqual({ [target.member.userId!]: 0 });
-  });
-
-  test('受け取った人が所属を外れていても、取り消すと打ち消す', async () => {
-    const target = await createTarget();
-    const story = await emptyStory(target);
-    const leaving = await newMember(target);
-    await completedTask(target, story.id, leaving);
-    expect((await complete(target, story.id, target.member, clockAt('2026-10-26T01:00:00.000Z'))).status).toBe(200);
-    expect(await balances(target, story.id)).toEqual({ [leaving]: XP_STORY_COMPLETED });
-    const db = orgDb(env, target.organization.verified);
-    await db.run(
-      db.statement((q) =>
-        q
-          .updateTable('memberships')
-          .set({ left_on: '2026-10-26', left_at: '2026-10-26T01:30:00.000Z' })
-          .where('user_id', '=', leaving)
-          .where('workspace_id', '=', target.workspace.id),
-      ),
-    );
-    expect((await reopen(target, story.id, target.member, clockAt('2026-10-26T02:00:00.000Z'))).status).toBe(200);
-    expect(await balances(target, story.id)).toEqual({ [leaving]: 0 });
+    expect(await workspaceGrantCount(target)).toBe(0);
   });
 
   test('閉じたワークスペースでは 409 の workspace_closed で、何も書かない', async () => {
@@ -678,17 +443,17 @@ describe('story-reopen', () => {
     }
   });
 
-  test('2つの画面から同時に取り消すと、片方は 409 の conflict（not_completed）で、打ち消しは1回分', async () => {
+  test('2つの画面から同時に取り消すと、片方は 409 の conflict（not_completed）で、履歴は1回分', async () => {
     const target = await createTarget();
     const story = await emptyStory(target);
     await completedTask(target, story.id, target.member.userId!);
     expect((await complete(target, story.id)).status).toBe(200);
-    // 1つ目の要求が付与を読んだ直後に、2つ目の要求が先に取り消す
+    // 1つ目の要求が状態を読んだ直後に、2つ目の要求が先に取り消す
     let second: Response | undefined;
     let done = false;
     const raced = envWithD1Hooks(testEnv, {
       afterQuery: async (sql) => {
-        if (done || !sql.startsWith('select "g"."id", "g"."user_id", "g"."amount" from "xp_grants"')) return;
+        if (done || !sql.startsWith('select "stories"."id", "stories"."epic_id", "stories"."completed_at"')) return;
         done = true;
         second = await reopen(target, story.id, target.leader);
       },
@@ -697,8 +462,7 @@ describe('story-reopen', () => {
     expect(second?.status).toBe(200);
     expect(first.status).toBe(409);
     expect(await errorOf(first)).toEqual({ code: 'conflict', reason: 'not_completed' });
-    expect(await storyGrants(target, story.id)).toHaveLength(2);
-    expect(await balances(target, story.id)).toEqual({ [target.member.userId!]: 0 });
+    expect(await workspaceGrantCount(target)).toBe(0);
     expect((await logsOf(target, story.id)).map((log) => log.action)).toEqual(['complete', 'reopen']);
   });
 });

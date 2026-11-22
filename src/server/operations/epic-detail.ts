@@ -2,7 +2,8 @@ import { todayIn } from '../../shared/clock.ts';
 import { XP_EPIC_REWARD, levelOf, type EpicRewardTier } from '../../shared/experience.ts';
 import { epicDetail, type EpicJoinedVia } from '../../shared/operations/epic/index.ts';
 import { ApiError } from '../errors.ts';
-import { amountOf, epicPartyExperienceTotalsStatement } from './experience.ts';
+import { amountOf } from './aggregate.ts';
+import { epicPartyExperienceTotalsStatement } from './experience.ts';
 import { implement } from './implement.ts';
 import { activeMemberName, isLeaderOrAdmin } from './write-guards.ts';
 
