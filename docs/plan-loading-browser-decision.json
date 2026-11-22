@@ -1,0 +1,2320 @@
+{
+  "runs": 20,
+  "rounds": 2,
+  "eligible": false,
+  "qualifyingPaths": [],
+  "regressions": [
+    {
+      "round": 1,
+      "fixture": "history",
+      "entry": "backlog-tree",
+      "metric": "summary",
+      "baseline": 162.3999999994412,
+      "candidate": 404.3999999994412,
+      "savingMs": -242,
+      "savingPercent": -149.0147783256359,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "navigation",
+      "metric": "list",
+      "baseline": 1094.2999999998137,
+      "candidate": 2010.5,
+      "savingMs": -916.2000000001863,
+      "savingPercent": -83.72475555152538,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "navigation",
+      "metric": "operation",
+      "baseline": 1080.2999999998137,
+      "candidate": 2001.5,
+      "savingMs": -921.2000000001863,
+      "savingPercent": -85.27260946036704,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "navigation",
+      "metric": "summary",
+      "baseline": 1094.4000000003725,
+      "candidate": 2010.5999999996275,
+      "savingMs": -916.1999999992549,
+      "savingPercent": -83.71710526306131,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 1,
+      "fixture": "empty",
+      "entry": "direct",
+      "metric": "list",
+      "baseline": 1230.7999999998137,
+      "candidate": 1422.7000000011176,
+      "savingMs": -191.90000000130385,
+      "savingPercent": -15.591485212977974,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 1,
+      "fixture": "empty",
+      "entry": "direct",
+      "metric": "summary",
+      "baseline": 1230.8999999994412,
+      "candidate": 1422.9000000003725,
+      "savingMs": -192.00000000093132,
+      "savingPercent": -15.598342676173408,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "navigation",
+      "metric": "list",
+      "baseline": 1018.7999999988824,
+      "candidate": 1157.5999999996275,
+      "savingMs": -138.80000000074506,
+      "savingPercent": -13.623871221132442,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "navigation",
+      "metric": "operation",
+      "baseline": 1009.0999999996275,
+      "candidate": 1151.699999999255,
+      "savingMs": -142.59999999962747,
+      "savingPercent": -14.131404221551888,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "navigation",
+      "metric": "summary",
+      "baseline": 1018.8999999985099,
+      "candidate": 1157.699999999255,
+      "savingMs": -138.80000000074506,
+      "savingPercent": -13.622534105500838,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "sprints",
+      "metric": "summary",
+      "baseline": 92.70000000111759,
+      "candidate": 194,
+      "savingMs": -101.29999999888241,
+      "savingPercent": -109.27723840092895,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 2,
+      "fixture": "empty",
+      "entry": "direct",
+      "metric": "list",
+      "baseline": 1072,
+      "candidate": 1184.4000000003725,
+      "savingMs": -112.40000000037253,
+      "savingPercent": -10.485074626900422,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 2,
+      "fixture": "empty",
+      "entry": "direct",
+      "metric": "summary",
+      "baseline": 1072,
+      "candidate": 1184.4000000003725,
+      "savingMs": -112.40000000037253,
+      "savingPercent": -10.485074626900422,
+      "improvement": false,
+      "regression": true
+    }
+  ],
+  "reasons": [
+    "編集可能な同一条件・同一経路で操作開始 p95 の改善が独立2巡で再現していません。",
+    "正式指標に100ms以上かつ10%以上の悪化が見つかりました。"
+  ],
+  "browser": [
+    {
+      "round": 1,
+      "fixture": "history",
+      "entry": "direct",
+      "variant": "B",
+      "list": {
+        "p50": 1037.8999999994412,
+        "p95": 1205.699999999255
+      },
+      "operation": {
+        "p50": 1027.0999999996275,
+        "p95": 1185.199999999255
+      },
+      "summary": {
+        "p50": 1038,
+        "p95": 1205.8999999994412
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "history",
+      "entry": "direct",
+      "variant": "C",
+      "list": {
+        "p50": 1019.3999999994412,
+        "p95": 1160.6000000005588
+      },
+      "operation": {
+        "p50": 1008.3999999994412,
+        "p95": 1149.4000000003725
+      },
+      "summary": {
+        "p50": 1029.2999999998137,
+        "p95": 1183.2000000001863
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "history",
+      "entry": "navigation",
+      "variant": "B",
+      "list": {
+        "p50": 837.5,
+        "p95": 1177.8999999994412
+      },
+      "operation": {
+        "p50": 829.5999999996275,
+        "p95": 1165.7999999998137
+      },
+      "summary": {
+        "p50": 837.7999999998137,
+        "p95": 1178.0999999996275
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "history",
+      "entry": "navigation",
+      "variant": "C",
+      "list": {
+        "p50": 726.6999999992549,
+        "p95": 927.7999999998137
+      },
+      "operation": {
+        "p50": 722.1999999992549,
+        "p95": 923.2000000001863
+      },
+      "summary": {
+        "p50": 762.6000000005588,
+        "p95": 987.0999999996275
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "history",
+      "entry": "sprints",
+      "variant": "B",
+      "list": {
+        "p50": 90,
+        "p95": 104.59999999962747
+      },
+      "operation": {
+        "p50": 73.70000000018626,
+        "p95": 88
+      },
+      "summary": {
+        "p50": 90.20000000018626,
+        "p95": 104.69999999925494
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "history",
+      "entry": "sprints",
+      "variant": "C",
+      "list": {
+        "p50": 68.70000000018626,
+        "p95": 106.29999999981374
+      },
+      "operation": {
+        "p50": 50.5,
+        "p95": 99.20000000018626
+      },
+      "summary": {
+        "p50": 94.09999999962747,
+        "p95": 130
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "history",
+      "entry": "backlog-tree",
+      "variant": "B",
+      "list": {
+        "p50": 102.80000000074506,
+        "p95": 151.70000000018626
+      },
+      "operation": {
+        "p50": 86.40000000037253,
+        "p95": 104.20000000018626
+      },
+      "summary": {
+        "p50": 103,
+        "p95": 162.3999999994412
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "history",
+      "entry": "backlog-tree",
+      "variant": "C",
+      "list": {
+        "p50": 71.8999999994412,
+        "p95": 98.09999999962747
+      },
+      "operation": {
+        "p50": 54.89999999944121,
+        "p95": 82.3999999994412
+      },
+      "summary": {
+        "p50": 104.40000000037253,
+        "p95": 404.3999999994412
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "direct",
+      "variant": "B",
+      "list": {
+        "p50": 1126.9000000003725,
+        "p95": 1424.300000000745
+      },
+      "operation": {
+        "p50": 1105.5999999996275,
+        "p95": 1407
+      },
+      "summary": {
+        "p50": 1127,
+        "p95": 1424.5
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "direct",
+      "variant": "C",
+      "list": {
+        "p50": 1048.8999999994412,
+        "p95": 1300.699999999255
+      },
+      "operation": {
+        "p50": 1037.199999999255,
+        "p95": 1281.8999999994412
+      },
+      "summary": {
+        "p50": 1128.5,
+        "p95": 1336.0999999996275
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "navigation",
+      "variant": "B",
+      "list": {
+        "p50": 804.4000000003725,
+        "p95": 1094.2999999998137
+      },
+      "operation": {
+        "p50": 792.2000000001863,
+        "p95": 1080.2999999998137
+      },
+      "summary": {
+        "p50": 804.6000000005588,
+        "p95": 1094.4000000003725
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "navigation",
+      "variant": "C",
+      "list": {
+        "p50": 800.6000000005588,
+        "p95": 2010.5
+      },
+      "operation": {
+        "p50": 789.2000000001863,
+        "p95": 2001.5
+      },
+      "summary": {
+        "p50": 827.4000000003725,
+        "p95": 2010.5999999996275
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "sprints",
+      "variant": "B",
+      "list": {
+        "p50": 88.29999999981374,
+        "p95": 107.29999999981374
+      },
+      "operation": {
+        "p50": 72.09999999962747,
+        "p95": 95.19999999925494
+      },
+      "summary": {
+        "p50": 88.5,
+        "p95": 107.3999999994412
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "sprints",
+      "variant": "C",
+      "list": {
+        "p50": 72.30000000074506,
+        "p95": 117.80000000074506
+      },
+      "operation": {
+        "p50": 56.70000000111759,
+        "p95": 104.90000000037253
+      },
+      "summary": {
+        "p50": 105.40000000037253,
+        "p95": 130.2999999988824
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "backlog-tree",
+      "variant": "B",
+      "list": {
+        "p50": 100.70000000018626,
+        "p95": 119.3999999994412
+      },
+      "operation": {
+        "p50": 84.09999999962747,
+        "p95": 102.79999999981374
+      },
+      "summary": {
+        "p50": 100.90000000037253,
+        "p95": 119.5
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "backlog-tree",
+      "variant": "C",
+      "list": {
+        "p50": 84.40000000037253,
+        "p95": 118.80000000074506
+      },
+      "operation": {
+        "p50": 63.59999999962747,
+        "p95": 111
+      },
+      "summary": {
+        "p50": 118,
+        "p95": 153.19999999925494
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "empty",
+      "entry": "direct",
+      "variant": "B",
+      "list": {
+        "p50": 1035.7000000001863,
+        "p95": 1230.7999999998137
+      },
+      "operation": null,
+      "summary": {
+        "p50": 1035.7999999998137,
+        "p95": 1230.8999999994412
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "empty",
+      "entry": "direct",
+      "variant": "C",
+      "list": {
+        "p50": 1059.5999999996275,
+        "p95": 1422.7000000011176
+      },
+      "operation": null,
+      "summary": {
+        "p50": 1059.699999999255,
+        "p95": 1422.9000000003725
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "empty",
+      "entry": "navigation",
+      "variant": "B",
+      "list": {
+        "p50": 95.29999999981374,
+        "p95": 143
+      },
+      "operation": null,
+      "summary": {
+        "p50": 95.29999999981374,
+        "p95": 143.1000000005588
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "empty",
+      "entry": "navigation",
+      "variant": "C",
+      "list": {
+        "p50": 79.30000000074506,
+        "p95": 100.19999999925494
+      },
+      "operation": null,
+      "summary": {
+        "p50": 109.09999999962747,
+        "p95": 128.5
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "empty",
+      "entry": "sprints",
+      "variant": "B",
+      "list": {
+        "p50": 87.5,
+        "p95": 91.59999999962747
+      },
+      "operation": null,
+      "summary": {
+        "p50": 87.5,
+        "p95": 91.59999999962747
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "empty",
+      "entry": "sprints",
+      "variant": "C",
+      "list": {
+        "p50": 59.79999999888241,
+        "p95": 90
+      },
+      "operation": null,
+      "summary": {
+        "p50": 75.59999999962747,
+        "p95": 123.20000000111759
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "empty",
+      "entry": "backlog-tree",
+      "variant": "B",
+      "list": {
+        "p50": 75.1000000005588,
+        "p95": 101.09999999962747
+      },
+      "operation": null,
+      "summary": {
+        "p50": 75.1000000005588,
+        "p95": 101.09999999962747
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "empty",
+      "entry": "backlog-tree",
+      "variant": "C",
+      "list": {
+        "p50": 70.69999999925494,
+        "p95": 91.40000000037253
+      },
+      "operation": null,
+      "summary": {
+        "p50": 90.59999999962747,
+        "p95": 104
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "closed",
+      "entry": "direct",
+      "variant": "B",
+      "list": {
+        "p50": 1046.5,
+        "p95": 1338.9000000003725
+      },
+      "operation": {
+        "p50": 1022.5999999996275,
+        "p95": 1321.7000000001863
+      },
+      "summary": {
+        "p50": 1046.7000000001863,
+        "p95": 1339.1000000005588
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "closed",
+      "entry": "direct",
+      "variant": "C",
+      "list": {
+        "p50": 1086.3999999985099,
+        "p95": 1346.5999999996275
+      },
+      "operation": {
+        "p50": 1074.3999999985099,
+        "p95": 1338.800000000745
+      },
+      "summary": {
+        "p50": 1134.9000000003725,
+        "p95": 1346.7000000011176
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "closed",
+      "entry": "navigation",
+      "variant": "B",
+      "list": {
+        "p50": 184.5,
+        "p95": 207.6000000005588
+      },
+      "operation": {
+        "p50": 179.79999999981374,
+        "p95": 201
+      },
+      "summary": {
+        "p50": 184.70000000018626,
+        "p95": 207.90000000037253
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "closed",
+      "entry": "navigation",
+      "variant": "C",
+      "list": {
+        "p50": 150.5,
+        "p95": 195.90000000037253
+      },
+      "operation": {
+        "p50": 145.5,
+        "p95": 191.10000000149012
+      },
+      "summary": {
+        "p50": 172.60000000149012,
+        "p95": 223.80000000074506
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "closed",
+      "entry": "sprints",
+      "variant": "B",
+      "list": {
+        "p50": 90.30000000074506,
+        "p95": 123.29999999981374
+      },
+      "operation": {
+        "p50": 74.09999999962747,
+        "p95": 108
+      },
+      "summary": {
+        "p50": 90.5,
+        "p95": 123.40000000037253
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "closed",
+      "entry": "sprints",
+      "variant": "C",
+      "list": {
+        "p50": 59.30000000074506,
+        "p95": 78.69999999925494
+      },
+      "operation": {
+        "p50": 45,
+        "p95": 58.90000000037253
+      },
+      "summary": {
+        "p50": 89.90000000037253,
+        "p95": 128.59999999962747
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "closed",
+      "entry": "backlog-tree",
+      "variant": "B",
+      "list": {
+        "p50": 89.59999999962747,
+        "p95": 91
+      },
+      "operation": {
+        "p50": 73.09999999962747,
+        "p95": 74.70000000018626
+      },
+      "summary": {
+        "p50": 89.59999999962747,
+        "p95": 91
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "closed",
+      "entry": "backlog-tree",
+      "variant": "C",
+      "list": {
+        "p50": 70.29999999888241,
+        "p95": 97.90000000037253
+      },
+      "operation": {
+        "p50": 54.59999999962747,
+        "p95": 87.5
+      },
+      "summary": {
+        "p50": 92.20000000111759,
+        "p95": 122
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "direct",
+      "variant": "B",
+      "list": {
+        "p50": 1317.2000000011176,
+        "p95": 1861
+      },
+      "operation": {
+        "p50": 1306.4000000003725,
+        "p95": 1848.9000000003725
+      },
+      "summary": {
+        "p50": 1317.300000000745,
+        "p95": 1861.0999999996275
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "direct",
+      "variant": "C",
+      "list": {
+        "p50": 1147,
+        "p95": 1356.199999999255
+      },
+      "operation": {
+        "p50": 1129.0999999996275,
+        "p95": 1344
+      },
+      "summary": {
+        "p50": 1185.6000000014901,
+        "p95": 1409.800000000745
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "navigation",
+      "variant": "B",
+      "list": {
+        "p50": 822.6999999992549,
+        "p95": 1018.7999999988824
+      },
+      "operation": {
+        "p50": 813.1999999992549,
+        "p95": 1009.0999999996275
+      },
+      "summary": {
+        "p50": 822.8000000007451,
+        "p95": 1018.8999999985099
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "navigation",
+      "variant": "C",
+      "list": {
+        "p50": 789.9000000003725,
+        "p95": 1157.5999999996275
+      },
+      "operation": {
+        "p50": 779.8999999985099,
+        "p95": 1151.699999999255
+      },
+      "summary": {
+        "p50": 804.8999999985099,
+        "p95": 1157.699999999255
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "sprints",
+      "variant": "B",
+      "list": {
+        "p50": 87.30000000074506,
+        "p95": 92.30000000074506
+      },
+      "operation": {
+        "p50": 70.80000000074506,
+        "p95": 85.20000000111759
+      },
+      "summary": {
+        "p50": 87.40000000037253,
+        "p95": 92.70000000111759
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "sprints",
+      "variant": "C",
+      "list": {
+        "p50": 70.09999999962747,
+        "p95": 130
+      },
+      "operation": {
+        "p50": 54.899999998509884,
+        "p95": 113.5
+      },
+      "summary": {
+        "p50": 104.29999999888241,
+        "p95": 194
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "backlog-tree",
+      "variant": "B",
+      "list": {
+        "p50": 102.69999999925494,
+        "p95": 123.09999999962747
+      },
+      "operation": {
+        "p50": 86.19999999925494,
+        "p95": 106.59999999962747
+      },
+      "summary": {
+        "p50": 102.90000000037253,
+        "p95": 123.20000000111759
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "backlog-tree",
+      "variant": "C",
+      "list": {
+        "p50": 69.5,
+        "p95": 105.20000000111759
+      },
+      "operation": {
+        "p50": 53.80000000074506,
+        "p95": 94.90000000037253
+      },
+      "summary": {
+        "p50": 91.70000000111759,
+        "p95": 106.19999999925494
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "planned",
+      "entry": "direct",
+      "variant": "B",
+      "list": {
+        "p50": 1196.9000000003725,
+        "p95": 1563.1000000014901
+      },
+      "operation": {
+        "p50": 1166.0999999996275,
+        "p95": 1546.800000000745
+      },
+      "summary": {
+        "p50": 1196.9000000003725,
+        "p95": 1563.300000000745
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "planned",
+      "entry": "direct",
+      "variant": "C",
+      "list": {
+        "p50": 1131.300000000745,
+        "p95": 1451.5
+      },
+      "operation": {
+        "p50": 1116.0999999996275,
+        "p95": 1429.4000000003725
+      },
+      "summary": {
+        "p50": 1141.5999999996275,
+        "p95": 1484.699999999255
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "planned",
+      "entry": "navigation",
+      "variant": "B",
+      "list": {
+        "p50": 860.1999999992549,
+        "p95": 1186.7000000011176
+      },
+      "operation": {
+        "p50": 850.5999999996275,
+        "p95": 1179.2000000011176
+      },
+      "summary": {
+        "p50": 860.3999999985099,
+        "p95": 1186.800000000745
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "planned",
+      "entry": "navigation",
+      "variant": "C",
+      "list": {
+        "p50": 828.9000000003725,
+        "p95": 1072.3999999985099
+      },
+      "operation": {
+        "p50": 820.1999999992549,
+        "p95": 1061.8999999985099
+      },
+      "summary": {
+        "p50": 856.5999999996275,
+        "p95": 1098.699999999255
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "planned",
+      "entry": "sprints",
+      "variant": "B",
+      "list": {
+        "p50": 101.90000000037253,
+        "p95": 118.60000000149012
+      },
+      "operation": {
+        "p50": 85.80000000074506,
+        "p95": 102
+      },
+      "summary": {
+        "p50": 102.09999999962747,
+        "p95": 118.80000000074506
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "planned",
+      "entry": "sprints",
+      "variant": "C",
+      "list": {
+        "p50": 70.89999999850988,
+        "p95": 87.69999999925494
+      },
+      "operation": {
+        "p50": 56,
+        "p95": 71.79999999888241
+      },
+      "summary": {
+        "p50": 105.5,
+        "p95": 119.70000000111759
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "planned",
+      "entry": "backlog-tree",
+      "variant": "B",
+      "list": {
+        "p50": 101.29999999888241,
+        "p95": 121
+      },
+      "operation": {
+        "p50": 84.90000000037253,
+        "p95": 104.40000000037253
+      },
+      "summary": {
+        "p50": 101.40000000037253,
+        "p95": 121.10000000149012
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "planned",
+      "entry": "backlog-tree",
+      "variant": "C",
+      "list": {
+        "p50": 56.59999999962747,
+        "p95": 88.89999999850988
+      },
+      "operation": {
+        "p50": 44.40000000037253,
+        "p95": 76.29999999888241
+      },
+      "summary": {
+        "p50": 90.89999999850988,
+        "p95": 122.90000000037253
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "empty",
+      "entry": "direct",
+      "variant": "B",
+      "list": {
+        "p50": 940.2999999988824,
+        "p95": 1072
+      },
+      "operation": null,
+      "summary": {
+        "p50": 940.4000000003725,
+        "p95": 1072
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "empty",
+      "entry": "direct",
+      "variant": "C",
+      "list": {
+        "p50": 963.8000000007451,
+        "p95": 1184.4000000003725
+      },
+      "operation": null,
+      "summary": {
+        "p50": 988.4000000003725,
+        "p95": 1184.4000000003725
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "empty",
+      "entry": "navigation",
+      "variant": "B",
+      "list": {
+        "p50": 102.80000000074506,
+        "p95": 128.5
+      },
+      "operation": null,
+      "summary": {
+        "p50": 102.90000000037253,
+        "p95": 128.5
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "empty",
+      "entry": "navigation",
+      "variant": "C",
+      "list": {
+        "p50": 79.59999999962747,
+        "p95": 97.79999999888241
+      },
+      "operation": null,
+      "summary": {
+        "p50": 96.10000000149012,
+        "p95": 113
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "empty",
+      "entry": "sprints",
+      "variant": "B",
+      "list": {
+        "p50": 90.20000000111759,
+        "p95": 105.19999999925494
+      },
+      "operation": null,
+      "summary": {
+        "p50": 90.29999999888241,
+        "p95": 105.19999999925494
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "empty",
+      "entry": "sprints",
+      "variant": "C",
+      "list": {
+        "p50": 72.79999999888241,
+        "p95": 76.20000000111759
+      },
+      "operation": null,
+      "summary": {
+        "p50": 89.90000000037253,
+        "p95": 108.20000000111759
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "empty",
+      "entry": "backlog-tree",
+      "variant": "B",
+      "list": {
+        "p50": 90.59999999962747,
+        "p95": 108.40000000037253
+      },
+      "operation": null,
+      "summary": {
+        "p50": 90.59999999962747,
+        "p95": 108.5
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "empty",
+      "entry": "backlog-tree",
+      "variant": "C",
+      "list": {
+        "p50": 58.59999999962747,
+        "p95": 89.39999999850988
+      },
+      "operation": null,
+      "summary": {
+        "p50": 90.5,
+        "p95": 93.69999999925494
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "closed",
+      "entry": "direct",
+      "variant": "B",
+      "list": {
+        "p50": 1091.300000000745,
+        "p95": 1299.7999999988824
+      },
+      "operation": {
+        "p50": 1078.800000000745,
+        "p95": 1280.7999999988824
+      },
+      "summary": {
+        "p50": 1091.4000000003725,
+        "p95": 1299.8999999985099
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "closed",
+      "entry": "direct",
+      "variant": "C",
+      "list": {
+        "p50": 1027.300000000745,
+        "p95": 1228.800000000745
+      },
+      "operation": {
+        "p50": 1022.2999999988824,
+        "p95": 1210.0999999996275
+      },
+      "summary": {
+        "p50": 1083.3999999985099,
+        "p95": 1228.9000000003725
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "closed",
+      "entry": "navigation",
+      "variant": "B",
+      "list": {
+        "p50": 177.40000000037253,
+        "p95": 207.59999999962747
+      },
+      "operation": {
+        "p50": 170.89999999850988,
+        "p95": 201.59999999962747
+      },
+      "summary": {
+        "p50": 177.5,
+        "p95": 207.7999999988824
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "closed",
+      "entry": "navigation",
+      "variant": "C",
+      "list": {
+        "p50": 136.7999999988824,
+        "p95": 179.40000000037253
+      },
+      "operation": {
+        "p50": 133.2999999988824,
+        "p95": 172.59999999962747
+      },
+      "summary": {
+        "p50": 158.80000000074506,
+        "p95": 198.2000000011176
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "closed",
+      "entry": "sprints",
+      "variant": "B",
+      "list": {
+        "p50": 90.19999999925494,
+        "p95": 287.69999999925494
+      },
+      "operation": {
+        "p50": 73.80000000074506,
+        "p95": 271.40000000037253
+      },
+      "summary": {
+        "p50": 90.29999999888241,
+        "p95": 287.69999999925494
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "closed",
+      "entry": "sprints",
+      "variant": "C",
+      "list": {
+        "p50": 74.19999999925494,
+        "p95": 101.59999999962747
+      },
+      "operation": {
+        "p50": 57.40000000037253,
+        "p95": 92.90000000037253
+      },
+      "summary": {
+        "p50": 101.60000000149012,
+        "p95": 109
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "closed",
+      "entry": "backlog-tree",
+      "variant": "B",
+      "list": {
+        "p50": 101.40000000037253,
+        "p95": 118.09999999962747
+      },
+      "operation": {
+        "p50": 84.90000000037253,
+        "p95": 101.70000000111759
+      },
+      "summary": {
+        "p50": 101.59999999962747,
+        "p95": 118.5
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "closed",
+      "entry": "backlog-tree",
+      "variant": "C",
+      "list": {
+        "p50": 73.60000000149012,
+        "p95": 104.90000000037253
+      },
+      "operation": {
+        "p50": 58.80000000074506,
+        "p95": 95.20000000111759
+      },
+      "summary": {
+        "p50": 106.90000000037253,
+        "p95": 148.19999999925494
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "round": 1,
+      "fixture": "history",
+      "entry": "direct",
+      "metric": "list",
+      "baseline": 1205.699999999255,
+      "candidate": 1160.6000000005588,
+      "savingMs": 45.09999999869615,
+      "savingPercent": 3.7405656464065706,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "history",
+      "entry": "direct",
+      "metric": "operation",
+      "baseline": 1185.199999999255,
+      "candidate": 1149.4000000003725,
+      "savingMs": 35.79999999888241,
+      "savingPercent": 3.0205872425670703,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "history",
+      "entry": "direct",
+      "metric": "summary",
+      "baseline": 1205.8999999994412,
+      "candidate": 1183.2000000001863,
+      "savingMs": 22.699999999254942,
+      "savingPercent": 1.8824114768443039,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "history",
+      "entry": "navigation",
+      "metric": "list",
+      "baseline": 1177.8999999994412,
+      "candidate": 927.7999999998137,
+      "savingMs": 250.09999999962747,
+      "savingPercent": 21.23270226672435,
+      "improvement": true,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "history",
+      "entry": "navigation",
+      "metric": "operation",
+      "baseline": 1165.7999999998137,
+      "candidate": 923.2000000001863,
+      "savingMs": 242.59999999962747,
+      "savingPercent": 20.809744381511944,
+      "improvement": true,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "history",
+      "entry": "navigation",
+      "metric": "summary",
+      "baseline": 1178.0999999996275,
+      "candidate": 987.0999999996275,
+      "savingMs": 191,
+      "savingPercent": 16.212545624315457,
+      "improvement": true,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "history",
+      "entry": "sprints",
+      "metric": "list",
+      "baseline": 104.59999999962747,
+      "candidate": 106.29999999981374,
+      "savingMs": -1.7000000001862645,
+      "savingPercent": -1.625239005919999,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "history",
+      "entry": "sprints",
+      "metric": "operation",
+      "baseline": 88,
+      "candidate": 99.20000000018626,
+      "savingMs": -11.200000000186265,
+      "savingPercent": -12.727272727484392,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "history",
+      "entry": "sprints",
+      "metric": "summary",
+      "baseline": 104.69999999925494,
+      "candidate": 130,
+      "savingMs": -25.300000000745058,
+      "savingPercent": -24.164278892956155,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "history",
+      "entry": "backlog-tree",
+      "metric": "list",
+      "baseline": 151.70000000018626,
+      "candidate": 98.09999999962747,
+      "savingMs": 53.60000000055879,
+      "savingPercent": 35.3328938698042,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "history",
+      "entry": "backlog-tree",
+      "metric": "operation",
+      "baseline": 104.20000000018626,
+      "candidate": 82.3999999994412,
+      "savingMs": 21.800000000745058,
+      "savingPercent": 20.921305183019278,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "history",
+      "entry": "backlog-tree",
+      "metric": "summary",
+      "baseline": 162.3999999994412,
+      "candidate": 404.3999999994412,
+      "savingMs": -242,
+      "savingPercent": -149.0147783256359,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "direct",
+      "metric": "list",
+      "baseline": 1424.300000000745,
+      "candidate": 1300.699999999255,
+      "savingMs": 123.60000000149012,
+      "savingPercent": 8.677947061814608,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "direct",
+      "metric": "operation",
+      "baseline": 1407,
+      "candidate": 1281.8999999994412,
+      "savingMs": 125.1000000005588,
+      "savingPercent": 8.891257995775323,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "direct",
+      "metric": "summary",
+      "baseline": 1424.5,
+      "candidate": 1336.0999999996275,
+      "savingMs": 88.40000000037253,
+      "savingPercent": 6.205686205712357,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "navigation",
+      "metric": "list",
+      "baseline": 1094.2999999998137,
+      "candidate": 2010.5,
+      "savingMs": -916.2000000001863,
+      "savingPercent": -83.72475555152538,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "navigation",
+      "metric": "operation",
+      "baseline": 1080.2999999998137,
+      "candidate": 2001.5,
+      "savingMs": -921.2000000001863,
+      "savingPercent": -85.27260946036704,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "navigation",
+      "metric": "summary",
+      "baseline": 1094.4000000003725,
+      "candidate": 2010.5999999996275,
+      "savingMs": -916.1999999992549,
+      "savingPercent": -83.71710526306131,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "sprints",
+      "metric": "list",
+      "baseline": 107.29999999981374,
+      "candidate": 117.80000000074506,
+      "savingMs": -10.500000000931323,
+      "savingPercent": -9.785647717567148,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "sprints",
+      "metric": "operation",
+      "baseline": 95.19999999925494,
+      "candidate": 104.90000000037253,
+      "savingMs": -9.700000001117587,
+      "savingPercent": -10.189075631505778,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "sprints",
+      "metric": "summary",
+      "baseline": 107.3999999994412,
+      "candidate": 130.2999999988824,
+      "savingMs": -22.899999999441206,
+      "savingPercent": -21.32216014856644,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "backlog-tree",
+      "metric": "list",
+      "baseline": 119.3999999994412,
+      "candidate": 118.80000000074506,
+      "savingMs": 0.5999999986961484,
+      "savingPercent": 0.502512561724419,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "backlog-tree",
+      "metric": "operation",
+      "baseline": 102.79999999981374,
+      "candidate": 111,
+      "savingMs": -8.200000000186265,
+      "savingPercent": -7.976653696693699,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "planned",
+      "entry": "backlog-tree",
+      "metric": "summary",
+      "baseline": 119.5,
+      "candidate": 153.19999999925494,
+      "savingMs": -33.69999999925494,
+      "savingPercent": -28.2008368194602,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "empty",
+      "entry": "direct",
+      "metric": "list",
+      "baseline": 1230.7999999998137,
+      "candidate": 1422.7000000011176,
+      "savingMs": -191.90000000130385,
+      "savingPercent": -15.591485212977974,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 1,
+      "fixture": "empty",
+      "entry": "direct",
+      "metric": "summary",
+      "baseline": 1230.8999999994412,
+      "candidate": 1422.9000000003725,
+      "savingMs": -192.00000000093132,
+      "savingPercent": -15.598342676173408,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 1,
+      "fixture": "empty",
+      "entry": "navigation",
+      "metric": "list",
+      "baseline": 143,
+      "candidate": 100.19999999925494,
+      "savingMs": 42.80000000074506,
+      "savingPercent": 29.930069930590953,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "empty",
+      "entry": "navigation",
+      "metric": "summary",
+      "baseline": 143.1000000005588,
+      "candidate": 128.5,
+      "savingMs": 14.600000000558794,
+      "savingPercent": 10.202655486025005,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "empty",
+      "entry": "sprints",
+      "metric": "list",
+      "baseline": 91.59999999962747,
+      "candidate": 90,
+      "savingMs": 1.599999999627471,
+      "savingPercent": 1.746724890430107,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "empty",
+      "entry": "sprints",
+      "metric": "summary",
+      "baseline": 91.59999999962747,
+      "candidate": 123.20000000111759,
+      "savingMs": -31.600000001490116,
+      "savingPercent": -34.497816595653525,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "empty",
+      "entry": "backlog-tree",
+      "metric": "list",
+      "baseline": 101.09999999962747,
+      "candidate": 91.40000000037253,
+      "savingMs": 9.699999999254942,
+      "savingPercent": 9.594460929070904,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "empty",
+      "entry": "backlog-tree",
+      "metric": "summary",
+      "baseline": 101.09999999962747,
+      "candidate": 104,
+      "savingMs": -2.900000000372529,
+      "savingPercent": -2.868447082475979,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "closed",
+      "entry": "direct",
+      "metric": "list",
+      "baseline": 1338.9000000003725,
+      "candidate": 1346.5999999996275,
+      "savingMs": -7.699999999254942,
+      "savingPercent": -0.5750989617785346,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "closed",
+      "entry": "direct",
+      "metric": "operation",
+      "baseline": 1321.7000000001863,
+      "candidate": 1338.800000000745,
+      "savingMs": -17.100000000558794,
+      "savingPercent": -1.2937883029852753,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "closed",
+      "entry": "direct",
+      "metric": "summary",
+      "baseline": 1339.1000000005588,
+      "candidate": 1346.7000000011176,
+      "savingMs": -7.6000000005587935,
+      "savingPercent": -0.5675453663322845,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "closed",
+      "entry": "navigation",
+      "metric": "list",
+      "baseline": 207.6000000005588,
+      "candidate": 195.90000000037253,
+      "savingMs": 11.700000000186265,
+      "savingPercent": 5.63583815036357,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "closed",
+      "entry": "navigation",
+      "metric": "operation",
+      "baseline": 201,
+      "candidate": 191.10000000149012,
+      "savingMs": 9.899999998509884,
+      "savingPercent": 4.925373133587007,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "closed",
+      "entry": "navigation",
+      "metric": "summary",
+      "baseline": 207.90000000037253,
+      "candidate": 223.80000000074506,
+      "savingMs": -15.900000000372529,
+      "savingPercent": -7.647907648073131,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "closed",
+      "entry": "sprints",
+      "metric": "list",
+      "baseline": 123.29999999981374,
+      "candidate": 78.69999999925494,
+      "savingMs": 44.60000000055879,
+      "savingPercent": 36.17193836222722,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "closed",
+      "entry": "sprints",
+      "metric": "operation",
+      "baseline": 108,
+      "candidate": 58.90000000037253,
+      "savingMs": 49.09999999962747,
+      "savingPercent": 45.46296296261803,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "closed",
+      "entry": "sprints",
+      "metric": "summary",
+      "baseline": 123.40000000037253,
+      "candidate": 128.59999999962747,
+      "savingMs": -5.199999999254942,
+      "savingPercent": -4.213938411052872,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "closed",
+      "entry": "backlog-tree",
+      "metric": "list",
+      "baseline": 91,
+      "candidate": 97.90000000037253,
+      "savingMs": -6.900000000372529,
+      "savingPercent": -7.582417582826954,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "closed",
+      "entry": "backlog-tree",
+      "metric": "operation",
+      "baseline": 74.70000000018626,
+      "candidate": 87.5,
+      "savingMs": -12.799999999813735,
+      "savingPercent": -17.1352074963612,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 1,
+      "fixture": "closed",
+      "entry": "backlog-tree",
+      "metric": "summary",
+      "baseline": 91,
+      "candidate": 122,
+      "savingMs": -31,
+      "savingPercent": -34.065934065934066,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "direct",
+      "metric": "list",
+      "baseline": 1861,
+      "candidate": 1356.199999999255,
+      "savingMs": 504.80000000074506,
+      "savingPercent": 27.12520150460747,
+      "improvement": true,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "direct",
+      "metric": "operation",
+      "baseline": 1848.9000000003725,
+      "candidate": 1344,
+      "savingMs": 504.90000000037253,
+      "savingPercent": 27.308129157892303,
+      "improvement": true,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "direct",
+      "metric": "summary",
+      "baseline": 1861.0999999996275,
+      "candidate": 1409.800000000745,
+      "savingMs": 451.2999999988824,
+      "savingPercent": 24.249099994571637,
+      "improvement": true,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "navigation",
+      "metric": "list",
+      "baseline": 1018.7999999988824,
+      "candidate": 1157.5999999996275,
+      "savingMs": -138.80000000074506,
+      "savingPercent": -13.623871221132442,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "navigation",
+      "metric": "operation",
+      "baseline": 1009.0999999996275,
+      "candidate": 1151.699999999255,
+      "savingMs": -142.59999999962747,
+      "savingPercent": -14.131404221551888,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "navigation",
+      "metric": "summary",
+      "baseline": 1018.8999999985099,
+      "candidate": 1157.699999999255,
+      "savingMs": -138.80000000074506,
+      "savingPercent": -13.622534105500838,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "sprints",
+      "metric": "list",
+      "baseline": 92.30000000074506,
+      "candidate": 130,
+      "savingMs": -37.69999999925494,
+      "savingPercent": -40.84507042139829,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "sprints",
+      "metric": "operation",
+      "baseline": 85.20000000111759,
+      "candidate": 113.5,
+      "savingMs": -28.299999998882413,
+      "savingPercent": -33.21596243956713,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "sprints",
+      "metric": "summary",
+      "baseline": 92.70000000111759,
+      "candidate": 194,
+      "savingMs": -101.29999999888241,
+      "savingPercent": -109.27723840092895,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "backlog-tree",
+      "metric": "list",
+      "baseline": 123.09999999962747,
+      "candidate": 105.20000000111759,
+      "savingMs": 17.899999998509884,
+      "savingPercent": 14.541023556916372,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "backlog-tree",
+      "metric": "operation",
+      "baseline": 106.59999999962747,
+      "candidate": 94.90000000037253,
+      "savingMs": 11.699999999254942,
+      "savingPercent": 10.975609755436988,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "history",
+      "entry": "backlog-tree",
+      "metric": "summary",
+      "baseline": 123.20000000111759,
+      "candidate": 106.19999999925494,
+      "savingMs": 17.000000001862645,
+      "savingPercent": 13.798701300088014,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "planned",
+      "entry": "direct",
+      "metric": "list",
+      "baseline": 1563.1000000014901,
+      "candidate": 1451.5,
+      "savingMs": 111.60000000149012,
+      "savingPercent": 7.139658371273989,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "planned",
+      "entry": "direct",
+      "metric": "operation",
+      "baseline": 1546.800000000745,
+      "candidate": 1429.4000000003725,
+      "savingMs": 117.40000000037253,
+      "savingPercent": 7.589862942870182,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "planned",
+      "entry": "direct",
+      "metric": "summary",
+      "baseline": 1563.300000000745,
+      "candidate": 1484.699999999255,
+      "savingMs": 78.60000000149012,
+      "savingPercent": 5.027825753307277,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "planned",
+      "entry": "navigation",
+      "metric": "list",
+      "baseline": 1186.7000000011176,
+      "candidate": 1072.3999999985099,
+      "savingMs": 114.3000000026077,
+      "savingPercent": 9.631751917291655,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "planned",
+      "entry": "navigation",
+      "metric": "operation",
+      "baseline": 1179.2000000011176,
+      "candidate": 1061.8999999985099,
+      "savingMs": 117.3000000026077,
+      "savingPercent": 9.947421981215784,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "planned",
+      "entry": "navigation",
+      "metric": "summary",
+      "baseline": 1186.800000000745,
+      "candidate": 1098.699999999255,
+      "savingMs": 88.10000000149012,
+      "savingPercent": 7.423323222230772,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "planned",
+      "entry": "sprints",
+      "metric": "list",
+      "baseline": 118.60000000149012,
+      "candidate": 87.69999999925494,
+      "savingMs": 30.900000002235174,
+      "savingPercent": 26.053962902063187,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "planned",
+      "entry": "sprints",
+      "metric": "operation",
+      "baseline": 102,
+      "candidate": 71.79999999888241,
+      "savingMs": 30.200000001117587,
+      "savingPercent": 29.607843138350574,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "planned",
+      "entry": "sprints",
+      "metric": "summary",
+      "baseline": 118.80000000074506,
+      "candidate": 119.70000000111759,
+      "savingMs": -0.900000000372529,
+      "savingPercent": -0.7575757578845831,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "planned",
+      "entry": "backlog-tree",
+      "metric": "list",
+      "baseline": 121,
+      "candidate": 88.89999999850988,
+      "savingMs": 32.100000001490116,
+      "savingPercent": 26.528925621066215,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "planned",
+      "entry": "backlog-tree",
+      "metric": "operation",
+      "baseline": 104.40000000037253,
+      "candidate": 76.29999999888241,
+      "savingMs": 28.100000001490116,
+      "savingPercent": 26.91570881359181,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "planned",
+      "entry": "backlog-tree",
+      "metric": "summary",
+      "baseline": 121.10000000149012,
+      "candidate": 122.90000000037253,
+      "savingMs": -1.799999998882413,
+      "savingPercent": -1.4863748958383685,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "empty",
+      "entry": "direct",
+      "metric": "list",
+      "baseline": 1072,
+      "candidate": 1184.4000000003725,
+      "savingMs": -112.40000000037253,
+      "savingPercent": -10.485074626900422,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 2,
+      "fixture": "empty",
+      "entry": "direct",
+      "metric": "summary",
+      "baseline": 1072,
+      "candidate": 1184.4000000003725,
+      "savingMs": -112.40000000037253,
+      "savingPercent": -10.485074626900422,
+      "improvement": false,
+      "regression": true
+    },
+    {
+      "round": 2,
+      "fixture": "empty",
+      "entry": "navigation",
+      "metric": "list",
+      "baseline": 128.5,
+      "candidate": 97.79999999888241,
+      "savingMs": 30.700000001117587,
+      "savingPercent": 23.891050584527303,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "empty",
+      "entry": "navigation",
+      "metric": "summary",
+      "baseline": 128.5,
+      "candidate": 113,
+      "savingMs": 15.5,
+      "savingPercent": 12.062256809338521,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "empty",
+      "entry": "sprints",
+      "metric": "list",
+      "baseline": 105.19999999925494,
+      "candidate": 76.20000000111759,
+      "savingMs": 28.999999998137355,
+      "savingPercent": 27.56653992237903,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "empty",
+      "entry": "sprints",
+      "metric": "summary",
+      "baseline": 105.19999999925494,
+      "candidate": 108.20000000111759,
+      "savingMs": -3.000000001862645,
+      "savingPercent": -2.8517110284067413,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "empty",
+      "entry": "backlog-tree",
+      "metric": "list",
+      "baseline": 108.40000000037253,
+      "candidate": 89.39999999850988,
+      "savingMs": 19.000000001862645,
+      "savingPercent": 17.52767527841084,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "empty",
+      "entry": "backlog-tree",
+      "metric": "summary",
+      "baseline": 108.5,
+      "candidate": 93.69999999925494,
+      "savingMs": 14.800000000745058,
+      "savingPercent": 13.640552996078394,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "closed",
+      "entry": "direct",
+      "metric": "list",
+      "baseline": 1299.7999999988824,
+      "candidate": 1228.800000000745,
+      "savingMs": 70.99999999813735,
+      "savingPercent": 5.4623788273733185,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "closed",
+      "entry": "direct",
+      "metric": "operation",
+      "baseline": 1280.7999999988824,
+      "candidate": 1210.0999999996275,
+      "savingMs": 70.69999999925494,
+      "savingPercent": 5.519987507754266,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "closed",
+      "entry": "direct",
+      "metric": "summary",
+      "baseline": 1299.8999999985099,
+      "candidate": 1228.9000000003725,
+      "savingMs": 70.99999999813735,
+      "savingPercent": 5.461958612063909,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "closed",
+      "entry": "navigation",
+      "metric": "list",
+      "baseline": 207.59999999962747,
+      "candidate": 179.40000000037253,
+      "savingMs": 28.199999999254942,
+      "savingPercent": 13.583815028567217,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "closed",
+      "entry": "navigation",
+      "metric": "operation",
+      "baseline": 201.59999999962747,
+      "candidate": 172.59999999962747,
+      "savingMs": 29,
+      "savingPercent": 14.384920634947216,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "closed",
+      "entry": "navigation",
+      "metric": "summary",
+      "baseline": 207.7999999988824,
+      "candidate": 198.2000000011176,
+      "savingMs": 9.599999997764826,
+      "savingPercent": 4.619826755445841,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "closed",
+      "entry": "sprints",
+      "metric": "list",
+      "baseline": 287.69999999925494,
+      "candidate": 101.59999999962747,
+      "savingMs": 186.09999999962747,
+      "savingPercent": 64.68543621832097,
+      "improvement": true,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "closed",
+      "entry": "sprints",
+      "metric": "operation",
+      "baseline": 271.40000000037253,
+      "candidate": 92.90000000037253,
+      "savingMs": 178.5,
+      "savingPercent": 65.77008106107407,
+      "improvement": true,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "closed",
+      "entry": "sprints",
+      "metric": "summary",
+      "baseline": 287.69999999925494,
+      "candidate": 109,
+      "savingMs": 178.69999999925494,
+      "savingPercent": 62.11331247817786,
+      "improvement": true,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "closed",
+      "entry": "backlog-tree",
+      "metric": "list",
+      "baseline": 118.09999999962747,
+      "candidate": 104.90000000037253,
+      "savingMs": 13.199999999254942,
+      "savingPercent": 11.176968670022505,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "closed",
+      "entry": "backlog-tree",
+      "metric": "operation",
+      "baseline": 101.70000000111759,
+      "candidate": 95.20000000111759,
+      "savingMs": 6.5,
+      "savingPercent": 6.391347099241466,
+      "improvement": false,
+      "regression": false
+    },
+    {
+      "round": 2,
+      "fixture": "closed",
+      "entry": "backlog-tree",
+      "metric": "summary",
+      "baseline": 118.5,
+      "candidate": 148.19999999925494,
+      "savingMs": -29.699999999254942,
+      "savingPercent": -25.063291138611767,
+      "improvement": false,
+      "regression": false
+    }
+  ]
+}
