@@ -356,7 +356,7 @@ PR の版は本番を載せていない専用 Cloudflare アカウントの Work
 
 ### 用意するもの
 
-1. プレビュー専用アカウントの Workers & Pages に `scrum-guild-preview` を作る。本番 `scrum-guild` と見本 `scrum-guild-design` の接続は変えない。初めは Builds を無効にしておく
+1. プレビュー専用アカウントの Workers & Pages に `scrum-guild-preview` を作る。本番 `scrum-guild` と見本 `banmen-design` の接続は変えない。初めは Builds を無効にしておく
 2. Worker の Settings の Domains & Routes で `workers.dev` と Preview URLs を有効にし、Cloudflare Access を有効にする。Zero Trust のアプリで許可する人のメールアドレスを絞り、さらに Service Auth の方針で、この用途専用のサービストークンを許可する。Worker の通常 URL だけでなく、`pr-374-scrum-guild-preview.<プレビュー用サブドメイン>.workers.dev` などの alias と版の URL、`/api/*` も保護する。Access 無しで開ける URL を残さない。既存の本番に Access を付ける操作ではない
 3. 専用アカウントの R2 は有効化しない。共有プレビューでは添付ファイルとプロフィール画像の操作を無効にする。
 4. プレビュー Worker に `CONNECTION_CREDENTIAL_KEYS` を Secret として登録する。鍵の書式は上の「シークレット」を参照し、本番とは別の鍵を作る。seed の運用者は生成設定の `OPERATOR_LOGIN_IDS` で指定する。GitHub/Google OAuth、メール、外部連携の本番の秘密は入れない。seed ログインで確かめる
@@ -554,13 +554,41 @@ WHERE tbl = 'tasks' AND idx = 'tasks_workspace_tray';
 
 ## ドメインへ移す
 
-`scrum-guild.dev` へ移すときは、次を同じ PR で直す。
+取ったドメインへ移すときは、次を同じ PR で直す。
 
 - `scripts/deploy.ts` の `PRODUCTION_URL`（煙のテストが叩く URL）
 - `wrangler.jsonc` の `vars` の `PUBLIC_ORIGIN`（更新系の API の Origin の検査。新しい URL と一致しない呼び出しは 403 になる。https の URL だけを入れる。http の URL（手元のループバックのホスト以外）を入れると、`/api/health` を含むすべての API が 500 になり、煙のテストで見つかる）
-- GitHub OAuth App の Redirect URI（`https://scrum-guild.dev/api/auth/github/callback`）と、Google の OAuth クライアントの承認済みのリダイレクト URI（`https://scrum-guild.dev/api/auth/google/callback`）を、新しい URL に直す（上の「GitHub OAuth App」と「Google の OAuth クライアント」）。アプリが開始のときに渡す `redirect_uri` は `PUBLIC_ORIGIN` から作るので、登録の URL と完全に合わないと、Google の同意画面が `redirect_uri_mismatch` を出す
+- GitHub OAuth App の Redirect URI（`<新しい URL>/api/auth/github/callback`）と、Google の OAuth クライアントの承認済みのリダイレクト URI（`<新しい URL>/api/auth/google/callback`）を、新しい URL に直す（上の「GitHub OAuth App」と「Google の OAuth クライアント」）。アプリが開始のときに渡す `redirect_uri` は `PUBLIC_ORIGIN` から作るので、登録の URL と完全に合わないと、Google の同意画面が `redirect_uri_mismatch` を出す
 - 運用者が作った招待の URL（`<公開 URL>/invite#<秘密>`）は、古いドメインを指したまま残る。移した後は、まだ結ばれていない指名（運用者の一覧で「指名済み、ログイン待ち」と「期限切れ」）を、新しいドメインで作り直す
 - ほかに直すもの（Cookie）は `docs/development.md` の「Cloudflare のアカウントとドメイン」
+
+## 旧 URL の転送
+
+本番の Worker の名前を `banmen` に変えると、旧 URL（`https://scrum-guild.ucan-lab.workers.dev`）は 404 になる。ブックマークと招待の URL（`<公開 URL>/invite#<秘密>`）を新しい URL（`https://banmen.ucan-lab.workers.dev`）へ送るため、空いた旧名 `scrum-guild` に転送用の Worker を置く（#1421）。当日の流れの中での順番は、本番の URL を移すタスク（#1423）の手順に従う。
+
+- コードは `src/legacy-redirect/worker.ts`、設定は `wrangler.legacy-redirect.jsonc`（name `scrum-guild`。binding、シークレット、cron を持たない）。Workers Builds にはつながず、人が手元から出す
+- 画面の GET と HEAD は、302 で同じパスとクエリのまま新しい URL へ送る。Location に断片を付けないので、ブラウザが元の断片（招待の秘密）を引き継ぎ、秘密はサーバーに届かない（RFC 9110 の 10.2.2）。独自ドメインへ移すときに転送先を差し替えられるよう、ブラウザに長く残る 301 にしない。同じ理由で、302 と 410 には `cache-control: no-store` を付ける
+- `/api` と `/api/` の下、GET と HEAD 以外は、410 と API のエラーの形の本文（`code` は `moved`、`details.location` に新しい URL）を返す。CLI は 3xx を追わず、別のオリジンへトークンを送らせないため。新しい URL の API（Hono）はパスの百分率符号を解いてから振り分けるので、`/%61pi/health` のように符号にした形も、解いた形で `/api` の下なら 410 にする（新しい URL の資産の振り分け（`run_worker_first`）が符号を解くかは確かめていない。解かなければ画面に届くパスも 410 にするが、API のトークンを別のオリジンへ送らない側に倒す）
+- 転送先は `LEGACY_REDIRECT_TARGET` に固定し、リクエストの Host などから組まない
+
+### 置き方
+
+本番の Worker の名前を変え、名前に合わせた Release を publish し、新しい URL でログインと更新が通るのを確かめ（`/api/health` の ok は前の版でも返るので、それだけでは足りない）、ダッシュボードの Workers & Pages に旧名 `scrum-guild` の Worker が無いこと（やり直しなら転送用の Worker だけであること）を見てから、本番と同じアカウントにログインした手元で打つ（wrangler と設定は、打ったディレクトリによらずリポジトリのものを使う）。スクリプトは公開 URL の応答で判定するので、旧名の Worker が workers.dev を切った状態で残っていると見分けられない。
+
+```bash
+node scripts/deploy-legacy-redirect.ts
+```
+
+スクリプトは、次の両方を満たすときだけ `wrangler deploy -c wrangler.legacy-redirect.jsonc` を呼ぶ。名前を変える前に打つと、同じ名前の本番の Worker を転送用で上書きするため。
+
+- 新しい URL の `/api/health` が 200 で ok を返す
+- 旧 URL の `/api/health` が Worker の無い名前の 404（本文が API のエラーの形でない。本番の Worker が返す `not_found` の 404 では止まる）か、転送用の Worker の 410 の `moved`（やり直し）を返す。届かない、200、503 などほかの応答では止まる（本番の D1 が落ちて 503 を返している間も、旧名はまだ本番の Worker のため）
+
+置いた後は、旧 URL の `/` が新しい URL の `/` への 302 に、旧 URL の `/api/health` が 410 の `moved` になるまで、1分（5秒おきに13回）まで確かめ直す。届かなければ失敗で終わる。置いた Worker はそのまま残るので、ダッシュボードで動きを確かめ、要らなければ下の「外し方」で消す。止まったときは、理由がエラーに出る。テストは `scripts/deploy-legacy-redirect*.test.ts`（外への作用を差し替える）と `test/legacy-redirect*.test.ts`（Workers の実行環境）。
+
+### 外し方
+
+旧 URL に来る人がいなくなったら、ダッシュボードの Workers & Pages で `scrum-guild` を開き、Settings の Delete で消す。消すと旧 URL は 404 に戻る。消した後で本番の Worker を旧名に戻すことはしない（`PUBLIC_ORIGIN` が新しい URL のため）。転送用の Worker を置くまでは、本番の Worker の名前を戻せば元に戻る。置いた後に戻すときは、先に転送用の Worker を消してから名前を戻す（旧名が空いていないと名前を戻せない）。
 
 ## 組織
 

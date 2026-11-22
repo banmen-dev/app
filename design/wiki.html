@@ -40,7 +40,7 @@ const WS = { name: D.workspaces.wa.name, pages: [
   { id: "w1", parent: null, title: "リリースの手順", created: "u2", by: "u2", at: "2026-10-12 10:20", ver: 1, md: [
     "# リリースの手順", "", "本番へ出す日の流れ。出す前の確認は子のページにまとめてある。", "",
     "1. 出す前の確認を済ませる", "2. マイグレーションを当ててから、デプロイする", "3. 画面と API の版がずれていないかを確かめる", "",
-    "組織の Wiki の決まりは、[社内の決まり](https://scrum-guild.dev/aoba/wiki/o1)にある。"].join("\n") },
+    "組織の Wiki の決まりは、[社内の決まり](https://banmen.ucan-lab.workers.dev/aoba/wiki/o1)にある。"].join("\n") },
   { id: "w2", parent: "w1", title: "本番へ出す前の確認", created: "u2", by: "u1", at: "2026-10-18 09:12", ver: 4, md: [
     "---", "title: 本番へ出す前の確認", "owner: ハルカ", "reviewed_on: 2026-10-14", "applies_to: shop, shop-admin", "---",
     "# 本番へ出す前の確認", "", "リリースの前に、次を上から順に確かめる。", "",
@@ -49,7 +49,7 @@ const WS = { name: D.workspaces.wa.name, pages: [
     "- [x] テストが CI で通っている",
     "- [ ] 管理画面で会員ポイントの付与を1件試した", "",
     "## 戻すとき", "",
-    "問題が見つかったら、[ロールバックの手順](https://scrum-guild.dev/aoba/w/wa/wiki/w3)に従う。判断に迷うときは、**出さずに**リーダーへ聞く。コマンドは `pnpm test` のように書く。"].join("\n"),
+    "問題が見つかったら、[ロールバックの手順](https://banmen.ucan-lab.workers.dev/aoba/w/wa/wiki/w3)に従う。判断に迷うときは、**出さずに**リーダーへ聞く。コマンドは `pnpm test` のように書く。"].join("\n"),
     history: [
       { v: 3, by: "u3", at: "2026-10-14 17:42", title: "本番へ出す前の確認", md: [
         "---", "title: 本番へ出す前の確認", "owner: ハルカ", "reviewed_on: 2026-10-14", "---",
@@ -86,7 +86,7 @@ const WS = { name: D.workspaces.wa.name, pages: [
 const ORG = { name: D.organizations[0].name, pages: [
   { id: "o1", parent: null, title: "社内の決まり", created: "u2", by: "u2", at: "2026-09-28 10:00", ver: 1, md: [
     "# 社内の決まり", "", "働き方とお金の決まり。細かい手順は、子のページにある。", "",
-    "チームの手順は、[リリースの手順](https://scrum-guild.dev/aoba/w/wa/wiki/w1)（受託開発チームの Wiki）にある。"].join("\n") },
+    "チームの手順は、[リリースの手順](https://banmen.ucan-lab.workers.dev/aoba/w/wa/wiki/w1)（受託開発チームの Wiki）にある。"].join("\n") },
   { id: "o2", parent: "o1", title: "休みの申請", created: "u4", by: "u4", at: "2026-09-29 11:20", ver: 1, md: [
     "---", "title: 休みの申請", "owner: リン", "reviewed_on: 2026-09-29", "---",
     "## 申請の流れ", "", "1. 前の週までに、カレンダーに休みを入れる", "2. 担当のスプリントがあれば、リーダーに伝える"].join("\n") },
@@ -138,7 +138,7 @@ let uid = 0;
 function inline(src) {
   const codes = [];
   const stashed = src.replace(/`([^`]+)`/g, (_, c) => { codes.push(c); return `\u0000${codes.length - 1}\u0000`; });
-  const sameWiki = isOrg ? /^https:\/\/scrum-guild\.dev\/aoba\/wiki\/(\w+)$/ : /^https:\/\/scrum-guild\.dev\/aoba\/w\/wa\/wiki\/(\w+)$/;
+  const sameWiki = isOrg ? /^https:\/\/banmen\.ucan-lab\.workers\.dev\/aoba\/wiki\/(\w+)$/ : /^https:\/\/banmen\.ucan-lab\.workers\.dev\/aoba\/w\/wa\/wiki\/(\w+)$/;
   return esc(stashed)
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_, text, url) => {

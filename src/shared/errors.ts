@@ -52,6 +52,9 @@ export const errorCodes = [
   'unavailable',
   // 接続の暗号鍵が無いか形が違う。503。運用者が設定を直す必要がある
   'credential_keys_unavailable',
+  // 旧 URL の転送用の Worker（src/legacy-redirect/worker.ts）が、API と GET・HEAD 以外に返す。410。
+  // details は { location }（新しい URL）。CLI は 3xx を追わないので、送らずに新しい URL を伝える
+  'moved',
 ] as const;
 
 export type ErrorCode = (typeof errorCodes)[number];

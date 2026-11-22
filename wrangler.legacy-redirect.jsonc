@@ -1,0 +1,18 @@
+// 旧 URL（https://scrum-guild.ucan-lab.workers.dev）を新しい URL へ送るだけの Worker。
+// 本番の Worker の名前を banmen に変えた後、空いた旧名に人が置く（docs/operations.md の「旧 URL の転送」）。
+// binding、シークレット、cron を持たない。Workers Builds にはつながず、scripts/deploy-legacy-redirect.ts だけが出す
+{
+  "name": "scrum-guild",
+  "main": "src/legacy-redirect/worker.ts",
+  "compatibility_date": "2026-10-01",
+  // 人の手元から出すので、外へテレメトリを送らないよう設定に置く（wrangler.jsonc と同じ）
+  "send_metrics": false,
+  "workers_dev": true,
+  // 版ごとのプレビュー URL は作らない
+  "preview_urls": false,
+  // 呼び出しごとのログは URL のパスとクエリを残す。名前を変える前に始めたログインの戻り（OAuth の code）が
+  // 旧 URL に届きうるので、ダッシュボードの既定に任せずログごと切る（Worker は自分でログを出さない）
+  "observability": {
+    "enabled": false
+  }
+}

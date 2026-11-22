@@ -2659,26 +2659,26 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
          <div class="callout is-info">${icon("shield")}<span>この人を最初の${t("admin")}にします。アバター、ユーザー名、表示名が、伝えたい人のものか確かめてください。ユーザー名は 1 字違いでも別の人に当たります。</span></div>
          <div class="choice is-static">${avatar("星野 琴音", 3, { lg: true, image: SAMPLE_PHOTO })}<div><b class="mono">kotone-dev</b><span>星野 琴音</span><span>GitHub のユーザー ID 5550001</span></div></div>
        </div>
-       <div class="callout is-info">${icon("link")}<span>URL は <span class="mono">scrum-guild.dev/&lt;slug&gt;/</span> になります。作ったあとに出る組織の URL（Google の指名は招待の URL）を、${t("admin")}になる人に伝えてください。</span></div>`,
+       <div class="callout is-info">${icon("link")}<span>URL は <span class="mono">banmen.ucan-lab.workers.dev/&lt;slug&gt;/</span> になります。作ったあとに出る組織の URL（Google の指名は招待の URL）を、${t("admin")}になる人に伝えてください。</span></div>`,
       `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" id="d-kb" type="button" data-org-create="d-ka" disabled>作る</button>`),
     // 会員が自分の組織を作る（本番の CreateMyOrganizationDialog。組織の選択の「組織を作る」から開く）。
     // slug の規則、「あとから変えられません」、できあがる URL を欄の下に常に出す。成功したら /<slug> へ移る（見本は移らない）
     createMyOrganization: () => openDialog(`自分の${t("organization")}を作る`,
       `<p>あなたが${t("admin")}になり、30日間のお試しで始めます。お試し中の${t("organization")}は、1つのアカウントにつき1つまでです。</p>
-       <div class="field"><label class="field-label" for="d-ms">URL の名前（slug）</label><input class="input mono" id="d-ms" placeholder="例: sakura-dev" autocomplete="off" spellcheck="false" aria-describedby="d-ms-hint d-ms-url"><span class="field-hint" id="d-ms-hint">英小文字、数字、ハイフンで 2〜40 字。あとから変えられません。</span><span class="field-hint" id="d-ms-url">${t("organization")}の URL は scrum-guild.dev/&lt;slug&gt;/ になります。</span></div>
+       <div class="field"><label class="field-label" for="d-ms">URL の名前（slug）</label><input class="input mono" id="d-ms" placeholder="例: sakura-dev" autocomplete="off" spellcheck="false" aria-describedby="d-ms-hint d-ms-url"><span class="field-hint" id="d-ms-hint">英小文字、数字、ハイフンで 2〜40 字。あとから変えられません。</span><span class="field-hint" id="d-ms-url">${t("organization")}の URL は banmen.ucan-lab.workers.dev/&lt;slug&gt;/ になります。</span></div>
        <div class="field"><label class="field-label" for="d-mn">${t("organization")}の名前</label><input class="input" id="d-mn" placeholder="例: さくら開発" autocomplete="organization" aria-describedby="d-mn-hint"><span class="field-hint" id="d-mn-hint">80 字までです。</span></div>`,
       `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="見本のため、${t("organization")}は作りません">${t("organization")}を作る</button>`),
     // 会員が自分だけで使う組織（自分用）を作る（本番の CreatePersonalOrganizationDialog。組織の選択の「自分用を作る」から開く）。
     // 入れるのは slug だけで、名前は固定の「自分用」。slug の規則、「あとから変えられません」、できあがる URL を欄の下に常に出す。成功したら /<slug> へ移る（見本は移らない）
     createPersonalOrganization: () => openDialog(`自分用の${t("organization")}を作る`,
       `<p>自分だけで使う${t("organization")}を作ります。あなたが${t("admin")}になります。期限はなく無料で使えますが、人を招待したり、${t("admin")}を増やしたりはできません。1つのアカウントにつき1つまでです。</p>
-       <div class="field"><label class="field-label" for="d-ps">URL の名前（slug）</label><input class="input mono" id="d-ps" placeholder="例: sakura-dev" autocomplete="off" spellcheck="false" aria-describedby="d-ps-hint d-ps-url"><span class="field-hint" id="d-ps-hint">英小文字、数字、ハイフンで 2〜40 字。あとから変えられません。</span><span class="field-hint" id="d-ps-url">${t("organization")}の URL は scrum-guild.dev/&lt;slug&gt;/ になります。</span></div>`,
+       <div class="field"><label class="field-label" for="d-ps">URL の名前（slug）</label><input class="input mono" id="d-ps" placeholder="例: sakura-dev" autocomplete="off" spellcheck="false" aria-describedby="d-ps-hint d-ps-url"><span class="field-hint" id="d-ps-hint">英小文字、数字、ハイフンで 2〜40 字。あとから変えられません。</span><span class="field-hint" id="d-ps-url">${t("organization")}の URL は banmen.ucan-lab.workers.dev/&lt;slug&gt;/ になります。</span></div>`,
       `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="見本のため、${t("organization")}は作りません">自分用を作る</button>`),
     // 作った後。組織の URL とコピー、管理者になる人に伝えること
     organizationCreated: () => openDialog(`${t("organization")}を作りました`,
       `<p>Banmen はメールを送りません。${t("admin")}になる人に、次の URL とログインの手段を伝えてください。</p>
        <div class="field"><label class="field-label" for="d-ou">${t("organization")}の URL</label>
-         <div class="input-row"><input class="input mono" id="d-ou" value="https://scrum-guild.dev/sakura-dev/" readonly>
+         <div class="input-row"><input class="input mono" id="d-ou" value="https://banmen.ucan-lab.workers.dev/sakura-dev/" readonly>
            <button class="btn" type="button" data-toast="URL をコピーしました">${icon("link")}コピー</button></div></div>
        <div class="callout is-info">${icon("check")}<span>GitHub の kotone-dev でログインするよう伝えてください。</span></div>`,
       `<button class="btn is-primary" type="button" data-close-dialog>閉じる</button>`),
@@ -2698,7 +2698,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     adminReassigned: () => openDialog(`${t("admin")}を指名しました`,
       `<p>Banmen はメールを送りません。${t("admin")}になる人に、次の URL とログインの手段を伝えてください。</p>
        <div class="field"><label class="field-label" for="d-ru">${t("organization")}の URL</label>
-         <div class="input-row"><input class="input mono" id="d-ru" value="https://scrum-guild.dev/kumo-lab/" readonly>
+         <div class="input-row"><input class="input mono" id="d-ru" value="https://banmen.ucan-lab.workers.dev/kumo-lab/" readonly>
            <button class="btn" type="button" data-toast="URL をコピーしました">${icon("link")}コピー</button></div></div>
        <div class="callout is-info">${icon("check")}<span>GitHub の kotone-dev でログインするよう伝えてください。</span></div>`,
       `<button class="btn is-primary" type="button" data-close-dialog>閉じる</button>`),
@@ -3801,7 +3801,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     openDialog(urlLabel,
       `<p>${lead}</p>
        <div class="field"><label class="field-label" for="d-iu">${urlLabel}</label>
-         <div class="input-row"><input class="input mono" id="d-iu" value="https://scrum-guild.dev${path}#Qm7tX2vLr9aKpE4wZc8hN3bYd6fGs1uJ0oTiRl5eWxA" readonly>
+         <div class="input-row"><input class="input mono" id="d-iu" value="https://banmen.ucan-lab.workers.dev${path}#Qm7tX2vLr9aKpE4wZc8hN3bYd6fGs1uJ0oTiRl5eWxA" readonly>
            <button class="btn" type="button" data-toast="${urlLabel} をコピーしました">${icon("link")}コピー</button></div></div>
        <div class="callout is-info">${icon("check")}<span>${password ? "指名したメールアドレス" : "次のメールアドレスの Google アカウントでログインするよう伝えてください。"} <b class="mono wrap-anywhere">mio.hoshino@example.com</b></span></div>
        <div class="callout is-warn">${icon("alert")}<span>この URL はこの画面を閉じると二度と出せません。期限は14日（2026/11/09 09:00 まで）です。期限までに本人へ伝えてください。</span></div>
