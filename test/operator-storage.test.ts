@@ -50,15 +50,15 @@ async function update(slug: string, operator: string, expected: Contract | null,
 
 describe('追加容量の設定', () => {
   test.each([
-    ['team', 0, 1, 80],
-    ['business', 2, 1, 170],
-  ] as const)('%s の容量を口数に応じて増やし、一覧にも出す', async (plan, ten, fifty, quota) => {
+    ['team', 0, 1, 80, 15],
+    ['business', 2, 1, 170, 30],
+  ] as const)('%s の容量を口数に応じて増やし、一覧にも出す', async (plan, ten, fifty, quota, members) => {
     const { organization, operator, contract } = await setup(plan);
     const response = await update(organization.slug, operator, contract, ten, fifty);
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       attachment_quota_bytes: quota * GIB,
-      member_limit: plan === 'team' ? 15 : 50,
+      member_limit: members,
     });
     expect((await rows(organization.id)).contract).toMatchObject({ extra_10gb_units: ten, extra_50gb_units: fifty });
     const listed = (await (await post(app, listOrganizations, { token: operator })).json()) as OutputOf<

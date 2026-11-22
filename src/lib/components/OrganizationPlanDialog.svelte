@@ -10,6 +10,7 @@
   import {
     billingIntervals,
     contractLimits,
+    initialTeamPlan,
     PLAN_LIMITS,
     teamPlans,
     type BillingInterval,
@@ -27,11 +28,11 @@
   import Icon from './Icon.svelte';
 
   // チーム用の組織の契約（プランと支払いの周期）を変えるダイアログ（design/kit.js の changePlan）。運用の画面だけが使う。
-  // 今の契約を選んだ状態で開く。未契約なら、今の人数の上限がビジネスの値以上ならビジネス、それ以外はチームを、月払いで選ぶ。
-  // 今と同じ契約のままでは「変える」を押しても無視する（サーバーは何も書かずに今の値を返す）。
+  // 今の契約を選んだ状態で開く。未契約なら、今の人数の上限を満たす最小の定額プランか個別を、月払いで選ぶ。
+  // 契約と上限が今の値と同じなら「変える」を押しても無視する。
   // 開いたときの契約（未契約なら null）を expected に添えて送り、開いた後に別の運用者が変えていればサーバーが 409 で断る。
   // 変えた後の上限は契約から決まる（追加容量の口数は残す）。変えた後の上限を出し、今の人数が上限を超えるとき、今の合計が容量を超えるときは
-  // 注意を出す。未契約の組織の上限（51人以上の個別の値など）より下がるときは、契約を付けると値で決め直せなくなることも注意する。
+  // 注意を出す。未契約の組織で上限が下がるときと、同じプランの保存で上限が下がるときも今の上限を示す。
   // 契約を変えるときだけ、お試し中の組織にはお試しが終わることを添える。停止中の組織には停止したままであることを添える。
   // 上限を値で変えられなくなる注記は、未契約の組織にだけ出す（契約のある組織は、もう値で変えられない）。
   // 書かれたか分からない失敗（5xx、通信の切れ）は、変わっていることもあると伝え、閉じたときに一覧を読み直す。
@@ -136,7 +137,7 @@
       plan = contract.plan;
       interval = contract.billing_interval;
     } else {
-      plan = organization.seats.limit >= PLAN_LIMITS.business.member_limit ? 'business' : 'team';
+      plan = initialTeamPlan(organization.seats.limit);
       interval = contract?.billing_interval ?? 'monthly';
     }
     members = (contract?.plan === 'custom' ? contract.custom_member_limit : null) ?? organization.seats.limit;
@@ -173,7 +174,10 @@
       target.contract.plan === plan &&
       target.contract.billing_interval === interval &&
       target.contract.custom_member_limit === customValues.custom_member_limit &&
-      target.contract.custom_attachment_quota_bytes === customValues.custom_attachment_quota_bytes,
+      target.contract.custom_attachment_quota_bytes === customValues.custom_attachment_quota_bytes &&
+      next !== null &&
+      target.member_limit === next.member_limit &&
+      target.attachment_quota_bytes === next.attachment_quota_bytes,
   );
 
   async function submit(event: SubmitEvent): Promise<void> {
@@ -245,7 +249,13 @@
           storage: usageText(target.attachment_used_bytes),
         }),
   );
-  const planNames = $derived({ team: t('planTeam'), business: t('planBusiness'), custom: t('planCustom') });
+  const planNames = $derived({
+    small: t('planSmall'),
+    team: t('planTeam'),
+    business: t('planBusiness'),
+    pro: t('planPro'),
+    custom: t('planCustom'),
+  });
   const intervalNames = $derived({ monthly: t('billingMonthly'), yearly: t('billingYearly') });
 </script>
 
@@ -351,10 +361,10 @@
         {:else}
           <p class="field-hint">{t('operatorPlanCustomInvalidHint')}</p>
         {/if}
-        {#if target !== null && next !== null && target.contract === null && (next.member_limit < target.member_limit || next.attachment_quota_bytes < target.attachment_quota_bytes)}
+        {#if target !== null && next !== null && (target.contract === null || target.contract.plan === plan) && (next.member_limit < target.member_limit || next.attachment_quota_bytes < target.attachment_quota_bytes)}
           <div class="callout is-warn">
             <Icon name="alert" /><span
-              >{t('operatorPlanLimitsLower', {
+              >{t(target.contract === null ? 'operatorPlanLimitsLower' : 'operatorPlanCurrentLimitsLower', {
                 members: target.member_limit,
                 quota: sizeText(target.attachment_quota_bytes),
               })}</span

@@ -576,7 +576,7 @@ export const pointers: Pointers = {
   }),
   'organization-plan-update': async () => ({
     slug: (await createOrganization()).slug,
-    plan: 'business',
+    plan: 'small',
     billing_interval: 'yearly',
     expected: null,
   }),

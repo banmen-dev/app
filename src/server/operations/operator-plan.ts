@@ -54,7 +54,7 @@ export async function readOrganizationWithContract(db: CommonDb, slug: string) {
 
 // 順: 1. 組織を slug で引く（無ければ 404）。解約で消す予定日を過ぎた組織（Worker の now() の UTC の日付か、D1 の date('now') の
 //    どちらかで purge_on が今日より前）は 409 の purge_due（消している途中で契約の行を足さないため。境目は再開と同じ）。
-//    自分用は 409（プランはパーソナルに固定）。今の契約が送った値と同じなら何も書かずに返す
+//    自分用は 409（プランはパーソナルに固定）。今の契約が送った値と同じで、上限が契約から決まる値と一致すれば何も書かずに返す
 // 2. 今の契約が画面の見ていた前の契約（expected。未契約なら null）と違えば 409（確認を開いた後に別の運用者が変えた）
 // 3. 共通の DB に1回の batch() で書く
 //    - 契約: 未契約なら行を足し（同時に足した別の運用者が先なら何も足さない）、契約があれば読んだ契約（プラン、支払いの周期、
@@ -73,12 +73,25 @@ export const organizationPlanUpdateOperation = implement(organizationPlanUpdate,
   if (due) throw new ApiError(409, 'purge_due');
   if (current.kind === 'personal') throw new ApiError(409, 'conflict', { reason: 'personal_organization' });
   const { contract } = current;
-  if (
+  const next = {
+    plan: input.plan,
+    custom_member_limit: input.custom_member_limit ?? null,
+    custom_attachment_quota_bytes: input.custom_attachment_quota_bytes ?? null,
+    billing_interval: input.billing_interval,
+    extra_10gb_units: contract?.extra_10gb_units ?? 0,
+    extra_50gb_units: contract?.extra_50gb_units ?? 0,
+  };
+  const limits = contractLimits(next);
+  const sameTerms =
     contract !== null &&
-    contract.plan === input.plan &&
-    contract.billing_interval === input.billing_interval &&
-    contract.custom_member_limit === (input.custom_member_limit ?? null) &&
-    contract.custom_attachment_quota_bytes === (input.custom_attachment_quota_bytes ?? null)
+    contract.plan === next.plan &&
+    contract.billing_interval === next.billing_interval &&
+    contract.custom_member_limit === next.custom_member_limit &&
+    contract.custom_attachment_quota_bytes === next.custom_attachment_quota_bytes;
+  if (
+    sameTerms &&
+    current.member_limit === limits.member_limit &&
+    current.attachment_quota_bytes === limits.attachment_quota_bytes
   ) {
     return {
       slug: input.slug,
@@ -101,15 +114,6 @@ export const organizationPlanUpdateOperation = implement(organizationPlanUpdate,
         contract.custom_attachment_quota_bytes === expected.custom_attachment_quota_bytes;
   if (!matchesExpected) throw new ApiError(409, 'conflict');
 
-  const next = {
-    plan: input.plan,
-    custom_member_limit: input.custom_member_limit ?? null,
-    custom_attachment_quota_bytes: input.custom_attachment_quota_bytes ?? null,
-    billing_interval: input.billing_interval,
-    extra_10gb_units: contract?.extra_10gb_units ?? 0,
-    extra_50gb_units: contract?.extra_50gb_units ?? 0,
-  };
-  const limits = contractLimits(next);
   const raised = limits.attachment_quota_bytes > current.attachment_quota_bytes;
   const stamp = at.toISOString();
   const today = utcDateOf(at);
@@ -202,17 +206,18 @@ export const organizationPlanUpdateOperation = implement(organizationPlanUpdate,
   ]);
   if (written.changes === 0) throw new ApiError(409, 'conflict');
 
-  // 契約のプランと支払いの周期は、片方だけが変わっても組で残す（履歴の文に前後の契約を出すため）。ほかは変わった列だけ
-  const changes: Record<string, readonly [unknown, unknown]> = {
-    plan: [contract?.plan ?? null, next.plan],
-    billing_interval: [contract?.billing_interval ?? null, next.billing_interval],
-  };
-  if (contract?.plan === 'custom' || next.plan === 'custom') {
-    changes.custom_member_limit = [contract?.custom_member_limit ?? null, next.custom_member_limit];
-    changes.custom_attachment_quota_bytes = [
-      contract?.custom_attachment_quota_bytes ?? null,
-      next.custom_attachment_quota_bytes,
-    ];
+  // 契約の条件が変わったときは、プランと支払いの周期を組で残す。同じ条件で上限を揃えたときは上限の前後を表示する。
+  const changes: Record<string, readonly [unknown, unknown]> = {};
+  if (!sameTerms) {
+    changes.plan = [contract?.plan ?? null, next.plan];
+    changes.billing_interval = [contract?.billing_interval ?? null, next.billing_interval];
+    if (contract?.plan === 'custom' || next.plan === 'custom') {
+      changes.custom_member_limit = [contract?.custom_member_limit ?? null, next.custom_member_limit];
+      changes.custom_attachment_quota_bytes = [
+        contract?.custom_attachment_quota_bytes ?? null,
+        next.custom_attachment_quota_bytes,
+      ];
+    }
   }
   if (current.member_limit !== limits.member_limit) changes.member_limit = [current.member_limit, limits.member_limit];
   if (current.attachment_quota_bytes !== limits.attachment_quota_bytes) {

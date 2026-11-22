@@ -79,7 +79,7 @@ async function changeQuotaBy(token: string, slug: string, quota: Quota, options:
   return post(app, organizationQuotaUpdate, { token, body: { slug, ...quota, expected }, env: options.env });
 }
 
-describe('値段の段階', () => {
+describe('未契約の組織の上限の段階', () => {
   test('小さい組織は 15 人と 30 GB、標準は 50 人と 100 GB。小さい組織は列の既定と同じ', () => {
     expect(
       quotaTiers.map(({ member_limit, attachment_quota_bytes }) => ({ member_limit, attachment_quota_bytes })),
@@ -305,7 +305,7 @@ describe('作成の既定', () => {
       now: new Date(),
     });
     expect(created).not.toBe('slug_taken');
-    const small = quotaTiers.find((tier) => tier.id === 'small')!;
+    const small = quotaTiers.find((tier) => tier.id === 'small_organization')!;
     expect(await currentQuotaOf(slug)).toEqual({
       member_limit: small.member_limit,
       attachment_quota_bytes: small.attachment_quota_bytes,
