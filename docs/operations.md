@@ -628,7 +628,7 @@ PR を開けている間に急ぎの直しを本番へ出すときは、直し�
    pnpm exec wrangler d1 execute scrum-guild --remote --command "DELETE FROM sessions WHERE julianday(created_at) < julianday('<時刻>') OR julianday(created_at) IS NULL"
    ```
 
-6. 転送用の Worker を置く（下の「旧 URL の転送」の「置き方」）。置いた後、ブラウザで旧 URL の `/invite#check` を開き、新しい URL の `/invite#check` に着く（断片が残る）ことを見る
+6. 転送用の Worker を置く（下の「旧 URL の転送」の「置き方」）。置いた後、ブラウザで旧 URL の `/terms?q=1#check` を開き、アドレスバーが新しい URL の `/terms?q=1#check` になる（パス、クエリ、断片が残る）ことを見る。`/invite` では確かめない。招待の画面は断片の秘密を読むとすぐ URL を `/invite` に置き換えるので、届いていても断片が見えない
 7. 本番の GitHub OAuth App から旧 URL の Redirect URI を消し、Homepage URL を `https://banmen.ucan-lab.workers.dev` に直す。Google のクライアントからも旧 URL のリダイレクト URI を消す
 8. チームに、移し終えたことを知らせる
 
