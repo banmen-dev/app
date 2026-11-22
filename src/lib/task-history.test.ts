@@ -226,7 +226,7 @@ describe('historyEntryView', () => {
 
 test('外した感謝の過去の履歴は、値を出さず「そのほかの欄」として出す', () => {
   expect(
-    historyEntryView(entry({ changes: [{ field: 'thanks', before: null, after: member }] }), 'UTC', t).lines,
+    historyEntryView(entry({ changes: [{ field: 'thanks', before: null, after: null }] }), 'UTC', t).lines,
   ).toEqual([{ label: null, text: 'そのほかの欄を直した' }]);
 });
 
