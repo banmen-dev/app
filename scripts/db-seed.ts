@@ -1,6 +1,8 @@
 // pnpm db:seed: 手元の D1 に全マイグレーションを当て、全部の表の行を消して seed を入れ直す。
 // --local だけを使う。seed のトークンは公開された開発用の値なので、本番の D1 には入れない（seed/README.md）
 // --persist-to <dir> を渡すと、その場所の D1 に入れる（scripts/migrate-fresh.ts が空の D1 で確かめるのに使う）
+// --env-file <file> は Wrangler が使う開発用の値のファイルを指定する。
+// --save-sql <file> は --persist-to と一緒に使い、適用済みの seed SQL を再利用できるよう保存する。
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

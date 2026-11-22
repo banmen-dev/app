@@ -29,12 +29,13 @@ async function render(page: Page, html: string, width: number, height: number, p
 }
 
 export function comparisonBands(height: number) {
-  const bands = [];
-  for (let offset = 0; offset < height; offset += MAX_BAND_HEIGHT - BAND_OVERLAP) {
-    bands.push({ offset, height: Math.min(MAX_BAND_HEIGHT, height - offset) });
-    if (offset + MAX_BAND_HEIGHT >= height) break;
-  }
-  return bands;
+  if (height <= MAX_BAND_HEIGHT) return [{ offset: 0, height }];
+  const count = Math.ceil((height - BAND_OVERLAP) / (MAX_BAND_HEIGHT - BAND_OVERLAP));
+  const bandHeight = Math.ceil((height + (count - 1) * BAND_OVERLAP) / count);
+  return Array.from({ length: count }, (_, index) => {
+    const offset = index * (bandHeight - BAND_OVERLAP);
+    return { offset, height: Math.min(bandHeight, height - offset) };
+  });
 }
 
 export async function composePair(

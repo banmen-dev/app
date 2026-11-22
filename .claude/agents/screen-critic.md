@@ -2,6 +2,7 @@
 name: screen-critic
 description: 実装と見本のスクリーンショットを独立に採点する。screen-review が撮影した後に使う。
 tools: ["Read"]
+model: sonnet
 ---
 
 # 画面の採点

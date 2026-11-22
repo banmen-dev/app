@@ -12,6 +12,7 @@ import {
   NARROW_VIEWPORT,
   setSeedTheme,
 } from '../e2e/screen-capture.ts';
+import { word } from '../src/shared/vocabulary.ts';
 import { composeContactSheet, composePair, frameComposer } from './screen-review-images.ts';
 import { captureReviewMotion } from './screen-review-motion.ts';
 import { reviewCaptureTime, screenReviewOptions, screenReviewOutput } from './screen-review-options.ts';
@@ -30,9 +31,9 @@ const STATIC_OPTIONS: BrowserContextOptions = {
 async function appToday(page: Page, origin: string, fixedTime: Date) {
   await page.clock.setFixedTime(fixedTime);
   await page.goto(`${origin}/aoba`, { waitUntil: 'domcontentloaded' });
-  await page.getByRole('heading', { level: 1, name: '今日やること', exact: true }).waitFor();
-  await page.getByRole('heading', { level: 2, name: 'ワークスペース', exact: true }).waitFor();
-  return page.getByRole('region', { name: PINNED_LIST, exact: true });
+  await page.getByRole('heading', { level: 1, name: word('pageToday'), exact: true }).waitFor();
+  await page.getByRole('heading', { level: 2, name: word('workspace'), exact: true }).waitFor();
+  return page.getByRole('region', { name: word('sectionToday'), exact: true });
 }
 
 async function prepareToday(browser: Browser, origin: string, fixedTime: Date) {
@@ -41,7 +42,9 @@ async function prepareToday(browser: Browser, origin: string, fixedTime: Date) {
     await addSeedSessionCookie(context, origin, 'admin');
     const page = await context.newPage();
     const list = await appToday(page, origin, fixedTime);
-    await page.getByRole('button', { name: `今日やる: ${PIN_TITLE}`, exact: true }).click();
+    await page
+      .getByRole('button', { name: word('todayMarkLabel', { mark: word('todayMark'), title: PIN_TITLE }), exact: true })
+      .click();
     await list.getByText(PIN_TITLE, { exact: true }).waitFor();
   } finally {
     await context.close();
@@ -65,6 +68,7 @@ async function captureToday(
     for (const theme of CAPTURE_THEMES) {
       for (const viewport of [DESKTOP_VIEWPORT, NARROW_VIEWPORT]) {
         const label = `${theme}-${viewport.width}`;
+        const referenceFontFailures = new Set<string>();
         const appPath = join(originals, `${label}-app.png`);
         const referencePath = join(originals, `${label}-reference.png`);
         const appContext = await browser.newContext({ ...STATIC_OPTIONS, viewport });
@@ -80,6 +84,17 @@ async function captureToday(
             throw new Error(`実装のフォントを読み込めません（${label}）`);
 
           const reference = await referenceContext.newPage();
+          const isExternalFont = (url: string) => {
+            const host = new URL(url).hostname;
+            return host === 'fonts.googleapis.com' || host === 'fonts.gstatic.com';
+          };
+          reference.on('requestfailed', (request) => {
+            if (isExternalFont(request.url())) referenceFontFailures.add('外部フォントの通信に失敗');
+          });
+          reference.on('response', (response) => {
+            if (!response.ok() && isExternalFont(response.url()) && response.status() >= 400)
+              referenceFontFailures.add(`外部フォントの HTTP ${response.status()}`);
+          });
           await reference.addInitScript((value) => localStorage.setItem('sq-design-theme', value), theme);
           await reference.goto(`${referenceOrigin}/today.html`, { waitUntil: 'domcontentloaded' });
           await reference.getByRole('heading', { level: 1, name: '今日やること', exact: true }).waitFor();
@@ -88,6 +103,12 @@ async function captureToday(
             .locator('img:visible')
             .evaluateAll((images) => Promise.all(images.map((image) => (image as HTMLImageElement).decode())));
           await captureScreen(reference, viewport, theme, referencePath);
+          if (await reference.evaluate(() => Array.from(document.fonts).some((font) => font.status === 'error')))
+            referenceFontFailures.add('見本のフォントの読み込みに失敗');
+          if (referenceFontFailures.size)
+            console.warn(
+              `見本のフォントが代替表示の可能性があります（${label}）: ${[...referenceFontFailures].join('、')}`,
+            );
         } finally {
           await Promise.all([appContext.close(), referenceContext.close()]);
         }
@@ -97,6 +118,7 @@ async function captureToday(
           viewport,
           app: relative(directory, appPath),
           reference: relative(directory, referencePath),
+          referenceFontFailures: [...referenceFontFailures],
           pairs: images.map((file) => relative(directory, file)),
         });
         console.log(`撮影済み ${theme} ${viewport.width}px`);
@@ -135,7 +157,10 @@ async function main() {
     await mkdir(lock);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'EEXIST')
-      throw new Error(`この周の撮影はすでに実行中です: ${output}`, { cause: error });
+      throw new Error(
+        `この周には撮影ロックがあります: ${lock}。異常終了したときの確認と復旧手順は docs/agent-workflows/screen-review.md を参照してください`,
+        { cause: error },
+      );
     throw error;
   }
 

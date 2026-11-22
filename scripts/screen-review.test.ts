@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
-import { relative, resolve } from 'node:path';
+import { join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Page } from '@playwright/test';
 import { NARROW_VIEWPORT, setCaptureViewport } from '../e2e/screen-capture.ts';
@@ -58,10 +59,14 @@ test('画面幅が一致するまで1回だけ撮り直す', async () => {
 
 test('長い比較画像は行が読めるように境界を重ねて縦に分ける', () => {
   assert.deepEqual(comparisonBands(900), [{ offset: 0, height: 900 }]);
+  assert.deepEqual(comparisonBands(901), [
+    { offset: 0, height: 483 },
+    { offset: 419, height: 482 },
+  ]);
   assert.deepEqual(comparisonBands(1801), [
-    { offset: 0, height: 900 },
-    { offset: 836, height: 900 },
-    { offset: 1672, height: 129 },
+    { offset: 0, height: 643 },
+    { offset: 579, height: 643 },
+    { offset: 1158, height: 643 },
   ]);
 });
 
@@ -92,6 +97,18 @@ test('見本の組織のマークを WebP で配り、見本の外のファイ�
 test('撮影成果物は E2E の出力ディレクトリの外に置く', () => {
   const root = process.cwd();
   const output = screenReviewOutput(root, screenReviewOptions(['today', 'list', '--round', '2']));
-  assert.equal(relative(root, output), ['screen-review-results', 'today', 'list', '2'].join('/'));
-  assert.ok(relative(resolve(root, 'test-results'), output).startsWith('..'));
+  assert.equal(relative(root, output), join('screen-review-results', 'today', 'list', '2'));
+  assert.ok(relative(resolve(root, 'test-results'), output).startsWith(`..${sep}`));
+});
+
+test('db:seed の撮影オプションで引数が欠けていれば D1 を変更する前に止まる', () => {
+  const script = fileURLToPath(new URL('./db-seed.ts', import.meta.url));
+  for (const [args, message] of [
+    [['--env-file'], /--env-file にファイルを指定/],
+    [['--save-sql', 'output.sql'], /--save-sql には --persist-to と出力先を指定/],
+  ] as const) {
+    const result = spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, message);
+  }
 });
