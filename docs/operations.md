@@ -678,6 +678,55 @@ node scripts/deploy-legacy-redirect.ts
 
 旧 URL に来る人がいなくなったら、ダッシュボードの Workers & Pages で `scrum-guild` を開き、Settings の Delete で消す。消すと旧 URL は 404 に戻る。消した後で本番の Worker を旧名に戻すことはしない（`PUBLIC_ORIGIN` が新しい URL のため）。移す当日に戻すときの手順（名前と版を組で戻す）は、上の「本番の URL を banmen に移す」の「当日に戻すとき」。転送用の Worker を置いた後に戻すときは、先に転送用の Worker を消してから名前を戻す（旧名が空いていないと名前を戻せない）。
 
+## GitHub の Organization を banmen-dev に移す
+
+GitHub の Organization を `scrum-guild-dev` から `banmen-dev` に改名する（#1427、親 #1416。`docs/naming.md` の「識別子」）。リポジトリは `banmen-dev/app` と `banmen-dev/website` になる。改名は人が行い、セッションは GitHub と Cloudflare の設定を変えない。
+
+改名してもリポジトリの ID（`1425341812`）は変わらない。プレビューの起動と掃除は ID で照合するので、名前の変更では止まらない（上の「番号付き PR から Builds を起動する」）。旧名へのアクセス（Web、API、`git`）は、旧名が空いている間だけ GitHub が新しい名前へ転送する。誰かが旧名で Organization を作ると転送が切れ、その人が作った `scrum-guild-dev/app` に、過去のリンクと古い remote が向く。古い remote で `git pull` すると、その人のコードを取り込む。そのため、全部のリンクを書き換え、全員が remote を変えた後に、旧名を自分たちで取って押さえる。自分で取り直しても転送は切れるので、取るのは最後にする。
+
+### 前に要るもの
+
+- 本番の URL を移し終えている（上の「本番の URL を banmen に移す」の「当日」の手順 8 まで）。改名は、その当日と別の日に行う。同じ日に重ねると、Builds や Release が止まったときに、どちらの変更のせいか切り分けられないため
+- プレビュー（上の「名前を scrum-guild から banmen に移す」）と見本の Worker（`docs/development.md` の「見本の Worker」）の名前の変更が済み、それぞれの Builds が新しい名前で動いている
+- 改名の後の直しの PR（#1460。リンクと名前を `banmen-dev` にする）を用意できる状態にしておく。マージは改名の後にする。先に入れると、新しい名前の URL が 404 になる
+
+### 改名の前
+
+1. `https://github.com/banmen-dev` が 404 で、名前が空いていることを確かめる。`banmen` は別の人が使っている（2026-11-23 に確かめた）
+2. 開いている PR と、走っている Actions と Builds が無いことを確かめる。改名の最中に Webhook や Builds が起きたときに、どちらの名前で動いたか切り分けにくいため
+3. チームに、改名の日時と、改名の後に各自が手元の remote を変えること（下の「改名の後」の手順 3）を知らせる
+
+### 改名
+
+1. GitHub の Organization の Settings の General で、Organization の名前を `banmen-dev` に変える
+2. 改名を終えた時刻を控える
+
+### 改名の後
+
+1. 次の一覧を順にたどる。どれかが動かないときは、下の「戻すとき」を読む
+   - Cloudflare の GitHub App: Cloudflare の接続の一覧に `banmen-dev` が出て、許可しているリポジトリが `banmen-dev/app` と `banmen-dev/website` の2件だけになっている。出ないときは、Cloudflare 側の GitHub 接続フローから認可し直す（上の「Workers Builds の接続」。GitHub の App のページから入れただけでは接続先として登録されない場合がある）
+   - Builds の接続先: 本番 `banmen`、見本 `banmen-design`、プレビュー `banmen-preview`、紹介サイト `scrum-guild-website` の4つの Worker の Settings の Builds で、接続先が新しい名前を指し、Git 連携のエラーが無い。古い名前のままなら、「Disable builds」を挟んで接続し直し、ブランチ、コマンド、build watch paths、API トークンが前のままであることを見て有効に戻す（上の「Workers Builds の接続」の 2026-11-03 の記録と同じ）
+   - Release の GitHub App: Organization の Settings の GitHub Apps に入ったまま、`app` のリポジトリを許可している
+   - Ruleset: `refs/tags/v*` と `refs/heads/production` の2つの Ruleset が残り、bypass が Release の GitHub App だけになっている（上の「Workers Builds の接続」）
+   - Environment `release`: リポジトリの Settings の Environments に残り、保護の設定が前のまま
+   - プレビューの Webhook: リポジトリの Settings の Webhooks の Recent Deliveries に失敗が無い。改名の後に番号付き PR を1つ更新し、プレビューの Builds が起きることを見る
+   - GitHub OAuth App: 本番と開発用の OAuth App の持ち主と Client ID が変わらず、本番の GitHub のログインが通る（上の「GitHub OAuth App」）
+   - Renovate: Renovate の GitHub App が `banmen-dev/app` を許可し、次の定期の実行で依存の更新の PR か Dependency Dashboard が新しい名前のリポジトリに出る
+   - claude.ai/code の環境: クラウドの環境 `scrum-guild`（`docs/development.md` の「クラウド環境」）のリポジトリが `banmen-dev/app` を指し、新しいセッションで clone できる
+2. #1460 の PR をマージする。その後の Release で、Builds が `production` からビルドし、本番の `/api/health` が新しい版を返すことを見る。この Release までは、改名の後の Builds が実際に動いたとは扱わない
+3. 各自が、手元の clone とワークツリーの remote を新しい名前に変える。変えた後に `git fetch` が通ることを見る
+
+   ```bash
+   git remote set-url origin git@github.com:banmen-dev/app.git
+   ```
+
+4. チームの全員が手順 3 を済ませたことを確かめる
+5. 旧名 `scrum-guild-dev` で空の Organization（Free）を作って押さえる。作った Organization にはリポジトリを置かず、メンバーも足さない。作った時点で旧名からの転送は切れるので、手順 2 と 4 が済む前に作らない
+
+### 戻すとき
+
+旧名が空いている間（上の「改名の後」の手順 5 の前）は、Organization の名前を `scrum-guild-dev` に戻せば、リポジトリの URL は元に戻る。戻した後も、上の「改名の後」の手順 1 の一覧を、旧名でたどり直す。#1460 をマージした後に戻すときは、#1460 を revert する PR も入れる。手順 5 の後は旧名が埋まっているので戻さず、新しい名前のまま直す。
+
 ## 組織
 
 ### お試しの期限切れの停止
