@@ -6,7 +6,7 @@ import path from 'node:path';
 import { SEED_SESSIONS } from '../seed/sessions.ts';
 import { PREVIEW_REPOSITORY_ID } from '../src/server/preview-trigger/webhook.ts';
 import { isIsolatedPreviewAccount, isIsolatedPreviewSubdomain } from '../src/shared/preview-cloudflare.ts';
-import { deployPreview, type PreviewDatabase } from './preview-deploy.ts';
+import { deployPreview, PreviewHttpError, PreviewStepError, type PreviewDatabase } from './preview-deploy.ts';
 import { previewConfig } from './preview-config.ts';
 import { seedSql } from './seed.ts';
 
@@ -15,7 +15,7 @@ async function jsonRequest(url: string, init: RequestInit): Promise<unknown> {
   const response = await fetch(url, { ...init, redirect: 'error', signal: AbortSignal.timeout(30_000) });
   if (!response.ok) {
     await response.body?.cancel();
-    throw new Error(`外部 API が HTTP ${response.status} を返しました`);
+    throw new PreviewHttpError(response.status);
   }
   return response.json();
 }
@@ -29,14 +29,14 @@ export async function openPreviewBranches(fetchJson = jsonRequest): Promise<stri
         headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'banmen-preview' },
       },
     );
-    if (!Array.isArray(data)) throw new Error('開いた PR の一覧を読めませんでした');
+    if (!Array.isArray(data)) throw new PreviewStepError('開いた PR の一覧を読めませんでした');
     for (const pr of data) {
       if (typeof pr?.head?.ref !== 'string') {
-        throw new Error('開いた PR のブランチを読めませんでした');
+        throw new PreviewStepError('開いた PR のブランチを読めませんでした');
       }
       // 元の fork が削除された PR は repo:null になる。同じリポジトリのブランチではない。
       if (pr.head.repo === null) continue;
-      if (!Number.isSafeInteger(pr.head.repo?.id)) throw new Error('開いた PR のブランチを読めませんでした');
+      if (!Number.isSafeInteger(pr.head.repo?.id)) throw new PreviewStepError('開いた PR のブランチを読めませんでした');
       // 組織の改名で止まらないよう、名前でなく起動専用 Worker と同じリポジトリ ID で照合する。
       if (pr.head.repo.id === PREVIEW_REPOSITORY_ID) branches.push(pr.head.ref);
     }
@@ -106,7 +106,7 @@ async function main() {
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     })) as { success?: boolean; result?: unknown };
-    if (data?.success !== true) throw new Error('Cloudflare API が失敗しました');
+    if (data?.success !== true) throw new PreviewStepError('Cloudflare API が失敗しました');
     return data.result;
   }
   await deployPreview({
