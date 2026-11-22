@@ -192,7 +192,7 @@ test('head.repo.id が無い・数値でない応答は、名前が同じでも�
   ]) {
     await assert.rejects(
       openPreviewBranches(async () => [{ head: { ref: '374-preview', repo } }]),
-      undefined,
+      /開いた PR のブランチを読めませんでした/,
       JSON.stringify(repo),
     );
   }

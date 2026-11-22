@@ -9,7 +9,8 @@ import { deployPreview, type PreviewDatabase } from './preview-deploy.ts';
 import { previewConfig } from './preview-config.ts';
 import { seedSql } from './seed.ts';
 
-const REPOSITORY = 'scrum-guild-dev/app';
+// 組織の改名で止まらないよう、リポジトリは名前でなく ID で照合する（src/server/preview-trigger/webhook.ts の PREVIEW_REPOSITORY_ID と同じ値）。
+const REPOSITORY_ID = 1425341812;
 
 // JSON 以外のエラー本文や認証情報をログに流さない。
 async function jsonRequest(url: string, init: RequestInit): Promise<unknown> {
@@ -25,7 +26,7 @@ export async function openPreviewBranches(fetchJson = jsonRequest): Promise<stri
   const branches: string[] = [];
   for (let page = 1; ; page++) {
     const data = await fetchJson(
-      `https://api.github.com/repos/${REPOSITORY}/pulls?state=open&per_page=100&page=${page}`,
+      `https://api.github.com/repositories/${REPOSITORY_ID}/pulls?state=open&per_page=100&page=${page}`,
       {
         headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'banmen-preview' },
       },
@@ -37,8 +38,8 @@ export async function openPreviewBranches(fetchJson = jsonRequest): Promise<stri
       }
       // 元の fork が削除された PR は repo:null になる。同じリポジトリのブランチではない。
       if (pr.head.repo === null) continue;
-      if (typeof pr.head.repo?.full_name !== 'string') throw new Error('開いた PR のブランチを読めませんでした');
-      if (pr.head.repo.full_name === REPOSITORY) branches.push(pr.head.ref);
+      if (!Number.isSafeInteger(pr.head.repo?.id)) throw new Error('開いた PR のブランチを読めませんでした');
+      if (pr.head.repo.id === REPOSITORY_ID) branches.push(pr.head.ref);
     }
     if (data.length < 100) return branches;
   }
