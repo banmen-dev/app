@@ -96,6 +96,19 @@ function openNumbersFrom(branches: unknown): Set<string> {
   return new Set((branches as string[]).map(previewBranchNumber).filter((value) => value !== undefined));
 }
 
+// 並行する別番号のビルドが先に同じ D1 を消すと 404 になる。消えているので削除済みとして扱う。
+async function deleteUnlessGone(deps: PreviewDeps, database: PreviewDatabase): Promise<void> {
+  try {
+    await deps.deleteDatabase(database);
+  } catch (error) {
+    if (error instanceof PreviewHttpError && error.status === 404) {
+      deps.log(`既に消えていました: ${database.name}`);
+      return;
+    }
+    throw error;
+  }
+}
+
 // 先に読んだ D1 の一覧のうち、開いた PR に番号の無い banmen-pr-* を消す。一覧より後に作られた D1 は消さない。
 // GitHub の読み取りか削除に失敗したら、それ以上は消さずに打ち切り、理由を返す（例外にしない）。
 async function cleanupClosedPreviews(
@@ -110,12 +123,16 @@ async function cleanupClosedPreviews(
   } catch (error) {
     return { deleted, abortReason: `開いた PR を読めませんでした（${abortReason(error)}）` };
   }
+  // 起動専用 Worker は開いた PR のブランチだけをビルドする。自分が一覧に無ければ、一覧が欠けていると見て消さない。
+  if (keep !== undefined && !openNumbers.has(keep)) {
+    return { deleted, abortReason: '開いた PR の一覧にこのビルドの番号がありません' };
+  }
   for (const database of databases) {
     const previewNumber = PREVIEW_DATABASE_PATTERN.exec(database.name)?.[1];
     if (!previewNumber || previewNumber === keep || openNumbers.has(previewNumber)) continue;
     deps.log(`閉じた PR の D1 を削除します: ${database.name}`);
     try {
-      await deps.deleteDatabase(database);
+      await deleteUnlessGone(deps, database);
     } catch (error) {
       return { deleted, abortReason: `${database.name} を削除できませんでした（${abortReason(error)}）` };
     }
@@ -124,12 +141,11 @@ async function cleanupClosedPreviews(
   return { deleted };
 }
 
-function logCleanup(deps: PreviewDeps, before: number, result: CleanupResult): number {
+function logCleanup(deps: PreviewDeps, before: number, result: CleanupResult): void {
   const after = before - result.deleted.length;
   const names = result.deleted.map((database) => database.name).join(', ') || 'なし';
   deps.log(`閉じた PR の D1 の掃除: 前 ${before} 個、後 ${after} 個、削除 ${names}`);
   if (result.abortReason) deps.log(`閉じた PR の D1 の掃除を打ち切りました: ${result.abortReason}`);
-  return after;
 }
 
 export async function deployPreview(deps: PreviewDeps): Promise<void> {
@@ -158,7 +174,9 @@ export async function deployPreview(deps: PreviewDeps): Promise<void> {
   const name = previewDatabaseName(number!);
   // 自分の D1 を作る前に枠を空ける。D1 の上限が効くのは作成の瞬間だけ（#1456）。
   const result = await cleanupClosedPreviews(deps, databases, number);
-  const remaining = logCleanup(deps, databases.length, result);
+  logCleanup(deps, databases.length, result);
+  // 自分の D1 も数える。作り直しで先に消すが、並行するビルドが同じ枠を取りうるため（#1456）。
+  const remaining = databases.length - result.deleted.length;
   const deletedIds = new Set(result.deleted.map((database) => database.uuid.toLowerCase()));
   const kept = databases.filter((database) => !deletedIds.has(database.uuid.toLowerCase()));
   if (result.abortReason) {
@@ -175,7 +193,7 @@ export async function deployPreview(deps: PreviewDeps): Promise<void> {
   const previous = kept.find((database) => database.name === name);
   if (previous) {
     deps.log(`プレビューの D1 を作り直します: ${name}`);
-    await deps.deleteDatabase(previous);
+    await deleteUnlessGone(deps, previous);
   }
   deps.log(`プレビューの D1 を作成します: ${name}`);
   const database = databaseValue(await deps.createDatabase(name));

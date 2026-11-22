@@ -37,7 +37,7 @@ function fake(overrides: Partial<PreviewDeps> = {}) {
     },
     openBranches: async () => {
       events.push('branches');
-      return ['275-task-complete'];
+      return ['275-task-complete', '374-preview'];
     },
     publish: async (input) => {
       events.push('publish');
@@ -113,7 +113,10 @@ for (const branch of ['main', '374-preview']) {
 }
 
 test('main は閉じた PR の D1 だけを消し、作成とアップロードをしない', async () => {
-  const f = fake({ env: { WORKERS_CI: '1', WORKERS_CI_BRANCH: 'main' } });
+  const f = fake({
+    env: { WORKERS_CI: '1', WORKERS_CI_BRANCH: 'main' },
+    openBranches: async () => ['275-task-complete'],
+  });
   await deployPreview(f.deps);
   assert.deepEqual(f.deleted, [OLD]);
   assert.deepEqual(f.published, []);
@@ -312,18 +315,19 @@ test('番号付きのビルドは、開いた PR の D1 と改名前の D1 と D
   assert.equal(f.published.length, 1);
 });
 
-test('自分の番号のブランチが開いた PR の一覧に無くても、自分の D1 を掃除で消さない', async () => {
+test('開いた PR の一覧に自分の番号が無ければ、一覧が欠けているとして何も消さない', async () => {
   const f = fake({ openBranches: async () => [] });
   await deployPreview(f.deps);
-  // OTHER は閉じた扱いで消え、自分の D1 は作り直しの1回だけ消す。
-  assert.deepEqual(f.events, ['list', `delete:${OTHER.name}`, `delete:${OLD.name}`, `create:${OLD.name}`, 'publish']);
+  // OTHER は残し、自分の D1 は作り直しの1回だけ消す。
+  assert.deepEqual(f.events, ['list', `delete:${OLD.name}`, `create:${OLD.name}`, 'publish']);
+  assert.ok(f.logs.includes('閉じた PR の D1 の掃除を打ち切りました: 開いた PR の一覧にこのビルドの番号がありません'));
 });
 
 test('番号付きのビルドは、同じ番号の別のブランチが開いていれば残す', async () => {
   const f = fake({
     env: { WORKERS_CI: '1', WORKERS_CI_BRANCH: '275-another' },
     listDatabases: async () => [PROD, OLD, OTHER],
-    openBranches: async () => ['275-task-complete', '374-preview'],
+    openBranches: async () => ['275-task-complete', '374-preview', '275-another'],
     createDatabase: async (name) => ({ name, uuid: NEW.uuid }),
   });
   await deployPreview(f.deps);
@@ -395,7 +399,11 @@ test('掃除の削除に失敗したら以降を消さず、消せた分を引�
   const closed = [CLOSED_A, CLOSED_B, { name: 'banmen-pr-1433', uuid: '88888888-8888-4888-8888-888888888888' }];
   const f = fake({
     listDatabases: async () => [PROD, OTHER, ...closed, ...databasesOf(4)],
-    openBranches: async () => ['275-task-complete', ...databasesOf(4).map((db) => `${db.name.slice(10)}-x`)],
+    openBranches: async () => [
+      '275-task-complete',
+      '374-preview',
+      ...databasesOf(4).map((db) => `${db.name.slice(10)}-x`),
+    ],
     deleteDatabase: async (db) => {
       deletes++;
       f.events.push(`delete:${db.name}`);
@@ -418,7 +426,11 @@ test(`掃除で ${PREVIEW_CLEANUP_CONTINUE_BELOW} 個未満まで減らせたな
   const closed = [CLOSED_A, CLOSED_B, { name: 'banmen-pr-1433', uuid: '88888888-8888-4888-8888-888888888888' }];
   const f = fake({
     listDatabases: async () => [PROD, OTHER, ...closed, ...databasesOf(3)],
-    openBranches: async () => ['275-task-complete', ...databasesOf(3).map((db) => `${db.name.slice(10)}-x`)],
+    openBranches: async () => [
+      '275-task-complete',
+      '374-preview',
+      ...databasesOf(3).map((db) => `${db.name.slice(10)}-x`),
+    ],
     deleteDatabase: async (db) => {
       deletes++;
       if (deletes === 2) throw new PreviewHttpError(500);
@@ -441,3 +453,47 @@ test('main の掃除は GitHub の失敗をビルドの失敗にし、ログに�
   assert.deepEqual(f.deleted, []);
   assert.ok(f.logs.includes('閉じた PR の D1 の掃除を打ち切りました: 開いた PR を読めませんでした（HTTP 403）'));
 });
+
+test('並行するビルドが先に消した D1 の 404 は削除済みとして扱い、掃除を続ける', async () => {
+  const closed = Array.from({ length: 8 }, (_, index) => ({
+    name: `banmen-pr-${1001 + index}`,
+    uuid: `${String(index).padStart(8, '0')}-2222-4222-8222-222222222222`,
+  }));
+  const f = fake({
+    listDatabases: async () => closed,
+    openBranches: async () => ['374-preview'],
+    deleteDatabase: async (db) => {
+      f.events.push(`delete:${db.name}`);
+      if (db.name === closed[0].name) throw new PreviewHttpError(404);
+      f.deleted.push(db);
+    },
+  });
+  await deployPreview(f.deps);
+  assert.equal(f.events.filter((event) => event.startsWith('delete:')).length, 8);
+  assert.ok(f.logs.includes(`既に消えていました: ${closed[0].name}`));
+  assert.ok(f.logs.some((line) => line.startsWith('閉じた PR の D1 の掃除: 前 8 個、後 0 個、')));
+  assert.equal(f.published.length, 1);
+});
+
+test('自分の D1 の作り直しで 404 なら、消えているものとして作る', async () => {
+  const f = fake({
+    deleteDatabase: async (db) => {
+      f.events.push(`delete:${db.name}`);
+      throw new PreviewHttpError(404);
+    },
+  });
+  await deployPreview(f.deps);
+  assert.equal(f.published.length, 1);
+});
+
+for (const status of [400, 403, 500]) {
+  test(`自分の D1 の作り直しで 404 以外の ${status} なら作らない`, async () => {
+    const f = fake({
+      deleteDatabase: async () => {
+        throw new PreviewHttpError(status);
+      },
+    });
+    await assert.rejects(deployPreview(f.deps));
+    assert.ok(!f.events.some((event) => event.startsWith('create:')));
+  });
+}
