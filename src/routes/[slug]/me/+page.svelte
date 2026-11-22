@@ -15,6 +15,7 @@
   import { formatDateTime } from '../../../lib/format-datetime.ts';
   import { formatCount } from '../../../lib/format.ts';
   import { isUnauthenticated, loginUrl } from '../../../lib/login-redirect.ts';
+  import { previewWithoutAttachments } from '../../../lib/preview-without-attachments.ts';
   import { t } from '../../../lib/vocabulary.svelte.ts';
   import type { ExperienceAction } from '../../../shared/experience.ts';
   import type { OutputOf } from '../../../shared/operations/define.ts';
@@ -230,14 +231,16 @@
   <div class="layout-main">
     {#if data.organization}
       <div class="settings">
-        {#key slug}
-          <MeAvatarSetting
-            {slug}
-            userId={data.organization.me.id}
-            name={data.organization.me.name}
-            image={data.organization.me.avatar_url}
-          />
-        {/key}
+        {#if !previewWithoutAttachments}
+          {#key slug}
+            <MeAvatarSetting
+              {slug}
+              userId={data.organization.me.id}
+              name={data.organization.me.name}
+              image={data.organization.me.avatar_url}
+            />
+          {/key}
+        {/if}
         <MeThemeSetting {slug} theme={data.organization.me.theme} />
       </div>
     {/if}
