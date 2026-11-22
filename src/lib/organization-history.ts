@@ -3,6 +3,7 @@
 import type { OutputOf } from '../shared/operations/define.ts';
 import type { organizationHistory } from '../shared/operations/organization/organization-history.ts';
 import type { DictionaryKey, TemplateParams } from '../shared/vocabulary.ts';
+import { formatCount, quotaSize } from './format.ts';
 import { planTermsText } from './plan-terms.ts';
 
 export type HistoryEntry = OutputOf<typeof organizationHistory>['entries'][number];
@@ -45,6 +46,31 @@ export function historyEventText(event: HistoryEntry['event'], translate: Transl
         : translate('orgHistorySuspensionChanged', { ...words, date: event.purge_on });
     case 'organization_settings_changed':
       return translate('orgHistoryOrganizationSettingsChanged', words);
+    case 'organization_quota_changed': {
+      const changes: string[] = [];
+      if (event.member_limit !== undefined) {
+        const [from, to] = event.member_limit;
+        changes.push(translate('orgHistoryMemberLimitChange', { from: formatCount(from), to: formatCount(to) }));
+      }
+      if (event.attachment_quota_bytes !== undefined) {
+        const formatQuota = (bytes: number, precise = false) => {
+          const { size, unit } = quotaSize(bytes, precise);
+          return translate(unit === 'gb' ? 'operatorQuotaSize' : 'operatorQuotaSizeMb', { size });
+        };
+        const [from, to] = event.attachment_quota_bytes;
+        const fromText = formatQuota(from);
+        const toText = formatQuota(to);
+        // 通常の丸めで同じ表記になるときだけ、桁を増やす
+        const precise = fromText === toText;
+        changes.push(
+          translate('orgHistoryAttachmentQuotaChange', {
+            from: precise ? formatQuota(from, true) : fromText,
+            to: precise ? formatQuota(to, true) : toText,
+          }),
+        );
+      }
+      return translate('orgHistoryQuotaChanged', { changes: changes.join('、') });
+    }
     case 'organization_storage_changed':
       return translate('orgHistoryStorageChanged', {
         from10: event.from.extra_10gb_units,

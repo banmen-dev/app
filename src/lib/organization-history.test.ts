@@ -43,6 +43,22 @@ describe('historyEventText', () => {
       [{ kind: 'organization_settings_changed' }, '組織の設定を変更しました'],
       [
         {
+          kind: 'organization_quota_changed',
+          member_limit: [15, 50],
+          attachment_quota_bytes: [30 * 1024 ** 3, 100 * 1024 ** 3],
+        },
+        '人数の上限を 15\u00a0人から 50\u00a0人に、添付ファイルの上限を 30\u00a0GB から 100\u00a0GB に変えました',
+      ],
+      [
+        { kind: 'organization_quota_changed', member_limit: [50, 1_000] },
+        '人数の上限を 50\u00a0人から 1,000\u00a0人に変えました',
+      ],
+      [
+        { kind: 'organization_quota_changed', attachment_quota_bytes: [512 * 1024 ** 2, 1024 ** 3] },
+        '添付ファイルの上限を 512\u00a0MB から 1\u00a0GB に変えました',
+      ],
+      [
+        {
           kind: 'organization_plan_changed',
           from: null,
           to: { plan: 'team', billing_interval: 'monthly' },
@@ -72,6 +88,10 @@ describe('historyEventText', () => {
           to: { extra_10gb_units: 1, extra_50gb_units: 0, billing_interval: 'monthly' },
         },
         '追加容量を+10\u00a0GB 0\u00a0口・+50\u00a0GB 0\u00a0口（未契約）から+10\u00a0GB 1\u00a0口・+50\u00a0GB 0\u00a0口（月払い）に変更しました',
+      ],
+      [
+        { kind: 'organization_quota_changed', attachment_quota_bytes: [1024 ** 3, 1024 ** 3 + 1] },
+        '添付ファイルの上限を 1\u00a0GB から 1.0000000009\u00a0GB に変えました',
       ],
       [{ kind: 'admin_designated', name: 'ミナト' }, 'ミナトを管理者に指名しました'],
       [{ kind: 'admin_designated', name: null }, 'メールアドレスで指定した人を管理者に指名しました'],

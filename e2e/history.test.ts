@@ -43,12 +43,12 @@ async function readToOldestSeedRow(page: Page): Promise<void> {
 type Entry = OutputOf<typeof organizationHistory>['entries'][number];
 
 // 差し替える応答の行。id は UUIDv7 の形の架空の値
-function entry(index: number, text: string): Entry {
+function entry(index: number, content: string | Entry['event'], actor: Entry['actor'] = { kind: 'system' }): Entry {
   return {
     id: `019a0000-0000-7000-8000-${String(index).padStart(12, '0')}`,
     created_at: new Date(Date.UTC(2026, 9, 20, 0, 0) - index * 60_000).toISOString(),
-    actor: { kind: 'system' },
-    event: { kind: 'workspace_created', workspace_name: text },
+    actor,
+    event: typeof content === 'string' ? { kind: 'workspace_created', workspace_name: content } : content,
   };
 }
 
@@ -103,6 +103,45 @@ test.describe('管理者（あおば開発のミナト）', () => {
     // seed の一番古い行より前の履歴は無いので、そこまで読めば「古い履歴を読む」は出ない
     await expect(sectionOf(page).getByRole('button', { name: '古い履歴を読む' })).toHaveCount(0);
     expect(await collect()).toEqual([]);
+  });
+
+  test('運用者が変更した上限と前後の値を履歴に表示する', async ({ page }) => {
+    const operator = { kind: 'operator' } as const;
+    const gib = 1024 ** 3;
+    await mockOperation(
+      page,
+      organizationHistory,
+      { slug: 'aoba' },
+      {
+        entries: [
+          entry(1, { kind: 'organization_quota_changed', member_limit: [50, 60] }, operator),
+          entry(
+            2,
+            { kind: 'organization_quota_changed', attachment_quota_bytes: [512 * 1024 ** 2, 30 * gib] },
+            operator,
+          ),
+          entry(
+            3,
+            {
+              kind: 'organization_quota_changed',
+              member_limit: [15, 50],
+              attachment_quota_bytes: [gib, 512 * 1024 ** 2],
+            },
+            operator,
+          ),
+        ],
+        next: null,
+      },
+    );
+    await page.goto('/aoba/admin');
+
+    const table = tableOf(page);
+    await expect(table.getByRole('cell', { name: '運用者', exact: true })).toHaveCount(3);
+    await expect(table.locator('tbody tr td:last-child')).toHaveText([
+      '人数の上限を 50 人から 60 人に変えました',
+      '添付ファイルの上限を 512 MB から 30 GB に変えました',
+      '人数の上限を 15 人から 50 人に、添付ファイルの上限を 1 GB から 512 MB に変えました',
+    ]);
   });
 
   test('「古い履歴を読む」で次のページを後ろに足し、最後まで読んだら終わりの文へフォーカスを移す', async ({ page }) => {

@@ -42,6 +42,8 @@ export function browserTimezone(): string {
 
 const countFormatter = new Intl.NumberFormat('ja-JP');
 const sizeFormatter = new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 1 });
+// 小数第10位まであれば、1 バイトの違いを GB でも表示できる
+const preciseSizeFormatter = new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 10 });
 
 // 件数を3桁ごとの区切りで出す（1,284）
 export function formatCount(count: number): string {
@@ -50,7 +52,8 @@ export function formatCount(count: number): string {
 
 // 容量の上限の大きさと単位。1 GB（1024³ バイト）以上は GB、それ未満は MB（1024² バイト）にする。
 // 1 GB 未満を GB で丸めると「0 GB」になるため。小数は1桁まで（30、1.5、512）。単位の文字は言葉の辞書の側で付ける
-export function quotaSize(bytes: number): { size: string; unit: 'gb' | 'mb' } {
-  if (bytes >= 1024 ** 3) return { size: sizeFormatter.format(bytes / 1024 ** 3), unit: 'gb' };
-  return { size: sizeFormatter.format(bytes / 1024 ** 2), unit: 'mb' };
+export function quotaSize(bytes: number, precise = false): { size: string; unit: 'gb' | 'mb' } {
+  const formatter = precise ? preciseSizeFormatter : sizeFormatter;
+  if (bytes >= 1024 ** 3) return { size: formatter.format(bytes / 1024 ** 3), unit: 'gb' };
+  return { size: formatter.format(bytes / 1024 ** 2), unit: 'mb' };
 }
