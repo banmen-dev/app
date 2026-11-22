@@ -18,7 +18,7 @@
   --text-xl: 1.25rem;    /* 20 節の見出し */
   --text-2xl: 1.625rem;  /* 26 画面の見出し */
   --text-3xl: 2rem;     /* 32 スマホの画面の見出し */
-  --text-stat: 2rem;     /* 32 経験値の大きな数字 */
+  --text-stat: 2rem;     /* 32 大きな数字（ベロシティの平均など） */
 
   --leading-tight: 1.35;
   --leading-body: 1.65;
@@ -96,19 +96,19 @@
   --color-gauge-tick: var(--color-bg);
   --color-tier-small: #843312;  /* 銅。段階の印は地を持たないので、地になりうる色（bg、surface、sunken、rule、accent-soft）すべてに 4.5:1 を取る。赤緑の色覚でも金と分かれるよう、金より暗くする */
   --color-tier-medium: #5b646d; /* 銀。操作の色の青と分けるため青みを抑える */
-  --color-tier-large: #6e6400;  /* 金。経験値の色と見分けるため黄みに振る */
+  --color-tier-large: #6e6400;  /* 金。金の色（--color-gold）と見分けるため黄みに振る */
 
   /* ---- 文字 ---- */
   --font-display: var(--family-gothic);   /* 画面と節の見出し */
   --font-body: var(--family-gothic);
   --font-mono: var(--family-mono);        /* キー、日付、ポイント */
-  --font-stat: var(--family-gothic);      /* レベル、経験値、積載量の数字 */
+  --font-stat: var(--family-gothic);      /* ベロシティ、積載量の数字 */
   --weight-display: 700;
 
   /* ---- 形 ---- */
   --radius-1: 4px;
   --radius-2: 4px;
-  --radius-show: 6px;                           /* 見せ場（経験値と積載量のゲージ、クリアの演出）の角。記録の角を詰めても形を変えない */
+  --radius-show: 6px;                           /* 見せ場（積載量のゲージ、クリアの演出）の角。記録の角を詰めても形を変えない */
   --rule-double: 1px solid var(--color-line);   /* 台帳の左や見出しの下の区切り */
   --edge-top: 2px;                              /* 貼り紙、計画のレーン、ダイアログ、枠の外の紙の上の線（レーンと枠の外の紙は無彩色） */
   --chip-state-edge: transparent;               /* 地の色を持つ状態の印（期日切れなど）は、地の色で示し枠を引かない */
