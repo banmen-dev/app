@@ -389,6 +389,8 @@ GitHub のリポジトリ Webhook と、`wrangler.preview-trigger.jsonc` で別�
 
 Cloudflare が起動を明確に拒否した場合と、GitHub や Builds の状態を一時的に読めない場合は、次のアラームで再試行する。起動の応答を受け取れず受理されたか分からない場合、同じ Issue では次の起動を保留する。
 
+GitHub や Cloudflare の応答を待っている間も、Webhook を受け付けて最新の要求を保存する。同じ Issue のビルドは一つずつ進め、起動の応答を待っている試行には復旧操作を適用しない。
+
 起動専用 Worker の Secret `PREVIEW_RECOVERY_SECRET` に、Webhook の Secret と別の十分に長い乱数を設定する。この値は復旧を担当する運用者だけに渡す。復旧の操作は専用 Worker の HTTPS URL の `/operator/preview-queues/<Issue番号>` へ `Authorization: Bearer <復旧用の値>` を付けて行う。
 
 1. `GET` で起動保留の状態を読む。`attempt` が `null` なら、起動結果の不明による保留は無い。`attempt.sha` と `attempt.attemptedAt`（ミリ秒）を控える。

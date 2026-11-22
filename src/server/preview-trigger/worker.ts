@@ -23,6 +23,8 @@ export class PreviewBuildGate extends DurableObject<PreviewTriggerEnv> {
     start: (request) => this.api().start(request),
     finished: (id) => this.api().finished(id),
     verifyRecovery: (id, request, attemptedAt) => this.api().verifyRecovery(id, request, attemptedAt),
+    // 外部 HTTP の待ち時間は区間に含めず、同じ Issue の受付を止めない。
+    withStorage: (operation) => this.ctx.blockConcurrencyWhile(operation),
     read: () => this.ctx.storage.get<PreviewQueueState>('queue'),
     write: (state) => this.ctx.storage.put('queue', state),
     schedule: async (delayMs) => {
@@ -42,23 +44,20 @@ export class PreviewBuildGate extends DurableObject<PreviewTriggerEnv> {
     });
   }
 
-  async enqueue(request: PreviewRequest): Promise<void> {
-    await this.ctx.blockConcurrencyWhile(() => this.queue.enqueue(request));
+  enqueue(request: PreviewRequest): Promise<void> {
+    return this.queue.enqueue(request);
   }
 
-  async status(): Promise<{ sha: string; attemptedAt: number } | null> {
-    const active = (await this.ctx.storage.get<PreviewQueueState>('queue'))?.active;
-    return active?.id === null && active.attemptedAt !== undefined
-      ? { sha: active.request.sha, attemptedAt: active.attemptedAt }
-      : null;
+  status(): Promise<{ sha: string; attemptedAt: number } | null> {
+    return this.queue.status();
   }
 
   recover(recovery: PreviewRecovery): Promise<boolean> {
-    return this.ctx.blockConcurrencyWhile(() => this.queue.recover(recovery));
+    return this.queue.recover(recovery);
   }
 
-  override async alarm(): Promise<void> {
-    await this.ctx.blockConcurrencyWhile(() => this.queue.run());
+  override alarm(): Promise<void> {
+    return this.queue.run();
   }
 }
 
