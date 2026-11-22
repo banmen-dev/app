@@ -77,7 +77,7 @@ test('GitHubの後続ページが落ちても先頭ページだけでcleanupを�
       openPreviewBranches(async () => {
         if (++requestedPages > 1) throw new Error('GitHub timeout');
         return Array.from({ length: 100 }, () => ({
-          head: { ref: '275-feature', repo: { full_name: 'scrum-guild-dev/app' } },
+          head: { ref: '275-feature', repo: { id: 1425341812, full_name: 'scrum-guild-dev/app' } },
         }));
       }),
     publish: async () => assert.fail('cleanup は公開しない'),

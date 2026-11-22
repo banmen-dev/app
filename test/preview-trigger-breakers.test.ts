@@ -38,7 +38,7 @@ const trigger = {
 function previewApi(mismatch = {}, updatedAt = '2026-11-22T00:05:00Z') {
   const fetcher = vi.fn<typeof fetch>(async (input) => {
     const url = String(input);
-    if (url.endsWith('/pulls/81')) {
+    if (url === 'https://api.github.com/repositories/1425341812/pulls/81') {
       return Response.json({
         number: request.pr,
         state: 'open',

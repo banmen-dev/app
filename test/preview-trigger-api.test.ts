@@ -11,6 +11,8 @@ const config = { accountId, workerTag, triggerId, buildTokenId, token: 'TEST_TOK
 const request = { issue: '42', pr: 81, branch: '42-report/section', sha: 'a'.repeat(40) } satisfies PreviewRequest;
 const latest = { ...request, sha: 'b'.repeat(40) };
 const repository = { id: 1425341812, full_name: 'scrum-guild-dev/app' };
+// Organization の改名を模した架空の名前。ID は同じリポジトリを指す。
+const renamed = { id: 1425341812, full_name: 'renamed-guild/app' };
 const githubPull = {
   number: request.pr,
   state: 'open',
@@ -40,7 +42,7 @@ const trigger = {
   ...settings.production_settings,
 };
 
-const githubUrl = `https://api.github.com/repos/scrum-guild-dev/app/pulls/${request.pr}`;
+const githubUrl = `https://api.github.com/repositories/1425341812/pulls/${request.pr}`;
 const cfUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/builds`;
 const workerUrl = `${cfUrl}/workers/${workerTag}`;
 const triggersUrl = `${workerUrl}/triggers`;
@@ -85,10 +87,17 @@ describe('Workers Builds の起動前の照合', () => {
   test.each([
     ['フォークの head', { ...githubPull, head: { ...githubPull.head, repo: { ...repository, id: 9 } } }],
     [
-      'リポジトリ名が異なる head',
-      { ...githubPull, head: { ...githubPull.head, repo: { ...repository, full_name: 'someone/app' } } },
+      '名前が同じで ID が異なる head',
+      { ...githubPull, head: { ...githubPull.head, repo: { id: 9, full_name: repository.full_name } } },
     ],
+    ['ID が文字列の head', { ...githubPull, head: { ...githubPull.head, repo: { ...repository, id: '1425341812' } } }],
+    ['repo が null の head', { ...githubPull, head: { ...githubPull.head, repo: null } }],
     ['別リポジトリの base', { ...githubPull, base: { ...githubPull.base, repo: { ...repository, id: 9 } } }],
+    [
+      '名前が同じで ID が異なる base',
+      { ...githubPull, base: { ...githubPull.base, repo: { id: 9, full_name: repository.full_name } } },
+    ],
+    ['ID が文字列の base', { ...githubPull, base: { ...githubPull.base, repo: { ...repository, id: '1425341812' } } }],
     ['main 以外の base', { ...githubPull, base: { ...githubPull.base, ref: 'production' } }],
     ['閉じた PR', { ...githubPull, state: 'closed' }],
     ['番号が異なる PR', { ...githubPull, number: request.pr + 1 }],
@@ -109,12 +118,16 @@ describe('Workers Builds の起動前の照合', () => {
       { ...settings, git_repository: { ...settings.git_repository, provider_type: 'gitlab' } },
     ],
     [
-      'Cloudflare の repo 所有者が異なる',
-      { ...settings, git_repository: { ...settings.git_repository, provider_account_name: 'someone' } },
+      'Cloudflare の repo 名は同じで repo ID が異なる',
+      { ...settings, git_repository: { ...settings.git_repository, repo_id: '1425341813' } },
     ],
     [
-      'Cloudflare の repo 名が異なる',
-      { ...settings, git_repository: { ...settings.git_repository, repo_name: 'other' } },
+      'Cloudflare の repo ID が数値',
+      { ...settings, git_repository: { ...settings.git_repository, repo_id: 1425341812 } },
+    ],
+    [
+      'Cloudflare の repo ID が無い',
+      { ...settings, git_repository: { ...settings.git_repository, repo_id: undefined } },
     ],
     ['停止用ブランチが変わっている', { ...settings, git_repository: { ...settings.git_repository, branch: 'main' } }],
     ['Cloudflare の自動プレビューが有効', { ...settings, previews_enabled: true }],
@@ -147,6 +160,48 @@ describe('Workers Builds の起動前の照合', () => {
     const { api } = harness([[triggersUrl, () => success(triggers)]]);
 
     await expect(api.current(request)).rejects.toThrow();
+  });
+
+  test('GitHub の PR は名前の宛先でなく、リポジトリ ID の宛先で照会する', async () => {
+    const { api, sent } = harness();
+
+    await api.current(request);
+    const github = sent.filter((req) => new URL(req.url).hostname === 'api.github.com').map((req) => req.url);
+    expect(github).toEqual(['https://api.github.com/repositories/1425341812/pulls/81']);
+    expect(github.some((url) => url.includes('/repos/'))).toBe(false);
+  });
+
+  test.each([
+    ['head', { ...githubPull, head: { ...githubPull.head, repo: renamed } }],
+    ['base', { ...githubPull, base: { ...githubPull.base, repo: renamed } }],
+    [
+      'head と base',
+      { ...githubPull, head: { ...githubPull.head, repo: renamed }, base: { ...githubPull.base, repo: renamed } },
+    ],
+    [
+      'full_name の無い head と base',
+      {
+        ...githubPull,
+        head: { ...githubPull.head, repo: { id: 1425341812 } },
+        base: { ...githubPull.base, repo: { id: 1425341812 } },
+      },
+    ],
+  ])('GitHub の %s のリポジトリ名が改名後でも、ID が同じなら起動対象にする', async (_label, pull) => {
+    const { api } = harness([[githubUrl, () => Response.json(pull)]]);
+
+    expect(await api.current(request)).toEqual(latest);
+  });
+
+  test.each([
+    ['所有者', { provider_account_name: 'renamed-guild' }],
+    ['repo 名', { repo_name: 'renamed-app' }],
+    ['所有者と repo 名', { provider_account_name: 'renamed-guild', repo_name: 'renamed-app' }],
+  ])('Cloudflare の %s が改名後の名前でも、repo ID が同じなら照合を通す', async (_label, names) => {
+    const { api } = harness([
+      [workerUrl, () => success({ ...settings, git_repository: { ...settings.git_repository, ...names } })],
+    ]);
+
+    expect(await api.current(request)).toEqual(latest);
   });
 
   test('GitHub のリダイレクトは、有効な PR の JSON を添えていても受け付けない', async () => {

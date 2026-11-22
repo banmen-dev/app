@@ -1,9 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
-import { handlePreviewWebhook, type PreviewRequest } from '../src/server/preview-trigger/webhook.ts';
+import {
+  handlePreviewWebhook,
+  previewRequestFromPullRequest,
+  PREVIEW_REPOSITORY_ID,
+  type PreviewRequest,
+} from '../src/server/preview-trigger/webhook.ts';
 
 const webhookUrl = 'https://preview-trigger.example.test/github/webhook';
 const secret = 'プレビューテスト専用の値';
 const repo = { id: 1425341812, full_name: 'scrum-guild-dev/app' };
+// Organization の改名を模した架空の名前。ID は同じリポジトリを指す。
+const renamed = { id: 1425341812, full_name: 'renamed-guild/app' };
 const sha = '0123456789abcdef0123456789abcdef01234567';
 const encoder = new TextEncoder();
 
@@ -74,6 +81,69 @@ describe('プレビューの GitHub Webhook', () => {
     const response = await handlePreviewWebhook(await request(JSON.stringify(payload)), secret, enqueue);
     expect(response.status).toBe(202);
     expect(enqueue).toHaveBeenCalledExactlyOnceWith({ issue: '1379', pr: 1380, branch: '1379-task/sub_branch', sha });
+  });
+
+  it.each([
+    ['配信元', (payload: ReturnType<typeof eligible>) => void (payload.repository = { ...renamed })],
+    ['base', (payload: ReturnType<typeof eligible>) => void (payload.pull_request.base.repo = { ...renamed })],
+    ['head', (payload: ReturnType<typeof eligible>) => void (payload.pull_request.head.repo = { ...renamed })],
+    [
+      '配信元・base・head のすべて',
+      (payload: ReturnType<typeof eligible>) => {
+        payload.repository = { ...renamed };
+        payload.pull_request.base.repo = { ...renamed };
+        payload.pull_request.head.repo = { ...renamed };
+      },
+    ],
+  ])('%s のリポジトリ名が改名後の名前でも、ID が同じなら起動する', async (_label, rename) => {
+    const payload = eligible();
+    rename(payload);
+    const enqueue = queue();
+    const response = await handlePreviewWebhook(await request(JSON.stringify(payload)), secret, enqueue);
+
+    expect(response.status).toBe(202);
+    expect(enqueue).toHaveBeenCalledExactlyOnceWith({
+      issue: '1379',
+      pr: 1380,
+      branch: '1379-task-drawer-layout',
+      sha,
+    });
+  });
+
+  it('リポジトリに full_name が無くても、ID が同じなら起動する', async () => {
+    const payload = eligible();
+    const idOnly = { id: PREVIEW_REPOSITORY_ID } as typeof repo;
+    payload.repository = idOnly;
+    payload.pull_request.base.repo = idOnly;
+    payload.pull_request.head.repo = idOnly;
+    const enqueue = queue();
+    const response = await handlePreviewWebhook(await request(JSON.stringify(payload)), secret, enqueue);
+
+    expect(response.status).toBe(202);
+    expect(enqueue).toHaveBeenCalledOnce();
+  });
+
+  it('PR の照合は名前でなく ID で行う', () => {
+    const pull = eligible().pull_request;
+    const renamedPull = { ...pull, base: { ...pull.base, repo: renamed }, head: { ...pull.head, repo: renamed } };
+    expect(previewRequestFromPullRequest(renamedPull)).toEqual({
+      issue: '1379',
+      pr: 1380,
+      branch: '1379-task-drawer-layout',
+      sha,
+    });
+    expect(
+      previewRequestFromPullRequest({
+        ...pull,
+        head: { ...pull.head, repo: { ...repo, id: PREVIEW_REPOSITORY_ID + 1 } },
+      }),
+    ).toBeNull();
+    expect(
+      previewRequestFromPullRequest({
+        ...pull,
+        base: { ...pull.base, repo: { ...repo, id: String(PREVIEW_REPOSITORY_ID) } },
+      }),
+    ).toBeNull();
   });
 
   it('受信ボディを1文字だけ変更すると、署名の検証で拒否する', async () => {
@@ -154,7 +224,66 @@ describe('プレビューの GitHub Webhook', () => {
     ['イベント名が push', 'push', eligible()],
     ['PR が閉じた', 'pull_request', { ...eligible(), action: 'closed' }],
     ['配信元の ID が異なる', 'pull_request', { ...eligible(), repository: { ...repo, id: 42 } }],
-    ['配信元の名前が異なる', 'pull_request', { ...eligible(), repository: { ...repo, full_name: 'elsewhere/app' } }],
+    ['配信元の ID が文字列', 'pull_request', { ...eligible(), repository: { ...repo, id: '1425341812' } }],
+    ['配信元の ID が無い', 'pull_request', { ...eligible(), repository: { full_name: repo.full_name } }],
+    ['配信元が null', 'pull_request', { ...eligible(), repository: null }],
+    [
+      '配信元の名前は同じで ID が異なる',
+      'pull_request',
+      { ...eligible(), repository: { id: PREVIEW_REPOSITORY_ID + 1, full_name: repo.full_name } },
+    ],
+    [
+      'head の ID が文字列',
+      'pull_request',
+      {
+        ...eligible(),
+        pull_request: {
+          ...eligible().pull_request,
+          head: { ...eligible().pull_request.head, repo: { ...repo, id: '1425341812' } },
+        },
+      },
+    ],
+    [
+      'head の名前は同じで ID が異なる fork',
+      'pull_request',
+      {
+        ...eligible(),
+        pull_request: {
+          ...eligible().pull_request,
+          head: { ...eligible().pull_request.head, repo: { id: 42, full_name: repo.full_name } },
+        },
+      },
+    ],
+    [
+      'head の repo が null（削除された fork）',
+      'pull_request',
+      {
+        ...eligible(),
+        pull_request: { ...eligible().pull_request, head: { ...eligible().pull_request.head, repo: null } },
+      },
+    ],
+    [
+      'base の ID が文字列',
+      'pull_request',
+      {
+        ...eligible(),
+        pull_request: {
+          ...eligible().pull_request,
+          base: { ...eligible().pull_request.base, repo: { ...repo, id: '1425341812' } },
+        },
+      },
+    ],
+    [
+      'base の名前は同じで ID が異なる',
+      'pull_request',
+      {
+        ...eligible(),
+        pull_request: {
+          ...eligible().pull_request,
+          base: { ...eligible().pull_request.base, repo: { id: 42, full_name: repo.full_name } },
+        },
+      },
+    ],
     [
       'head が fork',
       'pull_request',
