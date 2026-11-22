@@ -52,8 +52,8 @@ window.SQTaskTemplates = (() => {
       ${templates.size ? `<ul class="order-list">${Array.from(templates, ([id, item]) => `<li>
         <span class="order-main"><span class="order-name">${esc(item.name)}</span><span class="props-note">${item.tasks.length}件</span></span>
         <div class="order-actions">
-          <button class="btn is-sm" type="button" data-template-edit="${id}" aria-label="${esc(item.name)}を編集">編集</button>
-          <button class="btn is-sm is-danger" type="button" data-template-delete="${id}" aria-label="${esc(item.name)}を削除">削除</button>
+          <button class="icon-btn" type="button" data-template-edit="${id}" aria-label="${esc(item.name)}を編集" title="編集">${icon("pen")}</button>
+          <button class="icon-btn is-danger" type="button" data-template-delete="${id}" aria-label="${esc(item.name)}を削除" title="削除">${icon("trash")}</button>
         </div></li>`).join("")}</ul>` : `<p>${t("taskTemplate")}がまだありません。</p>`}
       <div class="form-actions"><button class="btn" type="button" data-template-edit="">${icon("plus")}${t("taskTemplate")}を作る</button></div>
     </div>`;
@@ -67,12 +67,14 @@ window.SQTaskTemplates = (() => {
       <form class="form" id="${formId}">
         ${field("name", "名前", current.name, 'required maxlength="200"')}
         ${field("story", `${t("story")}の題（任意）`, current.story, 'maxlength="200" aria-describedby="template-story-hint"')}
-        <p class="field-hint" id="template-story-hint">題が空の場合は、既存の${t("story")}への追加専用になります。題には <code>{対象}</code> が使えます。</p>
-        <details>
+        <p class="field-hint" id="template-story-hint">題が空の場合は、既存の${t("story")}への追加専用になります。題には <code>{対象}</code> が使えます。題を空にして保存すると、受け入れ基準・本文・区分も外れます。</p>
+        <details data-template-story-attributes>
           <summary>${t("story")}の属性</summary>
-          ${text("criteria", "受け入れ基準", current.criteria)}
-          ${text("body", "本文", current.body)}
-          ${select("category", t("category"), options(D.categories, "name", "なし"), current.category)}
+          <fieldset class="form-fields">
+            ${text("criteria", "受け入れ基準", current.criteria)}
+            ${text("body", "本文", current.body)}
+            ${select("category", t("category"), options(D.categories, "name", "なし"), current.category)}
+          </fieldset>
         </details>
         <div class="form" data-template-rows></div>
         <div class="form-actions"><button class="btn is-sm" type="button" data-template-add-task>${icon("plus")}${t("task")}を足す</button></div>
@@ -80,6 +82,15 @@ window.SQTaskTemplates = (() => {
     const form = document.getElementById(formId);
     const rowList = form.querySelector("[data-template-rows]");
     const addButton = form.querySelector("[data-template-add-task]");
+    const storyAttributes = form.querySelector("[data-template-story-attributes]");
+    const storyTitle = form.elements.story;
+    function syncStoryAttributes() {
+      const hasTitle = Boolean(storyTitle.value.trim());
+      storyAttributes.hidden = !hasTitle;
+      storyAttributes.querySelector("fieldset").disabled = !hasTitle;
+    }
+    storyTitle.addEventListener("input", syncStoryAttributes);
+    syncStoryAttributes();
 
     function renderRows(openIndex) {
       rowList.innerHTML = rows.map((task, i) => `<fieldset class="form-fields" data-template-row>
@@ -195,7 +206,7 @@ window.SQTaskTemplates = (() => {
     const members = Object.fromEntries(D.members.filter((member) => !member.left).map(({ who }) => [who, D.users[who]]));
     let simulateChange = new URLSearchParams(location.search).get("template-state") === "changed";
     openDialog(fixedStory ? `${t("taskTemplate")}から${t("task")}を足す` : `${t("taskTemplate")}から作る`, `
-      <form class="form" id="${formId}">
+      <form class="form" id="${formId}" novalidate>
         ${select("template", t("taskTemplate"), Array.from(templates, ([id, item]) => [id, item.name]))}
         <div class="form" data-template-destination></div>
         <div class="form-row">
@@ -208,11 +219,12 @@ window.SQTaskTemplates = (() => {
         <section class="panel" aria-labelledby="template-preview-heading">
           <h3 id="template-preview-heading">プレビュー</h3>
           <div data-template-preview></div>
-          <p class="field-hint" role="status" data-template-problem></p>
         </section>
-      </form>`, dialogButtons("作る", formId));
+      </form>`, `<p class="field-hint" role="status" id="template-apply-problem"></p>${dialogButtons("作る", formId)}`);
     const form = document.getElementById(formId);
     const submit = document.querySelector(`[form="${formId}"]`);
+    const status = document.getElementById("template-apply-problem");
+    submit.setAttribute("aria-describedby", status.id);
     const selection = form.querySelector("[data-template-selection]");
     const destination = form.querySelector("[data-template-destination]");
     const read = (name) => form.elements[name]?.value || "";
@@ -274,10 +286,9 @@ window.SQTaskTemplates = (() => {
         ${omitted ? '<p class="callout is-warn">削除された決まった欄、区分、リポジトリの値は使わずに作ります。</p>' : ""}
         ${add ? `<p class="field-hint">既存の${t("story")}の題や本文などはそのままです。</p>` : ""}
         <ol>${rows.map((row) => `<li>${esc(row.title)}<div class="props-note">${esc(row.due || "期日なし")} ・ ${esc(members[row.who]?.name || "担当なし")}</div></li>`).join("")}</ol>`;
-      const status = form.querySelector("[data-template-problem]");
       if (status.textContent !== problem) status.textContent = problem;
-      submit.disabled = Boolean(problem);
-      return { add, storyId, heading, rows };
+      submit.setAttribute("aria-disabled", String(Boolean(problem)));
+      return { add, storyId, heading, rows, problem };
     }
     renderDestination();
     renderSelection();
@@ -291,8 +302,8 @@ window.SQTaskTemplates = (() => {
     });
     form.addEventListener("submit", (event) => {
       event.preventDefault();
-      const { add, storyId, heading, rows } = preview();
-      if (submit.disabled) return;
+      const { add, storyId, heading, rows, problem } = preview();
+      if (problem) return;
       const affected = rows.find((row) => row.who)?.who;
       if (simulateChange && affected) {
         simulateChange = false;

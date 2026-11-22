@@ -38,6 +38,7 @@
 | ユーザーの稼働 | `user_capacity_settings`、`user_monthly_overrides`、`user_time_off` |
 | ワークスペース | `workspaces`、`workspace_point_rates`、`workspace_holidays`、`memberships`、`invitations`、`allocations` |
 | ワークスペースの定義 | `board_columns`、`detail_fields`、`categories`、`repositories` |
+| タスクの雛形 | `task_templates`、`task_template_items`、`task_template_item_field_values` |
 | 接続 | `connections`、`connection_scopes`、`connection_status_mappings` |
 | 計画と作業 | `epics`、`epic_party_members`、`stories`、`tasks`、`task_sources`、`review_request_cycles`、`task_source_payloads`、`task_field_values`、`comments`、`attachments`、`sprints`、`sprint_entries` |
 | Wiki | `wiki_pages`、`wiki_page_revisions` |
@@ -971,7 +972,7 @@
 | id | TEXT | PK | |
 | workspace_id | TEXT | NOT NULL、FK workspaces | |
 | is_imported | INTEGER | NOT NULL | 取り込んだタスク。作ったあとは変えない |
-| created_via | TEXT | NOT NULL、既定 `manual` | `manual`、`template`。移行前の行は `manual` とし、取り込んだタスクは従来どおり `is_imported` で起票の経験値と見込みから外す。将来の `ai` は `docs/ai.md` |
+| created_via | TEXT | NOT NULL、既定 `manual` | 列挙は `manual`、`template`。取り込んだタスクの値は `manual`。移行前の行は `manual` とし、取り込んだタスクは従来どおり `is_imported` で起票の経験値と見込みから外す。将来の `ai` は `docs/ai.md` |
 | tray | TEXT | NOT NULL、`inbox`、`backlog`、`archive` | 置き場所。手で作ったタスクは常に `backlog` |
 | title | TEXT | NOT NULL | 取り込んだタスクは同期で書き直す |
 | body_md | TEXT | | |
@@ -1170,10 +1171,12 @@
 | story_body_md | TEXT | | |
 | story_category_id | TEXT | FK categories | |
 | revision | INTEGER | NOT NULL | 雛形と配下の項目・値をまとめた版。いずれかを変更すると進める |
+| created_at | TEXT | NOT NULL | |
+| updated_at | TEXT | NOT NULL | 雛形と配下を最後に変更した日時 |
 
-- `workspaces.organization_id` で組織を確かめ、`workspace_id` で絞る。作成・編集・削除はリーダー（管理者を含む）、適用はメンバー。閉じたワークスペースへの書き込みは断る。
+- `workspaces.organization_id` で組織を確かめ、`workspace_id` で絞る。作成・編集・削除はリーダー（管理者を含む）、適用はメンバー。閉じたワークスペースへの書き込みは断る。同じワークスペースへの外部キーの参照先として `(workspace_id, id)` を一意にし、`story_category_id` に索引を置く。
 - ストーリーのタイトルが空ならストーリーの情報を保存しない。本文、受け入れ基準、区分は対応するストーリーの欄と同じ制約に従う。
-- 雛形の作成・編集・削除は項目・値と履歴を含めて1回の `batch()` で書く。適用済みの行とは履歴の写しで結ぶ。解約した組織の消去 SQL（`scripts/purge-organization-sql.ts`）には、値、項目、雛形の順に消す処理をマイグレーションと一緒に足す。コードを戻した後も、雛形の表がある間は追加後の生成器を使う。
+- 雛形の作成・編集・削除は項目・値と履歴を含めて1回の `batch()` で書く。編集と削除は読み取った版を照合し、違う場合は書き込まず再読み込みを返す。適用済みの行とは履歴の写しで結ぶ。解約した組織の消去 SQL（`scripts/purge-organization-sql.ts`）には、値、項目、雛形の順に消す処理をマイグレーションと一緒に足す。コードを戻した後も、雛形の表がある間は追加後の生成器を使う。
 
 ### task_template_items
 
@@ -1183,7 +1186,7 @@
 | --- | --- | --- | --- |
 | id | TEXT | PK | |
 | workspace_id | TEXT | NOT NULL、FK workspaces | |
-| template_id | TEXT | NOT NULL、FK task_templates | 同じワークスペースの雛形 |
+| template_id | TEXT | NOT NULL | `workspace_id` と組にした外部キーで、同じワークスペースの雛形を指す |
 | title | TEXT | NOT NULL | |
 | points | INTEGER | | タスクと同じ |
 | body_md | TEXT | | タスクの本文と同じ |
@@ -1191,7 +1194,7 @@
 | due_offset_days | INTEGER | | 空は期日なし。開始日を0日目とする非負の整数 |
 | position | INTEGER | NOT NULL | 雛形の中での順序 |
 
-- `(template_id, position)` を一意にする。組織を確認したワークスペースで絞り、雛形も同じワークスペースに結ぶ。
+- `(template_id, position)` を一意にする。組織を確認したワークスペースで絞り、雛形も同じワークスペースに結ぶ。外部キーの検査に `(workspace_id, template_id)` と `repository_id` の索引を持つ。ポイントはタスクと同じ列挙で検査し、本文と期日のずれは各欄の制約に従う。
 - 適用時のタイトルは `{対象}` の差し込み後に検査する。期日が暦の範囲を超える場合は作成前に断る。
 
 ### task_template_item_field_values
@@ -1204,7 +1207,7 @@
 | field_id | TEXT | PK、FK detail_fields | |
 | value_md | TEXT | NOT NULL | タスクの決まった欄と同じ。空は行を持たない |
 
-- `task_field_values` と同じく `workspace_id` を持たず、項目と雛形を通して組織・ワークスペースで絞る。保存時は欄、区分、リポジトリが同じワークスペースにあることを確かめる。適用時に削除済みの欄の値は飛ばし、削除済みの区分・リポジトリは空にする。
+- `task_field_values` と同じく `workspace_id` を持たず、項目と雛形を通して組織・ワークスペースで絞る。外部キーの検査のため `field_id` に索引を置く。保存時は欄、区分、リポジトリが同じワークスペースにあることを確かめる。適用時に削除済みの欄の値は飛ばし、削除済みの区分・リポジトリは空にする。
 
 ### comments
 
@@ -1574,7 +1577,7 @@ Wiki のページ。組織の Wiki とワークスペースの Wiki で共有す
 
 - 組織の合計: その組織のワークスペースの `xp_grants` のうち、`user_id` が本人の行の `SUM(amount)`。抜けたワークスペースと閉じたワークスペースの分も含む。行が無ければ 0。索引 `xp_grants_user_workspace_amount`（`user_id, workspace_id, amount`）だけで合計を出す。
 - レベル: 組織の合計から `src/shared/experience.ts` の `levelOf` で出す（レベル `L` に達する合計は `50 × L × (L − 1)`、次のレベルまでに要るのは `100 × L`、合計が 0 を下回ってもレベル1、上限なし）。DB に列を持たず、読むたびに計算する。`levelProgressOf` が、今のレベルの始まり、次のレベルに要る合計、ゲージの割合（確定 = `(合計 − 今のレベルの始まり) / (100 × L)`、負なら 0。見込み = `見込み / (100 × L)` を残りの幅 `1 − 確定` で切る）を出す。
-- 見込み: 今所属している（`memberships.left_at IS NULL`）閉じていないワークスペースで、本人が作った（`tasks.created_by`）、手で作った（`is_imported = 0`）、未完了（`completed_at IS NULL`）、削除していない（`deleted_at IS NULL`）、ポイントが1以上のタスク1件につき `XP_TASK_CREATED`（起票の経験値）。手で作ったタスクはいつもバックログにある（`tasks` の CHECK）ので、アーカイブで外れるものは無い（`tray = 'backlog'` の条件は結果を変えない念押しとして残す）。実行計画は、部分索引 `tasks_created_by_open`（`created_by`、`completed_at`）から本人の未完了のタスクだけを引き、`memberships_current` で今の所属を、`workspaces` の主キーで組織と閉じたかを確かめる。詳細の見込みは、同じ範囲の未完了のバックログで、ポイント1以上、有効な欄が1件以上ですべて記入済み、最後の更新者が本人のタスク1件につき `XP_TASK_DETAILED`（20）を加算する。取り込んだタスクも対象とし、起票者は問わない。レビュー依頼で前の依頼回の未打ち消しの詳細付与が残るタスクは、次回に再付与しないため見込みからも除外する。未打ち消しの付与を探す条件は完了時の付与と共用する。欄・値・ポイント・所属・ワークスペースの状態の変更に追従する。受取人は `task_field_values` の項の共通式で選び、タスクと欄はワークスペースで、値は主キーで絞る。本人が書いた値を `task_field_values_updated_by` で先に引き、タスクIDを重複排除した候補から `CROSS JOIN tasks` と主キーでタスクを引く。バックログ全件に受取人の相関式を当てない。
+- 見込み: 今所属している（`memberships.left_at IS NULL`）閉じていないワークスペースで、本人が作った（`tasks.created_by`）、手で作った（`is_imported = 0 AND created_via = 'manual'`）、未完了（`completed_at IS NULL`）、削除していない（`deleted_at IS NULL`）、ポイントが1以上のタスク1件につき `XP_TASK_CREATED`（起票の経験値）。手で作ったタスクはいつもバックログにある（`tasks` の CHECK）ので、アーカイブで外れるものは無い（`tray = 'backlog'` の条件は結果を変えない念押しとして残す）。実行計画は、部分索引 `tasks_created_by_open`（`created_by`、`completed_at`）から本人の未完了のタスクだけを引き、`memberships_current` で今の所属を、`workspaces` の主キーで組織と閉じたかを確かめる。詳細の見込みは、同じ範囲の未完了のバックログで、ポイント1以上、有効な欄が1件以上ですべて記入済み、「詳細を書いた」の受取人が本人のタスク1件につき `XP_TASK_DETAILED`（20）を加算する。取り込んだタスクも対象とし、起票者は問わない。レビュー依頼で前の依頼回の未打ち消しの詳細付与が残るタスクは、次回に再付与しないため見込みからも除外する。未打ち消しの付与を探す条件は完了時の付与と共用する。欄・値・ポイント・所属・ワークスペースの状態の変更に追従する。受取人は `task_field_values` の項の共通式で選び、タスクと欄はワークスペースで、値は主キーで絞る。本人が書いた値を `task_field_values_updated_by` で先に引き、タスクIDを重複排除した候補から `CROSS JOIN tasks` と主キーでタスクを引く。バックログ全件に受取人の相関式を当てない。
 - 詳細の見込みの測定（2026-11-15、テスト用の使い捨てローカルD1、バックログ50,001件・本人が書いた候補1件、各1回）: 変更前の100,010行読み取り・24msから、候補を先に引く文では10行・3ms。結果は同一。実行計画は `task_field_values_updated_by` → 重複排除した候補 → `tasks` の主キーで、`tasks_workspace_tray` によるバックログ全件の読み取りが無いことを `test/task-detailed-xp.test.ts` で確かめる。時刻は単発の参考値で、候補が増えれば読む量も増える。
 - ワークスペースごとの内訳（`experience-summary` の `workspaces`）: 明細のあるワークスペースと、今所属しているワークスペース（閉じたものも含む。明細が無ければ 0）。各行はワークスペースの確定の合計と見込み。並びは名前の昇順、同じ名前は ID の昇順。2つの文（明細のあるワークスペースと、今の所属）の結果を処理の中で合わせて並べるので、SQL の `ORDER BY` ではなく JavaScript の文字列の比較（UTF-16 の符号単位の順）で決まる。組織の合計と見込みは、内訳の合計と同じ。
 - 受け取った感謝の数（`experience-summary` の `thanks_received`。トップレベルが組織の合計、`workspaces` の各行がそのワークスペースの数）: `thanks` のうち `recipient_user_id` が本人の行をワークスペースごとに数える（索引 `thanks_recipient_user`）。結合した `workspaces.organization_id` を入口の組織で絞り、別の組織のワークスペースを指す行は数えない。抜けたワークスペースと閉じたワークスペースで受け取った分も数え、感謝があるのに明細も今の所属も無いワークスペースは、内訳にワークスペースの名前と数を持つ行（`total` と `prospective` は 0）で出す。削除したタスクへの感謝も数える（感謝の行はタスクの論理削除では消えず、`thanks` だけを数えて `tasks` を結ばない。受け取った事実は、タスクを消しても変わらないため）。感謝を送った人は返さず、本人以外の応答（メンバーの一覧、組織の枠）にも載せない。手助けの経験値（`xp_grants`）とは別に数えるので、上限で経験値が付かなかった感謝も、手助けを打ち消した（完了を戻した）感謝も数える。
@@ -1687,7 +1690,8 @@ D1 は対話的なトランザクションを持たない。まとめて書く�
 
 | 操作 | 書くもの |
 | --- | --- |
-| 雛形の適用 | `stories`（新規の場合）、`tasks`、`task_field_values`、`epic_party_members`、`notifications`、`change_logs` を1回の `batch()` で書く。雛形の版、作成先の状態、担当の所属、参照先の有効性を同じトランザクション内で確認し、プレビューとの差が結果に影響する場合は全件を作らず再確認を返す。全書き込みを同じ条件に結び、条件不成立による0件更新を作成成功として返さない。条件不成立や途中の失敗で、ストーリー・タスク・履歴・通知の一部が残らないようにする |
+| 雛形の管理 | 雛形と項目・値、変更の履歴を1回の `batch()` で書く。編集と削除は最初に読んだ版を全書き込みで照合する |
+| 雛形の適用 | `stories`（新規の場合）、`tasks`、`task_field_values`、`epic_party_members`、`notifications`、`change_logs` を1回の `batch()` で書く。雛形の版、作成先の状態、担当の所属、参照先の有効性を同じトランザクション内で確認し、プレビューとの差が結果に影響する場合は全件を作らず再確認を返す。全件の条件を組にして各書き込みで共用し、条件不成立による0件更新を作成成功として返さない。最大50件で決まった欄の値が最大500件になる。D1 の上限内に収まるよう複数行を1文にまとめ、最大件数の組で検証する。通信失敗後に同じ確定を再送しても重複作成しないことを適用 API の完了条件にする。適用済みの行がある DB で由来を見ない旧コードに戻すと、経験値の見込みと次の付与が変わりうる。適用 API を出すときは、戻し先も由来の判定を持つ版にする手順を用意する。条件不成立や途中の失敗で、ストーリー・タスク・履歴・通知の一部が残らないようにする |
 | お気に入りの付け外し | `favorites` だけを1回の `batch()` で書く。追加は本人・組織・対象の可視性と20行未満を条件にした `INSERT ... SELECT` にし、重複は追加しない。上限の検査も書く文で行い、同時の要求でも20行を超えない。削除は本人と組織で絞る。`change_logs` は書かない |
 | タスクの完了 | `tasks`、`completions`、`review_request_cycles`（レビュー依頼の現在回への完了参照）、`xp_grants`（完了またはレビュー、起票、詳細、手助け）、`change_logs`、`notifications`。`sprint_entries` は書かない（進行中のスプリントの中の完了でも行は開いたまま。終了で閉じる）。ただし始まっていないスプリント（と削除したスプリント）の中の完了だけは、同じ `batch()` でスプリントから外す（`sprint_entries` を `removed` で閉じ、`change_logs` に `{"sprint": [前, null]}`）。文と条件は下の「タスクの完了（`task-complete`）の文と条件」 |
 | タスクの作成 | `tasks`（任意の `body_md` を含む）、`change_logs`（本文がある場合の履歴は `change_logs` の節）。`tasks` の文は `INSERT ... SELECT ... WHERE EXISTS`（閉じていないワークスペース。担当を指すときは、そのワークスペースに今所属している、無効でなく `login_subject` のある人。親を指すときは、同じワークスペースの削除していない、完了していないストーリー）にし、`change_logs`（担当と親も残す）は作った行があるときだけ入れる。何も入らなければ、閉じていれば 409（`workspace_closed`）、親が完了していれば 409（`conflict`）、そうでなければ 404。担当つきで作るときは、続けて `epic_party_members` と `change_logs` を同じ `batch()` に足す（下の「タスクの担当の変更」の討伐隊の文と同じ。条件のタスクの時刻は作った時刻）。入れ先のスプリントと列（`sprint`）を指すときは、同じ `batch()` で `tasks` の `INSERT` に `sprint_id`、`column_id`、`column_position`（その列の中の末尾）を含め、入れ先の条件（削除していない `planned` か `active` のスプリントと、同じワークスペースの削除していない完了でない列）を `WHERE EXISTS` に足す。`change_logs` の `create` に `sprint`（`[null, {id, name}]`）を残し、最後に `sprint_entries` の入った行を足す（作った行があるときだけ。担当の文は直前の文に頼るので、その後ろに置く）。入れ先が断られたら（終了したスプリントは 409（`conflict`、理由は `closed`）、完了の列は 409（理由は `done_column`）、無いスプリントや列と別のワークスペースや別の組織のものは 404）タスクも作られない |
