@@ -27,7 +27,7 @@ export async function openPreviewBranches(fetchJson = jsonRequest): Promise<stri
     const data = await fetchJson(
       `https://api.github.com/repos/${REPOSITORY}/pulls?state=open&per_page=100&page=${page}`,
       {
-        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'scrum-guild-preview' },
+        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'banmen-preview' },
       },
     );
     if (!Array.isArray(data)) throw new Error('開いた PR の一覧を読めませんでした');

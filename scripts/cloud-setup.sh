@@ -44,7 +44,7 @@ if [ -z "$repo" ]; then
       repo=$(dirname "$found")
       break
     fi
-  done < <(find /home /root /workspace -maxdepth 3 -name package.json \( -path '*banmen*' -o -path '*scrum-guild*' \) 2>/dev/null)
+  done < <(find /home /root /workspace -maxdepth 3 -name package.json \( -path '*banmen*' -o -path '*scrum-guild*' -o -path '*/app/*' \) 2>/dev/null)
 fi
 if [ -n "$repo" ]; then
   info "リポジトリ: $repo"
