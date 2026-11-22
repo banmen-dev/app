@@ -2345,7 +2345,7 @@ test.describe('運用者', () => {
     test('追加容量のあるビジネスから個別へ切り替えても、口数を標準容量へ二重に含めない', async ({ page }) => {
       await mockList(page, [
         organization({
-          seats: { used: 38, limit: 50 },
+          seats: { used: 28, limit: 30 },
           attachment_quota_bytes: 170 * GIB,
           contract: {
             ...contract('business', 'yearly'),
@@ -2360,9 +2360,9 @@ test.describe('運用者', () => {
       await page.getByRole('button', { name: '「あおば開発」のプランを変える' }).click();
       const dialog = page.getByRole('dialog', { name: 'プランを変える' });
       await dialog.getByRole('radio', { name: /個別/ }).check();
-      await expect(dialog.getByRole('spinbutton', { name: '人数の上限' })).toHaveValue('50');
+      await expect(dialog.getByRole('spinbutton', { name: '人数の上限' })).toHaveValue('30');
       await expect(dialog.getByRole('spinbutton', { name: '標準の添付容量（GB）' })).toHaveValue('100');
-      await expect(dialog).toContainText('変えた後の上限は 50 人・170 GB です。');
+      await expect(dialog).toContainText('変えた後の上限は 30 人・170 GB です。');
     });
 
     test('個別の契約を80人・200GB・年払いで付け、追加50GBを足し、ビジネスへ下げる確認を出す', async ({ page }) => {
@@ -2472,7 +2472,7 @@ test.describe('運用者', () => {
         organization({
           slug: 'kumo',
           name: 'くもラボ',
-          seats: { used: 38, limit: 50 },
+          seats: { used: 28, limit: 30 },
           attachment_quota_bytes: 100 * GIB,
           contract: contract('business', 'yearly'),
         }),
