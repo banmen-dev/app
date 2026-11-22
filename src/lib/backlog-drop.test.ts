@@ -9,7 +9,7 @@ import {
   type DropRow,
 } from './backlog-drop.ts';
 
-// e1 は開いたエピック、e2 は完了か中止したエピック、e3 は開いたエピック（配下なし）。s5 は完了したストーリー。
+// e1 は開いたエピック、e2 は完了したエピック、e3 は開いたエピック（配下なし）。s5 は完了したストーリー。
 // t8 は画面で完了にして、行が残っているタスク
 const index = indexTree({
   epics: ['e1', 'e2', 'e3'],
@@ -104,13 +104,13 @@ describe('availableOperations（タスクを運ぶとき）', () => {
 });
 
 describe('availableOperations（ストーリーを運ぶとき）', () => {
-  test('ストーリーの行の前後に落とせる。親のエピックが完了か中止していれば落とせない', () => {
+  test('ストーリーの行の前後に落とせる。親のエピックが完了していれば落とせない', () => {
     expect(availableOperations(index, story('s1'), storyRow('s2'))).toEqual(only('before', 'after'));
     expect(availableOperations(index, story('s1'), storyRow('s4'))).toEqual(only('before', 'after'));
     expect(availableOperations(index, story('s1'), storyRow('s3'))).toEqual(only());
   });
 
-  test('完了も中止もしていないエピックの行に重ねると囲む', () => {
+  test('完了していないエピックの行に重ねると囲む', () => {
     expect(availableOperations(index, story('s4'), epicRow('e1'))).toEqual(only('into'));
     expect(availableOperations(index, story('s4'), epicRow('e2'))).toEqual(only());
   });
@@ -122,7 +122,7 @@ describe('availableOperations（ストーリーを運ぶとき）', () => {
     expect(availableOperations(index, story('s4'), taskRow('t1'))).toEqual(only());
   });
 
-  test('今のエピックの中なら、エピックが完了か中止していても並べ替えられる', () => {
+  test('今のエピックの中なら、エピックが完了していても並べ替えられる', () => {
     expect(availableOperations(index, story('s3'), storyRow('s6'))).toEqual(only('before', 'after'));
     expect(availableOperations(index, story('s3'), epicRow('e2'))).toEqual(only('into'));
     expect(resolveDrop(index, story('s3'), storyRow('s6'), 'after')?.move).toMatchObject({
@@ -265,7 +265,7 @@ describe('resolveDrop（ストーリー）', () => {
     });
   });
 
-  test('エピックの行に重ねると、その配下の末尾に入る。完了か中止したエピックには入らない', () => {
+  test('エピックの行に重ねると、その配下の末尾に入る。完了したエピックには入らない', () => {
     expect(resolveDrop(index, story('s4'), epicRow('e1'), 'into')?.move).toEqual({
       kind: 'story',
       id: 's4',
@@ -279,7 +279,7 @@ describe('resolveDrop（ストーリー）', () => {
     expect(resolveDrop(index, story('s2'), epicRow('e1'), 'into')).toBeNull();
   });
 
-  test('完了も中止もしていないエピックの空の案内の行の前後は、そのエピックの末尾', () => {
+  test('完了していないエピックの空の案内の行の前後は、そのエピックの末尾', () => {
     expect(resolveDrop(index, story('s4'), tail('epic', 'e1'), 'before')?.move).toMatchObject({
       parentId: 'e1',
       afterId: undefined,
@@ -287,7 +287,7 @@ describe('resolveDrop（ストーリー）', () => {
     });
   });
 
-  test('ストーリーの下へは落とせない。完了か中止したエピックの下のストーリーの前後にも落とせない', () => {
+  test('ストーリーの下へは落とせない。完了したエピックの下のストーリーの前後にも落とせない', () => {
     expect(resolveDrop(index, story('s1'), storyRow('s2'), 'into')).toBeNull();
     expect(resolveDrop(index, story('s4'), storyRow('s3'), 'before')).toBeNull();
     expect(resolveDrop(index, story('s1'), taskRow('t7'), 'before')).toBeNull();
@@ -295,10 +295,10 @@ describe('resolveDrop（ストーリー）', () => {
 });
 
 describe('availableOperations（エピックを運ぶとき）', () => {
-  test('エピックの行の前後にだけ落とせる。完了か中止したエピックの前後にも落とせ、囲みは出さない', () => {
+  test('エピックの行の前後にだけ落とせる。完了したエピックの前後にも落とせ、囲みは出さない', () => {
     expect(availableOperations(index, epic('e1'), epicRow('e3'))).toEqual(only('before', 'after'));
     expect(availableOperations(index, epic('e1'), epicRow('e2'))).toEqual(only('before', 'after'));
-    // 完了か中止したエピックも運べる
+    // 完了したエピックも運べる
     expect(availableOperations(index, epic('e2'), epicRow('e1'))).toEqual(only('before', 'after'));
   });
 
@@ -334,7 +334,7 @@ describe('resolveDrop（エピック）', () => {
     expect(drop?.mark).toEqual({ row: epicRow('e2'), operation: 'after' });
   });
 
-  test('先頭の行の前は直前の行が null（先頭）。完了か中止したエピックを動かせる', () => {
+  test('先頭の行の前は直前の行が null（先頭）。完了したエピックを動かせる', () => {
     expect(resolveDrop(index, epic('e2'), epicRow('e1'), 'before')?.move).toMatchObject({
       kind: 'epic',
       afterId: null,

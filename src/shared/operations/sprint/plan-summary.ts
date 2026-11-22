@@ -34,7 +34,7 @@ export const planLaneSchema = z.object({
 
 export type PlanLane = z.output<typeof planLaneSchema>;
 
-// 削除していない、完了も中止もしていないエピック1つの、配下のポイント。バックログの木（backlog-tree）のエピックの
+// 削除していない、完了していないエピック1つの、配下のポイント。バックログの木（backlog-tree）のエピックの
 // points_done と points_all と同じ数え方（配下のストーリーのタスクのポイントの合計。未見積もりは 0）。
 // 残りのポイントは points_all - points_done（配下の未完了のタスクのポイントの合計）
 export const planEpicSchema = z.object({
@@ -55,7 +55,7 @@ export type PlanEpic = z.output<typeof planEpicSchema>;
 //   3 つに満たないときの延長したスプリントは、終了した全部のうち新しい 6 つまで
 // - velocity.average: counted が真のスプリントの points の平均。対象が 0 なら null（画面は「まだ出ません」）
 // - lanes: 削除していない planned と active のスプリントごと（開始日、id の順。sprint-list と同じ）
-// - epics: 削除していない、完了も中止もしていないエピック（position、id の順）
+// - epics: 削除していない、完了していないエピック（position、id の順）
 // today はワークスペースのタイムゾーンでの今日、week_start は週の始まり（0 が日曜）。エピックの期日の印を決める。
 // 閉じたワークスペースでも読める
 export const planSummary = defineOperation({

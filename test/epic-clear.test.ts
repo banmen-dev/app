@@ -253,13 +253,19 @@ describe('epic-complete', () => {
     expect(await rewardGrants(target, epic.id)).toEqual([]);
   });
 
-  test('中止したエピックは 409 の epic_finished、すでにクリアしていれば 409 の conflict（completed）', async () => {
+  test('前の版が中止の列を書いたエピックもクリアでき、中止の列を空に戻す', async () => {
+    // マイグレーション（0042）を当ててから版が切り替わるまでに、前の版が中止した行
     const target = await createTarget();
     const canceled = await readyEpic(target, { canceled_at: AT, canceled_by: target.admin.userId! });
-    const res = await clear(target, canceled.id);
-    expect(res.status).toBe(409);
-    expect(await errorOf(res)).toEqual({ code: 'epic_finished', reason: undefined });
+    expect((await clear(target, canceled.id)).status).toBe(200);
+    const row = await epicRow(target, canceled.id);
+    expect(row.completed_at).not.toBeNull();
+    expect(row.canceled_at).toBeNull();
+    expect(row.canceled_by).toBeNull();
+  });
 
+  test('すでにクリアしていれば 409 の conflict（completed）', async () => {
+    const target = await createTarget();
     const epic = await readyEpic(target);
     expect((await clear(target, epic.id)).status).toBe(200);
     const again = await clear(target, epic.id);
@@ -533,14 +539,12 @@ describe('epic-reopen', () => {
     ]);
   });
 
-  test('クリアしていなければ 409 の conflict（not_completed）、中止したエピックは 409 の epic_finished', async () => {
+  test('クリアしていなければ 409 の conflict（not_completed）', async () => {
     const target = await createTarget();
     const open = await readyEpic(target);
     const res = await reopen(target, open.id);
     expect(res.status).toBe(409);
     expect(await errorOf(res)).toEqual({ code: 'conflict', reason: 'not_completed' });
-    const canceled = await readyEpic(target, { canceled_at: AT, canceled_by: target.admin.userId! });
-    expect(await errorOf(await reopen(target, canceled.id))).toEqual({ code: 'epic_finished', reason: undefined });
   });
 
   test('依頼主かリーダーでなければ 403 で、何も書かない。依頼主は取り消せる', async () => {

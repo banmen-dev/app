@@ -4,7 +4,7 @@ import { conflictReasonOf } from '../conflict-reason.ts';
 import { defineOperation } from '../define.ts';
 
 // 移動を 409 の conflict で断った理由（タスクの移動とストーリーの移動で共通）。
-// parent_completed は完了した（エピックなら中止した）親の下へ移そうとした、task_completed は完了したタスクを動かそうとした、
+// parent_completed は完了した親の下へ移そうとした、task_completed は完了したタスクを動かそうとした、
 // changed は読んでから書くまでに別の要求が並びか親を変えた、ties は同じ値の行が多すぎて振り直さなかった
 export const moveConflictReasons = ['parent_completed', 'task_completed', 'changed', 'ties'] as const;
 export type MoveConflictReason = (typeof moveConflictReasons)[number];

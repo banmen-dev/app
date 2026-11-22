@@ -22,7 +22,6 @@ type DetailBody = {
     link_url: string | null;
     category: { id: string; name: string } | null;
     completed_at: string | null;
-    canceled_at: string | null;
   };
   requester: Person_;
   stories: { id: string; title: string; completed_at: string | null; points_done: number; points_all: number }[];
@@ -72,16 +71,16 @@ describe('epic-detail', () => {
       link_url: 'https://example.com/epic',
       category: { id: category.id, name: '営業' },
       completed_at: null,
-      canceled_at: null,
     });
+    expect(body.epic).not.toHaveProperty('canceled_at');
     expect(body.requester).toEqual({ id: requester.id, name: '青木 遥', left: false });
     expect(body.stories).toEqual([]);
-    for (const key of ['reward_tier', 'reward_xp', 'party', 'can_join', 'joined']) {
+    for (const key of ['reward_tier', 'reward_xp', 'party', 'can_join', 'joined', 'can_change_requester']) {
       expect(body).not.toHaveProperty(key);
     }
   });
 
-  test('完了と中止の日時を返し、削除した区分は null にする', async () => {
+  test('完了の日時を返し、削除した区分は null にする', async () => {
     const target = await createTarget();
     const category = await createCategory(target.organization, target.workspace.id, {
       deleted_at: '2026-10-21T00:00:00.000Z',
@@ -91,15 +90,10 @@ describe('epic-detail', () => {
       completed_at: '2026-10-22T00:00:00.000Z',
       completed_by: target.admin.userId!,
     });
-    const canceled = await createEpic(target.organization, target.workspace.id, target.admin.userId!, {
-      canceled_at: '2026-10-23T00:00:00.000Z',
-      canceled_by: target.admin.userId!,
-    });
 
     const clearedBody = await read(target, cleared.id);
     expect(clearedBody.epic.completed_at).toBe('2026-10-22T00:00:00.000Z');
     expect(clearedBody.epic.category).toBeNull();
-    expect((await read(target, canceled.id)).epic.canceled_at).toBe('2026-10-23T00:00:00.000Z');
   });
 
   test('依頼主がワークスペースを離れていると left が真で、名前は出す。今所属していれば偽', async () => {

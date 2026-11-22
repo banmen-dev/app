@@ -217,7 +217,7 @@ window.SQTaskTemplates = (() => {
           : `<p>${t("taskTemplateAskLeader")}</p>`}`);
       return;
     }
-    const epics = Object.fromEntries(Object.entries(D.epics).filter(([, epic]) => !epic.cleared && !epic.canceled));
+    const epics = Object.fromEntries(Object.entries(D.epics).filter(([, epic]) => !epic.cleared));
     const stories = Object.fromEntries(Object.entries(D.stories).filter(([, story]) => !story.doneAt && (!story.epic || epics[story.epic])));
     const members = Object.fromEntries(D.members.filter((member) => !member.left).map(({ who }) => [who, D.users[who]]));
     let simulateChange = new URLSearchParams(location.search).get("template-state") === "changed";

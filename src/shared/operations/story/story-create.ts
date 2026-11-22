@@ -5,7 +5,7 @@ import { defineOperation } from '../define.ts';
 import { storyDetailSchema } from './story.ts';
 
 // ストーリーを作る。親のエピックは epic_id で指す（任意）。同じワークスペースの削除していないエピックでなければ 404（別の組織も 404）、
-// 完了か中止したエピックなら 409 の conflict（details.reason は parent_completed）。
+// 完了したエピックなら 409 の conflict（details.reason は parent_completed）。
 // position は親の配下（親なしなら、親のないストーリー）の末尾。作った人（created_by）は呼んだ人。
 // 区分（category_id）は親のないストーリーだけが持つ。親と一緒に送ると 409 の conflict（has_parent）で、エピックの下では親の区分を引き継ぐ。
 // タイトル以外の欄は省略でき、空は null になる。区分（category_id）は、同じワークスペースの削除していない区分でなければ 404。

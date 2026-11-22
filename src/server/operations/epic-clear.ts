@@ -35,7 +35,7 @@ function storiesUnder(from: Pick<QueryCreator<Tables>, 'selectFrom'>, workspaceI
     .where('stories.deleted_at', 'is', null);
 }
 
-// 読んだエピックの状態。クリアしたか、中止したか、依頼主、クリアにした人（履歴の「前」に使う名前）、
+// 読んだエピックの状態。クリアしたか、依頼主、クリアにした人（履歴の「前」に使う名前）、
 // 配下のストーリーの件数と未完了の件数
 async function readEpic(db: OrganizationDb, workspaceId: string, epicId: string) {
   const [epicResult, countResult] = await db.batch([
@@ -49,7 +49,6 @@ async function readEpic(db: OrganizationDb, workspaceId: string, epicId: string)
           'epics.requester_user_id',
           'epics.completed_at',
           'epics.completed_by',
-          'epics.canceled_at',
           'done_by.name as completed_by_name',
         ])
         .where('epics.id', '=', epicId)
@@ -74,7 +73,6 @@ async function readEpic(db: OrganizationDb, workspaceId: string, epicId: string)
     completedAt: row.completed_at,
     completedBy: row.completed_by,
     completedByName: row.completed_by_name,
-    canceled: row.canceled_at !== null,
     storyCount: total,
     openCount: total - done,
   };
@@ -82,7 +80,7 @@ async function readEpic(db: OrganizationDb, workspaceId: string, epicId: string)
 
 type EpicState = NonNullable<Awaited<ReturnType<typeof readEpic>>>;
 
-// クリアする前に断る順。無い（404）、権限が無い（403）、中止した（409 の epic_finished）、すでにクリアした（completed）、
+// クリアする前に断る順。無い（404）、権限が無い（403）、すでにクリアした（completed）、
 // 配下が無い（empty）、未完了が残っている（open_stories）。閉じたワークスペースは、409 を返す前に 409 の workspace_closed にする
 async function clearableEpic(
   db: OrganizationDb,
@@ -95,10 +93,6 @@ async function clearableEpic(
     throw new ApiError(404, 'not_found');
   }
   if (!allowed(epic)) throw new ApiError(403, 'forbidden');
-  if (epic.canceled) {
-    await throwIfClosed(db, workspaceId);
-    throw new ApiError(409, 'epic_finished');
-  }
   if (epic.completedAt !== null) {
     await throwIfClosed(db, workspaceId);
     throw clearConflict('completed');
@@ -114,7 +108,7 @@ async function clearableEpic(
   return epic;
 }
 
-// クリアする。UPDATE の条件は、同じワークスペースの削除していない、クリアも中止もしていないエピック、閉じていないワークスペース、
+// クリアする。UPDATE の条件は、同じワークスペースの削除していない、クリアしていないエピック、閉じていないワークスペース、
 // 依頼主かリーダー、配下の削除していないストーリーが1件以上あり未完了が無いこと。通らなかったら、読み直して決め直す
 export const epicCompleteOperation = implement(epicComplete, async ({ db, actor, workspace, input }) => {
   const userId = actorUserIdOf(actor);
@@ -146,12 +140,19 @@ export const epicCompleteOperation = implement(epicComplete, async ({ db, actor,
       db.statement((q) =>
         q
           .updateTable('epics')
-          .set({ completed_at: completedAt, completed_by: userId, updated_at: completedAt })
+          // 中止の列は読まない。マイグレーション（0042）を当ててから版が切り替わるまでに前の版が中止した行でも、
+          // 表の CHECK（完了と中止は同時に入らない）に当たらないよう、空に戻す
+          .set({
+            completed_at: completedAt,
+            completed_by: userId,
+            canceled_at: null,
+            canceled_by: null,
+            updated_at: completedAt,
+          })
           .where('id', '=', epicId)
           .where('workspace_id', '=', workspaceId)
           .where('deleted_at', 'is', null)
           .where('completed_at', 'is', null)
-          .where('canceled_at', 'is', null)
           .$if(!leader, (qb) => qb.where('requester_user_id', '=', userId))
           .where((eb) =>
             eb.and([
@@ -200,7 +201,7 @@ export const epicCompleteOperation = implement(epicComplete, async ({ db, actor,
   throw clearConflict('changed');
 });
 
-// 取り消す前に断る順。無い（404）、権限が無い（403）、中止した（409 の epic_finished）、クリアしていない（not_completed）
+// 取り消す前に断る順。無い（404）、権限が無い（403）、クリアしていない（not_completed）
 async function reopenableEpic(
   db: OrganizationDb,
   workspaceId: string,
@@ -212,10 +213,6 @@ async function reopenableEpic(
     throw new ApiError(404, 'not_found');
   }
   if (!allowed(epic)) throw new ApiError(403, 'forbidden');
-  if (epic.canceled) {
-    await throwIfClosed(db, workspaceId);
-    throw new ApiError(409, 'epic_finished');
-  }
   if (epic.completedAt === null) {
     await throwIfClosed(db, workspaceId);
     throw clearConflict('not_completed');
@@ -250,7 +247,6 @@ export const epicReopenOperation = implement(epicReopen, async ({ db, actor, wor
         .where('workspace_id', '=', workspaceId)
         .where('deleted_at', 'is', null)
         .where('completed_at', '=', completedAt)
-        .where('canceled_at', 'is', null)
         .$if(!leader, (qb) => qb.where('requester_user_id', '=', userId))
         .where((eb) => eb.exists(openWorkspace(q, organizationId, workspaceId))),
     ),
@@ -288,7 +284,7 @@ export const epicReopenOperation = implement(epicReopen, async ({ db, actor, wor
   ]);
 
   if ((results[0]?.changes ?? 0) === 0) {
-    // 読んでから書くまでに、閉じたか、消えたか、別の要求が先に取り消したか、中止したか、
+    // 読んでから書くまでに、閉じたか、消えたか、別の要求が先に取り消したか
     // 取り消してからもう一度クリアされた（クリアした日時が変わった）
     await throwIfClosed(db, workspaceId);
     await reopenableEpic(

@@ -247,13 +247,10 @@ describe('story-complete', () => {
     expect((await complete(target, story.id)).status).toBe(200);
   });
 
-  test('親のエピックが完了か中止していれば 409 の conflict（parent_completed）で、何も書かない', async () => {
+  test('親のエピックが完了していれば 409 の conflict（parent_completed）で、何も書かない', async () => {
     const target = await createTarget();
     const adminId = target.admin.userId!;
-    for (const overrides of [
-      { completed_at: AT, completed_by: adminId },
-      { canceled_at: AT, canceled_by: adminId },
-    ]) {
+    for (const overrides of [{ completed_at: AT, completed_by: adminId }]) {
       const epic = await createEpic(target.organization, target.workspace.id, adminId, overrides);
       const story = await emptyStory(target, { epic_id: epic.id });
       await completedTask(target, story.id, target.member.userId!);
@@ -264,8 +261,12 @@ describe('story-complete', () => {
       expect(await storyGrants(target, story.id)).toEqual([]);
       expect(await logsOf(target, story.id)).toEqual([]);
     }
-    // 開いているエピックの下と、削除したエピックの下なら完了にできる
-    for (const overrides of [{}, { completed_at: AT, completed_by: adminId, deleted_at: AT }]) {
+    // 開いているエピック、前に中止したエピック（中止の列が残る行）、削除したエピックの下なら完了にできる
+    for (const overrides of [
+      {},
+      { canceled_at: AT, canceled_by: adminId },
+      { completed_at: AT, completed_by: adminId, deleted_at: AT },
+    ]) {
       const epic = await createEpic(target.organization, target.workspace.id, adminId, overrides);
       const story = await emptyStory(target, { epic_id: epic.id });
       expect((await complete(target, story.id)).status).toBe(200);
@@ -462,13 +463,10 @@ describe('story-reopen', () => {
     expect(await logsOf(target, story.id)).toEqual([]);
   });
 
-  test('親のエピックが完了か中止していれば 409 の conflict（parent_completed）で、何も書かない', async () => {
+  test('親のエピックが完了していれば 409 の conflict（parent_completed）で、何も書かない', async () => {
     const target = await createTarget();
     const adminId = target.admin.userId!;
-    for (const overrides of [
-      { completed_at: AT, completed_by: adminId },
-      { canceled_at: AT, canceled_by: adminId },
-    ]) {
+    for (const overrides of [{ completed_at: AT, completed_by: adminId }]) {
       const epic = await createEpic(target.organization, target.workspace.id, adminId, overrides);
       const story = await emptyStory(target, { epic_id: epic.id, completed_at: AT, completed_by: adminId });
       const res = await reopen(target, story.id);
@@ -476,10 +474,12 @@ describe('story-reopen', () => {
       expect(await errorOf(res)).toEqual({ code: 'conflict', reason: 'parent_completed' });
       expect((await storyRow(target, story.id))!.completed_at).toBe(AT);
     }
-    // 開いているエピックの下なら取り消せる
-    const open = await createEpic(target.organization, target.workspace.id, adminId);
-    const story = await emptyStory(target, { epic_id: open.id, completed_at: AT, completed_by: adminId });
-    expect((await reopen(target, story.id)).status).toBe(200);
+    // 開いているエピックと、前に中止したエピック（中止の列が残る行）の下なら取り消せる
+    for (const overrides of [{}, { canceled_at: AT, canceled_by: adminId }]) {
+      const open = await createEpic(target.organization, target.workspace.id, adminId, overrides);
+      const story = await emptyStory(target, { epic_id: open.id, completed_at: AT, completed_by: adminId });
+      expect((await reopen(target, story.id)).status).toBe(200);
+    }
     // 削除したエピックは親として数えない（クリアしてから削除したものも）。409 の changed にならずに取り消せる
     for (const overrides of [{ deleted_at: AT }, { completed_at: AT, completed_by: adminId, deleted_at: AT }]) {
       const deleted = await createEpic(target.organization, target.workspace.id, adminId, overrides);

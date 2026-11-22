@@ -72,7 +72,7 @@
     canWrite: boolean;
     // 期日の印を決める、ワークスペースの今日と週の始まり（画面が木から渡す）。無ければ印を出さない
     clock: { today: string; weekStart: number } | null;
-    // エピックがクリアか中止している（画面が木から渡す。期日の印に色を付けない）。木に無ければ偽
+    // エピックがクリアしている（画面が木から渡す。期日の印に色を付けない）。木に無ければ偽
     finished: boolean;
     // 閉じる。画面の枠が `?epic_id=` を外し、フォーカスを行へ戻す
     onclose: () => void;
@@ -841,7 +841,7 @@
             <!-- 読み取り専用では、入力欄にせず文字で出す（空は「—」） -->
             <span id={dueId}>{epic.due_on ?? '—'}</span>
           {/if}
-          <!-- 期限の印（木の行と同じ部品）。保存した値（epic.due_on）で出し直す。クリアか中止したエピックは色なし -->
+          <!-- 期限の印（木の行と同じ部品）。保存した値（epic.due_on）で出し直す。クリアしたエピックは色なし -->
           {#if epic.due_on !== null && clock !== null}
             <DueChip dueOn={epic.due_on} today={clock.today} weekStart={clock.weekStart} {done} />
           {/if}

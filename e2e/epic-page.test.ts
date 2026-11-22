@@ -3,9 +3,9 @@
 // seed の受託開発チームのエピック「ポイントの交換先を増やす」は、作成者がミナトで、配下のストーリーは完了したタスク1件（2 ポイント）の
 // 「送料の割引にポイントを使える」。
 // 読むだけで、seed の行は書き換えない（ほかのファイルと並べて走るため）。書き込みはテストで作ったワークスペースの中で行い、
-// seed の画面での失敗の扱いは応答を差し替えて確かめる。参加者（討伐隊）、クリア報酬、完了の演出は外した（#1434）
-import { epicDetail, epicRequesterUpdate, epicUpdate } from '../src/shared/operations/epic/index.ts';
-import { memberList } from '../src/shared/operations/workspace/index.ts';
+// seed の画面での失敗の扱いは応答を差し替えて確かめる。参加者（討伐隊）、クリア報酬、完了の演出は外した（#1434）。
+// 中止と作成者の付け替えも外した（#1435）
+import { epicDetail, epicUpdate } from '../src/shared/operations/epic/index.ts';
 import { workspaceInfo } from '../src/shared/operations/workspace/workspace.ts';
 import { expect, test } from './fixtures.ts';
 import { addEpicRow, createWorkspace, openEpicPage, signIn, waitForResponses, watchViolations } from './helpers.ts';
@@ -60,9 +60,11 @@ test('seed の受託開発チーム: 木のエピックの題から画面が開�
   // 頭の集計。参加者の人数は出さない
   await expect(page.locator('.tally > div')).toHaveText(['完了のポイント 2', '残りのポイント 0']);
 
-  // リーダーのミナトには、概要の面の下に「作成者を替える」が出る。完了は専用の面にあり（e2e/epic-clear.test.ts）、
+  // リーダーのミナトにも、作成者を替える口と中止の口は出ない（#1435）。完了は専用の面にあり（e2e/epic-clear.test.ts）、
   // seed の配下のストーリーは未完了なので押せない。直す口は見出しの横のボタン
-  await expect(request.getByRole('button', { name: '作成者を替える' })).toBeVisible();
+  await expect(request.getByRole('button')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /作成者を替える|中止/ })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'エピックの中止' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'エピックを完了にする' })).toHaveAttribute('aria-disabled', 'true');
   await expect(page.getByRole('link', { name: 'エピックを直す' })).toBeVisible();
 
@@ -70,10 +72,13 @@ test('seed の受託開発チーム: 木のエピックの題から画面が開�
   await page.getByRole('link', { name: 'バックログへ戻る' }).click();
   await expect(page).toHaveURL(WORKSPACE);
   await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();
+  // バックログの木のエピックの行に「中止」の印は出ない（#1435）
+  await expect(page.locator('.tree-row.is-epic').first()).toBeVisible();
+  await expect(page.locator('.tree-row.is-epic .chip', { hasText: '中止' })).toHaveCount(0);
   expect(await collect()).toEqual([]);
 });
 
-test('作ったワークスペース: 配下の無いエピックは空の案内を出し、作った人が作成者。作成者を替える候補は今の作成者を除く', async ({
+test('作ったワークスペース: 配下の無いエピックは空の案内を出し、作った人が作成者。作成者を替える口は無い', async ({
   page,
 }) => {
   const collect = await watchViolations(page);
@@ -91,83 +96,10 @@ test('作ったワークスペース: 配下の無いエピックは空の案内
   await expect(stories.getByText('ストーリーはまだありません')).toBeVisible();
   await expect(page.locator('.tally > div')).toHaveText(['完了のポイント 0', '残りのポイント 0']);
 
-  // 作成者を替える。作ったワークスペースには今の作成者（ミナト）だけなので、候補は無く、「替える」は押せない
-  await request.getByRole('button', { name: '作成者を替える' }).click();
-  const requesterDialog = page.getByRole('dialog', { name: '作成者を替える' });
-  const noCandidates = '替えられる人がいません。ワークスペースに、今の作成者のほかに所属している人がいません。';
-  await expect(requesterDialog.locator('.field-hint')).toHaveText(noCandidates);
-  await expect(requesterDialog.getByLabel('新しい作成者').locator('option')).toHaveCount(0);
-  await expect(requesterDialog.getByRole('button', { name: '替える' })).toHaveAttribute('aria-disabled', 'true');
-  await requesterDialog.getByRole('button', { name: 'やめる' }).click();
-  await expect(requesterDialog).toBeHidden();
-  await expect(request.getByRole('button', { name: '作成者を替える' })).toBeFocused();
+  // 作った人（依頼主）にも、作成者を替える口と中止の口は出ない
+  await expect(request.getByRole('button')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /作成者を替える|中止/ })).toHaveCount(0);
   expect(await collect()).toEqual([]);
-});
-
-test('作成者の変更の失敗と成功を、ダイアログとトーストで知らせる（応答を差し替えて確かめる）', async ({ page }) => {
-  await page.goto(`${WORKSPACE}/epics/${EPIC_ID}`);
-  const request = page.getByRole('region', { name: '概要' });
-  const toast = page.locator('.toasts:visible .toast');
-  await expect(request.locator('dt')).toHaveText(['作成者', '期日', '区分']);
-
-  // 作成者の候補に、今の作成者（ミナト）は出ない。架空の人を足し、替えられた知らせを出す
-  await rewriteOperation(page, memberList, AOBA, (output) => ({
-    ...output,
-    members: [
-      ...output.members,
-      {
-        id: '019a0000-0000-7000-8000-00000000fff1',
-        name: '仮置き 太郎',
-        role: 'member' as const,
-        joined_on: '2026-10-01',
-        avatar_url: null,
-      },
-    ],
-  }));
-  await page.reload();
-  await request.getByRole('button', { name: '作成者を替える' }).click();
-  const dialog = page.getByRole('dialog', { name: '作成者を替える' });
-  const select = dialog.getByLabel('新しい作成者');
-  await expect(select.locator('option', { hasText: '仮置き 太郎' })).toHaveCount(1);
-  await expect(select.locator('option', { hasText: 'ミナト' })).toHaveCount(0);
-  await expect(select).toBeFocused();
-
-  // 選んだ人が所属を外れていた（404）。理由を出し、候補を選び直せる
-  const unfailRequester = await failOperation(page, epicRequesterUpdate, AOBA, 404, 'not_found');
-  await select.selectOption({ label: '仮置き 太郎' });
-  await dialog.getByRole('button', { name: '替える' }).click();
-  await expect(dialog.getByRole('alert')).toHaveText(
-    '選んだ人はワークスペースに所属していないか、エピックが見つかりません。選び直してください。',
-  );
-  await expect(select).toBeFocused();
-  await unfailRequester();
-
-  // 終わったエピック（409 の epic_finished）と、書き込みの競合に負け続けた（409 の conflict）
-  const unfailRequesterFinished = await failOperation(page, epicRequesterUpdate, AOBA, 409, 'epic_finished');
-  await dialog.getByRole('button', { name: '替える' }).click();
-  await expect(dialog.getByRole('alert')).toHaveText('このエピックは終わっているので、作成者を替えられません');
-  await unfailRequesterFinished();
-  const unfailRequesterConflict = await failOperation(page, epicRequesterUpdate, AOBA, 409, 'conflict');
-  await dialog.getByRole('button', { name: '替える' }).click();
-  await expect(dialog.getByRole('alert')).toHaveText('ほかの変更と重なりました。もう一度試してください');
-  await unfailRequesterConflict();
-
-  // 替えられた
-  await mockOperation(page, epicRequesterUpdate, AOBA, {
-    changed: true,
-    requester: { id: '019a0000-0000-7000-8000-00000000fff1', name: '仮置き 太郎', left: false },
-  });
-  await dialog.getByRole('button', { name: '替える' }).click();
-  await expect(dialog).toBeHidden();
-  await expect(toast.last()).toHaveText('作成者を「仮置き 太郎」に替えました');
-});
-
-test('リーダーでない人には「作成者を替える」を出さない（応答を差し替えて確かめる）', async ({ page }) => {
-  await rewriteOperation(page, epicDetail, AOBA, (output) => ({ ...output, can_change_requester: false }));
-  await page.goto(`${WORKSPACE}/epics/${EPIC_ID}`);
-  const request = page.getByRole('region', { name: '概要' });
-  await expect(request.locator('dt')).toHaveText(['作成者', '期日', '区分']);
-  await expect(request.getByRole('button', { name: '作成者を替える' })).toHaveCount(0);
 });
 
 // 離脱済みの本物の行は、DB の seed に置けない（所属の無いユーザーは運用者の指名し直しが物理削除する）。API の確かめは test/epic-detail.test.ts
@@ -183,18 +115,16 @@ test('作成者がワークスペースを離れていると、名前に「（�
   await expect(request.locator('dd').nth(0)).toContainText('ミナト（離脱済み）');
 });
 
-test('完了と中止したエピックは、作成者を替える口を出さず、報酬の注記も出さない（応答を差し替えて確かめる）', async ({
-  page,
-}) => {
+test('完了したエピックは、概要の面に操作も報酬の注記も出さない（応答を差し替えて確かめる）', async ({ page }) => {
   const request = page.getByRole('region', { name: '概要' });
-  for (const ended of [{ completed_at: '2026-10-22T00:00:00.000Z' }, { canceled_at: '2026-10-22T00:00:00.000Z' }]) {
-    await page.unrouteAll();
-    await rewriteOperation(page, epicDetail, AOBA, (output) => ({ ...output, epic: { ...output.epic, ...ended } }));
-    await page.goto(`${WORKSPACE}/epics/${EPIC_ID}`);
-    await expect(request.locator('dt')).toHaveText(['作成者', '期日', '区分']);
-    await expect(request.getByRole('button')).toHaveCount(0);
-    await expect(request.locator('.panel-note')).toHaveCount(0);
-  }
+  await rewriteOperation(page, epicDetail, AOBA, (output) => ({
+    ...output,
+    epic: { ...output.epic, completed_at: '2026-10-22T00:00:00.000Z' },
+  }));
+  await page.goto(`${WORKSPACE}/epics/${EPIC_ID}`);
+  await expect(request.locator('dt')).toHaveText(['作成者', '期日', '区分']);
+  await expect(request.getByRole('button')).toHaveCount(0);
+  await expect(request.locator('.panel-note')).toHaveCount(0);
 });
 
 test('直した後の読み直しが失敗したら、前の値を残して知らせだけを出す', async ({ page }) => {

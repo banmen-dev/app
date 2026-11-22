@@ -93,7 +93,7 @@ export const epicCreateOperation = implement(epicCreate, async ({ db, actor, wor
   // 区分は、同じワークスペースの削除していない区分だけ。読んで名前を履歴に残し、書く文にも同じ条件を入れる
   const category = input.category_id === null ? null : await readCategoryRef(db, workspaceId, input.category_id);
 
-  // 位置はエピックの末尾。完了と中止したエピックも並びに残っているので、それも含めた末尾に置く
+  // 位置はエピックの末尾。完了したエピックも並びに残っているので、それも含めた末尾に置く
   const last = await db.first(
     db.statement((q) =>
       q
@@ -327,7 +327,7 @@ export const epicUpdateOperation = implement(epicUpdate, async ({ db, actor, wor
 
 type From = Pick<QueryCreator<OrganizationTables>, 'selectFrom'>;
 
-// 並べる範囲（ワークスペースの削除していないエピック。完了と中止したエピックも含む）から、移すエピックを除いたもの
+// 並べる範囲（ワークスペースの削除していないエピック。完了したエピックも含む）から、移すエピックを除いたもの
 function siblingEpics(from: From, workspaceId: string, epicId: string) {
   return from
     .selectFrom('epics')
@@ -336,7 +336,7 @@ function siblingEpics(from: From, workspaceId: string, epicId: string) {
     .where('epics.id', '!=', epicId);
 }
 
-// 移すエピック。削除していないもの（完了と中止を含む）
+// 移すエピック。削除していないもの（完了を含む）
 function movingEpic(db: OrganizationDb, workspaceId: string, epicId: string) {
   return db.first(
     db.statement((q) =>

@@ -650,23 +650,6 @@ export const pointers: Pointers = {
     });
     return { workspace_id: target.workspace.id, epic_id: epic.id };
   },
-  // 中止と取り消しは状態が変わるので、呼ぶたびに作る。一般のメンバーは依頼主なら操作できる
-  'epic-cancel': async (target, caller) => {
-    const requester = personOf(target, caller) ?? target.admin;
-    const epic = await createEpic(target.organization, target.workspace.id, target.admin.userId!, {
-      requester_user_id: requester.userId!,
-    });
-    return { workspace_id: target.workspace.id, epic_id: epic.id };
-  },
-  'epic-uncancel': async (target, caller) => {
-    const requester = personOf(target, caller) ?? target.admin;
-    const epic = await createEpic(target.organization, target.workspace.id, target.admin.userId!, {
-      requester_user_id: requester.userId!,
-      canceled_at: '2026-10-22T00:00:00.000Z',
-      canceled_by: target.admin.userId!,
-    });
-    return { workspace_id: target.workspace.id, epic_id: epic.id };
-  },
   // 呼ぶたびにクリア済みのエピックを作る。依頼主は呼ぶ人
   'epic-reopen': async (target, caller) => {
     const requester = personOf(target, caller) ?? target.admin;
@@ -677,13 +660,6 @@ export const pointers: Pointers = {
     });
     return { workspace_id: target.workspace.id, epic_id: epic.id };
   },
-  // 呼ぶたびにエピックを作る（依頼主を替えた後に同じ人を送ると何も書かないため）。依頼主は管理者で、替え先は対象の一般のメンバー
-  // （今所属している）。リーダーだけが呼べる
-  'epic-requester-update': async (target) => ({
-    workspace_id: target.workspace.id,
-    epic_id: (await createEpic(target.organization, target.workspace.id, target.admin.userId!)).id,
-    user_id: target.member.userId!,
-  }),
   // 呼ぶたびにエピックを作る（削除すると2回目は 404 になるため）。作った人は一般のメンバー（作った人なら削除できる）
   'epic-delete': async (target) => ({
     workspace_id: target.workspace.id,

@@ -5,9 +5,8 @@ const story = (id: string, completed_at: string | null = null) => ({ id, title: 
 const tree = {
   stories: [story('root'), story('completed-root', '2026-11-10')],
   epics: [
-    { completed_at: null, canceled_at: null, stories: [story('nested'), story('completed-nested', '2026-11-10')] },
-    { completed_at: '2026-11-10', canceled_at: null, stories: [story('under-completed')] },
-    { completed_at: null, canceled_at: '2026-11-10', stories: [story('under-canceled')] },
+    { completed_at: null, stories: [story('nested'), story('completed-nested', '2026-11-10')] },
+    { completed_at: '2026-11-10', stories: [story('under-completed')] },
   ],
   choices: {
     epics: [

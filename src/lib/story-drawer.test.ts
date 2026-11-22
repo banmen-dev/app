@@ -16,21 +16,18 @@ const tree: StoryTree = {
   today: '2026-11-06',
   week_start: 1,
   epics: [
-    { id: 'e1', completed_at: null, canceled_at: null, stories: [story('s-open', { open_task_count: 2 })] },
+    { id: 'e1', completed_at: null, stories: [story('s-open', { open_task_count: 2 })] },
     {
       id: 'e2',
       completed_at: '2026-11-01T00:00:00.000Z',
-      canceled_at: null,
       stories: [story('s-cleared', { completed_at: '2026-10-30T00:00:00.000Z' })],
     },
-    { id: 'e3', completed_at: null, canceled_at: '2026-11-02T00:00:00.000Z', stories: [story('s-canceled')] },
   ],
   stories: [story('s-root', { completed_at: '2026-11-03T00:00:00.000Z' })],
   choices: {
     epics: [
       { id: 'e1', title: '進行中', finished: false },
       { id: 'e2', title: 'クリア済み', finished: true },
-      { id: 'e3', title: '中止', finished: true },
     ],
   },
 };
@@ -49,7 +46,7 @@ describe('storyFactsFrom', () => {
 });
 
 describe('parentChoicesOf', () => {
-  test('完了も中止もしていないエピックだけを返す', () => {
+  test('完了していないエピックだけを返す', () => {
     expect(parentChoicesOf(tree)).toEqual([{ id: 'e1', title: '進行中' }]);
   });
 
@@ -89,10 +86,9 @@ describe('staleCurrentOf', () => {
 });
 
 describe('epicFinishedOf', () => {
-  test('クリアか中止したエピックは真、進行中は偽', () => {
+  test('クリアしたエピックは真、進行中は偽', () => {
     expect(epicFinishedOf(tree, 'e1')).toBe(false);
     expect(epicFinishedOf(tree, 'e2')).toBe(true);
-    expect(epicFinishedOf(tree, 'e3')).toBe(true);
   });
 
   test('木に無いエピックと、木が無いときは偽', () => {

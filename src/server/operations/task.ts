@@ -687,7 +687,6 @@ export const backlogTreeOperation = implement(backlogTree, async ({ db, actor, w
           'epics.due_on',
           'epics.link_url',
           'epics.completed_at',
-          'epics.canceled_at',
           'categories.id as category_ref_id',
           'categories.name as category_name',
         ])
@@ -910,7 +909,7 @@ export const backlogTreeOperation = implement(backlogTree, async ({ db, actor, w
       epics: epicsResult.rows.map((row) => ({
         id: row.id,
         title: row.title,
-        finished: row.completed_at !== null || row.canceled_at !== null,
+        finished: row.completed_at !== null,
       })),
       stories: filtering ? openStoryChoices() : null,
     },
