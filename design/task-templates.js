@@ -1,7 +1,7 @@
 // #14 の画面見本。変更はこのページを開いている間だけ保持する。
 window.SQTaskTemplates = (() => {
   "use strict";
-  const { D, first, t, icon, esc, openDialog, closeDialog, toast, redraw } = SQ;
+  const { D, first, firstHref, t, icon, esc, openDialog, closeDialog, toast, redraw } = SQ;
   const token = "{対象}";
   const titleLimit = 200;
   const tasks = [
@@ -46,20 +46,24 @@ window.SQTaskTemplates = (() => {
     return D.workspace === "wa" && !D.workspaces.wa?.closed;
   }
 
-  function canManage() {
+  function canReadSettings() {
     const organization = D.organizations.find(({ slug }) => slug === D.organization);
-    return canApply() && (D.workspaces.wa?.role === "leader" || organization?.admin);
+    return D.workspace === "wa" && (D.workspaces.wa?.role === "leader" || organization?.admin);
+  }
+
+  function canManage() {
+    return canReadSettings() && canApply();
   }
 
   function settings() {
     return `<div id="task-templates">
       ${templates.size ? `<ul class="order-list">${Array.from(templates, ([id, item]) => `<li>
         <span class="order-main"><span class="order-name">${esc(item.name)}</span><span class="props-note">${item.tasks.length}件</span></span>
-        <div class="order-actions">
+        ${canManage() ? `<div class="order-actions">
           <button class="icon-btn" type="button" data-template-edit="${id}" aria-label="${esc(item.name)}を編集" title="編集">${icon("pen")}</button>
           <button class="icon-btn is-danger" type="button" data-template-delete="${id}" aria-label="${esc(item.name)}を削除" title="削除">${icon("trash")}</button>
-        </div></li>`).join("")}</ul>` : `<p>${t("taskTemplateEmpty")}</p>`}
-      <div class="form-actions"><button class="btn" type="button" data-template-edit="">${icon("plus")}${t("taskTemplate")}を作る</button></div>
+        </div>` : ""}</li>`).join("")}</ul>` : `<p>${t("taskTemplateEmpty")}</p>`}
+      ${canManage() ? `<div class="form-actions"><button class="btn" type="button" data-template-edit="">${icon("plus")}${t("taskTemplate")}を作る</button></div>` : ""}
     </div>`;
   }
 
@@ -204,9 +208,12 @@ window.SQTaskTemplates = (() => {
   function applyTemplate(fixedStory) {
     const formId = "template-apply-form";
     if (!templates.size) {
+      const settingsUrl = new URL(firstHref("settings.html"), location.href);
+      settingsUrl.searchParams.set("workspace", D.workspace);
+      settingsUrl.hash = "task-templates";
       openDialog(`${t("taskTemplate")}から作る`, `<p>${t("taskTemplateEmpty")}</p>
         ${canManage()
-          ? `<div class="form-actions"><a class="btn" href="settings.html?workspace=wa#task-templates">${t("taskTemplateManage")}</a></div>`
+          ? `<div class="form-actions"><a class="btn" href="${esc(settingsUrl.href)}">${t("taskTemplateManage")}</a></div>`
           : `<p>${t("taskTemplateAskLeader")}</p>`}`);
       return;
     }
@@ -229,7 +236,7 @@ window.SQTaskTemplates = (() => {
           <h3 id="template-preview-heading">プレビュー</h3>
           <div data-template-preview></div>
         </section>
-      </form>`, `<p class="field-hint" role="status" id="template-apply-problem"></p>${dialogButtons("作る", formId)}`);
+      </form>`, `<p class="field-hint" role="status" id="template-apply-problem" hidden></p>${dialogButtons("作る", formId)}`);
     const form = document.getElementById(formId);
     const submit = document.querySelector(`[form="${formId}"]`);
     const status = document.getElementById("template-apply-problem");
@@ -280,9 +287,10 @@ window.SQTaskTemplates = (() => {
         return { ...task, title: substitute(task.title), due: dueDate(read("start"), task.offset), who: read(`assignee-${i}`) };
       });
       const badTitle = titles.some((title) => Array.from(substitute(title)).length > titleLimit);
+      const missingTarget = form.elements.target.required && !target;
       const problem = !rows.length ? t("taskTemplateChooseTask")
         : add && !storyId ? t("taskTemplateChooseDestination")
-        : form.elements.target.required && !target ? t("taskTemplateEnterTarget")
+        : missingTarget ? t("taskTemplateEnterTarget")
         : !read("start") ? t("taskTemplateEnterStart")
         : badTitle ? t("taskTemplateTitleLimit")
         : rows.some((row) => row.due === null) ? t("taskTemplateDueLimit") : "";
@@ -299,9 +307,24 @@ window.SQTaskTemplates = (() => {
         ${omitted ? `<p class="callout is-warn">${icon("alert")}<span>${t("taskTemplateOmitted")}</span></p>` : ""}
         ${add ? `<p class="field-hint">既存の${t("story")}の題や本文などはそのままです。</p>` : ""}
         <ol>${rows.map((row) => `<li>${esc(row.title)}<div class="props-note">${esc(row.due || "期日なし")} ・ ${esc(members[row.who]?.name || "担当なし")}</div></li>`).join("")}</ol>`;
+      const problemField = problem === t("taskTemplateEnterTarget") ? "target"
+        : problem === t("taskTemplateEnterStart") || problem === t("taskTemplateDueLimit") ? "start" : null;
+      for (const name of ["target", "start"]) {
+        const input = form.elements[name];
+        const hint = name === "target" ? "template-target-hint" : "";
+        if (name === problemField) {
+          input.setAttribute("aria-invalid", "true");
+          input.setAttribute("aria-describedby", hint ? `${hint} ${status.id}` : status.id);
+        } else {
+          input.removeAttribute("aria-invalid");
+          if (hint) input.setAttribute("aria-describedby", hint);
+          else input.removeAttribute("aria-describedby");
+        }
+      }
       if (status.textContent !== problem) status.textContent = problem;
+      status.hidden = !problem;
       submit.setAttribute("aria-disabled", String(Boolean(problem)));
-      return { add, storyId, heading, rows, problem };
+      return { add, storyId, heading, rows, problem, problemField };
     }
     renderDestination();
     renderSelection();
@@ -315,8 +338,11 @@ window.SQTaskTemplates = (() => {
     });
     form.addEventListener("submit", (event) => {
       event.preventDefault();
-      const { add, storyId, heading, rows, problem } = preview();
-      if (problem) return;
+      const { add, storyId, heading, rows, problem, problemField } = preview();
+      if (problem) {
+        if (problemField) form.elements[problemField].focus();
+        return;
+      }
       const affected = rows.find((row) => row.who)?.who;
       if (simulateChange && affected) {
         simulateChange = false;
@@ -356,9 +382,8 @@ window.SQTaskTemplates = (() => {
     if (!trigger) return;
     if (trigger.hasAttribute("data-template-apply")) {
       if (canApply()) applyTemplate(trigger.dataset.templateApply);
-    }
-    else if (canManage() && trigger.hasAttribute("data-template-edit")) editTemplate(trigger.dataset.templateEdit);
+    } else if (canManage() && trigger.hasAttribute("data-template-edit")) editTemplate(trigger.dataset.templateEdit);
     else if (canManage()) deleteTemplate(trigger.dataset.templateDelete);
   });
-  return { canApply, canManage, settings, backlogAction };
+  return { canApply, canReadSettings, settings, backlogAction };
 })();
