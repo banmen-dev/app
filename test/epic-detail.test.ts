@@ -91,6 +91,13 @@ describe('epic-detail', () => {
       completed_by: target.admin.userId!,
     });
 
+    // 前に中止したエピック（中止の列が残る行）も、canceled_at は前の版の画面のために常に null で返す（#1438 で消す）
+    const canceled = await createEpic(target.organization, target.workspace.id, target.admin.userId!, {
+      canceled_at: '2026-10-23T00:00:00.000Z',
+      canceled_by: target.admin.userId!,
+    });
+    expect((await read(target, canceled.id)).epic).toMatchObject({ completed_at: null, canceled_at: null });
+
     const clearedBody = await read(target, cleared.id);
     expect(clearedBody.epic.completed_at).toBe('2026-10-22T00:00:00.000Z');
     expect(clearedBody.epic.category).toBeNull();
