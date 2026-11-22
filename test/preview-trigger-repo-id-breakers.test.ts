@@ -41,7 +41,7 @@ describe('ID の型の揺れ', () => {
     ['ID の文字列', String(PREVIEW_REPOSITORY_ID)],
   ])('head.repo が %s なら起動対象にしない', (_label, headRepo) => {
     const value = pull();
-    value.head.repo = headRepo as typeof repo;
+    value.head.repo = headRepo as unknown as typeof repo;
     expect(previewRequestFromPullRequest(value)).toBeNull();
   });
 
