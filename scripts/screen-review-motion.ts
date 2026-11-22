@@ -34,58 +34,70 @@ const framePositions = [0, 0.15, 0.5, 1];
 // 動きを減らす設定で許容する、ごく短い変化の上限。
 const maxReducedDurationMs = 50;
 
-async function watchAnimations(page: Page, freeze: boolean) {
-  await page.evaluate((freeze) => {
-    const selectors = freeze
-      ? { stamp: '.hanko', toast: '.toast', clear: '.celebrate-stamp' }
-      : {
-          stamp: '.entry.is-done, .entry.is-done *',
-          toast: '.toasts, .toasts *',
-          clear: '.celebrate, .celebrate *',
-        };
-    const animations = new Map<Animation, AnimationTiming>();
-    (window as MotionWindow).screenReviewAnimations = animations;
+// reduce では成果を表示する範囲を、その子孫の動きも含めて観測する。
+const motionScopes = { stamp: '.entry.is-done', toast: '.toasts', clear: '.celebrate' } as const;
 
-    function observe() {
-      for (const animation of document.getAnimations()) {
-        if (animations.has(animation)) continue;
-        const keyframes = animation.effect;
-        if (!(keyframes instanceof KeyframeEffect) || !(keyframes.target instanceof Element)) continue;
-        const target = keyframes.target;
-        const effect = (Object.keys(selectors) as EffectName[]).find((effect) => target.matches(selectors[effect]));
-        if (effect === undefined) continue;
-        const { endTime, iterations } = keyframes.getComputedTiming();
-        const name =
-          animation instanceof CSSAnimation
-            ? animation.animationName
-            : animation instanceof CSSTransition
-              ? animation.transitionProperty
-              : 'Web Animation';
-        animations.set(animation, {
-          effect,
-          name,
-          durationMs: typeof endTime === 'number' && Number.isFinite(endTime) ? endTime : null,
-          iterations: typeof iterations === 'number' && Number.isFinite(iterations) ? iterations : null,
-        });
-        if (freeze) animation.pause();
+async function watchAnimations(page: Page, media: Media) {
+  const freeze = media === 'no-preference';
+  const selectors = freeze
+    ? { stamp: '.hanko', toast: '.toast', clear: '.celebrate-stamp' }
+    : {
+        stamp: `${motionScopes.stamp}, ${motionScopes.stamp} *`,
+        toast: `${motionScopes.toast}, ${motionScopes.toast} *`,
+        clear: `${motionScopes.clear}, ${motionScopes.clear} *`,
+      };
+  await page.evaluate(
+    ({ freeze, selectors }) => {
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches === freeze) {
+        throw new Error('動きを減らす設定がブラウザに反映されていません');
       }
-    }
-    function observeFrame() {
-      observe();
+      const animations = new Map<Animation, AnimationTiming>();
+      (window as MotionWindow).screenReviewAnimations = animations;
+
+      function observe() {
+        for (const animation of document.getAnimations()) {
+          if (animations.has(animation)) continue;
+          const keyframes = animation.effect;
+          if (!(keyframes instanceof KeyframeEffect) || !(keyframes.target instanceof Element)) continue;
+          const target = keyframes.target;
+          const effect = (Object.keys(selectors) as EffectName[]).find((effect) => target.matches(selectors[effect]));
+          if (effect === undefined) continue;
+          const { endTime, iterations } = keyframes.getComputedTiming();
+          const name =
+            animation instanceof CSSAnimation
+              ? animation.animationName
+              : animation instanceof CSSTransition
+                ? animation.transitionProperty
+                : 'Web Animation';
+          animations.set(animation, {
+            effect,
+            name,
+            durationMs: typeof endTime === 'number' && Number.isFinite(endTime) ? endTime : null,
+            iterations: typeof iterations === 'number' && Number.isFinite(iterations) ? iterations : null,
+          });
+          if (freeze) animation.pause();
+        }
+      }
+      function observeFrame() {
+        observe();
+        requestAnimationFrame(observeFrame);
+      }
+      // 操作の前から見張る。アプリの読み直しを待ってから探すと、短い演出は取り逃す。
+      document.addEventListener('animationstart', observe);
+      document.addEventListener('transitionrun', observe);
       requestAnimationFrame(observeFrame);
-    }
-    // 操作の前から見張る。アプリの読み直しを待ってから探すと、短い演出は取り逃す。
-    document.addEventListener('animationstart', observe);
-    document.addEventListener('transitionrun', observe);
-    requestAnimationFrame(observeFrame);
-  }, freeze);
+    },
+    { freeze, selectors },
+  );
 }
 
 async function readAnimationTimings(page: Page): Promise<AnimationTiming[]> {
   return page.evaluate(async () => {
     // 描画の直後に操作結果が見えた場合も、開始したフレームを記録してから読む。
     await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-    return Array.from((window as MotionWindow).screenReviewAnimations?.values() ?? []);
+    const animations = (window as MotionWindow).screenReviewAnimations;
+    if (!animations) throw new Error('演出の観測を開始できていません');
+    return Array.from(animations.values());
   });
 }
 
@@ -105,7 +117,7 @@ async function startTaskCompletion(page: Page, origin: string, media: Media): Pr
   });
   await complete.waitFor();
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
-  await watchAnimations(page, media === 'no-preference');
+  await watchAnimations(page, media);
   await complete.click();
 
   const toast = page
@@ -113,12 +125,13 @@ async function startTaskCompletion(page: Page, origin: string, media: Media): Pr
     .filter({ hasText: word('taskCompleted', { task: word('task'), done: word('done') }) });
   const row = page
     .getByRole('region', { name: word('doneToday'), exact: true })
-    .locator('.entry')
+    .locator(motionScopes.stamp)
     .filter({ has: page.getByText(taskTitle, { exact: true }) });
-  await toast.waitFor();
+  const notices = page.locator(motionScopes.toast).filter({ has: toast });
+  await notices.waitFor();
   await row.locator('.hanko').waitFor();
   return [
-    { effect: 'toast', area: page.locator('.toasts').filter({ has: toast }) },
+    { effect: 'toast', area: notices },
     { effect: 'stamp', area: row },
   ];
 }
@@ -145,18 +158,20 @@ async function startEpicClear(page: Page, origin: string, media: Media): Promise
   const clear = page.getByRole('button', { name: word('clear'), exact: true });
   await clear.waitFor();
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
-  await watchAnimations(page, media === 'no-preference');
+  await watchAnimations(page, media);
   await clear.click();
 
-  const sheet = page.locator('.celebrate-sheet');
+  const celebration = page.locator(motionScopes.clear);
+  const sheet = celebration.locator('.celebrate-sheet');
   if (media === 'no-preference') {
     await sheet.waitFor();
   } else {
     await page
+      .locator(motionScopes.toast)
       .locator('.toast:visible')
       .filter({ hasText: word('epicClearedToastEmpty', { epic: word('epic'), done: word('done') }) })
       .waitFor();
-    if (await sheet.count()) throw new Error('動きを減らす設定でクリアの演出が表示されました');
+    if (await celebration.count()) throw new Error('動きを減らす設定でクリアの演出が表示されました');
   }
   return [{ effect: 'clear', area: sheet }];
 }
