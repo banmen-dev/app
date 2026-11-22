@@ -1229,16 +1229,17 @@ Workers Builds の API トークンは、Builds が作ったトークンの権�
 
 ### プレビュー
 
-PR の版は、本番とは別の Worker `scrum-guild-preview` の Workers Builds から配る。GitHub Actions にはデプロイの鍵を置かない。本番の `wrangler.jsonc`、`production` の接続と煙のテストは変えない。人が先に用意する Worker、Access、R2、トークンは `docs/operations.md` の「プレビュー環境」。
+PR の版は、本番を載せない専用 Cloudflare アカウントの Worker `scrum-guild-preview` の Workers Builds から配る。GitHub Actions にはデプロイの鍵を置かない。本番の `wrangler.jsonc`、`production` の接続と煙のテストは変えない。人が先に用意する Worker、Access、R2、トークンは `docs/operations.md` の「プレビュー環境」。
 
-- 番号付きブランチ（例 `374-pr-preview`）を `WORKERS_CI_BRANCH` から読み、先頭の Issue 番号で D1 `scrum-guild-pr-374` と URL `https://pr-374-scrum-guild-preview.ucan-lab.workers.dev` を決める。PR 番号ではない。1 Issue に1ブランチという決まりに合わせる。番号の無いブランチ、`production`、不正な SHA では止まる
+- `scrum-guild-preview-trigger` は GitHub の署名済み Pull requests Webhook を受け、`scrum-guild-dev/app` 内の番号付きブランチから `main` に向いた PR の作成・再開・更新だけを受け付ける。起動直前に GitHub API で開いている PR と最新の head を確認し、Cloudflare Builds にブランチ名と SHA を指定する。接続先の設定は [プレビュー環境](operations.md#プレビュー環境) を参照する。
+- 番号付きブランチ（例 `374-pr-preview`）を `WORKERS_CI_BRANCH` から読み、先頭の Issue 番号で D1 `scrum-guild-pr-374` と URL `https://pr-374-scrum-guild-preview.<プレビュー用サブドメイン>.workers.dev` を決める。PR 番号ではない。1 Issue に1ブランチという決まりに合わせる。番号の無いブランチ、`production`、不正な SHA では止まる。起動側は専用アカウントだけを受け付け、Builds に設定した配信用トークンの UUID も照合する
 - ビルドのコマンドは `APP_VERSION=$(git rev-parse HEAD) && export APP_VERSION && pnpm build`。本番と違って版はコミットの SHA。デプロイのコマンドは `node scripts/deploy-preview.ts`。`WORKERS_CI=1` のときだけ動き、Cloudflare API で自分の D1 を削除・作成し、生成した設定で全マイグレーションと seed を `--remote` で当て、`wrangler versions upload --preview-alias pr-374` を呼ぶ。再ビルドすると、そのプレビューで人が変えたデータは消える。失敗したら後続の処理を行わない
 - 設定は `scripts/preview-config.ts` から一時ファイルへ生成する。本番の設定をコピーせず、DB の名前と UUID、本番 ID でないことを検査する。R2 は本番と別の `scrum-guild-preview-attachments`、運用者は seed の ID、cron は空、OAuth の秘密は登録しない。添付ファイルはプレビュー同士で共有するため、受け入れ用の架空のデータだけを入れる。D1 の作り直しでは R2 は消えない
-- `main` のビルドは配信せず、公開 GitHub API で全ページの開いた PR のブランチを読み、対応する番号の PR が無い `scrum-guild-pr-*` の D1 だけを削除する。fork の PR は対応に数えない。取得や検証の失敗時は削除しない。閉じただけでは Builds は走らないため、削除は次の `main` のビルド時（急ぐときは人が `main` のビルドを再実行）。古い版と alias は残るが、D1 は使えなくなる
-- 同じ番号のビルドを同時に走らせない。Builds の設定で同一ブランチの古いビルドを取り消し、既にデプロイ段に入っていれば終わるまで次の再実行を待つ。削除と作成は1つのトランザクションにならないため、重なると失敗してプレビューを使えなくなる。再実行で作り直す
+- `main` のビルドは配信せず、公開 GitHub API で全ページの開いた PR のブランチを読み、対応する番号の PR が無い `scrum-guild-pr-*` の D1 だけを削除する。fork の PR は対応に数えない。取得や検証の失敗時は削除しない。PR を閉じても起動専用 Worker はビルドを依頼しない。掃除が必要なときは人が `main` を指定してプレビュー専用 Builds を起動する。古い版と alias は残るが、D1 は使えなくなる
+- 同じ番号のビルドを同時に走らせない。起動専用 Worker は Issue 番号ごとに待ち行列を持ち、進行中のビルドが止まったことを確認してから次の head を起動する。削除と作成は1つのトランザクションにならないため、重なると失敗してプレビューを使えなくなる。再実行で作り直す
 - `.claude/hooks/` は緩めない。フックはエージェントのセッションに適用され、Workers Builds は Claude/Codex を起動しない。セッションから `WORKERS_CI` を付けて実行したり、`--remote` を使って動作確認したりしない。手順は副作用を差し替えた Node のテストで確かめる
 
-ロールの切り替えは `pnpm dev:open --origin https://pr-374-scrum-guild-preview.ucan-lab.workers.dev admin /aoba`。`admin` を `member` など `seed/sessions.ts` のキーに替えると別のブラウザで開く。運用者は `pnpm dev:open --origin https://pr-374-scrum-guild-preview.ucan-lab.workers.dev operator /operator` で開く。`CF_ACCESS_CLIENT_ID` と `CF_ACCESS_CLIENT_SECRET` を人が実行する端末の環境変数に入れる（値は git やコマンド履歴に残さない）。`--origin` はこのプレビューの HTTPS origin だけを許可し、末尾 `/`、本番、任意の URL を拒否する。ローカル用 `--preview` とは併用しない。事前の `/api/me` とブラウザの同じ origin への通信にだけ Access のヘッダーを付け、外部へのリダイレクトには送らない。Service Worker は無効にする。HTTPS の seed Cookie は `__Host-sg_session`、Secure、HttpOnly。ローカルの開き方は変わらない。
+ロールを切り替えるときは、`CLOUDFLARE_PREVIEW_SUBDOMAIN` に確認済みの専用アカウントの workers.dev サブドメインを設定し、`pnpm dev:open --origin https://pr-374-scrum-guild-preview.<プレビュー用サブドメイン>.workers.dev admin /aoba`。`admin` を `member` など `seed/sessions.ts` のキーに替えると別のブラウザで開く。運用者は `pnpm dev:open --origin https://pr-374-scrum-guild-preview.<プレビュー用サブドメイン>.workers.dev operator /operator` で開く。`CF_ACCESS_CLIENT_ID` と `CF_ACCESS_CLIENT_SECRET` を人が実行する端末の環境変数に入れる（値は git やコマンド履歴に残さない）。`--origin` はこのプレビューの HTTPS origin だけを許可し、末尾 `/`、本番、任意の URL を拒否する。ローカル用 `--preview` とは併用しない。事前の `/api/me` とブラウザの同じ origin への通信にだけ Access のヘッダーを付け、外部へのリダイレクトには送らない。Service Worker は無効にする。HTTPS の seed Cookie は `__Host-sg_session`、Secure、HttpOnly。ローカルの開き方は変わらない。
 
 ### 見本の Worker
 
