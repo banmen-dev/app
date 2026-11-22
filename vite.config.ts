@@ -60,7 +60,7 @@ export default defineConfig({
                   name: 'controls',
                   // $app/navigation を読む LoadFailed は含めない。Kit の payload と env が
                   // 同じ束に入ると、init 前に version や base が空の値で固定されてしまう。
-                  test: /src[\\/]lib[\\/]components[\\/](Icon|Avatar|Emblem|AttrChip|DefinitionChip|DueChip|RowMenu|Dialog|EmptyState|Section|PageHead|TodayMarkButton)\.svelte$/,
+                  test: /src[\\/]lib[\\/]components[\\/](Icon|Avatar|AttrChip|DefinitionChip|DueChip|RowMenu|Dialog|EmptyState|Section|PageHead|TodayMarkButton)\.svelte$/,
                 },
               ],
             },

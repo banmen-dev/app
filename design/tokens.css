@@ -79,7 +79,7 @@
   --color-accent-soft: #e8effc;
   --color-stamp: #cf222e;       /* 通知の数と未読の点 */
   --color-done: var(--color-ok);  /* 完了の印とクリア */
-  --color-gold: #8a5a00;        /* 今日やるの印、エピックの区分と貼り紙 */
+  --color-gold: #8a5a00;        /* 今日やるの印、エピックの区分と貼り紙、クリアの演出 */
   --color-favorite: #997000;  /* お気に入りの塗った星だけ */
   --color-gold-soft: #f6ecd6;
 

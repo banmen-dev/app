@@ -89,7 +89,7 @@ const { D, t, icon, avatar, avatarOf, pts, dueChip, tier, book, sprintNotice, ra
 const COLORS = [
   ["地と線", [["地", "--color-bg", "画面の地"], ["面", "--color-surface", "台帳、面、入力欄"], ["一段下", "--color-sunken", "メニュー、列、タグ"], ["枠", "--color-line", "記録の区切り線（カード、表、メニューの境）"], ["操作部品の枠", "--color-control-edge", "入力欄、選択欄、検索、ボタンの枠（地と 3:1 以上）"],["罫", "--color-rule", "行を分ける線"]]],
   ["文字", [["文字", "--color-fg", "本文"], ["弱", "--color-muted", "補足、ラベル"], ["淡", "--color-faint", "押す前の操作、未入力"]]],
-  ["役割", [["操作", "--color-accent", "操作、選択、進み"], ["操作の淡", "--color-accent-soft", "選択の地"], ["完了", "--color-done", "完了の印、クリア"], ["印", "--color-stamp", "通知の数と未読の点"], ["金", "--color-gold", "今日やるの印、エピックだけ"], ["金の淡", "--color-gold-soft", "今日やるの地"], ["お気に入り", "--color-favorite", "塗った星だけ"]]],
+  ["役割", [["操作", "--color-accent", "操作、選択、進み"], ["操作の淡", "--color-accent-soft", "選択の地"], ["完了", "--color-done", "完了の印、クリア"], ["印", "--color-stamp", "通知の数と未読の点"], ["金", "--color-gold", "今日やるの印、エピック、クリアの演出だけ"], ["金の淡", "--color-gold-soft", "今日やるの地"], ["お気に入り", "--color-favorite", "塗った星だけ"]]],
   ["状態", [["危", "--color-danger", "期限切れ、重量オーバー"], ["注", "--color-warn", "今週が期限、未見積もり"], ["良", "--color-ok", "取り込み元で完了、余力あり"]]],
   ["クリア報酬の段階", [["小", "--color-tier-small", "銅。段階の印（.tier）だけ"], ["中", "--color-tier-medium", "銀。段階の印（.tier）だけ"], ["大", "--color-tier-large", "金。段階の印（.tier）だけ"]]],
 ];
@@ -246,7 +246,7 @@ const SECTIONS = [
       <div class="type-row"><span class="cat-name">--font-mono</span><span class="mono">SHOP-128 · acme/shop#412 · 2026-10-13 〜 10/26 · 5 pt</span></div>
       <div class="type-row"><span class="cat-name">.wrap-anywhere</span><span class="mono wrap-anywhere">9f2c4e7a1b3d5f60718293a4b5c6d7e8f901a2b3</span></div>
       <div class="type-row"><span class="cat-name">.keep-together</span><span>利用規約が改められました <span class="mono keep-together">改定日: 2026-10-31</span></span></div>
-      <div class="type-row"><span class="cat-name">--font-stat</span><span class="xp-num">1,240<small>XP</small></span></div>
+      <div class="type-row"><span class="cat-name">--font-stat</span><span class="stat-num">31.7<small>pt</small></span></div>
     </div>`,
     ["見出しの書体（--font-display）は画面と節の見出し、貼り紙と引き出しの題、列の名前だけ。本文やボタンには使わない。全テーマで Noto Sans JP を使う。", "キー、日付、ポイントは mono、積載量などの数字は stat。数字が縦に並ぶ所は等幅の数字にする。", "版（40文字のコミットの SHA）、ID、URL のように、区切りがなく長くなる文字列には wrap-anywhere を足す。狭い幅でも、横にはみ出さずに途中で折る。表のセルなど折らない所では付けない。", "途中で折ると読めなくなる短い値（改定日の「改定日: 2026-10-31」など）には keep-together を足す。行に収まるなら割らずに次の行へ送り、文字の拡大や狭い幅で行より長くなったときだけ中で折る（はみ出さない）。区切りのない長い文字列には使わず、wrap-anywhere にする。"])],
   ["space", "余白と形", () => block("space", "余白と形", "余白は 4px 刻み。部品の内側の詰めにだけ 2px の段（--space-half）を使う。角、区切りの線、影はテーマで変わる。",

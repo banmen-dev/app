@@ -50,7 +50,7 @@ test('seed の受託開発チーム: 木のエピックの題から画面が開�
   await expect(request.locator('dt')).toHaveText(['作成者', 'クリア報酬', '期日', '区分']);
   await expect(request.locator('dd').nth(0)).toContainText('ミナト');
   await expect(request.locator('dd').nth(0)).not.toContainText('離脱済み');
-  await expect(request.locator('.tier')).toHaveText('中 · 300 XP');
+  await expect(request.locator('.tier')).toHaveText('中');
   await expect(request.locator('.tier')).toHaveClass(/is-medium/);
   // ゲームのアイコンは外した（#1436）。クリア報酬の先頭にアイコンを付けない
   await expect(request.locator('.tier svg')).toHaveCount(0);
@@ -67,9 +67,8 @@ test('seed の受託開発チーム: 木のエピックの題から画面が開�
   await expect(members.nth(1)).toContainText('ハルカ');
   await expect(members.nth(1).locator('.role')).toHaveCount(0);
   await expect(members.nth(1)).not.toContainText('離脱済み');
-  for (const member of await members.all()) {
-    await expect(member.locator('.emblem')).toHaveAttribute('aria-label', /^レベル \d+$/);
-  }
+  // 参加者の名前の横にレベルの紋章を添えない（#1432）
+  await expect(party.locator('.emblem')).toHaveCount(0);
   await expect(party.getByText('参加者はまだいません')).toHaveCount(0);
 
   // 配下のストーリー。完了したタスクだけなので、完了 / 全体のポイントが同じ
@@ -109,7 +108,7 @@ test('スクラムの言葉: 参加者が空で配下も無いエピックは、
   const request = page.getByRole('region', { name: '概要' });
   await expect(request.locator('dt')).toHaveText(['作成者', 'クリア報酬', '期日', '区分']);
   await expect(request.locator('dd').nth(0)).toContainText('ミナト');
-  await expect(request.locator('.tier')).toHaveText('中 · 300 XP');
+  await expect(request.locator('.tier')).toHaveText('中');
   await expect(request.locator('dd').nth(2)).toHaveText('—');
   await expect(request.locator('dd').nth(3)).toHaveText('区分なし');
 
@@ -267,7 +266,7 @@ test('作ったワークスペース: クリア報酬の段階を額つきのラ
   const request = page.getByRole('region', { name: '概要' });
   const party = page.getByRole('region', { name: '参加者' });
   const toast = page.locator('.toasts:visible .toast');
-  await expect(request.locator('.tier')).toHaveText('中 · 300 XP');
+  await expect(request.locator('.tier')).toHaveText('中');
 
   // 小、中、大を額つきで選ぶ。開いたときは今の段階（中）が選ばれ、そのままでは「変える」は押せない
   await party.getByRole('button', { name: 'クリア報酬を変える' }).click();
@@ -293,7 +292,7 @@ test('作ったワークスペース: クリア報酬の段階を額つきのラ
   await submit.click();
   await expect(dialog).toBeHidden();
   await expect(toast.last()).toHaveText('クリア報酬を「大」に変えました');
-  await expect(request.locator('.tier')).toHaveText('大 · 600 XP');
+  await expect(request.locator('.tier')).toHaveText('大');
   await expect(request.locator('.tier')).toHaveClass(/is-large/);
 
   // 作成者を替える。作ったワークスペースには今の作成者（ミナト）だけなので、候補は無く、「替える」は押せない
@@ -315,7 +314,7 @@ test('クリア報酬の変更と作成者の変更の失敗と成功を、ダ�
   const party = page.getByRole('region', { name: '参加者' });
   const request = page.getByRole('region', { name: '概要' });
   const toast = page.locator('.toasts:visible .toast');
-  await expect(request.locator('.tier')).toHaveText('中 · 300 XP');
+  await expect(request.locator('.tier')).toHaveText('中');
 
   // 報酬の変更が 403（権限を失った）。理由をダイアログの中に出し、閉じたときに画面を読み直す
   await failOperation(page, epicRewardUpdate, AOBA, 403, 'forbidden');
