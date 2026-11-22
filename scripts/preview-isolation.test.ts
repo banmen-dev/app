@@ -7,7 +7,7 @@ import { previewBuildEnvironment } from './deploy-preview.ts';
 const productionAccount = '71293a3c23974c311b4c82b3f977049b';
 const account = 'a'.repeat(32);
 const token = 'test-cloudflare-token';
-const subdomain = 'scrum-guild-preview-lab';
+const subdomain = 'banmen-preview-lab';
 const buildEnv = {
   WORKERS_CI: '1',
   CLOUDFLARE_ACCOUNT_ID: account,
@@ -41,8 +41,8 @@ for (const [label, invalid] of [
   });
 }
 
-const oldOrigin = 'https://pr-374-scrum-guild-preview.ucan-lab.workers.dev';
-const newOrigin = `https://pr-374-scrum-guild-preview.${subdomain}.workers.dev`;
+const oldOrigin = 'https://pr-374-banmen-preview.ucan-lab.workers.dev';
+const newOrigin = `https://pr-374-banmen-preview.${subdomain}.workers.dev`;
 const accessEnv = { CF_ACCESS_CLIENT_ID: 'test-client-id', CF_ACCESS_CLIENT_SECRET: 'test-client-secret' };
 const isolatedAccessEnv = { ...accessEnv, CLOUDFLARE_PREVIEW_SUBDOMAIN: subdomain };
 

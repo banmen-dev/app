@@ -1,9 +1,15 @@
 // 本番の設定をコピーしない。プレビューの binding と URL はここだけで作る。
 import { SEED_OPERATOR_LOGIN_ID } from '../seed/sessions.ts';
-import { isPreviewSubdomain, LEGACY_PREVIEW_SUBDOMAIN, previewOrigin } from '../src/shared/preview-cloudflare.ts';
+import {
+  isPreviewSubdomain,
+  LEGACY_PREVIEW_SUBDOMAIN,
+  previewAlias,
+  previewDatabaseName,
+  previewOrigin,
+  PREVIEW_WORKER_NAME,
+} from '../src/shared/preview-cloudflare.ts';
 
 export const PRODUCTION_DATABASE_ID = '7fc32f51-8771-4122-aa5d-3b69c07ff861';
-export const PREVIEW_DATABASE_PATTERN = /^scrum-guild-pr-([1-9][0-9]*)$/;
 export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function previewConfig(
@@ -15,16 +21,16 @@ export function previewConfig(
 ) {
   if (
     !/^[1-9][0-9]*$/.test(number) ||
-    `pr-${number}-scrum-guild-preview`.length > 63 ||
+    previewAlias(number).length > 63 ||
     !isPreviewSubdomain(subdomain) ||
-    database.name !== `scrum-guild-pr-${number}` ||
+    database.name !== previewDatabaseName(number) ||
     !UUID_PATTERN.test(database.uuid) ||
     database.uuid.toLowerCase() === PRODUCTION_DATABASE_ID ||
     !/^[0-9a-f]{40}$/i.test(commitSha)
   )
     throw new Error('プレビューの設定に使えない番号・D1・版です');
   return {
-    name: 'scrum-guild-preview',
+    name: PREVIEW_WORKER_NAME,
     main: `${root}/src/server/index.ts`,
     compatibility_date: '2026-10-01',
     send_metrics: false,

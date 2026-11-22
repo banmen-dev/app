@@ -12,7 +12,7 @@ import { createTarget, testEnv } from './operations/world.ts';
 // Workers の型は本番の設定から生成される。このテストだけで、実際のプレビューと同様に R2 バインディングを外す。
 const previewEnv = {
   ...testEnv,
-  PUBLIC_ORIGIN: 'https://pr-1406-scrum-guild-preview.scrum-guild-preview.workers.dev',
+  PUBLIC_ORIGIN: 'https://pr-1406-banmen-preview.banmen-preview.workers.dev',
   PREVIEW_WITHOUT_ATTACHMENTS: '1',
   ATTACHMENTS: undefined,
 } as unknown as Env;
@@ -39,7 +39,6 @@ describe('R2 を持たない共有プレビュー', () => {
     expect(await attachmentRows(target)).toEqual([]);
     expect((await upload(target)).status).toBe(200);
   });
-
   test('本文だけは保存でき、添付 ID を含む更新は利用不可を返す', async () => {
     const target = await createTarget();
     const task = await createTask(target.organization, target.workspace.id, target.member.userId!);

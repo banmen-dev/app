@@ -12,7 +12,7 @@ const SHA = 'a'.repeat(40);
 const UUID = '11111111-1111-4111-8111-111111111111';
 
 test('alias と Worker 名の DNS ラベルは63文字まで受け付け、64文字は問い合わせ前に断る', async () => {
-  const fixedLength = 'pr--scrum-guild-preview'.length;
+  const fixedLength = 'pr--banmen-preview'.length;
   for (const labelLength of [63, 64]) {
     const number = '1'.repeat(labelLength - fixedLength);
     let externalCalls = 0;
@@ -52,7 +52,7 @@ for (const failureAt of ['execute', 'upload']) {
       return { status: 0 };
     }) as typeof spawnSync;
     assert.throws(() =>
-      publishPreview({ number: '374', database: { name: 'scrum-guild-pr-374', uuid: UUID }, commitSha: SHA }, run),
+      publishPreview({ number: '374', database: { name: 'banmen-pr-374', uuid: UUID }, commitSha: SHA }, run),
     );
     assert.deepEqual(
       commands,
@@ -68,7 +68,7 @@ test('GitHubの後続ページが落ちても先頭ページだけでcleanupを�
   const deps: PreviewDeps = {
     env: { WORKERS_CI: '1', WORKERS_CI_BRANCH: 'main' },
     commitSha: SHA,
-    listDatabases: async () => [{ name: 'scrum-guild-pr-374', uuid: UUID }],
+    listDatabases: async () => [{ name: 'banmen-pr-374', uuid: UUID }],
     createDatabase: async () => assert.fail('cleanup は作成しない'),
     deleteDatabase: async () => {
       deleted = true;
@@ -89,7 +89,7 @@ test('GitHubの後続ページが落ちても先頭ページだけでcleanupを�
 });
 
 test('ブラウザの同一origin通信が失敗したらfulfillせずabortする', async () => {
-  const origin = 'https://pr-374-scrum-guild-preview.ucan-lab.workers.dev';
+  const origin = 'https://pr-374-banmen-preview.ucan-lab.workers.dev';
   const env = { CF_ACCESS_CLIENT_ID: 'test-id', CF_ACCESS_CLIENT_SECRET: 'test-secret' };
   const target = resolveDevOpenTarget(['--origin', origin], env);
   assert.ok(target.ok);
@@ -123,7 +123,7 @@ test('UUID の前後の文字は拒否し、D1 名の前後の文字があるDB�
     const deps: PreviewDeps = {
       env: { WORKERS_CI: '1', WORKERS_CI_BRANCH: 'main' },
       commitSha: SHA,
-      listDatabases: async () => [{ name: 'scrum-guild-pr-374', uuid: value }],
+      listDatabases: async () => [{ name: 'banmen-pr-374', uuid: value }],
       createDatabase: async (name) => {
         changes++;
         return { name, uuid: UUID };
@@ -140,7 +140,7 @@ test('UUID の前後の文字は拒否し、D1 名の前後の文字があるDB�
     await assert.rejects(deployPreview(deps));
     assert.equal(changes, 0, '例外の有無とは別に書き込みが無いことを確かめる');
   }
-  for (const name of ['scrum-guild-pr-374\n', 'x-scrum-guild-pr-374', 'scrum-guild-pr-374-backup']) {
+  for (const name of ['banmen-pr-374\n', 'x-banmen-pr-374', 'banmen-pr-374-backup']) {
     await deployPreview({
       env: { WORKERS_CI: '1', WORKERS_CI_BRANCH: 'main' },
       commitSha: SHA,

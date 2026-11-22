@@ -4,7 +4,7 @@ import type { BrowserContext, Route } from '@playwright/test';
 import { accessHeaders, installDevOpenAccess } from './dev-open-access.ts';
 import { resolveDevOpenTarget } from './dev-open-target.ts';
 
-const origin = 'https://pr-374-scrum-guild-preview.ucan-lab.workers.dev';
+const origin = 'https://pr-374-banmen-preview.ucan-lab.workers.dev';
 const env = { CF_ACCESS_CLIENT_ID: 'test-id', CF_ACCESS_CLIENT_SECRET: 'test-secret' };
 const target = resolveDevOpenTarget(['--origin', origin], env);
 assert.ok(target.ok);
@@ -16,7 +16,7 @@ test('Access は同じプレビューだけに送り、他のプレビュー・�
   });
   for (const url of [
     'https://scrum-guild.ucan-lab.workers.dev/',
-    'https://pr-375-scrum-guild-preview.ucan-lab.workers.dev/',
+    'https://pr-375-banmen-preview.ucan-lab.workers.dev/',
     `${origin}.evil.example/`,
     'https://example.com/',
     'http://localhost:5173/',
