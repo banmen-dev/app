@@ -42,11 +42,11 @@ test('補助の件数が無くても、metaがあれば集計ボタンから確�
       title: 'バックログ',
       narrowSummary: '集計',
       tallies: [open],
-      meta: createRawSnippet(() => ({ render: () => '<p>チーム全体の経験値 42 XP</p>' })),
+      meta: createRawSnippet(() => ({ render: () => '<p>見出しの下の一行</p>' })),
     },
   });
   expect(body).toContain('is-compact');
   expect(body).toContain('aria-expanded="false"');
   const id = /aria-controls="([^"]+)"/.exec(body)![1];
-  expect(body.slice(body.indexOf(`id="${id}"`))).toContain('チーム全体の経験値 42 XP');
+  expect(body.slice(body.indexOf(`id="${id}"`))).toContain('見出しの下の一行');
 });
