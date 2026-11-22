@@ -10,7 +10,7 @@ import { deleteStatements } from '../src/server/operations/tree-delete.ts';
 import { orgDb } from '../src/server/db/index.ts';
 import { envWithD1Hooks } from '../src/server/db/testing.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
-import { AT, createEpic, createEpicPartyMember, createStory, createTask } from './factories.ts';
+import { AT, createEpic, createEpicPartyMember, createStory, createTask, createXpGrant } from './factories.ts';
 import { post } from './operations/harness.ts';
 import { createTarget, testEnv, type Person, type Target } from './operations/world.ts';
 
@@ -103,6 +103,20 @@ async function workspaceGrantCount(target: Target) {
     db.statement((q) => q.selectFrom('xp_grants').select('id').where('workspace_id', '=', target.workspace.id)),
   );
   return rows.length;
+}
+
+// このワークスペースの経験値の行（打ち消しの行が増えていないかを見る）
+async function workspaceGrants(target: Target) {
+  const db = orgDb(env, target.organization.verified);
+  return db.rows(
+    db.statement((q) =>
+      q
+        .selectFrom('xp_grants')
+        .select(['id', 'amount', 'reverses_grant_id'])
+        .where('workspace_id', '=', target.workspace.id)
+        .orderBy('id'),
+    ),
+  );
 }
 
 async function logsOf(target: Target, epicId: string) {
@@ -455,6 +469,21 @@ describe('epic-complete', () => {
 });
 
 describe('epic-reopen', () => {
+  test('前の版のクリアで付いた epic_reward の明細は、取り消しても打ち消さず、そのまま残す', async () => {
+    const target = await createTarget();
+    const epic = await readyEpic(target);
+    expect((await clear(target, epic.id)).status).toBe(200);
+    // この版を出す前のクリアで付いた明細（打ち消されていない行）
+    const grant = await createXpGrant(target.organization, target.workspace.id, target.member.userId!, {
+      action: 'epic_reward',
+      epic_id: epic.id,
+      amount: 300,
+    });
+
+    expect((await reopen(target, epic.id, target.leader)).status).toBe(200);
+    expect(await workspaceGrants(target)).toEqual([{ id: grant.id, amount: 300, reverses_grant_id: null }]);
+  });
+
   test('クリアを取り消しても打ち消しの行は書かず、もう一度クリアできる', async () => {
     const target = await createTarget();
     const epic = await readyEpic(target);

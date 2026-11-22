@@ -8,7 +8,7 @@ import { createApp } from '../src/server/app.ts';
 import { orgDb } from '../src/server/db/index.ts';
 import { envWithD1Hooks } from '../src/server/db/testing.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
-import { AT, createEpic, createStory, createTask } from './factories.ts';
+import { AT, createEpic, createStory, createTask, createXpGrant } from './factories.ts';
 import { errorCodeOf, post } from './operations/harness.ts';
 import { createTarget, testEnv, type Person, type Target } from './operations/world.ts';
 
@@ -91,6 +91,20 @@ async function workspaceGrantCount(target: Target) {
     db.statement((q) => q.selectFrom('xp_grants').select('id').where('workspace_id', '=', target.workspace.id)),
   );
   return rows.length;
+}
+
+// このワークスペースの経験値の行（打ち消しの行が増えていないかを見る）
+async function workspaceGrants(target: Target) {
+  const db = orgDb(env, target.organization.verified);
+  return db.rows(
+    db.statement((q) =>
+      q
+        .selectFrom('xp_grants')
+        .select(['id', 'amount', 'reverses_grant_id'])
+        .where('workspace_id', '=', target.workspace.id)
+        .orderBy('id'),
+    ),
+  );
 }
 
 async function logsOf(target: Target, storyId: string) {
@@ -348,6 +362,23 @@ describe('story-complete', () => {
 });
 
 describe('story-reopen', () => {
+  test('前の版の完了で付いた story_completed の明細は、取り消しても打ち消さず、そのまま残す', async () => {
+    const target = await createTarget();
+    const story = await emptyStory(target);
+    const member = target.member.userId!;
+    await completedTask(target, story.id, member);
+    expect((await complete(target, story.id, target.member, clockAt('2026-10-26T01:00:00.000Z'))).status).toBe(200);
+    // この版を出す前の完了で付いた明細（打ち消されていない行）
+    const grant = await createXpGrant(target.organization, target.workspace.id, member, {
+      action: 'story_completed',
+      story_id: story.id,
+      amount: 20,
+    });
+
+    expect((await reopen(target, story.id, target.leader, clockAt('2026-10-26T02:00:00.000Z'))).status).toBe(200);
+    expect(await workspaceGrants(target)).toEqual([{ id: grant.id, amount: 20, reverses_grant_id: null }]);
+  });
+
   test('完了を取り消しても打ち消しの行は書かず、もう一度完了にできる', async () => {
     const target = await createTarget();
     const story = await emptyStory(target);
