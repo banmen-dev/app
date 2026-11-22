@@ -5,6 +5,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import ts from 'typescript';
 import { openPreviewBranches, publishPreview } from './deploy-preview.ts';
+import { PreviewHttpError, PreviewStepError } from './preview-deploy.ts';
 import {
   PREVIEW_DATABASE_PREFIX,
   PREVIEW_TRIGGER_WORKER_NAME,
@@ -239,4 +240,26 @@ test('デプロイの入口はWorkers Buildsの外で失敗し、認証情報を
   assert.equal(result.status, 1);
   assert.match(result.stderr, /プレビューの処理に失敗/);
   assert.equal(result.stdout, '');
+});
+
+for (const status of [403, 404]) {
+  test(`GitHub の HTTP ${status} は、本文を出さずに理由 HTTP ${status} の例外にする`, async (t) => {
+    t.mock.method(globalThis, 'fetch', async () => new Response('secret body', { status }));
+    const error = await openPreviewBranches().then(
+      () => assert.fail('成功扱いにしない'),
+      (caught: unknown) => caught,
+    );
+    assert.ok(error instanceof PreviewHttpError);
+    assert.equal(error.reason, `HTTP ${status}`);
+    assert.ok(!String(error.message).includes('secret'));
+  });
+}
+
+test('GitHub の不正な一覧は、ログに出せる理由を持つ例外にする', async () => {
+  const error = await openPreviewBranches(async () => ({})).then(
+    () => assert.fail('成功扱いにしない'),
+    (caught: unknown) => caught,
+  );
+  assert.ok(error instanceof PreviewStepError);
+  assert.equal(error.reason, '開いた PR の一覧を読めませんでした');
 });
