@@ -4428,7 +4428,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     if (orgMenuOpen) { ev.preventDefault(); ev.stopPropagation(); closeOrgMenu(); return; }
     if (workspaceMenuOpen) { ev.preventDefault(); ev.stopPropagation(); closeWorkspaceMenu(); return; }
     if (accountMenuOpen) { ev.stopPropagation(); closeAccountMenu(); return; }
-    if (closeCelebrate()) return;
     if (dialogOnlyButtons && !document.getElementById("dialog")?.hidden) return;
     if (closeDialog()) return;
     if (assist.open === "palette") { closeAssist(); return; }

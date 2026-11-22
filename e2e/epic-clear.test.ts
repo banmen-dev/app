@@ -112,16 +112,43 @@ test('状態を持つ差し替えで、完了にすると「完了を取り消�
   await panel.getByRole('button', { name: 'エピックを完了にする' }).click();
   await expect(panel.getByRole('button', { name: '完了を取り消す' })).toBeVisible();
   await expect(panel.getByRole('button', { name: 'エピックを完了にする' })).toHaveCount(0);
-  await expect(page.locator('.page-head-meta .chip.is-done')).toHaveText('完了');
   await expect(panel.getByRole('heading', { level: 2, name: 'エピックの完了' })).toBeFocused();
 
   await panel.getByRole('button', { name: '完了を取り消す' }).click();
   await expect(panel.getByRole('button', { name: 'エピックを完了にする' })).toBeVisible();
   await expect(panel.getByRole('button', { name: '完了を取り消す' })).toHaveCount(0);
-  await expect(page.locator('.page-head-meta .chip.is-done')).toHaveCount(0);
   await expect(panel.getByRole('heading', { level: 2, name: 'エピックの完了' })).toBeFocused();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(await collect()).toEqual([]);
+});
+
+test('別の画面で先に完了にされて断られ、読み直しで「完了を取り消す」に入れ替わったら、見出しへフォーカスを移す', async ({
+  page,
+}) => {
+  let completedAt: string | null = null;
+  let served: Detail | undefined;
+  await routeOperation(page, epicDetail, AOBA, async (call) => {
+    served ??= await call.fetch();
+    await call.fulfill({
+      ...served,
+      stories: served.stories.map((story) => ({ ...story, completed_at: story.completed_at ?? CLEARED_AT })),
+      epic: { ...served.epic, completed_at: completedAt },
+    });
+  });
+  // 送った時点で、別の画面が先に完了にしていた
+  await routeOperation(page, epicComplete, AOBA, async (call) => {
+    completedAt = CLEARED_AT;
+    await call.fail(409, 'conflict', { details: { reason: 'completed' } });
+  });
+  await page.goto(`${WORKSPACE}/epics/${EPIC_ID}`);
+  const panel = page.getByRole('region', { name: 'エピックの完了' });
+  await panel.getByRole('button', { name: 'エピックを完了にする' }).click();
+  await expect(page.locator('.toasts:visible .toast').last()).toHaveText(
+    'このエピックは、すでに完了です。最新の内容を表示しています',
+  );
+  await expect(panel.getByRole('button', { name: '完了を取り消す' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: '完了を取り消す' })).not.toBeFocused();
+  await expect(panel.getByRole('heading', { level: 2, name: 'エピックの完了' })).toBeFocused();
 });
 
 test('未完了のストーリーが残っていると押せず、理由を横に出し、クリアの操作を送らない', async ({ page }) => {

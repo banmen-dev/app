@@ -197,12 +197,14 @@
       clearBusy = false;
     }
     await tick();
-    // 済んだら面の見出しへ。完了と取り消しは同じ位置で入れ替わり、確認を挟まないので、押した続きのキーで
-    // 反対の操作を送らないよう、ボタンには置かない。断られたら同じ操作の場所か、押したボタンか、画面の見出しへ
-    const heading = succeeded ? document.querySelector<HTMLElement>('#epic-clear') : null;
-    const button = document.querySelector<HTMLElement>('[data-epic-clear], [data-epic-reopen]');
+    // 済んだとき、または断られて読み直した結果、押した操作が反対の操作に入れ替わったとき（別の画面で先に完了や取り消しをした）は、
+    // 面の見出しへ。完了と取り消しは同じ位置で入れ替わり、確認を挟まないので、押した続きのキーで反対の操作を送らないため。
+    // 同じ操作が残っていればそこへ、面が消えていれば押したボタンか画面の見出しへ
+    const same = document.querySelector<HTMLElement>(clearing ? '[data-epic-clear]' : '[data-epic-reopen]');
+    const opposite = document.querySelector<HTMLElement>(clearing ? '[data-epic-reopen]' : '[data-epic-clear]');
+    const heading = succeeded || opposite !== null ? document.querySelector<HTMLElement>('#epic-clear') : null;
     if (heading) heading.focus();
-    else if (button) button.focus();
+    else if (same) same.focus();
     else {
       if (trigger.isConnected) trigger.focus();
       else focusPageHeading();
