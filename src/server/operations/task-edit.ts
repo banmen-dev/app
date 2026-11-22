@@ -1,6 +1,5 @@
 import { checkAttachments, attachmentChanges } from './attachment-save.ts';
 import { attachmentsReady, attachFilesStatement } from '../db/index.ts';
-import { readThanks } from './thanks.ts';
 import { now, todayIn } from '../../shared/clock.ts';
 import { taskAssign, taskDelete, taskDetail, taskUpdate, type TaskDetail } from '../../shared/operations/task/index.ts';
 import { previousStatementChanged, type OrganizationDb, type VerifiedWorkspace } from '../db/index.ts';
@@ -182,25 +181,12 @@ function repositoryOf(row: TaskRow): TaskDetail['repository'] {
   return { id: row.repository_id, name: row.repository_name ?? '' };
 }
 
-async function detailOf(
-  db: OrganizationDb,
+function detailOf(
   row: TaskRow,
   actor: { userId: string | null; isAdmin: boolean },
   workspace: VerifiedWorkspace,
-): Promise<TaskDetail> {
+): TaskDetail {
   return {
-    thanks: await readThanks(
-      db,
-      workspace.workspaceId,
-      row.id,
-      actor.userId,
-      !workspace.closed && row.completed_at === null,
-    ),
-    can_send_thanks:
-      !workspace.closed &&
-      row.completed_at === null &&
-      actor.userId !== null &&
-      (row.assignee_user_id ?? row.created_by) === actor.userId,
     id: row.id,
     title: row.title,
     body_md: row.body_md,
@@ -286,7 +272,7 @@ export const taskDetailOperation = implement(taskDetail, async ({ db, actor, wor
   // 削除していない決まった欄と値
   const fields = await readTaskFields(db, workspace.workspaceId, task.id);
   return {
-    task: await detailOf(db, task, actor, workspace),
+    task: detailOf(task, actor, workspace),
     column: column === undefined ? null : { id: column.id, name: column.name, is_done: column.is_done === 1 },
     story: parent === undefined ? null : { id: parent.id, title: parent.title },
     epic:
@@ -391,7 +377,7 @@ export const taskUpdateOperation = implement(taskUpdate, async ({ db, actor, wor
     if (draft.isEmpty && attachmentSave.ids.length === 0) {
       // 書くものが無くても、閉じたワークスペースは断る
       await throwIfClosed(db, workspaceId);
-      return { task: await detailOf(db, current, actor, workspace) };
+      return { task: detailOf(current, actor, workspace) };
     }
     assertEditable(current, draft.values);
     // 書き始める前の値が今と違う欄があれば、何も書かずに今の値を返す
@@ -471,7 +457,7 @@ export const taskUpdateOperation = implement(taskUpdate, async ({ db, actor, wor
     if ((results[0]?.changes ?? 0) > 0) {
       const updated = await readTask(db, workspaceId, taskId);
       if (updated === undefined) throw new ApiError(404, 'not_found');
-      return { task: await detailOf(db, updated, actor, workspace) };
+      return { task: detailOf(updated, actor, workspace) };
     }
     // 閉じていれば 409 の workspace_closed。無ければ 404。どちらでもなければ、別の要求が先に同じ欄を変えたので、読み直してやり直す
     // （完了にされていたか親の下へ移されていたら、次の周の assertEditable が 409 に、区分かリポジトリが削除されていたら、次の周の読み取りが 404 にする）
@@ -501,7 +487,7 @@ export const taskAssignOperation = implement(taskAssign, async ({ db, actor, wor
     if (current.assignee_user_id === nextId) {
       // 替わらなければ何も書かない（今日やるの印も消さない）。書くものが無くても、閉じたワークスペースは断る
       await throwIfClosed(db, workspaceId);
-      return { task: await detailOf(db, current, actor, workspace) };
+      return { task: detailOf(current, actor, workspace) };
     }
     // 完了したタスクの担当は替えない（完了の経験値と完了の記録が、完了した時点の担当を使うため）。
     // 閉じたワークスペースは、完了したタスクでも workspace_closed で答える
@@ -545,7 +531,7 @@ export const taskAssignOperation = implement(taskAssign, async ({ db, actor, wor
     if ((results[0]?.changes ?? 0) > 0) {
       const updated = await readTask(db, workspaceId, taskId);
       if (updated === undefined) throw new ApiError(404, 'not_found');
-      return { task: await detailOf(db, updated, actor, workspace) };
+      return { task: detailOf(updated, actor, workspace) };
     }
     // 閉じていれば 409 の workspace_closed。タスクが無いか、新しい担当が所属を外れていれば 404。
     // どちらでもなければ、別の要求が先に担当か今日やるの印を変えたか、完了にしたので、読み直してやり直す

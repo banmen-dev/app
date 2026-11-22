@@ -27,8 +27,6 @@ const detail = (patch: Partial<TaskDetail> = {}): TaskDetail => ({
   completed_at: null,
   reopenable: false,
   can_delete: true,
-  thanks: [],
-  can_send_thanks: false,
   story_id: null,
   category: null,
   repository: null,

@@ -276,7 +276,6 @@ Object.assign(window.SQ_DATA, {
     { kind: "srcDone", at: "10/20 10:00", read: false, text: "SHOP-131「請求書 PDF の文字化けを直す」が取り込み元で完了になりました", task: "t12" },
     { kind: "comment", at: "10/16 09:06", read: false, who: "u3", text: "ソウタさんが「ポイント付与のバッチを作る」にコメントしました", task: "t1" },
     { kind: "error", at: "10/20 10:00", read: true, text: "接続「ミナトの GitHub」の取り込みに失敗しています（503）。次の同期で再試行します" },
-    { kind: "thanks", at: "10/14 18:30", read: true, who: "u4", text: "リンさんから「障害時の連絡手順を書く」で感謝が届きました" },
   ],
   receivedInvites: [
     { organization: "ひばり工房", ws: "デザイン相談室", by: "ユイ", role: "member", at: "10/19" },

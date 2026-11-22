@@ -77,7 +77,6 @@ const NAMED_FIELDS = new Set([
   'repository',
   'sprint',
   'column',
-  'thanks',
   // 決まった欄の値の書き込み。値の全文は履歴に入れず、欄の名前だけを { id, name } で残す（あれば書かれている、null なら書かれていない）
   'field',
 ]);
