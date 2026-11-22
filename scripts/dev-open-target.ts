@@ -1,6 +1,7 @@
 // pnpm dev:open の引数の読み取りと、開く先の判定。通信とブラウザは scripts/dev-open.ts が受け持つ。
 // 止める理由は例外でなく結果の reason で返す（scripts/ci.ts の ciOkVerdict と同じ形）
 import { SEED_SESSIONS } from '../seed/sessions.ts';
+import { isIsolatedPreviewSubdomain, LEGACY_PREVIEW_SUBDOMAIN } from '../src/shared/preview-cloudflare.ts';
 import { resolvedReturnTo, safeReturnTo } from '../src/shared/return-to.ts';
 import { sessionCookieName } from '../src/shared/session-cookie.ts';
 import { devPorts, devPublicOrigin } from './dev-ports.ts';
@@ -22,11 +23,10 @@ export const DEFAULT_WHO: SeedWho = 'admin';
 export const DEFAULT_PATH = '/';
 
 // remote は本番と別のプレビューだけ。URL の正規化で別の表記になる値も断る。
-export function isPreviewOrigin(origin: string): boolean {
-  return (
-    /^https:\/\/pr-[1-9][0-9]*-scrum-guild-preview\.ucan-lab\.workers\.dev$/.test(origin) &&
-    new URL(origin).origin === origin
-  );
+export function isPreviewOrigin(origin: string, subdomain?: string): boolean {
+  if (subdomain !== undefined && !isIsolatedPreviewSubdomain(subdomain)) return false;
+  const match = /^https:\/\/pr-[1-9][0-9]*-scrum-guild-preview\.([a-z0-9-]+)\.workers\.dev$/.exec(origin);
+  return match?.[1] === (subdomain ?? LEGACY_PREVIEW_SUBDOMAIN) && new URL(origin).origin === origin;
 }
 
 const LOCAL_HOSTNAMES: ReadonlySet<string> = new Set(['localhost', '127.0.0.1']);
@@ -42,7 +42,7 @@ function isSeedWho(value: string): value is SeedWho {
 }
 
 // 位置でなく形で見分ける: `--preview` はフラグ、`/` で始まれば path、それ以外は who
-export function parseDevOpenArgs(argv: readonly string[]): ({ ok: true } & DevOpenArgs) | Failure {
+export function parseDevOpenArgs(argv: readonly string[], subdomain?: string): ({ ok: true } & DevOpenArgs) | Failure {
   let preview = false;
   let remoteOrigin: string | undefined;
   let who: string | undefined;
@@ -54,10 +54,11 @@ export function parseDevOpenArgs(argv: readonly string[]): ({ ok: true } & DevOp
     } else if (arg === '--origin') {
       if (remoteOrigin !== undefined) return { ok: false, reason: '--origin は1回だけ指定する' };
       const value = argv[++index];
-      if (!value || !isPreviewOrigin(value)) {
+      if (!value || !isPreviewOrigin(value, subdomain)) {
         return {
           ok: false,
-          reason: '--origin は https://pr-<番号>-scrum-guild-preview.ucan-lab.workers.dev の形で指定する',
+          reason:
+            '--origin はプレビュー専用の workers.dev の URL を指定する。別アカウントでは CLOUDFLARE_PREVIEW_SUBDOMAIN を設定する',
         };
       }
       remoteOrigin = value;
@@ -87,7 +88,7 @@ export function resolveDevOpenTarget(
   argv: readonly string[],
   env: Record<string, string | undefined>,
 ): ({ ok: true } & DevOpenTarget) | Failure {
-  const args = parseDevOpenArgs(argv);
+  const args = parseDevOpenArgs(argv, env.CLOUDFLARE_PREVIEW_SUBDOMAIN);
   if (!args.ok) return args;
   const { preview, who, path, remoteOrigin } = args;
   if (remoteOrigin && (!env.CF_ACCESS_CLIENT_ID?.trim() || !env.CF_ACCESS_CLIENT_SECRET?.trim())) {
