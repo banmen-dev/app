@@ -263,6 +263,7 @@ export const dictionary = defineDictionary({
   attachmentLoadMore: 'さらに読む',
   attachmentMoreFailed: '続きの添付ファイルを読み込めませんでした。もう一度試してください。',
   attachmentNone: '添付ファイルはありません。',
+  previewAttachmentsUnavailable: 'このプレビューではファイルを添付できません。',
   attachmentListTitle: '添付ファイル',
   attachmentListFailed: '添付ファイルの一覧を読み込めませんでした。',
   attachmentDeleteAction: '削除する',

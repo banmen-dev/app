@@ -40,6 +40,7 @@ import type { CurrentSession, Defer, ImplementedOperation } from './implement.ts
 import { operatorTools, type OperatorTools } from './operator-tools.ts';
 import { organizationTools } from './organization-tools.ts';
 import { logOperation } from './operation-log.ts';
+import { checkAttachmentAvailability, isPreviewWithoutAttachments } from './preview-attachments.ts';
 import { tokenAllows } from './token-scope.ts';
 
 // ログに残す、リクエストの途中で分かった値
@@ -391,6 +392,7 @@ async function execute(
     checkOrganizationPermission(definition.permission, actor);
     checkTokenScope(definition, apiToken);
     await enforceRateLimit(c, definition, accountId);
+    const previewWithoutAttachments = isPreviewWithoutAttachments(c.env);
 
     const input =
       definition.response === 'binary'
@@ -402,7 +404,14 @@ async function execute(
         : {};
     const storage =
       definition.storage === 'attachments'
-        ? { attachmentStorage: { delete: (keys: string | string[]) => c.env.ATTACHMENTS.delete(keys) } }
+        ? {
+            attachmentStorage: {
+              // 参加解除などは添付なしの D1 でも使える。R2 に消すものは無い。
+              delete: async (keys: string | string[]) => {
+                if (!previewWithoutAttachments) await c.env.ATTACHMENTS.delete(keys);
+              },
+            },
+          }
         : {};
     const download =
       definition.response === 'binary'
@@ -429,6 +438,7 @@ async function execute(
       }
       assertVerifiedWorkspace(workspace);
       await enforceWeightedRateLimit(c, definition, accountId, input);
+      checkAttachmentAvailability(previewWithoutAttachments, definition, input);
       result = await handler({
         db,
         actor,
@@ -442,6 +452,7 @@ async function execute(
       });
     } else {
       await enforceWeightedRateLimit(c, definition, accountId, input);
+      checkAttachmentAvailability(previewWithoutAttachments, definition, input);
       result = await handler({
         db,
         actor,
