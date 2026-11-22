@@ -3,6 +3,8 @@
 {
   "name": "banmen-design",
   "compatibility_date": "2026-10-01",
+  // Workers Builds と人の手元からも外へテレメトリを送らないよう設定に置く（wrangler.jsonc と同じ）
+  "send_metrics": false,
   "assets": {
     "directory": "./design"
   },

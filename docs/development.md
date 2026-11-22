@@ -1245,7 +1245,7 @@ PR の版は、本番を載せない専用 Cloudflare アカウントの Worker 
 
 見本（`design/`）を、開発者でない人に見せるための2つ目の Worker で配信する（2026-10-23 に決めた）。
 
-- 設定はリポジトリのルートの `wrangler.design.jsonc`。`design/` を静的なファイルとして返すだけで、コード、D1、R2、シークレットを持たない。設定を `design/` の中に置くと設定そのものが配信されるので、外に置く
+- 設定はリポジトリのルートの `wrangler.design.jsonc`。`design/` を静的なファイルとして返すだけで、コード、D1、R2、シークレットを持たない。本番の `wrangler.jsonc` と同じく `send_metrics: false` を置き、Workers Builds と人の手元のどちらからもテレメトリを送らない。設定を `design/` の中に置くと設定そのものが配信されるので、外に置く
 - URL は `https://banmen-design.ucan-lab.workers.dev/`（`scrum-guild-design` から改める。設定の `name` は改め、ダッシュボードの名前は人が下の手順で変える。#1425）。URL の先頭は Worker の名前。名前はダッシュボードの Worker の設定（General の Name）で変え、設定の `name` も同じ名前にそろえる。Access のアプリは URL でなく Worker に付くので、名前を変えた直後から新しい URL を守り、古い URL は 404 を返した（2026-10-24、#17）。設定の `name` だけが先に変わっていた間も、Workers Builds はつないだ Worker へのデプロイを通した。`ucan-lab` はアカウントの `workers.dev` のサブドメインで、変えるとアカウントのすべての Worker の URL が変わる
 - 名前を変えるのは人で、セッションはデプロイもダッシュボードの操作もしない。#1425 の手順は次のとおり。Workers Builds はつないだ Worker へデプロイするので、ダッシュボードの名前の変更と、設定の `name` を変える PR のマージは、どちらが先でも動く（#17 の前例）。見本は手元から `wrangler deploy` しない（設定の名前の Worker が新しく作られ、Access の外で配られる）
   1. Workers & Pages で `scrum-guild-design` を開き、Settings の General の Name を `banmen-design` に変える
