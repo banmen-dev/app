@@ -162,6 +162,7 @@
       leader: t('leader'),
     };
     clearBusy = true;
+    let succeeded = false;
     try {
       const result = clearing
         ? await callOperation(epicComplete, input, { slug })
@@ -171,6 +172,7 @@
         return;
       }
       if (result.ok) {
+        succeeded = true;
         showToast(t(clearing ? 'epicClearedToast' : 'epicReopened', words), 'check');
       } else {
         const reason = epicClearConflictReasonOf(result.error?.details);
@@ -195,9 +197,12 @@
       clearBusy = false;
     }
     await tick();
-    // 同じ操作の場所（完了と取り消しは入れ替わる）か、押したボタンか、見出しへ
+    // 済んだら面の見出しへ。完了と取り消しは同じ位置で入れ替わり、確認を挟まないので、押した続きのキーで
+    // 反対の操作を送らないよう、ボタンには置かない。断られたら同じ操作の場所か、押したボタンか、画面の見出しへ
+    const heading = succeeded ? document.querySelector<HTMLElement>('#epic-clear') : null;
     const button = document.querySelector<HTMLElement>('[data-epic-clear], [data-epic-reopen]');
-    if (button) button.focus();
+    if (heading) heading.focus();
+    else if (button) button.focus();
     else {
       if (trigger.isConnected) trigger.focus();
       else focusPageHeading();
@@ -357,7 +362,7 @@
       {#if showClear || showReopen}
         <section class="panel" aria-labelledby="epic-clear">
           <div class="panel-title">
-            <h2 id="epic-clear">{t('epicClearPanel', { epic: t('epic'), done: t('done') })}</h2>
+            <h2 id="epic-clear" tabindex="-1">{t('epicClearPanel', { epic: t('epic'), done: t('done') })}</h2>
           </div>
           <p class="panel-note" id="epic-clear-note">
             {#if showReopen}
@@ -367,7 +372,7 @@
             {:else if openStoryCount > 0}
               {t('epicClearNoteOpen', { story: t('story'), count: openStoryCount, done: t('done') })}
             {:else}
-              {t('epicClearNoteReady', { story: t('story'), done: t('done') })}
+              {t('epicClearNoteReady', { story: t('story'), done: t('done'), epic: t('epic') })}
             {/if}
           </p>
           <div class="actions-col">

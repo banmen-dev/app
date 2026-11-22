@@ -59,16 +59,18 @@ test('配下がすべて完了していれば「エピックを完了にする�
   await page.goto(`${WORKSPACE}/epics/${EPIC_ID}`);
 
   const panel = page.getByRole('region', { name: 'エピックの完了' });
-  await expect(panel.locator('.panel-note')).toHaveText('配下のストーリーはすべて完了になっています。');
+  await expect(panel.locator('.panel-note')).toHaveText(
+    '配下のストーリーはすべて完了になっています。エピックを完了にできます。',
+  );
   const clear = panel.getByRole('button', { name: 'エピックを完了にする' });
   await expect(clear).toHaveAttribute('aria-disabled', 'false');
   await clear.click();
 
   await expect(page.locator('.toasts:visible .toast').last()).toHaveText('エピックを完了にしました');
-  await expect(page.locator('.celebrate')).toHaveCount(0);
+  // 演出（ダイアログ）は開かない
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  // 押したボタン（読み直しで替わらなければそのまま）か、同じ面の操作にフォーカスが残る
-  await expect(panel.getByRole('button', { name: /エピックを完了にする|完了を取り消す/ })).toBeFocused();
+  // 済んだら面の見出しへフォーカスを移す（続けて押したキーで、入れ替わった取り消しを送らない）
+  await expect(panel.getByRole('heading', { level: 2, name: 'エピックの完了' })).toBeFocused();
   expect(await collect()).toEqual([]);
 });
 
@@ -79,7 +81,7 @@ test('動きを減らす設定でも、同じトーストで知らせる', async
   await page.goto(`${WORKSPACE}/epics/${EPIC_ID}`);
   await page.getByRole('button', { name: 'エピックを完了にする' }).click();
   await expect(page.locator('.toasts:visible .toast').last()).toHaveText('エピックを完了にしました');
-  await expect(page.locator('.celebrate')).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
 test('未完了のストーリーが残っていると押せず、理由を横に出し、クリアの操作を送らない', async ({ page }) => {
@@ -103,7 +105,7 @@ test('未完了のストーリーが残っていると押せず、理由を横�
   // aria-disabled の押せないボタン。押しても何も送らない
   await clear.click({ force: true });
   await page.waitForLoadState('networkidle');
-  await expect(page.locator('.celebrate')).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(sent).toEqual([]);
 });
 
@@ -121,10 +123,11 @@ test('完了したエピックは「完了を取り消す」が出て、取り�
   await page.goto(`${WORKSPACE}/epics/${EPIC_ID}`);
   const panel = page.getByRole('region', { name: 'エピックの完了' });
   await expect(panel.getByRole('button', { name: 'エピックを完了にする' })).toHaveCount(0);
-  await expect(panel.locator('.panel-note')).toHaveText('完了を取り消すと、進行中に戻ります。');
+  await expect(panel.locator('.panel-note')).toHaveText('完了を取り消すと、完了の印が外れます。');
   await panel.getByRole('button', { name: '完了を取り消す' }).click();
   await expect(page.locator('.toasts:visible .toast').last()).toHaveText('エピックの完了を取り消しました');
-  await expect(page.locator('.celebrate')).toHaveCount(0);
+  await expect(panel.getByRole('heading', { level: 2, name: 'エピックの完了' })).toBeFocused();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
 test('取り消しが断られたら、理由ごとにトーストで知らせる', async ({ page }) => {

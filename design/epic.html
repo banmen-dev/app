@@ -79,7 +79,7 @@ SQ.mount("epic", () => {
         <section class="panel" aria-labelledby="epic-clear">
           <div class="panel-title"><b id="epic-clear">${t("epic")}の${t("done")}</b></div>
           <p class="panel-note" id="epic-clear-note">${allDone
-            ? `配下の${t("story")}はすべて${t("done")}になっています。`
+            ? `配下の${t("story")}はすべて${t("done")}になっています。${t("epic")}を${t("done")}にできます。`
             : stories.length === 0
               ? `${t("story")}が1件も無い${t("epic")}は、${t("done")}にできません。${t("story")}を足して、すべて${t("done")}にすると押せます。`
               : `未完了の${t("story")}が ${openStories} 件残っているあいだは、${t("done")}にできません。`}</p>
@@ -92,7 +92,6 @@ SQ.mount("epic", () => {
           <p class="panel-note" id="epic-cancel-note">中止すると、${t("done")}にできなくなります。中止は後で取り消せます。</p>
           <div class="actions-col">
             <button class="btn is-quiet" type="button" aria-describedby="epic-cancel-note" data-dialog="cancelEpic">${icon("x")}${t("epic")}を中止する</button>
-            <button class="btn is-quiet is-danger" type="button" data-dialog="deleteEpic">${icon("trash")}${t("epic")}を削除する</button>
           </div>
         </section>
       </aside>

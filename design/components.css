@@ -1116,7 +1116,6 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
   }
   .entry { grid-template-columns: var(--grip-col, ) 32px minmax(0, 1fr); }
   .entry-end { grid-column: -2; flex-wrap: wrap; }
-  .notice-facts { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (min-width: 761px) {
@@ -1506,6 +1505,8 @@ label.pick-row:hover { background: var(--color-accent-soft); }
 /* ===== エピックの詳細 ===== */
 .epic-body { display: grid; gap: var(--space-3); max-width: 66ch; }
 .epic-body p { line-height: 1.85; }
+
+/* ===== 一覧の行（休日、感謝などの .party-list） ===== */
 .party-list { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
 .party-list li { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); }
 /* 行の右端に寄せる操作（消すボタンなど） */
