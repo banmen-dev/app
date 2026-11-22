@@ -17,14 +17,6 @@ import { taskReopen } from './task-reopen.ts';
 import { taskRestore } from './task-restore.ts';
 import { taskTodayMark } from './task-today-mark.ts';
 import { taskUpdate } from './task-update.ts';
-import { thanksSend, thanksRevoke } from './thanks.ts';
-export {
-  thanksSend,
-  thanksRevoke,
-  thanksConflictReasonOf,
-  thanksConflictReasons,
-  type ThanksConflictReason,
-} from './thanks.ts';
 
 export {
   backlogTree,
@@ -107,6 +99,4 @@ export const taskOperations: readonly AnyOperationDefinition[] = [
   commentCreate,
   commentUpdate,
   commentDelete,
-  thanksSend,
-  thanksRevoke,
 ];

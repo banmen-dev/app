@@ -224,13 +224,10 @@ describe('historyEntryView', () => {
   });
 });
 
-test('感謝の履歴は相手の名前と「なし」を出す', () => {
+test('外した感謝の過去の履歴は、値を出さず「そのほかの欄」として出す', () => {
   expect(
     historyEntryView(entry({ changes: [{ field: 'thanks', before: null, after: member }] }), 'UTC', t).lines,
-  ).toEqual([{ label: '感謝', text: `なし → ${member.name}` }]);
-  expect(
-    historyEntryView(entry({ changes: [{ field: 'thanks', before: member, after: null }] }), 'UTC', t).lines,
-  ).toEqual([{ label: '感謝', text: `${member.name} → なし` }]);
+  ).toEqual([{ label: null, text: 'そのほかの欄を直した' }]);
 });
 
 test('添付の追加は値を出さず専用の文で示す', () => {

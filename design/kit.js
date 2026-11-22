@@ -1485,7 +1485,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   // drafts は書いている途中の欄の値（title、link、body、fields）。手を止めるか欄を離れると保存し、保存した値と同じになる
   // view は見本の状態の切り替え（読み込み中、読めない、閉じたワークスペースの読み取り専用）。errors は欄の下に出す理由
   // commentEditing は直している途中のコメントの番号
-  const drawer = { id: null, tab: "comments", thanked: new Set(), opener: null, mode: readDrawerMode(), view: null, errors: {}, drafts: {}, commentEditing: null,
+  const drawer = { id: null, tab: "comments", opener: null, mode: readDrawerMode(), view: null, errors: {}, drafts: {}, commentEditing: null,
     // 見本の状態の切り替え（カタログの drawerDemo が使う）。commentsView はコメントの読み込み（loading、failed、reloadFailed）
     // adjacent は前後のタスク（{ prev, next }。順を渡さない画面は null）。undefined なら画面の行から求める（drawerAdjacent）
     commentsView: null, commentViewer: null, commentBlocked: null, adjacent: undefined,
@@ -1739,7 +1739,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const older = (D.olderComments || {})[x.id] || 0;
     const commentsView = drawer.commentsView;
     const history = D.history[x.id] || [];
-    const others = Object.keys(D.users).filter((u) => u !== D.me && !user(u).left);
     // 変更の履歴の列の名前（本番は src/lib/task-history.ts の表）。作成は作ったときの値を、変更は前と後を、欄ごとの行（.history-changes）で出す
     const HIST = { title: "タイトル", points: t("points"), due: t("due"), assignee: t("assignee") };
     if (drawer.view === "loading" || drawer.view === "failed") return drawerStateHtml();
@@ -1780,14 +1779,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
         ${x.doneAt ? `<span class="done-bar-done"><span class="hanko" role="img" aria-label="${t("done")}">${icon("check")}</span><span>${t("done")} ${esc(x.doneAt)}</span><button class="link-btn" type="button" data-undo="${x.id}" aria-label="${t("done")}を戻す: ${esc(x.title)}" aria-disabled="false">戻す</button></span>`
           : `<button class="btn is-primary" type="button" data-done="${x.id}">${icon("check")}${t("complete")}</button>`}
         ${D.definitionOfDone.length ? `<div class="done-bar-dod"><h3 class="done-bar-dod-title" id="drawer-dod">${t("dod")}</h3><div class="done-bar-dod-body" tabindex="0" role="region" aria-labelledby="drawer-dod">${dodDoc()}</div></div>` : ""}
-      </div>
-      <div class="field">
-        <span class="field-label">感謝</span>
-        <div class="thanks">${others.map((u) => {
-          const on = drawer.thanked.has(u);
-          return `<button class="btn is-sm ${on ? "is-on" : ""}" type="button" data-thank="${u}" aria-pressed="${on}">${avatarOf(u)}${esc(user(u).name)}${on ? " に送った" : " に送る"}</button>`;
-        }).join("")}</div>
-        <span class="field-hint">送れるのは${t("assignee")}だけ（${t("assignee")}がいなければ作った人）。${t("task")}が完了すると相手に経験値が付きます。完了までは取り消せます。</span>
       </div>
       <div>
         <div class="tabs" role="tablist" aria-label="コメントと変更の履歴">
@@ -1942,7 +1933,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     if (!keep) drawer.canDelete = true;
     drawer.view = kind === "epic" && opener instanceof HTMLElement && opener.dataset.epicReadonly === "true" ? "readonly" : null;
     if (kind === "epic" && opener instanceof HTMLElement) drawer.canDelete = opener.dataset.epicCanDelete !== "false";
-    drawer.kind = kind; drawer.id = id; drawer.tab = "comments"; drawer.thanked = new Set(); drawer.opener = opener || null; drawer.errors = {}; drawer.drafts = {}; drawer.commentEditing = null;
+    drawer.kind = kind; drawer.id = id; drawer.tab = "comments"; drawer.opener = opener || null; drawer.errors = {}; drawer.drafts = {}; drawer.commentEditing = null;
     document.getElementById("drawer")?.replaceChildren();
   }
   // 直している欄の今の入力。再描画しても書きかけを残すため、描き直す前に写す
@@ -4189,11 +4180,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       const e = D.epics[el.dataset.join];
       e.party = e.party.includes(D.me) ? e.party.filter((u) => u !== D.me) : [...e.party, D.me];
       redrawAll(); return;
-    }
-    if ((el = hit("data-thank"))) {
-      const u = el.dataset.thank;
-      drawer.thanked.has(u) ? drawer.thanked.delete(u) : drawer.thanked.add(u);
-      renderDrawer(); return;
     }
     if ((el = hit("data-tab"))) { setDrawerTab(el.dataset.tab); return; }
     // コメントの「編集」「取り消し」「保存」「削除」と、新しいコメントの「送る」（見本の中だけで書き換える）
