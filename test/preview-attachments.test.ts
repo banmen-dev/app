@@ -14,7 +14,10 @@ test.each([
   ).toBe(expected);
 });
 
-test.each([undefined, '0', ''])('PREVIEW_WITHOUT_ATTACHMENTS が %j なら有効な origin でも添付を止めない', (flag) => {
-  const origin = 'https://pr-1406-banmen-preview.banmen-preview.workers.dev' as Env['PUBLIC_ORIGIN'];
-  expect(isPreviewWithoutAttachments({ PUBLIC_ORIGIN: origin, PREVIEW_WITHOUT_ATTACHMENTS: flag })).toBe(false);
-});
+test.each([undefined, '0', '', 'true', '01'])(
+  'PREVIEW_WITHOUT_ATTACHMENTS が %j なら有効な origin でも添付を止めない',
+  (flag) => {
+    const origin = 'https://pr-1406-banmen-preview.banmen-preview.workers.dev' as Env['PUBLIC_ORIGIN'];
+    expect(isPreviewWithoutAttachments({ PUBLIC_ORIGIN: origin, PREVIEW_WITHOUT_ATTACHMENTS: flag })).toBe(false);
+  },
+);
