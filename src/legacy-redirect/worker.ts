@@ -1,6 +1,7 @@
 // 旧 URL を新しい URL へ送る Worker（wrangler.legacy-redirect.jsonc）。
 // 画面の GET と HEAD は新しい URL の同じパスとクエリへ 302 で送る。/api、/api/ の下、GET と HEAD 以外は 410 の moved にする。
-// 転送先は固定で、リクエストの Host などは見ない。Location に断片は付けない
+// 転送先は固定で、リクエストの Host などは見ない。Location に断片は付けない。
+// 転送先を差し替えたり Worker を外したりした後に古い応答を使わせないよう、どちらもキャッシュさせない
 import type { ErrorBody } from '../shared/errors.ts';
 
 // 転送先。末尾の / は付けない
@@ -38,7 +39,7 @@ function moved(): Response {
   };
   return new Response(JSON.stringify(body), {
     status: 410,
-    headers: { 'content-type': 'application/json; charset=utf-8' },
+    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
   });
 }
 
@@ -49,7 +50,7 @@ export default {
     // new URL(path, base) だと // で始まるパスが別のオリジンになるので、文字列でつなぐ
     return new Response(null, {
       status: 302,
-      headers: { location: `${LEGACY_REDIRECT_TARGET}${url.pathname}${url.search}` },
+      headers: { location: `${LEGACY_REDIRECT_TARGET}${url.pathname}${url.search}`, 'cache-control': 'no-store' },
     });
   },
 };

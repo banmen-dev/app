@@ -573,7 +573,7 @@ WHERE tbl = 'tasks' AND idx = 'tasks_workspace_tray';
 
 ### 置き方
 
-本番の Worker の名前を変え、新しい URL の `/api/health` が ok を返すのを確かめてから、Cloudflare にログインした手元で打つ。
+本番の Worker の名前を変え、新しい URL の `/api/health` が ok を返すのを確かめ、ダッシュボードの Workers & Pages に旧名 `scrum-guild` の Worker が無いこと（やり直しなら転送用の Worker だけであること）を見てから、本番と同じアカウントにログインした手元のリポジトリのルートで打つ。スクリプトは公開 URL の応答で判定するので、旧名の Worker が workers.dev を切った状態で残っていると見分けられない。
 
 ```bash
 node scripts/deploy-legacy-redirect.ts
