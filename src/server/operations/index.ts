@@ -96,10 +96,8 @@ import {
   sprintUpdateOperation,
 } from './sprint.ts';
 import { epicCreateOperation, epicGetOperation, epicMoveOperation, epicUpdateOperation } from './epic.ts';
-import { epicCancelOperation, epicUncancelOperation } from './epic-cancel.ts';
 import { epicCompleteOperation, epicReopenOperation } from './epic-clear.ts';
 import { epicDetailOperation } from './epic-detail.ts';
-import { epicRequesterUpdateOperation } from './epic-requester.ts';
 import {
   categoryCreateOperation,
   categoryDeleteOperation,
@@ -231,9 +229,6 @@ const listedOperations: readonly ImplementedOperation[] = [
   epicDetailOperation,
   epicUpdateOperation,
   epicMoveOperation,
-  epicRequesterUpdateOperation,
-  epicCancelOperation,
-  epicUncancelOperation,
   epicCompleteOperation,
   epicReopenOperation,
   storyCreateOperation,

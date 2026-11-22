@@ -154,7 +154,7 @@ export const dictionary = defineDictionary({
   createSheetOpen: '作ったものを開く',
   createChoicesFailed: '属性を読み込めませんでした。もう一度試してください。',
   createSheetUnavailable: '作る先が終了しているか、書き込む権限がありません。書いた内容は写して残せます。',
-  createSheetConflict: '親が完了・中止された可能性があります。親を選び直してください。',
+  createSheetConflict: '親が完了した可能性があります。親を選び直してください。',
   createSheetGone: '親や担当が見つかりません。属性を読み直して選び直してください。',
   createSheetFailed: '作れませんでした。入力を残しています。もう一度試してください。',
 
@@ -969,13 +969,12 @@ export const dictionary = defineDictionary({
   moveParentNone: '親なし',
   moveParentHint: '移す先の末尾に置きます。',
   moveParentSubmit: '移す',
-  // ストーリーの親（エピック）を移すときの、完了か中止した{epic}が移す元か移す先のとき（向きは問わない）の知らせ
-  moveEpicDone: '{done}か中止した{epic}の配下からも配下へも、{story}を移せません。一覧を読み直します',
+  // ストーリーの親（エピック）を移すときの、完了した{epic}が移す元か移す先のとき（向きは問わない）の知らせ
+  moveEpicDone: '{done}した{epic}の配下からも配下へも、{story}を移せません。一覧を読み直します',
 
   // エピックの行（木の最上段）。{title} はエピックの題
   epicCreate: '{epic}を作る',
   epicCleared: '完了',
-  epicCanceled: '中止',
   epicNoStories: '{story}はまだありません',
   // エピックのダイアログ（作るときも直すときも同じ欄）。欄の文言はストーリーのダイアログと同じ項目を使う
   epicTitlePlaceholder: '何を成し遂げるか',
@@ -1001,8 +1000,8 @@ export const dictionary = defineDictionary({
   treeAddTaskParentDone: 'この{story}は{done}したので、{task}を足せません。一覧を読み直します',
   draftPlaceholder: '{label}（題を打って Enter）',
   treeAddSending: '作っています',
-  // 親の{epic}が完了か中止になっていた（読み直して、空の行を消す）
-  treeAddParentDone: 'この{epic}は{done}か中止したので、{story}を足せません。一覧を読み直します',
+  // 親の{epic}が完了になっていた（読み直して、空の行を消す）
+  treeAddParentDone: 'この{epic}は{done}したので、{story}を足せません。一覧を読み直します',
   epicSave: '保存する',
   epicSaving: '保存しています',
   epicSaveFailed: '保存できませんでした。もう一度試してください。',
@@ -1025,22 +1024,6 @@ export const dictionary = defineDictionary({
   epicPageStale: '最新の内容を読み込めませんでした。表示は前に読んだ内容です。',
   epicPageStories: '配下の{story}',
   // エピックの完了と取り消し。操作は作成者とリーダーだけに出す。完了にできない理由は、押せない操作の横に出す
-  epicCancelPanel: '{epic}の中止',
-  epicCancel: '{epic}を中止する',
-  epicUncancel: '中止を取り消す',
-  epicCancelSubmit: '中止する',
-  epicCancelNote: '中止すると、{done}にできなくなります。中止は後で取り消せます。',
-  epicUncancelNote: '中止を取り消すと、{done}の操作を再開できます。',
-  epicCancelConfirm: 'この{epic}を中止しますか。中止は後で取り消せます。',
-  epicCancelUpdating: '中止の状態を更新しています',
-  epicCanceledToast: '{epic}を中止しました',
-  epicUncanceledToast: '{epic}の中止を取り消しました',
-  epicCancelForbidden: '中止と取り消しができるのは、{requester}と{leader}だけです',
-  epicCancelFinished: '完了した{epic}は中止できません。最新の内容を表示しています',
-  epicCancelConflict: 'ほかの画面で状態が変わりました。最新の内容を表示しています',
-  epicCancelGone: '{epic}が見つからないか、{workspace}に所属していないため、中止も取り消しもできません',
-  epicCancelFailed: '中止できませんでした。もう一度試してください',
-  epicUncancelFailed: '中止を取り消せませんでした。もう一度試してください',
   epicClearPanel: '{epic}の{done}',
   epicClearNoteOpen: '未完了の{story}が {count} 件残っているあいだは、{done}にできません。',
   epicClearNoteEmpty: '{story}が1件も無い{epic}は、{done}にできません。{story}を足して、すべて{done}にすると押せます。',
@@ -1058,27 +1041,9 @@ export const dictionary = defineDictionary({
   epicNotCleared: 'この{epic}は{done}していません。最新の内容を表示しています',
   epicClearForbidden: '{done}にできるのは、{requester}と{leader}だけです',
   epicClearGone: '{epic}が見つからないか、{workspace}に所属していないため、{done}にも取り消しにもできません',
-  epicClearFinished: 'この{epic}は中止しているので、{done}にも取り消しにもできません',
   epicClearChanged: 'ほかの画面で変わったため、できませんでした。最新の内容を表示しています',
   epicClearFailed: '{done}にできませんでした。もう一度試してください',
   epicReopenFailed: '{done}を取り消せませんでした。もう一度試してください',
-  // 概要の面の操作。作成者を替えるのはリーダーだけ
-  epicPageChangeRequester: '{requester}を替える',
-  // 作成者を替えるダイアログ。候補は member-list の今所属している人のうち、今の作成者でない人
-  epicRequesterField: '新しい{requester}',
-  epicRequesterHint: '{workspace}に今所属している人から選びます。',
-  epicRequesterNoCandidates: '替えられる人がいません。{workspace}に、今の{requester}のほかに所属している人がいません。',
-  epicRequesterCandidatesFailed: '替えられる人を読み込めませんでした。',
-  epicRequesterSubmit: '替える',
-  epicRequesterSubmitting: '替えています',
-  epicRequesterChanged: '{requester}を「{name}」に替えました',
-  epicRequesterAlready: '{requester}はもう「{name}」です',
-  epicRequesterGone: '選んだ人は{workspace}に所属していないか、{epic}が見つかりません。選び直してください。',
-  epicRequesterForbidden: '{requester}を替えられるのは、{leader}だけです',
-  // 409 の epic_finished（終わったエピック）と、conflict（書き込みの競合に 3 回続けて負けた）
-  epicRequesterFinished: 'この{epic}は終わっているので、{requester}を替えられません',
-  epicRequesterConflict: 'ほかの変更と重なりました。もう一度試してください',
-  epicRequesterFailed: '{requester}を替えられませんでした。もう一度試してください',
   // 進み具合の棒の読み上げ（kit.js の progress の aria-label）と、棒の横の数
   progressLabel: '{done} {value} / {all} {points}',
   progressValue: '{value} / {all} pt',
@@ -1099,10 +1064,10 @@ export const dictionary = defineDictionary({
   storyRemaining: '残り {count} 件の{task}',
   // 押せない理由の全文。ストーリーの引き出しの完了の帯で、見えない文字で置き、「完了にする」の aria-describedby から指す
   storyRemainingNote: '未完了の{task}が残っているあいだは{done}にできません',
-  // 親のエピックが完了か中止しているとき、「取り消す」の横に出す
-  storyReopenBlocked: '{done}か中止した{epic}の下の{story}は取り消せません',
-  // 親のエピックが完了か中止しているとき、「完了にする」（メニューの項目）の横に出す（完了にすると取り消せなくなるため、断る）
-  storyCompleteBlocked: '{done}か中止した{epic}の下の{story}は{done}にできません',
+  // 親のエピックが完了しているとき、「取り消す」の横に出す
+  storyReopenBlocked: '{done}した{epic}の下の{story}は取り消せません',
+  // 親のエピックが完了しているとき、「完了にする」（メニューの項目）の横に出す（完了にすると取り消せなくなるため、断る）
+  storyCompleteBlocked: '{done}した{epic}の下の{story}は{done}にできません',
   // 無効の「完了にする」を押して読み直した結果、残りが無くなっていたときの読み上げ
   storyRecheckedOpen: '残りの{task}は 0 件になりました。{done}にできます',
   storyReopen: '取り消す',
@@ -1114,8 +1079,8 @@ export const dictionary = defineDictionary({
   storyOpenTasks: '未完了の{task}が残っているため、{done}にできません。一覧を読み直します',
   storyAlreadyDone: 'この{story}は、すでに{done}です。一覧を読み直します',
   storyNotDone: 'この{story}は{done}していません。一覧を読み直します',
-  storyCompleteParentDone: '{done}か中止した{epic}の下の{story}は、{done}にできません。一覧を読み直します',
-  storyReopenParentDone: '{done}か中止した{epic}の下の{story}は、取り消せません。一覧を読み直します',
+  storyCompleteParentDone: '{done}した{epic}の下の{story}は、{done}にできません。一覧を読み直します',
+  storyReopenParentDone: '{done}した{epic}の下の{story}は、取り消せません。一覧を読み直します',
   storyCompletionChanged: 'ほかの画面で変わったため、できませんでした。一覧を読み直します',
   storyCompleteFailed: '{done}にできませんでした。もう一度試してください。',
   storyReopenFailed: '取り消せませんでした。もう一度試してください。',

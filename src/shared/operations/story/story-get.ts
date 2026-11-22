@@ -22,7 +22,7 @@ export const storyGet = defineOperation({
     can_delete: z.boolean(),
     can_delete_children: z.boolean(),
     children: z.object({ tasks: z.number().int() }),
-    // 完了の状態。完了した日時（完了していなければ null）、配下の削除していない未完了のタスクの件数、親のエピックが完了か中止しているか
+    // 完了の状態。完了した日時（完了していなければ null）、配下の削除していない未完了のタスクの件数、親のエピックが完了しているか
     completed_at: z.string().nullable(),
     open_task_count: z.number().int(),
     parent_finished: z.boolean(),

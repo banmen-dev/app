@@ -41,7 +41,6 @@ export const epicDetailOperation = implement(epicDetail, async ({ db, actor, wor
           'epics.due_on',
           'epics.link_url',
           'epics.completed_at',
-          'epics.canceled_at',
           'epics.requester_user_id',
           'requester.name as requester_name',
           'requester_membership.id as requester_membership_id',
@@ -113,7 +112,7 @@ export const epicDetailOperation = implement(epicDetail, async ({ db, actor, wor
           ? null
           : { id: epic.category_ref_id, name: epic.category_name },
       completed_at: epic.completed_at,
-      canceled_at: epic.canceled_at,
+      canceled_at: null,
     },
     requester: {
       id: epic.requester_user_id,
@@ -128,6 +127,5 @@ export const epicDetailOperation = implement(epicDetail, async ({ db, actor, wor
       points_all: amountOf(row.points_all),
     })),
     can_manage: (actor.userId !== null && actor.userId === epic.requester_user_id) || isLeaderOrAdmin(actor, workspace),
-    can_change_requester: isLeaderOrAdmin(actor, workspace),
   };
 });

@@ -2,12 +2,12 @@
 // （示す印と、task-move / story-move / epic-move の入力）を決める。DOM と描画には触れない。
 //
 // 決まり:
-// - エピックは親を持たず、エピックの段（画面に出ているエピックの全部。完了と中止したエピックも含む）の中で並べ替える。
+// - エピックは親を持たず、エピックの段（画面に出ているエピックの全部。完了したエピックも含む）の中で並べ替える。
 //   エピックを運ぶときは、エピックの行の前後（before / after）にだけ落とせ、ストーリー、タスク、tail、slot の行には何も示さない。
 //   エピックの行の真ん中（into）は、ストーリーを運ぶときだけの囲み
-// - タスクの親は、完了していないストーリーか親なし。ストーリーの親は、完了も中止もしていないエピックか親なし。
+// - タスクの親は、完了していないストーリーか親なし。ストーリーの親は、完了していないエピックか親なし。
 //   タスクをエピックの直下へ、ストーリーをストーリーの下へは落とせない（何も示さない）。
-//   サーバーが断るのは親が変わるときだけなので、今の親の中での並べ替えは、親が完了か中止していても落とせる（ボタンと同じ）
+//   サーバーが断るのは親が変わるときだけなので、今の親の中での並べ替えは、親が完了していても落とせる（ボタンと同じ）
 // - 画面で完了にしたタスクは、サーバーが断るので、つかんでも落とせない
 // - before / after は行と行の間の線。タスクはタスクの行の前後、ストーリーはストーリーの行の前後に落とす
 // - into は親の行を囲む。タスクはストーリーの行、ストーリーはエピックの行に重ねると、その配下の末尾に入る
@@ -32,9 +32,9 @@ export type Operation = 'before' | 'after' | 'into';
 
 // 木の今の並び（画面で動かした並びを含む）。キーは親の ID か ROOT
 export type TreeModel = {
-  // 画面に出ているエピックの全部の ID（完了と中止したものも含む）。並びの順
+  // 画面に出ているエピックの全部の ID（完了したものも含む）。並びの順
   epics: readonly string[];
-  // 完了も中止もしていないエピックの ID
+  // 完了していないエピックの ID
   openEpics: readonly string[];
   // 親ごとのストーリー。open は完了していないこと
   storyLists: Readonly<Record<string, readonly { id: string; open: boolean }[]>>;
@@ -93,7 +93,7 @@ const AROUND: OperationSet = { before: true, after: true, into: false };
 const INTO: OperationSet = { before: false, after: false, into: true };
 
 // 重ねた行に落とせる操作（位置が今と同じになるかは見ない。それは resolveDrop が決める）。
-// 行き先の親が今の親と同じなら、親の状態（完了、中止）は見ない
+// 行き先の親が今の親と同じなら、親の状態（完了）は見ない
 export function availableOperations(index: TreeIndex, item: DragItem, row: DropRow): OperationSet {
   if (item.kind === 'epic') return row.kind === 'epic' ? AROUND : NONE;
   if (item.kind === 'task') {

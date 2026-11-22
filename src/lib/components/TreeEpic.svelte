@@ -12,16 +12,15 @@
   // kit.js の treeEpic（バックログの木のエピックの行と、配下）。行の組み方は TreeStory と同じで、開閉は左端の caret のボタンだけが受け持ち、
   // 題はリンクで、押すとエピックの引き出し（`?epic_id=<ID>`。EpicDrawer）を開く（引き出しの下から、エピックの画面へ移れる）。開閉の状態は部品の中に持ち、expand() で開ける（ストーリーを移してきたときに開く）。
   // 右端は配下のポイントの「完了 / 全体」（pointsDone と pointsAll は、画面が足した行と完了にした行の分を含む合計）。
-  // 完了（クリア）か中止したエピックには、その状態の印を添え、期日には色を付けない。
+  // 完了（クリア）したエピックには、その状態の印を添え、期日には色を付けない。
   // 配下のストーリーの行は children の snippet で描く（ストーリーの操作は画面の側が持つ）。empty が真なら「<ストーリー>はまだありません」を出す。
-  // クリア、中止は、エピックの画面の続きの Issue（#65）で足す。
   // onMove を渡すと（書き込めて、絞っていないとき）、行の右端の「⋯」のメニューに「上へ」「下へ」を出し、エピックの行の中で Alt と ↑ ↓ を押しても同じことをする
-  // （TreeStory と同じ。キーは配下のストーリーとタスクの行には掛けない。端の向きは aria-disabled）。完了と中止したエピックも並べ替えられる。
+  // （TreeStory と同じ。キーは配下のストーリーとタスクの行には掛けない。端の向きは aria-disabled）。完了したエピックも並べ替えられる。
   // onMove と dnd を渡すと、行の先頭にドラッグのつまみ（.grip。飾りで aria-hidden）を置く。つかむのはここだけ。
   // dnd を渡すと、行は、ストーリーを運ぶときの落とし先（囲み。離すと配下の末尾に入り、畳まれていれば開く）と、エピックを運ぶときの
   // 前後の線の落とし先を兼ねる。前後の線は、開いた配下の途中に入らないよう、配下を含めた塊（.tree-group）に引く（エピックの段の字下げ）。
   // 空の案内の行の前後も、配下の末尾の落とし先
-  // addRow を渡すと（書き込める、完了も中止もしていないとき）、配下の末尾に「ストーリーを足す」の空の行（DraftRow）を置く
+  // addRow を渡すと（書き込める、完了していないとき）、配下の末尾に「ストーリーを足す」の空の行（DraftRow）を置く
   let {
     epic,
     pointsDone,
@@ -50,7 +49,7 @@
     // 題のリンクの行き先（画面が、今の絞り込みを残して `?epic_id=<ID>` を付けた経路）
     href: string;
     children: Snippet;
-    // 配下の末尾に置く空の行（ストーリーを足す）。完了か中止したエピックには置かない
+    // 配下の末尾に置く空の行（ストーリーを足す）。完了したエピックには置かない
     addRow?: Snippet;
   } = $props();
 
@@ -79,7 +78,7 @@
 
   const bodyId = $props.id();
   let expanded = $state(true);
-  const finished = $derived(epic.completed_at !== null || epic.canceled_at !== null);
+  const finished = $derived(epic.completed_at !== null);
 
   export function expand(): void {
     expanded = true;
@@ -129,8 +128,6 @@
       {/if}
       {#if epic.completed_at !== null}
         <span class="chip is-done"><Icon name="check" />{t('epicCleared')}</span>
-      {:else if epic.canceled_at !== null}
-        <span class="chip">{t('epicCanceled')}</span>
       {/if}
       {#if epic.due_on !== null}
         <DueChip dueOn={epic.due_on} today={clock.today} weekStart={clock.weekStart} done={finished} />

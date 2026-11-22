@@ -362,7 +362,7 @@ test('ベロシティは延長した回を除いた直近3回の平均で、先�
   await expect(first.locator('[data-lane-unestimated]')).toHaveCount(0);
   await expect(page.locator('.lane').nth(1).locator('[data-lane-unestimated]')).toHaveText('未見積もり 1 件');
 
-  // エピックごとの残り。完了も中止もしていないエピックが、題（エピックの画面へのリンク）、残り、進み、期日で並ぶ
+  // エピックごとの残り。完了していないエピックが、題（エピックの画面へのリンク）、残り、進み、期日で並ぶ
   const row = page.locator('[data-plan-epic]');
   await expect(page.getByRole('heading', { level: 2, name: 'エピックごとの残り' })).toBeVisible();
   await expect(row).toHaveCount(1);

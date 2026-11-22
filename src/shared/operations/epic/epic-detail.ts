@@ -13,12 +13,10 @@ const epicPersonSchema = z.object({ id: z.string(), name: z.string(), left: z.bo
 //   配下のタスクのポイントの合計（未見積もりは 0。points_done は完了したタスクだけ）で、バックログの木と同じ数え方
 // - today と week_start: ワークスペースのタイムゾーンでの今日と週の始まり（0〜6、0 が日曜）。期日の印を決める（backlog-tree と同じ。
 //   ブラウザの時計とタイムゾーンに頼らない）
-// - can_manage: 呼んだ人が依頼主か、リーダー（管理者を含む）か。クリアと中止の口の出し分けに使う
-// - can_change_requester: 呼んだ人がリーダー（管理者を含む）か。依頼主を替える口の出し分けに使う（依頼主本人は替えられない）
+// - can_manage: 呼んだ人が依頼主か、リーダー（管理者を含む）か。クリアの口の出し分けに使う
 export const epicDetail = defineOperation({
   name: 'epic-detail',
-  description:
-    'エピックの画面の中身を返す。欄、依頼主、配下のストーリー（完了とポイントつき）、呼んだ人が管理できるか、依頼主を替えられるか',
+  description: 'エピックの画面の中身を返す。欄、依頼主、配下のストーリー（完了とポイントつき）、呼んだ人が管理できるか',
   mode: 'read',
   permission: 'member',
   workspace: true,
@@ -34,9 +32,10 @@ export const epicDetail = defineOperation({
       link_url: z.string().nullable(),
       // 振った区分（削除していないもの）。無ければ null
       category: definitionRefSchema.nullable(),
-      // クリアした日時と、中止した日時。どちらも空なら進行中
+      // クリアした日時。空なら進行中
       completed_at: z.string().nullable(),
-      canceled_at: z.string().nullable(),
+      // 中止は外した（#1435）。前の版の画面の束のために、1版だけ常に null で返す（backlog-tree と同じ）。#1438 で消す
+      canceled_at: z.null(),
     }),
     requester: epicPersonSchema,
     stories: z.array(
@@ -49,6 +48,5 @@ export const epicDetail = defineOperation({
       }),
     ),
     can_manage: z.boolean(),
-    can_change_requester: z.boolean(),
   }),
 });

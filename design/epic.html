@@ -72,9 +72,6 @@ SQ.mount("epic", () => {
             <div><dt>${t("due")}</dt><dd>${dueChip(e.due)}</dd></div>
             <div><dt>${t("category")}</dt><dd>${e.cat ? esc(D.categories[e.cat].name) : `${t("category")}なし`}</dd></div>
           </dl>
-          <div class="actions-col">
-            <button class="btn" type="button">${t("requester")}を替える</button>
-          </div>
         </section>
         <section class="panel" aria-labelledby="epic-clear">
           <div class="panel-title"><b id="epic-clear">${t("epic")}の${t("done")}</b></div>
@@ -85,13 +82,6 @@ SQ.mount("epic", () => {
               : `未完了の${t("story")}が ${openStories} 件残っているあいだは、${t("done")}にできません。`}</p>
           <div class="actions-col">
             <button class="btn is-primary" type="button" aria-describedby="epic-clear-note" ${allDone ? "" : `aria-disabled="true"`}>${icon("check")}${t("clear")}</button>
-          </div>
-        </section>
-        <section class="panel" aria-labelledby="epic-cancel">
-          <div class="panel-title"><b id="epic-cancel">${t("epic")}の中止</b></div>
-          <p class="panel-note" id="epic-cancel-note">中止すると、${t("done")}にできなくなります。中止は後で取り消せます。</p>
-          <div class="actions-col">
-            <button class="btn is-quiet" type="button" aria-describedby="epic-cancel-note" data-dialog="cancelEpic">${icon("x")}${t("epic")}を中止する</button>
           </div>
         </section>
       </aside>

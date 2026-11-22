@@ -224,7 +224,7 @@
     createSheetOpen: "作ったものを開く",
     createChoicesFailed: "属性を読み込めませんでした。もう一度試してください。",
     createSheetUnavailable: "作る先が終了しているか、書き込む権限がありません。書いた内容は写して残せます。",
-    createSheetConflict: "親が完了・中止された可能性があります。親を選び直してください。",
+    createSheetConflict: "親が完了した可能性があります。親を選び直してください。",
     createSheetGone: "親や担当が見つかりません。属性を読み直して選び直してください。",
     createSheetFailed: "作れませんでした。入力を残しています。もう一度試してください。",
     mobileTabs: "よく使う画面",
@@ -1051,16 +1051,16 @@
 
   // ストーリーの完了の操作（本番の TreeStory）。完了したストーリーは完了の印と「取り消す」。完了していなければ「完了にする」で、
   // 配下の未完了のタスクが残るあいだは aria-disabled にして、横に「残り N 件」を添える
-  // 親のエピックが完了か中止していれば（blocked）、完了と取り消しは押せない aria-disabled にして、理由を横に出す。
+  // 親のエピックが完了していれば（blocked）、完了と取り消しは押せない aria-disabled にして、理由を横に出す。
   // 残りの件数は見える文字で、押せない理由の全文は見えない文字で置き、どちらも aria-describedby で結ぶ
   function storyDoneControl(key, st, remaining, blocked) {
     if (st.doneAt) {
-      const reason = blocked ? `<span class="tree-note" id="tree-${key}-blocked">${t("done")}か中止した${t("epic")}の下の${t("story")}は取り消せません</span>` : "";
+      const reason = blocked ? `<span class="tree-note" id="tree-${key}-blocked">${t("done")}した${t("epic")}の下の${t("story")}は取り消せません</span>` : "";
       return `<span class="hanko" role="img" aria-label="${esc(st.title)}: ${t("done")}">${icon("check")}</span>
         ${reason}<button class="btn is-sm is-quiet" type="button" aria-label="${t("done")}を取り消す: ${esc(st.title)}"${blocked ? ` aria-disabled="true" aria-describedby="tree-${key}-blocked"` : ` data-toast="${t("story")}の${t("done")}を取り消しました"`}>取り消す</button>`;
     }
     if (blocked) {
-      return `<span class="tree-note" id="tree-${key}-blocked">${t("done")}か中止した${t("epic")}の下の${t("story")}は${t("done")}にできません</span><button class="btn is-sm" type="button" aria-label="${t("complete")}: ${esc(st.title)}" aria-disabled="true" aria-describedby="tree-${key}-blocked">${icon("check")}${t("complete")}</button>`;
+      return `<span class="tree-note" id="tree-${key}-blocked">${t("done")}した${t("epic")}の下の${t("story")}は${t("done")}にできません</span><button class="btn is-sm" type="button" aria-label="${t("complete")}: ${esc(st.title)}" aria-disabled="true" aria-describedby="tree-${key}-blocked">${icon("check")}${t("complete")}</button>`;
     }
     const note = remaining
       ? `<span class="tree-note" id="tree-${key}-remaining">残り ${remaining} 件の${t("task")}</span><span class="visually-hidden" id="tree-${key}-reason">未完了の${t("task")}が残っているあいだは${t("done")}にできません</span>`
@@ -1104,7 +1104,7 @@
   }
   // バックログの木。opts.order を渡すと、ストーリーの行に「上へ」「下へ」（order.parent が真で opts.blocked が偽なら「親を移す」も）を、
   // 配下のタスクの行に並べ替えと「親を移す」を出す。opts.doneAt で、完了したストーリーとして描ける（カタログの見本）。
-  // opts.blocked は親のエピックが完了か中止している、opts.key は同じストーリーを2回描くときの id の区別
+  // opts.blocked は親のエピックが完了している、opts.key は同じストーリーを2回描くときの id の区別
   function treeStory(sid, solo, opts = {}) {
     const key = opts.key || sid;
     const st = opts.doneAt ? { ...D.stories[sid], doneAt: opts.doneAt } : D.stories[sid];
@@ -1147,8 +1147,8 @@
   // （.tree-group。エピックの段の字下げ）に、囲み（into。ストーリーを運ぶとき）は行に付ける。
   // エピックの画面へのリンクは、エピックの画面の Issue（#65）で足す。
   // 区分の印はエピックに振ったものを出す（配下の行では繰り返さない。本番と同じ）。
-  // カタログの見本用に、opts.cleared（クリア済み。配下は完了したストーリー）、opts.canceled（中止）、opts.empty（配下なし）、
-  // opts.key（同じエピックを2回描くときの id の区別）を受ける。完了か中止したエピックは、期日に色を付けず、配下の取り消しを押せなくし、「親を移す」を隠す
+  // カタログの見本用に、opts.cleared（クリア済み。配下は完了したストーリー）、opts.empty（配下なし）、
+  // opts.key（同じエピックを2回描くときの id の区別）を受ける。完了したエピックは、期日に色を付けず、配下の取り消しを押せなくし、「親を移す」を隠す
   function treeEpic(eid, opts = {}) {
     const key = opts.key || eid;
     const e = D.epics[eid];
@@ -1156,9 +1156,8 @@
     const pts = opts.empty ? { done: 0, all: 0 } : epicPts(eid);
     const p = opts.cleared ? { done: pts.all, all: pts.all } : pts;
     const stories = opts.empty ? [] : Object.keys(D.stories).filter((s) => D.stories[s].epic === eid);
-    const finished = Boolean(opts.cleared || opts.canceled);
-    const state = opts.cleared ? `<span class="chip is-done">${icon("check")}${t("done")}</span>`
-      : opts.canceled ? `<span class="chip">中止</span>` : "";
+    const finished = Boolean(opts.cleared);
+    const state = opts.cleared ? `<span class="chip is-done">${icon("check")}${t("done")}</span>` : "";
     const mark = opts.mark || {};
     const into = mark.drop === "into";
     const epicOrder = opts.order && typeof opts.order === "object" ? opts.order : null;
@@ -1423,7 +1422,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     commentsView: null, commentViewer: null, commentBlocked: null, adjacent: undefined,
     // kind は開いているものの種類（task、story、epic）。ストーリーの引き出し（本番の StoryDrawer）は id にストーリーの id を持ち、
     // 開き方は横と真ん中だけ。canDelete は削除できる人か（偽なら「⋯」に削除を出さず、理由を本文の下に出す）、
-    // parentFinished は親のエピックが完了か中止している（ストーリーの完了と取り消しを押せなくする）見本の状態
+    // parentFinished は親のエピックが完了している（ストーリーの完了と取り消しを押せなくする）見本の状態
     kind: "task", canDelete: true, parentFinished: false, remaining: null };
   const drawerReadOnly = () => drawer.view === "readonly";
   const isStoryDrawer = () => drawer.kind === "story";
@@ -1745,7 +1744,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   // ストーリーの引き出し（本番の StoryDrawer。枠はタスクと同じ Drawer）。バックログの木のストーリーの題（a.tree-link。?story=<ID>）から開く。
   // 帯は種類の印「ストーリー」（完了なら「完了」の印）、「⋯」（親を移す、削除。削除できない人には削除を出さず、理由を本文の下に出す）、前後、開き方（横と真ん中）、閉じる。
   // 題、リンク、受け入れ基準、本文はいつも書ける欄で自動保存（タスクと同じ）。期日は選んだら保存する（区分の選択は見本では保存しない）。完了の帯は、配下の未完了のタスクが残るあいだと、
-  // 親のエピックが完了か中止しているあいだ、完了にする・取り消すを aria-disabled にして理由を添える。コメントと履歴は無い
+  // 親のエピックが完了しているあいだ、完了にする・取り消すを aria-disabled にして理由を添える。コメントと履歴は無い
   const storyAcText = (st) => st.acMd ?? (st.ac || []).map((a) => `- ${a}`).join("\n");
   function storyMenuHtml(st) {
     const items = [{ attr: `data-dialog="moveStory" data-story-id="${drawer.id}"`, label: "親を移す", icon: "swap" },
@@ -1767,12 +1766,12 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   function storyDoneBarHtml(st, remaining) {
     const ro = drawerReadOnly(), blocked = drawer.parentFinished, ids = { blocked: "drawer-story-blocked", remaining: "drawer-story-remaining", reason: "drawer-story-reason" };
     if (st.doneAt) {
-      const note = blocked && !ro ? `<span class="props-note" id="${ids.blocked}">${t("done")}か中止した${t("epic")}の下の${t("story")}は取り消せません</span>` : "";
+      const note = blocked && !ro ? `<span class="props-note" id="${ids.blocked}">${t("done")}した${t("epic")}の下の${t("story")}は取り消せません</span>` : "";
       const undo = ro ? "" : `<button class="link-btn" type="button" data-story-reopen aria-label="${t("done")}を取り消す: ${esc(st.title)}"${blocked ? ` aria-disabled="true" aria-describedby="${ids.blocked}"` : ` aria-disabled="false"`}>取り消す</button>`;
       return `<div class="done-bar"><span class="done-bar-done"><span class="hanko" role="img" aria-label="${t("done")}" tabindex="-1">${icon("check")}</span><span>${t("done")} ${esc(st.doneAt)}</span>${note}${undo}</span></div>`;
     }
     if (ro) return "";
-    const note = blocked ? `<span class="props-note" id="${ids.blocked}">${t("done")}か中止した${t("epic")}の下の${t("story")}は${t("done")}にできません</span>`
+    const note = blocked ? `<span class="props-note" id="${ids.blocked}">${t("done")}した${t("epic")}の下の${t("story")}は${t("done")}にできません</span>`
       : remaining ? `<span class="props-note" id="${ids.remaining}">残り ${remaining} 件の${t("task")}</span><span class="visually-hidden" id="${ids.reason}">未完了の${t("task")}が残っているあいだは${t("done")}にできません</span>` : "";
     const off = blocked || remaining > 0;
     return `<div class="done-bar">${note}<button class="btn is-primary" type="button" data-story-done aria-disabled="${off}"${off ? ` aria-describedby="${blocked ? ids.blocked : `${ids.remaining} ${ids.reason}`}"` : ""}>${icon("check")}${t("complete")}</button></div>`;
@@ -2593,10 +2592,10 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
            <span class="field-hint" id="d-move-hint">移す先の末尾に置きます。</span></label>`,
         `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog>移す</button>`);
     },
-    // ストーリーの親を移す（本番の MoveParentDialog。タスクの親を移すのと同じ部品）。移す先は親なしと、完了も中止もしていないエピック（今の親を除く）
+    // ストーリーの親を移す（本番の MoveParentDialog。タスクの親を移すのと同じ部品）。移す先は親なしと、完了していないエピック（今の親を除く）
     moveStory: (el) => {
       const st = D.stories[el?.dataset?.storyId] || D.stories.s1;
-      const others = Object.entries(D.epics).filter(([eid, e]) => eid !== st.epic && !e.cleared && !e.canceled);
+      const others = Object.entries(D.epics).filter(([eid, e]) => eid !== st.epic && !e.cleared);
       openDialog(`「${esc(st.title)}」の親を移す`,
         `<label class="field" for="d-move-story"><span class="field-label">移す先</span><select class="select" id="d-move-story" aria-describedby="d-move-story-hint"><option>親なし</option>${others.map(([, e]) => `<option>${esc(e.title)}</option>`).join("")}</select>
            <span class="field-hint" id="d-move-story-hint">移す先の末尾に置きます。</span></label>`,
@@ -2610,9 +2609,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     deleteEpicClearedLeaderOnly: () => treeDeleteDialog("epic", "e1", { cleared: true, leaderOnly: true }),
     deleteStoryEmpty: () => treeDeleteDialog("story", "s4", { empty: true }),
     deleteStoryLeaderOnly: () => treeDeleteDialog("story", "s4", { leaderOnly: true }),
-    cancelEpic: () => openDialog(`${t("epic")}を中止する`,
-      `<p>この${t("epic")}を中止しますか。中止は後で取り消せます。</p>`,
-      `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="中止しました">中止する</button>`),
     editRecord: () => openDialog("完了の記録を直す",
       `<p class="props-note">「ランク表示の文言を直す」の記録です。直したことは変更の履歴に残ります。</p>
        <div class="form-row">
@@ -4134,7 +4130,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     }
     if (hit("data-close-drawer")) { closeDrawer(); return; }
     if (hit("data-drawer-due-clear")) { drawerItem().due = null; redrawAll(); toast(`${icon("check")}保存しました`); return; }
-    // ストーリーの完了と取り消し（見本の中だけで、引き出しは状態を書き換える。木の行の同名のボタンはトーストだけ）。押せない理由（配下の未完了、親のエピックの完了と中止）があるあいだは aria-disabled で、押しても何も起きない
+    // ストーリーの完了と取り消し（見本の中だけで、引き出しは状態を書き換える。木の行の同名のボタンはトーストだけ）。押せない理由（配下の未完了、親のエピックの完了）があるあいだは aria-disabled で、押しても何も起きない
     if ((el = hit("data-story-done")) || (el = hit("data-story-reopen"))) {
       if (el.getAttribute("aria-disabled") === "true") return;
       const st = D.stories[drawer.id], done = el.hasAttribute("data-story-done");

@@ -688,7 +688,6 @@ describe('backlog-tree', () => {
         due_on: string | null;
         link_url: string | null;
         completed_at: string | null;
-        canceled_at: string | null;
         stories: TreeBody['stories'];
         points_done: number;
         points_all: number;
@@ -702,7 +701,6 @@ describe('backlog-tree', () => {
       due_on: '2026-11-30',
       link_url: 'https://example.com/e',
       completed_at: '2026-10-21T00:00:00.000Z',
-      canceled_at: null,
       points_done: 5,
       points_all: 8,
     });
@@ -717,7 +715,8 @@ describe('backlog-tree', () => {
     expect(body.epics[0]!.stories[0]).not.toHaveProperty('epic_id');
     expect(body.epics[0]!.stories[1]!.tasks.map((task) => task.id)).toEqual([open.id]);
     expect(body.epics[1]).toMatchObject({ stories: [], points_done: 0, points_all: 0 });
-    expect(body.epics[2]).toMatchObject({ canceled_at: '2026-10-21T00:00:00.000Z' });
+    // 前に中止したエピック（中止の列が残る行）も、ふつうのエピックとして出す。canceled_at は前の版の画面のために常に null（#1438 で消す）
+    expect(body.epics[2]).toMatchObject({ completed_at: null, canceled_at: null });
     // エピックの下のストーリーは、親のないストーリーの段に入らない
     expect(body.stories.map((story) => story.id)).toEqual([root.id]);
   });

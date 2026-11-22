@@ -283,7 +283,7 @@ for (const [status, code, message] of [
   [400, 'invalid_input', '入力を受け付けられませんでした'],
   [403, 'forbidden', '書き込む権限がありません'],
   [404, 'not_found', '親や担当が見つかりません'],
-  [409, 'conflict', '親が完了・中止された可能性があります'],
+  [409, 'conflict', '親が完了した可能性があります'],
 ] as const) {
   test(`起票が ${status} で断られても本文を残し、理由へフォーカスを置く`, async ({ page, context, baseURL }) => {
     if (!baseURL) throw new Error('baseURL が無い');

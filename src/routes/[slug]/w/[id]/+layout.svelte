@@ -279,7 +279,7 @@
     focusPageHeading();
   }
   // ---- エピックの引き出し ----
-  // 期日の印の今日と週の始まり、クリアか中止の状態は、バックログの画面が読んだ木から取る（無い画面では印を出さない）
+  // 期日の印の今日と週の始まり、クリアの状態は、バックログの画面が読んだ木から取る（無い画面では印を出さない）
   const epicFinished = $derived(epicId === null ? false : epicFinishedOf(storyTree, epicId));
 
   // 帯で形を替える（書きかけの確認は EpicDrawer が済ませている）。エピックの引き出しは横と真ん中だけ

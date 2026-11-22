@@ -7,7 +7,7 @@
   import Progress from './Progress.svelte';
   import Section from './Section.svelte';
 
-  // design/plan.html の「エピックごとの残り」の表。削除していない、完了も中止もしていないエピックを、題（エピックの画面への
+  // design/plan.html の「エピックごとの残り」の表。削除していない、完了していないエピックを、題（エピックの画面への
   // リンク）、残りのポイント（配下の未完了のタスクのポイントの合計）、進み（完了 / 全体）、期日の印で並べる。
   // 今日の日付と週の始まりは API が返したワークスペースの値（ブラウザの時計に頼らない）。
   // 狭い幅では行を縦に積み（is-stacked）、td の data-label を値の前に出す

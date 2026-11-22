@@ -687,7 +687,6 @@ export const backlogTreeOperation = implement(backlogTree, async ({ db, actor, w
           'epics.due_on',
           'epics.link_url',
           'epics.completed_at',
-          'epics.canceled_at',
           'categories.id as category_ref_id',
           'categories.name as category_name',
         ])
@@ -889,6 +888,8 @@ export const backlogTreeOperation = implement(backlogTree, async ({ db, actor, w
       .filter((row) => !filtering || storiesByEpic.has(row.id) || (!taskOnly && epicSelfHit(row)))
       .map((row) => ({
         ...row,
+        // 中止は外した（#1435）。前の版の画面の束のために1版だけ null で返す（backlog-tree の定義）
+        canceled_at: null,
         category: epicCategories.get(row.id) ?? null,
         stories: storiesByEpic.get(row.id) ?? [],
         points_done: epicTotals.get(row.id)?.done ?? 0,
@@ -910,7 +911,7 @@ export const backlogTreeOperation = implement(backlogTree, async ({ db, actor, w
       epics: epicsResult.rows.map((row) => ({
         id: row.id,
         title: row.title,
-        finished: row.completed_at !== null || row.canceled_at !== null,
+        finished: row.completed_at !== null,
       })),
       stories: filtering ? openStoryChoices() : null,
     },

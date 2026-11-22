@@ -364,18 +364,18 @@ test('エピックをつまみのドラッグで並べ替え、線はエピッ�
   expect(await collect()).toEqual([]);
 });
 
-test('完了か中止したエピックも並べ替えられる。断られたら、理由を知らせて読み直す', async ({ page }) => {
-  await createWorkspace(page, 'エピックの中止ワークスペース');
+test('完了したエピックも並べ替えられる。断られたら、理由を知らせて読み直す', async ({ page }) => {
+  await createWorkspace(page, 'エピックの完了ワークスペース');
   for (const title of ['ポイント制度を公開する', '決済の障害を減らす']) await addEpic(page, title);
-  // 2番目のエピックを、木の上だけ中止したことにする（中止の操作は #65 で足す）
+  // 2番目のエピックを、木の上だけ完了したことにする
   await rewriteOperation(page, backlogTree, { slug: 'aoba' }, (body) => {
     const epics = body.epics.map((epic) =>
-      epic.title === '決済の障害を減らす' ? { ...epic, canceled_at: '2026-10-22T00:00:00.000Z' } : epic,
+      epic.title === '決済の障害を減らす' ? { ...epic, completed_at: '2026-10-22T00:00:00.000Z' } : epic,
     );
     return { ...body, epics };
   });
   await page.reload();
-  await expect(epicRow(page, '決済の障害を減らす').locator('.chip', { hasText: '中止' })).toBeVisible();
+  await expect(epicRow(page, '決済の障害を減らす').locator('.chip', { hasText: '完了' })).toBeVisible();
   await expect(epicRow(page, '決済の障害を減らす').locator('.grip')).toBeVisible();
   const up = rowMenuItem(page, '決済の障害を減らす', '上へ');
   await expect(up).toHaveAttribute('aria-disabled', 'false');
@@ -391,7 +391,7 @@ test('完了か中止したエピックも並べ替えられる。断られた�
   await expect(epicTitles(page)).toHaveText(['ポイント制度を公開する', '決済の障害を減らす']);
   await expect(rowMenuToggle(page, '決済の障害を減らす')).toBeFocused();
 
-  // 通るときは、中止したエピックも先頭へ動く
+  // 通るときは、完了したエピックも先頭へ動く
   await unrouteEpicMove();
   const moved = waitForResponses(page, '/epic-move');
   await chooseRowAction(page, '決済の障害を減らす', '上へ');

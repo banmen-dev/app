@@ -7,7 +7,6 @@ type TreeStoryLike = { id: string; completed_at: string | null; open_task_count:
 type TreeEpicLike = {
   id: string;
   completed_at: string | null;
-  canceled_at: string | null;
   stories: readonly TreeStoryLike[];
 };
 export type StoryTreeLike = {
@@ -41,7 +40,7 @@ export type StoryFacts = {
   completedAt: string | null;
   // 配下の削除していない未完了のタスクの件数（story-get が読んだ時点の値）
   openTasks: number;
-  // 親のエピックが完了か中止している（完了も取り消しも必ず断られる）
+  // 親のエピックが完了している（完了も取り消しも必ず断られる）
   parentFinished: boolean;
 };
 
@@ -58,7 +57,7 @@ export function storyFactsFrom(data: {
   };
 }
 
-// ストーリーの親に選べるエピック（完了も中止もしていないもの）。木が無いときは null（親を移すを出さない）
+// ストーリーの親に選べるエピック（完了していないもの）。木が無いときは null（親を移すを出さない）
 export function parentChoicesOf(tree: StoryTreeLike | null | undefined): { id: string; title: string }[] | null {
   if (tree === null || tree === undefined) return null;
   return tree.choices.epics.filter((epic) => !epic.finished).map((epic) => ({ id: epic.id, title: epic.title }));
@@ -72,9 +71,9 @@ export function staleCurrentOf(details: unknown): Record<string, unknown> | null
   return record.current as Record<string, unknown>;
 }
 
-// エピックの引き出し（EpicDrawer）が受け取る、木のエピックの完了（クリア）か中止の状態。木に無ければ false（期日の印に色を付けない理由が無い）
+// エピックの引き出し（EpicDrawer）が受け取る、木のエピックの完了（クリア）の状態。木に無ければ false（期日の印に色を付けない理由が無い）
 export function epicFinishedOf(tree: StoryTreeLike | null | undefined, epicId: string): boolean {
   if (tree === null || tree === undefined) return false;
   const row = tree.epics.find((epic) => epic.id === epicId);
-  return row !== undefined && (row.completed_at !== null || row.canceled_at !== null);
+  return row !== undefined && row.completed_at !== null;
 }

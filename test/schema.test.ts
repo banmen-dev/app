@@ -275,6 +275,54 @@ describe('0041_reset_neon_theme', () => {
   });
 });
 
+describe('0042_uncancel_epics', () => {
+  // 前の版で中止した行を作ってから、0042 の SQL を当て直す（テストの D1 には全マイグレーションが当て済み）
+  test('中止の列を両方とも NULL に戻し、ほかの列と中止していない行は変えない', async () => {
+    const migration = env.TEST_MIGRATIONS.find((m) => m.name.startsWith('0042_'));
+    expect(migration).toBeDefined();
+    const organization = await createOrganization();
+    const user = await createUser(organization);
+    const workspace = await createWorkspace(organization, user.id);
+    const canceled = await createEpic(organization, workspace.id, user.id, {
+      canceled_at: AT,
+      canceled_by: user.id,
+      updated_at: AT,
+    });
+    // 中止した人だけが残る行（CHECK では作れるので、こちらも戻す）
+    const byOnly = await createEpic(organization, workspace.id, user.id, { canceled_by: user.id, updated_at: AT });
+    const cleared = await createEpic(organization, workspace.id, user.id, {
+      completed_at: AT,
+      completed_by: user.id,
+      updated_at: AT,
+    });
+    type EpicState = {
+      title: string;
+      completed_at: string | null;
+      updated_at: string;
+      canceled_at: string | null;
+      canceled_by: string | null;
+    };
+    const stateOf = async (epicId: string) =>
+      (await env.DB.prepare('SELECT title, completed_at, updated_at, canceled_at, canceled_by FROM epics WHERE id = ?')
+        .bind(epicId)
+        .first<EpicState>())!;
+    const before = await stateOf(cleared.id);
+
+    await env.DB.batch(migration!.queries.map((query) => env.DB.prepare(query)));
+
+    for (const epic of [canceled, byOnly]) {
+      expect(await stateOf(epic.id)).toEqual({
+        title: epic.title,
+        completed_at: null,
+        updated_at: AT,
+        canceled_at: null,
+        canceled_by: null,
+      });
+    }
+    expect(await stateOf(cleared.id)).toEqual(before);
+  });
+});
+
 function id(): string {
   return crypto.randomUUID();
 }

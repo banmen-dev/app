@@ -133,7 +133,7 @@ export const planSummaryOperation = implement(planSummary, async ({ db, workspac
         .orderBy('sprints.start_on')
         .orderBy('sprints.id'),
     ),
-    // 削除していない、完了も中止もしていないエピック
+    // 削除していない、完了していないエピック
     db.statement((q) =>
       q
         .selectFrom('epics')
@@ -141,7 +141,6 @@ export const planSummaryOperation = implement(planSummary, async ({ db, workspac
         .where('epics.workspace_id', '=', workspaceId)
         .where('epics.deleted_at', 'is', null)
         .where('epics.completed_at', 'is', null)
-        .where('epics.canceled_at', 'is', null)
         .orderBy('epics.position')
         .orderBy('epics.id'),
     ),
@@ -175,8 +174,7 @@ export const planSummaryOperation = implement(planSummary, async ({ db, workspac
             .select('epics.id')
             .where('epics.workspace_id', '=', workspaceId)
             .where('epics.deleted_at', 'is', null)
-            .where('epics.completed_at', 'is', null)
-            .where('epics.canceled_at', 'is', null),
+            .where('epics.completed_at', 'is', null),
         )
         .where('tasks.tray', '=', 'backlog')
         .where('tasks.deleted_at', 'is', null)

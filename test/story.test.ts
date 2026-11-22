@@ -262,23 +262,33 @@ describe('story-create', () => {
     expect(await storyCount(target)).toBe(0);
   });
 
-  test.each([
-    ['完了した', { completed_at: '2026-10-21T00:00:00.000Z' }],
-    ['中止した', { canceled_at: '2026-10-21T00:00:00.000Z' }],
-  ])('%sエピックの下には 409 の conflict（parent_completed）で作らない', async (_name, overrides) => {
+  test('前に中止したエピック（中止の列が残る行）の下には作れる', async () => {
     const target = await createTarget();
-    const epic = await createEpic(target.organization, target.workspace.id, target.admin.userId!, overrides);
+    const epic = await createEpic(target.organization, target.workspace.id, target.admin.userId!, {
+      canceled_at: '2026-10-21T00:00:00.000Z',
+      canceled_by: target.admin.userId!,
+    });
     const res = await create(target, { title: 'x', epic_id: epic.id });
-    expect(res.status).toBe(409);
-    const body = (await res.json()) as { error: { code: string; details?: { reason?: string } } };
-    expect(body.error.code).toBe('conflict');
-    expect(body.error.details?.reason).toBe('parent_completed');
-    expect(await storyCount(target)).toBe(0);
+    expect(res.status).toBe(200);
+    expect(await storyCount(target)).toBe(1);
   });
+
+  test.each([['完了した', { completed_at: '2026-10-21T00:00:00.000Z' }]])(
+    '%sエピックの下には 409 の conflict（parent_completed）で作らない',
+    async (_name, overrides) => {
+      const target = await createTarget();
+      const epic = await createEpic(target.organization, target.workspace.id, target.admin.userId!, overrides);
+      const res = await create(target, { title: 'x', epic_id: epic.id });
+      expect(res.status).toBe(409);
+      const body = (await res.json()) as { error: { code: string; details?: { reason?: string } } };
+      expect(body.error.code).toBe('conflict');
+      expect(body.error.details?.reason).toBe('parent_completed');
+      expect(await storyCount(target)).toBe(0);
+    },
+  );
 
   test.each([
     ['クリア', { completed_at: '2026-10-21T00:00:00.000Z' }, 409],
-    ['中止', { canceled_at: '2026-10-21T00:00:00.000Z' }, 409],
     ['削除', { deleted_at: '2026-10-21T00:00:00.000Z' }, 404],
   ])(
     '読んでから書くまでに親のエピックが%sされたら、何も書かず、読み直して %d を返す',
@@ -926,7 +936,7 @@ describe('story-get', () => {
     expect(body).toMatchObject({ completed_at: null, open_task_count: 2, parent_finished: false });
   });
 
-  test('完了したストーリーは完了した日時を、親のエピックが完了か中止していれば parent_finished を返す', async () => {
+  test('完了したストーリーは完了した日時を、親のエピックが完了していれば parent_finished を返す', async () => {
     const target = await createTarget();
     const adminId = target.admin.userId!;
     const cleared = await createEpic(target.organization, target.workspace.id, adminId, {
@@ -934,6 +944,7 @@ describe('story-get', () => {
     });
     const canceled = await createEpic(target.organization, target.workspace.id, adminId, {
       canceled_at: '2026-10-20T00:00:00.000Z',
+      canceled_by: adminId,
     });
     const done = await createStory(target.organization, target.workspace.id, adminId, {
       epic_id: cleared.id,
@@ -947,7 +958,8 @@ describe('story-get', () => {
       open_task_count: 0,
       parent_finished: true,
     });
-    expect(second).toMatchObject({ completed_at: null, parent_finished: true });
+    // 前に中止したエピック（中止の列が残る行）は終わったものに数えない
+    expect(second).toMatchObject({ completed_at: null, parent_finished: false });
   });
 
   test('未完了の件数は、別のストーリーのタスクと、削除したタスクを数えない', async () => {
@@ -966,7 +978,7 @@ describe('story-get', () => {
     expect(body.open_task_count).toBe(1);
   });
 
-  test('削除したエピックの下のストーリーは、そのエピックが完了か中止していても parent_finished が偽', async () => {
+  test('削除したエピックの下のストーリーは、そのエピックが完了していても parent_finished が偽', async () => {
     const target = await createTarget();
     const adminId = target.admin.userId!;
     const stamp = '2026-10-20T00:00:00.000Z';
@@ -975,15 +987,9 @@ describe('story-get', () => {
       completed_at: stamp,
       deleted_at: deletedAt,
     });
-    const canceled = await createEpic(target.organization, target.workspace.id, adminId, {
-      canceled_at: stamp,
-      deleted_at: deletedAt,
-    });
-    for (const epic of [cleared, canceled]) {
-      const story = await createStory(target.organization, target.workspace.id, adminId, { epic_id: epic.id });
-      const body = (await (await get(target, story.id)).json()) as { parent_finished: boolean };
-      expect(body.parent_finished).toBe(false);
-    }
+    const story = await createStory(target.organization, target.workspace.id, adminId, { epic_id: cleared.id });
+    const body = (await (await get(target, story.id)).json()) as { parent_finished: boolean };
+    expect(body.parent_finished).toBe(false);
   });
 
   test('閉じたワークスペースでも読める', async () => {

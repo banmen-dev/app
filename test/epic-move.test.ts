@@ -141,7 +141,7 @@ describe('epic-move の並べ替え', () => {
     for (const id of [a!, b!, c!, d!]) expect(await logsOf(target, id)).toEqual([]);
   });
 
-  test('完了と中止したエピックも並べ替えられ、その前後にも動かせる', async () => {
+  test('完了したエピックも並べ替えられ、その前後にも動かせる', async () => {
     const target = await createTarget();
     const adminId = target.admin.userId!;
     const [open] = await epics(target, ['a0']);
@@ -150,31 +150,27 @@ describe('epic-move の並べ替え', () => {
       completed_at: DONE_AT,
       completed_by: adminId,
     });
-    const canceled = await createEpic(target.organization, target.workspace.id, adminId, {
-      position: 'a2',
-      canceled_at: DONE_AT,
-      canceled_by: adminId,
-    });
+    const last = await createEpic(target.organization, target.workspace.id, adminId, { position: 'a2' });
 
     // 完了したエピックの直後へ
     let res = await moveEpic(target, { epic_id: open, after_epic_id: done.id });
     expect(res.status).toBe(200);
-    expect(await epicOrder(target)).toEqual([done.id, open, canceled.id]);
+    expect(await epicOrder(target)).toEqual([done.id, open, last.id]);
 
-    // 中止したエピックの直後（末尾）へ
-    res = await moveEpic(target, { epic_id: open, after_epic_id: canceled.id });
+    // 末尾のエピックの直後へ
+    res = await moveEpic(target, { epic_id: open, after_epic_id: last.id });
     expect(res.status).toBe(200);
-    expect(await epicOrder(target)).toEqual([done.id, canceled.id, open]);
+    expect(await epicOrder(target)).toEqual([done.id, last.id, open]);
 
-    // 中止したエピックを先頭へ
-    res = await moveEpic(target, { epic_id: canceled.id, after_epic_id: null });
+    // 末尾のエピックを先頭へ
+    res = await moveEpic(target, { epic_id: last.id, after_epic_id: null });
     expect(res.status).toBe(200);
-    expect(await epicOrder(target)).toEqual([canceled.id, done.id, open]);
+    expect(await epicOrder(target)).toEqual([last.id, done.id, open]);
 
     // 完了したエピックを末尾へ
     res = await moveEpic(target, { epic_id: done.id });
     expect(res.status).toBe(200);
-    expect(await epicOrder(target)).toEqual([canceled.id, open, done.id]);
+    expect(await epicOrder(target)).toEqual([last.id, open, done.id]);
   });
 
   test('直前の行と同じ値の行が続くときは、移す行と一緒に振り直す', async () => {

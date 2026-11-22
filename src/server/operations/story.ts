@@ -80,7 +80,6 @@ async function readStory(db: OrganizationDb, workspaceId: string, storyId: strin
           'stories.created_by',
           'stories.completed_at',
           'epics.completed_at as epic_completed_at',
-          'epics.canceled_at as epic_canceled_at',
           'epics.deleted_at as epic_deleted_at',
           'sc.name as category_name',
           'sc.deleted_at as category_deleted_at',
@@ -136,12 +135,11 @@ export const storyGetOperation = implement(storyGet, async ({ db, actor, workspa
     completed_at: story.completed_at,
     open_task_count: Number(open?.count ?? 0),
     // 削除したエピックは親として数えない（story-complete の判定と同じ）
-    parent_finished:
-      story.epic_deleted_at === null && (story.epic_completed_at !== null || story.epic_canceled_at !== null),
+    parent_finished: story.epic_deleted_at === null && story.epic_completed_at !== null,
   };
 });
 
-// 作るストーリーの親のエピックを読む（引き継ぐ区分は、削除していないものだけ）。無ければ 404、完了か中止していれば 409（parent_completed）
+// 作るストーリーの親のエピックを読む（引き継ぐ区分は、削除していないものだけ）。無ければ 404、完了していれば 409（parent_completed）
 async function readParentEpic(db: OrganizationDb, workspaceId: string, epicId: string) {
   const epic = await db.first(
     db.statement((q) =>
@@ -156,14 +154,13 @@ async function readParentEpic(db: OrganizationDb, workspaceId: string, epicId: s
           'epics.id',
           'epics.title',
           'epics.completed_at',
-          'epics.canceled_at',
           'categories.id as category_id',
           'categories.name as category_name',
         ]),
     ),
   );
   if (epic === undefined) throw new ApiError(404, 'not_found');
-  if (epic.completed_at !== null || epic.canceled_at !== null) throw moveConflict('parent_completed');
+  if (epic.completed_at !== null) throw moveConflict('parent_completed');
   return {
     id: epic.id,
     title: epic.title,
@@ -176,7 +173,7 @@ export const storyCreateOperation = implement(storyCreate, async ({ db, actor, w
   const organizationId = db.organizationId;
   const workspaceId = workspace.workspaceId;
 
-  // 親のエピックは、同じワークスペースの削除していない、完了も中止もしていないエピック。無ければ 404、完了か中止していれば 409。書く文にも同じ条件を入れる
+  // 親のエピックは、同じワークスペースの削除していない、完了していないエピック。無ければ 404、完了していれば 409。書く文にも同じ条件を入れる
   const parentId = input.epic_id;
   // 区分は親のないストーリーだけが持つ（エピックの下では引き継ぐ）
   if (parentId !== null && input.category_id !== null) throw categoryConflict('has_parent');
@@ -254,10 +251,7 @@ export const storyCreateOperation = implement(storyCreate, async ({ db, actor, w
             .$if(parent !== null, (qb) =>
               qb.where((eb) =>
                 eb.exists(
-                  epicRow(eb, workspaceId, parent!.id)
-                    .select('epics.id')
-                    .where('epics.completed_at', 'is', null)
-                    .where('epics.canceled_at', 'is', null),
+                  epicRow(eb, workspaceId, parent!.id).select('epics.id').where('epics.completed_at', 'is', null),
                 ),
               ),
             )
@@ -300,7 +294,7 @@ export const storyCreateOperation = implement(storyCreate, async ({ db, actor, w
   // 読んでから書くまでに、ワークスペースが閉じたか、区分が削除されたら何も入らない
   if ((results[0]?.changes ?? 0) === 0) {
     await throwIfClosed(db, workspaceId);
-    // 読んでから書くまでに親のエピックがクリア、中止、削除されたかを読み直して、404 か 409 を返す
+    // 読んでから書くまでに親のエピックがクリアか削除されたかを読み直して、404 か 409 を返す
     if (parentId !== null) await readParentEpic(db, workspaceId, parentId);
     throw new ApiError(404, 'not_found');
   }
@@ -468,7 +462,7 @@ function siblingStories(
     .where('stories.id', '!=', storyId);
 }
 
-// 移す先の親にできる、削除していないエピック。完了も中止もしていないかは、呼ぶ側が見る
+// 移す先の親にできる、削除していないエピック。完了していないかは、呼ぶ側が見る
 function epicRow(from: Pick<QueryCreator<Tables>, 'selectFrom'>, workspaceId: string, epicId: string) {
   return from
     .selectFrom('epics')
@@ -477,15 +471,13 @@ function epicRow(from: Pick<QueryCreator<Tables>, 'selectFrom'>, workspaceId: st
     .where('epics.deleted_at', 'is', null);
 }
 
-// 移す先のエピックを読む。無ければ 404。親が変わるときだけ、完了か中止していれば 409（parent_completed）
+// 移す先のエピックを読む。無ければ 404。親が変わるときだけ、完了していれば 409（parent_completed）
 async function readMoveEpic(db: OrganizationDb, workspaceId: string, epicId: string, changing: boolean) {
   const epic = await db.first(
-    db.statement((q) =>
-      epicRow(q, workspaceId, epicId).select(['epics.id', 'epics.title', 'epics.completed_at', 'epics.canceled_at']),
-    ),
+    db.statement((q) => epicRow(q, workspaceId, epicId).select(['epics.id', 'epics.title', 'epics.completed_at'])),
   );
   if (epic === undefined) throw new ApiError(404, 'not_found');
-  if (changing && (epic.completed_at !== null || epic.canceled_at !== null)) throw moveConflict('parent_completed');
+  if (changing && epic.completed_at !== null) throw moveConflict('parent_completed');
   return { id: epic.id, title: epic.title };
 }
 
@@ -569,7 +561,6 @@ function movingStory(db: OrganizationDb, workspaceId: string, storyId: string) {
           'stories.category_id',
           'epics.title as epic_title',
           'epics.completed_at as epic_completed_at',
-          'epics.canceled_at as epic_canceled_at',
           'categories.name as category_name',
         ])
         .where('stories.id', '=', storyId)
@@ -591,13 +582,9 @@ export const storyMoveOperation = implement(storyMove, async ({ db, actor, works
   if (current === undefined) throw new ApiError(404, 'not_found');
   const parentId = input.epic_id;
   const parentChanged = current.epic_id !== parentId;
-  // クリアか中止したエピックの配下は動かさない。完了したストーリーを出すと、クリア済みのエピックが空になり、
+  // クリアしたエピックの配下は動かさない。完了したストーリーを出すと、クリア済みのエピックが空になり、
   // 同じストーリーで別のエピックをもう一度クリアでき、完了の取り消しの守り（parent_completed）も外れる
-  if (
-    parentChanged &&
-    current.epic_id !== null &&
-    (current.epic_completed_at !== null || current.epic_canceled_at !== null)
-  ) {
+  if (parentChanged && current.epic_id !== null && current.epic_completed_at !== null) {
     throw moveConflict('parent_completed');
   }
   const parent = parentId === null ? null : await readMoveEpic(db, workspaceId, parentId, parentChanged);
@@ -642,16 +629,14 @@ export const storyMoveOperation = implement(storyMove, async ({ db, actor, works
           qb.where('category_id', current.category_id === null ? 'is' : '=', current.category_id),
         )
         .where((eb) => eb.exists(openWorkspace(q, organizationId, workspaceId)))
-        // 読んだ今の親が、書くときにも完了も中止もしていない（親を変えるときだけ）
+        // 読んだ今の親が、書くときにも完了していない（親を変えるときだけ）
         .$if(parentChanged && current.epic_id !== null, (qb) =>
           qb.where((eb) =>
             eb.not(
               eb.exists(
                 epicRow(q, workspaceId, current.epic_id!)
                   .select('epics.id')
-                  .where((sb) =>
-                    sb.or([sb('epics.completed_at', 'is not', null), sb('epics.canceled_at', 'is not', null)]),
-                  ),
+                  .where('epics.completed_at', 'is not', null),
               ),
             ),
           ),
@@ -661,9 +646,7 @@ export const storyMoveOperation = implement(storyMove, async ({ db, actor, works
             eb.exists(
               epicRow(q, workspaceId, parentId!)
                 .select('epics.id')
-                .$if(parentChanged, (sb) =>
-                  sb.where('epics.completed_at', 'is', null).where('epics.canceled_at', 'is', null),
-                ),
+                .$if(parentChanged, (sb) => sb.where('epics.completed_at', 'is', null)),
             ),
           ),
         )
@@ -734,12 +717,8 @@ export const storyMoveOperation = implement(storyMove, async ({ db, actor, works
     await throwIfClosed(db, workspaceId);
     const latest = await movingStory(db, workspaceId, storyId);
     if (latest === undefined) throw new ApiError(404, 'not_found');
-    // 読んでから書くまでに、今の親がクリアか中止した
-    if (
-      latest.epic_id !== null &&
-      latest.epic_id !== parentId &&
-      (latest.epic_completed_at !== null || latest.epic_canceled_at !== null)
-    ) {
+    // 読んでから書くまでに、今の親がクリアした
+    if (latest.epic_id !== null && latest.epic_id !== parentId && latest.epic_completed_at !== null) {
       throw moveConflict('parent_completed');
     }
     if (parentId !== null) await readMoveEpic(db, workspaceId, parentId, parentChanged);
@@ -779,12 +758,7 @@ async function readCompletion(db: OrganizationDb, workspaceId: string, storyId: 
             .onRef('epics.workspace_id', '=', 'stories.workspace_id')
             .on('epics.deleted_at', 'is', null),
         )
-        .select([
-          'stories.id',
-          'stories.completed_at',
-          'epics.completed_at as epic_completed_at',
-          'epics.canceled_at as epic_canceled_at',
-        ])
+        .select(['stories.id', 'stories.completed_at', 'epics.completed_at as epic_completed_at'])
         .where('stories.id', '=', storyId)
         .where('stories.workspace_id', '=', workspaceId)
         .where('stories.deleted_at', 'is', null),
@@ -799,12 +773,12 @@ async function readCompletion(db: OrganizationDb, workspaceId: string, storyId: 
   if (story === undefined) return undefined;
   return {
     completedAt: story.completed_at,
-    parentFinished: story.epic_completed_at !== null || story.epic_canceled_at !== null,
+    parentFinished: story.epic_completed_at !== null,
     openCount: Number(openResult.rows[0]?.count ?? 0),
   };
 }
 
-// 完了の文は、配下に未完了のタスクが無いことと、親のエピックが完了も中止もしていないことを条件にする。
+// 完了の文は、配下に未完了のタスクが無いことと、親のエピックが完了していないことを条件にする。
 // 通らなかったら読み直し、断る理由を返す
 export const storyCompleteOperation = implement(storyComplete, async ({ db, actor, workspace, input }) => {
   const userId = actorUserIdOf(actor);
@@ -830,7 +804,7 @@ export const storyCompleteOperation = implement(storyComplete, async ({ db, acto
       await throwIfClosed(db, workspaceId);
       throw completionConflict('completed');
     }
-    // 完了か中止したエピックの下で完了にすると、取り消せなくなる（parent_completed）ので断る
+    // 完了したエピックの下で完了にすると、取り消せなくなる（parent_completed）ので断る
     if (state.parentFinished) {
       await throwIfClosed(db, workspaceId);
       throw completionConflict('parent_completed');
@@ -856,7 +830,7 @@ export const storyCompleteOperation = implement(storyComplete, async ({ db, acto
             eb.and([
               eb.exists(openWorkspace(q, organizationId, workspaceId)),
               eb.not(eb.exists(openTasksUnder(q, workspaceId, storyId))),
-              // 今の親のエピック（削除したものを除く）が、完了も中止もしていない。読んでから書くまでに親が移っても、今の親で見る
+              // 今の親のエピック（削除したものを除く）が、完了していない。読んでから書くまでに親が移っても、今の親で見る
               eb.not(
                 eb.exists(
                   eb
@@ -865,9 +839,7 @@ export const storyCompleteOperation = implement(storyComplete, async ({ db, acto
                     .whereRef('epics.id', '=', 'stories.epic_id')
                     .where('epics.workspace_id', '=', workspaceId)
                     .where('epics.deleted_at', 'is', null)
-                    .where((sb) =>
-                      sb.or([sb('epics.completed_at', 'is not', null), sb('epics.canceled_at', 'is not', null)]),
-                    ),
+                    .where('epics.completed_at', 'is not', null),
                 ),
               ),
             ]),
@@ -904,13 +876,13 @@ export const storyCompleteOperation = implement(storyComplete, async ({ db, acto
     ]);
 
     if ((results[0]?.changes ?? 0) > 0) return { story_id: storyId, completed_at: completedAt };
-    // 閉じていれば 409 の workspace_closed。そうでなければ読み直して、消えた、完了した、親のエピックが完了か中止した、未完了のタスクが増えたかを見る
+    // 閉じていれば 409 の workspace_closed。そうでなければ読み直して、消えた、完了した、親のエピックが完了した、未完了のタスクが増えたかを見る
     await throwIfClosed(db, workspaceId);
   }
   throw completionConflict('changed');
 });
 
-// 取り消す前の状態。完了した日時と完了にした人（履歴に残す名前）、親のエピックの完了と中止
+// 取り消す前の状態。完了した日時と完了にした人（履歴に残す名前）、親のエピックの完了
 function readReopening(db: OrganizationDb, workspaceId: string, storyId: string) {
   return db.first(
     db.statement((q) =>
@@ -934,7 +906,6 @@ function readReopening(db: OrganizationDb, workspaceId: string, storyId: string)
           'stories.completed_by',
           'users.name as completed_by_name',
           'epics.completed_at as epic_completed_at',
-          'epics.canceled_at as epic_canceled_at',
         ])
         .where('stories.id', '=', storyId)
         .where('stories.workspace_id', '=', workspaceId)
@@ -949,7 +920,7 @@ function throwIfNotReopenable(
 ): asserts story is NonNullable<typeof story> {
   if (story === undefined) throw new ApiError(404, 'not_found');
   if (story.completed_at === null) throw completionConflict('not_completed');
-  if (story.epic_id !== null && (story.epic_completed_at !== null || story.epic_canceled_at !== null)) {
+  if (story.epic_id !== null && story.epic_completed_at !== null) {
     throw completionConflict('parent_completed');
   }
 }
@@ -979,7 +950,7 @@ export const storyReopenOperation = implement(storyReopen, async ({ db, actor, w
         .where('completed_at', '=', completedAt)
         .where('epic_id', epicId === null ? 'is' : '=', epicId)
         .where((eb) => eb.exists(openWorkspace(q, organizationId, workspaceId)))
-        // 親のエピック（削除したものを除く）が、完了も中止もしていない。読むときと同じく、削除したエピックは親として数えない
+        // 親のエピック（削除したものを除く）が、完了していない。読むときと同じく、削除したエピックは親として数えない
         .where((eb) =>
           eb.not(
             eb.exists(
@@ -989,9 +960,7 @@ export const storyReopenOperation = implement(storyReopen, async ({ db, actor, w
                 .whereRef('epics.id', '=', 'stories.epic_id')
                 .where('epics.workspace_id', '=', workspaceId)
                 .where('epics.deleted_at', 'is', null)
-                .where((sb) =>
-                  sb.or([sb('epics.completed_at', 'is not', null), sb('epics.canceled_at', 'is not', null)]),
-                ),
+                .where('epics.completed_at', 'is not', null),
             ),
           ),
         ),
@@ -1032,7 +1001,7 @@ export const storyReopenOperation = implement(storyReopen, async ({ db, actor, w
   ]);
 
   if ((results[0]?.changes ?? 0) === 0) {
-    // 読んでから書くまでに、閉じたか、消えたか、別の要求が先に取り消したか、親のエピックが完了か中止したか、
+    // 読んでから書くまでに、閉じたか、消えたか、別の要求が先に取り消したか、親のエピックが完了したか、
     // 取り消してからもう一度完了にされた（完了した日時が変わった）
     await throwIfClosed(db, workspaceId);
     const latest = await readReopening(db, workspaceId, storyId);

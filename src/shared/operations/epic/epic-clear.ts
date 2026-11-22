@@ -7,7 +7,6 @@ import { defineOperation } from '../define.ts';
 // open_stories は配下に削除していない未完了のストーリーが残っている、empty は配下に削除していないストーリーが1件も無い、
 // completed はすでにクリアしている（2つの画面から同時にクリアした後の方を含む）、not_completed はクリアしていないエピックを取り消そうとした、
 // changed は読んでから書くまでに別の要求が配下を変えた（やり直しても書けなかった）。
-// 中止したエピックは 409 の epic_finished（クリアも取り消しもできない）
 export const epicClearConflictReasons = ['open_stories', 'empty', 'completed', 'not_completed', 'changed'] as const;
 export type EpicClearConflictReason = (typeof epicClearConflictReasons)[number];
 
@@ -17,7 +16,7 @@ export function epicClearConflictReasonOf(details: unknown): EpicClearConflictRe
 
 // エピックをクリアする。依頼主とリーダー（管理者を含む）だけ（足りなければ 403 の forbidden）。
 // 配下の削除していないストーリーがすべて完了していることが条件で、未完了が残っていれば 409 の conflict（open_stories）、
-// 1件も無ければ 409 の conflict（empty）。中止したエピックは 409 の epic_finished。
+// 1件も無ければ 409 の conflict（empty）。
 // 履歴（entity_type = 'epic'、complete）も同じ batch() で書く。
 // 無いエピック（別の組織を含む）は 404、閉じたワークスペースは 409 の workspace_closed
 export const epicComplete = defineOperation({
@@ -34,7 +33,7 @@ export const epicComplete = defineOperation({
 });
 
 // エピックのクリアを取り消す。クリアした日時とクリアにした人を空に戻す。依頼主とリーダー（管理者を含む）だけ。
-// クリアしていなければ 409 の conflict（not_completed）、中止したエピックは 409 の epic_finished。
+// クリアしていなければ 409 の conflict（not_completed）。
 // 履歴（entity_type = 'epic'、reopen）も同じ batch() で書く。無いエピック（別の組織を含む）は 404
 export const epicReopen = defineOperation({
   name: 'epic-reopen',

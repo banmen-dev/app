@@ -63,9 +63,10 @@ export const backlogEpicSchema = z.object({
   title: z.string(),
   due_on: z.string().nullable(),
   link_url: z.string().nullable(),
-  // 完了（クリア）した日時と、中止した日時。どちらかが入っていれば、ストーリーの親に選べない
+  // 完了（クリア）した日時。入っていれば、ストーリーの親に選べない
   completed_at: z.string().nullable(),
-  canceled_at: z.string().nullable(),
+  // 中止は外した（#1435）。前の版の画面の束が `canceled_at !== null` で中止を判定するので、1版だけ常に null で返す。#1438 で消す
+  canceled_at: z.null(),
   // 振った区分。配下のストーリーとタスクが引き継ぐ。無ければ null
   category: definitionRefSchema.nullable(),
   // 配下の削除していないストーリー（position の順。完了したものも含む）
@@ -79,7 +80,7 @@ export type BacklogEpic = z.output<typeof backlogEpicSchema>;
 
 // 絞り込みの帯の選択肢のうち、木から作れないもの（絞ると木から消えるため）。区分とリポジトリは category-repository-list で読む。
 // - assignees: 今所属している人（current が真。名前の順）と、その後に、離脱した人のうち未完了のバックログのタスクの担当に残っている人
-// - epics: 削除していないエピック（完了と中止したものも含め、position の順。finished は完了か中止したもの）
+// - epics: 削除していないエピック（完了したものも含め、position の順。finished は完了したもの）
 // - stories: 絞っているときだけ、完了していないストーリーを木の順（エピックの順にその下のもの、続けて親のないもの）で返す。
 //   絞って木から消えたストーリーも、起票と親を移すダイアログで親に選べるようにするため。絞っていなければ null（木から作れる）
 export const backlogChoicesSchema = z.object({
@@ -104,7 +105,7 @@ export type BacklogChoices = z.output<typeof backlogChoicesSchema>;
 const filterRefSchema = idSchema.nullable().optional();
 
 // バックログの木。最上段は「エピック」「親のないストーリー」「親のない未完了のタスク」の3段で、それぞれ position の順。
-// エピックは、完了と中止したものも含めて、削除していないものを返す。
+// エピックは、完了したものも含めて、削除していないものを返す。
 // 完了したタスクは行を返さず件数だけ返す（使い続けるほど重くなるため）。件数に上限は付けない（5 万件で測った数は docs/data-model.md）。
 // today はワークスペースのタイムゾーンでの今日、week_start は週の始まり（0〜6、0 が日曜）。期日の印はこの2つで決める
 // （ブラウザの時計とタイムゾーンに頼らない）。

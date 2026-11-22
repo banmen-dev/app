@@ -29,7 +29,7 @@ const eventSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('reopen') }),
   // コメント。本文は先頭の RECENT_ACTIVITY_BODY_LENGTH コードポイント以内（書記素を割らない）の平文（Markdown のまま）で、切ったときは truncated が真
   z.object({ kind: z.literal('comment'), body: z.string(), truncated: z.boolean() }),
-  // ほかの action（削除の取り消し、エピックの中止など）
+  // ほかの action（削除の取り消し、外したエピックの中止の過去の行など）
   z.object({ kind: z.literal('other') }),
 ]);
 

@@ -85,7 +85,7 @@
   // 絞っているときに作ったタスク、ストーリー、エピックは、読み直した木に無ければ、絞り込みを外す操作つきのトーストで知らせる。
   // 絞っている間は、つまみのドラッグも出さない（並べ替えは隣を使うため）。完了の折りたたみは、開くと別の操作で20件ずつ読む。
   // 並べ替えは、行の「上へ」「下へ」と Alt と ↑ ↓ で、同じ親（親なしのタスク、親のないストーリー、エピックの下のストーリーはそれぞれの並び）の中で1つ動かす。
-  // エピックは親を持たず、画面に出ているエピックの全部（完了と中止したものも含む）の中で動かす（epic-move）。
+  // エピックは親を持たず、画面に出ているエピックの全部（完了したものも含む）の中で動かす（epic-move）。
   // タスクとストーリーの行の「親を移す」は、ダイアログで選んだ親の末尾へ移す。
   // 行の先頭のつまみのドラッグ（BacklogDnd。判定は backlog-drop.ts）は、離れた位置や別の親へ、行の間の線か親の行の囲みに落として動かす。
   // ドラッグの間に木が読み直されたら、そのドラッグは取りやめる。落とした行は、少しのあいだ光らせる。
@@ -457,7 +457,7 @@
     return epicId == null ? undefined : epics.find((epic) => epic.id === epicId);
   }
   // タスクの親に選べるストーリー（完了していないもの）。選択欄は親のエピック（親なしは null）でまとめる。
-  // ストーリーの親に選べるエピック（完了も中止もしていないもの）
+  // ストーリーの親に選べるエピック（完了していないもの）
   // 絞っているときは、木から消えたものも選べるよう、API の choices（全部のエピックと、完了していないストーリー）から作る
   // （画面で親を移したストーリーは、移す先のエピックの下にまとめる）
   const choiceEpics = $derived(tree?.choices.epics ?? []);
@@ -918,7 +918,7 @@
         return t('workspaceClosedReadOnly', { workspace: t('workspace') });
       }
       if (epicId !== null && result.status === 409 && result.error?.code === 'conflict') {
-        // 親のエピックが完了か中止した。木を読み直すと空の行ごと消えるので、知らせはトーストに出し、フォーカスは見出しへ移す
+        // 親のエピックが完了した。木を読み直すと空の行ごと消えるので、知らせはトーストに出し、フォーカスは見出しへ移す
         const message = t('treeAddParentDone', { epic: t('epic'), done: t('done'), story: t('story') });
         showToast(message, 'alert');
         await rowGone();
@@ -1175,7 +1175,7 @@
     send(() => callOperation(storyMove, input, { slug: page.params.slug ?? '' }), 'story');
   }
 
-  // エピックを並べ替える。並べる範囲は画面に出ているエピックの全部（完了と中止したものも含む）
+  // エピックを並べ替える。並べる範囲は画面に出ているエピックの全部（完了したものも含む）
   function reorderEpic(epic: BacklogEpic, delta: -1 | 1): void {
     if (workspace === null) return;
     const next = shifted(epicIds, epic.id, delta);
@@ -1410,7 +1410,7 @@
   {@const place = storyPlaces[story.id]}
   {@const epic = parentEpicOf(story.id)}
   <!-- 親のないストーリーは、移す先のエピックがあるときだけ「親を移す」を出す（エピックの下のストーリーは、親なしへ移せる）。
-       完了か中止したエピックの下では、完了と取り消しは必ず断られるので、押せない理由を出す -->
+       完了したエピックの下では、完了と取り消しは必ず断られるので、押せない理由を出す -->
 
   <TreeStory
     addedFlash={wasAdded('story', story.id)}
@@ -1426,7 +1426,7 @@
     nested={place?.parentId != null}
     remaining={remainingOf(story)}
     pending={Object.hasOwn(storyPending, story.id)}
-    parentFinished={epic !== undefined && (epic.completed_at !== null || epic.canceled_at !== null)}
+    parentFinished={epic !== undefined && epic.completed_at !== null}
     onComplete={canWrite ? (target) => void setStoryCompletion(target, 'complete') : undefined}
     onReopen={canWrite ? (target) => void setStoryCompletion(target, 'reopen') : undefined}
     href={`${storyHrefBase}${encodeURIComponent(story.id)}`}

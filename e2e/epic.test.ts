@@ -242,34 +242,10 @@ test('クリアしたエピックの下の完了したストーリーは、取�
   const story = rowGroup(page, SEED_EPIC_STORY);
   const reopen = story.getByRole('button', { name: `完了を取り消す: ${SEED_EPIC_STORY}` });
   await expect(reopen).toHaveAttribute('aria-disabled', 'true');
-  await expect(reopen).toHaveAccessibleDescription('完了か中止したエピックの下のストーリーは取り消せません');
+  await expect(reopen).toHaveAccessibleDescription('完了したエピックの下のストーリーは取り消せません');
   await expect(story.locator('.tree-note')).toBeVisible();
   // aria-disabled のボタンは Playwright が押せないものとして待つので、待たずに押す
   await reopen.click({ force: true });
-  await expectNoRequest(page, /\/story-complete$/);
-  expect(sent).toBe(0);
-});
-
-test('中止したエピックの下のストーリーは、完了にするを押せず、理由を出す', async ({ page }) => {
-  await rewriteOperation(page, backlogTree, { slug: 'aoba' }, (body) => {
-    const epics = body.epics.map((epic) => ({ ...epic, canceled_at: '2026-10-22T00:00:00.000Z' }));
-    return { ...body, epics };
-  });
-  let sent = 0;
-  page.on('request', (request) => {
-    if (request.url().endsWith('/story-complete')) sent++;
-  });
-  await page.goto(SEED_CLIENT_WORKSPACE);
-  await expect(
-    rowGroup(page, 'ポイントの交換先を増やす').locator('.tree-row.is-epic .chip', { hasText: '中止' }),
-  ).toBeVisible();
-  const story = rowGroup(page, SEED_EPIC_STORY);
-  const complete = rowMenuItem(story, SEED_EPIC_STORY, '完了にする');
-  await expect(complete).toHaveAttribute('aria-disabled', 'true');
-  await expect(story.locator('.tree-note')).toHaveText('完了か中止したエピックの下のストーリーは完了にできません');
-  await expect(complete).toHaveAccessibleDescription('完了か中止したエピックの下のストーリーは完了にできません');
-  await rowMenuToggle(story, SEED_EPIC_STORY).click();
-  await complete.click({ force: true });
   await expectNoRequest(page, /\/story-complete$/);
   expect(sent).toBe(0);
 });
