@@ -2325,30 +2325,6 @@ export const dictionary = defineDictionary({
   storyDeleteNoChildren: '配下の{task}はありません。',
   epicDeleted: '{epic}を削除しました',
   storyDeleted: '{story}を削除しました',
-  thanks: '感謝',
-  thanksNone: 'なし',
-  thanksEmpty: 'まだ感謝は送られていません。',
-  // コメントの「送る」ボタンと名前が重ならないよう、「送る」を含めない
-  thanksSend: '{name} に感謝する',
-  // 行の右端に寄せる部品（.party-list-end）は縮まないので、見える文字は短くし、相手の名前は読み上げの名前に回す
-  thanksRevoke: '{name} への感謝を取り消す',
-  thanksRevokeShort: '取り消す',
-  thanksSent: '感謝を送りました',
-  thanksRevoked: '感謝を取り消しました',
-  thanksFromTo: '{sender} から {recipient} に送った感謝',
-  thanksSelf: '自分には感謝を送れません。',
-  thanksDuplicate: 'この相手には、すでに感謝を送っています。',
-  thanksCompleted: '完了した{task}の感謝は送れず、取り消せません。',
-  thanksForbidden: '感謝を送る権限、または取り消す権限がありません。',
-  thanksNotFound: '対象の{task}、相手、または感謝が見つかりません。',
-  thanksFailed: '感謝の操作に失敗しました。もう一度試してください。',
-  thanksRefreshFailed: '感謝の操作は完了しましたが、最新の一覧を読み込めませんでした。',
-  thanksCandidatesFailed: '感謝を送る相手を読み込めませんでした。',
-  // 担当の欄の「もう一度試す」と同じ引き出しに並ぶので、名前を分ける
-  thanksCandidatesRetry: '相手を読み直す',
-  thanksCandidatesEmpty: '感謝を送れる相手はいません。',
-  thanksHint:
-    '送れるのは{assignee}だけ（{assignee}がいなければ作った人）です。完了するまでは、送った本人が取り消せます。',
   // 変更の履歴（引き出しの「変更の履歴」の節。src/lib/task-history.ts が列の名前と値を文にする）
   historyTitle: '変更の履歴',
   historyEmpty: 'まだ変更はありません。',

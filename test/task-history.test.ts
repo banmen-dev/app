@@ -284,6 +284,12 @@ describe('task-history', () => {
     ]);
   });
 
+  test('外した感謝の過去の行は、受取人の ID と名前を返さず欄の名前だけを返す', () => {
+    expect(changesOf(JSON.stringify({ thanks: [null, { id: 'u1', name: '若葉 湊' }] }))).toEqual([
+      { field: 'thanks', before: null, after: null },
+    ]);
+  });
+
   test('読めない JSON は変更なしとして扱う（列は json_valid で守るが、読む側も落ちない）', () => {
     expect(changesOf('not json')).toEqual([]);
     expect(changesOf('')).toEqual([]);
