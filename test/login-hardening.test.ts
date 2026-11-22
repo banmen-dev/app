@@ -3,6 +3,7 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { me } from '../src/shared/operations/session/index.ts';
+import { oauthStateCookieName } from '../src/server/auth/oauth-state.ts';
 import { LOGIN_RATE_LIMIT, LOGIN_RATE_LIMIT_IPV6_SITE } from '../src/server/auth/rate-limit.ts';
 import { commonDb } from '../src/server/db/index.ts';
 import { createFakeGithub } from './auth/fake-github.ts';
@@ -30,6 +31,13 @@ async function adminUser(login: string, overrides: Parameters<typeof githubUser>
   await createUser(organization, { login_provider: 'github', login_subject: String(user.id), is_admin: 1 });
   return user;
 }
+
+describe('state の Cookie の名前', () => {
+  test('https の公開 URL では __Host- を付け、http の localhost では付けない', () => {
+    expect(oauthStateCookieName('https://banmen.ucan-lab.workers.dev')).toBe('__Host-banmen_oauth_state');
+    expect(oauthStateCookieName('http://localhost:5173')).toBe('banmen_oauth_state');
+  });
+});
 
 describe('ほかのサイトからの読み込み', () => {
   test.each([
