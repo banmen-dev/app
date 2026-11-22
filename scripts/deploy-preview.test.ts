@@ -14,12 +14,14 @@ test('ランタイムと資産・bindingの共通設定は本番とずれない'
   const text = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
   const parsed = ts.parseConfigFileTextToJson('wrangler.jsonc', text);
   assert.equal(parsed.error, undefined);
-  const production = parsed.config as ReturnType<typeof previewConfig>;
+  const production = parsed.config as ReturnType<typeof previewConfig> & {
+    r2_buckets: { binding: string; bucket_name: string }[];
+  };
   const preview = previewConfig('374', DB, SHA, '/workspace/app');
   assert.deepEqual(
     Object.keys(preview).sort(),
     Object.keys(production)
-      .filter((key) => key !== '$schema')
+      .filter((key) => key !== '$schema' && key !== 'r2_buckets')
       .sort(),
   );
   assert.equal(preview.compatibility_date, production.compatibility_date);
@@ -30,8 +32,7 @@ test('ランタイムと資産・bindingの共通設定は本番とずれない'
   assert.equal(preview.d1_databases[0].binding, production.d1_databases[0].binding);
   assert.equal(preview.d1_databases.length, production.d1_databases.length);
   assert.equal(preview.d1_databases[0].migrations_dir, `/workspace/app/${production.d1_databases[0].migrations_dir}`);
-  assert.equal(preview.r2_buckets[0].binding, production.r2_buckets[0].binding);
-  assert.equal(preview.r2_buckets.length, production.r2_buckets.length);
+  assert.deepEqual(production.r2_buckets, [{ binding: 'ATTACHMENTS', bucket_name: 'scrum-guild-attachments' }]);
   assert.deepEqual(preview.observability, production.observability);
 });
 
@@ -50,11 +51,12 @@ test('設定は本番の binding を持たず、cron と呼び出しログを無
   assert.deepEqual(config.d1_databases, [
     { binding: 'DB', database_name: DB.name, database_id: DB.uuid, migrations_dir: '/workspace/app/migrations' },
   ]);
-  assert.deepEqual(config.r2_buckets, [{ binding: 'ATTACHMENTS', bucket_name: 'scrum-guild-preview-attachments' }]);
+  assert.equal('r2_buckets' in config, false);
   assert.deepEqual(config.vars, {
     APP_VERSION: SHA,
     PUBLIC_ORIGIN: 'https://pr-374-scrum-guild-preview.ucan-lab.workers.dev',
     OPERATOR_LOGIN_IDS: 'github:9000000000000001',
+    PREVIEW_WITHOUT_ATTACHMENTS: '1',
   });
   assert.equal(config.workers_dev, true);
   assert.deepEqual(config.triggers.crons, []);

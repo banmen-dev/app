@@ -91,6 +91,8 @@ export function previewBuildEnvironment(env: Record<string, string | undefined>)
   if (!isIsolatedPreviewAccount(account) || !token?.trim())
     throw new Error('Builds には本番と別の Cloudflare アカウントと API トークンが必要です');
   if (!isIsolatedPreviewSubdomain(subdomain)) throw new Error('プレビュー専用の workers.dev サブドメインが必要です');
+  if (env.VITE_PREVIEW_WITHOUT_ATTACHMENTS !== '1')
+    throw new Error('共有プレビューでは添付 UI を無効にする設定が必要です');
   return { account, token, subdomain };
 }
 
