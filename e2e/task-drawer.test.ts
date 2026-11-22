@@ -177,7 +177,10 @@ test('完了したタスクのポイントは直せず、理由を添える。�
   const row = page.locator('.entry', { hasText: '済んだ依頼' });
   await row.getByRole('link', { name: '済んだ依頼' }).click();
   const drawer = page.getByRole('dialog', { name: '済んだ依頼' });
+  // 行のポイントは保存の応答より先に変わる。保存を待たずに完了にすると、保存が完了の後に届いて 409 になるので、応答を待つ
+  const pointsSaved = waitForResponses(page, '/task-update');
   await drawer.getByRole('radio', { name: '3', exact: true }).check();
+  await pointsSaved;
   await expect(row.getByRole('button', { name: 'ポイント: 3 pt' })).toBeVisible();
   await drawer.getByRole('button', { name: '完了にする', exact: true }).click();
   // 経験値は付かないので、トーストに XP の行を出さない（#1431）
