@@ -39,6 +39,7 @@ describe('R2 を持たない共有プレビュー', () => {
     expect(await attachmentRows(target)).toEqual([]);
     expect((await upload(target)).status).toBe(200);
   });
+
   test('本文だけは保存でき、添付 ID を含む更新は利用不可を返す', async () => {
     const target = await createTarget();
     const task = await createTask(target.organization, target.workspace.id, target.member.userId!);

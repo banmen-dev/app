@@ -4,6 +4,7 @@ import { SEED_SESSIONS } from '../seed/sessions.ts';
 import {
   isIsolatedPreviewSubdomain,
   LEGACY_PREVIEW_SUBDOMAIN,
+  previewAlias,
   PREVIEW_ORIGIN_PATTERN,
 } from '../src/shared/preview-cloudflare.ts';
 import { resolvedReturnTo, safeReturnTo } from '../src/shared/return-to.ts';
@@ -30,7 +31,12 @@ export const DEFAULT_PATH = '/';
 export function isPreviewOrigin(origin: string, subdomain?: string): boolean {
   if (subdomain !== undefined && !isIsolatedPreviewSubdomain(subdomain)) return false;
   const match = PREVIEW_ORIGIN_PATTERN.exec(origin);
-  return match?.[2] === (subdomain ?? LEGACY_PREVIEW_SUBDOMAIN) && new URL(origin).origin === origin;
+  return (
+    !!match &&
+    previewAlias(match[1]).length <= 63 &&
+    match[2] === (subdomain ?? LEGACY_PREVIEW_SUBDOMAIN) &&
+    new URL(origin).origin === origin
+  );
 }
 
 const LOCAL_HOSTNAMES: ReadonlySet<string> = new Set(['localhost', '127.0.0.1']);
