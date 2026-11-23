@@ -955,8 +955,8 @@ export async function shownBox(locator: Locator): Promise<{ x: number; y: number
   return box;
 }
 
-// ボードの画面（#1497）の見出しは「ボード」で、進行中のスプリントの名前は小見出しの先頭に「<名前>・<期間>・N 日のうち M 日目」で出る。
-// 名前の無いスプリント（unnamed）は期間が名前なので、期間を重ねず「<期間>・N 日のうち M 日目」
+// ボードの画面（#1497）の見出しは「ボード」だけで、進行中のスプリントの名前は見出しの下の帯の右端のスプリントのボタンに出る（#1498）。
+// 名前の無いスプリント（unnamed）は期間「M/D〜M/D」が名前になる
 export async function expectBoardHeading(
   page: Page,
   sprint: string,

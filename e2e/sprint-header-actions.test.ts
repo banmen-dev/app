@@ -96,6 +96,18 @@ for (const [today, day, remaining] of [
     await draft.click();
     await expect(draft).toBeFocused();
 
+    // 小窓の中で押して外で離しても（ゴールの文をなぞって選ぶなど）閉じない。外を押したかは押し始めで決める
+    const opened = await openSprintPopover(page);
+    const goalBox = (await opened.locator('.popover-text').boundingBox())!;
+    const toolbarBox = (await page.locator('.board-toolbar').boundingBox())!;
+    await page.mouse.move(goalBox.x + 4, goalBox.y + goalBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(toolbarBox.x + 4, toolbarBox.y + 4, { steps: 4 });
+    await page.mouse.up();
+    await expect(opened).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(button).toBeFocused();
+
     // Tab で小窓の外へ出ると閉じ、出た先に残る
     await openSprintPopover(page);
     // 期限切れのときは、知らせの「終える」が操作の前に入る
