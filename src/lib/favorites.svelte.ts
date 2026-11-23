@@ -25,6 +25,7 @@ const changedTargets = new Set([
   'org-wiki-delete',
   'workspace-close',
   'workspace-reopen',
+  'workspace-delete',
   'membership-leave',
   'invitation-accept',
   'membership-role-update',

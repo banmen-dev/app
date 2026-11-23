@@ -205,6 +205,7 @@ export const organizationTableColumns = {
     sprint_name_template: textOrNull,
     sprint_number_next: integerDefault,
     closed_at: textOrNull,
+    deleted_at: textOrNull,
     created_by: text,
     created_at: text,
     updated_at: text,

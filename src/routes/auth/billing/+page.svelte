@@ -8,6 +8,9 @@
   import LoadFailed from '../../../lib/components/LoadFailed.svelte';
   import LogoutButton from '../../../lib/components/LogoutButton.svelte';
   import ConfirmDialog from '../../../lib/components/ConfirmDialog.svelte';
+  import Icon from '../../../lib/components/Icon.svelte';
+  import BillingSummary from '../../../lib/components/BillingSummary.svelte';
+  import { billingStateKeys, planName } from '../../../lib/plan-terms.ts';
   import { callOperation, type ApiResult } from '../../../lib/api.ts';
   import { t } from '../../../lib/vocabulary.svelte.ts';
   import { formatDateTime } from '../../../lib/format-datetime.ts';
@@ -37,10 +40,14 @@
     message = null;
     failed = false;
     actionArea = '';
+    retryFailed = false;
     accountId = '';
     bootstrapSlug = '';
     bootstrapAccount = '';
   });
+  // 自分用の組織は名前の代わりに辞書の「自分用」で出す（docs/data-model.md の organizations の kind）
+  const organizationName = (organization: { kind: 'team' | 'personal'; name: string }) =>
+    organization.kind === 'personal' ? t('personalOrganizationName') : organization.name;
   const personLabel = (name: string, id: string) => (name === id ? id : `${name}（${id}）`);
   const eventKeys = {
     invited: 'billingEventInvited',
@@ -48,6 +55,35 @@
     declined: 'billingEventDeclined',
     removed: 'billingEventRemoved',
   } as const;
+  // 契約と使用量の読み直し（「もう一度試す」）。押している間は止め、結果を状態の領域で伝え、成功したら読み直した紙の中身へフォーカスを移す（押したボタンは消える）
+  let retrying = $state(false);
+  let retryFailed = $state(false);
+  // 契約と使用量を読めたら、前の読み直しの失敗を消す（担当者の保存で読み直したときを含む）
+  $effect(() => {
+    if (data.selected?.summary) retryFailed = false;
+  });
+  async function retrySummary() {
+    if (retrying) return;
+    const version = navigationVersion;
+    retrying = true;
+    retryFailed = false;
+    try {
+      await invalidateAll();
+    } catch {
+      // 読み直しそのものの失敗も、契約と使用量を読めなかったときと同じに扱う
+    } finally {
+      retrying = false;
+    }
+    if (version !== navigationVersion) return;
+    if (data.failed || data.selected?.summary === null) {
+      retryFailed = true;
+      return;
+    }
+    await tick();
+    // 読み直しの間に利用者が別の欄へ移っていれば、フォーカスを奪わない（save() と同じ）
+    // 押したボタンは消えるので、フォーカスが行き場を失っているときだけ紙の中身へ移す
+    if (focusIsFree()) document.getElementById('billing-summary-body')?.focus();
+  }
 
   async function save(action: () => Promise<ApiResult<unknown>>, area: string, restoreFocus = false) {
     if (busy) return;
@@ -57,6 +93,8 @@
     busy = true;
     actionArea = area;
     message = null;
+    // 担当者の保存で契約と使用量も読み直すので、前の読み直しの失敗の文は消しておく
+    retryFailed = false;
     let restore = false;
     try {
       const result = await action();
@@ -146,7 +184,21 @@
     </GateSheet>
     {#if data.selected}
       {@const selected = data.selected}
-      <GateSheet title={t('billingAdministrators', { name: selected.name })}>
+      <GateSheet title={t('billingSummary', { name: organizationName(selected) })}>
+        {#if selected.summary === null}
+          <p class="field-error" role="alert">
+            {t(selected.summaryRateLimited ? 'billingRateLimited' : 'billingSummaryLoadFailed')}
+          </p>
+          <div class="form-actions">
+            <button class="btn is-sm" type="button" aria-disabled={retrying} onclick={retrySummary}>{t('retry')}</button
+            >
+          </div>
+          <p id="billing-status-summary" class:field-error={retryFailed} role="status">
+            {retrying ? t('billingSummaryRetrying') : retryFailed ? t('billingSummaryRetryFailed') : ''}
+          </p>
+        {:else}<BillingSummary summary={selected.summary} />{/if}
+      </GateSheet>
+      <GateSheet title={t('billingAdministrators', { name: organizationName(selected) })}>
         <div class="form-actions"><a class="btn" href={resolve('/auth/billing')}>{t('billingBack')}</a></div>
         <p class="field-hint">{t('billingLastHint')}</p>
         <p class="field-hint">{t('billingNominationHint')}</p>
@@ -250,8 +302,20 @@
         <div class="choice-list">
           {#each data.organizations as organization (organization.slug)}<a
               class="choice"
+              data-sveltekit-preload-data="false"
               href={resolve(`/auth/billing?organization=${encodeURIComponent(organization.slug)}`)}
-              ><b>{organization.name}</b></a
+              ><div>
+                <b>{organizationName(organization)}</b>
+                <!-- 自分用の組織はどれも「自分用」なので、ほかの人の自分用を複数担当しても見分けられるよう slug を添える -->
+                {#if organization.kind === 'personal'}<span class="mono">{organization.slug}</span>{/if}
+                <div class="entry-meta">
+                  <span class="chip">{planName(organization, t)}</span>
+                  <span class="chip" class:is-warn={organization.state !== 'active'}
+                    >{t(billingStateKeys[organization.state])}</span
+                  >
+                </div>
+              </div>
+              <Icon name="chevron" /></a
             >{/each}
         </div>
       </GateSheet>

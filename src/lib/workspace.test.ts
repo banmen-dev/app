@@ -29,6 +29,13 @@ describe('settleWorkspace（枠が一時的に読み直せなかったときに�
     expect(settleWorkspace(before, 'aoba/w2', null, 503)).toEqual({ workspace: null, known: before });
   });
 
+  test('削除の可否も同じワークスペースの一時的な失敗のときにだけ保つ', () => {
+    const before = { key: 'aoba/w1', workspace: { ...view('w1'), deleteEnabled: true } };
+    expect(settleWorkspace(before, 'aoba/w1', null, 500).workspace?.deleteEnabled).toBe(true);
+    expect(settleWorkspace(before, 'aoba/w2', null, 500).workspace).toBeNull();
+    expect(settleWorkspace(before, 'aoba/w1', null, 404).workspace).toBeNull();
+  });
+
   test('前に読めた値が無ければ、一時的な失敗でも null', () => {
     expect(settleWorkspace(null, 'aoba/w1', null, 500)).toEqual({ workspace: null, known: null });
   });

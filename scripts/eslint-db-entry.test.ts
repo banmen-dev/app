@@ -369,3 +369,48 @@ describe('未添付ファイルを消す定期処理の関数（deleteExpiredAtt
     }
   });
 });
+
+describe('請求管理者に見せる使用量の集計の関数（readBillingOrganizationSummary）', () => {
+  const forms: Record<string, string> = {
+    import: `import { readBillingOrganizationSummary } from './db/index.ts'; export const a = readBillingOrganizationSummary;`,
+    '別名の import': `import { readBillingOrganizationSummary as read } from './db/index.ts'; export const a = read;`,
+    'export from': `export { readBillingOrganizationSummary } from './db/index.ts';`,
+    名前空間からの参照: `import * as db from './db/index.ts'; export const a = db.readBillingOrganizationSummary;`,
+    '名前空間からの参照（文字列のキー）': `import * as db from './db/index.ts'; export const a = db['readBillingOrganizationSummary'];`,
+    '動的な import の取り出し': `const { readBillingOrganizationSummary } = await import('./db/index.ts'); export const a = readBillingOrganizationSummary;`,
+    '名前空間から Reflect.get': `import * as db from './db/index.ts'; export const a = Reflect.get(db, 'readBillingOrganizationSummary');`,
+  };
+
+  for (const file of [
+    ...outside,
+    'src/server/operations/billing.ts',
+    'src/server/operations/operator-tools.ts',
+    'src/server/operations/operator.ts',
+    'src/server/scheduled/cleanup-attachments.ts',
+  ]) {
+    test(`${file}: 組織の外の操作の文脈の外では落ちる`, async () => {
+      for (const [name, code] of Object.entries(forms)) {
+        assert.ok((await violations(file, code)) >= 1, `落ちなかった: ${name}`);
+      }
+    });
+  }
+
+  for (const file of ['src/server/operations/account.ts', 'src/server/db/index.ts']) {
+    test(`${file}: 組織の外の操作の文脈と db 内部は使える`, async () => {
+      for (const [name, code] of Object.entries(forms)) {
+        assert.equal(await violations(file, code), 0, name);
+      }
+    });
+  }
+
+  test('似た名前の関数や別名の共通の入口は誤って断らない', async () => {
+    const allowed = [
+      `import { commonDb as readBillingOrganizationSummary } from './db/index.ts'; export const a = readBillingOrganizationSummary;`,
+      `import { readBillingOrganizationSummaryLater } from './db/index.ts'; export const a = readBillingOrganizationSummaryLater;`,
+      `import * as db from './db/index.ts'; export const a = db.readBillingOrganizationSummaries;`,
+    ];
+    for (const file of outside) {
+      for (const code of allowed) assert.equal(await violations(file, code), 0, `${file}: ${code}`);
+    }
+  });
+});

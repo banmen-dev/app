@@ -40,6 +40,7 @@ export function seatUsersStatement(db: OrganizationEntry, organizationIds: reado
               .select('m.id')
               .whereRef('m.user_id', '=', 'users.id')
               .where('m.left_at', 'is', null)
+              .where('w.deleted_at', 'is', null)
               .whereRef('w.organization_id', '=', 'users.organization_id'),
           ),
         ]),
@@ -138,6 +139,7 @@ export async function seatHoldersOfWorkspaceInvitations(
         .select(['i.login_provider', 'i.login_subject', 'i.login_email', 'i.claim_expires_at'])
         .where('w.organization_id', '=', db.organizationId)
         .where('i.workspace_id', '=', workspaceId)
+        .where('w.deleted_at', 'is', null)
         .where('i.status', '=', 'pending')
         .where(inviteeNotDisabled),
     ),

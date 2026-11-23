@@ -168,6 +168,7 @@ function revokeInvitationStatements(
               eb.val(stamp).as('created_at'),
             ])
             .where('iw.organization_id', '=', organizationId)
+            .where('iw.deleted_at', 'is', null)
             .where('i.status', '=', 'pending')
             .where('i.login_provider', '=', login.login_provider)
             .where('i.login_subject', '=', login.login_subject)
@@ -187,7 +188,11 @@ function revokeInvitationStatements(
             eb(
               'workspace_id',
               'in',
-              q.selectFrom('workspaces as ow').select('ow.id').where('ow.organization_id', '=', organizationId),
+              q
+                .selectFrom('workspaces as ow')
+                .select('ow.id')
+                .where('ow.organization_id', '=', organizationId)
+                .where('ow.deleted_at', 'is', null),
             ),
             ...(createdBefore === undefined ? [] : [eb('created_at', '<', createdBefore)]),
             eb.exists(writtenHere(q)),
@@ -361,7 +366,8 @@ export const userDisableOperation = implement(userDisable, async ({ db, actor, i
         .select(['m.workspace_id', 'w.timezone'])
         .where('m.user_id', '=', userId)
         .where('m.left_at', 'is', null)
-        .where('w.organization_id', '=', organizationId),
+        .where('w.organization_id', '=', organizationId)
+        .where('w.deleted_at', 'is', null),
     ),
   );
   const leftOnByWorkspace = Object.fromEntries(
@@ -378,7 +384,11 @@ export const userDisableOperation = implement(userDisable, async ({ db, actor, i
       .where('du.organization_id', '=', organizationId)
       .where('du.disabled_at', '=', stamp);
   const organizationWorkspaces = (from: From) =>
-    from.selectFrom('workspaces as ow').select('ow.id').where('ow.organization_id', '=', organizationId);
+    from
+      .selectFrom('workspaces as ow')
+      .select('ow.id')
+      .where('ow.organization_id', '=', organizationId)
+      .where('ow.deleted_at', 'is', null);
 
   const changes: Record<string, unknown> =
     current.is_admin === 1 ? { disabled_at: [null, stamp], is_admin: [1, 0] } : { disabled_at: [null, stamp] };
@@ -458,6 +468,7 @@ export const userDisableOperation = implement(userDisable, async ({ db, actor, i
             .where('lm.user_id', '=', userId)
             .where('lm.left_at', 'is', null)
             .where('lw.organization_id', '=', organizationId)
+            .where('lw.deleted_at', 'is', null)
             .where('lu.organization_id', '=', organizationId)
             .where((eb) => eb.exists(disabledHere(q))),
         ),
@@ -505,6 +516,7 @@ export const userDisableOperation = implement(userDisable, async ({ db, actor, i
               ];
             })
             .where('tw.organization_id', '=', organizationId)
+            .where('tw.deleted_at', 'is', null)
             .where('t.assignee_user_id', '=', userId)
             .where('t.completed_at', 'is', null)
             .where('t.deleted_at', 'is', null)

@@ -74,12 +74,14 @@ for (const used of [0, 8, 9, 10, 12]) {
             id: 'storage-aoba',
             name: 'あおばの添付ファイルと Wiki',
             closed_at: null,
+            deleted_at: null,
             used_bytes: Math.max(0, used - 1) * GIB,
           },
           {
             id: 'storage-closed',
             name: '終了したワークスペース',
             closed_at: '2026-11-01T00:00:00.000Z',
+            deleted_at: null,
             used_bytes: 0,
           },
         ],
@@ -122,7 +124,7 @@ test('1MB未満の Wiki と添付の内訳も、0MBに丸めずバイト数で�
       used_bytes: 37,
       quota_bytes: GIB,
       organization_wiki_bytes: 16,
-      workspaces: [{ id: 'tiny-workspace', name: '小さな Wiki', closed_at: null, used_bytes: 21 }],
+      workspaces: [{ id: 'tiny-workspace', name: '小さな Wiki', closed_at: null, deleted_at: null, used_bytes: 21 }],
     },
   }));
   await page.goto('/aoba/admin');

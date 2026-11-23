@@ -46,6 +46,7 @@ async function readOwnInvitation(db: OrganizationDb, invitationId: string, login
         ])
         .where('i.id', '=', invitationId)
         .where('w.organization_id', '=', db.organizationId)
+        .where('w.deleted_at', 'is', null)
         .where((eb) =>
           eb.or(
             logins.map((login) =>
@@ -84,6 +85,7 @@ export const invitationListOperation = implement(invitationList, async ({ db, or
               ])
               .where('w.organization_id', '=', organizationId)
               .where('i.status', '=', 'pending')
+              .where('w.deleted_at', 'is', null)
               .where((eb) =>
                 eb.or(
                   logins.map((login) =>
@@ -442,7 +444,8 @@ export const invitationDeclineOperation = implement(invitationDecline, async ({ 
                 .selectFrom('workspaces as w')
                 .select('w.id')
                 .where('w.id', '=', workspaceId)
-                .where('w.organization_id', '=', organizationId),
+                .where('w.organization_id', '=', organizationId)
+                .where('w.deleted_at', 'is', null),
             ),
           ]),
         ),

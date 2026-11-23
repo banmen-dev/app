@@ -170,6 +170,43 @@
     billingTarget: '対象アカウント',
     billingActor: '操作したアカウント',
     billingOpen: '請求管理者を管理する',
+    // 担当組織の契約と使用量（#1241）。契約の語は組織の管理のプランの節（orgPlan*、planTerms、operatorPlanNone）と同じ
+    billingSummary: '{name}の契約と使用量',
+    // 契約と使用量だけが読めなかったとき。担当者の管理は続けて使える
+    billingSummaryLoadFailed: '契約と使用量を読み込めませんでした。担当者の管理はこのまま使えます。',
+    billingSummaryRetrying: '契約と使用量を読み直しています',
+    billingSummaryRetryFailed: 'もう一度読み込めませんでした。時間をおいて試してください。',
+    billingStateLabel: '利用の状態',
+    billingStateActive: '利用中',
+    billingStateSuspended: '一時停止中',
+    billingStateCancelled: '解約で停止',
+    // 解約で停止した組織のデータを消す予定日（{date}）。予定日を過ぎても消すまでは一覧に残る
+    billingPurgeOn: '{date} にデータを消します',
+    billingPurgeDue: 'データを消す予定日（{date}）を過ぎています',
+    // お試しの期限。契約の更新日ではなく、契約を結ぶまでの期限。値は組織の管理の画面と同じ orgTrialEndsOn
+    billingTrialLabel: 'お試しの期限',
+    billingUsageSeatsLabel: '人数',
+    // 使用量と上限を並べる。{used} は数える人の数（招待中の人を含む）、{limit} は人数の上限
+    billingUsageSeats: '{used} / {limit}\u00a0人',
+    billingUsageStorageLabel: '容量',
+    // {used} と {quota} は容量の表示（operatorQuotaSize など）
+    billingUsageStorage: '{used} / {quota}',
+    billingUsageNote:
+      '使用量は{organization}全体の合計です。人数は招待中の人を含み、容量は添付ファイルと Wiki（過去の版を含む）の合計です。',
+    // 契約の表示（請求画面の見本が使う。組織の管理の画面の見本は文を直に書いている）
+    orgTrialEndsOn: '{datetime} ごろに止まります',
+    orgPlanTermsLabel: '契約',
+    orgPlanExtraLabel: '追加容量',
+    orgPlanExtraNone: 'なし',
+    orgPlanNoneNote: 'まだ契約していません。上限は運用者が決めた値です。',
+    orgPlanContact: 'プラン、支払いの周期、追加容量を変えるときは、運用者に問い合わせてください。',
+    planTerms: '{plan}・{interval}',
+    operatorPlanNone: '未契約',
+    trialExpired: 'お試しの期限を過ぎています',
+    planCustomLimits: '{terms}（{members} 人・標準 {quota} GB）',
+    orgPlanPersonalNote: '自分用の{organization}は、人数が本人1人のパーソナルに決まっています。',
+    orgPlanContactPersonal: '容量を足すときは、運用者に問い合わせてください。',
+    orgPlanExtraUnits: '+{size} GB × {units} 口',
 
   delegateeEmptyText: 'タスクの引き出しで新しい名前を入力すると、名簿に追加できます。',
   delegateeAssignFailed: '依頼先を変更できませんでした。タスクの状態や名簿を確認し、もう一度選んでください。',
@@ -2627,11 +2664,13 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     workspaceCreated: (name) => openDialog(`${t("workspace")}を作りました`,
       `<div class="callout is-ok">${icon("check")}<span class="wrap-anywhere">${esc(name)}</span></div>`,
       `<button class="btn is-quiet" type="button" data-workspace-again>続けて作る</button><a class="btn is-primary" href="backlog.html">開く</a>`),
-    closeWorkspace: () => {
-      const target = D.admin.workspaces.find((w) => !w.closed);
-      return openDialog(`「${esc(target ? target.name : "")}」を終了しますか？`,
-        `<p>終了すると読み取り専用になり、中の書き込みはすべてできなくなります。再開はこの画面から行えます。</p>`,
-        `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="${t("workspace")}を終了しました">終了する</button>`);
+    closeWorkspace: (el) => {
+      const settingsName = el?.dataset.workspaceName;
+      const name = settingsName ?? D.admin.workspaces.find((w) => !w.closed)?.name ?? "";
+      const confirm = settingsName === undefined ? `data-toast="${t("workspace")}を終了しました"` : "data-confirm-workspace-close";
+      return openDialog(`「${esc(name)}」を終了しますか？`,
+        `<p>終了すると読み取り専用になり、中の書き込みと外部サービスとの同期が止まります。再開はこの画面から行えます。</p>`,
+        `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog ${confirm}>終了する</button>`);
     },
     // ユーザーを無効にする前の確認（本番の UsersSetting の ConfirmDialog）。押した行の data-name と data-admin で文を作る。
     // 管理者なら指名も解除することを添える。本文は本番の辞書（userDisableText、userDisableAdminNote、userDisableEnableNote）と同じ文

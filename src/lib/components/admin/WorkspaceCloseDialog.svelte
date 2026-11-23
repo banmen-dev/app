@@ -9,7 +9,7 @@
   // 終了する前の確認（admin.html の「終了する」）。読み取り専用になることと、再開できることを伝える。
   // 再開できる操作なので is-danger にせず、主ボタンを「終了する」にする。
   // 送っている間は、「終了する」を押しても無視し（aria-disabled）、ダイアログも閉じられない。二重送信はそれだけで防ぐ。
-  // 結果は onfinish で親に渡し、トーストと一覧の読み直しは親が行う。送り始めた後に部品が外れた（画面を離れた、組織が替わった）ときは、
+  // 結果は onfinish で親に渡し、トーストと画面の読み直しは呼び出し元が行う。送り始めた後に部品が外れた（画面を離れた、組織が替わった）ときは、
   // 古い応答を親に渡さず、状態も更新しない（generation）
   type Outcome = 'closed' | 'state_changed' | 'unavailable' | 'unauthenticated';
   let { slug, onfinish }: { slug: string; onfinish: (outcome: Outcome) => void } = $props();

@@ -66,6 +66,6 @@ test('初回承諾後に残った指名は全担当者の解除後も復活せ�
   expect(freshInvitation.id).not.toBe(staleInvitation.id);
   await ok(second, billingInvitationRespond, { invitation_id: freshInvitation.id, accept: true });
   expect((await ok(second, myBillingOrganizations)).organizations).toEqual([
-    { slug: organization.slug, name: organization.name },
+    { slug: organization.slug, name: organization.name, kind: 'team', plan: null, state: 'active' },
   ]);
 });

@@ -238,6 +238,11 @@ function workspaceEvent(action: string, changes: Changes, row: HistoryRow): Hist
       return { kind: 'workspace_closed', workspace_name: row.workspace_name };
     case 'reopen':
       return { kind: 'workspace_reopened', workspace_name: row.workspace_name };
+    case 'delete':
+      return {
+        kind: 'workspace_deleted',
+        workspace_name: textOrNull(pairOf(changes, 'name')?.[0]) ?? row.workspace_name,
+      };
     default:
       return { kind: 'other' };
   }

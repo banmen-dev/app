@@ -4,7 +4,8 @@ import { env } from 'cloudflare:workers';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { z } from 'zod';
 import { defineOperation } from '../src/shared/operations/define.ts';
-import { logout } from '../src/shared/operations/session/index.ts';
+import { logout, operationList } from '../src/shared/operations/session/index.ts';
+import { workspaceDelete, workspaceInfo } from '../src/shared/operations/workspace/index.ts';
 import { operations } from '../src/shared/operations/index.ts';
 import { createApp } from '../src/server/app.ts';
 import { commonDb } from '../src/server/db/index.ts';
@@ -301,7 +302,7 @@ describe('運用者の操作はトークンから一律 403', () => {
   });
 });
 
-describe('cookieOnly の logout', () => {
+describe('Cookie セッション専用の操作', () => {
   test('logout が cookieOnly を持ち、本番の Cookie 専用操作の一覧が定義と一致する', () => {
     expect((logout as { cookieOnly?: true }).cookieOnly).toBe(true);
     expect(
@@ -315,6 +316,7 @@ describe('cookieOnly の logout', () => {
       'billing-admin-list',
       'billing-admin-remove',
       'billing-invitation-respond',
+      'billing-organization-summary',
       'consent-record',
       'create-my-organization',
       'create-personal-organization',
@@ -329,6 +331,7 @@ describe('cookieOnly の logout', () => {
       'token-notice',
       'token-notice-seen',
       'token-revoke',
+      'workspace-delete',
     ]);
   });
 
@@ -366,25 +369,47 @@ describe('cookieOnly の logout', () => {
     expect(res.status).toBe(200);
   });
 
-  test('cookieOnly は組織の外の操作にだけ付けられる', () => {
+  test('終了済みワークスペースの削除は管理者の write トークンでも拒否され、操作一覧にも出ない', async () => {
+    const target = await createTarget({ closed: true });
+    const { raw } = await tokenOf(target.admin);
+    const request = {
+      slug: target.slug,
+      body: { workspace_id: target.workspace.id, confirm_name: '青葉チーム' },
+    };
+
+    const denied = await post(realApp, workspaceDelete, { ...request, bearer: raw, origin: null });
+    expect(denied.status).toBe(403);
+    expect(await errorCodeOf(denied)).toBe('forbidden');
+
+    const next = await post(realApp, workspaceInfo, { ...request, bearer: raw, origin: null });
+    expect(next.status).toBe(200);
+    expect(workspaceInfo.output.parse(await next.json()).closed_at).not.toBeNull();
+
+    const list = await post(realApp, operationList, { bearer: raw, origin: null });
+    expect(list.status).toBe(200);
+    const available = operationList.output.parse(await list.json()).operations.map(({ name }) => name);
+    expect(available).toContain('workspace-reopen');
+    expect(available).not.toContain('workspace-delete');
+  });
+
+  test('cookieOnly は組織の外か、管理者専用のワークスペースの書き込みに付けられる', () => {
     const base = {
       name: 'cookie-only-probe',
       description: 'テスト用',
       mode: 'read',
       input: z.object({}),
       output: z.object({}),
+      cookieOnly: true,
     } as const;
-    expect(() => defineOperation({ ...base, permission: 'login', cookieOnly: true })).not.toThrow();
-    expect(() => defineOperation({ ...base, permission: 'organization', cookieOnly: true })).toThrow(/cookieOnly/);
-    expect(() =>
-      defineOperation({
-        ...base,
-        permission: 'member',
-        workspace: true,
-        input: z.object({ workspace_id: z.string() }),
-        cookieOnly: true,
-      }),
-    ).toThrow(/cookieOnly/);
+    expect(() => defineOperation({ ...base, permission: 'login' })).not.toThrow();
+    expect(() => defineOperation({ ...base, permission: 'organization' })).toThrow(/cookieOnly/);
+    expect(() => defineOperation({ ...base, permission: 'admin', mode: 'write' })).toThrow(/cookieOnly/);
+
+    const workspace = { ...base, workspace: true, input: z.object({ workspace_id: z.string() }) } as const;
+    expect(() => defineOperation({ ...workspace, permission: 'admin', mode: 'write' })).not.toThrow();
+    expect(() => defineOperation({ ...workspace, permission: 'admin' })).toThrow(/cookieOnly/);
+    expect(() => defineOperation({ ...workspace, permission: 'leader', mode: 'write' })).toThrow(/cookieOnly/);
+    expect(() => defineOperation({ ...workspace, permission: 'member', mode: 'write' })).toThrow(/cookieOnly/);
   });
 });
 

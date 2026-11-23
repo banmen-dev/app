@@ -119,6 +119,29 @@ export const dictionary = defineDictionary({
   billingTarget: '対象アカウント',
   billingActor: '操作したアカウント',
   billingOpen: '請求管理者を管理する',
+  // 担当組織の契約と使用量（#1241）。契約の語は組織の管理のプランの節（orgPlan*、planTerms、operatorPlanNone）と同じ
+  billingSummary: '{name}の契約と使用量',
+  // 契約と使用量だけが読めなかったとき。担当者の管理は続けて使える
+  billingSummaryLoadFailed: '契約と使用量を読み込めませんでした。担当者の管理はこのまま使えます。',
+  billingSummaryRetrying: '契約と使用量を読み直しています',
+  billingSummaryRetryFailed: 'もう一度読み込めませんでした。時間をおいて試してください。',
+  billingStateLabel: '利用の状態',
+  billingStateActive: '利用中',
+  billingStateSuspended: '一時停止中',
+  billingStateCancelled: '解約で停止',
+  // 解約で停止した組織のデータを消す予定日（{date}）。予定日を過ぎても消すまでは一覧に残る
+  billingPurgeOn: '{date} にデータを消します',
+  billingPurgeDue: 'データを消す予定日（{date}）を過ぎています',
+  // お試しの期限。契約の更新日ではなく、契約を結ぶまでの期限。値は組織の管理の画面と同じ orgTrialEndsOn
+  billingTrialLabel: 'お試しの期限',
+  billingUsageSeatsLabel: '人数',
+  // 使用量と上限を並べる。{used} は数える人の数（招待中の人を含む）、{limit} は人数の上限
+  billingUsageSeats: '{used} / {limit}\u00a0人',
+  billingUsageStorageLabel: '容量',
+  // {used} と {quota} は容量の表示（operatorQuotaSize など）
+  billingUsageStorage: '{used} / {quota}',
+  billingUsageNote:
+    '使用量は{organization}全体の合計です。人数は招待中の人を含み、容量は添付ファイルと Wiki（過去の版を含む）の合計です。',
 
   delegateeEmptyText: 'タスクの引き出しで新しい名前を入力すると、名簿に追加できます。',
   delegateeAssignFailed: '依頼先を変更できませんでした。タスクの状態や名簿を確認し、もう一度選んでください。',
@@ -314,9 +337,12 @@ export const dictionary = defineDictionary({
   storageMeterWarning: '上限の80%を超えています',
   storageThresholdNote: '縦の線は80%の位置です。超えると{admin}に通知します。',
   storageWorkspaceClosed: '終了済み',
+  storageWorkspaceDeleted: '削除済み',
   storageBreakdown: '内訳',
   storageOrganizationWiki: '組織の Wiki',
-  storageRetention: '終了した{workspace}と、削除後30日の保持中の Wiki も含みます。Wiki は題と本文を数えます。',
+  storageRetention:
+    '終了・削除した{workspace}の保存分と、削除後30日の保持中の Wiki ページも含みます。Wiki は題と本文を数えます。',
+  storageDeletedWorkspaceRetention: '削除済みの{workspace}内の添付ファイルや Wiki は、個別に削除できません。',
   storageWarning:
     '上限の80%を超えています。上げた人か{workspace}の{leader}が不要な添付ファイルを消すか、運用者に上限の引き上げを依頼してください。',
   storageFull:
@@ -773,9 +799,12 @@ export const dictionary = defineDictionary({
   workspaceLimitCreateElsewhere:
     'このダイアログを閉じて、アカウントのメニューの「{adminPage}」で今ある{workspace}を終了して枠を空けてください。',
   workspaceReopenWorkspaceLimit:
-    '「{name}」は再開できません。自分用の{workspace}は、利用中のものを{limit}個まで使えます（今{used}個）。この一覧で今ある{workspace}を終了して枠を空けてください。',
+    '「{name}」は再開できません。自分用の{workspace}は、利用中のものを{limit}個まで使えます（今{used}個）。{guidance}',
   workspaceReopenWorkspaceLimitUnknown:
-    '「{name}」は再開できません。自分用の{workspace}は、利用中の個数が上限に達しています。この一覧で今ある{workspace}を終了して枠を空けてください。',
+    '「{name}」は再開できません。自分用の{workspace}は、利用中の個数が上限に達しています。{guidance}',
+  workspaceReopenFindSpaceHere: 'この一覧で今ある{workspace}を終了して枠を空けてください。',
+  workspaceReopenFindSpaceElsewhere:
+    'アカウントのメニューの「{adminPage}」で今ある{workspace}を終了して枠を空けてください。',
 
   // ワークスペースの枠と画面。見つからない画面は、組織の枠の中に出す
   notMemberAdminChip: '所属せず{admin}として開いています',
@@ -1873,16 +1902,20 @@ export const dictionary = defineDictionary({
   orgPlanPersonalNote: '自分用の{organization}は、人数が本人1人のパーソナルに決まっています。',
   orgPlanContactPersonal: '容量を足すときは、運用者に問い合わせてください。',
 
-  // ワークスペースを終了する、再開する（組織の管理の画面。API の操作の名前は workspace-close と workspace-reopen のまま）。
+  // ワークスペースを終了する、再開する（組織の管理とワークスペースの設定。API の操作の名前は workspace-close と workspace-reopen のまま）。
   // {workspace} は、辞書の言葉を画面が渡す。{name} はワークスペースの名前
   workspaceActionsHeader: '操作',
+  workspaceStateTitle: '{workspace}の利用状態',
+  workspaceStateDesc: '終了中も閲覧できます。更新と外部サービスとの同期は止まります。',
+  workspaceStateRefreshFailed: '利用状態を読み直せませんでした。最新の状態を確かめてから操作してください。',
+  workspaceCloseDraft: '書きかけの設定を保存するか、入力内容を元に戻してから終了してください。',
   workspaceCloseAction: '終了する',
   workspaceReopenAction: '再開する',
   workspaceCloseLabel: '「{name}」を終了する',
   workspaceReopenLabel: '「{name}」を再開する',
   workspaceCloseTitle: '「{name}」を終了しますか？',
   workspaceCloseText:
-    '終了すると読み取り専用になり、中の書き込みはすべてできなくなります。再開はこの画面から行えます。',
+    '終了すると読み取り専用になり、中の書き込みと外部サービスとの同期が止まります。再開はこの画面から行えます。',
   workspaceClosing: '終了しています',
   workspaceReopening: '再開しています',
   workspaceClosed: '{workspace}を終了しました',
@@ -1900,12 +1933,30 @@ export const dictionary = defineDictionary({
   workspaceReopenMemberLimitUnknown:
     '「{name}」は再開できません。閉じている間は数えていなかった承諾待ちの招待を含めると、{organization}の人数が上限を超えます。上限の見直しは運用者に問い合わせてください。または、{adminPage}の「{users}」で、ほかのユーザーを無効にして人数を減らしてください。無効にした人はすべての{workspace}から外れ、有効に戻しても所属は戻りません。',
   // 別の画面で先に操作されていた（409）。終了した状態か再開した状態かは言い切らず、読み直した一覧を見てもらう
-  workspaceStateChanged: '「{name}」の状態が変わっていました。一覧で状態を確かめてください',
+  workspaceStateChanged: '「{name}」の状態が変わっていました。画面で状態を確かめてください',
   // 見つからない、または操作できない（404、403）
   workspaceUnavailable:
-    '「{name}」を操作できませんでした。見つからないか、操作できない状態です。一覧で状態を確かめてください',
+    '「{name}」を操作できませんでした。見つからないか、操作できない状態です。画面で状態を確かめてください',
   workspaceListRefreshFailed: '{workspace}の一覧を更新できませんでした',
   workspaceListLoadFailed: '{workspace}の一覧を読み込めませんでした',
+
+  workspaceDeleteTitle: '{workspace}の削除',
+  workspaceDeleteDescription: '削除した{workspace}は開けなくなり、再開もできません。',
+  workspaceDeleteNeedsClosed: '削除するには、先にこの{workspace}を終了してください。',
+  workspaceDeleteCloseLink: '利用状態へ移動',
+  workspaceDeleteAction: '削除する',
+  workspaceDeleteConfirm: '「{name}」を削除しますか？',
+  workspaceDeleteWarning: '削除すると、この{workspace}と中のデータは開けなくなります。削除は取り消せません。',
+  workspaceDeleteStorageWarning:
+    '添付ファイルと Wiki は引き続き容量に含まれます。削除した{workspace}内では個別に消せなくなるため、容量を空けたい場合は、{workspace}を再開し、不要な添付ファイルと Wiki ページを先に削除してください。削除した Wiki ページは30日間、容量に含まれます。',
+  workspaceDeleteName: '{workspace}名',
+  workspaceDeleteNameHint: '確認のため「{name}」と入力してください。',
+  workspaceDeleteNameMismatch: '入力が{workspace}名と一致していません。',
+  workspaceDeleting: '削除しています',
+  workspaceDeleted: '{workspace}を削除しました',
+  workspaceDeleteFailed: '{workspace}を削除できませんでした。もう一度試してください。',
+  workspaceDeleteUnavailable: '{workspace}が見つからないか、削除する権限がありません。',
+  workspaceDeleteNameChanged: '{workspace}の名前が変わりました。新しい名前を入力してください。',
 
   // 組織のユーザー（組織の管理の画面の「ユーザー」の節。API の操作は user-list、user-admin-update、user-disable、user-enable）。
   // {admin}、{organization}、{workspace}、{task} は、辞書の言葉を画面が渡す。{name} はユーザーの名前
@@ -2021,7 +2072,7 @@ export const dictionary = defineDictionary({
   // 内容の文は organization-history の種類ごとに1つ。{name} は人か組織かワークスペースの名前、{date} は消す予定日（YYYY-MM-DD）
   orgHistoryTitle: '変更の履歴',
   orgHistoryDesc:
-    '{admin}の指名、運用者の操作、{workspace}の作成と終了など、{organization}の単位の変更を新しい順に出します。{workspace}の中の変更（{member}の所属など）は出しません。',
+    '{admin}の指名、運用者の操作、{workspace}の作成・終了・削除など、{organization}の単位の変更を新しい順に出します。{workspace}の中の変更（{member}の所属など）は出しません。',
   orgHistoryListLabel: '{organization}の変更の履歴',
   orgHistoryColumnAt: '日時',
   orgHistoryColumnActor: 'した人',
@@ -2059,9 +2110,11 @@ export const dictionary = defineDictionary({
   orgHistoryWorkspaceCreatedNoName: '{workspace}を作りました',
   orgHistoryWorkspaceClosed: '{workspace}「{name}」を終了しました',
   orgHistoryWorkspaceReopened: '{workspace}「{name}」を再開しました',
-  // ワークスペースの行が無く、名前の分からない終了と再開
+  orgHistoryWorkspaceDeleted: '{workspace}「{name}」を削除しました',
+  // ワークスペースの行が無く、名前の分からない終了、再開、削除
   orgHistoryWorkspaceClosedNoName: '{workspace}を終了しました',
   orgHistoryWorkspaceReopenedNoName: '{workspace}を再開しました',
+  orgHistoryWorkspaceDeletedNoName: '{workspace}を削除しました',
   // 依頼先の名簿。名前は記録に残っている場合だけ添える
   orgHistoryDelegateeCreated: '依頼先「{name}」を追加しました',
   orgHistoryDelegateeCreatedNoName: '依頼先を追加しました',
@@ -2081,7 +2134,7 @@ export const dictionary = defineDictionary({
   orgHistoryLoadFailed: '変更の履歴を読み込めませんでした',
   orgHistoryRefreshFailed: '変更の履歴を更新できませんでした',
 
-  // 終了したワークスペースの帯（ワークスペースの中の全画面）。{date} は終了した日、{page} は組織の管理の画面の名前
+  // 終了したワークスペースの帯（ワークスペースの中の全画面）。{date} は終了した日、{page} は設定の画面の名前
   workspaceClosedBanner: '{date} に終了しました。読み取り専用です。',
   workspaceClosedBannerLink: '{page}で再開する',
 

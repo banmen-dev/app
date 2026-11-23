@@ -46,6 +46,7 @@ export const organizationInfo = defineOperation({
             id: z.string(),
             name: z.string(),
             closed_at: z.string().nullable(),
+            deleted_at: z.string().nullable(),
             used_bytes: z.number().int(),
           }),
         ),

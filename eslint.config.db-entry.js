@@ -18,6 +18,9 @@
 //     （運用者の道具だけの関数と同じ形で止める）。
 //     使えるのは定期処理 src/server/scheduled/ のファイルだけ。operator-tools.ts や、ほかの場所からは使えない。
 //     運用者の道具だけの関数とは別の集合で、appendOperatorChangeLog は定期処理から使えないまま
+//   - 請求管理者に見せる使用量の集計の readBillingOrganizationSummary（運用者の道具だけの関数と同じ形で止める）。
+//     使えるのは組織の外の操作の文脈 src/server/operations/account.ts だけ。operator-tools.ts や定期処理、ほかの場所からは使えない。
+//     共通の表で承諾済みの担当者を確かめた後に、1組織の人数と容量の合計の2値だけを返す口で、別の集合
 // Reflect と Object のプロパティを読むメソッドは、直に呼ぶ形だけを見る。.call、.apply、取り出した get、カンマ式で呼ぶ形は
 // 止めない。名前空間を Object.values や Object.entries で列挙して取り出す形も止めない
 // （D1 の binding も運用者の道具だけの関数も同じ。差分を読む人が見る。docs/development.md の「入口を守る規則」）。
@@ -44,6 +47,10 @@ const OPERATOR_TOOLS = 'src/server/operations/operator-tools.ts';
 // deleteExpiredAttachments は、共通の表で確認した組織の ID を受けて期限切れの未添付の行だけを消す口
 const SCHEDULED_ONLY = new Set(['appendScheduledChangeLog', 'deleteExpiredAttachments']);
 const SCHEDULED_DIR = 'src/server/scheduled/';
+// 組織の外の操作の文脈（src/server/operations/account.ts）だけが使える db/ の関数。
+// readBillingOrganizationSummary は、承諾済みの担当者かを共通の表で確かめ、1組織の人数と容量の合計の2値だけを返す口
+const ACCOUNT_ONLY = new Set(['readBillingOrganizationSummary']);
+const ACCOUNT_FILE = 'src/server/operations/account.ts';
 // 第2引数に名前を取って、プロパティを読む関数
 const PROPERTY_READERS = new Set(['get', 'getOwnPropertyDescriptor']);
 
@@ -73,6 +80,8 @@ const rule = {
         'import() の引数は文字列のリテラルにする。式で渡すと、kysely と db/ の内部のファイルの検査を抜けられる',
       operatorToolsOnly:
         '運用者の履歴の関数、管理者の指名し直しの関数、組織をまたいで数える関数は、運用者の道具（src/server/operations/operator-tools.ts）だけが使う。処理には道具が包んだ関数を渡す',
+      accountOnly:
+        '請求管理者に見せる使用量の集計は、組織の外の操作の文脈（src/server/operations/account.ts）だけが使う。請求の操作には account.billingOrganization を通して渡す',
       scheduledOnly:
         '定期処理専用の関数は、定期処理（src/server/scheduled/）のファイルだけが使う。ほかの処理から組織の確認を経ずに履歴や未添付の行を書き換えさせない',
       createRequire:
@@ -89,14 +98,18 @@ const rule = {
     const inTest = rel.startsWith('test/');
     const isOperatorTools = rel === OPERATOR_TOOLS;
     const isScheduled = rel.startsWith(SCHEDULED_DIR);
+    const isAccount = rel === ACCOUNT_FILE;
 
-    // 使える場所を絞った関数の名前（運用者の道具だけの関数と、定期処理だけの関数）を、使えない場所で見つけたら報告する
+    // 使える場所を絞った関数の名前（運用者の道具だけの関数と、定期処理だけの関数と、組織の外の操作の文脈だけの関数）を、使えない場所で見つけたら報告する
     function checkOperatorToolsOnly(node, name) {
       if (!isOperatorTools && name !== undefined && OPERATOR_TOOLS_ONLY.has(name)) {
         context.report({ node, messageId: 'operatorToolsOnly' });
       }
       if (!isScheduled && name !== undefined && SCHEDULED_ONLY.has(name)) {
         context.report({ node, messageId: 'scheduledOnly' });
+      }
+      if (!isAccount && name !== undefined && ACCOUNT_ONLY.has(name)) {
+        context.report({ node, messageId: 'accountOnly' });
       }
     }
 

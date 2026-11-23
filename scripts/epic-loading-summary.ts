@@ -1,9 +1,11 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { z } from 'zod';
-import { epicEntries } from './epic-loading-browser.ts';
-import { epicVariants } from './epic-loading-variant.ts';
 import { percentile } from './loading-stats.ts';
+
+// 計測した方式と経路。ブラウザの計測器は C を製品に入れたときに外した（#1058）。計測時のソースは docs/epic-loading-*source.json.gz にある
+export const epicVariants = ['A', 'B', 'C'] as const;
+export const epicEntries = ['direct', 'navigation', 'reload'] as const;
 
 const ms = z.number().finite().nonnegative();
 const sample = z.object({

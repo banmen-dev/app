@@ -79,8 +79,8 @@ test('管理者だけに全ワークスペースと組織 Wiki の容量と上�
     quota_bytes: 10000,
     organization_wiki_bytes: wikiBytes,
     workspaces: [
-      { id: first.id, name: 'あおば', closed_at: null, used_bytes: 17 },
-      { id: closed.id, name: 'ひばり', closed_at: AT, used_bytes: 23 },
+      { id: first.id, name: 'あおば', closed_at: null, deleted_at: null, used_bytes: 17 },
+      { id: closed.id, name: 'ひばり', closed_at: AT, deleted_at: null, used_bytes: 23 },
     ],
   });
   const memberResponse = await post(app, organizationInfo, {

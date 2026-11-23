@@ -1,8 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { epicEntries } from './epic-loading-browser.ts';
-import { summarizeEpic, type EpicSample } from './epic-loading-summary.ts';
-import { epicVariants } from './epic-loading-variant.ts';
+import { epicEntries, epicVariants, summarizeEpic, type EpicSample } from './epic-loading-summary.ts';
 
 function report() {
   const samples: EpicSample[] = [];

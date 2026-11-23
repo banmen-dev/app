@@ -193,6 +193,9 @@ async function billingFor(caller: Person, status: 'active' | 'pending' = 'active
 
 export const pointers: Pointers = {
   'billing-admin-list': async (_target, caller) => ({ slug: (await billingFor(caller)).organization.slug }),
+  'billing-organization-summary': async (_target, caller) => ({
+    slug: (await billingFor(caller)).organization.slug,
+  }),
   'billing-admin-invite': async (_target, caller) => ({
     slug: (await billingFor(caller)).organization.slug,
     account_id: (await createAccount()).id,
@@ -434,6 +437,12 @@ export const pointers: Pointers = {
       await createWorkspace(target.organization, target.admin.userId!, { closed_at: '2026-10-22T00:00:00.000Z' })
     ).id,
   }),
+  'workspace-delete': async (target) => {
+    const workspace = await createWorkspace(target.organization, target.admin.userId!, {
+      closed_at: '2026-10-22T00:00:00.000Z',
+    });
+    return { workspace_id: workspace.id, confirm_name: workspace.name };
+  },
   'invitee-resolve': async (target) => ({
     workspace_id: target.workspace.id,
     provider: 'github',

@@ -12,6 +12,7 @@ import { membershipRoleUpdate } from './membership-role-update.ts';
 import { workspaceInfo } from './workspace.ts';
 import { workspaceClose } from './workspace-close.ts';
 import { workspaceCreate } from './workspace-create.ts';
+import { workspaceDelete } from './workspace-delete.ts';
 import { workspaceSprintNamingUpdate } from './workspace-sprint-naming-update.ts';
 import { workspaceDodUpdate } from './workspace-dod-update.ts';
 import { workspaceLeaderCandidates } from './workspace-leader-candidates.ts';
@@ -38,6 +39,7 @@ export {
   workspaceLeaderCandidates,
   workspaceList,
   workspaceReopen,
+  workspaceDelete,
 };
 
 export const workspaceOperations: readonly AnyOperationDefinition[] = [
@@ -51,6 +53,7 @@ export const workspaceOperations: readonly AnyOperationDefinition[] = [
   membershipLeave,
   workspaceClose,
   workspaceReopen,
+  workspaceDelete,
   workspaceDodUpdate,
   workspaceSprintNamingUpdate,
   inviteeResolve,

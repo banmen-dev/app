@@ -145,5 +145,6 @@ export {
   respondBillingInvitation,
   removeBillingAdministrator,
 } from './billing.ts';
+export { readBillingOrganizationSummary } from './billing-summary.ts';
 
 export { readAccountTaskOrganizations, reportOrganizationReadFailure } from './cross-organization.ts';

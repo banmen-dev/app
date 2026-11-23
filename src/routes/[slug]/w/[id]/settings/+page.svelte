@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { afterNavigate, beforeNavigate, goto, invalidate } from '$app/navigation';
+  import { afterNavigate, beforeNavigate, goto, invalidate, refreshAll } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import ConfirmDialog from '../../../../../lib/components/ConfirmDialog.svelte';
@@ -13,7 +13,10 @@
   import LoadFailed from '../../../../../lib/components/LoadFailed.svelte';
   import Setting from '../../../../../lib/components/Setting.svelte';
   import PageHead from '../../../../../lib/components/PageHead.svelte';
+  import WorkspaceDeleteSetting from '../../../../../lib/components/WorkspaceDeleteSetting.svelte';
+  import WorkspaceStateSetting from '../../../../../lib/components/WorkspaceStateSetting.svelte';
   import { t } from '../../../../../lib/vocabulary.svelte.ts';
+  import type { WorkspaceView } from '../../../../../lib/workspace.ts';
   import type { PageProps } from './$types';
 
   // ワークスペースの設定の画面（design/settings.html）。今あるのは列（ColumnsSetting）、決まった欄（DefinitionsSetting の kind = 'field'）、
@@ -21,8 +24,8 @@
   // ほかの節（一般、換算比率、ワークスペースの休日）は、それぞれの Issue で .settings の中に、見本の順に足す。
   // 完成の定義は枠の値（workspace.definitionOfDone）を出し、保存したら枠（app:workspace）を読み直す。
   // 開けるのはリーダーと管理者だけ。一般のメンバーが URL で開いたら「入れない」の案内と、バックログへ戻るリンクを出す（メニューにも出さない）。
-  // 閉じたワークスペースでは、節を読み取り専用で出す（枠が読み取り専用の帯を出す）。
-  // 一覧の初回失敗は画面全体を LoadFailed にし、命名ルールの失敗はその節だけへ出す。書いた後の読み直しが失敗したときは、前に読めた一覧を残したまま、
+  // 閉じたワークスペースでは通常の設定を読み取り専用で出し、管理者には再開の操作を出す（枠が読み取り専用の帯を出す）。
+  // 一覧の初回失敗でも利用状態の節は残し、一覧の位置に LoadFailed を出す。命名ルールの失敗はその節だけへ出す。書いた後の読み直しが失敗したときは、前に読めた一覧を残したまま、
   // 節の先頭に「一覧を更新できませんでした」と「もう一度試す」を出す（組織の管理の画面の SectionBoundary と同じ扱い）
   let { data }: PageProps = $props();
 
@@ -30,7 +33,50 @@
 
   const workspace = $derived(data.workspace);
   const slug = $derived(page.params.slug ?? '');
+  const isAdmin = $derived(data.organization?.me.is_admin === true);
+  let stateRefresh = $state.raw<{ workspace: WorkspaceView; status: 'refreshing' | 'failed' } | null>(null);
+  const refreshingState = $derived(
+    stateRefresh?.workspace.id === workspace?.id && stateRefresh?.status === 'refreshing',
+  );
+  const stateReadFailed = $derived(
+    data.workspaceStale || (stateRefresh?.workspace === workspace && stateRefresh?.status === 'failed'),
+  );
+  const stateUnconfirmed = $derived(refreshingState || stateReadFailed);
   const canWrite = $derived(workspace !== null && workspace.closedAt === null);
+  let stateRetryFailure = $state.raw<WorkspaceView | null>(null);
+
+  $effect.pre(() => {
+    if (stateRefresh?.status === 'failed' && stateRefresh.workspace !== workspace) stateRefresh = null;
+    if (stateRetryFailure !== workspace) stateRetryFailure = null;
+  });
+
+  async function refreshWorkspaceState(): Promise<void> {
+    if (workspace === null || refreshingState) return;
+    const target = workspace;
+    const attempt = { workspace: target, status: 'refreshing' } as const;
+    stateRefresh = attempt;
+    try {
+      await refreshAll();
+      if (stateRefresh === attempt) stateRefresh = null;
+    } catch {
+      if (stateRefresh === attempt) stateRefresh = { workspace: target, status: 'failed' };
+    }
+  }
+
+  async function retryWorkspaceState(): Promise<void> {
+    if (refreshingState) return;
+    const workspaceId = workspace?.id;
+    stateRetryFailure = null;
+    await refreshWorkspaceState();
+    if (workspace?.id !== workspaceId) return;
+    if (stateUnconfirmed) {
+      stateRetryFailure = workspace;
+      return;
+    }
+    await tick();
+    if (isAdmin) document.getElementById('workspace-state')?.focus();
+    else focusSettingsHeading();
+  }
 
   // 前に読めた一覧と、読み直しに失敗したか。ワークスペースが替わったら捨てる
   let kept = $state<{ workspaceId: string; definitions: Definitions } | null>(null);
@@ -82,7 +128,12 @@
     if (retryFailed) return;
     refreshedMessage = t('settingsRefreshed');
     await tick();
-    const heading = document.querySelector<HTMLElement>('.settings .setting-title');
+    focusSettingsHeading();
+  }
+
+  function focusSettingsHeading(): void {
+    const heading =
+      document.querySelector<HTMLElement>('.settings .setting-title') ?? document.querySelector<HTMLElement>('h1');
     if (!heading) return;
     if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
     heading.focus();
@@ -102,11 +153,14 @@
   let discardDialog = $state<ReturnType<typeof ConfirmDialog>>();
   let asking = false;
   let leaving = false;
-  afterNavigate(() => {
+  afterNavigate(({ to }) => {
     leaving = false;
+    if (to?.url.hash === '#workspace-state') {
+      void tick().then(() => document.getElementById('workspace-state')?.focus({ preventScroll: true }));
+    }
   });
   beforeNavigate((navigation) => {
-    if (leaving || !canWrite || !(namingDirty || dodDirty)) return;
+    if (leaving || workspace?.closedAt !== null || !(namingDirty || dodDirty)) return;
     if (navigation.to === null) {
       navigation.cancel();
       return;
@@ -160,11 +214,21 @@
       >
     {/snippet}
   </EmptyState>
-{:else if workspace && definitions === null}
-  <LoadFailed inShell />
-{:else if workspace && definitions !== null}
+{:else if workspace}
   <PageHead title={t('pageSettings')} eyebrow={workspace.name} />
   <p class="visually-hidden" role="status">{refreshedMessage}</p>
+  <p class="visually-hidden" role="status">{refreshingState ? t('retrying') : ''}</p>
+  {#if stateReadFailed}
+    <div class="callout is-warn">
+      <Icon name="alert" /><span role="alert">{t('workspaceStateRefreshFailed')}</span>
+      <div class="callout-actions">
+        <button class="btn is-sm" type="button" aria-disabled={refreshingState} onclick={retryWorkspaceState}>
+          {t('retry')}
+        </button>
+        <span class="field-hint" role="status">{stateRetryFailure !== null ? t('retryFailed') : ''}</span>
+      </div>
+    </div>
+  {/if}
   {#if refreshFailed}
     <div class="callout is-warn">
       <Icon name="alert" /><span role="alert">{t('settingsRefreshFailed')}</span>
@@ -178,76 +242,96 @@
   {/if}
   <div class="settings">
     {#key workspace.id}
-      <ColumnsSetting
-        {slug}
-        workspaceId={workspace.id}
-        columns={definitions.columns}
-        {canWrite}
-        onchanged={reload}
-        onstale={stale}
-      />
-      <DefinitionsSetting
-        kind="field"
-        {slug}
-        workspaceId={workspace.id}
-        items={definitions.fields}
-        {canWrite}
-        onchanged={reload}
-        onstale={stale}
-      />
-      {#if naming === null}
-        <Setting
-          title={t('sprintNamingTitle', { sprint: t('sprint') })}
-          description={t('sprintNamingDesc', { sprint: t('sprint') })}
-        >
-          <p class="field-error" role="alert"><Icon name="alert" />{t('sprintNamingLoadFailed')}</p>
-          <button class="btn is-sm" type="button" aria-disabled={retrying} onclick={() => void retry()}
-            >{t('retry')}</button
-          >
-          <span class="field-hint" role="status">{retrying ? t('retrying') : retryFailed ? t('retryFailed') : ''}</span>
-        </Setting>
-      {:else}
-        <SprintNamingSetting
+      {#if isAdmin}
+        <WorkspaceStateSetting
           {slug}
-          workspaceId={workspace.id}
-          ondirty={(dirty) => (namingDirty = dirty)}
-          value={naming}
-          refreshFailed={data.naming === null}
-          onretry={retry}
-          {retrying}
-          retryFailed={retryFailed && data.naming === null}
-          {canWrite}
-          onsaved={reload}
-          onstale={stale}
+          {workspace}
+          {stateUnconfirmed}
+          hasDraft={namingDirty || dodDirty}
+          onrefresh={refreshWorkspaceState}
         />
       {/if}
-      <DodSetting
-        {slug}
-        workspaceId={workspace.id}
-        ondirty={(dirty) => (dodDirty = dirty)}
-        value={workspace.definitionOfDone}
-        {canWrite}
-        onsaved={() => invalidate('app:workspace')}
-        onstale={stale}
-      />
-      <DefinitionsSetting
-        kind="category"
-        {slug}
-        workspaceId={workspace.id}
-        items={definitions.categories}
-        {canWrite}
-        onchanged={reload}
-        onstale={stale}
-      />
-      <DefinitionsSetting
-        kind="repository"
-        {slug}
-        workspaceId={workspace.id}
-        items={definitions.repositories}
-        {canWrite}
-        onchanged={reload}
-        onstale={stale}
-      />
+      {#if definitions === null}
+        <LoadFailed inShell />
+      {:else}
+        <div class="settings" inert={stateUnconfirmed}>
+          <ColumnsSetting
+            {slug}
+            workspaceId={workspace.id}
+            columns={definitions.columns}
+            {canWrite}
+            onchanged={reload}
+            onstale={stale}
+          />
+          <DefinitionsSetting
+            kind="field"
+            {slug}
+            workspaceId={workspace.id}
+            items={definitions.fields}
+            {canWrite}
+            onchanged={reload}
+            onstale={stale}
+          />
+          {#if naming === null}
+            <Setting
+              title={t('sprintNamingTitle', { sprint: t('sprint') })}
+              description={t('sprintNamingDesc', { sprint: t('sprint') })}
+            >
+              <p class="field-error" role="alert"><Icon name="alert" />{t('sprintNamingLoadFailed')}</p>
+              <button class="btn is-sm" type="button" aria-disabled={retrying} onclick={() => void retry()}
+                >{t('retry')}</button
+              >
+              <span class="field-hint" role="status"
+                >{retrying ? t('retrying') : retryFailed ? t('retryFailed') : ''}</span
+              >
+            </Setting>
+          {:else}
+            <SprintNamingSetting
+              {slug}
+              workspaceId={workspace.id}
+              ondirty={(dirty) => (namingDirty = dirty)}
+              value={naming}
+              refreshFailed={data.naming === null}
+              onretry={retry}
+              {retrying}
+              retryFailed={retryFailed && data.naming === null}
+              {canWrite}
+              onsaved={reload}
+              onstale={stale}
+            />
+          {/if}
+          <DodSetting
+            {slug}
+            workspaceId={workspace.id}
+            ondirty={(dirty) => (dodDirty = dirty)}
+            value={workspace.definitionOfDone}
+            {canWrite}
+            onsaved={() => invalidate('app:workspace')}
+            onstale={stale}
+          />
+          <DefinitionsSetting
+            kind="category"
+            {slug}
+            workspaceId={workspace.id}
+            items={definitions.categories}
+            {canWrite}
+            onchanged={reload}
+            onstale={stale}
+          />
+          <DefinitionsSetting
+            kind="repository"
+            {slug}
+            workspaceId={workspace.id}
+            items={definitions.repositories}
+            {canWrite}
+            onchanged={reload}
+            onstale={stale}
+          />
+        </div>
+      {/if}
+      {#if isAdmin && workspace.deleteEnabled}
+        <WorkspaceDeleteSetting {slug} {workspace} {stateUnconfirmed} />
+      {/if}
     {/key}
   </div>
 {/if}
