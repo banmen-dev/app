@@ -156,6 +156,58 @@ describe('task-create', () => {
     else expect(changes.body_md).toEqual([null, expected]);
   });
 
+  test('期日を作成時に保存し、応答、詳細、作成の履歴で読める。省くと期日なし（#1501）', async () => {
+    const target = await createTarget();
+    const res = await post(app, taskCreate, {
+      slug: target.slug,
+      token: target.member.token,
+      body: { workspace_id: target.workspace.id, title: '期日付きのタスク', due_on: '2026-12-01' },
+    });
+    expect(res.status).toBe(200);
+    const { task } = taskCreate.output.parse(await res.json());
+    expect(task.due_on).toBe('2026-12-01');
+    const detail = await post(app, taskDetail, {
+      slug: target.slug,
+      token: target.member.token,
+      body: { workspace_id: target.workspace.id, task_id: task.id },
+    });
+    expect(taskDetail.output.parse(await detail.json()).task.due_on).toBe('2026-12-01');
+    const records = await recordsOf(target, task.id);
+    expect(records.task!.due_on).toBe('2026-12-01');
+    expect(JSON.parse(records.logs[0]!.changes_json).due_on).toEqual([null, '2026-12-01']);
+
+    const omitted = await post(app, taskCreate, {
+      slug: target.slug,
+      token: target.member.token,
+      body: { workspace_id: target.workspace.id, title: '期日なしのタスク' },
+    });
+    const plain = taskCreate.output.parse(await omitted.json()).task;
+    expect(plain.due_on).toBeNull();
+    const plainRecords = await recordsOf(target, plain.id);
+    expect(plainRecords.task!.due_on).toBeNull();
+    expect(JSON.parse(plainRecords.logs[0]!.changes_json)).not.toHaveProperty('due_on');
+  });
+
+  test.each(['2026-02-30', '2026-13-01', '2026/12/01', '20261201', ''])(
+    '暦に無い期日（%s）は400の invalid_input で断り、タスクを作らない（#1501）',
+    async (dueOn) => {
+      const target = await createTarget();
+      const res = await post(app, taskCreate, {
+        slug: target.slug,
+        token: target.member.token,
+        body: { workspace_id: target.workspace.id, title: '作られないタスク', due_on: dueOn },
+      });
+      expect(res.status).toBe(400);
+      expect(await errorCodeOf(res)).toBe('invalid_input');
+      const db = orgDb(env, target.organization.verified);
+      expect(
+        await db.rows(
+          db.statement((q) => q.selectFrom('tasks').select('id').where('workspace_id', '=', target.workspace.id)),
+        ),
+      ).toEqual([]);
+    },
+  );
+
   test.each(['あ'.repeat(10_001), '😀'.repeat(10_001), '本文\u0000末尾', '本文\u200b末尾'])(
     '使えない本文（%#）は400で断り、タスクも履歴も作らない',
     async (bodyMd) => {
@@ -451,6 +503,7 @@ describe('task-create の親のストーリー', () => {
           body_md: '競合した作成の本文',
           points: null,
           assignee_user_id: null,
+          due_on: null,
           story_id: story.id,
           repository_id: null,
           category_id: null,
@@ -1291,6 +1344,7 @@ describe('task-complete', () => {
         body_md: '閉じた作成の本文',
         points: 3,
         assignee_user_id: null,
+        due_on: null,
         story_id: null,
         repository_id: null,
         category_id: null,

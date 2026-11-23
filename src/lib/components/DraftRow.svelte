@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { tick, type Snippet } from 'svelte';
   import { t } from '../vocabulary.svelte.ts';
   import Icon from './Icon.svelte';
 
@@ -10,6 +10,8 @@
   // 変換中でない Esc は書きかけを捨てる（フォーカスは欄に残す。preventDefault するので、引き出しは閉じない）。
   // 空のまま Enter を押しても、離れても、何も送らない。書きかけで離れたときは、書きかけを残す（自動では作らない）。
   // 送っている間は欄を readonly にしてフォーカスを残し、読み上げの領域に「作っています」を出す。
+  // attrs を渡すと（ボードの列の末尾。#1501）、題の欄の下に作る前に選ぶ属性（担当と期日のチップ）を置く。値は呼び出し側が持ち、
+  // 作れたら呼び出し側が空に戻す。送っている間かどうかを渡す（チップを押せなくする）。Esc で書きかけを捨てるときは ondiscard も呼ぶ。
   let {
     label,
     name = label,
@@ -18,6 +20,8 @@
     keyshortcut,
     placeholder,
     describedby,
+    attrs,
+    ondiscard,
   }: {
     // 外から `c` などでフォーカスを移せるときの、そのキー（aria-keyshortcuts で読み上げに伝える。フォーカスが移る先の欄に付ける）
     keyshortcut?: string;
@@ -32,6 +36,10 @@
     // 画面の検査。エラーの文か、null
     problem: (title: string) => string | null;
     create: (title: string) => Promise<string | null>;
+    // 題の欄の下に並べる、作る前に選ぶ属性。引数は送っている間か
+    attrs?: Snippet<[boolean]>;
+    // Esc で書きかけを捨てたとき（属性の選択も捨てるため）
+    ondiscard?: () => void;
   } = $props();
 
   const ids = $props.id();
@@ -86,6 +94,7 @@
       if (sending) return;
       value = '';
       error = null;
+      ondiscard?.();
     }
   }
 </script>
@@ -114,3 +123,5 @@
 {#if error !== null}
   <p class="field-error draft-error" id={errorId} role="alert">{error}</p>
 {/if}
+<!-- 属性は題の失敗の文の後に置く（失敗の文を題の欄のすぐ下に読ませる） -->
+{#if attrs !== undefined}{@render attrs(sending)}{/if}

@@ -726,6 +726,14 @@
     return `<div class="draft-row" data-draft-row>${icon("plus")}<label class="visually-hidden" for="${id}">${esc(label)}</label>` +
       `<input class="input" id="${id}" data-draft="${kind}:${key}" placeholder="${esc(placeholder ?? `${label}（題を打って Enter）`)}" autocomplete="off" enterkeyhint="done"></div>`;
   }
+  // ボードの列の末尾の空の行の下に並べる、作る前に選ぶ担当と期日のチップ（.draft-attrs。本番の DraftAttrs。#1501）。
+  // 選んだ値は見本の中の draftChoices に列ごとに持ち、題を打って Enter で作ると、そのタスクに付けて空に戻す
+  const draftChoices = {};
+  function draftAttrs(key, column) {
+    const choice = draftChoices[key] || {};
+    const x = { id: `draft-col-${key}`, who: choice.who || null, due: choice.due || null };
+    return `<div class="draft-attrs" role="group" aria-label="作る${t("task")}の${t("assignee")}と${t("due")}: ${esc(column || key)}">${attrChip(x, "who", { search: true })}${attrChip(x, "due")}</div>`;
+  }
   // 属性のチップ。タスクの属性（期日、リポジトリ、区分、ポイント、担当）を、行のチップを押して後から決める。値がなければ薄い破線の形（未設定）。
   // 押すと値の一覧（行の「⋯」と同じメニュー）が開き、選ぶと見本の中で保存する。押せるチップは題の後ろに下向きの山形を置く。
   // opts.search は、担当の一覧を絞り込みの欄つきの窓（role="dialog"）に入れ、先頭に「自分に割り当てる」を置く（本番の AttrChip の searchable。ボードのカード）。
@@ -1147,7 +1155,7 @@
         <div class="board-col-head"><button class="board-col-toggle" type="button" aria-label="${esc(name)}の開閉" aria-expanded="${!collapsed}" data-column-collapse="${esc(collapseKey)}">${icon("chevron")}</button>${c.done ? icon("check") : ""}<span class="board-col-name">${esc(name)}</span><span class="board-col-n">${items.length}</span><span class="board-col-pts">${sumPts(items)} pt</span></div>
         ${collapsed ? "" : `${c.done && D.definitionOfDone.length ? `<details class="dod"><summary>${t("dod")}</summary>${dodDoc()}</details>` : ""}
         ${items.map((x, i) => card(x, c.done ? undefined : orderOf(i), { mark: opts.cardMarks && opts.cardMarks(x, i, c), grab: opts.grab ? opts.grab(x) : true, key: opts.key, highlightStory: opts.highlightStory })).join("") || `<p class="board-empty">なし</p>`}
-        ${opts.draft && !c.done ? `<div class="board-col-draft">${draftRow("col", c.id, `${t("task")}を足す: ${c.name}`, `${t("task")}を足す`)}${opts.story ? `<p class="action-note">${storyFilterText("sprintStoryCreateUnder")}</p>` : ""}</div>` : ""}` }
+        ${opts.draft && !c.done ? `<div class="board-col-draft">${draftRow("col", c.id, `${t("task")}を足す: ${c.name}`, `${t("task")}を足す`)}${draftAttrs(c.id, c.name)}${opts.story ? `<p class="action-note">${storyFilterText("sprintStoryCreateUnder")}</p>` : ""}</div>` : ""}` }
       </section>`;
     }).join("")}</div></div></div>`;
   }
@@ -2339,7 +2347,10 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       toast(`${icon("check")}${t(kind === "new-epic" ? "epic" : "story")}を足しました: ${esc(title)}`);
       return;
     }
-    const x = { id: `n${++draftSeq}`, ws: "wa", title, story: kind === "story" ? key : null, sprint: kind === "col" ? "sp14" : null, col: kind === "col" ? key : null, who: null, pts: null, creator: D.me, fieldsEmpty: true };
+    // ボードの列では、作る前に選んだ担当と期日を付け、選択を空に戻す（#1501）
+    const choice = kind === "col" ? draftChoices[key] || {} : {};
+    if (kind === "col") delete draftChoices[key];
+    const x = { id: `n${++draftSeq}`, ws: "wa", title, story: kind === "story" ? key : null, sprint: kind === "col" ? "sp14" : null, col: kind === "col" ? key : null, who: choice.who || null, due: choice.due || null, pts: null, creator: D.me, fieldsEmpty: true };
     D.tasks.push(x);
     // redraw() は値のある空の行を控えて戻すので、足した題が戻らないよう、描き直す前にこの欄だけ空にする
     input.value = "";
@@ -2353,7 +2364,14 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const input = ev.target.matches && ev.target.matches("input[data-draft]") ? ev.target : null;
     if (!input) return false;
     if (ev.key === "Enter") { if (ev.isComposing || ev.keyCode === 229) return true; ev.preventDefault(); createFromDraft(input); return true; }
-    if (ev.key === "Escape") { if (ev.isComposing || ev.keyCode === 229) return true; ev.stopPropagation(); input.value = ""; return true; }
+    if (ev.key === "Escape") {
+      if (ev.isComposing || ev.keyCode === 229) return true;
+      ev.stopPropagation(); input.value = "";
+      // ボードの列では、選んだ担当と期日も捨てる
+      const [kind, key] = input.dataset.draft.split(":");
+      if (kind === "col" && draftChoices[key]) { delete draftChoices[key]; redrawAll(); document.getElementById(input.id)?.focus(); }
+      return true;
+    }
     return false;
   }
 
@@ -4186,6 +4204,12 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
         });
         closeAllRowMenus(); button.focus(); return;
       }
+      // 列の末尾の空の行のチップは、作る前の選択として列ごとに持つだけで、保存しない（#1501）
+      if (id.startsWith("draft-col-")) {
+        const key = id.slice("draft-col-".length);
+        draftChoices[key] = { ...draftChoices[key], [name]: value || null };
+        redrawAll(); document.querySelector(`[data-chip-for="${id}:${name}"]`)?.focus(); return;
+      }
       const x = task(id);
       if (x) { if (name === "pts") x.pts = value === "" ? null : Number(value); else if (["who", "due", "repo", "cat"].includes(name)) x[name] = value || null; }
       redrawAll(); document.querySelector(`[data-chip-for="${id}:${name}"]`)?.focus(); toast(`${icon("check")}保存しました`); return;
@@ -4810,7 +4834,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     D, t, brandMark, brandSymbol, googleMark, githubMark, THEMES, THEME_LABEL, THEME_NOTE, esc, icon, md, sumPts, cycleTheme, setTheme, applyTheme, mount,
     onRedraw: (fn) => extraRedraws.push(fn), openDrawer, drawerHtml, drawerState: drawer, flashRow,
     user, task, tasksWhere, repoTag, categoryTag, sprintTag, repoPicker, sprintLabel, colName, categoryOf, storyPts, epicPts, dueOf,
-    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, pts, dueChip, taskDue, sourceKey, entry, rowMenu, orderItems, draftRow, attrChip, book, section, foldedSection, pane, paneList, newsList, dashboard, activity, activityLoading, activityFailed, activityEmptyNoWorkspace, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
+    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, pts, dueChip, taskDue, sourceKey, entry, rowMenu, orderItems, draftRow, draftAttrs, attrChip, book, section, foldedSection, pane, paneList, newsList, dashboard, activity, activityLoading, activityFailed, activityEmptyNoWorkspace, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
     narrowDisclosure, popover, card, board, treeStory, treeEpic, completedTasks, sprintNotice, progress, load, capacityRows,
     openDialog, closeDialog, toast, miniCap, redraw: () => redrawAll(), DIALOGS, loginTarget, orgMenuHtml, workspaceMenuHtml, accountMenuHtml, breadcrumbHtml,
     filesOf, fileThumb, fileRow, dropzone, attachments, markdownEditor, markdownToolbarHtml, mdBody, markdownSample, meter, storageBytes,
