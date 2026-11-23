@@ -117,7 +117,7 @@
   if (!content) return;
   var actions = shape === 'plan' || shape === 'wiki' ? '<i class="is-button"></i>' : '';
   // ワークスペースの画面で小見出しを 760px 以下だけに出す形（src/lib/loading-shape.ts の loadingShapeNarrowEyebrow）
-  var narrowEyebrow = parts[1] === 'w' && ['tree', 'list', 'plan', 'settings', 'wiki'].indexOf(shape) !== -1;
+  var narrowEyebrow = parts[1] === 'w' && ['tree', 'list', 'plan', 'settings', 'wiki', 'board'].indexOf(shape) !== -1;
   var head =
     shape === 'task'
       ? ''

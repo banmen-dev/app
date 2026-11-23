@@ -92,7 +92,7 @@ describe('最初の読み込みの骨組みの形（static/boot-shape.js）', ()
       assert.equal(content.innerHTML.includes('is-eyebrow is-narrow-only'), loadingShapeNarrowEyebrow(id), id);
     }
     assert.equal(loadingShapeNarrowEyebrow('/[slug]/w/[id]/members'), true);
-    assert.equal(loadingShapeNarrowEyebrow('/[slug]/w/[id]/board'), false);
+    assert.equal(loadingShapeNarrowEyebrow('/[slug]/w/[id]/board'), true);
     assert.equal(loadingShapeNarrowEyebrow('/[slug]/w/[id]/epics/[epicId]'), false);
     assert.equal(loadingShapeNarrowEyebrow('/[slug]/wiki'), false);
     assert.equal(loadingShapeNarrowEyebrow('/[slug]/me'), false);

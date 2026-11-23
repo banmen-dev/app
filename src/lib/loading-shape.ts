@@ -59,9 +59,10 @@ export const loadingShapeCounts = {
 
 // ワークスペースの画面のうち、見出しの小見出し（ワークスペース名）を 760px 以下だけに出す画面（PageHead の narrowEyebrow。#1509）。
 // 骨組みの小見出しの帯も 761px 以上では出さず、読み込んだ後と見出しの位置を揃える。
-// ボード（進行中のスプリントの小見出し）とエピック（区分の小見出し）は、どの幅でも小見出しを出すので含めない。
+// ボードは進行中のスプリントがあれば小見出しを持たず（#1498）、無ければワークスペース名を 760px 以下だけに出すので含める。
+// エピック（区分の小見出し）は、どの幅でも小見出しを出すので含めない。
 // 最初の読み込みの static/boot-shape.js は同じ対応を URL から持つ（scripts/boot-shape.test.ts が突き合わせる）
-const narrowEyebrowShapes: readonly LoadingShape[] = ['tree', 'list', 'plan', 'settings', 'wiki'];
+const narrowEyebrowShapes: readonly LoadingShape[] = ['tree', 'list', 'plan', 'settings', 'wiki', 'board'];
 export function loadingShapeNarrowEyebrow(routeId: string | null | undefined): boolean {
   const shape = loadingShape(routeId);
   return shape !== null && routeId!.startsWith('/[slug]/w/[id]') && narrowEyebrowShapes.includes(shape);
