@@ -128,11 +128,10 @@ export const dictionary = defineDictionary({
   // 解約で停止した組織のデータを消す予定日（{date}）。予定日を過ぎても消すまでは一覧に残る
   billingPurgeOn: '{date} にデータを消します',
   billingPurgeDue: 'データを消す予定日（{date}）を過ぎています',
-  // お試しの期限。契約の更新日ではなく、契約を結ぶまでの期限
+  // お試しの期限。契約の更新日ではなく、契約を結ぶまでの期限。値は組織の管理の画面と同じ orgTrialEndsOn
   billingTrialLabel: 'お試しの期限',
-  billingTrialEnds: '{date} まで',
   billingUsageSeatsLabel: '人数',
-  // {used} は数える人の数（招待中の人を含む）、{limit} は人数の上限
+  // 使用量と上限を並べる。{used} は数える人の数（招待中の人を含む）、{limit} は人数の上限
   billingUsageSeats: '{used} / {limit} 人',
   billingUsageStorageLabel: '容量',
   // {used} と {quota} は容量の表示（operatorQuotaSize など）

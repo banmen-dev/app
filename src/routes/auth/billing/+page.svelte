@@ -8,6 +8,8 @@
   import LoadFailed from '../../../lib/components/LoadFailed.svelte';
   import LogoutButton from '../../../lib/components/LogoutButton.svelte';
   import ConfirmDialog from '../../../lib/components/ConfirmDialog.svelte';
+  import BillingSummary from '../../../lib/components/BillingSummary.svelte';
+  import { planName } from '../../../lib/plan-terms.ts';
   import { callOperation, type ApiResult } from '../../../lib/api.ts';
   import { t } from '../../../lib/vocabulary.svelte.ts';
   import { formatDateTime } from '../../../lib/format-datetime.ts';
@@ -47,6 +49,11 @@
     accepted: 'billingEventAccepted',
     declined: 'billingEventDeclined',
     removed: 'billingEventRemoved',
+  } as const;
+  const stateKeys = {
+    active: 'billingStateActive',
+    suspended: 'billingStateSuspended',
+    cancelled: 'billingStateCancelled',
   } as const;
 
   async function save(action: () => Promise<ApiResult<unknown>>, area: string, restoreFocus = false) {
@@ -146,6 +153,9 @@
     </GateSheet>
     {#if data.selected}
       {@const selected = data.selected}
+      <GateSheet title={t('billingSummary', { name: selected.name })}>
+        <BillingSummary summary={selected.summary} />
+      </GateSheet>
       <GateSheet title={t('billingAdministrators', { name: selected.name })}>
         <div class="form-actions"><a class="btn" href={resolve('/auth/billing')}>{t('billingBack')}</a></div>
         <p class="field-hint">{t('billingLastHint')}</p>
@@ -251,7 +261,15 @@
           {#each data.organizations as organization (organization.slug)}<a
               class="choice"
               href={resolve(`/auth/billing?organization=${encodeURIComponent(organization.slug)}`)}
-              ><b>{organization.name}</b></a
+              ><div>
+                <b>{organization.kind === 'personal' ? t('personalOrganizationName') : organization.name}</b><span
+                  class="form-actions"
+                  ><span class="chip">{planName(organization, t)}</span><span
+                    class="chip"
+                    class:is-warn={organization.state !== 'active'}>{t(stateKeys[organization.state])}</span
+                  ></span
+                >
+              </div></a
             >{/each}
         </div>
       </GateSheet>

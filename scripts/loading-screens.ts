@@ -32,8 +32,11 @@ export const screens: Screen[] = [
   {
     route: '/auth/billing',
     operations: [op('my-billing-organizations', {}, false, true)],
-    after: [op('billing-admin-list', { slug: 'aoba' }, false, true)],
-    note: '担当組織を選択した経路。一覧取得後に担当者と履歴を取得する。',
+    after: [
+      op('billing-admin-list', { slug: 'aoba' }, false, true),
+      op('billing-organization-summary', { slug: 'aoba' }, false, true),
+    ],
+    note: '担当組織を選択した経路。一覧取得後に担当者と履歴、契約と使用量を並べて取得する。',
   },
   { route: '/auth/setup', operations: [op('onboarding-status', {}, false, true), op('me', {}, false, true)] },
   { route: '/operator', operator: true, operations: [op('list-organizations', {}, false, true)] },

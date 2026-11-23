@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { word, type DictionaryKey, type TemplateParams } from '../shared/vocabulary.ts';
-import { needsCustomContractLimits, planLabel, planTermsText } from './plan-terms.ts';
+import { needsCustomContractLimits, planLabel, planName, planTermsText } from './plan-terms.ts';
 
 const t = (key: DictionaryKey, params?: TemplateParams) => word(key, params);
 
@@ -90,4 +90,16 @@ test.each([
 ] as const)('%s の契約を名前で表示する', (plan, name) => {
   expect(planLabel({ kind: 'team', contract: { plan, billing_interval: 'monthly' } }, t)).toBe(`${name}・月払い`);
   expect(planTermsText({ plan, billing_interval: 'yearly' }, t)).toBe(`${name}・年払い`);
+});
+
+describe('planName', () => {
+  test('契約があればプラン名だけを出し、支払いの周期は出さない', () => {
+    expect(planName({ kind: 'team', plan: 'team' }, t)).toBe('チーム');
+    expect(planName({ kind: 'team', plan: 'custom' }, t)).toBe('個別');
+    expect(planName({ kind: 'personal', plan: 'personal' }, t)).toBe('パーソナル');
+  });
+  test('契約が無ければチーム用は「未契約」、自分用は「パーソナル」', () => {
+    expect(planName({ kind: 'team', plan: null }, t)).toBe('未契約');
+    expect(planName({ kind: 'personal', plan: null }, t)).toBe('パーソナル');
+  });
 });

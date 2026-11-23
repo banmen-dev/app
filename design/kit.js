@@ -179,11 +179,10 @@
     // 解約で停止した組織のデータを消す予定日（{date}）。予定日を過ぎても消すまでは一覧に残る
     billingPurgeOn: '{date} にデータを消します',
     billingPurgeDue: 'データを消す予定日（{date}）を過ぎています',
-    // お試しの期限。契約の更新日ではなく、契約を結ぶまでの期限
+    // お試しの期限。契約の更新日ではなく、契約を結ぶまでの期限。値は組織の管理の画面と同じ orgTrialEndsOn
     billingTrialLabel: 'お試しの期限',
-    billingTrialEnds: '{date} まで',
     billingUsageSeatsLabel: '人数',
-    // {used} は数える人の数（招待中の人を含む）、{limit} は人数の上限
+    // 使用量と上限を並べる。{used} は数える人の数（招待中の人を含む）、{limit} は人数の上限
     billingUsageSeats: '{used} / {limit} 人',
     billingUsageStorageLabel: '容量',
     // {used} と {quota} は容量の表示（operatorQuotaSize など）
@@ -191,12 +190,10 @@
     billingUsageNote:
       '使用量は{organization}全体の合計です。人数は招待中の人を含み、容量は添付ファイルと Wiki（過去の版を含む）の合計です。',
     // 契約の表示（請求画面の見本が使う。組織の管理の画面の見本は文を直に書いている）
+    orgTrialEndsOn: '{datetime} ごろに止まります',
     orgPlanTermsLabel: '契約',
     orgPlanExtraLabel: '追加容量',
     orgPlanExtraNone: 'なし',
-    orgPlanMemberLimitLabel: '人数の上限',
-    orgPlanMemberLimit: '{count} 人',
-    orgPlanQuotaLabel: '容量の上限',
     orgPlanNoneNote: 'まだ契約していません。上限は運用者が決めた値です。',
     orgPlanContact: 'プラン、支払いの周期、追加容量を変えるときは、運用者に問い合わせてください。',
     planTerms: '{plan}・{interval}',

@@ -32,8 +32,8 @@ const chip = (text, tone = "") => `<span class="chip${tone ? ` ${tone}` : ""}">$
 // 担当組織の見本。plan は planTerms のプラン名（未契約は null）、state は利用の状態
 const ORGS = {
   aoba: { name: "青葉工房", plan: "チーム", interval: "年払い", extras: "+10 GB × 2 口", members: 15, quota: "50 GB", seats: 12, storage: "38.2 GB", state: "billingStateActive" },
-  fujino: { name: "藤野工房", plan: null, members: 15, quota: "30 GB", seats: 4, storage: "1.3 GB", state: "billingStateActive", trial: "2026/12/20" },
-  kaede: { name: "楓工房", plan: "スモール", interval: "月払い", extras: null, members: 3, quota: "10 GB", seats: 3, storage: "6.8 GB", state: "billingStateCancelled", purge: "2026/12/15" },
+  fujino: { name: "藤野工房", plan: null, members: 15, quota: "30 GB", seats: 4, storage: "1.3 GB", state: "billingStateActive", trial: "2026-12-21 09:00" },
+  kaede: { name: "楓工房", plan: "スモール", interval: "月払い", extras: null, members: 3, quota: "10 GB", seats: 3, storage: "6.8 GB", state: "billingStateCancelled", purge: "2026-12-15" },
 };
 const stateChip = (org) => chip(t(org.state), org.state === "billingStateActive" ? "" : "is-warn");
 const planChip = (org) => org.plan === null ? chip(t("operatorPlanNone")) : chip(org.plan);
@@ -41,11 +41,9 @@ const summary = (org) => `<section class="gate-sheet">
   ${title("billingSummary", org.name)}
   <dl class="props">
     <div><dt>${t("billingStateLabel")}</dt><dd>${stateChip(org)}${org.purge ? ` <span class="props-note">${esc(t("billingPurgeOn").replace("{date}", org.purge))}</span>` : ""}</dd></div>
-    ${org.trial ? `<div><dt>${t("billingTrialLabel")}</dt><dd>${esc(t("billingTrialEnds").replace("{date}", org.trial))}</dd></div>` : ""}
+    ${org.trial ? `<div><dt>${t("billingTrialLabel")}</dt><dd class="mono">${esc(t("orgTrialEndsOn").replace("{datetime}", org.trial))}</dd></div>` : ""}
     <div><dt>${t("orgPlanTermsLabel")}</dt><dd>${org.plan === null ? chip(t("operatorPlanNone")) : esc(t("planTerms").replace("{plan}", org.plan).replace("{interval}", org.interval))}</dd></div>
     ${org.plan === null ? "" : `<div><dt>${t("orgPlanExtraLabel")}</dt><dd>${esc(org.extras ?? t("orgPlanExtraNone"))}</dd></div>`}
-    <div><dt>${t("orgPlanMemberLimitLabel")}</dt><dd>${esc(t("orgPlanMemberLimit").replace("{count}", org.members))}</dd></div>
-    <div><dt>${t("orgPlanQuotaLabel")}</dt><dd>${esc(org.quota)}</dd></div>
     <div><dt>${t("billingUsageSeatsLabel")}</dt><dd class="mono">${esc(t("billingUsageSeats").replace("{used}", org.seats).replace("{limit}", org.members))}</dd></div>
     <div><dt>${t("billingUsageStorageLabel")}</dt><dd class="mono">${esc(t("billingUsageStorage").replace("{used}", org.storage).replace("{quota}", org.quota))}</dd></div>
   </dl>

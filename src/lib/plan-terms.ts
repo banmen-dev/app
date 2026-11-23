@@ -60,6 +60,15 @@ export function planLabel(
   return translate(organization.kind === 'personal' ? 'planPersonal' : 'operatorPlanNone');
 }
 
+// 請求画面の担当組織の一覧の印。周期は出さずプラン名だけ（「チーム」）。契約が無ければ自分用は「パーソナル」、チーム用は「未契約」
+export function planName(
+  organization: { kind: 'team' | 'personal'; plan: OrganizationPlan | null },
+  translate: Translate,
+): string {
+  if (organization.plan !== null) return translate(PLAN_KEYS[organization.plan]);
+  return translate(organization.kind === 'personal' ? 'planPersonal' : 'operatorPlanNone');
+}
+
 // 前の版の個別契約は標準値を持たない。追加容量を変える前に、プランの変更で標準値を設定する。
 export function needsCustomContractLimits(
   contract: {

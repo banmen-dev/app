@@ -2,7 +2,11 @@ import { redirect } from '@sveltejs/kit';
 import { resolve } from '$app/paths';
 import { callOperation } from '../../../lib/api.ts';
 import { consentUrl, isTermsRequired, isUnauthenticated, loginUrl } from '../../../lib/login-redirect.ts';
-import { myBillingOrganizations, billingAdminList } from '../../../shared/operations/billing.ts';
+import {
+  myBillingOrganizations,
+  billingAdminList,
+  billingOrganizationSummary,
+} from '../../../shared/operations/billing.ts';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch, url }) => {
@@ -14,9 +18,17 @@ export const load: PageLoad = async ({ fetch, url }) => {
   const organization = result.data.organizations.find((item) => item.slug === slug);
   if (slug !== null && !organization) redirect(307, resolve('/auth/billing'));
   if (organization) {
-    const details = await callOperation(billingAdminList, { slug: organization.slug }, { fetcher: fetch });
-    if (!details.ok) return { failed: true as const };
-    return { failed: false as const, ...result.data, selected: { ...organization, ...details.data } };
+    // 契約と使用量は担当者の一覧と別の操作で、組織の DB を読む（失敗や負荷を担当者の管理に巻き込まない）。並べて呼ぶ
+    const [details, summary] = await Promise.all([
+      callOperation(billingAdminList, { slug: organization.slug }, { fetcher: fetch }),
+      callOperation(billingOrganizationSummary, { slug: organization.slug }, { fetcher: fetch }),
+    ]);
+    if (!details.ok || !summary.ok) return { failed: true as const };
+    return {
+      failed: false as const,
+      ...result.data,
+      selected: { ...organization, ...details.data, summary: summary.data },
+    };
   }
   return { failed: false as const, ...result.data, selected: null };
 };
