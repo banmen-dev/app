@@ -17,7 +17,8 @@
 "use strict";
 // /auth/billing の見本。業務利用の組織の枠には入れず、共通の Gate / GateSheet と同じ紙を並べる。
 // ?state=empty / failed / saving / actionFailed / refreshFailed でデータと通知の状態を確認できる。
-// ?organization=aoba は担当者と履歴、?operator=1 は最初の指名を確認する。
+// ?organization=aoba は契約と使用量・担当者・履歴、?operator=1 は最初の指名を確認する。
+// ?organization=fujino は未契約でお試し中、?organization=kaede は解約で停止した組織の契約と使用量を確認する（#1241）。
 const { esc, icon } = SQ;
 const t = (key) => SQ.t(key).replaceAll("{organization}", SQ.t("organization")).replaceAll("{admin}", SQ.t("admin"));
 const params = new URLSearchParams(location.search);
@@ -27,6 +28,31 @@ const saving = state === "saving";
 const me = "019aa222-1111-7000-8000-000000000001";
 const next = "019aa222-1111-7000-8000-000000000002";
 const label = (key, name) => t(key).replace("{name}", name);
+const chip = (text, tone = "") => `<span class="chip${tone ? ` ${tone}` : ""}">${esc(text)}</span>`;
+// 担当組織の見本。plan は planTerms のプラン名（未契約は null）、state は利用の状態
+const ORGS = {
+  aoba: { name: "青葉工房", plan: "チーム", interval: "年払い", extras: "+10 GB × 2 口", members: 15, quota: "50 GB", seats: 12, storage: "38.2 GB", state: "billingStateActive" },
+  fujino: { name: "藤野工房", plan: null, members: 15, quota: "30 GB", seats: 4, storage: "1.3 GB", state: "billingStateActive", trial: "2026/12/20" },
+  kaede: { name: "楓工房", plan: "スモール", interval: "月払い", extras: null, members: 3, quota: "10 GB", seats: 3, storage: "6.8 GB", state: "billingStateCancelled", purge: "2026/12/15" },
+};
+const stateChip = (org) => chip(t(org.state), org.state === "billingStateActive" ? "" : "is-warn");
+const planChip = (org) => org.plan === null ? chip(t("operatorPlanNone")) : chip(org.plan);
+const summary = (org) => `<section class="gate-sheet">
+  ${title("billingSummary", org.name)}
+  <dl class="props">
+    <div><dt>${t("billingStateLabel")}</dt><dd>${stateChip(org)}${org.purge ? ` <span class="props-note">${esc(t("billingPurgeOn").replace("{date}", org.purge))}</span>` : ""}</dd></div>
+    ${org.trial ? `<div><dt>${t("billingTrialLabel")}</dt><dd>${esc(t("billingTrialEnds").replace("{date}", org.trial))}</dd></div>` : ""}
+    <div><dt>${t("orgPlanTermsLabel")}</dt><dd>${org.plan === null ? chip(t("operatorPlanNone")) : esc(t("planTerms").replace("{plan}", org.plan).replace("{interval}", org.interval))}</dd></div>
+    ${org.plan === null ? "" : `<div><dt>${t("orgPlanExtraLabel")}</dt><dd>${esc(org.extras ?? t("orgPlanExtraNone"))}</dd></div>`}
+    <div><dt>${t("orgPlanMemberLimitLabel")}</dt><dd>${esc(t("orgPlanMemberLimit").replace("{count}", org.members))}</dd></div>
+    <div><dt>${t("orgPlanQuotaLabel")}</dt><dd>${esc(org.quota)}</dd></div>
+    <div><dt>${t("billingUsageSeatsLabel")}</dt><dd class="mono">${esc(t("billingUsageSeats").replace("{used}", org.seats).replace("{limit}", org.members))}</dd></div>
+    <div><dt>${t("billingUsageStorageLabel")}</dt><dd class="mono">${esc(t("billingUsageStorage").replace("{used}", org.storage).replace("{quota}", org.quota))}</dd></div>
+  </dl>
+  ${org.plan === null ? `<p class="props-note">${t("orgPlanNoneNote")}</p>` : ""}
+  <p class="props-note">${t("billingUsageNote")}</p>
+  <div class="callout is-info">${icon("mail")}<span>${t("orgPlanContact")}</span></div>
+</section>`;
 const title = (key, name) => `<h2 class="dialog-title">${esc(name ? label(key, name) : t(key))}</h2>`;
 const actionStatus = (id) => `<p id="${id}" class="${state === "actionFailed" ? "field-error" : "field-hint"}" role="status" tabindex="-1">${saving ? t("billingBusy") : state === "actionFailed" ? t("billingFailed") : ""}</p>`;
 const accountField = (id) => `<label class="field"><span class="field-label">${t("billingTargetAccount")}</span><input class="input" id="${id}" required maxlength="36" aria-describedby="${id}-status" aria-invalid="${state === "actionFailed"}"></label>`;
@@ -52,12 +78,14 @@ SQ.mount("billing", () => `
       <a href="billing.html">${t("billingTitle")}</a> · <a href="billing.html?state=empty">${t("billingEmpty")}</a> ·
       <a href="billing.html?state=failed">${t("loadFailedTitle")}</a> · <a href="billing.html?organization=aoba&amp;state=saving">${t("billingBusy")}</a> ·
       <a href="billing.html?organization=aoba&amp;state=actionFailed">${t("billingFailed")}</a> · <a href="billing.html?state=refreshFailed">${t("billingRefreshFailed")}</a> ·
-      <a href="billing.html?operator=1">${t("billingBootstrap")}</a>
+      <a href="billing.html?operator=1">${t("billingBootstrap")}</a> ·
+      <a href="billing.html?organization=fujino">${t("operatorPlanNone")}</a> · <a href="billing.html?organization=kaede">${t("billingStateCancelled")}</a>
     </p>
   </section>
   ${state === "failed" ? "" : state === "refreshFailed" ? `<section class="gate-sheet"><p class="field-error" role="alert">${t("billingRefreshFailed")}</p><a class="btn is-sm" href="billing.html">${t("retry")}</a></section>` : selected ? `
+    ${summary(ORGS[selected] ?? ORGS.aoba)}
     <section class="gate-sheet">
-      ${title("billingAdministrators", "青葉工房")}
+      ${title("billingAdministrators", (ORGS[selected] ?? ORGS.aoba).name)}
       <div class="form-actions"><a class="btn" href="billing.html">${t("billingBack")}</a></div>
       <p class="field-hint">${t("billingLastHint")}</p>
       <div class="choice-list">
@@ -73,7 +101,7 @@ SQ.mount("billing", () => `
       ${state === "empty" ? `<p>${t("billingInvitationEmpty")}</p>` : `<div class="choice-list"><div class="choice is-static"><div><b>ひばり工房</b><p id="invitation-status" role="status" tabindex="-1"></p></div><div class="form-actions"><button class="btn is-primary" type="button" aria-label="${esc(label("billingAcceptFor", "ひばり工房"))}" data-billing-action="invitation-status">${t("billingAccept")}</button><button class="btn" type="button" aria-label="${esc(label("billingDeclineFor", "ひばり工房"))}" data-billing-action="invitation-status">${t("billingDecline")}</button></div></div></div>`}
     </section>
     <section class="gate-sheet">${title("billingOrganizations")}
-      ${state === "empty" ? `<p>${t("billingEmpty")}</p>` : `<div class="choice-list">${["青葉工房", "藤野工房"].map((name) => `<a class="choice" href="billing.html?organization=aoba"><div><b>${esc(name)}</b></div>${icon("chevron")}</a>`).join("")}</div>`}
+      ${state === "empty" ? `<p>${t("billingEmpty")}</p>` : `<div class="choice-list">${Object.entries(ORGS).map(([slug, org]) => `<a class="choice" href="billing.html?organization=${slug}"><div><b>${esc(org.name)}</b><span class="form-actions">${planChip(org)}${stateChip(org)}</span></div>${icon("chevron")}</a>`).join("")}</div>`}
     </section>
     ${params.has("operator") ? `<section class="gate-sheet">${title("billingBootstrap")}<p>${t("billingBootstrapHint")}</p>${form("bootstrap", true)}</section>` : ""}
   `}
