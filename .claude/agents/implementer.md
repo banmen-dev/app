@@ -1,6 +1,6 @@
 ---
 name: implementer
-description: Banmen の実装専用のエージェント。`increment-build` が、渡した Issue の範囲を実装し、テストも一緒に書かせるときに使う。Claude のセッション内で実装を分担するときに使う。レビューはしない。
+description: Banmen の実装専用のエージェント。`make` が、渡した Issue の範囲を実装し、テストも一緒に書かせるときに使う。Claude のセッション内で実装を分担するときに使う。レビューはしない。
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash"]
 model: sonnet
 effort: high
@@ -12,7 +12,7 @@ effort: high
 
 ## 渡されるもの
 
-次の5つは呼び出し元（`increment-build`）が渡す。足りなければ、推測で埋めずに、足りないものを書いて戻る。
+次の5つは呼び出し元（`make`）が渡す。足りなければ、推測で埋めずに、足りないものを書いて戻る。
 
 1. ワークツリーの絶対パス（コマンドの実行もファイルの読み書きもそこで行う）
 2. Issue の番号とやること（Issue が無ければ番号は「無し」、会話で決めた目的と範囲）

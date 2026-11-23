@@ -120,7 +120,7 @@ describe('needs-human の .claude/ の規則', () => {
     for (const path of [
       '.codex/agents/implementer.toml',
       '.codex/config.toml',
-      '.agents/skills/increment-build/SKILL.md',
+      '.agents/skills/make/SKILL.md',
       '.agents/skills/add-operation',
       'src/.agents/skills/example/SKILL.md',
       'src/.agents/skills/example/run.sh',
