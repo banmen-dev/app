@@ -158,7 +158,8 @@ test('上限を超えた列は件数を警告の色で出し、リーダーは�
     { workspace_id: expect.any(String), column_id: TODO!.id, after_column_id: DOING!.id },
   ]);
 
-  expect(await collect()).toEqual([]);
+  // 同じ名前を断った 409 だけが、読み込みの失敗としてコンソールに出る
+  expect(await collect()).toEqual(['Failed to load resource: the server responded with a status of 409 (Conflict)']);
 });
 
 test('メンバーには列の「⋯」と名前の書き換えが出ず、上限を超えたことは読める', async ({ page, context, baseURL }) => {
