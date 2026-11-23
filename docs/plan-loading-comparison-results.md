@@ -1,6 +1,6 @@
 # 計画の主・従の追加比較（#1057）
 
-2026-11-15（日本時間）。測定時の基準 main `4f3efe5` と本差分の計測器。測定後に main `4706de8` のフック修正を取り込んだが、測定入力は変わらないため再測定していない。Node 26.13.0 / pnpm 12.12.0 / Wrangler 4.153.0。
+2026-11-15（日本時間）。測定時の基準 main `4f3efe51af6b91abf380a1030932c7906eb23701` と [PR #1253](https://github.com/banmen-dev/app/pull/1253) の計測器。測定後に main `4706de8` のフック修正を取り込んだが、測定入力は変わらないため再測定していない。Node 26.13.0 / pnpm 12.12.0 / Wrangler 4.153.0。
 
 ## 結論
 
@@ -25,10 +25,10 @@
 
 ## 再現
 
-#1057 を閉じた後、専用の計測器を削除した。再現するときは、測定時の基準コミット `4f3efe5` のワークツリーに [PR #1253](https://github.com/banmen-dev/app/pull/1253) の計測器を取り出す。現在の作業コピーのリポジトリルートから次を実行する。
+#1057 を閉じた後、専用の計測器を削除した。再現するときは、冒頭に記載した基準コミットのワークツリーに PR #1253 の計測器を取り出す。現在の作業コピーのリポジトリルートから次を実行する。
 
 ```sh
-git -c core.hooksPath=/dev/null worktree add --detach worktrees/1057-api-repro 4f3efe5
+git -c core.hooksPath=/dev/null worktree add --detach worktrees/1057-api-repro 4f3efe51af6b91abf380a1030932c7906eb23701
 cd worktrees/1057-api-repro
 git restore --source=c1d9c52ab3a3d78428112ac93d4de82c2b871d15 -- scripts/loading-bench.ts scripts/plan-loading-comparison.ts
 ```
