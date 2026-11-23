@@ -1,6 +1,6 @@
 ---
 name: エピック
-about: 成果のまとまり。ストーリーをサブ Issue に持つ。backlog-add のスキルが書くのと同じ形
+about: 成果のまとまり。ストーリーをサブ Issue に持つ。issue-create のスキルが書くのと同じ形
 title: ""
 labels: [epic]
 ---
