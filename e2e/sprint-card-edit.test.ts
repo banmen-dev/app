@@ -143,11 +143,11 @@ test('鉛筆で題をその場で書き換える。Enter で保存、Esc で元�
   await renamedPencil.click();
   await renamed.getByRole('textbox', { name: 'タイトル' }).fill('離れて直した札');
   const blurSaved = waitForResponses(page, '/task-update');
-  const pointsChip = cardOf(page, '直した題の札').getByRole('button', { name: 'ポイント: 未設定' });
   await renamed.getByRole('textbox', { name: 'タイトル' }).press('Tab');
   await blurSaved;
-  await expect(pointsChip).toBeFocused();
   const left = cardOf(page, '離れて直した札');
+  // Tab で移った次の操作（ポイントのチップ）にフォーカスが残る（題が替わってカードを題で引き直すので、引き直した側で確かめる）
+  await expect(left.getByRole('button', { name: 'ポイント: 未設定' })).toBeFocused();
   await expect(left.locator('.card-title')).toHaveText('離れて直した札');
 
   // 空の題で離れたら、理由を出して元の題に戻す（送らない）
@@ -164,7 +164,7 @@ test('鉛筆で題をその場で書き換える。Enter で保存、Esc で元�
   await left.getByRole('button', { name: 'タイトルを直す: 離れて直した札' }).click();
   await left.getByRole('textbox', { name: 'タイトル' }).fill('通らない題');
   await left.getByRole('textbox', { name: 'タイトル' }).press('Enter');
-  await expect(page.locator('.toasts .toast', { hasText: 'ほかの人が同時に直したため' })).toBeVisible();
+  await expect(page.locator('.toasts:visible .toast', { hasText: 'ほかの人が同時に直したため' })).toBeVisible();
   await expect(left.locator('.card-title')).toHaveText('離れて直した札');
 });
 
