@@ -5,6 +5,11 @@
 import type { Plugin } from 'vite';
 import { fileURLToPath } from 'node:url';
 
+// 分割の 109〜119 と latin の置き換え先。dev では Vite が /@fs/ から配るので、配る範囲（server.fs.allow）にも足す。
+// SvelteKit が server.fs.allow を src や node_modules に明示するため、Vite の既定（workspace の根）は効かず、
+// 足さないと design/ は範囲の外として 403 になる（#1411）。
+export const designFontsDir = fileURLToPath(new URL('../design/fonts/', import.meta.url));
+
 const woffSource = /,\s*url\([^)]*\.woff\)\s*format\(['"]woff['"]\)/g;
 
 export function dropWoff(css: string): string {
@@ -20,6 +25,9 @@ export function fontsourceWoff2Only(): Plugin {
     name: 'fontsource-woff2-and-family',
     // CSS を Vite が url() の解決とファイルへの書き出しにかける前（pre）に、src から woff を外す
     enforce: 'pre',
+    config() {
+      return { server: { fs: { allow: [designFontsDir] } } };
+    },
     transform(code, id) {
       const file = id.split('?')[0];
       if (!file.endsWith('.css')) return null;

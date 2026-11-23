@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
-import { dropWoff, fontAssetUrl, fontsourceWoff2Only } from './fontsource-woff2.ts';
+import { designFontsDir, dropWoff, fontAssetUrl, fontsourceWoff2Only } from './fontsource-woff2.ts';
 
 const face = `@font-face {
   font-family: 'Noto Sans JP';
@@ -47,6 +47,26 @@ describe('fontsource の woff を外す', () => {
     assert.doesNotMatch(out, /Noto Sans JP Variable|\.woff\)/);
     // 別の可変書体を誤って同じ名前へ変えない。
     assert.equal(transform(css, '/repo/node_modules/@fontsource-variable/other/index.css'), null);
+  });
+
+  test('置き換え先の design/fonts を dev で配る範囲に足し、置き換えた URL はその中を指す', () => {
+    const plugin = fontsourceWoff2Only();
+    const config = (plugin.config as () => { server: { fs: { allow: string[] } } })();
+    assert.deepEqual(config.server.fs.allow, [designFontsDir]);
+    assert.ok(existsSync(designFontsDir));
+    const css = readFileSync(
+      new URL('../node_modules/@fontsource-variable/noto-sans-jp/index.css', import.meta.url),
+      'utf8',
+    );
+    const transform = plugin.transform as (code: string, id: string) => { code: string } | null;
+    const out = transform(css, '/repo/node_modules/@fontsource-variable/noto-sans-jp/index.css')!.code;
+    const replaced = [...out.matchAll(/url\("([^"]+)"\)/g)].map((m) => m[1]);
+    assert.equal(replaced.length, 12);
+    const allowed = designFontsDir.replaceAll('\\', '/');
+    for (const file of replaced) {
+      assert.ok(file.startsWith(allowed), file);
+      assert.ok(existsSync(file), file);
+    }
   });
 
   test('可変版の書体名が変わったら黙って代替書体にせず停止する', () => {
