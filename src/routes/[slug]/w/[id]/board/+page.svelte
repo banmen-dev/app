@@ -7,6 +7,7 @@
   import { page } from '$app/state';
   import { callOperation, type ApiResult } from '../../../../../lib/api.ts';
   import CardColumnDialog from '../../../../../lib/components/CardColumnDialog.svelte';
+  import DraftAttrs from '../../../../../lib/components/DraftAttrs.svelte';
   import DraftRow from '../../../../../lib/components/DraftRow.svelte';
   import EmptyState from '../../../../../lib/components/EmptyState.svelte';
   import Icon from '../../../../../lib/components/Icon.svelte';
@@ -90,6 +91,8 @@
   // 各列（完了の列を除く）の末尾に、タスクを足す空の行（DraftRow）を置く。書き込めるとき（終了していないワークスペース）だけ出す。
   // 題を打って Enter で、そのスプリントのその列の末尾に task-create で作る（作成と入れ込みは1回の書き込み）。作れたら読み直し、
   // 空の行に戻って続けて打てる。断られたら理由を空の行の下に出し、スプリントか列が無いか進行中でなければ読み直す。
+  // 空の行の下には担当と期日のチップ（DraftAttrs）を置き、選んだ値も同じ1回の task-create で送る（#1501。#827 の「題だけで作る」を改めた）。
+  // 選んだ値は列ごとに持ち、作れたら題と一緒に空に戻す（続けて作るタスクに前の値が付かないように）。Esc で書きかけを捨てたときも空に戻す。
   // 小窓の「編集」「延長する」「終える」は、リーダーか管理者、開いたワークスペースだけ。小窓を閉じてからダイアログを開き、閉じたらスプリントのボタンへ戻る。
   // 最終日がワークスペースの今日より前なら、ボタンに警告の印を付け、小窓の先頭に終えるのを促す警告（SprintOverdueNotice）を出す。
   // 終えたら読み直して進行中の無い表示に戻り、見出しへフォーカスを移す
@@ -115,6 +118,29 @@
   // `c` で、開いている完了でない最初の列の空の行へフォーカスを移す。行が無い（書き込めない、列が無い）間は働かない
   // bind:this は、部品が外れると null に戻る
   let draftRows = $state<Record<string, DraftRow | null | undefined>>({});
+  // 列ごとの、空の行で作る前に選んだ担当と期日（#1501）
+  type DraftChoice = { assignee: { id: string; name: string } | null; due: string | null };
+  let draftChoices = $state<Record<string, DraftChoice>>({});
+  const NO_DRAFT_CHOICE: DraftChoice = { assignee: null, due: null };
+  function draftChoiceOf(columnId: string): DraftChoice {
+    return draftChoices[columnId] ?? NO_DRAFT_CHOICE;
+  }
+  function setDraftChoice(columnId: string, patch: Partial<DraftChoice>): void {
+    draftChoices[columnId] = { ...draftChoiceOf(columnId), ...patch };
+  }
+  function clearDraftChoice(columnId: string): void {
+    delete draftChoices[columnId];
+  }
+  // 別のワークスペースへ移ったら選択を捨てる（ページは作り直されないので、戻ったときに前の選択が空の題の行に残り、黙って付くのを防ぐ）
+  let draftWorkspaceId = '';
+  $effect(() => {
+    const id = workspaceId;
+    untrack(() => {
+      if (id === draftWorkspaceId) return;
+      draftWorkspaceId = id;
+      draftChoices = {};
+    });
+  });
   const firstDraftRow = (): DraftRow | null | undefined =>
     firstOpenColumnId === undefined ? undefined : draftRows[firstOpenColumnId];
   useShortcut(() => ({
@@ -901,12 +927,15 @@
     if (workspace === null || sprint === null) return t('taskCreateFailed');
     const sentFor = page.params.id;
     const sentStoryId = storyId;
+    const choice = { ...draftChoiceOf(column.id) };
     const result = await callOperation(
       taskCreate,
       {
         workspace_id: workspace.id,
         title,
         story_id: sentStoryId,
+        assignee_user_id: choice.assignee?.id ?? null,
+        due_on: choice.due,
         sprint: { sprint_id: sprint.id, column_id: column.id },
       },
       { slug },
@@ -938,6 +967,22 @@
       }
       if (result.status === 404) {
         void reloadBoard();
+        if (choice.assignee !== null) {
+          return sentStoryId === null
+            ? t('sprintBoardAddAssigneeGone', {
+                sprint: t('sprint'),
+                column: t('column'),
+                assignee: t('assignee'),
+                task: t('task'),
+              })
+            : t('sprintBoardAddStoryAssigneeGone', {
+                story: t('story'),
+                sprint: t('sprint'),
+                column: t('column'),
+                assignee: t('assignee'),
+                task: t('task'),
+              });
+        }
         return sentStoryId === null
           ? t('sprintBoardAddGone', { sprint: t('sprint'), column: t('column'), task: t('task') })
           : t('sprintBoardAddStoryGone', {
@@ -949,6 +994,8 @@
       }
       return t('taskCreateFailed');
     }
+    // 作れたら、選んだ担当と期日も空に戻す（題は DraftRow が空に戻す）
+    clearDraftChoice(column.id);
     // 読み直して、足したカードを列の末尾に出す（トーストが読み上げる）
     showToast(t('sprintBoardTaskAdded', { title: result.data.task.title, column: columnName(column) }), 'check');
     await reloadBoard();
@@ -1233,7 +1280,28 @@
                       name={t('sprintBoardAddTaskIn', { task: t('task'), column: columnName(column) })}
                       problem={cardTitleProblem}
                       create={(title) => addCard(column, title)}
-                    />
+                      ondiscard={() => clearDraftChoice(column.id)}
+                    >
+                      {#snippet attrs(sending)}
+                        <DraftAttrs
+                          column={columnName(column)}
+                          {slug}
+                          {workspaceId}
+                          me={data.organization === null
+                            ? null
+                            : { id: data.organization.me.id, name: data.organization.me.name }}
+                          clock={{ today: board.today, weekStart: board.week_start }}
+                          bind:assignee={
+                            () => draftChoiceOf(column.id).assignee,
+                            (value) => setDraftChoice(column.id, { assignee: value })
+                          }
+                          bind:due={
+                            () => draftChoiceOf(column.id).due, (value) => setDraftChoice(column.id, { due: value })
+                          }
+                          locked={sending ? t('treeAddSending') : undefined}
+                        />
+                      {/snippet}
+                    </DraftRow>
                     {#if storyId !== null}<p class="action-note" id="story-create-{column.id}">
                         {t('sprintStoryCreateUnder', { story: t('story') })}
                       </p>{/if}

@@ -2167,6 +2167,10 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
 .entry-today { display: inline-flex; align-items: center; gap: var(--space-1); }
 .board-col-draft:not([hidden]) { display: grid; gap: var(--space-2); }
 .board-col > .board-col-draft > .draft-row { padding: var(--space-2) 0 0; border-top: 0; }
+/* 列の中の失敗の文は、行の左の余白が 0 なので、チップの並び（.draft-attrs）と同じ字下げにする */
+.board-col > .board-col-draft > .draft-error { padding: 0 0 0 calc(var(--space-5) + var(--space-2)); }
+/* 空の行の下に並べる、作る前に選ぶ属性のチップ（.draft-attrs。ボードの列の末尾で担当と期日。#1501）。字下げは題の欄（「＋」の後）に揃える */
+.draft-attrs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-width: 0; padding-left: calc(var(--space-5) + var(--space-2)); }
 /* 列の中の空の行の見えない要素（.visually-hidden は絶対配置）を列の中に収める。収めないと、横に溢れた列の位置に残り、画面の幅を押し広げる */
 .board-col { position: relative; }
 /* 属性のチップ（.chip-btn）。押すと値を選ぶ。未設定（.is-unset）は薄い破線の形で、値があれば .chip と同じ */
@@ -2234,6 +2238,9 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
   /* 印の行が無い行は、題の広げた範囲（下へ約 11px）とチップの広げた範囲（上へ約 11px）が重ならない間（22px 以上）を、題とチップの段の間に取る */
   .entry:not(:has(.entry-meta)):has(.chip-btn) { row-gap: 22px; }
   .card-foot:has(.chip-btn) { margin-top: var(--space-1); }
+  /* 空の行の下のチップの並び（#1501）。折り返した段の間と、題の欄との間を、広げた範囲（上下に約 11px）が重ならない間にする */
+  .draft-attrs { row-gap: var(--space-6); }
+  .board-col-draft:not([hidden]):has(.draft-attrs) { row-gap: var(--space-4); }
 }
 /* 書きっぱなしの欄（.is-inline）。静止時は破線の罫で書ける欄と示し、押すと実線の入力欄になる。引き出しのタイトル、リンク、本文に使う */
 .input.is-inline, .textarea.is-inline { background: transparent; border-color: var(--color-control-edge); border-style: dashed; }
