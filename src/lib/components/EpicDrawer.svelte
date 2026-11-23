@@ -112,6 +112,8 @@
   let canDeleteChildren = $state(false);
   let cleared = $state(false);
   let childCounts = $state({ stories: 0, tasks: 0 });
+  // epic-get が返す、読んだときの区分の ID と名前（無いか削除されていれば null）。読み取り専用では一覧を読まないので、名前はここから出す
+  let readCategory = $state<DefinitionRef | null>(null);
   let heading = $state<HTMLElement>();
   let retryButton = $state<HTMLButtonElement>();
   let discardDialog = $state<ReturnType<typeof ConfirmDialog>>();
@@ -154,7 +156,7 @@
   const done = $derived(finished);
 
   // ---- 区分（選んで少し待ってから、か欄を離れたときに保存する。配下のストーリーとタスクが引き継ぐ） ----
-  // 選択肢は、直せるときだけ category-repository-list で読む。読めなければ、なしと今の値だけを選べる
+  // 選択肢は、直せるときだけ category-repository-list で読む。読めなければ、なしと今の値だけを選べる（今の値の名前は epic-get の区分から）
   let definitions = $state<{ categories: DefinitionRef[] } | null>(null);
   let definitionsLoading = $state(false);
   let definitionsFailed = $state(false);
@@ -166,11 +168,13 @@
   let categoryError = $state<string | null>(null);
   let categorySending = false;
   let categorySelect = $state<HTMLSelectElement>();
-  // 今の区分。epic-get は区分の ID だけを返すので、名前は選択肢から引く（一覧に無い、読めなかったときは、読めなかったことを名前にする）
+  // 今の区分。名前は選択肢から引き、無ければ epic-get が返した区分（今の ID と同じとき）から引く。
+  // どちらにも無い（保存した区分が一覧に無く、読めなかった）ときだけ、読めなかったことを名前にする
   const ownCategory = $derived.by(() => {
     const id = epic?.category_id ?? null;
     if (id === null) return null;
-    const known = definitions?.categories.find((option) => option.id === id);
+    const known =
+      definitions?.categories.find((option) => option.id === id) ?? (readCategory?.id === id ? readCategory : null);
     return known ?? { id, name: t('categoryCurrentUnread', { category: t('category') }) };
   });
   const categoryShownId = $derived(
@@ -273,6 +277,7 @@
       canDeleteChildren = result.data.can_delete_children;
       cleared = result.data.completed_at != null;
       childCounts = result.data.children;
+      readCategory = result.data.category;
       loadState = 'ready';
       // 区分を直せるときだけ、選択肢を読む
       if (canWrite && definitions === null) void loadDefinitions();
@@ -319,6 +324,7 @@
       canDeleteChildren = result.data.can_delete_children;
       cleared = result.data.completed_at != null;
       childCounts = result.data.children;
+      readCategory = result.data.category;
     }
     return result.data.epic;
   }
@@ -896,7 +902,7 @@
               </button>
             {/if}
           {:else}
-            <!-- 読み取り専用のときは文字で出す。名前は一覧から引くので、読み取り専用では今の区分が読めたときだけ出す -->
+            <!-- 読み取り専用のときは文字で出す。読み取り専用では一覧を読まないので、名前は epic-get の区分から出す -->
             <span>{ownCategory?.name ?? t('categoryNone', { category: t('category') })}</span>
           {/if}
           {#if categoryError !== null}

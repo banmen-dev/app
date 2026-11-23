@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { idSchema } from '../../id.ts';
+import { definitionRefSchema } from '../definition/definition.ts';
 import { defineOperation } from '../define.ts';
 import { epicDetailSchema } from './epic.ts';
 
@@ -10,11 +11,12 @@ import { epicDetailSchema } from './epic.ts';
 // completed_at は、エピックをクリアした日時（クリアしていなければ null）。削除の確認が、クリア済みで配下のあるエピックの
 // 「配下を親なしで残す」を最初から選べなくするために読む（サーバーの断りは epic_finished のまま残る）。
 // can_delete_children は、配下ごとまとめて削除（children: 'delete'）できるか。削除できて、リーダーか管理者か、
-// 削除していない配下（ストーリーと、手で作ったタスク）がすべて呼んだ人の作ったもののとき真
+// 削除していない配下（ストーリーと、手で作ったタスク）がすべて呼んだ人の作ったもののとき真。
+// category は、振った区分の ID と名前（区分が無いか、削除されていれば null）。読み取り専用で区分の一覧を読まない引き出しが、名前を出すのに使う
 export const epicGet = defineOperation({
   name: 'epic-get',
   description:
-    'エピック1件のタイトル、本文、期日、リンクと、クリアした日時、削除できるか、まとめて削除できるか、配下の件数を返す',
+    'エピック1件のタイトル、本文、期日、リンク、区分と、クリアした日時、削除できるか、まとめて削除できるか、配下の件数を返す',
   mode: 'read',
   permission: 'member',
   workspace: true,
@@ -22,6 +24,7 @@ export const epicGet = defineOperation({
   output: z.object({
     epic: epicDetailSchema,
     completed_at: z.string().nullable(),
+    category: definitionRefSchema.nullable(),
     can_delete: z.boolean(),
     can_delete_children: z.boolean(),
     children: z.object({ stories: z.number().int(), tasks: z.number().int() }),
