@@ -342,11 +342,12 @@
   // リンクは題のリンクと同じ行き先（引き出しを開く URL）を、絶対 URL にして写す。「⋯」を出す書き込めるカードにだけ置く
   // （読み取りだけのカードは「⋯」を出さない。題のリンクをブラウザの操作で写せる）
   async function copyLink(): Promise<void> {
-    // 絞り込み（story）は写さない。受け取った人のボードを、写した人の絞り込みで開かないため
-    const url = new URL(taskDetailHref(href), location.href);
-    url.searchParams.delete('story');
+    // 絞り込み（#1502 の検索、担当、ストーリー、エピック、区分）は写さず、task だけを残す。受け取った人のボードを、写した人の絞り込みで開かないため
+    const parsed = new URL(taskDetailHref(href), location.href);
+    const taskId = parsed.searchParams.get('task');
+    const link = `${parsed.origin}${parsed.pathname}${taskId === null ? '' : `?task=${encodeURIComponent(taskId)}`}`;
     try {
-      await navigator.clipboard.writeText(url.href);
+      await navigator.clipboard.writeText(link);
       showToast(t('cardLinkCopied', { title: task.title }), 'check');
     } catch {
       showToast(t('cardLinkCopyFailed'), 'alert');

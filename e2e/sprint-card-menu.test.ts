@@ -249,7 +249,7 @@ test('絞り込み中に最後のカードを別の親へ移して断られた�
   await expect(card.locator('.card-parent')).toHaveText('通知を整える');
 });
 
-test('絞り込み中に別の親へ移して通ると、カードが絞り込みから消え、帯の「絞り込みを外す」へフォーカスが移る', async ({
+test('絞り込み中に別の親へ移して通ると、カードが絞り込みから消え、帯の「すべてクリア」へフォーカスが移る', async ({
   page,
 }) => {
   await startBoard(page, ['残る札', '外す札']);
@@ -270,7 +270,7 @@ test('絞り込み中に別の親へ移して通ると、カードが絞り込�
   ).toBeVisible();
   await expect(cardOf(page, '外す札')).toHaveCount(0);
   await expect(page).toHaveURL(filtered);
-  await expect(page.locator('.story-filter-band').getByRole('button', { name: '絞り込みを外す' })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'すべてクリア', exact: true })).toBeFocused();
 });
 
 test('絞り込み中に最後のカードを別の親へ移して通ると、絞り込みが解け、カードは全体のボードに残る', async ({ page }) => {
@@ -288,7 +288,7 @@ test('絞り込み中に最後のカードを別の親へ移して通ると、�
     page.locator('.toasts:visible .toast', { hasText: '「最後の札」をストーリー「検索を速くする」の末尾へ移しました' }),
   ).toBeVisible();
   await expect(page).not.toHaveURL(/[?&]story=/);
-  await expect(page.locator('.story-filter-band')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'すべてクリア', exact: true })).toHaveCount(0);
   await expect(cardOf(page, '最後の札').locator('.card-parent')).toHaveText('検索を速くする');
 });
 
