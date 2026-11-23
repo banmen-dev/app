@@ -139,7 +139,7 @@ gh api "repos/{owner}/{repo}/issues?labels=sprint:<番号>&state=all&per_page=10
 
 ```text
 /issue-create <番号>
-<決まっていない分岐（本文から読んだもの）>を詰めて Issue に記録する。詰め終えたら同じセッションで /increment-build <番号>
+詰める手順（refine.md）だけを使い、計画の書き直しと分割はしない。<決まっていない分岐（本文から読んだもの）>を詰めて Issue に記録する。詰め終えたら同じセッションで /increment-build <番号>
 並行: #<相手の番号>（<相手が変えるもの>）。重なりうるファイル: <パス、無ければ「なし」>
 ```
 
