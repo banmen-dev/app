@@ -161,7 +161,13 @@ test('絞ったカードをキーとドラッグで移動し、隠れたカー�
   await expect.poll(() => inputs.length).toBe(1);
   expect(inputs[0]!.column_id).toBe(board.columns[1]!.id);
   await waitForSettled(page);
-  await dragTo(page, first, page.locator('.board-col').nth(2).locator('.board-col-head'), 'middle');
+  // つかむのは題のリンク（カードの真ん中は、下の段の親のストーリーやチップのボタンに当たりうる。ボタンからは動き出さない）
+  await dragTo(
+    page,
+    first.locator('.card-title'),
+    page.locator('.board-col').nth(2).locator('.board-col-head'),
+    'middle',
+  );
   await expect.poll(() => inputs.length).toBe(2);
   expect(inputs[1]!.column_id).toBe(board.columns[2]!.id);
   await expect(page.locator('.card')).toHaveCount(3);
@@ -538,7 +544,7 @@ for (const operation of ['key', 'menu', 'drag'] as const) {
     else if (operation === 'menu') {
       await card.locator('.row-menu-btn').click();
       await card.getByRole('menuitem', { name: '前の列へ（完了を戻す）', exact: true }).click();
-    } else await dragTo(page, card, target.locator('.board-col-head'), 'middle');
+    } else await dragTo(page, card.locator('.card-title'), target.locator('.board-col-head'), 'middle');
     await expect.poll(() => reopened).toBe(1);
     await expect(page.locator('.board-col.is-done .card')).toHaveCount(0);
     await expect(target.locator('.board-col-n')).toHaveText('1');
