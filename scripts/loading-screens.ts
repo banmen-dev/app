@@ -87,7 +87,7 @@ export const screens: Screen[] = [
   { route: '/[slug]/w/[id]/connections', operations: [w('connection-list')] },
   {
     route: '/[slug]/w/[id]/epics/[epicId]',
-    operations: [op('epic-detail', { ...ws, epic_id: loadingEpic }), w('category-repository-list', true)],
+    operations: [op('epic-detail', { ...ws, epic_id: loadingEpic })],
   },
   { route: '/[slug]/wiki', operations: [op('org-wiki-tree')] },
   {

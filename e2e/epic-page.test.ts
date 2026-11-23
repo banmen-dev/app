@@ -8,7 +8,15 @@
 import { epicDetail, epicUpdate } from '../src/shared/operations/epic/index.ts';
 import { workspaceInfo } from '../src/shared/operations/workspace/workspace.ts';
 import { expect, test } from './fixtures.ts';
-import { addEpicRow, createWorkspace, openEpicPage, signIn, waitForResponses, watchViolations } from './helpers.ts';
+import {
+  addEpicRow,
+  createWorkspace,
+  openEpicPage,
+  signIn,
+  waitForResponses,
+  waitForSettled,
+  watchViolations,
+} from './helpers.ts';
 import { failOperation, mockOperation, rewriteOperation } from './operations.ts';
 import { seedDueMonthDay } from './seed-dates.ts';
 
@@ -76,6 +84,29 @@ test('seed の受託開発チーム: 木のエピックの題から画面が開�
   await expect(page.locator('.tree-row.is-epic').first()).toBeVisible();
   await expect(page.locator('.tree-row.is-epic .chip', { hasText: '中止' })).toHaveCount(0);
   expect(await collect()).toEqual([]);
+});
+
+// 画面は区分の選択肢を読まない。区分名は epic-detail の値で、選択肢は「直す」の引き出しが開いたときに読む（#1058）
+test('エピックの画面は区分の一覧を読まず、「直す」の引き出しを開いたときに1回読んで区分を選べる', async ({ page }) => {
+  const lists: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().endsWith('/category-repository-list')) lists.push(request.postData() ?? '');
+  });
+  await page.goto(`${WORKSPACE}/epics/${EPIC_ID}`);
+  await expect(page.getByRole('heading', { level: 1, name: EPIC_TITLE })).toBeVisible();
+  await expect(page.getByRole('region', { name: '概要' }).locator('dd').nth(2)).toContainText('追加案件');
+  await waitForSettled(page);
+  expect(lists).toHaveLength(0);
+
+  await page.getByRole('link', { name: 'エピックを直す' }).click();
+  const drawer = page.getByRole('dialog', { name: EPIC_TITLE, exact: true });
+  const category = drawer.getByLabel('区分', { exact: true });
+  await expect(category.locator('option')).toHaveText(['区分なし', '保守', '追加案件']);
+  await expect(category).toHaveValue('019a0000-0000-7000-8000-000000000c02');
+  await expect(category).toBeEnabled();
+  await waitForSettled(page);
+  expect(lists).toHaveLength(1);
+  expect(lists[0]).toContain('019a0000-0000-7000-8000-000000000401');
 });
 
 test('作ったワークスペース: 配下の無いエピックは空の案内を出し、作った人が作成者。作成者を替える口は無い', async ({
