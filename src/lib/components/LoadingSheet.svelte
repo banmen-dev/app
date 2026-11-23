@@ -13,7 +13,12 @@
   // 行き先が枠の外（shape が null）なら紙を出す。/ だけ dashboard を指定し、広い紙の2列にする。
   // 骨組みは装飾なので aria-hidden。見出しは読み上げと画面の構造のために見えないまま置く。
   // 読み上げの領域（role="status"）と、出す遅れ（短い読み込みでは出さない）は呼ぶ側の root レイアウトが持つ
-  let { shape = null, dashboard = false }: { shape?: LoadingShape | null; dashboard?: boolean } = $props();
+  // narrowEyebrow は、行き先の見出しの小見出しが 760px 以下だけに出る画面（loading-shape.ts の loadingShapeNarrowEyebrow）。小見出しの帯も同じ幅だけに出す
+  let {
+    shape = null,
+    dashboard = false,
+    narrowEyebrow = false,
+  }: { shape?: LoadingShape | null; dashboard?: boolean; narrowEyebrow?: boolean } = $props();
 </script>
 
 <svelte:head>
@@ -55,7 +60,7 @@
         <h1 class="visually-hidden">{t('loading')}</h1>
         {#if shape !== 'task'}
           <div class="page-head skeleton" aria-hidden="true">
-            <span class="skeleton-line is-eyebrow"></span>
+            <span class="skeleton-line is-eyebrow" class:is-narrow-only={narrowEyebrow}></span>
             <div class="page-head-row">
               <span class="skeleton-line is-title"></span>
               {#if loadingShapeHasActions(shape)}<span class="skeleton-line is-button"></span>{/if}

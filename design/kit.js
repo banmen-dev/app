@@ -3133,7 +3133,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       if (this.options[this.active]) input.setAttribute("aria-activedescendant", `nav-search-${this.options[this.active].id}`); else input.removeAttribute("aria-activedescendant");
       document.getElementById("nav-search-status").textContent = this.options.length ? `${this.options.length}件の候補` : "候補がありません";
     },
-    // 760px 以下では欄を虫眼鏡のボタンに畳み、押すとパンくずの行の下に欄を出す（CSS が data-open で出し分ける。広い幅では欄を常に出す）
+    // 760px 以下では欄を虫眼鏡のボタンに畳み、押すと見出しの行の下に欄を出す（CSS が data-open で出し分ける。広い幅では欄を常に出す）
     expand(on) {
       document.getElementById("nav-search-box")?.toggleAttribute("data-open", on);
       document.querySelector("[data-nav-search-toggle]")?.setAttribute("aria-expanded", String(on));

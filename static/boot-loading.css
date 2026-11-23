@@ -267,7 +267,8 @@ html[data-boot] #boot-loading .boot-frame {
   flex-direction: row;
   align-items: center;
   box-sizing: content-box;
-  min-height: 24px;
+  /* パンくずの1行（--text-sm 0.8125rem と行の高さ 1.65）が 24px を超える大きな文字でも、本物と同じ高さにする */
+  min-height: max(24px, calc(0.8125rem * 1.65));
   padding: 16px 32px 0;
 }
 #boot-loading .boot-crumbs .is-crumb {
@@ -301,6 +302,12 @@ html[data-boot] #boot-loading .boot-frame {
 }
 #boot-loading .boot-frame .is-eyebrow {
   width: 8rem;
+}
+/* 小見出しを 760px 以下だけに出すワークスペースの画面（static/boot-shape.js）は、骨組みの帯も同じ幅だけに出す */
+@media not (max-width: 760px) {
+  #boot-loading .boot-frame .is-eyebrow.is-narrow-only {
+    display: none;
+  }
 }
 #boot-loading .boot-frame .is-title {
   width: min(20rem, 60%);

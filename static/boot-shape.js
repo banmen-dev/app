@@ -116,10 +116,14 @@
   var content = document.querySelector('#boot-loading .boot-content');
   if (!content) return;
   var actions = shape === 'plan' || shape === 'wiki' ? '<i class="is-button"></i>' : '';
+  // ワークスペースの画面で小見出しを 760px 以下だけに出す形（src/lib/loading-shape.ts の loadingShapeNarrowEyebrow）
+  var narrowEyebrow = parts[1] === 'w' && ['tree', 'list', 'plan', 'settings', 'wiki'].indexOf(shape) !== -1;
   var head =
     shape === 'task'
       ? ''
-      : '<b class="boot-head"><i class="is-eyebrow"></i><b class="boot-head-row"><i class="is-title"></i>' +
+      : '<b class="boot-head"><i class="is-eyebrow' +
+        (narrowEyebrow ? ' is-narrow-only' : '') +
+        '"></i><b class="boot-head-row"><i class="is-title"></i>' +
         actions +
         '</b><i class="is-stats"></i></b>';
   content.innerHTML = head + '<b class="boot-body">' + bodies[shape] + '</b>';

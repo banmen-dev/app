@@ -1262,15 +1262,32 @@ test('広い幅のパンくずは上の帯の外で、見出しのすぐ上に�
     const [bar, crumb, head] = await Promise.all(
       [page.locator('.topbar'), crumbs, heading].map(async (locator) => (await locator.boundingBox())!),
     );
-    // 上の帯の下、見出しの上に並び、見出しとの間は本文の節の間（24px 以上）より狭い
+    // 上の帯の下、見出しの上に並び、見出しとの間は本文の上の余白（--space-2 の 8px）だけ
     expect(crumb.y).toBeGreaterThanOrEqual(bar.y + bar.height);
-    expect(crumb.y + crumb.height).toBeLessThanOrEqual(head.y);
-    expect(head.y - (crumb.y + crumb.height)).toBeLessThan(24);
+    expect(head.y - (crumb.y + crumb.height)).toBeCloseTo(8, 0);
     // パンくずの左端は見出しの左端と揃う
     expect(Math.abs(crumb.x - head.x)).toBeLessThanOrEqual(1);
     // ワークスペースの名前の小見出しは見えない（題名には残す）
     await expect(page.locator('.page-head .page-eyebrow:visible')).toHaveCount(0);
     await expect(page).toHaveTitle(/・受託開発チーム - Banmen$/);
+  }
+});
+
+test('ワークスペースの名前の小見出しは 760px 以下だけに出し、ワークスペースの Wiki も同じにする', async ({ page }) => {
+  for (const path of [`/aoba/w/${AOBA_WORKSPACE_ID}/members`, `/aoba/w/${AOBA_WORKSPACE_ID}/wiki`]) {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(path);
+    const eyebrow = page.locator('.page-head .page-eyebrow');
+    // 760px 以下はパンくずが無いので、小見出しが今のワークスペースを示す
+    await expect(eyebrow).toBeVisible();
+    await expect(eyebrow).toHaveText('受託開発チーム');
+    await expect(page.getByRole('navigation', { name: 'パンくず' })).toHaveCount(0);
+    // 761px 以上はパンくずが同じ名前を出すので、小見出しを隠す
+    await page.setViewportSize({ width: 761, height: 844 });
+    await expect(
+      page.getByRole('navigation', { name: 'パンくず' }).getByRole('link', { name: '受託開発チーム', exact: true }),
+    ).toBeVisible();
+    await expect(eyebrow).toBeHidden();
   }
 });
 

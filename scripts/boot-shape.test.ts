@@ -9,6 +9,7 @@ import {
   loadingShape,
   loadingShapeCounts,
   loadingShapeHasActions,
+  loadingShapeNarrowEyebrow,
   loadingShapes,
   type LoadingShape,
 } from '../src/lib/loading-shape.ts';
@@ -83,6 +84,18 @@ describe('最初の読み込みの骨組みの形（static/boot-shape.js）', ()
         assert.equal(runBootShape(path).dataset.bootDashboard === 'true', loadingDashboard(id), `${id}（${path}）`);
       }
     }
+  });
+
+  test('小見出しを 760px 以下だけに出すワークスペースの画面は、骨組みの小見出しの帯も同じ扱いにする（#1509）', () => {
+    for (const id of routeIds()) {
+      const { content } = runBootShape(samplePath(id));
+      assert.equal(content.innerHTML.includes('is-eyebrow is-narrow-only'), loadingShapeNarrowEyebrow(id), id);
+    }
+    assert.equal(loadingShapeNarrowEyebrow('/[slug]/w/[id]/members'), true);
+    assert.equal(loadingShapeNarrowEyebrow('/[slug]/w/[id]/board'), false);
+    assert.equal(loadingShapeNarrowEyebrow('/[slug]/w/[id]/epics/[epicId]'), false);
+    assert.equal(loadingShapeNarrowEyebrow('/[slug]/wiki'), false);
+    assert.equal(loadingShapeNarrowEyebrow('/[slug]/me'), false);
   });
 
   test('組織の枠の中の画面は、どれも形を明示して決めている（既定の一覧の形に落ちない）', () => {

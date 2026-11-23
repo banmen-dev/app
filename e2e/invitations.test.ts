@@ -93,7 +93,7 @@ test.describe('招待だけが届いた人（ヒナタ）', () => {
       await expect(toast(page)).toHaveText('招待を承諾しました');
       await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();
       await expect(
-        page.getByRole('navigation', { name: 'パンくず' }).getByRole('link', { name: 'デザイン相談室' }),
+        page.getByRole('navigation', { name: 'パンくず' }).getByRole('link', { name: 'デザイン相談室', exact: true }),
       ).toBeVisible();
       // 組織の中に入ったので、枠が出る
       await expect(page.locator('.nav')).toHaveCount(1);
