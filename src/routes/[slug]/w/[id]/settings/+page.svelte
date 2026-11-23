@@ -15,6 +15,7 @@
   import PageHead from '../../../../../lib/components/PageHead.svelte';
   import WorkspaceStateSetting from '../../../../../lib/components/WorkspaceStateSetting.svelte';
   import { t } from '../../../../../lib/vocabulary.svelte.ts';
+  import type { WorkspaceView } from '../../../../../lib/workspace.ts';
   import type { PageProps } from './$types';
 
   // ワークスペースの設定の画面（design/settings.html）。今あるのは列（ColumnsSetting）、決まった欄（DefinitionsSetting の kind = 'field'）、
@@ -32,35 +33,43 @@
   const workspace = $derived(data.workspace);
   const slug = $derived(page.params.slug ?? '');
   const isAdmin = $derived(data.organization?.me.is_admin === true);
-  let stateRefresh = $state<{ workspaceId: string; status: 'refreshing' | 'failed' } | null>(null);
+  let stateRefresh = $state.raw<{ workspace: WorkspaceView; status: 'refreshing' | 'failed' } | null>(null);
   const refreshingState = $derived(
-    stateRefresh?.workspaceId === workspace?.id && stateRefresh?.status === 'refreshing',
+    stateRefresh?.workspace.id === workspace?.id && stateRefresh?.status === 'refreshing',
   );
   const stateReadFailed = $derived(
-    data.workspaceStale || (stateRefresh?.workspaceId === workspace?.id && stateRefresh?.status === 'failed'),
+    data.workspaceStale || (stateRefresh?.workspace === workspace && stateRefresh?.status === 'failed'),
   );
   const stateUnconfirmed = $derived(refreshingState || stateReadFailed);
   const canWrite = $derived(workspace !== null && workspace.closedAt === null);
+  let stateRetryFailure = $state.raw<WorkspaceView | null>(null);
+
+  $effect.pre(() => {
+    if (stateRefresh?.status === 'failed' && stateRefresh.workspace !== workspace) stateRefresh = null;
+    if (stateRetryFailure !== workspace) stateRetryFailure = null;
+  });
 
   async function refreshWorkspaceState(): Promise<void> {
     if (workspace === null || refreshingState) return;
-    const workspaceId = workspace.id;
-    stateRefresh = { workspaceId, status: 'refreshing' };
+    const target = workspace;
+    const attempt = { workspace: target, status: 'refreshing' } as const;
+    stateRefresh = attempt;
     try {
       await refreshAll();
-      if (stateRefresh?.workspaceId === workspaceId) stateRefresh = null;
+      if (stateRefresh === attempt) stateRefresh = null;
     } catch {
-      if (stateRefresh?.workspaceId === workspaceId) stateRefresh = { workspaceId, status: 'failed' };
+      if (stateRefresh === attempt) stateRefresh = { workspace: target, status: 'failed' };
     }
   }
 
-  let stateRetryFailed = $state(false);
   async function retryWorkspaceState(): Promise<void> {
     if (refreshingState) return;
-    stateRetryFailed = false;
+    const workspaceId = workspace?.id;
+    stateRetryFailure = null;
     await refreshWorkspaceState();
+    if (workspace?.id !== workspaceId) return;
     if (stateUnconfirmed) {
-      stateRetryFailed = true;
+      stateRetryFailure = workspace;
       return;
     }
     await tick();
@@ -215,7 +224,7 @@
         <button class="btn is-sm" type="button" aria-disabled={refreshingState} onclick={retryWorkspaceState}>
           {t('retry')}
         </button>
-        <span class="field-hint" role="status">{stateRetryFailed ? t('retryFailed') : ''}</span>
+        <span class="field-hint" role="status">{stateRetryFailure !== null ? t('retryFailed') : ''}</span>
       </div>
     </div>
   {/if}
