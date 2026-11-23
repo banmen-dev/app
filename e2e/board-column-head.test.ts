@@ -50,8 +50,10 @@ test('上限を超えた列は件数を警告の色で出し、リーダーは�
 
   // 完了の列には名前のボタンも「⋯」も無い
   const done = columnOf(page, '完了');
-  await expect(done.getByRole('button', { name: /^操作:/ })).toHaveCount(0);
-  await expect(done.getByRole('button', { name: /名前を変更/ })).toHaveCount(0);
+  // 完了の列のカードには、戻すための「⋯」がある。見るのは列の頭だけ
+  const doneHead = done.locator('.board-col-head');
+  await expect(doneHead.getByRole('button', { name: /^操作:/ })).toHaveCount(0);
+  await expect(doneHead.getByRole('button', { name: /名前を変更/ })).toHaveCount(0);
 
   // 上限を決める
   const updates: unknown[] = [];
