@@ -241,9 +241,10 @@ test('引き出しを開いている間は、背後の行の「⋯」を押せ�
   const drawer = page.getByRole('dialog', { name: '開いたまま消す行' });
   await expect(drawer).toBeVisible();
 
-  // 引き出しは aria-modal のダイアログで、背後の行へのポインターを受け止める。消すのは引き出しの「このタスクを削除する」から
+  // 引き出しは aria-modal のダイアログで、背後に inert を付けるので、背後の行は押せない。消すのは引き出しの「このタスクを削除する」から
+  // Playwright 1.65 から、クリックの前に inert かを確かめ、幕の当たり判定より先に止まる
   await expect(rowMenuToggle(page, '開いたまま消す行').click({ trial: true, timeout: 2000 })).rejects.toThrow(
-    'intercepts pointer events',
+    'element is inert',
   );
   await expect(drawer).toBeVisible();
 });
