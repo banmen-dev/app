@@ -233,6 +233,7 @@ export async function createWorkspace(
     sprint_name_template: null,
     sprint_number_next: 1,
     closed_at: null,
+    deleted_at: null,
     created_by: createdBy,
     created_at: AT,
     updated_at: AT,

@@ -151,15 +151,22 @@ test('題・削除・復元の成功はお気に入りだけを再取得し、�
     for (const name of ['favorite-set', 'task-today-mark', 'task-assign']) notifyOperationWrite({ name, slug: 'aoba' });
     notifyOperationWrite({ name: 'task-delete', slug: 'sakura' });
     expect(call).not.toHaveBeenCalled();
-    for (const name of ['task-update', 'task-delete', 'task-restore', 'org-wiki-update', 'workspace-close']) {
+    for (const name of [
+      'task-update',
+      'task-delete',
+      'task-restore',
+      'org-wiki-update',
+      'workspace-close',
+      'workspace-delete',
+    ]) {
       notifyOperationWrite({ name, slug: 'aoba' });
       await Promise.resolve();
     }
-    expect(call).toHaveBeenCalledTimes(5);
+    expect(call).toHaveBeenCalledTimes(6);
     for (const [definition] of call.mock.calls) expect(definition.name).toBe('favorite-list');
     stop();
     notifyOperationWrite({ name: 'task-delete', slug: 'aoba' });
-    expect(call).toHaveBeenCalledTimes(5);
+    expect(call).toHaveBeenCalledTimes(6);
   } finally {
     stop();
   }

@@ -44,6 +44,7 @@ export const organizationInfoOperation = implement(
             .selectFrom('memberships as m')
             .innerJoin('workspaces as w', 'w.id', 'm.workspace_id')
             .select(['w.id', 'w.name', 'w.closed_at', 'm.role'])
+            .where('w.deleted_at', 'is', null)
             .where('m.user_id', '=', userId)
             .where('m.left_at', 'is', null)
             .where('w.organization_id', '=', db.organizationId)
@@ -51,7 +52,12 @@ export const organizationInfoOperation = implement(
             .orderBy('w.id'),
         ),
         db.statement((q) =>
-          q.selectFrom('workspaces').select('id').where('organization_id', '=', db.organizationId).limit(1),
+          q
+            .selectFrom('workspaces')
+            .select('id')
+            .where('organization_id', '=', db.organizationId)
+            .where('deleted_at', 'is', null)
+            .limit(1),
         ),
       ] as const),
       tools.avatarsOf([userId]),

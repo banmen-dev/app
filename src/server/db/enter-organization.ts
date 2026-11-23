@@ -118,6 +118,7 @@ export async function enterOrganization(
           .select('m.id')
           .where('w.organization_id', '=', organizationId)
           .where('m.user_id', '=', user.id)
+          .where('w.deleted_at', 'is', null)
           .where('m.left_at', 'is', null)
           .limit(1),
       ),
@@ -156,6 +157,7 @@ export async function enterOrganization(
         .select('i.id')
         .where('w.organization_id', '=', organizationId)
         .where('i.status', '=', 'pending')
+        .where('w.deleted_at', 'is', null)
         .where((eb) =>
           eb.or(
             logins.map((login) =>
@@ -189,7 +191,8 @@ export async function verifyWorkspace(
         )
         .select(['w.id', 'w.closed_at', 'm.role'])
         .where('w.id', '=', workspaceId)
-        .where('w.organization_id', '=', organizationId),
+        .where('w.organization_id', '=', organizationId)
+        .where('w.deleted_at', 'is', null),
     ),
   );
   if (row === undefined) return undefined;

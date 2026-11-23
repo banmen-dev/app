@@ -50,7 +50,11 @@ function initialRow<T extends keyof OrganizationTables>(
               ? eb.and([
                   eb.not(
                     eb.exists(
-                      eb.selectFrom('workspaces').select('id').where('organization_id', '=', db.organizationId),
+                      eb
+                        .selectFrom('workspaces')
+                        .select('id')
+                        .where('organization_id', '=', db.organizationId)
+                        .where('deleted_at', 'is', null),
                     ),
                   ),
                   eb.exists(

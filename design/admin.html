@@ -30,7 +30,9 @@ const AUDIT = {
   organizationCreated: (name) => `${t("organization")}「${name}」を作りました`,
   adminDesignated: (name) => `${name}を${t("admin")}に指名しました`,
   userDisabled: (name) => `${name}を無効にしました`,
+  workspaceDeleted: (name) => `${t("workspace")}「${name}」を削除しました`,
 };
+const deletedStorage = SQ.first ? null : D.storage.deletedWorkspace;
 // お試しの節の状態。?trial=lastday（期限の当日）か ?trial=expired（期限を過ぎて、定期処理が止めるまでの間）で切り替える。
 // 本番は TrialSetting.svelte が days_left の 0 と負で同じ出し分けをする
 const TRIAL_STATE = new URLSearchParams(location.search).get("trial");
@@ -110,13 +112,15 @@ SQ.mount("admin", () => `
         <tbody>${A.workspaces.map((w) => `<tr><td class="is-name">${esc(w.name)}${w.closed ? ` <span class="chip">終了 ${w.closed}</span>` : ""}${!w.closed && !w.leaders ? ` <span class="chip is-warn">${t("leader")}がいない</span>` : ""}</td>
           <td class="is-num" data-label="${t("member")}数">${w.members}</td><td class="is-num" data-label="${t("leader")}数">${w.leaders}</td><td class="mono" data-label="作った日">${w.created}</td>
           <td class="is-actions">${w.closed ? `<button class="btn is-sm is-quiet" type="button" data-toast="${t("workspace")}を再開しました">再開する</button>` : `<button class="btn is-sm is-quiet" type="button" data-dialog="closeWorkspace">終了する</button>`}</td></tr>`).join("")}</tbody></table></div>`)}
-    ${setting("添付ファイルと Wiki の容量", `組織の添付ファイルと Wiki の最新本文・過去版の合計。上限は運用者が決めます。上限に達すると、どの${t("workspace")}でも新しく添付できなくなります。`, `
+    ${setting("添付ファイルと Wiki の容量", `組織の添付ファイルと Wiki の最新本文・過去版の合計です。上限に達すると、どの${t("workspace")}でも新しく添付できません。上限の変更は運用者に依頼してください。`, `
       ${meter(D.storage.used, D.storage.quota, { storage: true, note: `縦の線は80%の位置です。超えると${t("admin")}に通知します。` })}
       <span class="props-note">${Math.round(D.storage.used * 1024 ** 3).toLocaleString("ja-JP")} バイト使用中</span>
       ${D.storage.used >= D.storage.quota ? `<div class="callout is-danger">${icon("alert")}<span>容量の上限に達したため、新しく添付できません。上げた人か${t("workspace")}の${t("leader")}が不要な添付ファイルを消すか、運用者に上限の引き上げを依頼すると添付できます。</span></div>` : D.storage.used / D.storage.quota > 0.8 ? `<div class="callout is-warn">${icon("alert")}<span>上限の80%を超えています。上げた人か${t("workspace")}の${t("leader")}が不要な添付ファイルを消すか、運用者に上限の引き上げを依頼してください。</span></div>` : ""}
-      <p class="field-hint">終了したワークスペースと、削除後30日の保持中の Wiki も含みます。Wiki は題と本文を数えます。</p>
+      <p class="field-hint">終了・削除した${t("workspace")}の保存分と、削除後30日の保持中の Wiki ページも含みます。Wiki は題と本文を数えます。</p>
+      ${deletedStorage ? `<p class="field-hint">削除済みの${t("workspace")}内の添付ファイルや Wiki は、個別に削除できません。</p>` : ""}
       <div class="table-wrap"><table class="table is-stacked"><thead><tr><th>内訳</th><th class="is-num">使用量</th></tr></thead>
-        <tbody><tr><td class="is-name wrap-anywhere">組織の Wiki</td><td class="is-num" data-label="使用量">${SQ.storageBytes(D.storage.organizationWikiBytes || 0)}</td></tr>${D.storage.byWorkspace.map(([ws, n, gb]) => `<tr><td class="is-name wrap-anywhere">${esc(D.workspaces[ws].name)}${D.workspaces[ws].closed ? ` <span class="chip">終了済み</span>` : ""}</td><td class="is-num" data-label="使用量">${SQ.storageBytes(Math.round(gb * 1024 ** 3))}</td></tr>`).join("")}</tbody></table></div>`)}
+        <tbody><tr><td class="is-name wrap-anywhere">組織の Wiki</td><td class="is-num" data-label="使用量">${SQ.storageBytes(D.storage.organizationWikiBytes || 0)}</td></tr>${D.storage.byWorkspace.map(([ws, , gb]) => `<tr><td class="is-name wrap-anywhere">${esc(D.workspaces[ws].name)}${D.workspaces[ws].closed ? ` <span class="chip">終了済み</span>` : ""}</td><td class="is-num" data-label="使用量">${SQ.storageBytes(Math.round(gb * 1024 ** 3))}</td></tr>`).join("")}
+        ${deletedStorage ? `<tr><td class="is-name wrap-anywhere">${esc(deletedStorage.name)} <span class="chip">削除済み</span></td><td class="is-num" data-label="使用量">${SQ.storageBytes(Math.round(deletedStorage.usedGb * 1024 ** 3))}</td></tr>` : ""}</tbody></table></div>`)}
     ${new URLSearchParams(location.search).has("personal") ? setting(t("delegatee"), t("delegateeDesc"), `
       <div class="form">${D.delegatees.length ? D.delegatees.map((row) => `<form class="field" aria-labelledby="delegatee-label-${row.id}" data-delegatee-rename="${row.id}">
         <label class="field-label" id="delegatee-label-${row.id}" for="delegatee-${row.id}">${esc(row.name)}</label>
@@ -151,7 +155,7 @@ SQ.mount("admin", () => `
         ${Object.entries(SQ.PROVIDER).map(([v, name]) => `<label class="choice"><input type="radio" name="ai-provider" value="${v}" data-ai-provider ${D.ai.provider === v ? "checked" : ""} ${D.ai.enabled ? "" : "disabled"}><div><b>${name}</b><span>${v === "claude" ? "既定。Anthropic の API で呼びます" : "OpenAI の API で呼びます"}。送る先を変えても、できることは変わりません</span></div></label>`).join("")}</div>
       ${D.ai.enabled ? "" : `<p class="field-hint">送る先は、有効にすると選べます。</p>`}
       ${meter(D.ai.used, D.ai.limit, { unit: "百万トークン", note: `今月の利用。${D.ai.resets} に 0 に戻ります。縦の線は 80% の位置。上限は運用者が決めます。上限に達すると、その月は AI の機能が止まります。` })}`)}
-    ${setting("変更の履歴", `${t("admin")}の指名、運用者の操作、${t("workspace")}の作成と終了など、${t("organization")}の単位の変更を新しい順に出します。${t("workspace")}の中の変更（${t("member")}の所属など）は出しません。`, !A.audit.length
+    ${setting("変更の履歴", `${t("admin")}の指名、運用者の操作、${t("workspace")}の作成・終了・削除など、${t("organization")}の単位の変更を新しい順に出します。${t("workspace")}の中の変更（${t("member")}の所属など）は出しません。`, !A.audit.length
       ? SQ.emptyState("clock", "まだ変更の履歴がありません", `${t("admin")}の指名や${t("workspace")}の作成をすると、ここに残ります。`)
       : `
       <div class="table-wrap"><table class="table is-stacked" aria-label="${t("organization")}の変更の履歴"><thead><tr><th>日時</th><th>した人</th><th>内容</th></tr></thead>

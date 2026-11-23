@@ -71,6 +71,9 @@
         </div>
       {/if}
       <p class="field-hint">{t('storageRetention', { workspace: t('workspace') })}</p>
+      {#if storage.workspaces.some((workspace) => workspace.deleted_at !== null)}
+        <p class="field-hint">{t('storageDeletedWorkspaceRetention', { workspace: t('workspace') })}</p>
+      {/if}
       <div class="table-wrap">
         <table class="table is-stacked">
           <thead><tr><th>{t('storageBreakdown')}</th><th class="is-num">{t('storageUsed')}</th></tr></thead>
@@ -84,7 +87,9 @@
             {#each storage.workspaces as workspace (workspace.id)}
               <tr
                 ><td class="is-name wrap-anywhere"
-                  >{workspace.name}{#if workspace.closed_at !== null}
+                  >{workspace.name}{#if workspace.deleted_at !== null}
+                    <span class="chip">{t('storageWorkspaceDeleted')}</span>
+                  {:else if workspace.closed_at !== null}
                     <span class="chip">{t('storageWorkspaceClosed')}</span>{/if}</td
                 ><td class="is-num" data-label={t('storageUsed')}>{usageText(workspace.used_bytes)}</td></tr
               >

@@ -13,6 +13,7 @@
   import LoadFailed from '../../../../../lib/components/LoadFailed.svelte';
   import Setting from '../../../../../lib/components/Setting.svelte';
   import PageHead from '../../../../../lib/components/PageHead.svelte';
+  import WorkspaceDeleteSetting from '../../../../../lib/components/WorkspaceDeleteSetting.svelte';
   import WorkspaceStateSetting from '../../../../../lib/components/WorkspaceStateSetting.svelte';
   import { t } from '../../../../../lib/vocabulary.svelte.ts';
   import type { WorkspaceView } from '../../../../../lib/workspace.ts';
@@ -327,6 +328,9 @@
             onstale={stale}
           />
         </div>
+      {/if}
+      {#if isAdmin && workspace.deleteEnabled}
+        <WorkspaceDeleteSetting {slug} {workspace} {stateUnconfirmed} />
       {/if}
     {/key}
   </div>

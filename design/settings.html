@@ -25,7 +25,8 @@ const TZ = ["Asia/Tokyo", "Asia/Seoul", "Asia/Singapore", "Europe/London", "Amer
 const WEEK = ["日", "月", "火", "水", "木", "金", "土"];
 const workspace = D.workspaces[D.workspace];
 const isAdmin = D.organizations.some((org) => org.slug === D.organization && org.admin);
-if (new URLSearchParams(location.search).get("closed") === "1") workspace.closed = "2026-10-22";
+const query = new URLSearchParams(location.search);
+if (query.get("closed") === "1") workspace.closed = "2026-10-22";
 
 function workspaceStateSetting() {
   if (!isAdmin) return "";
@@ -75,6 +76,88 @@ function readOnlySettings() {
     ${setting("リポジトリ", `${t("task")}がどのリポジトリの作業かを示します。`, list(Object.values(D.repositories).map((repository) => repository.name)))}
   `;
 }
+
+function workspaceDeleteSetting() {
+  if (!isAdmin) return "";
+  const workspaceLabel = t("workspace");
+  return setting(`${workspaceLabel}の削除`, `削除した${workspaceLabel}は開けなくなり、再開もできません。`,
+    workspace.closed
+      ? '<div class="form-actions"><button class="btn is-danger" type="button" data-workspace-delete>削除する</button></div>'
+      : `<p class="field-hint">削除するには、先にこの${workspaceLabel}を終了してください。 <a href="#workspace-state">利用状態へ移動</a></p>`);
+}
+
+function showWorkspaceDelete(state) {
+  const name = workspace.name;
+  const workspaceLabel = t("workspace");
+  const sending = state === "sending";
+  const failed = state === "failed";
+  const sendingControl = sending ? 'aria-disabled="true"' : 'data-close-dialog';
+  SQ.openDialog(`「${esc(name)}」を削除しますか？`,
+    `<p>削除すると、この${workspaceLabel}と中のデータは開けなくなります。削除は取り消せません。</p>
+    <p>添付ファイルと Wiki は引き続き容量に含まれます。削除した${workspaceLabel}内では個別に消せなくなるため、容量を空けたい場合は、${workspaceLabel}を再開し、不要な添付ファイルと Wiki ページを先に削除してください。削除した Wiki ページは30日間、容量に含まれます。</p>
+    <form id="workspace-delete-form"><div class="field" id="workspace-delete-field">
+      <label class="field-label" for="workspace-delete-name">${workspaceLabel}名</label>
+      <input class="input" id="workspace-delete-name" aria-describedby="workspace-delete-hint" autocomplete="off" spellcheck="false" value="${sending || failed ? esc(name) : ""}" ${sending ? "readonly" : ""}>
+      <span class="field-hint wrap-anywhere" id="workspace-delete-hint">確認のため「${esc(name)}」と入力してください。</span>
+      <span class="field-error" id="workspace-delete-mismatch" hidden>${icon("alert")}入力が${workspaceLabel}名と一致していません。</span>
+    </div></form>
+    ${failed ? `<div class="callout is-danger" role="alert">${icon("alert")}<span>${workspaceLabel}を削除できませんでした。もう一度試してください。</span></div>` : ""}`,
+    `<span class="field-hint" role="status">${sending ? "削除しています" : ""}</span>
+    <button class="btn is-primary" type="button" ${sendingControl}>やめる</button>
+    <button class="btn is-danger" type="submit" form="workspace-delete-form" ${sending ? 'aria-disabled="true"' : failed ? "" : "disabled"}>削除する</button>`,
+    sending);
+  const form = document.getElementById("workspace-delete-form");
+  const input = document.getElementById("workspace-delete-name");
+  const field = document.getElementById("workspace-delete-field");
+  const mismatchMessage = document.getElementById("workspace-delete-mismatch");
+  const submit = document.querySelector('button[form="workspace-delete-form"]');
+  const sheet = form.closest(".dialog-sheet");
+  sheet.classList.add("is-danger");
+  if (sending) {
+    const close = sheet.querySelector("[data-close-dialog]");
+    close.removeAttribute("data-close-dialog");
+    close.setAttribute("aria-disabled", "true");
+  }
+  let composing = false;
+  let nameBlurred = false;
+  function updateConfirmation() {
+    const matches = input.value === name;
+    const mismatch = !composing && input.value !== "" && !matches && (nameBlurred || !name.startsWith(input.value));
+    field.classList.toggle("is-invalid", mismatch);
+    mismatchMessage.hidden = !mismatch;
+    input.setAttribute("aria-describedby", mismatch ? "workspace-delete-hint workspace-delete-mismatch" : "workspace-delete-hint");
+    input.setAttribute("aria-invalid", String(mismatch));
+    submit.disabled = composing || !matches;
+  }
+  input.addEventListener("input", updateConfirmation);
+  input.addEventListener("compositionstart", () => {
+    composing = true;
+    updateConfirmation();
+  });
+  input.addEventListener("compositionend", () => {
+    composing = false;
+    updateConfirmation();
+  });
+  input.addEventListener("focus", () => {
+    nameBlurred = false;
+    updateConfirmation();
+  });
+  input.addEventListener("blur", () => {
+    nameBlurred = true;
+    updateConfirmation();
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && (composing || event.isComposing || event.keyCode === 229)) event.preventDefault();
+  });
+  form.addEventListener("submit", (submitEvent) => {
+    submitEvent.preventDefault();
+    if (!sending && !composing && input.value === name) location.href = SQ.firstHref("today.html");
+  });
+}
+
+document.addEventListener("click", (event) => {
+  if (event.target instanceof Element && event.target.closest("[data-workspace-delete]")) showWorkspaceDelete();
+});
 
 SQ.mount("settings", () => `
   ${workspace.closed ? `<div class="callout is-info">${icon("archive")}<span>${esc(workspace.closed)} に終了しました。読み取り専用です。${isAdmin ? ' <a href="#workspace-state">設定で再開する</a>' : ""}</span></div>` : ""}
@@ -131,6 +214,7 @@ SQ.mount("settings", () => `
       <ul class="party-list">${D.workspaceHolidays.map(([d, n]) => `<li><span class="mono">${d}</span><span class="party-list-text">${esc(n)}</span><button class="icon-btn is-danger party-list-end" type="button" aria-label="${d} を消す">${icon("trash")}</button></li>`).join("")}</ul>
       <div class="form-row"><label class="field" for="hd"><span class="field-label">日付</span><input class="input" id="hd" type="date"></label><label class="field" for="hn"><span class="field-label">名前</span><input class="input" id="hn"></label><button class="btn" type="button">足す</button></div>`)}
     `}
+    ${workspaceDeleteSetting()}
   </div>`);
 </script>
 </body>

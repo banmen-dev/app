@@ -24,6 +24,7 @@ export default defineConfig(async () => {
               miniflare: {
                 bindings: {
                   TEST_MIGRATIONS: migrations,
+                  WORKSPACE_DELETE_ENABLED: 'true',
                   // 接続の認証情報の暗号鍵。テスト用の架空の値で、本番の鍵ではない
                   CONNECTION_CREDENTIAL_KEYS: JSON.stringify({ '1': 'dGVzdC1rZXktZm9yLXVuaXQtdGVzdHMtb25seS0hISE=' }),
                 },

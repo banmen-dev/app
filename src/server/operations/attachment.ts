@@ -25,6 +25,7 @@ export const attachmentDownloadOperation = implement(attachmentDownload, async (
         .innerJoin('workspaces as w', 'w.id', 'a.workspace_id')
         .select(['a.id', 'a.workspace_id', 'a.object_key', 'a.file_name', 'a.content_type'])
         .where('w.organization_id', '=', db.organizationId)
+        .where('w.deleted_at', 'is', null)
         .where('a.id', '=', input.id)
         .where((eb) =>
           eb.or([

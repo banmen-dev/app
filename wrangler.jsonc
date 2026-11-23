@@ -20,6 +20,8 @@
   "vars": {
     // 上書きする。本番はデプロイのスクリプトが Release のタグ（vX.Y.Z。scripts/release-version.ts）を --var で渡し、手元は scripts/dev.ts の --var
     "APP_VERSION": "dev",
+    // 0043 と削除済みを除外する版を公開した後、別の Release で true にする。
+    "WORKSPACE_DELETE_ENABLED": "false",
     // 公開する URL。更新系の API の Origin の検査に使う。scripts/dev.ts が pnpm dev と pnpm preview の画面の URL に上書きする。
     // Worker の名前か独自ドメインを変えるときに直す（docs/operations.md）
     "PUBLIC_ORIGIN": "https://banmen.ucan-lab.workers.dev"

@@ -108,6 +108,8 @@ describe('historyEventText', () => {
       [{ kind: 'workspace_closed', workspace_name: null }, 'ワークスペースを終了しました'],
       [{ kind: 'workspace_reopened', workspace_name: null }, 'ワークスペースを再開しました'],
       [{ kind: 'workspace_reopened', workspace_name: '旧サイト保守' }, 'ワークスペース「旧サイト保守」を再開しました'],
+      [{ kind: 'workspace_deleted', workspace_name: '旧サイト保守' }, 'ワークスペース「旧サイト保守」を削除しました'],
+      [{ kind: 'workspace_deleted', workspace_name: null }, 'ワークスペースを削除しました'],
       [{ kind: 'delegatee_created', name: 'アサヒ' }, '依頼先「アサヒ」を追加しました'],
       [{ kind: 'delegatee_created', name: null }, '依頼先を追加しました'],
       [{ kind: 'delegatee_renamed', name: 'ナツメ' }, '依頼先の名前を「ナツメ」に変更しました'],
