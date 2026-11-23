@@ -314,9 +314,11 @@ export const dictionary = defineDictionary({
   storageMeterWarning: '上限の80%を超えています',
   storageThresholdNote: '縦の線は80%の位置です。超えると{admin}に通知します。',
   storageWorkspaceClosed: '終了済み',
+  storageWorkspaceDeleted: '削除済み',
   storageBreakdown: '内訳',
   storageOrganizationWiki: '組織の Wiki',
-  storageRetention: '終了した{workspace}と、削除後30日の保持中の Wiki も含みます。Wiki は題と本文を数えます。',
+  storageRetention:
+    '終了・削除した{workspace}の保存分と、削除後30日の保持中の Wiki ページも含みます。Wiki は題と本文を数えます。',
   storageWarning:
     '上限の80%を超えています。上げた人か{workspace}の{leader}が不要な添付ファイルを消すか、運用者に上限の引き上げを依頼してください。',
   storageFull:
@@ -1907,6 +1909,21 @@ export const dictionary = defineDictionary({
   workspaceListRefreshFailed: '{workspace}の一覧を更新できませんでした',
   workspaceListLoadFailed: '{workspace}の一覧を読み込めませんでした',
 
+  workspaceDeleteTitle: '{workspace}の削除',
+  workspaceDeleteDescription: '削除した{workspace}は開けなくなり、再開もできません。',
+  workspaceDeleteNeedsClosed: '削除するには、先にこの{workspace}を終了してください。',
+  workspaceDeleteAction: '削除する',
+  workspaceDeleteConfirm: '「{name}」を削除しますか？',
+  workspaceDeleteWarning:
+    '削除すると、この{workspace}と中のデータは開けなくなります。削除は取り消せません。保持される添付ファイルと Wiki は引き続き容量に含まれます。',
+  workspaceDeleteName: '{workspace}名',
+  workspaceDeleteNameHint: '確認のため「{name}」と入力してください。',
+  workspaceDeleting: '削除しています',
+  workspaceDeleted: '{workspace}を削除しました',
+  workspaceDeleteFailed: '{workspace}を削除できませんでした。もう一度試してください。',
+  workspaceDeleteUnavailable: '{workspace}が見つからないか、削除する権限がありません。',
+  workspaceDeleteNameChanged: '{workspace}の名前が変わりました。新しい名前を入力してください。',
+
   // 組織のユーザー（組織の管理の画面の「ユーザー」の節。API の操作は user-list、user-admin-update、user-disable、user-enable）。
   // {admin}、{organization}、{workspace}、{task} は、辞書の言葉を画面が渡す。{name} はユーザーの名前
   userSectionTitle: 'ユーザー',
@@ -2021,7 +2038,7 @@ export const dictionary = defineDictionary({
   // 内容の文は organization-history の種類ごとに1つ。{name} は人か組織かワークスペースの名前、{date} は消す予定日（YYYY-MM-DD）
   orgHistoryTitle: '変更の履歴',
   orgHistoryDesc:
-    '{admin}の指名、運用者の操作、{workspace}の作成と終了など、{organization}の単位の変更を新しい順に出します。{workspace}の中の変更（{member}の所属など）は出しません。',
+    '{admin}の指名、運用者の操作、{workspace}の作成・終了・削除など、{organization}の単位の変更を新しい順に出します。{workspace}の中の変更（{member}の所属など）は出しません。',
   orgHistoryListLabel: '{organization}の変更の履歴',
   orgHistoryColumnAt: '日時',
   orgHistoryColumnActor: 'した人',
@@ -2059,9 +2076,11 @@ export const dictionary = defineDictionary({
   orgHistoryWorkspaceCreatedNoName: '{workspace}を作りました',
   orgHistoryWorkspaceClosed: '{workspace}「{name}」を終了しました',
   orgHistoryWorkspaceReopened: '{workspace}「{name}」を再開しました',
-  // ワークスペースの行が無く、名前の分からない終了と再開
+  orgHistoryWorkspaceDeleted: '{workspace}「{name}」を削除しました',
+  // ワークスペースの行が無く、名前の分からない終了、再開、削除
   orgHistoryWorkspaceClosedNoName: '{workspace}を終了しました',
   orgHistoryWorkspaceReopenedNoName: '{workspace}を再開しました',
+  orgHistoryWorkspaceDeletedNoName: '{workspace}を削除しました',
   // 依頼先の名簿。名前は記録に残っている場合だけ添える
   orgHistoryDelegateeCreated: '依頼先「{name}」を追加しました',
   orgHistoryDelegateeCreatedNoName: '依頼先を追加しました',

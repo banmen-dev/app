@@ -84,7 +84,9 @@
             {#each storage.workspaces as workspace (workspace.id)}
               <tr
                 ><td class="is-name wrap-anywhere"
-                  >{workspace.name}{#if workspace.closed_at !== null}
+                  >{workspace.name}{#if workspace.deleted_at !== null}
+                    <span class="chip">{t('storageWorkspaceDeleted')}</span>
+                  {:else if workspace.closed_at !== null}
                     <span class="chip">{t('storageWorkspaceClosed')}</span>{/if}</td
                 ><td class="is-num" data-label={t('storageUsed')}>{usageText(workspace.used_bytes)}</td></tr
               >

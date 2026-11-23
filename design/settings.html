@@ -23,6 +23,10 @@
 const { D, t, icon, esc, pageHead } = SQ;
 const TZ = ["Asia/Tokyo", "Asia/Seoul", "Asia/Singapore", "Europe/London", "America/Los_Angeles", "UTC"];
 const WEEK = ["日", "月", "火", "水", "木", "金", "土"];
+const currentWorkspace = () => D.workspaces[D.workspace];
+if (new URLSearchParams(location.search).get("closed") === "1") {
+  currentWorkspace().closed = "2026-10-22";
+}
 
 function orderList(items, opts = {}) {
   const n = items.length;
@@ -40,6 +44,38 @@ function orderList(items, opts = {}) {
 function setting(title, desc, body) {
   return `<section class="setting"><div class="setting-head"><h2 class="setting-title">${title}</h2><p class="setting-desc">${desc}</p></div><div class="setting-body">${body}</div></section>`;
 }
+
+function workspaceDeleteSetting() {
+  if (!D.organizations.find(({ slug }) => slug === D.organization)?.admin) return "";
+  const workspace = t("workspace");
+  return setting(`${workspace}の削除`, `削除した${workspace}は開けなくなり、再開もできません。`,
+    currentWorkspace().closed
+      ? '<div class="form-actions"><button class="btn is-danger" type="button" data-workspace-delete>削除する</button></div>'
+      : `<p class="field-hint">削除するには、先にこの${workspace}を終了してください。</p>`);
+}
+
+document.addEventListener("click", (event) => {
+  if (!(event.target instanceof Element) || !event.target.closest("[data-workspace-delete]")) return;
+  const name = currentWorkspace().name;
+  const workspace = t("workspace");
+  SQ.openDialog(`「${esc(name)}」を削除しますか？`,
+    `<p>削除すると、この${workspace}と中のデータは開けなくなります。削除は取り消せません。保持される添付ファイルと Wiki は引き続き容量に含まれます。</p>
+    <form id="workspace-delete-form"><div class="field">
+      <label class="field-label" for="workspace-delete-name">${workspace}名</label>
+      <input class="input" id="workspace-delete-name" aria-describedby="workspace-delete-hint" autocomplete="off" spellcheck="false">
+      <span class="field-hint wrap-anywhere" id="workspace-delete-hint">確認のため「${esc(name)}」と入力してください。</span>
+    </div></form>`,
+    '<button class="btn is-primary" type="button" data-close-dialog>やめる</button><button class="btn is-danger" type="submit" form="workspace-delete-form" disabled>削除する</button>');
+  const form = document.getElementById("workspace-delete-form");
+  const input = document.getElementById("workspace-delete-name");
+  const submit = document.querySelector('button[form="workspace-delete-form"]');
+  form.closest(".dialog-sheet").classList.add("is-danger");
+  input.addEventListener("input", () => { submit.disabled = input.value !== name; });
+  form.addEventListener("submit", (submitEvent) => {
+    submitEvent.preventDefault();
+    if (input.value === name) location.href = SQ.firstHref("today.html");
+  });
+});
 
 SQ.mount("settings", () => `
   ${pageHead(D.workspaces.wa.name, "設定", [], `<button class="btn is-primary" type="button" data-toast="保存しました">保存する</button>`)}
@@ -92,6 +128,7 @@ SQ.mount("settings", () => `
     ${setting(`${t("workspace")}の休日`, `この${t("workspace")}だけの休日。組織の休日（祝日など）は管理者が登録します。`, `
       <ul class="party-list">${D.workspaceHolidays.map(([d, n]) => `<li><span class="mono">${d}</span><span class="party-list-text">${esc(n)}</span><button class="icon-btn is-danger party-list-end" type="button" aria-label="${d} を消す">${icon("trash")}</button></li>`).join("")}</ul>
       <div class="form-row"><label class="field" for="hd"><span class="field-label">日付</span><input class="input" id="hd" type="date"></label><label class="field" for="hn"><span class="field-label">名前</span><input class="input" id="hn"></label><button class="btn" type="button">足す</button></div>`)}
+    ${workspaceDeleteSetting()}
   </div>`);
 </script>
 </body>

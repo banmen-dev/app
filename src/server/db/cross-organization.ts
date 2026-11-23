@@ -81,6 +81,7 @@ export function membershipsStatement(db: OrganizationEntry, userIds: readonly st
       .selectFrom('memberships as m')
       .innerJoin('workspaces as w', 'w.id', 'm.workspace_id')
       .select(['m.user_id', 'w.organization_id'])
+      .where('w.deleted_at', 'is', null)
       .where('m.user_id', 'in', userIds)
       .where('m.left_at', 'is', null),
   );
@@ -94,6 +95,7 @@ export function invitationsStatement(db: OrganizationEntry, login: LoginId) {
       .innerJoin('workspaces as w', 'w.id', 'i.workspace_id')
       .select('w.organization_id')
       .distinct()
+      .where('w.deleted_at', 'is', null)
       .where('i.status', '=', 'pending')
       .where('i.login_provider', '=', login.provider)
       .where('i.login_subject', '=', login.subject),
@@ -569,6 +571,7 @@ export function pendingInvitationStatement(db: OrganizationEntry, tokenHash: str
       .innerJoin('workspaces as w', 'w.id', 'i.workspace_id')
       .select(['i.id', 'i.workspace_id', 'w.organization_id', 'i.login_email', 'i.login_provider', 'i.created_at'])
       .where('i.claim_token_hash', '=', tokenHash)
+      .where('w.deleted_at', 'is', null)
       .where('i.login_subject', 'is', null)
       .where('i.status', '=', 'pending')
       .where('i.claim_expires_at', '>', now.toISOString()),
@@ -667,6 +670,7 @@ function waitingInvitationIsValid(eb: Builder, c: ClaimContext) {
       .select('wi.id')
       .where('wi.id', '=', c.pending.id)
       .where('ww.organization_id', '=', c.pending.organizationId)
+      .where('ww.deleted_at', 'is', null)
       .where('wi.login_subject', 'is', null)
       .where('wi.claim_token_hash', '=', c.tokenHash)
       .where('wi.claim_expires_at', '>', c.nowIso)

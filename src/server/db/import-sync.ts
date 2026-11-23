@@ -403,7 +403,8 @@ export function syncOutcomeStatement(
             .selectFrom('workspaces')
             .select('workspaces.id')
             .where('workspaces.id', '=', connection.workspaceId)
-            .where('workspaces.organization_id', '=', db.organizationId),
+            .where('workspaces.organization_id', '=', db.organizationId)
+            .where('workspaces.deleted_at', 'is', null),
         ),
       );
   });
@@ -583,7 +584,8 @@ function reviewCycleStatement(db: OrganizationDb, taskId: string, workspaceId: s
                 .where('task_id', '=', taskId)
                 .where('workspace_id', '=', workspaceId)
                 .where('workspaces.organization_id', '=', db.organizationId)
-                .where('review_cycle', '=', cycle),
+                .where('review_cycle', '=', cycle)
+                .where('workspaces.deleted_at', 'is', null),
             ),
           ),
       )

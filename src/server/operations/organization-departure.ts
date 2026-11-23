@@ -14,7 +14,7 @@ type From = Pick<QueryCreator<OrganizationTables>, 'selectFrom'>;
 
 // その人が、管理者でなく、組織の中のどのワークスペースにも今所属していない（閉じたワークスペースの所属も数える）。
 // enter-organization.ts の判定の裏返し（無効の人は別の経路で入れない）。EXISTS の中で使う
-export function cannotEnterOrganization(from: From, organizationId: string, userId: string) {
+export function cannotEnterOrganization(from: From, organizationId: string, userId: string | Expression<string>) {
   return from
     .selectFrom('users as cu')
     .select('cu.id')
@@ -29,6 +29,7 @@ export function cannotEnterOrganization(from: From, organizationId: string, user
             .innerJoin('workspaces as rw', 'rw.id', 'remaining.workspace_id')
             .select('remaining.id')
             .where('rw.organization_id', '=', organizationId)
+            .where('rw.deleted_at', 'is', null)
             .where('remaining.user_id', '=', userId)
             .where('remaining.left_at', 'is', null),
         ),

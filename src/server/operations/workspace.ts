@@ -4,6 +4,7 @@ import {
   memberList,
   workspaceClose,
   workspaceCreate,
+  workspaceDelete,
   workspaceDodUpdate,
   workspaceSprintNamingUpdate,
   workspaceInfo,
@@ -24,6 +25,7 @@ import { ApiError } from '../errors.ts';
 import { uuidv7 } from '../uuid.ts';
 import { implement } from './implement.ts';
 import { readSeats } from './invitation.ts';
+import { cannotEnterOrganization, removeDepartedAvatarObjects } from './organization-departure.ts';
 import type { OrganizationTools } from './organization-tools.ts';
 import { newWorkspaceRows } from './workspace-rows.ts';
 import { actorUserIdOf, changeLogColumns, throwIfClosed } from './write-guards.ts';
@@ -50,7 +52,8 @@ function candidateUsers(from: Pick<QueryCreator<Tables>, 'selectFrom'>, organiza
             .select('m.id')
             .whereRef('m.user_id', '=', 'users.id')
             .where('m.left_at', 'is', null)
-            .where('w.organization_id', '=', organizationId),
+            .where('w.organization_id', '=', organizationId)
+            .where('w.deleted_at', 'is', null),
         ),
       ]),
     );
@@ -208,6 +211,7 @@ export const workspaceListOperation = implement(workspaceList, async ({ db }) =>
         .selectFrom('workspaces')
         .select(['id', 'name', 'timezone', 'created_at', 'closed_at'])
         .where('organization_id', '=', organizationId)
+        .where('deleted_at', 'is', null)
         .orderBy('name')
         .orderBy('id'),
     ),
@@ -220,6 +224,7 @@ export const workspaceListOperation = implement(workspaceList, async ({ db }) =>
           eb.fn.countAll<number>().filterWhere('m.role', '=', 'leader').as('leader_count'),
         ])
         .where('w.organization_id', '=', organizationId)
+        .where('w.deleted_at', 'is', null)
         .groupBy('m.workspace_id'),
     ),
   ] as const);
@@ -439,7 +444,8 @@ function closeGuard(
       .where('workspaces.organization_id', '=', organizationId)
       .where((eb) =>
         before === null ? eb('workspaces.closed_at', 'is', null) : eb('workspaces.closed_at', '=', before),
-      ),
+      )
+      .where('workspaces.deleted_at', 'is', null),
     isAdmin: adminUsers(from, organizationId).select('users.id').where('users.id', '=', actorUserId),
   };
 }
@@ -517,7 +523,8 @@ async function writeClosedState(
         .selectFrom('workspaces')
         .select('workspaces.closed_at')
         .where('workspaces.id', '=', workspaceId)
-        .where('workspaces.organization_id', '=', organizationId),
+        .where('workspaces.organization_id', '=', organizationId)
+        .where('workspaces.deleted_at', 'is', null),
     ),
   );
   if (row === undefined) throw new ApiError(404, 'not_found');
@@ -566,7 +573,8 @@ export const workspaceReopenOperation = implement(
           .selectFrom('workspaces')
           .select('workspaces.closed_at')
           .where('workspaces.id', '=', workspace.workspaceId)
-          .where('workspaces.organization_id', '=', db.organizationId),
+          .where('workspaces.organization_id', '=', db.organizationId)
+          .where('workspaces.deleted_at', 'is', null),
       ),
     );
     if (row === undefined) throw new ApiError(404, 'not_found');
@@ -577,6 +585,92 @@ export const workspaceReopenOperation = implement(
     if (max !== null) await throwIfWorkspaceLimitReached(db, max);
     await writeClosedState(db, actor, workspace.workspaceId, { action: 'reopen', closedAt: row.closed_at }, max);
     return { workspace_id: workspace.workspaceId };
+  },
+);
+
+export const workspaceDeleteOperation = implement(
+  workspaceDelete,
+  async ({ db, actor, workspace, input, attachmentStorage }) => {
+    const organizationId = db.organizationId;
+    const workspaceId = workspace.workspaceId;
+    const actorUserId = actorUserIdOf(actor);
+    const at = now();
+    const stamp = at.toISOString();
+
+    const target = (from: Pick<QueryCreator<Tables>, 'selectFrom'>) =>
+      from
+        .selectFrom('workspaces')
+        .where('workspaces.id', '=', workspaceId)
+        .where('workspaces.organization_id', '=', organizationId)
+        .where('workspaces.deleted_at', 'is', null)
+        .where((eb) =>
+          eb.exists(adminUsers(from, organizationId).select('users.id').where('users.id', '=', actorUserId)),
+        );
+    const deletable = (from: Pick<QueryCreator<Tables>, 'selectFrom'>) =>
+      target(from)
+        .select('workspaces.id')
+        .where('workspaces.closed_at', 'is not', null)
+        .where('workspaces.name', '=', input.confirm_name);
+
+    // 組織の変更履歴に残す。ワークスペースへの参照は entity_id で持ち、削除後も組織の履歴から読める。
+    const results = await db.batch([
+      db.statement((q) =>
+        q
+          .insertInto('change_logs')
+          .columns(changeLogColumns)
+          .expression(
+            q
+              .selectNoFrom((eb) => [
+                eb.val(uuidv7(at)).as('id'),
+                eb.val(organizationId).as('organization_id'),
+                eb.val(null).as('workspace_id'),
+                eb.val(actorUserId).as('actor_user_id'),
+                eb.val('workspace').as('entity_type'),
+                eb.val(workspaceId).as('entity_id'),
+                eb.val('delete').as('action'),
+                eb
+                  .val(JSON.stringify({ deleted_at: [null, stamp], name: [input.confirm_name, null] }))
+                  .as('changes_json'),
+                eb.val(stamp).as('created_at'),
+              ])
+              .where((eb) => eb.exists(deletable(q))),
+          ),
+      ),
+      db.statement((q) =>
+        q
+          .updateTable('workspaces')
+          .set({ deleted_at: stamp, updated_at: stamp })
+          .where('workspaces.id', 'in', deletable(q)),
+      ),
+      // 対象が最後の所属だった人の画像だけを、削除の書き込みが通った場合に外す。
+      db.statement((q) =>
+        q
+          .deleteFrom('user_avatars')
+          .where('user_avatars.organization_id', '=', organizationId)
+          .where('user_avatars.user_id', 'in', (eb) =>
+            eb
+              .selectFrom('memberships as departing')
+              .select('departing.user_id')
+              .where('departing.workspace_id', '=', workspaceId)
+              .where('departing.left_at', 'is', null)
+              .where((inner) =>
+                inner.exists(cannotEnterOrganization(q, organizationId, inner.ref('departing.user_id'))),
+              ),
+          )
+          .where(previousStatementChanged)
+          .returning('object_key'),
+      ),
+    ]);
+    if ((results[1]?.changes ?? 0) > 0) {
+      await removeDepartedAvatarObjects(attachmentStorage, results[2], workspaceDelete.name);
+      return { workspace_id: workspaceId };
+    }
+
+    const row = await db.first(db.statement((q) => target(q).select(['workspaces.closed_at', 'workspaces.name'])));
+    if (row === undefined) throw new ApiError(404, 'not_found');
+    if (row.closed_at === null) throw new ApiError(409, 'conflict', { reason: 'workspace_not_closed' });
+    if (row.name !== input.confirm_name) throw new ApiError(409, 'conflict', { reason: 'workspace_name_mismatch' });
+    throw new ApiError(409, 'conflict');
   },
 );
 

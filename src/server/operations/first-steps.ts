@@ -75,7 +75,12 @@ export const firstStepsOperation = implement(firstSteps, async ({ db, actor, org
         .orderBy('w.id'),
     ),
     db.statement((q) =>
-      q.selectFrom('workspaces').select('id').where('organization_id', '=', db.organizationId).limit(1),
+      q
+        .selectFrom('workspaces')
+        .select('id')
+        .where('organization_id', '=', db.organizationId)
+        .where('deleted_at', 'is', null)
+        .limit(1),
     ),
   ] as const);
 

@@ -76,6 +76,7 @@ export async function readOrganizationStorageUsage(db: OrganizationDb) {
           'w.id',
           'w.name',
           'w.closed_at',
+          'w.deleted_at',
           sql<number>`${wikiBytes(sql<boolean>`workspace_id = w.id`)} + (SELECT coalesce(sum(size_bytes), 0) FROM attachments WHERE workspace_id = w.id)`.as(
             'used_bytes',
           ),

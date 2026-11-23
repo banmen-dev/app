@@ -6,10 +6,17 @@ export async function removeAvatarObjects(
   keys: readonly string[],
   log: { operation: string; requestId?: string },
 ): Promise<void> {
-  if (keys.length === 0) return;
-  try {
-    await bucket.delete([...keys]);
-  } catch {
+  const maxKeysPerDelete = 1000;
+  let failed = 0;
+  for (let start = 0; start < keys.length; start += maxKeysPerDelete) {
+    const batch = keys.slice(start, start + maxKeysPerDelete);
+    try {
+      await bucket.delete(batch);
+    } catch {
+      failed += batch.length;
+    }
+  }
+  if (failed > 0) {
     console.error(
       JSON.stringify({
         level: 'error',
@@ -17,7 +24,7 @@ export async function removeAvatarObjects(
         ...(log.requestId === undefined ? {} : { requestId: log.requestId }),
         operation: log.operation,
         reason: 'プロフィール画像のファイルを消せなかった',
-        count: keys.length,
+        count: failed,
       }),
     );
   }

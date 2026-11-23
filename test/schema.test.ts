@@ -22,6 +22,16 @@ import {
 const AT = '2026-10-20T00:00:00.000Z';
 const CLAIM_EXPIRES_AT = '2026-11-03T00:00:00.000Z';
 
+test('終了していないワークスペースは論理削除できず、論理削除後は終了日時を消せない', async () => {
+  const org = await createOrganization();
+  const admin = await createUser(org, { is_admin: 1 });
+  const workspace = await createWorkspace(org, admin.id);
+  await expect(run('UPDATE workspaces SET deleted_at = ? WHERE id = ?', AT, workspace.id)).rejects.toThrow(/CHECK/);
+  await run('UPDATE workspaces SET closed_at = ? WHERE id = ?', AT, workspace.id);
+  await run('UPDATE workspaces SET deleted_at = ? WHERE id = ?', AT, workspace.id);
+  await expect(run('UPDATE workspaces SET closed_at = NULL WHERE id = ?', workspace.id)).rejects.toThrow(/CHECK/);
+});
+
 describe('容量通知のスキーマ', () => {
   test('通知本文はJSONで、日時はUTCミリ秒の形だけを受け付ける', async () => {
     const insert = (payload: string, created: string, read: string | null = null) =>

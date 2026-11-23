@@ -80,6 +80,7 @@ const event = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('workspace_created'), workspace_name: z.string().nullable() }),
   z.object({ kind: z.literal('workspace_closed'), workspace_name: z.string().nullable() }),
   z.object({ kind: z.literal('workspace_reopened'), workspace_name: z.string().nullable() }),
+  z.object({ kind: z.literal('workspace_deleted'), workspace_name: z.string().nullable() }),
   // 依頼先の名簿。名前は現在値ではなく記録の値。削除には名前を保存していない
   z.object({ kind: z.literal('delegatee_created'), name: z.string().nullable() }),
   z.object({ kind: z.literal('delegatee_renamed'), name: z.string().nullable() }),

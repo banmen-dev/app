@@ -13,6 +13,7 @@
   import LoadFailed from '../../../../../lib/components/LoadFailed.svelte';
   import Setting from '../../../../../lib/components/Setting.svelte';
   import PageHead from '../../../../../lib/components/PageHead.svelte';
+  import WorkspaceDeleteSetting from '../../../../../lib/components/WorkspaceDeleteSetting.svelte';
   import { t } from '../../../../../lib/vocabulary.svelte.ts';
   import type { PageProps } from './$types';
 
@@ -248,6 +249,9 @@
         onchanged={reload}
         onstale={stale}
       />
+      {#if data.organization?.me.is_admin === true}
+        <WorkspaceDeleteSetting {slug} {workspace} />
+      {/if}
     {/key}
   </div>
 {/if}

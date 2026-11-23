@@ -28,6 +28,7 @@ function readableWorkspaces(q: QueryCreator<OrganizationTables>, context: Contex
     .selectFrom('workspaces as allowed_workspace')
     .select('allowed_workspace.id')
     .where('allowed_workspace.organization_id', '=', context.db.organizationId)
+    .where('allowed_workspace.deleted_at', 'is', null)
     .where((eb) =>
       eb.and([
         eb.exists(viewer(q, context)),
@@ -82,7 +83,8 @@ function visibleTargets(
                       .select('active_membership.id')
                       .where('active_membership.user_id', '=', actorUserIdOf(context.actor))
                       .where('active_membership.left_at', 'is', null)
-                      .where('active_workspace.organization_id', '=', context.db.organizationId),
+                      .where('active_workspace.organization_id', '=', context.db.organizationId)
+                      .where('active_workspace.deleted_at', 'is', null),
                   ),
                 ]),
               ),

@@ -218,6 +218,7 @@ export const delegateeDeleteOperation = implement(delegateeDelete, async ({ db, 
               eb.val(stamp).as('created_at'),
             ])
             .where('w.organization_id', '=', organizationId)
+            .where('w.deleted_at', 'is', null)
             .where('d.organization_id', '=', organizationId)
             .where('t.delegatee_id', '=', id)
             .where('t.completed_at', 'is', null)
@@ -237,7 +238,8 @@ export const delegateeDeleteOperation = implement(delegateeDelete, async ({ db, 
                 .selectFrom('workspaces')
                 .select('id')
                 .whereRef('workspaces.id', '=', 'tasks.workspace_id')
-                .where('organization_id', '=', organizationId),
+                .where('workspaces.organization_id', '=', organizationId)
+                .where('workspaces.deleted_at', 'is', null),
             ),
             eb.exists(deletedHere(q)),
           ]),
