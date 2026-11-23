@@ -124,6 +124,7 @@ export const dictionary = defineDictionary({
   // 契約と使用量だけが読めなかったとき。担当者の管理は続けて使える
   billingSummaryLoadFailed: '契約と使用量を読み込めませんでした。担当者の管理はこのまま使えます。',
   billingSummaryRetrying: '契約と使用量を読み直しています',
+  billingSummaryRetryFailed: 'もう一度読み込めませんでした。時間をおいて試してください。',
   billingStateLabel: '利用の状態',
   billingStateActive: '利用中',
   billingStateSuspended: '一時停止中',

@@ -292,6 +292,9 @@ test('解約で停止した未契約の組織は、消す予定日と未契約�
   await expect(page.getByText(t('billingPurgeDue', { date: '2026-12-15' }), { exact: true })).toBeVisible();
   await expect(page.getByText(t('orgPlanNoneNote'), { exact: true })).toBeVisible();
   await expect(page.getByText(t('orgPlanExtraLabel'), { exact: true })).toHaveCount(0);
+  // 予定日を過ぎた印は長い文なので、いちばん狭い幅でも紙からはみ出さない
+  await page.setViewportSize({ width: 320, height: 900 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
 test('契約と使用量だけが読めなくても、担当者の管理は使える', async ({ page, context, baseURL }) => {
@@ -317,6 +320,64 @@ test('契約と使用量だけが読めなくても、担当者の管理は使�
   await page.getByRole('button', { name: t('retry'), exact: true }).click();
   await expect(page.getByText(t('billingSummaryLoadFailed'), { exact: true })).toHaveCount(0);
   await expect(page.getByText(t('billingUsageSeats', { used: '12', limit: '15' }), { exact: true })).toBeVisible();
+});
+
+test('もう一度試すは、読み直しの間は止め、また失敗したら伝え、読めたら紙の中身へフォーカスを移す', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signIn(context, baseURL, 'admin');
+  await mockOperation(page, myBillingOrganizations, {
+    account_id: accountId,
+    operator: false,
+    organizations: [listed],
+    invitations: [],
+  });
+  await mockOperation(page, billingAdminList, { administrators: [], events: [] });
+  // 読み直しの応答を止めておき、押している間の状態と呼ぶ回数を見る
+  let calls = 0;
+  let succeed = false;
+  let release: () => void = () => {};
+  await routeOperation(page, billingOrganizationSummary, async (call) => {
+    calls++;
+    if (calls > 1) await new Promise<void>((resolve) => (release = resolve));
+    if (succeed) await call.fulfill(summary);
+    else await call.fail(500, 'internal');
+  });
+  await page.goto('/auth/billing?organization=aoba');
+  await expect(page.getByText(t('billingSummaryLoadFailed'), { exact: true })).toBeVisible();
+  const retry = page.getByRole('button', { name: t('retry'), exact: true });
+  await retry.click();
+  await expect(retry).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.locator('#billing-status-summary')).toHaveText(t('billingSummaryRetrying'));
+  // 読み直しの間にもう一度押しても、読み取りは増やさない
+  await retry.click();
+  await expect.poll(() => calls).toBe(2);
+  release();
+  await expect(page.locator('#billing-status-summary')).toHaveText(t('billingSummaryRetryFailed'));
+  // 失敗の文は初めの1つだけで、再失敗は別の文で伝える
+  await expect(page.getByText(t('billingSummaryLoadFailed'), { exact: true })).toHaveCount(1);
+  succeed = true;
+  await retry.click();
+  await expect.poll(() => calls).toBe(3);
+  release();
+  await expect(page.locator('#billing-summary-body')).toBeFocused();
+  await expect(page.getByText(t('billingSummaryLoadFailed'), { exact: true })).toHaveCount(0);
+});
+
+test('契約と使用量の読み取りが回数の上限に当たったら、待てば読めると伝える', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'admin');
+  await mockOperation(page, myBillingOrganizations, {
+    account_id: accountId,
+    operator: false,
+    organizations: [listed],
+    invitations: [],
+  });
+  await mockOperation(page, billingAdminList, { administrators: [], events: [] });
+  await failOperation(page, billingOrganizationSummary, 429, 'rate_limited');
+  await page.goto('/auth/billing?organization=aoba');
+  await expect(page.getByText(t('billingRateLimited'), { exact: true })).toBeVisible();
 });
 
 test('未ログインでは請求の専用画面からログインへ戻る', async ({ page }) => {

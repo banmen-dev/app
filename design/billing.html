@@ -36,6 +36,7 @@ const ORGS = {
   fujino: { name: "藤野工房", plan: null, members: 15, quota: "30 GB", seats: 4, storage: "1.3 GB", state: "billingStateActive", trial: "2026-12-21 09:00" },
   kaede: { name: "楓工房", plan: "スモール", interval: "月払い", extras: null, members: 3, quota: "10 GB", seats: 3, storage: "6.8 GB", state: "billingStateCancelled", purge: "2026-11-20", purgeDue: true },
   sakura: { name: "桜商会", plan: "個別", interval: "年払い", custom: { members: "120", quota: "200" }, extras: "+50 GB × 1 口", members: 120, quota: "250 GB", seats: 98, storage: "201.4 GB", state: "billingStateSuspended" },
+  hinata: { name: "日向工房", plan: null, members: 15, quota: "30 GB", seats: 6, storage: "2.4 GB", state: "billingStateSuspended", trial: "2026-11-21 09:00", trialExpired: true },
   own: { name: t("personalOrganizationName"), slug: "minato-own", personal: true, plan: "パーソナル", interval: "月払い", extras: "+10 GB × 1 口", members: 1, quota: "11 GB", seats: 1, storage: "2.1 GB", state: "billingStateActive" },
 };
 const terms = (org) => t("planTerms").replace("{plan}", org.plan).replace("{interval}", org.interval);
@@ -44,8 +45,8 @@ const planChip = (org) => org.plan === null ? chip(t("operatorPlanNone")) : chip
 const summary = (org) => `<section class="gate-sheet">
   ${title("billingSummary", org.name)}
   <dl class="props">
-    <div><dt>${t("billingStateLabel")}</dt><dd>${stateChip(org)}${org.purgeDue ? ` <span class="chip is-danger">${icon("alert")}${esc(t("billingPurgeDue").replace("{date}", org.purge))}</span>` : org.purge ? ` <span class="props-note">${esc(t("billingPurgeOn").replace("{date}", org.purge))}</span>` : ""}</dd></div>
-    ${org.trial ? `<div><dt>${t("billingTrialLabel")}</dt><dd class="mono">${esc(t("orgTrialEndsOn").replace("{datetime}", org.trial))}</dd></div>` : ""}
+    <div><dt>${t("billingStateLabel")}</dt><dd>${stateChip(org)}${org.purgeDue ? ` <span class="chip is-danger is-name">${icon("alert")}${esc(t("billingPurgeDue").replace("{date}", org.purge))}</span>` : org.purge ? ` <span class="props-note">${esc(t("billingPurgeOn").replace("{date}", org.purge))}</span>` : ""}</dd></div>
+    ${org.trial ? `<div><dt>${t("billingTrialLabel")}</dt><dd><span class="mono">${esc(t("orgTrialEndsOn").replace("{datetime}", org.trial))}</span>${org.trialExpired ? ` <span class="chip is-danger">${icon("alert")}${t("trialExpired")}</span>` : ""}</dd></div>` : ""}
     <div><dt>${t("orgPlanTermsLabel")}</dt><dd>${org.plan === null ? chip(t("operatorPlanNone")) : esc(org.custom ? t("planCustomLimits").replace("{terms}", terms(org)).replace("{members}", org.custom.members).replace("{quota}", org.custom.quota) : terms(org))}</dd></div>
     ${org.plan === null ? "" : `<div><dt>${t("orgPlanExtraLabel")}</dt><dd>${esc(org.extras ?? t("orgPlanExtraNone"))}</dd></div>`}
     <div><dt>${t("billingUsageSeatsLabel")}</dt><dd class="mono">${esc(t("billingUsageSeats").replace("{used}", org.seats).replace("{limit}", org.members))}</dd></div>
@@ -59,8 +60,8 @@ const summary = (org) => `<section class="gate-sheet">
 const summaryFailed = (org) => `<section class="gate-sheet">
   ${title("billingSummary", org.name)}
   <p class="field-error" role="alert">${t("billingSummaryLoadFailed")}</p>
-  <div class="form-actions"><button class="btn is-sm" type="button" data-toast="見本のため、読み直しません">${t("retry")}</button></div>
-  <p role="status"></p>
+  <div class="form-actions"><button class="btn is-sm" type="button" aria-disabled="${state === "summaryRetrying"}" data-toast="見本のため、読み直しません">${t("retry")}</button></div>
+  <p class="${state === "summaryRetryFailed" ? "field-error" : ""}" role="status">${state === "summaryRetryFailed" ? t("billingSummaryRetryFailed") : state === "summaryRetrying" ? t("billingSummaryRetrying") : ""}</p>
 </section>`;
 const title = (key, name) => `<h2 class="dialog-title">${esc(name ? label(key, name) : t(key))}</h2>`;
 const actionStatus = (id) => `<p id="${id}" class="${state === "actionFailed" ? "field-error" : "field-hint"}" role="status" tabindex="-1">${saving ? t("billingBusy") : state === "actionFailed" ? t("billingFailed") : ""}</p>`;
@@ -90,11 +91,11 @@ SQ.mount("billing", () => `
       <a href="billing.html?operator=1">${t("billingBootstrap")}</a> ·
       <a href="billing.html?organization=fujino">${t("operatorPlanNone")}</a> · <a href="billing.html?organization=kaede">${t("billingStateCancelled")}</a> ·
       <a href="billing.html?organization=sakura">${t("billingStateSuspended")}</a> · <a href="billing.html?organization=own">${t("personalOrganizationName")}</a> ·
-      <a href="billing.html?organization=aoba&amp;state=summaryFailed">${t("billingSummaryLoadFailed")}</a>
+      <a href="billing.html?organization=aoba&amp;state=summaryFailed">${t("billingSummaryLoadFailed")}</a> · <a href="billing.html?organization=aoba&amp;state=summaryRetrying">${t("billingSummaryRetrying")}</a> · <a href="billing.html?organization=aoba&amp;state=summaryRetryFailed">${t("billingSummaryRetryFailed")}</a> · <a href="billing.html?organization=hinata">${t("trialExpired")}</a>
     </p>
   </section>
   ${state === "failed" ? "" : state === "refreshFailed" ? `<section class="gate-sheet"><p class="field-error" role="alert">${t("billingRefreshFailed")}</p><a class="btn is-sm" href="billing.html">${t("retry")}</a></section>` : selected ? `
-    ${state === "summaryFailed" ? summaryFailed(ORGS[selected] ?? ORGS.aoba) : summary(ORGS[selected] ?? ORGS.aoba)}
+    ${["summaryFailed", "summaryRetrying", "summaryRetryFailed"].includes(state) ? summaryFailed(ORGS[selected] ?? ORGS.aoba) : summary(ORGS[selected] ?? ORGS.aoba)}
     <section class="gate-sheet">
       ${title("billingAdministrators", (ORGS[selected] ?? ORGS.aoba).name)}
       <div class="form-actions"><a class="btn" href="billing.html">${t("billingBack")}</a></div>

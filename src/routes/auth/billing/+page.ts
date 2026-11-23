@@ -28,7 +28,13 @@ export const load: PageLoad = async ({ fetch, url }) => {
     return {
       failed: false as const,
       ...result.data,
-      selected: { ...organization, ...details.data, summary: summary.ok ? summary.data : null },
+      selected: {
+        ...organization,
+        ...details.data,
+        summary: summary.ok ? summary.data : null,
+        // 回数の上限に当たったときは、待てば読めることを伝える
+        summaryRateLimited: !summary.ok && summary.error?.code === 'rate_limited',
+      },
     };
   }
   return { failed: false as const, ...result.data, selected: null };

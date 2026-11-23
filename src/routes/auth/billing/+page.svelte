@@ -58,6 +58,10 @@
   // 契約と使用量の読み直し（「もう一度試す」）。押している間は止め、結果を状態の領域で伝え、成功したら読み直した紙の中身へフォーカスを移す（押したボタンは消える）
   let retrying = $state(false);
   let retryFailed = $state(false);
+  // 契約と使用量を読めたら、前の読み直しの失敗を消す（担当者の保存で読み直したときを含む）
+  $effect(() => {
+    if (data.selected?.summary) retryFailed = false;
+  });
   async function retrySummary() {
     if (retrying) return;
     const version = navigationVersion;
@@ -76,7 +80,9 @@
       return;
     }
     await tick();
-    document.getElementById('billing-summary-body')?.focus();
+    // 読み直しの間に利用者が別の欄へ移っていれば、フォーカスを奪わない（save() と同じ）
+    // 押したボタンは消えるので、フォーカスが行き場を失っているときだけ紙の中身へ移す
+    if (focusIsFree()) document.getElementById('billing-summary-body')?.focus();
   }
 
   async function save(action: () => Promise<ApiResult<unknown>>, area: string, restoreFocus = false) {
@@ -178,15 +184,17 @@
       {@const selected = data.selected}
       <GateSheet title={t('billingSummary', { name: organizationName(selected) })}>
         {#if selected.summary === null}
-          <p class="field-error" role="alert">{t('billingSummaryLoadFailed')}</p>
+          <p class="field-error" role="alert">
+            {t(selected.summaryRateLimited ? 'billingRateLimited' : 'billingSummaryLoadFailed')}
+          </p>
           <div class="form-actions">
             <button class="btn is-sm" type="button" aria-disabled={retrying} onclick={retrySummary}>{t('retry')}</button
             >
           </div>
           <p id="billing-status-summary" class:field-error={retryFailed} role="status">
-            {retrying ? t('billingSummaryRetrying') : retryFailed ? t('billingSummaryLoadFailed') : ''}
+            {retrying ? t('billingSummaryRetrying') : retryFailed ? t('billingSummaryRetryFailed') : ''}
           </p>
-        {:else}<div id="billing-summary-body" tabindex="-1"><BillingSummary summary={selected.summary} /></div>{/if}
+        {:else}<BillingSummary summary={selected.summary} />{/if}
       </GateSheet>
       <GateSheet title={t('billingAdministrators', { name: organizationName(selected) })}>
         <div class="form-actions"><a class="btn" href={resolve('/auth/billing')}>{t('billingBack')}</a></div>
@@ -292,6 +300,7 @@
         <div class="choice-list">
           {#each data.organizations as organization (organization.slug)}<a
               class="choice"
+              data-sveltekit-preload-data="off"
               href={resolve(`/auth/billing?organization=${encodeURIComponent(organization.slug)}`)}
               ><div>
                 <b>{organizationName(organization)}</b>
