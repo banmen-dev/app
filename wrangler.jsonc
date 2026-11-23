@@ -27,7 +27,8 @@
     "PUBLIC_ORIGIN": "https://banmen.ucan-lab.workers.dev"
   },
   // database_id を替えるときは scripts/preview-config.ts の PRODUCTION_DATABASE_ID も同じ ID にする。替えた版を出した時点で本番は
-  // その D1 に切り替わり、空の D1 なら全マイグレーションを当てた空の本番になる（docs/operations.md の「本番の D1 と R2 を banmen に移す」）
+  // その D1 に切り替わり、空の D1 なら全マイグレーションを当てた空の本番になる。データを写し終えてから出す
+  // （docs/operations.md の「本番の D1 と R2 を banmen に移す」）
   "d1_databases": [
     {
       "binding": "DB",
