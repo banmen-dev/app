@@ -90,7 +90,6 @@
     avatarSaving: "画像を変更しています", avatarReading: "画像を読み込んでいます",
     avatarSaved: "プロフィール画像を上げました。", avatarRemoved: "プロフィール画像を外しました。",
     sprintStoryFilterLabel: '{story}で絞り込む: {title}',
-    sprintStoryFilterActive: '{story}: {title}',
     sprintStoryTotalsNote: '{sprint}の小窓の進み具合は全体、列の件数と{points}は絞り込み後の値です',
     sprintStoryCreateUnder: '絞り込んだ{story}の下に追加します',
     sprintNamingTitle: '{sprint}の命名ルール',
@@ -997,10 +996,11 @@
     return `<li><a class="wiki-link" href="#${p.id}" data-wiki-page="${p.id}"${current ? ' aria-current="page"' : ""}>${esc(p.title)}<span class="props-note">${esc(path)}</span><span class="props-note">${where === "title" ? "題に一致" : "本文に一致"}</span></a></li>`;
   }
   // 押すと開く小窓（本番の Popover。components.css の .popover）。ボタンの下の右端にそろえ、モーダルにしない窓（role="dialog"）を重ねる。
-  // opts: label（ボタンの読み上げの名前）、dialogLabel（小窓の名前）、icon（文字の前のアイコン）、tone（"warn" で注意の印と枠）、note（文字の後ろの短い状態の言葉）。
+  // opts: label（ボタンの読み上げの名前）、dialogLabel（小窓の名前）、icon（文字の前のアイコン）、tone（"warn" で注意の印と枠）、note（文字の後ろの短い状態の言葉）、
+  // align（"start" で小窓をボタンの左端にそろえる。帯の左の絞り込み）、active（選んでいる値があることを枠と文字の色で示す）。
   // 開くと小窓へフォーカスを移し、Esc か外を押すと閉じてボタンへ戻す（外のボタンや欄を押したときは、その先に残す）
   function popover(text, body, opts = {}) {
-    return `<span class="popover" data-popover><button class="btn popover-btn${opts.tone ? ` is-${opts.tone}` : ""}" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="${esc(opts.label || text)}" title="${esc(opts.label || text)}" data-popover-toggle>${opts.icon ? icon(opts.icon) : ""}<span class="popover-btn-text">${esc(text)}</span>${opts.note ? `<span class="popover-btn-note"> ${esc(opts.note)}</span>` : ""}${icon("chevron")}</button>` +
+    return `<span class="popover${opts.align === "start" ? " is-start" : ""}" data-popover><button class="btn popover-btn${opts.tone ? ` is-${opts.tone}` : ""}${opts.active ? " is-active" : ""}" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="${esc(opts.label || text)}" title="${esc(opts.label || text)}" data-popover-toggle>${opts.icon ? icon(opts.icon) : ""}<span class="popover-btn-text">${esc(text)}</span>${opts.note ? `<span class="popover-btn-note"> ${esc(opts.note)}</span>` : ""}${icon("chevron")}</button>` +
       `<div class="popover-panel" role="dialog" aria-label="${esc(opts.dialogLabel || text)}" tabindex="-1" hidden>${body}</div></span>`;
   }
   function closePopover(root, restore) {
@@ -1096,6 +1096,66 @@
   // キーボードでは、選んで Alt と ← → で隣の列、Alt と ↑ ↓ で列の中を動かす（本番の SprintBoard）。完了の列のカードは Alt と ← と「⋯」で戻す
   // ドラッグ（本番の SprintCard）: つかめるカードは draggable="true" を持ち、カード全体をつかむ（opts.grab を false にするとつかめないカード）。
   // opts.mark はドラッグの状態: { drop: "before" | "after", state: "is-dragging" | "is-dropped" }（dropAttr と同じ形。into は列に付ける）
+  // ボードの絞り込み（本番の board-filter.ts。#1502）。opts.story はストーリー、opts.assignees は担当（"none" は担当なし）、opts.q は題の部分一致
+  function boardMatches(x, opts = {}) {
+    return (!opts.story || x.story === opts.story) &&
+      (!opts.assignees || !opts.assignees.length || opts.assignees.includes(x.who || "none")) &&
+      (!opts.q || x.title.toLowerCase().includes(opts.q.toLowerCase()));
+  }
+  // カードの区分（本番の sprint-board の category と同じく、親のエピック、親のストーリー、タスク自身の順に引き継ぐ）
+  function boardCategoryOf(x) {
+    const story = x.story ? D.stories[x.story] : null;
+    if (story) return (story.epic && D.epics[story.epic]?.cat) || story.cat || null;
+    return x.cat || null;
+  }
+  // ボードの道具の帯（本番の BoardFilterBar）。左に検索、担当のアバター、フィルターの小窓（ストーリー、エピック、担当、区分のチェック）、
+  // 絞っている間は「すべてクリア」と、帯の下に条件と表示している件数を出す。右端（opts.end）はスプリントのボタン。
+  // 担当のアバターは名前の順に先頭の5人と「担当なし」。押すと aria-pressed が替わる（見本は押した見た目だけを替える）
+  function boardToolbar(sprintId, opts = {}) {
+    const all = tasksWhere((x) => x.sprint === sprintId);
+    const shown = all.filter((x) => boardMatches(x, opts)).length;
+    const assignees = opts.assignees || [];
+    const tally = (pairs) => {
+      const map = new Map();
+      for (const [id, label] of pairs) map.set(id, { id, label, count: (map.get(id)?.count || 0) + 1 });
+      const list = [...map.values()];
+      return [...list.filter((c) => c.id !== "none"), ...list.filter((c) => c.id === "none")];
+    };
+    const people = tally(all.map((x) => [x.who || "none", x.who ? user(x.who).name : "担当なし"]));
+    const named = people.filter((c) => c.id !== "none").sort((a, b) => a.label.localeCompare(b.label, "ja"));
+    const groups = [
+      [t("story"), "story", tally(all.map((x) => [x.story || "none", x.story ? D.stories[x.story].title : `${t("story")}なし`]))],
+      [t("epic"), "epic", tally(all.map((x) => { const e = x.story && D.stories[x.story].epic; return [e || "none", e ? D.epics[e].title : `${t("epic")}なし`]; }))],
+      [t("assignee"), "assignee", [...named, ...people.filter((c) => c.id === "none")]],
+      [t("category"), "category", tally(all.map((x) => { const k = boardCategoryOf(x); return [k || "none", k ? D.categories[k].name : `${t("category")}なし`]; }))],
+    ];
+    const picked = (key, id) => (key === "story" ? opts.story === id : key === "assignee" && assignees.includes(id));
+    const count = (opts.story ? 1 : 0) + assignees.length;
+    const panel = `<div class="filter-groups">${groups.map(([label, key, choices]) => `<fieldset class="filter-group"><legend class="popover-label">${esc(label)}</legend>${choices.map((c) =>
+      `<label class="filter-option"><input type="checkbox"${picked(key, c.id) ? " checked" : ""}><span class="filter-option-text">${esc(c.label)}</span><span class="filter-option-n">${c.count}</span></label>`).join("")}</fieldset>`).join("")}</div>`;
+    const filters = popover(count ? `フィルター（${count}）` : "フィルター", panel, {
+      label: count ? `フィルター（${count} 件選択中）` : "フィルター", dialogLabel: `${t("board")}のフィルター`, icon: "filter", align: "start", active: count > 0,
+    });
+    const avatars = named.slice(0, 5).map((c) => `<button class="avatar-filter-btn" type="button" aria-pressed="${assignees.includes(c.id)}" aria-label="${esc(c.label)}" title="${esc(c.label)}" data-avatar-filter>${avatarOf(c.id)}</button>`).join("") +
+      (people.some((c) => c.id === "none") ? `<button class="avatar-filter-btn" type="button" aria-pressed="${assignees.includes("none")}" aria-label="担当なし" title="担当なし" data-avatar-filter>${avatarOf(null)}</button>` : "") +
+      (named.length > 5 ? `<span class="avatar-filter-more" title="ほか ${named.length - 5} 人はフィルターから選べます"><span aria-hidden="true">+${named.length - 5}</span><span class="visually-hidden">ほか ${named.length - 5} 人はフィルターから選べます</span></span>` : "");
+    const filtering = Boolean(opts.story || assignees.length || opts.q);
+    const conditions = [
+      ...(opts.q ? [`「${esc(opts.q)}」`] : []),
+      ...(opts.story ? [`${t("story")}: ${esc(D.stories[opts.story].title)}`] : []),
+      ...(assignees.length ? [`${t("assignee")}: ${assignees.map((id) => (id === "none" ? "担当なし" : esc(user(id).name))).join("、")}`] : []),
+    ];
+    return `<div class="toolbar board-toolbar">
+      <div class="board-filter" role="search" aria-label="${t("board")}の絞り込み">
+        <label class="search">${icon("search")}<input type="search" placeholder="${t("board")}を検索" aria-label="${t("board")}を検索" value="${esc(opts.q || "")}"></label>
+        <div class="avatar-filter" role="group" aria-label="${t("assignee")}で絞り込む">${avatars}</div>
+        ${filters}
+        ${filtering ? `<button class="btn is-sm is-quiet" type="button" data-story-clear>${icon("x")}すべてクリア</button>` : ""}
+      </div>
+      <div class="toolbar-end">${opts.end || ""}</div>
+      ${filtering ? `<p class="toolbar-note board-filter-summary">${conditions.map((c) => `<b>${c}</b>`).join("")}<span>${all.length} 件中 ${shown} 件を表示</span><span>${storyFilterText("sprintStoryTotalsNote")}</span></p>` : ""}
+    </div>`;
+  }
   function storyFilterText(key, title = "") {
     return t(key).replaceAll("{story}", t("story")).replaceAll("{points}", t("points")).replaceAll("{sprint}", t("sprint")).replaceAll("{title}", () => title);
   }
@@ -1133,11 +1193,14 @@
   // opts.key: カードの id の接頭辞、opts.cardMarks: (x, i, c) => card のドラッグの状態、opts.columnMarks: (c) => 列の囲み（{ drop: "into" }）、opts.grab: (x) => つかめるか（既定は完了カードを含むすべて）
   const boardCollapsed = new Map();
   function board(sprintId, opts = {}) {
-    const list = tasksWhere((x) => x.sprint === sprintId && (!opts.story || x.story === opts.story));
+    const all = tasksWhere((x) => x.sprint === sprintId);
+    const list = all.filter((x) => boardMatches(x, opts));
     const open = D.columns.filter((c) => !c.done);
-    return `<div class="story-board" data-board-story="${esc(opts.story || "")}" data-board-sprint="${sprintId}" data-board-key="${opts.key || ""}" data-board-draft="${!!opts.draft}">${opts.story ? `<div class="story-filter-band"><div class="story-filter-summary"><span>${icon("flag")}${esc(storyFilterText("sprintStoryFilterActive", D.stories[opts.story].title))}</span><span class="action-note">${storyFilterText("sprintStoryTotalsNote")}</span></div><button class="btn is-sm is-quiet" type="button" data-story-clear>${icon("x")}${t("filterClear")}</button></div>` : ""}<div class="board-wrap"><div class="board" style="--board-cols:${D.columns.length}">${D.columns.map((c) => {
+    return `<div class="story-board" data-board-story="${esc(opts.story || "")}" data-board-sprint="${sprintId}" data-board-key="${opts.key || ""}" data-board-draft="${!!opts.draft}"><div class="board-wrap"><div class="board" style="--board-cols:${D.columns.length}">${D.columns.map((c) => {
       const name = c.done ? t("done") : (opts.columnName ? opts.columnName(c) : c.name);
-      const items = list.filter((x) => (c.done ? x.doneAt : !x.doneAt && x.col === c.id));
+      const inColumn = (x) => (c.done ? x.doneAt : !x.doneAt && x.col === c.id);
+      const items = list.filter(inColumn);
+      const hidden = all.filter(inColumn).length - items.length;
       const collapseKey = `${opts.key || sprintId}-${c.id}`;
       const collapsed = boardCollapsed.has(collapseKey) ? boardCollapsed.get(collapseKey) : Boolean(opts.collapsed && opts.collapsed(c));
       const at = open.indexOf(c);
@@ -1146,7 +1209,7 @@
       return `<section class="board-col ${c.done ? "is-done" : ""} ${collapsed ? "is-collapsed" : ""}"${dropAttr(opts.columnMarks && opts.columnMarks(c))} aria-label="${esc(name)}">
         <div class="board-col-head"><button class="board-col-toggle" type="button" aria-label="${esc(name)}の開閉" aria-expanded="${!collapsed}" data-column-collapse="${esc(collapseKey)}">${icon("chevron")}</button>${c.done ? icon("check") : ""}<span class="board-col-name">${esc(name)}</span><span class="board-col-n">${items.length}</span><span class="board-col-pts">${sumPts(items)} pt</span></div>
         ${collapsed ? "" : `${c.done && D.definitionOfDone.length ? `<details class="dod"><summary>${t("dod")}</summary>${dodDoc()}</details>` : ""}
-        ${items.map((x, i) => card(x, c.done ? undefined : orderOf(i), { mark: opts.cardMarks && opts.cardMarks(x, i, c), grab: opts.grab ? opts.grab(x) : true, key: opts.key, highlightStory: opts.highlightStory })).join("") || `<p class="board-empty">なし</p>`}
+        ${items.map((x, i) => card(x, c.done ? undefined : orderOf(i), { mark: opts.cardMarks && opts.cardMarks(x, i, c), grab: opts.grab ? opts.grab(x) : true, key: opts.key, highlightStory: opts.highlightStory })).join("") || `<p class="board-empty">${hidden > 0 ? `絞り込みで ${hidden} 件を隠しています` : "なし"}</p>`}
         ${opts.draft && !c.done ? `<div class="board-col-draft">${draftRow("col", c.id, `${t("task")}を足す: ${c.name}`, `${t("task")}を足す`)}${opts.story ? `<p class="action-note">${storyFilterText("sprintStoryCreateUnder")}</p>` : ""}</div>` : ""}` }
       </section>`;
     }).join("")}</div></div></div>`;
@@ -4100,9 +4163,19 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   document.addEventListener("focusout", (event) => focusStoryExample(event, false));
   document.addEventListener("click", (event) => {
     const trigger = event.target.closest?.("[data-story-filter], [data-story-clear]");
-    const root = trigger?.closest(".story-board");
+    // 「すべてクリア」は帯（.board-toolbar）の中にあるので、帯の次の .story-board を描き直す
+    const root = trigger?.closest(".story-board") ?? trigger?.closest(".board-toolbar")?.nextElementSibling;
     if (!root) return;
+    // 道具の帯（.board-toolbar）が前にあれば、帯も同じ絞り込みで描き直す。右端のスプリントのボタンはそのまま残す
+    const toolbar = root.previousElementSibling?.classList.contains("board-toolbar") ? root.previousElementSibling : null;
+    if (toolbar) toolbar.outerHTML = boardToolbar(root.dataset.boardSprint, { story: trigger.dataset.storyFilter, end: toolbar.querySelector(".toolbar-end").innerHTML });
     root.outerHTML = board(root.dataset.boardSprint, { key: root.dataset.boardKey, story: trigger.dataset.storyFilter, draft: root.dataset.boardDraft === "true" });
+  });
+
+  // 担当のアバターの絞り込み（本番の BoardFilterBar）。見本は押した見た目（aria-pressed）だけを替え、カードは絞らない
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest?.("[data-avatar-filter]");
+    if (button) button.setAttribute("aria-pressed", String(button.getAttribute("aria-pressed") !== "true"));
   });
 
   // ---- 担当の窓の絞り込みと、カードの題の書き換え（本番の AttrChip の searchable と SprintCard） ----
@@ -4811,7 +4884,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     onRedraw: (fn) => extraRedraws.push(fn), openDrawer, drawerHtml, drawerState: drawer, flashRow,
     user, task, tasksWhere, repoTag, categoryTag, sprintTag, repoPicker, sprintLabel, colName, categoryOf, storyPts, epicPts, dueOf,
     attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, pts, dueChip, taskDue, sourceKey, entry, rowMenu, orderItems, draftRow, attrChip, book, section, foldedSection, pane, paneList, newsList, dashboard, activity, activityLoading, activityFailed, activityEmptyNoWorkspace, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
-    narrowDisclosure, popover, card, board, treeStory, treeEpic, completedTasks, sprintNotice, progress, load, capacityRows,
+    narrowDisclosure, popover, card, board, boardToolbar, treeStory, treeEpic, completedTasks, sprintNotice, progress, load, capacityRows,
     openDialog, closeDialog, toast, miniCap, redraw: () => redrawAll(), DIALOGS, loginTarget, orgMenuHtml, workspaceMenuHtml, accountMenuHtml, breadcrumbHtml,
     filesOf, fileThumb, fileRow, dropzone, attachments, markdownEditor, markdownToolbarHtml, mdBody, markdownSample, meter, storageBytes,
     PROVIDER, ASSIST_KEY, assistMsg, assistBlocked, assistSuggest, openAssist,

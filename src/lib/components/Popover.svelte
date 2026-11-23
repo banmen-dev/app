@@ -9,7 +9,9 @@
   // Tab で小窓の外へ出たときは閉じるだけで、出た先に残す。
   // children には、小窓を閉じる関数と、ボタンの要素を渡す。中の操作でダイアログを開くときは、close(false) で閉じてから
   // ボタンをダイアログの戻り先に渡す（小窓は閉じて消えるので、中のボタンへは戻せない）。
-  // tone="warn" は印（mark のアイコン）と枠の色で注意を示す。色だけに頼らないよう、label に同じことを含める
+  // tone="warn" は印（mark のアイコン）と枠の色で注意を示す。色だけに頼らないよう、label に同じことを含める。
+  // align="start" は小窓をボタンの左端にそろえる（帯の左の絞り込み）。active は選んでいる値があることを枠と文字の色で示す
+  // （色だけに頼らないよう、text と label に数を含める）
   let {
     text,
     label,
@@ -17,6 +19,8 @@
     icon,
     tone,
     note,
+    align = 'end',
+    active = false,
     children,
   }: {
     // ボタンの見える文字
@@ -31,6 +35,8 @@
     // 文字の後ろに添える短い状態の言葉（期限切れなど）。色だけに頼らず、見える言葉でも示す。
     // 読み上げの名前（label）には「<文字> <note>」の形で含める（見える文字の前に空白を置き、名前と見える文字をそろえる）
     note?: string;
+    align?: 'start' | 'end';
+    active?: boolean;
     children: Snippet<[(restoreFocus: boolean) => void, HTMLElement]>;
   } = $props();
 
@@ -90,10 +96,11 @@
 
 <!-- キーは中のボタンと小窓から届く。包む要素そのものはフォーカスを受けない -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<span class="popover" bind:this={root} onkeydown={onKeydown} onfocusout={onFocusOut}>
+<span class="popover" class:is-start={align === 'start'} bind:this={root} onkeydown={onKeydown} onfocusout={onFocusOut}>
   <button
     class="btn popover-btn"
     class:is-warn={tone === 'warn'}
+    class:is-active={active}
     type="button"
     bind:this={button}
     aria-haspopup="dialog"

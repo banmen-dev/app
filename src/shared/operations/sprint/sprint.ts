@@ -42,6 +42,9 @@ export type SprintTask = z.output<typeof sprintTaskSchema>;
 // スプリントの画面（sprint-board）のカード。完了したタスクは completed_at を持つ。
 // story は親のストーリー（カードの上に題を添える）。親のないタスクは null。
 // due_on（期日）と repository（振ったリポジトリ。削除したものは null）は、カードの .card-meta に出す。
+// epic は親のストーリーの親のエピック（親が無いか、ストーリーがエピックの下に無ければ null）。
+// category は引き継ぎを解いた区分（task-detail の category と同じ順で、親のエピック、親のストーリー、タスク自身。削除した区分は null）。
+// ボードの絞り込み（#1502）とグループ（#1503）が使う。
 // reopenable は、完了を戻せる（task-reopen）完了したカード。完了したストーリーの下のカードと、完了していないカードは偽
 // （書き込めるか、閉じたワークスペースかは画面が見る）
 export const sprintBoardTaskSchema = z.object({
@@ -52,6 +55,8 @@ export const sprintBoardTaskSchema = z.object({
   completed_at: z.string().nullable(),
   reopenable: z.boolean(),
   story: z.object({ id: z.string(), title: z.string() }).nullable(),
+  epic: z.object({ id: z.string(), title: z.string() }).nullable(),
+  category: z.object({ id: z.string(), name: z.string() }).nullable(),
   due_on: z.string().nullable(),
   repository: z.object({ id: z.string(), name: z.string() }).nullable(),
   // 削除できるか（task-detail の can_delete と同じ判定。作った人とリーダー（管理者を含む）で、取り込んだタスクは偽）

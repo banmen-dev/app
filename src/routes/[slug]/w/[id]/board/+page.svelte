@@ -7,6 +7,7 @@
   import { page } from '$app/state';
   import { callOperation, type ApiResult } from '../../../../../lib/api.ts';
   import DraftRow from '../../../../../lib/components/DraftRow.svelte';
+  import BoardFilterBar from '../../../../../lib/components/BoardFilterBar.svelte';
   import EmptyState from '../../../../../lib/components/EmptyState.svelte';
   import Icon from '../../../../../lib/components/Icon.svelte';
   import LoadFailed from '../../../../../lib/components/LoadFailed.svelte';
@@ -30,7 +31,19 @@
   import { MoveQueue } from '../../../../../lib/move-queue.ts';
   import { ReopenKeyGuard } from '../../../../../lib/reopen-key.ts';
   import { edgesOf, planCardMove, type MoveDirection, type MoveEdge } from '../../../../../lib/sprint-board.ts';
-  import { storyColumns, storyHref, applyStoryMove } from '../../../../../lib/sprint-story-filter.ts';
+  import {
+    applyFilteredMove,
+    boardChoicesOf,
+    boardFilterHref,
+    boardFilterOf,
+    emptyBoardFilter,
+    filterColumns,
+    isBoardFiltering,
+    prunedBoardFilter,
+    sameBoardFilter,
+    storyForCreate,
+    type BoardFilter,
+  } from '../../../../../lib/board-filter.ts';
   import { SprintColumnCollapse } from '../../../../../lib/sprint-column-collapse.svelte.ts';
   import { SprintDnd } from '../../../../../lib/sprint-dnd.svelte.ts';
   import type { MovedPlan, ReopenPlan, SprintDrop } from '../../../../../lib/sprint-drop.ts';
@@ -148,29 +161,47 @@
   // 画面で動かした後の列とカード。読み直したら捨てる
   let local = $state<SprintBoardColumn[] | null>(null);
   const columns = $derived(local ?? board?.columns ?? []);
-  const requestedStoryId = $derived(page.url.searchParams.get('story'));
-  const filteredStory = $derived(
-    columns.flatMap((column) => column.tasks).find((task) => task.story?.id === requestedStoryId)?.story ?? null,
-  );
-  const storyId = $derived(filteredStory?.id ?? null);
-  const cardStoryQuery = $derived(storyId === null ? '' : `&story=${encodeURIComponent(storyId)}`);
-  // ボード全体で親が無くなれば、URLを直接開いた場合も操作後も同じ条件で解除する。
+  // 絞り込み（#1502）。URL の問い合わせ（?q=&assignee=&story=&epic=&category=）から読み、読み込んだボードを画面で絞る。
+  // 前からある ?story=<ID> のリンク（通知など）も同じ形で読む
+  const filter = $derived(boardFilterOf(page.url.searchParams));
+  const choices = $derived(boardChoicesOf(columns));
+  // ストーリーを1つだけ選んでいる間は、追加の行で作るタスクをそのストーリーの下に入れる（前の ?story= の絞り込みと同じ）
+  const storyId = $derived.by(() => {
+    const id = storyForCreate(filter);
+    return id !== null && choices.story.some((choice) => choice.id === id) ? id : null;
+  });
+  // カードの題のリンク（?task=）にも絞り込みを添え、引き出しを開閉しても絞り込みを保つ
+  const cardFilterQuery = $derived(boardFilterHref(new URL('http://board.invalid/'), filter).replace(/^\/\??/, ''));
+  // ボード全体で選んだ値が無くなれば（消えたストーリー、別のボードのリンク）、URLを直接開いた場合も操作後も同じ条件で外す。
   const hasBoard = $derived(board !== null);
-  let clearingStoryHref: string | null = null;
+  let clearingFilterHref: string | null = null;
   $effect(() => {
     const href = page.url.href;
-    if (!hasBoard || requestedStoryId === null || filteredStory !== null) {
-      clearingStoryHref = null;
+    const pruned = hasBoard ? prunedBoardFilter(filter, choices) : null;
+    if (pruned === null || pruned.removed.length === 0) {
+      clearingFilterHref = null;
       return;
     }
-    if (clearingStoryHref === href) return;
-    clearingStoryHref = href;
-    // eslint-disable-next-line svelte/no-navigation-without-resolve -- 現在の経路のstory問い合わせだけを除く
-    void goto(storyHref(page.url, null), { replace: true, reset: false })
-      .then(() => announce(t('sprintStoryFilterInvalid', { story: t('story') })))
+    if (clearingFilterHref === href) return;
+    clearingFilterHref = href;
+    const onlyStory = pruned.removed.length === 1 && pruned.removed[0] === 'story';
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- 現在の経路の絞り込みの問い合わせだけを除く
+    void goto(boardFilterHref(page.url, pruned.filter), { replace: true, reset: false })
+      .then(() =>
+        announce(
+          onlyStory
+            ? t('sprintStoryFilterInvalid', { story: t('story') })
+            : t('boardFilterInvalid', { board: t('board') }),
+        ),
+      )
       .catch(() => showToast(t('sprintStoryFilterClearFailed'), 'alert'));
   });
-  const visibleColumns = $derived(storyColumns(columns, storyId));
+  const visibleColumns = $derived(filterColumns(columns, filter));
+  const visibleCount = $derived(visibleColumns.reduce((total, column) => total + column.tasks.length, 0));
+  const totalCount = $derived(columns.reduce((total, column) => total + column.tasks.length, 0));
+  const hiddenIn = (columnId: string): number =>
+    (columns.find((column) => column.id === columnId)?.tasks.length ?? 0) -
+    (visibleColumns.find((column) => column.id === columnId)?.tasks.length ?? 0);
   // ポインタの強調（undefined はカードの上にいない）が、親名のボタンのフォーカスより先。親のないカードに乗れば、フォーカスがあっても消す。
   // ただし親名へフォーカスが移ったときは、ポインタの強調を捨ててフォーカスを先にする（onstoryfocus）
   let hoveredStory = $state<string | null | undefined>(undefined);
@@ -212,30 +243,57 @@
       node.removeEventListener('pointerleave', leave);
     };
   }
-  async function filterStory(id: string | null): Promise<void> {
-    const previous = storyId;
-    const title =
-      id === null
-        ? null
-        : columns.flatMap((column) => column.tasks).find((task) => task.story?.id === id)?.story?.title;
+  // 絞り込みを URL に書く。履歴は積まない（読み直しても同じ絞り込みで開く）
+  async function applyFilter(next: BoardFilter): Promise<void> {
+    if (sameBoardFilter(next, filter)) return;
+    hoveredStory = undefined;
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- 現在の経路の絞り込みの問い合わせだけを替える
+    await goto(boardFilterHref(page.url, next), { replace: true, reset: false });
+    const shown = filterColumns(columns, next).reduce((total, column) => total + column.tasks.length, 0);
+    if (isBoardFiltering(next)) {
+      await announce(shown === 0 ? t('filterResultNone') : t('filterResultCount', { count: shown }));
+    }
+  }
+
+  // カードの親のストーリーを押したら、そのストーリーで絞る（ほかの条件は残す）
+  async function filterStory(id: string): Promise<void> {
+    const title = columns.flatMap((column) => column.tasks).find((task) => task.story?.id === id)?.story?.title;
     hoveredStory = undefined;
     focusedStory = null;
-    // eslint-disable-next-line svelte/no-navigation-without-resolve -- 現在の経路のstory問い合わせだけを替える
-    await goto(storyHref(page.url, id), { reset: false });
-    await announce(
-      id === null
-        ? t('sprintStoryFilterCleared', { story: t('story') })
-        : t('sprintStoryFilterApplied', { story: t('story'), title: title ?? '' }),
-    );
-    if (id === null && previous !== null) {
-      await tick();
-      const parent = document.querySelector<HTMLElement>(`[data-story-filter="${CSS.escape(previous)}"]`);
-      if (parent) parent.focus();
-      else {
-        const task = columns.flatMap((column) => column.tasks).find((item) => item.story?.id === previous);
-        if (task) focusCollapsedColumn(task.id);
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- 現在の経路の絞り込みの問い合わせだけを替える
+    await goto(boardFilterHref(page.url, { ...filter, story: [id] }), { reset: false });
+    await announce(t('sprintStoryFilterApplied', { story: t('story'), title: title ?? '' }));
+  }
+
+  // 「すべてクリア」。ストーリーを1つだけで絞っていたときは、そのストーリーの親名へフォーカスを戻す（前の絞り込みの帯と同じ）。
+  // ほかは、ボタンが消えるので検索の欄へ移す
+  let filterBar = $state<ReturnType<typeof BoardFilterBar>>();
+  async function clearFilter(): Promise<void> {
+    const previous = filter;
+    const onlyStory =
+      previous.q === '' &&
+      previous.story.length === 1 &&
+      previous.assignee.length + previous.epic.length + previous.category.length === 0;
+    const previousStory = onlyStory ? previous.story[0]! : null;
+    hoveredStory = undefined;
+    focusedStory = null;
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- 現在の経路の絞り込みの問い合わせだけを除く
+    await goto(boardFilterHref(page.url, emptyBoardFilter), { replace: true, reset: false });
+    await announce(onlyStory ? t('sprintStoryFilterCleared', { story: t('story') }) : t('boardFilterCleared'));
+    await tick();
+    if (previousStory !== null) {
+      const parent = document.querySelector<HTMLElement>(`[data-story-filter="${CSS.escape(previousStory)}"]`);
+      if (parent) {
+        parent.focus();
+        return;
+      }
+      const task = columns.flatMap((column) => column.tasks).find((item) => item.story?.id === previousStory);
+      if (task && collapsedColumns.isCollapsed(columns.find((c) => c.tasks.includes(task))?.id ?? '')) {
+        focusCollapsedColumn(task.id);
+        return;
       }
     }
+    filterBar?.focusSearch();
   }
   // `c` が移る列と、aria-keyshortcuts を付ける列は、同じ（開いている完了でない最初の列）
   const firstOpenColumnId = $derived(
@@ -260,7 +318,7 @@
   $effect(() => dnd.monitor());
   // 読み直したら、つかんでいるドラッグは取りやめる（離しても何も送らない）。光らせているカードは、読み直した後も残す
   dnd.resetWhenChanged(() => board);
-  dnd.resetWhenChanged(() => storyId);
+  dnd.resetWhenChanged(() => page.url.search);
   // 完了にした、または戻したカード。読み直した後の列に出てから光らせる（応答の直後に光らせると、読み直しが遅いとき元の列で終わる）
   let flashAfterReload: string | null = null;
   $effect.pre(() => {
@@ -532,7 +590,7 @@
   function applyMove(task: SprintBoardTask, plan: MovedPlan, flash = false): void {
     if (workspace === null) return;
     const saved = savedFocus();
-    local = applyStoryMove(columns, task.id, plan.column.id, plan.afterTaskId);
+    local = applyFilteredMove(columns, task.id, plan.column.id, plan.afterTaskId);
     void restoreFocus(saved);
     if (flash) dnd.flash(task.id);
     const hiddenDrop = flash && collapsedColumns.isCollapsed(plan.column.id);
@@ -900,9 +958,18 @@
   {:else}
     <PageHead title={t('board')} focusable />
     <div class="board-page">
-      <!-- 1段の道具の帯。右端のスプリントのボタンで、期間、進み具合、ゴールと、リーダーの操作を出す小窓を開く -->
-      <div class="toolbar board-toolbar">
-        <div class="toolbar-end">
+      <!-- 1段の道具の帯。左に検索、担当のアバター、フィルター（#1502）、右端のスプリントのボタンで、期間、進み具合、ゴールと、
+           リーダーの操作を出す小窓を開く -->
+      <BoardFilterBar
+        bind:this={filterBar}
+        {filter}
+        {choices}
+        shown={visibleCount}
+        total={totalCount}
+        onchange={(next) => void applyFilter(next)}
+        onclear={() => void clearFilter()}
+      >
+        {#snippet end()}
           <!-- ワークスペースを移ったら（同じ画面の部品が使い回される）、開いた小窓を前のワークスペースのまま残さない -->
           {#key workspace.id}
             <Popover
@@ -995,26 +1062,9 @@
               {/snippet}
             </Popover>
           {/key}
-        </div>
-      </div>
+        {/snippet}
+      </BoardFilterBar>
       <div class="story-board">
-        {#if filteredStory !== null}
-          <div class="story-filter-band">
-            <div class="story-filter-summary">
-              <span
-                ><Icon name="flag" />{t('sprintStoryFilterActive', {
-                  story: t('story'),
-                  title: filteredStory.title,
-                })}</span
-              >
-              <span class="action-note">{t('sprintStoryTotalsNote', { sprint: t('sprint'), points: t('points') })}</span
-              >
-            </div>
-            <button class="btn is-sm is-quiet" type="button" onclick={() => void filterStory(null)}
-              ><Icon name="x" />{t('filterClear')}</button
-            >
-          </div>
-        {/if}
         <!-- 列が並ぶと狭い幅で横に溢れる。カードが無いと中に止まる先が無く、キーボードで横へ送れないので、その間だけ領域に止まる -->
         <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
         <div
@@ -1072,7 +1122,9 @@
                         if (id !== null) hoveredStory = undefined;
                       }}
                       onstoryfilter={(id) => void filterStory(id)}
-                      href="{boardHref}?task={encodeURIComponent(task.id)}{cardStoryQuery}"
+                      href="{boardHref}?task={encodeURIComponent(task.id)}{cardFilterQuery === ''
+                        ? ''
+                        : `&${cardFilterQuery}`}"
                       edges={canWrite ? edgesOf(visibleColumns, task.id) : null}
                       writable={canWrite}
                       clock={{ today: board.today, weekStart: board.week_start }}
@@ -1083,7 +1135,11 @@
                       attrs={cardAttrs}
                     />
                   {:else}
-                    <p class="board-empty">{t('sprintBoardColumnEmpty')}</p>
+                    <p class="board-empty">
+                      {hiddenIn(column.id) > 0
+                        ? t('boardColumnHidden', { count: hiddenIn(column.id) })
+                        : t('sprintBoardColumnEmpty')}
+                    </p>
                   {/each}
                 {/if}
                 {#if canWrite && !column.is_done}
