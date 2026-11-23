@@ -444,7 +444,7 @@ export CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET
 5. 2 から 4 の直後に、#1424 の PR をマージする。Builds は PR のブランチのコードで配り、古いコードは生成する設定の `name` に `scrum-guild-preview` を書く。このため名前を変えた後は、古いコードの配信が失敗するか、つないだ Worker と別の名前に向かう。名前を変えてからマージまでの間は番号付き PR を更新しない。逆に名前を変える前にマージすると、`wrangler.preview-trigger.jsonc` を配ったときに旧名の Worker と別の `banmen-preview-trigger` ができ、変数と Secret が無いまま残る（Secret が無ければ起動専用 Worker は 503 を返し、ビルドは起きない）
 6. 開いている番号付き PR に `main` を取り込む（`sync-base`）。取り込んだ head で Builds が走り、新しい名前の D1 と URL に配られる。取り込まない PR は 5 と同じく古い名前で配ろうとするので、プレビューを使う前に取り込む
 7. 上の「初回と変更後の確認」の 2 と 3 を、取り込んだ PR の新しい URL でたどる。古い URL が 404 になることも見る（1 で足した旧名の対象を 8 で外すまでは、404 でなく Access の拒否になる）
-8. 6 を済ませて新しい名前で配られたのを確かめてから、専用アカウントの D1 の一覧で `scrum-guild-pr-*` を消す。`main` のビルドの掃除は `banmen-pr-*` だけを見るので、旧名の D1 は消さない。1 で旧名と並べて足した Access の対象があれば、旧名の側を外す。本番のアカウントの D1 と R2 は名前を変えず、触らない
+8. 6 を済ませて新しい名前で配られたのを確かめてから、専用アカウントの D1 の一覧で `scrum-guild-pr-*` を消す。`main` のビルドの掃除は `banmen-pr-*` だけを見るので、旧名の D1 は消さない。1 で旧名と並べて足した Access の対象があれば、旧名の側を外す。この手順では本番のアカウントの D1 と R2 に触らない（本番は後の #1518 で移した。下の「本番の D1 と R2 を banmen に移す」）
 
 この用意と実 URL の確認は、コードのテストだけでは済んだと扱わない。プレビューをやめるときは、この Worker の Builds を無効にしてから、専用 D1、Access の方針とサービストークン、Worker を人が片付ける。本番の接続は変えない。
 
@@ -455,6 +455,8 @@ export CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET
 煙のテストに落ちたときは、スクリプトが自動で戻す。手で戻すのは、煙のテストを通ったが本番で壊れていると分かったときと、自動の rollback が失敗したとき。
 
 Worker の名前を `banmen` に変える前の版（#1423 より前の Release）は、名前も `scrum-guild` に戻す組でない限り選ばない。`PUBLIC_ORIGIN` と Cookie の名前が旧 URL のものに戻り、新しい URL でログインも更新もできなくなる。当日の戻し方と、移した後の注意は下の「本番の URL を banmen に移す」。
+
+D1 とバケットを `banmen`、`banmen-attachments` に切り替える前の版（#1518 より前の Release）は、旧 D1 `scrum-guild` と旧バケットにつながる。旧資源を消した後は選ばない。当日の戻し方は下の「本番の D1 と R2 を banmen に移す」。
 
 ワークスペースの論理削除を使った後は、削除済みワークスペースを除外できる版を戻し先にする。論理削除に対応する版が1つしかないときは、除外の処理を残した修正版を新しい Release として出す。列を残したまま論理削除を実装する前の版を配ると、削除済みのワークスペースや添付が以前の URL から読めるため。初回の公開は2回に分ける。先の Release では `wrangler.jsonc` の `WORKSPACE_DELETE_ENABLED` を `false` のまま公開する。マイグレーションと削除済みを除外する処理は働き、削除 API は 404 を返す。設定画面の操作も出ない。先の Release の稼働を確認してから、別の変更で値を `true` にし、次の Release で削除を有効にする。煙のテストは版が切り替わってから動くため、先に互換のある版を配っておけば、削除を有効にした Release から自動で戻る間もアクセス制限が効く。ループバックへの HTTP の開発環境では有効化済みとして検証できる。
 
@@ -549,7 +551,7 @@ WHERE tbl = 'tasks' AND idx = 'tasks_workspace_tray';
 マイグレーションは自動では戻さない。戻すかは人が決める。Time Travel で戻せるのは Workers Paid で直近30日まで。それより前に戻す手段（定期の書き出し）はまだ無い。
 
 1. 戻した DB で動く版へ、先にコードを戻す（上の「コードを戻す」）。DB を先に戻すと、その間は新しいスキーマを前提にしたコードが古いスキーマの上で動く
-2. 戻したい時点のブックマークを、ビルドのログの `マイグレーションを当てる前の Time Travel のブックマーク:` の行の JSON の `bookmark` から取る。データを壊したときは、壊れた時刻より前の、いちばん新しいビルドの行を使う。ログに無い時刻へ戻すときは、`wrangler d1 time-travel info banmen --timestamp=<時刻>` でその時刻のブックマークを引く。D1 `banmen` へ写した日（下の「本番の D1 と R2 を banmen に移す」）より前のビルドの行は、消した旧 D1 のブックマークなので使えない。`banmen` は写した時点より前へ戻せない
+2. 戻したい時点のブックマークを、ビルドのログの `マイグレーションを当てる前の Time Travel のブックマーク:` の行の JSON の `bookmark` から取る。データを壊したときは、壊れた時刻より前の、いちばん新しいビルドの行を使う。ログに無い時刻へ戻すときは、`wrangler d1 time-travel info banmen --timestamp=<時刻>` でその時刻のブックマークを引く。D1 `banmen` へ流し込んだ時刻（下の「本番の D1 と R2 を banmen に移す」）より前のビルドの行は、消した旧 D1 のブックマークで、`banmen` には使えない。流し込みを終えた時刻より前の `banmen` は、空か流し込みの途中の状態
 3. 手元（上の「手元の準備」）で `wrangler d1 time-travel restore banmen --bookmark=<ブックマーク>` を実行する。ブックマークより後に書かれたデータは消える
 4. 上の「戻したあと」に進む
 
@@ -686,47 +688,61 @@ node scripts/deploy-legacy-redirect.ts
 
 D1 はスキーマも `d1_migrations` もそのまま写すので、写した後のデプロイには当てるマイグレーションが無い。スキーマの直しは混ぜず、上の「マイグレーションをまとめ直したとき」の #256 の作り直しは移した後も残ったまま。
 
-いちばんの危険は順番の取り違えにある。切り替えの PR をマージした後、`banmen` へ流し込む前に Release を publish すると、デプロイが空の `banmen` に全マイグレーションを当て、空の本番に切り替わる。煙のテストは空の D1 でも通るので、自動では戻らない。publish は、下の当日の手順 3 で件数を確かめた後に限る。
+いちばんの危険は順番の取り違えにある。切り替えの PR が `main` に入った後、`banmen` へ流し込む前に Release を publish すると、デプロイが空の `banmen` に全マイグレーションを当て、空の本番に切り替わる。煙のテストは空の D1 でも通るので、自動では戻らない。このため、切り替えの PR は当日の手順 5 で写せたと確かめた後、publish の直前にマージする。`main` へのマージは本番に出ないので、遅らせても失うものは無い。
 
-コードにメンテナンスモードは無い。写す間はチームに告知して使わない時間を作り、書き込みを止める。告知した時間に書かれたものは旧 D1 に残り、新しい D1 には入らない。cron の書き込み（期限切れの行の掃除、お試しの期限切れの停止）は、新しい D1 で次の回にやり直されるので、失われても困らない。
+コードにメンテナンスモードは無い。写す間はチームに告知して使わない時間を作り、書き込みを止める。告知には、その間にセッションの失効、API トークンの取り消し、パスワードの変更、メンバーの除外をしないことも入れる。書き出した後に旧 D1 へ書かれたものは新しい D1 に入らず、取り消したはずの権限が新しい D1 で生き返るため。cron の書き込み（期限切れの行の掃除、お試しの期限切れの停止、容量の警告）は、新しい D1 で次の回にやり直されるので、失われても困らない。
+
+書き出したファイルは、顧客のデータ、メールアドレス、パスワードのハッシュを含む。`umask 077` のもとで `mktemp -d` で作ったディレクトリ（以下 `$dir`）に置き、iCloud Drive、Dropbox、Time Machine の対象のディレクトリを使わない。リポジトリ、Issue、チャットにも置かない。
 
 ### 前日まで
 
-1. ucan-lab のアカウントで、空の D1 `banmen`（置き場所は自動）とバケット `banmen-attachments`（上の「R2」の手順。公開アクセスは無効）を作る。2026-11-24 に作った。D1 の ID は `55d9a51f-bb3f-483c-8051-1d867c0f9ce8`
-2. `wrangler.jsonc` の `database_name`、`database_id`、`bucket_name` と、`scripts/preview-config.ts` の `PRODUCTION_DATABASE_ID` を新しい資源に替える PR を作り、当日まで開けておく。マージすると次の Release で本番が切り替わるため
-3. `main` のほかの変更を Release で出し切る。切り替えの Release には切り替えだけを載せ、失敗したときに原因を切り替えに絞る
-4. R2 を写す道具を用意する。R2 の Overview の「Manage API tokens」で、権限を Object Read & Write、対象を `scrum-guild-attachments` と `banmen-attachments` の2つに絞った一時のトークンを作り、手元の `rclone` に S3 互換の接続（provider は `Cloudflare`、endpoint は `https://71293a3c23974c311b4c82b3f977049b.r2.cloudflarestorage.com`）として入れる。トークンの値はリポジトリ、Issue、チャットに残さない
-5. `rclone sync r2:scrum-guild-attachments r2:banmen-attachments --s3-no-check-bucket` で1回写しておく。当日は差分だけで済む
-6. チームに止める日時を知らせる
+1. ucan-lab のアカウントで、空の D1 `banmen`（置き場所は自動）とバケット `banmen-attachments`（上の「R2」の手順。公開アクセスは無効）を作る（2026-11-24 に作成済み、D1 の ID は `55d9a51f-bb3f-483c-8051-1d867c0f9ce8`）。`pnpm exec wrangler d1 info banmen` の `uuid` と PR の `database_id` の一致も見ておく
+2. `wrangler.jsonc` の `database_name`、`database_id`、`bucket_name` と、`scripts/preview-config.ts` の `PRODUCTION_DATABASE_ID` を新しい資源に替える PR を作り、当日の手順 5 まで開けておく
+3. `main` のほかの変更を Release で出し切る。切り替えの Release に切り替えだけを載せれば、失敗したときの原因を切り替えに絞れるため
+4. 流し込みが通るかを1回確かめる。使い捨ての D1（例 `banmen-import-check`）を作り、下の当日の手順 2 と同じく書き出して流し込む。落ちずに終わることと、かかった時間を控え、使い捨ての D1 と書き出したファイルを消す。落ちたら当日に進まず、原因（大きすぎる行、外部キーの順など）を直す手順を先に決める
+5. R2 を写す道具を用意する。R2 の Overview の「Manage API tokens」で、権限を Object Read & Write、対象を `scrum-guild-attachments` と `banmen-attachments` の2つに絞った一時のトークンを作る。手元の `rclone` には、設定ファイルに残さず、環境変数 `RCLONE_CONFIG_R2_TYPE=s3`、`RCLONE_CONFIG_R2_PROVIDER=Cloudflare`、`RCLONE_CONFIG_R2_ENDPOINT=https://71293a3c23974c311b4c82b3f977049b.r2.cloudflarestorage.com`、`RCLONE_CONFIG_R2_ACCESS_KEY_ID`、`RCLONE_CONFIG_R2_SECRET_ACCESS_KEY` で渡す。トークンの値はリポジトリ、Issue、チャットに残さない
+6. `rclone sync r2:scrum-guild-attachments r2:banmen-attachments --s3-no-check-bucket` で1回写しておく。当日は差分だけで済む
+7. チームに止める日時を知らせる
 
 ### 当日
 
-1. チームに、使わない時間に入ったことを告げる。切り替えの PR をマージする。Release はまだ publish しない
-2. 旧 D1 のブックマークを `pnpm exec wrangler d1 time-travel info scrum-guild` で控える。続けて、リポジトリの外に書き出して流し込む
+1. チームに、使わない時間に入ったことを告げる
+2. 書き出して流し込む。書き出しは毎時 0 分（添付の掃除が動く）をまたがない時刻に始める
 
    ```sh
-   pnpm exec wrangler d1 export scrum-guild --remote --output <リポジトリの外>/scrum-guild.sql
-   pnpm exec wrangler d1 execute banmen --remote --file <リポジトリの外>/scrum-guild.sql
+   umask 077; dir=$(mktemp -d)
+   pnpm exec wrangler d1 export scrum-guild --remote --output "$dir/scrum-guild.sql"
+   pnpm exec wrangler d1 execute banmen --remote --file "$dir/scrum-guild.sql"
    ```
 
-   書き出したファイルは顧客のデータとセッションを含む。リポジトリ、Issue、チャットに置かない
-3. 写せたかを確かめる。`SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' ORDER BY name` の結果が両方の D1 で同じで、表ごとの `SELECT count(*)` も同じなら写せている。`d1_migrations` の件数は `migrations/` のファイルの数と一致するはず。流し込みが途中で止まったか件数が合わなければ、publish せずに下の「当日に戻すとき」へ進む
-4. `rclone sync r2:scrum-guild-attachments r2:banmen-attachments --s3-no-check-bucket` で差分を写し、`rclone check r2:scrum-guild-attachments r2:banmen-attachments` が違いを出さないことを確かめる
-5. Release を publish する。ビルドのログで、当てるマイグレーションが無いことと、煙のテストが通ったことを見る
-6. 切り替え前からログインしていたブラウザで `https://banmen.ucan-lab.workers.dev/` を開き、ログインし直さずに組織の画面が出ることを見る。既存のタスク、Wiki のページ、添付ファイル、プロフィール画像を開き、新しい添付ファイルを上げて開く。Worker の Settings の Bindings で `DB` が `banmen`、`ATTACHMENTS` が `banmen-attachments` を指すことと、Workers Logs で毎分の cron がエラーを出さないことも見る
-7. チームに再開を告げる。一時の R2 のトークンを失効させ、書き出したファイルを消す
-8. 旧 D1 `scrum-guild` を消す。旧バケット `scrum-guild-attachments` は `rclone purge r2:scrum-guild-attachments` で空にしてから消す。ダッシュボードの D1 と R2 の一覧に旧名が残っていないことを確かめる
+3. 写せたかを確かめる。新しい D1 は publish までどの Worker にもつながらず、流し込んだ直後の中身は書き出したファイルと一致するはず
+   - `pnpm exec wrangler d1 export banmen --remote --output "$dir/banmen.sql"` で書き出し、`diff "$dir/scrum-guild.sql" "$dir/banmen.sql"` が何も出さない（表、索引、トリガー、値までそろっている）
+   - `pnpm exec wrangler d1 execute banmen --remote --command "PRAGMA foreign_key_check"` が何も返さない
+   - `d1_migrations` の行の数が `migrations/` のファイルの数と同じ
+   - どれかが合わなければ、publish もマージもせずに下の「当日に戻すとき」へ進む
+4. `rclone sync r2:scrum-guild-attachments r2:banmen-attachments --s3-no-check-bucket` で差分を写し、`rclone check r2:scrum-guild-attachments r2:banmen-attachments` が違いを出さないことを確かめる。違いが ETag（複数に分けて上げたファイル）だけなら `--size-only` を付けて見直す
+5. 書き出した後に旧 D1 へ人が書いていないかを確かめる。`pnpm exec wrangler d1 export scrum-guild --remote --output "$dir/scrum-guild-2.sql"` で書き出し直し、`diff "$dir/scrum-guild.sql" "$dir/scrum-guild-2.sql"` の違いが cron の触る表（`sessions`、`oauth_states`、`rate_limits`、`api_tokens`、Wiki の保持期限の掃除、`attachments`、`organizations`）の行だけなら進む。ほかの表に違いがあれば、`banmen` を作り直して手順 2 からやり直す（ID が変わるので PR を直す）
+6. 切り替えの PR をマージし、続けて Release を publish する。ビルドのログで、当てるマイグレーションが無いことと、煙のテストが通ったことを見る
+7. 切り替え前からログインしていたブラウザで `https://banmen.ucan-lab.workers.dev/` を開き、ログインし直さずに組織の画面が出ることを見る。既存のタスク、Wiki のページ、添付ファイル、プロフィール画像を開き、新しい添付ファイルを上げて開く。あわせて次を見る
+   - Worker の Settings の Bindings で、`DB` が `banmen`、`ATTACHMENTS` が `banmen-attachments` を指す
+   - Workers Logs で、毎分の cron がエラーを出さない
+   - `pnpm exec wrangler r2 bucket dev-url get banmen-attachments` が無効と返し、`pnpm exec wrangler r2 bucket domain list banmen-attachments` が空を返す
+8. チームに再開を告げる
+9. 旧 D1 `scrum-guild` を消す。旧バケットは、`rclone size r2:scrum-guild-attachments` と `rclone size r2:banmen-attachments` で対象と中身を確かめてから、`rclone purge r2:scrum-guild-attachments` で空にし、ダッシュボードで消す（一時のトークンはバケットを消す権限を持たないので、`rclone purge` の最後のバケットの削除は失敗してよい）。ダッシュボードの D1 と R2 の一覧に旧名が残っていないことを確かめる
+10. 後始末をする。一時の R2 のトークンを失効させ、`rm -r "$dir"` で書き出したファイルを消し、`RCLONE_CONFIG_R2_*` の環境変数を外す
 
 ### 当日に戻すとき
 
-- 手順 5 の publish の前に止まったとき: 本番は旧資源のまま動いている。チームに再開を告げ、切り替えの PR を revert する PR を `main` に入れる。日を改めるときは、`banmen` の表を消すか D1 を作り直し（ID が変わったら PR を直す）、`banmen-attachments` は次の `rclone sync` が旧バケットに合わせる
-- 手順 5 の煙のテストに落ちたとき: デプロイのスクリプトが切り替え前の版へ自動で戻すので、本番は旧資源のまま動く。原因を調べ、上と同じく PR を revert してから日を改める。新しい D1 は cron が書き始めているので、やり直すときは作り直す
-- 手順 6 の確かめで壊れていると分かったとき: 旧資源を消す前なら、手元で `wrangler rollback <切り替え前の版の ID> --message "<理由>"` を打つ（上の「コードを戻す」）。切り替え前の版は旧 D1 と旧バケットにつながるので、旧資源のまま再開できる。publish から rollback までに書かれたものは新しい D1 にだけ残る
+どの道でも、日を改めるなら当日の手順 10 の後始末をその日のうちに行い、次の日の前日の手順 5 でトークンを作り直す。`banmen` に流し込んだ顧客のデータを残さないよう、`banmen` は消して作り直す（ID が変わるので PR を直す）。
+
+- 手順 6 のマージの前に止まったとき: 本番は旧資源のまま動いている。チームに再開を告げる。PR はマージしていないので、`main` は旧資源を向いたまま
+- 手順 6 の煙のテストに落ちたとき: デプロイのスクリプトが切り替え前の版へ自動で戻すので、本番は旧資源のまま動く。すぐに切り替えの PR を revert する PR を `main` に入れる。revert が `main` に入るまでは、ほかの Release を publish しない（publish すると、また新しい D1 に切り替わる）
+- 手順 7 の確かめで壊れていると分かったとき: 旧資源を消す前なら、手元で `wrangler rollback <切り替え前の版の ID> --message "<理由>"` を打つ（上の「コードを戻す」）。切り替え前の版は旧 D1 と旧バケットにつながるので、旧資源のまま再開できる。続けて上と同じく PR を revert し、revert が `main` に入るまでほかの Release を publish しない。publish から rollback までに新しい D1 に書かれたものは旧 D1 に入らない。その間に `api_tokens`、`sessions`、`password_credentials` が変わっていれば、同じ操作を旧 D1 の側でやり直す
 
 ### 移し終えた後
 
-- 切り替え前の版（#1518 より前の Release）へは rollback しない。旧 D1 と旧バケットを消した後なので、その版は存在しない資源につながる。壊れたら、直した版を Release で出す（上の「戻したあと」）
-- `banmen` の Time Travel は写した時点より前へ戻れない。上の「DB を戻す」で、写した日より前のビルドのログのブックマークは使わない
+- 切り替え前の版（#1518 より前の Release）へは rollback しない。旧 D1 と旧バケットを消した後なので、その版は存在しない資源につながり、全部の API が失敗する。壊れたら、直した版を Release で出す（上の「戻したあと」）
+- `banmen` の Time Travel は、流し込みを終えた時刻より前へ戻さない。それより前は空か流し込みの途中の状態になる。上の「DB を戻す」で、流し込みより前に取ったビルドのログのブックマークは旧 D1 のものなので使えない
 
 ## GitHub の Organization を banmen-dev に移す
 

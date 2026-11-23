@@ -26,9 +26,8 @@
     // Worker の名前か独自ドメインを変えるときに直す（docs/operations.md）
     "PUBLIC_ORIGIN": "https://banmen.ucan-lab.workers.dev"
   },
-  // database_id を替えた版を出すと、本番はその D1 に切り替わる。データを写し終える前に出すと、デプロイが空の D1 に
-  // 全マイグレーションを当てて空の本番に切り替わり、煙のテストも通る（docs/operations.md の「本番の D1 と R2 を banmen に移す」）。
-  // scripts/preview-config.ts の PRODUCTION_DATABASE_ID も同じ ID にする
+  // database_id を替えるときは scripts/preview-config.ts の PRODUCTION_DATABASE_ID も同じ ID にする。替えた版を出した時点で本番は
+  // その D1 に切り替わり、空の D1 なら全マイグレーションを当てた空の本番になる（docs/operations.md の「本番の D1 と R2 を banmen に移す」）
   "d1_databases": [
     {
       "binding": "DB",
