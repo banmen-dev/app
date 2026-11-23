@@ -190,7 +190,9 @@
           type="button"
           role="menuitem"
           aria-disabled={item.disabled === true || item.reason !== undefined}
-          aria-describedby={item.reason !== undefined ? `${ids}-${item.key}-reason` : item.describedby}
+          aria-describedby={[item.reason !== undefined ? `${ids}-${item.key}-reason` : undefined, item.describedby]
+            .filter(Boolean)
+            .join(' ') || undefined}
           title={item.reason}
           onclick={(event) => select(item, event.detail === 0)}
           ><Icon name={item.icon} /><span>{item.label}</span></button

@@ -258,11 +258,12 @@
     cardColumnChange: "{column}を変更",
     cardColumnChangeTitle: "「{title}」の{column}を変更",
     cardColumnChangeField: "移す先の{column}",
-    cardColumnChangeHint: "選んだ{column}の末尾に置きます。{done}を選ぶと{done}になります。",
+    cardColumnChangeHint: "選んだ{column}の末尾に置きます。{done}の{column}を選ぶと、この{task}を{done}にします。",
     cardColumnChangeSubmit: "移す",
-    cardColumnDone: "この{task}は{done}になっているため、{column}は変えられません。先に{done}を戻してください。",
+    cardColumnDone: "この{task}は{done}になっているため、{column}は変えられません。",
     cardParentChange: "親を変更",
     cardParentDone: "この{task}は{done}になっているため、親は変えられません。",
+    cardReopenFirst: "先に{done}を戻してください。",
     cardLinkCopy: "リンクをコピー",
     cardLinkCopied: "「{title}」のリンクをコピーしました",
     storyCreating: "作っています",
@@ -1157,8 +1158,8 @@
         { attr: `data-task-delete="${x.id}"`, label: `この${t("task")}を削除する`, icon: "trash", danger: true },
       ], x.id) : x.doneAt ? rowMenu(x.title, [
         { attr: `data-card-reopen="${x.id}"`, label: `前の${t("column")}へ（${t("done")}を戻す）`, icon: "left" },
-        { label: cardText("cardColumnChange"), icon: "columns", reason: cardText("cardColumnDone") },
-        { label: cardText("cardParentChange"), icon: "swap", reason: cardText("cardParentDone") },
+        { label: cardText("cardColumnChange"), icon: "columns", reason: cardText("cardColumnDone") + (blocked ? "" : cardText("cardReopenFirst")) },
+        { label: cardText("cardParentChange"), icon: "swap", reason: cardText("cardParentDone") + (blocked ? "" : cardText("cardReopenFirst")) },
         cardLinkItem(x),
       ], x.id) : ""}${doneControl(x, { card: true })}</span></div>
     </article>`;
@@ -2752,7 +2753,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     cardColumn: (el) => {
       const x = task(el?.dataset?.cardId) || tasksWhere((item) => item.sprint && !item.doneAt)[0];
       const at = D.columns.findIndex((c) => c.id === x.col);
-      const next = D.columns[at + 1]?.id;
+      const next = D.columns[at + 1] && !D.columns[at + 1].done ? D.columns[at + 1].id : D.columns.find((c) => c.id !== x.col && !c.done)?.id;
       const options = D.columns.filter((c) => c.id !== x.col).map((c) => `<option value="${c.id}"${c.id === next ? " selected" : ""}>${esc(c.done ? t("done") : c.name)}</option>`).join("");
       openDialog(esc(cardText("cardColumnChangeTitle", x.title)),
         `<label class="field" for="d-card-column"><span class="field-label">${esc(cardText("cardColumnChangeField"))}</span><select class="select" id="d-card-column" aria-describedby="d-card-column-hint">${options}</select>
@@ -2764,7 +2765,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       const x = task(el?.dataset?.cardId) || tasksWhere((item) => item.sprint && !item.doneAt)[0];
       const others = Object.keys(D.stories).filter((sid) => sid !== x.story && !D.stories[sid].doneAt);
       openDialog(`「${esc(x.title)}」の親を移す`,
-        `<label class="field" for="d-card-parent"><span class="field-label">移す先</span><select class="select" id="d-card-parent" aria-describedby="d-card-parent-hint">${x.story ? `<option value="">親なし</option>` : ""}${others.map((sid) => `<option value="${sid}">${esc(D.stories[sid].title)}</option>`).join("")}</select>
+        `<label class="field" for="d-card-parent"><span class="field-label">移す先</span><select class="select" id="d-card-parent" aria-describedby="d-card-parent-hint">${x.story ? `<option value="">親なし</option>` : ""}${storyOptions(others)}</select>
            <span class="field-hint" id="d-card-parent-hint">移す先の末尾に置きます。</span></label>`,
         `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-card-parent-set="${x.id}">移す</button>`);
     },
@@ -4316,15 +4317,16 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       if (!target) return;
       if (target.done) { x.doneAt = "10/20 10:12"; x.prevCol = x.col; x.col = "done"; stamped.add(x.id); }
       else x.col = target.id;
+      // 本番は位置を読み上げるだけで、見えるトーストは出さない（畳んだ列へ送ったときだけ出す）
       redrawAll();
-      toast(`${icon("check")}<span>「${esc(x.title)}」を${esc(target.done ? t("done") : target.name)}へ移しました</span>`);
       return;
     }
     if ((el = hit("data-card-parent-set"))) {
       const x = task(el.dataset.cardParentSet);
       const to = document.getElementById("d-card-parent")?.value;
       closeDialog();
-      x.story = to || null;
+      // 選択欄の値は題（storyOptions は value を持たない）。「親なし」は空
+      x.story = to ? Object.keys(D.stories).find((sid) => D.stories[sid].title === to) || null : null;
       redrawAll();
       return;
     }

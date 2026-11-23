@@ -38,9 +38,14 @@
     item = target;
     heading = target.title;
     current = columnId;
-    // 今の列の次の列を選んでおく（「次の列へ」と同じ向き）。最後なら先頭の候補
+    // 今の列の次の列を選んでおく（「次の列へ」と同じ向き）。次が完了の列か無ければ、完了でない最初の候補
+    // （開いてすぐの Enter で、気づかずに完了にしないため）
     const at = columns.findIndex((column) => column.id === columnId);
-    choice = columns[at + 1]?.id ?? candidates[0]?.id ?? '';
+    const next = columns[at + 1];
+    choice =
+      next !== undefined && !next.is_done
+        ? next.id
+        : (columns.find((column) => column.id !== columnId && !column.is_done)?.id ?? candidates[0]?.id ?? '');
     dialog?.show(trigger);
   }
 
@@ -67,7 +72,9 @@
           <option value={column.id}>{nameOf(column)}</option>
         {/each}
       </select>
-      <span class="field-hint" id={hintId}>{t('cardColumnChangeHint', { column: t('column'), done: t('done') })}</span>
+      <span class="field-hint" id={hintId}
+        >{t('cardColumnChangeHint', { column: t('column'), done: t('done'), task: t('task') })}</span
+      >
     </div>
   </form>
   {#snippet footer(close)}

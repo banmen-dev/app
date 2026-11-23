@@ -496,12 +496,20 @@
     if (workspace === null || !canWrite) return;
     const plan = planColumnChange(visibleColumns, task.id, columnId);
     if (plan === null) return;
-    if (plan.kind === 'complete') queueComplete(task);
-    else applyMove(task, plan);
+    if (plan.kind === 'complete') {
+      queueComplete(task);
+      return;
+    }
+    applyMove(task, plan);
+    // 畳んだ列へ送ると、カードが見えなくなるだけなので、位置をトーストでも知らせる（ドラッグで畳んだ列へ落としたときと同じ）
+    if (collapsedColumns.isCollapsed(plan.column.id)) showToast(movedMessage(task, plan), 'check');
   }
 
   async function openParentChange(task: SprintBoardTask, trigger: HTMLElement): Promise<void> {
-    if (workspace === null || !canWrite || task.completed_at !== null || loadingParentChoices) return;
+    if (workspace === null || !canWrite || task.completed_at !== null) return;
+    // 候補を読んでいる間は、押されたことと読み込み中であることを読み上げる（黙って捨てない）
+    void announce(t('cardParentLoading'));
+    if (loadingParentChoices) return;
     loadingParentChoices = true;
     const workspaceId = workspace.id;
     try {
@@ -512,6 +520,11 @@
         else showToast(t('cardParentChoicesFailed'), 'alert');
         return;
       }
+      // 待つ間に、カードが完了した、ボードから消えた、別のダイアログが開いたなら、開かない
+      const current = columns.flatMap((column) => column.tasks).find((item) => item.id === task.id);
+      if (current === undefined || current.completed_at !== null || document.querySelector('dialog[open]') !== null)
+        return;
+      task = current;
       parentChoices = result.data.stories.map((story) => ({ id: story.id, title: story.title, group: story.epic }));
       // 親が無く、選べるストーリーも無ければ、空の選択欄を開かずに理由を知らせる
       if (task.story === null && parentChoices.length === 0) {
@@ -532,14 +545,30 @@
     const workspaceId = workspace.id;
     const story = storyId === null ? null : (parentChoices.find((choice) => choice.id === storyId) ?? null);
     if (storyId !== null && story === null) return;
-    patchCard(task.id, { story: story === null ? null : { id: story.id, title: story.title } });
-    void announce(
+    // ストーリーで絞っている間に別の親へ移すと、カードは絞り込みから外れる。そのストーリーの最後のカードなら絞り込みも解けるので、
+    // 先に画面を替えると、断られたときに解けた絞り込みが戻らない。外れるときだけ、通ってから読み直して消し、フォーカスを
+    // 帯の「絞り込みを外す」へ移す（絞り込みが解けたら見出しへ）。外れないときは、先にカードの親の表示を替える
+    const filtering = filteredStory?.id ?? null;
+    const leaving = filtering !== null && filtering !== storyId;
+    const message =
       story === null
         ? t('moveAnnouncedRoot', { title: task.title })
-        : t('moveAnnouncedUnder', { title: task.title, story: t('story'), parent: story.title }),
-    );
-    void moves.send(
-      () => callOperation(taskMove, { workspace_id: workspaceId, task_id: task.id, story_id: storyId }, { slug }),
+        : t('moveAnnouncedUnder', { title: task.title, story: t('story'), parent: story.title });
+    if (!leaving) {
+      patchCard(task.id, { story: story === null ? null : { id: story.id, title: story.title } });
+      void announce(message);
+    }
+    let moved = false;
+    const sent = moves.send(
+      async () => {
+        const result = await callOperation(
+          taskMove,
+          { workspace_id: workspaceId, task_id: task.id, story_id: storyId },
+          { slug },
+        );
+        moved = result.ok;
+        return result;
+      },
       async (result) => {
         if (workspaceId !== page.params.id || result.ok) return;
         if (result.status === 401) {
@@ -550,7 +579,19 @@
         if (result.status === 409 && result.error?.code === 'workspace_closed') await invalidate('app:workspace');
         await reloadBoard();
       },
+      leaving,
     );
+    if (!leaving) return;
+    void sent.then(async () => {
+      await moves.whenIdle();
+      if (!moved || workspaceId !== page.params.id) return;
+      void announce(message);
+      await tick();
+      if (document.querySelector(`[data-card-id="${CSS.escape(task.id)}"]`) !== null) return;
+      const clear = document.querySelector<HTMLButtonElement>('.story-filter-band button');
+      if (clear !== null) clear.focus();
+      else focusPageHeading();
+    });
   }
 
   // 完了にする。先に押した移動を送り終えてから送るよう、同じ列に並べる。
@@ -1208,11 +1249,12 @@
       </span>
     {/if}
   {/if}
-  {#if canWrite}
-    <CardColumnDialog bind:this={columnDialog} {columns} onmove={changeColumn} />
-    <MoveParentDialog bind:this={parentDialog} parents={parentChoices} onmove={changeParent} />
-  {/if}
   {#key workspace.id}
+    <!-- 列と親のダイアログも、ワークスペースが替わったら作り直す（開いたまま移ったときに、前のワークスペースのカードを送らない） -->
+    {#if canWrite}
+      <CardColumnDialog bind:this={columnDialog} {columns} onmove={changeColumn} />
+      <MoveParentDialog bind:this={parentDialog} parents={parentChoices} onmove={changeParent} />
+    {/if}
     <SprintExtendDialog
       bind:this={extendDialog}
       {slug}

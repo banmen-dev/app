@@ -310,7 +310,9 @@
             },
           ],
   );
-  // 「列を変更」「親を変更」「リンクをコピー」（#1500）。列と親は、完了したカードでは押せず理由を出す（完了を戻してから変える）
+  // 「列を変更」「親を変更」「リンクをコピー」（#1500）。列と親は、完了したカードでは押せず理由を出す。
+  // 完了を戻せるカードにだけ「先に<完了>を戻してください」を足す（戻せないカードでは行き止まりの案内になるため）
+  const reopenFirst = $derived(task.reopenable ? t('cardReopenFirst', { done: t('done') }) : '');
   const columnItems = $derived<RowMenuItem[]>(
     onchangecolumn === undefined || !selectable
       ? []
@@ -319,7 +321,7 @@
             key: 'column',
             label: t('cardColumnChange', { column }),
             icon: 'columns',
-            reason: done ? t('cardColumnDone', { task: t('task'), done: t('done'), column }) : undefined,
+            reason: done ? t('cardColumnDone', { task: t('task'), done: t('done'), column }) + reopenFirst : undefined,
             onselect: (trigger) => onchangecolumn(task, trigger),
           },
         ],
@@ -332,7 +334,7 @@
             key: 'parent',
             label: t('cardParentChange'),
             icon: 'swap',
-            reason: done ? t('cardParentDone', { task: t('task'), done: t('done') }) : undefined,
+            reason: done ? t('cardParentDone', { task: t('task'), done: t('done') }) + reopenFirst : undefined,
             onselect: (trigger) => onchangeparent(task, trigger),
           },
         ],
@@ -340,9 +342,11 @@
   // リンクは題のリンクと同じ行き先（引き出しを開く URL）を、絶対 URL にして写す。「⋯」を出す書き込めるカードにだけ置く
   // （読み取りだけのカードは「⋯」を出さない。題のリンクをブラウザの操作で写せる）
   async function copyLink(): Promise<void> {
-    const url = new URL(taskDetailHref(href), location.href).href;
+    // 絞り込み（story）は写さない。受け取った人のボードを、写した人の絞り込みで開かないため
+    const url = new URL(taskDetailHref(href), location.href);
+    url.searchParams.delete('story');
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(url.href);
       showToast(t('cardLinkCopied', { title: task.title }), 'check');
     } catch {
       showToast(t('cardLinkCopyFailed'), 'alert');

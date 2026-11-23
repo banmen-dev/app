@@ -27,12 +27,14 @@ const cardOf = (page: Page, title: string): Locator =>
 const columnOf = (page: Page, name: string): Locator => page.getByRole('region', { name, exact: true });
 
 // 親の候補にするエピックとストーリーをバックログで作り、スプリントを始めて、未着手の列にカードを足す
-async function startBoard(page: Page, titles: readonly string[]): Promise<void> {
+async function startBoard(page: Page, titles: readonly string[], stories = true): Promise<void> {
   const name = `カードの操作 ${test.info().repeatEachIndex}-${test.info().retry}`;
   await createWorkspace(page, name);
-  await addEpicRow(page, '配送の基盤');
-  await addStoryRow(page, '通知を整える', '配送の基盤');
-  await addStoryRow(page, '検索を速くする');
+  if (stories) {
+    await addEpicRow(page, '配送の基盤');
+    await addStoryRow(page, '通知を整える', '配送の基盤');
+    await addStoryRow(page, '検索を速くする');
+  }
   await page.getByRole('link', { name: '計画' }).click();
   await page.getByRole('button', { name: 'スプリントを作る' }).click();
   const create = page.getByRole('dialog', { name: 'スプリントを作る' });
@@ -188,7 +190,9 @@ test('完了したカードでは列と親の変更が押せず、押すと理�
     'このタスクは完了になっているため、列は変えられません。先に完了を戻してください。',
   );
   await expect(parent).toHaveAttribute('aria-disabled', 'true');
-  await expect(parent).toHaveAccessibleDescription('このタスクは完了になっているため、親は変えられません。');
+  await expect(parent).toHaveAccessibleDescription(
+    'このタスクは完了になっているため、親は変えられません。先に完了を戻してください。',
+  );
   // 押すとメニューが閉じ、理由をトーストで知らせる。ダイアログは開かない
   await rowMenuToggle(page, '片付ける').click();
   await parent.click({ force: true });
@@ -214,4 +218,33 @@ test('断られたら理由がトーストで出て、カードは元の列と�
     page.locator('.toasts:visible .toast').filter({ hasText: '完了したストーリーの下へは移せません' }),
   ).toBeVisible();
   await expect(card.locator('.card-parent')).toHaveCount(0);
+});
+
+test('親もストーリーも無いカードの「親を変更」は、ダイアログを開かずに理由を知らせる', async ({ page }) => {
+  await startBoard(page, ['ひとりの札'], false);
+  const choices = waitForResponses(page, '/story-choices');
+  await rowMenuToggle(page, 'ひとりの札').click();
+  await rowMenuItem(page, 'ひとりの札', '親を変更').click();
+  await choices;
+  await expect(page.locator('.toasts:visible .toast', { hasText: '親にできるストーリーがありません' })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('絞り込み中に最後のカードを別の親へ移して断られたら、絞り込みもカードも元のまま', async ({ page }) => {
+  await startBoard(page, ['絞った札']);
+  const moved = waitForResponses(page, '/task-move');
+  await chooseParent(page, '絞った札', '通知を整える');
+  await moved;
+  const card = cardOf(page, '絞った札');
+  await card.locator('.card-parent').click();
+  await expect(page).toHaveURL(/[?&]story=/);
+  const filtered = page.url();
+
+  await failOperation(page, taskMove, { slug: 'aoba' }, 409, 'conflict', { details: { reason: 'parent_completed' } });
+  await chooseParent(page, '絞った札', '検索を速くする');
+  await expect(
+    page.locator('.toasts:visible .toast').filter({ hasText: '完了したストーリーの下へは移せません' }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(filtered);
+  await expect(card.locator('.card-parent')).toHaveText('通知を整える');
 });
