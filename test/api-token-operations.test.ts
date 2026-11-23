@@ -315,6 +315,7 @@ describe('cookieOnly の logout', () => {
       'billing-admin-list',
       'billing-admin-remove',
       'billing-invitation-respond',
+      'billing-organization-summary',
       'consent-record',
       'create-my-organization',
       'create-personal-organization',

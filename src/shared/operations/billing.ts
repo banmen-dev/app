@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { idSchema } from '../id.ts';
+import { organizationKinds } from '../organization-kind.ts';
+import { organizationPlans } from '../organization-plan.ts';
 import { defineOperation } from './define.ts';
+import { organizationContract } from './operator/organization-plan-update.ts';
 
 const slug = z.string().min(1).max(63);
 const administrator = z.object({
@@ -9,6 +12,8 @@ const administrator = z.object({
   name: z.string(),
   status: z.enum(['pending', 'active']),
 });
+// 請求管理者に見せる組織の利用の状態。停止していなければ active、停止して消す予定日が空なら suspended、予定日があれば cancelled
+export const billingOrganizationStates = ['active', 'suspended', 'cancelled'] as const;
 export const myBillingOrganizations = defineOperation({
   name: 'my-billing-organizations',
   description: '自分が請求を担当する組織と届いた指名を返す',
@@ -19,7 +24,16 @@ export const myBillingOrganizations = defineOperation({
   output: z.object({
     account_id: z.string(),
     operator: z.boolean(),
-    organizations: z.array(z.object({ slug: z.string(), name: z.string() })),
+    organizations: z.array(
+      z.object({
+        slug: z.string(),
+        name: z.string(),
+        kind: z.enum(organizationKinds),
+        // organization_contracts の行が無ければ null（未契約）
+        plan: z.enum(organizationPlans).nullable(),
+        state: z.enum(billingOrganizationStates),
+      }),
+    ),
     invitations: z.array(z.object({ id: z.string(), slug: z.string(), name: z.string() })),
   }),
 });
@@ -43,6 +57,26 @@ export const billingAdminList = defineOperation({
         created_at: z.string(),
       }),
     ),
+  }),
+});
+// 承諾済みの担当組織の契約、今の上限、利用の状態と、使用量（人数と容量の合計の2値だけ）。担当外は存在しない組織と同じ 404
+export const billingOrganizationSummary = defineOperation({
+  name: 'billing-organization-summary',
+  description: '担当組織の契約、今の上限、利用の状態と、人数と容量の使用量を返す',
+  mode: 'read',
+  permission: 'login',
+  cookieOnly: true,
+  input: z.object({ slug }),
+  output: z.object({
+    kind: z.enum(organizationKinds),
+    state: z.enum(billingOrganizationStates),
+    purge_on: z.string().nullable(),
+    purge_due: z.boolean(),
+    trial_ends_on: z.string().nullable(),
+    contract: organizationContract.nullable(),
+    member_limit: z.number().int(),
+    attachment_quota_bytes: z.number().int(),
+    usage: z.object({ seats_used: z.number().int(), attachment_used_bytes: z.number().int() }),
   }),
 });
 export const billingAdminInvite = defineOperation({

@@ -2,6 +2,7 @@
 // アカウントに結んだログインの手段と ID、入れる組織と届いた招待と停止した組織は、使われたときに1回だけ引く
 // （組織の一覧は my-organizations が使い、今日の組織ごとの認可と読み取りは db/ の関数へ任せる）
 import type { z } from 'zod';
+import type { billingOrganizationSummary } from '../../shared/operations/billing.ts';
 import type { myRecentActivity } from '../../shared/operations/organization/my-recent-activity.ts';
 import type { myToday } from '../../shared/operations/organization/my-today.ts';
 import type { myWorkspaces } from '../../shared/operations/organization/my-workspaces.ts';
@@ -13,6 +14,7 @@ import {
   insertSelfCreatedOrganization,
   listAccountOrganizations,
   readAccountTaskOrganizations,
+  readBillingOrganizationSummary,
   type AccountOrganizations,
   type CreatedOrganization,
   type LoginId,
@@ -60,6 +62,8 @@ export type OutsideAccount = {
   operatorLoginId(): Promise<string | undefined>;
   // アカウントに結んだログインの手段と ID。登録の関数が、組織に入れるかの判定（enterOrganization）に渡す。引くのは1回だけ
   logins(): Promise<readonly LoginId[]>;
+  // 承諾済みの担当組織の契約・上限・利用の状態と、人数と容量の使用量。担当外は存在しない組織と同じ 404
+  billingOrganization(slug: string, at: Date): Promise<z.input<typeof billingOrganizationSummary.output>>;
 };
 
 export function outsideAccount(env: Env, accountId: string, authenticatedAt: string): OutsideAccount {
@@ -89,5 +93,6 @@ export function outsideAccount(env: Env, accountId: string, authenticatedAt: str
       (organizations ??= (async () => listAccountOrganizations(env, { accountId, logins: await loadLogins() }))()),
     isOperator: async () => isOperatorLogin(env, await loadLogins()),
     operatorLoginId: async () => operatorLoginIdOf(env, await loadLogins()),
+    billingOrganization: (slug, at) => readBillingOrganizationSummary(env, slug, accountId, at),
   };
 }
