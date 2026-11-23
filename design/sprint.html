@@ -18,11 +18,11 @@
 <script src="kit.js"></script>
 <script>
 "use strict";
-// スプリント: 進行中のスプリントの列とカード
-const { D, t, icon, pageHead, sprintNotice, board, capacityRows, sumPts, progress } = SQ;
+// ボード: 進行中のスプリントの列とカード。見出しの下の1段の道具の帯の右端に、スプリントのボタンと小窓（#1498）
+const { D, t, icon, pageHead, board, capacityRows, sumPts, progress } = SQ;
 
 // ?overdue は、最終日を過ぎた進行中のスプリントの状態。ふだんの見本の最終日（10/26）の前に今日があるので、期間を1週間前へずらして今日が最終日より後になる形にする。
-// 本番は SprintOverdueNotice.svelte で、進行中で、ワークスペースの今日が最終日より後のときに出す（スプリントの画面と計画の画面）
+// 本番は SprintOverdueNotice.svelte で、進行中で、ワークスペースの今日が最終日より後のときに出す（ボードの小窓と計画の画面）
 const params = new URLSearchParams(location.search);
 const overdue = params.has("overdue");
 const lastDay = params.has("last-day");
@@ -61,19 +61,34 @@ SQ.mount("sprint", () => {
   }
   const list = SQ.tasksWhere((x) => x.sprint === "sp14");
   const done = sumPts(list.filter((x) => x.doneAt)), all = sumPts(list);
-  const actions = SQ.user(D.me).role === "leader" ? `<button class="btn" type="button" data-dialog="sprintEditActive" aria-label="${t("sprint")}を編集: ${SQ.esc(SQ.sprintLabel("sp14"))}">編集</button>
-    ${SQ.rowMenu(SQ.sprintLabel("sp14"), [
-      { attr: 'data-dialog="sprintExtend"', label: "延長する", icon: "clock" },
-      { attr: 'data-dialog="sprintEnd"', label: "終える", icon: "check" },
-    ])}
-    ${lastDay || overdue ? `<button class="btn" type="button" data-dialog="sprintEnd" aria-label="終える: ${t("sprint")}「${SQ.esc(SQ.sprintLabel("sp14"))}」">終える</button>` : ""}` : "";
+  const label = SQ.sprintLabel("sp14");
+  const day = Math.min(s.dayIndex + 1, s.days);
+  const isLeader = SQ.user(D.me).role === "leader";
+  // 道具の帯の右端のスプリントのボタンと小窓（本番の Popover。#1498）。期間、何日目か、延長、進み具合、残り、ゴールと、リーダーの操作を出す。
+  // 最終日を過ぎたら、ボタンに警告の印を付け、小窓の先頭に終えるのを促す知らせを出す
+  const actions = isLeader ? `<div class="popover-actions">
+      <button class="btn is-sm" type="button" data-dialog="sprintEditActive" aria-label="${t("sprint")}を編集: ${SQ.esc(label)}">編集</button>
+      <button class="btn is-sm" type="button" data-dialog="sprintExtend">延長する</button>
+      <button class="btn is-sm" type="button" data-dialog="sprintEnd" aria-label="終える: ${t("sprint")}「${SQ.esc(label)}」">終える</button>
+    </div>` : "";
+  const panel = `${overdue ? overdueNotice("sp14") : ""}
+    <div class="popover-head"><h2 class="popover-title">${SQ.esc(label)}</h2>
+      <div class="popover-meta"><span>${SQ.md(s.start)}〜${SQ.md(s.end)}・${s.days} 日のうち ${day} 日目</span>${s.extended ? `<span>延長 ${s.extended} 日</span>` : ""}</div></div>
+    <div class="progress-summary">${progress(done, all, { markerPercent: day / s.days * 100, markerLabel: `経過 ${day} / ${s.days} 日（${Math.round(day / s.days * 100)}%）`, detailed: true })}<span class="progress-remaining">残り ${Math.max(0, s.days - s.dayIndex)} 日</span></div>
+    ${s.goal ? `<div class="popover-section"><span class="popover-label">${t("sprintGoal")}</span><p class="popover-text">${SQ.esc(s.goal)}</p></div>` : ""}
+    ${actions}`;
+  const sprintButton = SQ.popover(label, panel, {
+    label: `${t("sprint")}の情報: ${label}${overdue ? "（最終日を過ぎています）" : ""}`,
+    dialogLabel: `${t("sprint")}の情報`,
+    icon: overdue ? "alert" : "clock",
+    tone: overdue ? "warn" : "",
+  });
   return `
-    ${pageHead(`${s.name ? `${SQ.esc(s.name)}・` : ""}${SQ.md(s.start)}〜${SQ.md(s.end)}・${s.days} 日のうち ${Math.min(s.dayIndex + 1, s.days)} 日目`, t("board"), [], actions,
-      `<div class="progress-summary">${progress(done, all, { markerPercent: Math.min(s.dayIndex + 1, s.days) / s.days * 100, markerLabel: `経過 ${Math.min(s.dayIndex + 1, s.days)} / ${s.days} 日（${Math.round(Math.min(s.dayIndex + 1, s.days) / s.days * 100)}%）`, detailed: true })}<span class="progress-remaining">残り ${Math.max(0, s.days - s.dayIndex)} 日</span></div>`)}
-    ${s.extended ? `<p class="action-note">延長 ${s.extended} 日</p>` : ""}
-    ${overdue ? overdueNotice("sp14") : ""}
-    ${sprintNotice("sp14", { showWs: false })}
-    ${board("sp14", { draft: true, collapsed: (c) => c.done && new URLSearchParams(location.search).has("collapsed") })}
+    ${pageHead("", t("board"))}
+    <div class="board-page">
+      <div class="toolbar board-toolbar"><div class="toolbar-end">${sprintButton}</div></div>
+      ${board("sp14", { draft: true, collapsed: (c) => c.done && new URLSearchParams(location.search).has("collapsed") })}
+    </div>
     <span class="visually-hidden" id="board-key-hint">カードを別の${t("column")}へドラッグして移すか、カードを選んで Alt と ← → で隣の${t("column")}、Alt と ↑ ↓ で${t("column")}の中を動かせます。カードの「⋯」のメニューでも同じです。${t("done")}の${t("column")}の手前の${t("column")}から次へ送ると、${t("done")}になります。${t("done")}のカードは Alt と ← か「⋯」で戻せます。戻せないときは理由を知らせます。</span>
     <section class="section" aria-labelledby="cap">
       <div class="section-head"><h2 class="section-title" id="cap">この${t("sprint")}の${t("capacity")}</h2><span class="section-hint">1 ${t("points")} = ${D.hoursPerPoint} 時間・許容幅 ±12.5%</span></div>

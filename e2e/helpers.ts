@@ -963,9 +963,22 @@ export async function expectBoardHeading(
   options: { unnamed?: boolean } = {},
 ): Promise<void> {
   await expect(page.getByRole('heading', { level: 1, name: 'ボード', exact: true })).toBeVisible();
-  const escaped = sprint.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const period = options.unnamed ? '' : '\\d{1,2}/\\d{1,2}〜\\d{1,2}/\\d{1,2}・';
-  await expect(page.locator('.page-head .page-eyebrow')).toHaveText(
-    new RegExp(`^${escaped}・${period}\\d+ 日のうち \\d+ 日目$`),
-  );
+  // 見出しの下の道具の帯の右端に、スプリントの名前（無ければ期間）のボタンを置く（#1498）。何日目かは小窓の中
+  const button = sprintButton(page);
+  await expect(button).toHaveText(sprint);
+  if (options.unnamed) await expect(button).toHaveText(/^\d{1,2}\/\d{1,2}〜\d{1,2}\/\d{1,2}$/);
+}
+
+// ボードの道具の帯の右端のスプリントのボタン（Popover）
+export function sprintButton(page: Page): Locator {
+  return page.locator('.board-toolbar').getByRole('button', { name: /^スプリントの情報: / });
+}
+
+// スプリントのボタンを押して小窓を開き、小窓を返す。開いていればそのまま返す
+export async function openSprintPopover(page: Page): Promise<Locator> {
+  const button = sprintButton(page);
+  if ((await button.getAttribute('aria-expanded')) !== 'true') await button.click();
+  const popover = page.getByRole('dialog', { name: 'スプリントの情報', exact: true });
+  await expect(popover).toBeVisible();
+  return popover;
 }

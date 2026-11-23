@@ -516,6 +516,15 @@ const SECTIONS = [
     `<div class="progress-summary">${progress(8, 31, { markerPercent: 8 / 14 * 100, markerLabel: "経過 8 / 14 日（57%）", detailed: true })}<span class="progress-remaining">残り 7 日</span></div>` +
     `<div class="progress-summary">${progress(0, 0, { markerPercent: 100, markerLabel: "経過 14 / 14 日（100%）", detailed: true })}<span class="progress-remaining">残り 0 日</span></div>`,
     ["進み具合の棒に任意の経過目盛りを重ねる。完了割合が目盛りより低くても警告色にしない。合計0ptは空の棒で割合を出さない。", "スプリントゴールの貼り紙にはラベルとゴールを出し、今日やることの画面ではワークスペース名も添える。ゴールの文（.notice-title.is-goal）は、書いた改行を残し（white-space: pre-line）、長い語は折り返す。ゴールを書かずに始めたスプリントは、貼り紙を出さない。"], ".notice / .notice-label .notice-title .notice-title.is-goal .notice-meta / .progress")],
+  ["popover", "押すと開く小窓", () => block("popover", "押すと開く小窓", "ボタンの下の右端にそろえて重ねる、モーダルにしない窓。ボードの道具の帯の右端のスプリントのボタンが使う（#1498）。",
+    `<div class="toolbar">${SQ.popover(SQ.sprintLabel("sp14"), `<div class="popover-head"><h3 class="popover-title">${esc(SQ.sprintLabel("sp14"))}</h3><div class="popover-meta"><span>10/13〜10/26・14 日のうち 8 日目</span></div></div>` +
+      `<div class="progress-summary">${progress(8, 31, { markerPercent: 8 / 14 * 100, markerLabel: "経過 8 / 14 日（57%）", detailed: true })}<span class="progress-remaining">残り 7 日</span></div>` +
+      `<div class="popover-section"><span class="popover-label">${t("sprintGoal")}</span><p class="popover-text">${esc(D.sprints.sp14.goal)}</p></div>` +
+      `<div class="popover-actions"><button class="btn is-sm" type="button">編集</button><button class="btn is-sm" type="button">延長する</button><button class="btn is-sm" type="button">終える</button></div>`,
+      { label: `${t("sprint")}の情報: ${SQ.sprintLabel("sp14")}`, dialogLabel: `${t("sprint")}の情報`, icon: "clock" })}` +
+    `${SQ.popover(SQ.sprintLabel("sp14"), `<div class="popover-head"><h3 class="popover-title">${esc(SQ.sprintLabel("sp14"))}</h3></div>`, { label: `${t("sprint")}の情報: ${SQ.sprintLabel("sp14")}（最終日を過ぎています）`, dialogLabel: `${t("sprint")}の情報（最終日を過ぎた）`, icon: "alert", tone: "warn" })}</div>`,
+    ["押すと窓（role=\"dialog\"）を開き、窓そのものへフォーカスを移す。Esc と外の地を押すと閉じてボタンへ戻す。外のボタンや欄を押したときと Tab で外へ出たときは、閉じて出た先に残す。", "ボタンは見える文字、前のアイコン、後ろの開閉の山形を並べる。長い文字は省略し、全文は読み上げの名前と title で読める。", "注意の印（.is-warn）は、アイコンと枠を警告色にする。色だけに頼らないよう、読み上げの名前に同じことを含める。", "中の操作でダイアログを開くときは、窓を閉じてからボタンを戻り先に渡す。", "760px 以下と指で押す画面では、ボタンと窓の操作を 44px 以上にする。"],
+    ".popover .popover-btn .popover-btn.is-warn / .popover-panel .popover-head .popover-title .popover-meta .popover-section .popover-label .popover-text .popover-actions")],
   ["records", "記録", () => block("records", "記録（積載量）", "計器の見た目。積載量は5%の目盛りで、許容幅の両端を縦線で示す。",
     `<div class="two"><section class="panel"><div class="panel-title"><b>${t("capacity")}</b>判定の5つ</div>${capacityRows()}${load("社内ツール", "配分 40%", 30.4, 30.0, { lead: avatarOf("u1") })}</section></div>`,
     ["判定は重量オーバー（赤）、範囲内（藍）、余力あり（緑）、未見積もりあり（灰）、配分未設定（斜線）。必ず文字を添える。", "未見積もりのタスクが1件でもあれば、余力ありの色は付けない。", "時間は0.1時間に丸めて出す。"],

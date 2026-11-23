@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures.ts';
 import {
   signIn,
@@ -7,6 +8,8 @@ import {
   A11Y_THEMES,
   findA11yViolations,
   expectFocusReturned,
+  openSprintPopover,
+  sprintButton,
 } from './helpers.ts';
 import { storyGet } from '../src/shared/operations/story/story-get.ts';
 import { mockOperation, routeOperation } from './operations.ts';
@@ -16,6 +19,14 @@ import { SAMPLE_BOARD } from './sprint-fixture.ts';
 
 const PATH = '/aoba/w/019a0000-0000-7000-8000-000000000401/board';
 const STORY = SAMPLE_BOARD.columns[0]!.tasks[0]!.story!;
+// スプリントの全体の進み具合（絞り込みに依らない）。道具の帯のスプリントのボタンの小窓に出す（#1498）
+async function expectSprintTotals(page: Page, done = '完了 2 / 10 pt（20%）'): Promise<void> {
+  const popover = await openSprintPopover(page);
+  await expect(popover.locator('.progress-bar')).toHaveAccessibleName(`${done}、経過 8 / 14 日（57%）`);
+  await expect(popover.locator('.progress-remaining')).toHaveText('残り 7 日');
+  await page.keyboard.press('Escape');
+  await expect(popover).toBeHidden();
+}
 // ?story= を誤って詳細として扱うと、APIの応答順によらずこの検査で落とす。
 test.beforeEach(async ({ page }) => {
   await routeOperation(page, storyGet, { slug: 'aoba' }, async (call) => {
@@ -48,8 +59,7 @@ test('親名のポインタとフォーカスで列をまたいで強調し、UR
   await expect(page.locator('.card.is-story-highlighted')).toHaveCount(0);
   await parents.first().focus();
   await expect(page.locator('.card.is-story-highlighted')).toHaveCount(3);
-  await expect(page.locator('.progress-bar')).toHaveAccessibleName('完了 2 / 10 pt（20%）、経過 8 / 14 日（57%）');
-  await expect(page.locator('.progress-remaining')).toHaveText('残り 7 日');
+  await expectSprintTotals(page);
   await parents.first().click();
   await expect(page).toHaveURL(new RegExp(`story=${STORY.id}`));
   await waitForSettled(page);
@@ -62,22 +72,17 @@ test('親名のポインタとフォーカスで列をまたいで強調し、UR
   await expect(page.locator('.board-col').first().locator('.board-col-n')).toHaveText('1');
   await expect(page.locator('.board-col').first().locator('.board-col-pts')).toHaveText('5 pt');
   // 見出しは絞る前の全体のまま（5+3+2 pt）
-  await expect(page.locator('.progress-bar')).toHaveAccessibleName('完了 2 / 10 pt（20%）、経過 8 / 14 日（57%）');
-  await expect(page.locator('.progress-remaining')).toHaveText('残り 7 日');
-  // mainへ入った#1284の編集・メニューを使っても、storyの絞り込みは維持する。
-  const head = page.locator('.page-head');
-  const editTrigger = head.getByRole('button', { name: 'スプリントを編集: 第14回', exact: true });
-  await editTrigger.click();
+  await expectSprintTotals(page);
+  // スプリントの小窓の編集と開閉を使っても、storyの絞り込みは維持する。
+  await (await openSprintPopover(page)).getByRole('button', { name: 'スプリントを編集: 第14回', exact: true }).click();
   const edit = page.getByRole('dialog', { name: 'スプリントを直す', exact: true });
   await expect(edit).toBeVisible();
   await edit.getByRole('button', { name: 'やめる', exact: true }).click();
   await expect(edit).toBeHidden();
-  await expectFocusReturned(page, editTrigger);
-  const menu = head.getByRole('button', { name: '操作: 第14回', exact: true });
-  await menu.click();
-  await expect(head.getByRole('menuitem')).toHaveText(['延長する', '終える']);
+  await expectFocusReturned(page, sprintButton(page));
+  await openSprintPopover(page);
   await page.keyboard.press('Escape');
-  await expectFocusReturned(page, menu);
+  await expectFocusReturned(page, sprintButton(page));
   await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
   await expect(page).toHaveURL(new RegExp(`story=${STORY.id}`));
   await page.reload();
@@ -180,11 +185,11 @@ test('絞り込み中も完了の丸を出さず、最後の未完了列から�
   await page.goto(`${PATH}?story=${STORY.id}`);
   await expect(page.locator('.card')).toHaveCount(3);
   await expect(page.locator('.card .done-btn')).toHaveCount(0);
-  await expect(page.locator('.progress-bar')).toHaveAccessibleName('完了 2 / 10 pt（20%）、経過 8 / 14 日（57%）');
+  await expectSprintTotals(page, '完了 2 / 10 pt（20%）');
   await page.locator(`[data-card-id="${task.id}"]`).press('Alt+ArrowRight');
   await expect.poll(() => completed).toBe(1);
   await expect(page.locator('.board-col.is-done').locator('.card')).toHaveCount(2);
-  await expect(page.locator('.progress-bar')).toHaveAccessibleName('完了 7 / 10 pt（70%）、経過 8 / 14 日（57%）');
+  await expectSprintTotals(page, '完了 7 / 10 pt（70%）');
   await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
   await expect(page).toHaveURL(new RegExp(`story=${STORY.id}`));
   await expect(page.locator('.card')).toHaveCount(3);
@@ -274,8 +279,7 @@ test('絞り込みと列の畳み・保存・下書き・移動先フォーカ�
     call.fulfill({ task_id: call.input.task_id, column_id: call.input.column_id }),
   );
   await page.goto(`${PATH}?story=${STORY.id}`);
-  await expect(page.locator('.progress-bar')).toHaveAccessibleName('完了 2 / 10 pt（20%）、経過 8 / 14 日（57%）');
-  await expect(page.locator('.progress-remaining')).toHaveText('残り 7 日');
+  await expectSprintTotals(page);
   const todo = page.locator('.board-col').first();
   const draft = todo.getByRole('textbox');
   await expect(draft).toHaveAccessibleDescription('絞り込んだストーリーの下に追加します');
@@ -296,8 +300,7 @@ test('絞り込みと列の畳み・保存・下書き・移動先フォーカ�
   await expect(workingToggle).toBeFocused();
   await expect(page.locator('.board-col').nth(1).locator('.board-col-n')).toHaveText('2');
   await expect(page.locator('.board-col').nth(1).locator('.card')).toHaveCount(0);
-  await expect(page.locator('.progress-bar')).toHaveAccessibleName('完了 2 / 10 pt（20%）、経過 8 / 14 日（57%）');
-  await expect(page.locator('.progress-remaining')).toHaveText('残り 7 日');
+  await expectSprintTotals(page);
   await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
   await page.reload();
   await expect(workingToggle).toHaveAttribute('aria-expanded', 'false');
@@ -544,7 +547,7 @@ for (const operation of ['key', 'menu', 'drag'] as const) {
     if (operation !== 'drag') await expect(toggle).toBeFocused();
     await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
     await expect(page).toHaveURL(new RegExp(`story=${STORY.id}`));
-    await expect(page.locator('.progress-bar')).toHaveAccessibleName('完了 0 / 10 pt（0%）、経過 8 / 14 日（57%）');
+    await expectSprintTotals(page, '完了 0 / 10 pt（0%）');
     await toggle.click();
     await expect(target.locator('.card-title')).toHaveText(completed.title);
     await expect(page.locator('.card')).toHaveCount(3);

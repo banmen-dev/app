@@ -2565,9 +2565,11 @@ export const dictionary = defineDictionary({
     'この{story}か{sprint}か{column}が見つかりません。{task}は作られていません。一覧を読み直します',
   sprintBoardPageName: '{board}・{name}・{workspace}',
   sprintBoardPageNameEmpty: '{board}・{workspace}',
-  sprintBoardEyebrow: '{name}・{period}・{length} 日のうち {day} 日目',
-  // 名前の無いスプリントは期間が名前なので、期間を重ねない
-  sprintBoardEyebrowUnnamed: '{period}・{length} 日のうち {day} 日目',
+  // ボードの道具の帯の右端のスプリントのボタンと小窓（#1498）。ボタンの見える文字は名前（無ければ期間）
+  sprintPopoverLabel: '{sprint}の情報: {label}',
+  sprintPopoverLabelOverdue: '{sprint}の情報: {label}（最終日を過ぎています）',
+  sprintPopoverDialog: '{sprint}の情報',
+  sprintPopoverPeriod: '{period}・{length} 日のうち {day} 日目',
   sprintBoardRegion: '{sprint}「{label}」の{column}とカード',
   sprintBoardColumnEmpty: 'なし',
   sprintBoardAddTask: '{task}を足す',

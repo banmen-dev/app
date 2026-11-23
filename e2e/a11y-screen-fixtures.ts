@@ -97,7 +97,7 @@ export const a11yScreens: {
     prepare: (page) => mockOperation(page, sprintBoard, { slug: 'aoba' }, SAMPLE_BOARD),
     ready: (page) => [
       page.getByRole('heading', { level: 1, name: 'ボード', exact: true }),
-      page.locator('.page-head .page-eyebrow', { hasText: '第14回' }),
+      page.locator('.board-toolbar .popover-btn', { hasText: '第14回' }),
       page.getByRole('article', { name: 'ポイント付与のバッチを作る' }),
     ],
   },

@@ -13,11 +13,10 @@
   import Markdown from '../../../../../lib/components/Markdown.svelte';
   import Progress from '../../../../../lib/components/Progress.svelte';
   import PageHead from '../../../../../lib/components/PageHead.svelte';
-  import RowMenu from '../../../../../lib/components/RowMenu.svelte';
+  import Popover from '../../../../../lib/components/Popover.svelte';
   import SprintCard from '../../../../../lib/components/SprintCard.svelte';
   import SprintDialog from '../../../../../lib/components/SprintDialog.svelte';
   import SprintExtendDialog from '../../../../../lib/components/SprintExtendDialog.svelte';
-  import SprintGoalNotice from '../../../../../lib/components/SprintGoalNotice.svelte';
   import SprintCloseDialog from '../../../../../lib/components/SprintCloseDialog.svelte';
   import SprintOverdueNotice from '../../../../../lib/components/SprintOverdueNotice.svelte';
   import { focusPageHeading } from '../../../../../lib/focus-heading.ts';
@@ -57,8 +56,9 @@
   import type { PageProps } from './$types';
 
   // ボードの画面（design/sprint.html。#1497 で /sprint から /board に改めた）。進行中のスプリントの列（`.board-col`）とカード（`.card`）を並べる。
-  // 見出しは「ボード」、小見出しは進行中のスプリントの名前（無ければ期間）、期間と何日目か。ゴールを書いて始めていれば貼り紙（`.notice`）で出す。
-  // カードは題（`?task=<ID>` で詳細の引き出しを開く）、親のストーリー、ポイント、担当と、完了の印か列移動の「⋯」。
+  // 見出しは「ボード」だけで、その下の1段の道具の帯の右端に、スプリントの名前（無ければ期間）のボタン（Popover）を置く（#1498）。
+  // 押すと開く小窓に、期間と何日目か、延長した日数、進み具合、残りの日数、ゴールと、リーダーの操作（編集、延長、終了）を出す。
+  // カードは題（`?task=<ID>` で詳細の引き出しを開く）、期日、下の段に親のストーリー、ポイント、担当と、完了の印か列移動の「⋯」。
   // 完了の操作は task-complete を呼ぶだけで、完了の列への移動は task-complete が行う（完了の列へ task-column-move で移すことはしない）。
   // 動かせるカード（完了していない、終了していないワークスペース）は、選んで Alt と ← → で隣の列、Alt と ↑ ↓ で列の中を動かし、
   // カードの右下の「⋯」のメニューでも同じことができる。動かしたら先に画面の並びを替えて位置を読み上げ、押した順に1つずつ送る（MoveQueue）。
@@ -76,8 +76,8 @@
   // 各列（完了の列を除く）の末尾に、タスクを足す空の行（DraftRow）を置く。書き込めるとき（終了していないワークスペース）だけ出す。
   // 題を打って Enter で、そのスプリントのその列の末尾に task-create で作る（作成と入れ込みは1回の書き込み）。作れたら読み直し、
   // 空の行に戻って続けて打てる。断られたら理由を空の行の下に出し、スプリントか列が無いか進行中でなければ読み直す。
-  // 見出しは「編集」と「⋯」（延長・終了）。「終える」のボタンは最終日から表にも出す。リーダーか管理者、開いたワークスペースだけ。
-  // 最終日がワークスペースの今日より前なら、見出しの下に終えるのを促す警告（SprintOverdueNotice）を出す。
+  // 小窓の「編集」「延長する」「終える」は、リーダーか管理者、開いたワークスペースだけ。小窓を閉じてからダイアログを開き、閉じたらスプリントのボタンへ戻る。
+  // 最終日がワークスペースの今日より前なら、ボタンに警告の印を付け、小窓の先頭に終えるのを促す警告（SprintOverdueNotice）を出す。
   // 終えたら読み直して進行中の無い表示に戻り、見出しへフォーカスを移す
   let { data }: PageProps = $props();
 
@@ -873,176 +873,206 @@
       {/snippet}
     </EmptyState>
   {:else}
-    <PageHead
-      title={t('board')}
-      eyebrow={sprint.name === null
-        ? t('sprintBoardEyebrowUnnamed', {
-            period: sprintPeriod(sprint, t),
-            length: progress.length,
-            day: progress.day,
-          })
-        : t('sprintBoardEyebrow', {
-            name: sprint.name,
-            period: sprintPeriod(sprint, t),
-            length: progress.length,
-            day: progress.day,
-          })}
-      focusable
-    >
-      {#snippet meta()}
-        <div class="progress-summary">
-          <Progress
-            done={pointsOf(doneColumnTasks)}
-            all={pointsOf(allTasks)}
-            markerPercent={(progress.day / progress.length) * 100}
-            markerLabel={t('progressElapsed', {
-              day: progress.day,
-              length: progress.length,
-              percent: Math.round((progress.day / progress.length) * 100),
+    <PageHead title={t('board')} focusable />
+    <div class="board-page">
+      <!-- 1段の道具の帯。右端のスプリントのボタンで、期間、進み具合、ゴールと、リーダーの操作を出す小窓を開く -->
+      <div class="toolbar board-toolbar">
+        <div class="toolbar-end">
+          <Popover
+            text={sprintLabel(sprint, t)}
+            label={t(overdue ? 'sprintPopoverLabelOverdue' : 'sprintPopoverLabel', {
+              sprint: t('sprint'),
+              label: sprintLabel(sprint, t),
             })}
-            detailed
-          />
-          <span class="progress-remaining">{t('sprintBoardRemaining', { days: progress.remaining })}</span>
-        </div>
-      {/snippet}
-      {#snippet actions()}
-        {#if canLead}
-          <button
-            class="btn"
-            type="button"
-            aria-label={t('sprintHeaderEditLabel', { sprint: t('sprint'), label: sprintLabel(sprint, t) })}
-            onclick={(event) => editDialog?.show(event.currentTarget, sprint)}>{t('sprintHeaderEditAction')}</button
+            dialogLabel={t('sprintPopoverDialog', { sprint: t('sprint') })}
+            icon={overdue ? 'alert' : 'clock'}
+            tone={overdue ? 'warn' : undefined}
           >
-          <RowMenu
-            title={sprintLabel(sprint, t)}
-            items={[
-              {
-                key: 'extend',
-                label: t('sprintExtendAction'),
-                icon: 'clock',
-                onselect: (trigger) => extendDialog?.show(trigger, sprint),
-              },
-              { key: 'close', label: t('sprintCloseAction'), icon: 'check', onselect: openClose },
-            ]}
-          />
-          {#if board.today >= sprint.end_on}
-            <button
-              class="btn"
-              type="button"
-              aria-label={t('sprintCloseLabel', { sprint: t('sprint'), label: sprintLabel(sprint, t) })}
-              onclick={(event) => openClose(event.currentTarget)}>{t('sprintCloseAction')}</button
-            >
-          {/if}
-        {/if}
-      {/snippet}
-    </PageHead>
-    {#if sprint.extended_days > 0}<p class="action-note">{t('sprintExtended', { days: sprint.extended_days })}</p>{/if}
-    {#if overdue}
-      <SprintOverdueNotice {sprint} canClose={canLead} onclose={openClose} />
-    {/if}
-    {#if sprint.goal !== null}<SprintGoalNotice goal={sprint.goal} />{/if}
-    <div class="story-board">
-      {#if filteredStory !== null}
-        <div class="story-filter-band">
-          <div class="story-filter-summary">
-            <span
-              ><Icon name="flag" />{t('sprintStoryFilterActive', {
-                story: t('story'),
-                title: filteredStory.title,
-              })}</span
-            >
-            <span class="action-note">{t('sprintStoryTotalsNote', { points: t('points') })}</span>
-          </div>
-          <button class="btn is-sm is-quiet" type="button" onclick={() => void filterStory(null)}
-            ><Icon name="x" />{t('filterClear')}</button
-          >
-        </div>
-      {/if}
-      <!-- 列が並ぶと狭い幅で横に溢れる。カードが無いと中に止まる先が無く、キーボードで横へ送れないので、その間だけ領域に止まる -->
-      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-      <div
-        class="board-wrap"
-        role="region"
-        aria-label={t('sprintBoardRegion', { sprint: t('sprint'), label: sprintLabel(sprint, t), column: t('column') })}
-        tabindex={visibleColumns.every((column) => column.tasks.length === 0) ? 0 : undefined}
-        {@attach canWrite ? (node) => dnd.wrap(node) : undefined}
-      >
-        <!-- 引き出しの前後のボタンの順は、ボードに今見えているカード（左の列から右へ、列の中は上から下） -->
-        <div class="board" style:--board-cols={columns.length} {@attach trackTaskOrder} {@attach trackStoryHover}>
-          {#each visibleColumns as column (column.id)}
-            <section
-              class="board-col"
-              class:is-done={column.is_done}
-              class:is-collapsed={collapsedColumns.isCollapsed(column.id)}
-              aria-label={columnName(column)}
-              data-drop={canWrite ? dnd.markOfColumn(column.id) : undefined}
-              {@attach canWrite ? dnd.column(column.id) : undefined}
-            >
-              <div class="board-col-head">
-                <button
-                  class="board-col-toggle"
-                  type="button"
-                  data-column-toggle={column.id}
-                  aria-label={t('sprintBoardColumnToggle', { column: columnName(column) })}
-                  aria-expanded={!collapsedColumns.isCollapsed(column.id)}
-                  onclick={() => collapsedColumns.toggle(column.id)}><Icon name="chevron" /></button
-                >
-                {#if column.is_done}<Icon name="check" />{/if}
-                <span class="board-col-name">{columnName(column)}</span>
-                <span class="board-col-n">{column.tasks.length}</span>
-                <span class="board-col-pts">{t('sprintBoardColumnPoints', { points: pointsOf(column.tasks) })}</span>
-              </div>
-              {#if !collapsedColumns.isCollapsed(column.id)}
-                <!-- 完成の定義（components.css の .dod。kit.js の board）。完了の列にだけ畳んで置き、空なら出さない。本文は開くまで描かない -->
-                {#if column.is_done && workspace.definitionOfDone !== null}
-                  <details class="dod" bind:open={dodOpen}>
-                    <summary>{t('dod')}</summary>
-                    {#if dodOpen}<Markdown source={workspace.definitionOfDone} headingStart={2} />{/if}
-                  </details>
-                {/if}
-                {#each column.tasks as task (task.id)}
-                  <SprintCard
-                    {task}
-                    {highlightedStory}
-                    onstoryhover={(id) => (hoveredStory = id)}
-                    onstoryfocus={(id) => {
-                      focusedStory = id;
-                      // キーボードで親名へ移ったら、隙間で保ったポインタの強調より、フォーカスしたストーリーを先にする
-                      if (id !== null) hoveredStory = undefined;
-                    }}
-                    onstoryfilter={(id) => void filterStory(id)}
-                    href="{boardHref}?task={encodeURIComponent(task.id)}{cardStoryQuery}"
-                    edges={canWrite ? edgesOf(visibleColumns, task.id) : null}
-                    writable={canWrite}
-                    clock={{ today: board.today, weekStart: board.week_start }}
-                    hintId={KEY_HINT_ID}
-                    dnd={canWrite ? dnd : undefined}
-                    onmove={moveCard}
-                    ondelete={canWrite ? (target, keyboard) => void removeCard(target, keyboard) : undefined}
-                  />
-                {:else}
-                  <p class="board-empty">{t('sprintBoardColumnEmpty')}</p>
-                {/each}
+            {#snippet children(close, trigger)}
+              {#if overdue}
+                <SprintOverdueNotice
+                  {sprint}
+                  canClose={canLead}
+                  onclose={() => {
+                    close(false);
+                    openClose(trigger);
+                  }}
+                />
               {/if}
-              {#if canWrite && !column.is_done}
-                <div class="board-col-draft" hidden={collapsedColumns.isCollapsed(column.id)}>
-                  <DraftRow
-                    bind:this={draftRows[column.id]}
-                    keyshortcut={column.id === firstOpenColumnId ? ariaKeyshortcuts(NEW_TASK_KEY) : undefined}
-                    label={t('sprintBoardAddTask', { task: t('task') })}
-                    placeholder={t('sprintBoardAddTaskPlaceholder', { task: t('task') })}
-                    describedby={storyId === null ? undefined : `story-create-${column.id}`}
-                    name={t('sprintBoardAddTaskIn', { task: t('task'), column: columnName(column) })}
-                    problem={cardTitleProblem}
-                    create={(title) => addCard(column, title)}
-                  />
-                  {#if storyId !== null}<p class="action-note" id="story-create-{column.id}">
-                      {t('sprintStoryCreateUnder', { story: t('story') })}
-                    </p>{/if}
+              <div class="popover-head">
+                <h2 class="popover-title">{sprintLabel(sprint, t)}</h2>
+                <div class="popover-meta">
+                  <span
+                    >{t('sprintPopoverPeriod', {
+                      period: sprintPeriod(sprint, t),
+                      length: progress.length,
+                      day: progress.day,
+                    })}</span
+                  >
+                  {#if sprint.extended_days > 0}<span>{t('sprintExtended', { days: sprint.extended_days })}</span>{/if}
+                </div>
+              </div>
+              <div class="progress-summary">
+                <Progress
+                  done={pointsOf(doneColumnTasks)}
+                  all={pointsOf(allTasks)}
+                  markerPercent={(progress.day / progress.length) * 100}
+                  markerLabel={t('progressElapsed', {
+                    day: progress.day,
+                    length: progress.length,
+                    percent: Math.round((progress.day / progress.length) * 100),
+                  })}
+                  detailed
+                />
+                <span class="progress-remaining">{t('sprintBoardRemaining', { days: progress.remaining })}</span>
+              </div>
+              {#if sprint.goal !== null}
+                <div class="popover-section">
+                  <span class="popover-label">{t('sprintGoal')}</span>
+                  <p class="popover-text">{sprint.goal}</p>
                 </div>
               {/if}
-            </section>
-          {/each}
+              {#if canLead}
+                <div class="popover-actions">
+                  <button
+                    class="btn is-sm"
+                    type="button"
+                    aria-label={t('sprintHeaderEditLabel', { sprint: t('sprint'), label: sprintLabel(sprint, t) })}
+                    onclick={() => {
+                      close(false);
+                      editDialog?.show(trigger, sprint);
+                    }}>{t('sprintHeaderEditAction')}</button
+                  >
+                  <button
+                    class="btn is-sm"
+                    type="button"
+                    onclick={() => {
+                      close(false);
+                      extendDialog?.show(trigger, sprint);
+                    }}>{t('sprintExtendAction')}</button
+                  >
+                  <button
+                    class="btn is-sm"
+                    type="button"
+                    aria-label={t('sprintCloseLabel', { sprint: t('sprint'), label: sprintLabel(sprint, t) })}
+                    onclick={() => {
+                      close(false);
+                      openClose(trigger);
+                    }}>{t('sprintCloseAction')}</button
+                  >
+                </div>
+              {/if}
+            {/snippet}
+          </Popover>
+        </div>
+      </div>
+      <div class="story-board">
+        {#if filteredStory !== null}
+          <div class="story-filter-band">
+            <div class="story-filter-summary">
+              <span
+                ><Icon name="flag" />{t('sprintStoryFilterActive', {
+                  story: t('story'),
+                  title: filteredStory.title,
+                })}</span
+              >
+              <span class="action-note">{t('sprintStoryTotalsNote', { points: t('points') })}</span>
+            </div>
+            <button class="btn is-sm is-quiet" type="button" onclick={() => void filterStory(null)}
+              ><Icon name="x" />{t('filterClear')}</button
+            >
+          </div>
+        {/if}
+        <!-- 列が並ぶと狭い幅で横に溢れる。カードが無いと中に止まる先が無く、キーボードで横へ送れないので、その間だけ領域に止まる -->
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+        <div
+          class="board-wrap"
+          role="region"
+          aria-label={t('sprintBoardRegion', {
+            sprint: t('sprint'),
+            label: sprintLabel(sprint, t),
+            column: t('column'),
+          })}
+          tabindex={visibleColumns.every((column) => column.tasks.length === 0) ? 0 : undefined}
+          {@attach canWrite ? (node) => dnd.wrap(node) : undefined}
+        >
+          <!-- 引き出しの前後のボタンの順は、ボードに今見えているカード（左の列から右へ、列の中は上から下） -->
+          <div class="board" style:--board-cols={columns.length} {@attach trackTaskOrder} {@attach trackStoryHover}>
+            {#each visibleColumns as column (column.id)}
+              <section
+                class="board-col"
+                class:is-done={column.is_done}
+                class:is-collapsed={collapsedColumns.isCollapsed(column.id)}
+                aria-label={columnName(column)}
+                data-drop={canWrite ? dnd.markOfColumn(column.id) : undefined}
+                {@attach canWrite ? dnd.column(column.id) : undefined}
+              >
+                <div class="board-col-head">
+                  <button
+                    class="board-col-toggle"
+                    type="button"
+                    data-column-toggle={column.id}
+                    aria-label={t('sprintBoardColumnToggle', { column: columnName(column) })}
+                    aria-expanded={!collapsedColumns.isCollapsed(column.id)}
+                    onclick={() => collapsedColumns.toggle(column.id)}><Icon name="chevron" /></button
+                  >
+                  {#if column.is_done}<Icon name="check" />{/if}
+                  <span class="board-col-name">{columnName(column)}</span>
+                  <span class="board-col-n">{column.tasks.length}</span>
+                  <span class="board-col-pts">{t('sprintBoardColumnPoints', { points: pointsOf(column.tasks) })}</span>
+                </div>
+                {#if !collapsedColumns.isCollapsed(column.id)}
+                  <!-- 完成の定義（components.css の .dod。kit.js の board）。完了の列にだけ畳んで置き、空なら出さない。本文は開くまで描かない -->
+                  {#if column.is_done && workspace.definitionOfDone !== null}
+                    <details class="dod" bind:open={dodOpen}>
+                      <summary>{t('dod')}</summary>
+                      {#if dodOpen}<Markdown source={workspace.definitionOfDone} headingStart={2} />{/if}
+                    </details>
+                  {/if}
+                  {#each column.tasks as task (task.id)}
+                    <SprintCard
+                      {task}
+                      {highlightedStory}
+                      onstoryhover={(id) => (hoveredStory = id)}
+                      onstoryfocus={(id) => {
+                        focusedStory = id;
+                        // キーボードで親名へ移ったら、隙間で保ったポインタの強調より、フォーカスしたストーリーを先にする
+                        if (id !== null) hoveredStory = undefined;
+                      }}
+                      onstoryfilter={(id) => void filterStory(id)}
+                      href="{boardHref}?task={encodeURIComponent(task.id)}{cardStoryQuery}"
+                      edges={canWrite ? edgesOf(visibleColumns, task.id) : null}
+                      writable={canWrite}
+                      clock={{ today: board.today, weekStart: board.week_start }}
+                      hintId={KEY_HINT_ID}
+                      dnd={canWrite ? dnd : undefined}
+                      onmove={moveCard}
+                      ondelete={canWrite ? (target, keyboard) => void removeCard(target, keyboard) : undefined}
+                    />
+                  {:else}
+                    <p class="board-empty">{t('sprintBoardColumnEmpty')}</p>
+                  {/each}
+                {/if}
+                {#if canWrite && !column.is_done}
+                  <div class="board-col-draft" hidden={collapsedColumns.isCollapsed(column.id)}>
+                    <DraftRow
+                      bind:this={draftRows[column.id]}
+                      keyshortcut={column.id === firstOpenColumnId ? ariaKeyshortcuts(NEW_TASK_KEY) : undefined}
+                      label={t('sprintBoardAddTask', { task: t('task') })}
+                      placeholder={t('sprintBoardAddTaskPlaceholder', { task: t('task') })}
+                      describedby={storyId === null ? undefined : `story-create-${column.id}`}
+                      name={t('sprintBoardAddTaskIn', { task: t('task'), column: columnName(column) })}
+                      problem={cardTitleProblem}
+                      create={(title) => addCard(column, title)}
+                    />
+                    {#if storyId !== null}<p class="action-note" id="story-create-{column.id}">
+                        {t('sprintStoryCreateUnder', { story: t('story') })}
+                      </p>{/if}
+                  </div>
+                {/if}
+              </section>
+            {/each}
+          </div>
         </div>
       </div>
     </div>

@@ -983,6 +983,52 @@
   function wikiHit(p, path, where, current = false) {
     return `<li><a class="wiki-link" href="#${p.id}" data-wiki-page="${p.id}"${current ? ' aria-current="page"' : ""}>${esc(p.title)}<span class="props-note">${esc(path)}</span><span class="props-note">${where === "title" ? "題に一致" : "本文に一致"}</span></a></li>`;
   }
+  // 押すと開く小窓（本番の Popover。components.css の .popover）。ボタンの下の右端にそろえ、モーダルにしない窓（role="dialog"）を重ねる。
+  // opts: label（ボタンの読み上げの名前）、dialogLabel（小窓の名前）、icon（文字の前のアイコン）、tone（"warn" で注意の印と枠）。
+  // 開くと小窓へフォーカスを移し、Esc か外を押すと閉じてボタンへ戻す（外のボタンや欄を押したときは、その先に残す）
+  function popover(text, body, opts = {}) {
+    return `<span class="popover" data-popover><button class="btn popover-btn${opts.tone ? ` is-${opts.tone}` : ""}" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="${esc(opts.label || text)}" title="${esc(opts.label || text)}" data-popover-toggle>${opts.icon ? icon(opts.icon) : ""}<span class="popover-btn-text">${esc(text)}</span>${icon("chevron")}</button>` +
+      `<div class="popover-panel" role="dialog" aria-label="${esc(opts.dialogLabel || text)}" tabindex="-1" hidden>${body}</div></span>`;
+  }
+  function closePopover(root, restore) {
+    const panel = root.querySelector(".popover-panel"), button = root.querySelector("[data-popover-toggle]");
+    if (panel.hidden) return;
+    panel.hidden = true;
+    button.setAttribute("aria-expanded", "false");
+    if (restore) button.focus();
+  }
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest?.("[data-popover-toggle]");
+    for (const root of document.querySelectorAll("[data-popover]")) {
+      if (root.contains(event.target)) continue;
+      const active = document.activeElement;
+      closePopover(root, !active || active === document.body || root.contains(active));
+    }
+    if (!button) return;
+    const root = button.closest("[data-popover]"), panel = root.querySelector(".popover-panel");
+    if (!panel.hidden) { closePopover(root, true); return; }
+    panel.hidden = false;
+    button.setAttribute("aria-expanded", "true");
+    panel.focus();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || event.isComposing) return;
+    const root = event.target.closest?.("[data-popover]");
+    if (!root || root.querySelector(".popover-panel").hidden) return;
+    event.preventDefault(); event.stopPropagation();
+    closePopover(root, true);
+  });
+  document.addEventListener("focusout", (event) => {
+    const root = event.target.closest?.("[data-popover]");
+    if (root && event.relatedTarget && !root.contains(event.relatedTarget)) closePopover(root, false);
+  });
+  // 小窓の中の操作でダイアログを開くときは、先に小窓を閉じてボタンへフォーカスを戻す（ダイアログは開いた時点のフォーカスへ戻すので、閉じたらボタンへ戻る）
+  document.addEventListener("click", (event) => {
+    const item = event.target.closest?.(".popover-panel [data-dialog]");
+    const root = item?.closest("[data-popover]");
+    if (root) closePopover(root, true);
+  }, true);
+
   // meta は集計の下に置く1行
   let narrowDisclosureId = 0;
   function narrowDisclosure(label, body) {
@@ -1021,7 +1067,7 @@
     return `<header class="page-head"><div class="page-head-row page-title-row"><h1 class="page-title">${esc(title)}</h1><div class="mobile-page-tools" role="group" aria-label="${t("mobilePageToolsLabel")}"><button class="nav-search-toggle" type="button" aria-label="画面とタスクを探す" data-toast="画面見本の検索から画面を探せます">${icon("search")}</button><button class="account-menu-button" type="button" aria-label="${esc(accountMenuLabel())}" data-toast="画面見本のアカウントからメニューを開けます">${avatarOf(D.me)}</button></div></div></header>`;
   }
 
-  // スプリントのカード（列の中）
+  // スプリントのカード（列の中）。上に題、次に期日などの印、下の段の左に親のストーリー、右にポイントと担当（#1498）
   // order を渡したカード（完了していないカード）は tabindex="0" で選べ、移す操作を「⋯」のメニュー（.row-menu）に持つ。
   // キーボードでは、選んで Alt と ← → で隣の列、Alt と ↑ ↓ で列の中を動かす（本番の SprintBoard）。完了の列のカードは Alt と ← と「⋯」で戻す
   // ドラッグ（本番の SprintCard）: つかめるカードは draggable="true" を持ち、カード全体をつかむ（opts.grab を false にするとつかめないカード）。
@@ -1043,10 +1089,9 @@
     const summary = `${x.pts == null ? "未見積もり" : `${t("points")} ${x.pts}`}、${who ? `${t("assignee")}は${esc(who)}` : `${t("assignee")}なし`}${blocked ? `、${t("done")}を戻せません` : ""}`;
     return `<article data-story-id="${esc(x.story || "")}" class="card ${x.doneAt ? "is-done" : ""}${storyState}${blocked ? " is-reopen-blocked" : ""}${mark.state ? ` ${mark.state}` : ""}"${grab ? ` draggable="true"` : ""}${dropAttr(mark)}${selectable ? ` tabindex="0" aria-labelledby="card-${k}${x.id}-title" aria-describedby="card-${k}${x.id}-summary board-key-hint"` : ""}>
       ${selectable ? `<span class="visually-hidden" id="card-${k}${x.id}-summary">${summary}</span>` : ""}
-      ${parent ? `<button class="card-parent is-action" type="button" aria-label="${esc(storyFilterText("sprintStoryFilterLabel", parent))}" data-story-filter="${esc(x.story)}">${icon("flag")} ${esc(parent)}</button>` : ""}
       <a class="card-title" id="card-${k}${x.id}-title" href="#" data-task="${x.id}" draggable="false">${titleOf(x)}</a>
       <div class="card-meta">${repoTag(x)}${sourceKey(x)}${taskFlags(x)}${taskDue(x)}</div>
-      <div class="card-foot">${order ? attrChip(x, "pts", { bare: true }) : pts(x.pts)}${order ? attrChip(x, "who", { bare: true }) : avatarOf(x.who)}<span class="card-end">${order ? rowMenu(x.title, [
+      <div class="card-foot">${parent ? `<button class="card-parent is-action" type="button" aria-label="${esc(storyFilterText("sprintStoryFilterLabel", parent))}" title="${esc(parent)}" data-story-filter="${esc(x.story)}">${icon("flag")} ${esc(parent)}</button>` : ""}<span class="card-end">${order ? attrChip(x, "pts", { bare: true }) : pts(x.pts)}${order ? attrChip(x, "who", { bare: true }) : avatarOf(x.who)}${order ? rowMenu(x.title, [
         { attr: `data-sun="${x.id}"`, label: x.todayOn === D.today ? "今日やるを外す" : "今日やる", icon: "sun" },
         ...orderItems(order),
         { attr: `data-task-delete="${x.id}"`, label: `この${t("task")}を削除する`, icon: "trash", danger: true },
@@ -4686,7 +4731,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     onRedraw: (fn) => extraRedraws.push(fn), openDrawer, drawerHtml, drawerState: drawer, flashRow,
     user, task, tasksWhere, repoTag, categoryTag, sprintTag, repoPicker, sprintLabel, colName, categoryOf, storyPts, epicPts, dueOf,
     attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, pts, dueChip, taskDue, sourceKey, entry, rowMenu, orderItems, draftRow, attrChip, book, section, foldedSection, pane, paneList, newsList, dashboard, activity, activityLoading, activityFailed, activityEmptyNoWorkspace, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
-    narrowDisclosure, card, board, treeStory, treeEpic, completedTasks, sprintNotice, progress, load, capacityRows,
+    narrowDisclosure, popover, card, board, treeStory, treeEpic, completedTasks, sprintNotice, progress, load, capacityRows,
     openDialog, closeDialog, toast, miniCap, redraw: () => redrawAll(), DIALOGS, loginTarget, orgMenuHtml, workspaceMenuHtml, accountMenuHtml, breadcrumbHtml,
     filesOf, fileThumb, fileRow, dropzone, attachments, markdownEditor, markdownToolbarHtml, mdBody, markdownSample, meter, storageBytes,
     PROVIDER, ASSIST_KEY, assistMsg, assistBlocked, assistSuggest, openAssist,
