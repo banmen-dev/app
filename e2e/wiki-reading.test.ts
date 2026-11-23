@@ -102,8 +102,8 @@ for (const scope of ['organization', 'workspace'] as const) {
       expect(await value.evaluate((element) => getComputedStyle(element).fontFamily)).toBe(
         await value.evaluate((element) => getComputedStyle(element.closest('tr')!.querySelector('th')!).fontFamily),
       );
-      // 共通ヘッダーの既知の問題（#343）は既存の検査に任せ、Wiki の一覧と本文を調べる。
-      expect((await new AxeBuilder({ page }).include('.content').withTags(A11Y_TAGS).analyze()).violations).toEqual([]);
+      // 上の帯と左のメニューも含め、Wiki のページを開いた画面全体を調べる。
+      expect((await new AxeBuilder({ page }).withTags(A11Y_TAGS).analyze()).violations).toEqual([]);
       // キーボードで開閉でき、幅を戻すと閉じた一覧も再び使える。
       await list.locator('summary').focus();
       await page.keyboard.press('Enter');
