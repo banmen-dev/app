@@ -42,6 +42,13 @@ pnpm bench:loading --plan-compare --comparison-reverse
 
 書き込み先が制限された環境では `XDG_CONFIG_HOME` と `WRANGLER_LOG_PATH` に書ける一時ディレクトリを指定する。このセッションでは `/tmp/1057-config` と `/tmp/1057-wrangler-logs` を使い、`WRANGLER_SEND_METRICS=false` とした。初回の起動失敗は計測結果に含めていない。
 
+再現を終えたら、計測器を取り出した専用ワークツリーからリポジトリルートに戻って片付ける。
+
+```sh
+cd ../..
+git worktree remove --force worktrees/1057-api-repro
+```
+
 レビューで計測器の分岐・利用者指定・集計処理を整理した後、`--plan-compare --comparison-reverse --runs 1` を実行し、両データ・両利用者・正逆順の全条件の HTTP/出力スキーマと一時 D1 の破棄を確認した。この少数回の確認値を下表の測定結果に混ぜていない。
 
 ## 次に必要な判断材料
