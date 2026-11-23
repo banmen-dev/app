@@ -1643,7 +1643,7 @@ Hono のミドルウェアで、404 と 500 を含む全応答に付ける。
 
 ## 定期の作業
 
-- 依存の更新は Dependabot で週に1回（月曜の朝、日本時間。設定をマージした直後にも1回動く）、まとめて出す。設定は `.github/dependabot.yml` に置き、`npm`（`package.json` と `pnpm-lock.yaml`）と `github-actions`（`.github/workflows/` と `.github/actions/*/action.yml`）の ecosystem ごとに、メジャーも含めた更新を1つの PR にまとめる。公開から7日たった版だけを出す（`cooldown`。乗っ取られて出た版が取り下げられる間を待つ）。`anthropics/claude-code-action` は版を上げるときに起動経路を確かめ直すので（上の「CI」）、Dependabot の対象から外し、人が手で上げる。`needs-human` が付くので、人が差分を読んでマージする。グループの1つが落ちたら、その依存を `@dependabot ignore` で外すか直してからマージする。Bot の PR なので AI レビューは回らず、タイトルは Bot の英語の `chore(deps): …` と `ci(deps): …` のままで、Issue の番号は付かない。セキュリティの更新（リポジトリの設定で有効なとき）はグループに入らず、依存ごとの PR になる。`packageManager` の pnpm の版、`.node-version`、wrangler の `compatibility_date` は対象の外で、人が上げる。2026-11-23 に Dependabot に決めた（#1468）
+- 依存の更新は Dependabot で週に1回（月曜の 9 時、日本時間。設定をマージした直後にも1回動く）、まとめて出す。設定は `.github/dependabot.yml` に置き、`npm`（`package.json` と `pnpm-lock.yaml`）と `github-actions`（`.github/workflows/` と `.github/actions/*/action.yml`）の ecosystem ごとに、メジャーも含めた更新を1つの PR にまとめる。公開から7日たった版だけを出す（`cooldown`。乗っ取られて出た版が取り下げられる間を待つ）。`anthropics/claude-code-action` は版を上げるときに起動経路を確かめ直すので（上の「CI」）、Dependabot の対象から外し、人が手で上げる。`needs-human` が付くので、人が差分を読んでマージする。グループの1つが落ちたら、その依存を `@dependabot ignore` で外すか直してからマージする。Bot の PR なので AI レビューは回らず、タイトルは Bot の英語の `chore(deps): …` と `ci(deps): …` のままで、Issue の番号は付かない。セキュリティの更新（リポジトリの設定で有効なとき）はグループに入らず、依存ごとの PR になる。`packageManager` の pnpm の版、`.node-version`、wrangler の `compatibility_date` は対象の外で、人が上げる。2026-11-23 に Dependabot に決めた（#1468）
 - `wrangler d1 export` の定期の書き出しは、顧客のデータなので GitHub の成果物に置かず、R2 の別のバケットに置く
 
 
