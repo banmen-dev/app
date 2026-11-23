@@ -2563,13 +2563,37 @@ export const dictionary = defineDictionary({
   sprintOverdueMember: '{sprint}「{label}」は最終日（{end}）を過ぎています。終えるのは{leader}です。',
   // ボードの画面（design/sprint.html）。見出しは「ボード」だけで、スプリントの名前、期間と何日目かは帯のボタンと小窓に出す
   sprintStoryFilterLabel: '{story}で絞り込む: {title}',
-  sprintStoryFilterActive: '{story}: {title}',
   sprintStoryFilterApplied: '{story}「{title}」で絞り込みました',
   sprintStoryFilterCleared: '{story}の絞り込みを外しました',
   sprintStoryFilterInvalid: '絞り込み対象の{story}が現在のボードにないため、絞り込みを外しました',
   sprintStoryFilterClearFailed: '絞り込みを外せませんでした。もう一度試してください',
   sprintStoryTotalsNote: '{sprint}の小窓の進み具合は全体、列の件数と{points}は絞り込み後の値です',
   sprintStoryCreateUnder: '絞り込んだ{story}の下に追加します',
+  // ボードの道具の帯の左の絞り込み（#1502）。検索、担当のアバター、フィルターの小窓。条件は URL に残す
+  boardFilterLabel: '{board}の絞り込み',
+  boardSearch: '{board}を検索',
+  boardAssigneeGroup: '{assignee}で絞り込む',
+  // 帯に出しきれない担当の数。見える文字は「+{count}」で、読み上げと title にこの文を使う
+  boardAssigneeMore: 'ほか {count} 人はフィルターから選べます',
+  boardFilters: 'フィルター',
+  boardFiltersCount: 'フィルター（{count}）',
+  boardFiltersLabel: 'フィルター（{count} 件選択中）',
+  boardFilterDialog: '{board}のフィルター',
+  boardFilterNoStory: '{story}なし',
+  boardFilterNoChoices: '選べるものはありません',
+  boardFilterClearAll: 'すべてクリア',
+  boardFilterCleared: '絞り込みをすべて外しました',
+  boardFilterInvalid: '絞り込み対象の一部が現在の{board}にないため、外しました',
+  // 絞っている間、帯の下に条件ごとに並べる。{values} は値を「、」でつないだもの
+  boardFilterCondition: '{label}: {values}',
+  boardFilterSearchCondition: '「{q}」',
+  boardFilterShown: '{total} 件中 {shown} 件を表示',
+  // 絞った結果、カードが1枚も残らない列に出す（列には隠れたカードがある）
+  boardColumnHidden: '絞り込みで {count} 件を隠しています',
+  // 絞っている間に列の末尾の行で作った{task}が、絞り込みに当たらず見えないとき
+  boardTaskAddedHidden: '「{title}」を{column}に足しました。絞り込みに当たらないため隠れています',
+  // フィルターの小窓の値の横の数（ボード全体で当たるカードの数）。見える文字は数だけで、読み上げにこの文を使う
+  boardFilterOptionCount: '{count} 件',
   sprintBoardAddStoryGone:
     'この{story}か{sprint}か{column}が見つかりません。{task}は作られていません。一覧を読み直します',
   sprintBoardPageName: '{board}・{name}・{workspace}',

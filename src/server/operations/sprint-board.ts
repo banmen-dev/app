@@ -74,6 +74,33 @@ export const sprintBoardOperation = implement(sprintBoard, async ({ db, actor, w
         .leftJoin('stories', (join) =>
           join.onRef('stories.id', '=', 'tasks.story_id').on('stories.workspace_id', '=', workspaceId),
         )
+        // 親のストーリーの親のエピック（削除していないもの）と、区分。区分は task-detail と同じく、親のエピック、親のストーリー、
+        // タスク自身の順に引き継ぎ、どの段も同じワークスペースの削除していない区分だけを結ぶ（task-detail と違い、削除したエピックは
+        // 結ばないので、その区分も引き継がない。docs/data-model.md の sprint-board）
+        .leftJoin('epics', (join) =>
+          join
+            .onRef('epics.id', '=', 'stories.epic_id')
+            .on('epics.workspace_id', '=', workspaceId)
+            .on('epics.deleted_at', 'is', null),
+        )
+        .leftJoin('categories as ec', (join) =>
+          join
+            .onRef('ec.id', '=', 'epics.category_id')
+            .on('ec.workspace_id', '=', workspaceId)
+            .on('ec.deleted_at', 'is', null),
+        )
+        .leftJoin('categories as sc', (join) =>
+          join
+            .onRef('sc.id', '=', 'stories.category_id')
+            .on('sc.workspace_id', '=', workspaceId)
+            .on('sc.deleted_at', 'is', null),
+        )
+        .leftJoin('categories as tc', (join) =>
+          join
+            .onRef('tc.id', '=', 'tasks.category_id')
+            .on('tc.workspace_id', '=', workspaceId)
+            .on('tc.deleted_at', 'is', null),
+        )
         .leftJoin('users', (join) =>
           join.onRef('users.id', '=', 'tasks.assignee_user_id').on('users.organization_id', '=', organizationId),
         )
@@ -96,6 +123,14 @@ export const sprintBoardOperation = implement(sprintBoard, async ({ db, actor, w
           'tasks.story_id',
           'stories.title as story_title',
           'stories.completed_at as story_completed_at',
+          'epics.id as epic_id',
+          'epics.title as epic_title',
+          'ec.id as epic_category_id',
+          'ec.name as epic_category_name',
+          'sc.id as story_category_id',
+          'sc.name as story_category_name',
+          'tc.id as task_category_id',
+          'tc.name as task_category_name',
           'tasks.assignee_user_id',
           'users.name as assignee_name',
           'tasks.created_by',
@@ -137,6 +172,8 @@ export const sprintBoardOperation = implement(sprintBoard, async ({ db, actor, w
           parentCompleted: row.story_completed_at !== null,
         }) === null,
       story: row.story_id === null || row.story_title === null ? null : { id: row.story_id, title: row.story_title },
+      epic: row.story_title === null || row.epic_id === null ? null : { id: row.epic_id, title: row.epic_title ?? '' },
+      category: categoryOf(row),
       due_on: row.due_on,
       repository:
         row.repository_id === null || row.repository_name === null
@@ -165,6 +202,25 @@ export const sprintBoardOperation = implement(sprintBoard, async ({ db, actor, w
   }));
   return { sprint: summaryOf(sprintRow), columns, today, week_start: weekStart };
 });
+
+// 引き継ぎを解いた区分（task-edit.ts の categoryOf と同じ順）。親のあるタスクは親のエピック、親のストーリーの順に引き継ぎ、
+// 親のないタスクは自身の区分。どれも削除していない区分だけを結んでいる
+function categoryOf(row: {
+  story_id: string | null;
+  epic_category_id: string | null;
+  epic_category_name: string | null;
+  story_category_id: string | null;
+  story_category_name: string | null;
+  task_category_id: string | null;
+  task_category_name: string | null;
+}): SprintBoardTask['category'] {
+  if (row.story_id !== null) {
+    if (row.epic_category_id !== null) return { id: row.epic_category_id, name: row.epic_category_name ?? '' };
+    if (row.story_category_id !== null) return { id: row.story_category_id, name: row.story_category_name ?? '' };
+    return null;
+  }
+  return row.task_category_id === null ? null : { id: row.task_category_id, name: row.task_category_name ?? '' };
+}
 
 // カードがこの列にいる、という条件。column_id がその列を指すか、削除した列を指していて（列の削除で移し損ねたカード）、
 // この列が先頭の列であること。画面は後者のカードを先頭の列に出すので、並びの計算も同じ列に数える

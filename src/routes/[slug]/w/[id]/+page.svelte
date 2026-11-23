@@ -1466,7 +1466,6 @@
   <PageHead
     title={t('backlog')}
     narrowSummary={t('backlogSummary')}
-    eyebrow={workspace.name}
     focusable
     tallies={[
       { icon: 'board', label: t('backlogTallyOpen', { task: t('task') }), count: tallies.open_count },

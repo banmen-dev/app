@@ -22,7 +22,7 @@
 const { D, t, icon, esc, pageHead, avatarOf, user } = SQ;
 
 SQ.mount("history", () => `
-  ${pageHead(D.workspaces.wa.name, "変更の履歴", [["", "clock", "直近30日", D.audit.length]])}
+  ${pageHead({ narrow: D.workspaces.wa.name }, "変更の履歴", [["", "clock", "直近30日", D.audit.length]])}
   <p class="action-note">${t("leader")}と管理者だけが見られます。${t("task")}、${t("story")}、${t("epic")}の属性の変更は、それぞれの詳細の「変更の履歴」に出ます。</p>
   <div class="toolbar"><select class="select" id="kind" aria-label="種類"><option>種類: すべて</option><option>ロール</option><option>招待</option><option>離脱</option><option>配分</option><option>接続</option><option>完了の記録</option><option>削除</option></select></div>
   <div class="table-wrap"><table class="table">

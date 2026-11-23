@@ -72,7 +72,7 @@ SQ.mount("plan", () => {
   const actions = isLeader ? `<button class="btn is-primary" type="button" data-dialog="sprintCreate">${icon("plus")}${t("sprint")}を作る</button>` : "";
   if (!Object.values(D.sprints).some((s) => s.ws === "wa")) {
     return `
-      ${pageHead(D.workspaces.wa.name, t("plan"), [], actions)}
+      ${pageHead({ narrow: D.workspaces.wa.name }, t("plan"), [], actions)}
       ${SQ.emptyState("calendar", `まだ${t("sprint")}がありません`,
         `${t("sprint")}は、期間を区切って${t("task")}を進める単位です。作ると、ここに先の${t("sprint")}が並びます。終えた${t("sprint")}がたまると、ベロシティも出ます。` +
         (isLeader ? "" : `${t("sprint")}を作るのは${t("leader")}です。`), "", "map")}`;
@@ -84,7 +84,7 @@ SQ.mount("plan", () => {
   }).join("");
   const unestimated = SQ.tasksWhere((x) => x.ws === "wa" && !x.doneAt && x.pts == null).length;
   return `
-    ${pageHead(D.workspaces.wa.name, t("plan"), [
+    ${pageHead({ narrow: D.workspaces.wa.name }, t("plan"), [
       ["", "trend", "ベロシティ", `${v.avg.toFixed(1)} pt`],
       ["is-danger", "alert", t("over"), 1],
       ["is-warn", "", "未見積もり", unestimated],

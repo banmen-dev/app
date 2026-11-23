@@ -281,7 +281,7 @@
 {#if workspace && connections === null}
   <LoadFailed inShell />
 {:else if workspace && connections !== null}
-  <PageHead title={t('connection')} eyebrow={workspace.name} {tallies} />
+  <PageHead title={t('connection')} narrowEyebrow={workspace.name} {tallies} />
 
   <p class="action-note">{t('connectionNote', { connection: t('connection'), workspace: t('workspace') })}</p>
   {#if !canWrite && connections.length > 0}

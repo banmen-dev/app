@@ -11,6 +11,8 @@ import { implementedOperations } from '../src/server/operations/index.ts';
 import { taskColumnMoveOperation } from '../src/server/operations/sprint-board.ts';
 import {
   createBoardColumn,
+  createCategory,
+  createEpic,
   createRepository,
   createSprint,
   createSprintEntry,
@@ -530,6 +532,121 @@ describe('sprint-board', () => {
     expect(body.columns[0]!.tasks).toMatchObject([
       { title: '期日つき', due_on: '2026-10-30', repository: { name: 'point-api' } },
       { title: '消したリポジトリ', due_on: null, repository: null },
+    ]);
+  });
+
+  test('カードに親のエピックと、引き継ぎを解いた区分（エピック、ストーリー、タスク自身の順）を添え、削除したものは添えない', async () => {
+    const { target, board } = await setup();
+    const sprint = await activeSprintWith(target);
+    const userId = target.member.userId!;
+    const ws = target.workspace.id;
+    const maintenance = await createCategory(target.organization, ws, { name: '保守' });
+    const build = await createCategory(target.organization, ws, { name: '開発', position: 'a1' });
+    const removed = await createCategory(target.organization, ws, {
+      name: '消した区分',
+      position: 'a2',
+      deleted_at: '2026-10-21T00:00:00.000Z',
+    });
+    const epic = await createEpic(target.organization, ws, userId, {
+      title: '会員の窓口',
+      category_id: maintenance.id,
+    });
+    const deletedEpic = await createEpic(target.organization, ws, userId, {
+      title: '消したエピック',
+      // 削除したエピックの区分は引き継がない（task-detail と違う。docs/data-model.md の sprint-board）
+      category_id: maintenance.id,
+      deleted_at: '2026-10-21T00:00:00.000Z',
+    });
+    const underEpic = await createStory(target.organization, ws, userId, { title: '窓口の話', epic_id: epic.id });
+    const rootStory = await createStory(target.organization, ws, userId, {
+      title: '親なしの話',
+      category_id: build.id,
+    });
+    const orphan = await createStory(target.organization, ws, userId, {
+      title: '消えた親の話',
+      epic_id: deletedEpic.id,
+    });
+    await card(target, sprint.id, board.first.id, 'a0', { title: 'エピックの下', story_id: underEpic.id });
+    await card(target, sprint.id, board.first.id, 'a1', { title: '親なしの話の下', story_id: rootStory.id });
+    await card(target, sprint.id, board.first.id, 'a2', { title: '消えた親の下', story_id: orphan.id });
+    await card(target, sprint.id, board.first.id, 'a3', { title: '自分の区分', category_id: build.id });
+    await card(target, sprint.id, board.first.id, 'a4', { title: '消した区分', category_id: removed.id });
+    await card(target, sprint.id, board.first.id, 'a5', { title: '区分なし' });
+
+    const body = (await (await call(target, sprintBoard, {})).json()) as {
+      columns: { tasks: { title: string; epic: unknown; category: unknown }[] }[];
+    };
+    expect(body.columns[0]!.tasks.map(({ title, epic, category }) => ({ title, epic, category }))).toEqual([
+      {
+        title: 'エピックの下',
+        epic: { id: epic.id, title: '会員の窓口' },
+        category: { id: maintenance.id, name: '保守' },
+      },
+      { title: '親なしの話の下', epic: null, category: { id: build.id, name: '開発' } },
+      { title: '消えた親の下', epic: null, category: null },
+      { title: '自分の区分', epic: null, category: { id: build.id, name: '開発' } },
+      { title: '消した区分', epic: null, category: null },
+      { title: '区分なし', epic: null, category: null },
+    ]);
+  });
+
+  test('区分はエピック、ストーリー、タスク自身の順に引き継ぎ、親のあるカードは自身の区分を使わない', async () => {
+    const { target, board } = await setup();
+    const sprint = await activeSprintWith(target);
+    const userId = target.member.userId!;
+    const ws = target.workspace.id;
+    const [a, b, c] = [
+      await createCategory(target.organization, ws, { name: '甲', position: 'a0' }),
+      await createCategory(target.organization, ws, { name: '乙', position: 'a1' }),
+      await createCategory(target.organization, ws, { name: '丙', position: 'a2' }),
+    ];
+    const epic = await createEpic(target.organization, ws, userId, { category_id: a.id });
+    // 製品の道ではエピックの下のストーリーは区分を持たないが、持っていてもエピックの区分が先に来る
+    const underEpic = await createStory(target.organization, ws, userId, { epic_id: epic.id, category_id: b.id });
+    const rootStory = await createStory(target.organization, ws, userId, { category_id: b.id });
+    const bareStory = await createStory(target.organization, ws, userId);
+    await card(target, sprint.id, board.first.id, 'a0', { title: '三段', story_id: underEpic.id, category_id: c.id });
+    await card(target, sprint.id, board.first.id, 'a1', { title: '二段', story_id: rootStory.id, category_id: c.id });
+    await card(target, sprint.id, board.first.id, 'a2', { title: '親だけ', story_id: bareStory.id, category_id: c.id });
+
+    const body = (await (await call(target, sprintBoard, {})).json()) as {
+      columns: { tasks: { title: string; category: { name: string } | null }[] }[];
+    };
+    expect(body.columns[0]!.tasks.map(({ title, category }) => [title, category?.name ?? null])).toEqual([
+      ['三段', '甲'],
+      ['二段', '乙'],
+      ['親だけ', null],
+    ]);
+  });
+
+  test('別のワークスペースと別の組織のエピックと区分は、指していてもカードに添えない', async () => {
+    const { target, board } = await setup();
+    const sprint = await activeSprintWith(target);
+    const userId = target.member.userId!;
+    const ws = target.workspace.id;
+    const elsewhere = target.otherWorkspace.id;
+    const outsider = await createTarget();
+    const otherEpic = await createEpic(target.organization, elsewhere, userId, { title: '隣のエピック' });
+    const otherCategory = await createCategory(target.organization, elsewhere, { name: '隣の区分' });
+    const foreignEpic = await createEpic(outsider.organization, outsider.workspace.id, outsider.member.userId!, {
+      title: '外のエピック',
+    });
+    const foreignCategory = await createCategory(outsider.organization, outsider.workspace.id, { name: '外の区分' });
+    const toNeighbor = await createStory(target.organization, ws, userId, { epic_id: otherEpic.id });
+    const toForeign = await createStory(target.organization, ws, userId, { epic_id: foreignEpic.id });
+    await card(target, sprint.id, board.first.id, 'a0', { title: '隣', story_id: toNeighbor.id });
+    await card(target, sprint.id, board.first.id, 'a1', { title: '外', story_id: toForeign.id });
+    await card(target, sprint.id, board.first.id, 'a2', { title: '隣の区分', category_id: otherCategory.id });
+    await card(target, sprint.id, board.first.id, 'a3', { title: '外の区分', category_id: foreignCategory.id });
+
+    const body = (await (await call(target, sprintBoard, {})).json()) as {
+      columns: { tasks: { title: string; epic: unknown; category: unknown }[] }[];
+    };
+    expect(body.columns[0]!.tasks.map(({ title, epic, category }) => ({ title, epic, category }))).toEqual([
+      { title: '隣', epic: null, category: null },
+      { title: '外', epic: null, category: null },
+      { title: '隣の区分', epic: null, category: null },
+      { title: '外の区分', epic: null, category: null },
     ]);
   });
 

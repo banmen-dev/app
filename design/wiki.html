@@ -427,7 +427,7 @@ function statesHtml() {
 }
 
 function render() {
-  const head = pageHead(store.name, "Wiki", [],
+  const head = pageHead(isOrg ? store.name : { narrow: store.name }, "Wiki", [],
     // 本番と同じく、「.md を上げる」は書いている間（足す、編集）は出さない
     `${S.mode === "new" || S.mode === "edit" ? "" : `<button class="btn" type="button" data-wiki="upload">${t("wikiUpload")}</button>`}<button class="btn is-primary" type="button" data-wiki="new-root">ページを足す</button>`,
     `<p class="props-note">${isOrg ? `${t("organization")}の Wiki。${t("organization")}のユーザーの全員が見て、全員が書けます。` : `${t("workspace")}の Wiki。メンバー全員（${t("admin")}を含む）が見て、全員が書けます。`}</p>`);

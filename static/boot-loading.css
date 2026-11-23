@@ -247,15 +247,11 @@ html[data-boot] #boot-loading .boot-frame {
 #boot-loading .boot-topbar {
   flex-direction: row;
   align-items: center;
+  justify-content: flex-end;
   height: 60px;
   padding-inline: 32px;
   border-bottom: 1px solid #d6d6da;
   gap: 8px;
-}
-#boot-loading .boot-topbar .is-crumb {
-  flex: 0 1 12rem;
-  min-width: 4rem;
-  margin-right: auto;
 }
 #boot-loading .boot-topbar .is-search {
   flex: 0 1 18rem;
@@ -266,9 +262,30 @@ html[data-boot] #boot-loading .boot-frame {
   width: 7rem;
   height: 28px;
 }
+/* パンくずの帯。本物の .sheet-crumbs と同じく、本文の直前に 24px（指で押す画面は 44px）の高さで置き、下の本文の上の余白を 8px に詰める */
+#boot-loading .boot-crumbs {
+  flex-direction: row;
+  align-items: center;
+  box-sizing: content-box;
+  /* パンくずの1行（--text-sm 0.8125rem と行の高さ 1.65）が 24px を超える大きな文字でも、本物と同じ高さにする */
+  min-height: max(24px, calc(0.8125rem * 1.65));
+  padding: 16px 32px 0;
+}
+#boot-loading .boot-crumbs .is-crumb {
+  flex: 0 1 12rem;
+  min-width: 4rem;
+}
 #boot-loading .boot-content {
   padding: 16px 32px 40px;
   gap: 32px;
+}
+#boot-loading .boot-crumbs + .boot-content {
+  padding-top: 8px;
+}
+@media (pointer: coarse) {
+  #boot-loading .boot-crumbs {
+    min-height: 44px;
+  }
 }
 #boot-loading .boot-body {
   gap: 16px;
@@ -285,6 +302,12 @@ html[data-boot] #boot-loading .boot-frame {
 }
 #boot-loading .boot-frame .is-eyebrow {
   width: 8rem;
+}
+/* 小見出しを 760px 以下だけに出すワークスペースの画面（static/boot-shape.js）は、骨組みの帯も同じ幅だけに出す */
+@media not (max-width: 760px) {
+  #boot-loading .boot-frame .is-eyebrow.is-narrow-only {
+    display: none;
+  }
 }
 #boot-loading .boot-frame .is-title {
   width: min(20rem, 60%);
@@ -457,9 +480,9 @@ html[data-boot] #boot-loading .boot-frame {
     min-height: 60px;
     padding: 5px 16px;
   }
-  /* パンくず、畳んだ検索の虫眼鏡、アバターだけのアカウントの1段 */
-  #boot-loading .boot-topbar .is-crumb {
-    flex: 1 1 12rem;
+  /* 畳んだ検索の虫眼鏡と、アバターだけのアカウントの1段。パンくずの帯は出さない */
+  #boot-loading .boot-crumbs {
+    display: none;
   }
   #boot-loading .boot-topbar .is-account {
     width: 3.5rem;
@@ -471,7 +494,9 @@ html[data-boot] #boot-loading .boot-frame {
     width: 44px;
     height: 44px;
   }
-  #boot-loading .boot-content {
+  #boot-loading .boot-content,
+  #boot-loading .boot-crumbs + .boot-content {
+    padding-top: 16px;
     padding-inline: 16px;
   }
 }

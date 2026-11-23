@@ -11,6 +11,8 @@ function card(id: string) {
     completed_at: null,
     reopenable: false,
     story: null,
+    epic: null,
+    category: null,
     due_on: null,
     repository: null,
     can_delete: false,
