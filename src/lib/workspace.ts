@@ -5,6 +5,8 @@ export type WorkspaceView = {
   id: string;
   name: string;
   closedAt: string | null;
+  // 設定での削除を有効にできる管理者か。枠の値と一緒に読み直す。
+  deleteEnabled?: boolean;
   definitionOfDone: string | null;
   role: 'leader' | 'member' | null;
 };

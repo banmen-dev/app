@@ -249,7 +249,7 @@
         onchanged={reload}
         onstale={stale}
       />
-      {#if data.organization?.me.is_admin === true && data.workspaceDeleteEnabled}
+      {#if data.organization?.me.is_admin === true && workspace.deleteEnabled}
         <WorkspaceDeleteSetting {slug} {workspace} />
       {/if}
     {/key}

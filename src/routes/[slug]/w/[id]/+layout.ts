@@ -27,6 +27,7 @@ export const load: LayoutLoad = async ({ params, fetch, url, depends }) => {
         id: params.id,
         name: result.data.name,
         closedAt: result.data.closed_at,
+        deleteEnabled: result.data.workspace_delete_enabled === true,
         definitionOfDone: result.data.definition_of_done_md,
         role: result.data.role,
       }
@@ -35,7 +36,6 @@ export const load: LayoutLoad = async ({ params, fetch, url, depends }) => {
   known = settled.known;
   return {
     workspace: settled.workspace,
-    workspaceDeleteEnabled: result.ok && result.data.workspace_delete_enabled === true,
     workspaceFailure:
       settled.workspace !== null
         ? null
