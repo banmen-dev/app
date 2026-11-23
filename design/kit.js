@@ -249,6 +249,12 @@
     taskSaveConflict: "この{task}は{done}になっているため、{points}は直せません。",
     taskAssigneeDone: "この{task}は{done}になっているため、{assignee}は替えられません。",
     assigneeCandidatesFailed: "{assignee}の候補を読み込めませんでした",
+    attrSearchLabel: "{attr}を探す",
+    attrSearchEmpty: "当たる候補はありません",
+    assignToMe: "自分に割り当てる",
+    cardTitleEditLabel: "タイトルを直す: {title}",
+    cardTitleDone: "この{task}は{done}になっているため、タイトルは直せません。",
+    cardTitleImported: "取り込んだ{task}のタイトルは直せません。",
     storyCreating: "作っています",
     dueClear: "クリア",
     storyTitlePlaceholder: "どこまで進めば区切りか",
@@ -722,7 +728,8 @@
   }
   // 属性のチップ。タスクの属性（期日、リポジトリ、区分、ポイント、担当）を、行のチップを押して後から決める。値がなければ薄い破線の形（未設定）。
   // 押すと値の一覧（行の「⋯」と同じメニュー）が開き、選ぶと見本の中で保存する。押せるチップは題の後ろに下向きの山形を置く。
-  // opts.bare は、スプリントのカード（本番の SprintCard は AttrChip を使わない）の見た目を変えないため、包みの規則（.attr-chip）と山形を付けない
+  // opts.search は、担当の一覧を絞り込みの欄つきの窓（role="dialog"）に入れ、先頭に「自分に割り当てる」を置く（本番の AttrChip の searchable。ボードのカード）。
+  // 打った文字を含む候補だけを残し、絞り込んでいる間は「自分に割り当てる」を隠す
   let attrChipSequence = 0;
   function attrChip(x, name, opts = {}) {
     const isPts = name === "pts", isWho = name === "who";
@@ -740,12 +747,18 @@
     if (isWho && member?.left) options.push([x.who, `${opts.text || member.name}${t("leftMember")}`]);
     const shown = set ? (name === "who" ? `${opts.text || member.name}${member.left ? t("leftMember") : ""}` : options.find(([value]) => value === current)?.[1] || current) : label;
     const locked = x.doneAt && (isPts || isWho) ? t(isPts ? "taskSaveConflict" : "taskAssigneeDone").replace("{task}", t("task")).replace("{done}", t("done")).replace(isPts ? "{points}" : "{assignee}", label) : name === "cat" && cat?.inherited ? "親から引き継いだ区分" : name === "due" && dueOf(x)?.fromSource ? "取り込み元の期日" : null;
-    const items = options.map(([value, text]) => `<li role="none"><button class="menu-item" type="button" role="menuitemradio" aria-checked="${value === current}" data-chip-set="${x.id}:${name}:${value}">${value === current ? icon("check") : ""}<span>${esc(text)}</span></button></li>`).join("");
+    const search = Boolean(opts.search && isWho);
+    const items = (search ? `<li role="none" data-chip-action><button class="menu-item" type="button" role="menuitem" data-chip-set="${x.id}:${name}:${D.me}"><span>${t("assignToMe")}</span></button></li>` : "") +
+      options.map(([value, text]) => `<li role="none"><button class="menu-item" type="button" role="menuitemradio" aria-checked="${value === current}" data-chip-set="${x.id}:${name}:${value}">${value === current ? icon("check") : ""}<span>${esc(text)}</span></button></li>`).join("");
     const state = opts.state || "ready";
     const pending = state === "loading" ? `<li role="none"><button class="menu-item" type="button" role="menuitem" aria-disabled="true">${t("loading")}</button></li>` : `<li role="none"><button class="menu-item" type="button" role="menuitem" data-chip-retry>${t("assigneeCandidatesFailed").replace("{assignee}", t("assignee"))}。${t("retry")}</button></li>`;
     const reasonId = `chip-reason-${x.id}-${name}-${++attrChipSequence}`;
-    return `<span class="row-menu${opts.bare ? "" : ` attr-chip${isPts ? " is-points" : ""}`}">${isWho && set ? avatarOf(x.who) : ""}<button class="chip chip-btn${set ? "" : " is-unset"}" type="button" data-chip-for="${x.id}:${name}" ${locked ? `aria-disabled="true" aria-describedby="${reasonId}"` : 'data-row-menu aria-haspopup="menu" aria-expanded="false"'} aria-label="${label}: ${set ? esc(shown) : "未設定"}" title="${esc(locked ? `${shown} — ${locked}` : shown)}"><span class="chip-text">${esc(shown)}</span>${locked || opts.bare ? "" : icon("chevron")}</button>` +
-      (locked ? `<span class="visually-hidden" id="${reasonId}">${locked}</span>` : `<ul class="account-menu-list row-menu-list" role="menu" aria-label="${label}を選ぶ" aria-busy="${state === "loading"}"${state === "failed" ? ` data-ready-items="${esc(items)}"` : ""} hidden>${state === "ready" ? items : pending}</ul>`) + `</span>`;
+    const menu = `<ul class="${search ? "attr-search-list" : "account-menu-list row-menu-list"}" role="menu" aria-label="${label}を選ぶ" aria-busy="${state === "loading"}"${state === "failed" ? ` data-ready-items="${esc(items)}"` : ""}${search ? "" : " hidden"}>${state === "ready" ? items : pending}</ul>`;
+    const popup = search
+      ? `<div class="account-menu-list row-menu-list attr-panel attr-search" role="dialog" aria-label="${label}を選ぶ" hidden><input class="input" type="search" autocomplete="off" data-chip-search aria-label="${t("attrSearchLabel").replace("{attr}", label)}" placeholder="${t("attrSearchLabel").replace("{attr}", label)}"><p class="action-note" data-chip-search-empty hidden>${t("attrSearchEmpty")}</p>${menu}</div>`
+      : menu;
+    return `<span class="row-menu attr-chip${isPts ? " is-points" : ""}">${isWho && set ? avatarOf(x.who) : ""}<button class="chip chip-btn${set ? "" : " is-unset"}" type="button" data-chip-for="${x.id}:${name}" ${locked ? `aria-disabled="true" aria-describedby="${reasonId}"` : `data-row-menu aria-haspopup="${search ? "dialog" : "menu"}" aria-expanded="false"`} aria-label="${label}: ${set ? esc(shown) : "未設定"}" title="${esc(locked ? `${shown} — ${locked}` : shown)}"><span class="chip-text">${esc(shown)}</span>${locked ? "" : icon("chevron")}</button>` +
+      (locked ? `<span class="visually-hidden" id="${reasonId}">${locked}</span>` : popup) + `</span>`;
   }
 
   // 行のチップの状態の見本（本番の AttrChip と同じ形）。実データと混ぜず、値の選択もこの領域だけで終える。
@@ -1031,6 +1044,14 @@
   function storyFilterText(key, title = "") {
     return t(key).replaceAll("{story}", t("story")).replaceAll("{points}", t("points")).replaceAll("{title}", () => title);
   }
+  // カードの題の横の鉛筆（本番の SprintCard）。押すと題がその場で入力欄に替わり、Enter で保存、Esc で元に戻す。
+  // 完了したカードと取り込んだタスクは押せず、理由を読み上げと title で読める
+  function cardEdit(x, titleId) {
+    const label = t("cardTitleEditLabel").replace("{title}", () => x.title);
+    const locked = x.doneAt ? t("cardTitleDone").replace("{task}", t("task")).replace("{done}", t("done")) : x.src ? t("cardTitleImported").replace("{task}", t("task")) : null;
+    return `<button class="icon-btn card-edit-btn" type="button" data-card-edit="${x.id}" aria-label="${esc(label)}" title="${esc(locked || label)}"${locked ? ` aria-disabled="true" aria-describedby="${titleId}-locked"` : ""}>${icon("pen")}</button>` +
+      (locked ? `<span class="visually-hidden" id="${titleId}-locked">${locked}</span>` : "");
+  }
   function card(x, order, opts = {}) {
     const mark = opts.mark || {};
     const selectable = Boolean(order || x.doneAt);
@@ -1046,9 +1067,9 @@
     return `<article data-story-id="${esc(x.story || "")}" class="card ${x.doneAt ? "is-done" : ""}${storyState}${blocked ? " is-reopen-blocked" : ""}${mark.state ? ` ${mark.state}` : ""}"${grab ? ` draggable="true"` : ""}${dropAttr(mark)}${selectable ? ` tabindex="0" aria-labelledby="card-${k}${x.id}-title" aria-describedby="card-${k}${x.id}-summary board-key-hint"` : ""}>
       ${selectable ? `<span class="visually-hidden" id="card-${k}${x.id}-summary">${summary}</span>` : ""}
       ${parent ? `<button class="card-parent is-action" type="button" aria-label="${esc(storyFilterText("sprintStoryFilterLabel", parent))}" data-story-filter="${esc(x.story)}">${icon("flag")} ${esc(parent)}</button>` : ""}
-      <a class="card-title" id="card-${k}${x.id}-title" href="#" data-task="${x.id}" draggable="false">${titleOf(x)}</a>
+      <div class="card-title-row"><a class="card-title" id="card-${k}${x.id}-title" href="#" data-task="${x.id}" draggable="false">${titleOf(x)}</a>${selectable ? cardEdit(x, `card-${k}${x.id}-title`) : ""}</div>
       <div class="card-meta">${repoTag(x)}${sourceKey(x)}${taskFlags(x)}${taskDue(x)}</div>
-      <div class="card-foot">${order ? attrChip(x, "pts", { bare: true }) : pts(x.pts)}${order ? attrChip(x, "who", { bare: true }) : avatarOf(x.who)}<span class="card-end">${order ? rowMenu(x.title, [
+      <div class="card-foot">${selectable ? attrChip(x, "pts") + attrChip(x, "who", { search: true }) : pts(x.pts) + avatarOf(x.who)}<span class="card-end">${order ? rowMenu(x.title, [
         { attr: `data-sun="${x.id}"`, label: x.todayOn === D.today ? "今日やるを外す" : "今日やる", icon: "sun" },
         ...orderItems(order),
         { attr: `data-task-delete="${x.id}"`, label: `この${t("task")}を削除する`, icon: "trash", danger: true },
@@ -2171,7 +2192,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const list = toggle.parentElement.querySelector(".row-menu-list");
     const open = list.hidden;
     list.hidden = !open; toggle.setAttribute("aria-expanded", String(open));
-    if (open) { placeRowMenu(toggle, list); visibleItems(list)[0]?.focus(); }
+    if (open) { placeRowMenu(toggle, list); (list.querySelector("[data-chip-search]") || visibleItems(list)[0])?.focus(); }
   }
   const closeAllRowMenus = () => closeRowMenus(null, null);
   addEventListener("resize", closeAllRowMenus);
@@ -2194,8 +2215,17 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     if (ev.key === "Escape") { ev.stopPropagation(); menu.hidden = true; button.setAttribute("aria-expanded", "false"); button.focus(); return true; }
     if (ev.key === "Tab") { menu.hidden = true; button.setAttribute("aria-expanded", "false"); if (list) button.focus(); return false; }
     if (!list || !["ArrowDown", "ArrowUp", "Home", "End"].includes(ev.key)) return false;
+    // 絞り込みの欄の Home と End は、文字の位置を動かす
+    if (ev.target.matches("[data-chip-search]") && (ev.key === "Home" || ev.key === "End")) return false;
+    // 絞り込みの欄の ↑ は、欄の上に候補が無いので何もしない（本番の AttrChip と同じ）
+    if (ev.target.matches("[data-chip-search]") && ev.key === "ArrowUp") { ev.preventDefault(); return true; }
     const items = visibleItems(list);
+    // 絞り込みで候補が無いときは、移る先が無い（本番の AttrChip と同じく何もしない）
+    if (items.length === 0) { ev.preventDefault(); return true; }
     const at = items.indexOf(ev.target);
+    // 絞り込みの窓では、先頭の項目の ↑ で欄へ戻る（本番の AttrChip の searchable と同じ）
+    const search = list.querySelector("[data-chip-search]");
+    if (search && at === 0 && ev.key === "ArrowUp") { ev.preventDefault(); search.focus(); return true; }
     const next = ev.key === "Home" ? 0 : ev.key === "End" ? items.length - 1 : (at + (ev.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
     ev.preventDefault(); items[next].focus(); return true;
   }
@@ -4019,6 +4049,45 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const root = trigger?.closest(".story-board");
     if (!root) return;
     root.outerHTML = board(root.dataset.boardSprint, { key: root.dataset.boardKey, story: trigger.dataset.storyFilter, draft: root.dataset.boardDraft === "true" });
+  });
+
+  // ---- 担当の窓の絞り込みと、カードの題の書き換え（本番の AttrChip の searchable と SprintCard） ----
+  document.addEventListener("input", (ev) => {
+    const field = ev.target.closest && ev.target.closest("[data-chip-search]");
+    if (!field) return;
+    const panel = field.closest(".attr-search"), needle = field.value.trim().toLowerCase();
+    let shown = 0;
+    panel.querySelectorAll("li").forEach((li) => {
+      const action = li.hasAttribute("data-chip-action");
+      li.hidden = action ? needle !== "" : !li.textContent.toLowerCase().includes(needle);
+      if (!action && !li.hidden) shown++;
+    });
+    panel.querySelector("[data-chip-search-empty]").hidden = shown > 0;
+  });
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter" && ev.target.matches && ev.target.matches("[data-chip-search]")) {
+      // 空の欄の Enter では選ばない（本番の AttrChip と同じ）
+      ev.preventDefault(); if (ev.target.value.trim()) visibleItems(ev.target.closest(".attr-search"))[0]?.click(); return;
+    }
+    const input = ev.target.closest && ev.target.closest("[data-card-title-input]");
+    if (!input) return;
+    // 欄の中のキーは、カードの移動（Alt と矢印）に渡さない
+    ev.stopPropagation();
+    if (ev.isComposing || (ev.key !== "Enter" && ev.key !== "Escape")) return;
+    ev.preventDefault();
+    const x = task(input.dataset.cardTitleInput), next = input.value.trim();
+    if (ev.key === "Enter" && next && next !== x.title) { x.title = next; toast(`${icon("check")}保存しました`); }
+    redrawAll(); document.querySelector(`[data-card-edit="${x.id}"]`)?.focus();
+  }, true);
+  document.addEventListener("click", (ev) => {
+    const button = ev.target.closest && ev.target.closest("[data-card-edit]");
+    if (!button || button.getAttribute("aria-disabled") === "true") return;
+    const x = task(button.dataset.cardEdit);
+    if (!x) return;
+    button.parentElement.querySelector(".card-title").hidden = true;
+    button.insertAdjacentHTML("beforebegin", `<input class="input" type="text" autocomplete="off" aria-label="${t("fieldTitle")}" data-card-title-input="${x.id}" value="${esc(x.title)}">`);
+    const input = button.parentElement.querySelector("[data-card-title-input]");
+    button.remove(); input.focus(); input.select();
   });
 
   // ---- 操作（見本の中だけで動き、保存はしない） ----

@@ -143,6 +143,7 @@ export const sprintBoardOperation = implement(sprintBoard, async ({ db, actor, w
           ? null
           : { id: row.repository_id, name: row.repository_name },
       can_delete: row.is_imported === 0 && mayDeleteOwned(row.created_by, actor, workspace),
+      is_imported: row.is_imported === 1,
     };
     const columnId =
       row.completed_at !== null

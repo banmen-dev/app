@@ -32,7 +32,8 @@
     normalizeLinkUrl,
     normalizeLongText,
   } from '../../shared/story.ts';
-  import { TASK_POINT_VALUES, TASK_TITLE_MAX_LENGTH, taskTitleProblem } from '../../shared/task.ts';
+  import { TASK_POINT_VALUES } from '../../shared/task.ts';
+  import { taskTitleMessage } from '../task-title.ts';
   import { callOperation } from '../api.ts';
   import { withCurrent } from '../definition-options.ts';
   import {
@@ -956,13 +957,7 @@
     begin(event);
   }
 
-  function titleProblem(raw: string): string | null {
-    const problem = taskTitleProblem(raw.trim());
-    if (problem === 'required') return t('taskTitleRequired');
-    if (problem === 'too_long') return t('taskTitleTooLong', { max: TASK_TITLE_MAX_LENGTH });
-    if (problem === 'invalid_character') return t('taskTitleInvalidCharacter');
-    return null;
-  }
+  const titleProblem = taskTitleMessage;
 
   // 書き始めた時点の値（保存の expected）。直している間に読み直しで別の人の値が入っても、黙って上書きしない。
   // 断られて読み直した後は、今の値に置き換える（読み直した内容を知らせた上で、続けて書くと上書きする）
