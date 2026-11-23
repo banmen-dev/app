@@ -26,18 +26,19 @@
     // Worker の名前か独自ドメインを変えるときに直す（docs/operations.md）
     "PUBLIC_ORIGIN": "https://banmen.ucan-lab.workers.dev"
   },
-  // D1 と R2 のバケットは、作ったときの名前（scrum-guild）のまま残す（#1416 で人が決めた）。作り直すとデータの移し替えが要り、
-  // コードとデプロイのスクリプトは binding（DB、ATTACHMENTS）で引くので、名前は Worker の名前と揃わなくても動く
+  // database_id を替えた版を出すと、本番はその D1 に切り替わる。データを写し終える前に出すと、デプロイが空の D1 に
+  // 全マイグレーションを当てて空の本番に切り替わり、煙のテストも通る（docs/operations.md の「本番の D1 と R2 を banmen に移す」）。
+  // scripts/preview-config.ts の PRODUCTION_DATABASE_ID も同じ ID にする
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "scrum-guild",
-      "database_id": "7fc32f51-8771-4122-aa5d-3b69c07ff861",
+      "database_name": "banmen",
+      "database_id": "55d9a51f-bb3f-483c-8051-1d867c0f9ce8",
       "migrations_dir": "migrations"
     }
   ],
   // 添付ファイルの中身を置く。手元の dev とテストは R2 を模擬し、本番のバケットには触らない
-  "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "scrum-guild-attachments" }],
+  "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "banmen-attachments" }],
   "workers_dev": true,
   // 毎分、期限を過ぎた行を消し、毎時 0 分に、お試しの期限を過ぎた組織を一時停止にする（src/server/scheduled/）
   "triggers": { "crons": ["* * * * *", "0 * * * *"] },

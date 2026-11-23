@@ -18,13 +18,13 @@
 ### Cloudflare のアカウント
 
 - ucan-lab 用のアカウントは Workers Paid（2026-10-25 にした）。Workers & Pages の「Workers plans」で変える
-- `workers.dev` のサブドメインは `ucan-lab`。本番の Worker の名前は `banmen` で、URL は `https://banmen.ucan-lab.workers.dev/`（#1423 で `scrum-guild` から移した。旧 URL は下の「旧 URL の転送」）。D1 と R2 のバケットは作ったときの名前（`scrum-guild`、`scrum-guild-attachments`）のまま残す（#1416 で人が決めた。コードは binding で引くので名前に縛られない）。Workers & Pages の Account details の Subdomain で変えられるが、変えるとアカウントのすべての Worker の URL が変わるので触らない
+- `workers.dev` のサブドメインは `ucan-lab`。本番の Worker の名前は `banmen` で、URL は `https://banmen.ucan-lab.workers.dev/`（#1423 で `scrum-guild` から移した。旧 URL は下の「旧 URL の転送」）。本番の D1 は `banmen`、R2 のバケットは `banmen-attachments`（#1518 で `scrum-guild`、`scrum-guild-attachments` から作り直して移した。下の「本番の D1 と R2 を banmen に移す」）。Workers & Pages の Account details の Subdomain で変えられるが、変えるとアカウントのすべての Worker の URL が変わるので触らない
 - 請求の通知: 予算 $10（自動で作られていたもの）と、使用量の通知（Workers のリクエスト 500万、CPU 時間 1,500万 ms、D1 の書き込み 2,500万行）。届け先はアカウントのメール
 - Zero Trust は無料の枠で有効にしてある。チーム名は `ucan-lab`、ログインの手段にワンタイム PIN を足した。使うのは見本の Worker の Access（`docs/development.md` の「見本の Worker」）
 
 ### D1
 
-1. ダッシュボードの D1 の「Create Database」か、手元の `wrangler d1 create scrum-guild` で、本番の D1 を作る。置き場所は自動（作った人に近い地域）のまま。今の D1 は Asia Pacific にある（2026-10-25）
+1. ダッシュボードの D1 の「Create Database」か、手元の `wrangler d1 create banmen` で、本番の D1 を作る。置き場所は自動（作った人に近い地域）のまま。今の D1 `banmen` は 2026-11-24 に作った（#1518）
 2. D1 の ID を `wrangler.jsonc` の `d1_databases` の `database_id` に入れ、PR で `main` に入れる
 3. マイグレーションは手で当てない。次のデプロイが `migrations/` の全部を当てる
 
@@ -35,14 +35,14 @@
 
 添付ファイルの中身を置く本番のバケットは、人がダッシュボードで用意する。R2 binding を含む版のマージはバケットを作った後で、バケットが無いままマージすると Workers Builds のデプロイが失敗する。
 
-本番のバケット `scrum-guild-attachments` は 2026-11-02 に作った（#743）。作り直すときの手順:
+本番のバケット `banmen-attachments` は 2026-11-24 に作った（#1518）。作り直すときの手順:
 
 1. Cloudflare のダッシュボードで ucan-lab のアカウントを選び、R2 Object Storage の Overview →「Create bucket」を開く。R2 を有効にしていないアカウントでは、先に有効にする（支払い方法の登録を求められる）
-2. バケット名を `scrum-guild-attachments` にし、地域（Location）は自動（Automatic、地域の指定なし）のまま作る（[地域の選び方](https://developers.cloudflare.com/r2/reference/data-location/)）
+2. バケット名を `banmen-attachments` にし、地域（Location）は自動（Automatic、地域の指定なし）のまま作る（[地域の選び方](https://developers.cloudflare.com/r2/reference/data-location/)）
 3. 公開アクセスは有効にしない。Settings の Public Development URL（`r2.dev`）は無効のままにし、Custom Domains もつながない。添付ファイルは Worker が権限を確かめて返す（[公開アクセスの設定](https://developers.cloudflare.com/r2/buckets/public-buckets/)）
-4. バケットができたことと名前を確かめてから、`wrangler.jsonc` の `r2_buckets` に binding `ATTACHMENTS` とバケット名 `scrum-guild-attachments` を含む版をマージする。binding はデプロイが設定するので、ダッシュボードで Worker に足す必要はない
+4. バケットができたことと名前を確かめてから、`wrangler.jsonc` の `r2_buckets` に binding `ATTACHMENTS` とバケット名 `banmen-attachments` を含む版をマージする。binding はデプロイが設定するので、ダッシュボードで Worker に足す必要はない
 
-人の端末の `pnpm exec wrangler r2 bucket create scrum-guild-attachments` でも作れる。続けて「設定に binding を足すか」を聞かれたら断る（足すと、打ったディレクトリの `wrangler.jsonc` を書き換え、別名の binding が増える）。「手元の dev を本番のバケットにつなぐか」も断る。
+人の端末の `pnpm exec wrangler r2 bucket create banmen-attachments` でも作れる。続けて「設定に binding を足すか」を聞かれたら断る（足すと、打ったディレクトリの `wrangler.jsonc` を書き換え、別名の binding が増える）。「手元の dev を本番のバケットにつなぐか」も断る。
 
 ビルド用のトークン（下の「API トークン」）には R2 の権限を足さない。wrangler 4.153.0 と 4.162.0 は、デプロイのときに binding のバケットがあるかを R2 の API で確かめるが、403 で断られたら確かめを飛ばしてデプロイを続ける（`collectPendingResources` が 403 を受け流す）。最初のデプロイか、wrangler を上げた後のデプロイが R2 の権限で落ちたら、`Workers R2 Storage: Read` だけを足し、Edit は足さない（`package.json` は `^4.162.0` なので、版が上がるとこの挙動が変わりうる）。Read を足したトークンは、REST API で全組織の添付ファイルを読める権限として扱う。Edit を持たせると、書き換えと削除までできる。もっとも、トークンは Workers Scripts: Edit を持ち、`ATTACHMENTS` の binding を持つ Worker を上げられるので、R2 の権限を絞っても、乗っ取られた依存への守りは限られる。
 
@@ -332,18 +332,18 @@ seed のセッションのトークン（`seed/sessions.ts`）と API トーク�
 2. seed のセッションと API トークンの行を消す。アカウントの ID は `seed/sessions.ts` の `accountId`（`019a0000-0000-7000-8000-000000000101` から `…104` の4つ）
 
    ```bash
-   pnpm exec wrangler d1 execute scrum-guild --remote --command "DELETE FROM sessions WHERE account_id IN ('019a0000-0000-7000-8000-000000000101', '019a0000-0000-7000-8000-000000000102', '019a0000-0000-7000-8000-000000000103', '019a0000-0000-7000-8000-000000000104')"
+   pnpm exec wrangler d1 execute banmen --remote --command "DELETE FROM sessions WHERE account_id IN ('019a0000-0000-7000-8000-000000000101', '019a0000-0000-7000-8000-000000000102', '019a0000-0000-7000-8000-000000000103', '019a0000-0000-7000-8000-000000000104')"
    ```
    ```bash
-   pnpm exec wrangler d1 execute scrum-guild --remote --command "DELETE FROM api_tokens WHERE account_id IN ('019a0000-0000-7000-8000-000000000101', '019a0000-0000-7000-8000-000000000102', '019a0000-0000-7000-8000-000000000103', '019a0000-0000-7000-8000-000000000104')"
+   pnpm exec wrangler d1 execute banmen --remote --command "DELETE FROM api_tokens WHERE account_id IN ('019a0000-0000-7000-8000-000000000101', '019a0000-0000-7000-8000-000000000102', '019a0000-0000-7000-8000-000000000103', '019a0000-0000-7000-8000-000000000104')"
    ```
 
 3. 行が消えたことと、seed のほかの行（`seed/data.sql`）が本番に残っていないことを確かめる。
 
    ```bash
-   pnpm exec wrangler d1 execute scrum-guild --remote --command "SELECT count(*) AS n FROM sessions WHERE account_id LIKE '019a0000-0000-7000-8000-%'"
-   pnpm exec wrangler d1 execute scrum-guild --remote --command "SELECT count(*) AS n FROM api_tokens WHERE account_id LIKE '019a0000-0000-7000-8000-%'"
-   pnpm exec wrangler d1 execute scrum-guild --remote --command "SELECT id, slug FROM organizations WHERE id LIKE '019a0000-0000-7000-8000-%'"
+   pnpm exec wrangler d1 execute banmen --remote --command "SELECT count(*) AS n FROM sessions WHERE account_id LIKE '019a0000-0000-7000-8000-%'"
+   pnpm exec wrangler d1 execute banmen --remote --command "SELECT count(*) AS n FROM api_tokens WHERE account_id LIKE '019a0000-0000-7000-8000-%'"
+   pnpm exec wrangler d1 execute banmen --remote --command "SELECT id, slug FROM organizations WHERE id LIKE '019a0000-0000-7000-8000-%'"
    ```
 
    組織やアカウントなどの seed の行が残っていれば、seed が本番に流れている。`seed/data.sql` の行を手で消す方法と、流れる前の時刻まで Time Travel で戻す方法（下の「DB を戻す」）があり、確実さは後者が上。ただし後者は、その後に書かれた本物のデータも失う。選ぶのは人
@@ -549,8 +549,8 @@ WHERE tbl = 'tasks' AND idx = 'tasks_workspace_tray';
 マイグレーションは自動では戻さない。戻すかは人が決める。Time Travel で戻せるのは Workers Paid で直近30日まで。それより前に戻す手段（定期の書き出し）はまだ無い。
 
 1. 戻した DB で動く版へ、先にコードを戻す（上の「コードを戻す」）。DB を先に戻すと、その間は新しいスキーマを前提にしたコードが古いスキーマの上で動く
-2. 戻したい時点のブックマークを、ビルドのログの `マイグレーションを当てる前の Time Travel のブックマーク:` の行の JSON の `bookmark` から取る。データを壊したときは、壊れた時刻より前の、いちばん新しいビルドの行を使う。ログに無い時刻へ戻すときは、`wrangler d1 time-travel info scrum-guild --timestamp=<時刻>` でその時刻のブックマークを引く
-3. 手元（上の「手元の準備」）で `wrangler d1 time-travel restore scrum-guild --bookmark=<ブックマーク>` を実行する。ブックマークより後に書かれたデータは消える
+2. 戻したい時点のブックマークを、ビルドのログの `マイグレーションを当てる前の Time Travel のブックマーク:` の行の JSON の `bookmark` から取る。データを壊したときは、壊れた時刻より前の、いちばん新しいビルドの行を使う。ログに無い時刻へ戻すときは、`wrangler d1 time-travel info banmen --timestamp=<時刻>` でその時刻のブックマークを引く。D1 `banmen` へ写した日（下の「本番の D1 と R2 を banmen に移す」）より前のビルドの行は、消した旧 D1 のブックマークなので使えない。`banmen` は写した時点より前へ戻せない
+3. 手元（上の「手元の準備」）で `wrangler d1 time-travel restore banmen --bookmark=<ブックマーク>` を実行する。ブックマークより後に書かれたデータは消える
 4. 上の「戻したあと」に進む
 
 マイグレーションは「広げてから縮める」に従うので、コードだけを戻せば足りることが多い。DB まで戻すのは、データを壊したときに限る。
@@ -562,7 +562,7 @@ WHERE tbl = 'tasks' AND idx = 'tasks_workspace_tray';
 - 今の対象: #256 で 0001 の `users` と `invitations` の `login_email` の CHECK を `login_provider IN ('google', 'password')` に広げた。#256 自体は `login_email` を使わないので作り直さなくても動くが、`password` で待つ指名と招待（#257 以降）を本番で使う前に作り直す
 
 1. 作り直す日と、全員がログインし直すこと、取り込み元から入れ直せないもの（完了の記録、経験値、手で作ったタスク）が消えることを、チームに知らせる
-2. 戻せる時点を控える。`wrangler d1 time-travel info scrum-guild` のブックマークを残す（上の「DB を戻す」）
+2. 戻せる時点を控える。`wrangler d1 time-travel info banmen` のブックマークを残す（上の「DB を戻す」）
 3. 手元（上の「手元の準備」）で、全部の表と `d1_migrations` を消す。または新しい D1 を作り、`wrangler.jsonc` の `database_id` を PR で替える
 4. 次の Workers Builds のデプロイが、全部のマイグレーションを当てる。ビルドのログで当たったことを確かめる
 5. 運用者が組織と最初の管理者を作り直し、チームのデータを入れ直す
@@ -626,8 +626,8 @@ PR を開けている間に急ぎの直しを本番へ出すときは、直し�
 5. 名前を変える前に作られたセッションの行を消す。旧 URL の Cookie はブラウザが新しい URL へ送らないので、消しても利用者の手間は増えない。残すと、盗まれた旧トークンを新しい名前の Cookie で新しい URL に送れば、`expires_at`（最大30日）まで使える。手順 4 の確かめのログインは控えた時刻より後に作られるので残る。読めない作成日時の行は、設定の全失効と同じく最古として消す。消すのは Cookie のセッションだけで、API トークンは消さない（盗んだ Cookie から先に発行されたトークンは残る。移す前からある限界で、トークンの取り消しは設定の全失効で本人が行う）。手元（上の「手元の準備」）で、`<時刻>` を手順 2 の値にして、件数を見てから消す。Claude のセッションは `--remote` の `wrangler d1` を実行しない
 
    ```bash
-   pnpm exec wrangler d1 execute scrum-guild --remote --command "SELECT count(*) AS n FROM sessions WHERE julianday(created_at) < julianday('<時刻>') OR julianday(created_at) IS NULL"
-   pnpm exec wrangler d1 execute scrum-guild --remote --command "DELETE FROM sessions WHERE julianday(created_at) < julianday('<時刻>') OR julianday(created_at) IS NULL"
+   pnpm exec wrangler d1 execute banmen --remote --command "SELECT count(*) AS n FROM sessions WHERE julianday(created_at) < julianday('<時刻>') OR julianday(created_at) IS NULL"
+   pnpm exec wrangler d1 execute banmen --remote --command "DELETE FROM sessions WHERE julianday(created_at) < julianday('<時刻>') OR julianday(created_at) IS NULL"
    ```
 
 6. 転送用の Worker を置く（下の「旧 URL の転送」の「置き方」）。置いた後、ブラウザで旧 URL の `/terms?q=1#check` を開き、アドレスバーが新しい URL の `/terms?q=1#check` になる（パス、クエリ、断片が残る）ことを見る。`/invite` では確かめない。招待の画面は断片の秘密を読むとすぐ URL を `/invite` に置き換えるので、届いていても断片が見えない
@@ -679,6 +679,54 @@ node scripts/deploy-legacy-redirect.ts
 ### 外し方
 
 旧 URL に来る人がいなくなったら、ダッシュボードの Workers & Pages で `scrum-guild` を開き、Settings の Delete で消す。消すと旧 URL は 404 に戻る。消した後で本番の Worker を旧名に戻すことはしない（`PUBLIC_ORIGIN` が新しい URL のため）。移す当日に戻すときの手順（名前と版を組で戻す）は、上の「本番の URL を banmen に移す」の「当日に戻すとき」。転送用の Worker を置いた後に戻すときは、先に転送用の Worker を消してから名前を戻す（旧名が空いていないと名前を戻せない）。
+
+## 本番の D1 と R2 を banmen に移す
+
+本番の D1 を `scrum-guild` から `banmen` に、R2 のバケットを `scrum-guild-attachments` から `banmen-attachments` に移す（#1518、親 #1416）。D1 も R2 も作った後に名前を変えられないので、新しく作り、今のデータを写し、`wrangler.jsonc` の binding の向き先を替える版を出す。Worker は作り直さないので、シークレット、URL、Cookie の名前は変わらず、写したセッションでログインが続く。
+
+D1 はスキーマも `d1_migrations` もそのまま写すので、写した後のデプロイには当てるマイグレーションが無い。スキーマの直しは混ぜず、上の「マイグレーションをまとめ直したとき」の #256 の作り直しは移した後も残ったまま。
+
+いちばんの危険は順番の取り違えにある。切り替えの PR をマージした後、`banmen` へ流し込む前に Release を publish すると、デプロイが空の `banmen` に全マイグレーションを当て、空の本番に切り替わる。煙のテストは空の D1 でも通るので、自動では戻らない。publish は、下の当日の手順 3 で件数を確かめた後に限る。
+
+コードにメンテナンスモードは無い。写す間はチームに告知して使わない時間を作り、書き込みを止める。告知した時間に書かれたものは旧 D1 に残り、新しい D1 には入らない。cron の書き込み（期限切れの行の掃除、お試しの期限切れの停止）は、新しい D1 で次の回にやり直されるので、失われても困らない。
+
+### 前日まで
+
+1. ucan-lab のアカウントで、空の D1 `banmen`（置き場所は自動）とバケット `banmen-attachments`（上の「R2」の手順。公開アクセスは無効）を作る。2026-11-24 に作った。D1 の ID は `55d9a51f-bb3f-483c-8051-1d867c0f9ce8`
+2. `wrangler.jsonc` の `database_name`、`database_id`、`bucket_name` と、`scripts/preview-config.ts` の `PRODUCTION_DATABASE_ID` を新しい資源に替える PR を作り、当日まで開けておく。マージすると次の Release で本番が切り替わるため
+3. `main` のほかの変更を Release で出し切る。切り替えの Release には切り替えだけを載せ、失敗したときに原因を切り替えに絞る
+4. R2 を写す道具を用意する。R2 の Overview の「Manage API tokens」で、権限を Object Read & Write、対象を `scrum-guild-attachments` と `banmen-attachments` の2つに絞った一時のトークンを作り、手元の `rclone` に S3 互換の接続（provider は `Cloudflare`、endpoint は `https://71293a3c23974c311b4c82b3f977049b.r2.cloudflarestorage.com`）として入れる。トークンの値はリポジトリ、Issue、チャットに残さない
+5. `rclone sync r2:scrum-guild-attachments r2:banmen-attachments --s3-no-check-bucket` で1回写しておく。当日は差分だけで済む
+6. チームに止める日時を知らせる
+
+### 当日
+
+1. チームに、使わない時間に入ったことを告げる。切り替えの PR をマージする。Release はまだ publish しない
+2. 旧 D1 のブックマークを `pnpm exec wrangler d1 time-travel info scrum-guild` で控える。続けて、リポジトリの外に書き出して流し込む
+
+   ```sh
+   pnpm exec wrangler d1 export scrum-guild --remote --output <リポジトリの外>/scrum-guild.sql
+   pnpm exec wrangler d1 execute banmen --remote --file <リポジトリの外>/scrum-guild.sql
+   ```
+
+   書き出したファイルは顧客のデータとセッションを含む。リポジトリ、Issue、チャットに置かない
+3. 写せたかを確かめる。`SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' ORDER BY name` の結果が両方の D1 で同じで、表ごとの `SELECT count(*)` も同じなら写せている。`d1_migrations` の件数は `migrations/` のファイルの数と一致するはず。流し込みが途中で止まったか件数が合わなければ、publish せずに下の「当日に戻すとき」へ進む
+4. `rclone sync r2:scrum-guild-attachments r2:banmen-attachments --s3-no-check-bucket` で差分を写し、`rclone check r2:scrum-guild-attachments r2:banmen-attachments` が違いを出さないことを確かめる
+5. Release を publish する。ビルドのログで、当てるマイグレーションが無いことと、煙のテストが通ったことを見る
+6. 切り替え前からログインしていたブラウザで `https://banmen.ucan-lab.workers.dev/` を開き、ログインし直さずに組織の画面が出ることを見る。既存のタスク、Wiki のページ、添付ファイル、プロフィール画像を開き、新しい添付ファイルを上げて開く。Worker の Settings の Bindings で `DB` が `banmen`、`ATTACHMENTS` が `banmen-attachments` を指すことと、Workers Logs で毎分の cron がエラーを出さないことも見る
+7. チームに再開を告げる。一時の R2 のトークンを失効させ、書き出したファイルを消す
+8. 旧 D1 `scrum-guild` を消す。旧バケット `scrum-guild-attachments` は `rclone purge r2:scrum-guild-attachments` で空にしてから消す。ダッシュボードの D1 と R2 の一覧に旧名が残っていないことを確かめる
+
+### 当日に戻すとき
+
+- 手順 5 の publish の前に止まったとき: 本番は旧資源のまま動いている。チームに再開を告げ、切り替えの PR を revert する PR を `main` に入れる。日を改めるときは、`banmen` の表を消すか D1 を作り直し（ID が変わったら PR を直す）、`banmen-attachments` は次の `rclone sync` が旧バケットに合わせる
+- 手順 5 の煙のテストに落ちたとき: デプロイのスクリプトが切り替え前の版へ自動で戻すので、本番は旧資源のまま動く。原因を調べ、上と同じく PR を revert してから日を改める。新しい D1 は cron が書き始めているので、やり直すときは作り直す
+- 手順 6 の確かめで壊れていると分かったとき: 旧資源を消す前なら、手元で `wrangler rollback <切り替え前の版の ID> --message "<理由>"` を打つ（上の「コードを戻す」）。切り替え前の版は旧 D1 と旧バケットにつながるので、旧資源のまま再開できる。publish から rollback までに書かれたものは新しい D1 にだけ残る
+
+### 移し終えた後
+
+- 切り替え前の版（#1518 より前の Release）へは rollback しない。旧 D1 と旧バケットを消した後なので、その版は存在しない資源につながる。壊れたら、直した版を Release で出す（上の「戻したあと」）
+- `banmen` の Time Travel は写した時点より前へ戻れない。上の「DB を戻す」で、写した日より前のビルドのログのブックマークは使わない
 
 ## GitHub の Organization を banmen-dev に移す
 
@@ -852,7 +900,7 @@ Wiki の削除したページの題・本文・過去版は、削除日時から
 
 1. 依頼者と対象組織を確かめ、組織の ID と、送られた Wiki のページの URL のページ ID を控える。停止・解約で消している組織にはこの手順を使わない。
 2. 現行のリポジトリで `node scripts/restore-wiki-page.ts <組織の ID> <ページの ID>` を実行し、復元する SQL を生成する。このスクリプトは DB に触れない。
-3. 組織とページの ID を見比べ、生成した1文を人が `wrangler d1 execute scrum-guild --remote --command` で流す。セッションは本番に流さない。更新して返った `id` が対象のものなら復元できた。0件なら別組織、削除していない、保持期限が過ぎた、または版が残っていないので、条件を外してやり直さず調査する。
+3. 組織とページの ID を見比べ、生成した1文を人が `wrangler d1 execute banmen --remote --command` で流す。セッションは本番に流さない。更新して返った `id` が対象のものなら復元できた。0件なら別組織、削除していない、保持期限が過ぎた、または版が残っていないので、条件を外してやり直さず調査する。
 4. 依頼者が元の URL を開いて読めることを確かめる。復元で版番号と本文は変えない。
 
 復元は対象のページだけを戻す。削除時に1段上へ移った子ページは現在の場所に残し、後から足した子や移した子も動かさない。元の親が同じ Wiki の生きたページで、復元したページが10段以内ならそこへ戻す。親が削除済み、欠けている、循環している、または深すぎれば最上段へ戻す。戻したページは兄弟の末尾に置く。
@@ -880,7 +928,7 @@ Wiki、お気に入り（`favorites`）、依頼先（`delegatees`）、組織�
 2. 組織の ID を確かめる。運用の画面には ID が出ないので、控えた slug で引く。`suspended_at` と `purge_on` が空でなく、`purge_on` が今日（UTC）より前であることも見る
 
    ```bash
-   pnpm exec wrangler d1 execute scrum-guild --remote --command "SELECT id, slug, name, suspended_at, purge_on FROM organizations WHERE slug = '<slug>'"
+   pnpm exec wrangler d1 execute banmen --remote --command "SELECT id, slug, name, suspended_at, purge_on FROM organizations WHERE slug = '<slug>'"
    ```
 
 3. 消す SQL を、リポジトリの外（`/tmp`）へ書き出す。スクリプトは DB に触らず、組織の ID を埋めた `DELETE` を1行に1文で書くだけ（コメントの行は無い）。ID は小文字の UUID の形だけを受ける。以降の段は、同じシェルで `id` を使う
@@ -897,7 +945,7 @@ Wiki、お気に入り（`favorites`）、依頼先（`delegatees`）、組織�
    if [ -e "/tmp/purge-$id.attachments.json" ]; then
      echo "書き出し済み。上書きしない"
    else
-     pnpm exec wrangler d1 execute scrum-guild --remote --json --command "SELECT object_key FROM attachments WHERE workspace_id IN (SELECT id FROM workspaces WHERE organization_id = '$id')" > "/tmp/purge-$id.attachments.tmp" &&
+     pnpm exec wrangler d1 execute banmen --remote --json --command "SELECT object_key FROM attachments WHERE workspace_id IN (SELECT id FROM workspaces WHERE organization_id = '$id')" > "/tmp/purge-$id.attachments.tmp" &&
        jq -e '.[0].success == true and (.[0].results | type == "array")' "/tmp/purge-$id.attachments.tmp" &&
        mv "/tmp/purge-$id.attachments.tmp" "/tmp/purge-$id.attachments.json"
    fi
@@ -908,7 +956,7 @@ Wiki、お気に入り（`favorites`）、依頼先（`delegatees`）、組織�
 4. 流す前の数を控える。`--count` は、組織の slug と停止の状態（`suspended_at`、`purge_on`）と、`organizations` と消す表ごとの、その組織の行の数を返す1行の `SELECT` を書き出す。出力の `slug` が手順 1 で控えた slug と同じであることを確かめる（違えば ID を取り違えているので、ここで止まる）。出力を手元に残し、手順 6 で比べる
 
    ```bash
-   pnpm exec wrangler d1 execute scrum-guild --remote --json --command "$(node scripts/purge-organization.ts --count "$id")" | tee "/tmp/purge-$id.before.json"
+   pnpm exec wrangler d1 execute banmen --remote --json --command "$(node scripts/purge-organization.ts --count "$id")" | tee "/tmp/purge-$id.before.json"
    ```
 
 5. まず、書き出したファイルの先頭6文（お気に入り、組織とワークスペースそれぞれの Wiki の版、ページ、取り込み元の応答）だけを1文ずつ流す。版は1文32件、ページも版と子が残っていない葉から1文32件ずつ、取り込み元の応答（`task_source_payloads`）も1文32件ずつ消す。`node scripts/purge-organization.ts --count "$id"` の数える文を使い、`wiki_page_revisions`、`wiki_pages`、`task_source_payloads` がすべて0になるまで先頭6文を繰り返す。0になったら、下のループでファイル全体を1文ずつ流す。先頭6文を再実行しても安全である。
@@ -918,7 +966,7 @@ Wiki、お気に入り（`favorites`）、依頼先（`delegatees`）、組織�
    ```bash
    while IFS= read -r statement <&3; do
      echo "$statement"
-     pnpm exec wrangler d1 execute scrum-guild --remote --command "$statement" || { echo "ここで止まった: $statement" >&2; break; }
+     pnpm exec wrangler d1 execute banmen --remote --command "$statement" || { echo "ここで止まった: $statement" >&2; break; }
    done 3< "/tmp/purge-$id.sql"
    ```
 
@@ -928,7 +976,7 @@ Wiki、お気に入り（`favorites`）、依頼先（`delegatees`）、組織�
 6. 残りを数え、手順 4 の数と比べる
 
    ```bash
-   pnpm exec wrangler d1 execute scrum-guild --remote --json --command "$(node scripts/purge-organization.ts --count "$id")"
+   pnpm exec wrangler d1 execute banmen --remote --json --command "$(node scripts/purge-organization.ts --count "$id")"
    ```
 
    表の上の行から順に当てはめる。
@@ -943,10 +991,10 @@ Wiki、お気に入り（`favorites`）、依頼先（`delegatees`）、組織�
 7. 書き出した JSON の `results` の `object_key` ごとに、次のコマンドで R2 のファイルを消す。キーが対象の `<組織の ID>/` で始まることを確かめてから `<キー>` に入れ、すべての削除の成功を確かめる。失敗したキーはやり直す
 
    ```bash
-   pnpm exec wrangler r2 object delete "scrum-guild-attachments/<キー>" --remote
+   pnpm exec wrangler r2 object delete "banmen-attachments/<キー>" --remote
    ```
 
-   Cloudflare のダッシュボードで R2 のバケット `scrum-guild-attachments` のオブジェクトの一覧を開き、`<組織の ID>/` の前方一致で絞る。残り（D1 に行の無いファイルを含む）があれば消し、一覧を再読み込みして残りが無いことを確かめる。プロフィール画像のファイル（`<組織の ID>/avatars/` の下。行は手順 5 の `user_avatars` の削除で消え、手順 3 で書き出す添付の一覧には入らない）と、消せずに残ったファイルは、ここで接頭辞ごと消える。wrangler 4.153 には R2 の一覧のコマンドが無いので、この最後の確認にはダッシュボードを使う。ここまで人が手元で行い、セッションは実行しない。
+   Cloudflare のダッシュボードで R2 のバケット `banmen-attachments` のオブジェクトの一覧を開き、`<組織の ID>/` の前方一致で絞る。残り（D1 に行の無いファイルを含む）があれば消し、一覧を再読み込みして残りが無いことを確かめる。プロフィール画像のファイル（`<組織の ID>/avatars/` の下。行は手順 5 の `user_avatars` の削除で消え、手順 3 で書き出す添付の一覧には入らない）と、消せずに残ったファイルは、ここで接頭辞ごと消える。wrangler 4.153 には R2 の一覧のコマンドが無いので、この最後の確認にはダッシュボードを使う。ここまで人が手元で行い、セッションは実行しない。
 8. 消したことを #220 にコメントで残す。書くのは、消した日（UTC）と組織の ID。このリポジトリは公開なので、slug と組織の名前（顧客を表しうる）と、実在の個人名は書かない
 9. 書き出したファイル（`/tmp/purge-$id.sql`、`/tmp/purge-$id.before.json`、`/tmp/purge-$id.attachments.json`、残っていれば `/tmp/purge-$id.attachments.tmp`）を消す
 
@@ -1019,7 +1067,7 @@ console.log(originalPositionFor(new TraceMap(readFileSync('build' + file + '.map
 
 未承諾指名の自動失効は、指名元の解除または最初の担当者の承諾と同じトランザクションで行う。その自動失効ごとの独立した履歴行は作らないため、指名時の履歴と、それに続く指名元の解除・初回承諾の履歴を照合する。現在の指名の状態は履歴とは別の `billing_administrators` が保持する。
 
-この調査は人の運用者が行う。Cloudflare のダッシュボードで D1 の共通DB（現在は `scrum-guild`）の Console を開き、以下の `SELECT` だけを実行する。組織ごとにDBを分けた後も、業務用のDBでなく共通の表を持つDBを選ぶ。セッションは本番への問い合わせを実行しない。調査のために組織の中の表や認証情報を読む必要はない。
+この調査は人の運用者が行う。Cloudflare のダッシュボードで D1 の共通DB（現在は `banmen`）の Console を開き、以下の `SELECT` だけを実行する。組織ごとにDBを分けた後も、業務用のDBでなく共通の表を持つDBを選ぶ。セッションは本番への問い合わせを実行しない。調査のために組織の中の表や認証情報を読む必要はない。
 
 1. 問い合わせの対象の組織名とslugを運用の画面で確かめる。slugは英小文字と数字で始まる英小文字・数字・ハイフンの2〜40字だけを使い、次の `<確認したslug>` を置き換える。返った名前とslugが問い合わせの対象であることを再確認し、組織のIDを控える。行が無い・別の組織なら先へ進まない。
 

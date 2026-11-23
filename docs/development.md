@@ -337,7 +337,7 @@ GitHub は無料のプランのまま使う（2026-10-23 に決めた）。無�
 
 ### 開発用のサーバー
 
-添付ファイルの R2 は、`wrangler.jsonc` の `ATTACHMENTS` binding を `wrangler dev` と vitest の Workers の実行環境が手元で模擬する。本番のバケット `scrum-guild-attachments` には触らず、手元用のバケットを Cloudflare に作る必要はない。本番の用意は `docs/operations.md` の「R2」。
+添付ファイルの R2 は、`wrangler.jsonc` の `ATTACHMENTS` binding を `wrangler dev` と vitest の Workers の実行環境が手元で模擬する。本番のバケット `banmen-attachments` には触らず、手元用のバケットを Cloudflare に作る必要はない。本番の用意は `docs/operations.md` の「R2」。
 
 `pnpm dev` は、SvelteKit の `vite dev`（画面と HMR）と `wrangler dev`（API）の2つを立てる（`scripts/dev.ts`）。vite が `/api` を `wrangler dev` へ転送するので、画面と API は同じオリジンのままになり、Cookie がそのまま使える。片方が止まると、もう片方も止まる。
 
