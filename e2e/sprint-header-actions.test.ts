@@ -44,6 +44,8 @@ for (const [today, day, remaining] of [
     );
     if (overdue) await expect(button).toHaveClass(/is-warn/);
     else await expect(button).not.toHaveClass(/is-warn/);
+    // 期限切れは色とアイコンだけでなく、見える言葉でも示す
+    await expect(button.locator('.popover-btn-note')).toHaveText(overdue ? ['期限切れ'] : []);
     await expect(button).toHaveAttribute('aria-expanded', 'false');
     // 見出しの下には、前の大きな見出しの中身（進み具合の棒、ゴールの貼り紙、期限切れの知らせ）を置かない
     await expect(page.locator('.page-head .page-eyebrow')).toHaveCount(0);
@@ -182,7 +184,7 @@ for (const today of ['2026-10-20', '2026-10-27']) {
   });
 }
 
-// 4つの見た目（シンプルのライトとダーク、PC とスマホの幅）で、小窓を開いた画面に axe の違反と 44px に満たない押せる範囲がない
+// 4つの見た目（シンプルのライトとダーク、PC とスマホの幅）で、小窓を開いた画面に axe の違反がなく、スマホの幅では 44px に満たない押せる範囲がない
 for (const width of [1280, 390]) {
   for (const theme of A11Y_THEMES) {
     test(`小窓を開いたボードの axe と押せる範囲: ${theme} ${width}px`, async ({ page, context, baseURL }) => {
@@ -196,7 +198,8 @@ for (const width of [1280, 390]) {
       await applyTheme(page, theme);
       await openSprintPopover(page);
       expect(await findA11yViolations(page)).toEqual([]);
-      expect(await findTargetSizeViolations(page)).toEqual([]);
+      // 押せる範囲 44px は、760px 以下と指で押す画面の決まり（広い幅のマウスの画面は詰める）
+      if (width <= 760) expect(await findTargetSizeViolations(page)).toEqual([]);
     });
   }
 }

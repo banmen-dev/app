@@ -91,7 +91,7 @@
     avatarSaved: "プロフィール画像を上げました。", avatarRemoved: "プロフィール画像を外しました。",
     sprintStoryFilterLabel: '{story}で絞り込む: {title}',
     sprintStoryFilterActive: '{story}: {title}',
-    sprintStoryTotalsNote: '見出しは全体、列の件数と{points}は絞り込み後の値です',
+    sprintStoryTotalsNote: '{sprint}の小窓の進み具合は全体、列の件数と{points}は絞り込み後の値です',
     sprintStoryCreateUnder: '絞り込んだ{story}の下に追加します',
     sprintNamingTitle: '{sprint}の命名ルール',
     sprintNamingDesc: '新しく作る{sprint}の名前の初期値。過去の名前は変わりません。',
@@ -984,10 +984,10 @@
     return `<li><a class="wiki-link" href="#${p.id}" data-wiki-page="${p.id}"${current ? ' aria-current="page"' : ""}>${esc(p.title)}<span class="props-note">${esc(path)}</span><span class="props-note">${where === "title" ? "題に一致" : "本文に一致"}</span></a></li>`;
   }
   // 押すと開く小窓（本番の Popover。components.css の .popover）。ボタンの下の右端にそろえ、モーダルにしない窓（role="dialog"）を重ねる。
-  // opts: label（ボタンの読み上げの名前）、dialogLabel（小窓の名前）、icon（文字の前のアイコン）、tone（"warn" で注意の印と枠）。
+  // opts: label（ボタンの読み上げの名前）、dialogLabel（小窓の名前）、icon（文字の前のアイコン）、tone（"warn" で注意の印と枠）、note（文字の後ろの短い状態の言葉）。
   // 開くと小窓へフォーカスを移し、Esc か外を押すと閉じてボタンへ戻す（外のボタンや欄を押したときは、その先に残す）
   function popover(text, body, opts = {}) {
-    return `<span class="popover" data-popover><button class="btn popover-btn${opts.tone ? ` is-${opts.tone}` : ""}" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="${esc(opts.label || text)}" title="${esc(opts.label || text)}" data-popover-toggle>${opts.icon ? icon(opts.icon) : ""}<span class="popover-btn-text">${esc(text)}</span>${icon("chevron")}</button>` +
+    return `<span class="popover" data-popover><button class="btn popover-btn${opts.tone ? ` is-${opts.tone}` : ""}" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="${esc(opts.label || text)}" title="${esc(opts.label || text)}" data-popover-toggle>${opts.icon ? icon(opts.icon) : ""}<span class="popover-btn-text">${esc(text)}</span>${opts.note ? `<span class="popover-btn-note">${esc(opts.note)}</span>` : ""}${icon("chevron")}</button>` +
       `<div class="popover-panel" role="dialog" aria-label="${esc(opts.dialogLabel || text)}" tabindex="-1" hidden>${body}</div></span>`;
   }
   function closePopover(root, restore) {
@@ -997,13 +997,18 @@
     button.setAttribute("aria-expanded", "false");
     if (restore) button.focus();
   }
+  // 外を押したかは押し始めで決める（本番の Popover と同じ）。押した先が操作の要素ならフォーカスを任せ、地なら離した後にボタンへ戻す
+  document.addEventListener("pointerdown", (event) => {
+    for (const root of document.querySelectorAll("[data-popover]")) {
+      if (root.contains(event.target) || root.querySelector(".popover-panel").hidden) continue;
+      closePopover(root, false);
+      if (event.target.closest?.('a[href], button, input, select, textarea, summary, label, [tabindex], [contenteditable="true"]')) continue;
+      const button = root.querySelector("[data-popover-toggle]");
+      document.addEventListener("pointerup", () => button.focus(), { once: true });
+    }
+  });
   document.addEventListener("click", (event) => {
     const button = event.target.closest?.("[data-popover-toggle]");
-    for (const root of document.querySelectorAll("[data-popover]")) {
-      if (root.contains(event.target)) continue;
-      const active = document.activeElement;
-      closePopover(root, !active || active === document.body || root.contains(active));
-    }
     if (!button) return;
     const root = button.closest("[data-popover]"), panel = root.querySelector(".popover-panel");
     if (!panel.hidden) { closePopover(root, true); return; }
@@ -1073,7 +1078,7 @@
   // ドラッグ（本番の SprintCard）: つかめるカードは draggable="true" を持ち、カード全体をつかむ（opts.grab を false にするとつかめないカード）。
   // opts.mark はドラッグの状態: { drop: "before" | "after", state: "is-dragging" | "is-dropped" }（dropAttr と同じ形。into は列に付ける）
   function storyFilterText(key, title = "") {
-    return t(key).replaceAll("{story}", t("story")).replaceAll("{points}", t("points")).replaceAll("{title}", () => title);
+    return t(key).replaceAll("{story}", t("story")).replaceAll("{points}", t("points")).replaceAll("{sprint}", t("sprint")).replaceAll("{title}", () => title);
   }
   function card(x, order, opts = {}) {
     const mark = opts.mark || {};

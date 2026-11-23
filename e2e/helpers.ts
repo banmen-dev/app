@@ -965,8 +965,9 @@ export async function expectBoardHeading(
   await expect(page.getByRole('heading', { level: 1, name: 'ボード', exact: true })).toBeVisible();
   // 見出しの下の道具の帯の右端に、スプリントの名前（無ければ期間）のボタンを置く（#1498）。何日目かは小窓の中
   const button = sprintButton(page);
-  await expect(button).toHaveText(sprint);
-  if (options.unnamed) await expect(button).toHaveText(/^\d{1,2}\/\d{1,2}〜\d{1,2}\/\d{1,2}$/);
+  const text = button.locator('.popover-btn-text');
+  await expect(text).toHaveText(sprint);
+  if (options.unnamed) await expect(text).toHaveText(/^\d{1,2}\/\d{1,2}〜\d{1,2}\/\d{1,2}$/);
 }
 
 // ボードの道具の帯の右端のスプリントのボタン（Popover）

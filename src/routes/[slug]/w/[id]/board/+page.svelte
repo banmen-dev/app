@@ -878,92 +878,97 @@
       <!-- 1段の道具の帯。右端のスプリントのボタンで、期間、進み具合、ゴールと、リーダーの操作を出す小窓を開く -->
       <div class="toolbar board-toolbar">
         <div class="toolbar-end">
-          <Popover
-            text={sprintLabel(sprint, t)}
-            label={t(overdue ? 'sprintPopoverLabelOverdue' : 'sprintPopoverLabel', {
-              sprint: t('sprint'),
-              label: sprintLabel(sprint, t),
-            })}
-            dialogLabel={t('sprintPopoverDialog', { sprint: t('sprint') })}
-            icon={overdue ? 'alert' : 'clock'}
-            tone={overdue ? 'warn' : undefined}
-          >
-            {#snippet children(close, trigger)}
-              {#if overdue}
-                <SprintOverdueNotice
-                  {sprint}
-                  canClose={canLead}
-                  onclose={() => {
-                    close(false);
-                    openClose(trigger);
-                  }}
-                />
-              {/if}
-              <div class="popover-head">
-                <h2 class="popover-title">{sprintLabel(sprint, t)}</h2>
-                <div class="popover-meta">
-                  <span
-                    >{t('sprintPopoverPeriod', {
-                      period: sprintPeriod(sprint, t),
-                      length: progress.length,
-                      day: progress.day,
-                    })}</span
-                  >
-                  {#if sprint.extended_days > 0}<span>{t('sprintExtended', { days: sprint.extended_days })}</span>{/if}
-                </div>
-              </div>
-              <div class="progress-summary">
-                <Progress
-                  done={pointsOf(doneColumnTasks)}
-                  all={pointsOf(allTasks)}
-                  markerPercent={(progress.day / progress.length) * 100}
-                  markerLabel={t('progressElapsed', {
-                    day: progress.day,
-                    length: progress.length,
-                    percent: Math.round((progress.day / progress.length) * 100),
-                  })}
-                  detailed
-                />
-                <span class="progress-remaining">{t('sprintBoardRemaining', { days: progress.remaining })}</span>
-              </div>
-              {#if sprint.goal !== null}
-                <div class="popover-section">
-                  <span class="popover-label">{t('sprintGoal')}</span>
-                  <p class="popover-text">{sprint.goal}</p>
-                </div>
-              {/if}
-              {#if canLead}
-                <div class="popover-actions">
-                  <button
-                    class="btn is-sm"
-                    type="button"
-                    aria-label={t('sprintHeaderEditLabel', { sprint: t('sprint'), label: sprintLabel(sprint, t) })}
-                    onclick={() => {
-                      close(false);
-                      editDialog?.show(trigger, sprint);
-                    }}>{t('sprintHeaderEditAction')}</button
-                  >
-                  <button
-                    class="btn is-sm"
-                    type="button"
-                    onclick={() => {
-                      close(false);
-                      extendDialog?.show(trigger, sprint);
-                    }}>{t('sprintExtendAction')}</button
-                  >
-                  <button
-                    class="btn is-sm"
-                    type="button"
-                    aria-label={t('sprintCloseLabel', { sprint: t('sprint'), label: sprintLabel(sprint, t) })}
-                    onclick={() => {
+          <!-- ワークスペースを移ったら（同じ画面の部品が使い回される）、開いた小窓を前のワークスペースのまま残さない -->
+          {#key workspace.id}
+            <Popover
+              text={sprintLabel(sprint, t)}
+              label={t(overdue ? 'sprintPopoverLabelOverdue' : 'sprintPopoverLabel', {
+                sprint: t('sprint'),
+                label: sprintLabel(sprint, t),
+              })}
+              dialogLabel={t('sprintPopoverDialog', { sprint: t('sprint') })}
+              icon={overdue ? 'alert' : 'clock'}
+              tone={overdue ? 'warn' : undefined}
+              note={overdue ? t('sprintPopoverOverdueNote') : undefined}
+            >
+              {#snippet children(close, trigger)}
+                {#if overdue}
+                  <SprintOverdueNotice
+                    {sprint}
+                    canClose={canLead}
+                    onclose={() => {
                       close(false);
                       openClose(trigger);
-                    }}>{t('sprintCloseAction')}</button
-                  >
+                    }}
+                  />
+                {/if}
+                <div class="popover-head">
+                  <h2 class="popover-title">{sprintLabel(sprint, t)}</h2>
+                  <div class="popover-meta">
+                    <span
+                      >{t('sprintPopoverPeriod', {
+                        period: sprintPeriod(sprint, t),
+                        length: progress.length,
+                        day: progress.day,
+                      })}</span
+                    >
+                    {#if sprint.extended_days > 0}<span>{t('sprintExtended', { days: sprint.extended_days })}</span
+                      >{/if}
+                  </div>
                 </div>
-              {/if}
-            {/snippet}
-          </Popover>
+                <div class="progress-summary">
+                  <Progress
+                    done={pointsOf(doneColumnTasks)}
+                    all={pointsOf(allTasks)}
+                    markerPercent={(progress.day / progress.length) * 100}
+                    markerLabel={t('progressElapsed', {
+                      day: progress.day,
+                      length: progress.length,
+                      percent: Math.round((progress.day / progress.length) * 100),
+                    })}
+                    detailed
+                  />
+                  <span class="progress-remaining">{t('sprintBoardRemaining', { days: progress.remaining })}</span>
+                </div>
+                {#if sprint.goal !== null}
+                  <div class="popover-section">
+                    <span class="popover-label">{t('sprintGoal')}</span>
+                    <p class="popover-text">{sprint.goal}</p>
+                  </div>
+                {/if}
+                {#if canLead}
+                  <div class="popover-actions">
+                    <button
+                      class="btn is-sm"
+                      type="button"
+                      aria-label={t('sprintHeaderEditLabel', { sprint: t('sprint'), label: sprintLabel(sprint, t) })}
+                      onclick={() => {
+                        close(false);
+                        editDialog?.show(trigger, sprint);
+                      }}>{t('sprintHeaderEditAction')}</button
+                    >
+                    <button
+                      class="btn is-sm"
+                      type="button"
+                      onclick={() => {
+                        close(false);
+                        extendDialog?.show(trigger, sprint);
+                      }}>{t('sprintExtendAction')}</button
+                    >
+                    <button
+                      class="btn is-sm"
+                      type="button"
+                      aria-label={t('sprintCloseLabel', { sprint: t('sprint'), label: sprintLabel(sprint, t) })}
+                      onclick={() => {
+                        close(false);
+                        openClose(trigger);
+                      }}>{t('sprintCloseAction')}</button
+                    >
+                  </div>
+                {/if}
+              {/snippet}
+            </Popover>
+          {/key}
         </div>
       </div>
       <div class="story-board">
@@ -976,7 +981,8 @@
                   title: filteredStory.title,
                 })}</span
               >
-              <span class="action-note">{t('sprintStoryTotalsNote', { points: t('points') })}</span>
+              <span class="action-note">{t('sprintStoryTotalsNote', { sprint: t('sprint'), points: t('points') })}</span
+              >
             </div>
             <button class="btn is-sm is-quiet" type="button" onclick={() => void filterStory(null)}
               ><Icon name="x" />{t('filterClear')}</button

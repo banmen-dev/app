@@ -82,6 +82,7 @@ SQ.mount("sprint", () => {
     dialogLabel: `${t("sprint")}の情報`,
     icon: overdue ? "alert" : "clock",
     tone: overdue ? "warn" : "",
+    note: overdue ? "期限切れ" : "",
   });
   return `
     ${pageHead("", t("board"))}

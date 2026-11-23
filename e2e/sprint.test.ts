@@ -613,11 +613,12 @@ test('リーダーはスプリントを終え、終わらなかったタスク�
   await expect(titlesIn(page, '完了')).toHaveText(['A札']);
 
   // 終える。未完了の2件の行き先は、既定が次のスプリント（第2回）で、バックログへ戻すことも選べる。ゴールがあるので達成を聞く（既定は達成した）
-  await page
-    .locator('.page-head')
-    .getByRole('button', { name: /^操作: / })
+  await (
+    await openSprintPopover(page)
+  )
+    .locator('.popover-actions')
+    .getByRole('button', { name: /^終える: / })
     .click();
-  await page.getByRole('menuitem', { name: '終える', exact: true }).click();
   const closeDialog = page.getByRole('dialog', { name: 'スプリントを終える' });
   await expect(closeDialog).toContainText(
     'スプリント「第1回（3/1〜3/14）」を終えます。終えたスプリントの期間と中身は、あとから変えられません。',
@@ -655,11 +656,12 @@ test('リーダーはスプリントを終え、終わらなかったタスク�
   await page.getByRole('link', { name: 'ボード', exact: true }).click();
   await expectBoardHeading(page, '第2回');
   await expect(titlesIn(page, '未着手')).toHaveText(['B札', 'C札']);
-  await page
-    .locator('.page-head')
-    .getByRole('button', { name: /^操作: / })
+  await (
+    await openSprintPopover(page)
+  )
+    .locator('.popover-actions')
+    .getByRole('button', { name: /^終える: / })
     .click();
-  await page.getByRole('menuitem', { name: '終える', exact: true }).click();
   await expect(closeDialog).toBeVisible();
   const backlogOnly = closeDialog.getByRole('radiogroup', { name: '終わらなかったタスク 2 件の行き先' });
   await expect(backlogOnly.getByRole('radio')).toHaveCount(1);
@@ -1307,11 +1309,12 @@ test('名前なしの開始・削除・終了では、文中に期間を一度�
   await remove.getByRole('button', { name: 'やめる' }).click();
   await page.goto(`${AOBA_TEAM}/board`);
   await expectBoardHeading(page, '10/13〜10/26', { unnamed: true });
-  await page
-    .locator('.page-head')
-    .getByRole('button', { name: /^操作: / })
+  await (
+    await openSprintPopover(page)
+  )
+    .locator('.popover-actions')
+    .getByRole('button', { name: /^終える: / })
     .click();
-  await page.getByRole('menuitem', { name: '終える', exact: true }).click();
   const close = page.getByRole('dialog', { name: 'スプリントを終える' });
   await expect(close.getByRole('radio', { name: /^スプリント「10\/27〜11\/9」へ持ち越す/ })).toBeVisible();
   await expect(
