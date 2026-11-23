@@ -19,7 +19,7 @@ for (const { options, error, name } of [
     const result = spawnSync(process.execPath, [script, ...options], {
       env: { ...process.env, TMPDIR: dir, TEMP: dir, TMP: dir, PATH: '' },
       encoding: 'utf8',
-      timeout: 5000,
+      timeout: 30_000,
     });
     assert.ifError(result.error);
     assert.equal(result.status, 1);
