@@ -1,8 +1,10 @@
 # エピック詳細の表示・操作開始を比べる（#1058）
 
+> **2026-11-23 の決着:** どの計測も速さの基準には届かなかったが、詳細ページで使っていない区分の一覧の取得を減らすために、C を製品に入れた（#1058）。追試の1巡目に C が遅かった組は2巡目の再読み込みで差の向きが逆になり、C が遅くする因果は判定できなかった。ブラウザの計測器（`scripts/epic-loading-browser-bench.ts` ほか）は同時に外した。生データと採否の JSON は計測時のまま。
+
 ## 正式計測の結果
 
-**製品実装は保留し、Issue は継続する。**
+**計測時の結論: 製品実装は保留し、Issue は継続する。**（2026-11-23 の決着は冒頭）
 一覧取得を外す C では、画面内遷移で「直す」を押せるまでの p95 が、現行比で1巡目17.10ms、2巡目18.50ms短くなった。100ms以上かつ10%以上の短縮を観測した経路は、両巡ともなかった。
 
 基準コミット `4fa730fa305ae2bff9673db33997b7b718c7e837`。2026-11-22 17:29:41〜2026-11-22 17:44:04（日本時間）。linux x64、Node v26.13.0、pnpm 12.12.0、Chromium 156.0.8078.4、Wrangler 4.153.0。
@@ -56,7 +58,7 @@
 
 | 方式 | 詳細ページの通信 | 判定での扱い |
 | --- | --- | --- |
-| A（現行） | `epic-detail` と `category-repository-list` をこの順で並列に開始し、両方を待つ | 現行の基準 |
+| A（計測時の現行） | `epic-detail` と `category-repository-list` をこの順で並列に開始し、両方を待つ | 現行の基準 |
 | B（主だけ待つ） | A と同じ順に両方を開始し、`epic-detail` だけを待って一覧の Promise を返す | 待ち方の違いを確認 |
 | C（未使用の取得を外す） | `epic-detail` だけを取得する | A と比較する採用候補 |
 
@@ -71,18 +73,41 @@
 
 ## 再現手順
 
-Node と pnpm はリポジトリ指定の版を使う。Chromium が未導入の場合は Playwright の Chromium を用意する。
+保存した生データからの再集計は、今のリポジトリで行える。
 
 ```sh
-pnpm exec playwright install chromium --only-shell
-pnpm exec node scripts/epic-loading-browser-bench.ts --output /tmp/epic-loading.json
-pnpm exec node scripts/epic-loading-summary.ts /tmp/epic-loading.json /tmp/epic-loading-decision.json
 pnpm exec node scripts/epic-loading-summary.ts docs/epic-loading-samples.json.gz /tmp/epic-loading-recorded.json
 ```
 
-ワークツリーで通常のビルドや検査と重ねずに実行する。既定は巡2・記録20、ポートは9860〜9862。計測専用 Vite 変換で3ビルドを作り、通常の `build` を復元する。D1 は `--local` と一時保存先を指定し、計測後に削除する。比較に使ったコードは基準 SHA と生データの入力ハッシュで追える。正式計測後に型確認のため、応答失敗時のコールバックの戻り値と集計配列の型を修正した。正常試行の計測処理と採否の式は同一で、保存済みの生データから同じ採否を再集計できる。正式計測時のスクリプト4件は [計測時のソース](epic-loading-source.json.gz) に保存した。基準コミットを別の検証用チェックアウトに用意し、展開した JSON にあるパスと内容で4件を復元できる。入力ハッシュは生データの `inputHashes` で照合できる。
+新しく測るときは、基準コミット `4fa730f` を別のチェックアウトに用意し、[計測時のソース](epic-loading-source.json.gz)から4件を戻す。このソースは `{パス: 内容}` を並べた形で、追試のソース（`{base, files}`）と形が違う。
 
-計測入口、集計と結果文書は #1058 専用。既存の起動・後片付け、gzip 配信、分位点のヘルパーを再利用する。 [#1057](https://github.com/banmen-dev/app/issues/1057) [#1056 の計測結果](backlog-loading-browser-results.md)
+```sh
+repo=$(git rev-parse --show-toplevel)
+replay=$(mktemp -d)
+git -c core.hooksPath=/dev/null worktree add --detach "$replay/checkout" 4fa730fa305ae2bff9673db33997b7b718c7e837
+python3 - "$repo/docs/epic-loading-source.json.gz" "$replay/checkout" <<'PYTHON'
+import gzip, json, re, sys
+from pathlib import Path
+
+snapshot = json.loads(gzip.decompress(Path(sys.argv[1]).read_bytes()))
+checkout = Path(sys.argv[2])
+for path, source in snapshot.items():
+    if not re.fullmatch(r'scripts/epic-loading-[a-z.-]+\.ts', path):
+        raise ValueError(path)
+    with (checkout / path).open('x') as output:
+        output.write(source)
+PYTHON
+cd "$replay/checkout"
+pnpm store path
+pnpm install --frozen-lockfile --store-dir "$PWD/node_modules/.pnpm-store"
+pnpm exec node scripts/epic-loading-browser-bench.ts --output "$replay/new.json"
+```
+
+Chromium が未導入の場合は Playwright の Chromium を用意する。
+
+計測はワークツリーで、通常のビルドや検査と重ねずに実行した。既定は巡2・記録20、ポートは9860〜9862。計測専用 Vite 変換で3ビルドを作り、通常の `build` を復元する。D1 は `--local` と一時保存先を指定し、計測後に削除する。比較に使ったコードは基準 SHA と生データの入力ハッシュで追える。正式計測後に型確認のため、応答失敗時のコールバックの戻り値と集計配列の型を修正した。正常試行の計測処理と採否の式は同一で、保存済みの生データから同じ採否を再集計できる。正式計測時のスクリプト4件は [計測時のソース](epic-loading-source.json.gz) に保存した。基準コミットを別の検証用チェックアウトに用意し、展開した JSON にあるパスと内容で4件を復元できる。入力ハッシュは生データの `inputHashes` で照合できる。
+
+計測入口、集計と結果文書は #1058 専用だった。計測入口は 2026-11-23 に外し、集計（`scripts/epic-loading-summary.ts`）だけ残る。計測時は既存の起動・後片付け、gzip 配信、分位点のヘルパーを再利用した。 [#1057](https://github.com/banmen-dev/app/issues/1057) [#1056 の計測結果](backlog-loading-browser-results.md)
 
 ## 独立計測
 
