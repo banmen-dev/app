@@ -1244,6 +1244,37 @@ test('761px で長い組織の名前でも、上の帯は1段に収まり、検�
   }
 });
 
+// 所属していない管理者の印も帯に並ぶとき、帯が詰まっても印を省略し、アカウントのボタンと検索の欄を潰さない（#1510）
+test('761px と 800px で所属していない管理者の印があっても、アカウントのボタンと検索の欄が残る', async ({ page }) => {
+  await page.setViewportSize({ width: 761, height: 900 });
+  await page.goto(today);
+  await expect(page.locator('.topbar .org-menu-button')).toBeVisible();
+  // 印の出る画面（所属していないワークスペース）と同じ並びにするため、アカウントの前に同じ印を置く
+  await page.locator('.topbar > .account-menu').evaluate((element) => {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.textContent = '所属せず管理者として開いています';
+    element.before(chip);
+  });
+  for (const width of [761, 800]) {
+    await page.setViewportSize({ width, height: 900 });
+    const layout = await page.evaluate(() => {
+      const box = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
+      return {
+        binding: box('.binding').right,
+        search: box('.topbar .nav-search').left,
+        account: box('.topbar .account-menu-button').width,
+        chip: box('.topbar > .chip').width,
+        width: document.documentElement.scrollWidth,
+      };
+    });
+    expect(layout.width).toBeLessThanOrEqual(width);
+    expect(layout.search).toBeGreaterThanOrEqual(layout.binding);
+    expect(layout.account).toBeGreaterThanOrEqual(44);
+    expect(layout.chip).toBeGreaterThan(0);
+  }
+});
+
 test('組織の画面のパンくずは組織と画面で、ワークスペースを出さない', async ({ page }) => {
   await page.goto(today);
   const crumbs = page.getByRole('navigation', { name: 'パンくず' });
