@@ -731,12 +731,13 @@ D1 はスキーマも `d1_migrations` もそのまま写すので、写した後
    - Workers Logs で、毎分の cron がエラーを出さない
    - `pnpm exec wrangler r2 bucket dev-url get banmen-attachments` が無効と返し、`pnpm exec wrangler r2 bucket domain list banmen-attachments` が空を返す
 8. チームに再開を告げる
-9. 旧 D1 `scrum-guild` を消す。旧バケットは、`rclone size r2:scrum-guild-attachments` と `rclone size r2:banmen-attachments` で対象と中身を確かめてから、`rclone purge r2:scrum-guild-attachments` で空にし、ダッシュボードで消す（一時のトークンはバケットを消す権限を持たないので、`rclone purge` の最後のバケットの削除は失敗してよい）。ダッシュボードの D1 と R2 の一覧に旧名が残っていないことを確かめる
-10. 後始末をする。一時の R2 のトークンを失効させ、`rm -r "$dir"` で書き出したファイルを消し、`RCLONE_CONFIG_R2_*` の環境変数を外す
+9. publish の後の最初の毎時 0 分を待つ。お試しの停止と添付の掃除は毎時 0 分にしか動かず、毎分の cron は消す行が無いとログを出さないので、手順 7 では新しい資源で動いたかを確かめられない。Workers Logs で `job` が `cleanup-attachments` の info のログに `complete: true` が出て、同じ時刻に error が無いことを見てから次へ進む
+10. 旧 D1 `scrum-guild` を消す。旧バケットは、`rclone size r2:scrum-guild-attachments` と `rclone size r2:banmen-attachments` で対象と中身を確かめてから、`rclone purge r2:scrum-guild-attachments` で空にし、ダッシュボードで消す（一時のトークンはバケットを消す権限を持たないので、`rclone purge` の最後のバケットの削除は失敗してよい）。ダッシュボードの D1 と R2 の一覧に旧名が残っていないことを確かめる
+11. 後始末をする。一時の R2 のトークンを失効させ、`rm -r "$dir"` で書き出したファイルを消し、`RCLONE_CONFIG_R2_*` の環境変数を外す
 
 ### 当日に戻すとき
 
-どの道でも、日を改めるなら当日の手順 10 の後始末をその日のうちに行い、次の日の前日の手順 5 でトークンを作り直す。`banmen` に流し込んだ顧客のデータを残さないよう、`banmen` は消して作り直す（ID が変わるので PR を直す）。
+どの道でも、日を改めるなら当日の手順 11 の後始末をその日のうちに行い、次の日の前日の手順 5 でトークンを作り直す。`banmen` に流し込んだ顧客のデータを残さないよう、`banmen` は消して作り直す（ID が変わるので PR を直す）。
 
 - 手順 6 のマージの前に止まったとき: 本番は旧資源のまま動いている。チームに再開を告げる。PR はマージしていないので、`main` は旧資源を向いたまま
 - 手順 6 でマージした後、ビルドが版を切り替えずに止まったとき（Time Travel のブックマークを取れない、マイグレーションを当てられない、版を上げられない。上の「デプロイが失敗で終わったとき」）: 本番は旧資源のまま動くが、`main` は新しい D1 を向いている。同じ日のうちに直して publish し直せないなら、再開を告げる前に、切り替えの PR を revert する PR を `main` に入れる
