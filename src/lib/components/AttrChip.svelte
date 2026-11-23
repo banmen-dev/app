@@ -19,6 +19,10 @@
   // 読み込み中と失敗は、メニューの隣に開いている間は常に置いた role="status" の領域へ、描いた次のフレームで文字を入れて読み上げに伝える
   // （読み込んでいます、failedNote、まだ読み込めませんでした、空）。領域と文字を同じ描画で入れない。
   // 幅の変化で閉じるとき、フォーカスがメニューか窓の中にあればチップへ戻す（高さだけの変化では閉じない）。
+  // searchable を真にすると（ボードのカードの担当）、メニューを絞り込みの欄つきの窓（role="dialog"。モーダルにしない）に入れる。
+  // 開くと欄へフォーカスし、打った文字を含む候補だけを残す（大文字と小文字を区別しない）。↓ で候補へ、Enter で先頭の候補を選ぶ。
+  // actions は候補の前に置く操作（「自分に割り当てる」。role="menuitem"）で、選ぶと onselect に値を渡す。絞り込んでいる間は隠す。
+  // 窓の中は Tab で欄と候補の間を移れ、外へ出たら閉じる（panel と同じ）
   type Option = { value: string; text: string };
   let {
     attr,
@@ -37,6 +41,8 @@
     panel,
     tone,
     points = false,
+    searchable = false,
+    actions = [],
   }: {
     attr: string;
     text: string;
@@ -57,12 +63,24 @@
     tone?: 'danger' | 'warn';
     // ポイントのチップ。数を見本と同じ等幅の書体（.is-points）で出す
     points?: boolean;
+    searchable?: boolean;
+    actions?: readonly Option[];
   } = $props();
 
   const ids = $props.id();
   const label = $derived(t('attrChipLabel', { attr, value: unset ? t('attrChipUnset') : text }));
   const reasonId = `${ids}-reason`;
   let open = $state(false);
+  let query = $state('');
+  let searchInput = $state<HTMLInputElement>();
+  // 窓の形（Tab で中を移れ、外へ出たら閉じる）
+  const dialog = $derived(panel !== undefined || searchable);
+  const needle = $derived(query.trim().toLocaleLowerCase());
+  const shownOptions = $derived(
+    needle === '' ? options : options.filter((option) => option.text.toLocaleLowerCase().includes(needle)),
+  );
+  const shownActions = $derived(needle === '' ? actions : []);
+  const searchEmpty = $derived(searchable && needle !== '' && shownOptions.length === 0);
   let root = $state<HTMLElement>();
   let button = $state<HTMLButtonElement>();
   let list = $state<HTMLElement>();
@@ -87,7 +105,9 @@
             : (failedNote ?? '')
         : busy
           ? t('loading')
-          : ''
+          : searchEmpty
+            ? t('attrSearchEmpty')
+            : ''
       : '',
   );
 
@@ -116,9 +136,14 @@
     if (locked !== undefined) return;
     open = true;
     tried = false;
+    query = '';
     onopen?.();
     await tick();
     place();
+    if (searchable) {
+      searchInput?.focus();
+      return;
+    }
     if (panel !== undefined) {
       list?.querySelector<HTMLElement>('input, button')?.focus();
       return;
@@ -165,7 +190,16 @@
       return;
     }
     // 窓は中の欄とボタンの間を Tab で移れる。外へ出たときは onFocusOut が閉じる
-    if (panel !== undefined && event.key === 'Tab') return;
+    if (dialog && event.key === 'Tab') return;
+    // 絞り込みの欄では、Home と End は文字の位置を動かし、Enter は先頭の候補を選ぶ
+    if (event.target === searchInput) {
+      if (event.key === 'Home' || event.key === 'End') return;
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        items()[0]?.click();
+        return;
+      }
+    }
     if (event.key === 'Tab') {
       // 出た先へ移るので戻さない。メニューの中からは、チップへ戻して、そこから Tab を進める
       const inside = list?.contains(event.target as Node) ?? false;
@@ -190,7 +224,7 @@
   }
 
   function onFocusOut(event: FocusEvent): void {
-    if (panel === undefined || !open) return;
+    if (!dialog || !open) return;
     const next = event.relatedTarget;
     if (next === null || (next instanceof Node && root?.contains(next))) return;
     hide(false);
@@ -244,6 +278,7 @@
   // 候補が読み終わるなどで中身が替わったら、置き直す
   $effect(() => {
     void options.length;
+    void shownOptions.length;
     void failedNote;
     void busy;
     if (!open) return;
@@ -251,6 +286,10 @@
       place();
       // 「もう一度試す」が消えるなどでフォーカスが落ちたら、選んでいる項目（無ければ先頭）へ戻す（Esc で閉じられるように）
       if (open && list && !list.contains(document.activeElement)) {
+        if (searchable) {
+          searchInput?.focus();
+          return;
+        }
         const all = items();
         (all.find((item) => item.getAttribute('aria-checked') === 'true') ?? all[0])?.focus();
       }
@@ -278,7 +317,7 @@
     class:is-warn={tone === 'warn'}
     type="button"
     bind:this={button}
-    aria-haspopup={locked === undefined ? (panel === undefined ? 'menu' : 'dialog') : undefined}
+    aria-haspopup={locked === undefined ? (dialog ? 'dialog' : 'menu') : undefined}
     aria-expanded={locked === undefined ? open : undefined}
     aria-disabled={locked !== undefined ? 'true' : undefined}
     aria-describedby={locked !== undefined ? reasonId : undefined}
@@ -302,6 +341,32 @@
     >
       {@render panel(() => hide(true))}
     </div>
+  {:else if open && searchable}
+    <div
+      class="account-menu-list row-menu-list attr-panel attr-search"
+      role="dialog"
+      aria-label={t('attrMenuLabel', { attr })}
+      bind:this={list}
+    >
+      <input
+        class="input"
+        type="search"
+        autocomplete="off"
+        aria-label={t('attrSearchLabel', { attr })}
+        placeholder={t('attrSearchLabel', { attr })}
+        bind:this={searchInput}
+        bind:value={query}
+      />
+      <!-- 当たる候補が無いときは、空のメニューを置かずに文で知らせる（読み上げは状態の領域が伝える） -->
+      {#if searchEmpty}
+        <p class="action-note">{t('attrSearchEmpty')}</p>
+      {/if}
+      {#if !searchEmpty || busy || retry !== undefined}
+        <ul class="attr-search-list" role="menu" aria-label={t('attrMenuLabel', { attr })} aria-busy={busy}>
+          {@render menuItems()}
+        </ul>
+      {/if}
+    </div>
   {:else if open}
     <ul
       class="account-menu-list row-menu-list"
@@ -310,46 +375,57 @@
       aria-busy={busy}
       bind:this={list}
     >
-      {#each options as option (option.value)}
-        <li role="none">
-          <button
-            class="menu-item"
-            type="button"
-            role="menuitemradio"
-            aria-checked={option.value === current}
-            onclick={() => pick(option.value)}
-          >
-            {#if option.value === current}<Icon name="check" />{/if}<span>{option.text}</span>
-          </button>
-        </li>
-      {/each}
-      {#if busy && retry === undefined}
-        <li role="none">
-          <button class="menu-item" type="button" role="menuitem" aria-disabled="true">
-            <span>{t('loading')}</span>
-          </button>
-        </li>
-      {/if}
-      {#if retry !== undefined}
-        <li role="none">
-          <button
-            class="menu-item"
-            type="button"
-            role="menuitem"
-            aria-disabled={retrying}
-            onclick={() => {
-              if (retrying) return;
-              tried = true;
-              retry?.();
-            }}
-          >
-            <span>{failedNote}。{retryText}</span>
-          </button>
-        </li>
-      {/if}
+      {@render menuItems()}
     </ul>
   {/if}
   {#if open && panel === undefined}
     <span class="visually-hidden" role="status" data-attr-chip-status>{announced}</span>
   {/if}
 </span>
+
+{#snippet menuItems()}
+  {#each shownActions as action (action.value)}
+    <li role="none">
+      <button class="menu-item" type="button" role="menuitem" onclick={() => pick(action.value)}>
+        <span>{action.text}</span>
+      </button>
+    </li>
+  {/each}
+  {#each shownOptions as option (option.value)}
+    <li role="none">
+      <button
+        class="menu-item"
+        type="button"
+        role="menuitemradio"
+        aria-checked={option.value === current}
+        onclick={() => pick(option.value)}
+      >
+        {#if option.value === current}<Icon name="check" />{/if}<span>{option.text}</span>
+      </button>
+    </li>
+  {/each}
+  {#if busy && retry === undefined}
+    <li role="none">
+      <button class="menu-item" type="button" role="menuitem" aria-disabled="true">
+        <span>{t('loading')}</span>
+      </button>
+    </li>
+  {/if}
+  {#if retry !== undefined}
+    <li role="none">
+      <button
+        class="menu-item"
+        type="button"
+        role="menuitem"
+        aria-disabled={retrying}
+        onclick={() => {
+          if (retrying) return;
+          tried = true;
+          retry?.();
+        }}
+      >
+        <span>{failedNote}。{retryText}</span>
+      </button>
+    </li>
+  {/if}
+{/snippet}

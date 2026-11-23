@@ -14,7 +14,9 @@ export const load: PageLoad = async ({ params, fetch, url, depends }) => {
   depends('app:sprint-board');
   depends('app:sprints');
   depends('app:backlog-tree');
+  // 読み始めた時刻。カードのチップの送信列が、保存より前に読み始めた値で表示を戻さないよう比べる
+  const loadedAt = performance.now();
   const result = await callOperation(sprintBoard, { workspace_id: params.id }, { slug: params.slug, fetcher: fetch });
   if (isUnauthenticated(result)) redirect(307, loginUrl(url));
-  return { board: result.ok ? result.data : null };
+  return { board: result.ok ? result.data : null, loadedAt };
 };

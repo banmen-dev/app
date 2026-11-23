@@ -310,6 +310,29 @@
     return column.is_done ? t('done') : (column.name ?? '');
   }
 
+  // カードの上で直す（ポイントと担当のチップ、題の鉛筆）ときの配線。書き込めるときだけ渡す（#1499）。
+  // 保存が通ったら、そのカードだけを画面の並びで直し（列の合計も変わる）、断られたら読み直す
+  const cardAttrs = $derived(
+    canWrite && workspace !== null
+      ? {
+          slug,
+          workspaceId,
+          meId: data.organization?.me.id ?? null,
+          loadedAt: data.loadedAt,
+          onpatch: patchCard,
+          onSaved: reloadBoard,
+          onStale: () => void invalidateAll(),
+        }
+      : undefined,
+  );
+  function patchCard(id: string, patch: Partial<SprintBoardTask>): void {
+    local = columns.map((column) =>
+      column.tasks.some((task) => task.id === id)
+        ? { ...column, tasks: column.tasks.map((task) => (task.id === id ? { ...task, ...patch } : task)) }
+        : column,
+    );
+  }
+
   function pointsOf(tasks: readonly SprintBoardTask[]): number {
     return tasks.reduce((total, task) => total + (task.points ?? 0), 0);
   }
@@ -1019,6 +1042,7 @@
                     dnd={canWrite ? dnd : undefined}
                     onmove={moveCard}
                     ondelete={canWrite ? (target, keyboard) => void removeCard(target, keyboard) : undefined}
+                    attrs={cardAttrs}
                   />
                 {:else}
                   <p class="board-empty">{t('sprintBoardColumnEmpty')}</p>

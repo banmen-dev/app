@@ -2205,6 +2205,14 @@ export const dictionary = defineDictionary({
   attrChipLabel: '{attr}: {value}',
   attrChipUnset: '未設定',
   attrMenuLabel: '{attr}を選ぶ',
+  // 候補を文字で絞る選択の窓（ボードのカードの担当）。絞り込みの欄の名前と、当たる候補が無いときの文
+  attrSearchLabel: '{attr}を探す',
+  attrSearchEmpty: '当たる候補はありません',
+  // 担当の選択の窓の先頭の項目。押すと自分を担当にする
+  assignToMe: '自分に割り当てる',
+  // ボードのカードの題の横の鉛筆（押すと題をその場で書き換える）。完了したカードは押せない
+  cardTitleEditLabel: 'タイトルを直す: {title}',
+  cardTitleDone: 'この{task}は{done}になっているため、タイトルは直せません。',
   pointsValue: '{value} pt',
   // 担当の選択（引き出しと起票のダイアログ）。候補は、そのワークスペースに今所属している人
   assigneeCandidatesFailed: '{assignee}の候補を読み込めませんでした',
