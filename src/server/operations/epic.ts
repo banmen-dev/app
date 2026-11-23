@@ -88,11 +88,11 @@ function detailOf(row: EpicRow): EpicDetail {
 export const epicGetOperation = implement(epicGet, async ({ db, actor, workspace, input }) => {
   const epic = await readEpic(db, workspace.workspaceId, input.epic_id);
   if (epic === undefined) throw new ApiError(404, 'not_found');
-  // 区分の名前。削除した区分は、epic-detail と同じく無いものとする
+  // 区分の名前。削除した区分と、引けない区分は、epic-detail と同じく無いものとする
   const category =
-    epic.category_id === null || epic.category_deleted_at !== null
+    epic.category_id === null || epic.category_name === null || epic.category_deleted_at !== null
       ? null
-      : { id: epic.category_id, name: epic.category_name ?? '' };
+      : { id: epic.category_id, name: epic.category_name };
   return {
     epic: detailOf(epic),
     completed_at: epic.completed_at,

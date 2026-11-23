@@ -182,7 +182,7 @@ describe('epic-get', () => {
     expect((await get(closed, closedEpic.id, closed.admin)).status).toBe(200);
   });
 
-  test('区分の ID と名前を返す。区分が無いか、削除した区分は null。閉じたワークスペースでも返す', async () => {
+  test('区分の ID と名前を返す。区分が無いか、削除した区分か、別のワークスペースの区分は null。閉じたワークスペースでも返す', async () => {
     const target = await createTarget({ closed: true });
     const workspaceId = target.workspace.id;
     const adminId = target.admin.userId!;
@@ -192,9 +192,12 @@ describe('epic-get', () => {
       position: 'a1',
       deleted_at: '2026-10-21T00:00:00.000Z',
     });
+    // 書く操作は振らせないが、行が別のワークスペースの区分を指していても名前を出さない
+    const elsewhere = await createCategory(target.organization, target.otherWorkspace.id, { name: 'よそ' });
     const cases = [
       { categoryId: extra.id, expected: { id: extra.id, name: '追加案件' } },
       { categoryId: gone.id, expected: null },
+      { categoryId: elsewhere.id, expected: null },
       { categoryId: null, expected: null },
     ];
     for (const { categoryId, expected } of cases) {
