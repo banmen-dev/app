@@ -408,9 +408,9 @@ a.breadcrumb-item:hover { color: var(--color-fg); text-decoration: underline; }
 @media (min-width: 761px) {
   .topbar { flex-wrap: nowrap; }
   .topbar > :not(.account-menu, .nav-search, .org-menu), .topbar-tools > * { flex: none; }
-  /* 組織の長い名前も、折り返さず省略して受ける。幅が足りないときは先に検索の欄が縮み（縮む割合を小さくする）、
-     名前の頭が読めるよう 6rem より縮めない */
-  .topbar .org-menu { flex: 0 0.05 auto; min-width: 6rem; }
+  /* 組織の切り替えは縮めず、幅が足りないときは検索の欄とアカウントの表示名が受ける。
+     長い名前は幅の上限（16rem、狭い帯では画面の幅の 1/4）で省略して受け、帯を1段に保つ */
+  .topbar .org-menu { flex: none; max-width: min(16rem, 25vw); }
   /* 長い表示名は、折り返さず右を切って受ける（帯の高さと十字の罫を保つ） */
   .topbar > .account-menu { flex: 0 1 auto; min-width: 0; }
   .account-menu-button { max-width: 100%; }
