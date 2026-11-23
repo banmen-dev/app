@@ -1,6 +1,6 @@
 # 計画の主・従の追加比較（#1057）
 
-2026-11-15（日本時間）。測定時の基準 main `4f3efe5` と本差分の計測器。測定後に main `4706de8` のフック修正を取り込んだが、測定入力は変わらないため再測定していない。Node 26.13.0 / pnpm 12.12.0 / Wrangler 4.153.0。
+2026-11-15（日本時間）。測定時の基準 main `4f3efe51af6b91abf380a1030932c7906eb23701` と [PR #1253](https://github.com/banmen-dev/app/pull/1253) の計測器。測定後に main `4706de8` のフック修正を取り込んだが、測定入力は変わらないため再測定していない。Node 26.13.0 / pnpm 12.12.0 / Wrangler 4.153.0。
 
 ## 結論
 
@@ -10,7 +10,7 @@
 
 履歴あり・管理者の返却モデル p50/p95（ms）は、1回目の正順 B 30.98/36.73 → C 14.94/29.69、逆順 B 29.02/34.11 → C 28.54/32.12。2回目の正順 B 35.52/37.96 → C 17.95/22.74、逆順 B 36.10/43.44 → C 38.04/58.64。これらは別試行の分位点である。逆順の B/C の差は同じ通信を別に測ったノイズで、条件の効果とは読めない。正順も別試行の分位点の差を各利用者の短縮量とは扱わない。
 
-## 条件と再現
+## 条件
 
 - A: sprint-list のみ。従との競合の診断用で、改善量の比較対象ではない。
 - B: sprint-list と plan-summary を並列開始し、両方を待つ現行の依存関係モデル。
@@ -23,12 +23,31 @@
 - ブラウザ、URL直接表示・画面内遷移・invalidate、親の組織とワークスペースの枠、ネットワーク遅延、キャッシュの影響は分離・計測していない。体感の短縮量は主張しない。
 - 他の build・テストと重ねていない。既存の D1 と本番を使わず、各回終了時に一時 D1 とサーバーを破棄した。
 
+## 再現
+
+#1057 を閉じた後、専用の計測器を削除した。再現するときは、冒頭に記載した基準コミットのワークツリーに PR #1253 の計測器を取り出す。現在の作業コピーのリポジトリルートから次を実行する。
+
+```sh
+git -c core.hooksPath=/dev/null worktree add --detach worktrees/1057-api-repro 4f3efe51af6b91abf380a1030932c7906eb23701
+cd worktrees/1057-api-repro
+git restore --source=c1d9c52ab3a3d78428112ac93d4de82c2b871d15 -- scripts/loading-bench.ts scripts/plan-loading-comparison.ts
+```
+
+依存は [ワークツリーで作業する](development.md#ワークツリーで作業する) の手順に従って入れ、同じワークツリーで次を実行する。
+
 ```sh
 pnpm bench:loading --plan-compare
 pnpm bench:loading --plan-compare --comparison-reverse
 ```
 
 書き込み先が制限された環境では `XDG_CONFIG_HOME` と `WRANGLER_LOG_PATH` に書ける一時ディレクトリを指定する。このセッションでは `/tmp/1057-config` と `/tmp/1057-wrangler-logs` を使い、`WRANGLER_SEND_METRICS=false` とした。初回の起動失敗は計測結果に含めていない。
+
+再現を終えたら、計測器を取り出した専用ワークツリーからリポジトリルートに戻って片付ける。
+
+```sh
+cd ../..
+git worktree remove --force worktrees/1057-api-repro
+```
 
 レビューで計測器の分岐・利用者指定・集計処理を整理した後、`--plan-compare --comparison-reverse --runs 1` を実行し、両データ・両利用者・正逆順の全条件の HTTP/出力スキーマと一時 D1 の破棄を確認した。この少数回の確認値を下表の測定結果に混ぜていない。
 

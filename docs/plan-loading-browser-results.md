@@ -31,6 +31,17 @@ B は現行の `sprint-list` → `plan-summary` の並列開始と両応答の�
 
 ## 再現と再集計
 
+#1057 を閉じた後、専用の計測器を削除した。再現・再集計には、基準コミットのワークツリーに [PR #1419](https://github.com/banmen-dev/app/pull/1419) の計測器を取り出して使う。現在の作業コピーのリポジトリルートで始め、以降のコマンドは同じシェルで実行する。
+
+```sh
+repo=$(git rev-parse --show-toplevel)
+git -c core.hooksPath=/dev/null worktree add --detach "$repo/worktrees/1057-browser-repro" 61fc0aedfccc07f822899cad9bd1e533fff3124b
+cd "$repo/worktrees/1057-browser-repro"
+git restore --source=175812f3bc4a227894091d668ed69b568ef4740c -- ':(glob)scripts/plan-loading-browser*.ts'
+```
+
+依存は [ワークツリーで作業する](development.md#ワークツリーで作業する) の手順に従って入れる。
+
 新規計測は、データの基準日と実行日の関係が2026-11-22の計測時と同等であることを確認する。Worker と Chromium は実時計で動く。2026-12-05（日本時間）の進行中スプリントの期日を過ぎると期限超過の表示が出る。実行日が離れるとベロシティの集計対象も変わり得るため、その場合の新規計測はここにある試行と別条件として扱う。保存した生データからの再集計は実行日に依存しない。
 
 ```sh
@@ -41,8 +52,23 @@ pnpm exec node scripts/plan-loading-browser-summary.ts /tmp/plan-loading-browser
 出力先は未作成のファイル名を使う。Chromium は Playwright の配布版を用意するか、`--chromium` に実行ファイルを指定する。配信・Worker・inspector に9774〜9776を使う。計測器はローカルの使い捨て D1 と専用設定で起動し、終了時に停止・片付けを行う。既存の `build/` がある場合は復元する。
 
 ```sh
-gzip -dc docs/plan-loading-browser-samples.json.gz > /tmp/plan-loading-browser-recorded.json
-pnpm exec node scripts/plan-loading-browser-summary.ts /tmp/plan-loading-browser-recorded.json /tmp/plan-loading-browser-recorded-summary
+output=$(mktemp -d)
+gzip -dc "$repo/docs/plan-loading-browser-samples.json.gz" > "$output/recorded.json"
+pnpm exec node scripts/plan-loading-browser-summary.ts "$output/recorded.json" "$output/recorded-summary"
+```
+
+再集計の出力が不要になったら、一時ファイルとそのディレクトリを削除する。
+
+```sh
+rm -- "$output/recorded.json" "$output/recorded-summary.json" "$output/recorded-summary.md"
+rmdir -- "$output"
+```
+
+再現・再集計を終えたら、計測器を取り出した専用ワークツリーを片付ける。
+
+```sh
+cd "$repo"
+git worktree remove --force "$repo/worktrees/1057-browser-repro"
 ```
 
 [生データ](plan-loading-browser-samples.json.gz) と [採否・全セルの集計](plan-loading-browser-decision.json) を保存した。分位点は nearest-rank。20件の p95 は昇順19番目で、採否は丸め前の値を使う。ローカル Worker/D1 とループバックでは、処理順や同時実行が実運用と異なる可能性がある。数値基準を満たしても、これらの影響を切り分けられない場合は、実運用に近い隔離環境で確認してから判断する。
