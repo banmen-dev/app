@@ -80,7 +80,7 @@ test('上限を超えた列は件数を警告の色で出し、リーダーは�
   const field = dialog.getByRole('textbox', { name: '上限（件）', exact: true });
   await expect(field).toHaveValue('1');
   // 0 と、数として読めない入力は送らず、欄に理由を出す（空と取り違えて上限を外さない）
-  for (const raw of ['0', '3e', '100']) {
+  for (const raw of ['0', '3e', '100', '-1', '2.5']) {
     await field.fill(raw);
     await dialog.getByRole('button', { name: '決める', exact: true }).click();
     await expect(dialog.getByRole('alert')).toHaveText('1〜99 の整数を入れるか、空にしてください');
@@ -91,6 +91,20 @@ test('上限を超えた列は件数を警告の色で出し、リーダーは�
   await expect(dialog).toBeHidden();
   await expect(page.locator('.toasts:visible .toast', { hasText: '「作業中」の上限を外しました' })).toBeVisible();
   expect(updates).toEqual([{ workspace_id: expect.any(String), column_id: DOING!.id, wip_limit: null }]);
+
+  // 正しい数は数のまま送る（両端と、前後に空白のある数）
+  for (const [raw, value] of [
+    ['1', 1],
+    ['99', 99],
+    [' 5 ', 5],
+  ] as const) {
+    await doingMenu.click();
+    await page.getByRole('menuitem', { name: '上限を決める', exact: true }).click();
+    await field.fill(raw);
+    await dialog.getByRole('button', { name: '決める', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    expect(updates.at(-1)).toEqual({ workspace_id: expect.any(String), column_id: DOING!.id, wip_limit: value });
+  }
 
   // 名前を書き換える。同じ名前はサーバーが断り、理由が出て元の名前に戻る。Esc で戻す
   await page.getByRole('button', { name: '列の名前を変更: 作業中', exact: true }).click();

@@ -475,6 +475,55 @@ describe('column-update の上限', () => {
     expect(await boardColumnRow(target, board.b)).toMatchObject({ name: '作業中', wip_limit: 4 });
   });
 
+  test('上限だけを決めても、読んだ後にほかの要求が変えた名前を書き戻さない', async () => {
+    const target = await createTarget();
+    const board = await createBoard(target);
+    const res = (await withRace(
+      target,
+      columnUpdateOperation,
+      { column_id: board.b, wip_limit: 3 },
+      {
+        method: 'first',
+        nth: 1,
+        run: async () => {
+          await updateRow('board_columns', target, board.b, { name: '別の名前' });
+        },
+      },
+    )) as { column: ListedColumn };
+    expect(res.column).toMatchObject({ name: '別の名前', wip_limit: 3 });
+    expect(await boardColumnRow(target, board.b)).toMatchObject({ name: '別の名前', wip_limit: 3 });
+    expect(await logsOf(target, 'workspace', target.workspace.id)).toEqual([]);
+  });
+
+  test('名前を直す間にほかの要求が名前を変えたら、読み直してやり直し、履歴の前の名前は実際の直前の名前', async () => {
+    const target = await createTarget();
+    const board = await createBoard(target);
+    const res = (await withRace(
+      target,
+      columnUpdateOperation,
+      { column_id: board.b, name: '仕上げ' },
+      {
+        method: 'first',
+        nth: 1,
+        run: async () => {
+          await updateRow('board_columns', target, board.b, { name: '割り込み' });
+        },
+      },
+    )) as { column: ListedColumn };
+    expect(res.column).toMatchObject({ name: '仕上げ' });
+    expect(await boardColumnRow(target, board.b)).toMatchObject({ name: '仕上げ' });
+    expect(await logsOf(target, 'workspace', target.workspace.id)).toMatchObject([
+      {
+        changes: {
+          column: [
+            { id: board.b, name: '割り込み' },
+            { id: board.b, name: '仕上げ' },
+          ],
+        },
+      },
+    ]);
+  });
+
   test('0、100、小数、文字は 400。名前も上限も無ければ 400。1 と 99 は通る', async () => {
     const target = await createTarget();
     const board = await createBoard(target);
