@@ -1259,14 +1259,17 @@ test('広い幅のパンくずは上の帯の外で、見出しのすぐ上に�
     await expect(crumbs.getByRole('link', { name: '受託開発チーム' })).toBeVisible();
     const heading = page.locator('.page-head').first();
     await expect(heading).toBeVisible();
+    // 位置は帯（.sheet-crumbs）で測る。nav は帯の高さ 24px の中で上下の中央に置かれる
     const [bar, crumb, head] = await Promise.all(
-      [page.locator('.topbar'), crumbs, heading].map(async (locator) => (await locator.boundingBox())!),
+      [page.locator('.topbar'), page.locator('.sheet-crumbs'), heading].map(
+        async (locator) => (await locator.boundingBox())!,
+      ),
     );
     // 上の帯の下、見出しの上に並び、見出しとの間は本文の上の余白（--space-2 の 8px）だけ
     expect(crumb.y).toBeGreaterThanOrEqual(bar.y + bar.height);
     expect(head.y - (crumb.y + crumb.height)).toBeCloseTo(8, 0);
     // パンくずの左端は見出しの左端と揃う
-    expect(Math.abs(crumb.x - head.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs((await crumbs.boundingBox())!.x - head.x)).toBeLessThanOrEqual(1);
     // ワークスペースの名前の小見出しは見えない（題名には残す）
     await expect(page.locator('.page-head .page-eyebrow:visible')).toHaveCount(0);
     await expect(page).toHaveTitle(/・受託開発チーム - Banmen$/);
