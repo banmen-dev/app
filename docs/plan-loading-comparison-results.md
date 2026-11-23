@@ -36,7 +36,7 @@ pnpm bench:loading --plan-compare --comparison-reverse
 
 実運用に近い同時実行条件とブラウザで、主の表示・操作開始に plan-summary の待ちが乗るかを確認する。URL直接表示・画面内遷移・app:sprints / app:backlog-tree の再読み取りを分け、親の待ちと主・従の待ちを分離する。先のスプリントや終了済みワークスペースも条件に加える。ローカルの同じ比較を繰り返すだけで適否を確定しない。
 
-load が従の Promise を返す方式と部品のマウントで取得する方式は、今回どちらも採用していない。採用判断と現在の状態は [Issue #1057](https://github.com/scrum-guild-dev/app/issues/1057) を正とする。
+load が従の Promise を返す方式と部品のマウントで取得する方式は、今回どちらも採用していない。採用判断と現在の状態は [Issue #1057](https://github.com/banmen-dev/app/issues/1057) を正とする。
 
 ## 1回目
 

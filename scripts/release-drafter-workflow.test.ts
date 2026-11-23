@@ -249,7 +249,7 @@ describe('出した Release を数える段', () => {
             PATH: `${dir}:${process.env.PATH}`,
             FAKE_GH_DIR: dir,
             GITHUB_OUTPUT: output,
-            REPO: 'scrum-guild-dev/app',
+            REPO: 'banmen-dev/app',
           },
           stdio: 'pipe',
         });
@@ -267,7 +267,7 @@ describe('出した Release を数える段', () => {
   test('Release の一覧をすべてのページで読む', () => {
     const { args } = count([]);
     assert.ok(args.split('\n').includes('--paginate'));
-    assert.ok(args.split('\n').includes('repos/scrum-guild-dev/app/releases?per_page=100'));
+    assert.ok(args.split('\n').includes('repos/banmen-dev/app/releases?per_page=100'));
   });
 
   test('Release が無ければ 0', () => {
@@ -357,7 +357,7 @@ describe('main の先頭を読む段', () => {
             PATH: `${dir}:${process.env.PATH}`,
             FAKE_GH_DIR: dir,
             GITHUB_OUTPUT: outputFile,
-            REPO: 'scrum-guild-dev/app',
+            REPO: 'banmen-dev/app',
           },
           stdio: 'pipe',
         });
@@ -374,7 +374,7 @@ describe('main の先頭を読む段', () => {
 
   test('main の先頭を API で読み、下書きの対象にする', () => {
     const result = head(sha);
-    assert.ok(result.args.split('\n').includes('repos/scrum-guild-dev/app/commits/main'));
+    assert.ok(result.args.split('\n').includes('repos/banmen-dev/app/commits/main'));
     assert.deepEqual(result.output, `sha=${sha}\n`);
   });
 

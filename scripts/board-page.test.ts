@@ -475,8 +475,8 @@ describe('incrementView', () => {
 
 describe('リンク', () => {
   test('Issue と PR の URL', () => {
-    assert.equal(issueUrl(12), 'https://github.com/scrum-guild-dev/app/issues/12');
-    assert.equal(pullUrl(34), 'https://github.com/scrum-guild-dev/app/pull/34');
+    assert.equal(issueUrl(12), 'https://github.com/banmen-dev/app/issues/12');
+    assert.equal(pullUrl(34), 'https://github.com/banmen-dev/app/pull/34');
   });
 });
 

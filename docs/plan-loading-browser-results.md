@@ -12,7 +12,7 @@
 
 ## 条件
 
-B は現行の `sprint-list` → `plan-summary` の並列開始と両応答の待ち。C は同じ順で両方を開始し、`sprint-list` の応答で一覧を利用可能にし、`plan-summary` が返り次第集計を表示する。どちらも計測専用の本番ビルドを使う。画面の変更案は [Issue #1057](https://github.com/scrum-guild-dev/app/issues/1057) の合意を参照。 [PR #1253 の API 診断](plan-loading-comparison-results.md)
+B は現行の `sprint-list` → `plan-summary` の並列開始と両応答の待ち。C は同じ順で両方を開始し、`sprint-list` の応答で一覧を利用可能にし、`plan-summary` が返り次第集計を表示する。どちらも計測専用の本番ビルドを使う。画面の変更案は [Issue #1057](https://github.com/banmen-dev/app/issues/1057) の合意を参照。 [PR #1253 の API 診断](plan-loading-comparison-results.md)
 
 | 経路 | 起点 |
 | --- | --- |

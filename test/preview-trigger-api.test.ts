@@ -10,7 +10,7 @@ const buildId = '023e105f-2f42-4f8b-a1c1-73f6a2a30c0f';
 const config = { accountId, workerTag, triggerId, buildTokenId, token: 'TEST_TOKEN' };
 const request = { issue: '42', pr: 81, branch: '42-report/section', sha: 'a'.repeat(40) } satisfies PreviewRequest;
 const latest = { ...request, sha: 'b'.repeat(40) };
-const repository = { id: 1425341812, full_name: 'scrum-guild-dev/app' };
+const repository = { id: 1425341812, full_name: 'banmen-dev/app' };
 // Organization の改名を模した架空の名前。ID は同じリポジトリを指す。
 const renamed = { id: 1425341812, full_name: 'renamed-guild/app' };
 const githubPull = {
@@ -23,7 +23,7 @@ const settings = {
   git_repository: {
     provider_type: 'github',
     repo_id: '1425341812',
-    provider_account_name: 'scrum-guild-dev',
+    provider_account_name: 'banmen-dev',
     repo_name: 'app',
     branch: 'preview-builds-parked',
   },

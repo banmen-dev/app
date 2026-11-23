@@ -8,7 +8,7 @@ import {
 
 const webhookUrl = 'https://preview-trigger.example.test/github/webhook';
 const secret = 'プレビューテスト専用の値';
-const repo = { id: 1425341812, full_name: 'scrum-guild-dev/app' };
+const repo = { id: 1425341812, full_name: 'banmen-dev/app' };
 // Organization の改名を模した架空の名前。ID は同じリポジトリを指す。
 const renamed = { id: 1425341812, full_name: 'renamed-guild/app' };
 const sha = '0123456789abcdef0123456789abcdef01234567';

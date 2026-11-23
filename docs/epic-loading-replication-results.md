@@ -60,7 +60,7 @@ pnpm install --frozen-lockfile --store-dir "$PWD/node_modules/.pnpm-store"
 pnpm exec node scripts/epic-loading-summary.ts "$replay/recorded.json" "$replay/summary"
 ```
 
-新しく測る場合は復元先で `pnpm exec node scripts/epic-loading-browser-bench.ts --output "$replay/new.json"` を実行する。Chromium は Playwright の配布版を用意するか `--chromium` で指定する。ポート9764〜9766を使う。採否基準は [Issue #1058](https://github.com/scrum-guild-dev/app/issues/1058) を参照。
+新しく測る場合は復元先で `pnpm exec node scripts/epic-loading-browser-bench.ts --output "$replay/new.json"` を実行する。Chromium は Playwright の配布版を用意するか `--chromium` で指定する。ポート9764〜9766を使う。採否基準は [Issue #1058](https://github.com/banmen-dev/app/issues/1058) を参照。
 
 ## ブラウザ計測（ms、p50 / p95）
 

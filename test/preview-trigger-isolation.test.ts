@@ -10,7 +10,7 @@ const buildTokenId = '023e105f-2f42-4f8b-a1c1-73f6a2a30c0f';
 const foreignBuildTokenId = '49b20bde-4cd5-4e31-b4fa-17b5bfbaf90f';
 const config = { accountId, workerTag, triggerId, buildTokenId, token: 'TEST_TOKEN' };
 const build = { issue: '42', pr: 81, branch: '42-report', sha: 'a'.repeat(40) } satisfies PreviewRequest;
-const repository = { id: 1425341812, full_name: 'scrum-guild-dev/app' };
+const repository = { id: 1425341812, full_name: 'banmen-dev/app' };
 const githubPull = {
   number: build.pr,
   state: 'open',
@@ -36,7 +36,7 @@ function harness(settingsToken: string | undefined, triggerToken: string | undef
           git_repository: {
             provider_type: 'github',
             repo_id: '1425341812',
-            provider_account_name: 'scrum-guild-dev',
+            provider_account_name: 'banmen-dev',
             repo_name: 'app',
             branch: 'preview-builds-parked',
           },

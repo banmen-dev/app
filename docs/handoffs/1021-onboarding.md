@@ -2,7 +2,7 @@
 
 ## 引き継ぎ地点
 
-- Issue: https://github.com/scrum-guild-dev/app/issues/1021
+- Issue: https://github.com/banmen-dev/app/issues/1021
 - ブランチ: `1021-linear-onboarding`
 - PRはまだ作成していない。ユーザーの依頼は「実装してPR作って」で、その後「キリのいいところでブランチをpushしてください。その後クラウドセッションに引き継ぎます」と指示された。このため、実装と検査の区切りをpushし、仕上げとPR作成を引き継ぐ。
 - マージ・デプロイは依頼されていない。マイグレーション・認証領域に触れるため、人の確認が必要。

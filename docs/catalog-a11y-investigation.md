@@ -2,7 +2,7 @@
 
 ## 失敗した trace
 
-2026-11-15 に、[main の CI run 43617710785](https://github.com/scrum-guild-dev/app/actions/runs/43617710785) の `e2e-dev (2)`、成果物 `e2e-dev-2-attempt-1`（ID `14123680680`）を調べた。対象コミットは `5f9ea485` で、結果生成の削減と上限120秒化を行った PR #1230（`f9f75e3`）より前の trace。`390px / simple_dark` の `trace.zip` の `test.trace` と `1-trace.trace` を照合した。
+2026-11-15 に、[main の CI run 43617710785](https://github.com/banmen-dev/app/actions/runs/43617710785) の `e2e-dev (2)`、成果物 `e2e-dev-2-attempt-1`（ID `14123680680`）を調べた。対象コミットは `5f9ea485` で、結果生成の削減と上限120秒化を行った PR #1230（`f9f75e3`）より前の trace。`390px / simple_dark` の `trace.zip` の `test.trace` と `1-trace.trace` を照合した。
 
 | 区間 | test.trace の開始・終了（ms） | 所要時間 |
 | --- | --- | --- |
@@ -17,7 +17,7 @@ axe 内では `runPartial` が20.29秒、結果の転送の `chunkResults` が3.
 
 ## 修正
 
-先行の [PR #1230](https://github.com/scrum-guild-dev/app/pull/1230) は axe の結果生成を違反・保留に絞り、テスト上限を120秒に変更した。#1237 ではさらに、目次の参照先とセクションの ID をそれぞれ一括取得し、1対1の対応を比較する。全セクションの表示は `:visible` の件数を自動再試行付きの assertion で確かめる。目次が空、不正な参照先、対応しないセクション、非表示のセクションを拒む回帰テストも追加する。
+先行の [PR #1230](https://github.com/banmen-dev/app/pull/1230) は axe の結果生成を違反・保留に絞り、テスト上限を120秒に変更した。#1237 ではさらに、目次の参照先とセクションの ID をそれぞれ一括取得し、1対1の対応を比較する。全セクションの表示は `:visible` の件数を自動再試行付きの assertion で確かめる。目次が空、不正な参照先、対応しないセクション、非表示のセクションを拒む回帰テストも追加する。
 
 テスト上限は60秒に戻す。WCAG の規則、全テーマ、両画面幅、カタログ全体の axe 検査と、各 assertion の待ちは維持する。見本の内容とデザインは変えない。
 

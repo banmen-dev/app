@@ -82,7 +82,7 @@ pnpm exec node scripts/epic-loading-summary.ts docs/epic-loading-samples.json.gz
 
 ワークツリーで通常のビルドや検査と重ねずに実行する。既定は巡2・記録20、ポートは9860〜9862。計測専用 Vite 変換で3ビルドを作り、通常の `build` を復元する。D1 は `--local` と一時保存先を指定し、計測後に削除する。比較に使ったコードは基準 SHA と生データの入力ハッシュで追える。正式計測後に型確認のため、応答失敗時のコールバックの戻り値と集計配列の型を修正した。正常試行の計測処理と採否の式は同一で、保存済みの生データから同じ採否を再集計できる。正式計測時のスクリプト4件は [計測時のソース](epic-loading-source.json.gz) に保存した。基準コミットを別の検証用チェックアウトに用意し、展開した JSON にあるパスと内容で4件を復元できる。入力ハッシュは生データの `inputHashes` で照合できる。
 
-計測入口、集計と結果文書は #1058 専用。既存の起動・後片付け、gzip 配信、分位点のヘルパーを再利用する。 [#1057](https://github.com/scrum-guild-dev/app/issues/1057) [#1056 の計測結果](backlog-loading-browser-results.md)
+計測入口、集計と結果文書は #1058 専用。既存の起動・後片付け、gzip 配信、分位点のヘルパーを再利用する。 [#1057](https://github.com/banmen-dev/app/issues/1057) [#1056 の計測結果](backlog-loading-browser-results.md)
 
 ## 独立計測
 

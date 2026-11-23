@@ -153,7 +153,7 @@ test('GitHubは全ページを取得し、forkのPRを生存中の根拠にし�
   const urls: string[] = [];
   const branches = await openPreviewBranches(async (url) => {
     urls.push(url);
-    const own = { head: { ref: '374-preview', repo: { id: REPOSITORY_ID, full_name: 'scrum-guild-dev/app' } } };
+    const own = { head: { ref: '374-preview', repo: { id: REPOSITORY_ID, full_name: 'banmen-dev/app' } } };
     return urls.length === 1
       ? Array.from({ length: 100 }, () => own)
       : [{ head: { ref: '275-x', repo: { id: 9, full_name: 'someone/fork' } } }];
@@ -170,7 +170,7 @@ test('開いたPRの一覧は名前でなくリポジトリIDの宛先で読む'
     urls.push(url);
     return urls.length === 1
       ? Array.from({ length: 100 }, () => ({
-          head: { ref: '374-preview', repo: { id: REPOSITORY_ID, full_name: 'scrum-guild-dev/app' } },
+          head: { ref: '374-preview', repo: { id: REPOSITORY_ID, full_name: 'banmen-dev/app' } },
         }))
       : [];
   });
@@ -191,8 +191,8 @@ test('リポジトリ名が改名後でも、IDが同じならPRのブランチ�
 
 test('名前が同じでもIDが異なるforkのPRは数えない', async () => {
   const branches = await openPreviewBranches(async () => [
-    { head: { ref: '275-task', repo: { id: REPOSITORY_ID + 1, full_name: 'scrum-guild-dev/app' } } },
-    { head: { ref: '374-preview', repo: { id: REPOSITORY_ID, full_name: 'scrum-guild-dev/app' } } },
+    { head: { ref: '275-task', repo: { id: REPOSITORY_ID + 1, full_name: 'banmen-dev/app' } } },
+    { head: { ref: '374-preview', repo: { id: REPOSITORY_ID, full_name: 'banmen-dev/app' } } },
   ]);
   assert.deepEqual(branches, ['374-preview']);
 });
@@ -200,7 +200,7 @@ test('名前が同じでもIDが異なるforkのPRは数えない', async () => 
 test('削除済みforkは掃除を止めず、同じ番号の自リポジトリのPRだけ残す', async () => {
   const branches = await openPreviewBranches(async () => [
     { head: { ref: '275-task', repo: null } },
-    { head: { ref: '374-preview', repo: { id: REPOSITORY_ID, full_name: 'scrum-guild-dev/app' } } },
+    { head: { ref: '374-preview', repo: { id: REPOSITORY_ID, full_name: 'banmen-dev/app' } } },
   ]);
   assert.deepEqual(branches, ['374-preview']);
 });
@@ -219,10 +219,10 @@ test('GitHubの欠落・不明な応答を空の一覧として扱わない', as
 
 test('head.repo.id が無い・数値でない応答は、名前が同じでも例外にする', async () => {
   for (const repo of [
-    { full_name: 'scrum-guild-dev/app' },
-    { id: '1425341812', full_name: 'scrum-guild-dev/app' },
-    { id: null, full_name: 'scrum-guild-dev/app' },
-    { id: [REPOSITORY_ID], full_name: 'scrum-guild-dev/app' },
+    { full_name: 'banmen-dev/app' },
+    { id: '1425341812', full_name: 'banmen-dev/app' },
+    { id: null, full_name: 'banmen-dev/app' },
+    { id: [REPOSITORY_ID], full_name: 'banmen-dev/app' },
   ]) {
     await assert.rejects(
       openPreviewBranches(async () => [{ head: { ref: '374-preview', repo } }]),
