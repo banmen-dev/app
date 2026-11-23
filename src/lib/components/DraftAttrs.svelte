@@ -11,19 +11,24 @@
   // 選んだ値は呼び出し側が持ち（bind:assignee、bind:due）、作れたら呼び出し側が空に戻す。ここでは保存しない。
   // 担当の候補は、開くたびにワークスペースのメンバー（member-list）を読み直す。カードの担当（SprintCard）と同じ、絞り込みの欄つきの窓。
   // 期日は日付の欄の窓で選ぶ。Enter か欄を離れたときに、日付として読めるときだけ決める（打ちかけの年では決めない）。
+  // 期日の窓の Esc は取り消し（入れかけの日付を決めない）。決めた期日と同じ値のまま離れたときも閉じない（「クリア」を押せるように）。
   // locked に理由を渡すと（送っている間）、どちらも押せない
   let {
+    column,
     slug,
     workspaceId,
-    meId,
+    me,
     clock,
     assignee = $bindable(null),
     due = $bindable(null),
     locked,
   }: {
+    // 列の名前（チップの組の読み上げの名前で、列を区別する）
+    column: string;
     slug: string;
     workspaceId: string;
-    meId: string | null;
+    // 自分（「自分に割り当てる」の値と名前。候補を読む前に選んでも名前を出せるように）
+    me: { id: string; name: string } | null;
     clock: { today: string; weekStart: number };
     assignee?: { id: string; name: string } | null;
     due?: string | null;
@@ -55,16 +60,20 @@
     }
     return options;
   });
-  const assigneeActions = $derived(meId === null ? [] : [{ value: meId, text: t('assignToMe') }]);
+  const assigneeActions = $derived(me === null ? [] : [{ value: me.id, text: t('assignToMe') }]);
 
   function chooseAssignee(value: string): void {
     if (value === '') {
       assignee = null;
       return;
     }
+    // 「自分に割り当てる」は候補を読む前でも押せるので、自分の名前は組織の自分の情報から引く
+    if (me !== null && value === me.id) {
+      assignee = { id: me.id, name: me.name };
+      return;
+    }
     const found = assigneeOptions.find((option) => option.value === value);
-    // 「自分に割り当てる」は候補を読む前でも押せる。名前は候補から引き、引けなければ「自分」を出す
-    assignee = { id: value, name: found?.text ?? t('assignToMe') };
+    if (found !== undefined) assignee = { id: value, name: found.text };
   }
 
   const dueView = $derived.by((): { text: string; tone?: 'danger' | 'warn' } | null => {
@@ -87,10 +96,22 @@
     if (input.validity.badInput || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
     return Number(value.slice(0, 4)) < 1000 ? null : value;
   }
+  // Esc で窓を閉じる間の blur では決めない（AttrChip が閉じる前にチップへフォーカスを戻すので、欄はまだ DOM にある）
+  let cancelling = false;
+  // カレンダーで選んだ日付は change で決める。打っている途中の change で窓を閉じないよう、TaskEntry と同じく少し待つ
+  const DUE_DEBOUNCE_MS = 600;
+  let dueTimer: ReturnType<typeof setTimeout> | undefined;
+  $effect(() => () => clearTimeout(dueTimer));
+  function scheduleDue(input: HTMLInputElement, close: () => void): void {
+    clearTimeout(dueTimer);
+    dueTimer = setTimeout(() => commitDue(input, close), DUE_DEBOUNCE_MS);
+  }
   function commitDue(input: HTMLInputElement, close: () => void): void {
-    if (!input.isConnected) return;
+    clearTimeout(dueTimer);
+    if (!input.isConnected || cancelling) return;
     const value = completeDate(input);
-    if (value === null) return;
+    // 決めた値と同じなら閉じない（開き直して「クリア」へ移るときの blur で窓を閉じると、「クリア」が押せない）
+    if (value === null || value === due) return;
     due = value;
     close();
   }
@@ -99,7 +120,7 @@
 <div
   class="draft-attrs"
   role="group"
-  aria-label={t('draftAttrsLabel', { task: t('task'), assignee: t('assignee'), due: t('due') })}
+  aria-label={t('draftAttrsLabel', { task: t('task'), assignee: t('assignee'), due: t('due'), column })}
 >
   <AttrChip
     attr={t('assignee')}
@@ -147,8 +168,14 @@
               event.preventDefault();
               event.stopPropagation();
               commitDue(event.currentTarget, close);
+            } else if (event.key === 'Escape') {
+              // 窓を閉じるのは AttrChip。閉じる間の blur と、待っている change で決めないよう、次の描画まで印を立てる
+              clearTimeout(dueTimer);
+              cancelling = true;
+              requestAnimationFrame(() => (cancelling = false));
             }
           }}
+          onchange={(event) => scheduleDue(event.currentTarget, close)}
           onblur={(event) => commitDue(event.currentTarget, close)}
         />
         {#if due !== null}
@@ -156,6 +183,7 @@
             class="menu-item"
             type="button"
             onclick={() => {
+              clearTimeout(dueTimer);
               due = null;
               close();
             }}>{t('dueClear')}</button

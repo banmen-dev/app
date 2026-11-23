@@ -117,6 +117,16 @@
   function clearDraftChoice(columnId: string): void {
     delete draftChoices[columnId];
   }
+  // 別のワークスペースへ移ったら選択を捨てる（ページは作り直されないので、戻ったときに前の選択が空の題の行に残り、黙って付くのを防ぐ）
+  let draftWorkspaceId = '';
+  $effect(() => {
+    const id = workspaceId;
+    untrack(() => {
+      if (id === draftWorkspaceId) return;
+      draftWorkspaceId = id;
+      draftChoices = {};
+    });
+  });
   const firstDraftRow = (): DraftRow | null | undefined =>
     firstOpenColumnId === undefined ? undefined : draftRows[firstOpenColumnId];
   useShortcut(() => ({
@@ -825,13 +835,21 @@
       }
       if (result.status === 404) {
         void reloadBoard();
-        if (sentStoryId === null && choice.assignee !== null) {
-          return t('sprintBoardAddAssigneeGone', {
-            sprint: t('sprint'),
-            column: t('column'),
-            assignee: t('assignee'),
-            task: t('task'),
-          });
+        if (choice.assignee !== null) {
+          return sentStoryId === null
+            ? t('sprintBoardAddAssigneeGone', {
+                sprint: t('sprint'),
+                column: t('column'),
+                assignee: t('assignee'),
+                task: t('task'),
+              })
+            : t('sprintBoardAddStoryAssigneeGone', {
+                story: t('story'),
+                sprint: t('sprint'),
+                column: t('column'),
+                assignee: t('assignee'),
+                task: t('task'),
+              });
         }
         return sentStoryId === null
           ? t('sprintBoardAddGone', { sprint: t('sprint'), column: t('column'), task: t('task') })
@@ -1130,9 +1148,12 @@
                     >
                       {#snippet attrs(sending)}
                         <DraftAttrs
+                          column={columnName(column)}
                           {slug}
                           {workspaceId}
-                          meId={data.organization?.me.id ?? null}
+                          me={data.organization === null
+                            ? null
+                            : { id: data.organization.me.id, name: data.organization.me.name }}
                           clock={{ today: board.today, weekStart: board.week_start }}
                           bind:assignee={
                             () => draftChoiceOf(column.id).assignee,

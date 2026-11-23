@@ -729,10 +729,10 @@
   // ボードの列の末尾の空の行の下に並べる、作る前に選ぶ担当と期日のチップ（.draft-attrs。本番の DraftAttrs。#1501）。
   // 選んだ値は見本の中の draftChoices に列ごとに持ち、題を打って Enter で作ると、そのタスクに付けて空に戻す
   const draftChoices = {};
-  function draftAttrs(key) {
+  function draftAttrs(key, column) {
     const choice = draftChoices[key] || {};
     const x = { id: `draft-col-${key}`, who: choice.who || null, due: choice.due || null };
-    return `<div class="draft-attrs" role="group" aria-label="作る${t("task")}の${t("assignee")}と${t("due")}">${attrChip(x, "who", { search: true })}${attrChip(x, "due")}</div>`;
+    return `<div class="draft-attrs" role="group" aria-label="作る${t("task")}の${t("assignee")}と${t("due")}: ${esc(column || key)}">${attrChip(x, "who", { search: true })}${attrChip(x, "due")}</div>`;
   }
   // 属性のチップ。タスクの属性（期日、リポジトリ、区分、ポイント、担当）を、行のチップを押して後から決める。値がなければ薄い破線の形（未設定）。
   // 押すと値の一覧（行の「⋯」と同じメニュー）が開き、選ぶと見本の中で保存する。押せるチップは題の後ろに下向きの山形を置く。
@@ -1155,7 +1155,7 @@
         <div class="board-col-head"><button class="board-col-toggle" type="button" aria-label="${esc(name)}の開閉" aria-expanded="${!collapsed}" data-column-collapse="${esc(collapseKey)}">${icon("chevron")}</button>${c.done ? icon("check") : ""}<span class="board-col-name">${esc(name)}</span><span class="board-col-n">${items.length}</span><span class="board-col-pts">${sumPts(items)} pt</span></div>
         ${collapsed ? "" : `${c.done && D.definitionOfDone.length ? `<details class="dod"><summary>${t("dod")}</summary>${dodDoc()}</details>` : ""}
         ${items.map((x, i) => card(x, c.done ? undefined : orderOf(i), { mark: opts.cardMarks && opts.cardMarks(x, i, c), grab: opts.grab ? opts.grab(x) : true, key: opts.key, highlightStory: opts.highlightStory })).join("") || `<p class="board-empty">なし</p>`}
-        ${opts.draft && !c.done ? `<div class="board-col-draft">${draftRow("col", c.id, `${t("task")}を足す: ${c.name}`, `${t("task")}を足す`)}${draftAttrs(c.id)}${opts.story ? `<p class="action-note">${storyFilterText("sprintStoryCreateUnder")}</p>` : ""}</div>` : ""}` }
+        ${opts.draft && !c.done ? `<div class="board-col-draft">${draftRow("col", c.id, `${t("task")}を足す: ${c.name}`, `${t("task")}を足す`)}${draftAttrs(c.id, c.name)}${opts.story ? `<p class="action-note">${storyFilterText("sprintStoryCreateUnder")}</p>` : ""}</div>` : ""}` }
       </section>`;
     }).join("")}</div></div></div>`;
   }

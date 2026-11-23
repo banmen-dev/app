@@ -1,6 +1,7 @@
 // ボードの列の末尾の追加の行で、題に加えて担当と期日を選んで作る（#1501）。
 // 一本道: 自分のワークスペースでスプリントを作って始める → 未着手の列の行の下のチップで担当（自分）と期日を選ぶ → 題を打って Enter
 // → 担当と期日の付いたカードが列の末尾に出て、行の題、担当、期日は空に戻る → 題だけでも今どおり作れる
+// → 一度決めた期日は窓の「クリア」で外せる → 作るのが断られたら、題も担当も期日も残る
 // → チップを選んでから Esc で書きかけを捨てると、選んだ値も消える → 読み直しても担当と期日が残る。
 // 最後に、チップの並んだ盤を4つの見た目で axe にかける。暦に無い期日を断るのは API のテスト（test/task.test.ts）が確かめる
 import type { Locator, Page } from '@playwright/test';
@@ -13,6 +14,8 @@ import {
   waitForResponses,
   watchViolations,
 } from './helpers.ts';
+import { failOperation } from './operations.ts';
+import { taskCreate } from '../src/shared/operations/task/index.ts';
 
 test.use({ timezoneId: 'Asia/Tokyo' });
 
@@ -45,10 +48,10 @@ test('列の末尾の行で担当と期日を選んで作ると、カードに�
   await expectBoardHeading(page, '第5回');
 
   // 完了でない列ごとに、行の下に担当と期日のチップが未設定で並ぶ。完了の列には無い
-  await expect(page.getByRole('group', { name: '作るタスクの担当と期日' })).toHaveCount(3);
+  await expect(page.getByRole('group', { name: /^作るタスクの担当と期日: / })).toHaveCount(3);
   await expect(page.getByRole('region', { name: '完了', exact: true }).locator('.draft-attrs')).toHaveCount(0);
   const todo = page.getByRole('region', { name: '未着手', exact: true });
-  const attrs = todo.getByRole('group', { name: '作るタスクの担当と期日' });
+  const attrs = todo.getByRole('group', { name: '作るタスクの担当と期日: 未着手' });
   const assigneeChip = (value: string) => attrs.getByRole('button', { name: `担当: ${value}` });
   const dueChip = (value: string) => attrs.getByRole('button', { name: `期日: ${value}` });
   await expect(assigneeChip('未設定')).toBeVisible();
@@ -93,14 +96,38 @@ test('列の末尾の行で担当と期日を選んで作ると、カードに�
   await expect(plain.getByRole('button', { name: '担当: 未設定' })).toBeVisible();
   await expect(plain.locator('.card-meta')).toHaveCount(0);
 
-  // チップを選んでから Esc で書きかけを捨てると、選んだ値も消える
+  // 一度決めた期日は、窓を開き直して「クリア」で外せる（欄を離れる blur で窓を閉じない）
+  await dueChip('未設定').click();
+  await dueWindow.getByLabel('期日', { exact: true }).fill('2099-06-11');
+  await dueWindow.getByLabel('期日', { exact: true }).press('Enter');
+  await expect(dueChip('6/11')).toBeVisible();
+  await dueChip('6/11').click();
+  await dueWindow.getByRole('button', { name: 'クリア' }).click();
+  await expect(dueWindow).toBeHidden();
+  await expect(dueChip('未設定')).toBeVisible();
+
+  // 作るのが断られたら、理由を出し、題も担当も期日も残す（送り直せる）
+  await assigneeChip('未設定').click();
+  await expect(assigneeWindow.getByRole('menuitemradio', { name: 'ミナト' })).toBeVisible();
+  await assigneeWindow.getByRole('menuitem', { name: '自分に割り当てる' }).click();
   await dueChip('未設定').click();
   await dueWindow.getByLabel('期日', { exact: true }).fill('2099-06-12');
   await dueWindow.getByLabel('期日', { exact: true }).press('Enter');
   await expect(dueChip('6/12')).toBeVisible();
-  await input.fill('捨てる書きかけ');
+  const unroute = await failOperation(page, taskCreate, { slug: 'aoba' }, 400, 'invalid_input');
+  await input.fill('断られる札');
+  await input.press('Enter');
+  await expect(page.getByRole('alert').filter({ hasText: '作れませんでした' })).toBeVisible();
+  await unroute();
+  await expect(input).toHaveValue('断られる札');
+  await expect(assigneeChip('ミナト')).toBeVisible();
+  await expect(dueChip('6/12')).toBeVisible();
+  await expect(titlesIn(page, '未着手')).toHaveText(['見積もりを送る', '請求書を出す']);
+
+  // チップを選んだまま Esc で書きかけを捨てると、選んだ値も消える
   await input.press('Escape');
   await expect(input).toHaveValue('');
+  await expect(assigneeChip('未設定')).toBeVisible();
   await expect(dueChip('未設定')).toBeVisible();
 
   // 読み直しても、作ったカードに担当と期日が残る
