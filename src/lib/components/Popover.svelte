@@ -103,7 +103,7 @@
     onclick={() => (open ? close(true) : void show())}
   >
     {#if icon}<Icon name={icon} />{/if}<span class="popover-btn-text">{text}</span>{#if note}<span
-        class="popover-btn-note">{' '}{note}</span
+        class="popover-btn-note">&#32;{note}</span
       >{/if}<Icon name="chevron" />
   </button>
   {#if open && button}
