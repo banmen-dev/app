@@ -929,7 +929,7 @@
   </div>
 
   {#if sprint === null || progress === null}
-    <PageHead title={t('board')} eyebrow={workspace.name} focusable />
+    <PageHead title={t('board')} narrowEyebrow={workspace.name} focusable />
     <EmptyState
       icon="columns"
       art="notice"

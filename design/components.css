@@ -371,22 +371,31 @@ h1, h2, h3 { text-wrap: balance; }
   padding-left: max(var(--space-8), env(safe-area-inset-left, 0px));
   padding-right: max(var(--space-8), env(safe-area-inset-right, 0px));
 }
-/* パンくず。組織 › ワークスペース › 画面。名前は1行に収めて省略し、全文は title に残す */
 /* 帯の高さ。角のマスと上の帯で同じ値を使う */
 :root { --header-height: calc(var(--space-10) + var(--space-5)); }
 /* 貼り付く上の帯（761px 以上）の下にフォーカスが隠れないようにする */
 @media (min-width: 761px) {
   html { scroll-padding-top: var(--header-height); }
 }
-#breadcrumb-slot { display: contents; }
-.breadcrumb { flex: 1 1 0; min-width: 8rem; margin-right: auto; }
+/* パンくず。組織 › ワークスペース › 画面。上の帯ではなく、本文（.content）の直前の帯（.sheet-crumbs）に置き、本文の見出しのすぐ上に出す。
+   帯の下の本文の上の余白を詰め、パンくずと見出しを1つのまとまりに見せる。名前は1行に収めて省略し、全文は title に残す。
+   帯の中の高さ（padding を除く）は 24px（指で押す画面は 44px）とパンくずの1行の高さの大きいほうにし、文字を大きくしても読み込み中の骨組み（.is-crumb）と位置を揃える。760px 以下は出さない */
+.sheet-crumbs {
+  display: flex; align-items: center; box-sizing: content-box; min-height: max(var(--space-6), calc(var(--text-sm) * var(--leading-body)));
+  padding-top: var(--space-4);
+  padding-left: max(var(--space-8), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--space-8), env(safe-area-inset-right, 0px));
+}
+.sheet-crumbs + .content { padding-top: var(--space-2); }
+@media (pointer: coarse) { .sheet-crumbs { min-height: 44px; } }
+.breadcrumb { flex: 1 1 auto; min-width: 0; }
 .breadcrumb ol { display: flex; align-items: center; gap: var(--space-1); list-style: none; margin: 0; padding: 0; font-size: var(--text-sm); }
 .breadcrumb li { display: flex; align-items: center; gap: var(--space-1); min-width: 0; flex: 0 1 auto; }
 .breadcrumb-sep { color: var(--color-faint); }
 .breadcrumb-item { min-width: 0; max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-muted); text-decoration: none; }
 a.breadcrumb-item:hover { color: var(--color-fg); text-decoration: underline; }
 .breadcrumb-item[aria-current="page"] { max-width: 100%; color: var(--color-fg); font-weight: 600; }
-/* 上の帯の検索。パンくずの右。画面の名前を絞り、今のワークスペースがあれば末尾にバックログの検索の行を足す。Ctrl+K（⌘K）で欄へ移る。
+/* 上の帯の検索。帯の右に寄せ、アカウントの左に置く。画面の名前を絞り、今のワークスペースがあれば末尾にバックログの検索の行を足す。Ctrl+K（⌘K）で欄へ移る。
    候補の小窓は帯の下へ重ね、狭い幅では欄を帯の1行に広げて小窓を画面の幅に収める */
 .nav-search {
   position: relative; display: flex; align-items: center; gap: var(--space-2); flex: 0 1 18rem; min-width: 9rem;
@@ -409,7 +418,7 @@ a.breadcrumb-item:hover { color: var(--color-fg); text-decoration: underline; }
 .nav-search-list li[aria-selected="true"] { background: var(--color-accent-soft); color: var(--color-accent); font-weight: 700; }
 .nav-search-list .is-backlog { border-top: 1px solid var(--color-line); }
 .nav-search-list .nav-search-empty { color: var(--color-muted); cursor: default; }
-/* 760px 以下で検索を畳んだときの虫眼鏡のボタン。押すとパンくずの行の下に欄を出す。広い幅では欄を常に出すので隠す */
+/* 760px 以下で検索を畳んだときの虫眼鏡のボタン。押すと見出しの行の下に欄を出す。広い幅では欄を常に出すので隠す */
 .nav-search-toggle {
   display: none; place-items: center; flex: none; width: 44px; height: 44px; padding: 0;
   border: 1px solid transparent; border-radius: var(--radius-1); background: none; color: var(--color-muted); cursor: pointer;
@@ -427,10 +436,10 @@ a.breadcrumb-item:hover { color: var(--color-fg); text-decoration: underline; }
   .nav-search-list li { min-height: 44px; display: flex; align-items: center; }
   .nav-search-key { display: none; }
 }
-/* 761px 以上では帯を1段に固定し、十字の罫がずれないようにする。幅が足りないときはパンくずが縮む */
+/* 761px 以上では帯を1段に固定し、十字の罫がずれないようにする。幅が足りないときは検索の欄（9rem まで）とアカウントの長い表示名が縮む */
 @media (min-width: 761px) {
   .topbar { flex-wrap: nowrap; }
-  .topbar > :not(.breadcrumb, #breadcrumb-slot, .account-menu, .nav-search), .topbar-tools > * { flex: none; }
+  .topbar > :not(.account-menu, .nav-search), .topbar-tools > * { flex: none; }
   /* 長い表示名は、折り返さず右を切って受ける（帯の高さと十字の罫を保つ） */
   .topbar > .account-menu { flex: 0 1 auto; min-width: 0; }
   .account-menu-button { max-width: 100%; }
@@ -481,6 +490,9 @@ a.breadcrumb-item:hover { color: var(--color-fg); text-decoration: underline; }
 /* ===== 画面の見出しと集計 ===== */
 .page-head { display: grid; gap: var(--space-3); padding-bottom: var(--space-5); border-bottom: var(--rule-double); }
 .page-eyebrow { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-muted); letter-spacing: 0.04em; min-width: 0; overflow-wrap: anywhere; }
+/* 760px 以下だけの小見出し（ワークスペースの画面のワークスペース名）。761px 以上は見出しの上のパンくずが同じ名前を出すので隠す。
+   読み込み中の骨組みの小見出しの帯も同じ幅で隠す。760px と 761px の間の小数の幅でもパンくず（AppShell の max-width: 760px）と重ねないよう、not で分ける */
+@media not (max-width: 760px) { .page-eyebrow.is-narrow-only, .skeleton-line.is-eyebrow.is-narrow-only { display: none; } }
 .page-title { font-family: var(--font-display); font-weight: var(--weight-display); font-size: var(--text-2xl); line-height: var(--leading-tight); letter-spacing: 0.04em; min-width: 0; overflow-wrap: anywhere; }
 .tally { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); margin: 0; }
 .tally > div { display: flex; align-items: baseline; gap: var(--space-2); }
@@ -1018,13 +1030,14 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
     padding-right: max(var(--space-4), env(safe-area-inset-right, 0px));
   }
   .topbar { justify-content: flex-start; position: relative; z-index: auto; }
-  .breadcrumb { min-width: 6rem; }
-  /* アカウントのボタンはアバターと▾だけにし、パンくずに幅を残す。表示名は読み上げの名前と一覧の「マイプロフィール」で分かる */
+  .sheet-crumbs { display: none; }
+  .sheet-crumbs + .content { padding-top: var(--space-4); }
+  /* アカウントのボタンはアバターと▾だけにし、帯の1行目に幅を残す。表示名は読み上げの名前と一覧の「マイプロフィール」で分かる */
   .account-menu-button .me-detail { display: none; }
-  /* 所属していない管理者の印（帯の直接の子の .chip）は、パンくずの行に並べると幅が足りずアカウントのボタンを2行目へ押し出すので、
+  /* 所属していない管理者の印（帯の直接の子の .chip）は、帯の1行目に並べると幅が足りずアカウントのボタンを2行目へ押し出すので、
      帯の最後の行へ回す */
   .topbar > .chip { order: 4; }
-  /* 見本だけの道具（テーマ、見本の切り替えなど）は、パンくずの行に並べず、帯の最後の行にまとめる */
+  /* 見本だけの道具（テーマ、見本の切り替えなど）は、帯の1行目に並べず、帯の最後の行にまとめる */
   .topbar-tools { display: flex; flex-wrap: wrap; gap: var(--space-2); order: 4; flex-basis: 100%; }
   /* アカウントのメニューの一覧は、ボタンではなく帯を基準に、左右の余白の内側へ広げる（ボタンが左に寄っても画面の外へ出ない） */
   .account-menu { position: static; }
@@ -2069,7 +2082,7 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
 .skeleton-frame .skeleton-nav .skeleton-line.is-org { margin-inline: calc(-1 * var(--space-2)); }
 .skeleton-frame .skeleton-line.is-group-label { width: 5rem; height: .75em; margin-top: var(--space-2); }
 .skeleton-frame .topbar > .skeleton-line { flex: none; }
-.skeleton-frame .topbar > .skeleton-line.is-crumb { flex: 0 1 12rem; min-width: 4rem; margin-right: auto; }
+.skeleton-frame .sheet-crumbs > .skeleton-line.is-crumb { flex: 0 1 12rem; min-width: 4rem; }
 .skeleton-frame .topbar > .skeleton-line.is-search { flex: 0 1 18rem; min-width: 9rem; height: 36px; }
 .skeleton-frame .topbar > .skeleton-line.is-account { width: 7rem; height: 28px; }
 .skeleton-frame .skeleton-line.is-eyebrow { width: 8rem; }
@@ -2102,11 +2115,10 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
   .app.skeleton-frame[data-nav-collapsed="true"] .binding-head > .skeleton-line.is-org-name { display: none; }
 }
 @media (max-width: 760px) {
-  /* 狭い幅では左のメニューを隠し、パンくず・検索・アカウントの帯から始める。 */
+  /* 狭い幅では左のメニューを隠し、検索・アカウントの帯から始める。 */
   /* アカウントのボタンは指で押す高さ（44px）になるので、帯の外の余白で同じ高さを取る */
   .skeleton-frame .topbar > .skeleton-line.is-account { width: 3.5rem; margin-block: var(--space-2); }
   .skeleton-frame .topbar > .skeleton-line.is-search { flex: none; min-width: 0; width: 44px; height: 44px; }
-  .skeleton-frame .topbar > .skeleton-line.is-crumb { flex: 1 1 12rem; }
 }
 
 /* ===== ログインの画面（枠の外） ===== */

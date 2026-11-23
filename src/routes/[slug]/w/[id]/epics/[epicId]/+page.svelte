@@ -168,7 +168,7 @@
 {/snippet}
 
 {#if workspace && data.notFound}
-  <PageHead title={t('epicPageNotFoundTitle', { epic: t('epic') })} eyebrow={workspace.name} focusable />
+  <PageHead title={t('epicPageNotFoundTitle', { epic: t('epic') })} narrowEyebrow={workspace.name} focusable />
   <EmptyState
     icon="search"
     title={t('epicPageNotFoundTitle', { epic: t('epic') })}

@@ -161,7 +161,7 @@ document.addEventListener("click", (event) => {
 
 SQ.mount("settings", () => `
   ${workspace.closed ? `<div class="callout is-info">${icon("archive")}<span>${esc(workspace.closed)} に終了しました。読み取り専用です。${isAdmin ? ' <a href="#workspace-state">設定で再開する</a>' : ""}</span></div>` : ""}
-  ${pageHead(workspace.name, "設定", [], workspace.closed ? "" : `<button class="btn is-primary" type="button" data-toast="保存しました">保存する</button>`)}
+  ${pageHead({ narrow: workspace.name }, "設定", [], workspace.closed ? "" : `<button class="btn is-primary" type="button" data-toast="保存しました">保存する</button>`)}
   <div class="settings">
     ${workspaceStateSetting()}
     ${workspace.closed ? readOnlySettings() : `

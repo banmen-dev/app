@@ -202,7 +202,7 @@
 </svelte:head>
 
 {#if workspace && data.forbidden}
-  <PageHead title={t('pageSettings')} eyebrow={workspace.name} />
+  <PageHead title={t('pageSettings')} narrowEyebrow={workspace.name} />
   <EmptyState
     icon="lock"
     title={t('settingsForbiddenTitle')}
@@ -215,7 +215,7 @@
     {/snippet}
   </EmptyState>
 {:else if workspace}
-  <PageHead title={t('pageSettings')} eyebrow={workspace.name} />
+  <PageHead title={t('pageSettings')} narrowEyebrow={workspace.name} />
   <p class="visually-hidden" role="status">{refreshedMessage}</p>
   <p class="visually-hidden" role="status">{refreshingState ? t('retrying') : ''}</p>
   {#if stateReadFailed}

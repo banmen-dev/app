@@ -309,6 +309,7 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
     const loadingBinding = await shownBox(page.locator('.binding'));
     const loadingTopbar = await shownBox(page.locator('.topbar'));
     const loadingHead = await shownBox(page.locator('.page-head'));
+    const loadingCrumbs = await shownBox(page.locator('.sheet-crumbs'));
     const loadingMain = await shownBox(page.locator('.layout-main'));
     await expect(page.getByRole('heading', { level: 1, name: '今日やること' })).toBeVisible();
     await expect(page.locator('.skeleton-frame')).toHaveCount(0);
@@ -316,12 +317,16 @@ test.describe('組織が1つの人（あおば開発のハルカ）', () => {
     const loadedBinding = await shownBox(page.locator('.binding'));
     const loadedTopbar = await shownBox(page.locator('.topbar'));
     const loadedHead = await shownBox(page.locator('.page-head'));
+    const loadedCrumbs = await shownBox(page.locator('.sheet-crumbs'));
     const loadedMain = await shownBox(page.locator('.layout-main'));
     expect(loadingBinding.width).toBe(loadedBinding.width);
     expect(loadingTopbar.x).toBe(loadedTopbar.x);
     expect(loadingTopbar.height).toBe(loadedTopbar.height);
     expect(loadingHead.x).toBe(loadedHead.x);
     expect(loadingHead.y).toBe(loadedHead.y);
+    // パンくずの帯も読み込んだ後と同じ位置と高さ（#1509）
+    expect(loadingCrumbs.y).toBe(loadedCrumbs.y);
+    expect(loadingCrumbs.height).toBe(loadedCrumbs.height);
     expect(loadingMain.x).toBe(loadedMain.x);
     expect(loadingMain.width).toBe(loadedMain.width);
   });

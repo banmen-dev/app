@@ -27,7 +27,7 @@ SQ.mount("records", () => {
   recs.forEach((r) => { const k = r.cat || `${t("category")}なし`; byCat[k] = byCat[k] || [0, 0]; byCat[k][0]++; byCat[k][1] += r.pts; });
   const total = recs.reduce((a, r) => a + r.pts, 0);
   return `
-    ${pageHead(D.workspaces.wa.name, "完了の記録", [
+    ${pageHead({ narrow: D.workspaces.wa.name }, "完了の記録", [
       ["", "check", "10月の完了", `${recs.length} 件`],
       ["", "", t("points"), `${total} pt`],
     ], `<button class="btn" type="button" data-toast="CSV を書き出しました（見本なので保存はしません）">CSV で書き出す</button>`)}

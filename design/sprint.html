@@ -50,7 +50,7 @@ SQ.mount("sprint", () => {
     // 進行中のスプリントがない。作って始めるのはリーダー
     const isLeader = SQ.user(D.me).role === "leader";
     return `
-      ${pageHead(D.workspaces.wa.name, t("board"))}
+      ${pageHead({ narrow: D.workspaces.wa.name }, t("board"))}
       ${SQ.emptyState("columns", `進行中の${t("sprint")}はありません`,
         isLeader
           ? `${t("plan")}の画面で${t("sprint")}を作り、${t("backlog")}から${t("task")}を入れてから始めます。始めると、ここに${t("column")}とカードが並びます。`
