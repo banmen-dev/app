@@ -13,6 +13,7 @@ type Update = {
   cooldown?: { 'default-days'?: number };
   'commit-message'?: { prefix?: string; include?: string };
   ignore?: { 'dependency-name': string }[];
+  schedule?: Record<string, string>;
 };
 
 const config = load(readFileSync(new URL('../.github/dependabot.yml', import.meta.url), 'utf8')) as {
@@ -25,12 +26,17 @@ function update(ecosystem: string): Update {
   return found[0]!;
 }
 
-test('npm と github-actions の2つを、それぞれ1つのグループにまとめ、公開から7日置いて出す', () => {
+test('npm と github-actions の2つを、月曜の 9 時（日本時間）に、メジャーも含めてそれぞれ1つのグループにまとめ、公開から7日置いて出す', () => {
   assert.deepEqual(config.updates.map((u) => u['package-ecosystem']).sort(), ['github-actions', 'npm']);
   for (const u of config.updates) {
     const groups = Object.values(u.groups ?? {});
     assert.equal(groups.length, 1, u['package-ecosystem']);
-    assert.deepEqual(groups[0]!.patterns, ['*'], u['package-ecosystem']);
+    assert.deepEqual(groups[0], { patterns: ['*'] }, u['package-ecosystem']);
+    assert.deepEqual(
+      u.schedule,
+      { interval: 'weekly', day: 'monday', time: '09:00', timezone: 'Asia/Tokyo' },
+      u['package-ecosystem'],
+    );
     assert.equal(u.cooldown?.['default-days'], 7, u['package-ecosystem']);
   }
 });
