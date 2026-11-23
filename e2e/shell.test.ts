@@ -1236,8 +1236,8 @@ test('761px で長い組織の名前でも、上の帯は1段に収まり、検�
     expect(layout.width).toBeLessThanOrEqual(761);
     // 検索の欄は左のメニューの右から始まる（左のメニューの下に隠れない）
     expect(layout.search.left).toBeGreaterThanOrEqual(layout.binding);
-    // 組織の名前の幅は、画面の幅から左のメニューを引いた幅の 1/4 まで
-    expect(layout.org.width).toBeLessThanOrEqual((layout.viewport - layout.binding) / 4 + 1);
+    // 組織の名前の幅は、画面の幅から左のメニュー（広げた列は 240px、畳んだ列は 64px）を引いた幅の 1/4 で止まる
+    expect(layout.org.width).toBeCloseTo((layout.viewport - (collapse ? 64 : 240)) / 4, 0);
     // 帯は1段で、角のマスと罫の高さが揃う
     expect(layout.bar.bottom).toBe(layout.head);
     await expect(page.locator('.topbar .account-menu-button')).toBeInViewport();
@@ -1245,7 +1245,21 @@ test('761px で長い組織の名前でも、上の帯は1段に収まり、検�
 });
 
 // 所属していない管理者の印も帯に並ぶとき、帯が詰まっても印を省略し、アカウントのボタンと検索の欄を潰さない（#1510）
-test('761px と 800px で所属していない管理者の印があっても、アカウントのボタンと検索の欄が残る', async ({ page }) => {
+test('761px と 800px で長い組織の名前と所属していない管理者の印があっても、アカウントのボタンと検索の欄が残る', async ({
+  page,
+}) => {
+  await mockOperation(page, myOrganizations, {
+    organizations: [
+      {
+        slug: 'aoba',
+        name: 'とても長い名前のあおば開発の組織で上の帯の切り替えのボタンに収まらない名前',
+        kind: 'team',
+      },
+    ],
+    invitations: [],
+    suspended: [],
+    operator: false,
+  });
   await page.setViewportSize({ width: 761, height: 900 });
   await page.goto(today);
   await expect(page.locator('.topbar .org-menu-button')).toBeVisible();
@@ -1271,14 +1285,22 @@ test('761px と 800px で所属していない管理者の印があっても、�
     expect(layout.width).toBeLessThanOrEqual(width);
     expect(layout.search).toBeGreaterThanOrEqual(layout.binding);
     expect(layout.account).toBeGreaterThanOrEqual(44);
-    expect(layout.chip).toBeGreaterThan(0);
+    // 印は 4rem（64px）より縮めない
+    expect(layout.chip).toBeGreaterThanOrEqual(64);
   }
   // 761px では印の文字が収まらず、右を切るのではなく省略記号で省略する
   await page.setViewportSize({ width: 761, height: 900 });
   const chip = page.locator('.topbar > .chip');
   await expect(chip).toHaveCSS('text-overflow', 'ellipsis');
   await expect(chip).toHaveCSS('display', 'block');
+  await expect(chip).toHaveCSS('white-space', 'nowrap');
   expect(await chip.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+  // 1行のまま（帯の高さを変えない）
+  const bottoms = await page.evaluate(() => ({
+    head: document.querySelector('.binding-head')!.getBoundingClientRect().bottom,
+    bar: document.querySelector('.topbar')!.getBoundingClientRect().bottom,
+  }));
+  expect(bottoms.bar).toBe(bottoms.head);
 });
 
 test('組織の画面のパンくずは組織と画面で、ワークスペースを出さない', async ({ page }) => {
