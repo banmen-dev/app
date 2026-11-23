@@ -1154,10 +1154,10 @@ a.brand { color: inherit; text-decoration: none; }
 .card-meta { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); align-items: center; }
 .card-meta:empty { display: none; }
 .card-foot { display: flex; align-items: center; gap: var(--space-2); }
-/* 右の塊（ポイント、担当、「⋯」、完了の印）は中で折り返さない。親のストーリーと並ばなければ塊ごと次の段へ折り返し、
-   それでも狭ければチップ（.attr-chip）が名前を省略して縮む（中で折り返すと「⋯」だけの段ができ、チップの押せる範囲と重なる） */
-.card-end { margin-left: auto; display: flex; flex-wrap: nowrap; justify-content: flex-end; align-items: center; gap: var(--space-2); min-width: 0; max-width: 100%; }
-/* ポイントの数は省略すると読めないので縮めない。縮めるのは担当の名前だけ（アバターは残る） */
+/* 右の塊（ポイント、担当、「⋯」、完了の印）。親のストーリーと並ばなければ塊ごと次の段へ折り返し、それでも入らなければ中で折り返す。
+   狭い幅と指の画面では、段の間を下の段（.card-foot）と同じだけ空け、チップと「⋯」の押せる範囲（44px）を重ねない */
+.card-end { margin-left: auto; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--space-2); min-width: 0; max-width: 100%; }
+/* ポイントの数は省略すると読めないので縮めない */
 .card-end > .attr-chip.is-points { flex: none; }
 /* カードは列の幅に収める（中の札が長くても列を押し広げない） */
 .board-col > .card { min-width: 0; grid-template-columns: minmax(0, 1fr); }
@@ -2230,7 +2230,7 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
   /* 見た目の縦の余白は持たない。::after の 44px が隣の段に重ならないよう、折り返す段の間（row-gap）だけで空ける。
      チップの段は「⋯」（44px）と同じ段なので、1段のときは 44px の高さに収まり、折り返した 2 段目は、チップの高さ（約 22px。書体で変わる）に 24px を足して 44px 以上の間隔になる */
   .entry-end, .card-foot { row-gap: 18px; }
-  .entry-end:has(.chip-btn), .card-foot:has(.chip-btn) { row-gap: var(--space-6); }
+  .entry-end:has(.chip-btn), .card-foot:has(.chip-btn), .card-end:has(.chip-btn) { row-gap: var(--space-6); }
   /* 印の行が無い行は、題の広げた範囲（下へ約 11px）とチップの広げた範囲（上へ約 11px）が重ならない間（22px 以上）を、題とチップの段の間に取る */
   .entry:not(:has(.entry-meta)):has(.chip-btn) { row-gap: 22px; }
   .card-foot:has(.chip-btn) { margin-top: var(--space-1); }
