@@ -1154,7 +1154,11 @@ a.brand { color: inherit; text-decoration: none; }
 .card-meta { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); align-items: center; }
 .card-meta:empty { display: none; }
 .card-foot { display: flex; align-items: center; gap: var(--space-2); }
-.card-end { margin-left: auto; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--space-2); min-width: 0; }
+/* 右の塊（ポイント、担当、「⋯」、完了の印）は中で折り返さない。親のストーリーと並ばなければ塊ごと次の段へ折り返し、
+   それでも狭ければチップ（.attr-chip）が名前を省略して縮む（中で折り返すと「⋯」だけの段ができ、チップの押せる範囲と重なる） */
+.card-end { margin-left: auto; display: flex; flex-wrap: nowrap; justify-content: flex-end; align-items: center; gap: var(--space-2); min-width: 0; max-width: 100%; }
+/* ポイントの数は省略すると読めないので縮めない。縮めるのは担当の名前だけ（アバターは残る） */
+.card-end > .attr-chip.is-points { flex: none; }
 /* カードは列の幅に収める（中の札が長くても列を押し広げない） */
 .board-col > .card { min-width: 0; grid-template-columns: minmax(0, 1fr); }
 /* 詳細の完了の印の横の「戻す」は折り返さず、縮めない */
