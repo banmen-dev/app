@@ -9,7 +9,7 @@
 Codex は依頼を調査から実装、検証まで受け持つ。Claude と Codex はそれぞれ単独で使い、スキルから相互の CLI やエージェントを起動しない。
 `implementer` は Codex 内で実装を分担するときだけ使い、その定義があるだけでは進行役の担当を変えない。
 
-- Issue の実装は `.agents/skills/increment-build/SKILL.md`、自分の差分の点検と修正は `.agents/skills/done-check/SKILL.md` を使う。レビューだけの依頼ではコードを直さない
+- Issue の実装は `.agents/skills/make/SKILL.md`、自分の差分の点検と修正は `.agents/skills/done-check/SKILL.md` を使う。レビューだけの依頼ではコードを直さない
 - コミットは依頼されたときに行う。push、PR の作成・更新・マージ、Issue への書き込みとコメント送信は、対象と操作について人の明示的な指示があるときに行う。既に指示があれば聞き直さない
 - `CLAUDE.md` と `.claude/skills/` の「確認せずコミットし、PR を作る」は Claude が進行する手順。Codex への直接依頼では、上の承認の範囲を優先する。承認が無くても、ローカルの実装・検証と PR 本文案の準備までは終える
 - AI レビューの指摘への返信・解決と、修正コミットをまとめた push は `docs/development.md` の「AI レビューへの対応と push」に従う。実際の投稿・解決・push は、対象と操作について既に得た承認の範囲で行う。未承認ならローカルの修正・検査と返信案まで準備し、未完了の外部操作を報告する
@@ -27,7 +27,7 @@ Codex の進行役が **`implementer` として実装を委譲したときだけ
 ## スキルと点検の原本
 
 Codex 用の入口は `.agents/skills/`。`add-operation`、`d1-migration`、外から入れた動きのスキル（`find-animation-opportunities`、`review-animations`、`improve-animations`。`docs/development.md` の「外から入れたスキル」）は `.claude/skills/` の原本への相対リンクで共有する。
-`increment-build`、`done-check`、`pr` とバックログ・スクラム関連のスキルは Codex 向けの入口を持つ。追加した入口と Claude 固有操作の読み替えは `.agents/skills/README.md` を参照する。共通の着手・受け入れ・検査・点検基準は `docs/agent-workflows/`、レビューの役割とチェックリストは `.claude/` の共有定義を参照する。
+`make`、`done-check`、`pr` とバックログ・スクラム関連のスキルは Codex 向けの入口を持つ。追加した入口と Claude 固有操作の読み替えは `.agents/skills/README.md` を参照する。共通の着手・受け入れ・検査・点検基準は `docs/agent-workflows/`、レビューの役割とチェックリストは `.claude/` の共有定義を参照する。
 同名の Claude 用スキルを Codex の工程として直接実行しない。
 
 `.claude/agents/` のレビュー定義は、点検の観点として読める。Claude の `model`、`tools`、`effort` は Codex のエージェント設定としては扱わない。
