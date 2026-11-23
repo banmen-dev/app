@@ -240,12 +240,39 @@ for (const theme of A11Y_THEMES) {
   }
 }
 
+// 小窓の中のチェック（label ごと押せる）が、中心と上下左右 21px の点で自分に当たるか。小窓に隠れた盤は測らない
+// （e2e/sprint-header-actions.test.ts の popoverTargetMisses と同じ考え）
+async function filterOptionMisses(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const misses: string[] = [];
+    for (const option of document.querySelectorAll<HTMLElement>('.popover-panel .filter-option')) {
+      option.scrollIntoView({ block: 'center' });
+      const box = option.getBoundingClientRect();
+      const x = box.left + box.width / 2;
+      const y = box.top + box.height / 2;
+      for (const [dx, dy] of [
+        [0, 0],
+        [-21, 0],
+        [21, 0],
+        [0, -21],
+        [0, 21],
+      ] as const) {
+        const hit = document.elementFromPoint(x + dx, y + dy);
+        if (hit === null || !(hit === option || option.contains(hit))) {
+          misses.push(`${option.textContent ?? ''} (${dx}, ${dy})`);
+        }
+      }
+    }
+    return misses;
+  });
+}
+
 test('390px で絞り込みの帯とフィルターの小窓が横にはみ出さず、押せる要素が 44px 四方で押せる', async ({ page }) => {
   await page.setViewportSize(NARROW_VIEWPORT);
   await page.goto(`${PATH}?assignee=${MINATO.id}&q=%E4%BB%98%E4%B8%8E`);
   await expect(cards(page)).toHaveCount(2);
-  await openFilters(page);
   await page.waitForLoadState('networkidle');
+  // 小窓を閉じた画面（絞っている帯と盤）を、はみ出しと 44px の決まりで測る
   const check = createLayoutCheck('sprint');
   await check.inThemes(page);
   check.finish();
@@ -254,4 +281,14 @@ test('390px で絞り込みの帯とフィルターの小窓が横にはみ出�
     expect(box.width).toBeGreaterThanOrEqual(44);
     expect(box.height).toBeGreaterThanOrEqual(44);
   }
+  // 小窓を開いたら、小窓が画面の内に収まり、中のチェックが 44px で押せる
+  const dialog = await openFilters(page);
+  const panel = (await dialog.boundingBox())!;
+  expect(panel.x).toBeGreaterThanOrEqual(0);
+  expect(panel.x + panel.width).toBeLessThanOrEqual(NARROW_VIEWPORT.width);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(NARROW_VIEWPORT.width);
+  for (const option of await dialog.locator('.filter-option').all()) {
+    expect((await option.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
+  expect(await filterOptionMisses(page)).toEqual([]);
 });
