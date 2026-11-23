@@ -1,6 +1,6 @@
 ---
 name: increment-build
-description: 1つの Issue を実装し、点検から PR とレビュー対応まで進める。着手先の選定は sprint-pick、Issue の分割は backlog-add。
+description: 1つの Issue を実装し、点検から PR とレビュー対応まで進める。着手先の選定は sprint-pick、Issue の分割は issue-create。
 ---
 
 # increment-build
@@ -23,7 +23,7 @@ Issue の番号。並べて進めているほかの Issue があれば、その�
 
 ### 2. 詰める
 
-同じ文書の「詰める」に従い、信頼できる本文とコメントから目的と範囲を決める。難所だけ backlog-refine で聞く。
+同じ文書の「詰める」に従い、信頼できる本文とコメントから目的と範囲を決める。難所だけ [詰める手順](../issue-create/refine.md) で聞く。
 
 ### 3. 記録する
 
