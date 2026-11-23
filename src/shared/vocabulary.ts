@@ -1873,16 +1873,20 @@ export const dictionary = defineDictionary({
   orgPlanPersonalNote: '自分用の{organization}は、人数が本人1人のパーソナルに決まっています。',
   orgPlanContactPersonal: '容量を足すときは、運用者に問い合わせてください。',
 
-  // ワークスペースを終了する、再開する（組織の管理の画面。API の操作の名前は workspace-close と workspace-reopen のまま）。
+  // ワークスペースを終了する、再開する（組織の管理とワークスペースの設定。API の操作の名前は workspace-close と workspace-reopen のまま）。
   // {workspace} は、辞書の言葉を画面が渡す。{name} はワークスペースの名前
   workspaceActionsHeader: '操作',
+  workspaceStateTitle: '{workspace}の利用状態',
+  workspaceStateDesc: '終了中も閲覧できます。更新と外部サービスとの同期は止まります。',
+  workspaceStateRefreshFailed: '利用状態を読み直せませんでした。最新の状態を確かめてから操作してください。',
+  workspaceCloseDraft: '書きかけの設定を保存するか、入力内容を元に戻してから終了してください。',
   workspaceCloseAction: '終了する',
   workspaceReopenAction: '再開する',
   workspaceCloseLabel: '「{name}」を終了する',
   workspaceReopenLabel: '「{name}」を再開する',
   workspaceCloseTitle: '「{name}」を終了しますか？',
   workspaceCloseText:
-    '終了すると読み取り専用になり、中の書き込みはすべてできなくなります。再開はこの画面から行えます。',
+    '終了すると読み取り専用になり、中の書き込みと外部サービスとの同期が止まります。再開はこの画面から行えます。',
   workspaceClosing: '終了しています',
   workspaceReopening: '再開しています',
   workspaceClosed: '{workspace}を終了しました',
@@ -1900,10 +1904,10 @@ export const dictionary = defineDictionary({
   workspaceReopenMemberLimitUnknown:
     '「{name}」は再開できません。閉じている間は数えていなかった承諾待ちの招待を含めると、{organization}の人数が上限を超えます。上限の見直しは運用者に問い合わせてください。または、{adminPage}の「{users}」で、ほかのユーザーを無効にして人数を減らしてください。無効にした人はすべての{workspace}から外れ、有効に戻しても所属は戻りません。',
   // 別の画面で先に操作されていた（409）。終了した状態か再開した状態かは言い切らず、読み直した一覧を見てもらう
-  workspaceStateChanged: '「{name}」の状態が変わっていました。一覧で状態を確かめてください',
+  workspaceStateChanged: '「{name}」の状態が変わっていました。画面で状態を確かめてください',
   // 見つからない、または操作できない（404、403）
   workspaceUnavailable:
-    '「{name}」を操作できませんでした。見つからないか、操作できない状態です。一覧で状態を確かめてください',
+    '「{name}」を操作できませんでした。見つからないか、操作できない状態です。画面で状態を確かめてください',
   workspaceListRefreshFailed: '{workspace}の一覧を更新できませんでした',
   workspaceListLoadFailed: '{workspace}の一覧を読み込めませんでした',
 
@@ -2081,7 +2085,7 @@ export const dictionary = defineDictionary({
   orgHistoryLoadFailed: '変更の履歴を読み込めませんでした',
   orgHistoryRefreshFailed: '変更の履歴を更新できませんでした',
 
-  // 終了したワークスペースの帯（ワークスペースの中の全画面）。{date} は終了した日、{page} は組織の管理の画面の名前
+  // 終了したワークスペースの帯（ワークスペースの中の全画面）。{date} は終了した日、{page} は設定の画面の名前
   workspaceClosedBanner: '{date} に終了しました。読み取り専用です。',
   workspaceClosedBannerLink: '{page}で再開する',
 

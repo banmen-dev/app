@@ -19,10 +19,31 @@
 <script src="task-templates.js"></script>
 <script>
 "use strict";
-// ワークスペースの設定（リーダー）
+// ワークスペースの設定（リーダーと管理者）
 const { D, t, icon, esc, pageHead } = SQ;
 const TZ = ["Asia/Tokyo", "Asia/Seoul", "Asia/Singapore", "Europe/London", "America/Los_Angeles", "UTC"];
 const WEEK = ["日", "月", "火", "水", "木", "金", "土"];
+const workspace = D.workspaces[D.workspace];
+const isAdmin = D.organizations.some((org) => org.slug === D.organization && org.admin);
+if (new URLSearchParams(location.search).get("closed") === "1") workspace.closed = "2026-10-22";
+
+function workspaceStateSetting() {
+  if (!isAdmin) return "";
+  const name = esc(workspace.name);
+  const closed = Boolean(workspace.closed);
+  return setting(`${t("workspace")}の利用状態`, "終了中も閲覧できます。更新と外部サービスとの同期は止まります。", `
+    <div class="form-actions"><button class="btn" id="workspace-state" type="button"
+      aria-label="「${name}」を${closed ? "再開する" : "終了する"}"
+      ${closed ? "data-reopen-workspace" : `data-dialog="closeWorkspace" data-workspace-name="${name}"`}>${closed ? "再開する" : "終了する"}</button></div>`);
+}
+
+document.addEventListener("click", (event) => {
+  if (!event.target.closest("[data-confirm-workspace-close], [data-reopen-workspace]")) return;
+  workspace.closed = workspace.closed ? null : "2026-10-22";
+  SQ.redraw();
+  document.getElementById("workspace-state").focus();
+  SQ.toast(`${icon("check")}${t("workspace")}を${workspace.closed ? "終了" : "再開"}しました`);
+});
 
 function orderList(items, opts = {}) {
   const n = items.length;
@@ -41,9 +62,26 @@ function setting(title, desc, body) {
   return `<section class="setting"><div class="setting-head"><h2 class="setting-title">${title}</h2><p class="setting-desc">${desc}</p></div><div class="setting-body">${body}</div></section>`;
 }
 
+function readOnlySettings() {
+  const list = (values) => `<ol class="order-list">${values.map((value) => `<li><span>${esc(value)}</span></li>`).join("")}</ol>`;
+  return `
+    ${setting(t("column"), `${t("sprint")}の${t("column")}`, list(D.columns.map((column) => column.name)))}
+    ${setting(`${t("detail")}の決まった欄`, `${t("task")}ごとに書く欄。`, list(D.detailFields))}
+    ${setting(t("sprintNamingTitle").replace("{sprint}", t("sprint")), t("sprintNamingDesc").replace("{sprint}", t("sprint")), `
+      <div class="field"><span class="field-label">${t("sprintNamingTemplate")}</span><div class="doc-box is-plain">${t("sprint")}{n}</div></div>
+      <div class="field"><span class="field-label">${t("sprintNamingNumber")}</span><div class="doc-box is-plain">12</div></div>`)}
+    ${setting(t("dod"), `すべての${t("task")}に共通する完了の基準。`, list(D.definitionOfDone))}
+    ${setting(t("category"), `${t("epic")}に振ると配下が引き継ぎます。`, list(Object.values(D.categories).map((category) => category.name)))}
+    ${setting("リポジトリ", `${t("task")}がどのリポジトリの作業かを示します。`, list(Object.values(D.repositories).map((repository) => repository.name)))}
+  `;
+}
+
 SQ.mount("settings", () => `
-  ${pageHead(D.workspaces.wa.name, "設定", [], `<button class="btn is-primary" type="button" data-toast="保存しました">保存する</button>`)}
+  ${workspace.closed ? `<div class="callout is-info">${icon("archive")}<span>${esc(workspace.closed)} に終了しました。読み取り専用です。${isAdmin ? ' <a href="#workspace-state">設定で再開する</a>' : ""}</span></div>` : ""}
+  ${pageHead(workspace.name, "設定", [], workspace.closed ? "" : `<button class="btn is-primary" type="button" data-toast="保存しました">保存する</button>`)}
   <div class="settings">
+    ${workspaceStateSetting()}
+    ${workspace.closed ? readOnlySettings() : `
     ${setting("一般", `今日、今週、完了した月は、ここのタイムゾーンで決めます。`, `
       <div class="form-row">
         <label class="field" for="wsname"><span class="field-label">名前</span><input class="input" id="wsname" value="${esc(D.workspaces.wa.name)}"></label>
@@ -92,6 +130,7 @@ SQ.mount("settings", () => `
     ${setting(`${t("workspace")}の休日`, `この${t("workspace")}だけの休日。組織の休日（祝日など）は管理者が登録します。`, `
       <ul class="party-list">${D.workspaceHolidays.map(([d, n]) => `<li><span class="mono">${d}</span><span class="party-list-text">${esc(n)}</span><button class="icon-btn is-danger party-list-end" type="button" aria-label="${d} を消す">${icon("trash")}</button></li>`).join("")}</ul>
       <div class="form-row"><label class="field" for="hd"><span class="field-label">日付</span><input class="input" id="hd" type="date"></label><label class="field" for="hn"><span class="field-label">名前</span><input class="input" id="hn"></label><button class="btn" type="button">足す</button></div>`)}
+    `}
   </div>`);
 </script>
 </body>

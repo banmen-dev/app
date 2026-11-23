@@ -340,15 +340,15 @@
 </script>
 
 {#if workspace}
-  <!-- 終了していれば、ワークスペースの中のどの画面にも帯を出す。再開するボタンは置かず、管理者には組織の管理の画面へのリンクを添える -->
+  <!-- 終了していれば、ワークスペースの中のどの画面にも帯を出す。再開するボタンは置かず、管理者には設定の再開操作へのリンクを添える -->
   {#if workspace.closedAt !== null}
     <div class="callout is-info">
       <Icon name="archive" />
       <span>
         {t('workspaceClosedBanner', { date: formatLocalDate(workspace.closedAt) })}
         {#if isAdmin}
-          <a href={resolve('/[slug]/admin', { slug: data.slug })}
-            >{t('workspaceClosedBannerLink', { page: t('pageOrgAdmin') })}</a
+          <a href={resolve('/[slug]/w/[id]/settings#workspace-state', { slug: data.slug, id: workspace.id })}
+            >{t('workspaceClosedBannerLink', { page: t('pageSettings') })}</a
           >
         {/if}
       </span>

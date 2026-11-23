@@ -13,6 +13,7 @@
   import LoadFailed from '../../../../../lib/components/LoadFailed.svelte';
   import Setting from '../../../../../lib/components/Setting.svelte';
   import PageHead from '../../../../../lib/components/PageHead.svelte';
+  import WorkspaceStateSetting from '../../../../../lib/components/WorkspaceStateSetting.svelte';
   import { t } from '../../../../../lib/vocabulary.svelte.ts';
   import type { PageProps } from './$types';
 
@@ -21,7 +22,7 @@
   // ほかの節（一般、換算比率、ワークスペースの休日）は、それぞれの Issue で .settings の中に、見本の順に足す。
   // 完成の定義は枠の値（workspace.definitionOfDone）を出し、保存したら枠（app:workspace）を読み直す。
   // 開けるのはリーダーと管理者だけ。一般のメンバーが URL で開いたら「入れない」の案内と、バックログへ戻るリンクを出す（メニューにも出さない）。
-  // 閉じたワークスペースでは、節を読み取り専用で出す（枠が読み取り専用の帯を出す）。
+  // 閉じたワークスペースでは通常の設定を読み取り専用で出し、管理者には再開の操作を出す（枠が読み取り専用の帯を出す）。
   // 一覧の初回失敗は画面全体を LoadFailed にし、命名ルールの失敗はその節だけへ出す。書いた後の読み直しが失敗したときは、前に読めた一覧を残したまま、
   // 節の先頭に「一覧を更新できませんでした」と「もう一度試す」を出す（組織の管理の画面の SectionBoundary と同じ扱い）
   let { data }: PageProps = $props();
@@ -30,7 +31,10 @@
 
   const workspace = $derived(data.workspace);
   const slug = $derived(page.params.slug ?? '');
-  const canWrite = $derived(workspace !== null && workspace.closedAt === null);
+  const isAdmin = $derived(data.organization?.me.is_admin === true);
+  let refreshUnconfirmed = $state(false);
+  const stateUnconfirmed = $derived(refreshUnconfirmed || data.workspaceStale);
+  const canWrite = $derived(workspace !== null && workspace.closedAt === null && !stateUnconfirmed);
 
   // 前に読めた一覧と、読み直しに失敗したか。ワークスペースが替わったら捨てる
   let kept = $state<{ workspaceId: string; definitions: Definitions } | null>(null);
@@ -106,7 +110,7 @@
     leaving = false;
   });
   beforeNavigate((navigation) => {
-    if (leaving || !canWrite || !(namingDirty || dodDirty)) return;
+    if (leaving || workspace?.closedAt !== null || !(namingDirty || dodDirty)) return;
     if (navigation.to === null) {
       navigation.cancel();
       return;
@@ -178,6 +182,15 @@
   {/if}
   <div class="settings">
     {#key workspace.id}
+      {#if isAdmin}
+        <WorkspaceStateSetting
+          {slug}
+          {workspace}
+          stale={data.workspaceStale}
+          hasDraft={namingDirty || dodDirty}
+          onstateunconfirmed={(unconfirmed) => (refreshUnconfirmed = unconfirmed)}
+        />
+      {/if}
       <ColumnsSetting
         {slug}
         workspaceId={workspace.id}
@@ -210,7 +223,9 @@
         <SprintNamingSetting
           {slug}
           workspaceId={workspace.id}
-          ondirty={(dirty) => (namingDirty = dirty)}
+          ondirty={(dirty) => {
+            if (!stateUnconfirmed) namingDirty = dirty;
+          }}
           value={naming}
           refreshFailed={data.naming === null}
           onretry={retry}
@@ -224,7 +239,9 @@
       <DodSetting
         {slug}
         workspaceId={workspace.id}
-        ondirty={(dirty) => (dodDirty = dirty)}
+        ondirty={(dirty) => {
+          if (!stateUnconfirmed) dodDirty = dirty;
+        }}
         value={workspace.definitionOfDone}
         {canWrite}
         onsaved={() => invalidate('app:workspace')}

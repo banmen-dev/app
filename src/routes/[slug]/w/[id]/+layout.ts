@@ -31,6 +31,7 @@ export const load: LayoutLoad = async ({ params, fetch, url, depends }) => {
   known = settled.known;
   return {
     workspace: settled.workspace,
+    workspaceStale: !result.ok && settled.workspace !== null,
     workspaceFailure:
       settled.workspace !== null
         ? null
