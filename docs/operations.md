@@ -721,7 +721,10 @@ D1 はスキーマも `d1_migrations` もそのまま写すので、写した後
    - `d1_migrations` の行の数が `migrations/` のファイルの数と同じ
    - どれかが合わなければ、publish もマージもせずに下の「当日に戻すとき」へ進む
 4. `rclone sync r2:scrum-guild-attachments r2:banmen-attachments --s3-no-check-bucket` で差分を写し、`rclone check r2:scrum-guild-attachments r2:banmen-attachments` が違いを出さないことを確かめる。違いが ETag（複数に分けて上げたファイル）だけなら `--size-only` を付けて見直す
-5. 書き出した後に旧 D1 へ人が書いていないかを確かめる。`pnpm exec wrangler d1 export scrum-guild --remote --output "$dir/scrum-guild-2.sql"` で書き出し直し、`diff "$dir/scrum-guild.sql" "$dir/scrum-guild-2.sql"` の違いが cron の触る表（`sessions`、`oauth_states`、`rate_limits`、`api_tokens`、Wiki の保持期限の掃除、`attachments`、`organizations`）の行だけなら進む。ほかの表に違いがあれば、`banmen` を作り直して手順 2 からやり直す（ID が変わるので PR を直す）
+5. 書き出した後に旧 D1 へ人が書いていないかを確かめる。`pnpm exec wrangler d1 export scrum-guild --remote --output "$dir/scrum-guild-2.sql"` で書き出し直し、`diff "$dir/scrum-guild.sql" "$dir/scrum-guild-2.sql"` の違いを1行ずつ見る。表でなく行の中身で決め、違いがすべて次の cron の書き込み（`src/server/scheduled/`）なら進む
+   - 消えた行: `sessions`、`oauth_states`、`rate_limits`、`api_tokens` のうち、期限（`expires_at` など）が書き出した時刻より前の行。保持期限を過ぎて消えた `wiki_pages`、`wiki_page_revisions` の行。毎時 0 分の掃除が消した、付く先の無い `attachments` の行。既読から日が経って消えた `notifications` の行
+   - 足された行と変わった行: 容量の警告の `notifications` と `organizations` の警告の列。お試しの期限切れで停止した `organizations` の停止の列と、それを記す `change_logs` の行
+   - それ以外（`api_tokens` の取り消し、期限内のセッションの削除、`organizations` の停止や契約のほかの列、ほかの表の行）が1つでもあれば、人が書いている。`banmen` を作り直して手順 2 からやり直す（ID が変わるので PR を直す）
 6. 切り替えの PR をマージし、続けて Release を publish する。ビルドのログで、当てるマイグレーションが無いことと、煙のテストが通ったことを見る
 7. 切り替え前からログインしていたブラウザで `https://banmen.ucan-lab.workers.dev/` を開き、ログインし直さずに組織の画面が出ることを見る。既存のタスク、Wiki のページ、添付ファイル、プロフィール画像を開き、新しい添付ファイルを上げて開く。あわせて次を見る
    - Worker の Settings の Bindings で、`DB` が `banmen`、`ATTACHMENTS` が `banmen-attachments` を指す
