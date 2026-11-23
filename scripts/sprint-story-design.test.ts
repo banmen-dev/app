@@ -27,6 +27,7 @@ const context = {
   sumPts: (items: { pts: number }[]) => items.reduce((sum, item) => sum + item.pts, 0),
   esc: (value: string) => value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;'),
   draftRow: () => '<input class="input">',
+  draftAttrs: () => '',
   t: (value: string) => value,
   icon: () => '',
   user: () => ({}),

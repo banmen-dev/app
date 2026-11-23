@@ -2589,6 +2589,11 @@ export const dictionary = defineDictionary({
   sprintBoardAddTaskIn: '{task}を足す: {column}',
   sprintBoardTaskAdded: '「{title}」を{column}に足しました',
   sprintBoardAddGone: 'この{sprint}か{column}が見つかりません。{task}は作られていません。一覧を読み直します',
+  // 担当を選んで送り 404 で断られたとき。列とスプリントのほか、選んだ人が外れたことも理由になりうる（#1501）
+  sprintBoardAddAssigneeGone:
+    'この{sprint}か{column}、選んだ{assignee}が見つかりません。{task}は作られていません。一覧を読み直します',
+  // 列の末尾の追加の行の下に並べる、作る前に選ぶチップの組の名前（#1501）
+  draftAttrsLabel: '作る{task}の{assignee}と{due}',
   sprintBoardAddNotActive: 'この{sprint}はもう進行中ではないので、{task}は作られていません。一覧を読み直します',
   sprintBoardAddDoneColumn: '{done}の{column}には{task}を足せないので、作られていません。一覧を読み直します',
   shortcutSprintCardColumns: '選んだカードを隣の{column}へ（{done}のカードは左で戻す）',
