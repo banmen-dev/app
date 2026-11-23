@@ -4,6 +4,7 @@
 import { expect, test } from './fixtures.ts';
 import { operationPath } from '../src/shared/operations/define.ts';
 import { epicUpdate } from '../src/shared/operations/epic/epic-update.ts';
+import { epicGet } from '../src/shared/operations/epic/epic-get.ts';
 import { workspaceInfo } from '../src/shared/operations/workspace/workspace.ts';
 import { addEpicRow, createWorkspace, fillEpicFields, signIn, waitForResponses, watchViolations } from './helpers.ts';
 import { rewriteOperation } from './operations.ts';
@@ -169,4 +170,36 @@ test('終了したワークスペースでは、引き出しを読み取り専�
   await expect(drawer.getByRole('textbox')).toHaveCount(0);
   await expect(drawer.getByRole('button', { name: `操作: ${SEED_EPIC_TITLE}` })).toHaveCount(0);
   await expect(drawer.getByRole('link', { name: 'エピックの画面を開く' })).toBeVisible();
+});
+
+test('終了したワークスペースでも、区分を持つエピックの引き出しは区分の名前を出す。読めなかった文は出さない', async ({
+  page,
+}) => {
+  await rewriteOperation(page, workspaceInfo, { slug: 'aoba' }, (output) => ({
+    ...output,
+    closed_at: '2026-10-21T00:00:00.000Z',
+  }));
+  // seed のエピック「ポイントの交換先を増やす」の区分は「追加案件」
+  await page.goto(`${SEED_WORKSPACE}?epic_id=019a0000-0000-7000-8000-000000000b01`);
+  const drawer = page.getByRole('dialog', { name: SEED_EPIC_TITLE, exact: true });
+  await expect(drawer.getByText(/読み取りだけできます/)).toBeVisible();
+  const category = drawer.locator('.props > div').filter({ has: page.locator('dt', { hasText: /^区分$/ }) });
+  await expect(category.locator('dd')).toHaveText('追加案件');
+  await expect(drawer.getByText(/読み込めませんでした/)).toHaveCount(0);
+});
+
+test('終了したワークスペースで、epic-get が区分を返さない（開いている間に削除された）ときは、区分なしを出す', async ({
+  page,
+}) => {
+  await rewriteOperation(page, workspaceInfo, { slug: 'aoba' }, (output) => ({
+    ...output,
+    closed_at: '2026-10-21T00:00:00.000Z',
+  }));
+  await rewriteOperation(page, epicGet, { slug: 'aoba' }, (output) => ({ ...output, category: null }));
+  await page.goto(`${SEED_WORKSPACE}?epic_id=019a0000-0000-7000-8000-000000000b01`);
+  const drawer = page.getByRole('dialog', { name: SEED_EPIC_TITLE, exact: true });
+  await expect(drawer.getByText(/読み取りだけできます/)).toBeVisible();
+  const category = drawer.locator('.props > div').filter({ has: page.locator('dt', { hasText: /^区分$/ }) });
+  await expect(category.locator('dd')).toHaveText('区分なし');
+  await expect(drawer.getByText(/読み込めませんでした/)).toHaveCount(0);
 });

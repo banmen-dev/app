@@ -8,7 +8,7 @@ import { createApp } from '../src/server/app.ts';
 import { orgDb, verifyWorkspace } from '../src/server/db/index.ts';
 import { epicUpdateOperation } from '../src/server/operations/epic.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
-import { createEpic } from './factories.ts';
+import { createCategory, createEpic } from './factories.ts';
 import { errorCodeOf, post } from './operations/harness.ts';
 import { createTarget, testEnv, type Person, type Target } from './operations/world.ts';
 
@@ -180,6 +180,34 @@ describe('epic-get', () => {
     const closed = await createTarget({ closed: true });
     const closedEpic = await seeded(closed);
     expect((await get(closed, closedEpic.id, closed.admin)).status).toBe(200);
+  });
+
+  test('区分の ID と名前を返す。区分が無いか、削除した区分か、別のワークスペースの区分は null。閉じたワークスペースでも返す', async () => {
+    const target = await createTarget({ closed: true });
+    const workspaceId = target.workspace.id;
+    const adminId = target.admin.userId!;
+    const extra = await createCategory(target.organization, workspaceId, { name: '追加案件' });
+    const gone = await createCategory(target.organization, workspaceId, {
+      name: '廃止',
+      position: 'a1',
+      deleted_at: '2026-10-21T00:00:00.000Z',
+    });
+    // 書く操作は振らせないが、行が別のワークスペースの区分を指していても名前を出さない
+    const elsewhere = await createCategory(target.organization, target.otherWorkspace.id, { name: 'よそ' });
+    const cases = [
+      { categoryId: extra.id, expected: { id: extra.id, name: '追加案件' } },
+      { categoryId: gone.id, expected: null },
+      { categoryId: elsewhere.id, expected: null },
+      { categoryId: null, expected: null },
+    ];
+    for (const { categoryId, expected } of cases) {
+      const epic = await createEpic(target.organization, workspaceId, adminId, { category_id: categoryId });
+      const res = await get(target, epic.id, target.admin);
+      expect(res.status, String(categoryId)).toBe(200);
+      const body = (await res.json()) as { epic: { category_id: string | null }; category: unknown };
+      expect(body.epic.category_id).toBe(categoryId);
+      expect(body.category, String(categoryId)).toEqual(expected);
+    }
   });
 
   test('別の組織・別のワークスペース・削除済み・存在しないエピックは 404', async () => {

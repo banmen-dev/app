@@ -112,6 +112,9 @@
   let canDeleteChildren = $state(false);
   let cleared = $state(false);
   let childCounts = $state({ stories: 0, tasks: 0 });
+  // epic-get が返す、読んだときの区分の ID と名前（無いか削除されていれば null）。読み取り専用では一覧を読まないので、名前はここから出す。
+  // 区分を保存したら、選んだ区分（一覧の値）に置き換える。保存の後に読み取り専用へ替わっても名前を出せるように
+  let readCategory = $state<DefinitionRef | null>(null);
   let heading = $state<HTMLElement>();
   let retryButton = $state<HTMLButtonElement>();
   let discardDialog = $state<ReturnType<typeof ConfirmDialog>>();
@@ -154,7 +157,7 @@
   const done = $derived(finished);
 
   // ---- 区分（選んで少し待ってから、か欄を離れたときに保存する。配下のストーリーとタスクが引き継ぐ） ----
-  // 選択肢は、直せるときだけ category-repository-list で読む。読めなければ、なしと今の値だけを選べる
+  // 選択肢は、直せるときだけ category-repository-list で読む。読めなければ、なしと今の値だけを選べる（今の値の名前は一覧から、無ければ epic-get の区分から）
   let definitions = $state<{ categories: DefinitionRef[] } | null>(null);
   let definitionsLoading = $state(false);
   let definitionsFailed = $state(false);
@@ -166,12 +169,19 @@
   let categoryError = $state<string | null>(null);
   let categorySending = false;
   let categorySelect = $state<HTMLSelectElement>();
-  // 今の区分。epic-get は区分の ID だけを返すので、名前は選択肢から引く（一覧に無い、読めなかったときは、読めなかったことを名前にする）
+  // 名前が分かる今の区分。選択欄と食い違わないよう、名前は選択肢から引き、無ければ epic-get が返した区分（今の ID と同じとき）から引く
+  const knownCategory = $derived.by(() => {
+    const id = epic?.category_id ?? null;
+    if (id === null) return null;
+    return (
+      definitions?.categories.find((option) => option.id === id) ?? (readCategory?.id === id ? readCategory : null)
+    );
+  });
+  // 選択欄の今の区分。どちらにも無い（保存した区分が一覧に無く、読めなかった）ときだけ、読めなかったことを名前にする
   const ownCategory = $derived.by(() => {
     const id = epic?.category_id ?? null;
     if (id === null) return null;
-    const known = definitions?.categories.find((option) => option.id === id);
-    return known ?? { id, name: t('categoryCurrentUnread', { category: t('category') }) };
+    return knownCategory ?? { id, name: t('categoryCurrentUnread', { category: t('category') }) };
   });
   const categoryShownId = $derived(
     categoryChoice !== null
@@ -273,6 +283,7 @@
       canDeleteChildren = result.data.can_delete_children;
       cleared = result.data.completed_at != null;
       childCounts = result.data.children;
+      readCategory = result.data.category;
       loadState = 'ready';
       // 区分を直せるときだけ、選択肢を読む
       if (canWrite && definitions === null) void loadDefinitions();
@@ -319,6 +330,7 @@
       canDeleteChildren = result.data.can_delete_children;
       cleared = result.data.completed_at != null;
       childCounts = result.data.children;
+      readCategory = result.data.category;
     }
     return result.data.epic;
   }
@@ -422,6 +434,12 @@
       if (alive && epic !== null) {
         const saved = result.data.epic;
         const merged: EpicDetail = { ...epic, category_id: saved.category_id };
+        // 区分が替わったら（区分以外の欄の保存で、ほかの人が替えた区分が返ったときも）、読んだ区分を一覧の値に置き換える。
+        // 一覧に無い区分は名前が分からないので、古い値を残す（ID が違うので名前には使わない）
+        if (saved.category_id !== (readCategory?.id ?? null)) {
+          const found = definitions?.categories.find((option) => option.id === saved.category_id);
+          if (found !== undefined || saved.category_id === null) readCategory = found ?? null;
+        }
         for (const key of Object.keys(fields) as (keyof Fields)[]) {
           if (key !== 'category_id') Object.assign(merged, { [key]: saved[key] });
         }
@@ -896,8 +914,9 @@
               </button>
             {/if}
           {:else}
-            <!-- 読み取り専用のときは文字で出す。名前は一覧から引くので、読み取り専用では今の区分が読めたときだけ出す -->
-            <span>{ownCategory?.name ?? t('categoryNone', { category: t('category') })}</span>
+            <!-- 読み取り専用のときは文字で出す。一覧を読まないので、名前は epic-get の区分（直した後に替わったときは、読んだ一覧）から出し、
+                 名前が分からない（削除された区分も）ときはなしにする。読み取り専用では、読めなかった文を出さない -->
+            <span>{knownCategory?.name ?? t('categoryNone', { category: t('category') })}</span>
           {/if}
           {#if categoryError !== null}
             <span class="field-error" id={categoryErrorId} role="alert"><Icon name="alert" />{categoryError}</span>
