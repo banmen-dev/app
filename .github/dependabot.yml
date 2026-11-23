@@ -14,7 +14,7 @@ updates:
     cooldown:
       default-days: 7
     # TypeScript 7 は SvelteKit が使う JavaScript の compiler API を持たず、svelte-kit sync が落ちる。
-    # SvelteKit が対応するまでメジャーは上げない（docs/development.md の「定期の作業」）
+    # SvelteKit、svelte-check、typescript-eslint がそろって対応するまでメジャーは上げない（docs/development.md の「定期の作業」）
     ignore:
       - dependency-name: typescript
         update-types:
