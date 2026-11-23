@@ -98,6 +98,8 @@
   }
   // Esc で窓を閉じる間の blur では決めない（AttrChip が閉じる前にチップへフォーカスを戻すので、欄はまだ DOM にある）
   let cancelling = false;
+  // 窓を開いたときの期日。Esc は取り消しなので、開いている間に change で決めた値をこれに戻す
+  let dueAtOpen: string | null = null;
   // カレンダーで選んだ日付は change で値だけを決め、窓は閉じない（Chrome は月や日を打っている途中でも完全な日付の change を出すので、
   // 閉じると残りの入力が届かない）。窓を閉じるのは Enter と、欄を離れたときだけ
   function pickDue(input: HTMLInputElement): void {
@@ -157,6 +159,7 @@
     options={[]}
     current={due ?? ''}
     onselect={(value) => (due = value === '' ? null : value)}
+    onopen={() => (dueAtOpen = due)}
     {locked}
   >
     {#snippet panel(close)}
@@ -172,7 +175,8 @@
               event.stopPropagation();
               commitDue(event.currentTarget, close, true);
             } else if (event.key === 'Escape') {
-              // 窓を閉じるのは AttrChip。閉じる間の blur で決めないよう、次の描画まで印を立てる
+              // 窓を閉じるのは AttrChip。開いてから change で決めた値を戻し、閉じる間の blur で決めないよう、次の描画まで印を立てる
+              due = dueAtOpen;
               cancelling = true;
               requestAnimationFrame(() => (cancelling = false));
             }
