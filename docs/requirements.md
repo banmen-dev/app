@@ -4,7 +4,7 @@
 
 ## 名前
 
-Banmen（バンメン）。日本語の「盤面」に由来する。画面の見出し、文書、読み上げでは正式表記の `Banmen` にそろえ、カタカナや漢字の表記は使わない。コードの中の識別子は `banmen` と書く。Worker、D1、R2、公開 URL など、Cloudflare と GitHub の資源とつながる識別子は、移すまで旧名の `scrum-guild` のまま（範囲と移す順は `naming.md` の「識別子」）。GitHub の Organization は `banmen-dev`、アプリのリポジトリは `banmen-dev/app`、紹介サイトのリポジトリは `banmen-dev/website`。
+Banmen（バンメン）。日本語の「盤面」に由来する。画面の見出し、文書、読み上げでは正式表記の `Banmen` にそろえ、カタカナや漢字の表記は使わない。コードの中の識別子は `banmen` と書く。Cloudflare と GitHub の資源とつながる識別子は、人の手順と合わせて `banmen` に移す。本番とプレビューの Worker、公開 URL、本番の D1 と R2、GitHub の Organization は移した（範囲と順は `naming.md` の「識別子」）。GitHub の Organization は `banmen-dev`、アプリのリポジトリは `banmen-dev/app`、紹介サイトのリポジトリは `banmen-dev/website`。
 
 scrum-quest、Team Leveling、Scrum Guild、Banmen と改めてきた。経緯、決めた理由、重なりの確認は `naming.md` に残した。
 
