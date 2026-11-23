@@ -37,13 +37,13 @@ test('絞り込んだカードを列を保って分け、担当なしは最後�
       id: 'todo',
       name: '未着手',
       is_done: false,
-      tasks: [card('1', '履歴の一覧', haruka), card('2', '障害時の連絡手順', null)],
+      tasks: [card('3', '履歴の検索', minato), card('1', '履歴の一覧', haruka), card('2', '障害時の連絡手順', null)],
     },
     {
       id: 'working',
       name: '作業中',
       is_done: false,
-      tasks: [card('3', '履歴の検索', minato), card('4', '履歴の保存', minato)],
+      tasks: [card('4', '履歴の保存', minato)],
     },
   ];
   const filter = boardFilterOf(new URLSearchParams('group=assignee'));
@@ -53,7 +53,7 @@ test('絞り込んだカードを列を保って分け、担当なしは最後�
     [minato.id, 2],
     ['none', 1],
   ]);
-  expect(lanes[1]?.columns.map((column) => column.tasks.length)).toEqual([0, 2]);
+  expect(lanes[1]?.columns.map((column) => column.tasks.length)).toEqual([1, 1]);
   expect(boardLanesOf(filterColumns(sample, { ...filter, q: '障害時' }), 'assignee').map(({ id }) => id)).toEqual([
     'none',
   ]);

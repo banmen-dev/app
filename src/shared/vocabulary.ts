@@ -2569,6 +2569,7 @@ export const dictionary = defineDictionary({
   boardGroupCount: '{count} 件',
   boardGroupChanged: '「{title}」の{assignee}を「{name}」に変更しました',
   boardGroupAssignSending: '{assignee}を変更しています。終わってからもう一度試してください。',
+  boardMoveSending: 'カードの変更を保存しています。終わってからもう一度試してください。',
   boardGroupApplied: 'グループを「{group}」に変更しました',
   boardGroupDropBlocked: 'ここには移動できません',
   boardGroupEmpty: 'カードはありません',

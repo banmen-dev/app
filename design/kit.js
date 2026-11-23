@@ -1222,6 +1222,14 @@
     </article>`;
   }
   // opts.key: カードの id の接頭辞、opts.cardMarks: (x, i, c) => card のドラッグの状態、opts.columnMarks: (c) => 列の囲み（{ drop: "into" }）、opts.grab: (x) => つかめるか（既定は完了カードを含むすべて）
+  // 横スクロール枠の見える幅を帯の見出しへ渡す。枠内の position: fixed の小窓は画面の座標で置く。
+  function sizeBoardLaneLabels() {
+    for (const wrap of document.querySelectorAll(".board-wrap:has(.board-lane)")) {
+      wrap.style.setProperty("--board-visible-width", `${wrap.clientWidth}px`);
+    }
+  }
+  window.addEventListener("resize", sizeBoardLaneLabels);
+
   const boardCollapsed = new Map();
   const boardLaneCollapsed = new Set();
   function board(sprintId, opts = {}) {
@@ -1239,15 +1247,17 @@
       const at = open.indexOf(c);
       // 最後の完了でない列の「次の列へ」は、完了の列へ移す代わりに完了にする（本番は task-complete を呼ぶ）ので、押せる
       const orderOf = (i) => ({ first: i === 0, last: i === items.length - 1, across: { first: at === 0, last: false } });
+      if (part === "draft" && (!opts.draft || collapsed)) return "<div></div>";
       const mark = opts.columnMarks?.(c, lane);
-      return `<section class="board-col ${c.done ? "is-done" : ""} ${collapsed ? "is-collapsed" : ""}"${dropAttr(mark)}${part === "lane" ? ' role="group"' : ""} aria-label="${esc(name)}">
+      const tag = part === "draft" ? "div" : "section";
+      return `<${tag} class="board-col ${c.done ? "is-done" : ""} ${collapsed ? "is-collapsed" : ""}"${dropAttr(mark)}${part === "lane" ? ' role="group"' : ""}${part === "draft" ? "" : ` aria-label="${esc(name)}"`}>
         ${mark?.drop === "blocked" ? `<span class="board-drop-blocked">${icon("x")}${t("boardGroupDropBlocked")}</span>` : ""}
         ${part !== "lane" && part !== "draft" ? `<div class="board-col-head"><button class="board-col-toggle" type="button" aria-label="${esc(name)}の開閉" aria-expanded="${!collapsed}" data-column-collapse="${esc(collapseKey)}">${icon("chevron")}</button>${c.done ? icon("check") : ""}<span class="board-col-name">${esc(name)}</span><span class="board-col-n">${items.length}</span><span class="board-col-pts">${sumPts(items)} pt</span></div>` : ""}
         ${collapsed || part === "draft" ? "" : `${c.done && part !== "lane" && D.definitionOfDone.length ? `<details class="dod"><summary>${t("dod")}</summary>${dodDoc()}</details>` : ""}
         ${part === "head" ? "" : items.map((x, i) => card(x, c.done ? undefined : orderOf(i), { mark: opts.cardMarks && opts.cardMarks(x, i, c), grab: opts.grab ? opts.grab(x) : true, key: opts.key, highlightStory: opts.highlightStory } )).join("") || (part === "lane" ? "" : `<p class="board-empty">${hidden > 0 ? `絞り込みで ${hidden} 件を隠しています` : "なし"}</p>`)}
         `}
         ${!collapsed && opts.draft && !c.done && (part === "all" || part === "draft") ? `<div class="board-col-draft">${draftRow("col", c.id, `${t("task")}を足す: ${c.name}`, `${t("task")}を足す`)}${draftAttrs(c.id, c.name)}${opts.story ? `<p class="action-note">${storyFilterText("sprintStoryCreateUnder")}</p>` : ""}</div>` : ""}
-      </section>`;
+      </${tag}>`;
     }).join("");
     const lanes = new Map();
     if (opts.group) {
@@ -1269,6 +1279,7 @@
           <div class="board-lane-columns" id="${esc(key)}"${open ? "" : " hidden"}>${row(tasks, "lane", id)}</div>
         </section>`;
     }).join("") + row([], "draft");
+    if (opts.group) requestAnimationFrame(sizeBoardLaneLabels);
     return `<div class="story-board" data-board-story="${esc(opts.story || "")}" data-board-sprint="${sprintId}" data-board-key="${opts.key || ""}" data-board-draft="${!!opts.draft}" data-board-group="${esc(opts.group || "")}" data-board-q="${esc(opts.q || "")}" data-board-assignees="${esc((opts.assignees || []).join(","))}"><div class="board-wrap"><div class="board" style="--board-cols:${D.columns.length}">${opts.group ? grouped() : row(list, "all")}</div></div></div>`;
   }
 

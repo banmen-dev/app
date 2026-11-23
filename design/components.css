@@ -1127,16 +1127,15 @@ a.brand { color: inherit; text-decoration: none; }
 /* 列の数は --board-cols で渡す（既定は 4）。列は 232px を下限にし、足りない幅では .board-wrap の中で横にスクロールする */
 /* 列は角の丸い面（地は沈んだ色、枠は持たない）で、カードの間を詰めて一画面に多く出す（#1498。手本は Jira のボード） */
 .board { --board-cols: 4; display: grid; grid-template-columns: repeat(var(--board-cols), minmax(232px, 1fr)); gap: var(--space-2); min-width: calc(var(--board-cols) * 232px + (var(--board-cols) - 1) * var(--space-2)); align-items: start; }
-.board-wrap:has(.board-lane) { container-type: inline-size; }
 .board-lane, .board-lane-columns:not([hidden]) { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; gap: var(--space-2); min-width: 0; }
 .board-lane-head { grid-column: 1 / -1; margin: 0; }
 .board-lane-toggle { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: 44px; padding: var(--space-2); background: var(--color-sunken); color: var(--color-fg); border: 1px solid var(--color-control-edge); border-radius: var(--radius-1); font: inherit; font-size: var(--text-sm); text-align: start; cursor: pointer; }
 .board-lane-toggle[aria-expanded="true"] .ico { transform: rotate(90deg); }
-.board-lane-label { display: flex; align-items: center; gap: var(--space-2); position: sticky; inset-inline-start: var(--space-2); min-width: 0; max-inline-size: calc(100cqi - 2 * var(--space-2)); }
+.board-lane-label { display: flex; align-items: center; gap: var(--space-2); position: sticky; inset-inline-start: var(--space-2); min-width: 0; max-inline-size: calc(var(--board-visible-width, 65vw) - 2 * var(--space-2)); }
 .board-lane-name { overflow-wrap: anywhere; }
 .board-lane .board-col { align-self: stretch; align-content: start; min-height: 64px; }
 .board-col[data-drop="blocked"] { cursor: not-allowed; border-color: var(--color-control-edge); border-style: dashed; }
-.board-drop-blocked { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-xs); position: absolute; z-index: 1; inset-block-start: var(--space-2); inset-inline-end: var(--space-2); padding: var(--space-1); background: var(--color-surface); border: 1px solid var(--color-control-edge); border-radius: var(--radius-full); pointer-events: none; }
+.board-drop-blocked { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-xs); position: absolute; z-index: 1; inset-block-end: var(--space-2); inset-inline-end: var(--space-2); padding: var(--space-1); background: var(--color-surface); border: 1px solid var(--color-control-edge); border-radius: var(--radius-full); pointer-events: none; }
 .board-group { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); white-space: nowrap; flex: 0 0 auto; }
 .board-group > .select { min-width: 44px; }
 .board-col { background: var(--color-sunken); border: 1px solid transparent; border-radius: var(--radius-1); padding: var(--space-2); display: grid; gap: var(--space-1); }

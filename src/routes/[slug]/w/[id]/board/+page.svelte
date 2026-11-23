@@ -248,6 +248,7 @@
   const lanes = $derived(filter.group === undefined ? [] : boardLanesOf(visibleColumns, filter.group));
   let collapsedLanes = $state<Record<string, boolean>>({});
   const laneId = $props.id();
+  let boardVisibleWidth = $state(0);
   const laneKey = (id: string): string => `${workspaceId}:${filter.group}:${id}`;
   const laneIsCollapsed = (id: string): boolean => collapsedLanes[laneKey(id)] ?? false;
   function toggleLane(id: string): void {
@@ -605,8 +606,7 @@
       return;
     }
     if (sendingIds.includes(task.id)) {
-      if (taskAttributes(slug, workspace.id, task.id).assignee.reserved)
-        void announce(t('boardGroupAssignSending', { assignee: t('assignee') }));
+      void announce(t('boardMoveSending'));
       return;
     }
     const group = filter.group;
@@ -771,7 +771,7 @@
         const next = plan.next;
         if (next?.kind === 'complete') {
           if (await complete(task)) flashAfterReload = task.id;
-          else if (workspaceId === page.params.id && options.slug === slug) showToast(assignment, 'check');
+          if (workspaceId === page.params.id && options.slug === slug) showToast(assignment, 'check');
           return assigned;
         }
         if (next?.kind === 'moved') {
@@ -796,17 +796,21 @@
         } else if (result.status === 401) {
           await invalidateAll();
         } else {
-          const message = await editor.explain(
-            result,
-            t('taskAssigneeDone', {
-              task: t('task'),
-              done: t('done'),
-              assignee: t('assignee'),
-            }),
-            true,
-          );
+          const message =
+            result.error?.code === 'workspace_closed'
+              ? t('workspaceClosedReadOnly', { workspace: t('workspace') })
+              : await editor.explain(
+                  result,
+                  t('taskAssigneeDone', {
+                    task: t('task'),
+                    done: t('done'),
+                    assignee: t('assignee'),
+                  }),
+                  true,
+                );
           if (workspaceId === page.params.id && options.slug === slug) {
             showToast(message, 'alert');
+            if (result.error?.code === 'workspace_closed') await invalidate('app:workspace');
             await reloadBoard();
           }
         }
@@ -1286,6 +1290,7 @@
         <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
         <div
           class="board-wrap"
+          bind:clientWidth={boardVisibleWidth}
           role="region"
           aria-label={t('sprintBoardRegion', {
             sprint: t('sprint'),
@@ -1296,7 +1301,13 @@
           {@attach canWrite ? (node) => dnd.wrap(node) : undefined}
         >
           <!-- 引き出しの前後のボタンの順は、ボードに今見えているカード（左の列から右へ、列の中は上から下） -->
-          <div class="board" style:--board-cols={columns.length} {@attach trackTaskOrder} {@attach trackStoryHover}>
+          <div
+            class="board"
+            style:--board-cols={columns.length}
+            style:--board-visible-width={boardVisibleWidth > 0 ? `${boardVisibleWidth}px` : undefined}
+            {@attach trackTaskOrder}
+            {@attach trackStoryHover}
+          >
             {#snippet boardRow(rowColumns: SprintBoardColumn[], part: 'all' | 'head' | 'lane' | 'draft', lane?: string)}
               {#each rowColumns as column (column.id)}
                 {#if part === 'draft' && (column.is_done || !canWrite)}

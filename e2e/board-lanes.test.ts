@@ -1,10 +1,10 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { expect, test } from './fixtures.ts';
 import { A11Y_THEMES, NARROW_VIEWPORT, applyTheme, dragTo, findA11yViolations, signIn } from './helpers.ts';
 import { routeOperation } from './operations.ts';
 import { SAMPLE_BOARD } from './sprint-fixture.ts';
 import { sprintBoard, taskColumnMove } from '../src/shared/operations/sprint/index.ts';
-import { taskAssign, taskComplete } from '../src/shared/operations/task/index.ts';
+import { taskAssign, taskComplete, taskDetail } from '../src/shared/operations/task/index.ts';
 
 const PATH = '/aoba/w/019a0000-0000-7000-8000-000000000401/board';
 const HARUKA = SAMPLE_BOARD.columns[0]!.tasks[0]!.assignee!;
@@ -14,7 +14,8 @@ const WORKING = SAMPLE_BOARD.columns[1]!.id;
 const EPIC = { id: '019a0000-0000-7000-8000-00000000f501', title: '会員ポイント制度を公開する' };
 
 const groupSelect = (page: Page) => page.getByRole('combobox', { name: 'グループ', exact: true });
-const lane = (page: Page, name: string) => page.getByRole('group', { name, exact: true });
+const lane = (page: Page, name: string) =>
+  page.locator('.board-lane').and(page.getByRole('group', { name, exact: true }));
 
 test.beforeEach(async ({ context, baseURL }) => {
   await signIn(context, baseURL, 'admin');
@@ -115,6 +116,9 @@ for (const { index, failure } of moveCases) {
         },
       });
     });
+    if (failure === 'assign') {
+      await routeOperation(page, taskDetail, { slug: 'aoba' }, (call) => call.fail(404, 'not_found'));
+    }
     await routeOperation(page, taskColumnMove, { slug: 'aoba' }, async ({ input, fail, fulfill }) => {
       expect.soft(writes).toEqual(['assign']);
       expect.soft(input).toMatchObject({ task_id: task.id, column_id: destination.id });
@@ -144,8 +148,17 @@ for (const { index, failure } of moveCases) {
       'middle',
     );
     await expect.poll(readCount).toBeGreaterThan(readsBefore);
-    if (failure === 'move' || failure === 'complete') {
-      await expect(page.getByRole('status').filter({ hasText: '担当を「ミナト」に変更しました' })).toBeVisible();
+    const assignedMessage = `「${TITLE}」の担当を「ミナト」に変更しました`;
+    const expectedMessage =
+      failure === 'assign'
+        ? 'このタスクは見つかりません。一覧を読み直します'
+        : failure === 'move'
+          ? `${assignedMessage}。このタスクか列が見つかりません。一覧を読み直します`
+          : assignedMessage;
+    await expect(page.getByRole('status').filter({ hasText: expectedMessage })).toHaveText(expectedMessage);
+    if (failure === 'complete') {
+      const message = '完了にできませんでした。もう一度試してください。';
+      await expect(page.getByRole('status').filter({ hasText: message })).toHaveText(message);
     }
     const current = lane(page, failure === 'assign' ? HARUKA.name : MINATO.name);
     await expect(
@@ -163,6 +176,7 @@ test('Alt と上下キーで、同じ列の同じ帯のカードだけを並べ�
   const { board } = await setupBoard(page);
   const column = board.columns[0]!;
   const card = column.tasks[0]!;
+  column.tasks[1]!.assignee = MINATO;
   const second = { ...card, id: '019a0000-0000-7000-8000-00000000f299', title: '同じ担当の別のカード' };
   column.tasks.push(second);
   const writes: (string | null | undefined)[] = [];
@@ -174,19 +188,25 @@ test('Alt と上下キーで、同じ列の同じ帯のカードだけを並べ�
   await page.goto(`${PATH}?group=assignee`);
   const cards = lane(page, HARUKA.name).locator(`[data-column="${column.id}"] .card`);
   await expect(cards.locator('.card-title')).toHaveText([card.title, second.title]);
+  const other = lane(page, MINATO.name).locator(`[data-column="${column.id}"] .card-title`);
+  await expect(other).toHaveText(column.tasks[1]!.title);
   await cards.last().press('Alt+ArrowUp');
   await expect(cards.locator('.card-title')).toHaveText([second.title, card.title]);
   await expect.poll(() => writes.length).toBe(1);
   expect(writes).toEqual([null]);
+  await expect(other).toHaveText(column.tasks[1]!.title);
 });
 
 test('カードがない帯は、絞り込んだ状態と起票できる空の状態を区別する', async ({ page }) => {
   const { board } = await setupBoard(page);
   for (const column of board.columns) column.tasks = [];
   await page.goto(`${PATH}?group=story`);
-  await expect(page.getByText('カードはありません。列の末尾の行からタスクを足せます。')).toBeVisible();
+  const empty = page.locator('.board-lane-head.board-empty');
+  await expect(empty).toHaveText('カードはありません。列の末尾の行からタスクを足せます。');
+  for (const toggle of await page.locator('.board-col-toggle').all()) await toggle.click();
+  await expect(empty).toHaveText('カードはありません');
   await page.getByRole('searchbox', { name: 'ボードを検索' }).fill('管理');
-  await expect(page.getByText('当たるものはありません', { exact: true })).toBeVisible();
+  await expect(empty).toHaveText('当たるものはありません');
 });
 
 test('狭い幅でも長い帯名と件数がスクロール枠に収まる', async ({ page }) => {
@@ -202,6 +222,40 @@ test('狭い幅でも長い帯名と件数がスクロール枠に収まる', as
   const wrap = (await page.locator('.board-wrap').boundingBox())!;
   expect(box.x + box.width).toBeLessThanOrEqual(wrap.x + wrap.width);
 });
+
+async function verifyPopupPosition(button: Locator, popup: Locator, width: number) {
+  await button.click();
+  await expect(popup).toBeVisible();
+  await expect
+    .poll(async () => {
+      const from = (await button.boundingBox())!;
+      const box = (await popup.boundingBox())!;
+      const left = Math.max(8, Math.min(from.x + from.width - box.width, width - box.width - 8));
+      const gap = Math.min(Math.abs(box.y - (from.y + from.height)), Math.abs(from.y - (box.y + box.height)));
+      return Math.max(Math.abs(box.x - left), Math.abs(gap - 4));
+    })
+    .toBeLessThanOrEqual(2);
+}
+
+for (const width of [1280, NARROW_VIEWPORT.width]) {
+  test(`帯の中でもカードのメニューがボタンにそろう（${width}px）`, async ({ page }) => {
+    await setupBoard(page);
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto(`${PATH}?group=assignee`);
+    const card = lane(page, HARUKA.name).getByRole('article', { name: TITLE, exact: true });
+    await verifyPopupPosition(
+      card.getByRole('button', { name: `操作: ${TITLE}` }),
+      card.getByRole('menu', { name: `操作: ${TITLE}` }),
+      width,
+    );
+    await page.keyboard.press('Escape');
+    await verifyPopupPosition(
+      card.getByRole('button', { name: '担当: ハルカ' }),
+      page.getByRole('dialog', { name: '担当を選ぶ' }),
+      width,
+    );
+  });
+}
 
 for (const [group, title, missing] of [
   ['story', SAMPLE_BOARD.columns[0]!.tasks[0]!.story!.title, '親なし'],
