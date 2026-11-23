@@ -8,10 +8,9 @@
   import { callOperation } from '../../api.ts';
   import { formatLocalDate } from '../../format.ts';
   import { isUnauthenticated, loginUrl } from '../../login-redirect.ts';
-  import { memberLimitDetailsOf } from '../../member-limit-details.ts';
   import { showToast } from '../../toast.svelte.ts';
   import { t } from '../../vocabulary.svelte.ts';
-  import { workspaceLimitDetailsOf } from '../../workspace-limit-details.ts';
+  import { workspaceReopenRefusal } from '../../workspace-reopen-refusal.ts';
   import EmptyState from '../EmptyState.svelte';
   import Icon from '../Icon.svelte';
   import Setting from '../Setting.svelte';
@@ -105,42 +104,16 @@
       } else if (result.status === 409 && result.error?.code === 'conflict') {
         // 別の画面で先に操作されていた。再開されたのか、終了し直されたのかは言い切らず、読み直した一覧を見てもらう
         showToast(t('workspaceStateChanged', { name: workspace.name }), 'alert');
-      } else if (result.status === 409 && result.error?.code === 'workspace_limit_reached') {
-        const limit = workspaceLimitDetailsOf(result.error.details);
-        const common = { name: workspace.name, workspace: t('workspace') };
-        reopenRefusal =
-          limit === undefined
-            ? t('workspaceReopenWorkspaceLimitUnknown', common)
-            : t('workspaceReopenWorkspaceLimit', { ...common, ...limit });
-        await tick();
-        refusalBox?.scrollIntoView({ block: 'nearest' });
-      } else if (result.status === 409 && result.error?.code === 'member_limit_reached') {
-        // 人数の上限で断られた。長い理由と対処は、トーストでなく表の上のコールアウトに残す。
-        // 数が読めない応答（details が無いか不正）は、数を含まない文言にする
-        const seats = memberLimitDetailsOf(result.error.details);
-        const common = {
-          name: workspace.name,
-          organization: t('organization'),
-          workspace: t('workspace'),
-          adminPage: t('pageOrgAdmin'),
-          users: t('userSectionTitle'),
-        };
-        reopenRefusal =
-          seats === undefined
-            ? t('workspaceReopenMemberLimitUnknown', common)
-            : t('workspaceReopenMemberLimit', {
-                ...common,
-                adding: seats.adding,
-                used: seats.used,
-                limit: seats.limit,
-              });
-        // 押した行が表の下にあっても理由が見えるよう、描いた後に画面の中へ動かす。フォーカスは押したボタンに残す
-        await tick();
-        refusalBox?.scrollIntoView({ block: 'nearest' });
       } else if (result.status === 404 || result.status === 403) {
         showToast(t('workspaceUnavailable', { name: workspace.name }), 'alert');
       } else {
-        showToast(t('workspaceReopenFailed', { workspace: t('workspace') }), 'alert');
+        reopenRefusal = workspaceReopenRefusal(result, workspace.name, 'list');
+        if (reopenRefusal === null) {
+          showToast(t('workspaceReopenFailed', { workspace: t('workspace') }), 'alert');
+        } else {
+          await tick();
+          refusalBox?.scrollIntoView({ block: 'nearest' });
+        }
       }
       await reloadAll();
     } finally {
