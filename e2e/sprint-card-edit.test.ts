@@ -190,7 +190,8 @@ test('完了したカードのチップと鉛筆は押せず理由が読める�
 
   // 完了の列へ落として完了にする
   const completed = waitForResponses(page, '/task-complete');
-  await dragTo(page, cardOf(page, '終える札'), columnOf(page, '完了'), 'middle');
+  // つかむのは題のリンク（カードの真ん中は、下の段のチップのボタンに当たりうる。ボタンからは動き出さない）
+  await dragTo(page, cardOf(page, '終える札').locator('.card-title'), columnOf(page, '完了'), 'middle');
   await completed;
   const done = columnOf(page, '完了').locator('.card').filter({ hasText: '終える札' });
   await expect(done).toBeVisible();

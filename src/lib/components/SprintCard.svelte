@@ -17,7 +17,8 @@
   import Icon from './Icon.svelte';
   import RowMenu, { type RowMenuItem } from './RowMenu.svelte';
 
-  // スプリントの画面のカード（kit.js の card）。題は `?task=<ID>` で詳細の引き出しを開くリンク、ポイント、担当、完了したカードの完了の印。
+  // ボードの画面のカード（kit.js の card）。上に題（`?task=<ID>` で詳細の引き出しを開くリンク）、次に期日などの印、
+  // 下の段の左に親のストーリー（押すと絞り込む）、右にポイント、担当、完了したカードの完了の印（#1498。並びは Jira のカードからキーを除いたもの）。
   // 書き込めるカードは完了したものも tabindex="0" で選べる。未完了カードは中のどこにフォーカスがあっても Alt と ← → で隣の列、
   // Alt と ↑ ↓ で列の中を動かす。同じ操作を、カードの右下の「⋯」（RowMenu）のメニューの「前の<列>へ」「上へ」「下へ」「次の<列>へ」でもできる。
   // 完了していないカードの操作は、「⋯」だけを出す。端の項目は aria-disabled（フォーカスを失わない）にし、端で Alt と矢印を押したときは画面に渡し、動かせないことを読み上げさせる。
@@ -368,17 +369,6 @@
   onkeydown={keydown}
 >
   {#if selectable}<span class="visually-hidden" id={summaryId}>{summary}</span>{/if}
-  {#if task.story !== null}
-    <button
-      class="card-parent is-action"
-      data-story-filter={task.story.id}
-      type="button"
-      aria-label={t('sprintStoryFilterLabel', { story: t('story'), title: task.story.title })}
-      onfocus={() => onstoryfocus?.(task.story!.id)}
-      onblur={() => onstoryfocus?.(null)}
-      onclick={() => onstoryfilter?.(task.story!.id)}><Icon name="flag" /> {task.story.title}</button
-    >
-  {/if}
   <!-- 横と真ん中のときは、押しても、フォーカスとスクロールの位置は動かさない（引き出しが閉じたとき、data-task-id で探してフォーカスを戻す）。ページ全体の既定では taskLinkAttrs が reset を外し、先頭から表示する -->
   <!-- eslint-disable svelte/no-navigation-without-resolve -- href は画面が resolve した経路に ?task=<ID> を足したもの、またはその詳細ページ -->
   <div class="card-title-row">
@@ -429,61 +419,73 @@
     </div>
   {/if}
   <div class="card-foot">
-    {#if attrs !== undefined}
-      <AttrChip
-        attr={t('points')}
-        text={pointsShown === null ? t('points') : t('pointsValue', { value: pointsShown })}
-        unset={pointsShown === null}
-        options={pointOptions}
-        current={pointsShown === null ? '' : String(pointsShown)}
-        onselect={(value) => editor?.points.choose(value === '' ? null : (Number(value) as PointsChoice), true)}
-        locked={pointsLockedReason}
-        points
-      />
-      <AttrChip
-        attr={t('assignee')}
-        text={assigneeText}
-        unset={assigneeShownId === ''}
-        options={assigneeOptions}
-        current={assigneeShownId}
-        onselect={(value) => editor?.assignee.choose(value, true)}
-        locked={assigneeLockedReason}
-        searchable
-        actions={assigneeActions}
-        onopen={() => void editor?.loadCandidates()}
-        retry={candidatesFailed ? () => void editor?.loadCandidates() : undefined}
-        retrying={candidatesLoading}
-        failedNote={t('assigneeCandidatesFailed', { assignee: t('assignee') })}
-        busy={candidatesLoading}
+    {#if task.story !== null}
+      <button
+        class="card-parent is-action"
+        data-story-filter={task.story.id}
+        type="button"
+        aria-label={t('sprintStoryFilterLabel', { story: t('story'), title: task.story.title })}
+        title={task.story.title}
+        onfocus={() => onstoryfocus?.(task.story!.id)}
+        onblur={() => onstoryfocus?.(null)}
+        onclick={() => onstoryfilter?.(task.story!.id)}><Icon name="flag" /> {task.story.title}</button
       >
-        {#snippet lead()}
-          {#if assigneeShownId === ''}
-            <Avatar userId={null} decorative />
-          {:else}
-            <Avatar userId={assigneeShownId} name={assigneeShown?.text ?? ''} decorative />
-          {/if}
-        {/snippet}
-      </AttrChip>
-    {:else if task.points === null}
-      <span class="pts is-none" role="img" aria-label={t('pointsUnsetTitle')} title={t('pointsUnsetTitle')}
-        >{t('pointsUnsetMark')}</span
-      >
-    {:else}
-      <span
-        class="pts"
-        role="img"
-        aria-label={t('pointsLabel', { points: t('points'), value: task.points })}
-        title={t('pointsLabel', { points: t('points'), value: task.points })}>{task.points}</span
-      >
-    {/if}
-    {#if attrs !== undefined}
-      <!-- 担当は、上のチップが出している -->
-    {:else if task.assignee === null}
-      <Avatar userId={null} />
-    {:else}
-      <Avatar userId={task.assignee.id} name={task.assignee.name} />
     {/if}
     <span class="card-end">
+      {#if attrs !== undefined}
+        <AttrChip
+          attr={t('points')}
+          text={pointsShown === null ? t('points') : t('pointsValue', { value: pointsShown })}
+          unset={pointsShown === null}
+          options={pointOptions}
+          current={pointsShown === null ? '' : String(pointsShown)}
+          onselect={(value) => editor?.points.choose(value === '' ? null : (Number(value) as PointsChoice), true)}
+          locked={pointsLockedReason}
+          points
+        />
+        <AttrChip
+          attr={t('assignee')}
+          text={assigneeText}
+          unset={assigneeShownId === ''}
+          options={assigneeOptions}
+          current={assigneeShownId}
+          onselect={(value) => editor?.assignee.choose(value, true)}
+          locked={assigneeLockedReason}
+          searchable
+          actions={assigneeActions}
+          onopen={() => void editor?.loadCandidates()}
+          retry={candidatesFailed ? () => void editor?.loadCandidates() : undefined}
+          retrying={candidatesLoading}
+          failedNote={t('assigneeCandidatesFailed', { assignee: t('assignee') })}
+          busy={candidatesLoading}
+        >
+          {#snippet lead()}
+            {#if assigneeShownId === ''}
+              <Avatar userId={null} decorative />
+            {:else}
+              <Avatar userId={assigneeShownId} name={assigneeShown?.text ?? ''} decorative />
+            {/if}
+          {/snippet}
+        </AttrChip>
+      {:else if task.points === null}
+        <span class="pts is-none" role="img" aria-label={t('pointsUnsetTitle')} title={t('pointsUnsetTitle')}
+          >{t('pointsUnsetMark')}</span
+        >
+      {:else}
+        <span
+          class="pts"
+          role="img"
+          aria-label={t('pointsLabel', { points: t('points'), value: task.points })}
+          title={t('pointsLabel', { points: t('points'), value: task.points })}>{task.points}</span
+        >
+      {/if}
+      {#if attrs !== undefined}
+        <!-- 担当は、上のチップが出している -->
+      {:else if task.assignee === null}
+        <Avatar userId={null} />
+      {:else}
+        <Avatar userId={task.assignee.id} name={task.assignee.name} />
+      {/if}
       {#if menuItems.length > 0}<RowMenu title={task.title} items={menuItems} />{/if}
       {#if done}
         <span class="hanko" role="img" aria-label={t('doneMarkLabel', { title: task.title, done: t('done') })}
