@@ -1,38 +1,39 @@
 // pnpm bench:loading [--runs 20] [--port 9742] [--layout-only] [--layout-before]
-// 計画の比較: --plan-compare [--comparison-reverse]。本番・既存のローカル D1 は使わない。
+// 本番・既存のローカル D1 は使わない。
 import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { isBenchHealth, trackServer } from './loading-server.ts';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { parseArgs } from 'node:util';
 import { SEED_OPERATOR_LOGIN_ID, SEED_SESSIONS } from '../seed/sessions.ts';
 import { sessionCookieName } from '../src/shared/session-cookie.ts';
 import { operations } from '../src/shared/operations/index.ts';
 import { isOutsideOperation } from '../src/shared/operations/define.ts';
-import { loadingFixtureSql, loadingWorkspace } from './loading-fixture.ts';
+import { loadingFixtureSql } from './loading-fixture.ts';
 import { screens, type Reading } from './loading-screens.ts';
 import { comparison, percentile, trialTiming } from './loading-stats.ts';
 import { sessionInserts } from './seed.ts';
 import { fillSeedDates } from './seed-dates.ts';
 import { readTrial } from './loading-trial.ts';
-import {
-  emptyPlanSql,
-  emptyPlanWorkspace,
-  planComparisonOptions,
-  planTimingCell,
-  readPlanComparison,
-} from './plan-loading-comparison.ts';
 
-function option(name: string, fallback: number, max: number): number {
-  const index = process.argv.indexOf(name);
-  const value = index < 0 ? fallback : Number(process.argv[index + 1]);
+const { values: args } = parseArgs({
+  options: {
+    runs: { type: 'string', multiple: true },
+    port: { type: 'string', multiple: true },
+    'layout-only': { type: 'boolean' },
+    'layout-before': { type: 'boolean' },
+  },
+});
+
+function positiveIntegerOption(name: string, input: string, max: number): number {
+  const value = Number(input);
   if (!Number.isSafeInteger(value) || value <= 0 || value > max) throw new Error(`${name} が範囲外です`);
   return value;
 }
-const planOptions = planComparisonOptions(process.argv.slice(2));
-const runs = option('--runs', 20, 10000);
-const port = option('--port', 9742, 65534);
+const runs = positiveIntegerOption('--runs', args.runs?.[0] ?? '20', 10000);
+const port = positiveIntegerOption('--port', args.port?.[0] ?? '9742', 65534);
 const origin = `http://127.0.0.1:${port}`;
 const dir = mkdtempSync(path.join(tmpdir(), 'banmen-loading-'));
 // 秘密の設定ファイルを探索しないよう、一時ディレクトリに独立した wrangler 設定を作る。
@@ -84,7 +85,7 @@ function command(args: string[]) {
     throw new Error(`wrangler ${args.slice(0, 2).join(' ')} が失敗しました: ${result.stderr}`);
   return result.stdout;
 }
-async function call(reading: Reading, actor: 'admin' | 'member' | 'operator') {
+async function call(reading: Reading, actor: 'admin' | 'operator') {
   if (interrupted) throw new Error('計測を中断しました');
   const definition = operations.find((op) => op.name === reading.name);
   if (
@@ -119,50 +120,20 @@ async function call(reading: Reading, actor: 'admin' | 'member' | 'operator') {
     },
   };
 }
-async function reportPlanComparison() {
-  console.log(
-    `Node ${process.version}、計画のデータ・利用者・発行順・条件ごと warmup 2 回 + ${runs} 回。時間は API 往復 ms。分位点は nearest-rank。`,
-  );
-  console.log('| データ | 利用者 | 発行順 | 条件 | 主 p50/p95 | 返却モデル p50/p95 | 全応答 p50/p95 |');
-  console.log('| --- | --- | --- | --- | ---: | ---: | ---: |');
-  for (const workspaceId of [loadingWorkspace, emptyPlanWorkspace]) {
-    for (const actor of ['admin', 'member'] as const) {
-      for (const reverse of [false, true]) {
-        for (const condition of planOptions.conditions) {
-          const read = () => readPlanComparison(condition, workspaceId, reverse, (op) => call(op, actor));
-          await read();
-          await read();
-          const samples: Awaited<ReturnType<typeof readPlanComparison>>[] = [];
-          for (let i = 0; i < runs; i++) samples.push(await read());
-          console.log(
-            `| ${workspaceId === loadingWorkspace ? '履歴あり' : '空'} | ${actor === 'member' ? 'メンバー' : '管理者'} | ${reverse ? '逆順' : '正順'} | ${condition} | ${planTimingCell(samples, 'primary')} | ${planTimingCell(samples, 'ready')} | ${planTimingCell(samples, 'total')} |`,
-          );
-        }
-      }
-    }
-  }
-}
-
 async function report() {
-  if (planOptions.enabled) {
-    await reportPlanComparison();
-    return;
-  }
   console.log(
     `Node ${process.version}、各画面・発行順ごと warmup 2 回 + ${runs} 回（正順・逆順）。時間は API 往復 ms。分位点は nearest-rank。`,
   );
   console.log('| load | 操作（主/従） | p50 ms | p95 ms |');
   console.log('| --- | --- | ---: | ---: |');
-  for (const screen of screens.filter(
-    (screen) => !process.argv.includes('--layout-only') || screen.route.startsWith('/[slug]/+layout'),
-  )) {
+  for (const screen of screens.filter((screen) => !args['layout-only'] || screen.route.startsWith('/[slug]/+layout'))) {
     if (!screen.operations.length) {
       console.log(`| ${screen.route} | 操作なし | — | — |`);
       continue;
     }
     for (const reverse of [false, true]) {
       const label = reverse ? '逆順' : '正順';
-      const before = screen.deferSecondary && process.argv.includes('--layout-before');
+      const before = screen.deferSecondary && args['layout-before'];
       const initial = before
         ? [
             ...screen.operations.filter((op) => op.name !== 'token-notice').slice(0, 2),
@@ -231,8 +202,7 @@ try {
     file,
     fillSeedDates(readFileSync(path.join(root, 'seed/data.sql'), 'utf8'), new Date()) +
       sessionInserts(Object.values(SEED_SESSIONS), new Date()) +
-      loadingFixtureSql() +
-      (planOptions.enabled ? emptyPlanSql : ''),
+      loadingFixtureSql(),
   );
   command(['d1', 'execute', 'DB', '--file', file]);
   server = spawn(
