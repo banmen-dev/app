@@ -8,6 +8,8 @@ import {
   waitForSettled,
   watchViolations,
   expectBoardHeading,
+  openSprintPopover,
+  sprintButton,
 } from './helpers.ts';
 import { mockOperation, routeOperation } from './operations.ts';
 import { SAMPLE_BOARD } from './sprint-fixture.ts';
@@ -34,20 +36,17 @@ test('列を畳んで再読み込みしても保存され、別のワークス�
   await todoToggle.click();
   await expect(draftGroup).toHaveCSS('display', 'none');
   await expect(draft).toBeHidden();
-  // 見出しの編集とメニューを使っても、畳みと下書きは保つ。
-  const head = page.locator('.page-head');
-  const editTrigger = head.getByRole('button', { name: 'スプリントを編集: 第14回', exact: true });
-  await editTrigger.click();
+  // スプリントの小窓の編集と開閉を使っても、畳みと下書きは保つ。
+  await (await openSprintPopover(page)).getByRole('button', { name: 'スプリントを編集: 第14回', exact: true }).click();
   const edit = page.getByRole('dialog', { name: 'スプリントを直す', exact: true });
   await expect(edit).toBeVisible();
   await edit.getByRole('button', { name: 'やめる', exact: true }).click();
   await expect(edit).toBeHidden();
-  await expectFocusReturned(page, editTrigger);
-  const headMenu = head.getByRole('button', { name: '操作: 第14回', exact: true });
-  await headMenu.click();
-  await expect(head.getByRole('menuitem')).toHaveText(['延長する', '終える']);
+  await expectFocusReturned(page, sprintButton(page));
+  const popover = await openSprintPopover(page);
+  await expect(popover.locator('.popover-actions').getByRole('button')).toHaveText(['編集', '延長する', '終える']);
   await page.keyboard.press('Escape');
-  await expect(headMenu).toBeFocused();
+  await expect(sprintButton(page)).toBeFocused();
   await expect(draftGroup).toHaveCSS('display', 'none');
   await expect(draft).toBeHidden();
   await page.keyboard.press('c');
