@@ -123,6 +123,7 @@ export const dictionary = defineDictionary({
   billingSummary: '{name}の契約と使用量',
   // 契約と使用量だけが読めなかったとき。担当者の管理は続けて使える
   billingSummaryLoadFailed: '契約と使用量を読み込めませんでした。担当者の管理はこのまま使えます。',
+  billingSummaryRetrying: '契約と使用量を読み直しています',
   billingStateLabel: '利用の状態',
   billingStateActive: '利用中',
   billingStateSuspended: '一時停止中',
@@ -134,7 +135,7 @@ export const dictionary = defineDictionary({
   billingTrialLabel: 'お試しの期限',
   billingUsageSeatsLabel: '人数',
   // 使用量と上限を並べる。{used} は数える人の数（招待中の人を含む）、{limit} は人数の上限
-  billingUsageSeats: '{used} / {limit} 人',
+  billingUsageSeats: '{used} / {limit}\u00a0人',
   billingUsageStorageLabel: '容量',
   // {used} と {quota} は容量の表示（operatorQuotaSize など）
   billingUsageStorage: '{used} / {quota}',

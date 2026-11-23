@@ -174,6 +174,7 @@
     billingSummary: '{name}の契約と使用量',
     // 契約と使用量だけが読めなかったとき。担当者の管理は続けて使える
     billingSummaryLoadFailed: '契約と使用量を読み込めませんでした。担当者の管理はこのまま使えます。',
+    billingSummaryRetrying: '契約と使用量を読み直しています',
     billingStateLabel: '利用の状態',
     billingStateActive: '利用中',
     billingStateSuspended: '一時停止中',
@@ -185,7 +186,7 @@
     billingTrialLabel: 'お試しの期限',
     billingUsageSeatsLabel: '人数',
     // 使用量と上限を並べる。{used} は数える人の数（招待中の人を含む）、{limit} は人数の上限
-    billingUsageSeats: '{used} / {limit} 人',
+    billingUsageSeats: '{used} / {limit}\u00a0人',
     billingUsageStorageLabel: '容量',
     // {used} と {quota} は容量の表示（operatorQuotaSize など）
     billingUsageStorage: '{used} / {quota}',
@@ -200,6 +201,10 @@
     orgPlanContact: 'プラン、支払いの周期、追加容量を変えるときは、運用者に問い合わせてください。',
     planTerms: '{plan}・{interval}',
     operatorPlanNone: '未契約',
+    planCustomLimits: '{terms}（{members} 人・標準 {quota} GB）',
+    orgPlanPersonalNote: '自分用の{organization}は、人数が本人1人のパーソナルに決まっています。',
+    orgPlanContactPersonal: '容量を足すときは、運用者に問い合わせてください。',
+    orgPlanExtraUnits: '+{size} GB × {units} 口',
 
   delegateeEmptyText: 'タスクの引き出しで新しい名前を入力すると、名簿に追加できます。',
   delegateeAssignFailed: '依頼先を変更できませんでした。タスクの状態や名簿を確認し、もう一度選んでください。',

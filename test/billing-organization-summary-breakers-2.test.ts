@@ -176,7 +176,7 @@ describe('入力の形', () => {
   });
 });
 
-test('操作の定義: ログインだけの read、Cookie 専用、回数の上限なし（Issue の「読み取りの操作」「cookieOnly」）', () => {
+test('操作の定義: ログインだけの read、Cookie 専用、1分に30回の上限（Issue の「読み取りの操作」「cookieOnly」）', () => {
   const definition = billingOrganizationSummary as typeof billingOrganizationSummary & {
     rateLimit?: unknown;
     cookieOnly?: true;
@@ -187,7 +187,8 @@ test('操作の定義: ログインだけの read、Cookie 専用、回数の上
   expect(definition.mode).toBe('read');
   expect(definition.permission).toBe('login');
   expect(definition.cookieOnly).toBe(true);
-  expect(definition.rateLimit).toBeUndefined();
+  // レビューで回数の上限を付けた（開くたびに組織全体を数えるため。Wiki の検索と同じ枠）
+  expect(definition.rateLimit).toEqual({ max: 30, windowSeconds: 60 });
   expect(definition.body).toBeUndefined();
   expect(definition.response).toBeUndefined();
   expect(implementedOperations.some((operation) => operation.definition.name === definition.name)).toBe(true);

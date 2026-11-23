@@ -69,6 +69,13 @@ export function planName(
   return translate(organization.kind === 'personal' ? 'planPersonal' : 'operatorPlanNone');
 }
 
+// 請求画面の利用の状態の言葉（一覧の行と契約と使用量の紙で同じ）
+export const billingStateKeys = {
+  active: 'billingStateActive',
+  suspended: 'billingStateSuspended',
+  cancelled: 'billingStateCancelled',
+} as const satisfies Record<'active' | 'suspended' | 'cancelled', DictionaryKey>;
+
 // 前の版の個別契約は標準値を持たない。追加容量を変える前に、プランの変更で標準値を設定する。
 export function needsCustomContractLimits(
   contract: {

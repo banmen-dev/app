@@ -3,7 +3,7 @@
   import type { billingOrganizationSummary } from '../../shared/operations/billing.ts';
   import { formatCount, quotaSize } from '../format.ts';
   import { formatTrialStopDateTime } from '../format-datetime.ts';
-  import { planLabel, planTermsText } from '../plan-terms.ts';
+  import { billingStateKeys, planLabel, planTermsText } from '../plan-terms.ts';
   import { t } from '../vocabulary.svelte.ts';
   import Icon from './Icon.svelte';
 
@@ -23,11 +23,11 @@
           { size: 50, units: contract.extra_50gb_units },
         ].filter((extra) => extra.units > 0),
   );
-  const stateKeys = {
-    active: 'billingStateActive',
-    suspended: 'billingStateSuspended',
-    cancelled: 'billingStateCancelled',
-  } as const;
+  // お試しは期限の UTC の日付の翌日 0 時から止まる（formatTrialStopDateTime）。過ぎていれば「止まります」と未来形で出さない
+  // （期限切れで止まった組織も、再開するまで trial_ends_on が残る）
+  const trialExpired = $derived(
+    summary.trial_ends_on !== null && Date.parse(`${summary.trial_ends_on}T00:00:00Z`) + 86_400_000 <= Date.now(),
+  );
   function limitText(bytes: number): string {
     const quota = quotaSize(bytes);
     return t(quota.unit === 'gb' ? 'operatorQuotaSize' : 'operatorQuotaSizeMb', { size: quota.size });
@@ -37,7 +37,8 @@
     if (bytes < 1024 ** 2) return t('storageByteSize', { size: formatCount(bytes) });
     const unit = bytes >= 1024 ** 3 ? 1024 ** 3 : 1024 ** 2;
     return t(unit === 1024 ** 3 ? 'operatorQuotaSize' : 'operatorQuotaSizeMb', {
-      size: formatCount(Math.floor((bytes / unit) * 10) / 10),
+      // 割り算の誤差で 0.1 小さく出ないよう、整数のまま切り捨ててから10で割る
+      size: formatCount(Math.floor((bytes * 10) / unit) / 10),
     });
   }
 </script>
@@ -46,16 +47,23 @@
   <div>
     <dt>{t('billingStateLabel')}</dt>
     <dd>
-      <span class="chip" class:is-warn={summary.state !== 'active'}>{t(stateKeys[summary.state])}</span>
-      {#if summary.purge_on !== null}<span class="props-note"
-          >{t(summary.purge_due ? 'billingPurgeDue' : 'billingPurgeOn', { date: summary.purge_on })}</span
+      <span class="chip" class:is-warn={summary.state !== 'active'}>{t(billingStateKeys[summary.state])}</span>
+      {#if summary.purge_on !== null && summary.purge_due}<span class="chip is-danger"
+          ><Icon name="alert" />{t('billingPurgeDue', { date: summary.purge_on })}</span
+        >
+      {:else if summary.purge_on !== null}<span class="props-note"
+          >{t('billingPurgeOn', { date: summary.purge_on })}</span
         >{/if}
     </dd>
   </div>
   {#if summary.trial_ends_on !== null}
     <div>
       <dt>{t('billingTrialLabel')}</dt>
-      <dd class="mono">{t('orgTrialEndsOn', { datetime: formatTrialStopDateTime(summary.trial_ends_on) })}</dd>
+      <dd class="mono">
+        {trialExpired
+          ? t('trialExpired')
+          : t('orgTrialEndsOn', { datetime: formatTrialStopDateTime(summary.trial_ends_on) })}
+      </dd>
     </div>
   {/if}
   <div>

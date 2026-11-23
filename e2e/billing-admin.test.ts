@@ -239,11 +239,15 @@ test('担当組織の一覧にプランと利用の状態を出し、選ぶと�
   await mockOperation(page, billingAdminList, { administrators: [], events: [] });
   await page.goto('/auth/billing');
   const rows = page.locator('.choice-list a.choice');
-  await expect(rows.filter({ hasText: organization.name })).toContainText(`${t('planTeam')}${t('billingStateActive')}`);
-  await expect(rows.filter({ hasText: '藤野工房' })).toContainText(
-    `${t('operatorPlanNone')}${t('billingStateSuspended')}`,
-  );
-  await expect(rows.filter({ hasText: '楓工房' })).toContainText(`${t('planSmall')}${t('billingStateCancelled')}`);
+  // 一覧の行の印は、プランと利用の状態の2つを離して並べる
+  for (const [name, plan, state] of [
+    [organization.name, t('planTeam'), t('billingStateActive')],
+    ['藤野工房', t('operatorPlanNone'), t('billingStateSuspended')],
+    ['楓工房', t('planSmall'), t('billingStateCancelled')],
+  ]) {
+    const chips = rows.filter({ hasText: name }).locator('.chip');
+    await expect(chips).toHaveText([plan, state]);
+  }
 
   await page.getByRole('link', { name: organizationLink }).click();
   const sheet = page.locator('section').filter({

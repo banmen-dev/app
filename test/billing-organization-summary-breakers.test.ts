@@ -378,6 +378,14 @@ describe('状態の境目', () => {
     expect(row?.state).toBe('active');
   });
 
+  test('停止していない組織に purge_on が残る不整合では、消す予定日を返さない（レビューの指摘）', async () => {
+    const person = await createPerson();
+    const organization = await createOrganization();
+    await insertBillingRow(organization, person, 'active');
+    await updateOrganization(organization, { suspended_at: null, purge_on: '2099-12-31' });
+    expect((await summary(person, organization)).purge_on).toBeNull();
+  });
+
   test('お試しの期限と契約の両方がある組織は、契約とお試しの期限を両方返し、一覧の行はそのプラン', async () => {
     const person = await createPerson();
     const organization = await createOrganization({ trial_ends_on: '2026-12-31' });

@@ -2,6 +2,7 @@
 import { sql } from 'kysely';
 import type { OrganizationKind } from '../../shared/organization-kind.ts';
 import type { OrganizationPlan } from '../../shared/organization-plan.ts';
+import { billingOrganizationState } from '../../shared/operations/billing.ts';
 import { ApiError } from '../errors.ts';
 import { uuidv7 } from '../uuid.ts';
 import type { CommonDb } from './entries.ts';
@@ -113,7 +114,6 @@ export async function listBillingOrganizations(db: CommonDb, accountId: string, 
     ),
   );
   return {
-    // 停止していなければ active、停止して purge_on が空なら suspended、あれば cancelled（運用者の一覧と同じ境目）。
     // 停止中と消す予定日を過ぎた組織も、消すまでは一覧に出す
     organizations: rows
       .filter((row) => row.status === 'active')
@@ -123,8 +123,7 @@ export async function listBillingOrganizations(db: CommonDb, accountId: string, 
         // 列の CHECK が守る値
         kind: kind as OrganizationKind,
         plan: plan as OrganizationPlan | null,
-        state: (suspended_at === null ? 'active' : purge_on === null ? 'suspended' : 'cancelled') as
-          'active' | 'suspended' | 'cancelled',
+        state: billingOrganizationState({ suspended_at, purge_on }),
       })),
     invitations: rows.filter((row) => row.status === 'pending').map(({ id, slug, name }) => ({ id, slug, name })),
   };

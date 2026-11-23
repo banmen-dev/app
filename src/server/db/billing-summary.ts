@@ -3,7 +3,7 @@
 import { sql } from 'kysely';
 import type { z } from 'zod';
 import { isPurgeDue } from '../../shared/operations/operator/organization-suspend.ts';
-import type { billingOrganizationSummary } from '../../shared/operations/billing.ts';
+import { billingOrganizationState, type billingOrganizationSummary } from '../../shared/operations/billing.ts';
 import type { OrganizationKind } from '../../shared/organization-kind.ts';
 import type { BillingInterval, OrganizationPlan } from '../../shared/organization-plan.ts';
 import { ApiError } from '../errors.ts';
@@ -81,9 +81,9 @@ export async function readBillingOrganizationSummary(
   return {
     // 列の CHECK が守る値
     kind: organization.kind as OrganizationKind,
-    // 停止していなければ active、停止して purge_on が空なら suspended、あれば cancelled（運用者の一覧と同じ境目）
-    state: !suspended ? 'active' : organization.purge_on === null ? 'suspended' : 'cancelled',
-    purge_on: organization.purge_on,
+    state: billingOrganizationState(organization),
+    // 消す予定日は停止中だけ返す（停止していないのに残った不整合な行で、利用中の組織に消去予定を出さない）
+    purge_on: suspended ? organization.purge_on : null,
     purge_due: suspended && isPurgeDue(organization.purge_on, at),
     trial_ends_on: organization.trial_ends_on,
     contract:

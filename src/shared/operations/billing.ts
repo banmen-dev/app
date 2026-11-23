@@ -14,6 +14,15 @@ const administrator = z.object({
 });
 // 請求管理者に見せる組織の利用の状態。停止していなければ active、停止して消す予定日が空なら suspended、予定日があれば cancelled
 export const billingOrganizationStates = ['active', 'suspended', 'cancelled'] as const;
+// 利用の状態。停止していなければ active、停止して消す予定日が空なら suspended（一時的な停止）、あれば cancelled（解約で停止）。
+// 一覧の行と選んだ組織の紙が同じ式を使う（運用者の一覧の suspended_at と purge_on と同じ境目）
+export function billingOrganizationState(organization: {
+  suspended_at: string | null;
+  purge_on: string | null;
+}): (typeof billingOrganizationStates)[number] {
+  if (organization.suspended_at === null) return 'active';
+  return organization.purge_on === null ? 'suspended' : 'cancelled';
+}
 export const myBillingOrganizations = defineOperation({
   name: 'my-billing-organizations',
   description: '自分が請求を担当する組織と届いた指名を返す',
@@ -63,6 +72,8 @@ export const billingAdminList = defineOperation({
 export const billingOrganizationSummary = defineOperation({
   name: 'billing-organization-summary',
   description: '担当組織の契約、今の上限、利用の状態と、人数と容量の使用量を返す',
+  // 開くたびに組織全体の人数と容量（Wiki の全版と添付）を数える重い読み取りなので、Wiki の検索と同じ枠を付ける
+  rateLimit: { max: 30, windowSeconds: 60 },
   mode: 'read',
   permission: 'login',
   cookieOnly: true,

@@ -155,3 +155,29 @@ describe('出さないもの', () => {
     expect(text).toMatch(/連絡|問い合わせ/);
   });
 });
+
+// レビューの指摘で直した表示
+describe('お試しの期限と消す予定日の出し方', () => {
+  test('お試しの期限を過ぎて止まった組織は「止まります」と未来形で出さない', () => {
+    const text = textOf(summaryOf({ state: 'suspended', trial_ends_on: '2020-01-01', contract: null }));
+    expect(text).toContain('お試しの期限を過ぎています');
+    expect(text).not.toContain('止まります');
+  });
+  test('期限がまだ先のお試しは、止まる日時を出す', () => {
+    const text = textOf(summaryOf({ trial_ends_on: '2999-01-01', contract: null }));
+    expect(text).toContain('ごろに止まります');
+    expect(text).not.toContain('お試しの期限を過ぎています');
+  });
+  test('消す予定日を過ぎた組織は、危険の印で予定日を出す', () => {
+    const { body } = render(BillingSummary, {
+      props: { summary: summaryOf({ state: 'cancelled', purge_on: '2026-01-01', purge_due: true }) },
+    });
+    expect(body).toMatch(/class="chip is-danger"[^>]*>[\s\S]*データを消す予定日（2026-01-01）を過ぎています/);
+  });
+  test('人数の「人」の前は折り返さない空白', () => {
+    const { body } = render(BillingSummary, {
+      props: { summary: summaryOf({ usage: { seats_used: 3, attachment_used_bytes: 0 } }) },
+    });
+    expect(body).toContain('3 / 10\u00a0人');
+  });
+});
