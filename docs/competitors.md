@@ -105,7 +105,7 @@
 | 群 | 対象 |
 | --- | --- |
 | 開発チーム向けのタスク管理 | [Jira](#jira)、[Linear](#linear)、[GitHub（Projects）](#github)、[Asana](#asana) |
-| 汎用と国産 | [Backlog](#backlog)、[ClickUp](#clickup)、[Notion](#notion)、[Trello](#trello)、[Jooto](#jooto)、[mfloow](#mfloow)、[Smartsheet](#smartsheet) |
+| 汎用と国産 | [Backlog](#backlog)、[ClickUp](#clickup)、[Notion](#notion)、[Trello](#trello)、[Jooto](#jooto)、[mfloow](#mfloow)、[Smartsheet](#smartsheet)、[PyxOne](#pyxone) |
 | Redmine 系 | [Redmine 本体](#redmine-本体)、[My Redmine](#my-redmine)、[Planio](#planio)、[RedmineUP Cloud](#redmineup-cloud)、[Lychee Redmine](#lychee-redmine) |
 | ゲームの仕組みを持つタスク管理 | [FocusUp](#focusup) |
 | ゲーム化 | [Habitica（Group Plan）](#habiticagroup-plan)、[Trophies](#trophiesjira-のアプリ) と [Collaboration Champion（Jira のアプリ）](#collaboration-championjira-のアプリ)、[devActivity（GitHub App）](#devactivitygithub-app)、[Bonusly](#bonusly)、[HeyTaco](#heytaco)、[Unipos](#unipos)、[Questline](#questline) |
@@ -134,6 +134,7 @@ Banmen の額は標準容量込みの基本料金。追加容量（＋10GB 月30
 | Jooto | 10人: スターター、50人: ビジネス | ¥5,000（計算） | ¥4,170（計算） | ¥65,000＋初期費用（計算） | ¥49,000＋初期費用（計算） |
 | mfloow | 管理者10人: ライト、管理者50人: スタンダード（メンバー数とは別） | 公開されていない | 公開されていない | 公開されていない | 公開されていない |
 | Smartsheet | 10人: Pro、50人: Business | $120（計算） | $90（計算） | $1,200（計算） | $950（計算） |
+| PyxOne | 10人: Standard、50人: Enterprise（スペースの定額） | ¥12,000 | 年払い無し | 個別見積もり | 年払い無し |
 | My Redmine | スタンダード | ¥11,500（口座振替 ¥9,600） | ¥10,000（前払い） | ¥11,500（口座振替 ¥9,600） | ¥10,000（前払い） |
 | Planio | 10人: Gold、50人: Enterprise | €49（約 ¥7,000） | 年払い無し | €349〜（約 ¥54,000〜） | 年払い無し |
 | RedmineUP Cloud | 10人: Small、50人: Medium | $83 | $69 | $203 | $169 |
@@ -147,8 +148,9 @@ Banmen の額は標準容量込みの基本料金。追加容量（＋10GB 月30
 - Jooto は 2026-09 から年払いの更新を受けない。
 - FocusUp の年払いは「12か月分を10か月分の値段にする」から出した。課金はアプリを接続した人だけを数える。
 - mfloow の上限は管理者の数で決まり（ライト20人、スタンダード50人）、メンバーは無制限。価格は管理者の数に応じて提案される。
+- PyxOne の上限はメンバー（オーナー、管理者、メンバーの権限の人）の数で、ゲストは数えない。Business の上限が30人なので、50人は Enterprise の個別見積もりになる。年払いの記載は無い。
 - 無料で使える範囲の例は次のとおり。
-  - 1人だけのもの: Banmen の自分用（添付 1GB、招待不可、期限なし）、FocusUp Free。Banmen のチーム用は無料プランを置かず、会員が作る組織は30日のお試し。
+  - 1人だけのもの: Banmen の自分用（添付 1GB、招待不可、期限なし）、FocusUp Free、PyxOne の Personal（ゲスト2人、プロジェクト5、1GB、期限なし）。Banmen のチーム用は無料プランを置かず、会員が作る組織は30日のお試し。
   - 人数の制限で区切るもの: Jira Free が10人、Trello Free が10人とボード10枚、Backlog のフリーが10人（2027 から5人）、Planio の Bronze が2人。
   - 人数は無制限のもの: Linear Free（課題250件まで）、GitHub Free、Lychee Redmine のフリー（チケット5,000件まで）。
 
@@ -181,6 +183,7 @@ Banmen の額は標準容量込みの基本料金。追加容量（＋10GB 月30
 | Jooto | スターター約17%、ビジネス約25% | 2026-09 から年払いを更新せず、同じ単価の月払いに切り替える。2027-07-31 に終了 |
 | mfloow | 記載無し | 記載無し。初期費用は「基本無料」 |
 | Smartsheet | Pro 25%、Business 約21%（米ドルの単価から計算） | Pro と Business は月払いと年払い。Enterprise と Advanced Work Management は個別見積もり |
+| PyxOne | 年払いの記載無し | 月払い。カードは Stripe で決済。途中の解約で返金せず、期間の終わりまで使える |
 | My Redmine | 無し | 6か月か12か月の前払いが基本。銀行振込の毎月払いは月 ¥1,500 上乗せ、口座振替は月 ¥400 引き |
 | Planio | 無し | 月ごとの契約だけ。請求はユーロ |
 | RedmineUP Cloud | 約17%（2か月分無料） | 月払いと年払い |
@@ -213,7 +216,7 @@ Banmen の額は標準容量込みの基本料金。追加容量（＋10GB 月30
 
 Banmen の欄は `requirements.md` の初版の要件から付けた。実装状況を示す表ではない。
 変更の履歴はタスクや権限などの変更を残す機能で、セキュリティ監査ログとは分けて扱う。
-Jooto は 2027-07-31 に終わるので列に入れない。mfloow は業務の手順の管理なので列に入れない。
+Jooto は 2027-07-31 に終わるので列に入れない。mfloow は業務の手順の管理なので列に入れない。PyxOne は公式の案内に載る機能が少なく、多くが ? になるので列に入れず、節の機能の表で読む。
 Redmine 系は本体とホスティングごとに機能が違うため、各サービスの節で確かめる。
 
 ## 開発チーム向けのタスク管理
@@ -944,6 +947,70 @@ Redmine 系は本体とホスティングごとに機能が違うため、各サ
 - [時間の記録](https://help.smartsheet.com/articles/2480851-track-time-in-resource-management)、[書き出し](https://help.smartsheet.com/articles/770623-exporting-sheets-reports-from-smartsheet)、[監査](https://help.smartsheet.com/learning-track/system-admin-governance-and-security/activity-monitoring-and-auditing)
 - [項目の共有権限](https://help.smartsheet.com/articles/1155182-sharing-permission-levels)、[対応言語（Impact Report 2026）](https://d2myx53yhj7u4b.cloudfront.net/sites/default/files/2026-08/smartsheet-impact-report-2026_0.pdf)
 - [連携の一覧](https://www.smartsheet.com/integrations)、[Marketplace の GitHub Issues 連携](https://www.smartsheet.com/marketplace/apps/connector-github)
+
+### PyxOne
+
+#### 概要
+
+- 株式会社PyxOne（2026-06 設立）の、ガントを中心にした AI エージェント付きのプロジェクト管理の道具。2026-07-23 に提供を始めた。サイトは日本語。
+- AI が次のタスクを提案し、大きなタスクを子タスクに分け、活動のログから週と月の進み具合のレポートを書く。担当のタスクを複数のプロジェクトをまたいで並べる「MYガント」を持つ。
+- 料金はスペース（ワークスペース）ごとの定額で、表示は円。人数はメンバーの上限で区切る。
+
+#### プラン
+
+| プラン | 月払い | 年払い（月あたり） | 上限 |
+| --- | --- | --- | --- |
+| Personal | ¥0 | 無し | メンバー1人、ゲスト2人、プロジェクト5、AI クレジット月500、1GB |
+| Starter | ¥3,500 | 記載無し | メンバー3人、ゲスト5人、プロジェクト10、AI クレジット月4,000、15GB |
+| Standard | ¥12,000 | 記載無し | メンバー10人、ゲスト10人、プロジェクト100、AI クレジット月10,000、100GB |
+| Business | ¥50,000 | 記載無し | メンバー30人、ゲスト30人、プロジェクト100、AI クレジット月30,000、300GB |
+| Enterprise | 個別見積もり | 個別見積もり | ゲスト無制限、プロジェクト1,000、2TB。メンバーは問い合わせ |
+
+- メンバーはオーナー、管理者、メンバーの権限の人で、ゲストは数えない。
+- 10人は Standard で月 ¥12,000。50人は Business の上限（30人）を超えるので Enterprise の個別見積もりになる。
+- AI クレジットは Starter から追加で買える（オーナーだけ）。¥2,000 で2,000、¥10,000 で12,000、¥50,000 で70,000。期限は購入から1年。
+
+#### 無料の範囲とお試し
+
+- Personal は1人で期限なく無料。クレジットカードの登録は要らない。
+- 有料プランのお試しの記載は無い。
+
+#### 機能
+
+| 機能 | 使えるプランと範囲 |
+| --- | --- |
+| スプリントとポイント | 記載が無い |
+| エピックと親子 | 大きなタスクを子タスクに分ける（AI が案を出し、確かめてからガントに足す） |
+| ガント | 全プラン。複数のプロジェクトをまたぐ MYガントも全プラン |
+| 時間の記録 | 記載が無い |
+| 書き出し | 記載が無い |
+| 権限と監査ログ | オーナー、管理者、メンバーの権限とプロジェクトごとのアクセス権。監査ログの記載は無い |
+| SSO と API | SSO と API の記載は無い。MCP サーバーは Starter から（AI のアプリからプロジェクトとタスクを読み書きできる） |
+| 自動化 | 期日が近いタスクと過ぎたタスクを Slack とメールで毎日知らせる。決めた曜日と時刻にレポートを作る。汎用の自動化の記載は無い |
+| Backlog と GitHub との連携 | 記載が無い。連携は Slack への通知と ScanSnap からのファイルの取り込み |
+| AI | 全プラン。タスクの提案と分解、調べものと下書き、レポートの作成。AI クレジットで使う量が決まる |
+| ゲームの仕組み | 公式の料金ページと機能の案内に記載無し |
+
+#### 支払いの形
+
+- 料金ページは月額だけを載せ、年払いの記載は無い。税込か税抜かも書かれていない。
+- カードは Stripe で決済する。個別の契約で別の支払い方法を決める場合がある。
+- 解約は期間の終わりまで有料プランを使え、その後は Personal に移る。途中の解約、プランを下げたこと、使わなかったことを理由に返金せず、日割りもしない。プランを上げたときは差額を日割りで調整する。
+- 解約しても、データはそれだけでは消えない。上限を超えた分は新しく足せなくなる。
+
+#### 確信度の低い点
+
+- 表示額の税、年払いの有無、請求書払いは確認できなかった。
+- 画面の日本語以外の言語、Backlog と GitHub の取り込み、スプリントの機能は、サイトに記載が無いだけで、製品の中までは確かめていない。
+- 提供開始から半年に満たず、プランと価格が変わる見込みが高い。
+
+#### 出典
+
+以下はすべて PyxOne 公式（2026-11-24 確認）。
+
+- [トップ](https://pyxone.com/)、[概要](https://pyxone.com/overview)
+- [料金](https://pyxone.com/fee)、[返金と解約](https://pyxone.com/fee/refund-policy)
+- [会社情報](https://pyxone.com/company)、[セキュリティ](https://pyxone.com/security)、[外部サービス](https://pyxone.com/external-services)
 
 ## Redmine 系
 
