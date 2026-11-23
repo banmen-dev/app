@@ -310,6 +310,29 @@
     return column.is_done ? t('done') : (column.name ?? '');
   }
 
+  // カードの上で直す（ポイントと担当のチップ、題の鉛筆）ときの配線。書き込めるときだけ渡す（#1499）。
+  // 保存が通ったら、そのカードだけを画面の並びで直し（列の合計も変わる）、断られたら読み直す
+  const cardAttrs = $derived(
+    canWrite && workspace !== null
+      ? {
+          slug,
+          workspaceId,
+          meId: data.organization?.me.id ?? null,
+          loadedAt: data.loadedAt,
+          onpatch: patchCard,
+          onSaved: reloadBoard,
+          onStale: () => void invalidateAll(),
+        }
+      : undefined,
+  );
+  function patchCard(id: string, patch: Partial<SprintBoardTask>): void {
+    local = columns.map((column) =>
+      column.tasks.some((task) => task.id === id)
+        ? { ...column, tasks: column.tasks.map((task) => (task.id === id ? { ...task, ...patch } : task)) }
+        : column,
+    );
+  }
+
   function pointsOf(tasks: readonly SprintBoardTask[]): number {
     return tasks.reduce((total, task) => total + (task.points ?? 0), 0);
   }
@@ -342,6 +365,8 @@
   async function restoreFocus(saved: { id: string; index: number } | null): Promise<void> {
     if (saved === null) return;
     await tick();
+    // 読み直しを待つ間に題の欄や担当の絞り込みの欄で書き始めていたら、そこからフォーカスを奪わない
+    if (document.activeElement instanceof HTMLInputElement && document.activeElement.closest('[data-card-id]')) return;
     const card = [...document.querySelectorAll<HTMLElement>('[data-card-id]')].find(
       (el) => el.dataset.cardId === saved.id,
     );
@@ -1055,6 +1080,7 @@
                       dnd={canWrite ? dnd : undefined}
                       onmove={moveCard}
                       ondelete={canWrite ? (target, keyboard) => void removeCard(target, keyboard) : undefined}
+                      attrs={cardAttrs}
                     />
                   {:else}
                     <p class="board-empty">{t('sprintBoardColumnEmpty')}</p>

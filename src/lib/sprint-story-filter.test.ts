@@ -14,6 +14,7 @@ const card = (id: string, story: string | null): SprintBoardTask => ({
   due_on: null,
   repository: null,
   can_delete: false,
+  is_imported: false,
 });
 const columns: SprintBoardColumn[] = [
   {

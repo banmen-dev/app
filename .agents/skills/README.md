@@ -13,7 +13,7 @@
 
 ## 配置
 
-`increment-build`、`done-check`、`pr`、`screen-review` とバックログ・スクラム関連は Codex 用の入口を持つ。API・DB・動きの専門スキルは既存の相対リンクで共有する。
+`make`、`done-check`、`pr`、`screen-review` とバックログ・スクラム関連は Codex 用の入口を持つ。API・DB・動きの専門スキルは既存の相対リンクで共有する。
 `ai-review` は Claude を実行する CI 専用、`rename-session` は Claude のセッション操作、`impeccable` は既存の運用方針で対象外とする。`acceptance-video` はブラウザ操作と動画生成の環境依存が大きいため、今回は配置しない。
 
 新しい Codex セッションの `/skills` または `$` の候補で確認する。ファイルの配置検証と、Codex が実際に認識したことの確認は区別する。

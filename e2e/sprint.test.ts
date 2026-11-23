@@ -156,10 +156,14 @@ test('リーダーはゴールを書いてスプリントを始め、2つ目は�
   await expect(titlesIn(page, '未着手')).toHaveText(['B札', 'C札']);
   await expect(card('A札')).toBeFocused();
 
-  // カードの操作は「⋯」だけで、下の矢印の帯は無い。「⋯」のメニューでも同じ。移した先の末尾に入る
+  // 移す操作は「⋯」だけで、下の矢印の帯は無い。ほかのボタンは、カードの上で直す鉛筆とポイント・担当のチップ（#1499）。
+  // 「⋯」のメニューでも同じ。移した先の末尾に入る
   await expect(page.locator('.card-moves')).toHaveCount(0);
   await expect(page.locator('.card .done-btn')).toHaveCount(0);
-  await expect(card('B札').getByRole('button')).toHaveCount(1);
+  await expect(card('B札').getByRole('button')).toHaveCount(4);
+  for (const name of ['タイトルを直す: B札', 'ポイント: 未設定', '担当: 未設定', '操作: B札']) {
+    await expect(card('B札').getByRole('button', { name, exact: true })).toHaveCount(1);
+  }
   await chooseRowAction(page, 'B札', '次の列へ');
   await expect(status('「B札」を作業中の 2 番目に移しました（2 件中）')).toBeVisible();
   // 列をまたいでカードが作り直されても、フォーカスは同じカードの「⋯」に残る

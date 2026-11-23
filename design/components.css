@@ -2188,6 +2188,25 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
 .attr-chip .chip-text { min-width: 0; }
 .attr-chip.is-points .chip-text { font-family: var(--font-mono); }
 .attr-chip .chip-btn > .ico { flex: none; width: 1em; height: 1em; transform: rotate(90deg); }
+/* 候補を文字で絞る選択の窓（AttrChip の searchable。ボードのカードの担当）。欄の下に候補を並べ、当たらないときは文で知らせる */
+.attr-search { gap: var(--space-1); }
+.attr-search > .input { width: 100%; }
+/* 候補が多く窓の中で送るときも、絞り込みの欄は上に残す */
+.attr-search > .input { position: sticky; top: 0; z-index: 1; }
+.attr-search-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.attr-search > .action-note { margin: 0; padding: var(--space-2); }
+/* カードの題と鉛筆（ボードのカードの題をその場で書き換える）。書き換えている間は題のリンクを隠し、同じ所に入力欄を置く。
+   鉛筆は「⋯」と同じく、広い幅ではホバーとカードの中のフォーカスで出す（opacity だけなので、見えなくてもキーボードで届く） */
+.card-title-row { display: flex; align-items: flex-start; gap: var(--space-1); min-width: 0; }
+.card-title-row > .card-title { flex: 1 1 auto; min-width: 0; }
+.card-title-row > .card-title[hidden] { display: none; }
+.card-title-row > .input { flex: 1 1 auto; min-width: 0; font-weight: 700; }
+/* 押せない鉛筆（完了したカード、取り込んだタスク）も、出たときは .icon-btn の押せない薄さにする */
+.card .card-edit-btn { flex: none; width: 24px; height: 24px; opacity: 0; }
+.card:is(:hover, :focus-within) .card-edit-btn, .card .card-edit-btn:focus-visible { opacity: 1; }
+.card:is(:hover, :focus-within) .card-edit-btn[aria-disabled="true"] { opacity: 0.35; }
+/* 押せない鉛筆も、フォーカスしている間は薄めない（フォーカスの輪まで薄くしない） */
+.card .card-edit-btn[aria-disabled="true"]:focus-visible { opacity: 1; }
 .row-menu-btn { opacity: 0; }
 :is(.entry, .tree-row, .card):is(:hover, :focus-within) .row-menu-btn, .row-menu-btn[aria-expanded="true"], .row-menu-btn:focus-visible { opacity: 1; }
 /* 引き出しの帯の「⋯」（ストーリーの引き出しの親を移すと削除）は、ホバーする行が無いので常に出す */
@@ -2201,6 +2220,8 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
 .row-menu-list li:not(:first-child):has(> .menu-item.is-danger) { margin-top: var(--space-1); padding-top: var(--space-1); border-top: 1px solid var(--color-rule); }
 @media (max-width: 760px), (pointer: coarse) {
   .row-menu-btn { opacity: 1; width: 44px; height: 44px; }
+  .card .card-edit-btn { opacity: 1; width: 44px; height: 44px; }
+  .card .card-edit-btn[aria-disabled="true"] { opacity: 0.35; }
   .chip-btn::after { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
   /* 見た目の縦の余白は持たない。::after の 44px が隣の段に重ならないよう、折り返す段の間（row-gap）だけで空ける。
      チップの段は「⋯」（44px）と同じ段なので、1段のときは 44px の高さに収まり、折り返した 2 段目は、チップの高さ（約 22px。書体で変わる）に 24px を足して 44px 以上の間隔になる */
