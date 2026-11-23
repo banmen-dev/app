@@ -88,7 +88,7 @@ test('完了したカードのチップと鉛筆は押せず、理由が読め�
 
 test('取り込んだタスクの鉛筆は押せず、理由が読める。チップは押せる', () => {
   const body = editable({ is_imported: true });
-  expect(body).toContain('取り込んだタスクのタイトルとリンクは直せません。');
+  expect(body).toContain('取り込んだタスクのタイトルは直せません。');
   expect(body).toMatch(/card-edit-btn[^>]*aria-disabled="true"/);
   expect(body).toContain('aria-haspopup="menu"');
 });

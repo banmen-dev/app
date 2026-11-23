@@ -20,7 +20,8 @@
   // （読み込んでいます、failedNote、まだ読み込めませんでした、空）。領域と文字を同じ描画で入れない。
   // 幅の変化で閉じるとき、フォーカスがメニューか窓の中にあればチップへ戻す（高さだけの変化では閉じない）。
   // searchable を真にすると（ボードのカードの担当）、メニューを絞り込みの欄つきの窓（role="dialog"。モーダルにしない）に入れる。
-  // 開くと欄へフォーカスし、打った文字を含む候補だけを残す（大文字と小文字を区別しない）。↓ で候補へ、Enter で先頭の候補を選ぶ。
+  // 開くと欄へフォーカスし、打った文字を含む候補だけを残す（大文字と小文字を区別しない）。↓ で候補へ、先頭の候補の ↑ で欄へ戻る。
+  // 打った後の Enter で先頭の候補を選ぶ（空の欄の Enter では選ばない）。
   // actions は候補の前に置く操作（「自分に割り当てる」。role="menuitem"）で、選ぶと onselect に値を渡す。絞り込んでいる間は隠す。
   // 窓の中は Tab で欄と候補の間を移れ、外へ出たら閉じる（panel と同じ）
   type Option = { value: string; text: string };
@@ -80,7 +81,10 @@
     needle === '' ? options : options.filter((option) => option.text.toLocaleLowerCase().includes(needle)),
   );
   const shownActions = $derived(needle === '' ? actions : []);
-  const searchEmpty = $derived(searchable && needle !== '' && shownOptions.length === 0);
+  // 読み込み中と失敗の間は、候補が無いとは言えないので出さない
+  const searchEmpty = $derived(
+    searchable && needle !== '' && shownOptions.length === 0 && !busy && retry === undefined,
+  );
   let root = $state<HTMLElement>();
   let button = $state<HTMLButtonElement>();
   let list = $state<HTMLElement>();
@@ -194,9 +198,10 @@
     // 絞り込みの欄では、Home と End は文字の位置を動かし、Enter は先頭の候補を選ぶ
     if (event.target === searchInput) {
       if (event.key === 'Home' || event.key === 'End') return;
+      // 空の欄の Enter では選ばない（開いた直後の反射の Enter で担当を替えない）
       if (event.key === 'Enter') {
         event.preventDefault();
-        items()[0]?.click();
+        if (needle !== '') items()[0]?.click();
         return;
       }
     }
@@ -212,6 +217,11 @@
     if (all.length === 0) return;
     event.preventDefault();
     const at = all.indexOf(event.target as HTMLElement);
+    // 絞り込みの窓では、先頭の項目の ↑ で欄へ戻る（打ち直せるように）
+    if (searchable && at === 0 && event.key === 'ArrowUp') {
+      searchInput?.focus();
+      return;
+    }
     const next =
       event.key === 'Home'
         ? 0

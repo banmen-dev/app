@@ -365,6 +365,8 @@
   async function restoreFocus(saved: { id: string; index: number } | null): Promise<void> {
     if (saved === null) return;
     await tick();
+    // 読み直しを待つ間に題の欄や担当の絞り込みの欄で書き始めていたら、そこからフォーカスを奪わない
+    if (document.activeElement instanceof HTMLInputElement && document.activeElement.closest('[data-card-id]')) return;
     const card = [...document.querySelectorAll<HTMLElement>('[data-card-id]')].find(
       (el) => el.dataset.cardId === saved.id,
     );

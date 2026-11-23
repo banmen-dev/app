@@ -2213,6 +2213,7 @@ export const dictionary = defineDictionary({
   // ボードのカードの題の横の鉛筆（押すと題をその場で書き換える）。完了したカードは押せない
   cardTitleEditLabel: 'タイトルを直す: {title}',
   cardTitleDone: 'この{task}は{done}になっているため、タイトルは直せません。',
+  cardTitleImported: '取り込んだ{task}のタイトルは直せません。',
   pointsValue: '{value} pt',
   // 担当の選択（引き出しと起票のダイアログ）。候補は、そのワークスペースに今所属している人
   assigneeCandidatesFailed: '{assignee}の候補を読み込めませんでした',

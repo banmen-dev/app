@@ -77,6 +77,15 @@ test('カードのチップでポイントと担当を選ぶと保存され、�
   const search = assigneeWindow.getByRole('searchbox', { name: '担当を探す' });
   await expect(search).toBeFocused();
   await expect(assigneeWindow.getByRole('menuitem', { name: '自分に割り当てる' })).toBeVisible();
+  // 空の欄の Enter では選ばない（開いた直後の反射の Enter で担当を替えない）
+  await search.press('Enter');
+  await expect(assigneeWindow).toBeVisible();
+  await expect(card.getByRole('button', { name: '担当: 未設定' })).toHaveCount(1);
+  // 先頭の候補から ↑ で欄へ戻る
+  await search.press('ArrowDown');
+  await expect(assigneeWindow.getByRole('menuitem', { name: '自分に割り当てる' })).toBeFocused();
+  await page.keyboard.press('ArrowUp');
+  await expect(search).toBeFocused();
   await search.fill('該当しない名前');
   await expect(assigneeWindow.getByText('当たる候補はありません')).toBeVisible();
   // 絞り込んでいる間は「自分に割り当てる」を隠す
@@ -129,15 +138,34 @@ test('鉛筆で題をその場で書き換える。Enter で保存、Esc で元�
   await expect(renamed.locator('.card-title')).toHaveText('直した題の札');
   await expect(renamed.getByRole('button', { name: 'タイトルを直す: 直した題の札' })).toBeFocused();
 
+  // フォーカスが外れたときも保存し、移った先からフォーカスを奪わない
+  const renamedPencil = renamed.getByRole('button', { name: 'タイトルを直す: 直した題の札' });
+  await renamedPencil.click();
+  await renamed.getByRole('textbox', { name: 'タイトル' }).fill('離れて直した札');
+  const blurSaved = waitForResponses(page, '/task-update');
+  const pointsChip = cardOf(page, '直した題の札').getByRole('button', { name: 'ポイント: 未設定' });
+  await renamed.getByRole('textbox', { name: 'タイトル' }).press('Tab');
+  await blurSaved;
+  await expect(pointsChip).toBeFocused();
+  const left = cardOf(page, '離れて直した札');
+  await expect(left.locator('.card-title')).toHaveText('離れて直した札');
+
+  // 空の題で離れたら、理由を出して元の題に戻す（送らない）
+  await left.getByRole('button', { name: 'タイトルを直す: 離れて直した札' }).click();
+  await left.getByRole('textbox', { name: 'タイトル' }).fill('   ');
+  await left.getByRole('textbox', { name: 'タイトル' }).press('Tab');
+  await expect(left.getByRole('textbox', { name: 'タイトル' })).toHaveCount(0);
+  await expect(left.locator('.card-title')).toHaveText('離れて直した札');
+
   // 断られたら、理由を出して元の題に戻す
   await failOperation(page, taskUpdate, { slug: 'aoba' }, 409, 'conflict', {
-    details: { reason: 'stale', current: { title: '直した題の札' } },
+    details: { reason: 'stale', current: { title: '離れて直した札' } },
   });
-  await renamed.getByRole('button', { name: 'タイトルを直す: 直した題の札' }).click();
-  await renamed.getByRole('textbox', { name: 'タイトル' }).fill('通らない題');
-  await renamed.getByRole('textbox', { name: 'タイトル' }).press('Enter');
-  await expect(page.getByRole('alert').filter({ hasText: 'ほかの人が同時に直したため' })).toBeVisible();
-  await expect(renamed.locator('.card-title')).toHaveText('直した題の札');
+  await left.getByRole('button', { name: 'タイトルを直す: 離れて直した札' }).click();
+  await left.getByRole('textbox', { name: 'タイトル' }).fill('通らない題');
+  await left.getByRole('textbox', { name: 'タイトル' }).press('Enter');
+  await expect(page.locator('.toasts .toast', { hasText: 'ほかの人が同時に直したため' })).toBeVisible();
+  await expect(left.locator('.card-title')).toHaveText('離れて直した札');
 });
 
 test('完了したカードのチップと鉛筆は押せず理由が読める。チップと鉛筆からはドラッグが始まらない', async ({ page }) => {
@@ -174,7 +202,8 @@ test('完了したカードのチップと鉛筆は押せず理由が読める�
   await expect(pencil).toHaveAccessibleDescription('このタスクは完了になっているため、タイトルは直せません。');
   await pencil.click({ force: true });
   await expect(done.getByRole('textbox', { name: 'タイトル' })).toHaveCount(0);
-  await points.click();
+  // aria-disabled のボタンは Playwright が押せるまで待つので、force で押して開かないことを確かめる
+  await points.click({ force: true });
   await expect(page.getByRole('menu', { name: 'ポイントを選ぶ' })).toHaveCount(0);
 
   // 担当の窓を開いた状態を axe にかける

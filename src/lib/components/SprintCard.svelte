@@ -147,19 +147,31 @@
     done
       ? t('cardTitleDone', { task: t('task'), done: t('done') })
       : task.is_imported
-        ? t('taskImportedLocked', { task: t('task') })
+        ? t('cardTitleImported', { task: t('task') })
         : undefined,
   );
   let editingTitle = $state(false);
   let titleDraft = $state('');
+  // 書き始めた時点の題（保存の expected）。直している間に盤が読み直されて別の人の題が入っても、黙って上書きしない
+  let titleBase = '';
   // 送っている間に出す題（通るまで）。null は task.title をそのまま出す
   let titleSending = $state<string | null>(null);
   let titleInput = $state<HTMLInputElement>();
   let editButton = $state<HTMLButtonElement>();
   const titleShown = $derived(titleSending ?? task.title);
+  // 直している間に書き込めなくなった（ワークスペースが終了した）ら、欄を閉じて書きかけを捨てる
+  $effect(() => {
+    if (attrs === undefined && untrack(() => editingTitle)) editingTitle = false;
+  });
 
   async function beginTitle(): Promise<void> {
-    if (titleLockedReason !== undefined || titleSending !== null) return;
+    if (titleLockedReason !== undefined) {
+      // 押せない理由は title と読み上げのほか、押したときにも知らせる（指の画面には title が出ない）
+      showToast(titleLockedReason, 'alert');
+      return;
+    }
+    if (titleSending !== null) return;
+    titleBase = task.title;
     titleDraft = task.title;
     editingTitle = true;
     await tick();
@@ -167,31 +179,38 @@
     titleInput?.select();
   }
 
-  async function endTitle(): Promise<void> {
+  // restoreFocus はキー（Enter と Esc）で終えたときだけ真。フォーカスが外れて終えたときは、移った先から奪わない
+  async function endTitle(restoreFocus: boolean): Promise<void> {
     editingTitle = false;
+    if (!restoreFocus) return;
     await tick();
     editButton?.focus();
   }
 
-  async function commitTitle(): Promise<void> {
-    if (!editingTitle || attrs === undefined) return;
+  // byKey は Enter で確定したとき。偽はフォーカスが外れたとき
+  async function commitTitle(byKey: boolean): Promise<void> {
+    if (!editingTitle) return;
+    if (attrs === undefined) {
+      await endTitle(byKey);
+      return;
+    }
     const next = titleDraft.trim();
-    if (next === task.title) {
-      await endTitle();
+    if (next === titleBase) {
+      await endTitle(byKey);
       return;
     }
     const problem = taskTitleMessage(next);
     if (problem !== null) {
       showToast(problem, 'alert');
-      titleInput?.focus();
+      // Enter では欄に留めて直してもらう。外れたときは欄へ引き戻さず、元の題に戻す
+      if (!byKey) await endTitle(false);
       return;
     }
-    const before = task.title;
     titleSending = next;
-    await endTitle();
+    await endTitle(byKey);
     const result = await callOperation(
       taskUpdate,
-      { workspace_id: attrs.workspaceId, task_id: task.id, title: next, expected: { title: before } },
+      { workspace_id: attrs.workspaceId, task_id: task.id, title: next, expected: { title: titleBase } },
       { slug: attrs.slug },
     );
     if (result.ok) {
@@ -201,7 +220,7 @@
       return;
     }
     titleSending = null;
-    const failure = cardTitleFailure(result);
+    const failure = cardTitleFailure(result, task.is_imported);
     showToast(failure.message, 'alert');
     if (failure.stale) attrs.onStale();
     await reload();
@@ -213,10 +232,10 @@
     if (event.isComposing || event.keyCode === 229) return;
     if (event.key === 'Enter') {
       event.preventDefault();
-      void commitTitle();
+      void commitTitle(true);
     } else if (event.key === 'Escape') {
       event.preventDefault();
-      void endTitle();
+      void endTitle(true);
     }
   }
   // 乗っている間に消えたカード（削除、列をまたぐ移動）は pointerleave が来ないので、破棄するときに強調を外す
@@ -390,7 +409,7 @@
         bind:this={titleInput}
         bind:value={titleDraft}
         onkeydown={titleKeydown}
-        onblur={() => void commitTitle()}
+        onblur={() => void commitTitle(false)}
       />
     {:else if attrs !== undefined}
       <button

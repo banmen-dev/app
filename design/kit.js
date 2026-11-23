@@ -254,7 +254,7 @@
     assignToMe: "自分に割り当てる",
     cardTitleEditLabel: "タイトルを直す: {title}",
     cardTitleDone: "この{task}は{done}になっているため、タイトルは直せません。",
-    taskImportedLocked: "取り込んだ{task}のタイトルとリンクは直せません。",
+    cardTitleImported: "取り込んだ{task}のタイトルは直せません。",
     storyCreating: "作っています",
     dueClear: "クリア",
     storyTitlePlaceholder: "どこまで進めば区切りか",
@@ -1046,7 +1046,7 @@
   // 完了したカードと取り込んだタスクは押せず、理由を読み上げと title で読める
   function cardEdit(x, titleId) {
     const label = t("cardTitleEditLabel").replace("{title}", () => x.title);
-    const locked = x.doneAt ? t("cardTitleDone").replace("{task}", t("task")).replace("{done}", t("done")) : x.src ? t("taskImportedLocked").replace("{task}", t("task")) : null;
+    const locked = x.doneAt ? t("cardTitleDone").replace("{task}", t("task")).replace("{done}", t("done")) : x.src ? t("cardTitleImported").replace("{task}", t("task")) : null;
     return `<button class="icon-btn card-edit-btn" type="button" data-card-edit="${x.id}" aria-label="${esc(label)}" title="${esc(locked || label)}"${locked ? ` aria-disabled="true" aria-describedby="${titleId}-locked"` : ""}>${icon("pen")}</button>` +
       (locked ? `<span class="visually-hidden" id="${titleId}-locked">${locked}</span>` : "");
   }
@@ -2217,6 +2217,9 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     if (ev.target.matches("[data-chip-search]") && (ev.key === "Home" || ev.key === "End")) return false;
     const items = visibleItems(list);
     const at = items.indexOf(ev.target);
+    // 絞り込みの窓では、先頭の項目の ↑ で欄へ戻る（本番の AttrChip の searchable と同じ）
+    const search = list.querySelector("[data-chip-search]");
+    if (search && at === 0 && ev.key === "ArrowUp") { ev.preventDefault(); search.focus(); return true; }
     const next = ev.key === "Home" ? 0 : ev.key === "End" ? items.length - 1 : (at + (ev.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
     ev.preventDefault(); items[next].focus(); return true;
   }
@@ -4057,7 +4060,8 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   });
   document.addEventListener("keydown", (ev) => {
     if (ev.key === "Enter" && ev.target.matches && ev.target.matches("[data-chip-search]")) {
-      ev.preventDefault(); visibleItems(ev.target.closest(".attr-search"))[0]?.click(); return;
+      // 空の欄の Enter では選ばない（本番の AttrChip と同じ）
+      ev.preventDefault(); if (ev.target.value.trim()) visibleItems(ev.target.closest(".attr-search"))[0]?.click(); return;
     }
     const input = ev.target.closest && ev.target.closest("[data-card-title-input]");
     if (!input) return;
@@ -4075,7 +4079,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const x = task(button.dataset.cardEdit);
     if (!x) return;
     button.parentElement.querySelector(".card-title").hidden = true;
-    button.insertAdjacentHTML("beforebegin", `<input class="input" type="text" autocomplete="off" aria-label="タイトル" data-card-title-input="${x.id}" value="${esc(x.title)}">`);
+    button.insertAdjacentHTML("beforebegin", `<input class="input" type="text" autocomplete="off" aria-label="${t("fieldTitle")}" data-card-title-input="${x.id}" value="${esc(x.title)}">`);
     const input = button.parentElement.querySelector("[data-card-title-input]");
     button.remove(); input.focus(); input.select();
   });
