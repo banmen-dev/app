@@ -222,8 +222,11 @@ test('絞っている間に追加の行で作ったタスクが絞り込みに�
   // 当たる題なら見えて、ふだんの知らせになる
   await input.fill('管理の手順を書く');
   await input.press('Enter');
-  // 「隠れています」の知らせと接頭辞が同じなので、文の全体が一致することで、ふだんの知らせであることを確かめる
-  await expect(page.getByText('「管理の手順を書く」を未着手に足しました', { exact: true })).toBeVisible();
+  // 「隠れています」の知らせと接頭辞が同じなので、文の全体が一致することで、ふだんの知らせであることを確かめる。
+  // 知らせは閉じたダイアログの中の領域（隠れている）にも入るので、見えている status の中で探す
+  await expect(
+    page.getByRole('status').getByText('「管理の手順を書く」を未着手に足しました', { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText(/「管理の手順を書く」.*隠れています/)).toHaveCount(0);
   await expect(cards(page)).toHaveCount(2);
 });
