@@ -1,0 +1,45 @@
+# 依存の更新を週に1回、ecosystem ごとに1つの PR にまとめて出す（docs/development.md の「定期の作業」）。
+# PR は .github/labeler.yml の規則で needs-human が付き、人が差分を読んでマージする
+version: 2
+updates:
+  # pnpm（package.json と pnpm-lock.yaml）
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Tokyo
+    # 公開から日を置き、乗っ取られて出た版が取り下げられる間を待つ
+    cooldown:
+      default-days: 7
+    groups:
+      npm:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: chore
+      include: scope
+  # ワークフロー（.github/workflows/）と、自前の composite action（.github/actions/*/action.yml）が使う action
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/*
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Tokyo
+    cooldown:
+      default-days: 7
+    # 版を上げるときに、起動経路と自動で読むファイルを人が確かめ直す（docs/development.md の「CI」）。
+    # scripts/ai-review-workspace.test.ts も固定の SHA を見るので、上げる PR で一緒に直す
+    ignore:
+      - dependency-name: anthropics/claude-code-action
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: ci
+      include: scope
