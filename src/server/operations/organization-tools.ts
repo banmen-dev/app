@@ -6,6 +6,7 @@
 // 自分のログインの読み取り（myLogins）のほかの道具を使えない。
 // 当たらない呼び出しは処理の誤りなので、投げて 500 にする
 import { now } from '../../shared/clock.ts';
+import { isLoopbackHttpOrigin } from '../../shared/session-cookie.ts';
 import { reconcileAttachmentQuotaAfterSave } from '../storage/quota-warning.ts';
 import type { Defer } from './implement.ts';
 import { INVITE_PATH } from '../../shared/claim-token.ts';
@@ -39,6 +40,8 @@ export type OrganizationTools = {
   inviteUrl(claimToken: string): string;
   // 自分の組織の行のうち、入るときに引かない値（人数の上限）
   readOrganization(): Promise<OrganizationRow>;
+  // 削除済みを除外する版を先に出せるよう、公開側では明示的な有効化が要る。
+  workspaceDeleteEnabled(): boolean;
   // 自分の組織の契約と、今効いている人数と添付ファイルの上限（組織の管理の画面のプランの節）
   readOrganizationPlan(): Promise<OrganizationPlanRow>;
   // 成功後は変更待ちの記録だけを待ち、通知をdeferへ渡す。容量拒否時のmarkOnlyは記録だけ行い、cronへ任せる。
@@ -94,6 +97,10 @@ export function organizationTools(
     inviteeResolver: (provider) => member(() => inviteeResolver(provider)),
     inviteUrl: (claimToken) => member(() => `${new URL(env.PUBLIC_ORIGIN).origin}${INVITE_PATH}#${claimToken}`),
     readOrganization: () => member(() => readOrganizationRow(env, db)),
+    workspaceDeleteEnabled: () => {
+      const configured: unknown = env.WORKSPACE_DELETE_ENABLED;
+      return configured === 'true' || isLoopbackHttpOrigin(env.PUBLIC_ORIGIN);
+    },
     readOrganizationPlan: () => member(() => readOrganizationPlanRow(env, db)),
     reconcileAttachmentQuota: (options = {}) =>
       member(async () => {

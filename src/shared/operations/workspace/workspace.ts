@@ -11,7 +11,7 @@ export const workspaceInfo = defineOperation({
   mode: 'read',
   permission: 'member',
   workspace: true,
-  input: z.object({ workspace_id: idSchema }),
+  input: z.object({ workspace_id: idSchema, include_lifecycle_options: z.boolean().optional() }),
   output: z.object({
     name: z.string(),
     closed_at: z.string().nullable(),
@@ -19,5 +19,6 @@ export const workspaceInfo = defineOperation({
     sprint_name_template: z.string().nullable(),
     sprint_number_next: z.number().int(),
     role: z.enum(['leader', 'member']).nullable(),
+    workspace_delete_enabled: z.boolean().optional(),
   }),
 });

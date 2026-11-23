@@ -15,7 +15,11 @@ let known: KnownWorkspace | null = null;
 // この枠だけを読み直す印（組織の枠の load を走らせない）
 export const load: LayoutLoad = async ({ params, fetch, url, depends }) => {
   depends('app:workspace');
-  const result = await callOperation(workspaceInfo, { workspace_id: params.id }, { slug: params.slug, fetcher: fetch });
+  const result = await callOperation(
+    workspaceInfo,
+    { workspace_id: params.id, include_lifecycle_options: true },
+    { slug: params.slug, fetcher: fetch },
+  );
   if (isUnauthenticated(result) && url.pathname !== loginPath) redirect(307, loginUrl(url));
 
   const loaded: WorkspaceView | null = result.ok
@@ -31,6 +35,7 @@ export const load: LayoutLoad = async ({ params, fetch, url, depends }) => {
   known = settled.known;
   return {
     workspace: settled.workspace,
+    workspaceDeleteEnabled: result.ok && result.data.workspace_delete_enabled === true,
     workspaceFailure:
       settled.workspace !== null
         ? null

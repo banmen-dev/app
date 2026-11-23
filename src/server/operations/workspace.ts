@@ -328,7 +328,7 @@ export const memberListOperation = implement(memberList, async ({ db, actor, wor
   };
 });
 
-export const workspaceInfoOperation = implement(workspaceInfo, async ({ db, workspace }) => {
+export const workspaceInfoOperation = implement(workspaceInfo, async ({ db, actor, workspace, input, tools }) => {
   const row = await db.first(
     db.statement((q) =>
       q
@@ -347,6 +347,9 @@ export const workspaceInfoOperation = implement(workspaceInfo, async ({ db, work
     sprint_name_template: row.sprint_name_template,
     sprint_number_next: row.sprint_number_next,
     role: workspace.actorRole,
+    ...(input.include_lifecycle_options && actor.isAdmin
+      ? { workspace_delete_enabled: tools.workspaceDeleteEnabled() }
+      : {}),
   };
 });
 
@@ -590,7 +593,8 @@ export const workspaceReopenOperation = implement(
 
 export const workspaceDeleteOperation = implement(
   workspaceDelete,
-  async ({ db, actor, workspace, input, attachmentStorage }) => {
+  async ({ db, actor, workspace, input, attachmentStorage, tools }) => {
+    if (!tools.workspaceDeleteEnabled()) throw new ApiError(404, 'not_found');
     const organizationId = db.organizationId;
     const workspaceId = workspace.workspaceId;
     const actorUserId = actorUserIdOf(actor);
