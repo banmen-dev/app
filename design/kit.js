@@ -2218,6 +2218,8 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     // 絞り込みの欄の ↑ は、欄の上に候補が無いので何もしない（本番の AttrChip と同じ）
     if (ev.target.matches("[data-chip-search]") && ev.key === "ArrowUp") { ev.preventDefault(); return true; }
     const items = visibleItems(list);
+    // 絞り込みで候補が無いときは、移る先が無い（本番の AttrChip と同じく何もしない）
+    if (items.length === 0) { ev.preventDefault(); return true; }
     const at = items.indexOf(ev.target);
     // 絞り込みの窓では、先頭の項目の ↑ で欄へ戻る（本番の AttrChip の searchable と同じ）
     const search = list.querySelector("[data-chip-search]");
