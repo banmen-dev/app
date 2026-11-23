@@ -131,9 +131,10 @@ for (const path of ['/aoba', '/aoba/me', '/aoba/wiki']) {
       for (const width of [1280, 390]) {
         await page.setViewportSize({ width, height: 900 });
         // 日付や見出し自身の余白で偶然16pxを超えても、本文の余白の回帰を見逃さない。
-        expect(
-          await page.locator('.content').evaluate((el) => parseFloat(getComputedStyle(el).paddingTop)),
-        ).toBeGreaterThanOrEqual(16);
+        // 761px 以上は帯と本文の間にパンくずの帯（.sheet-crumbs）を挟み、その上の余白で16pxを取る（#1509）
+        const paddingTop = (selector: string) =>
+          page.locator(selector).evaluate((el) => parseFloat(getComputedStyle(el).paddingTop));
+        expect(await paddingTop(width > 760 ? '.sheet-crumbs' : '.content')).toBeGreaterThanOrEqual(16);
         const title = await heading.boundingBox();
         expect(title).not.toBeNull();
         if (width > 760) {

@@ -7,7 +7,7 @@
   import GateSheet from './GateSheet.svelte';
 
   // 移る間の、読み込み中の表示。文字ではなく、読み込んだ後の画面に近い骨組み（スケルトン）を出す。
-  // 行き先が組織の枠（/<slug> の下）なら、枠と同じ部品（.app、.binding、.topbar、.content）で左のメニューと上の帯を出し、
+  // 行き先が組織の枠（/<slug> の下）なら、枠と同じ部品（.app、.binding、.topbar、.sheet-crumbs、.content）で左のメニューと上の帯とパンくずの帯を出し、
   // 本文は行き先の画面の組み（shape。src/lib/loading-shape.ts）に近い形にする。読み込んだ後に画面の組みと位置が変わらないように、
   // 本文の2列や設定の節は、本物と同じ部品（.layout-aside、.layout-wiki、.settings、.board、.lanes）を使う。
   // 行き先が枠の外（shape が null）なら紙を出す。/ だけ dashboard を指定し、広い紙の2列にする。
@@ -47,10 +47,10 @@
     </div>
     <div class="sheet">
       <div class="topbar" aria-hidden="true">
-        <span class="skeleton-line is-crumb"></span>
         <span class="skeleton-line is-search"></span>
         <span class="skeleton-line is-account"></span>
       </div>
+      <div class="sheet-crumbs" aria-hidden="true"><span class="skeleton-line is-crumb"></span></div>
       <main class="content">
         <h1 class="visually-hidden">{t('loading')}</h1>
         {#if shape !== 'task'}

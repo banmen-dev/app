@@ -8,6 +8,7 @@ import {
   today as todayOperation,
 } from '../src/shared/operations/organization/index.ts';
 import { orgWikiTree } from '../src/shared/operations/wiki/index.ts';
+import { workspaceInfo } from '../src/shared/operations/workspace/workspace.ts';
 import { expect, test } from './fixtures.ts';
 import { failOperation, mockOperation, rewriteOperation, routeOperation } from './operations.ts';
 import {
@@ -1245,6 +1246,72 @@ test('ワークスペースの画面のパンくずから、組織とワーク�
   await expect(page).toHaveURL('/aoba');
 });
 
+// パンくずは上の帯ではなく、本文の見出しのすぐ上に出す（#1509）。ワークスペースの名前の小見出しは 761px 以上では出さない
+test('広い幅のパンくずは上の帯の外で、見出しのすぐ上に出し、ワークスペースの名前の小見出しを重ねない', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  for (const path of [`/aoba/w/${AOBA_WORKSPACE_ID}`, `/aoba/w/${AOBA_WORKSPACE_ID}/members`]) {
+    await page.goto(path);
+    const crumbs = page.getByRole('navigation', { name: 'パンくず' });
+    await expect(crumbs).toBeVisible();
+    await expect(page.locator('.topbar .breadcrumb')).toHaveCount(0);
+    await expect(crumbs.getByRole('link', { name: '受託開発チーム' })).toBeVisible();
+    const heading = page.locator('.page-head').first();
+    await expect(heading).toBeVisible();
+    const [bar, crumb, head] = await Promise.all(
+      [page.locator('.topbar'), crumbs, heading].map(async (locator) => (await locator.boundingBox())!),
+    );
+    // 上の帯の下、見出しの上に並び、見出しとの間は本文の節の間（24px 以上）より狭い
+    expect(crumb.y).toBeGreaterThanOrEqual(bar.y + bar.height);
+    expect(crumb.y + crumb.height).toBeLessThanOrEqual(head.y);
+    expect(head.y - (crumb.y + crumb.height)).toBeLessThan(24);
+    // パンくずの左端は見出しの左端と揃う
+    expect(Math.abs(crumb.x - head.x)).toBeLessThanOrEqual(1);
+    // ワークスペースの名前の小見出しは見えない（題名には残す）
+    await expect(page.locator('.page-head .page-eyebrow:visible')).toHaveCount(0);
+    await expect(page).toHaveTitle(/・受託開発チーム - Banmen$/);
+  }
+});
+
+test('タスクの詳細の画面でもパンくずが見出しの上に出て、最後のワークスペースから戻れる', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`/aoba/w/${AOBA_WORKSPACE_ID}/tasks/019a0000-0000-7000-8000-000000000801`);
+  await expect(page.locator('.drawer.is-page')).toHaveAttribute('aria-busy', 'false');
+  const crumbs = page.getByRole('navigation', { name: 'パンくず' });
+  const workspace = crumbs.getByRole('link', { name: '受託開発チーム' });
+  await expect(workspace).toHaveAttribute('aria-current', 'page');
+  const crumb = (await crumbs.boundingBox())!;
+  const title = (await page.locator('.drawer.is-page').boundingBox())!;
+  expect(crumb.y + crumb.height).toBeLessThanOrEqual(title.y);
+  await workspace.click();
+  await expect(page).toHaveURL(`/aoba/w/${AOBA_WORKSPACE_ID}`);
+});
+
+test('長い組織とワークスペースの名前でも、パンくずは1行に収め、全文を title と読み上げに残す', async ({ page }) => {
+  const organization = 'こもれび工房の空想都市と星空観測の道具をつくる共同研究開発チームの組織';
+  const workspace = 'とても長い名前のワークスペースで本文の幅に収まらないかもしれない名前の例';
+  await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (output) => ({
+    ...output,
+    organization: { ...output.organization, name: organization },
+  }));
+  await rewriteOperation(page, workspaceInfo, { slug: 'aoba' }, (output) => ({ ...output, name: workspace }));
+  for (const width of [800, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`/aoba/w/${AOBA_WORKSPACE_ID}/members`);
+    const crumbs = page.getByRole('navigation', { name: 'パンくず' });
+    await expect(crumbs.getByRole('link', { name: workspace })).toHaveAttribute('title', workspace);
+    await expect(crumbs.getByRole('link', { name: organization })).toHaveAttribute('title', organization);
+    await expect(crumbs.locator('[aria-current="page"]')).toHaveText('メンバー');
+    // 項目は同じ行に並び（縦に積まない）、横にはみ出さない
+    const tops = await crumbs
+      .locator('li')
+      .evaluateAll((items) => items.map((item) => item.getBoundingClientRect().top));
+    expect(new Set(tops).size).toBe(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+});
+
 // 760px 以下ではパンくずを出さない。大きな見出しと入口、長い名前の折り返しは
 // layout-narrow-breadcrumb.test.ts で各テーマと境界幅を検査する。
 
@@ -1265,6 +1332,8 @@ test('761px の幅で表示名が長くても、上の帯が横にはみ出さ�
   await page.setViewportSize({ width: 761, height: 800 });
   await page.goto(today);
   await expect(page.locator('.topbar')).toBeVisible();
+  // 上の帯にパンくずは無く、幅が足りない分は検索の欄とアカウントの表示名が縮んで受け持つ
+  await expect(page.locator('.topbar .breadcrumb')).toHaveCount(0);
   await page.locator('.account-menu-button .me').evaluate((element) => {
     element.insertBefore(
       document.createTextNode('Komorebi0123456789012345678901234567890123456789'),
@@ -1272,6 +1341,7 @@ test('761px の幅で表示名が長くても、上の帯が横にはみ出さ�
     );
   });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expect(page.locator('.topbar .nav-search')).toBeInViewport({ ratio: 1 });
   const bottoms = await page.evaluate(() => ({
     head: document.querySelector('.binding-head')!.getBoundingClientRect().bottom,
     bar: document.querySelector('.topbar')!.getBoundingClientRect().bottom,

@@ -79,7 +79,7 @@ function register() {
 }
 
 SQ.mount("connection", () => `
-  ${pageHead(D.workspaces.wa.name, t("connection"), [
+  ${pageHead({ narrow: D.workspaces.wa.name }, t("connection"), [
     ["is-ok", "check", "有効", D.connections.filter((c) => c.status === "active").length],
     ["is-warn", "alert", "エラー", D.connections.filter((c) => c.status === "error").length],
     ["is-danger", "alert", "停止", D.connections.filter((c) => c.status === "stopped").length],

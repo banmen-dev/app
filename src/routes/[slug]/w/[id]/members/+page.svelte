@@ -278,7 +278,7 @@
 {#if workspace && members === null}
   <LoadFailed inShell />
 {:else if workspace && members !== null}
-  <PageHead title={t('pageMembers')} eyebrow={workspace.name} {tallies} />
+  <PageHead title={t('pageMembers')} narrowEyebrow={workspace.name} {tallies} />
 
   <Section id="members-belonging" title={t('membersSectionTitle')}>
     {#if members.length === 0}

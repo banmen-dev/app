@@ -1003,6 +1003,8 @@
     button.setAttribute("aria-expanded", String(open));
     button.parentElement.dataset.open = String(open);
   });
+  // eyebrow に { narrow: 名前 } を渡すと、760px 以下だけの小見出し（.page-eyebrow.is-narrow-only。本番の PageHead の narrowEyebrow）にする。
+  // ワークスペースの画面のワークスペース名に使う（761px 以上は見出しの上のパンくずが同じ名前を出す）
   function pageHead(eyebrow, title, tallies = [], actions = "", meta = "", narrowSummary = "") {
     const counts = (items) => items.length ? `<dl class="tally">${items.map(([cls, ic, label, n]) => `<div class="${n ? cls : ""}"><dt>${ic ? icon(ic) : ""}${label}</dt><dd>${n}</dd></div>`).join("")}</dl>` : "";
     const compactSummary = tallies.length > 1 || meta ? narrowSummary : "";
@@ -1010,7 +1012,7 @@
       ? `<div class="page-head-metrics">${counts(tallies.slice(0, 1))}${narrowDisclosure(compactSummary, `${counts(tallies.slice(1))}${meta ? `<div class="page-head-meta">${meta}</div>` : ""}`)}</div>`
       : `${counts(tallies)}${meta}`;
     return `<header class="page-head${compactSummary ? " is-compact" : ""}">
-      ${eyebrow ? `<span class="page-eyebrow">${eyebrow}</span>` : ""}
+      ${eyebrow?.narrow ? `<span class="page-eyebrow is-narrow-only">${eyebrow.narrow}</span>` : eyebrow ? `<span class="page-eyebrow">${eyebrow}</span>` : ""}
       <div class="page-head-row"><div class="page-title-row"><h1 class="page-title">${title}</h1></div>${actions ? `<div class="page-actions">${actions}</div>` : ""}</div>
       ${metrics}
     </header>`;
@@ -3689,7 +3691,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const tip = toggle.querySelector(".nav-tip");
     if (tip) tip.textContent = label;
   }
-  // 上の帯のパンくず「組織 › ワークスペース › 画面」。本番の Breadcrumb.svelte と同じ並びと作り。
+  // 本文の見出しの上のパンくず「組織 › ワークスペース › 画面」（本文の直前の帯 .sheet-crumbs に入れる）。本番の Breadcrumb.svelte と同じ並びと作り。
   // 組織とワークスペースは最初の画面へのリンク、今の画面は aria-current="page"（リンクにしない）。ワークスペースは、
   // ワークスペースの中の画面だけに出す。crumbs は [{ label, href?, current? }]。省くと今の画面から組み立てる
   function breadcrumbHtml(crumbs = currentCrumbs()) {
@@ -3747,7 +3749,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       </div></aside>
       <div class="sheet">
         <div class="topbar">
-          <span id="breadcrumb-slot"></span>
           <button class="nav-search-toggle" type="button" data-nav-search-toggle aria-label="画面とタスクを探す" aria-expanded="false" aria-controls="nav-search-box" aria-keyshortcuts="Control+K Meta+K">${icon("search")}</button>
           <div class="nav-search" id="nav-search-box" role="search" aria-label="画面とタスクを探す">${icon("search")}<input class="nav-search-input" id="nav-search-input" type="text" role="combobox" autocomplete="off" spellcheck="false" aria-label="画面とタスクを探す" aria-expanded="false" aria-controls="nav-search-list" aria-autocomplete="list" aria-keyshortcuts="Control+K Meta+K" placeholder="画面やタスクを探す"><kbd class="kbd nav-search-key" aria-hidden="true">${ASSIST_KEY}</kbd><ul class="nav-search-list" id="nav-search-list" role="listbox" aria-label="画面とタスクを探す" hidden></ul><span class="visually-hidden" role="status" id="nav-search-status"></span></div>
           <div class="topbar-tools">
@@ -3758,6 +3759,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
           </div>
           <span id="account-menu-slot"></span>
         </div>
+        <div class="sheet-crumbs" id="breadcrumb-slot"></div>
         <main class="content" id="content"></main>
       </div>
     </div>

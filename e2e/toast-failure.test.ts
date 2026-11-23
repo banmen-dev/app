@@ -102,6 +102,7 @@ test('URL を直接開いて木の読み込みが遅いとき、300ms 後に読�
   const bootBinding = await shownBox(boot.locator('.boot-binding'));
   const bootTopbar = await shownBox(boot.locator('.boot-topbar'));
   const bootHead = await shownBox(boot.locator('.boot-head'));
+  const bootCrumbs = await shownBox(boot.locator('.boot-crumbs'));
 
   release();
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
@@ -111,9 +112,14 @@ test('URL を直接開いて木の読み込みが遅いとき、300ms 後に読�
   const binding = await shownBox(page.locator('.binding'));
   const topbar = await shownBox(page.locator('.topbar'));
   const head = await shownBox(page.locator('.page-head'));
+  const crumbs = await shownBox(page.locator('.sheet-crumbs'));
   expect(bootBinding.width).toBe(binding.width);
   expect(bootTopbar.x).toBe(topbar.x);
   expect(bootTopbar.height).toBe(topbar.height);
+  // パンくずの帯も、上の帯の下の同じ位置と高さにある（#1509）
+  expect(bootCrumbs.x).toBe(crumbs.x);
+  expect(bootCrumbs.y).toBe(crumbs.y);
+  expect(bootCrumbs.height).toBe(crumbs.height);
   // 画面の見出しの始まりも同じ位置（本文の余白が本物と同じ）
   expect(bootHead.x).toBe(head.x);
   expect(bootHead.y).toBe(head.y);

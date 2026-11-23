@@ -702,9 +702,11 @@ export async function createWorkspace(page: Page, name: string): Promise<void> {
   await dialog.getByRole('button', { name: '開く' }).click();
   expect((await openedTree).ok()).toBe(true);
   await expect(page).toHaveURL(/\/aoba\/w\/[0-9a-f-]{36}$/);
-  // 見出しは画面の名前（バックログ）、小見出しがワークスペースの名前
+  // 見出しは画面の名前（バックログ）、ワークスペースの名前は見出しの上のパンくずに出す
   await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();
-  await expect(page.locator('.page-eyebrow')).toHaveText(name);
+  await expect(
+    page.getByRole('navigation', { name: 'パンくず' }).getByRole('link', { name, exact: true }),
+  ).toBeVisible();
   await expect(page).toHaveTitle(`バックログ・${name} - Banmen`);
 }
 
