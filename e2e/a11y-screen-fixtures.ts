@@ -92,11 +92,12 @@ export const a11yScreens: {
   },
   {
     screen: 'sprint',
-    path: `${WORKSPACE}/sprint`,
+    path: `${WORKSPACE}/board`,
     // aoba のワークスペースには進行中のスプリントを置かない（seed の進行中は別の組織のワークスペース）ので、架空のスプリントと列とカードに差し替える
     prepare: (page) => mockOperation(page, sprintBoard, { slug: 'aoba' }, SAMPLE_BOARD),
     ready: (page) => [
-      page.getByRole('heading', { level: 1, name: '第14回' }),
+      page.getByRole('heading', { level: 1, name: 'ボード', exact: true }),
+      page.locator('.page-head .page-eyebrow', { hasText: '第14回' }),
       page.getByRole('article', { name: 'ポイント付与のバッチを作る' }),
     ],
   },

@@ -36,7 +36,7 @@ test('今日やることでも対象のリンクがあり、現在地は今日�
     props: { current: '/aoba', slug: 'aoba', hasWorkspace: true, isAdmin: false, workspace, workspaceSwitcher },
   }).body;
   expect(body).toContain('架空の切り替え');
-  for (const path of ['', '/sprint', '/plan', '/wiki', '/members']) {
+  for (const path of ['', '/board', '/plan', '/wiki', '/members']) {
     expect(body).toContain(`href="/aoba/w/one${path}"`);
   }
   expect(body).not.toContain('/settings');

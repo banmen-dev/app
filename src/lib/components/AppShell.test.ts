@@ -60,12 +60,12 @@ test('組織の画面のパンくずは組織と画面だけで、ワークス�
 });
 
 test('ワークスペースの画面のパンくずは組織、ワークスペース、画面の順で、今の画面だけが aria-current', () => {
-  const body = shell('/aoba/w/w1/sprint', { id: 'w1', name: 'ふくろう班', role: 'member' });
+  const body = shell('/aoba/w/w1/board', { id: 'w1', name: 'ふくろう班', role: 'member' });
   const nav = body.match(/<nav class="breadcrumb"[\s\S]*?<\/nav>/)?.[0] ?? '';
   expect(nav.indexOf('架空の組織')).toBeLessThan(nav.indexOf('ふくろう班'));
-  expect(nav.indexOf('ふくろう班')).toBeLessThan(nav.indexOf('スプリント'));
+  expect(nav.indexOf('ふくろう班')).toBeLessThan(nav.indexOf('ボード'));
   expect(nav).toContain('href="/aoba/w/w1"');
-  expect(nav).toMatch(/<span[^>]*aria-current="page"[^>]*>スプリント<\/span>/);
+  expect(nav).toMatch(/<span[^>]*aria-current="page"[^>]*>ボード<\/span>/);
 });
 
 test('画面の名前が決まらない画面では、最後の項目を今の画面にし、戻れるようリンクは残す', () => {
@@ -83,7 +83,7 @@ test('Wiki の下の階層でも Wiki を今の画面にし、メニューに無
 });
 
 test('URL のワークスペースとメニューの対象が食い違うときは、対象の名前をパンくずに出さない', () => {
-  const body = shell('/aoba/w/w2/sprint', { id: 'w1', name: 'ふくろう班', role: 'member' });
+  const body = shell('/aoba/w/w2/board', { id: 'w1', name: 'ふくろう班', role: 'member' });
   const nav = body.match(/<nav class="breadcrumb"[\s\S]*?<\/nav>/)?.[0] ?? '';
   expect(nav).not.toContain('ふくろう班');
 });

@@ -1,6 +1,14 @@
 import { sprintBoard, taskColumnMove } from '../src/shared/operations/sprint/index.ts';
 import { expect, test } from './fixtures.ts';
-import { createWorkspace, dragTo, expectFocusReturned, signIn, waitForSettled, watchViolations } from './helpers.ts';
+import {
+  createWorkspace,
+  dragTo,
+  expectFocusReturned,
+  signIn,
+  waitForSettled,
+  watchViolations,
+  expectBoardHeading,
+} from './helpers.ts';
 import { mockOperation, routeOperation } from './operations.ts';
 import { SAMPLE_BOARD } from './sprint-fixture.ts';
 
@@ -14,7 +22,7 @@ test('列を畳んで再読み込みしても保存され、別のワークス�
   await signIn(context, baseURL, 'admin');
   const collect = await watchViolations(page);
   await mockOperation(page, sprintBoard, { slug: 'aoba' }, SAMPLE_BOARD);
-  await page.goto(`${TEAM}/sprint`);
+  await page.goto(`${TEAM}/board`);
   const done = page.getByRole('region', { name: '完了', exact: true });
   const toggle = done.getByRole('button', { name: '完了の開閉' });
   await expect(done.locator('.card')).not.toHaveCount(0);
@@ -88,10 +96,10 @@ test('列を畳んで再読み込みしても保存され、別のワークス�
   // 同じ列IDの応答を新しいワークスペースにも返し、列IDだけで保存していないことを確かめる。
   await createWorkspace(page, '開閉を分ける見張り番');
   expect(new URL(page.url()).pathname).not.toContain('000000000401');
-  const destination = `${new URL(page.url()).pathname.replace(/\/$/, '')}/sprint`;
+  const destination = `${new URL(page.url()).pathname.replace(/\/$/, '')}/board`;
   await page.goto(destination);
   await expect(page).toHaveURL(new RegExp(`${destination}$`));
-  await expect(page.getByRole('heading', { level: 1, name: '第14回', exact: true })).toBeVisible();
+  await expectBoardHeading(page, '第14回');
   await expect(page.getByRole('button', { name: '完了の開閉' })).toHaveAttribute('aria-expanded', 'true');
   expect(await collect()).toEqual([]);
 });
@@ -106,7 +114,7 @@ test('localStorageを拒否する端末でも列を開閉できる', async ({ pa
     });
   });
   await mockOperation(page, sprintBoard, { slug: 'aoba' }, SAMPLE_BOARD);
-  await page.goto(`${TEAM}/sprint`);
+  await page.goto(`${TEAM}/board`);
   const toggle = page.getByRole('button', { name: '未着手の開閉' });
   await toggle.click();
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
@@ -129,7 +137,7 @@ test('畳んだ列へドラッグすると末尾に入り、キー移動も隣�
   const start = page.getByRole('dialog', { name: 'スプリントを始める' });
   await start.getByRole('button', { name: '始める', exact: true }).click();
   await expect(start).toBeHidden();
-  await page.getByRole('link', { name: 'スプリント', exact: true }).click();
+  await page.getByRole('link', { name: 'ボード', exact: true }).click();
   const add = async (column: string, title: string) => {
     const input = page.getByRole('textbox', { name: `タスクを足す: ${column}`, exact: true });
     await input.fill(title);
@@ -209,7 +217,7 @@ for (const collapsed of [true, false]) {
         if (succeeds) await call.fulfill({ task_id: call.input.task_id, column_id: call.input.column_id });
         else await call.fail(500, 'internal');
       });
-      await page.goto(`${TEAM}/sprint`);
+      await page.goto(`${TEAM}/board`);
       const title = SAMPLE_BOARD.columns[0].tasks[0].title;
       const target = page.getByRole('region', { name: 'レビュー', exact: true });
       if (collapsed) await target.getByRole('button', { name: 'レビューの開閉' }).click();

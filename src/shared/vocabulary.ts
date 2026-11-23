@@ -553,6 +553,8 @@ export const dictionary = defineDictionary({
   workspace: 'ワークスペース',
   inbox: '受信箱',
   backlog: 'バックログ',
+  // ボードの画面の名前（メニュー、見出し、タブの題）。スクラムの言葉の「スプリント」は sprint のまま使う（#1497）
+  board: 'ボード',
   sprint: 'スプリント',
   plan: '計画',
   epic: 'エピック',
@@ -2477,7 +2479,7 @@ export const dictionary = defineDictionary({
   sprintStartText: '{sprint}「{label}」を始めます。入っている{task}は {count} 件、{points} pt です。',
   sprintStartUnestimated: '未見積もりが {count} 件あります。始めることはできます。',
   sprintStartGoalPlaceholder: 'この{sprint}で何ができるようになるか',
-  sprintStartGoalHint: '空でも始められます。{max} 字まで書け、{plan}と{sprint}の画面に出ます。',
+  sprintStartGoalHint: '空でも始められます。{max} 字まで書け、{plan}と{board}の画面に出ます。',
   sprintStartGoalTooLong: '{sprintGoal}は {max} 字までです',
   sprintStartGoalInvalidCharacter: '{sprintGoal}に使えない文字が含まれています',
   sprintStartSubmit: '始める',
@@ -2550,7 +2552,7 @@ export const dictionary = defineDictionary({
   sprintOverdueLeader:
     '{sprint}「{label}」は最終日（{end}）を過ぎています。終わらなかった{task}の行き先を決めて、終えてください。',
   sprintOverdueMember: '{sprint}「{label}」は最終日（{end}）を過ぎています。終えるのは{leader}です。',
-  // スプリントの画面（design/sprint.html）。見出しは進行中のスプリントの名前、小見出しは期間と何日目か
+  // ボードの画面（design/sprint.html）。見出しは「ボード」、小見出しは進行中のスプリントの名前、期間と何日目か
   sprintStoryFilterLabel: '{story}で絞り込む: {title}',
   sprintStoryFilterActive: '{story}: {title}',
   sprintStoryFilterApplied: '{story}「{title}」で絞り込みました',
@@ -2561,9 +2563,12 @@ export const dictionary = defineDictionary({
   sprintStoryCreateUnder: '絞り込んだ{story}の下に追加します',
   sprintBoardAddStoryGone:
     'この{story}か{sprint}か{column}が見つかりません。{task}は作られていません。一覧を読み直します',
-  sprintBoardPageName: '{name}・{workspace}',
-  sprintBoardEyebrow: '{period}・{length} 日のうち {day} 日目',
-  sprintBoardRegion: '{sprint}の{column}とカード',
+  sprintBoardPageName: '{board}・{name}・{workspace}',
+  sprintBoardPageNameEmpty: '{board}・{workspace}',
+  sprintBoardEyebrow: '{name}・{period}・{length} 日のうち {day} 日目',
+  // 名前の無いスプリントは期間が名前なので、期間を重ねない
+  sprintBoardEyebrowUnnamed: '{period}・{length} 日のうち {day} 日目',
+  sprintBoardRegion: '{sprint}「{label}」の{column}とカード',
   sprintBoardColumnEmpty: 'なし',
   sprintBoardAddTask: '{task}を足す',
   // 列の中の欄の案内。列は狭いので短く言い切り、Enter の案内はショートカットの一覧に置く

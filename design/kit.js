@@ -507,7 +507,7 @@
     paneActivity: "最近の更新", activityEmptyTitle: "まだ更新はありません", activityEmptyText: "所属する{workspace}の{task}、{story}、{epic}の変更とコメントが、ここに新しい順に並びます。", activityEmptyNoWorkspaceText: "{workspace}に所属すると、{task}、{story}、{epic}の更新がここに並びます。",
     activityCreated: "{actor}が作成した", activityUpdated: "{actor}が{fields}を変更した", activityChanged: "{actor}が変更した", activityCompleted: "{actor}が{done}にした", activityReopened: "{actor}が{done}を戻した", activityCommented: "{actor}がコメントした",
     activityMore: "さらに読む", activityLoadFailed: "最近の更新を読み込めませんでした。", activityMoreFailed: "続きを読み込めませんでした。もう一度試してください。",
-    workspace: "ワークスペース", inbox: "受信箱", backlog: "バックログ", sprint: "スプリント", plan: "計画", epic: "エピック", story: "ストーリー", taskTemplate: "テンプレート",
+    workspace: "ワークスペース", inbox: "受信箱", backlog: "バックログ", board: "ボード", sprint: "スプリント", plan: "計画", epic: "エピック", story: "ストーリー", taskTemplate: "テンプレート",
     menuCollapse: "メニューを畳む", menuExpand: "メニューを広げる", breadcrumb: "パンくず", organizationMoving: "移っています",
     personalOrganizationName: "自分用", dashboardPersonalHome: "ホーム", createPersonalOrganizationAction: "自分用を作る",
     task: "タスク", archive: "アーカイブ", connection: "接続", sprintGoal: "スプリントゴール", detail: "詳細", ac: "受け入れ基準", due: "期日",
@@ -2541,7 +2541,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       openDialog(`${sprint}を始める`,
         `<p>${t("sprint")}「${sprintLabelWithPeriod("sp15")}」を始めます。入っている${t("task")}は 3 件、11 pt です。</p>
          ${lead}
-         <label class="field${state === "toolong" ? " is-invalid" : ""}" for="d-goal"><span class="field-label">${t("sprintGoal")}</span><textarea class="textarea" id="d-goal" placeholder="この${sprint}で何ができるようになるか" aria-describedby="d-goal-hint${goalError ? " d-goal-error" : ""}"${state === "toolong" ? ` aria-invalid="true"` : ""}></textarea>${goalError}<span class="field-hint" id="d-goal-hint">空でも始められます。200 字まで書け、${t("plan")}と${sprint}の画面に出ます。</span></label>
+         <label class="field${state === "toolong" ? " is-invalid" : ""}" for="d-goal"><span class="field-label">${t("sprintGoal")}</span><textarea class="textarea" id="d-goal" placeholder="この${sprint}で何ができるようになるか" aria-describedby="d-goal-hint${goalError ? " d-goal-error" : ""}"${state === "toolong" ? ` aria-invalid="true"` : ""}></textarea>${goalError}<span class="field-hint" id="d-goal-hint">空でも始められます。200 字まで書け、${t("plan")}と${t("board")}の画面に出ます。</span></label>
          ${submitError}`,
         `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button"${state === "active" ? ` aria-disabled="true"` : ` data-close-dialog data-toast="${sprint}を始めました"`}>始める</button>`);
     },
@@ -3234,7 +3234,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     "workspace",
     ["inbox", "inbox", () => t("inbox"), "inbox.html", 4],
     ["backlog", "board", () => t("backlog"), "backlog.html"],
-    ["sprint", "columns", () => t("sprint"), "sprint.html"],
+    ["sprint", "columns", () => t("board"), "sprint.html"],
     ["plan", "calendar", () => t("plan"), "plan.html"],
     ["epic", "flag", () => t("epic"), "epic.html"],
     ["wiki", "file", () => "Wiki", "wiki.html"],

@@ -56,7 +56,7 @@ test('今日やることから一般のメンバーが所属先を切り替え�
   await expect(nav.getByRole('link', { name: '今日やること', exact: true })).toHaveAttribute('aria-current', 'page');
   for (const [label, suffix] of [
     ['バックログ', ''],
-    ['スプリント', '/sprint'],
+    ['ボード', '/board'],
     ['計画', '/plan'],
     ['Wiki', '/wiki'],
     ['メンバー', '/members'],

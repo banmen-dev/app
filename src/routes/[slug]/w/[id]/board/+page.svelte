@@ -56,8 +56,8 @@
   import { TASK_TITLE_MAX_LENGTH, taskTitleProblem } from '../../../../../shared/task.ts';
   import type { PageProps } from './$types';
 
-  // スプリントの画面（design/sprint.html）。進行中のスプリントの列（`.board-col`）とカード（`.card`）を並べる。
-  // 見出しは進行中のスプリントの名前（無ければ期間）、小見出しは期間と何日目か。ゴールを書いて始めていれば貼り紙（`.notice`）で出す。
+  // ボードの画面（design/sprint.html。#1497 で /sprint から /board に改めた）。進行中のスプリントの列（`.board-col`）とカード（`.card`）を並べる。
+  // 見出しは「ボード」、小見出しは進行中のスプリントの名前（無ければ期間）、期間と何日目か。ゴールを書いて始めていれば貼り紙（`.notice`）で出す。
   // カードは題（`?task=<ID>` で詳細の引き出しを開く）、親のストーリー、ポイント、担当と、完了の印か列移動の「⋯」。
   // 完了の操作は task-complete を呼ぶだけで、完了の列への移動は task-complete が行う（完了の列へ task-column-move で移すことはしない）。
   // 動かせるカード（完了していない、終了していないワークスペース）は、選んで Alt と ← → で隣の列、Alt と ↑ ↓ で列の中を動かし、
@@ -139,8 +139,8 @@
   let editDialog = $state<ReturnType<typeof SprintDialog>>();
   let extendDialog = $state<ReturnType<typeof SprintExtendDialog>>();
   let closeDialog = $state<ReturnType<typeof SprintCloseDialog>>();
-  const sprintHref = $derived(
-    resolve('/[slug]/w/[id]/sprint', { slug: page.params.slug ?? '', id: page.params.id ?? '' }),
+  const boardHref = $derived(
+    resolve('/[slug]/w/[id]/board', { slug: page.params.slug ?? '', id: page.params.id ?? '' }),
   );
   const planHref = $derived(resolve('/[slug]/w/[id]/plan', { slug: page.params.slug ?? '', id: page.params.id ?? '' }));
   const backlogHref = $derived(resolve('/[slug]/w/[id]', { slug: page.params.slug ?? '', id: page.params.id ?? '' }));
@@ -836,10 +836,10 @@
   {#if workspace && board !== null}
     <title>
       {t('pageTitle', {
-        page: t('sprintBoardPageName', {
-          name: sprint === null ? t('sprint') : sprintLabel(sprint, t),
-          workspace: workspace.name,
-        }),
+        page:
+          sprint === null
+            ? t('sprintBoardPageNameEmpty', { board: t('board'), workspace: workspace.name })
+            : t('sprintBoardPageName', { board: t('board'), name: sprintLabel(sprint, t), workspace: workspace.name }),
         app: t('appName'),
       })}
     </title>
@@ -857,7 +857,7 @@
   </div>
 
   {#if sprint === null || progress === null}
-    <PageHead title={t('sprint')} eyebrow={workspace.name} focusable />
+    <PageHead title={t('board')} eyebrow={workspace.name} focusable />
     <EmptyState
       icon="columns"
       art="notice"
@@ -874,12 +874,19 @@
     </EmptyState>
   {:else}
     <PageHead
-      title={sprintLabel(sprint, t)}
-      eyebrow={t('sprintBoardEyebrow', {
-        period: sprintPeriod(sprint, t),
-        length: progress.length,
-        day: progress.day,
-      })}
+      title={t('board')}
+      eyebrow={sprint.name === null
+        ? t('sprintBoardEyebrowUnnamed', {
+            period: sprintPeriod(sprint, t),
+            length: progress.length,
+            day: progress.day,
+          })
+        : t('sprintBoardEyebrow', {
+            name: sprint.name,
+            period: sprintPeriod(sprint, t),
+            length: progress.length,
+            day: progress.day,
+          })}
       focusable
     >
       {#snippet meta()}
@@ -956,7 +963,7 @@
       <div
         class="board-wrap"
         role="region"
-        aria-label={t('sprintBoardRegion', { sprint: t('sprint'), column: t('column') })}
+        aria-label={t('sprintBoardRegion', { sprint: t('sprint'), label: sprintLabel(sprint, t), column: t('column') })}
         tabindex={visibleColumns.every((column) => column.tasks.length === 0) ? 0 : undefined}
         {@attach canWrite ? (node) => dnd.wrap(node) : undefined}
       >
@@ -1004,7 +1011,7 @@
                       if (id !== null) hoveredStory = undefined;
                     }}
                     onstoryfilter={(id) => void filterStory(id)}
-                    href="{sprintHref}?task={encodeURIComponent(task.id)}{cardStoryQuery}"
+                    href="{boardHref}?task={encodeURIComponent(task.id)}{cardStoryQuery}"
                     edges={canWrite ? edgesOf(visibleColumns, task.id) : null}
                     writable={canWrite}
                     clock={{ today: board.today, weekStart: board.week_start }}

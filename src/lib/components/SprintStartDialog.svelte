@@ -193,7 +193,7 @@
             <span class="field-error" id="{goalId}-error" role="alert"><Icon name="alert" />{goalError}</span>
           {/if}
           <span class="field-hint" id="{goalId}-hint">
-            {t('sprintStartGoalHint', { plan: t('plan'), sprint: t('sprint'), max: SPRINT_GOAL_MAX_LENGTH })}
+            {t('sprintStartGoalHint', { plan: t('plan'), board: t('board'), max: SPRINT_GOAL_MAX_LENGTH })}
           </span>
         </div>
       </fieldset>

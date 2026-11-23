@@ -19,6 +19,7 @@ import {
   findOverflowViolations,
   findTargetSizeViolations,
   signIn,
+  expectBoardHeading,
 } from './helpers.ts';
 import { mockOperation, rewriteOperation } from './operations.ts';
 import { SAMPLE_BOARD } from './sprint-fixture.ts';
@@ -185,8 +186,8 @@ test('スプリントが 390px で横にはみ出さず、押せる要素が 44p
   // aoba のワークスペースには進行中のスプリントを置かない（seed の進行中は別の組織のワークスペース）ので、架空のスプリントと列とカードに差し替える
   await mockOperation(page, sprintBoard, { slug: 'aoba' }, SAMPLE_BOARD);
   await expectNarrowLayout(page, 'sprint', async (w) => {
-    await page.goto(`${WORKSPACE}/sprint`);
-    await expect(page.getByRole('heading', { level: 1, name: '第14回', exact: true })).toBeVisible();
+    await page.goto(`${WORKSPACE}/board`);
+    await expectBoardHeading(page, '第14回');
     await expect(page.getByRole('article', { name: 'ポイント付与のバッチを作る' })).toBeVisible();
     await expectWorkspaceWords(page, w);
   });
@@ -372,7 +373,7 @@ test('ストーリーの行の題と右端のボタンの押せる範囲が重�
 test('スプリントの列の「タスクを足す」の欄の案内が、390px でも切れずに読める', async ({ page }) => {
   await page.setViewportSize(NARROW_VIEWPORT);
   await mockOperation(page, sprintBoard, { slug: 'aoba' }, SAMPLE_BOARD);
-  await page.goto(`${WORKSPACE}/sprint`);
+  await page.goto(`${WORKSPACE}/board`);
   const input = page.locator('.board-col .draft-row .input').first();
   await expect(input).toBeVisible();
   await page.evaluate(() => document.fonts.ready);

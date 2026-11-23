@@ -3,7 +3,8 @@ import { emptyFilter, filterFromParams, filterSearch } from './backlog-filter.ts
 // 上の帯の検索の候補。画面の名前（左のメニューの項目）と、今のワークスペースのバックログの検索（?q=）へ送る行。
 // 画面の名前は呼び出し側が辞書から引いて渡す。ここは並べ方と絞り方だけを持つ
 
-export type NavSearchScreen = { label: string; href: string };
+// aliases は名前のほかに当てる語（候補には label だけを出す）
+export type NavSearchScreen = { label: string; href: string; aliases?: readonly string[] };
 export type NavSearchOption = { id: string; label: string; href: string; kind: 'screen' | 'backlog' };
 
 // 全角と半角、大文字と小文字の違いを見ずに比べる
@@ -15,8 +16,8 @@ function fold(text: string): string {
 export function matchScreens(query: string, screens: readonly NavSearchScreen[]): NavSearchScreen[] {
   const words = fold(query).split(/\s+/).filter(Boolean);
   return screens.filter((screen) => {
-    const label = fold(screen.label);
-    return words.every((word) => label.includes(word));
+    const names = [screen.label, ...(screen.aliases ?? [])].map(fold);
+    return words.every((word) => names.some((name) => name.includes(word)));
   });
 }
 

@@ -77,7 +77,7 @@
   const unavailable = $derived((status === 404 && code === 'not_found') || (status === 403 && code === 'forbidden'));
   const taskId = $derived(page.params.taskId ? null : page.url.searchParams.get('task'));
   // スプリントでは ?story= はボードの絞り込み。ほかの画面では従来の詳細の引き出し。
-  const sprintStoryFilter = $derived(page.route.id === '/[slug]/w/[id]/sprint');
+  const sprintStoryFilter = $derived(page.route.id === '/[slug]/w/[id]/board');
   const storyId = $derived(
     page.params.taskId || taskId !== null || sprintStoryFilter ? null : page.url.searchParams.get('story'),
   );

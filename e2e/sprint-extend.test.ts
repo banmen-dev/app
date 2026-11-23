@@ -1,7 +1,14 @@
 import type { Page } from '@playwright/test';
 import { sprintBoard, sprintExtend, sprintList } from '../src/shared/operations/sprint/index.ts';
 import { expect, test } from './fixtures.ts';
-import { createWorkspace, signIn, waitForResponses, waitForSettled, watchViolations } from './helpers.ts';
+import {
+  createWorkspace,
+  signIn,
+  waitForResponses,
+  waitForSettled,
+  watchViolations,
+  expectBoardHeading,
+} from './helpers.ts';
 import { mockOperation, routeOperation } from './operations.ts';
 import { NEXT_SPRINT, OVERDUE_PLAN, SAMPLE_BOARD } from './sprint-fixture.ts';
 
@@ -35,8 +42,8 @@ test('延長の予告どおり空きを吸収して後ろを押し出し、進�
   const start = page.getByRole('dialog', { name: 'スプリントを始める' });
   await start.getByRole('button', { name: '始める', exact: true }).click();
   await expect(start).toBeHidden();
-  await page.getByRole('link', { name: 'スプリント', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: '第1回' })).toBeVisible();
+  await page.getByRole('link', { name: 'ボード', exact: true }).click();
+  await expectBoardHeading(page, '第1回');
   await page
     .locator('.page-head')
     .getByRole('button', { name: /^操作: / })
@@ -62,7 +69,7 @@ test('延長の予告どおり空きを吸収して後ろを押し出し、進�
   await edit.getByRole('button', { name: '保存する', exact: true }).click();
   await saved;
   await expect(edit).toBeHidden();
-  await expect(page.getByRole('heading', { level: 1, name: '延長した第1回' })).toBeVisible();
+  await expectBoardHeading(page, '延長した第1回');
   await expect(page.locator('.notice-title')).toHaveText('運用の手順を確かめる');
 
   await page.getByRole('link', { name: '計画' }).click();
@@ -87,7 +94,7 @@ for (const width of [320, 390, 1024, 1280]) {
       sent++;
       await call.fail(500, 'internal');
     });
-    await page.goto('/aoba/w/019a0000-0000-7000-8000-000000000401/sprint');
+    await page.goto('/aoba/w/019a0000-0000-7000-8000-000000000401/board');
     await expect(page.locator('.page-head').getByRole('button', { name: /^操作: / })).toBeVisible();
     await waitForSettled(page);
     await page
@@ -167,7 +174,7 @@ test('押し出しは5本まで並べて残りを本数で示し、別の人が�
     await mockOperation(page, sprintList, { slug: 'aoba' }, chainedPlan(7, 1));
     await call.fail(409, 'conflict', { details: { reason: 'changed' } });
   });
-  await page.goto('/aoba/w/019a0000-0000-7000-8000-000000000401/sprint');
+  await page.goto('/aoba/w/019a0000-0000-7000-8000-000000000401/board');
   await waitForSettled(page);
   await page
     .locator('.page-head')
@@ -195,7 +202,7 @@ test('後ろと重ならなければ動かない予告を出し、28日では入
   await mockOperation(page, sprintBoard, { slug: 'aoba' }, SAMPLE_BOARD);
   const plan = { ...OVERDUE_PLAN, sprints: [OVERDUE_PLAN.sprints[0]!] };
   const unroute = await mockOperation(page, sprintList, { slug: 'aoba' }, plan);
-  await page.goto('/aoba/w/019a0000-0000-7000-8000-000000000401/sprint');
+  await page.goto('/aoba/w/019a0000-0000-7000-8000-000000000401/board');
   await page
     .locator('.page-head')
     .getByRole('button', { name: /^操作: / })

@@ -9,7 +9,7 @@ const WORKSPACE = '/aoba/w/019a0000-0000-7000-8000-000000000401';
 test('枠の中の遅い移動は本文だけを薄くし、別のリンクで移り直せる', async ({ page, context, baseURL }) => {
   test.setTimeout(90_000);
   await signIn(context, baseURL, 'admin');
-  await page.goto(`${WORKSPACE}/sprint`);
+  await page.goto(`${WORKSPACE}/board`);
   await expect(page.locator('main.content')).toBeVisible();
   let release = () => {};
   const gate = new Promise<void>((resolve) => (release = resolve));
@@ -36,7 +36,7 @@ test('枠の中の遅い移動は本文だけを薄くし、別のリンクで�
 
 test('遅い移動の完了で戻り、引き出しでは本文を薄くしない', async ({ page, context, baseURL }) => {
   await signIn(context, baseURL, 'admin');
-  await page.goto(`${WORKSPACE}/sprint`);
+  await page.goto(`${WORKSPACE}/board`);
   let release = () => {};
   const gate = new Promise<void>((resolve) => (release = resolve));
   await routeOperation(page, backlogTree, { slug: 'aoba' }, async (call) => {

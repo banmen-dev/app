@@ -3,7 +3,15 @@
 // seed のセッション（seed/sessions.ts）の Cookie で開く。あおば開発の管理者はミナト
 import type { Locator, Page } from '@playwright/test';
 import { expect, test } from './fixtures.ts';
-import { addStoryRow, addTaskRow, createWorkspace, expectFocusReturned, signIn, waitForResponses } from './helpers.ts';
+import {
+  addStoryRow,
+  addTaskRow,
+  createWorkspace,
+  expectFocusReturned,
+  signIn,
+  waitForResponses,
+  expectBoardHeading,
+} from './helpers.ts';
 
 test.use({ timezoneId: 'Asia/Tokyo' });
 
@@ -378,8 +386,8 @@ test('スプリントの画面では、列は左から右、列の中は上か�
   const start = page.getByRole('dialog', { name: 'スプリントを始める' });
   await start.getByRole('button', { name: '始める' }).click();
   await expect(start).toBeHidden();
-  await page.getByRole('link', { name: 'スプリント', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: '第1回' })).toBeVisible();
+  await page.getByRole('link', { name: 'ボード', exact: true }).click();
+  await expectBoardHeading(page, '第1回');
 
   // 盤 一 を右の列（作業中）へ移す。未着手は 盤 二、盤 三、作業中は 盤 一
   const columnTitles = (column: string) =>

@@ -22,7 +22,7 @@ test('ボード下の案内を出さず、カードの読み上げ説明を残�
   page,
 }) => {
   const collect = await watchViolations(page);
-  await page.goto(`${TEAM}/sprint`);
+  await page.goto(`${TEAM}/board`);
   const cards = page.locator('.card');
   await expect(cards).toHaveCount(4);
   // 書き込める状態の描画を待ってから、説明と案内の不存在を確かめる。
@@ -65,7 +65,7 @@ test('閉じたワークスペースではカードの移動・追加のキー�
     ...output,
     closed_at: '2026-10-20T00:00:00.000Z',
   }));
-  await page.goto(`${TEAM}/sprint`);
+  await page.goto(`${TEAM}/board`);
   await expect(page.locator('.card')).toHaveCount(4);
   await waitForSettled(page);
   await expect(page.locator('.card .row-menu-btn')).toHaveCount(0);
@@ -78,7 +78,7 @@ test('閉じたワークスペースではカードの移動・追加のキー�
 
 test('390pxでもスプリントの3項目の名前とキーが横にはみ出さない', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`${TEAM}/sprint`);
+  await page.goto(`${TEAM}/board`);
   await expect(page.locator('.card .row-menu-btn')).toHaveCount(4);
   await page.locator('body').click({ position: { x: 1, y: 1 } });
   await page.keyboard.press('?');

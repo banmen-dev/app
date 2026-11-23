@@ -79,7 +79,8 @@ export const screens: Screen[] = [
     operations: [w('backlog-tree'), w('category-repository-list', true)],
   },
   { route: '/[slug]/w/[id]/plan', operations: [w('sprint-list'), w('plan-summary', true)] },
-  { route: '/[slug]/w/[id]/sprint', operations: [w('sprint-board')] },
+  { route: '/[slug]/w/[id]/board', operations: [w('sprint-board')] },
+  { route: '/[slug]/w/[id]/sprint', operations: [], note: '前の経路。/board へ移すだけ（#1497）。' },
   {
     route: '/[slug]/w/[id]/settings',
     operations: [w('category-repository-list'), w('column-list'), w('detail-field-list'), w('sprint-list')],

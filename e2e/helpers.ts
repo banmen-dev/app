@@ -954,3 +954,18 @@ export async function shownBox(locator: Locator): Promise<{ x: number; y: number
   if (box === null) throw new Error(`見えていない要素の位置を比べようとした: ${locator.toString()}`);
   return box;
 }
+
+// ボードの画面（#1497）の見出しは「ボード」で、進行中のスプリントの名前は小見出しの先頭に「<名前>・<期間>・N 日のうち M 日目」で出る。
+// 名前の無いスプリント（unnamed）は期間が名前なので、期間を重ねず「<期間>・N 日のうち M 日目」
+export async function expectBoardHeading(
+  page: Page,
+  sprint: string,
+  options: { unnamed?: boolean } = {},
+): Promise<void> {
+  await expect(page.getByRole('heading', { level: 1, name: 'ボード', exact: true })).toBeVisible();
+  const escaped = sprint.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const period = options.unnamed ? '' : '\\d{1,2}/\\d{1,2}〜\\d{1,2}/\\d{1,2}・';
+  await expect(page.locator('.page-head .page-eyebrow')).toHaveText(
+    new RegExp(`^${escaped}・${period}\\d+ 日のうち \\d+ 日目$`),
+  );
+}
