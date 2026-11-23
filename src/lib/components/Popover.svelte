@@ -28,7 +28,8 @@
     // 文字の前に置くアイコン。tone を付けたときは印として色を付ける
     icon?: IconName;
     tone?: 'warn';
-    // 文字の後ろに添える短い状態の言葉（期限切れなど）。色だけに頼らず、見える言葉でも示す
+    // 文字の後ろに添える短い状態の言葉（期限切れなど）。色だけに頼らず、見える言葉でも示す。
+    // 読み上げの名前（label）には「<文字> <note>」の形で含める（見える文字の前に空白を置き、名前と見える文字をそろえる）
     note?: string;
     children: Snippet<[(restoreFocus: boolean) => void, HTMLElement]>;
   } = $props();
@@ -102,7 +103,7 @@
     onclick={() => (open ? close(true) : void show())}
   >
     {#if icon}<Icon name={icon} />{/if}<span class="popover-btn-text">{text}</span>{#if note}<span
-        class="popover-btn-note">{note}</span
+        class="popover-btn-note">{' '}{note}</span
       >{/if}<Icon name="chevron" />
   </button>
   {#if open && button}

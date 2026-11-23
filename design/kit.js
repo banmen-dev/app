@@ -987,7 +987,7 @@
   // opts: label（ボタンの読み上げの名前）、dialogLabel（小窓の名前）、icon（文字の前のアイコン）、tone（"warn" で注意の印と枠）、note（文字の後ろの短い状態の言葉）。
   // 開くと小窓へフォーカスを移し、Esc か外を押すと閉じてボタンへ戻す（外のボタンや欄を押したときは、その先に残す）
   function popover(text, body, opts = {}) {
-    return `<span class="popover" data-popover><button class="btn popover-btn${opts.tone ? ` is-${opts.tone}` : ""}" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="${esc(opts.label || text)}" title="${esc(opts.label || text)}" data-popover-toggle>${opts.icon ? icon(opts.icon) : ""}<span class="popover-btn-text">${esc(text)}</span>${opts.note ? `<span class="popover-btn-note">${esc(opts.note)}</span>` : ""}${icon("chevron")}</button>` +
+    return `<span class="popover" data-popover><button class="btn popover-btn${opts.tone ? ` is-${opts.tone}` : ""}" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="${esc(opts.label || text)}" title="${esc(opts.label || text)}" data-popover-toggle>${opts.icon ? icon(opts.icon) : ""}<span class="popover-btn-text">${esc(text)}</span>${opts.note ? `<span class="popover-btn-note"> ${esc(opts.note)}</span>` : ""}${icon("chevron")}</button>` +
       `<div class="popover-panel" role="dialog" aria-label="${esc(opts.dialogLabel || text)}" tabindex="-1" hidden>${body}</div></span>`;
   }
   function closePopover(root, restore) {
