@@ -102,7 +102,13 @@ describe('請求管理者の本人承諾と権限', () => {
     );
     await accept(person, invitation.id);
     const after = await ok(person, myBillingOrganizations);
-    expect(after.organizations).toContainEqual({ slug: organization.slug, name: organization.name });
+    expect(after.organizations).toContainEqual({
+      slug: organization.slug,
+      name: organization.name,
+      kind: 'team',
+      plan: null,
+      state: 'active',
+    });
     expect(after.invitations).toEqual([]);
     expect((await list(person, organization)).administrators).toEqual([
       expect.objectContaining({ id: invitation.id, account_id: person.accountId, status: 'active' }),
@@ -231,7 +237,7 @@ describe('複数組織・人数・業務利用からの分離', () => {
     expect((await list(person, first.organization)).administrators).toHaveLength(2);
     expect((await list(person, second.organization)).administrators).toHaveLength(1);
     expect((await ok(extra, myBillingOrganizations)).organizations).toEqual([
-      { slug: first.organization.slug, name: first.organization.name },
+      { slug: first.organization.slug, name: first.organization.name, kind: 'team', plan: null, state: 'active' },
     ]);
   });
 

@@ -4,6 +4,7 @@ import {
   billingAdminInvite,
   billingInvitationRespond,
   billingAdminRemove,
+  billingOrganizationSummary,
 } from './billing.ts';
 import { favoriteList, favoriteSet } from './favorite.ts';
 import { notificationList, notificationRead } from './notification.ts';
@@ -30,6 +31,7 @@ export const operations: readonly AnyOperationDefinition[] = [
   billingAdminInvite,
   billingInvitationRespond,
   billingAdminRemove,
+  billingOrganizationSummary,
   notificationList,
   notificationRead,
   favoriteList,

@@ -4,6 +4,7 @@ import {
   billingAdminInvite,
   billingInvitationRespond,
   billingAdminRemove,
+  billingOrganizationSummary,
   operatorBillingAdminInvite,
 } from '../../shared/operations/billing.ts';
 import { now } from '../../shared/clock.ts';
@@ -27,6 +28,9 @@ export const myBillingOrganizationsOperation = implement(
 export const billingAdminListOperation = implement(billingAdminList, async ({ db, accountId, input }) =>
   listBillingAdministrators(db, input.slug, accountId),
 );
+export const billingOrganizationSummaryOperation = implement(billingOrganizationSummary, async ({ account, input }) =>
+  account.billingOrganization(input.slug, now()),
+);
 export const billingAdminInviteOperation = implement(billingAdminInvite, async ({ db, accountId, input }) =>
   inviteBillingAdministrator(db, input, accountId, now()),
 );
@@ -48,6 +52,7 @@ export const operatorBillingAdminInviteOperation = implement(
 export const billingOperations = [
   myBillingOrganizationsOperation,
   billingAdminListOperation,
+  billingOrganizationSummaryOperation,
   billingAdminInviteOperation,
   billingInvitationRespondOperation,
   billingAdminRemoveOperation,

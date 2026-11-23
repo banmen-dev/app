@@ -193,6 +193,9 @@ async function billingFor(caller: Person, status: 'active' | 'pending' = 'active
 
 export const pointers: Pointers = {
   'billing-admin-list': async (_target, caller) => ({ slug: (await billingFor(caller)).organization.slug }),
+  'billing-organization-summary': async (_target, caller) => ({
+    slug: (await billingFor(caller)).organization.slug,
+  }),
   'billing-admin-invite': async (_target, caller) => ({
     slug: (await billingFor(caller)).organization.slug,
     account_id: (await createAccount()).id,
