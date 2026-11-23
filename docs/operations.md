@@ -711,7 +711,7 @@ GitHub の Organization を `scrum-guild-dev` から `banmen-dev` に改名す�
    - Environment `release`: リポジトリの Settings の Environments に残り、保護の設定が前のまま
    - プレビューの Webhook: リポジトリの Settings の Webhooks の Recent Deliveries に失敗が無い。改名の後に番号付き PR を1つ更新し、プレビューの Builds が起きることを見る
    - GitHub OAuth App: 本番と開発用の OAuth App の持ち主と Client ID が変わらず、本番の GitHub のログインが通る（上の「GitHub OAuth App」）
-   - Renovate: Renovate の GitHub App が `banmen-dev/app` を許可し、次の定期の実行で依存の更新の PR か Dependency Dashboard が新しい名前のリポジトリに出る
+   - Dependabot: リポジトリの Insights の Dependency graph の Dependabot に `npm` と `github-actions` の2つが出てエラーが無く、「Check for updates」か次の定期の実行で依存の更新の PR が新しい名前のリポジトリに出る（`.github/dependabot.yml`）
    - claude.ai/code の環境: クラウドの環境 `scrum-guild`（`docs/development.md` の「クラウド環境」）のリポジトリが `banmen-dev/app` を指し、新しいセッションで clone できる
 2. #1460 の PR をマージする。その後の Release で、Builds が `production` からビルドし、本番の `/api/health` が新しい版を返すことを見る。この Release までは、改名の後の Builds が実際に動いたとは扱わない
 3. 各自が、手元の clone とワークツリーの remote を新しい名前に変える。変えた後に `git fetch` が通ることを見る

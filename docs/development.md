@@ -1643,7 +1643,7 @@ Hono のミドルウェアで、404 と 500 を含む全応答に付ける。
 
 ## 定期の作業
 
-- 依存の更新は Renovate か Dependabot で週に1回、まとめて出す。`needs-human` が付くので、人が差分を読んでマージする
+- 依存の更新は Dependabot で週に1回（月曜の 9 時、日本時間）、まとめて出す。設定は `.github/dependabot.yml` に置き、`npm`（`package.json` と `pnpm-lock.yaml`）と `github-actions`（`.github/workflows/` と `.github/actions/*/action.yml`）の ecosystem ごとに、更新を1つの PR にまとめる。`needs-human` が付くので、人が差分を読んでマージする。Bot の PR なので AI レビューは回らない（上の「CI」）。2026-11-23 に Dependabot に決めた（#1468）
 - `wrangler d1 export` の定期の書き出しは、顧客のデータなので GitHub の成果物に置かず、R2 の別のバケットに置く
 
 
