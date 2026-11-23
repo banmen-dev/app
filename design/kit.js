@@ -981,7 +981,7 @@
 
   // カタログ用のスマホ見出し。実際の検索とメニューは画面見本で操作する。
   function mobilePageHead(title) {
-    return `<header class="page-head"><div class="page-head-row page-title-row"><h1 class="page-title">${esc(title)}</h1><div class="mobile-page-tools" role="group" aria-label="${t("mobilePageToolsLabel")}"><button class="nav-search-toggle" type="button" aria-label="画面とタスクを探す" data-toast="画面見本の検索から画面を探せます">${icon("search")}</button><button class="account-menu-button" type="button" aria-label="${t("accountMenuLabel").replace("{name}", "ミナト")}" data-toast="画面見本のアカウントからメニューを開けます">${avatarOf(D.me)}</button></div></div></header>`;
+    return `<header class="page-head"><div class="page-head-row page-title-row"><h1 class="page-title">${esc(title)}</h1><div class="mobile-page-tools" role="group" aria-label="${t("mobilePageToolsLabel")}"><button class="nav-search-toggle" type="button" aria-label="画面とタスクを探す" data-toast="画面見本の検索から画面を探せます">${icon("search")}</button><button class="account-menu-button" type="button" aria-label="${esc(accountMenuLabel())}" data-toast="画面見本のアカウントからメニューを開けます">${avatarOf(D.me)}</button></div></div></header>`;
   }
 
   // スプリントのカード（列の中）
@@ -3523,15 +3523,25 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   // 開閉は組織の切り替えと同じ: ボタン、外を押す、Tab で外へ出る、Esc。メニューの中にフォーカスがあるときに閉じたら、ボタンへ戻す。
   // 見本ではログアウトせず、トーストだけを出す。運用者の画面（operator.html）は紙の枠なので、このメニューを持たず紙の下のボタンでログアウトする
   let accountMenuOpen = false;
+  // 今の組織で自分が管理者か。上の帯のアカウントのボタンと、スマホの見出しの丸いボタンで同じ値を使う
+  function isAdminHere() {
+    return !!D.organizations.find((org) => org.slug === D.organization)?.admin;
+  }
+
+  // アカウントのボタンの読み上げの名前。見えている頭文字、名前、管理者の札を、表示順に含める（WCAG 2.5.3。本番の AccountMenu.svelte と同じ）。
+  // 760px 以下でアバターだけを見せるときも同じ名前にする
+  function accountMenuLabel(admin = isAdminHere()) {
+    const name = user(D.me).name;
+    return t("accountMenuLabel").replace("{name}", [[...name][0] ?? "?", name, admin ? t("admin") : ""].filter(Boolean).join(" "));
+  }
+
   // busy は、ログアウトを押して結果を待っている間（項目を aria-disabled にして文言を替え、読み上げの領域に伝える）。
   // admin は管理者の印を出し、読み上げの名前にも含める
-  function accountMenuHtml({ invitationState = "ready", open = accountMenuOpen, id = "account-menu-list", live = true, busy = false, admin = !!D.organizations.find((org) => org.slug === D.organization)?.admin, invitationCount = (D.receivedInvites || []).length } = {}) {
+  function accountMenuHtml({ invitationState = "ready", open = accountMenuOpen, id = "account-menu-list", live = true, busy = false, admin = isAdminHere(), invitationCount = (D.receivedInvites || []).length } = {}) {
     const name = user(D.me).name;
-    const badge = admin ? t("admin") : "";
     // 名前と管理者の札は .me-detail にまとめ、760px 以下ではアバターだけにする
     const who = `${avatarOf(D.me, { image: user(D.me).avatar_url })} <span class="me-detail">${esc(name)}${admin ? ` <span class="chip">${t("admin")}</span>` : ""}</span>`;
-    // 見えている頭文字、名前、管理者の札を、表示順に名前へ含める。
-    const label = t("accountMenuLabel").replace("{name}", `${[...name][0]} ${name}${badge ? ` ${badge}` : ""}`);
+    const label = accountMenuLabel(admin);
     const count = invitationCount;
     const pending = invitationState === "loading" || invitationState === "retrying";
     const status = invitationState === "ready" ? "" : `<li class="account-menu-status"><span role="${pending ? "status" : "alert"}">${t(pending ? "invitationCountLoading" : "invitationCountFailed")}</span>${invitationState === "loading" ? "" : `<button class="btn is-sm" type="button" ${pending ? 'aria-disabled="true"' : ""} ${live ? 'data-toast="見本のため、招待件数は読み直しません"' : ""}>${t(pending ? "retrying" : "retry")}</button>`}</li>`;

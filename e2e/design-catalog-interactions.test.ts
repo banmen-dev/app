@@ -222,3 +222,16 @@ test('見本のカタログ: エピックは引き出しで開き、読み取り
   await expect(drawer.locator('input, textarea, select')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test('見本のスマホの見出しのアカウントのボタンは、本番と同じく頭文字、名前、管理者の印を読み上げの名前に含める（#343）', async ({
+  page,
+}) => {
+  // 丸い入口は 760px 以下でだけ見せる（広い幅では隠れて、読み上げの名前も無くなる）
+  await page.setViewportSize({ width: 390, height: 900 });
+  const errors = await openCatalog(page);
+  const button = page.locator('#heads .mobile-page-tools .account-menu-button');
+  await expect(button).toHaveAccessibleName('ミ ミナト 管理者。アカウントのメニュー');
+  // 見えているのはアバターの頭文字だけで、それが名前の先頭にある（WCAG 2.5.3）
+  await expect(button.locator('.avatar')).toHaveText('ミ');
+  expect(errors).toEqual([]);
+});

@@ -12,7 +12,7 @@ type Update = {
   groups?: Record<string, { patterns?: string[] }>;
   cooldown?: { 'default-days'?: number };
   'commit-message'?: { prefix?: string; include?: string };
-  ignore?: { 'dependency-name': string }[];
+  ignore?: { 'dependency-name': string; 'update-types'?: string[] }[];
   schedule?: Record<string, string>;
 };
 
@@ -58,6 +58,11 @@ test('github-actions は、自前の composite action のすべてのディレ�
 test('claude-code-action は人が起動経路を確かめて上げるので、Dependabot では上げない', () => {
   const names = (update('github-actions').ignore ?? []).map((i) => i['dependency-name']);
   assert.ok(names.includes('anthropics/claude-code-action'));
+});
+
+test('TypeScript は SvelteKit が対応するまで、npm ではメジャーだけを上げない', () => {
+  const ignore = (update('npm').ignore ?? []).filter((i) => i['dependency-name'] === 'typescript');
+  assert.deepEqual(ignore, [{ 'dependency-name': 'typescript', 'update-types': ['version-update:semver-major'] }]);
 });
 
 test('件名は PR のタイトルの種別に合わせ、npm は chore、github-actions は ci の種別にし、括弧に deps の範囲を付ける', () => {

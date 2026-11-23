@@ -23,8 +23,8 @@ async function expectRowMenuUnreachable(page: Page, drawer: Locator, title: stri
   const toggle = rowMenuToggle(page, title);
   // 外側は inert
   expect(await toggle.evaluate((element) => element.closest('[inert]') !== null)).toBe(true);
-  // ポインターは幕が受け止める
-  await expect(toggle.click({ trial: true, timeout: 2000 })).rejects.toThrow('intercepts pointer events');
+  // ポインターでは押せない。Playwright 1.65 から、クリックの前に inert かを確かめ、幕の当たり判定より先に止まる
+  await expect(toggle.click({ trial: true, timeout: 2000 })).rejects.toThrow('element is inert');
   // プログラムから focus() を呼んでも着かない（inert の中の要素はフォーカスを受けない）
   await toggle.evaluate((element) => (element as HTMLElement).focus());
   await expect(toggle).not.toBeFocused();
