@@ -291,3 +291,25 @@ test('絞り込み中に最後のカードを別の親へ移して通ると、�
   await expect(page.locator('.story-filter-band')).toHaveCount(0);
   await expect(cardOf(page, '最後の札').locator('.card-parent')).toHaveText('検索を速くする');
 });
+
+test('畳んだ列へ「列を変更」で移すと、通った後にだけ位置をトーストで知らせ、断られたら失敗の文が出て元の列に戻る', async ({
+  page,
+}) => {
+  await startBoard(page, ['畳む先へ送る札', '断られる札'], false);
+  await columnOf(page, 'レビュー').getByRole('button', { name: 'レビューの開閉', exact: true }).click();
+  await expect(columnOf(page, 'レビュー').locator('.card')).toHaveCount(0);
+
+  const moved = waitForResponses(page, '/task-column-move');
+  await chooseColumn(page, '畳む先へ送る札', 'レビュー');
+  expect((await moved).ok()).toBe(true);
+  await expect(
+    page.locator('.toasts:visible .toast', { hasText: '「畳む先へ送る札」をレビューの 1 番目に移しました' }),
+  ).toBeVisible();
+  await expect(columnOf(page, 'レビュー').locator('.board-col-n')).toHaveText('1');
+
+  await failOperation(page, taskColumnMove, { slug: 'aoba' }, 409, 'conflict', { details: { reason: 'changed' } });
+  await chooseColumn(page, '断られる札', 'レビュー');
+  await expect(page.locator('.toasts:visible .toast').filter({ hasText: 'ほかの画面で変わったため' })).toBeVisible();
+  await expect(page.locator('.toasts:visible .toast', { hasText: '「断られる札」をレビュー' })).toHaveCount(0);
+  await expect(columnOf(page, '未着手').locator('.card-title')).toHaveText(['断られる札']);
+});
