@@ -356,8 +356,8 @@ test('もう一度試すは、読み直しの間は止め、また失敗した�
   await expect(page.locator('#billing-status-summary')).toHaveText(t('billingSummaryRetrying'));
   await expect.poll(() => pending.length).toBeGreaterThan(0);
   const afterFirst = calls;
-  // 読み直しの間にもう一度押しても、読み取りは増やさない
-  await retry.click();
+  // 読み直しの間にもう一度押しても、読み取りは増やさない（Playwright は aria-disabled を待つので force で押す）
+  await retry.click({ force: true });
   releaseAll();
   await expect(page.locator('#billing-status-summary')).toHaveText(t('billingSummaryRetryFailed'));
   expect(calls).toBe(afterFirst);
