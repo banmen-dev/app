@@ -371,7 +371,7 @@
       {#if searchEmpty}
         <p class="action-note">{t('attrSearchEmpty')}</p>
       {/if}
-      {#if !searchEmpty || busy || retry !== undefined}
+      {#if !searchEmpty}
         <ul class="attr-search-list" role="menu" aria-label={t('attrMenuLabel', { attr })} aria-busy={busy}>
           {@render menuItems()}
         </ul>
