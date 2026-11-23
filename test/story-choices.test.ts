@@ -56,6 +56,9 @@ describe('story-choices', () => {
     await createStory(organization, workspace.id, by, { title: '消したエピックの下', epic_id: deletedEpic.id });
     const other = await createWorkspace(organization, by);
     await createStory(organization, other.id, by, { title: '別のワークスペース' });
+    // 別のワークスペースのエピックを指す行（ありえない形）は、親の題を漏らさず、行ごと出さない
+    const otherEpic = await createEpic(organization, other.id, by, { title: '別のワークスペースのエピック' });
+    await createStory(organization, workspace.id, by, { title: '別のエピックを指す', epic_id: otherEpic.id });
 
     const response = await post(app, storyChoices, {
       slug: target.slug,
