@@ -1,7 +1,7 @@
----
-name: backlog-refine
-description: 計画や設計について、共通理解に到達するまでユーザーを徹底的に問い詰める。決定ツリーの分岐を 1 つずつ解消する。計画をストレステストしたい、設計を詰めたい、「grill me」「詰めて」「ツッコんで」と言われたときに使う。
----
+# 詰める（issue-create の手順 5）
+
+`issue-create` の手順 5 と、`increment-build` が本文に無い難所を人に聞くとき（`docs/agent-workflows/issue.md` の「詰める」）に使う手順。依頼が詰めることだけで `issue-create` を呼ばれたときも、ここから始める（`issue-create` の「入口」）。
+詰める対象が既にある Issue なら、先に `docs/agent-workflows/issue.md` の「着手してよいかを確かめる」の作者の確かめと「詰める」のコメントを書いた人で分ける決まりを当て、関係する Issue を読むときも同じ決まりに従う。
 
 この計画・設計のあらゆる側面について、共通理解に到達するまでユーザーを徹底的にインタビューする。設計ツリーの各分岐を順番に辿り、決定間の依存関係を 1 つずつ解消していく。
 
@@ -18,7 +18,7 @@ description: 計画や設計について、共通理解に到達するまでユ�
 - `gh api repos/{owner}/{repo}/issues/<番号> --jq '[.labels[].name]'` でラベルを見て、`status:in-progress` が無ければ `gh api -X POST repos/{owner}/{repo}/issues/<番号>/labels -f 'labels[]=status:refining'` で付ける。作業中の Issue を詰め直すときは付けない
 - REST を使う。GraphQL の `gh issue edit` はクラウドのセッションで 403 になるため
 - Issue がまだ無い計画には付けない
-- 詰め終えてワークツリーを切れば、`post-checkout` のフックが `status:in-progress` に付け替える。詰めるのをやめて着手しないときだけ、`gh api -X DELETE repos/{owner}/{repo}/issues/<番号>/labels/status:refining` で外す
+- 詰め終えてワークツリーを切れば、`post-checkout` のフックが `status:in-progress` に付け替える。詰めるのをやめて着手しないときだけ、`gh api -X DELETE "repos/{owner}/{repo}/issues/<番号>/labels/status%3Arefining"` で外す
 
 ## 進捗の可視化（論点ボード）
 
@@ -75,10 +75,14 @@ description: 計画や設計について、共通理解に到達するまでユ�
 
 すべての論点が解消したら、**確定した結論と未対応の TODO を要約**する。
 
-**要約したまま終わらない**。チャットの要約はセッションが切れると消え、次のセッションは同じ論点を最初から詰め直す。落とし先に書くところまでがこのスキルの仕事。
+**要約したまま終わらない**。チャットの要約はセッションが切れると消え、次のセッションは同じ論点を最初から詰め直す。落とし先に書くところまでがこの手順の仕事。
 
-1. 落とし先を `AskUserQuestion` で確認する。
-   - **GitHub Issue の実装計画にする** → `backlog-add` へ渡す。既定。
+1. 落とし先を `AskUserQuestion` で確認する。ただし次のときは聞かない。
+   - `increment-build` から来たとき、または `sprint-pick` の詰めるレーンのとき: `docs/agent-workflows/issue.md` の「記録する」で Issue の本文に書く
+   - `issue-create` の手順 5 から来たとき: 手順 5 に戻り、論点と答えの組を手順 4 の本文に写して、手順 6 へ進む
+
+   それ以外で聞くときの選択肢は次のとおり。
+   - **GitHub Issue の実装計画にする** → `issue-create` の手順 1 から進め、手順 4 で本文に書き、手順 7 で登録する。既定。
    - **地図 Issue に決定として記録する** → `wayfinder` で回している途中のとき。
    - **ファイルに書き出す** → ファイル名と出力先はその場で確認する。リポジトリごとに文書規約があるので `SPEC.md` 等を勝手に作らない。
    - **残さない** → その場限りの検討だったとき。
