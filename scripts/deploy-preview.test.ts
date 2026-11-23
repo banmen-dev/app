@@ -38,7 +38,7 @@ test('ランタイムと資産・bindingの共通設定は本番とずれない'
   assert.equal(preview.d1_databases[0].binding, production.d1_databases[0].binding);
   assert.equal(preview.d1_databases.length, production.d1_databases.length);
   assert.equal(preview.d1_databases[0].migrations_dir, `/workspace/app/${production.d1_databases[0].migrations_dir}`);
-  assert.deepEqual(production.r2_buckets, [{ binding: 'ATTACHMENTS', bucket_name: 'scrum-guild-attachments' }]);
+  assert.deepEqual(production.r2_buckets, [{ binding: 'ATTACHMENTS', bucket_name: 'banmen-attachments' }]);
   assert.deepEqual(preview.observability, production.observability);
 });
 
@@ -100,7 +100,7 @@ test('設定は本番の binding を持たず、cron と呼び出しログを無
 test('設定生成は本番・別番号のDBと不正な版や番号を拒否する', () => {
   for (const [number, database, sha] of [
     ['374', { ...DB, uuid: PRODUCTION_DATABASE_ID }, SHA],
-    ['374', { ...DB, name: 'scrum-guild' }, SHA],
+    ['374', { ...DB, name: 'banmen' }, SHA],
     ['275', DB, SHA],
     ['374\n', { ...DB, name: 'banmen-pr-374\n' }, SHA],
     ['374', DB, SHA + '\n'],
