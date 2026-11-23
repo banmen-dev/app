@@ -67,7 +67,7 @@
 | 共通 | `accounts`、`account_profiles`、`account_logins`、`password_credentials`、`sessions`、`api_tokens`、`account_consents`、`oauth_states`、`rate_limits`、`organizations`、`organization_contracts`、`billing_administrators`、`billing_admin_events` | 共通の DB に1つだけ |
 | 組織の中 | それ以外のすべて | 組織が置かれた DB |
 
-添付ファイルの中身は D1 ではなく R2 に置く。`wrangler.jsonc` の binding は `ATTACHMENTS`、本番のバケット名は `scrum-guild-attachments`。R2 のキーの先頭は組織の ID なので、D1 を分けても R2 は分けずに済む。プロフィール画像の中身も同じバケットに、`<組織の ID>/avatars/<users.id>/<画像の ID>` で置く（`user_avatars`）。組織の接頭辞の下に置くので、組織のデータを消す手順（`docs/operations.md`）で接頭辞ごと消える。
+添付ファイルの中身は D1 ではなく R2 に置く。`wrangler.jsonc` の binding は `ATTACHMENTS`、本番のバケット名は `banmen-attachments`。R2 のキーの先頭は組織の ID なので、D1 を分けても R2 は分けずに済む。プロフィール画像の中身も同じバケットに、`<組織の ID>/avatars/<users.id>/<画像の ID>` で置く（`user_avatars`）。組織の接頭辞の下に置くので、組織のデータを消す手順（`docs/operations.md`）で接頭辞ごと消える。
 
 - 共通の表から組織の中の表へは外部キーを張らない。
 - 組織の中の表から共通の表へ張る外部キーは、`users.account_id` と、`users`、`workspaces`、`organization_holidays`、`delegatees`、`change_logs`、`wiki_pages`（組織の Wiki のページだけが持つ列）の `organization_id` だけにする。分けるときはこれらを外し、アプリの検査に替える。

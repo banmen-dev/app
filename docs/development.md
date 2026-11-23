@@ -337,7 +337,7 @@ GitHub は無料のプランのまま使う（2026-10-23 に決めた）。無�
 
 ### 開発用のサーバー
 
-添付ファイルの R2 は、`wrangler.jsonc` の `ATTACHMENTS` binding を `wrangler dev` と vitest の Workers の実行環境が手元で模擬する。本番のバケット `scrum-guild-attachments` には触らず、手元用のバケットを Cloudflare に作る必要はない。本番の用意は `docs/operations.md` の「R2」。
+添付ファイルの R2 は、`wrangler.jsonc` の `ATTACHMENTS` binding を `wrangler dev` と vitest の Workers の実行環境が手元で模擬する。本番のバケット `banmen-attachments` には触らず、手元用のバケットを Cloudflare に作る必要はない。本番の用意は `docs/operations.md` の「R2」。
 
 `pnpm dev` は、SvelteKit の `vite dev`（画面と HMR）と `wrangler dev`（API）の2つを立てる（`scripts/dev.ts`）。vite が `/api` を `wrangler dev` へ転送するので、画面と API は同じオリジンのままになり、Cookie がそのまま使える。片方が止まると、もう片方も止まる。
 
@@ -1649,7 +1649,7 @@ Hono のミドルウェアで、404 と 500 を含む全応答に付ける。
 
 - 本番の Cloudflare アカウントは ucan-lab 用に新しく作る（2026-10-22 に決めた）。請求と権限を個人のものと分け、法人化や人を足すときに移しやすくする
 - ドメインの名前は未定。ベータの前に取る（取る時期は 2026-10-22 に決めた）。それまでは `workers.dev` の URL で動かす
-- 本番の Worker の名前は `banmen` で、ドメインを取るまでの URL は `https://banmen.ucan-lab.workers.dev/`（2026-11-22 に `docs/naming.md` の「識別子」に合わせて `scrum-guild` から移すと決めた。#1423）。GitHub OAuth App と Google のクライアントの戻り先もこの URL にする。旧 URL `https://scrum-guild.ucan-lab.workers.dev/` は転送用の Worker が新しい URL へ送る。D1 と R2 のバケットは作ったときの名前（`scrum-guild`）のまま残す。移す当日の手順は `docs/operations.md` の「本番の URL を banmen に移す」
+- 本番の Worker の名前は `banmen` で、ドメインを取るまでの URL は `https://banmen.ucan-lab.workers.dev/`（2026-11-22 に `docs/naming.md` の「識別子」に合わせて `scrum-guild` から移すと決めた。#1423）。GitHub OAuth App と Google のクライアントの戻り先もこの URL にする。旧 URL `https://scrum-guild.ucan-lab.workers.dev/` は転送用の Worker が新しい URL へ送る。本番の D1 は `banmen`、R2 のバケットは `banmen-attachments`（#1518 で `scrum-guild` から移した。手順は `docs/operations.md` の「本番の D1 と R2 を banmen に移す」）。URL を移す当日の手順は `docs/operations.md` の「本番の URL を banmen に移す」
 - アカウントは、本番に初めてデプロイする Issue（上の「初版の作る順」の2）で Workers Paid にする（2026-10-24 に決めた）。無料の枠は1回の CPU の時間や外への通信の回数の上限が厳しく、`wrangler dev` ではその上限で止まらないので、本番でだけ落ちる差を最初から無くすため
 - 本番の `workers.dev` は Cloudflare Access で守らない（2026-10-24 に決めた）。アプリに GitHub のログインがあり、入れる組織か届いた招待が無い人は入れないため。Access を挟むと、煙のテストの `/api/health` を通す除外が要り、ドメインを移すときに Access のアプリも作り直すことになる
 - ドメインへ移すときは、公開する URL の設定、GitHub OAuth App の戻り先、Google のクライアントの承認済みのリダイレクト URI、Cookie を直し、移した後にもう一度ログインしてもらう。作ってある招待の URL（`<公開 URL>/invite#<秘密>`）は古いドメインのままなので、結ばれていない指名は作り直す。手順は `docs/operations.md` に書く

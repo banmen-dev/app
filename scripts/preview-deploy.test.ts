@@ -9,11 +9,11 @@ import {
 } from './preview-deploy.ts';
 
 const SHA = 'a'.repeat(40);
-const PRODUCTION_ID = '7fc32f51-8771-4122-aa5d-3b69c07ff861';
+const PRODUCTION_ID = '55d9a51f-bb3f-483c-8051-1d867c0f9ce8';
 const OLD = { name: 'banmen-pr-374', uuid: '11111111-1111-4111-8111-111111111111' };
 const NEW = { name: OLD.name, uuid: '22222222-2222-4222-8222-222222222222' };
 const OTHER = { name: 'banmen-pr-275', uuid: '33333333-3333-4333-8333-333333333333' };
-const PROD = { name: 'scrum-guild', uuid: PRODUCTION_ID };
+const PROD = { name: 'banmen', uuid: PRODUCTION_ID };
 
 function fake(overrides: Partial<PreviewDeps> = {}) {
   const events: string[] = [];
@@ -211,6 +211,7 @@ test('GitHub の取得失敗では削除しない', async () => {
 
 for (const invalid of [
   { ...NEW, name: 'scrum-guild' },
+  { ...NEW, name: 'banmen' },
   { ...NEW, uuid: PRODUCTION_ID },
   { ...NEW, uuid: 'invalid' },
   { ...NEW, name: OTHER.name },

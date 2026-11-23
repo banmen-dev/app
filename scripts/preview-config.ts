@@ -9,7 +9,7 @@ import {
   PREVIEW_WORKER_NAME,
 } from '../src/shared/preview-cloudflare.ts';
 
-export const PRODUCTION_DATABASE_ID = '7fc32f51-8771-4122-aa5d-3b69c07ff861';
+export const PRODUCTION_DATABASE_ID = '55d9a51f-bb3f-483c-8051-1d867c0f9ce8';
 export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function previewConfig(
