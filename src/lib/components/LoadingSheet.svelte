@@ -7,13 +7,18 @@
   import GateSheet from './GateSheet.svelte';
 
   // 移る間の、読み込み中の表示。文字ではなく、読み込んだ後の画面に近い骨組み（スケルトン）を出す。
-  // 行き先が組織の枠（/<slug> の下）なら、枠と同じ部品（.app、.binding、.topbar、.content）で左のメニューと上の帯を出し、
+  // 行き先が組織の枠（/<slug> の下）なら、枠と同じ部品（.app、.binding、.topbar、.sheet-crumbs、.content）で左のメニューと上の帯とパンくずの帯を出し、
   // 本文は行き先の画面の組み（shape。src/lib/loading-shape.ts）に近い形にする。読み込んだ後に画面の組みと位置が変わらないように、
   // 本文の2列や設定の節は、本物と同じ部品（.layout-aside、.layout-wiki、.settings、.board、.lanes）を使う。
   // 行き先が枠の外（shape が null）なら紙を出す。/ だけ dashboard を指定し、広い紙の2列にする。
   // 骨組みは装飾なので aria-hidden。見出しは読み上げと画面の構造のために見えないまま置く。
   // 読み上げの領域（role="status"）と、出す遅れ（短い読み込みでは出さない）は呼ぶ側の root レイアウトが持つ
-  let { shape = null, dashboard = false }: { shape?: LoadingShape | null; dashboard?: boolean } = $props();
+  // narrowEyebrow は、行き先の見出しの小見出しが 760px 以下だけに出る画面（loading-shape.ts の loadingShapeNarrowEyebrow）。小見出しの帯も同じ幅だけに出す
+  let {
+    shape = null,
+    dashboard = false,
+    narrowEyebrow = false,
+  }: { shape?: LoadingShape | null; dashboard?: boolean; narrowEyebrow?: boolean } = $props();
 </script>
 
 <svelte:head>
@@ -47,15 +52,15 @@
     </div>
     <div class="sheet">
       <div class="topbar" aria-hidden="true">
-        <span class="skeleton-line is-crumb"></span>
         <span class="skeleton-line is-search"></span>
         <span class="skeleton-line is-account"></span>
       </div>
+      <div class="sheet-crumbs" aria-hidden="true"><span class="skeleton-line is-crumb"></span></div>
       <main class="content">
         <h1 class="visually-hidden">{t('loading')}</h1>
         {#if shape !== 'task'}
           <div class="page-head skeleton" aria-hidden="true">
-            <span class="skeleton-line is-eyebrow"></span>
+            <span class="skeleton-line is-eyebrow" class:is-narrow-only={narrowEyebrow}></span>
             <div class="page-head-row">
               <span class="skeleton-line is-title"></span>
               {#if loadingShapeHasActions(shape)}<span class="skeleton-line is-button"></span>{/if}

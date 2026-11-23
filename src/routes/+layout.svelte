@@ -13,7 +13,12 @@
   import ShortcutHelp from '../lib/components/ShortcutHelp.svelte';
   import ShortcutHints from '../lib/components/ShortcutHints.svelte';
   import ToastRegion from '../lib/components/ToastRegion.svelte';
-  import { loadingDashboard, loadingShape, type LoadingShape } from '../lib/loading-shape.ts';
+  import {
+    loadingDashboard,
+    loadingShape,
+    loadingShapeNarrowEyebrow,
+    type LoadingShape,
+  } from '../lib/loading-shape.ts';
   import { shortcuts } from '../lib/shortcuts.svelte.ts';
   import { t } from '../lib/vocabulary.svelte.ts';
 
@@ -25,6 +30,7 @@
   // 行き先の情報は到着時に消える。退場中に枠を紙へ替えないよう、表示した形を保持する。
   let shownLoadingShape = $state<LoadingShape | null>(null);
   let shownLoadingDashboard = $state(false);
+  let shownLoadingNarrowEyebrow = $state(false);
 
   // URL を直接開いた最初の読み込みの表示（src/app.html の #boot-loading）は、画面が描かれたら要らない
   // （骨組みの形の印 data-boot と data-boot-nav も、以後の画面の開閉と食い違わないよう外す）
@@ -89,6 +95,7 @@
     if (slow && loadingKind === 'outside') {
       shownLoadingShape = loadingShapeTo;
       shownLoadingDashboard = loadingDashboard(navigating.to?.route.id);
+      shownLoadingNarrowEyebrow = loadingShapeNarrowEyebrow(navigating.to?.route.id);
     }
   });
 </script>
@@ -107,7 +114,11 @@
 <div class="visually-hidden" role="status">{navigationLoading.kind !== null ? t('loading') : ''}</div>
 {#if slow}
   <div class="loading-overlay" out:loadingOut>
-    <LoadingSheet shape={shownLoadingShape} dashboard={shownLoadingDashboard} />
+    <LoadingSheet
+      shape={shownLoadingShape}
+      dashboard={shownLoadingDashboard}
+      narrowEyebrow={shownLoadingNarrowEyebrow}
+    />
   </div>
 {:else}
   {@render children()}

@@ -304,7 +304,7 @@
 {#if workspace && plan === null}
   <LoadFailed inShell />
 {:else if workspace && plan !== null}
-  <PageHead title={t('plan')} eyebrow={workspace.name} tallies={isBlank ? [] : tallies} focusable>
+  <PageHead title={t('plan')} narrowEyebrow={workspace.name} tallies={isBlank ? [] : tallies} focusable>
     {#snippet actions()}
       {#if canLead}
         <button class="btn is-primary" type="button" onclick={openCreate}

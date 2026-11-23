@@ -1,4 +1,4 @@
-// 上の帯のパンくずの材料。ワークスペースの画面の経路（/<slug>/w/<ID>/...）から ID を取り出す。
+// 本文の見出しの上のパンくず（761px 以上）の材料。ワークスペースの画面の経路（/<slug>/w/<ID>/...）から ID を取り出す。
 // 組織の画面（/<slug>/...）では null で、パンくずにワークスペースを出さない。見本は design/kit.js の breadcrumbHtml
 export function workspaceIdOf(path: string): string | null {
   const match = /^\/[^/]+\/w\/([^/]+)/.exec(path);

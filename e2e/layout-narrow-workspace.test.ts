@@ -144,7 +144,9 @@ test('390pxで閉じた絞り込みにも条件数と解除を残し、広い幅
   for (const width of [761, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await expect(bar.getByRole('combobox')).toHaveCount(4);
-    await expect(page.locator('.page-head .page-eyebrow')).toBeVisible();
+    // ワークスペースの名前は見出しの小見出しではなく、見出しの上のパンくずに出す（#1509）
+    await expect(page.getByRole('navigation', { name: 'パンくず' })).toBeVisible();
+    await expect(page.locator('.page-head .page-eyebrow')).toHaveCount(0);
     await expect(page.locator('.order-help .action-note')).toBeVisible();
     await expect(page.locator('.narrow-disclosure-toggle:visible')).toHaveCount(0);
   }

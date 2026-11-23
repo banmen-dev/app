@@ -95,13 +95,16 @@ test('URL を直接開いて木の読み込みが遅いとき、300ms 後に読�
   // 行き先が組織の枠なので、紙ではなく枠の形の骨組みを出す。左のメニューの幅と上の帯の高さは描いた後と同じ。
   // 本文はバックログの組み（絞り込みの行と木の行）
   await expect(boot.locator('.boot-frame')).toBeVisible();
-  await expect(boot.locator('.boot-content')).toHaveCSS('padding-top', '16px');
+  // 本文の上の余白は、上の帯の下のパンくずの帯が 16px を取り、本文はその下を 8px 空ける（#1509）
+  await expect(boot.locator('.boot-crumbs')).toHaveCSS('padding-top', '16px');
+  await expect(boot.locator('.boot-content')).toHaveCSS('padding-top', '8px');
   await expect(page.locator('html')).toHaveAttribute('data-boot', 'tree');
   await expect(boot.locator('.boot-body .boot-row .is-select')).toHaveCount(4);
   await expect(boot.locator('.boot-skeleton')).toBeHidden();
   const bootBinding = await shownBox(boot.locator('.boot-binding'));
   const bootTopbar = await shownBox(boot.locator('.boot-topbar'));
   const bootHead = await shownBox(boot.locator('.boot-head'));
+  const bootCrumbs = await shownBox(boot.locator('.boot-crumbs'));
 
   release();
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
@@ -111,9 +114,14 @@ test('URL を直接開いて木の読み込みが遅いとき、300ms 後に読�
   const binding = await shownBox(page.locator('.binding'));
   const topbar = await shownBox(page.locator('.topbar'));
   const head = await shownBox(page.locator('.page-head'));
+  const crumbs = await shownBox(page.locator('.sheet-crumbs'));
   expect(bootBinding.width).toBe(binding.width);
   expect(bootTopbar.x).toBe(topbar.x);
   expect(bootTopbar.height).toBe(topbar.height);
+  // パンくずの帯も、上の帯の下の同じ位置と高さにある（#1509）
+  expect(bootCrumbs.x).toBe(crumbs.x);
+  expect(bootCrumbs.y).toBe(crumbs.y);
+  expect(bootCrumbs.height).toBe(crumbs.height);
   // 画面の見出しの始まりも同じ位置（本文の余白が本物と同じ）
   expect(bootHead.x).toBe(head.x);
   expect(bootHead.y).toBe(head.y);

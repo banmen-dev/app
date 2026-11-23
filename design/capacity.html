@@ -25,7 +25,7 @@ const MONTH = (m) => `${+m.slice(5)}月`;
 SQ.mount("capacity", () => {
   const m = D.monthly;
   return `
-    ${pageHead(D.workspaces.wa.name, t("capacity"), [
+    ${pageHead({ narrow: D.workspaces.wa.name }, t("capacity"), [
       ["is-danger", "alert", `10月に${t("over")}`, 1],
       ["", "", "配分未設定", 1],
     ])}

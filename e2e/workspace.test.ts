@@ -110,9 +110,11 @@ test.describe('管理者（あおば開発のミナト）', () => {
 
     await expect(page).toHaveURL(/\/aoba\/w\/[0-9a-f-]{36}$/);
     await expect(done).toBeHidden();
-    // 見出しは画面の名前（バックログ）で、小見出しがワークスペースの名前
+    // 見出しは画面の名前（バックログ）で、ワークスペースの名前は見出しの上のパンくずに出す
     await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();
-    await expect(page.locator('.page-eyebrow')).toHaveText('保守チーム');
+    await expect(
+      page.getByRole('navigation', { name: 'パンくず' }).getByRole('link', { name: '保守チーム', exact: true }),
+    ).toBeVisible();
     // 移った先の見出しにフォーカスが移る
     await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeFocused();
     // 所属しているので、所属していない印は出ない。メニューにワークスペースの節が出る
@@ -240,7 +242,9 @@ test.describe('管理者（あおば開発のミナト）', () => {
 
     await expect(page).toHaveURL(/\/aoba\/w\/[0-9a-f-]{36}$/);
     await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();
-    await expect(page.locator('.page-eyebrow')).toHaveText('社内ツール改善');
+    await expect(
+      page.getByRole('navigation', { name: 'パンくず' }).getByRole('link', { name: '社内ツール改善', exact: true }),
+    ).toBeVisible();
     // ワークスペースの中の言葉はスクラム。組織の言葉（管理者）はそのまま
     await expect(page.locator('.nav-group')).toHaveText(['ワークスペース', '管理']);
     await expect(page.getByText('まだタスクがありません')).toBeVisible();
@@ -356,7 +360,11 @@ test.describe('管理者（あおば開発のミナト）', () => {
     await form.getByRole('button', { name: '作る' }).click();
     await done.getByRole('button', { name: '開く' }).click();
     await expect(page).toHaveURL(/\/aoba\/w\/[0-9a-f-]{36}$/);
-    await expect(page.locator('.page-eyebrow')).toHaveText(`今日から開く ${mark}`);
+    await expect(
+      page
+        .getByRole('navigation', { name: 'パンくず' })
+        .getByRole('link', { name: `今日から開く ${mark}`, exact: true }),
+    ).toBeVisible();
     await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeFocused();
   });
 
@@ -573,7 +581,9 @@ test.describe('管理者（あおば開発のミナト）', () => {
       .click();
 
     await expect(page).toHaveURL(/\/aoba\/w\/[0-9a-f-]{36}$/);
-    await expect(page.locator('.page-eyebrow')).toHaveText(openedName);
+    await expect(
+      page.getByRole('navigation', { name: 'パンくず' }).getByRole('link', { name: openedName, exact: true }),
+    ).toBeVisible();
     // 移る動作が組織の枠を読み直す（所属するワークスペースにも入っているので、メニューに出る）
     expect(organizationReads).toBeGreaterThanOrEqual(1);
     await expect(page.locator('.ws-menu > button')).toContainText(openedName);
@@ -678,7 +688,9 @@ test.describe('管理者（あおば開発のミナト）', () => {
     });
     await page.goto('/aoba/w/019a0000-0000-7000-8000-000000000401');
     await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();
-    await expect(page.locator('.page-eyebrow')).toHaveText('受託開発チーム');
+    await expect(
+      page.getByRole('navigation', { name: 'パンくず' }).getByRole('link', { name: '受託開発チーム', exact: true }),
+    ).toBeVisible();
     const seen = await page.evaluate(() => (window as unknown as { __groupTexts: string[] }).__groupTexts);
     expect(seen.length).toBeGreaterThan(0);
     expect(seen).not.toContain('パーティ');
@@ -705,7 +717,9 @@ test.describe('一般のユーザー（あおば開発のハルカ）', () => {
   test('所属するワークスペースは開け、所属していないロールの印は出ない', async ({ page }) => {
     await page.goto('/aoba/w/019a0000-0000-7000-8000-000000000401');
     await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();
-    await expect(page.locator('.page-eyebrow')).toHaveText('受託開発チーム');
+    await expect(
+      page.getByRole('navigation', { name: 'パンくず' }).getByRole('link', { name: '受託開発チーム', exact: true }),
+    ).toBeVisible();
     await expect(page.getByText(/所属せず/)).toHaveCount(0);
     await expect(page.locator('.ws-menu > button')).toContainText('受託開発チーム');
   });

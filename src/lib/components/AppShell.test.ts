@@ -49,6 +49,15 @@ const shell = (current: string, workspace?: { id: string; name: string; role: 'l
     },
   }).body;
 
+test('パンくずは上の帯ではなく、本文の直前の帯（.sheet-crumbs）に置く', () => {
+  const body = shell('/aoba/w/w1/board', { id: 'w1', name: 'ふくろう班', role: 'member' });
+  const topbar = body.match(/<div class="topbar">[\s\S]*?(?=<div class="sheet-crumbs">)/)?.[0] ?? '';
+  expect(topbar).not.toContain('class="breadcrumb"');
+  expect(body.replace(/<!--[^>]*-->/g, '')).toMatch(
+    /<div class="sheet-crumbs"><nav class="breadcrumb"[\s\S]*?<\/nav><\/div>\s*<main\b/,
+  );
+});
+
 test('組織の画面のパンくずは組織と画面だけで、ワークスペースを出さない', () => {
   const body = shell('/aoba', { id: 'w1', name: 'ふくろう班', role: 'member' });
   const nav = body.match(/<nav class="breadcrumb"[\s\S]*?<\/nav>/)?.[0] ?? '';
