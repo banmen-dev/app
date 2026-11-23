@@ -592,7 +592,7 @@ WHERE tbl = 'tasks' AND idx = 'tasks_workspace_tray';
 
 ## 本番の URL を banmen に移す
 
-本番の Worker の名前を `scrum-guild` から `banmen` に変え、公開 URL を `https://scrum-guild.ucan-lab.workers.dev` から `https://banmen.ucan-lab.workers.dev` に移す（#1423、親 #1416）。workers.dev の URL は Worker の名前で決まる。名前に縛られるコードは `wrangler.jsonc` の `name` と `vars` の `PUBLIC_ORIGIN`、`scripts/deploy.ts` の `PRODUCTION_URL` で、3つと転送先（`src/legacy-redirect/worker.ts` の `LEGACY_REDIRECT_TARGET`）が揃っていることを `scripts/deploy.test.ts` が確かめる。D1 と R2 のバケットは名前を変えない（上の「Cloudflare のアカウント」）。
+本番の Worker の名前を `scrum-guild` から `banmen` に変え、公開 URL を `https://scrum-guild.ucan-lab.workers.dev` から `https://banmen.ucan-lab.workers.dev` に移す（#1423、親 #1416）。workers.dev の URL は Worker の名前で決まる。名前に縛られるコードは `wrangler.jsonc` の `name` と `vars` の `PUBLIC_ORIGIN`、`scripts/deploy.ts` の `PRODUCTION_URL` で、3つと転送先（`src/legacy-redirect/worker.ts` の `LEGACY_REDIRECT_TARGET`）が揃っていることを `scripts/deploy.test.ts` が確かめる。この手順では D1 と R2 のバケットに触らない（本番の D1 と R2 は、後の #1518 で下の「本番の D1 と R2 を banmen に移す」の手順で移した）。
 
 #1423 の PR は当日まで開けておき、当日にマージする（2026-11-22 に人が決めた）。`main` と本番の Worker の名前が食い違う期間を、当日の数分だけにするため。食い違っている間は次のことが起きる。
 
@@ -696,7 +696,7 @@ D1 はスキーマも `d1_migrations` もそのまま写すので、写した後
 
 ### 前日まで
 
-1. ucan-lab のアカウントで、空の D1 `banmen`（置き場所は自動）とバケット `banmen-attachments`（上の「R2」の手順。公開アクセスは無効）を作る（2026-11-24 に作成済み、D1 の ID は `55d9a51f-bb3f-483c-8051-1d867c0f9ce8`）。`pnpm exec wrangler d1 info banmen` の `uuid` と PR の `database_id` の一致も見ておく
+1. ucan-lab のアカウントで、空の D1 `banmen`（置き場所は自動）とバケット `banmen-attachments`（上の「R2」の手順。公開アクセスは無効）を作る（2026-11-24 に作成済み、D1 の ID は `55d9a51f-bb3f-483c-8051-1d867c0f9ce8`）。`pnpm exec wrangler d1 info banmen` の `uuid` と PR の `database_id` の一致も見ておく。全組織の添付を写す前に、`pnpm exec wrangler r2 bucket dev-url get banmen-attachments` が無効と返し、`pnpm exec wrangler r2 bucket domain list banmen-attachments` が空を返すことも確かめる
 2. `wrangler.jsonc` の `database_name`、`database_id`、`bucket_name` と、`scripts/preview-config.ts` の `PRODUCTION_DATABASE_ID` を新しい資源に替える PR を作り、当日の手順 5 まで開けておく
 3. `main` のほかの変更を Release で出し切る。切り替えの Release に切り替えだけを載せれば、失敗したときの原因を切り替えに絞れるため
 4. 流し込みが通るかを1回確かめる。使い捨ての D1（例 `banmen-import-check`）を作り、下の当日の手順 2 と同じく書き出して流し込む。落ちずに終わることと、かかった時間を控え、使い捨ての D1 と書き出したファイルを消す。落ちたら当日に進まず、原因（大きすぎる行、外部キーの順など）を直す手順を先に決める
@@ -737,14 +737,14 @@ D1 はスキーマも `d1_migrations` もそのまま写すので、写した後
 
 ### 当日に戻すとき
 
-どの道でも、日を改めるなら当日の手順 11 の後始末をその日のうちに行い、次の日の前日の手順 5 でトークンを作り直す。`banmen` に流し込んだ顧客のデータを残さないよう、`banmen` は消して作り直す（ID が変わるので PR を直す）。
+どの道でも、日を改めるなら当日の手順 11 の後始末をその日のうちに行い、次の日の前日の手順 5 でトークンを作り直す。`banmen` に流し込んだ顧客のデータを残さないよう、`banmen` は消して作り直す（ID が変わるので PR を直す）。`banmen-attachments` に写した全組織の添付も、`rclone purge r2:banmen-attachments` で空にしてから後始末をする（バケットは残して次の日に使う）。
 
 - 手順 6 のマージの前に止まったとき: 本番は旧資源のまま動いている。チームに再開を告げる。PR はマージしていないので、`main` は旧資源を向いたまま
 - 手順 6 でマージした後、ビルドが版を切り替えずに止まったとき（Time Travel のブックマークを取れない、マイグレーションを当てられない、版を上げられない。上の「デプロイが失敗で終わったとき」）: 本番は旧資源のまま動くが、`main` は新しい D1 を向いている。同じ日のうちに直して publish し直せないなら、再開を告げる前に、切り替えの PR を revert する PR を `main` に入れる
 - 手順 6 の煙のテストに落ちたとき: デプロイのスクリプトが切り替え前の版へ自動で戻すので、本番は旧資源のまま動く。すぐに切り替えの PR を revert する PR を `main` に入れる
 
 マージした後に戻すどの道でも、revert が `main` に入るまでは、再開を告げず、ほかの Release も publish しない。publish すると、写した時点の古い `banmen` に切り替わり、再開後に旧 D1 へ書かれたものが見えなくなる。
-- 手順 7 の確かめで壊れていると分かったとき: 旧資源を消す前なら、手元で `wrangler rollback <切り替え前の版の ID> --message "<理由>"` を打つ（上の「コードを戻す」）。切り替え前の版は旧 D1 と旧バケットにつながるので、旧資源のまま再開できる。続けて上と同じく PR を revert する。publish から rollback までに新しい D1 に書かれたものは旧 D1 に入らない。その間に `api_tokens`、`sessions`、`password_credentials` が変わっていれば、同じ操作を旧 D1 の側でやり直す
+- 手順 7 の確かめで壊れていると分かったとき: 旧資源を消す前なら、手元で `wrangler rollback <切り替え前の版の ID> --message "<理由>"` を打つ（上の「コードを戻す」）。切り替え前の版は旧 D1 と旧バケットにつながるので、旧資源のまま再開できる。続けて上と同じく PR を revert する。publish から rollback までに新しい D1 に書かれたものは旧 D1 に入らない。その間の書き込みは、`pnpm exec wrangler d1 export banmen --remote --output "$dir/banmen-after.sql"` と手順 3 の `"$dir/banmen.sql"` の `diff` で見つける。トークンの取り消し、メンバーの除外、組織の停止、パスワードの変更があれば、同じ操作を旧 D1 の側でやり直す
 
 ### 移し終えた後
 
