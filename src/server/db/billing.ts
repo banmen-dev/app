@@ -1,5 +1,7 @@
 // 請求専用の認可と書き込み。共通DBの表だけを使い、業務用の組織入口を作らない。
 import { sql } from 'kysely';
+import type { OrganizationKind } from '../../shared/organization-kind.ts';
+import type { OrganizationPlan } from '../../shared/organization-plan.ts';
 import { ApiError } from '../errors.ts';
 import { uuidv7 } from '../uuid.ts';
 import type { CommonDb } from './entries.ts';
@@ -95,7 +97,9 @@ export async function listBillingOrganizations(db: CommonDb, accountId: string, 
       q
         .selectFrom('billing_administrators as b')
         .innerJoin('organizations as o', 'o.id', 'b.organization_id')
-        .select(['b.id', 'b.status', 'o.slug', 'o.name'])
+        // 契約の表も共通の表なので、1つの文で読む（共通の表と組織の中の表は結合しない）
+        .leftJoin('organization_contracts as c', 'c.organization_id', 'o.id')
+        .select(['b.id', 'b.status', 'o.slug', 'o.name', 'o.kind', 'o.suspended_at', 'o.purge_on', 'c.plan'])
         .where('b.account_id', '=', accountId)
         .where('b.status', 'in', ['active', 'pending'])
         .where((eb) =>
@@ -109,7 +113,19 @@ export async function listBillingOrganizations(db: CommonDb, accountId: string, 
     ),
   );
   return {
-    organizations: rows.filter((row) => row.status === 'active').map(({ slug, name }) => ({ slug, name })),
+    // 停止していなければ active、停止して purge_on が空なら suspended、あれば cancelled（運用者の一覧と同じ境目）。
+    // 停止中と消す予定日を過ぎた組織も、消すまでは一覧に出す
+    organizations: rows
+      .filter((row) => row.status === 'active')
+      .map(({ slug, name, kind, plan, suspended_at, purge_on }) => ({
+        slug,
+        name,
+        // 列の CHECK が守る値
+        kind: kind as OrganizationKind,
+        plan: plan as OrganizationPlan | null,
+        state: (suspended_at === null ? 'active' : purge_on === null ? 'suspended' : 'cancelled') as
+          'active' | 'suspended' | 'cancelled',
+      })),
     invitations: rows.filter((row) => row.status === 'pending').map(({ id, slug, name }) => ({ id, slug, name })),
   };
 }
