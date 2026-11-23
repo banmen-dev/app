@@ -891,6 +891,7 @@ describe('task-create の入れ先（スプリントの列の末尾の空の行�
     body_md: 'スプリントへ作る本文',
     points: null,
     assignee_user_id: null,
+    due_on: null,
     story_id: null,
     repository_id: null,
     category_id: null,
@@ -949,6 +950,31 @@ describe('task-create の入れ先（スプリントの列の末尾の空の行�
     const tree = await call(target, backlogTree, {});
     const rows = ((await tree.json()) as { tasks: { id: string; sprint: { id: string } | null }[] }).tasks;
     expect(rows.find((row) => row.id === task.id)?.sprint).toMatchObject({ id: sprint.id });
+  });
+
+  test('担当と期日を付けて列の末尾に作ると、行と作成の履歴に担当と期日が残る（#1501）', async () => {
+    const { target, board, sprint } = await setup();
+    const res = await create(
+      target,
+      { sprint_id: sprint.id, column_id: board.first },
+      { assignee_user_id: target.member.userId, due_on: '2026-11-30' },
+    );
+    expect(res.status).toBe(200);
+    const { task } = (await res.json()) as {
+      task: { id: string; due_on: string | null; assignee: { id: string } | null };
+    };
+    expect(task.due_on).toBe('2026-11-30');
+    expect(task.assignee).toMatchObject({ id: target.member.userId });
+    const state = await stateOf(target, task.id);
+    expect(state.task).toMatchObject({
+      sprint_id: sprint.id,
+      column_id: board.first,
+      assignee_user_id: target.member.userId,
+      due_on: '2026-11-30',
+    });
+    const changes = JSON.parse(state.logs[0]!.changes_json);
+    expect(changes.due_on).toEqual([null, '2026-11-30']);
+    expect(changes.assignee).toEqual([null, expect.objectContaining({ id: target.member.userId })]);
   });
 
   test('始まっていないスプリントにも進行中のスプリントにも入れられ、入れ先を省いた作成はスプリントに入らない', async () => {

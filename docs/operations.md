@@ -18,7 +18,7 @@
 ### Cloudflare のアカウント
 
 - ucan-lab 用のアカウントは Workers Paid（2026-10-25 にした）。Workers & Pages の「Workers plans」で変える
-- `workers.dev` のサブドメインは `ucan-lab`。本番の Worker の名前は `banmen` で、URL は `https://banmen.ucan-lab.workers.dev/`（#1423 で `scrum-guild` から移した。旧 URL は下の「旧 URL の転送」）。本番の D1 は `banmen`、R2 のバケットは `banmen-attachments`（#1518 で `scrum-guild`、`scrum-guild-attachments` から作り直して移した。下の「本番の D1 と R2 を banmen に移す」）。Workers & Pages の Account details の Subdomain で変えられるが、変えるとアカウントのすべての Worker の URL が変わるので触らない
+- `workers.dev` のサブドメインは `ucan-lab`。本番の Worker の名前は `banmen` で、URL は `https://banmen.ucan-lab.workers.dev/`（#1423 で `scrum-guild` から移した。旧 URL は下の「旧 URL の転送」）。本番の D1 は `banmen`、R2 のバケットは `banmen-attachments`（#1518 で `scrum-guild`、`scrum-guild-attachments` から作り直して切り替えた。2026-11-23 はデータを写さずに空で切り替え、旧 D1 と旧バケットは消した。下の「本番の D1 と R2 を banmen に移す」）。Workers & Pages の Account details の Subdomain で変えられるが、変えるとアカウントのすべての Worker の URL が変わるので触らない
 - 請求の通知: 予算 $10（自動で作られていたもの）と、使用量の通知（Workers のリクエスト 500万、CPU 時間 1,500万 ms、D1 の書き込み 2,500万行）。届け先はアカウントのメール
 - Zero Trust は無料の枠で有効にしてある。チーム名は `ucan-lab`、ログインの手段にワンタイム PIN を足した。使うのは見本の Worker の Access（`docs/development.md` の「見本の Worker」）
 
@@ -686,6 +686,8 @@ node scripts/deploy-legacy-redirect.ts
 
 本番の D1 を `scrum-guild` から `banmen` に、R2 のバケットを `scrum-guild-attachments` から `banmen-attachments` に移す（#1518、親 #1416）。D1 も R2 も作った後に名前を変えられないので、新しく作り、今のデータを写し、`wrangler.jsonc` の binding の向き先を替える版を出す。Worker は作り直さないので、シークレット、URL、Cookie の名前は変わらず、写したセッションでログインが続く。
 
+2026-11-23 の切り替えは、この手順をたどらずに行った。切り替えの PR（#1520）を写す前にマージし、続けて v0.21.0 を publish したため、本番は空の `banmen` と `banmen-attachments` で動き始めた。人が空のままでよいと決め、旧 D1 `scrum-guild` と旧バケット `scrum-guild-attachments` は消した（#1522）。運用者は組織と最初の管理者を作り直す（上の「マイグレーションをまとめ直したとき」の手順 5）。下の手順は、次にデータを写して本番の D1 を移すときに使う。
+
 D1 はスキーマも `d1_migrations` もそのまま写すので、写した後のデプロイには当てるマイグレーションが無い。スキーマの直しは混ぜず、上の「マイグレーションをまとめ直したとき」の #256 の作り直しは移した後も残ったまま。
 
 いちばんの危険は順番の取り違えにある。切り替えの PR が `main` に入った後、`banmen` へ流し込む前に Release を publish すると、デプロイが空の `banmen` に全マイグレーションを当て、空の本番に切り替わる。煙のテストは空の D1 でも通るので、自動では戻らない。このため、切り替えの PR は当日の手順 5 で写せたと確かめた後、publish の直前にマージする。`main` へのマージは本番に出ないので、遅らせても失うものは無い。
@@ -742,9 +744,9 @@ D1 はスキーマも `d1_migrations` もそのまま写すので、写した後
 - 手順 6 のマージの前に止まったとき: 本番は旧資源のまま動いている。チームに再開を告げる。PR はマージしていないので、`main` は旧資源を向いたまま
 - 手順 6 でマージした後、ビルドが版を切り替えずに止まったとき（Time Travel のブックマークを取れない、マイグレーションを当てられない、版を上げられない。上の「デプロイが失敗で終わったとき」）: 本番は旧資源のまま動くが、`main` は新しい D1 を向いている。同じ日のうちに直して publish し直せないなら、再開を告げる前に、切り替えの PR を revert する PR を `main` に入れる
 - 手順 6 の煙のテストに落ちたとき: デプロイのスクリプトが切り替え前の版へ自動で戻すので、本番は旧資源のまま動く。すぐに切り替えの PR を revert する PR を `main` に入れる
+- 手順 7 の確かめで壊れていると分かったとき: 旧資源を消す前なら、手元で `wrangler rollback <切り替え前の版の ID> --message "<理由>"` を打つ（上の「コードを戻す」）。切り替え前の版は旧 D1 と旧バケットにつながるので、旧資源のまま再開できる。続けて上と同じく PR を revert する。publish から rollback までに新しい D1 に書かれたものは旧 D1 に入らない。その間の書き込みは、`pnpm exec wrangler d1 export banmen --remote --output "$dir/banmen-after.sql"` と手順 3 の `"$dir/banmen.sql"` の `diff` で見つける。トークンの取り消し、メンバーの除外、組織の停止、パスワードの変更があれば、同じ操作を旧 D1 の側でやり直す
 
 マージした後に戻すどの道でも、revert が `main` に入るまでは、再開を告げず、ほかの Release も publish しない。publish すると、写した時点の古い `banmen` に切り替わり、再開後に旧 D1 へ書かれたものが見えなくなる。
-- 手順 7 の確かめで壊れていると分かったとき: 旧資源を消す前なら、手元で `wrangler rollback <切り替え前の版の ID> --message "<理由>"` を打つ（上の「コードを戻す」）。切り替え前の版は旧 D1 と旧バケットにつながるので、旧資源のまま再開できる。続けて上と同じく PR を revert する。publish から rollback までに新しい D1 に書かれたものは旧 D1 に入らない。その間の書き込みは、`pnpm exec wrangler d1 export banmen --remote --output "$dir/banmen-after.sql"` と手順 3 の `"$dir/banmen.sql"` の `diff` で見つける。トークンの取り消し、メンバーの除外、組織の停止、パスワードの変更があれば、同じ操作を旧 D1 の側でやり直す
 
 ### 移し終えた後
 

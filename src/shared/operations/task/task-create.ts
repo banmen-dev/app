@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { idSchema } from '../../id.ts';
-import { longTextSchema } from '../../story.ts';
+import { dueOnSchema, longTextSchema } from '../../story.ts';
 import { taskPointsSchema, taskTitleSchema } from '../../task.ts';
 import { defineOperation } from '../define.ts';
 import { conflictReasonOf } from '../conflict-reason.ts';
@@ -21,6 +21,7 @@ export function taskCreateConflictReasonOf(details: unknown): TaskCreateConflict
 // 作った人（created_by）は呼んだ人。担当はそのワークスペースに今所属している人だけで、そうでなければ存在しないときと同じ 404。
 // 区分（category_id）は親のないタスクだけが持つ。親と一緒に送ると 409 の conflict（has_parent）。区分とリポジトリ（repository_id）は、
 // 同じワークスペースの削除していないものでなければ 404（別の組織も 404）。
+// 期日（due_on）は YYYY-MM-DD の暦の日付だけ（task-update と同じ dueOnSchema）。暦に無い日付は 400 の invalid_input（#1501）。
 // 経験値は作ったときにも完了にしたときにも付かない（#1430）。
 // 入れる先（sprint）を送ると、作ったタスクをそのスプリントのその列の末尾に入れる（スプリントの画面の列の末尾の空の行）。
 // 作成、スプリントへの入れ込み（sprint_entries）、変更の履歴は同じ batch() で書き、入れ込みが断られたときはタスクも作られない。
@@ -30,7 +31,7 @@ export function taskCreateConflictReasonOf(details: unknown): TaskCreateConflict
 export const taskCreate = defineOperation({
   name: 'task-create',
   description:
-    'バックログにタスクを作る。タイトル、本文（任意、1万字まで）、ポイント（未設定か 0、1、2、3、5、8、13）、担当（任意）、親のストーリー（任意）、リポジトリ（任意）、区分（親のないときだけ、任意）を指す。位置は親の配下の末尾。入れ先のスプリントと列（任意、完了の列は不可）を指すと、同時にその列の末尾に入れる',
+    'バックログにタスクを作る。タイトル、本文（任意、1万字まで）、ポイント（未設定か 0、1、2、3、5、8、13）、担当（任意）、期日（任意、YYYY-MM-DD）、親のストーリー（任意）、リポジトリ（任意）、区分（親のないときだけ、任意）を指す。位置は親の配下の末尾。入れ先のスプリントと列（任意、完了の列は不可）を指すと、同時にその列の末尾に入れる',
   mode: 'write',
   permission: 'member',
   workspace: true,
@@ -40,6 +41,7 @@ export const taskCreate = defineOperation({
     body_md: longTextSchema.default(null),
     points: taskPointsSchema.nullable().default(null),
     assignee_user_id: idSchema.nullable().default(null),
+    due_on: dueOnSchema.default(null),
     story_id: idSchema.nullable().default(null),
     repository_id: idSchema.nullable().default(null),
     category_id: idSchema.nullable().default(null),
