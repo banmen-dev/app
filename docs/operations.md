@@ -700,7 +700,7 @@ D1 はスキーマも `d1_migrations` もそのまま写すので、写した後
 2. `wrangler.jsonc` の `database_name`、`database_id`、`bucket_name` と、`scripts/preview-config.ts` の `PRODUCTION_DATABASE_ID` を新しい資源に替える PR を作り、当日の手順 5 まで開けておく
 3. `main` のほかの変更を Release で出し切る。切り替えの Release に切り替えだけを載せれば、失敗したときの原因を切り替えに絞れるため
 4. 流し込みが通るかを1回確かめる。使い捨ての D1（例 `banmen-import-check`）を作り、下の当日の手順 2 と同じく書き出して流し込む。落ちずに終わることと、かかった時間を控え、使い捨ての D1 と書き出したファイルを消す。落ちたら当日に進まず、原因（大きすぎる行、外部キーの順など）を直す手順を先に決める
-5. R2 を写す道具を用意する。R2 の Overview の「Manage API tokens」で、権限を Object Read & Write、対象を `scrum-guild-attachments` と `banmen-attachments` の2つに絞った一時のトークンを作る。手元の `rclone` には、設定ファイルに残さず、環境変数 `RCLONE_CONFIG_R2_TYPE=s3`、`RCLONE_CONFIG_R2_PROVIDER=Cloudflare`、`RCLONE_CONFIG_R2_ENDPOINT=https://71293a3c23974c311b4c82b3f977049b.r2.cloudflarestorage.com`、`RCLONE_CONFIG_R2_ACCESS_KEY_ID`、`RCLONE_CONFIG_R2_SECRET_ACCESS_KEY` で渡す。トークンの値はリポジトリ、Issue、チャットに残さない
+5. R2 を写す道具を用意する。R2 の Overview の「Manage API tokens」で、期限（TTL）を当日の翌日までにした一時のトークンを作る。権限は Object Read & Write で、対象は `scrum-guild-attachments` と `banmen-attachments` の2つだけにする（旧バケットは当日の手順 10 で空にするので書き込みも要る）。手元の `rclone` には、設定ファイルに残さず環境変数で渡す。`RCLONE_CONFIG_R2_TYPE=s3`、`RCLONE_CONFIG_R2_PROVIDER=Cloudflare`、`RCLONE_CONFIG_R2_ENDPOINT=https://71293a3c23974c311b4c82b3f977049b.r2.cloudflarestorage.com` はそのまま `export` し、キーの2つは `read -rs RCLONE_CONFIG_R2_ACCESS_KEY_ID; read -rs RCLONE_CONFIG_R2_SECRET_ACCESS_KEY; export RCLONE_CONFIG_R2_ACCESS_KEY_ID RCLONE_CONFIG_R2_SECRET_ACCESS_KEY` で入れ、シェルの履歴に値を残さない。値を履歴やリポジトリ、Issue、チャットに残したら、失効させて作り直す
 6. `rclone sync r2:scrum-guild-attachments r2:banmen-attachments --s3-no-check-bucket` で1回写しておく。当日は差分だけで済む
 7. チームに止める日時を知らせる
 
