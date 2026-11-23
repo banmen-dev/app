@@ -3358,7 +3358,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     // ワークスペースがまだない管理者には、ワークスペースの中の画面を出さない
     const cut = Object.keys(D.workspaces).length ? pages.length : pages.indexOf("workspace");
     return pages.slice(0, cut < 0 ? pages.length : cut).map((p) => {
-      // 組織の切り替えは、メニューの外（左上の角のマス）の orgMenuHtml
+      // 組織の切り替えは、メニューの外（上の帯の右）の orgMenuHtml
       if (p === "organization") return "";
       if (p === "workspace") return `<div class="nav-group"><span class="nav-group-label">${t("workspace")}</span></div>
         <div id="ws-menu-slot">${workspaceMenuHtml()}</div>`;
@@ -3620,7 +3620,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   let orgMenuOpen = false;
   let navCollapsed = (() => { try { return localStorage.getItem("sg-nav-collapsed") === "true"; } catch (e) { return false; } })();
   // カタログの見本は、開いた状態と閉じた状態、組織の数、招待の有無を替えて並べるので、引数で渡す。live が偽なら押しても動かない
-  // moving は別の組織へ移っている最中（本番の OrganizationSwitcher の moving）。名前の欄と札に「移っています」を出す
+  // moving は別の組織へ移っている最中（本番の OrganizationSwitcher の moving）。名前の欄に「移っています」を出す
   // 自分用の組織（kind が personal）は、名前の代わりに辞書の「自分用」で出す。
   // 「自分用を作る」は、入れる組織（orgs）にも停止した組織（suspended）にも自分用が無い人にだけ出す（canCreatePersonal）。
   const orgName = (k) => (k.kind === "personal" ? t("personalOrganizationName") : k.name);

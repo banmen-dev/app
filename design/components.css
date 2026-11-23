@@ -37,7 +37,7 @@ h1, h2, h3 { text-wrap: balance; }
 }
 
 /* ===== 枠: 角のマス、上の帯、綴じ（メニュー）、帳面 =====
-   左上の角のマス（マークと組織の切り替え）と全幅の上の帯が同じ高さ（--header-height）で並び、帯の下の罫と綴じの右の罫が角で交わって十字になる。 */
+   左上の角のマス（マークと開閉のボタン）と全幅の上の帯が同じ高さ（--header-height）で並び、帯の下の罫と綴じの右の罫が角で交わって十字になる。 */
 .app {
   --binding-width-expanded: 240px;
   --binding-width-collapsed: 64px;
@@ -82,7 +82,7 @@ h1, h2, h3 { text-wrap: balance; }
    帯の高さを変えないため、「組織」のラベルと「届いた招待あり」のチップは見せず、招待は点の印で示す。
    一覧はボタンの右端に合わせて帯の下に浮かせる（アカウントのメニューと同じ）。帯の右に置くので、画面の右からはみ出さない。
    列を畳んでも形を変えない */
-.topbar .org-menu { position: relative; display: block; min-width: 0; max-width: 16rem; }
+.topbar .org-menu { position: relative; display: block; min-width: 0; }
 .topbar .org-menu-button {
   position: relative; display: flex; align-items: center; gap: var(--space-1); width: auto; max-width: 100%; min-height: 36px;
   padding: var(--space-1) var(--space-2); border-color: transparent; background: transparent; font-size: var(--text-sm);
@@ -203,7 +203,7 @@ h1, h2, h3 { text-wrap: balance; }
 }
 
 @media (min-width: 761px) {
-  /* 浮かせた札と組織の一覧を本文の位置付きの要素（バックログの行など）より上に出す。綴じの sticky は自前の重なりの文脈を作り、
+  /* 浮かせた札を本文の位置付きの要素（バックログの行など）より上に出す。綴じの sticky は自前の重なりの文脈を作り、
      中の z-index は文脈の外に効かないので、綴じごと本文の上に置く。引き出し（.scrim の 20）とアシスタント（15）より下 */
   .binding { position: relative; z-index: 5; }
   .nav-toggle:focus-visible .nav-tip { display: grid; }
@@ -214,7 +214,6 @@ h1, h2, h3 { text-wrap: balance; }
     font-size: var(--text-sm); font-weight: 400; text-align: left; box-shadow: var(--shadow-float); pointer-events: none;
     overflow-wrap: anywhere;
   }
-  .nav-tip small { color: var(--color-muted); }
   /* 列は中で縦に送るので、浮かせた札は列のスクロール領域に切られず、スクロールに追従させる。
      fixed とアンカーはセットで当てる（fixed だけだと、送った量だけ元の位置に残る）。
      アンカー位置指定に対応しないブラウザは、畳んだ列を縦に送らず（下の @supports not）、上の absolute のまま出す */
@@ -241,6 +240,7 @@ h1, h2, h3 { text-wrap: balance; }
   }
 
   .app[data-nav-collapsed="true"] { grid-template-columns: var(--binding-width-collapsed) minmax(0, 1fr); }
+  .app[data-nav-collapsed="true"] .topbar .org-menu { max-width: min(16rem, calc((100vw - var(--binding-width-collapsed)) / 4)); }
   /* 列の罫を引いても、内側に 44px の項目が収まる余白にする */
   .app[data-nav-collapsed="true"] .binding-head {
     justify-content: center; padding-inline: 0;
@@ -409,8 +409,9 @@ a.breadcrumb-item:hover { color: var(--color-fg); text-decoration: underline; }
   .topbar { flex-wrap: nowrap; }
   .topbar > :not(.account-menu, .nav-search, .org-menu), .topbar-tools > * { flex: none; }
   /* 組織の切り替えは縮めず、幅が足りないときは検索の欄とアカウントの表示名が受ける。
-     長い名前は幅の上限（16rem、狭い帯では画面の幅の 1/4）で省略して受け、帯を1段に保つ */
-  .topbar .org-menu { flex: none; max-width: min(16rem, 25vw); }
+     長い名前は幅の上限（16rem と、上の帯の幅の 1/4 の小さいほう）で省略して受け、帯を1段に保つ。
+     帯の幅は画面の幅から左のメニューの幅を引いた幅（畳んだ列の分は下の畳む規則で当て直す） */
+  .topbar .org-menu { flex: none; max-width: min(16rem, calc((100vw - var(--binding-width-expanded)) / 4)); }
   /* 長い表示名は、折り返さず右を切って受ける（帯の高さと十字の罫を保つ） */
   .topbar > .account-menu { flex: 0 1 auto; min-width: 0; }
   .account-menu-button { max-width: 100%; }

@@ -435,17 +435,16 @@ test.describe('高さの低い窓の畳んだ左のメニュー', () => {
       await inner.evaluate((element) => {
         element.scrollTop = 40;
       });
-      for (const button of [page.locator('.nav-toggle')]) {
-        await expect(button).toBeInViewport({ ratio: 1 });
-        await button.hover();
-        const tip = button.locator('.nav-tip');
-        await expect(tip).toBeVisible();
-        const buttonBox = await button.boundingBox();
-        const tipBox = await tip.boundingBox();
-        if (!buttonBox || !tipBox) throw new Error('ボタンと札の位置が取れない');
-        expect(tipBox.x).toBeCloseTo(buttonBox.x + buttonBox.width + 12, 0);
-        expect(tipBox.y + tipBox.height / 2).toBeCloseTo(buttonBox.y + buttonBox.height / 2, 0);
-      }
+      const button = page.locator('.nav-toggle');
+      await expect(button).toBeInViewport({ ratio: 1 });
+      await button.hover();
+      const tip = button.locator('.nav-tip');
+      await expect(tip).toBeVisible();
+      const buttonBox = await button.boundingBox();
+      const tipBox = await tip.boundingBox();
+      if (!buttonBox || !tipBox) throw new Error('ボタンと札の位置が取れない');
+      expect(tipBox.x).toBeCloseTo(buttonBox.x + buttonBox.width + 12, 0);
+      expect(tipBox.y + tipBox.height / 2).toBeCloseTo(buttonBox.y + buttonBox.height / 2, 0);
 
       // 組織の切り替えは上の帯にあり、一覧は帯の下に開いて画面の内側に収まる
       const org = page.locator('.topbar .org-menu-button');
@@ -535,8 +534,7 @@ test.describe('組織が2つの人（ミナト）', () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(`/aoba/w/${AOBA_WORKSPACE_ID}`);
     await expect(page.locator('.tree-row').first()).toBeVisible();
-    await page.getByRole('button', { name: 'メニューを畳む' }).click();
-    await page.locator('.org-menu-button').click();
+    await page.locator('.topbar .org-menu-button').click();
     for (const selector of ['.org-menu-list li:first-child a', '.org-menu-list li:last-child button'])
       expect(await frontmostAcross(page, selector)).toEqual([true, true, true]);
   });
@@ -1205,6 +1203,47 @@ test('長い組織の名前でも、上の帯の切り替えは1行で省略し�
   expect(bottoms.head).toBe(bottoms.bar);
 });
 
+// 帯の幅が狭いときは、長い組織の名前を帯の幅の 1/4 で切り、検索の欄を左のメニューの下へ押し出さない（#1510）
+test('761px で長い組織の名前でも、上の帯は1段に収まり、検索の欄とアカウントが見える', async ({ page }) => {
+  const long = 'とても長い名前のあおば開発の組織で上の帯の切り替えのボタンに収まらない名前';
+  await mockOperation(page, myOrganizations, {
+    organizations: [{ slug: 'aoba', name: long, kind: 'team' }],
+    invitations: [],
+    suspended: [],
+    operator: false,
+  });
+  await page.setViewportSize({ width: 761, height: 900 });
+  await page.goto(today);
+  const name = page.locator('.topbar .org-menu-button > b');
+  await expect(name).toHaveText(long);
+  for (const collapse of [false, true]) {
+    if (collapse) {
+      await page.getByRole('button', { name: 'メニューを畳む' }).click();
+      await expect(page.locator('.app')).toHaveAttribute('data-nav-collapsed', 'true');
+    }
+    const layout = await page.evaluate(() => {
+      const box = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
+      return {
+        binding: box('.binding').right,
+        bar: box('.topbar'),
+        head: box('.binding-head').bottom,
+        search: box('.topbar .nav-search'),
+        org: box('.topbar .org-menu'),
+        viewport: window.innerWidth,
+        width: document.documentElement.scrollWidth,
+      };
+    });
+    expect(layout.width).toBeLessThanOrEqual(761);
+    // 検索の欄は左のメニューの右から始まる（左のメニューの下に隠れない）
+    expect(layout.search.left).toBeGreaterThanOrEqual(layout.binding);
+    // 組織の名前の幅は、画面の幅から左のメニューを引いた幅の 1/4 まで
+    expect(layout.org.width).toBeLessThanOrEqual((layout.viewport - layout.binding) / 4 + 1);
+    // 帯は1段で、角のマスと罫の高さが揃う
+    expect(layout.bar.bottom).toBe(layout.head);
+    await expect(page.locator('.topbar .account-menu-button')).toBeInViewport();
+  }
+});
+
 test('組織の画面のパンくずは組織と画面で、ワークスペースを出さない', async ({ page }) => {
   await page.goto(today);
   const crumbs = page.getByRole('navigation', { name: 'パンくず' });
@@ -1324,6 +1363,9 @@ test.describe('指で押す画面の 761px 以上', () => {
       bar: document.querySelector('.topbar')!.getBoundingClientRect().bottom,
     }));
     expect(bottoms.head).toBe(bottoms.bar);
+    // 上の帯の組織の切り替えも、指で押せる 44px の高さにする（#1510）
+    const org = await page.locator('.topbar .org-menu-button').boundingBox();
+    expect(org!.height).toBeGreaterThanOrEqual(44);
   });
 });
 
