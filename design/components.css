@@ -1156,10 +1156,8 @@ a.brand { color: inherit; text-decoration: none; }
 .card-foot > .card-parent .ico { vertical-align: -0.15em; }
 .card-parent.is-action:hover, .card-parent.is-action:focus-visible { color: var(--color-accent); text-decoration: underline; }
 .story-board { min-width: 0; }
-.story-filter-band { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-3); font-size: var(--text-sm); }
-.story-filter-summary { display: grid; gap: var(--space-1); min-width: 0; overflow-wrap: anywhere; }
 @media (max-width: 760px), (pointer: coarse) {
-  .card-parent.is-action, .story-filter-band .btn { min-height: 44px; min-width: 44px; }
+  .card-parent.is-action { min-height: 44px; min-width: 44px; }
 }
 .card-parent { font-size: var(--text-xs); color: var(--color-muted); overflow-wrap: anywhere; }
 .card-title { font-weight: 500; font-size: var(--text-md); line-height: var(--leading-tight); color: var(--color-fg); text-decoration: none; overflow-wrap: anywhere; }
@@ -1216,6 +1214,53 @@ a.brand { color: inherit; text-decoration: none; }
 .popover-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); padding-top: var(--space-3); border-top: 1px solid var(--color-rule); }
 @media (max-width: 760px), (pointer: coarse) {
   .popover-btn, .popover-actions .btn { min-height: 44px; }
+}
+/* 左にそろえる小窓（帯の左の絞り込みのフィルター）。ボタンの下、左端にそろえて重ねる */
+.popover.is-start .popover-panel { left: 0; right: auto; }
+.popover-btn.is-active { border-color: var(--color-accent); color: var(--color-accent); }
+
+/* ===== ボードの絞り込み（#1502） ===== */
+/* 帯の左に、検索、担当のアバター、フィルター、すべてクリアを並べる（role="search"）。条件は URL に残す */
+.board-filter { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-width: 0; flex: 1 1 auto; }
+/* 担当のアバターを押して絞る。重ねて並べ、選んだ人は輪で囲む（輪の形でも示し、色だけに頼らない）。押すと aria-pressed が替わる */
+.avatar-filter { display: inline-flex; flex-wrap: wrap; align-items: center; min-width: 0; }
+.avatar-filter-btn {
+  display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%;
+  background: none; cursor: pointer; position: relative; color: inherit;
+}
+.avatar-filter-btn + .avatar-filter-btn { margin-left: calc(-1 * var(--space-1)); }
+.avatar-filter-btn .avatar { box-shadow: 0 0 0 2px var(--color-bg); transition: transform var(--duration-fast) var(--ease-out); }
+.avatar-filter-btn:hover, .avatar-filter-btn:focus-visible, .avatar-filter-btn[aria-pressed="true"] { z-index: 1; }
+.avatar-filter-btn:hover .avatar { transform: translateY(-2px); }
+.avatar-filter-btn[aria-pressed="true"] .avatar { box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-accent); }
+.avatar-filter-btn:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.avatar-filter-more { margin-left: var(--space-2); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-muted); white-space: nowrap; }
+/* フィルターの小窓の中。条件ごとに見出しとチェックの並びを置き、長いときは小窓の中で縦に送る */
+.filter-groups { display: grid; gap: var(--space-4); max-height: min(60vh, 28rem); overflow-y: auto; overscroll-behavior: contain; }
+.filter-group { display: grid; gap: var(--space-1); min-width: 0; margin: 0; padding: 0; border: 0; }
+.filter-group > legend { padding: 0; margin-bottom: var(--space-1); }
+.filter-option { display: flex; align-items: center; gap: var(--space-2); min-height: 32px; font-size: var(--text-sm); cursor: pointer; }
+.filter-option input { flex: none; margin: 0; accent-color: var(--color-accent); }
+.filter-option-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.filter-option-n { flex: none; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-muted); }
+/* 絞っている間に帯の下へ出す、条件と表示している件数 */
+.board-filter-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-3); font-size: var(--text-xs); color: var(--color-muted); }
+.board-filter-summary > b { color: var(--color-fg); font-weight: 500; overflow-wrap: anywhere; }
+@media (max-width: 760px), (pointer: coarse) {
+  .avatar-filter-btn { width: 44px; height: 44px; }
+  .board-filter > .btn { min-height: 44px; }
+  .avatar-filter-btn + .avatar-filter-btn { margin-left: 0; }
+  .filter-option { min-height: 44px; }
+}
+/* 1279px 以下では、フィルターのボタンが検索とアバターの後ろで右へ寄り、ボタンの左にそろえた小窓が画面の右へはみ出しうるので、
+   小窓を絞り込みの並び（.board-filter）の下の左端にそろえる。基準を並びに置くので、帯の下の条件の行が増えても小窓は動かない。
+   760px 以下では並びの幅いっぱいに広げる */
+@media (max-width: 1279px) {
+  .board-filter .popover { position: static; }
+  .board-filter .popover-panel { left: 0; right: auto; width: min(24rem, 100%); }
+}
+@media (max-width: 760px) {
+  .board-filter .popover-panel { right: 0; width: auto; }
 }
 
 /* ===== バックログの木 ===== */

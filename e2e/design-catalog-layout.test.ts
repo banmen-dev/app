@@ -68,7 +68,7 @@ test('組織のホームの見本: タスク行とゴールの貼り紙に本番
 test('ボードの見本: ゴールはスプリントの小窓にラベルとゴールで出し、貼り紙を置かない', async ({ page }) => {
   const errors = await openCatalog(page, 'sprint.html');
   await expect(page.locator('.notice')).toHaveCount(0);
-  await page.locator('.board-toolbar [data-popover-toggle]').click();
+  await page.locator('.board-toolbar .toolbar-end [data-popover-toggle]').click();
   const goal = page.locator('.popover-panel .popover-section');
   await expect(goal).toBeVisible();
   await expect(goal.locator('.popover-label')).toHaveText('スプリントゴール');
@@ -104,7 +104,7 @@ test('ゴールが空のスプリントのボードの見本では、小窓に�
     for (const sprint of Object.values(SQ.D.sprints)) sprint.goal = '';
     SQ.redraw();
   });
-  await page.locator('.board-toolbar [data-popover-toggle]').click();
+  await page.locator('.board-toolbar .toolbar-end [data-popover-toggle]').click();
   await expect(page.locator('.popover-panel .popover-title')).toBeVisible();
   await expect(page.locator('.popover-panel .popover-section')).toHaveCount(0);
   expect(errors).toEqual([]);

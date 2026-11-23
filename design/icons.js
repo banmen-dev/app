@@ -38,6 +38,8 @@
     plus: '<path d="M12 5v14M5 12h14"/>',
     x: '<path d="M6 6l12 12M18 6L6 18"/>',
     search: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>',
+    // 絞り込みの印（漏斗）。ボードの道具の帯のフィルターのボタン（#1502）
+    filter: '<path d="M3 5h18l-7 8v6l-4 2v-8z"/>',
     chevron: '<path d="M9 6l6 6-6 6"/>',
     trend: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
     shield: '<path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/>',
