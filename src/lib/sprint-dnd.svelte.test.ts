@@ -21,9 +21,9 @@ function card(id: string): SprintBoardTask {
 }
 
 const columns: SprintBoardColumn[] = [
-  { id: 'c1', name: '出発前', is_done: false, tasks: [card('a'), card('b')] },
-  { id: 'c2', name: '遂行中', is_done: false, tasks: [card('d')] },
-  { id: 'done', name: null, is_done: true, tasks: [] },
+  { id: 'c1', name: '出発前', is_done: false, wip_limit: null, tasks: [card('a'), card('b')] },
+  { id: 'c2', name: '遂行中', is_done: false, wip_limit: null, tasks: [card('d')] },
+  { id: 'done', name: null, is_done: true, wip_limit: null, tasks: [] },
 ];
 
 // a を、遂行中の d の前に落とした結果
@@ -50,8 +50,14 @@ describe('SprintDnd のつかめるカード', () => {
 
   test('戻せない完了カードもつかめ、無いカードはつかめない', () => {
     const locked: SprintBoardColumn[] = [
-      { id: 'c1', name: '出発前', is_done: false, tasks: [] },
-      { id: 'done', name: null, is_done: true, tasks: [{ ...card('x'), completed_at: '2026-10-20T00:00:00Z' }] },
+      { id: 'c1', name: '出発前', is_done: false, wip_limit: null, tasks: [] },
+      {
+        id: 'done',
+        name: null,
+        is_done: true,
+        wip_limit: null,
+        tasks: [{ ...card('x'), completed_at: '2026-10-20T00:00:00Z' }],
+      },
     ];
     const dnd = new SprintDnd({ columns: () => locked, enabled: () => true, onDrop: vi.fn(), onStale: vi.fn() });
     expect(dnd.canGrab('x')).toBe(true);
@@ -177,7 +183,13 @@ describe('SprintDnd のドラッグの取りやめ', () => {
 test('戻せないカードの拒否計画はhoverで印を出さず、離したとき1回だけ画面へ渡す', () => {
   const locked: SprintBoardColumn[] = [
     columns[0]!,
-    { id: 'done', name: null, is_done: true, tasks: [{ ...card('x'), completed_at: '2026-10-20T00:00:00Z' }] },
+    {
+      id: 'done',
+      name: null,
+      is_done: true,
+      wip_limit: null,
+      tasks: [{ ...card('x'), completed_at: '2026-10-20T00:00:00Z' }],
+    },
   ];
   const onDrop = vi.fn();
   const dnd = new SprintDnd({ columns: () => locked, enabled: () => true, onDrop, onStale: vi.fn() });

@@ -242,6 +242,7 @@ export const organizationTableColumns = {
     name: textOrNull,
     is_done: integerDefault,
     position: text,
+    wip_limit: integerOrNull,
     deleted_at: textOrNull,
     created_at: text,
     updated_at: text,

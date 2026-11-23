@@ -683,6 +683,7 @@
 | name | TEXT | | リーダーが付けた名前。完了の列は空で、名前は辞書の `done` から出す |
 | is_done | INTEGER | NOT NULL、既定 0 | 完了の列 |
 | position | TEXT | NOT NULL | |
+| wip_limit | INTEGER | 1〜99、完了の列は空 | 列の上限（仕掛かりの数の目安）。空は上限なし |
 | deleted_at | TEXT | | |
 | created_at、updated_at | TEXT | NOT NULL | |
 
@@ -690,11 +691,13 @@
 - 索引: `(workspace_id, position) WHERE deleted_at IS NULL`。`detail_fields`、`categories`、`repositories` も同じ索引で一覧を引く。
 - 索引（外部キーの検査）: `(workspace_id, deleted_at, position)`。
 - `CHECK (is_done = 1 OR name IS NOT NULL)`。
+- `CHECK (wip_limit IS NULL OR (wip_limit BETWEEN 1 AND 99 AND is_done = 0))`。完了の列は溜まるのが正しい状態なので、上限を付けない。
 - 完了の列を末尾に置くことは、読むときに `ORDER BY is_done, position` で守る。完了の列の `position` は使わない。
 - 削除は論理削除にする。変更の履歴と完了の記録が列を指すため。最後に残った完了以外の列と完了の列を削除できないことは、アプリが検査する。
-- 操作は `column-list`（`member`、読み取り）、`column-create`、`column-update`（`name`）、`column-move`、`column-delete` で、後ろの4つは `leader`（管理者を含む）の書き込み（`src/shared/operations/column/`、処理は `src/server/operations/column.ts`）。一覧は削除していない列を `ORDER BY is_done, position, id` で返し（完了の列は最後で `name` は空。閉じたワークスペースでも読める）、各列に `task_count`（削除すると移り先へ移る、進行中と先のスプリントの未完了のタスクの数。完了の列は 0）を添える。画面（スプリントの画面の列の並びと設定）は完了の列の名前を辞書から出す。
+- 操作は `column-list`（`member`、読み取り）、`column-create`、`column-update`（`name` と `wip_limit`）、`column-move`、`column-delete` で、後ろの4つは `leader`（管理者を含む）の書き込み（`src/shared/operations/column/`、処理は `src/server/operations/column.ts`）。一覧は削除していない列を `ORDER BY is_done, position, id` で返し（完了の列は最後で `name` は空。閉じたワークスペースでも読める）、各列に `task_count`（削除すると移り先へ移る、進行中と先のスプリントの未完了のタスクの数。完了の列は 0）を添える。画面（スプリントの画面の列の並びと設定）は完了の列の名前を辞書から出す。
   - `name` は前後の空白を除いて 1〜30 字（`workspaces.name` と同じ字数の数え方と断る文字。上限は `src/shared/column.ts` の `COLUMN_NAME_MAX_LENGTH`）。同じワークスペースの削除していない完了以外の列と同じ名前は 409（`conflict`、理由は `duplicate_name`。前後の空白を除いた後の完全一致で比べ、大文字と小文字、全角と半角は別の名前とみなす）。削除していない完了以外の列が 12 件（`COLUMNS_PER_WORKSPACE`）あれば足すのは 409（`conflict`、理由は `limit`）。理由の一覧は `src/shared/operations/column/column.ts` の `columnConflictReasons`（`duplicate_name`、`limit`、`last_column`、`done_column`、`target_required`、`target_invalid`、`changed`）。どちらも書く文の条件（足すのは `INSERT ... SELECT ... WHERE NOT EXISTS (同じ名前) AND (数) < 12`、名前の変更は同じ名前が無いことと読んだ名前のままであることを条件にした `UPDATE`）で守り、同時に足しても重複を作らず上限を超えない。足す位置は完了以外の列の末尾。
-  - 完了の列は、足す、名前を直す、並べ替える、並べ替えの直前に指す対象に入らない。読む文も書く文も `is_done = 0` で絞るので、完了の列を指すと、無い列（別の組織、別のワークスペース、削除済みを含む）と同じ 404 になる。並べ替え（`column-move`）は `categories` の並べ替えと同じ決まり（`after_column_id`。`null` は先頭、省くと末尾、自分自身は 400 の `invalid_input`、同じ値の振り直しも同じ）で、完了の列は並びに入らない。並べ替えは `change_logs` に残さない。
+  - 上限（`wip_limit`）は `column-update` の省ける欄で受ける（`name` と `wip_limit` はどちらも省けるが、どちらも無ければ 400 の `invalid_input`）。1〜99 の整数で、`null` は上限を外す（`src/shared/column.ts` の `COLUMN_WIP_LIMIT_MIN`、`COLUMN_WIP_LIMIT_MAX`）。上限は目安で、超えてもタスクの移動（`task-column-move`）と追加は止めない（止めると、取り込みの同期（#911）で列が決まるタスクを置けなくなる）。画面（ボードの列の見出し）が件数を「件数 / 上限」で出し、超えたら警告の色にする。上限だけの変更は、読んだ名前のままを条件にした `UPDATE` で書き、変更の履歴に残さない（並べ替えと同じく、列の見た目の設定のため）。`column-list` と `sprint-board` の列に `wip_limit` を返す（完了の列は常に `null`）。
+  - 完了の列は、足す、名前を直す、上限を決める、並べ替える、並べ替えの直前に指す対象に入らない。読む文も書く文も `is_done = 0` で絞るので、完了の列を指すと、無い列（別の組織、別のワークスペース、削除済みを含む）と同じ 404 になる。並べ替え（`column-move`）は `categories` の並べ替えと同じ決まり（`after_column_id`。`null` は先頭、省くと末尾、自分自身は 400 の `invalid_input`、同じ値の振り直しも同じ）で、完了の列は並びに入らない。並べ替えは `change_logs` に残さない。
   - 変更の履歴は `entity_type = 'workspace'`、`entity_id` はワークスペースの ID、`action = 'update'`（組織の変更の履歴の画面が出す `create`、`close`、`reopen` にしない）で、列の追加は `{"column": [null, {id, name}]}`、名前の変更は `{"column": [{id, name: 前}, {id, name: 後}]}`、削除は `{"column": [{id, name}, null]}`（タスクを移したときは `"target_column": [null, {id, name}]` も）。同じ `batch()` の中で、変えた文が行を書いたときだけ入れる（`previousStatementChanged`）。
   - 削除（`column-delete`）の入力は `column_id` と省ける `target_column_id`。完了の列は 409（`done_column`）、完了以外で最後の1つは 409（`last_column`）、移すタスクがあるのに `target_column_id` が無ければ 409（`target_required`）、移し先が削除する列自身か完了の列なら 409（`target_invalid`）、削除する列と移し先が無ければ（別の組織、別のワークスペース、削除済みを含む）404。移すのは、進行中と先のスプリント（削除していない `planned` と `active`）の、削除していない未完了のタスクで、移し先の列のそのスプリントでの末尾へ、元の列の中の順（`column_position`、`id`）を保って置く。終了したスプリントのカードは変えず、削除した列を指したまま残る（終了したスプリントの中身は変えない。終了したスプリントのカードを読む画面と操作は今無い。読むようになったら、削除した列も名前を出す）。移したタスクごとに `change_logs`（`entity_type = 'task'`、`action = 'update'`、`{"column": [{id, name}, {id, name}]}`。`task-column-move` と同じ形）を書く。書き方は「書き込みの単位」の「列の削除」。
   - 取り込み元の状態から列への対応（`connection_status_mappings`）は表を足した（#918）が、使い始めるのは #67 なので、列の削除は触らない。表を使い始める #67 で、列の削除が対応を外してその状態を先頭の列に置く文を、同じ `batch()` に足す。

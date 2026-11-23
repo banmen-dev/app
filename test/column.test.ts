@@ -23,7 +23,7 @@ import { createTarget, type Person, type Target } from './operations/world.ts';
 const app = createApp(implementedOperations);
 
 type ErrorBody = { error: { code: string; details?: { reason?: string } } };
-type ListedColumn = { id: string; name: string; is_done: boolean; task_count: number };
+type ListedColumn = { id: string; name: string; is_done: boolean; wip_limit: number | null; task_count: number };
 
 async function call<T = Record<string, unknown>>(
   definition: AnyOperationDefinition,
@@ -222,10 +222,10 @@ describe('column-list', () => {
 
     const columns = await list(target);
     expect(columns).toEqual([
-      { id: board.a, name: '出発前', is_done: false, task_count: 2 },
-      { id: board.b, name: '遂行中', is_done: false, task_count: 1 },
-      { id: board.c, name: '査定中', is_done: false, task_count: 0 },
-      { id: board.done, name: '', is_done: true, task_count: 0 },
+      { id: board.a, name: '出発前', is_done: false, wip_limit: null, task_count: 2 },
+      { id: board.b, name: '遂行中', is_done: false, wip_limit: null, task_count: 1 },
+      { id: board.c, name: '査定中', is_done: false, wip_limit: null, task_count: 0 },
+      { id: board.done, name: '', is_done: true, wip_limit: null, task_count: 0 },
     ]);
   });
 
@@ -407,6 +407,90 @@ describe('column-update', () => {
     const res = await call<ErrorBody>(columnUpdate, closed, { column_id: closedBoard.a, name: '直す' }, closed.admin);
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('workspace_closed');
+  });
+});
+
+describe('column-update の上限', () => {
+  test('上限を決め、外せる。名前と変更の履歴は変えず、column-list と sprint-board に返る', async () => {
+    const target = await createTarget();
+    const board = await createBoard(target);
+    await createSprint(target.organization, target.workspace.id, { status: 'active' });
+    const res = await call<{ column: ListedColumn }>(columnUpdate, target, { column_id: board.b, wip_limit: 3 });
+    expect(res.status).toBe(200);
+    expect(res.body.column).toMatchObject({ id: board.b, name: '遂行中', wip_limit: 3 });
+    expect(await boardColumnRow(target, board.b)).toMatchObject({ name: '遂行中', wip_limit: 3 });
+    expect((await list(target)).map((column) => column.wip_limit)).toEqual([null, 3, null, null]);
+    const shown = await call<{ columns: { id: string; wip_limit: number | null }[] }>(
+      sprintBoard,
+      target,
+      {},
+      target.member,
+    );
+    expect(shown.body.columns.map((column) => column.wip_limit)).toEqual([null, 3, null, null]);
+    expect(await logsOf(target, 'workspace', target.workspace.id)).toEqual([]);
+
+    const cleared = await call<{ column: ListedColumn }>(columnUpdate, target, { column_id: board.b, wip_limit: null });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.column.wip_limit).toBeNull();
+    expect(await boardColumnRow(target, board.b)).toMatchObject({ wip_limit: null });
+  });
+
+  test('名前と上限を一緒に直せ、名前だけを直すと上限は残る', async () => {
+    const target = await createTarget();
+    const board = await createBoard(target);
+    const both = await call<{ column: ListedColumn }>(columnUpdate, target, {
+      column_id: board.a,
+      name: '待ち',
+      wip_limit: 5,
+    });
+    expect(both.body.column).toMatchObject({ name: '待ち', wip_limit: 5 });
+    expect(await logsOf(target, 'workspace', target.workspace.id)).toHaveLength(1);
+    const renamed = await call<{ column: ListedColumn }>(columnUpdate, target, { column_id: board.a, name: '控え' });
+    expect(renamed.body.column).toMatchObject({ name: '控え', wip_limit: 5 });
+    expect(await boardColumnRow(target, board.a)).toMatchObject({ name: '控え', wip_limit: 5 });
+  });
+
+  test('0、100、小数、文字は 400。名前も上限も無ければ 400。1 と 99 は通る', async () => {
+    const target = await createTarget();
+    const board = await createBoard(target);
+    for (const wip_limit of [0, 100, 2.5, '3', -1]) {
+      expect((await call(columnUpdate, target, { column_id: board.a, wip_limit })).status).toBe(400);
+    }
+    expect((await call(columnUpdate, target, { column_id: board.a })).status).toBe(400);
+    expect((await call(columnUpdate, target, { column_id: board.a, wip_limit: 1 })).status).toBe(200);
+    expect((await call(columnUpdate, target, { column_id: board.a, wip_limit: 99 })).status).toBe(200);
+    expect(await boardColumnRow(target, board.a)).toMatchObject({ wip_limit: 99 });
+  });
+
+  test('完了の列、削除した列、別のワークスペースの列、別の組織の列は 404 で、何も書かない。閉じたワークスペースは 409', async () => {
+    const target = await createTarget();
+    const other = await createTarget();
+    const board = await createBoard(target);
+    const otherBoard = await createBoard(other);
+    const gone = await createBoardColumn(target.organization, target.workspace.id, {
+      name: '旧列',
+      position: 'a3',
+      deleted_at: '2026-10-21T00:00:00.000Z',
+    });
+    const elsewhere = await createBoardColumn(target.organization, target.otherWorkspace.id, { name: '別の列' });
+    for (const id of [board.done, gone.id, elsewhere.id, otherBoard.b]) {
+      expect((await call(columnUpdate, target, { column_id: id, wip_limit: 2 })).status).toBe(404);
+    }
+    expect(await boardColumnRow(target, board.done)).toMatchObject({ wip_limit: null });
+    expect(await boardColumnRow(target, elsewhere.id, target.otherWorkspace.id)).toMatchObject({ wip_limit: null });
+    expect(await boardColumnRow(other, otherBoard.b)).toMatchObject({ wip_limit: null });
+    const closed = await createTarget({ closed: true });
+    const closedBoard = await createBoard(closed);
+    const res = await call<ErrorBody>(columnUpdate, closed, { column_id: closedBoard.a, wip_limit: 2 }, closed.admin);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('workspace_closed');
+  });
+
+  test('一般のメンバーは上限を決められない（403）', async () => {
+    const target = await createTarget();
+    const board = await createBoard(target);
+    expect((await call(columnUpdate, target, { column_id: board.a, wip_limit: 2 }, target.member)).status).toBe(403);
+    expect(await boardColumnRow(target, board.a)).toMatchObject({ wip_limit: null });
   });
 });
 

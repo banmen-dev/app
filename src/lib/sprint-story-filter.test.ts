@@ -21,9 +21,10 @@ const columns: SprintBoardColumn[] = [
     id: 'a',
     name: '出発',
     is_done: false,
+    wip_limit: null,
     tasks: [card('hidden', 'other'), card('first', 'story'), card('root', null), card('second', 'story')],
   },
-  { id: 'b', name: '作業', is_done: false, tasks: [card('third', 'story'), card('tail', 'other')] },
+  { id: 'b', name: '作業', is_done: false, wip_limit: null, tasks: [card('third', 'story'), card('tail', 'other')] },
 ];
 const ids = (list: SprintBoardColumn[]) => list.map((column) => column.tasks.map((task) => task.id));
 describe('ストーリー絞り込み', () => {

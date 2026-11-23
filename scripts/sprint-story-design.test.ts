@@ -57,7 +57,7 @@ test('ボードの絞り込みは帯と解除操作を持ち、件数とポイ�
   const html = render.board('sprint', { story: 'story' });
   assert.match(html, /story-filter-band/);
   assert.match(html, /data-story-clear/);
-  assert.match(html, /board-col-n">1</);
+  assert.match(html, /board-col-n" aria-hidden="true">1</);
   assert.match(html, /board-col-pts">3 pt</);
   assert.equal((html.match(/<article /g) ?? []).length, 1);
   assert.equal((render.board('sprint').match(/<article /g) ?? []).length, 2);
@@ -69,7 +69,7 @@ test('絞り込み後に列を畳んでも、件数とポイントと帯は保�
     const html = render.board('sprint', { story: 'story' });
     assert.match(html, /is-collapsed/);
     assert.match(html, /story-filter-band/);
-    assert.match(html, /board-col-n">1</);
+    assert.match(html, /board-col-n" aria-hidden="true">1</);
     assert.match(html, /board-col-pts">3 pt</);
     assert.equal((html.match(/<article /g) ?? []).length, 0);
   } finally {

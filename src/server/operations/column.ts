@@ -70,13 +70,17 @@ function openCount(from: From, workspaceId: string) {
   return openColumns(from, workspaceId).select((eb) => eb.fn.countAll<number>().as('count'));
 }
 
-type Current = { id: string; name: string; position: string };
+type Current = { id: string; name: string; position: string; wipLimit: number | null };
 
 async function readOpenColumn(db: OrganizationDb, workspaceId: string, id: string): Promise<Current | undefined> {
   const row = await db.first(
-    db.statement((q) => openColumns(q, workspaceId).select(['id', 'name', 'position']).where('id', '=', id)),
+    db.statement((q) =>
+      openColumns(q, workspaceId).select(['id', 'name', 'position', 'wip_limit']).where('id', '=', id),
+    ),
   );
-  return row === undefined ? undefined : { id: row.id, name: row.name ?? '', position: row.position };
+  return row === undefined
+    ? undefined
+    : { id: row.id, name: row.name ?? '', position: row.position, wipLimit: row.wip_limit };
 }
 
 // ワークスペースの変更の履歴の1行（INSERT ... SELECT の選ぶ列）。列の変更は action = 'update'
@@ -177,7 +181,7 @@ async function createColumn({ db, actor, workspace }: Context, name: string): Pr
     ),
   ]);
   if ((results[0]?.changes ?? 0) === 0) await throwCreateFailure(db, workspaceId, name);
-  return { id, name, is_done: false, task_count: 0 };
+  return { id, name, is_done: false, wip_limit: null, task_count: 0 };
 }
 
 // 削除すると移るタスクの数（column-list の task_count と同じ集計。movableTasks は下で定義する）
@@ -192,8 +196,14 @@ async function taskCountOf(db: OrganizationDb, workspaceId: string, columnId: st
   return Number(row?.count ?? 0);
 }
 
-// 名前を直す。今の名前と違うときだけ、読んだ名前のままで、同じ名前の列が無ければ、という条件つきで書く
-async function updateColumn({ db, actor, workspace }: Context, id: string, name: string): Promise<Column> {
+// 名前と上限を直す。name と wipLimit は省いたもの（undefined）を今の値のままにする。
+// 名前を変えるときは、読んだ名前のままで、同じ名前の列が無ければ、という条件つきで書き、変更の履歴を残す。
+// 上限だけを変えるときも、読んだ名前のままを条件にする（同時に名前が変わったら読み直す）。上限は履歴に残さない
+async function updateColumn(
+  { db, actor, workspace }: Context,
+  id: string,
+  patch: { name: string | undefined; wipLimit: number | null | undefined },
+): Promise<Column> {
   const actorUserId = actorUserIdOf(actor);
   const organizationId = db.organizationId;
   const workspaceId = workspace.workspaceId;
@@ -204,58 +214,67 @@ async function updateColumn({ db, actor, workspace }: Context, id: string, name:
       await throwIfClosed(db, workspaceId);
       throw new ApiError(404, 'not_found');
     }
-    if (name === current.name) {
+    const name = patch.name ?? current.name;
+    const wipLimit = patch.wipLimit === undefined ? current.wipLimit : patch.wipLimit;
+    const renaming = name !== current.name;
+    const column = async (): Promise<Column> => ({
+      id,
+      name,
+      is_done: false,
+      wip_limit: wipLimit,
+      task_count: await taskCountOf(db, workspaceId, id),
+    });
+    if (!renaming && wipLimit === current.wipLimit) {
       await throwIfClosed(db, workspaceId);
-      return { id, name, is_done: false, task_count: await taskCountOf(db, workspaceId, id) };
+      return column();
     }
     const at = now();
     const updatedAt = at.toISOString();
-    const results = await db.batch([
-      db.statement((q) =>
-        q
-          .updateTable('board_columns')
-          .set({ name, updated_at: updatedAt })
-          .where((eb) =>
-            eb.and([
-              eb('id', '=', id),
-              eb('workspace_id', '=', workspaceId),
-              eb('deleted_at', 'is', null),
-              eb('is_done', '=', 0),
-              eb('name', '=', current.name),
-              eb.exists(openWorkspace(q, organizationId, workspaceId)),
-              eb.not(eb.exists(sameName(q, workspaceId, name, id))),
-            ]),
-          ),
-      ),
-      db.statement((q) =>
-        q
-          .insertInto('change_logs')
-          .columns(changeLogColumns)
-          .expression(
-            workspaceLog(q, {
-              id: uuidv7(at),
-              organizationId,
-              workspaceId,
-              actorUserId,
-              changes: {
-                column: [
-                  { id, name: current.name },
-                  { id, name },
-                ],
-              },
-              at: updatedAt,
-            }).where(previousStatementChanged),
-          ),
-      ),
-    ]);
-    if ((results[0]?.changes ?? 0) > 0) {
-      return { id, name, is_done: false, task_count: await taskCountOf(db, workspaceId, id) };
-    }
+    const update = db.statement((q) =>
+      q
+        .updateTable('board_columns')
+        .set({ name, wip_limit: wipLimit, updated_at: updatedAt })
+        .where((eb) =>
+          eb.and([
+            eb('id', '=', id),
+            eb('workspace_id', '=', workspaceId),
+            eb('deleted_at', 'is', null),
+            eb('is_done', '=', 0),
+            eb('name', '=', current.name),
+            eb.exists(openWorkspace(q, organizationId, workspaceId)),
+            ...(renaming ? [eb.not(eb.exists(sameName(q, workspaceId, name, id)))] : []),
+          ]),
+        ),
+    );
+    const log = db.statement((q) =>
+      q
+        .insertInto('change_logs')
+        .columns(changeLogColumns)
+        .expression(
+          workspaceLog(q, {
+            id: uuidv7(at),
+            organizationId,
+            workspaceId,
+            actorUserId,
+            changes: {
+              column: [
+                { id, name: current.name },
+                { id, name },
+              ],
+            },
+            at: updatedAt,
+          }).where(previousStatementChanged),
+        ),
+    );
+    const results = await db.batch(renaming ? [update, log] : [update]);
+    if ((results[0]?.changes ?? 0) > 0) return column();
     // 閉じていれば 409、無ければ 404、同じ名前があれば duplicate_name。どれでもなければ、別の要求が先に変えたので読み直してやり直す
     await throwIfClosed(db, workspaceId);
     if ((await readOpenColumn(db, workspaceId, id)) === undefined) throw new ApiError(404, 'not_found');
-    const duplicate = await db.first(db.statement((q) => sameName(q, workspaceId, name, id).limit(1)));
-    if (duplicate !== undefined) throw columnConflict('duplicate_name');
+    if (renaming) {
+      const duplicate = await db.first(db.statement((q) => sameName(q, workspaceId, name, id).limit(1)));
+      if (duplicate !== undefined) throw columnConflict('duplicate_name');
+    }
   }
   throw columnConflict('changed');
 }
@@ -691,7 +710,7 @@ export const columnListOperation = implement(columnList, async ({ db, workspace 
   const [columns, counts] = await db.batch([
     db.statement((q) =>
       liveColumns(q, workspaceId)
-        .select(['id', 'name', 'is_done'])
+        .select(['id', 'name', 'is_done', 'wip_limit'])
         .orderBy('is_done')
         .orderBy('position')
         .orderBy('id'),
@@ -709,6 +728,7 @@ export const columnListOperation = implement(columnList, async ({ db, workspace 
       id: row.id,
       name: row.name ?? '',
       is_done: row.is_done === 1,
+      wip_limit: row.is_done === 1 ? null : row.wip_limit,
       task_count: row.is_done === 1 ? 0 : (countOf.get(row.id) ?? 0),
     })),
   };
@@ -719,7 +739,10 @@ export const columnCreateOperation = implement(columnCreate, async (context) => 
 }));
 
 export const columnUpdateOperation = implement(columnUpdate, async (context) => ({
-  column: await updateColumn(context, context.input.column_id, context.input.name),
+  column: await updateColumn(context, context.input.column_id, {
+    name: context.input.name,
+    wipLimit: context.input.wip_limit,
+  }),
 }));
 
 export const columnMoveOperation = implement(columnMove, async (context) => {

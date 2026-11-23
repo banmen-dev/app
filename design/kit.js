@@ -1143,8 +1143,24 @@
       const at = open.indexOf(c);
       // 最後の完了でない列の「次の列へ」は、完了の列へ移す代わりに完了にする（本番は task-complete を呼ぶ）ので、押せる
       const orderOf = (i) => ({ first: i === 0, last: i === items.length - 1, across: { first: at === 0, last: false } });
+      // 列の見出し（本番の BoardColumnHead）。lead（リーダーで書き込める）の完了でない列は、名前を押すと入力欄に替わり（data-column-rename）、
+      // 「⋯」から名前の変更、上限、左右への移動を選べる。上限があれば札を「件数 / 上限」にし、超えたら警告の色（.is-over）とアイコンにする
+      const lead = opts.lead && !c.done;
+      const limit = c.done ? null : (c.limit ?? null);
+      const over = limit !== null && items.length > limit;
+      const countText = limit === null ? `${items.length} 件` : over ? `${items.length} 件。上限の ${limit} 件を超えています` : `${items.length} 件（上限 ${limit} 件）`;
+      const colCount = `<span class="board-col-n${over ? " is-over" : ""}" aria-hidden="true">${over ? icon("alert") : ""}${limit === null ? items.length : `${items.length} / ${limit}`}</span><span class="visually-hidden">${countText}</span>`;
+      const colName = lead
+        ? `<button class="board-col-name is-action" type="button" data-column-rename aria-label="${t("column")}の名前を変更: ${esc(name)}" title="${t("column")}の名前を変更: ${esc(name)}">${esc(name)}</button>`
+        : `<span class="board-col-name">${esc(name)}</span>`;
+      const colMenu = lead ? rowMenu(`${t("column")}「${name}」`, [
+        { attr: "data-column-rename-menu", label: "名前を変更", icon: "pen" },
+        { attr: `data-dialog="columnLimit" data-column="${c.id}"`, label: "上限を決める", icon: "gear" },
+        { attr: at === 0 ? "" : `data-toast="「${esc(name)}」を左から ${at} 番目へ移しました"`, label: "左へ移動", icon: "left", disabled: at === 0 },
+        { attr: at === open.length - 1 ? "" : `data-toast="「${esc(name)}」を左から ${at + 2} 番目へ移しました"`, label: "右へ移動", icon: "right", disabled: at === open.length - 1 },
+      ]) : "";
       return `<section class="board-col ${c.done ? "is-done" : ""} ${collapsed ? "is-collapsed" : ""}"${dropAttr(opts.columnMarks && opts.columnMarks(c))} aria-label="${esc(name)}">
-        <div class="board-col-head"><button class="board-col-toggle" type="button" aria-label="${esc(name)}の開閉" aria-expanded="${!collapsed}" data-column-collapse="${esc(collapseKey)}">${icon("chevron")}</button>${c.done ? icon("check") : ""}<span class="board-col-name">${esc(name)}</span><span class="board-col-n">${items.length}</span><span class="board-col-pts">${sumPts(items)} pt</span></div>
+        <div class="board-col-head"><button class="board-col-toggle" type="button" aria-label="${esc(name)}の開閉" aria-expanded="${!collapsed}" data-column-collapse="${esc(collapseKey)}">${icon("chevron")}</button>${c.done ? icon("check") : ""}${colName}${colCount}<span class="board-col-pts">${sumPts(items)} pt</span>${colMenu}</div>
         ${collapsed ? "" : `${c.done && D.definitionOfDone.length ? `<details class="dod"><summary>${t("dod")}</summary>${dodDoc()}</details>` : ""}
         ${items.map((x, i) => card(x, c.done ? undefined : orderOf(i), { mark: opts.cardMarks && opts.cardMarks(x, i, c), grab: opts.grab ? opts.grab(x) : true, key: opts.key, highlightStory: opts.highlightStory })).join("") || `<p class="board-empty">なし</p>`}
         ${opts.draft && !c.done ? `<div class="board-col-draft">${draftRow("col", c.id, `${t("task")}を足す: ${c.name}`, `${t("task")}を足す`)}${opts.story ? `<p class="action-note">${storyFilterText("sprintStoryCreateUnder")}</p>` : ""}</div>` : ""}` }
@@ -2653,6 +2669,14 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
          <p class="field-hint">延ばした${t("sprint")}はベロシティの計算から除きます。</p>`,
         `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="${t("sprint")}を 2 日延長しました">2 日延長する</button>`);
     },
+    // ボードの列の上限（本番の ColumnLimitDialog）。空にして決めると上限を外す
+    columnLimit: (el) => {
+      const c = D.columns.find((item) => item.id === el?.dataset.column) || D.columns[1];
+      openDialog(`${t("column")}の上限`,
+        `<p>「${esc(c.name)}」に置く${t("task")}の数の目安です。超えても移せて、作れますが、件数が警告の色になります。</p>
+         <div class="field"><label class="field-label" for="d-limit">上限（件）</label><input class="input" id="d-limit" type="number" min="1" max="99" step="1" inputmode="numeric" value="${c.limit ?? ""}" aria-describedby="d-limit-hint"><p class="field-hint" id="d-limit-hint">1〜99 の整数。空にすると上限なし</p></div>`,
+        `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="「${esc(c.name)}」の上限を決めました">決める</button>`);
+    },
     // 進行中のスプリントの名前とゴールを直す（本番の SprintDialog の進行中）。期間は変えられないので、開始日と長さの欄は出さない
     sprintEditActive: () => {
       const s = D.sprints.sp14;
@@ -4143,6 +4167,32 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const input = button.parentElement.querySelector("[data-card-title-input]");
     button.remove(); input.focus(); input.select();
   });
+
+  // 列の名前の書き換え（本番の BoardColumnHead）。名前のボタンか「⋯」の「名前を変更」で入力欄に替え、Enter で保存、Esc で戻す
+  document.addEventListener("click", (ev) => {
+    const hitButton = ev.target.closest && ev.target.closest("[data-column-rename], [data-column-rename-menu]");
+    if (!hitButton) return;
+    const head = hitButton.closest(".board-col-head");
+    const button = head?.querySelector("[data-column-rename]");
+    if (!button) return;
+    const name = button.textContent;
+    button.insertAdjacentHTML("beforebegin", `<input class="input board-col-name-input" type="text" autocomplete="off" aria-label="${t("column")}の名前" data-column-name-input value="${esc(name)}">`);
+    const input = head.querySelector("[data-column-name-input]");
+    button.hidden = true; input.focus(); input.select();
+  });
+  document.addEventListener("keydown", (ev) => {
+    const input = ev.target.closest && ev.target.closest("[data-column-name-input]");
+    if (!input || ev.isComposing || !["Enter", "Escape"].includes(ev.key)) return;
+    ev.preventDefault();
+    const button = input.parentElement.querySelector("[data-column-rename]");
+    const next = input.value.trim();
+    if (ev.key === "Enter" && next) {
+      const taken = D.columns.some((c) => !c.done && c.name === next && c.name !== button.textContent);
+      if (taken) { toast(`${icon("alert")}同じ名前の${t("column")}があります`); return; }
+      button.textContent = next;
+    }
+    input.remove(); button.hidden = false; button.focus();
+  }, true);
 
   // ---- 操作（見本の中だけで動き、保存はしない） ----
   document.addEventListener("change", (ev) => {

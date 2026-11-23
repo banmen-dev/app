@@ -40,6 +40,7 @@ export const SAMPLE_BOARD: Board = {
       id: '019a0000-0000-7000-8000-00000000f101',
       name: '未着手',
       is_done: false,
+      wip_limit: null,
       tasks: [
         card('019a0000-0000-7000-8000-00000000f201', '管理画面にポイント履歴の一覧を出す', {
           points: 5,
@@ -56,6 +57,7 @@ export const SAMPLE_BOARD: Board = {
       id: '019a0000-0000-7000-8000-00000000f102',
       name: '作業中',
       is_done: false,
+      wip_limit: null,
       tasks: [
         card('019a0000-0000-7000-8000-00000000f203', 'ポイント付与のバッチを作る', {
           points: 3,
@@ -63,11 +65,12 @@ export const SAMPLE_BOARD: Board = {
         }),
       ],
     },
-    { id: '019a0000-0000-7000-8000-00000000f103', name: 'レビュー', is_done: false, tasks: [] },
+    { id: '019a0000-0000-7000-8000-00000000f103', name: 'レビュー', is_done: false, wip_limit: null, tasks: [] },
     {
       id: '019a0000-0000-7000-8000-00000000f104',
       name: null,
       is_done: true,
+      wip_limit: null,
       tasks: [
         card('019a0000-0000-7000-8000-00000000f204', '付与の履歴を返す API を作る', {
           points: 2,

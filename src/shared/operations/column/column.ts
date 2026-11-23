@@ -22,11 +22,13 @@ export function columnConflictReasonOf(details: unknown): ColumnConflictReason |
 }
 
 // 列の定義。完了の列（is_done）は name が空で、画面が辞書の名前を出す。
-// task_count は、削除すると移り先へ移る、進行中と先のスプリントの未完了のタスクの数（削除の確かめに出す。完了の列は 0）
+// task_count は、削除すると移り先へ移る、進行中と先のスプリントの未完了のタスクの数（削除の確かめに出す。完了の列は 0）。
+// wip_limit は列の上限で、null は上限なし（完了の列は常に null）
 export const columnSchema = z.object({
   id: z.string(),
   name: z.string(),
   is_done: z.boolean(),
+  wip_limit: z.number().int().nullable(),
   task_count: z.number().int(),
 });
 export type Column = z.output<typeof columnSchema>;
