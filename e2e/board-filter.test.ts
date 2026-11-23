@@ -188,7 +188,7 @@ test('絞っている間に追加の行で作ったタスクが絞り込みに�
     created += 1;
     const task = {
       ...current.columns[0]!.tasks[1]!,
-      id: `019a0000-0000-7000-8000-00000000f2${90 + created}`,
+      id: `019a0000-0000-7000-8000-${(0xf290 + created).toString(16).padStart(12, '0')}`,
       title: call.input.title,
       category: null,
     };
