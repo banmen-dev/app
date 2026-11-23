@@ -553,6 +553,8 @@ describe('sprint-board', () => {
     });
     const deletedEpic = await createEpic(target.organization, ws, userId, {
       title: '消したエピック',
+      // 削除したエピックの区分は引き継がない（task-detail と違う。docs/data-model.md の sprint-board）
+      category_id: maintenance.id,
       deleted_at: '2026-10-21T00:00:00.000Z',
     });
     const underEpic = await createStory(target.organization, ws, userId, { title: '窓口の話', epic_id: epic.id });

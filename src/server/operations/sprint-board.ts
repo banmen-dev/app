@@ -75,7 +75,8 @@ export const sprintBoardOperation = implement(sprintBoard, async ({ db, actor, w
           join.onRef('stories.id', '=', 'tasks.story_id').on('stories.workspace_id', '=', workspaceId),
         )
         // 親のストーリーの親のエピック（削除していないもの）と、区分。区分は task-detail と同じく、親のエピック、親のストーリー、
-        // タスク自身の順に引き継ぎ、どの段も同じワークスペースの削除していない区分だけを結ぶ
+        // タスク自身の順に引き継ぎ、どの段も同じワークスペースの削除していない区分だけを結ぶ（task-detail と違い、削除したエピックは
+        // 結ばないので、その区分も引き継がない。docs/data-model.md の sprint-board）
         .leftJoin('epics', (join) =>
           join
             .onRef('epics.id', '=', 'stories.epic_id')
@@ -201,7 +202,7 @@ export const sprintBoardOperation = implement(sprintBoard, async ({ db, actor, w
   return { sprint: summaryOf(sprintRow), columns, today, week_start: weekStart };
 });
 
-// 引き継ぎを解いた区分（task-detail の categoryOf と同じ順）。親のあるタスクは親のエピック、親のストーリーの順に引き継ぎ、
+// 引き継ぎを解いた区分（task-edit.ts の categoryOf と同じ順）。親のあるタスクは親のエピック、親のストーリーの順に引き継ぎ、
 // 親のないタスクは自身の区分。どれも削除していない区分だけを結んでいる
 function categoryOf(row: {
   story_id: string | null;
