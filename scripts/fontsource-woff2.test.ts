@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { designFontsDir, dropWoff, fontAssetUrl, fontsourceWoff2Only } from './fontsource-woff2.ts';
 
 const face = `@font-face {
@@ -53,6 +54,9 @@ describe('fontsource の woff を外す', () => {
     const plugin = fontsourceWoff2Only();
     const config = (plugin.config as () => { server: { fs: { allow: string[] } } })();
     assert.deepEqual(config.server.fs.allow, [designFontsDir]);
+    // 定数を広げても通らないよう、許す範囲がリポジトリの design/fonts/ だけであることを定数に頼らず確かめる。
+    assert.equal(designFontsDir, fileURLToPath(new URL('../design/fonts/', import.meta.url)));
+    assert.ok(designFontsDir.replaceAll('\\', '/').endsWith('/design/fonts/'));
     assert.ok(existsSync(designFontsDir));
     const css = readFileSync(
       new URL('../node_modules/@fontsource-variable/noto-sans-jp/index.css', import.meta.url),
@@ -61,7 +65,7 @@ describe('fontsource の woff を外す', () => {
     const transform = plugin.transform as (code: string, id: string) => { code: string } | null;
     const out = transform(css, '/repo/node_modules/@fontsource-variable/noto-sans-jp/index.css')!.code;
     const replaced = [...out.matchAll(/url\("([^"]+)"\)/g)].map((m) => m[1]);
-    assert.equal(replaced.length, 12);
+    assert.equal(replaced.length, 12, '置き換える範囲（109〜119 と latin）が変わった');
     const allowed = designFontsDir.replaceAll('\\', '/');
     for (const file of replaced) {
       assert.ok(file.startsWith(allowed), file);

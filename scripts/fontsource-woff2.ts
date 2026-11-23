@@ -3,11 +3,14 @@
 // 可変版の書体名も既存の共通トークンへそろえる。静的版を読む場合の woff 除去は互換のため残す。
 // vite.config.ts が Vite のプラグインとして読み、scripts/fontsource-woff2.test.ts が置き換えを確かめる。
 import type { Plugin } from 'vite';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// 分割の 109〜119 と latin の置き換え先。dev では Vite が /@fs/ から配るので、配る範囲（server.fs.allow）にも足す。
-// SvelteKit が server.fs.allow を src や node_modules に明示するため、Vite の既定（workspace の根）は効かず、
-// 足さないと design/ は範囲の外として 403 になる（#1411）。
+// 分割の 109〜119 と latin の置き換え先。dev では Vite が `/design/fonts/…`（root の外なら `/@fs/…`）で配るので、
+// 配る範囲（server.fs.allow）にも足す。SvelteKit が server.fs.allow を src や node_modules に明示するため、
+// Vite の既定（workspace の根）は効かず、足さないと design/ は範囲の外として 403 になる（#1411）。
+// Vite は各プラグインの allow を連結するので、ここで足しても SvelteKit の一覧は残る。逆に SvelteKit なしで
+// このプラグインだけを使うと、allow がこの1つになり既定の根が消える（今は vite.config.ts が必ず両方を読む）。
 export const designFontsDir = fileURLToPath(new URL('../design/fonts/', import.meta.url));
 
 const woffSource = /,\s*url\([^)]*\.woff\)\s*format\(['"]woff['"]\)/g;
@@ -36,7 +39,7 @@ export function fontsourceWoff2Only(): Plugin {
         const normalized = code
           .replace(/font-family:\s*(['"])Noto Sans JP Variable\1\s*;/g, "font-family: 'Noto Sans JP';")
           .replace(/url\(\.\/files\/(noto-sans-jp-(?:10[9]|11[0-9]|latin)-wght-normal\.woff2)\)/g, (_, file: string) =>
-            fontAssetUrl(fileURLToPath(new URL(`../design/fonts/${file}`, import.meta.url))),
+            fontAssetUrl(join(designFontsDir, file)),
           );
         const families = [...normalized.matchAll(/font-family:\s*([^;]+);/g)];
         if (families.length === 0 || families.some((family) => family[1] !== "'Noto Sans JP'")) {
