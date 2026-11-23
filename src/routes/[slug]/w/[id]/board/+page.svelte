@@ -500,9 +500,8 @@
       queueComplete(task);
       return;
     }
-    applyMove(task, plan);
-    // 畳んだ列へ送ると、カードが見えなくなるだけなので、位置をトーストでも知らせる（ドラッグで畳んだ列へ落としたときと同じ）
-    if (collapsedColumns.isCollapsed(plan.column.id)) showToast(movedMessage(task, plan), 'check');
+    // 畳んだ列へ送ると、カードが見えなくなるだけなので、通ってから位置をトーストで知らせる（ドラッグで畳んだ列へ落としたときと同じ）
+    applyMove(task, plan, false, true);
   }
 
   async function openParentChange(task: SprintBoardTask, trigger: HTMLElement): Promise<void> {
@@ -659,13 +658,14 @@
   }
 
   // 先に画面の並びを替えて、位置を読み上げ、task-column-move を積む（ボタンとキーとドラッグで同じ）。ドラッグで落としたときは光らせる
-  function applyMove(task: SprintBoardTask, plan: MovedPlan, flash = false): void {
+  // hiddenNotice は、畳んだ列へ移したときに、読み上げの代わりに通ってからトーストで知らせるか（ドラッグで落としたときと「列を変更」）
+  function applyMove(task: SprintBoardTask, plan: MovedPlan, flash = false, hiddenNotice = flash): void {
     if (workspace === null) return;
     const saved = savedFocus();
     local = applyStoryMove(columns, task.id, plan.column.id, plan.afterTaskId);
     void restoreFocus(saved);
     if (flash) dnd.flash(task.id);
-    const hiddenDrop = flash && collapsedColumns.isCollapsed(plan.column.id);
+    const hiddenDrop = hiddenNotice && collapsedColumns.isCollapsed(plan.column.id);
     if (!hiddenDrop) void announce(movedMessage(task, plan));
     const workspaceId = workspace.id;
     const input = columnMoveInput(workspaceId, task, plan.column.id, plan.afterTaskId);
