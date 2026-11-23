@@ -17,6 +17,7 @@ import {
   rowMenuToggle,
   expectNoA11yViolationsInThemes,
   signIn,
+  expectBoardHeading,
 } from './helpers.ts';
 import { failOperation, rewriteOperation, routeOperation } from './operations.ts';
 
@@ -52,7 +53,7 @@ async function startSprintWithCards(page: Page, titles: string[]) {
   await start.getByRole('button', { name: '始める' }).click();
   await expect(start).toBeHidden();
   await page.getByRole('link', { name: 'ボード', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: '第9回' })).toBeVisible();
+  await expectBoardHeading(page, '第9回');
   const input = page.getByRole('textbox', { name: 'タスクを足す: 未着手' });
   for (const title of titles) {
     await input.fill(title);
@@ -364,7 +365,7 @@ test('スプリントのカードを消した後のボードの読み直しが�
 
   await unroute();
   await retry.click();
-  await expect(page.getByRole('heading', { level: 1, name: '第9回' })).toBeVisible();
+  await expectBoardHeading(page, '第9回');
   await expect(notice).toHaveCount(0);
   await expect(page.getByRole('link', { name: '残るカード', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: '読み直しに落ちるカード', exact: true })).toHaveCount(0);

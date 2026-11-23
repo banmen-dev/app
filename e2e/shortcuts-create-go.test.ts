@@ -44,7 +44,7 @@ test('g の次の s / b / t で画面を移る。g だけでは移らない', as
 
   await page.keyboard.press('g');
   await page.keyboard.press('s');
-  await expect(page).toHaveURL(/\/aoba\/w\/[0-9a-f-]{36}\/sprint$/);
+  await expect(page).toHaveURL(/\/aoba\/w\/[0-9a-f-]{36}\/board$/);
   await expect(page.getByRole('heading', { level: 1, name: 'ボード' })).toBeVisible();
 
   await page.keyboard.press('g');

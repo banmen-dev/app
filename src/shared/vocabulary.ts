@@ -2479,7 +2479,7 @@ export const dictionary = defineDictionary({
   sprintStartText: '{sprint}「{label}」を始めます。入っている{task}は {count} 件、{points} pt です。',
   sprintStartUnestimated: '未見積もりが {count} 件あります。始めることはできます。',
   sprintStartGoalPlaceholder: 'この{sprint}で何ができるようになるか',
-  sprintStartGoalHint: '空でも始められます。{max} 字まで書け、{plan}と{sprint}の画面に出ます。',
+  sprintStartGoalHint: '空でも始められます。{max} 字まで書け、{plan}と{board}の画面に出ます。',
   sprintStartGoalTooLong: '{sprintGoal}は {max} 字までです',
   sprintStartGoalInvalidCharacter: '{sprintGoal}に使えない文字が含まれています',
   sprintStartSubmit: '始める',
@@ -2564,11 +2564,11 @@ export const dictionary = defineDictionary({
   sprintBoardAddStoryGone:
     'この{story}か{sprint}か{column}が見つかりません。{task}は作られていません。一覧を読み直します',
   sprintBoardPageName: '{board}・{name}・{workspace}',
-  boardPageNameEmpty: '{board}・{workspace}',
+  sprintBoardPageNameEmpty: '{board}・{workspace}',
   sprintBoardEyebrow: '{name}・{period}・{length} 日のうち {day} 日目',
   // 名前の無いスプリントは期間が名前なので、期間を重ねない
   sprintBoardEyebrowUnnamed: '{period}・{length} 日のうち {day} 日目',
-  sprintBoardRegion: '{sprint}の{column}とカード',
+  sprintBoardRegion: '{sprint}「{label}」の{column}とカード',
   sprintBoardColumnEmpty: 'なし',
   sprintBoardAddTask: '{task}を足す',
   // 列の中の欄の案内。列は狭いので短く言い切り、Enter の案内はショートカットの一覧に置く

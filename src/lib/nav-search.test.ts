@@ -3,7 +3,7 @@ import { backlogSearchHref, matchScreens, searchOptions } from './nav-search.ts'
 
 const screens = [
   { label: 'バックログ', href: '/aoba/w/w1' },
-  { label: 'ボード', href: '/aoba/w/w1/board' },
+  { label: 'ボード', href: '/aoba/w/w1/board', aliases: ['スプリント'] },
   { label: 'Wiki', href: '/aoba/w/w1/wiki' },
 ];
 const backlog = { href: '/aoba/w/w1', label: (q: string) => `バックログで「${q}」を探す` };
@@ -14,6 +14,8 @@ describe('matchScreens', () => {
     expect(matchScreens('ＷＩＫＩ', screens).map((s) => s.label)).toEqual(['Wiki']);
     expect(matchScreens('ボー', screens).map((s) => s.label)).toEqual(['ボード']);
     expect(matchScreens('ボー ばっく', screens)).toEqual([]);
+    // 別名でも当たり、候補には名前を出す
+    expect(matchScreens('スプリ', screens).map((s) => s.label)).toEqual(['ボード']);
   });
 });
 

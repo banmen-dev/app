@@ -27,6 +27,8 @@ const byRoute: Record<string, LoadingShape | null> = {
   '/[slug]/w/[id]/plan': 'plan',
   '/[slug]/w/[id]/settings': 'settings',
   '/[slug]/w/[id]/board': 'board',
+  // 前の経路（/board へ移すだけ。#1497）。最初の読み込みの骨組み（static/boot-shape.js）と形をそろえる
+  '/[slug]/w/[id]/sprint': 'board',
   '/[slug]/w/[id]/tasks/[taskId]': 'task',
   '/[slug]/w/[id]/wiki': 'wiki',
   '/[slug]/w/[id]/wiki/[pageId]': 'wiki',

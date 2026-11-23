@@ -39,3 +39,16 @@ test('前の経路 /sprint?task= を開くと、クエリを保ったまま /boa
   await waitForSettled(page);
   await expect(page.getByRole('dialog', { name: TASK_TITLE, exact: true })).toBeVisible();
 });
+
+test('前の経路の末尾のスラッシュと ?story= も、クエリをそのまま /board へ引き継ぐ', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signIn(context, baseURL, 'admin');
+  await mockOperation(page, sprintBoard, { slug: 'aoba' }, SAMPLE_BOARD);
+  const story = SAMPLE_BOARD.columns[0]!.tasks[0]!.story!;
+  await page.goto(`${TEAM}/sprint/?story=${story.id}`);
+  await expect(page).toHaveURL(`${TEAM}/board?story=${story.id}`);
+  await expectBoardHeading(page, SAMPLE_BOARD.sprint!.name!);
+});

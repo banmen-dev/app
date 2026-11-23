@@ -2541,7 +2541,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       openDialog(`${sprint}を始める`,
         `<p>${t("sprint")}「${sprintLabelWithPeriod("sp15")}」を始めます。入っている${t("task")}は 3 件、11 pt です。</p>
          ${lead}
-         <label class="field${state === "toolong" ? " is-invalid" : ""}" for="d-goal"><span class="field-label">${t("sprintGoal")}</span><textarea class="textarea" id="d-goal" placeholder="この${sprint}で何ができるようになるか" aria-describedby="d-goal-hint${goalError ? " d-goal-error" : ""}"${state === "toolong" ? ` aria-invalid="true"` : ""}></textarea>${goalError}<span class="field-hint" id="d-goal-hint">空でも始められます。200 字まで書け、${t("plan")}と${sprint}の画面に出ます。</span></label>
+         <label class="field${state === "toolong" ? " is-invalid" : ""}" for="d-goal"><span class="field-label">${t("sprintGoal")}</span><textarea class="textarea" id="d-goal" placeholder="この${sprint}で何ができるようになるか" aria-describedby="d-goal-hint${goalError ? " d-goal-error" : ""}"${state === "toolong" ? ` aria-invalid="true"` : ""}></textarea>${goalError}<span class="field-hint" id="d-goal-hint">空でも始められます。200 字まで書け、${t("plan")}と${t("board")}の画面に出ます。</span></label>
          ${submitError}`,
         `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button"${state === "active" ? ` aria-disabled="true"` : ` data-close-dialog data-toast="${sprint}を始めました"`}>始める</button>`);
     },

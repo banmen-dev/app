@@ -123,7 +123,7 @@
       hasWorkspaceMenu: crumbWorkspace !== null,
       workspaceId: crumbWorkspace?.id ?? null,
     });
-    const screens: { key: DictionaryKey; label: string; href: string }[] = [];
+    const screens: { key: DictionaryKey; label: string; href: string; aliases?: string[] }[] = [];
     for (const section of sections) {
       for (const item of section.items) {
         const href = isWorkspaceRoute(item.href)
@@ -136,6 +136,8 @@
           key: item.label,
           label: item.label === 'orgWiki' ? t('orgWiki', { organization: organizationName }) : t(item.label),
           href,
+          // ボードは #1497 でスプリントの画面から改名した。「スプリント」と打っても候補に出す
+          ...(item.label === 'board' ? { aliases: [t('sprint')] } : {}),
         });
       }
     }

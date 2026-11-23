@@ -4,7 +4,7 @@
 import type { Page } from '@playwright/test';
 import { columnDelete } from '../src/shared/operations/column/index.ts';
 import { expect, test } from './fixtures.ts';
-import { addTaskRow, createWorkspace, signIn, watchViolations } from './helpers.ts';
+import { addTaskRow, createWorkspace, signIn, watchViolations, expectBoardHeading } from './helpers.ts';
 import { failOperation } from './operations.ts';
 
 test.use({ timezoneId: 'Asia/Tokyo' });
@@ -111,7 +111,7 @@ test('リーダーは列を足し、名前を直し、ボタンとキーで並�
 
   // スプリントの画面は、設定の並びの列にカードを出す
   await page.getByRole('link', { name: 'ボード', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: '第1回' })).toBeVisible();
+  await expectBoardHeading(page, '第1回');
   await expect(page.locator('.board-col-name')).toHaveText(['公開確認', '作業中', 'レビュー', '完了']);
   const titlesIn = (column: string) => page.getByRole('region', { name: column, exact: true }).locator('.card-title');
   await expect(titlesIn('作業中')).toHaveText(['A札', 'B札']);

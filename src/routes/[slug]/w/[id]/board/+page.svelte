@@ -838,7 +838,7 @@
       {t('pageTitle', {
         page:
           sprint === null
-            ? t('boardPageNameEmpty', { board: t('board'), workspace: workspace.name })
+            ? t('sprintBoardPageNameEmpty', { board: t('board'), workspace: workspace.name })
             : t('sprintBoardPageName', { board: t('board'), name: sprintLabel(sprint, t), workspace: workspace.name }),
         app: t('appName'),
       })}
@@ -963,7 +963,7 @@
       <div
         class="board-wrap"
         role="region"
-        aria-label={t('sprintBoardRegion', { sprint: t('sprint'), column: t('column') })}
+        aria-label={t('sprintBoardRegion', { sprint: t('sprint'), label: sprintLabel(sprint, t), column: t('column') })}
         tabindex={visibleColumns.every((column) => column.tasks.length === 0) ? 0 : undefined}
         {@attach canWrite ? (node) => dnd.wrap(node) : undefined}
       >

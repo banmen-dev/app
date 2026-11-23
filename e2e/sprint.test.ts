@@ -535,7 +535,7 @@ test('カードの動かし方の案内は「⋯」のメニューを指す', as
 
 test('カードが1枚も無いあいだだけ、列とカードの領域そのものに Tab で止まれる', async ({ page, context, baseURL }) => {
   await signIn(context, baseURL, 'member');
-  const region = page.getByRole('region', { name: 'スプリントの列とカード' });
+  const region = page.getByRole('region', { name: 'スプリント「第14回」の列とカード' });
   const emptyBoard = {
     ...SAMPLE_BOARD,
     columns: SAMPLE_BOARD.columns.map((column) => ({ ...column, tasks: [] })),
@@ -1252,7 +1252,7 @@ for (const [name, label] of [
       },
     );
     await page.goto(`${AOBA_TEAM}/board`);
-    await expectBoardHeading(page, label);
+    await expectBoardHeading(page, label, { unnamed: name === null });
     await expect(page).toHaveTitle(`ボード・${label}・受託開発チーム - Banmen`);
     await page
       .locator('.page-head')
@@ -1290,7 +1290,7 @@ test('名前なしの開始・削除・終了では、文中に期間を一度�
   ).toBeVisible();
   await remove.getByRole('button', { name: 'やめる' }).click();
   await page.goto(`${AOBA_TEAM}/board`);
-  await expectBoardHeading(page, '10/13〜10/26');
+  await expectBoardHeading(page, '10/13〜10/26', { unnamed: true });
   await page
     .locator('.page-head')
     .getByRole('button', { name: /^操作: / })
