@@ -1,7 +1,8 @@
 // ボードの列の末尾の追加の行で、題に加えて担当と期日を選んで作る（#1501）。
 // 一本道: 自分のワークスペースでスプリントを作って始める → 未着手の列の行の下のチップで担当（自分）と期日を選ぶ → 題を打って Enter
 // → 担当と期日の付いたカードが列の末尾に出て、行の題、担当、期日は空に戻る → 題だけでも今どおり作れる
-// → 一度決めた期日は窓の「クリア」で外せる → 作るのが断られたら、題も担当も期日も残る
+// → 一度決めた期日は窓の「クリア」で外せ、窓の Esc は取り消し → 候補を読む前の「自分に割り当てる」でも自分の名前が出る
+// → 作るのが断られたら（400、担当にも触れる 404）、題も担当も期日も残る
 // → チップを選んでから Esc で書きかけを捨てると、選んだ値も消える → 読み直しても担当と期日が残る。
 // 最後に、チップの並んだ盤を4つの見た目で axe にかける。暦に無い期日を断るのは API のテスト（test/task.test.ts）が確かめる
 import type { Locator, Page } from '@playwright/test';
@@ -14,13 +15,19 @@ import {
   waitForResponses,
   watchViolations,
 } from './helpers.ts';
-import { failOperation } from './operations.ts';
+import { failOperation, routeOperation } from './operations.ts';
+import { memberList } from '../src/shared/operations/workspace/index.ts';
 import { taskCreate } from '../src/shared/operations/task/index.ts';
 
 test.use({ timezoneId: 'Asia/Tokyo' });
 
 const cardOf = (page: Page, title: string): Locator =>
   page.locator('.card').filter({ has: page.locator('.card-title', { hasText: title }) });
+function gate(): { wait: Promise<void>; release: () => void } {
+  let release!: () => void;
+  const wait = new Promise<void>((resolve) => (release = resolve));
+  return { wait, release };
+}
 const titlesIn = (page: Page, column: string) =>
   page.getByRole('region', { name: column, exact: true }).locator('.card-title');
 
@@ -111,10 +118,26 @@ test('列の末尾の行で担当と期日を選んで作ると、カードに�
   await expect(dueWindow).toBeHidden();
   await expect(dueChip('未設定')).toBeVisible();
 
-  // 作るのが断られたら、理由を出し、題も担当も期日も残す（送り直せる）
+  // 期日の窓の Esc は取り消しで、入れかけの日付を決めない
+  await dueChip('未設定').click();
+  await dueWindow.getByLabel('期日', { exact: true }).fill('2099-06-20');
+  await dueWindow.getByLabel('期日', { exact: true }).press('Escape');
+  await expect(dueWindow).toBeHidden();
+  await expect(dueChip('未設定')).toBeFocused();
+
+  // 候補を読む前に「自分に割り当てる」を押しても、チップには自分の名前が出る
+  const held = gate();
+  const unHold = await routeOperation(page, memberList, { slug: 'aoba' }, async (call) => {
+    await held.wait;
+    await call.passThrough();
+  });
   await assigneeChip('未設定').click();
-  await expect(assigneeWindow.getByRole('menuitemradio', { name: 'ミナト' })).toBeVisible();
   await assigneeWindow.getByRole('menuitem', { name: '自分に割り当てる' }).click();
+  await expect(assigneeChip('ミナト')).toBeVisible();
+  held.release();
+  await unHold();
+
+  // 作るのが断られたら、理由を出し、題も担当も期日も残す（送り直せる）
   await dueChip('未設定').click();
   await dueWindow.getByLabel('期日', { exact: true }).fill('2099-06-12');
   await dueWindow.getByLabel('期日', { exact: true }).press('Enter');
@@ -129,6 +152,16 @@ test('列の末尾の行で担当と期日を選んで作ると、カードに�
   await expect(dueChip('6/12')).toBeVisible();
   await expect(titlesIn(page, '未着手')).toHaveText(['見積もりを送る', '請求書を出す']);
 
+  // 担当を選んで 404 で断られたら、選んだ担当にも触れて知らせ、値は残す
+  const unrouteGone = await failOperation(page, taskCreate, { slug: 'aoba' }, 404, 'not_found');
+  await input.press('Enter');
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'このスプリントか列、選んだ担当が見つかりません' }),
+  ).toBeVisible();
+  await unrouteGone();
+  await expect(input).toHaveValue('断られる札');
+  await expect(assigneeChip('ミナト')).toBeVisible();
+
   // チップを選んだまま Esc で書きかけを捨てると、選んだ値も消える
   await input.press('Escape');
   await expect(input).toHaveValue('');
@@ -140,8 +173,11 @@ test('列の末尾の行で担当と期日を選んで作ると、カードに�
   await expectBoardHeading(page, '第5回');
   await expect(cardOf(page, '見積もりを送る').getByRole('button', { name: '担当: ミナト' })).toBeVisible();
   await expect(cardOf(page, '見積もりを送る').locator('.card-meta')).toContainText('6/10');
-  // 断られた作成（わざと 400 にした1回）だけが、読み込みの失敗としてコンソールに出る
-  expect(await collect()).toEqual(['Failed to load resource: the server responded with a status of 400 (Bad Request)']);
+  // わざと断らせた作成（400 と 404 の1回ずつ）だけが、読み込みの失敗としてコンソールに出る
+  expect(await collect()).toEqual([
+    'Failed to load resource: the server responded with a status of 400 (Bad Request)',
+    'Failed to load resource: the server responded with a status of 404 (Not Found)',
+  ]);
 
   await expectNoA11yViolationsInThemes(page, 'sprint');
 });
