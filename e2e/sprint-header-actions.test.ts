@@ -1,5 +1,6 @@
 // ボードの道具の帯の右端のスプリントのボタンと小窓（#1498）。小窓の開閉とフォーカス、中身（期間、進み具合、ゴール）、
 // リーダーとメンバーの操作の出し分け、期限切れの印、狭い幅での収まりを確かめる
+import type { Page } from '@playwright/test';
 import { organizationInfo } from '../src/shared/operations/organization/index.ts';
 import { sprintBoard, sprintList } from '../src/shared/operations/sprint/index.ts';
 import { workspaceInfo } from '../src/shared/operations/workspace/index.ts';
@@ -10,7 +11,6 @@ import {
   expectBoardHeading,
   expectFocusReturned,
   findA11yViolations,
-  findTargetSizeViolations,
   openSprintPopover,
   signIn,
   sprintButton,
@@ -200,11 +200,38 @@ for (const today of ['2026-10-20', '2026-10-27']) {
     expect(buttonBox!.height).toBeGreaterThanOrEqual(44);
     const popover = await openSprintPopover(page);
     await inside(await popover.boundingBox());
-    for (const action of await popover.getByRole('button').all()) {
-      const box = await action.boundingBox();
-      await inside(box);
-      expect(box!.height).toBeGreaterThanOrEqual(44);
+    // 小窓の中のボタンは画面に収まり、44px 四方で押せる（期限切れの知らせの小さな「終える」は ::after で範囲だけを広げる）
+    for (const action of await popover.getByRole('button').all()) await inside(await action.boundingBox());
+    for (const action of await popover.locator('.popover-actions').getByRole('button').all()) {
+      expect((await action.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     }
+    expect(await popoverTargetMisses(page)).toEqual([]);
+  });
+}
+
+// 小窓の中のボタンを、中心と、中心から上下左右に 21px の点で押せるか（その点の一番上の要素がボタンかその中か）。押せなかった点を返す。
+// 画面全体の検査（findTargetSizeViolations）は、開いた小窓に隠れた盤の要素まで数えるので、小窓の中だけを測る
+async function popoverTargetMisses(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const misses: string[] = [];
+    for (const button of document.querySelectorAll<HTMLElement>('.popover-panel button')) {
+      const box = button.getBoundingClientRect();
+      const x = box.left + box.width / 2;
+      const y = box.top + box.height / 2;
+      for (const [dx, dy] of [
+        [0, 0],
+        [-21, 0],
+        [21, 0],
+        [0, -21],
+        [0, 21],
+      ] as const) {
+        const hit = document.elementFromPoint(x + dx, y + dy);
+        if (hit === null || !(hit === button || button.contains(hit))) {
+          misses.push(`${button.getAttribute('aria-label') ?? button.textContent ?? ''} (${dx}, ${dy})`);
+        }
+      }
+    }
+    return misses;
   });
 }
 
@@ -222,8 +249,9 @@ for (const width of [1280, 390]) {
       await applyTheme(page, theme);
       await openSprintPopover(page);
       expect(await findA11yViolations(page)).toEqual([]);
-      // 押せる範囲 44px は、760px 以下と指で押す画面の決まり（広い幅のマウスの画面は詰める）
-      if (width <= 760) expect(await findTargetSizeViolations(page)).toEqual([]);
+      // 押せる範囲 44px は、760px 以下と指で押す画面の決まり（広い幅のマウスの画面は詰める）。小窓に隠れた盤は測らない
+      // （盤の 390px の押せる範囲は layout-narrow-workspace.test.ts が小窓を閉じて測る）
+      if (width <= 760) expect(await popoverTargetMisses(page)).toEqual([]);
     });
   }
 }
