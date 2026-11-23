@@ -84,6 +84,8 @@ for (const scope of ['organization', 'workspace'] as const) {
         expect(Math.abs(metrics.gap - metrics.expected)).toBeLessThanOrEqual(1);
         expect(Math.abs(metrics.left)).toBeLessThanOrEqual(1);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        // 広い幅は上の帯と左のメニュー、狭い幅は見出しの丸いボタンとタブバーも含め、一覧の画面全体を調べる。
+        expect((await new AxeBuilder({ page }).withTags(A11Y_TAGS).analyze()).violations).toEqual([]);
       }
       // 一覧からページへ移ると畳まれ、題と本文が最初の画面内に来る。
       await page.locator('.wiki-side').getByRole('link', { name: wikiPage.title, exact: true }).click();
@@ -102,7 +104,7 @@ for (const scope of ['organization', 'workspace'] as const) {
       expect(await value.evaluate((element) => getComputedStyle(element).fontFamily)).toBe(
         await value.evaluate((element) => getComputedStyle(element.closest('tr')!.querySelector('th')!).fontFamily),
       );
-      // 上の帯と左のメニューも含め、Wiki のページを開いた画面全体を調べる。
+      // 狭い幅のまま、ページを開いた画面全体を調べる。
       expect((await new AxeBuilder({ page }).withTags(A11Y_TAGS).analyze()).violations).toEqual([]);
       // キーボードで開閉でき、幅を戻すと閉じた一覧も再び使える。
       await list.locator('summary').focus();

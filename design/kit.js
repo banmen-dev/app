@@ -3523,16 +3523,21 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   // 開閉は組織の切り替えと同じ: ボタン、外を押す、Tab で外へ出る、Esc。メニューの中にフォーカスがあるときに閉じたら、ボタンへ戻す。
   // 見本ではログアウトせず、トーストだけを出す。運用者の画面（operator.html）は紙の枠なので、このメニューを持たず紙の下のボタンでログアウトする
   let accountMenuOpen = false;
-  // busy は、ログアウトを押して結果を待っている間（項目を aria-disabled にして文言を替え、読み上げの領域に伝える）。
-  // admin は管理者の印を出し、読み上げの名前にも含める
-  // アカウントのボタンの読み上げの名前。見えている頭文字、名前、管理者の札を、表示順に含める（WCAG 2.5.3。本番の AccountMenu.svelte と同じ）。
-  // 760px 以下でアバターだけを見せるときも同じ名前にする
-  function accountMenuLabel(admin = !!D.organizations.find((org) => org.slug === D.organization)?.admin) {
-    const name = user(D.me).name;
-    return t("accountMenuLabel").replace("{name}", [[...name][0], name, admin ? t("admin") : ""].filter(Boolean).join(" "));
+  // 今の組織で自分が管理者か。上の帯のアカウントのボタンと、スマホの見出しの丸いボタンで同じ値を使う
+  function isAdminHere() {
+    return !!D.organizations.find((org) => org.slug === D.organization)?.admin;
   }
 
-  function accountMenuHtml({ invitationState = "ready", open = accountMenuOpen, id = "account-menu-list", live = true, busy = false, admin = !!D.organizations.find((org) => org.slug === D.organization)?.admin, invitationCount = (D.receivedInvites || []).length } = {}) {
+  // アカウントのボタンの読み上げの名前。見えている頭文字、名前、管理者の札を、表示順に含める（WCAG 2.5.3。本番の AccountMenu.svelte と同じ）。
+  // 760px 以下でアバターだけを見せるときも同じ名前にする
+  function accountMenuLabel(admin = isAdminHere()) {
+    const name = user(D.me).name;
+    return t("accountMenuLabel").replace("{name}", [[...name][0] ?? "?", name, admin ? t("admin") : ""].filter(Boolean).join(" "));
+  }
+
+  // busy は、ログアウトを押して結果を待っている間（項目を aria-disabled にして文言を替え、読み上げの領域に伝える）。
+  // admin は管理者の印を出し、読み上げの名前にも含める
+  function accountMenuHtml({ invitationState = "ready", open = accountMenuOpen, id = "account-menu-list", live = true, busy = false, admin = isAdminHere(), invitationCount = (D.receivedInvites || []).length } = {}) {
     const name = user(D.me).name;
     // 名前と管理者の札は .me-detail にまとめ、760px 以下ではアバターだけにする
     const who = `${avatarOf(D.me, { image: user(D.me).avatar_url })} <span class="me-detail">${esc(name)}${admin ? ` <span class="chip">${t("admin")}</span>` : ""}</span>`;
