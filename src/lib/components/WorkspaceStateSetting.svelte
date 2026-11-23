@@ -71,7 +71,7 @@
       } else if (result.status === 404 || result.status === 403) {
         showToast(t('workspaceUnavailable', { name: workspace.name }), 'alert');
       } else {
-        refusal = workspaceReopenRefusal(result, workspace.name);
+        refusal = workspaceReopenRefusal(result, workspace.name, 'settings');
         if (refusal === null) showToast(t('workspaceReopenFailed', { workspace: t('workspace') }), 'alert');
       }
       await onrefresh();

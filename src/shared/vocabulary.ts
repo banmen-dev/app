@@ -773,9 +773,12 @@ export const dictionary = defineDictionary({
   workspaceLimitCreateElsewhere:
     'このダイアログを閉じて、アカウントのメニューの「{adminPage}」で今ある{workspace}を終了して枠を空けてください。',
   workspaceReopenWorkspaceLimit:
-    '「{name}」は再開できません。自分用の{workspace}は、利用中のものを{limit}個まで使えます（今{used}個）。この一覧で今ある{workspace}を終了して枠を空けてください。',
+    '「{name}」は再開できません。自分用の{workspace}は、利用中のものを{limit}個まで使えます（今{used}個）。{guidance}',
   workspaceReopenWorkspaceLimitUnknown:
-    '「{name}」は再開できません。自分用の{workspace}は、利用中の個数が上限に達しています。この一覧で今ある{workspace}を終了して枠を空けてください。',
+    '「{name}」は再開できません。自分用の{workspace}は、利用中の個数が上限に達しています。{guidance}',
+  workspaceReopenFindSpaceHere: 'この一覧で今ある{workspace}を終了して枠を空けてください。',
+  workspaceReopenFindSpaceElsewhere:
+    'アカウントのメニューの「{adminPage}」で今ある{workspace}を終了して枠を空けてください。',
 
   // ワークスペースの枠と画面。見つからない画面は、組織の枠の中に出す
   notMemberAdminChip: '所属せず{admin}として開いています',

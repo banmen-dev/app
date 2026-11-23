@@ -107,7 +107,7 @@
       } else if (result.status === 404 || result.status === 403) {
         showToast(t('workspaceUnavailable', { name: workspace.name }), 'alert');
       } else {
-        reopenRefusal = workspaceReopenRefusal(result, workspace.name);
+        reopenRefusal = workspaceReopenRefusal(result, workspace.name, 'list');
         if (reopenRefusal === null) {
           showToast(t('workspaceReopenFailed', { workspace: t('workspace') }), 'alert');
         } else {
