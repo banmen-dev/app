@@ -1054,6 +1054,8 @@ a.brand { color: inherit; text-decoration: none; }
 /* ネイティブの select は行高が入力欄より低くなるブラウザもあるため、帯では44pxを下限にそろえる。 */
 .toolbar .select { width: auto; max-width: min(100%, 18rem); min-height: 44px; padding-block: var(--space-2); font-size: var(--text-sm); }
 .toolbar-end { margin-left: auto; }
+/* 右端に複数の部品（スプリントの小窓のボタンなど）を並べるときの間。ボタンそのものに付けた .toolbar-end は除く */
+.toolbar-end:not(.btn) { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 /* 帯の下の知らせ（検索の文字が長すぎる など）。帯と同じ幅で折り返す */
 .toolbar-note { flex-basis: 100%; }
 @media (max-width: 760px), (pointer: coarse) {
