@@ -101,17 +101,40 @@ function showWorkspaceDelete(state) {
     close.removeAttribute("data-close-dialog");
     close.setAttribute("aria-disabled", "true");
   }
-  input.addEventListener("input", () => {
-    const mismatch = input.value !== "" && input.value !== name;
+  let composing = false;
+  let nameBlurred = false;
+  function updateConfirmation() {
+    const matches = input.value === name;
+    const mismatch = !composing && input.value !== "" && !matches && (nameBlurred || !name.startsWith(input.value));
     field.classList.toggle("is-invalid", mismatch);
     mismatchMessage.hidden = !mismatch;
     input.setAttribute("aria-describedby", mismatch ? "workspace-delete-hint workspace-delete-mismatch" : "workspace-delete-hint");
     input.setAttribute("aria-invalid", String(mismatch));
-    submit.disabled = input.value !== name;
+    submit.disabled = composing || !matches;
+  }
+  input.addEventListener("input", updateConfirmation);
+  input.addEventListener("compositionstart", () => {
+    composing = true;
+    updateConfirmation();
+  });
+  input.addEventListener("compositionend", () => {
+    composing = false;
+    updateConfirmation();
+  });
+  input.addEventListener("focus", () => {
+    nameBlurred = false;
+    updateConfirmation();
+  });
+  input.addEventListener("blur", () => {
+    nameBlurred = true;
+    updateConfirmation();
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && (composing || event.isComposing || event.keyCode === 229)) event.preventDefault();
   });
   form.addEventListener("submit", (submitEvent) => {
     submitEvent.preventDefault();
-    if (!sending && input.value === name) location.href = SQ.firstHref("today.html");
+    if (!sending && !composing && input.value === name) location.href = SQ.firstHref("today.html");
   });
 }
 

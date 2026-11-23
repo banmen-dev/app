@@ -5,6 +5,7 @@
   import { workspaceDelete } from '../../shared/operations/workspace/index.ts';
   import { callOperation } from '../api.ts';
   import { isUnauthenticated, loginUrl } from '../login-redirect.ts';
+  import { isComposingKey } from '../shortcut-keys.ts';
   import { showToast } from '../toast.svelte.ts';
   import { t } from '../vocabulary.svelte.ts';
   import type { WorkspaceView } from '../workspace.ts';
@@ -21,6 +22,8 @@
   let dialog = $state<ReturnType<typeof Dialog>>();
   let open = $state(false);
   let confirmation = $state('');
+  let composing = $state(false);
+  let nameBlurred = $state(false);
   let submitting = $state(false);
   let submitError = $state<string | null>(null);
   let mounted = true;
@@ -30,12 +33,16 @@
 
   const closed = $derived(workspace.closedAt !== null);
   const nameMatches = $derived(confirmation === workspace.name);
-  const nameMismatch = $derived(confirmation !== '' && !nameMatches);
-  const canConfirm = $derived(closed && nameMatches);
+  const nameMismatch = $derived(
+    !composing && confirmation !== '' && !nameMatches && (nameBlurred || !workspace.name.startsWith(confirmation)),
+  );
+  const canConfirm = $derived(closed && nameMatches && !composing);
   const words = $derived({ workspace: t('workspace') });
 
   function show(trigger: HTMLElement): void {
     confirmation = '';
+    composing = false;
+    nameBlurred = false;
     submitError = null;
     dialog?.show(trigger);
   }
@@ -55,6 +62,7 @@
       );
       if (!mounted || slug !== targetSlug || workspace.id !== targetId) {
         showToast(t(result.ok ? 'workspaceDeleted' : 'workspaceDeleteFailed', words), result.ok ? 'check' : 'alert');
+        if (result.ok) void refreshAll().catch(() => undefined);
         return;
       }
       if (result.ok) {
@@ -130,6 +138,13 @@
         spellcheck="false"
         bind:value={confirmation}
         readonly={submitting}
+        oncompositionstart={() => (composing = true)}
+        oncompositionend={() => (composing = false)}
+        onfocus={() => (nameBlurred = false)}
+        onblur={() => (nameBlurred = true)}
+        onkeydown={(event) => {
+          if (event.key === 'Enter' && (composing || isComposingKey(event))) event.preventDefault();
+        }}
       />
       <span class="field-hint wrap-anywhere" id={hintId}>{t('workspaceDeleteNameHint', { name: workspace.name })}</span>
       {#if nameMismatch}

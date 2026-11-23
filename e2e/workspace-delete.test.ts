@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { operationPath, type OutputOf } from '../src/shared/operations/define.ts';
 import { organizationInfo } from '../src/shared/operations/organization/index.ts';
 import { workspaceWikiCreate } from '../src/shared/operations/wiki/index.ts';
-import { workspaceClose, workspaceCreate } from '../src/shared/operations/workspace/index.ts';
+import { workspaceClose, workspaceCreate, workspaceInfo } from '../src/shared/operations/workspace/index.ts';
 import { expect, test } from './fixtures.ts';
 import { signIn } from './helpers.ts';
+import { rewriteOperation } from './operations.ts';
 
 test('管理者が設定で終了済みワークスペースを削除し、組織ホームに戻る', async ({ page, context, baseURL }) => {
   if (!baseURL) throw new Error('baseURL がありません');
@@ -31,7 +32,15 @@ test('管理者が設定で終了済みワークスペースを削除し、組�
   const settingsPath = `${workspacePath}/settings`;
   const section = page.getByRole('region', { name: 'ワークスペースの削除' });
   await page.setViewportSize({ width: 390, height: 844 });
+  const removeDisabledResponse = await rewriteOperation(page, workspaceInfo, { slug }, (output) => ({
+    ...output,
+    workspace_delete_enabled: false,
+  }));
   await page.goto(settingsPath);
+  await expect(page.getByRole('heading', { level: 1, name: '設定', exact: true })).toBeVisible();
+  await expect(section).toHaveCount(0);
+  await removeDisabledResponse();
+  await page.reload();
   await expect(section).toContainText('先にこのワークスペースを終了してください');
   const open = section.getByRole('button', { name: '削除する' });
   await expect(open).toHaveCount(0);
@@ -48,12 +57,26 @@ test('管理者が設定で終了済みワークスペースを削除し、組�
   await expect(dialog).toContainText('添付ファイルと Wiki は引き続き容量に含まれます');
   const confirmation = dialog.getByRole('textbox', { name: 'ワークスペース名' });
   const submit = dialog.getByRole('button', { name: '削除する' });
+  const mismatch = dialog.getByText('入力がワークスペース名と一致していません。', { exact: true });
   await expect(confirmation).toBeFocused();
   await expect(submit).toBeDisabled();
+  await confirmation.fill(name.slice(0, 2));
+  await expect(mismatch).toBeHidden();
+  await expect(submit).toBeDisabled();
+  await confirmation.blur();
+  await expect(mismatch).toBeVisible();
+  await confirmation.focus();
+  await expect(mismatch).toBeHidden();
   await confirmation.fill(`${name}違い`);
   await expect(submit).toBeDisabled();
-  await expect(dialog).toContainText('入力がワークスペース名と一致していません');
+  await expect(mismatch).toBeVisible();
+  await confirmation.dispatchEvent('compositionstart');
+  await expect(mismatch).toBeHidden();
   await confirmation.fill(name);
+  await expect(submit).toBeDisabled();
+  await confirmation.press('Enter');
+  await expect(dialog).toBeVisible();
+  await confirmation.dispatchEvent('compositionend');
   await expect(submit).toBeEnabled();
   await dialog.getByRole('button', { name: 'やめる' }).click();
   await expect(dialog).toBeHidden();
