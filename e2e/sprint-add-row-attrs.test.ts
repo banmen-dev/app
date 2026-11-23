@@ -101,6 +101,11 @@ test('列の末尾の行で担当と期日を選んで作ると、カードに�
   await dueWindow.getByLabel('期日', { exact: true }).fill('2099-06-11');
   await dueWindow.getByLabel('期日', { exact: true }).press('Enter');
   await expect(dueChip('6/11')).toBeVisible();
+  // 決めた値のまま開き直して Enter でも閉じる
+  await dueChip('6/11').click();
+  await dueWindow.getByLabel('期日', { exact: true }).press('Enter');
+  await expect(dueWindow).toBeHidden();
+  await expect(dueChip('6/11')).toBeFocused();
   await dueChip('6/11').click();
   await dueWindow.getByRole('button', { name: 'クリア' }).click();
   await expect(dueWindow).toBeHidden();

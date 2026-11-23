@@ -98,20 +98,23 @@
   }
   // Esc で窓を閉じる間の blur では決めない（AttrChip が閉じる前にチップへフォーカスを戻すので、欄はまだ DOM にある）
   let cancelling = false;
-  // カレンダーで選んだ日付は change で決める。打っている途中の change で窓を閉じないよう、TaskEntry と同じく少し待つ
-  const DUE_DEBOUNCE_MS = 600;
-  let dueTimer: ReturnType<typeof setTimeout> | undefined;
-  $effect(() => () => clearTimeout(dueTimer));
-  function scheduleDue(input: HTMLInputElement, close: () => void): void {
-    clearTimeout(dueTimer);
-    dueTimer = setTimeout(() => commitDue(input, close), DUE_DEBOUNCE_MS);
+  // カレンダーで選んだ日付は change で値だけを決め、窓は閉じない（Chrome は月や日を打っている途中でも完全な日付の change を出すので、
+  // 閉じると残りの入力が届かない）。窓を閉じるのは Enter と、欄を離れたときだけ
+  function pickDue(input: HTMLInputElement): void {
+    if (cancelling) return;
+    const value = completeDate(input);
+    if (value !== null) due = value;
   }
-  function commitDue(input: HTMLInputElement, close: () => void): void {
-    clearTimeout(dueTimer);
+  // viaEnter は Enter で決めたとき。同じ値でも閉じる。欄を離れたときは、決めた値と同じなら閉じない
+  // （開き直して「クリア」へ移るときの blur で窓を閉じると、「クリア」が押せない）
+  function commitDue(input: HTMLInputElement, close: () => void, viaEnter = false): void {
     if (!input.isConnected || cancelling) return;
     const value = completeDate(input);
-    // 決めた値と同じなら閉じない（開き直して「クリア」へ移るときの blur で窓を閉じると、「クリア」が押せない）
-    if (value === null || value === due) return;
+    if (value === null) return;
+    if (value === due) {
+      if (viaEnter) close();
+      return;
+    }
     due = value;
     close();
   }
@@ -167,15 +170,14 @@
             if (event.key === 'Enter') {
               event.preventDefault();
               event.stopPropagation();
-              commitDue(event.currentTarget, close);
+              commitDue(event.currentTarget, close, true);
             } else if (event.key === 'Escape') {
-              // 窓を閉じるのは AttrChip。閉じる間の blur と、待っている change で決めないよう、次の描画まで印を立てる
-              clearTimeout(dueTimer);
+              // 窓を閉じるのは AttrChip。閉じる間の blur で決めないよう、次の描画まで印を立てる
               cancelling = true;
               requestAnimationFrame(() => (cancelling = false));
             }
           }}
-          onchange={(event) => scheduleDue(event.currentTarget, close)}
+          onchange={(event) => pickDue(event.currentTarget)}
           onblur={(event) => commitDue(event.currentTarget, close)}
         />
         {#if due !== null}
@@ -183,7 +185,6 @@
             class="menu-item"
             type="button"
             onclick={() => {
-              clearTimeout(dueTimer);
               due = null;
               close();
             }}>{t('dueClear')}</button
