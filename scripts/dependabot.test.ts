@@ -54,7 +54,7 @@ test('claude-code-action は人が起動経路を確かめて上げるので、D
   assert.ok(names.includes('anthropics/claude-code-action'));
 });
 
-test('件名は PR のタイトルの種別に合わせ、npm は chore(deps)、github-actions は ci(deps) にする', () => {
+test('件名は PR のタイトルの種別に合わせ、npm は chore、github-actions は ci の種別にし、括弧に deps の範囲を付ける', () => {
   assert.deepEqual(update('npm')['commit-message'], { prefix: 'chore', include: 'scope' });
   assert.deepEqual(update('github-actions')['commit-message'], { prefix: 'ci', include: 'scope' });
 });
