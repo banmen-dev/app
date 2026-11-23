@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
   import { workspaceReopen } from '../../shared/operations/workspace/index.ts';
   import { callOperation } from '../api.ts';
@@ -15,60 +14,33 @@
   let {
     slug,
     workspace,
-    stale,
+    stateUnconfirmed,
     hasDraft,
-    onstateunconfirmed,
+    onrefresh,
   }: {
     slug: string;
     workspace: WorkspaceView;
-    stale: boolean;
+    stateUnconfirmed: boolean;
     hasDraft: boolean;
-    onstateunconfirmed: (unconfirmed: boolean) => void;
+    onrefresh: () => Promise<void>;
   } = $props();
 
   const draftHint = $props.id();
 
   const closed = $derived(workspace.closedAt !== null);
   let closeDialog = $state<ReturnType<typeof WorkspaceCloseDialog>>();
-  let stateButton = $state<HTMLButtonElement>();
-  let pending = $state<'reopening' | 'refreshing' | null>(null);
+  let reopening = $state(false);
   let refusal = $state<string | null>(null);
-  let refreshFailed = $state(false);
-  const needsRefresh = $derived(stale || refreshFailed);
   const closeBlockedByDraft = $derived(!closed && hasDraft);
-  const disabled = $derived(pending !== null || needsRefresh || closeBlockedByDraft);
+  const disabled = $derived(reopening || stateUnconfirmed || closeBlockedByDraft);
   let active = false;
 
   $effect(() => {
     active = true;
     return () => {
       active = false;
-      onstateunconfirmed(false);
     };
   });
-
-  async function refresh(): Promise<void> {
-    // 枠の帯・設定の値に加えて、組織の枠が持つ切り替え一覧も読み直す
-    pending = 'refreshing';
-    onstateunconfirmed(true);
-    try {
-      await invalidateAll();
-      if (active) refreshFailed = false;
-    } catch {
-      if (active) refreshFailed = true;
-    } finally {
-      if (active) {
-        pending = null;
-        onstateunconfirmed(refreshFailed);
-      }
-    }
-  }
-
-  async function retry(): Promise<void> {
-    if (pending !== null) return;
-    await refresh();
-    if (active && !needsRefresh) stateButton?.focus();
-  }
 
   async function finishClosing(outcome: 'closed' | 'state_changed' | 'unavailable' | 'unauthenticated'): Promise<void> {
     if (outcome === 'unauthenticated') {
@@ -81,11 +53,11 @@
       const key = outcome === 'state_changed' ? 'workspaceStateChanged' : 'workspaceUnavailable';
       showToast(t(key, { name: workspace.name }), 'alert');
     }
-    await refresh();
+    await onrefresh();
   }
 
   async function reopen(): Promise<void> {
-    pending = 'reopening';
+    reopening = true;
     try {
       const result = await callOperation(workspaceReopen, { workspace_id: workspace.id }, { slug });
       if (!active) return;
@@ -102,9 +74,9 @@
         refusal = workspaceReopenRefusal(result, workspace.name);
         if (refusal === null) showToast(t('workspaceReopenFailed', { workspace: t('workspace') }), 'alert');
       }
-      await refresh();
+      await onrefresh();
     } finally {
-      if (active) pending = null;
+      if (active) reopening = false;
     }
   }
 
@@ -117,16 +89,7 @@
 </script>
 
 <Setting title={t('workspaceStateTitle', { workspace: t('workspace') })} description={t('workspaceStateDesc')}>
-  {#if needsRefresh}
-    <div class="callout is-warn">
-      <Icon name="alert" /><span role="alert">{t('workspaceStateRefreshFailed')}</span>
-      <div class="callout-actions">
-        <button class="btn is-sm" type="button" aria-disabled={pending !== null} onclick={retry}>
-          {t('retry')}
-        </button>
-      </div>
-    </div>
-  {:else if refusal !== null && closed}
+  {#if refusal !== null && closed}
     <div class="callout is-warn" role="alert">
       <Icon name="alert" /><span class="wrap-anywhere">{refusal}</span>
     </div>
@@ -134,7 +97,6 @@
   {#if closeBlockedByDraft}<p class="field-hint" id={draftHint}>{t('workspaceCloseDraft')}</p>{/if}
   <div class="form-actions">
     <button
-      bind:this={stateButton}
       id="workspace-state"
       class="btn"
       type="button"
@@ -146,7 +108,7 @@
       {t(closed ? 'workspaceReopenAction' : 'workspaceCloseAction')}
     </button>
     <span class="visually-hidden" role="status">
-      {pending === 'reopening' ? t('workspaceReopening') : pending === 'refreshing' ? t('retrying') : ''}
+      {reopening ? t('workspaceReopening') : ''}
     </span>
   </div>
 </Setting>

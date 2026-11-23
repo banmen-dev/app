@@ -166,6 +166,7 @@ test.describe('管理者（あおば開発のミナト）', () => {
     await expect(page.getByRole('textbox', { name: 'タスクを足す', exact: true })).toHaveCount(0);
     await bannerOf(page).getByRole('link', { name: '設定で再開する' }).click();
     await expect(page).toHaveURL(`${settingsUrl}#workspace-state`);
+    await expect(reopen).toBeFocused();
     await reopen.click();
     await expect(bannerOf(page)).toHaveCount(0);
     await expect(close).toBeVisible();
@@ -195,28 +196,54 @@ test.describe('管理者（あおば開発のミナト）', () => {
       await call.fail(500, 'internal');
     });
     const dialog = page.getByRole('dialog', { name: `「${name}」を終了しますか？` });
-    const markdown = page.getByRole('textbox', { name: 'Markdown', exact: true });
+    const markdown = page.locator('.settings[inert] textarea');
+    const notice = page.locator('.callout', { hasText: '利用状態を読み直せませんでした' });
     try {
       await dialog.getByRole('button', { name: `「${name}」を終了する` }).click();
       await expect(dialog).toBeHidden();
       await expect(close).toHaveAttribute('aria-disabled', 'true');
-      await expect(markdown).toHaveCount(0);
+      await expect(markdown).toHaveCount(1);
     } finally {
       readResponse.resolve();
     }
-    await expect(section.getByRole('alert')).toContainText('利用状態を読み直せませんでした');
+    await expect(notice.getByRole('alert')).toContainText('利用状態を読み直せませんでした');
     await expect(close).toHaveAttribute('aria-disabled', 'true');
-    await expect(markdown).toHaveCount(0);
+    await expect(markdown).toHaveCount(1);
 
     await removeFailure();
-    await section.getByRole('button', { name: 'もう一度試す' }).click();
+    await notice.getByRole('button', { name: 'もう一度試す' }).click();
     const reopen = section.getByRole('button', { name: `「${name}」を再開する` });
     await expect(reopen).toBeFocused();
-    await expect(section.getByRole('alert')).toHaveCount(0);
+    await expect(notice).toHaveCount(0);
     await expect(bannerOf(page)).toContainText(BANNER);
     await reopen.click();
     await expect(close).toBeVisible();
     await expect(bannerOf(page)).toHaveCount(0);
+  });
+
+  test('リーダーも利用状態を再試行でき、書きかけの列を保持する', async ({ page, context, baseURL }) => {
+    const workspaceUrl = await createWorkspace(page, `設定を再試行するワークスペース ${runMark()}`, 'ハルカ');
+    await signIn(context, baseURL, 'member');
+    await page.goto(`${workspaceUrl}/settings`);
+    const columnName = page.getByLabel('新しい列の名前', { exact: true });
+    await columnName.fill('下書きの列');
+    const removeFailure = await failOperation(page, workspaceInfo, { slug: 'aoba' }, 500, 'internal');
+    await page.getByRole('textbox', { name: 'Markdown', exact: true }).fill('新しい完成の定義');
+    await page
+      .getByRole('region', { name: '完成の定義', exact: true })
+      .getByRole('button', { name: '保存する' })
+      .click();
+
+    const notice = page.locator('.callout', { hasText: '利用状態を読み直せませんでした' });
+    await expect(notice).toBeVisible();
+    await expect(page.locator('.settings[inert]').getByLabel('新しい列の名前', { exact: true })).toHaveValue(
+      '下書きの列',
+    );
+    await removeFailure();
+    await notice.getByRole('button', { name: 'もう一度試す' }).click();
+    await expect(notice).toHaveCount(0);
+    await expect(columnName).toHaveValue('下書きの列');
+    await expect(page.getByRole('textbox', { name: 'Markdown', exact: true })).toHaveValue('新しい完成の定義');
   });
 
   test('設定からの再開が人数の上限で断られたら理由を残し、同時に再開されていたら状態を読み直す', async ({ page }) => {
