@@ -40,6 +40,7 @@ const context = {
   avatarOf: () => '',
   doneControl: () => '',
   attrChip: () => '',
+  cardEdit: () => '',
   rowMenu: () => '',
   orderItems: () => [],
 };

@@ -569,6 +569,20 @@ describe('sprint-board', () => {
     }
   });
 
+  test('is_imported は取り込んだカードだけが真（カードの題の鉛筆を押せなくする）', async () => {
+    const { target, board } = await setup();
+    const sprint = await activeSprintWith(target);
+    const plain = await card(target, sprint.id, board.first.id, 'a0', { title: '手で作った札' });
+    const imported = await card(target, sprint.id, board.first.id, 'a1', { title: '取り込んだ札', is_imported: 1 });
+
+    const body = (await (await call(target, sprintBoard, {})).json()) as {
+      columns: { tasks: { id: string; is_imported: boolean }[] }[];
+    };
+    expect(
+      Object.fromEntries(body.columns.flatMap((column) => column.tasks).map((row) => [row.id, row.is_imported])),
+    ).toEqual({ [plain.id]: false, [imported.id]: true });
+  });
+
   test('task-complete で完了にしたカードは完了の列に出る', async () => {
     const { target, board } = await setup();
     const sprint = await activeSprintWith(target);

@@ -18,6 +18,7 @@ const card = (id: string, title: string, overrides: Partial<Board['columns'][num
   due_on: null,
   repository: null,
   can_delete: false,
+  is_imported: false,
   ...overrides,
 });
 

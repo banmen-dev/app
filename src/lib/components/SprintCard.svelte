@@ -1,10 +1,16 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onDestroy, tick, untrack } from 'svelte';
   import type { SprintBoardTask } from '../../shared/operations/sprint/index.ts';
+  import { TASK_POINT_VALUES } from '../../shared/task.ts';
+  import { saveCardTitle } from '../card-title-save.ts';
   import { taskDetailHref, taskLinkAttrs } from '../drawer.svelte.ts';
+  import { taskAttributes, type AttributeSaved } from '../task-attributes.svelte.ts';
+  import { taskTitleMessage } from '../task-title.ts';
+  import { showToast } from '../toast.svelte.ts';
   import type { MoveDirection } from '../sprint-board.ts';
   import type { SprintDnd } from '../sprint-dnd.svelte.ts';
   import { t } from '../vocabulary.svelte.ts';
+  import AttrChip from './AttrChip.svelte';
   import Avatar from './Avatar.svelte';
   import DefinitionChip from './DefinitionChip.svelte';
   import DueChip from './DueChip.svelte';
@@ -20,6 +26,22 @@
   // dnd を渡すと（書き込めるとき）、完了したカードを含めカード全体をつかめる。戻せないカードは not-allowed のカーソルで示す。
   // 題のリンクは draggable="false" で、リンクの既定のドラッグがカードのドラッグを奪わない。ボタンと「⋯」は押すだけで動き出さない。
   // 落とす位置の印は data-drop、つかんだ薄さは .is-dragging、落とした光は .is-dropped
+  // attrs を渡すと（書き込めるとき）、ポイントと担当をバックログの行と同じチップ（AttrChip）にし、選んだら task-update、task-assign で
+  // 1欄ずつ保存する（送り方と断られたときの戻し方は task-attributes.svelte.ts）。担当の窓は文字で候補を絞れ、先頭に「自分に割り当てる」を置く。
+  // 題の横の鉛筆（ホバーとカードの中のフォーカスで出す）を押すと、題がその場で入力欄に替わり、Enter で task-update に送り、Esc で元の題に戻す。
+  // 欄からフォーカスが外れたときも送る（引き出しの題と同じ）。完了したカードのチップと鉛筆、取り込んだタスクの鉛筆は押せず、理由が読める。
+  // 保存が通ったら attrs.onpatch でカード（と列の合計）を直し、断られたら理由をトーストで知らせて元に戻し、attrs.onSaved で読み直す
+  type CardAttrs = {
+    slug: string;
+    workspaceId: string;
+    // 自分（「自分に割り当てる」で選ぶ人）。分からないときは null で、項目を出さない
+    meId: string | null;
+    // 盤を読み始めた時刻（performance.now()）。保存の後に古い読み込みが値を戻さないよう、送信列が比べる
+    loadedAt: number;
+    onpatch: (id: string, patch: Partial<Pick<SprintBoardTask, 'title' | 'points' | 'assignee'>>) => void;
+    onSaved: () => Promise<void> | void;
+    onStale: () => void;
+  };
   let {
     task,
     href,
@@ -34,7 +56,9 @@
     onstoryhover,
     onstoryfocus,
     onstoryfilter,
+    attrs,
   }: {
+    attrs?: CardAttrs;
     highlightedStory?: string | null;
     // ポインタが乗ったカードのストーリー（親のないカードは null）。undefined はカードの上にいないことで、フォーカスの強調に戻す
     onstoryhover?: (id: string | null | undefined) => void;
@@ -59,6 +83,153 @@
   } = $props();
 
   const done = $derived(task.completed_at !== null);
+
+  // ---- ポイントと担当のチップ（TaskEntry と同じ送信列） ----
+  type PointsChoice = (typeof TASK_POINT_VALUES)[number] | null;
+  const pointOptions = [
+    { value: '', text: t('pointsUnsetTitle') },
+    ...TASK_POINT_VALUES.map((value) => ({ value: String(value), text: t('pointsValue', { value }) })),
+  ];
+  const editor = $derived(attrs === undefined ? null : taskAttributes(attrs.slug, attrs.workspaceId, task.id));
+  function patchSaved(saved: AttributeSaved): void {
+    if (saved.field === 'points') attrs?.onpatch(task.id, { points: saved.task.points });
+    else if (saved.field === 'assignee') {
+      const assignee = saved.task.assignee;
+      attrs?.onpatch(task.id, { assignee: assignee === null ? null : { id: assignee.id, name: assignee.name } });
+    }
+  }
+  async function reload(): Promise<void> {
+    try {
+      await attrs?.onSaved();
+    } catch {
+      /* 送信の続きを妨げない */
+    }
+  }
+  $effect(() => editor?.attach({ stale: () => attrs?.onStale(), rejected: reload, saved: patchSaved }));
+  $effect(() => {
+    const current = task;
+    const at = attrs?.loadedAt ?? 0;
+    const session = editor;
+    // カードのポイントは DB の CHECK で選べる値に限られる（盤の応答の型は数のまま）
+    untrack(() => session?.observe({ points: current.points as PointsChoice, assignee: current.assignee }, at));
+  });
+  const pointsShown = $derived(editor?.points.shown === undefined ? task.points : editor.points.shown);
+  const assigneeShownId = $derived(editor?.assignee.shown ?? task.assignee?.id ?? '');
+  const candidates = $derived(editor?.candidates ?? null);
+  const candidatesFailed = $derived(editor?.candidatesFailed ?? false);
+  const candidatesLoading = $derived(editor?.candidatesLoading ?? false);
+  const assigneeOptions = $derived.by(() => {
+    const options: { value: string; text: string }[] = [{ value: '', text: t('unassigned') }];
+    for (const member of candidates ?? []) options.push({ value: member.id, text: member.name });
+    // 今の担当が候補にいないときも、その人を残す。「離脱済み」と言えるのは、候補を読めて、その中にいないときだけ
+    const current = task.assignee;
+    if (current !== null && !options.some((option) => option.value === current.id)) {
+      const left = candidates !== null && !candidatesFailed;
+      options.push({ value: current.id, text: left ? `${current.name}${t('leftMember')}` : current.name });
+    }
+    return options;
+  });
+  const assigneeActions = $derived(attrs?.meId == null ? [] : [{ value: attrs.meId, text: t('assignToMe') }]);
+  const assigneeShown = $derived(assigneeOptions.find((option) => option.value === assigneeShownId) ?? null);
+  const assigneeText = $derived(
+    assigneeShownId === '' ? t('assignee') : (assigneeShown?.text ?? task.assignee?.name ?? t('assignee')),
+  );
+  const pointsLockedReason = $derived(
+    done ? t('taskSaveConflict', { task: t('task'), done: t('done'), points: t('points') }) : undefined,
+  );
+  const assigneeLockedReason = $derived(
+    done ? t('taskAssigneeDone', { task: t('task'), done: t('done'), assignee: t('assignee') }) : undefined,
+  );
+
+  // ---- 題の書き換え ----
+  const titleLockedReason = $derived(
+    done
+      ? t('cardTitleDone', { task: t('task'), done: t('done') })
+      : task.is_imported
+        ? t('cardTitleImported', { task: t('task') })
+        : undefined,
+  );
+  let editingTitle = $state(false);
+  let titleDraft = $state('');
+  // 書き始めた時点の題（保存の expected）。直している間に盤が読み直されて別の人の題が入っても、黙って上書きしない
+  let titleBase = '';
+  // 送っている間に出す題（通るまで）。null は task.title をそのまま出す
+  let titleSending = $state<string | null>(null);
+  let titleInput = $state<HTMLInputElement>();
+  let editButton = $state<HTMLButtonElement>();
+  const titleShown = $derived(titleSending ?? task.title);
+  // 直している間に書き込めなくなった（ワークスペースが終了した）ら、欄を閉じて書きかけを捨てる
+  $effect(() => {
+    if (attrs === undefined && untrack(() => editingTitle)) editingTitle = false;
+  });
+
+  async function beginTitle(): Promise<void> {
+    if (titleLockedReason !== undefined) {
+      // 押せない理由は title と読み上げのほか、押したときにも知らせる（指の画面には title が出ない）
+      showToast(titleLockedReason, 'alert');
+      return;
+    }
+    if (titleSending !== null) return;
+    titleBase = task.title;
+    titleDraft = task.title;
+    editingTitle = true;
+    await tick();
+    titleInput?.focus();
+    titleInput?.select();
+  }
+
+  // restoreFocus はキー（Enter と Esc）で終えたときだけ真。フォーカスが外れて終えたときは、移った先から奪わない
+  async function endTitle(restoreFocus: boolean): Promise<void> {
+    editingTitle = false;
+    if (!restoreFocus) return;
+    await tick();
+    editButton?.focus();
+  }
+
+  // byKey は Enter で確定したとき。偽はフォーカスが外れたとき
+  async function commitTitle(byKey: boolean): Promise<void> {
+    if (!editingTitle) return;
+    if (attrs === undefined) {
+      await endTitle(byKey);
+      return;
+    }
+    const next = titleDraft.trim();
+    if (next === titleBase) {
+      await endTitle(byKey);
+      return;
+    }
+    const problem = taskTitleMessage(next);
+    if (problem !== null) {
+      showToast(problem, 'alert');
+      // Enter では欄に留めて直してもらう。外れたときは欄へ引き戻さず、元の題に戻す
+      if (!byKey) await endTitle(false);
+      return;
+    }
+    // 送っている間にワークスペースが終了すると attrs は undefined に替わるので、送る前の配線を渡して最後まで使う
+    const target = attrs;
+    await endTitle(byKey);
+    await saveCardTitle({
+      target,
+      taskId: task.id,
+      title: next,
+      base: titleBase,
+      imported: task.is_imported,
+      setSending: (title) => (titleSending = title),
+    });
+  }
+
+  function titleKeydown(event: KeyboardEvent): void {
+    // 欄の中のキーは、カードの移動（Alt と矢印）に渡さない
+    event.stopPropagation();
+    if (event.isComposing || event.keyCode === 229) return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      void commitTitle(true);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      void endTitle(true);
+    }
+  }
   // 乗っている間に消えたカード（削除、列をまたぐ移動）は pointerleave が来ないので、破棄するときに強調を外す
   let hovering = false;
   function storyPointerEnter(event: PointerEvent): void {
@@ -140,6 +311,7 @@
   };
 
   function keydown(event: KeyboardEvent): void {
+    if (event.target instanceof HTMLInputElement) return;
     if (!selectable || !event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
     const direction = KEY_DIRECTIONS[event.key];
     if (direction === undefined || (done && direction !== 'left')) return;
@@ -209,14 +381,44 @@
   {/if}
   <!-- 横と真ん中のときは、押しても、フォーカスとスクロールの位置は動かさない（引き出しが閉じたとき、data-task-id で探してフォーカスを戻す）。ページ全体の既定では taskLinkAttrs が reset を外し、先頭から表示する -->
   <!-- eslint-disable svelte/no-navigation-without-resolve -- href は画面が resolve した経路に ?task=<ID> を足したもの、またはその詳細ページ -->
-  <a
-    class="card-title"
-    id={titleId}
-    href={taskDetailHref(href)}
-    data-task-id={task.id}
-    {...taskLinkAttrs()}
-    draggable="false">{task.title}</a
-  >
+  <div class="card-title-row">
+    <!-- 書き換えている間も題のリンクを残して隠す（カードの名前 aria-labelledby が指す要素を消さない） -->
+    <a
+      class="card-title"
+      id={titleId}
+      href={taskDetailHref(href)}
+      data-task-id={task.id}
+      hidden={editingTitle}
+      {...taskLinkAttrs()}
+      draggable="false">{titleShown}</a
+    >
+    {#if editingTitle}
+      <input
+        class="input"
+        type="text"
+        autocomplete="off"
+        aria-label={t('fieldTitle')}
+        bind:this={titleInput}
+        bind:value={titleDraft}
+        onkeydown={titleKeydown}
+        onblur={() => void commitTitle(false)}
+      />
+    {:else if attrs !== undefined}
+      <button
+        class="icon-btn card-edit-btn"
+        type="button"
+        bind:this={editButton}
+        aria-label={t('cardTitleEditLabel', { title: titleShown })}
+        title={titleLockedReason ?? t('cardTitleEditLabel', { title: titleShown })}
+        aria-disabled={titleLockedReason !== undefined || titleSending !== null ? 'true' : undefined}
+        aria-describedby={titleLockedReason !== undefined ? `${titleId}-locked` : undefined}
+        onclick={() => void beginTitle()}><Icon name="pen" /></button
+      >
+      {#if titleLockedReason !== undefined}
+        <span class="visually-hidden" id="{titleId}-locked">{titleLockedReason}</span>
+      {/if}
+    {/if}
+  </div>
   <!-- eslint-enable svelte/no-navigation-without-resolve -->
   {#if task.repository !== null || task.due_on !== null}
     <div class="card-meta">
@@ -227,7 +429,42 @@
     </div>
   {/if}
   <div class="card-foot">
-    {#if task.points === null}
+    {#if attrs !== undefined}
+      <AttrChip
+        attr={t('points')}
+        text={pointsShown === null ? t('points') : t('pointsValue', { value: pointsShown })}
+        unset={pointsShown === null}
+        options={pointOptions}
+        current={pointsShown === null ? '' : String(pointsShown)}
+        onselect={(value) => editor?.points.choose(value === '' ? null : (Number(value) as PointsChoice), true)}
+        locked={pointsLockedReason}
+        points
+      />
+      <AttrChip
+        attr={t('assignee')}
+        text={assigneeText}
+        unset={assigneeShownId === ''}
+        options={assigneeOptions}
+        current={assigneeShownId}
+        onselect={(value) => editor?.assignee.choose(value, true)}
+        locked={assigneeLockedReason}
+        searchable
+        actions={assigneeActions}
+        onopen={() => void editor?.loadCandidates()}
+        retry={candidatesFailed ? () => void editor?.loadCandidates() : undefined}
+        retrying={candidatesLoading}
+        failedNote={t('assigneeCandidatesFailed', { assignee: t('assignee') })}
+        busy={candidatesLoading}
+      >
+        {#snippet lead()}
+          {#if assigneeShownId === ''}
+            <Avatar userId={null} decorative />
+          {:else}
+            <Avatar userId={assigneeShownId} name={assigneeShown?.text ?? ''} decorative />
+          {/if}
+        {/snippet}
+      </AttrChip>
+    {:else if task.points === null}
       <span class="pts is-none" role="img" aria-label={t('pointsUnsetTitle')} title={t('pointsUnsetTitle')}
         >{t('pointsUnsetMark')}</span
       >
@@ -239,7 +476,9 @@
         title={t('pointsLabel', { points: t('points'), value: task.points })}>{task.points}</span
       >
     {/if}
-    {#if task.assignee === null}
+    {#if attrs !== undefined}
+      <!-- 担当は、上のチップが出している -->
+    {:else if task.assignee === null}
       <Avatar userId={null} />
     {:else}
       <Avatar userId={task.assignee.id} name={task.assignee.name} />

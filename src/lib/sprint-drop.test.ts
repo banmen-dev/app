@@ -14,6 +14,7 @@ function card(id: string, extra: Partial<SprintBoardTask> = {}): SprintBoardTask
     due_on: null,
     repository: null,
     can_delete: false,
+    is_imported: false,
     ...extra,
   };
 }
