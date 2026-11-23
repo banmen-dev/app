@@ -10,6 +10,9 @@ updates:
       day: monday
       time: "09:00"
       timezone: Asia/Tokyo
+    # 公開から日を置き、乗っ取られて出た版が取り下げられる間を待つ
+    cooldown:
+      default-days: 7
     groups:
       npm:
         patterns:
@@ -27,6 +30,12 @@ updates:
       day: monday
       time: "09:00"
       timezone: Asia/Tokyo
+    cooldown:
+      default-days: 7
+    # 版を上げるときに、起動経路と自動で読むファイルを人が確かめ直す（docs/development.md の「CI」）。
+    # scripts/ai-review-workspace.test.ts も固定の SHA を見るので、上げる PR で一緒に直す
+    ignore:
+      - dependency-name: anthropics/claude-code-action
     groups:
       github-actions:
         patterns:

@@ -145,3 +145,16 @@ describe('needs-human の .claude/ の規則', () => {
     }
   });
 });
+
+describe('needs-human の依存の規則', () => {
+  test('Dependabot の更新が触るパスは守る（人が差分を読んでマージするため。docs/development.md の「定期の作業」）', () => {
+    for (const path of [
+      'package.json',
+      'pnpm-lock.yaml',
+      '.github/workflows/ci.yml',
+      '.github/actions/setup/action.yml',
+    ]) {
+      assert.equal(needsHuman(path), true, path);
+    }
+  });
+});
