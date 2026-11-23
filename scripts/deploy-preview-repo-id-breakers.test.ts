@@ -6,7 +6,7 @@ import { openPreviewBranches } from './deploy-preview.ts';
 // 掃除の照合を崩す手口。既存のテストに無い型の揺れ・ページ送り・値の一致を確かめる。
 const own = (ref: string) => ({ head: { ref, repo: { id: PREVIEW_REPOSITORY_ID } } });
 
-test('Worker と掃除が読む ID は scrum-guild-dev/app の ID（1425341812）', () => {
+test('Worker と掃除が読む ID は banmen-dev/app の ID（1425341812）', () => {
   assert.equal(PREVIEW_REPOSITORY_ID, 1425341812);
 });
 

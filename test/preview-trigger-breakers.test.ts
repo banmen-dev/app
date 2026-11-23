@@ -8,7 +8,7 @@ const workerTag = 'b'.repeat(32);
 const triggerId = '182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e';
 const buildTokenId = '84c98460-ff84-4ab5-a1ab-d453d8f7df46';
 const request: PreviewRequest = { issue: '42', pr: 81, branch: '42-preview', sha: 'c'.repeat(40) };
-const repo = { id: 1425341812, full_name: 'scrum-guild-dev/app' };
+const repo = { id: 1425341812, full_name: 'banmen-dev/app' };
 const parked = 'preview-builds-parked';
 const commands = {
   build_command: 'APP_VERSION=$(git rev-parse HEAD) && export APP_VERSION && pnpm build',
@@ -21,7 +21,7 @@ const config = {
   git_repository: {
     provider_type: 'github',
     repo_id: String(repo.id),
-    provider_account_name: 'scrum-guild-dev',
+    provider_account_name: 'banmen-dev',
     repo_name: 'app',
     branch: parked,
   },

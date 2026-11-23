@@ -240,8 +240,8 @@ describe('.githooks', () => {
       assert.deepEqual(
         calls.filter((c) => !c.includes('--jq')),
         [
-          'api -X POST repos/scrum-guild-dev/app/issues/12/labels -f labels[]=status:in-progress',
-          'api -X DELETE repos/scrum-guild-dev/app/issues/12/labels/status:refining',
+          'api -X POST repos/banmen-dev/app/issues/12/labels -f labels[]=status:in-progress',
+          'api -X DELETE repos/banmen-dev/app/issues/12/labels/status:refining',
         ],
       );
     });

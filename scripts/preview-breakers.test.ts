@@ -84,7 +84,7 @@ for (const branch of ['main', '374-preview']) {
         openPreviewBranches(async () => {
           if (++requestedPages > 1) throw new Error('GitHub timeout');
           return Array.from({ length: 100 }, () => ({
-            head: { ref: '275-feature', repo: { id: 1425341812, full_name: 'scrum-guild-dev/app' } },
+            head: { ref: '275-feature', repo: { id: 1425341812, full_name: 'banmen-dev/app' } },
           }));
         }),
       publish: async () => assert.fail('掃除できず D1 が多いので公開しない'),

@@ -39,7 +39,7 @@ export function previewTriggerOutbound() {
   let posts = 0;
   let entered = Promise.withResolvers<void>();
   let released = Promise.withResolvers<void>();
-  const repository = { id: PREVIEW_REPOSITORY_ID, full_name: 'scrum-guild-dev/app' };
+  const repository = { id: PREVIEW_REPOSITORY_ID, full_name: 'banmen-dev/app' };
   const firstSha = 'a'.repeat(40);
 
   function reply(res: FixtureResponse, status: number, body?: unknown) {
@@ -92,7 +92,7 @@ export function previewTriggerOutbound() {
           git_repository: {
             provider_type: 'github',
             repo_id: String(PREVIEW_REPOSITORY_ID),
-            provider_account_name: 'scrum-guild-dev',
+            provider_account_name: 'banmen-dev',
             repo_name: 'app',
             branch: 'preview-builds-parked',
           },

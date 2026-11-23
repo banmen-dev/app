@@ -36,7 +36,7 @@
 
 ## 後続 Issue
 
-親 #827 の下に登録済みの [#1054](https://github.com/scrum-guild-dev/app/issues/1054)（招待件数）は逐次の構造上の候補。[#1055](https://github.com/scrum-guild-dev/app/issues/1055)（今日）、[#1056](https://github.com/scrum-guild-dev/app/issues/1056)（バックログ）、[#1057](https://github.com/scrum-guild-dev/app/issues/1057)（計画）、[#1058](https://github.com/scrum-guild-dev/app/issues/1058)（エピック）は、この方式では実装可否を判定できない。両方の過大な解釈を撤回した旨を各 Issue に追記し、追加測定を先にする。現在の状態と今後の判断は GitHub を正とし、本文の写しは文書に持たない。
+親 #827 の下に登録済みの [#1054](https://github.com/banmen-dev/app/issues/1054)（招待件数）は逐次の構造上の候補。[#1055](https://github.com/banmen-dev/app/issues/1055)（今日）、[#1056](https://github.com/banmen-dev/app/issues/1056)（バックログ）、[#1057](https://github.com/banmen-dev/app/issues/1057)（計画）、[#1058](https://github.com/banmen-dev/app/issues/1058)（エピック）は、この方式では実装可否を判定できない。両方の過大な解釈を撤回した旨を各 Issue に追記し、追加測定を先にする。現在の状態と今後の判断は GitHub を正とし、本文の写しは文書に持たない。
 
 ## 今日の画面の再測定（#1065）
 

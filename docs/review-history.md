@@ -57,9 +57,9 @@ API が失敗したら、そのファイルから集計を続けない。
 set -eu
 review_dir=$(mktemp -d "${TMPDIR:-/tmp}/scrum-review.XXXXXX")
 cd "$review_dir"
-gh api --paginate --slurp 'repos/scrum-guild-dev/app/pulls?state=all&per_page=100' > prs.json
-gh api --paginate --slurp 'repos/scrum-guild-dev/app/pulls/comments?per_page=100' > inline.json
-gh api --paginate --slurp 'repos/scrum-guild-dev/app/issues/comments?per_page=100' > conversations.json
+gh api --paginate --slurp 'repos/banmen-dev/app/pulls?state=all&per_page=100' > prs.json
+gh api --paginate --slurp 'repos/banmen-dev/app/pulls/comments?per_page=100' > inline.json
+gh api --paginate --slurp 'repos/banmen-dev/app/issues/comments?per_page=100' > conversations.json
 ```
 
 `--slurp` の結果はページごとの配列になる。
@@ -84,7 +84,7 @@ reviews = []
 for number in sorted(numbers):
     result = subprocess.run(
         ['gh', 'api', '--paginate', '--slurp',
-         f'repos/scrum-guild-dev/app/pulls/{number}/reviews?per_page=100'],
+         f'repos/banmen-dev/app/pulls/{number}/reviews?per_page=100'],
         check=True, capture_output=True, text=True,
     )
     reviews.append({'pr': number, 'reviews': sum(json.loads(result.stdout), [])})

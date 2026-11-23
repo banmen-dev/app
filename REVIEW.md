@@ -22,7 +22,7 @@ CI やスキルがこのファイルを自動で読み込む設定は追加し�
 - [ ] 文書の一部を置き換えたとき、周辺の別の仕様や未実装の要件を消していない。
 - [ ] コメントや PR 本文が主張する保証を、実装と検査結果で説明できる。
 
-確認例: [#780 部品のカタログ漏れ](https://github.com/scrum-guild-dev/app/pull/780#discussion_r4453368890)、[#782 別の仕様の上書き](https://github.com/scrum-guild-dev/app/pull/782#discussion_r4453485215)、[#791 手順と取得データの不一致](https://github.com/scrum-guild-dev/app/pull/791#discussion_r4456107846)。
+確認例: [#780 部品のカタログ漏れ](https://github.com/banmen-dev/app/pull/780#discussion_r4453368890)、[#782 別の仕様の上書き](https://github.com/banmen-dev/app/pull/782#discussion_r4453485215)、[#791 手順と取得データの不一致](https://github.com/banmen-dev/app/pull/791#discussion_r4456107846)。
 
 ### 2. 画面を移った後と再試行後の状態
 
@@ -32,7 +32,7 @@ CI やスキルがこのファイルを自動で読み込む設定は追加し�
 
 確認方法: A で失敗または編集中にして B へ移る、応答を逆順で返す、失敗後に再試行する。
 
-確認例: [#781 競合後も古い版を送る](https://github.com/scrum-guild-dev/app/pull/781#discussion_r4453564857)、[#782 移動前の通知と並べ替え状態が残る](https://github.com/scrum-guild-dev/app/pull/782#discussion_r4453579534)、[#790 再試行成功後も失敗が残る](https://github.com/scrum-guild-dev/app/pull/790#discussion_r4456105468)。
+確認例: [#781 競合後も古い版を送る](https://github.com/banmen-dev/app/pull/781#discussion_r4453564857)、[#782 移動前の通知と並べ替え状態が残る](https://github.com/banmen-dev/app/pull/782#discussion_r4453579534)、[#790 再試行成功後も失敗が残る](https://github.com/banmen-dev/app/pull/790#discussion_r4456105468)。
 
 ### 3. 壊した実装で落ちるテスト
 
@@ -43,7 +43,7 @@ CI やスキルがこのファイルを自動で読み込む設定は追加し�
 確認方法: 対象のガードや比較を外したら失敗するかを読む。必要な回帰テストを足す。
 手元の e2e 実行は禁止のため、e2e の結果は PR の CI で確かめる。
 
-確認例: [#765 一覧保持の検査が弱い](https://github.com/scrum-guild-dev/app/pull/765#discussion_r4446150944)、[#783 通信到着前に否定の検査が通る](https://github.com/scrum-guild-dev/app/pull/783#discussion_r4453850437)、[#788 固定日付で期限切れになる](https://github.com/scrum-guild-dev/app/pull/788#discussion_r4455466502)。
+確認例: [#765 一覧保持の検査が弱い](https://github.com/banmen-dev/app/pull/765#discussion_r4446150944)、[#783 通信到着前に否定の検査が通る](https://github.com/banmen-dev/app/pull/783#discussion_r4453850437)、[#788 固定日付で期限切れになる](https://github.com/banmen-dev/app/pull/788#discussion_r4455466502)。
 
 ### 4. 狭い画面と支援技術での操作
 
@@ -51,7 +51,7 @@ CI やスキルがこのファイルを自動で読み込む設定は追加し�
 - [ ] ダイアログの開始時と終了時にフォーカスが適切に移る。非表示の祖先の中に操作対象を置いていない。
 - [ ] 表の見出し、読み上げ、通知、押せる範囲がデザインシステムの作法に合う。新しい部品の状態をカタログにも置く。
 
-確認例: [#40 ダイアログを閉じた後のフォーカス](https://github.com/scrum-guild-dev/app/pull/40#discussion_r4368137135)、[#780 狭い幅での長い名前](https://github.com/scrum-guild-dev/app/pull/780#discussion_r4453127350)、[#781 操作列の見出し](https://github.com/scrum-guild-dev/app/pull/781#discussion_r4453565456)。
+確認例: [#40 ダイアログを閉じた後のフォーカス](https://github.com/banmen-dev/app/pull/40#discussion_r4368137135)、[#780 狭い幅での長い名前](https://github.com/banmen-dev/app/pull/780#discussion_r4453127350)、[#781 操作列の見出し](https://github.com/banmen-dev/app/pull/781#discussion_r4453565456)。
 
 ### 5. 結果件数と処理量の上限
 
@@ -59,7 +59,7 @@ CI やスキルがこのファイルを自動で読み込む設定は追加し�
 - [ ] 通常の操作、連打、複数タブでもレート制限を使い切りにくく、制限後の回復方法がある。
 - [ ] 件数に比例する問い合わせ、読み込み、削除は、共有 D1 と Workers の制約に収まる単位に分けている。
 
-確認例: [#600 発行と取消で行が増える](https://github.com/scrum-guild-dev/app/pull/600#discussion_r4431229647)、[#783 結果の上限では走査を制限できない](https://github.com/scrum-guild-dev/app/pull/783#discussion_r4453451926)、[#787 作成と終了で行が増える](https://github.com/scrum-guild-dev/app/pull/787#discussion_r4455178379)。
+確認例: [#600 発行と取消で行が増える](https://github.com/banmen-dev/app/pull/600#discussion_r4431229647)、[#783 結果の上限では走査を制限できない](https://github.com/banmen-dev/app/pull/783#discussion_r4453451926)、[#787 作成と終了で行が増える](https://github.com/banmen-dev/app/pull/787#discussion_r4455178379)。
 
 ### 6. 読み取りから書き込みまでの競合
 
@@ -67,7 +67,7 @@ CI やスキルがこのファイルを自動で読み込む設定は追加し�
 - [ ] 一体で成立すべき更新は、決められた DB の入口から1回の `batch()` に送る。共通の表と組織の表は混ぜない。
 - [ ] 同時実行、二重送信、途中失敗の後に、不整合や二重登録が残らない。許容する競合は仕様に書く。
 
-確認例: [#100 検査後に所属や終了状態が変わる](https://github.com/scrum-guild-dev/app/pull/100#discussion_r4370282524)、[#148 同時作成で並び順が重なる](https://github.com/scrum-guild-dev/app/pull/148#discussion_r4371450110)、[#409 削除中の再開で一部だけ消える](https://github.com/scrum-guild-dev/app/pull/409#discussion_r4394405425)。
+確認例: [#100 検査後に所属や終了状態が変わる](https://github.com/banmen-dev/app/pull/100#discussion_r4370282524)、[#148 同時作成で並び順が重なる](https://github.com/banmen-dev/app/pull/148#discussion_r4371450110)、[#409 削除中の再開で一部だけ消える](https://github.com/banmen-dev/app/pull/409#discussion_r4394405425)。
 
 ### 7. データの境界と秘密の露出
 
@@ -75,7 +75,7 @@ CI やスキルがこのファイルを自動で読み込む設定は追加し�
 - [ ] 同じ組織でも所属していないワークスペースと、別の組織の ID を使う失敗経路を検査している。別の組織の ID は存在しない場合と同じ404にする。
 - [ ] アプリのログだけでなく、基盤の自動ログや調査用の詳細出力にも秘密が残らない。
 
-確認例: [#43 自動ログに URL が残る](https://github.com/scrum-guild-dev/app/pull/43#discussion_r4368238846)、[#99 DB の入口だけでは組織を絞れない](https://github.com/scrum-guild-dev/app/pull/99#discussion_r4370112826)、[#100 同じ組織の別ワークスペースに届く](https://github.com/scrum-guild-dev/app/pull/100#discussion_r4370282438)。
+確認例: [#43 自動ログに URL が残る](https://github.com/banmen-dev/app/pull/43#discussion_r4368238846)、[#99 DB の入口だけでは組織を絞れない](https://github.com/banmen-dev/app/pull/99#discussion_r4370112826)、[#100 同じ組織の別ワークスペースに届く](https://github.com/banmen-dev/app/pull/100#discussion_r4370282438)。
 
 ### 8. 守る仕組みの失敗経路と対象の版
 
@@ -83,7 +83,7 @@ CI やスキルがこのファイルを自動で読み込む設定は追加し�
 - [ ] 許可したコマンドに、結合したオプション、入れ子、行継続、リダイレクトを加えても、許可の範囲が広がらない。
 - [ ] CI が使う信頼済みのスクリプトの版と、レビューする PR の版を区別している。確認した base と head が対象と一致する。
 
-確認例: [#11 パイプの失敗が成功になる](https://github.com/scrum-guild-dev/app/pull/11#discussion_r4357499522)、[#22 結合したオプションで判定を通る](https://github.com/scrum-guild-dev/app/pull/22#discussion_r4367720870)、[#774 変更前のファイルをレビューする](https://github.com/scrum-guild-dev/app/pull/774#discussion_r4452157086)。
+確認例: [#11 パイプの失敗が成功になる](https://github.com/banmen-dev/app/pull/11#discussion_r4357499522)、[#22 結合したオプションで判定を通る](https://github.com/banmen-dev/app/pull/22#discussion_r4367720870)、[#774 変更前のファイルをレビューする](https://github.com/banmen-dev/app/pull/774#discussion_r4452157086)。
 
 ## 参考記事から補う観点
 

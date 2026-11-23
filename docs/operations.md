@@ -60,7 +60,7 @@ R2 の `system/attachment-quota-warning-cursor` と `system/notification-cleanup
 
 ### Workers Builds の接続
 
-Workers & Pages の「Create application」→「Continue with GitHub」で、リポジトリ `scrum-guild-dev/app` を選び、Project name を `scrum-guild`（`wrangler.jsonc` の `name` と同じ）にして作る。Worker が既にあるときは、その Worker の Settings の Builds でつなぐ。GitHub の Cloudflare のアプリには、このリポジトリと紹介サイトのリポジトリ `scrum-guild-dev/website` だけを許可する。紹介サイトの Worker `scrum-guild-website` の Builds の設定は、`scrum-guild-dev/website` の README の「デプロイ」に書く。
+Workers & Pages の「Create application」→「Continue with GitHub」で、リポジトリ `banmen-dev/app` を選び、Project name を `scrum-guild`（`wrangler.jsonc` の `name` と同じ）にして作る。Worker が既にあるときは、その Worker の Settings の Builds でつなぐ。GitHub の Cloudflare のアプリには、このリポジトリと紹介サイトのリポジトリ `banmen-dev/website` だけを許可する。紹介サイトの Worker `scrum-guild-website` の Builds の設定は、`banmen-dev/website` の README の「デプロイ」に書く。
 
 2026-11-03 に個人所有の `ucan-lab/scrum-guild` から Organization の `scrum-guild-dev/app` へ移管した。移管後は、GitHub の新しい Organization で Cloudflare のアプリの許可と、既存の本番・見本の両 Worker の Builds の接続先を確認する。Worker、D1、R2、公開 URL は移管で作り直さない。GitHub のリポジトリの移管だけで Builds の再接続が済んだとは扱わない。Cloudflare 側の GitHub 接続フローから新しい Organization を認可する。GitHub の App のページから直接インストールしただけでは、Cloudflare の接続先として登録されない場合がある。
 
@@ -360,7 +360,7 @@ PR の版は本番を載せていない専用 Cloudflare アカウントの Work
 2. Worker の Settings の Domains & Routes で `workers.dev` と Preview URLs を有効にし、Cloudflare Access を有効にする。Zero Trust のアプリで許可する人のメールアドレスを絞り、さらに Service Auth の方針で、この用途専用のサービストークンを許可する。Worker の通常 URL だけでなく、`pr-374-banmen-preview.<プレビュー用サブドメイン>.workers.dev` などの alias と版の URL、`/api/*` も保護する。Access 無しで開ける URL を残さない。既存の本番に Access を付ける操作ではない
 3. 専用アカウントの R2 は有効化しない。共有プレビューでは添付ファイルとプロフィール画像の操作を無効にする。
 4. プレビュー Worker に `CONNECTION_CREDENTIAL_KEYS` を Secret として登録する。鍵の書式は上の「シークレット」を参照し、本番とは別の鍵を作る。seed の運用者は生成設定の `OPERATOR_LOGIN_IDS` で指定する。GitHub/Google OAuth、メール、外部連携の本番の秘密は入れない。seed ログインで確かめる
-5. `scrum-guild-dev/app` へ2本目の Workers Builds を接続する。初回は Disable builds のまま下の表を保存し、Access の未認証リクエストが拒否されることを確認してから有効に戻す。D1 はスクリプトが作るため手で作らない。番号付き PR の起動は下の専用 Worker に任せる。
+5. `banmen-dev/app` へ2本目の Workers Builds を接続する。初回は Disable builds のまま下の表を保存し、Access の未認証リクエストが拒否されることを確認してから有効に戻す。D1 はスクリプトが作るため手で作らない。番号付き PR の起動は下の専用 Worker に任せる。
 
 | 項目 | 値 |
 | --- | --- |
@@ -382,7 +382,7 @@ GitHub のリポジトリ Webhook と、`wrangler.preview-trigger.jsonc` で別�
 1. 共通プレビュー Worker の Builds の自動起動を上の表に揃え、ブランチ固定のデプロイフックがあれば起動元から外す。GitHub の `preview-builds-parked` は Builds の接続にだけ使う。作成後は push しないよう更新を制限する。Builds は有効にし、非本番の自動起動は無効のままにする。
 2. Cloudflare の [Builds API](https://developers.cloudflare.com/workers/ci-cd/builds/api-reference/) で、`banmen-preview` の Worker タグと、その接続のトリガー UUID を確認する。起動専用 Worker の変数 `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_PREVIEW_WORKER_TAG`（Worker タグ）、`CLOUDFLARE_PREVIEW_TRIGGER_ID`（トリガー UUID）に設定する。Cloudflare ダッシュボードで配信用トークンの Resources が専用アカウント1件だけであることを確認し、そのトークンの UUID を `CLOUDFLARE_PREVIEW_BUILD_TOKEN_ID` に設定する。起動側は本番アカウントを拒み、接続先・コマンド・トークンが一致するときだけ Builds を起動する。
 3. 起動専用 Worker の Secret `CLOUDFLARE_BUILD_TRIGGER_TOKEN` に、専用アカウント1件の Workers Builds Configuration Edit（Workers CI Write）だけを持つユーザー API トークンを設定する。起動のトークンと Builds がデプロイに使うトークンを分ける。GitHub Actions にどちらのトークンも置かない。
-4. 起動専用 Worker の Secret `GITHUB_WEBHOOK_SECRET` と、`scrum-guild-dev/app` の Webhook の Secret に同じ十分に長い乱数を設定する。Content type は `application/json`、イベントは Pull requests、配信先は専用 Worker の HTTPS URL の `/github/webhook`。受信 Worker が GitHub から直接到達できることを確かめる。プレビュー画面にかかる Access の設定は変えない。
+4. 起動専用 Worker の Secret `GITHUB_WEBHOOK_SECRET` と、`banmen-dev/app` の Webhook の Secret に同じ十分に長い乱数を設定する。Content type は `application/json`、イベントは Pull requests、配信先は専用 Worker の HTTPS URL の `/github/webhook`。受信 Worker が GitHub から直接到達できることを確かめる。プレビュー画面にかかる Access の設定は変えない。
 5. 架空データ用の番号付き PR で、受付後に対象ブランチとコミット SHA の Builds が1件起き、`WORKERS_CI_BRANCH` が対象ブランチと一致し、`pr-<Issue番号>` が Access の背後に出ることを確認する。PR を更新したときに同じ Issue のビルドが重ならないことも確認する。fork や番号なしの PR は受け付けても Builds は起動しない。
 
 #### Builds のキューを復旧する

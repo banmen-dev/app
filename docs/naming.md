@@ -15,7 +15,7 @@
 - 改めた（#1415）: `package.json` の名前、CLI の設定の置き場所（`~/.config/banmen/`。前の `~/.config/scrum-guild/` に設定があれば、`banmen` に無いときに読み、次に書いたときに移る）、MCP のサーバー名と登録の名前の例、GitHub に送る User-Agent、テストと手元の一時ディレクトリの名前、クラウドの環境のセットアップスクリプトが探す名前（前の名前も探す）
 - #1416 で改める: 本番、プレビュー、見本（#1425。設定の `name` は `banmen-design` に改め、ダッシュボードの名前は人が変える）の Worker の名前と公開 URL、D1 と R2 の名前、Workers Builds と Cloudflare Access の設定、GitHub の OAuth App の戻り先、GitHub の Organization とリポジトリ、ドメイン（旧名で取る予定だったドメインの代わり。名前は未定）、claude.ai/code のクラウドの環境の名前。コードだけを先に改めると、Workers Builds の接続先との食い違い、添付のバケットが無い、OAuth の戻り先が合わない、という形で本番とプレビューが壊れるため
 
-GitHub の Organization は `scrum-guild-dev` から `banmen-dev` に改める（2026-11-23 に決めた。`banmen` は別の人が使っていた）。リポジトリは `banmen-dev/app` と `banmen-dev/website` に変わり、改名は本番の URL を移した日（#1423）より後の別の日に人が行う。手順と確認の一覧は `operations.md` の「GitHub の Organization を banmen-dev に移す」。旧名は、過去のリンクも含めてリポジトリの中の名前を書き換え（#1460）、全員が手元の remote を変えた後に、空の Organization として取って押さえておく。
+GitHub の Organization は `scrum-guild-dev` から `banmen-dev` に改めた（2026-11-23 に決めた。`banmen` は別の人が使っていた）。リポジトリは `banmen-dev/app` と `banmen-dev/website`。改名は本番の URL を移した日（#1423）より後の別の日に人が行い、手順と確認の一覧は `operations.md` の「GitHub の Organization を banmen-dev に移す」にある。リポジトリの中の名前は、過去のリンクも含めて `banmen-dev` にそろえてある（#1460）。旧名は、全員が手元の remote を変えた後に、空の Organization として取って押さえておく。
 
 Google Cloud の OAuth の同意画面のアプリ名（`operations.md` の「Google のログイン」）は、利用者がログインで目にする表示なので `Banmen` にそろえる。本番と開発用の設定は、人が Google Cloud コンソールで改める。
 
