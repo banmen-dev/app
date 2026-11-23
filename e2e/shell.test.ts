@@ -374,15 +374,17 @@ test.describe('高さの低い指で押す画面の左のメニュー', () => {
       await expect(brand).toBeInViewport({ ratio: 1 });
       await brand.click({ trial: true });
 
-      // 組織の一覧は上の帯の下に浮かび、列を送った後に開いても切れない。
-      await page.locator('.topbar .org-menu-button').click();
+      // 組織の一覧は上の帯のボタンの下に浮かび、列を送った後に開いても切れない。
+      const orgButton = page.locator('.topbar .org-menu-button');
+      await orgButton.click();
       const list = page.getByRole('list', { name: '入れる組織' });
       await expect(list).toBeVisible();
       // 表示直後は translate: 0 -4px から出る途中なので、動きが終わってから位置を測る。
       await expect(list).toHaveCSS('translate', /^0px(?: 0px)?$/);
-      const barBottom = (await page.locator('.topbar').boundingBox())!;
+      const buttonBox = (await orgButton.boundingBox())!;
       const listBox = (await list.boundingBox())!;
-      expect(listBox.y).toBeGreaterThanOrEqual(barBottom.y + barBottom.height);
+      // アカウントのメニューと同じく、ボタンのすぐ下（帯の下の余白に重ねて）開く
+      expect(listBox.y).toBeGreaterThanOrEqual(buttonBox.y + buttonBox.height);
       expect(listBox.x + listBox.width).toBeLessThanOrEqual(viewport.width);
       const lastLink = list.getByRole('link').last();
       await lastLink.scrollIntoViewIfNeeded();
@@ -1151,14 +1153,14 @@ test('角のマスにマークと開閉のボタンが並び、組織の切り�
   await brand.click();
   await expect(page).toHaveURL(/\/aoba$/);
 
-  // 組織の名前を押すと、一覧が帯の下に、ボタンの右端に揃えて開き、画面の右からはみ出さない
+  // 組織の名前を押すと、一覧がボタンの下に、ボタンの右端に揃えて開き、画面の右からはみ出さない
   await org.click();
   const list = page.getByRole('list', { name: '入れる組織' });
   await expect(list).toBeVisible();
   await expect(list).toHaveCSS('translate', /^0px(?: 0px)?$/);
   const listBox = (await list.boundingBox())!;
   const openedOrg = (await org.boundingBox())!;
-  expect(listBox.y).toBeGreaterThanOrEqual(barBox.y + barBox.height);
+  expect(listBox.y).toBeGreaterThanOrEqual(openedOrg.y + openedOrg.height);
   expect(Math.abs(listBox.x + listBox.width - (openedOrg.x + openedOrg.width))).toBeLessThanOrEqual(1);
   expect(listBox.x + listBox.width).toBeLessThanOrEqual(1280);
   await expect(list.getByRole('link', { name: 'あおば開発' })).toHaveAttribute('aria-current', 'page');
