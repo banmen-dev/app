@@ -706,7 +706,7 @@ D1 はスキーマも `d1_migrations` もそのまま写すので、写した後
 
 ### 当日
 
-1. チームに、使わない時間に入ったことを告げる
+1. チームに、使わない時間に入ったことを告げる。手順 8 で再開を告げるまで、使わない時間は続く
 2. 書き出して流し込む。書き出しは毎時 0 分（添付の掃除が動く）をまたがない時刻に始める
 
    ```sh
@@ -725,7 +725,7 @@ D1 はスキーマも `d1_migrations` もそのまま写すので、写した後
    - 消えた行: `sessions`、`oauth_states`、`rate_limits`、`api_tokens` のうち、期限（`expires_at` など）が書き出した時刻より前の行。保持期限を過ぎて消えた `wiki_pages`、`wiki_page_revisions` の行。毎時 0 分の掃除が消した、付く先の無い `attachments` の行。既読から日が経って消えた `notifications` の行
    - 足された行と変わった行: 容量の警告の `notifications` と `organizations` の警告の列。お試しの期限切れで停止した `organizations` の停止の列と、それを記す `change_logs` の行
    - それ以外（`api_tokens` の取り消し、期限内のセッションの削除、`organizations` の停止や契約のほかの列、ほかの表の行）が1つでもあれば、人が書いている。`banmen` を作り直して手順 2 からやり直す（ID が変わるので PR を直す）
-6. 切り替えの PR をマージし、続けて Release を publish する。ビルドのログで、当てるマイグレーションが無いことと、煙のテストが通ったことを見る
+6. マージの前に `git fetch origin` し、`git log --oneline origin/production..origin/main` が何も出さないことを確かめる。出たら、切り替え以外の変更が Release に混ざるので、先にそれを出し切ってから戻る。続けて切り替えの PR をマージし、Release を publish する。ビルドのログで、当てるマイグレーションが無いことと、煙のテストが通ったことを見る
 7. 切り替え前からログインしていたブラウザで `https://banmen.ucan-lab.workers.dev/` を開き、ログインし直さずに組織の画面が出ることを見る。既存のタスク、Wiki のページ、添付ファイル、プロフィール画像を開き、新しい添付ファイルを上げて開く。あわせて次を見る
    - Worker の Settings の Bindings で、`DB` が `banmen`、`ATTACHMENTS` が `banmen-attachments` を指す
    - Workers Logs で、毎分の cron がエラーを出さない
