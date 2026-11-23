@@ -23,11 +23,12 @@ export const load: PageLoad = async ({ fetch, url }) => {
       callOperation(billingAdminList, { slug: organization.slug }, { fetcher: fetch }),
       callOperation(billingOrganizationSummary, { slug: organization.slug }, { fetcher: fetch }),
     ]);
-    if (!details.ok || !summary.ok) return { failed: true as const };
+    if (!details.ok) return { failed: true as const };
+    // 契約と使用量だけが読めなかったときは、その紙に失敗を出し、担当者の管理は使えるままにする
     return {
       failed: false as const,
       ...result.data,
-      selected: { ...organization, ...details.data, summary: summary.data },
+      selected: { ...organization, ...details.data, summary: summary.ok ? summary.data : null },
     };
   }
   return { failed: false as const, ...result.data, selected: null };

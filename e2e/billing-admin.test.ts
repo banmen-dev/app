@@ -290,6 +290,31 @@ test('解約で停止した未契約の組織は、消す予定日と未契約�
   await expect(page.getByText(t('orgPlanExtraLabel'), { exact: true })).toHaveCount(0);
 });
 
+test('契約と使用量だけが読めなくても、担当者の管理は使える', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'admin');
+  await mockOperation(page, myBillingOrganizations, {
+    account_id: accountId,
+    operator: false,
+    organizations: [listed],
+    invitations: [],
+  });
+  await mockOperation(page, billingAdminList, {
+    administrators: [{ id: accountId, account_id: accountId, name: '星野 澪', status: 'active' }],
+    events: [],
+  });
+  await failOperation(page, billingOrganizationSummary, 500, 'internal');
+  await page.goto('/auth/billing?organization=aoba');
+  await expect(page.getByText(t('billingSummaryLoadFailed'), { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: t('billingAdministrators', { name: organization.name }) }),
+  ).toBeVisible();
+  await expect(page.getByText('星野 澪', { exact: true })).toBeVisible();
+  await mockOperation(page, billingOrganizationSummary, summary);
+  await page.getByRole('button', { name: t('retry'), exact: true }).click();
+  await expect(page.getByText(t('billingSummaryLoadFailed'), { exact: true })).toHaveCount(0);
+  await expect(page.getByText(t('billingUsageSeats', { used: '12', limit: '15' }), { exact: true })).toBeVisible();
+});
+
 test('未ログインでは請求の専用画面からログインへ戻る', async ({ page }) => {
   await page.goto('/auth/billing');
   await expect(page).toHaveURL(/\/login\?return_to=%2Fauth%2Fbilling/);

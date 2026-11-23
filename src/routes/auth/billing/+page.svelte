@@ -154,7 +154,12 @@
     {#if data.selected}
       {@const selected = data.selected}
       <GateSheet title={t('billingSummary', { name: selected.name })}>
-        <BillingSummary summary={selected.summary} />
+        {#if selected.summary === null}
+          <p class="field-error" role="alert">{t('billingSummaryLoadFailed')}</p>
+          <div class="form-actions">
+            <button class="btn is-sm" type="button" onclick={() => invalidateAll()}>{t('retry')}</button>
+          </div>
+        {:else}<BillingSummary summary={selected.summary} />{/if}
       </GateSheet>
       <GateSheet title={t('billingAdministrators', { name: selected.name })}>
         <div class="form-actions"><a class="btn" href={resolve('/auth/billing')}>{t('billingBack')}</a></div>

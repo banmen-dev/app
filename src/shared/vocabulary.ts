@@ -121,6 +121,8 @@ export const dictionary = defineDictionary({
   billingOpen: '請求管理者を管理する',
   // 担当組織の契約と使用量（#1241）。契約の語は組織の管理のプランの節（orgPlan*、planTerms、operatorPlanNone）と同じ
   billingSummary: '{name}の契約と使用量',
+  // 契約と使用量だけが読めなかったとき。担当者の管理は続けて使える
+  billingSummaryLoadFailed: '契約と使用量を読み込めませんでした。担当者の管理はこのまま使えます。',
   billingStateLabel: '利用の状態',
   billingStateActive: '利用中',
   billingStateSuspended: '一時停止中',
