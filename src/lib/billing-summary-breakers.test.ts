@@ -164,7 +164,7 @@ describe('お試しの期限と消す予定日の出し方', () => {
     const { body } = render(BillingSummary, {
       props: { summary: summaryOf({ state: 'suspended', trial_ends_on: '2020-01-01', contract: null }) },
     });
-    expect(body).toMatch(/class="chip is-danger"[^>]*>[\s\S]*お試しの期限を過ぎています/);
+    expect(body).toMatch(/class="chip is-danger is-name"[^>]*>[\s\S]*お試しの期限を過ぎています/);
   });
   test('契約のある組織には、お試しの期限を出さない（契約を付けるとお試しは終わる）', () => {
     const text = textOf(summaryOf({ trial_ends_on: '2020-01-01' }));

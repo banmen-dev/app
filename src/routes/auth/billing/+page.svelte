@@ -93,6 +93,8 @@
     busy = true;
     actionArea = area;
     message = null;
+    // 担当者の保存で契約と使用量も読み直すので、前の読み直しの失敗の文は消しておく
+    retryFailed = false;
     let restore = false;
     try {
       const result = await action();

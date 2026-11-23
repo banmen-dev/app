@@ -46,7 +46,7 @@ const summary = (org) => `<section class="gate-sheet">
   ${title("billingSummary", org.name)}
   <dl class="props">
     <div><dt>${t("billingStateLabel")}</dt><dd>${stateChip(org)}${org.purgeDue ? ` <span class="chip is-danger is-name">${icon("alert")}${esc(t("billingPurgeDue").replace("{date}", org.purge))}</span>` : org.purge ? ` <span class="props-note">${esc(t("billingPurgeOn").replace("{date}", org.purge))}</span>` : ""}</dd></div>
-    ${org.trial ? `<div><dt>${t("billingTrialLabel")}</dt><dd><span class="mono">${esc(t("orgTrialEndsOn").replace("{datetime}", org.trial))}</span>${org.trialExpired ? ` <span class="chip is-danger">${icon("alert")}${t("trialExpired")}</span>` : ""}</dd></div>` : ""}
+    ${org.trial ? `<div><dt>${t("billingTrialLabel")}</dt><dd><span class="mono">${esc(t("orgTrialEndsOn").replace("{datetime}", org.trial))}</span>${org.trialExpired ? ` <span class="chip is-danger is-name">${icon("alert")}${t("trialExpired")}</span>` : ""}</dd></div>` : ""}
     <div><dt>${t("orgPlanTermsLabel")}</dt><dd>${org.plan === null ? chip(t("operatorPlanNone")) : esc(org.custom ? t("planCustomLimits").replace("{terms}", terms(org)).replace("{members}", org.custom.members).replace("{quota}", org.custom.quota) : terms(org))}</dd></div>
     ${org.plan === null ? "" : `<div><dt>${t("orgPlanExtraLabel")}</dt><dd>${esc(org.extras ?? t("orgPlanExtraNone"))}</dd></div>`}
     <div><dt>${t("billingUsageSeatsLabel")}</dt><dd class="mono">${esc(t("billingUsageSeats").replace("{used}", org.seats).replace("{limit}", org.members))}</dd></div>

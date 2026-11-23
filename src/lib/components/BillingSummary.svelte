@@ -24,7 +24,8 @@
         ].filter((extra) => extra.units > 0),
   );
   // お試しの期限は、組織の管理の画面のお試しの節（TrialSetting.svelte）と同じく、止まる日時を出し、期限（UTC の日付）が
-  // 今日（UTC）より前なら期限を過ぎた印を添える（運用者の一覧の trial_expired と同じ境目。期限切れで止まった組織も、
+  // 今日（UTC）より前なら期限を過ぎた印を添える（運用者の一覧の trial_expired と同じ比べ方だが、今日はブラウザの時計で決める。
+  // 応答に項目を足すと応答の鍵の集合を固定したテストを変えるため。期限切れで止まった組織も、
   // 再開するまで trial_ends_on が残る）。契約を付けるとお試しは終わる（期限を空にする）ので、契約のある組織には出さない
   const showTrial = $derived(summary.trial_ends_on !== null && contract === null);
   const trialExpired = $derived(
@@ -64,7 +65,7 @@
       <dt>{t('billingTrialLabel')}</dt>
       <dd>
         <span class="mono">{t('orgTrialEndsOn', { datetime: formatTrialStopDateTime(summary.trial_ends_on) })}</span>
-        {#if trialExpired}<span class="chip is-danger"><Icon name="alert" />{t('trialExpired')}</span>{/if}
+        {#if trialExpired}<span class="chip is-danger is-name"><Icon name="alert" />{t('trialExpired')}</span>{/if}
       </dd>
     </div>
   {/if}
