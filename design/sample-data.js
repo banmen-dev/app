@@ -160,7 +160,11 @@ window.SQ_DATA = (function () {
       ],
     },
     // 組織の添付ファイルの合計（GB）。上限の 80% を超えると管理者に知らせる
-    storage: { used: 25.1, quota: 30, organizationWikiBytes: 0, byWorkspace: [["wa", 612, 18.4], ["wb", 205, 6.7]] },
+    storage: {
+      used: 25.1, quota: 30, organizationWikiBytes: 0,
+      byWorkspace: [["wa", 612, 18.4], ["wb", 205, 6.1]],
+      deletedWorkspace: { name: "請求画面の試作", usedGb: 0.6 },
+    },
     // 組織の人数と上限。人数は管理者と、いずれかのワークスペースに所属しているか招待されている人
     seats: { used: 5, limit: 15 },
     history: {
@@ -307,6 +311,7 @@ Object.assign(window.SQ_DATA, {
     loadTotals: [["u1", [172.0, 168.0, 0], [160.0, 118.0, 1]], ["u2", [172.0, 168.0, 0], [160.0, 120.0, 0]], ["u4", [86.0, 104.0, 0], [96.0, 70.0, 0]]],
     // 組織の変更の履歴。[日時, した人（null は運用者）, 内容の種類（admin.html の AUDIT）, 名前]。新しい順
     audit: [
+      ["2026/10/19 11:30", "u1", "workspaceDeleted", "請求画面の試作"],
       ["2026/10/18 14:02", "u1", "adminDesignated", "ハルカ"],
       ["2026/09/01 10:15", "u2", "userDisabled", "カイ"],
       ["2026/06/01 09:00", null, "adminDesignated", "ミナト"],

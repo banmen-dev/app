@@ -319,6 +319,7 @@ export const dictionary = defineDictionary({
   storageOrganizationWiki: '組織の Wiki',
   storageRetention:
     '終了・削除した{workspace}の保存分と、削除後30日の保持中の Wiki ページも含みます。Wiki は題と本文を数えます。',
+  storageDeletedWorkspaceRetention: '削除済みの{workspace}内の添付ファイルや Wiki は、個別に削除できません。',
   storageWarning:
     '上限の80%を超えています。上げた人か{workspace}の{leader}が不要な添付ファイルを消すか、運用者に上限の引き上げを依頼してください。',
   storageFull:
@@ -1912,12 +1913,15 @@ export const dictionary = defineDictionary({
   workspaceDeleteTitle: '{workspace}の削除',
   workspaceDeleteDescription: '削除した{workspace}は開けなくなり、再開もできません。',
   workspaceDeleteNeedsClosed: '削除するには、先にこの{workspace}を終了してください。',
+  workspaceDeleteCloseLink: '{page}で終了する',
   workspaceDeleteAction: '削除する',
   workspaceDeleteConfirm: '「{name}」を削除しますか？',
-  workspaceDeleteWarning:
-    '削除すると、この{workspace}と中のデータは開けなくなります。削除は取り消せません。保持される添付ファイルと Wiki は引き続き容量に含まれます。',
+  workspaceDeleteWarning: '削除すると、この{workspace}と中のデータは開けなくなります。削除は取り消せません。',
+  workspaceDeleteStorageWarning:
+    '添付ファイルと Wiki は引き続き容量に含まれます。削除した{workspace}内では個別に消せなくなるため、容量を空けたい場合は、{workspace}を再開し、不要な添付ファイルと Wiki ページを先に削除してください。削除した Wiki ページは30日間、容量に含まれます。',
   workspaceDeleteName: '{workspace}名',
   workspaceDeleteNameHint: '確認のため「{name}」と入力してください。',
+  workspaceDeleteNameMismatch: '入力が{workspace}名と一致していません。',
   workspaceDeleting: '削除しています',
   workspaceDeleted: '{workspace}を削除しました',
   workspaceDeleteFailed: '{workspace}を削除できませんでした。もう一度試してください。',

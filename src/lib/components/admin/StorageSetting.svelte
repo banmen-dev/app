@@ -71,6 +71,9 @@
         </div>
       {/if}
       <p class="field-hint">{t('storageRetention', { workspace: t('workspace') })}</p>
+      {#if storage.workspaces.some((workspace) => workspace.deleted_at !== null)}
+        <p class="field-hint">{t('storageDeletedWorkspaceRetention', { workspace: t('workspace') })}</p>
+      {/if}
       <div class="table-wrap">
         <table class="table is-stacked">
           <thead><tr><th>{t('storageBreakdown')}</th><th class="is-num">{t('storageUsed')}</th></tr></thead>

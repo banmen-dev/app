@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { goto, invalidateAll } from '$app/navigation';
+  import { goto, refreshAll } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { workspaceDelete } from '../../shared/operations/workspace/index.ts';
@@ -17,6 +17,7 @@
   const formId = $props.id();
   const nameId = `${formId}-name`;
   const hintId = `${formId}-hint`;
+  const mismatchId = `${formId}-mismatch`;
   let dialog = $state<ReturnType<typeof Dialog>>();
   let open = $state(false);
   let confirmation = $state('');
@@ -28,7 +29,9 @@
   });
 
   const closed = $derived(workspace.closedAt !== null);
-  const canConfirm = $derived(closed && confirmation === workspace.name);
+  const nameMatches = $derived(confirmation === workspace.name);
+  const nameMismatch = $derived(confirmation !== '' && !nameMatches);
+  const canConfirm = $derived(closed && nameMatches);
   const words = $derived({ workspace: t('workspace') });
 
   function show(trigger: HTMLElement): void {
@@ -50,11 +53,14 @@
         { workspace_id: targetId, confirm_name: confirmation },
         { slug: targetSlug },
       );
-      if (!mounted || slug !== targetSlug || workspace.id !== targetId) return;
+      if (!mounted || slug !== targetSlug || workspace.id !== targetId) {
+        showToast(t(result.ok ? 'workspaceDeleted' : 'workspaceDeleteFailed', words), result.ok ? 'check' : 'alert');
+        return;
+      }
       if (result.ok) {
         open = false;
         showToast(t('workspaceDeleted', words), 'check');
-        await goto(resolve('/[slug]', { slug: targetSlug }), { invalidateAll: true, replaceState: true }).catch(() =>
+        await goto(resolve('/[slug]', { slug: targetSlug }), { refreshAll: true, replace: true }).catch(() =>
           location.replace(resolve('/[slug]', { slug: targetSlug })),
         );
         return;
@@ -71,14 +77,14 @@
       if (reason === 'workspace_name_mismatch') {
         confirmation = '';
         submitError = t('workspaceDeleteNameChanged', words);
-        void invalidateAll().catch(() => undefined);
+        void refreshAll().catch(() => undefined);
       } else if (reason === 'workspace_not_closed' || result.status === 403 || result.status === 404) {
         open = false;
         showToast(
           t(reason === 'workspace_not_closed' ? 'workspaceDeleteNeedsClosed' : 'workspaceDeleteUnavailable', words),
           'alert',
         );
-        void invalidateAll().catch(() => undefined);
+        void refreshAll().catch(() => undefined);
       } else {
         submitError = t('workspaceDeleteFailed', words);
       }
@@ -96,7 +102,10 @@
       </button>
     </div>
   {:else}
-    <p class="field-hint">{t('workspaceDeleteNeedsClosed', words)}</p>
+    <p class="field-hint">
+      {t('workspaceDeleteNeedsClosed', words)}
+      <a href={resolve('/[slug]/admin', { slug })}>{t('workspaceDeleteCloseLink', { page: t('pageOrgAdmin') })}</a>
+    </p>
   {/if}
 </Setting>
 
@@ -108,28 +117,37 @@
   title={t('workspaceDeleteConfirm', { name: workspace.name })}
 >
   <p>{t('workspaceDeleteWarning', words)}</p>
+  <p>{t('workspaceDeleteStorageWarning', words)}</p>
   <form id={formId} onsubmit={submit}>
-    <div class="field">
+    <div class="field" class:is-invalid={nameMismatch}>
       <label class="field-label" for={nameId}>{t('workspaceDeleteName', words)}</label>
       <input
         class="input"
         id={nameId}
-        aria-describedby={hintId}
+        aria-describedby={nameMismatch ? `${hintId} ${mismatchId}` : hintId}
+        aria-invalid={nameMismatch}
         autocomplete="off"
         spellcheck="false"
         bind:value={confirmation}
         readonly={submitting}
       />
       <span class="field-hint wrap-anywhere" id={hintId}>{t('workspaceDeleteNameHint', { name: workspace.name })}</span>
+      {#if nameMismatch}
+        <span class="field-error" id={mismatchId}><Icon name="alert" />{t('workspaceDeleteNameMismatch', words)}</span>
+      {/if}
     </div>
   </form>
   {#if !closed}
-    <p class="callout is-warn" role="alert"><Icon name="alert" />{t('workspaceDeleteNeedsClosed', words)}</p>
+    <div class="callout is-warn" role="alert">
+      <Icon name="alert" /><span>{t('workspaceDeleteNeedsClosed', words)}</span>
+    </div>
   {:else if submitError !== null}
-    <p class="callout is-danger" role="alert"><Icon name="alert" />{submitError}</p>
+    <div class="callout is-danger" role="alert"><Icon name="alert" /><span>{submitError}</span></div>
   {/if}
-  <span class="visually-hidden" role="status">{submitting ? t('workspaceDeleting') : ''}</span>
   {#snippet footer(close)}
+    <span class="field-hint" class:visually-hidden={!submitting} role="status">
+      {submitting ? t('workspaceDeleting') : ''}
+    </span>
     <button class="btn is-primary" type="button" aria-disabled={submitting} onclick={close}>{t('cancel')}</button>
     <button
       class="btn is-danger"
@@ -138,7 +156,7 @@
       disabled={!canConfirm}
       aria-disabled={submitting || !canConfirm}
     >
-      {t(submitting ? 'workspaceDeleting' : 'workspaceDeleteAction')}
+      {t('workspaceDeleteAction')}
     </button>
   {/snippet}
 </Dialog>

@@ -52,6 +52,7 @@ test('管理者が設定で終了済みワークスペースを削除し、組�
   await expect(submit).toBeDisabled();
   await confirmation.fill(`${name}違い`);
   await expect(submit).toBeDisabled();
+  await expect(dialog).toContainText('入力がワークスペース名と一致していません');
   await confirmation.fill(name);
   await expect(submit).toBeEnabled();
   await dialog.getByRole('button', { name: 'やめる' }).click();
@@ -63,7 +64,9 @@ test('管理者が設定で終了済みワークスペースを削除し、組�
   await confirmation.fill(name);
   await submit.click();
   await expect(page).toHaveURL(/\/aoba$/);
-  await expect(page.getByText('ワークスペースを削除しました', { exact: true })).toBeVisible();
+  await expect(
+    page.locator('.toasts:visible .toast').filter({ hasText: 'ワークスペースを削除しました' }),
+  ).toBeVisible();
   await expect(page.getByRole('link', { name, exact: true })).toHaveCount(0);
 
   await page.goto(settingsPath);
