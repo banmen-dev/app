@@ -134,7 +134,10 @@ test('列の末尾の行で担当と期日を選んで作ると、カードに�
   await assigneeChip('未設定').click();
   await assigneeWindow.getByRole('menuitem', { name: '自分に割り当てる' }).click();
   await expect(assigneeChip('ミナト')).toBeVisible();
+  // 保留した読み込みが返り終わってから route を外す（返る前に外すと、保留の処理が流そうとしたときには既に片付いている）
+  const listed = waitForResponses(page, '/member-list');
   held.release();
+  await listed;
   await unHold();
 
   // 作るのが断られたら、理由を出し、題も担当も期日も残す（送り直せる）
