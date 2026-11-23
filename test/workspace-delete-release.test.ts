@@ -12,6 +12,7 @@ test('本番は有効化の前に削除を断り、有効化後の削除済み�
   const { slug, workspace, admin } = target;
   const normal = Object.assign({}, testEnv, { WORKSPACE_DELETE_ENABLED: 'false' });
   const enabled = Object.assign({}, normal, { WORKSPACE_DELETE_ENABLED: 'true' });
+  const unset = Object.assign({}, normal, { WORKSPACE_DELETE_ENABLED: undefined });
   const read = (requestEnv: Env) =>
     post(app, workspaceInfo, {
       slug,
@@ -28,8 +29,27 @@ test('本番は有効化の前に削除を断り、有効化後の削除済み�
     });
 
   expect((await remove(normal)).status).toBe(404);
+  expect((await remove(unset)).status).toBe(404);
+  expect(await (await read(unset)).json()).toMatchObject({ workspace_delete_enabled: false });
   expect(await (await read(normal)).json()).toMatchObject({ workspace_delete_enabled: false });
   expect(await (await read(enabled)).json()).toMatchObject({ workspace_delete_enabled: true });
   expect((await remove(enabled)).status).toBe(200);
   expect((await read(normal)).status).toBe(404);
+});
+
+test('削除オプションは管理者が明示して問い合わせた場合にだけ返す', async () => {
+  const { slug, workspace, admin, leader } = await createTarget({ closed: true });
+  const enabled = Object.assign({}, testEnv, { WORKSPACE_DELETE_ENABLED: 'true' });
+  const workspaceOnly = { workspace_id: workspace.id };
+  const ordinaryRead = await post(app, workspaceInfo, { slug, token: admin.token, body: workspaceOnly, env: enabled });
+  const leaderRead = await post(app, workspaceInfo, {
+    slug,
+    token: leader.token,
+    body: { ...workspaceOnly, include_lifecycle_options: true },
+    env: enabled,
+  });
+  for (const response of [ordinaryRead, leaderRead]) {
+    expect(response.status).toBe(200);
+    expect(await response.json()).not.toHaveProperty('workspace_delete_enabled');
+  }
 });

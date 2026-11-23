@@ -1240,6 +1240,8 @@ Workers Builds の API トークンは、Builds が作ったトークンの権�
 
 ### プレビュー
 
+削除の公開前は、PR プレビューではワークスペースの削除操作を有効にしない。削除の操作はループバックの開発環境と CI の E2E で確かめる。初回公開と有効化の順は `docs/operations.md` の「コードを戻す」を参照。
+
 PR の版は、本番を載せない専用 Cloudflare アカウントの Worker `banmen-preview` の Workers Builds から配る。GitHub Actions にはデプロイの鍵を置かない。本番の `wrangler.jsonc`、`production` の接続と煙のテストは変えない。人が先に用意する Worker、Access、トークンは `docs/operations.md` の「プレビュー環境」。Worker の名前（`banmen-preview`、`banmen-preview-trigger`）と D1 の接頭辞（`banmen-pr-`）は `src/shared/preview-cloudflare.ts` の定数だけで決め、D1 の名前、alias、URL の形と、それらを見分ける正規表現をそこから作る。2026-11-22 に `scrum-guild-preview` から改めた（#1424。移す手順は `docs/operations.md` の「名前を scrum-guild から banmen に移す」）。
 
 - `banmen-preview-trigger` は GitHub の署名済み Pull requests Webhook を受け、このリポジトリ内の番号付きブランチから `main` に向いた PR の作成・再開・更新だけを受け付ける。リポジトリは名前でなく ID（`1425341812`）だけで照合する。配信元の `repository`、PR の `base.repo` と `head.repo` の `id`、Builds の接続先の `repo_id` を比べ、`full_name` やアカウント名は見ない。Organization やリポジトリを改名しても止まらないようにするため。起動直前に GitHub API（`https://api.github.com/repositories/1425341812/pulls/<PR番号>`。ID の宛先は改名後も同じリポジトリを指す）で開いている PR と最新の head を確認し、Cloudflare Builds にブランチ名と SHA を指定する。接続先の設定は [プレビュー環境](operations.md#プレビュー環境) を参照する。

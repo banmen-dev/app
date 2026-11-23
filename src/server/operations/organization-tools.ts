@@ -98,6 +98,7 @@ export function organizationTools(
     inviteUrl: (claimToken) => member(() => `${new URL(env.PUBLIC_ORIGIN).origin}${INVITE_PATH}#${claimToken}`),
     readOrganization: () => member(() => readOrganizationRow(env, db)),
     workspaceDeleteEnabled: () => {
+      // Wrangler の型は設定の既定値をリテラル型にするが、動作時の値は版ごとの設定を受け取る。
       const configured: unknown = env.WORKSPACE_DELETE_ENABLED;
       return configured === 'true' || isLoopbackHttpOrigin(env.PUBLIC_ORIGIN);
     },
