@@ -1,12 +1,11 @@
 <script lang="ts">
   import { onDestroy, tick, untrack } from 'svelte';
   import type { SprintBoardTask } from '../../shared/operations/sprint/index.ts';
-  import { taskUpdate } from '../../shared/operations/task/index.ts';
   import { TASK_POINT_VALUES } from '../../shared/task.ts';
-  import { callOperation } from '../api.ts';
+  import { saveCardTitle } from '../card-title-save.ts';
   import { taskDetailHref, taskLinkAttrs } from '../drawer.svelte.ts';
   import { taskAttributes, type AttributeSaved } from '../task-attributes.svelte.ts';
-  import { cardTitleFailure, taskTitleMessage } from '../task-title.ts';
+  import { taskTitleMessage } from '../task-title.ts';
   import { showToast } from '../toast.svelte.ts';
   import type { MoveDirection } from '../sprint-board.ts';
   import type { SprintDnd } from '../sprint-dnd.svelte.ts';
@@ -206,34 +205,17 @@
       if (!byKey) await endTitle(false);
       return;
     }
-    // 送っている間にワークスペースが終了すると attrs は undefined に替わるので、送る前の配線を保って使う
+    // 送っている間にワークスペースが終了すると attrs は undefined に替わるので、送る前の配線を渡して最後まで使う
     const target = attrs;
-    titleSending = next;
     await endTitle(byKey);
-    let failure: ReturnType<typeof cardTitleFailure> | null = null;
-    try {
-      const result = await callOperation(
-        taskUpdate,
-        { workspace_id: target.workspaceId, task_id: task.id, title: next, expected: { title: titleBase } },
-        { slug: target.slug },
-      );
-      if (result.ok) {
-        target.onpatch(task.id, { title: result.data.task.title });
-        showToast(t('taskSaved'), 'check');
-        return;
-      }
-      failure = cardTitleFailure(result, task.is_imported);
-    } finally {
-      // 応答の後の処理が失敗しても、送っている間の題を戻してカードを固めない
-      titleSending = null;
-    }
-    showToast(failure.message, 'alert');
-    if (failure.stale) target.onStale();
-    try {
-      await target.onSaved();
-    } catch {
-      /* 読み直しの失敗で、知らせた理由を隠さない */
-    }
+    await saveCardTitle({
+      target,
+      taskId: task.id,
+      title: next,
+      base: titleBase,
+      imported: task.is_imported,
+      setSending: (title) => (titleSending = title),
+    });
   }
 
   function titleKeydown(event: KeyboardEvent): void {
