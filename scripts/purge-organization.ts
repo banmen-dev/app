@@ -1,7 +1,7 @@
 // 解約した組織のデータを消す SQL を標準出力に書き出す（docs/operations.md の「解約した組織のデータを消す」）。
 // node scripts/purge-organization.ts <組織の ID> > /tmp/purge-<組織の ID>.sql   消す文を1行に1文
 // node scripts/purge-organization.ts --count <組織の ID>                         残りを数える1行の SELECT
-// 本番に流すのは人だけ（1文ずつ `pnpm exec wrangler d1 execute scrum-guild --remote --command "<文>"`）。このスクリプトは DB に触らない
+// 本番に流すのは人だけ（1文ずつ `pnpm exec wrangler d1 execute banmen --remote --command "<文>"`）。このスクリプトは DB に触らない
 import { purgeOrganizationCountSql, purgeOrganizationSql } from './purge-organization-sql.ts';
 
 const USAGE = [
