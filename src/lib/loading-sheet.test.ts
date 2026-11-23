@@ -28,6 +28,7 @@ test('小見出しを 760px 以下だけに出す画面では、骨組みの小�
 test('パンくずの帯は上の帯の外、本文の直前に置く（#1509）', () => {
   const { body } = render(LoadingSheet, { props: { shape: 'today' } });
   const topbar = body.match(/<div class="topbar"[^>]*>[\s\S]*?<\/div>/)?.[0] ?? '';
+  expect(topbar).toContain('is-search');
   expect(topbar).not.toContain('is-crumb');
   expect(body.replace(/<!--[^>]*-->/g, '')).toMatch(
     /<div class="sheet-crumbs"[^>]*><span class="skeleton-line is-crumb"><\/span><\/div>\s*<main\b/,
