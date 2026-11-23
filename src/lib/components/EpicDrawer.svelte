@@ -157,7 +157,7 @@
   const done = $derived(finished);
 
   // ---- 区分（選んで少し待ってから、か欄を離れたときに保存する。配下のストーリーとタスクが引き継ぐ） ----
-  // 選択肢は、直せるときだけ category-repository-list で読む。読めなければ、なしと今の値だけを選べる（今の値の名前は epic-get の区分から）
+  // 選択肢は、直せるときだけ category-repository-list で読む。読めなければ、なしと今の値だけを選べる（今の値の名前は一覧から、無ければ epic-get の区分から）
   let definitions = $state<{ categories: DefinitionRef[] } | null>(null);
   let definitionsLoading = $state(false);
   let definitionsFailed = $state(false);
@@ -434,8 +434,11 @@
       if (alive && epic !== null) {
         const saved = result.data.epic;
         const merged: EpicDetail = { ...epic, category_id: saved.category_id };
+        // 区分が替わったら（区分以外の欄の保存で、ほかの人が替えた区分が返ったときも）、読んだ区分を一覧の値に置き換える。
+        // 一覧に無い区分は名前が分からないので、古い値を残す（ID が違うので名前には使わない）
         if (saved.category_id !== (readCategory?.id ?? null)) {
-          readCategory = definitions?.categories.find((option) => option.id === saved.category_id) ?? null;
+          const found = definitions?.categories.find((option) => option.id === saved.category_id);
+          if (found !== undefined || saved.category_id === null) readCategory = found ?? null;
         }
         for (const key of Object.keys(fields) as (keyof Fields)[]) {
           if (key !== 'category_id') Object.assign(merged, { [key]: saved[key] });
