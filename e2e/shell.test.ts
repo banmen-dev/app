@@ -1273,6 +1273,12 @@ test('761px と 800px で所属していない管理者の印があっても、�
     expect(layout.account).toBeGreaterThanOrEqual(44);
     expect(layout.chip).toBeGreaterThan(0);
   }
+  // 761px では印の文字が収まらず、右を切るのではなく省略記号で省略する
+  await page.setViewportSize({ width: 761, height: 900 });
+  const chip = page.locator('.topbar > .chip');
+  await expect(chip).toHaveCSS('text-overflow', 'ellipsis');
+  await expect(chip).toHaveCSS('display', 'block');
+  expect(await chip.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
 });
 
 test('組織の画面のパンくずは組織と画面で、ワークスペースを出さない', async ({ page }) => {

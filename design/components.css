@@ -415,8 +415,9 @@ a.breadcrumb-item:hover { color: var(--color-fg); text-decoration: underline; }
   /* 長い表示名は、折り返さず右を切って受ける（帯の高さと十字の罫を保つ） */
   /* アカウントのボタンは、アバターと▾が見える幅より縮めない（ログアウトと招待の点の入口を残す） */
   .topbar > .account-menu { flex: 0 1 auto; min-width: 4rem; }
-  /* 所属していない管理者の印は、帯が詰まると1行のまま省略する（全文は title。組織の切り替えとアカウントを押し出さない） */
-  .topbar > .chip { flex: 0 1 auto; min-width: 4rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
+  /* 所属していない管理者の印は、帯が詰まると1行のまま省略記号で省略する（全文は title。組織の切り替えとアカウントを押し出さない）。
+     .chip の inline-flex では文字が匿名の flex 項目になり text-overflow が効かないので、block にする */
+  .topbar > .chip { display: block; flex: 0 1 auto; min-width: 4rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
   .account-menu-button { max-width: 100%; }
   .account-menu-button .me { flex-wrap: nowrap; white-space: nowrap; overflow: hidden; }
 }
