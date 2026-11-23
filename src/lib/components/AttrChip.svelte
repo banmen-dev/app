@@ -195,9 +195,14 @@
     }
     // 窓は中の欄とボタンの間を Tab で移れる。外へ出たときは onFocusOut が閉じる
     if (dialog && event.key === 'Tab') return;
-    // 絞り込みの欄では、Home と End は文字の位置を動かし、Enter は先頭の候補を選ぶ
+    // 絞り込みの欄では Enter は先頭の候補を選ぶ
     if (event.target === searchInput) {
+      // Home と End は文字の位置を動かす。↑ は欄の上に候補が無いので何もしない
       if (event.key === 'Home' || event.key === 'End') return;
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        return;
+      }
       // 空の欄の Enter では選ばない（開いた直後の反射の Enter で担当を替えない）
       if (event.key === 'Enter') {
         event.preventDefault();

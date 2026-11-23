@@ -86,6 +86,9 @@ test('カードのチップでポイントと担当を選ぶと保存され、�
   await expect(assigneeWindow.getByRole('menuitem', { name: '自分に割り当てる' })).toBeFocused();
   await page.keyboard.press('ArrowUp');
   await expect(search).toBeFocused();
+  // 欄の ↑ は何もしない（候補へ飛ばない）
+  await search.press('ArrowUp');
+  await expect(search).toBeFocused();
   await search.fill('該当しない名前');
   await expect(assigneeWindow.getByText('当たる候補はありません')).toBeVisible();
   // 絞り込んでいる間は「自分に割り当てる」を隠す

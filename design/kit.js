@@ -2215,6 +2215,8 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     if (!list || !["ArrowDown", "ArrowUp", "Home", "End"].includes(ev.key)) return false;
     // 絞り込みの欄の Home と End は、文字の位置を動かす
     if (ev.target.matches("[data-chip-search]") && (ev.key === "Home" || ev.key === "End")) return false;
+    // 絞り込みの欄の ↑ は、欄の上に候補が無いので何もしない（本番の AttrChip と同じ）
+    if (ev.target.matches("[data-chip-search]") && ev.key === "ArrowUp") { ev.preventDefault(); return true; }
     const items = visibleItems(list);
     const at = items.indexOf(ev.target);
     // 絞り込みの窓では、先頭の項目の ↑ で欄へ戻る（本番の AttrChip の searchable と同じ）
