@@ -182,10 +182,13 @@ test('組み合わせた絞り込みは読み直しても保たれ、絞って�
 test('絞っている間に追加の行で作ったタスクが絞り込みに当たらないときは、隠れていることを知らせる', async ({ page }) => {
   const current = board();
   await routeOperation(page, sprintBoard, { slug: 'aoba' }, (call) => call.fulfill(current));
+  // 画面は応答の task.id で読み直した盤からカードを探すので、呼ぶたびに別の ID で足す
+  let created = 0;
   await routeOperation(page, taskCreate, { slug: 'aoba' }, async (call) => {
+    created += 1;
     const task = {
       ...current.columns[0]!.tasks[1]!,
-      id: '019a0000-0000-7000-8000-00000000f299',
+      id: `019a0000-0000-7000-8000-00000000f2${90 + created}`,
       title: call.input.title,
       category: null,
     };
