@@ -229,13 +229,15 @@ async function updateColumn(
         task_count: await taskCountOf(db, workspaceId, id),
       };
     };
-    if (!renaming && wipLimit === current.wipLimit) {
+    // 名前が今と同じで上限を送っていなければ、何も書かない（上限を送ったときは、同じ値でも書いて後に書いた値を残す）
+    if (!renaming && patch.wipLimit === undefined) {
       await throwIfClosed(db, workspaceId);
       return column();
     }
     const at = now();
     const updatedAt = at.toISOString();
-    const limiting = patch.wipLimit !== undefined && wipLimit !== current.wipLimit;
+    // 送られた上限は、読んだ値と同じでも書く（読んだ後にほかの要求が変えていても、後に書いた値を残す）
+    const limiting = patch.wipLimit !== undefined;
     const update = db.statement((q) =>
       q
         .updateTable('board_columns')
