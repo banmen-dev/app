@@ -2501,7 +2501,7 @@ export const dictionary = defineDictionary({
   sprintStartEnded: 'この{sprint}は最終日を過ぎているので、始められません。期間を直すか、削除して作り直してください',
   sprintStartAlreadyStarted: 'この{sprint}はもう始まっています。一覧を読み直します',
   sprintStartForbidden: '{sprint}を始めるのは{leader}です',
-  // 進行中のスプリントを延ばすダイアログ（kit.js の DIALOGS.sprintExtend）と、見出しの「編集」・「⋯」の延長メニュー
+  // 進行中のスプリントを延ばすダイアログ（kit.js の DIALOGS.sprintExtend）と、ボードのスプリントの小窓の「延長する」
   sprintExtendAction: '延長する',
   sprintExtendSubmit: '{days} 日延長する',
   sprintExtendTitle: '{sprint}を延ばす',
@@ -2529,7 +2529,7 @@ export const dictionary = defineDictionary({
   sprintHeaderEditLabel: '{sprint}を編集: {label}',
   sprintEditActive: '名前と{sprintGoal}を変更',
   sprintEditGoalHint: '{max} 字まで。空にすると消えます',
-  // 終了のダイアログ（kit.js の DIALOGS.sprintEnd）と、見出しの「⋯」の終了メニュー・最終日から表に出す「終える」
+  // 終了のダイアログ（kit.js の DIALOGS.sprintEnd）と、ボードのスプリントの小窓と期限切れの知らせの「終える」
   sprintCloseAction: '終える',
   sprintCloseLabel: '終える: {sprint}「{label}」',
   sprintCloseTitle: '{sprint}を終える',
@@ -2561,22 +2561,26 @@ export const dictionary = defineDictionary({
   sprintOverdueLeader:
     '{sprint}「{label}」は最終日（{end}）を過ぎています。終わらなかった{task}の行き先を決めて、終えてください。',
   sprintOverdueMember: '{sprint}「{label}」は最終日（{end}）を過ぎています。終えるのは{leader}です。',
-  // ボードの画面（design/sprint.html）。見出しは「ボード」、小見出しは進行中のスプリントの名前、期間と何日目か
+  // ボードの画面（design/sprint.html）。見出しは「ボード」だけで、スプリントの名前、期間と何日目かは帯のボタンと小窓に出す
   sprintStoryFilterLabel: '{story}で絞り込む: {title}',
   sprintStoryFilterActive: '{story}: {title}',
   sprintStoryFilterApplied: '{story}「{title}」で絞り込みました',
   sprintStoryFilterCleared: '{story}の絞り込みを外しました',
   sprintStoryFilterInvalid: '絞り込み対象の{story}が現在のボードにないため、絞り込みを外しました',
   sprintStoryFilterClearFailed: '絞り込みを外せませんでした。もう一度試してください',
-  sprintStoryTotalsNote: '見出しは全体、列の件数と{points}は絞り込み後の値です',
+  sprintStoryTotalsNote: '{sprint}の小窓の進み具合は全体、列の件数と{points}は絞り込み後の値です',
   sprintStoryCreateUnder: '絞り込んだ{story}の下に追加します',
   sprintBoardAddStoryGone:
     'この{story}か{sprint}か{column}が見つかりません。{task}は作られていません。一覧を読み直します',
   sprintBoardPageName: '{board}・{name}・{workspace}',
   sprintBoardPageNameEmpty: '{board}・{workspace}',
-  sprintBoardEyebrow: '{name}・{period}・{length} 日のうち {day} 日目',
-  // 名前の無いスプリントは期間が名前なので、期間を重ねない
-  sprintBoardEyebrowUnnamed: '{period}・{length} 日のうち {day} 日目',
+  // ボードの道具の帯の右端のスプリントのボタンと小窓（#1498）。ボタンの見える文字は名前（無ければ期間）
+  sprintPopoverLabel: '{sprint}の情報: {label}',
+  // 見える言葉（sprintPopoverOverdueNote）を読み上げの名前にも含める（音声で見えるとおりに呼べるように）
+  sprintPopoverLabelOverdue: '{sprint}の情報: {label} {note}（最終日を過ぎています）',
+  sprintPopoverDialog: '{sprint}の情報',
+  sprintPopoverOverdueNote: '期限切れ',
+  sprintPopoverPeriod: '{period}・{length} 日のうち {day} 日目',
   sprintBoardRegion: '{sprint}「{label}」の{column}とカード',
   sprintBoardColumnEmpty: 'なし',
   sprintBoardAddTask: '{task}を足す',

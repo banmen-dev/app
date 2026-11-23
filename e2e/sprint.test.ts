@@ -24,6 +24,8 @@ import {
   waitForSettled,
   watchViolations,
   expectBoardHeading,
+  openSprintPopover,
+  sprintButton,
 } from './helpers.ts';
 import { failOperation, mockOperation, rewriteOperation, routeOperation } from './operations.ts';
 import { OVERDUE_BOARD, OVERDUE_PLAN, SAMPLE_BOARD } from './sprint-fixture.ts';
@@ -133,11 +135,13 @@ test('リーダーはゴールを書いてスプリントを始め、2つ目は�
   await expect(secondDialog).toBeHidden();
   await expect(page.locator('.lane', { hasText: '第1回' }).locator('.lane-goal')).toContainText(GOAL);
 
-  // 左のメニューの「ボード」から、スプリントの画面を開く。見出しはスプリントの名前、ゴールは貼り紙、列は列の順で完了が最後
+  // 左のメニューの「ボード」から、スプリントの画面を開く。帯のボタンはスプリントの名前、ゴールはボタンの小窓、列は列の順で完了が最後
   await page.getByRole('link', { name: 'ボード', exact: true }).click();
   await expectBoardHeading(page, '第1回');
   await expect(page).toHaveTitle('ボード・第1回・出発の見張り番 - Banmen');
-  await expect(page.locator('.notice-title')).toHaveText(GOAL);
+  await expect((await openSprintPopover(page)).locator('.popover-text')).toHaveText(GOAL);
+  await page.keyboard.press('Escape');
+  await expect(sprintButton(page)).toBeFocused();
   await expect(page.locator('.board-col-name')).toHaveText(['未着手', '作業中', 'レビュー', '完了']);
   await expect(titlesIn(page, '未着手')).toHaveText(['A札', 'B札', 'C札']);
   const card = (title: string) => page.getByRole('article', { name: title, exact: true });
@@ -290,7 +294,8 @@ test('動かすのが断られたら理由を知らせて読み直し、カー�
 
   await page.getByRole('link', { name: 'ボード', exact: true }).click();
   await expectBoardHeading(page, '第1回');
-  await expect(page.locator('.notice')).toHaveCount(0);
+  await expect((await openSprintPopover(page)).locator('.popover-label')).toHaveCount(0);
+  await page.keyboard.press('Escape');
 
   // サーバーが「もう進行中ではない」と断った。トーストで理由を知らせ、読み直して元の列に戻る
   const unroute = await failOperation(page, taskColumnMove, { slug: 'aoba' }, 409, 'conflict', {
@@ -598,8 +603,9 @@ test('リーダーはスプリントを終え、終わらなかったタスク�
   await expect(startDialog).toBeHidden();
   await page.getByRole('link', { name: 'ボード', exact: true }).click();
   await expectBoardHeading(page, '第1回');
-  // 最終日の前なので、期限切れの知らせはなく、「終える」は見出しの「⋯」の中だけにある
+  // 最終日の前なので、期限切れの知らせも、ボタンの警告の印もない
   await expect(page.locator('.callout.is-warn')).toHaveCount(0);
+  await expect(sprintButton(page)).not.toHaveClass(/is-warn/);
   await titlesIn(page, '未着手').filter({ hasText: 'A札' }).click();
   const taskDrawer = page.getByRole('dialog', { name: 'A札' });
   await taskDrawer.locator('.done-bar').getByRole('button', { name: '完了にする', exact: true }).click();
@@ -611,11 +617,12 @@ test('リーダーはスプリントを終え、終わらなかったタスク�
   await expect(titlesIn(page, '完了')).toHaveText(['A札']);
 
   // 終える。未完了の2件の行き先は、既定が次のスプリント（第2回）で、バックログへ戻すことも選べる。ゴールがあるので達成を聞く（既定は達成した）
-  await page
-    .locator('.page-head')
-    .getByRole('button', { name: /^操作: / })
+  await (
+    await openSprintPopover(page)
+  )
+    .locator('.popover-actions')
+    .getByRole('button', { name: /^終える: / })
     .click();
-  await page.getByRole('menuitem', { name: '終える', exact: true }).click();
   const closeDialog = page.getByRole('dialog', { name: 'スプリントを終える' });
   await expect(closeDialog).toContainText(
     'スプリント「第1回（3/1〜3/14）」を終えます。終えたスプリントの期間と中身は、あとから変えられません。',
@@ -653,11 +660,12 @@ test('リーダーはスプリントを終え、終わらなかったタスク�
   await page.getByRole('link', { name: 'ボード', exact: true }).click();
   await expectBoardHeading(page, '第2回');
   await expect(titlesIn(page, '未着手')).toHaveText(['B札', 'C札']);
-  await page
-    .locator('.page-head')
-    .getByRole('button', { name: /^操作: / })
+  await (
+    await openSprintPopover(page)
+  )
+    .locator('.popover-actions')
+    .getByRole('button', { name: /^終える: / })
     .click();
-  await page.getByRole('menuitem', { name: '終える', exact: true }).click();
   await expect(closeDialog).toBeVisible();
   const backlogOnly = closeDialog.getByRole('radiogroup', { name: '終わらなかったタスク 2 件の行き先' });
   await expect(backlogOnly.getByRole('radio')).toHaveCount(1);
@@ -695,11 +703,18 @@ test('最終日を過ぎた進行中のスプリントには終えるのを促�
   const notice = page.locator('.callout.is-warn');
   const text = 'スプリント「第14回」は最終日（10/26）を過ぎています。';
 
-  // スプリントの画面。見出しの下に知らせ、リーダーには「終える」を添える
+  // ボードの画面。スプリントのボタンに警告の印を付け、小窓の先頭に知らせ、リーダーには「終える」を添える
   await page.goto(`${AOBA_TEAM}/board`);
-  await expect(notice).toContainText(`${text}終わらなかったタスクの行き先を決めて、終えてください。`);
-  // 知らせの「終える」から、見出しの右と同じダイアログを開く。持ち越し先は最終日より後に始まる第15回
-  await notice.getByRole('button', { name: '終える: スプリント「第14回」' }).click();
+  await expect(sprintButton(page)).toHaveAccessibleName('スプリントの情報: 第14回 期限切れ（最終日を過ぎています）');
+  await expect(sprintButton(page)).toHaveClass(/is-warn/);
+  await expect(notice).toHaveCount(0);
+  const popover = await openSprintPopover(page);
+  await expect(popover.locator('.callout.is-warn')).toContainText(
+    `${text}終わらなかったタスクの行き先を決めて、終えてください。`,
+  );
+  // 知らせの「終える」から、小窓の操作と同じダイアログを開く。持ち越し先は最終日より後に始まる第15回
+  await popover.locator('.callout.is-warn').getByRole('button', { name: '終える: スプリント「第14回」' }).click();
+  await expect(popover).toBeHidden();
   const dialog = page.getByRole('dialog', { name: 'スプリントを終える' });
   const carry = dialog.getByRole('radiogroup', { name: '終わらなかったタスク 2 件の行き先' });
   await expect(carry.getByRole('radio', { name: /^スプリント「第15回（10\/27〜11\/9）」へ持ち越す/ })).toBeChecked();
@@ -737,7 +752,12 @@ test('終了のダイアログは、読み込めなければ「終える」を�
   await mockOperation(page, sprintBoard, { slug: 'aoba' }, OVERDUE_BOARD);
   const unroute = await failOperation(page, sprintList, { slug: 'aoba' }, 500, 'internal');
   await page.goto(`${AOBA_TEAM}/board`);
-  await page.locator('.callout.is-warn').getByRole('button', { name: '終える: スプリント「第14回」' }).click();
+  await (
+    await openSprintPopover(page)
+  )
+    .locator('.callout.is-warn')
+    .getByRole('button', { name: '終える: スプリント「第14回」' })
+    .click();
   const dialog = page.getByRole('dialog', { name: 'スプリントを終える' });
   await expect(dialog.getByRole('alert')).toContainText('スプリントの状態を読み込めませんでした');
   const submit = dialog.getByRole('button', { name: '終える', exact: true });
@@ -769,7 +789,8 @@ test('最終日を過ぎた知らせは、リーダーでない人には終え�
   await mockOperation(page, sprintBoard, { slug: 'aoba' }, OVERDUE_BOARD);
   await mockOperation(page, sprintList, { slug: 'aoba' }, OVERDUE_PLAN);
   await page.goto(`${AOBA_TEAM}/board`);
-  await expect(page.locator('.callout.is-warn')).toContainText(
+  await expect(sprintButton(page)).toHaveClass(/is-warn/);
+  await expect((await openSprintPopover(page)).locator('.callout.is-warn')).toContainText(
     'スプリント「第14回」は最終日（10/26）を過ぎています。終えるのはリーダーです。',
   );
   await expect(page.getByRole('button', { name: /^終える/ })).toHaveCount(0);
@@ -781,7 +802,8 @@ test('最終日を過ぎた知らせは、リーダーでない人には終え�
   await mockOperation(page, sprintBoard, { slug: 'aoba' }, { ...OVERDUE_BOARD, today: SAMPLE_BOARD.sprint!.end_on });
   await page.goto(`${AOBA_TEAM}/board`);
   await expectBoardHeading(page, '第14回');
-  await expect(page.locator('.callout.is-warn')).toHaveCount(0);
+  await expect(sprintButton(page)).not.toHaveClass(/is-warn/);
+  await expect((await openSprintPopover(page)).locator('.callout.is-warn')).toHaveCount(0);
 });
 
 // カードのドラッグ。カード全体をつかむので、押す場所は題のリンク（ボタンの上からは始めない）。
@@ -1234,7 +1256,7 @@ for (const [name, label] of [
   ['新年の仕上げ', '新年の仕上げ'],
   [null, '10/13〜10/26'],
 ] as const) {
-  test(`見出しとタブの題名には名前をそのまま出す: ${name ?? '名前なし'}`, async ({ page, context, baseURL }) => {
+  test(`帯のボタンとタブの題名には名前をそのまま出す: ${name ?? '名前なし'}`, async ({ page, context, baseURL }) => {
     await signIn(context, baseURL, 'admin');
     await mockOperation(
       page,
@@ -1258,11 +1280,7 @@ for (const [name, label] of [
     await page.goto(`${AOBA_TEAM}/board`);
     await expectBoardHeading(page, label, { unnamed: name === null });
     await expect(page).toHaveTitle(`ボード・${label}・受託開発チーム - Banmen`);
-    await page
-      .locator('.page-head')
-      .getByRole('button', { name: /^操作: / })
-      .click();
-    await page.getByRole('menuitem', { name: '延長する', exact: true }).click();
+    await (await openSprintPopover(page)).getByRole('button', { name: '延長する', exact: true }).click();
     const extend = page.getByRole('dialog', { name: 'スプリントを延ばす' });
     await expect(extend.getByRole('paragraph').first()).toHaveText(name === null ? label : `${label}（10/13〜10/26）`);
   });
@@ -1295,11 +1313,12 @@ test('名前なしの開始・削除・終了では、文中に期間を一度�
   await remove.getByRole('button', { name: 'やめる' }).click();
   await page.goto(`${AOBA_TEAM}/board`);
   await expectBoardHeading(page, '10/13〜10/26', { unnamed: true });
-  await page
-    .locator('.page-head')
-    .getByRole('button', { name: /^操作: / })
+  await (
+    await openSprintPopover(page)
+  )
+    .locator('.popover-actions')
+    .getByRole('button', { name: /^終える: / })
     .click();
-  await page.getByRole('menuitem', { name: '終える', exact: true }).click();
   const close = page.getByRole('dialog', { name: 'スプリントを終える' });
   await expect(close.getByRole('radio', { name: /^スプリント「10\/27〜11\/9」へ持ち越す/ })).toBeVisible();
   await expect(
@@ -1426,6 +1445,8 @@ test('進み具合は完了ポイントと経過日数を1本の棒で示し、�
     });
   });
   await page.goto(`${AOBA_TEAM}/board`);
+  // 進み具合は、道具の帯のスプリントのボタンの小窓に出す（#1498）
+  await openSprintPopover(page);
   const gauge = page.locator('.progress-bar');
   await expect(page.locator('.progress-num')).toHaveText('完了 2 / 10 pt（20%）');
   await expect(gauge).toHaveAccessibleName('完了 2 / 10 pt（20%）、経過 8 / 14 日（57%）');
@@ -1433,12 +1454,15 @@ test('進み具合は完了ポイントと経過日数を1本の棒で示し、�
   await expect(page.locator('.progress-legend')).toHaveText('経過 8 / 14 日（57%）');
   await expect(page.locator('.progress-fill')).not.toHaveCSS('width', '0px');
   await expect(page.locator('.progress-marker')).toHaveAttribute('style', /left: 57\.142/);
+  await page.keyboard.press('Escape');
+  await expect(gauge).toHaveCount(0);
   await dragTo(
     page,
     page.getByRole('link', { name: '管理画面にポイント履歴の一覧を出す', exact: true }),
     page.getByRole('region', { name: '完了', exact: true }).locator('.board-col-head'),
     'middle',
   );
+  await openSprintPopover(page);
   await expect(page.locator('.progress-num')).toHaveText('完了 7 / 10 pt（70%）');
   await expect(gauge).toHaveAccessibleName('完了 7 / 10 pt（70%）、経過 8 / 14 日（57%）');
   await expect(page.locator('.progress-fill')).toHaveAttribute('style', /width: 70%/);
@@ -1451,6 +1475,7 @@ test('0ポイントの進み具合は完了割合を出さず、390pxでも枠�
   await mockOperation(page, sprintBoard, { slug: 'aoba' }, board);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${AOBA_TEAM}/board`);
+  await openSprintPopover(page);
   await expect(page.locator('.progress-num')).toHaveText('完了 0 / 0 pt');
   await expect(page.locator('.progress-bar')).toHaveAccessibleName('完了 0 / 0 pt、経過 8 / 14 日（57%）');
   await expect(page.locator('.progress-fill')).toHaveCSS('width', '0px');

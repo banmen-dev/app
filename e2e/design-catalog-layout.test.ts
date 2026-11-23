@@ -64,36 +64,51 @@ test('組織のホームの見本: タスク行とゴールの貼り紙に本番
   expect(errors).toEqual([]);
 });
 
-test('スプリントの見本: ゴールの貼り紙はラベルとゴールだけを出す', async ({ page }) => {
+// ボードの見本は、ゴールを貼り紙ではなく道具の帯のスプリントのボタンの小窓に出す（#1498）
+test('ボードの見本: ゴールはスプリントの小窓にラベルとゴールで出し、貼り紙を置かない', async ({ page }) => {
   const errors = await openCatalog(page, 'sprint.html');
-  const goal = page.locator('.notice').filter({ has: page.locator('.notice-title.is-goal') });
+  await expect(page.locator('.notice')).toHaveCount(0);
+  await page.locator('.board-toolbar [data-popover-toggle]').click();
+  const goal = page.locator('.popover-panel .popover-section');
   await expect(goal).toBeVisible();
-  await expect(goal.locator(':scope > *')).toHaveCount(2);
-  await expect(goal.locator('.notice-label')).toHaveText('スプリントゴール');
-  await expect(goal.locator('.notice-title.is-goal')).toHaveText(
+  await expect(goal.locator('.popover-label')).toHaveText('スプリントゴール');
+  await expect(goal.locator('.popover-text')).toHaveText(
     '会員ポイントの付与を管理画面で確かめられる所まで進め、決済の障害の検知を入れる',
   );
   expect(errors).toEqual([]);
 });
 
-for (const screen of ['today.html', 'sprint.html']) {
-  test(`ゴールが空のスプリントの見本では貼り紙を置かない: ${screen}`, async ({ page }) => {
-    const errors = await openCatalog(page, screen);
-    const goals = page.locator('.notice-title.is-goal');
-    await expect(goals.first()).toBeVisible();
-    await page.evaluate(() => {
-      const { SQ } = window as unknown as {
-        SQ: { D: { sprints: Record<string, { goal?: string }> }; redraw: () => void };
-      };
-      for (const sprint of Object.values(SQ.D.sprints)) sprint.goal = '';
-      SQ.redraw();
-    });
-    await expect(goals).toHaveCount(0);
-    await expect(page.locator(screen === 'today.html' ? '.notice-grid' : '.notice')).toHaveCount(0);
-    await expect(page.locator('.page-title')).toBeVisible();
-    expect(errors).toEqual([]);
+test('ゴールが空のスプリントの見本では貼り紙を置かない: today.html', async ({ page }) => {
+  const errors = await openCatalog(page, 'today.html');
+  const goals = page.locator('.notice-title.is-goal');
+  await expect(goals.first()).toBeVisible();
+  await page.evaluate(() => {
+    const { SQ } = window as unknown as {
+      SQ: { D: { sprints: Record<string, { goal?: string }> }; redraw: () => void };
+    };
+    for (const sprint of Object.values(SQ.D.sprints)) sprint.goal = '';
+    SQ.redraw();
   });
-}
+  await expect(goals).toHaveCount(0);
+  await expect(page.locator('.notice-grid')).toHaveCount(0);
+  await expect(page.locator('.page-title')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('ゴールが空のスプリントのボードの見本では、小窓にゴールの節を置かない', async ({ page }) => {
+  const errors = await openCatalog(page, 'sprint.html');
+  await page.evaluate(() => {
+    const { SQ } = window as unknown as {
+      SQ: { D: { sprints: Record<string, { goal?: string }> }; redraw: () => void };
+    };
+    for (const sprint of Object.values(SQ.D.sprints)) sprint.goal = '';
+    SQ.redraw();
+  });
+  await page.locator('.board-toolbar [data-popover-toggle]').click();
+  await expect(page.locator('.popover-panel .popover-title')).toBeVisible();
+  await expect(page.locator('.popover-panel .popover-section')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
 
 test('組織のホームの見本: 同名のワークスペースの貼り紙は ID 順に並ぶ', async ({ page }) => {
   const errors = await openCatalog(page, 'today.html');
