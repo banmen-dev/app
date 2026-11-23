@@ -1,3 +1,11 @@
+<script module lang="ts">
+  export class DraftRowState {
+    value = $state('');
+    error = $state<string | null>(null);
+    sending = $state(false);
+  }
+</script>
+
 <script lang="ts">
   import { tick, type Snippet } from 'svelte';
   import { t } from '../vocabulary.svelte.ts';
@@ -22,6 +30,7 @@
     describedby,
     attrs,
     ondiscard,
+    draft = new DraftRowState(),
   }: {
     // 外から `c` などでフォーカスを移せるときの、そのキー（aria-keyshortcuts で読み上げに伝える。フォーカスが移る先の欄に付ける）
     keyshortcut?: string;
@@ -40,15 +49,13 @@
     attrs?: Snippet<[boolean]>;
     // Esc で書きかけを捨てたとき（属性の選択も捨てるため）
     ondiscard?: () => void;
+    draft?: DraftRowState;
   } = $props();
 
   const ids = $props.id();
   const inputId = `${ids}-input`;
   const errorId = `${ids}-error`;
 
-  let value = $state('');
-  let error = $state<string | null>(null);
-  let sending = $state(false);
   let input = $state<HTMLInputElement>();
 
   // 外（`c` のショートカットなど）から欄へフォーカスを移す。見える位置へ寄せる
@@ -58,25 +65,25 @@
   }
 
   async function submit(): Promise<void> {
-    if (sending) return;
-    const title = value.trim();
+    if (draft.sending) return;
+    const title = draft.value.trim();
     if (title === '') return;
     const found = problem(title);
     if (found !== null) {
-      error = found;
+      draft.error = found;
       return;
     }
-    error = null;
-    sending = true;
+    draft.error = null;
+    draft.sending = true;
     try {
       const failed = await create(title);
       if (failed === null) {
-        value = '';
+        draft.value = '';
       } else {
-        error = failed;
+        draft.error = failed;
       }
     } finally {
-      sending = false;
+      draft.sending = false;
       await tick();
       input?.focus();
     }
@@ -91,9 +98,9 @@
     } else if (event.key === 'Escape') {
       event.preventDefault();
       // 送っている間は捨てられない（送信は止まらないので、捨てたつもりで作られるのを避ける）
-      if (sending) return;
-      value = '';
-      error = null;
+      if (draft.sending) return;
+      draft.value = '';
+      draft.error = null;
       ondiscard?.();
     }
   }
@@ -105,23 +112,23 @@
   <input
     id={inputId}
     bind:this={input}
-    bind:value
+    bind:value={draft.value}
     class="input"
     type="text"
     autocomplete="off"
     enterkeyhint="done"
     aria-keyshortcuts={keyshortcut}
     placeholder={placeholder ?? t('draftPlaceholder', { label })}
-    readonly={sending}
-    aria-invalid={error !== null}
-    aria-describedby={[describedby, error === null ? undefined : errorId].filter(Boolean).join(' ') || undefined}
-    oninput={() => (error = null)}
+    readonly={draft.sending}
+    aria-invalid={draft.error !== null}
+    aria-describedby={[describedby, draft.error === null ? undefined : errorId].filter(Boolean).join(' ') || undefined}
+    oninput={() => (draft.error = null)}
     onkeydown={keydown}
   />
 </div>
-<span class="visually-hidden" role="status">{sending ? t('treeAddSending') : ''}</span>
-{#if error !== null}
-  <p class="field-error draft-error" id={errorId} role="alert">{error}</p>
+<span class="visually-hidden" role="status">{draft.sending ? t('treeAddSending') : ''}</span>
+{#if draft.error !== null}
+  <p class="field-error draft-error" id={errorId} role="alert">{draft.error}</p>
 {/if}
 <!-- 属性は題の失敗の文の後に置く（失敗の文を題の欄のすぐ下に読ませる） -->
-{#if attrs !== undefined}{@render attrs(sending)}{/if}
+{#if attrs !== undefined}{@render attrs(draft.sending)}{/if}

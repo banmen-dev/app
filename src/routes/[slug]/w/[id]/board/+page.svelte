@@ -7,7 +7,7 @@
   import { page } from '$app/state';
   import { callOperation, type ApiResult } from '../../../../../lib/api.ts';
   import DraftAttrs from '../../../../../lib/components/DraftAttrs.svelte';
-  import DraftRow from '../../../../../lib/components/DraftRow.svelte';
+  import DraftRow, { DraftRowState } from '../../../../../lib/components/DraftRow.svelte';
   import BoardFilterBar from '../../../../../lib/components/BoardFilterBar.svelte';
   import EmptyState from '../../../../../lib/components/EmptyState.svelte';
   import Icon from '../../../../../lib/components/Icon.svelte';
@@ -32,8 +32,11 @@
   import { MoveQueue } from '../../../../../lib/move-queue.ts';
   import { ReopenKeyGuard } from '../../../../../lib/reopen-key.ts';
   import { edgesOf, planCardMove, type MoveDirection, type MoveEdge } from '../../../../../lib/sprint-board.ts';
+  import { boardLanesOf } from '../../../../../lib/board-lanes.ts';
   import {
     applyFilteredMove,
+    BOARD_FILTER_NONE,
+    boardFilterValue,
     boardChoicesOf,
     boardFilterHref,
     boardFilterOf,
@@ -51,6 +54,7 @@
   import { SprintDnd } from '../../../../../lib/sprint-dnd.svelte.ts';
   import type { MovedPlan, ReopenPlan, SprintDrop } from '../../../../../lib/sprint-drop.ts';
   import { completedMessage, sprintLabel, sprintPeriod } from '../../../../../lib/sprint-label.ts';
+  import { taskAttributes } from '../../../../../lib/task-attributes.svelte.ts';
   import { trackTaskOrder } from '../../../../../lib/task-order.ts';
   import { showToast } from '../../../../../lib/toast.svelte.ts';
   import { t } from '../../../../../lib/vocabulary.svelte.ts';
@@ -61,6 +65,7 @@
     type SprintBoardTask,
   } from '../../../../../shared/operations/sprint/index.ts';
   import {
+    taskAssign,
     taskComplete,
     taskCreate,
     taskCreateConflictReasonOf,
@@ -119,6 +124,19 @@
   // `c` で、開いている完了でない最初の列の空の行へフォーカスを移す。行が無い（書き込めない、列が無い）間は働かない
   // bind:this は、部品が外れると null に戻る
   let draftRows = $state<Record<string, DraftRow | null | undefined>>({});
+  const draftInputs = $derived.by(() => {
+    const id = workspaceId;
+    return { id, rows: new Map<string, DraftRowState>() };
+  });
+  function draftInputOf(columnId: string): DraftRowState {
+    const { rows } = draftInputs;
+    let state = rows.get(columnId);
+    if (state === undefined) {
+      state = new DraftRowState();
+      rows.set(columnId, state);
+    }
+    return state;
+  }
   // 列ごとの、空の行で作る前に選んだ担当と期日（#1501）
   type DraftChoice = { assignee: { id: string; name: string } | null; due: string | null };
   let draftChoices = $state<Record<string, DraftChoice>>({});
@@ -227,6 +245,20 @@
       .catch(() => showToast(t('sprintStoryFilterClearFailed'), 'alert'));
   });
   const visibleColumns = $derived(filterColumns(columns, filter));
+  const lanes = $derived(filter.group === undefined ? [] : boardLanesOf(visibleColumns, filter.group));
+  let collapsedLanes = $state<Record<string, boolean>>({});
+  const laneKey = (id: string): string => `${workspaceId}:${filter.group}:${id}`;
+  const laneIsCollapsed = (id: string): boolean => collapsedLanes[laneKey(id)] ?? false;
+  function toggleLane(id: string): void {
+    collapsedLanes[laneKey(id)] = !laneIsCollapsed(id);
+    dnd.reset();
+  }
+  function laneName(id: string, label: string): string {
+    if (id !== BOARD_FILTER_NONE) return label;
+    if (filter.group === 'assignee') return t('unassigned');
+    if (filter.group === 'epic') return t('filterNoEpic', { epic: t('epic') });
+    return t('boardGroupNoParent');
+  }
   const visibleCount = $derived(visibleColumns.reduce((total, column) => total + column.tasks.length, 0));
   const totalCount = $derived(columns.reduce((total, column) => total + column.tasks.length, 0));
   const hiddenIn = (columnId: string): number =>
@@ -241,7 +273,11 @@
     new Set(
       visibleColumns
         .filter((column) => !collapsedColumns.isCollapsed(column.id))
-        .flatMap((column) => column.tasks.map((task) => task.story?.id ?? null)),
+        .flatMap((column) =>
+          column.tasks
+            .filter((task) => filter.group === undefined || !laneIsCollapsed(boardFilterValue(task, filter.group)))
+            .map((task) => task.story?.id ?? null),
+        ),
     ),
   );
   const highlightedStory = $derived(
@@ -277,6 +313,7 @@
   let filterSends = 0;
   async function applyFilter(next: BoardFilter, message?: string): Promise<void> {
     if (sameBoardFilter(next, filter)) return;
+    const onlyGroupChanged = sameBoardFilter({ ...next, group: filter.group }, filter);
     hoveredStory = undefined;
     const sent = ++filterSends;
     pendingFilter = next;
@@ -290,6 +327,7 @@
       await announce(message);
       return;
     }
+    if (onlyGroupChanged) return;
     const shown = filterColumns(columns, next).reduce((total, column) => total + column.tasks.length, 0);
     await announce(
       !isBoardFiltering(next)
@@ -326,7 +364,10 @@
     filterSends += 1;
     pendingFilter = null;
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- 現在の経路の絞り込みの問い合わせだけを除く
-    await goto(boardFilterHref(page.url, emptyBoardFilter), { replace: true, reset: false });
+    await goto(boardFilterHref(page.url, { ...emptyBoardFilter, group: previous.group }), {
+      replace: true,
+      reset: false,
+    });
     await announce(onlyStory ? t('sprintStoryFilterCleared', { story: t('story') }) : t('boardFilterCleared'));
     await tick();
     if (previousStory !== null) {
@@ -358,6 +399,7 @@
   let sendingIds = $state<string[]>([]);
   const dnd = new SprintDnd({
     columns: () => visibleColumns,
+    group: () => filter.group,
     enabled: () => canWrite,
     busy: (id) => sendingIds.includes(id) || completingId === id || reopeningId === id,
     onDrop: dropCard,
@@ -555,7 +597,10 @@
       }
       return;
     }
-    const plan = planCardMove(visibleColumns, task.id, direction);
+    if (sendingIds.includes(task.id)) return;
+    const group = filter.group;
+    const lane = group === undefined ? undefined : lanes.find((item) => item.id === boardFilterValue(task, group));
+    const plan = planCardMove(lane?.columns ?? visibleColumns, task.id, direction);
     if (plan === null) return;
     // 次の列が完了の列なら、完了にする
     if (plan.kind === 'complete') {
@@ -684,6 +729,74 @@
     whileSending(task.id, sent);
   }
 
+  function assignDroppedCard(task: SprintBoardTask, plan: Extract<SprintDrop['plan'], { kind: 'assign' }>): void {
+    if (workspace === null) return;
+    const workspaceId = workspace.id;
+    const options = { slug };
+    const assignee = taskAttributes(slug, workspaceId, task.id).assignee;
+    const release = assignee.reserve();
+    if (release === null) {
+      showToast(t('boardGroupAssignSending', { assignee: t('assignee') }), 'alert');
+      return;
+    }
+    let failedAssign = false;
+    const sent = moves.send(
+      async () => {
+        const assigned = await callOperation(
+          taskAssign,
+          { workspace_id: workspaceId, task_id: task.id, assignee_user_id: plan.assigneeId },
+          options,
+        );
+        if (!assigned.ok) {
+          failedAssign = true;
+          return assigned;
+        }
+        assignee.observe(assigned.data.task.assignee?.id ?? '', performance.now());
+        if (workspaceId !== page.params.id || options.slug !== slug) return assigned;
+        const next = plan.next;
+        if (next?.kind === 'complete') {
+          if (await complete(task)) flashAfterReload = task.id;
+          return assigned;
+        }
+        if (next?.kind === 'moved') {
+          const result = await callOperation(
+            taskColumnMove,
+            columnMoveInput(workspaceId, task, next.column.id, next.afterTaskId),
+            options,
+          );
+          if (!result.ok) return result;
+        }
+        if (workspaceId === page.params.id && options.slug === slug) {
+          flashAfterReload = task.id;
+          showToast(
+            t('boardGroupChanged', {
+              title: task.title,
+              assignee: t('assignee'),
+              name: assigned.data.task.assignee?.name ?? t('unassigned'),
+            }),
+            'check',
+          );
+          if (next !== null) void announce(movedMessage(task, next));
+        }
+        return assigned;
+      },
+      async (result) => {
+        if (workspaceId !== page.params.id || options.slug !== slug || result.ok) return;
+        if (!failedAssign) {
+          await moveRefused(workspaceId, result);
+        } else if (result.status === 401) {
+          await invalidateAll();
+        } else {
+          showToast(t('boardGroupAssignFailed', { task: t('task'), assignee: t('assignee') }), 'alert');
+          if (result.error?.code === 'workspace_closed') await invalidate('app:workspace');
+          await reloadBoard();
+        }
+      },
+      true,
+    );
+    whileSending(task.id, sent.finally(release));
+  }
+
   // カードを落とした（つかんでいる間に画面が読み直されていれば、ここへは来ない）
   function dropCard(drop: SprintDrop): void {
     if (workspace === null || !canWrite) return;
@@ -692,7 +805,8 @@
     if (drop.plan.kind === 'complete') queueComplete(task, true);
     else if (drop.plan.kind === 'reopen') applyReopenMove(task, drop.plan);
     else if (drop.plan.kind === 'reopen-blocked') void refuseReopen();
-    else applyMove(task, drop.plan, true);
+    else if (drop.plan.kind === 'assign') assignDroppedCard(task, drop.plan);
+    else if (drop.plan.kind === 'moved') applyMove(task, drop.plan, true);
   }
 
   // 完了にできたら true（別の画面で先に完了にされていたときも）。queueComplete から呼び、成功時の読み直しとフォーカスは待ち行列側が扱う。
@@ -1164,108 +1278,159 @@
         >
           <!-- 引き出しの前後のボタンの順は、ボードに今見えているカード（左の列から右へ、列の中は上から下） -->
           <div class="board" style:--board-cols={columns.length} {@attach trackTaskOrder} {@attach trackStoryHover}>
-            {#each visibleColumns as column (column.id)}
-              <section
-                class="board-col"
-                class:is-done={column.is_done}
-                class:is-collapsed={collapsedColumns.isCollapsed(column.id)}
-                aria-label={columnName(column)}
-                data-drop={canWrite ? dnd.markOfColumn(column.id) : undefined}
-                {@attach canWrite ? dnd.column(column.id) : undefined}
-              >
-                <div class="board-col-head">
-                  <button
-                    class="board-col-toggle"
-                    type="button"
-                    data-column-toggle={column.id}
-                    aria-label={t('sprintBoardColumnToggle', { column: columnName(column) })}
-                    aria-expanded={!collapsedColumns.isCollapsed(column.id)}
-                    onclick={() => collapsedColumns.toggle(column.id)}><Icon name="chevron" /></button
+            {#snippet boardRow(rowColumns: SprintBoardColumn[], part: 'all' | 'head' | 'lane' | 'draft', lane?: string)}
+              {#each rowColumns as column (column.id)}
+                {#if part === 'draft' && (column.is_done || !canWrite)}
+                  <div></div>
+                {:else}
+                  <svelte:element
+                    this={part === 'draft' ? 'div' : 'section'}
+                    class="board-col"
+                    class:is-done={column.is_done}
+                    class:is-collapsed={collapsedColumns.isCollapsed(column.id)}
+                    role={part === 'lane' ? 'group' : undefined}
+                    aria-label={part === 'draft' ? undefined : columnName(column)}
+                    data-column={column.id}
+                    data-drop={canWrite ? dnd.markOfColumn(column.id, lane) : undefined}
+                    {@attach canWrite && (part === 'all' || part === 'lane') ? dnd.column(column.id, lane) : undefined}
                   >
-                  {#if column.is_done}<Icon name="check" />{/if}
-                  <span class="board-col-name">{columnName(column)}</span>
-                  <span class="board-col-n">{column.tasks.length}</span>
-                  <span class="board-col-pts">{t('sprintBoardColumnPoints', { points: pointsOf(column.tasks) })}</span>
-                </div>
-                {#if !collapsedColumns.isCollapsed(column.id)}
-                  <!-- 完成の定義（components.css の .dod。kit.js の board）。完了の列にだけ畳んで置き、空なら出さない。本文は開くまで描かない -->
-                  {#if column.is_done && workspace.definitionOfDone !== null}
-                    <details class="dod" bind:open={dodOpen}>
-                      <summary>{t('dod')}</summary>
-                      {#if dodOpen}<Markdown source={workspace.definitionOfDone} headingStart={2} />{/if}
-                    </details>
-                  {/if}
-                  {#each column.tasks as task (task.id)}
-                    <SprintCard
-                      {task}
-                      {highlightedStory}
-                      onstoryhover={(id) => (hoveredStory = id)}
-                      onstoryfocus={(id) => {
-                        focusedStory = id;
-                        // キーボードで親名へ移ったら、隙間で保ったポインタの強調より、フォーカスしたストーリーを先にする
-                        if (id !== null) hoveredStory = undefined;
-                      }}
-                      onstoryfilter={(id) => void filterStory(id)}
-                      href="{boardHref}?task={encodeURIComponent(task.id)}{cardFilterQuery === ''
-                        ? ''
-                        : `&${cardFilterQuery}`}"
-                      edges={canWrite ? edgesOf(visibleColumns, task.id) : null}
-                      writable={canWrite}
-                      clock={{ today: board.today, weekStart: board.week_start }}
-                      hintId={KEY_HINT_ID}
-                      dnd={canWrite ? dnd : undefined}
-                      onmove={moveCard}
-                      ondelete={canWrite ? (target, keyboard) => void removeCard(target, keyboard) : undefined}
-                      attrs={cardAttrs}
-                    />
-                  {:else}
-                    <p class="board-empty">
-                      {hiddenIn(column.id) > 0
-                        ? t('boardColumnHidden', { count: hiddenIn(column.id) })
-                        : t('sprintBoardColumnEmpty')}
-                    </p>
-                  {/each}
+                    {#if canWrite && dnd.markOfColumn(column.id, lane) === 'blocked'}
+                      <span class="board-drop-blocked"><Icon name="x" /></span>
+                    {/if}
+                    {#if part === 'all' || part === 'head'}
+                      <div class="board-col-head">
+                        <button
+                          class="board-col-toggle"
+                          type="button"
+                          data-column-toggle={column.id}
+                          aria-label={t('sprintBoardColumnToggle', { column: columnName(column) })}
+                          aria-expanded={!collapsedColumns.isCollapsed(column.id)}
+                          onclick={() => collapsedColumns.toggle(column.id)}><Icon name="chevron" /></button
+                        >
+                        {#if column.is_done}<Icon name="check" />{/if}
+                        <span class="board-col-name">{columnName(column)}</span>
+                        <span class="board-col-n">{column.tasks.length}</span>
+                        <span class="board-col-pts"
+                          >{t('sprintBoardColumnPoints', { points: pointsOf(column.tasks) })}</span
+                        >
+                      </div>
+                    {/if}
+                    {#if part !== 'draft' && !collapsedColumns.isCollapsed(column.id)}
+                      <!-- 完成の定義（components.css の .dod。kit.js の board）。完了の列にだけ畳んで置き、空なら出さない。本文は開くまで描かない -->
+                      {#if column.is_done && part !== 'lane' && workspace.definitionOfDone !== null}
+                        <details class="dod" bind:open={dodOpen}>
+                          <summary>{t('dod')}</summary>
+                          {#if dodOpen}<Markdown source={workspace.definitionOfDone} headingStart={2} />{/if}
+                        </details>
+                      {/if}
+                      {#if part !== 'head'}
+                        {#each column.tasks as task (task.id)}
+                          <SprintCard
+                            {task}
+                            {highlightedStory}
+                            onstoryhover={(id) => (hoveredStory = id)}
+                            onstoryfocus={(id) => {
+                              focusedStory = id;
+                              // キーボードで親名へ移ったら、隙間で保ったポインタの強調より、フォーカスしたストーリーを先にする
+                              if (id !== null) hoveredStory = undefined;
+                            }}
+                            onstoryfilter={(id) => void filterStory(id)}
+                            href="{boardHref}?task={encodeURIComponent(task.id)}{cardFilterQuery === ''
+                              ? ''
+                              : `&${cardFilterQuery}`}"
+                            edges={canWrite ? edgesOf(rowColumns, task.id) : null}
+                            writable={canWrite}
+                            clock={{ today: board.today, weekStart: board.week_start }}
+                            hintId={KEY_HINT_ID}
+                            dnd={canWrite ? dnd : undefined}
+                            onmove={moveCard}
+                            ondelete={canWrite ? (target, keyboard) => void removeCard(target, keyboard) : undefined}
+                            attrs={cardAttrs}
+                          />
+                        {:else}
+                          {#if part === 'all'}
+                            <p class="board-empty">
+                              {hiddenIn(column.id) > 0
+                                ? t('boardColumnHidden', { count: hiddenIn(column.id) })
+                                : t('sprintBoardColumnEmpty')}
+                            </p>
+                          {/if}
+                        {/each}
+                      {/if}
+                    {/if}
+                    {#if (part === 'all' || part === 'draft') && canWrite && !column.is_done}
+                      <div class="board-col-draft" hidden={collapsedColumns.isCollapsed(column.id)}>
+                        <DraftRow
+                          bind:this={draftRows[column.id]}
+                          draft={draftInputOf(column.id)}
+                          keyshortcut={column.id === firstOpenColumnId ? ariaKeyshortcuts(NEW_TASK_KEY) : undefined}
+                          label={t('sprintBoardAddTask', { task: t('task') })}
+                          placeholder={t('sprintBoardAddTaskPlaceholder', { task: t('task') })}
+                          describedby={storyId === null ? undefined : `story-create-${column.id}`}
+                          name={t('sprintBoardAddTaskIn', { task: t('task'), column: columnName(column) })}
+                          problem={cardTitleProblem}
+                          create={(title) => addCard(column, title)}
+                          ondiscard={() => clearDraftChoice(column.id)}
+                        >
+                          {#snippet attrs(sending)}
+                            <DraftAttrs
+                              column={columnName(column)}
+                              {slug}
+                              {workspaceId}
+                              me={data.organization === null
+                                ? null
+                                : { id: data.organization.me.id, name: data.organization.me.name }}
+                              clock={{ today: board.today, weekStart: board.week_start }}
+                              bind:assignee={
+                                () => draftChoiceOf(column.id).assignee,
+                                (value) => setDraftChoice(column.id, { assignee: value })
+                              }
+                              bind:due={
+                                () => draftChoiceOf(column.id).due, (value) => setDraftChoice(column.id, { due: value })
+                              }
+                              locked={sending ? t('treeAddSending') : undefined}
+                            />
+                          {/snippet}
+                        </DraftRow>
+                        {#if storyId !== null}<p class="action-note" id="story-create-{column.id}">
+                            {t('sprintStoryCreateUnder', { story: t('story') })}
+                          </p>{/if}
+                      </div>
+                    {/if}
+                  </svelte:element>
                 {/if}
-                {#if canWrite && !column.is_done}
-                  <div class="board-col-draft" hidden={collapsedColumns.isCollapsed(column.id)}>
-                    <DraftRow
-                      bind:this={draftRows[column.id]}
-                      keyshortcut={column.id === firstOpenColumnId ? ariaKeyshortcuts(NEW_TASK_KEY) : undefined}
-                      label={t('sprintBoardAddTask', { task: t('task') })}
-                      placeholder={t('sprintBoardAddTaskPlaceholder', { task: t('task') })}
-                      describedby={storyId === null ? undefined : `story-create-${column.id}`}
-                      name={t('sprintBoardAddTaskIn', { task: t('task'), column: columnName(column) })}
-                      problem={cardTitleProblem}
-                      create={(title) => addCard(column, title)}
-                      ondiscard={() => clearDraftChoice(column.id)}
+              {/each}
+            {/snippet}
+            {#if filter.group === undefined}
+              {@render boardRow(visibleColumns, 'all')}
+            {:else}
+              {@render boardRow(visibleColumns, 'head')}
+              {#each lanes as lane (lane.id)}
+                {@const name = laneName(lane.id, lane.label)}
+                <section class="board-lane" aria-label={name} data-board-lane={lane.id}>
+                  <h2 class="board-lane-head">
+                    <button
+                      class="board-lane-toggle"
+                      type="button"
+                      aria-expanded={!laneIsCollapsed(lane.id)}
+                      onclick={() => toggleLane(lane.id)}
                     >
-                      {#snippet attrs(sending)}
-                        <DraftAttrs
-                          column={columnName(column)}
-                          {slug}
-                          {workspaceId}
-                          me={data.organization === null
-                            ? null
-                            : { id: data.organization.me.id, name: data.organization.me.name }}
-                          clock={{ today: board.today, weekStart: board.week_start }}
-                          bind:assignee={
-                            () => draftChoiceOf(column.id).assignee,
-                            (value) => setDraftChoice(column.id, { assignee: value })
-                          }
-                          bind:due={
-                            () => draftChoiceOf(column.id).due, (value) => setDraftChoice(column.id, { due: value })
-                          }
-                          locked={sending ? t('treeAddSending') : undefined}
-                        />
-                      {/snippet}
-                    </DraftRow>
-                    {#if storyId !== null}<p class="action-note" id="story-create-{column.id}">
-                        {t('sprintStoryCreateUnder', { story: t('story') })}
-                      </p>{/if}
-                  </div>
-                {/if}
-              </section>
-            {/each}
+                      <span class="board-lane-label">
+                        <Icon name="chevron" />
+                        <span class="board-lane-name">{name}</span>
+                        <span class="board-col-n">{t('boardGroupCount', { count: lane.count })}</span>
+                      </span>
+                    </button>
+                  </h2>
+                  {#if !laneIsCollapsed(lane.id)}
+                    {@render boardRow(lane.columns, 'lane', lane.id)}
+                  {/if}
+                </section>
+              {:else}
+                <p class="board-empty board-lane-head">{t('filterResultNone')}</p>
+              {/each}
+              {@render boardRow(visibleColumns, 'draft')}
+            {/if}
           </div>
         </div>
       </div>

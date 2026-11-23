@@ -89,6 +89,11 @@
     avatarSaveFailed: "プロフィール画像を変更できませんでした。もう一度試してください。",
     avatarSaving: "画像を変更しています", avatarReading: "画像を読み込んでいます",
     avatarSaved: "プロフィール画像を上げました。", avatarRemoved: "プロフィール画像を外しました。",
+    boardGroup: "グループ",
+    boardGroupNone: "なし",
+    boardGroupAssignee: "担当者",
+    boardGroupNoParent: "親なし",
+    boardGroupCount: "{count} 件",
     sprintStoryFilterLabel: '{story}で絞り込む: {title}',
     sprintStoryTotalsNote: '{sprint}の小窓の進み具合は全体、列の件数と{points}は絞り込み後の値です',
     sprintStoryCreateUnder: '絞り込んだ{story}の下に追加します',
@@ -1121,6 +1126,7 @@
   // ボードの道具の帯（本番の BoardFilterBar）。左に検索、担当のアバター、フィルターの小窓（ストーリー、エピック、担当、区分のチェック）、
   // 絞っている間は「すべてクリア」と、帯の下に条件と表示している件数を出す。右端（opts.end）はスプリントのボタン。
   // 担当のアバターは名前の順に先頭の5人と「担当なし」。押すと aria-pressed が替わる（見本は押した見た目だけを替える）
+  const boardGroupOptions = () => [["", t("boardGroupNone")], ["assignee", t("boardGroupAssignee")], ["story", t("story")], ["epic", t("epic")]];
   function boardToolbar(sprintId, opts = {}) {
     const all = tasksWhere((x) => x.sprint === sprintId);
     const shown = all.filter((x) => boardMatches(x, opts)).length;
@@ -1163,6 +1169,7 @@
         <label class="search">${icon("search")}<input type="search" placeholder="${t("board")}を検索" aria-label="${t("board")}を検索" value="${esc(opts.q || "")}"></label>
         <div class="avatar-filter" role="group" aria-label="${t("assignee")}で絞り込む">${avatars}</div>
         ${filters}
+        ${opts.group !== undefined ? `<label class="board-group">${t("boardGroup")} <select class="input" data-board-group>${boardGroupOptions().map(([key, name]) => `<option value="${key}"${opts.group === key ? " selected" : ""}>${name}</option>`).join("")}</select></label>` : ""}
         ${filtering ? `<button class="btn is-sm is-quiet" type="button" data-story-clear>${icon("x")}すべてクリア</button>` : ""}
       </div>
       <div class="toolbar-end">${opts.end || ""}</div>
@@ -1209,24 +1216,52 @@
     const all = tasksWhere((x) => x.sprint === sprintId);
     const list = all.filter((x) => boardMatches(x, opts));
     const open = D.columns.filter((c) => !c.done);
-    return `<div class="story-board" data-board-story="${esc(opts.story || "")}" data-board-sprint="${sprintId}" data-board-key="${opts.key || ""}" data-board-draft="${!!opts.draft}"><div class="board-wrap"><div class="board" style="--board-cols:${D.columns.length}">${D.columns.map((c) => {
+    const row = (tasks, part) => D.columns.map((c) => {
+      if (part === "draft" && c.done) return "<div></div>";
       const name = c.done ? t("done") : (opts.columnName ? opts.columnName(c) : c.name);
       const inColumn = (x) => (c.done ? x.doneAt : !x.doneAt && x.col === c.id);
-      const items = list.filter(inColumn);
-      const hidden = all.filter(inColumn).length - items.length;
+      const items = tasks.filter(inColumn);
+      const hidden = part === "all" ? all.filter(inColumn).length - items.length : 0;
       const collapseKey = `${opts.key || sprintId}-${c.id}`;
       const collapsed = boardCollapsed.has(collapseKey) ? boardCollapsed.get(collapseKey) : Boolean(opts.collapsed && opts.collapsed(c));
       const at = open.indexOf(c);
       // 最後の完了でない列の「次の列へ」は、完了の列へ移す代わりに完了にする（本番は task-complete を呼ぶ）ので、押せる
       const orderOf = (i) => ({ first: i === 0, last: i === items.length - 1, across: { first: at === 0, last: false } });
       return `<section class="board-col ${c.done ? "is-done" : ""} ${collapsed ? "is-collapsed" : ""}"${dropAttr(opts.columnMarks && opts.columnMarks(c))} aria-label="${esc(name)}">
-        <div class="board-col-head"><button class="board-col-toggle" type="button" aria-label="${esc(name)}の開閉" aria-expanded="${!collapsed}" data-column-collapse="${esc(collapseKey)}">${icon("chevron")}</button>${c.done ? icon("check") : ""}<span class="board-col-name">${esc(name)}</span><span class="board-col-n">${items.length}</span><span class="board-col-pts">${sumPts(items)} pt</span></div>
-        ${collapsed ? "" : `${c.done && D.definitionOfDone.length ? `<details class="dod"><summary>${t("dod")}</summary>${dodDoc()}</details>` : ""}
-        ${items.map((x, i) => card(x, c.done ? undefined : orderOf(i), { mark: opts.cardMarks && opts.cardMarks(x, i, c), grab: opts.grab ? opts.grab(x) : true, key: opts.key, highlightStory: opts.highlightStory })).join("") || `<p class="board-empty">${hidden > 0 ? `絞り込みで ${hidden} 件を隠しています` : "なし"}</p>`}
-        ${opts.draft && !c.done ? `<div class="board-col-draft">${draftRow("col", c.id, `${t("task")}を足す: ${c.name}`, `${t("task")}を足す`)}${draftAttrs(c.id, c.name)}${opts.story ? `<p class="action-note">${storyFilterText("sprintStoryCreateUnder")}</p>` : ""}</div>` : ""}` }
+        ${part !== "lane" && part !== "draft" ? `<div class="board-col-head"><button class="board-col-toggle" type="button" aria-label="${esc(name)}の開閉" aria-expanded="${!collapsed}" data-column-collapse="${esc(collapseKey)}">${icon("chevron")}</button>${c.done ? icon("check") : ""}<span class="board-col-name">${esc(name)}</span><span class="board-col-n">${items.length}</span><span class="board-col-pts">${sumPts(items)} pt</span></div>` : ""}
+        ${collapsed || part === "draft" ? "" : `${c.done && part !== "lane" && D.definitionOfDone.length ? `<details class="dod"><summary>${t("dod")}</summary>${dodDoc()}</details>` : ""}
+        ${part === "head" ? "" : items.map((x, i) => card(x, c.done ? undefined : orderOf(i), { mark: opts.cardMarks && opts.cardMarks(x, i, c), grab: opts.grab ? opts.grab(x) : true, key: opts.key, highlightStory: opts.highlightStory } )).join("") || (part === "lane" ? "" : `<p class="board-empty">${hidden > 0 ? `絞り込みで ${hidden} 件を隠しています` : "なし"}</p>`)}
+        `}
+        ${!collapsed && opts.draft && !c.done && (part === "all" || part === "draft") ? `<div class="board-col-draft">${draftRow("col", c.id, `${t("task")}を足す: ${c.name}`, `${t("task")}を足す`)}${draftAttrs(c.id, c.name)}${opts.story ? `<p class="action-note">${storyFilterText("sprintStoryCreateUnder")}</p>` : ""}</div>` : ""}
       </section>`;
-    }).join("")}</div></div></div>`;
+    }).join("");
+    const lanes = new Map();
+    if (opts.group) {
+      for (const task of list) {
+        const id = (opts.group === "assignee" ? task.who : opts.group === "story" ? task.story : D.stories[task.story]?.epic) || "";
+        if (!lanes.has(id)) lanes.set(id, []);
+        lanes.get(id).push(task);
+      }
+    }
+    const nameOf = (id) => opts.group === "assignee" ? (id ? user(id).name : t("unassigned"))
+      : opts.group === "story" ? (id ? D.stories[id].title : t("boardGroupNoParent"))
+      : (id ? D.epics[id].title : t("filterNoEpic").replace("{epic}", t("epic")));
+    const ordered = [...lanes].sort(([a], [b]) => !a ? 1 : !b ? -1 : opts.group === "assignee" ? nameOf(a).localeCompare(nameOf(b), "ja") : 0);
+    const grouped = () => row(list, "head") + ordered.map(([id, tasks]) => `
+        <section class="board-lane" aria-label="${esc(nameOf(id))}">
+          <h2 class="board-lane-head"><button class="board-lane-toggle" type="button" aria-expanded="true" data-board-lane-toggle><span class="board-lane-label">${icon("chevron")}<span class="board-lane-name">${esc(nameOf(id))}</span><span class="board-col-n">${t("boardGroupCount").replace("{count}", tasks.length)}</span></span></button></h2>
+          ${row(tasks, "lane")}
+        </section>`).join("") + row([], "draft");
+    return `<div class="story-board" data-board-story="${esc(opts.story || "")}" data-board-sprint="${sprintId}" data-board-key="${opts.key || ""}" data-board-draft="${!!opts.draft}" data-board-group="${esc(opts.group || "")}" data-board-q="${esc(opts.q || "")}" data-board-assignees="${esc((opts.assignees || []).join(","))}"><div class="board-wrap"><div class="board" style="--board-cols:${D.columns.length}">${opts.group ? grouped() : row(list, "all")}</div></div></div>`;
   }
+
+  document.addEventListener("click", (event) => {
+    const toggle = event.target.closest?.("[data-board-lane-toggle]");
+    if (!toggle) return;
+    const open = toggle.getAttribute("aria-expanded") === "true";
+    toggle.setAttribute("aria-expanded", String(!open));
+    for (const column of toggle.closest(".board-lane").querySelectorAll(".board-col")) column.hidden = open;
+  });
 
   document.addEventListener("click", (event) => {
     const button = event.target.closest && event.target.closest("[data-column-collapse]");
@@ -1234,7 +1269,10 @@
     const key = button.dataset.columnCollapse;
     boardCollapsed.set(key, button.getAttribute("aria-expanded") === "true");
     const root = button.closest(".story-board");
-    if (root?.dataset.boardStory) root.outerHTML = board(root.dataset.boardSprint, { key: root.dataset.boardKey, story: root.dataset.boardStory, draft: root.dataset.boardDraft === "true" });
+    if (root?.dataset.boardGroup || root?.dataset.boardStory) root.outerHTML = board(root.dataset.boardSprint, {
+      key: root.dataset.boardKey, story: root.dataset.boardStory, draft: root.dataset.boardDraft === "true",
+      group: root.dataset.boardGroup, q: root.dataset.boardQ, assignees: root.dataset.boardAssignees.split(",").filter(Boolean),
+    });
     else redrawAll();
     [...document.querySelectorAll("[data-column-collapse]")].find((item) => item.dataset.columnCollapse === key)?.focus();
   });
@@ -4191,8 +4229,14 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     if (!root) return;
     // 道具の帯（.board-toolbar）が前にあれば、帯も同じ絞り込みで描き直す。右端のスプリントのボタンはそのまま残す
     const toolbar = root.previousElementSibling?.classList.contains("board-toolbar") ? root.previousElementSibling : null;
-    if (toolbar) toolbar.outerHTML = boardToolbar(root.dataset.boardSprint, { story: trigger.dataset.storyFilter, end: toolbar.querySelector(".toolbar-end").innerHTML });
-    root.outerHTML = board(root.dataset.boardSprint, { key: root.dataset.boardKey, story: trigger.dataset.storyFilter, draft: root.dataset.boardDraft === "true" });
+    const view = {
+      group: toolbar?.querySelector("[data-board-group]")?.value,
+      story: trigger.dataset.storyFilter,
+      q: trigger.matches("[data-story-clear]") ? "" : root.dataset.boardQ,
+      assignees: trigger.matches("[data-story-clear]") ? [] : root.dataset.boardAssignees.split(",").filter(Boolean),
+    };
+    if (toolbar) toolbar.outerHTML = boardToolbar(root.dataset.boardSprint, { ...view, end: toolbar.querySelector(".toolbar-end").innerHTML });
+    root.outerHTML = board(root.dataset.boardSprint, { ...view, key: root.dataset.boardKey, draft: root.dataset.boardDraft === "true" });
   });
 
   // 担当のアバターの絞り込み（本番の BoardFilterBar）。見本は押した見た目（aria-pressed）だけを替え、カードは絞らない

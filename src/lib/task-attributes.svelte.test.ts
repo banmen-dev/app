@@ -379,3 +379,23 @@ test('失敗後の再取得も引き出しを優先し、行の全体再取得�
   detachRow();
   detachDrawer();
 });
+
+test('ドラッグで担当欄を確保した間は、別の担当選択を待たせて最新の確定値から送る', async () => {
+  const sent: string[] = [];
+  const queue = new AttributeQueue<string>(async (value) => {
+    sent.push(value);
+    return { value, after: () => {} };
+  });
+  queue.observe('before', 0);
+  const release = queue.reserve();
+  expect(release).not.toBeNull();
+  expect(queue.reserve()).toBeNull();
+  queue.choose('before');
+  expect(sent).toEqual([]);
+  queue.observe('drop', 1);
+  release?.();
+  expect(queue.reserve()).toBeNull();
+  await settle();
+  expect(sent).toEqual(['before']);
+  expect(queue.shown).toBe('before');
+});

@@ -2,6 +2,8 @@
   import { untrack, type Snippet } from 'svelte';
   import {
     BOARD_FILTER_NONE,
+    BOARD_GROUPS,
+    boardGroupOf,
     BOARD_QUERY_MAX_LENGTH,
     clampQuery,
     isBoardFiltering,
@@ -237,6 +239,19 @@
         </div>
       {/if}
     </Popover>
+    <label class="board-group">
+      {t('boardGroup')}
+      <select
+        class="input"
+        value={filter.group ?? ''}
+        onchange={(event) => onchange({ ...filter, group: boardGroupOf(event.currentTarget.value) })}
+      >
+        <option value="">{t('boardGroupNone')}</option>
+        {#each BOARD_GROUPS as group (group)}
+          <option value={group}>{group === 'assignee' ? t('boardGroupAssignee') : labels[group]}</option>
+        {/each}
+      </select>
+    </label>
     {#if filtering}
       <button class="btn is-sm is-quiet" type="button" onclick={clear}
         ><Icon name="x" />{t('boardFilterClearAll')}</button

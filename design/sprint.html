@@ -44,6 +44,14 @@ function overdueNotice(id) {
     ? `<div class="callout-actions"><button class="btn is-sm" type="button" data-dialog="sprintEnd" aria-label="終える: ${t("sprint")}「${label}」">終える</button></div>` : ""}</div>`;
 }
 
+document.addEventListener("change", (event) => {
+  if (!event.target.matches("[data-board-group]")) return;
+  const url = new URL(location.href);
+  if (event.target.value) url.searchParams.set("group", event.target.value);
+  else url.searchParams.delete("group");
+  location.replace(url);
+});
+
 SQ.mount("sprint", () => {
   const s = D.sprints.sp14;
   if (!s) {
@@ -80,6 +88,7 @@ SQ.mount("sprint", () => {
   // 道具の帯の左の絞り込み（本番の BoardFilterBar。#1502）。?filtered は担当とストーリーで絞った状態、?search=語 は検索した状態
   const filterOpts = {
     end: "",
+    group: ["assignee", "story", "epic"].includes(params.get("group")) ? params.get("group") : "",
     ...(params.has("filtered") ? { story: "s1", assignees: ["u1", "u2"] } : {}),
     ...(params.get("search") ? { q: params.get("search") } : {}),
   };
