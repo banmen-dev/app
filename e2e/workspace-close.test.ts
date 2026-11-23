@@ -210,8 +210,13 @@ test.describe('管理者（あおば開発のミナト）', () => {
     await expect(close).toHaveAttribute('aria-disabled', 'true');
     await expect(markdown).toHaveCount(1);
 
+    const retry = notice.getByRole('button', { name: 'もう一度試す' });
+    await retry.focus();
+    await retry.press('Enter');
+    await expect(notice.getByRole('status')).toHaveText('まだ読み込めませんでした');
+    await expect(retry).toBeFocused();
     await removeFailure();
-    await notice.getByRole('button', { name: 'もう一度試す' }).click();
+    await retry.press('Enter');
     const reopen = section.getByRole('button', { name: `「${name}」を再開する` });
     await expect(reopen).toBeFocused();
     await expect(notice).toHaveCount(0);

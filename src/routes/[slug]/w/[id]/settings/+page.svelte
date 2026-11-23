@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { afterNavigate, beforeNavigate, goto, invalidate, invalidateAll } from '$app/navigation';
+  import { afterNavigate, beforeNavigate, goto, invalidate, refreshAll } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import ConfirmDialog from '../../../../../lib/components/ConfirmDialog.svelte';
@@ -47,16 +47,22 @@
     const workspaceId = workspace.id;
     stateRefresh = { workspaceId, status: 'refreshing' };
     try {
-      await invalidateAll();
+      await refreshAll();
       if (stateRefresh?.workspaceId === workspaceId) stateRefresh = null;
     } catch {
       if (stateRefresh?.workspaceId === workspaceId) stateRefresh = { workspaceId, status: 'failed' };
     }
   }
 
+  let stateRetryFailed = $state(false);
   async function retryWorkspaceState(): Promise<void> {
+    if (refreshingState) return;
+    stateRetryFailed = false;
     await refreshWorkspaceState();
-    if (stateUnconfirmed) return;
+    if (stateUnconfirmed) {
+      stateRetryFailed = true;
+      return;
+    }
     await tick();
     if (isAdmin) document.getElementById('workspace-state')?.focus();
     else focusSettingsHeading();
@@ -116,7 +122,8 @@
   }
 
   function focusSettingsHeading(): void {
-    const heading = document.querySelector<HTMLElement>('.settings .setting-title');
+    const heading =
+      document.querySelector<HTMLElement>('.settings .setting-title') ?? document.querySelector<HTMLElement>('h1');
     if (!heading) return;
     if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
     heading.focus();
@@ -205,9 +212,10 @@
     <div class="callout is-warn">
       <Icon name="alert" /><span role="alert">{t('workspaceStateRefreshFailed')}</span>
       <div class="callout-actions">
-        <button class="btn is-sm" type="button" disabled={refreshingState} onclick={retryWorkspaceState}>
+        <button class="btn is-sm" type="button" aria-disabled={refreshingState} onclick={retryWorkspaceState}>
           {t('retry')}
         </button>
+        <span class="field-hint" role="status">{stateRetryFailed ? t('retryFailed') : ''}</span>
       </div>
     </div>
   {/if}
