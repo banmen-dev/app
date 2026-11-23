@@ -1004,7 +1004,13 @@
       closePopover(root, false);
       if (event.target.closest?.('a[href], button, input, select, textarea, summary, label, [tabindex], [contenteditable="true"]')) continue;
       const button = root.querySelector("[data-popover-toggle]");
-      document.addEventListener("pointerup", () => button.focus(), { once: true });
+      const done = (ev) => {
+        document.removeEventListener("pointerup", done);
+        document.removeEventListener("pointercancel", done);
+        if (ev.type === "pointerup") button.focus({ preventScroll: true });
+      };
+      document.addEventListener("pointerup", done);
+      document.addEventListener("pointercancel", done);
     }
   });
   document.addEventListener("click", (event) => {

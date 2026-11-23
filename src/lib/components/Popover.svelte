@@ -73,10 +73,15 @@
     if (!open || !root || !(event.target instanceof Element) || root.contains(event.target)) return;
     close(false);
     if (event.target.closest(CONTROLS) !== null) return;
-    // 地を押すとブラウザが押し下げ（mousedown）でフォーカスを外すので、離した後にボタンへ戻す
-    const restore = (): void => button?.focus();
-    window.addEventListener('pointerup', restore, { once: true });
-    window.addEventListener('pointercancel', restore, { once: true });
+    // 地を押すとブラウザが押し下げ（mousedown）でフォーカスを外すので、離した後にボタンへ戻す。
+    // どちらかが来たら両方を外す（残すと、後の別の操作の離しでフォーカスを奪う）。押しが取り消された（スクロールになった）ときは戻さない
+    const done = (event: PointerEvent): void => {
+      window.removeEventListener('pointerup', done);
+      window.removeEventListener('pointercancel', done);
+      if (event.type === 'pointerup') button?.focus({ preventScroll: true });
+    };
+    window.addEventListener('pointerup', done);
+    window.addEventListener('pointercancel', done);
   }
 </script>
 

@@ -40,7 +40,7 @@ for (const [today, day, remaining] of [
     const button = sprintButton(page);
     const overdue = today > SAMPLE_BOARD.sprint!.end_on;
     await expect(button).toHaveAccessibleName(
-      overdue ? 'スプリントの情報: 第14回（最終日を過ぎています）' : 'スプリントの情報: 第14回',
+      overdue ? 'スプリントの情報: 第14回 期限切れ（最終日を過ぎています）' : 'スプリントの情報: 第14回',
     );
     if (overdue) await expect(button).toHaveClass(/is-warn/);
     else await expect(button).not.toHaveClass(/is-warn/);
@@ -83,6 +83,18 @@ for (const [today, day, remaining] of [
     await page.locator('.board-toolbar').click({ position: { x: 4, y: 4 } });
     await expect(popover).toBeHidden();
     await expect(button).toBeFocused();
+
+    // 小窓の外の欄を押すと閉じ、押した欄に残る。地を押して閉じた後に欄を押しても、離した時にボタンへ奪い返さない
+    const draft = page.getByRole('textbox', { name: 'タスクを足す: 未着手', exact: true });
+    await openSprintPopover(page);
+    await draft.click();
+    await expect(popover).toBeHidden();
+    await expect(draft).toBeFocused();
+    await openSprintPopover(page);
+    await page.locator('.board-toolbar').click({ position: { x: 4, y: 4 } });
+    await expect(button).toBeFocused();
+    await draft.click();
+    await expect(draft).toBeFocused();
 
     // Tab で小窓の外へ出ると閉じ、出た先に残る
     await openSprintPopover(page);
