@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { operationPath, type OutputOf } from '../src/shared/operations/define.ts';
 import { organizationInfo } from '../src/shared/operations/organization/index.ts';
 import { workspaceWikiCreate } from '../src/shared/operations/wiki/index.ts';
-import { workspaceClose, workspaceCreate, workspaceInfo } from '../src/shared/operations/workspace/index.ts';
+import { workspaceCreate, workspaceInfo } from '../src/shared/operations/workspace/index.ts';
 import { expect, test } from './fixtures.ts';
 import { signIn } from './helpers.ts';
 import { rewriteOperation } from './operations.ts';
@@ -45,12 +45,14 @@ test('管理者が設定で終了済みワークスペースを削除し、組�
   const open = section.getByRole('button', { name: '削除する' });
   await expect(open).toHaveCount(0);
 
-  const closed = await page.request.post(operationPath(workspaceClose, slug), {
-    headers,
-    data: { workspace_id: workspaceId },
-  });
-  expect(closed.ok()).toBe(true);
-  await page.reload();
+  await section.getByRole('link', { name: '利用状態へ移動' }).click();
+  const close = page.getByRole('button', { name: `「${name}」を終了する` });
+  await expect(close).toBeFocused();
+  await close.click();
+  const closeDialog = page.getByRole('dialog', { name: `「${name}」を終了しますか？` });
+  await closeDialog.getByRole('button', { name: `「${name}」を終了する` }).click();
+  await expect(closeDialog).toBeHidden();
+  await expect(page.getByRole('button', { name: `「${name}」を再開する` })).toBeVisible();
   await open.click();
   const dialog = page.getByRole('dialog', { name: `「${name}」を削除しますか？` });
   await expect(dialog).toContainText('削除は取り消せません');

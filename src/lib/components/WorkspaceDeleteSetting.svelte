@@ -13,7 +13,8 @@
   import Icon from './Icon.svelte';
   import Setting from './Setting.svelte';
 
-  let { slug, workspace }: { slug: string; workspace: WorkspaceView } = $props();
+  let { slug, workspace, stateUnconfirmed }: { slug: string; workspace: WorkspaceView; stateUnconfirmed: boolean } =
+    $props();
 
   const formId = $props.id();
   const nameId = `${formId}-name`;
@@ -36,7 +37,7 @@
   const nameMismatch = $derived(
     !composing && confirmation !== '' && !nameMatches && (nameBlurred || !workspace.name.startsWith(confirmation)),
   );
-  const canConfirm = $derived(closed && nameMatches && !composing);
+  const canConfirm = $derived(closed && !stateUnconfirmed && nameMatches && !composing);
   const words = $derived({ workspace: t('workspace') });
 
   function show(trigger: HTMLElement): void {
@@ -105,14 +106,19 @@
 <Setting title={t('workspaceDeleteTitle', words)} description={t('workspaceDeleteDescription', words)}>
   {#if closed}
     <div class="form-actions">
-      <button class="btn is-danger" type="button" onclick={(event) => show(event.currentTarget)}>
+      <button
+        class="btn is-danger"
+        type="button"
+        disabled={stateUnconfirmed}
+        onclick={(event) => show(event.currentTarget)}
+      >
         {t('workspaceDeleteAction')}
       </button>
     </div>
   {:else}
     <p class="field-hint">
       {t('workspaceDeleteNeedsClosed', words)}
-      <a href={resolve('/[slug]/admin', { slug })}>{t('workspaceDeleteCloseLink', { page: t('pageOrgAdmin') })}</a>
+      <a href="#workspace-state">{t('workspaceDeleteCloseLink')}</a>
     </p>
   {/if}
 </Setting>

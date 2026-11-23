@@ -19,15 +19,32 @@
 <script src="task-templates.js"></script>
 <script>
 "use strict";
-// ワークスペースの設定（リーダー）
+// ワークスペースの設定（リーダーと管理者）
 const { D, t, icon, esc, pageHead } = SQ;
 const TZ = ["Asia/Tokyo", "Asia/Seoul", "Asia/Singapore", "Europe/London", "America/Los_Angeles", "UTC"];
 const WEEK = ["日", "月", "火", "水", "木", "金", "土"];
-const currentWorkspace = () => D.workspaces[D.workspace];
+const workspace = D.workspaces[D.workspace];
+const isAdmin = D.organizations.some((org) => org.slug === D.organization && org.admin);
 const query = new URLSearchParams(location.search);
-if (query.get("closed") === "1") {
-  currentWorkspace().closed = "2026-10-22";
+if (query.get("closed") === "1") workspace.closed = "2026-10-22";
+
+function workspaceStateSetting() {
+  if (!isAdmin) return "";
+  const name = esc(workspace.name);
+  const closed = Boolean(workspace.closed);
+  return setting(`${t("workspace")}の利用状態`, "終了中も閲覧できます。更新と外部サービスとの同期は止まります。", `
+    <div class="form-actions"><button class="btn" id="workspace-state" type="button"
+      aria-label="「${name}」を${closed ? "再開する" : "終了する"}"
+      ${closed ? "data-reopen-workspace" : `data-dialog="closeWorkspace" data-workspace-name="${name}"`}>${closed ? "再開する" : "終了する"}</button></div>`);
 }
+
+document.addEventListener("click", (event) => {
+  if (!event.target.closest("[data-confirm-workspace-close], [data-reopen-workspace]")) return;
+  workspace.closed = workspace.closed ? null : "2026-10-22";
+  SQ.redraw();
+  document.getElementById("workspace-state").focus();
+  SQ.toast(`${icon("check")}${t("workspace")}を${workspace.closed ? "終了" : "再開"}しました`);
+});
 
 function orderList(items, opts = {}) {
   const n = items.length;
@@ -61,30 +78,30 @@ function readOnlySettings() {
 }
 
 function workspaceDeleteSetting() {
-  if (!D.organizations.find(({ slug }) => slug === D.organization)?.admin) return "";
-  const workspace = t("workspace");
-  return setting(`${workspace}の削除`, `削除した${workspace}は開けなくなり、再開もできません。`,
-    currentWorkspace().closed
+  if (!isAdmin) return "";
+  const workspaceLabel = t("workspace");
+  return setting(`${workspaceLabel}の削除`, `削除した${workspaceLabel}は開けなくなり、再開もできません。`,
+    workspace.closed
       ? '<div class="form-actions"><button class="btn is-danger" type="button" data-workspace-delete>削除する</button></div>'
-      : `<p class="field-hint">削除するには、先にこの${workspace}を終了してください。 <a href="${SQ.firstHref("admin.html")}">組織の管理で終了する</a></p>`);
+      : `<p class="field-hint">削除するには、先にこの${workspaceLabel}を終了してください。 <a href="#workspace-state">利用状態へ移動</a></p>`);
 }
 
 function showWorkspaceDelete(state) {
-  const name = currentWorkspace().name;
-  const workspace = t("workspace");
+  const name = workspace.name;
+  const workspaceLabel = t("workspace");
   const sending = state === "sending";
   const failed = state === "failed";
   const sendingControl = sending ? 'aria-disabled="true"' : 'data-close-dialog';
   SQ.openDialog(`「${esc(name)}」を削除しますか？`,
-    `<p>削除すると、この${workspace}と中のデータは開けなくなります。削除は取り消せません。</p>
-    <p>添付ファイルと Wiki は引き続き容量に含まれます。削除した${workspace}内では個別に消せなくなるため、容量を空けたい場合は、${workspace}を再開し、不要な添付ファイルと Wiki ページを先に削除してください。削除した Wiki ページは30日間、容量に含まれます。</p>
+    `<p>削除すると、この${workspaceLabel}と中のデータは開けなくなります。削除は取り消せません。</p>
+    <p>添付ファイルと Wiki は引き続き容量に含まれます。削除した${workspaceLabel}内では個別に消せなくなるため、容量を空けたい場合は、${workspaceLabel}を再開し、不要な添付ファイルと Wiki ページを先に削除してください。削除した Wiki ページは30日間、容量に含まれます。</p>
     <form id="workspace-delete-form"><div class="field" id="workspace-delete-field">
-      <label class="field-label" for="workspace-delete-name">${workspace}名</label>
+      <label class="field-label" for="workspace-delete-name">${workspaceLabel}名</label>
       <input class="input" id="workspace-delete-name" aria-describedby="workspace-delete-hint" autocomplete="off" spellcheck="false" value="${sending || failed ? esc(name) : ""}" ${sending ? "readonly" : ""}>
       <span class="field-hint wrap-anywhere" id="workspace-delete-hint">確認のため「${esc(name)}」と入力してください。</span>
-      <span class="field-error" id="workspace-delete-mismatch" hidden>${icon("alert")}入力が${workspace}名と一致していません。</span>
+      <span class="field-error" id="workspace-delete-mismatch" hidden>${icon("alert")}入力が${workspaceLabel}名と一致していません。</span>
     </div></form>
-    ${failed ? `<div class="callout is-danger" role="alert">${icon("alert")}<span>${workspace}を削除できませんでした。もう一度試してください。</span></div>` : ""}`,
+    ${failed ? `<div class="callout is-danger" role="alert">${icon("alert")}<span>${workspaceLabel}を削除できませんでした。もう一度試してください。</span></div>` : ""}`,
     `<span class="field-hint" role="status">${sending ? "削除しています" : ""}</span>
     <button class="btn is-primary" type="button" ${sendingControl}>やめる</button>
     <button class="btn is-danger" type="submit" form="workspace-delete-form" ${sending ? 'aria-disabled="true"' : failed ? "" : "disabled"}>削除する</button>`,
@@ -143,10 +160,11 @@ document.addEventListener("click", (event) => {
 });
 
 SQ.mount("settings", () => `
-  ${currentWorkspace().closed ? `<div class="callout is-info">${icon("archive")}<span>${esc(currentWorkspace().closed)} に終了しました。読み取り専用です。</span></div>` : ""}
-  ${pageHead(currentWorkspace().name, "設定", [], currentWorkspace().closed ? "" : `<button class="btn is-primary" type="button" data-toast="保存しました">保存する</button>`)}
+  ${workspace.closed ? `<div class="callout is-info">${icon("archive")}<span>${esc(workspace.closed)} に終了しました。読み取り専用です。${isAdmin ? ' <a href="#workspace-state">設定で再開する</a>' : ""}</span></div>` : ""}
+  ${pageHead(workspace.name, "設定", [], workspace.closed ? "" : `<button class="btn is-primary" type="button" data-toast="保存しました">保存する</button>`)}
   <div class="settings">
-    ${currentWorkspace().closed ? readOnlySettings() : `
+    ${workspaceStateSetting()}
+    ${workspace.closed ? readOnlySettings() : `
     ${setting("一般", `今日、今週、完了した月は、ここのタイムゾーンで決めます。`, `
       <div class="form-row">
         <label class="field" for="wsname"><span class="field-label">名前</span><input class="input" id="wsname" value="${esc(D.workspaces.wa.name)}"></label>
@@ -198,12 +216,6 @@ SQ.mount("settings", () => `
     `}
     ${workspaceDeleteSetting()}
   </div>`);
-
-// 終了済みの画面の送信中・通信失敗を表示する見本。
-const deletePreview = query.get("delete-preview");
-if (document.querySelector("[data-workspace-delete]") && (deletePreview === "sending" || deletePreview === "failed")) {
-  showWorkspaceDelete(deletePreview);
-}
 </script>
 </body>
 </html>

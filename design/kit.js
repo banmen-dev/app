@@ -2627,11 +2627,13 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     workspaceCreated: (name) => openDialog(`${t("workspace")}を作りました`,
       `<div class="callout is-ok">${icon("check")}<span class="wrap-anywhere">${esc(name)}</span></div>`,
       `<button class="btn is-quiet" type="button" data-workspace-again>続けて作る</button><a class="btn is-primary" href="backlog.html">開く</a>`),
-    closeWorkspace: () => {
-      const target = D.admin.workspaces.find((w) => !w.closed);
-      return openDialog(`「${esc(target ? target.name : "")}」を終了しますか？`,
-        `<p>終了すると読み取り専用になり、中の書き込みはすべてできなくなります。再開はこの画面から行えます。</p>`,
-        `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="${t("workspace")}を終了しました">終了する</button>`);
+    closeWorkspace: (el) => {
+      const settingsName = el?.dataset.workspaceName;
+      const name = settingsName ?? D.admin.workspaces.find((w) => !w.closed)?.name ?? "";
+      const confirm = settingsName === undefined ? `data-toast="${t("workspace")}を終了しました"` : "data-confirm-workspace-close";
+      return openDialog(`「${esc(name)}」を終了しますか？`,
+        `<p>終了すると読み取り専用になり、中の書き込みと外部サービスとの同期が止まります。再開はこの画面から行えます。</p>`,
+        `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog ${confirm}>終了する</button>`);
     },
     // ユーザーを無効にする前の確認（本番の UsersSetting の ConfirmDialog）。押した行の data-name と data-admin で文を作る。
     // 管理者なら指名も解除することを添える。本文は本番の辞書（userDisableText、userDisableAdminNote、userDisableEnableNote）と同じ文
