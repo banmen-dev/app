@@ -8,7 +8,6 @@ import type { OrganizationKind } from '../../shared/organization-kind.ts';
 import type { BillingInterval, OrganizationPlan } from '../../shared/organization-plan.ts';
 import { ApiError } from '../errors.ts';
 import { commonDb, orgDb, type CommonDb } from './entries.ts';
-import { purgeDueInDatabase } from './purge-due.ts';
 import { seatHoldersOf } from './seats.ts';
 import { issueVerifiedOrganization } from './verify-organization.ts';
 import { organizationStorageBytes } from './wiki.ts';
@@ -41,7 +40,6 @@ async function readOrganization(common: CommonDb, slug: string, accountId: strin
           'organization_contracts.extra_50gb_units',
           'organization_contracts.custom_member_limit',
           'organization_contracts.custom_attachment_quota_bytes',
-          purgeDueInDatabase().as('due_in_database'),
         ])
         .where(activeActorOf(slug, accountId)),
     ),
@@ -86,7 +84,7 @@ export async function readBillingOrganizationSummary(
     // 停止していなければ active、停止して purge_on が空なら suspended、あれば cancelled（運用者の一覧と同じ境目）
     state: !suspended ? 'active' : organization.purge_on === null ? 'suspended' : 'cancelled',
     purge_on: organization.purge_on,
-    purge_due: suspended && (Number(organization.due_in_database) === 1 || isPurgeDue(organization.purge_on, at)),
+    purge_due: suspended && isPurgeDue(organization.purge_on, at),
     trial_ends_on: organization.trial_ends_on,
     contract:
       organization.plan === null || organization.billing_interval === null
