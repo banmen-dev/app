@@ -44,14 +44,6 @@ function overdueNotice(id) {
     ? `<div class="callout-actions"><button class="btn is-sm" type="button" data-dialog="sprintEnd" aria-label="終える: ${t("sprint")}「${label}」">終える</button></div>` : ""}</div>`;
 }
 
-document.addEventListener("change", (event) => {
-  if (!event.target.matches("[data-board-group]")) return;
-  const url = new URL(location.href);
-  if (event.target.value) url.searchParams.set("group", event.target.value);
-  else url.searchParams.delete("group");
-  location.replace(url);
-});
-
 SQ.mount("sprint", () => {
   const s = D.sprints.sp14;
   if (!s) {

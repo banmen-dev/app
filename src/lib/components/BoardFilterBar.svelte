@@ -242,7 +242,7 @@
     <label class="board-group">
       {t('boardGroup')}
       <select
-        class="input"
+        class="select"
         value={filter.group ?? ''}
         onchange={(event) => onchange({ ...filter, group: boardGroupOf(event.currentTarget.value) })}
       >

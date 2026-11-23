@@ -247,6 +247,7 @@
   const visibleColumns = $derived(filterColumns(columns, filter));
   const lanes = $derived(filter.group === undefined ? [] : boardLanesOf(visibleColumns, filter.group));
   let collapsedLanes = $state<Record<string, boolean>>({});
+  const laneId = $props.id();
   const laneKey = (id: string): string => `${workspaceId}:${filter.group}:${id}`;
   const laneIsCollapsed = (id: string): boolean => collapsedLanes[laneKey(id)] ?? false;
   function toggleLane(id: string): void {
@@ -327,7 +328,13 @@
       await announce(message);
       return;
     }
-    if (onlyGroupChanged) return;
+    if (onlyGroupChanged) {
+      const group = next.group;
+      const name =
+        group === undefined ? t('boardGroupNone') : group === 'assignee' ? t('boardGroupAssignee') : t(group);
+      await announce(t('boardGroupApplied', { group: name }));
+      return;
+    }
     const shown = filterColumns(columns, next).reduce((total, column) => total + column.tasks.length, 0);
     await announce(
       !isBoardFiltering(next)
@@ -597,7 +604,11 @@
       }
       return;
     }
-    if (sendingIds.includes(task.id)) return;
+    if (sendingIds.includes(task.id)) {
+      if (taskAttributes(slug, workspace.id, task.id).assignee.reserved)
+        void announce(t('boardGroupAssignSending', { assignee: t('assignee') }));
+      return;
+    }
     const group = filter.group;
     const lane = group === undefined ? undefined : lanes.find((item) => item.id === boardFilterValue(task, group));
     const plan = planCardMove(lane?.columns ?? visibleColumns, task.id, direction);
@@ -665,7 +676,7 @@
   }
 
   // 断られた task-column-move。理由を知らせて読み直す
-  async function moveRefused(workspaceId: string, result: ApiResult<unknown>): Promise<void> {
+  async function moveRefused(workspaceId: string, result: ApiResult<unknown>, assignment?: string): Promise<void> {
     // 送っている間に別のワークスペースへ移っていたら、古い応答で状態を触らない
     if (workspaceId !== page.params.id || result.ok) return;
     // 401 は、枠の読み直しがログインの画面へ移す
@@ -674,7 +685,8 @@
       return;
     }
     dnd.clearFlash();
-    showToast(moveFailureMessage(result), 'alert');
+    const reason = moveFailureMessage(result);
+    showToast(assignment === undefined ? reason : t('boardGroupPartial', { assignment, reason }), 'alert');
     if (result.status === 409 && result.error?.code === 'workspace_closed') await invalidate('app:workspace');
     await reloadBoard();
   }
@@ -733,13 +745,14 @@
     if (workspace === null) return;
     const workspaceId = workspace.id;
     const options = { slug };
-    const assignee = taskAttributes(slug, workspaceId, task.id).assignee;
+    const editor = taskAttributes(slug, workspaceId, task.id);
+    const assignee = editor.assignee;
     const release = assignee.reserve();
     if (release === null) {
       showToast(t('boardGroupAssignSending', { assignee: t('assignee') }), 'alert');
       return;
     }
-    let failedAssign = false;
+    let assignment: string | undefined;
     const sent = moves.send(
       async () => {
         const assigned = await callOperation(
@@ -747,15 +760,18 @@
           { workspace_id: workspaceId, task_id: task.id, assignee_user_id: plan.assigneeId },
           options,
         );
-        if (!assigned.ok) {
-          failedAssign = true;
-          return assigned;
-        }
+        if (!assigned.ok) return assigned;
         assignee.observe(assigned.data.task.assignee?.id ?? '', performance.now());
         if (workspaceId !== page.params.id || options.slug !== slug) return assigned;
+        assignment = t('boardGroupChanged', {
+          title: task.title,
+          assignee: t('assignee'),
+          name: assigned.data.task.assignee?.name ?? t('unassigned'),
+        });
         const next = plan.next;
         if (next?.kind === 'complete') {
           if (await complete(task)) flashAfterReload = task.id;
+          else if (workspaceId === page.params.id && options.slug === slug) showToast(assignment, 'check');
           return assigned;
         }
         if (next?.kind === 'moved') {
@@ -768,28 +784,31 @@
         }
         if (workspaceId === page.params.id && options.slug === slug) {
           flashAfterReload = task.id;
-          showToast(
-            t('boardGroupChanged', {
-              title: task.title,
-              assignee: t('assignee'),
-              name: assigned.data.task.assignee?.name ?? t('unassigned'),
-            }),
-            'check',
-          );
+          showToast(assignment, 'check');
           if (next !== null) void announce(movedMessage(task, next));
         }
         return assigned;
       },
       async (result) => {
         if (workspaceId !== page.params.id || options.slug !== slug || result.ok) return;
-        if (!failedAssign) {
-          await moveRefused(workspaceId, result);
+        if (assignment !== undefined) {
+          await moveRefused(workspaceId, result, assignment);
         } else if (result.status === 401) {
           await invalidateAll();
         } else {
-          showToast(t('boardGroupAssignFailed', { task: t('task'), assignee: t('assignee') }), 'alert');
-          if (result.error?.code === 'workspace_closed') await invalidate('app:workspace');
-          await reloadBoard();
+          const message = await editor.explain(
+            result,
+            t('taskAssigneeDone', {
+              task: t('task'),
+              done: t('done'),
+              assignee: t('assignee'),
+            }),
+            true,
+          );
+          if (workspaceId === page.params.id && options.slug === slug) {
+            showToast(message, 'alert');
+            await reloadBoard();
+          }
         }
       },
       true,
@@ -1285,7 +1304,7 @@
                 {:else}
                   <svelte:element
                     this={part === 'draft' ? 'div' : 'section'}
-                    class="board-col"
+                    class={part === 'draft' && collapsedColumns.isCollapsed(column.id) ? undefined : 'board-col'}
                     class:is-done={column.is_done}
                     class:is-collapsed={collapsedColumns.isCollapsed(column.id)}
                     role={part === 'lane' ? 'group' : undefined}
@@ -1295,7 +1314,7 @@
                     {@attach canWrite && (part === 'all' || part === 'lane') ? dnd.column(column.id, lane) : undefined}
                   >
                     {#if canWrite && dnd.markOfColumn(column.id, lane) === 'blocked'}
-                      <span class="board-drop-blocked"><Icon name="x" /></span>
+                      <span class="board-drop-blocked"><Icon name="x" />{t('boardGroupDropBlocked')}</span>
                     {/if}
                     {#if part === 'all' || part === 'head'}
                       <div class="board-col-head">
@@ -1407,12 +1426,14 @@
               {@render boardRow(visibleColumns, 'head')}
               {#each lanes as lane (lane.id)}
                 {@const name = laneName(lane.id, lane.label)}
-                <section class="board-lane" aria-label={name} data-board-lane={lane.id}>
+                {@const controls = `${laneId}-${filter.group}-${lane.id}`}
+                <section class="board-lane" role="group" aria-label={name} data-board-lane={lane.id}>
                   <h2 class="board-lane-head">
                     <button
                       class="board-lane-toggle"
                       type="button"
                       aria-expanded={!laneIsCollapsed(lane.id)}
+                      aria-controls={controls}
                       onclick={() => toggleLane(lane.id)}
                     >
                       <span class="board-lane-label">
@@ -1422,12 +1443,20 @@
                       </span>
                     </button>
                   </h2>
-                  {#if !laneIsCollapsed(lane.id)}
-                    {@render boardRow(lane.columns, 'lane', lane.id)}
-                  {/if}
+                  <div class="board-lane-columns" id={controls} hidden={laneIsCollapsed(lane.id)}>
+                    {#if !laneIsCollapsed(lane.id)}
+                      {@render boardRow(lane.columns, 'lane', lane.id)}
+                    {/if}
+                  </div>
                 </section>
               {:else}
-                <p class="board-empty board-lane-head">{t('filterResultNone')}</p>
+                <p class="board-empty board-lane-head">
+                  {isBoardFiltering(filter)
+                    ? t('filterResultNone')
+                    : canWrite && firstOpenColumnId !== undefined
+                      ? t('boardGroupEmptyCanAdd', { task: t('task') })
+                      : t('boardGroupEmpty')}
+                </p>
               {/each}
               {@render boardRow(visibleColumns, 'draft')}
             {/if}

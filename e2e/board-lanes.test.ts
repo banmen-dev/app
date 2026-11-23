@@ -4,7 +4,7 @@ import { A11Y_THEMES, NARROW_VIEWPORT, applyTheme, dragTo, findA11yViolations, s
 import { routeOperation } from './operations.ts';
 import { SAMPLE_BOARD } from './sprint-fixture.ts';
 import { sprintBoard, taskColumnMove } from '../src/shared/operations/sprint/index.ts';
-import { taskAssign } from '../src/shared/operations/task/index.ts';
+import { taskAssign, taskComplete } from '../src/shared/operations/task/index.ts';
 
 const PATH = '/aoba/w/019a0000-0000-7000-8000-000000000401/board';
 const HARUKA = SAMPLE_BOARD.columns[0]!.tasks[0]!.assignee!;
@@ -14,7 +14,7 @@ const WORKING = SAMPLE_BOARD.columns[1]!.id;
 const EPIC = { id: '019a0000-0000-7000-8000-00000000f501', title: '会員ポイント制度を公開する' };
 
 const groupSelect = (page: Page) => page.getByRole('combobox', { name: 'グループ', exact: true });
-const lane = (page: Page, name: string) => page.getByRole('region', { name, exact: true });
+const lane = (page: Page, name: string) => page.getByRole('group', { name, exact: true });
 
 test.beforeEach(async ({ context, baseURL }) => {
   await signIn(context, baseURL, 'admin');
@@ -73,15 +73,24 @@ test('グループを選び、折りたたみと起票の書きかけを保ち�
   await expect(page.locator('.board-lane')).toHaveCount(0);
 });
 
-for (const failure of [null, 'assign', 'move'] as const) {
-  test(`担当の帯をまたぐと担当を先に保存する（失敗: ${failure ?? 'なし'}）`, async ({ page }) => {
+const moveCases = [
+  { index: 1, failure: null },
+  { index: 1, failure: 'assign' },
+  { index: 1, failure: 'move' },
+  { index: 0, failure: null },
+  { index: 3, failure: null },
+  { index: 3, failure: 'complete' },
+] as const;
+
+for (const { index, failure } of moveCases) {
+  test(`担当の帯をまたぐと担当を先に保存する（列 ${index}、失敗 ${failure ?? 'なし'}）`, async ({ page }) => {
     const { board, readCount } = await setupBoard(page);
     const source = board.columns[0]!;
-    const destination = board.columns[1]!;
+    const destination = board.columns[index]!;
     const task = source.tasks[0]!;
     const writes: string[] = [];
     await routeOperation(page, taskAssign, { slug: 'aoba' }, async ({ input, fail, fulfill }) => {
-      expect(input).toMatchObject({ task_id: task.id, assignee_user_id: MINATO.id });
+      expect.soft(input).toMatchObject({ task_id: task.id, assignee_user_id: MINATO.id });
       writes.push('assign');
       if (failure === 'assign') return fail(404, 'not_found');
       task.assignee = MINATO;
@@ -107,13 +116,23 @@ for (const failure of [null, 'assign', 'move'] as const) {
       });
     });
     await routeOperation(page, taskColumnMove, { slug: 'aoba' }, async ({ input, fail, fulfill }) => {
-      expect(writes).toEqual(['assign']);
-      expect(input).toMatchObject({ task_id: task.id, column_id: WORKING });
+      expect.soft(writes).toEqual(['assign']);
+      expect.soft(input).toMatchObject({ task_id: task.id, column_id: destination.id });
       writes.push('move');
       if (failure === 'move') return fail(404, 'not_found');
       source.tasks.splice(0, 1);
       destination.tasks.push(task);
-      await fulfill({ task_id: task.id, column_id: WORKING });
+      await fulfill({ task_id: task.id, column_id: destination.id });
+    });
+    await routeOperation(page, taskComplete, { slug: 'aoba' }, async ({ input, fail, fulfill }) => {
+      expect.soft(writes).toEqual(['assign']);
+      expect.soft(input.task_id).toBe(task.id);
+      writes.push('complete');
+      if (failure === 'complete') return fail(500, 'internal');
+      task.completed_at = '2026-10-20T00:00:00.000Z';
+      source.tasks.splice(0, 1);
+      destination.tasks.push(task);
+      await fulfill({ task_id: task.id, completed_at: task.completed_at, left_sprint: false });
     });
     await page.goto(`${PATH}?group=assignee`);
     await expect(lane(page, HARUKA.name)).toBeVisible();
@@ -121,26 +140,68 @@ for (const failure of [null, 'assign', 'move'] as const) {
     await dragTo(
       page,
       lane(page, HARUKA.name).getByRole('link', { name: TITLE, exact: true }),
-      lane(page, MINATO.name).locator(`[data-column="${WORKING}"]`),
+      lane(page, MINATO.name).locator(`[data-column="${destination.id}"]`),
       'middle',
     );
-    if (failure !== null)
-      await expect(
-        page
-          .getByRole('status')
-          .filter({ hasText: /できませんでした|見つかりません/ })
-          .first(),
-      ).toBeVisible();
+    await expect.poll(readCount).toBeGreaterThan(readsBefore);
+    if (failure === 'move' || failure === 'complete') {
+      await expect(page.getByRole('status').filter({ hasText: '担当を「ミナト」に変更しました' })).toBeVisible();
+    }
     const current = lane(page, failure === 'assign' ? HARUKA.name : MINATO.name);
     await expect(
       current
-        .locator(`[data-column="${failure === null ? WORKING : source.id}"]`)
+        .locator(`[data-column="${failure === null ? destination.id : source.id}"]`)
         .getByRole('link', { name: TITLE, exact: true }),
     ).toBeVisible();
-    await expect.poll(readCount).toBeGreaterThan(readsBefore);
-    expect(writes).toEqual(failure === 'assign' ? ['assign'] : ['assign', 'move']);
+    expect(writes).toEqual(
+      failure === 'assign' || index === 0 ? ['assign'] : ['assign', index === 3 ? 'complete' : 'move'],
+    );
   });
 }
+
+test('Alt と上下キーで、同じ列の同じ帯のカードだけを並べ替える', async ({ page }) => {
+  const { board } = await setupBoard(page);
+  const column = board.columns[0]!;
+  const card = column.tasks[0]!;
+  const second = { ...card, id: '019a0000-0000-7000-8000-00000000f299', title: '同じ担当の別のカード' };
+  column.tasks.push(second);
+  const writes: (string | null | undefined)[] = [];
+  await routeOperation(page, taskColumnMove, { slug: 'aoba' }, async ({ input, fulfill }) => {
+    expect.soft(input.task_id).toBe(second.id);
+    writes.push(input.after_task_id);
+    await fulfill({ task_id: second.id, column_id: column.id });
+  });
+  await page.goto(`${PATH}?group=assignee`);
+  const cards = lane(page, HARUKA.name).locator(`[data-column="${column.id}"] .card`);
+  await expect(cards.locator('.card-title')).toHaveText([card.title, second.title]);
+  await cards.last().press('Alt+ArrowUp');
+  await expect(cards.locator('.card-title')).toHaveText([second.title, card.title]);
+  await expect.poll(() => writes.length).toBe(1);
+  expect(writes).toEqual([null]);
+});
+
+test('カードがない帯は、絞り込んだ状態と起票できる空の状態を区別する', async ({ page }) => {
+  const { board } = await setupBoard(page);
+  for (const column of board.columns) column.tasks = [];
+  await page.goto(`${PATH}?group=story`);
+  await expect(page.getByText('カードはありません。列の末尾の行からタスクを足せます。')).toBeVisible();
+  await page.getByRole('searchbox', { name: 'ボードを検索' }).fill('管理');
+  await expect(page.getByText('当たるものはありません', { exact: true })).toBeVisible();
+});
+
+test('狭い幅でも長い帯名と件数がスクロール枠に収まる', async ({ page }) => {
+  const { board } = await setupBoard(page);
+  const title = '受付から一次回答までの確認をして案内文を整える'.repeat(5);
+  board.columns[0]!.tasks[0]!.story!.title = title;
+  await page.setViewportSize(NARROW_VIEWPORT);
+  await page.goto(`${PATH}?group=story`);
+  const band = lane(page, title);
+  const count = band.locator('.board-lane-toggle .board-col-n');
+  await expect(count).toHaveText('1 件');
+  const box = (await count.boundingBox())!;
+  const wrap = (await page.locator('.board-wrap').boundingBox())!;
+  expect(box.x + box.width).toBeLessThanOrEqual(wrap.x + wrap.width);
+});
 
 for (const [group, title, missing] of [
   ['story', SAMPLE_BOARD.columns[0]!.tasks[0]!.story!.title, '親なし'],

@@ -94,6 +94,7 @@
     boardGroupAssignee: "担当者",
     boardGroupNoParent: "親なし",
     boardGroupCount: "{count} 件",
+    boardGroupDropBlocked: "ここには移動できません",
     sprintStoryFilterLabel: '{story}で絞り込む: {title}',
     sprintStoryTotalsNote: '{sprint}の小窓の進み具合は全体、列の件数と{points}は絞り込み後の値です',
     sprintStoryCreateUnder: '絞り込んだ{story}の下に追加します',
@@ -1126,6 +1127,16 @@
   // ボードの道具の帯（本番の BoardFilterBar）。左に検索、担当のアバター、フィルターの小窓（ストーリー、エピック、担当、区分のチェック）、
   // 絞っている間は「すべてクリア」と、帯の下に条件と表示している件数を出す。右端（opts.end）はスプリントのボタン。
   // 担当のアバターは名前の順に先頭の5人と「担当なし」。押すと aria-pressed が替わる（見本は押した見た目だけを替える）
+  document.addEventListener("change", (event) => {
+    if (!event.target.matches("[data-board-group]")) return;
+    const url = new URL(location.href);
+    if (event.target.closest("#boarddrag")) url.hash = "boarddrag";
+    if (event.target.value) url.searchParams.set("group", event.target.value);
+    else if (event.target.closest("#boarddrag")) url.searchParams.set("group", "");
+    else url.searchParams.delete("group");
+    location.replace(url);
+  });
+
   const boardGroupOptions = () => [["", t("boardGroupNone")], ["assignee", t("boardGroupAssignee")], ["story", t("story")], ["epic", t("epic")]];
   function boardToolbar(sprintId, opts = {}) {
     const all = tasksWhere((x) => x.sprint === sprintId);
@@ -1169,7 +1180,7 @@
         <label class="search">${icon("search")}<input type="search" placeholder="${t("board")}を検索" aria-label="${t("board")}を検索" value="${esc(opts.q || "")}"></label>
         <div class="avatar-filter" role="group" aria-label="${t("assignee")}で絞り込む">${avatars}</div>
         ${filters}
-        ${opts.group !== undefined ? `<label class="board-group">${t("boardGroup")} <select class="input" data-board-group>${boardGroupOptions().map(([key, name]) => `<option value="${key}"${opts.group === key ? " selected" : ""}>${name}</option>`).join("")}</select></label>` : ""}
+        ${opts.group !== undefined ? `<label class="board-group">${t("boardGroup")} <select class="select" data-board-group>${boardGroupOptions().map(([key, name]) => `<option value="${key}"${opts.group === key ? " selected" : ""}>${name}</option>`).join("")}</select></label>` : ""}
         ${filtering ? `<button class="btn is-sm is-quiet" type="button" data-story-clear>${icon("x")}すべてクリア</button>` : ""}
       </div>
       <div class="toolbar-end">${opts.end || ""}</div>
@@ -1212,11 +1223,12 @@
   }
   // opts.key: カードの id の接頭辞、opts.cardMarks: (x, i, c) => card のドラッグの状態、opts.columnMarks: (c) => 列の囲み（{ drop: "into" }）、opts.grab: (x) => つかめるか（既定は完了カードを含むすべて）
   const boardCollapsed = new Map();
+  const boardLaneCollapsed = new Set();
   function board(sprintId, opts = {}) {
     const all = tasksWhere((x) => x.sprint === sprintId);
     const list = all.filter((x) => boardMatches(x, opts));
     const open = D.columns.filter((c) => !c.done);
-    const row = (tasks, part) => D.columns.map((c) => {
+    const row = (tasks, part, lane) => D.columns.map((c) => {
       if (part === "draft" && c.done) return "<div></div>";
       const name = c.done ? t("done") : (opts.columnName ? opts.columnName(c) : c.name);
       const inColumn = (x) => (c.done ? x.doneAt : !x.doneAt && x.col === c.id);
@@ -1227,7 +1239,9 @@
       const at = open.indexOf(c);
       // 最後の完了でない列の「次の列へ」は、完了の列へ移す代わりに完了にする（本番は task-complete を呼ぶ）ので、押せる
       const orderOf = (i) => ({ first: i === 0, last: i === items.length - 1, across: { first: at === 0, last: false } });
-      return `<section class="board-col ${c.done ? "is-done" : ""} ${collapsed ? "is-collapsed" : ""}"${dropAttr(opts.columnMarks && opts.columnMarks(c))} aria-label="${esc(name)}">
+      const mark = opts.columnMarks?.(c, lane);
+      return `<section class="board-col ${c.done ? "is-done" : ""} ${collapsed ? "is-collapsed" : ""}"${dropAttr(mark)}${part === "lane" ? ' role="group"' : ""} aria-label="${esc(name)}">
+        ${mark?.drop === "blocked" ? `<span class="board-drop-blocked">${icon("x")}${t("boardGroupDropBlocked")}</span>` : ""}
         ${part !== "lane" && part !== "draft" ? `<div class="board-col-head"><button class="board-col-toggle" type="button" aria-label="${esc(name)}の開閉" aria-expanded="${!collapsed}" data-column-collapse="${esc(collapseKey)}">${icon("chevron")}</button>${c.done ? icon("check") : ""}<span class="board-col-name">${esc(name)}</span><span class="board-col-n">${items.length}</span><span class="board-col-pts">${sumPts(items)} pt</span></div>` : ""}
         ${collapsed || part === "draft" ? "" : `${c.done && part !== "lane" && D.definitionOfDone.length ? `<details class="dod"><summary>${t("dod")}</summary>${dodDoc()}</details>` : ""}
         ${part === "head" ? "" : items.map((x, i) => card(x, c.done ? undefined : orderOf(i), { mark: opts.cardMarks && opts.cardMarks(x, i, c), grab: opts.grab ? opts.grab(x) : true, key: opts.key, highlightStory: opts.highlightStory } )).join("") || (part === "lane" ? "" : `<p class="board-empty">${hidden > 0 ? `絞り込みで ${hidden} 件を隠しています` : "なし"}</p>`)}
@@ -1247,11 +1261,14 @@
       : opts.group === "story" ? (id ? D.stories[id].title : t("boardGroupNoParent"))
       : (id ? D.epics[id].title : t("filterNoEpic").replace("{epic}", t("epic")));
     const ordered = [...lanes].sort(([a], [b]) => !a ? 1 : !b ? -1 : opts.group === "assignee" ? nameOf(a).localeCompare(nameOf(b), "ja") : 0);
-    const grouped = () => row(list, "head") + ordered.map(([id, tasks]) => `
-        <section class="board-lane" aria-label="${esc(nameOf(id))}">
-          <h2 class="board-lane-head"><button class="board-lane-toggle" type="button" aria-expanded="true" data-board-lane-toggle><span class="board-lane-label">${icon("chevron")}<span class="board-lane-name">${esc(nameOf(id))}</span><span class="board-col-n">${t("boardGroupCount").replace("{count}", tasks.length)}</span></span></button></h2>
-          ${row(tasks, "lane")}
-        </section>`).join("") + row([], "draft");
+    const grouped = () => row(list, "head") + ordered.map(([id, tasks]) => {
+      const key = `board-lane-${opts.key || sprintId}-${opts.group}-${id || "none"}`;
+      const open = !boardLaneCollapsed.has(key);
+      return `<section class="board-lane" role="group" aria-label="${esc(nameOf(id))}">
+          <h2 class="board-lane-head"><button class="board-lane-toggle" type="button" aria-expanded="${open}" aria-controls="${esc(key)}" data-board-lane-toggle><span class="board-lane-label">${icon("chevron")}<span class="board-lane-name">${esc(nameOf(id))}</span><span class="board-col-n">${t("boardGroupCount").replace("{count}", tasks.length)}</span></span></button></h2>
+          <div class="board-lane-columns" id="${esc(key)}"${open ? "" : " hidden"}>${row(tasks, "lane", id)}</div>
+        </section>`;
+    }).join("") + row([], "draft");
     return `<div class="story-board" data-board-story="${esc(opts.story || "")}" data-board-sprint="${sprintId}" data-board-key="${opts.key || ""}" data-board-draft="${!!opts.draft}" data-board-group="${esc(opts.group || "")}" data-board-q="${esc(opts.q || "")}" data-board-assignees="${esc((opts.assignees || []).join(","))}"><div class="board-wrap"><div class="board" style="--board-cols:${D.columns.length}">${opts.group ? grouped() : row(list, "all")}</div></div></div>`;
   }
 
@@ -1260,7 +1277,11 @@
     if (!toggle) return;
     const open = toggle.getAttribute("aria-expanded") === "true";
     toggle.setAttribute("aria-expanded", String(!open));
-    for (const column of toggle.closest(".board-lane").querySelectorAll(".board-col")) column.hidden = open;
+    const key = toggle.getAttribute("aria-controls");
+    const columns = document.getElementById(key);
+    if (columns) columns.hidden = open;
+    if (open) boardLaneCollapsed.add(key);
+    else boardLaneCollapsed.delete(key);
   });
 
   document.addEventListener("click", (event) => {
