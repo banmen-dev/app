@@ -523,15 +523,14 @@
       const current = columns.flatMap((column) => column.tasks).find((item) => item.id === task.id);
       if (current === undefined || current.completed_at !== null || document.querySelector('dialog[open]') !== null)
         return;
-      task = current;
       parentChoices = result.data.stories.map((story) => ({ id: story.id, title: story.title, group: story.epic }));
       // 親が無く、選べるストーリーも無ければ、空の選択欄を開かずに理由を知らせる
-      if (task.story === null && parentChoices.length === 0) {
+      if (current.story === null && parentChoices.length === 0) {
         showToast(t('cardParentNoChoices', { story: t('story'), backlog: t('backlog') }), 'alert');
         return;
       }
       await tick();
-      parentDialog?.show(trigger, task, task.story?.id ?? null);
+      parentDialog?.show(trigger, current, current.story?.id ?? null);
     } finally {
       loadingParentChoices = false;
     }
@@ -581,10 +580,13 @@
       leaving,
     );
     if (!leaving) return;
+    // 通ったら（読み直しは列が空になった後に MoveQueue が済ませる）、移したことをトーストで知らせる。最後のカードで絞り込みが解けると、
+    // 解けたことの読み上げが同じ領域に入るので、読み上げの領域（announce）を使わない。
+    // 絞り込みが解けたらカードは全体のボードに残るので、フォーカスは動かさない。外れて消えたら帯の「絞り込みを外す」へ移す
     void sent.then(async () => {
       await moves.whenIdle();
       if (!moved || workspaceId !== page.params.id) return;
-      void announce(message);
+      showToast(message, 'check');
       await tick();
       if (document.querySelector(`[data-card-id="${CSS.escape(task.id)}"]`) !== null) return;
       const clear = document.querySelector<HTMLButtonElement>('.story-filter-band button');

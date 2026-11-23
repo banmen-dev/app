@@ -248,3 +248,46 @@ test('絞り込み中に最後のカードを別の親へ移して断られた�
   await expect(page).toHaveURL(filtered);
   await expect(card.locator('.card-parent')).toHaveText('通知を整える');
 });
+
+test('絞り込み中に別の親へ移して通ると、カードが絞り込みから消え、帯の「絞り込みを外す」へフォーカスが移る', async ({
+  page,
+}) => {
+  await startBoard(page, ['残る札', '外す札']);
+  for (const title of ['残る札', '外す札']) {
+    const moved = waitForResponses(page, '/task-move');
+    await chooseParent(page, title, '通知を整える');
+    await moved;
+  }
+  await cardOf(page, '残る札').locator('.card-parent').click();
+  await expect(page).toHaveURL(/[?&]story=/);
+  const filtered = page.url();
+
+  const moved = waitForResponses(page, '/task-move');
+  await chooseParent(page, '外す札', '検索を速くする');
+  expect((await moved).ok()).toBe(true);
+  await expect(
+    page.locator('.toasts:visible .toast', { hasText: '「外す札」をストーリー「検索を速くする」の末尾へ移しました' }),
+  ).toBeVisible();
+  await expect(cardOf(page, '外す札')).toHaveCount(0);
+  await expect(page).toHaveURL(filtered);
+  await expect(page.locator('.story-filter-band').getByRole('button', { name: '絞り込みを外す' })).toBeFocused();
+});
+
+test('絞り込み中に最後のカードを別の親へ移して通ると、絞り込みが解け、カードは全体のボードに残る', async ({ page }) => {
+  await startBoard(page, ['最後の札']);
+  const first = waitForResponses(page, '/task-move');
+  await chooseParent(page, '最後の札', '通知を整える');
+  await first;
+  await cardOf(page, '最後の札').locator('.card-parent').click();
+  await expect(page).toHaveURL(/[?&]story=/);
+
+  const moved = waitForResponses(page, '/task-move');
+  await chooseParent(page, '最後の札', '検索を速くする');
+  expect((await moved).ok()).toBe(true);
+  await expect(
+    page.locator('.toasts:visible .toast', { hasText: '「最後の札」をストーリー「検索を速くする」の末尾へ移しました' }),
+  ).toBeVisible();
+  await expect(page).not.toHaveURL(/[?&]story=/);
+  await expect(page.locator('.story-filter-band')).toHaveCount(0);
+  await expect(cardOf(page, '最後の札').locator('.card-parent')).toHaveText('検索を速くする');
+});
