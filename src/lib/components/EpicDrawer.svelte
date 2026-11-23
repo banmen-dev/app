@@ -113,7 +113,7 @@
   let cleared = $state(false);
   let childCounts = $state({ stories: 0, tasks: 0 });
   // epic-get が返す、読んだときの区分の ID と名前（無いか削除されていれば null）。読み取り専用では一覧を読まないので、名前はここから出す。
-  // 区分を保存して ID が替わったら、読んだ値ではなくなるので null にする
+  // 区分を保存したら、選んだ区分（一覧の値）に置き換える。保存の後に読み取り専用へ替わっても名前を出せるように
   let readCategory = $state<DefinitionRef | null>(null);
   let heading = $state<HTMLElement>();
   let retryButton = $state<HTMLButtonElement>();
@@ -169,14 +169,19 @@
   let categoryError = $state<string | null>(null);
   let categorySending = false;
   let categorySelect = $state<HTMLSelectElement>();
-  // 今の区分。名前は epic-get が返した区分（今の ID と同じとき。読み直すと新しくなる）から引き、無ければ選択肢から引く。
-  // どちらにも無い（保存した区分が一覧に無く、読めなかった）ときだけ、読めなかったことを名前にする
+  // 名前が分かる今の区分。選択欄と食い違わないよう、名前は選択肢から引き、無ければ epic-get が返した区分（今の ID と同じとき）から引く
+  const knownCategory = $derived.by(() => {
+    const id = epic?.category_id ?? null;
+    if (id === null) return null;
+    return (
+      definitions?.categories.find((option) => option.id === id) ?? (readCategory?.id === id ? readCategory : null)
+    );
+  });
+  // 選択欄の今の区分。どちらにも無い（保存した区分が一覧に無く、読めなかった）ときだけ、読めなかったことを名前にする
   const ownCategory = $derived.by(() => {
     const id = epic?.category_id ?? null;
     if (id === null) return null;
-    const known =
-      (readCategory?.id === id ? readCategory : null) ?? definitions?.categories.find((option) => option.id === id);
-    return known ?? { id, name: t('categoryCurrentUnread', { category: t('category') }) };
+    return knownCategory ?? { id, name: t('categoryCurrentUnread', { category: t('category') }) };
   });
   const categoryShownId = $derived(
     categoryChoice !== null
@@ -429,7 +434,9 @@
       if (alive && epic !== null) {
         const saved = result.data.epic;
         const merged: EpicDetail = { ...epic, category_id: saved.category_id };
-        if (readCategory !== null && readCategory.id !== saved.category_id) readCategory = null;
+        if (saved.category_id !== (readCategory?.id ?? null)) {
+          readCategory = definitions?.categories.find((option) => option.id === saved.category_id) ?? null;
+        }
         for (const key of Object.keys(fields) as (keyof Fields)[]) {
           if (key !== 'category_id') Object.assign(merged, { [key]: saved[key] });
         }
@@ -904,8 +911,9 @@
               </button>
             {/if}
           {:else}
-            <!-- 読み取り専用のときは文字で出す。一覧を読まないので、名前は epic-get の区分から出し、無ければ（削除された区分も）なしにする -->
-            <span>{readCategory?.name ?? t('categoryNone', { category: t('category') })}</span>
+            <!-- 読み取り専用のときは文字で出す。一覧を読まないので、名前は epic-get の区分（直した後に替わったときは、読んだ一覧）から出し、
+                 名前が分からない（削除された区分も）ときはなしにする。読み取り専用では、読めなかった文を出さない -->
+            <span>{knownCategory?.name ?? t('categoryNone', { category: t('category') })}</span>
           {/if}
           {#if categoryError !== null}
             <span class="field-error" id={categoryErrorId} role="alert"><Icon name="alert" />{categoryError}</span>
