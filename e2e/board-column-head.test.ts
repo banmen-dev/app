@@ -97,6 +97,7 @@ test('上限を超えた列は件数を警告の色で出し、リーダーは�
     ['1', 1],
     ['99', 99],
     [' 5 ', 5],
+    ['１２', 12],
   ] as const) {
     await doingMenu.click();
     await page.getByRole('menuitem', { name: '上限を決める', exact: true }).click();

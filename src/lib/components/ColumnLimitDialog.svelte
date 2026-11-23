@@ -53,7 +53,8 @@
 
   // 空は上限なし（null）。1〜99 の整数のほかは undefined（送らない）
   function parse(raw: string): number | null | undefined {
-    const text = raw.trim();
+    // 全角の数字も受ける（type="number" のときはブラウザが正規化していた）
+    const text = raw.normalize('NFKC').trim();
     if (text === '') return null;
     if (!/^\d+$/.test(text)) return undefined;
     const value = Number(text);
