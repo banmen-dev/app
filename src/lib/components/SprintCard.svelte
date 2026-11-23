@@ -206,24 +206,34 @@
       if (!byKey) await endTitle(false);
       return;
     }
+    // 送っている間にワークスペースが終了すると attrs は undefined に替わるので、送る前の配線を保って使う
+    const target = attrs;
     titleSending = next;
     await endTitle(byKey);
-    const result = await callOperation(
-      taskUpdate,
-      { workspace_id: attrs.workspaceId, task_id: task.id, title: next, expected: { title: titleBase } },
-      { slug: attrs.slug },
-    );
-    if (result.ok) {
-      attrs.onpatch(task.id, { title: result.data.task.title });
+    let failure: ReturnType<typeof cardTitleFailure> | null = null;
+    try {
+      const result = await callOperation(
+        taskUpdate,
+        { workspace_id: target.workspaceId, task_id: task.id, title: next, expected: { title: titleBase } },
+        { slug: target.slug },
+      );
+      if (result.ok) {
+        target.onpatch(task.id, { title: result.data.task.title });
+        showToast(t('taskSaved'), 'check');
+        return;
+      }
+      failure = cardTitleFailure(result, task.is_imported);
+    } finally {
+      // 応答の後の処理が失敗しても、送っている間の題を戻してカードを固めない
       titleSending = null;
-      showToast(t('taskSaved'), 'check');
-      return;
     }
-    titleSending = null;
-    const failure = cardTitleFailure(result, task.is_imported);
     showToast(failure.message, 'alert');
-    if (failure.stale) attrs.onStale();
-    await reload();
+    if (failure.stale) target.onStale();
+    try {
+      await target.onSaved();
+    } catch {
+      /* 読み直しの失敗で、知らせた理由を隠さない */
+    }
   }
 
   function titleKeydown(event: KeyboardEvent): void {
