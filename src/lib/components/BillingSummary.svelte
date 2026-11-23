@@ -3,13 +3,14 @@
   import type { billingOrganizationSummary } from '../../shared/operations/billing.ts';
   import { formatCount, quotaSize } from '../format.ts';
   import { formatTrialStopDateTime } from '../format-datetime.ts';
-  import { planLabel } from '../plan-terms.ts';
+  import { planLabel, planTermsText } from '../plan-terms.ts';
   import { t } from '../vocabulary.svelte.ts';
   import Icon from './Icon.svelte';
 
   // 請求画面の「契約と使用量」（design/billing.html の summary）。担当組織の契約、利用の状態、人数と容量の使用量を上限と並べて出す。
   // 使用量は組織全体の合計の2値だけで、内訳やワークスペースの名前は受け取らない（docs/requirements.md の「請求管理者（#1241）」）。
-  // 契約の語は組織の管理のプランの節（PlanDetails.svelte）と同じ。変えるのは運用者なので、問い合わせの案内を出す
+  // 契約の語は組織の管理のプランの節（PlanDetails.svelte）と同じ。個別契約は人数と標準容量も添える（planTermsText）。
+  // 変えるのは運用者なので、問い合わせの案内を出す
   type Summary = OutputOf<typeof billingOrganizationSummary>;
   let { summary }: { summary: Summary } = $props();
 
@@ -61,6 +62,7 @@
     <dt>{t('orgPlanTermsLabel')}</dt>
     <dd>
       {#if contract === null && summary.kind === 'team'}<span class="chip">{t('operatorPlanNone')}</span>
+      {:else if contract !== null}{planTermsText(contract, t)}
       {:else}{planLabel({ kind: summary.kind, contract }, t)}{/if}
     </dd>
   </div>

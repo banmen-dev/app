@@ -43,6 +43,9 @@
     bootstrapSlug = '';
     bootstrapAccount = '';
   });
+  // 自分用の組織は名前の代わりに辞書の「自分用」で出す（docs/data-model.md の organizations の kind）
+  const organizationName = (organization: { kind: 'team' | 'personal'; name: string }) =>
+    organization.kind === 'personal' ? t('personalOrganizationName') : organization.name;
   const personLabel = (name: string, id: string) => (name === id ? id : `${name}（${id}）`);
   const eventKeys = {
     invited: 'billingEventInvited',
@@ -153,7 +156,7 @@
     </GateSheet>
     {#if data.selected}
       {@const selected = data.selected}
-      <GateSheet title={t('billingSummary', { name: selected.name })}>
+      <GateSheet title={t('billingSummary', { name: organizationName(selected) })}>
         {#if selected.summary === null}
           <p class="field-error" role="alert">{t('billingSummaryLoadFailed')}</p>
           <div class="form-actions">
@@ -161,7 +164,7 @@
           </div>
         {:else}<BillingSummary summary={selected.summary} />{/if}
       </GateSheet>
-      <GateSheet title={t('billingAdministrators', { name: selected.name })}>
+      <GateSheet title={t('billingAdministrators', { name: organizationName(selected) })}>
         <div class="form-actions"><a class="btn" href={resolve('/auth/billing')}>{t('billingBack')}</a></div>
         <p class="field-hint">{t('billingLastHint')}</p>
         <p class="field-hint">{t('billingNominationHint')}</p>
@@ -267,7 +270,9 @@
               class="choice"
               href={resolve(`/auth/billing?organization=${encodeURIComponent(organization.slug)}`)}
               ><div>
-                <b>{organization.kind === 'personal' ? t('personalOrganizationName') : organization.name}</b><span
+                <b>{organizationName(organization)}</b>
+                <!-- 自分用の組織はどれも「自分用」なので、ほかの人の自分用を複数担当しても見分けられるよう slug を添える -->
+                {#if organization.kind === 'personal'}<span class="mono">{organization.slug}</span>{/if}<span
                   class="form-actions"
                   ><span class="chip">{planName(organization, t)}</span><span
                     class="chip"
