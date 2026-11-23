@@ -252,7 +252,6 @@
       type="button"
       bind:this={nameButton}
       aria-label={t('boardColumnRenameLabel', { column: t('column'), name: shownName })}
-      title={t('boardColumnRenameLabel', { column: t('column'), name: shownName })}
       aria-disabled={sending !== null ? 'true' : undefined}
       onclick={() => void beginRename()}>{shownName}</button
     >

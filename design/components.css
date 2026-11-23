@@ -1136,7 +1136,9 @@ a.brand { color: inherit; text-decoration: none; }
 .board-col:is(:hover, :focus-within) .board-col-head .row-menu-btn { opacity: 1; }
 @media (max-width: 760px), (pointer: coarse) {
   .board-col-toggle { min-width: 44px; min-height: 44px; }
-  .board-col-name.is-action { min-height: 44px; }
+  .board-col-name.is-action { min-height: 44px; min-width: 44px; }
+  /* 指の画面では、入力欄も 44px にし、文字を 16px にしてフォーカスでの拡大を避ける */
+  .board-col-name-input.input { min-height: 44px; font-size: var(--text-body); }
   .board-col-head > .row-menu .row-menu-btn { width: 44px; height: 44px; }
 }
 .board-empty { font-size: var(--text-xs); color: var(--color-muted); padding: var(--space-2); }

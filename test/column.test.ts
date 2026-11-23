@@ -14,7 +14,12 @@ import type { AnyOperationDefinition } from '../src/shared/operations/define.ts'
 import { sprintBoard } from '../src/shared/operations/sprint/index.ts';
 import { createApp } from '../src/server/app.ts';
 import { orgDb, verifyWorkspace } from '../src/server/db/index.ts';
-import { columnCreateOperation, columnDeleteOperation, columnMoveOperation } from '../src/server/operations/column.ts';
+import {
+  columnCreateOperation,
+  columnDeleteOperation,
+  columnMoveOperation,
+  columnUpdateOperation,
+} from '../src/server/operations/column.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
 import { createBoardColumn, createSprint, createSprintEntry, createTask, createWorkspace } from './factories.ts';
 import { post } from './operations/harness.ts';
@@ -448,6 +453,26 @@ describe('column-update の上限', () => {
     const renamed = await call<{ column: ListedColumn }>(columnUpdate, target, { column_id: board.a, name: '控え' });
     expect(renamed.body.column).toMatchObject({ name: '控え', wip_limit: 5 });
     expect(await boardColumnRow(target, board.a)).toMatchObject({ name: '控え', wip_limit: 5 });
+  });
+
+  test('名前だけを直しても、読んだ後にほかの要求が決めた上限を書き戻さない', async () => {
+    const target = await createTarget();
+    const board = await createBoard(target);
+    // 名前の変更が行を読んだ直後に、別の要求が上限を 4 にした
+    const res = (await withRace(
+      target,
+      columnUpdateOperation,
+      { column_id: board.b, name: '作業中' },
+      {
+        method: 'first',
+        nth: 1,
+        run: async () => {
+          await updateRow('board_columns', target, board.b, { wip_limit: 4 });
+        },
+      },
+    )) as { column: ListedColumn };
+    expect(res.column).toMatchObject({ name: '作業中', wip_limit: 4 });
+    expect(await boardColumnRow(target, board.b)).toMatchObject({ name: '作業中', wip_limit: 4 });
   });
 
   test('0、100、小数、文字は 400。名前も上限も無ければ 400。1 と 99 は通る', async () => {

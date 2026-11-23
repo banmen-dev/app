@@ -7,6 +7,8 @@
   import Dialog from './Dialog.svelte';
   import Icon from './Icon.svelte';
 
+  // 欄は type="text" と inputmode="numeric" にし、打った文字のまま parse で確かめる（type="number" は数として読めない入力を
+  // 空として返し、上限を外す操作と見分けられないため）。
   // ボードの列の上限を決めるダイアログ（見本は kit.js の DIALOGS.columnLimit）。数を入れて「決める」で column-update の wip_limit を送り、
   // 空にして決めると上限を外す（null）。1〜99 の整数のほかは欄の下に理由を出して送らない。
   // 通ったら閉じてトーストを出し、onsaved で盤を読み直す。断られたら、閉じずに済む理由（400）は欄に、ほかは onfailed に渡して閉じる
@@ -108,19 +110,11 @@
         <input
           class="input"
           id={fieldId}
-          type="number"
-          min={COLUMN_WIP_LIMIT_MIN}
-          max={COLUMN_WIP_LIMIT_MAX}
-          step="1"
+          type="text"
           inputmode="numeric"
           autocomplete="off"
           bind:this={input}
-          bind:value={
-            () => draft,
-            (value) => {
-              draft = value === null || value === undefined ? '' : String(value);
-            }
-          }
+          bind:value={draft}
           oninput={() => (error = null)}
           readonly={saving}
           aria-invalid={error !== null}
@@ -135,7 +129,9 @@
     </form>
   {/if}
   {#snippet footer(close)}
-    <button class="btn is-quiet" type="button" aria-disabled={saving} onclick={close}>{t('cancel')}</button>
+    <button class="btn is-quiet" type="button" aria-disabled={saving} onclick={() => !saving && close()}
+      >{t('cancel')}</button
+    >
     <button class="btn is-primary" type="submit" form="{ids}-form" aria-disabled={saving}
       >{t('boardColumnLimitSave')}</button
     >

@@ -196,9 +196,10 @@ async function taskCountOf(db: OrganizationDb, workspaceId: string, columnId: st
   return Number(row?.count ?? 0);
 }
 
-// 名前と上限を直す。name と wipLimit は省いたもの（undefined）を今の値のままにする。
+// 名前と上限を直す。name と wipLimit は省いたもの（undefined）を書かず、送られた欄だけを SET に入れる
+// （名前だけの変更が、読んだ後にほかの要求が決めた上限を古い値で書き戻さないように）。
 // 名前を変えるときは、読んだ名前のままで、同じ名前の列が無ければ、という条件つきで書き、変更の履歴を残す。
-// 上限だけを変えるときも、読んだ名前のままを条件にする（同時に名前が変わったら読み直す）。上限は履歴に残さない
+// 上限だけを変えるときは名前を条件にせず、後に書いた値が残る（上限は履歴に残さない）
 async function updateColumn(
   { db, actor, workspace }: Context,
   id: string,
@@ -217,32 +218,40 @@ async function updateColumn(
     const name = patch.name ?? current.name;
     const wipLimit = patch.wipLimit === undefined ? current.wipLimit : patch.wipLimit;
     const renaming = name !== current.name;
-    const column = async (): Promise<Column> => ({
-      id,
-      name,
-      is_done: false,
-      wip_limit: wipLimit,
-      task_count: await taskCountOf(db, workspaceId, id),
-    });
+    // 応答は書いた後の行を読み直して返す（名前だけを直したときも、ほかの要求が決めた上限を返す）
+    const column = async (): Promise<Column> => {
+      const latest = await readOpenColumn(db, workspaceId, id);
+      return {
+        id,
+        name: latest?.name ?? name,
+        is_done: false,
+        wip_limit: latest === undefined ? wipLimit : latest.wipLimit,
+        task_count: await taskCountOf(db, workspaceId, id),
+      };
+    };
     if (!renaming && wipLimit === current.wipLimit) {
       await throwIfClosed(db, workspaceId);
       return column();
     }
     const at = now();
     const updatedAt = at.toISOString();
+    const limiting = patch.wipLimit !== undefined && wipLimit !== current.wipLimit;
     const update = db.statement((q) =>
       q
         .updateTable('board_columns')
-        .set({ name, wip_limit: wipLimit, updated_at: updatedAt })
+        .set({
+          ...(renaming ? { name } : {}),
+          ...(limiting ? { wip_limit: wipLimit } : {}),
+          updated_at: updatedAt,
+        })
         .where((eb) =>
           eb.and([
             eb('id', '=', id),
             eb('workspace_id', '=', workspaceId),
             eb('deleted_at', 'is', null),
             eb('is_done', '=', 0),
-            eb('name', '=', current.name),
             eb.exists(openWorkspace(q, organizationId, workspaceId)),
-            ...(renaming ? [eb.not(eb.exists(sameName(q, workspaceId, name, id)))] : []),
+            ...(renaming ? [eb('name', '=', current.name), eb.not(eb.exists(sameName(q, workspaceId, name, id)))] : []),
           ]),
         ),
     );

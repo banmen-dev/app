@@ -10,14 +10,14 @@ import { SAMPLE_BOARD } from './sprint-fixture.ts';
 const TEAM = '/aoba/w/019a0000-0000-7000-8000-000000000401';
 const [TODO, DOING, REVIEW] = SAMPLE_BOARD.columns;
 
-// 未着手は上限 1 で 2 件（超えている）、作業中は上限 3 で 1 件（内側）
+// 未着手は上限 1 で 2 件（超えている）、作業中は上限 1 で 1 件（ちょうど。超えていない）
 const LIMITED: OutputOf<typeof sprintBoard> = {
   ...SAMPLE_BOARD,
   columns: SAMPLE_BOARD.columns.map((column) =>
     column.id === TODO!.id
       ? { ...column, wip_limit: 1 }
       : column.id === DOING!.id
-        ? { ...column, wip_limit: 3 }
+        ? { ...column, wip_limit: 1 }
         : column,
   ),
 };
@@ -43,7 +43,7 @@ test('上限を超えた列は件数を警告の色で出し、リーダーは�
   await expect(todo.locator('.board-col-head .visually-hidden')).toHaveText('2 件。上限の 1 件を超えています');
   const within = columnOf(page, '作業中').locator('.board-col-n');
   await expect(within).not.toHaveClass(/is-over/);
-  await expect(columnOf(page, '作業中').locator('.board-col-head .visually-hidden')).toHaveText('1 件（上限 3 件）');
+  await expect(columnOf(page, '作業中').locator('.board-col-head .visually-hidden')).toHaveText('1 件（上限 1 件）');
 
   // 上限を超えていても、その列で作れる（足す行は残る）
   await expect(page.getByRole('textbox', { name: 'タスクを足す: 未着手', exact: true })).toBeVisible();
@@ -75,11 +75,14 @@ test('上限を超えた列は件数を警告の色で出し、リーダーは�
   await doingMenu.click();
   await page.getByRole('menuitem', { name: '上限を決める', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '列の上限', exact: true });
-  const field = dialog.getByRole('spinbutton', { name: '上限（件）', exact: true });
-  await expect(field).toHaveValue('3');
-  await field.fill('0');
-  await dialog.getByRole('button', { name: '決める', exact: true }).click();
-  await expect(dialog.getByRole('alert')).toHaveText('1〜99 の整数を入れるか、空にしてください');
+  const field = dialog.getByRole('textbox', { name: '上限（件）', exact: true });
+  await expect(field).toHaveValue('1');
+  // 0 と、数として読めない入力は送らず、欄に理由を出す（空と取り違えて上限を外さない）
+  for (const raw of ['0', '3e', '100']) {
+    await field.fill(raw);
+    await dialog.getByRole('button', { name: '決める', exact: true }).click();
+    await expect(dialog.getByRole('alert')).toHaveText('1〜99 の整数を入れるか、空にしてください');
+  }
   expect(updates).toEqual([]);
   await field.fill('');
   await dialog.getByRole('button', { name: '決める', exact: true }).click();
@@ -87,7 +90,7 @@ test('上限を超えた列は件数を警告の色で出し、リーダーは�
   await expect(page.locator('.toasts:visible .toast', { hasText: '「作業中」の上限を外しました' })).toBeVisible();
   expect(updates).toEqual([{ workspace_id: expect.any(String), column_id: DOING!.id, wip_limit: null }]);
 
-  // 名前を書き換える。同じ名前は理由が出て欄に留まり、Esc で戻す
+  // 名前を書き換える。同じ名前はサーバーが断り、理由が出て元の名前に戻る。Esc で戻す
   await page.getByRole('button', { name: '列の名前を変更: 作業中', exact: true }).click();
   const nameField = page.getByRole('textbox', { name: '列の名前', exact: true });
   await expect(nameField).toBeFocused();
@@ -121,7 +124,22 @@ test('上限を超えた列は件数を警告の色で出し、リーダーは�
   await expect(
     page.locator('.toasts:visible .toast', { hasText: '「レビュー」を左から 2 番目へ移しました' }),
   ).toBeVisible();
-  expect(moves).toEqual([{ workspace_id: expect.any(String), column_id: REVIEW!.id, after_column_id: TODO!.id }]);
+  // 2番目の列の「左へ移動」は先頭へ（after_column_id は null）、先頭の列の「右へ移動」は2番目の列の後ろへ
+  await page.getByRole('button', { name: '操作: 列「作業中」', exact: true }).click();
+  await page.getByRole('menuitem', { name: '左へ移動', exact: true }).click();
+  await expect(
+    page.locator('.toasts:visible .toast', { hasText: '「作業中」を左から 1 番目へ移しました' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: '操作: 列「未着手」', exact: true }).click();
+  await page.getByRole('menuitem', { name: '右へ移動', exact: true }).click();
+  await expect(
+    page.locator('.toasts:visible .toast', { hasText: '「未着手」を左から 2 番目へ移しました' }),
+  ).toBeVisible();
+  expect(moves).toEqual([
+    { workspace_id: expect.any(String), column_id: REVIEW!.id, after_column_id: TODO!.id },
+    { workspace_id: expect.any(String), column_id: DOING!.id, after_column_id: null },
+    { workspace_id: expect.any(String), column_id: TODO!.id, after_column_id: DOING!.id },
+  ]);
 
   expect(await collect()).toEqual([]);
 });

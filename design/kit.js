@@ -1147,11 +1147,13 @@
       // 「⋯」から名前の変更、上限、左右への移動を選べる。上限があれば札を「件数 / 上限」にし、超えたら警告の色（.is-over）とアイコンにする
       const lead = opts.lead && !c.done;
       const limit = c.done ? null : (c.limit ?? null);
-      const over = limit !== null && items.length > limit;
-      const countText = limit === null ? `${items.length} 件` : over ? `${items.length} 件。上限の ${limit} 件を超えています` : `${items.length} 件（上限 ${limit} 件）`;
-      const colCount = `<span class="board-col-n${over ? " is-over" : ""}" aria-hidden="true">${over ? icon("alert") : ""}${limit === null ? items.length : `${items.length} / ${limit}`}</span><span class="visually-hidden">${countText}</span>`;
+      // 上限と比べるのは、ストーリーで絞っていても列の全件（本番の total）
+      const total = tasksWhere((x) => x.sprint === sprintId && (c.done ? x.doneAt : !x.doneAt && x.col === c.id)).length;
+      const over = limit !== null && total > limit;
+      const countText = limit === null ? `${items.length} 件` : over ? `${total} 件。上限の ${limit} 件を超えています` : `${total} 件（上限 ${limit} 件）`;
+      const colCount = `<span class="board-col-n${over ? " is-over" : ""}" aria-hidden="true">${over ? icon("alert") : ""}${limit === null ? items.length : `${total} / ${limit}`}</span><span class="visually-hidden">${countText}</span>`;
       const colName = lead
-        ? `<button class="board-col-name is-action" type="button" data-column-rename aria-label="${t("column")}の名前を変更: ${esc(name)}" title="${t("column")}の名前を変更: ${esc(name)}">${esc(name)}</button>`
+        ? `<button class="board-col-name is-action" type="button" data-column-rename aria-label="${t("column")}の名前を変更: ${esc(name)}">${esc(name)}</button>`
         : `<span class="board-col-name">${esc(name)}</span>`;
       const colMenu = lead ? rowMenu(`${t("column")}「${name}」`, [
         { attr: "data-column-rename-menu", label: "名前を変更", icon: "pen" },
