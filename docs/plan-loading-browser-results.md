@@ -31,7 +31,7 @@ B は現行の `sprint-list` → `plan-summary` の並列開始と両応答の�
 
 ## 再現と再集計
 
-#1057 を閉じた後、専用の計測器を削除した。再現・再集計には、基準コミットのワークツリーに [PR #1419](https://github.com/banmen-dev/app/pull/1419) の計測器を取り出して使う。現在の作業コピーのリポジトリルートから次を実行する。
+#1057 を閉じた後、専用の計測器を削除した。再現・再集計には、基準コミットのワークツリーに [PR #1419](https://github.com/banmen-dev/app/pull/1419) の計測器を取り出して使う。現在の作業コピーのリポジトリルートで始め、以降のコマンドは同じシェルで実行する。
 
 ```sh
 repo=$(git rev-parse --show-toplevel)
@@ -55,6 +55,20 @@ pnpm exec node scripts/plan-loading-browser-summary.ts /tmp/plan-loading-browser
 output=$(mktemp -d)
 gzip -dc "$repo/docs/plan-loading-browser-samples.json.gz" > "$output/recorded.json"
 pnpm exec node scripts/plan-loading-browser-summary.ts "$output/recorded.json" "$output/recorded-summary"
+```
+
+再集計の出力が不要になったら、一時ファイルとそのディレクトリを削除する。
+
+```sh
+rm -- "$output/recorded.json" "$output/recorded-summary.json" "$output/recorded-summary.md"
+rmdir -- "$output"
+```
+
+再現・再集計を終えたら、計測器を取り出した専用ワークツリーを片付ける。
+
+```sh
+cd "$repo"
+git worktree remove --force "$repo/worktrees/1057-browser-repro"
 ```
 
 [生データ](plan-loading-browser-samples.json.gz) と [採否・全セルの集計](plan-loading-browser-decision.json) を保存した。分位点は nearest-rank。20件の p95 は昇順19番目で、採否は丸め前の値を使う。ローカル Worker/D1 とループバックでは、処理順や同時実行が実運用と異なる可能性がある。数値基準を満たしても、これらの影響を切り分けられない場合は、実運用に近い隔離環境で確認してから判断する。
