@@ -897,10 +897,17 @@
       }
       return t('taskCreateFailed');
     }
-    // 読み直してから、足したカードを列の末尾に出す（トーストが読み上げる）。絞り込みに当たらず見えないときは、そのことも知らせる
-    await reloadBoard();
-    const created = columns.flatMap((item) => item.tasks).find((task) => task.id === result.data.task.id);
-    const hidden = created !== undefined && !cardMatches(created, filter);
+    // 読み直してから、足したカードを列の末尾に出す（トーストが読み上げる）。絞り込みに当たらず見えないときは、そのことも知らせる。
+    // 読み直しに失敗しても、作れたことはふだんの知らせで出す。読み直す間に別のワークスペースへ移っていたら、何も出さない
+    let hidden = false;
+    try {
+      await reloadBoard();
+      const created = columns.flatMap((item) => item.tasks).find((task) => task.id === result.data.task.id);
+      hidden = created !== undefined && !cardMatches(created, filter);
+    } catch {
+      // 読み直せなかったときは、当たるかを確かめられないので、ふだんの知らせにする
+    }
+    if (sentFor !== page.params.id) return null;
     showToast(
       t(hidden ? 'boardTaskAddedHidden' : 'sprintBoardTaskAdded', {
         title: result.data.task.title,
