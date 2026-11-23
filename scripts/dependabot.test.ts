@@ -11,6 +11,7 @@ type Update = {
   directories?: string[];
   groups?: Record<string, { patterns?: string[] }>;
   cooldown?: { 'default-days'?: number };
+  'commit-message'?: { prefix?: string; include?: string };
   ignore?: { 'dependency-name': string }[];
 };
 
@@ -24,13 +25,13 @@ function update(ecosystem: string): Update {
   return found[0]!;
 }
 
-test('npm と github-actions の2つを、それぞれ1つのグループにまとめ、公開から日を置いて出す', () => {
+test('npm と github-actions の2つを、それぞれ1つのグループにまとめ、公開から7日置いて出す', () => {
   assert.deepEqual(config.updates.map((u) => u['package-ecosystem']).sort(), ['github-actions', 'npm']);
   for (const u of config.updates) {
     const groups = Object.values(u.groups ?? {});
     assert.equal(groups.length, 1, u['package-ecosystem']);
     assert.deepEqual(groups[0]!.patterns, ['*'], u['package-ecosystem']);
-    assert.ok((u.cooldown?.['default-days'] ?? 0) >= 1, u['package-ecosystem']);
+    assert.equal(u.cooldown?.['default-days'], 7, u['package-ecosystem']);
   }
 });
 
@@ -51,4 +52,9 @@ test('github-actions は、自前の composite action のすべてのディレ�
 test('claude-code-action は人が起動経路を確かめて上げるので、Dependabot では上げない', () => {
   const names = (update('github-actions').ignore ?? []).map((i) => i['dependency-name']);
   assert.ok(names.includes('anthropics/claude-code-action'));
+});
+
+test('件名は PR のタイトルの種別に合わせ、npm は chore(deps)、github-actions は ci(deps) にする', () => {
+  assert.deepEqual(update('npm')['commit-message'], { prefix: 'chore', include: 'scope' });
+  assert.deepEqual(update('github-actions')['commit-message'], { prefix: 'ci', include: 'scope' });
 });
