@@ -50,3 +50,11 @@ test('補助の件数が無くても、metaがあれば集計ボタンから確�
   const id = /aria-controls="([^"]+)"/.exec(body)![1];
   expect(body.slice(body.indexOf(`id="${id}"`))).toContain('見出しの下の一行');
 });
+
+test('narrowEyebrow は 760px 以下だけの小見出し（is-narrow-only）にし、eyebrow があればそちらを出す', () => {
+  const narrow = render(PageHead, { props: { title: 'メンバー', narrowEyebrow: 'ふくろう班' } }).body;
+  expect(narrow).toMatch(/<span class="page-eyebrow is-narrow-only">ふくろう班<\/span>/);
+  const both = render(PageHead, { props: { title: 'Wiki', eyebrow: '架空の組織', narrowEyebrow: 'ふくろう班' } }).body;
+  expect(both).toMatch(/<span class="page-eyebrow">架空の組織<\/span>/);
+  expect(both).not.toContain('ふくろう班');
+});

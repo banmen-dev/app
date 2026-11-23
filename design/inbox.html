@@ -32,7 +32,7 @@ SQ.mount("inbox", () => {
     actions,
   };
   return `
-    ${pageHead(D.workspaces.wa.name, t("inbox"), [
+    ${pageHead({ narrow: D.workspaces.wa.name }, t("inbox"), [
       ["", "inbox", "届いたもの", items.length],
       ["is-ok", "check", "取り込み元で完了", items.filter((x) => x.srcDone).length],
     ])}

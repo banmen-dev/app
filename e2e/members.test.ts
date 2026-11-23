@@ -42,7 +42,9 @@ test.describe('リーダー（あおば開発のミナト）', () => {
     await page.locator('.nav-item', { hasText: 'メンバー' }).click();
     await expect(page).toHaveURL(new RegExp(`${MEMBERS_PATH}$`));
     await expect(page.getByRole('heading', { level: 1, name: 'メンバー' })).toBeVisible();
-    await expect(page.locator('.page-eyebrow')).toHaveText('受託開発チーム');
+    await expect(
+      page.getByRole('navigation', { name: 'パンくず' }).getByRole('link', { name: '受託開発チーム', exact: true }),
+    ).toBeVisible();
     await expect(page.locator('.nav-item[aria-current="page"]')).toHaveText('メンバー');
     await expect(page).toHaveTitle('メンバー・受託開発チーム - Banmen');
 

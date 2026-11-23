@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '../vocabulary.svelte.ts';
 
-  // 上の帯の「組織 › ワークスペース › 画面」。kit.js の breadcrumbHtml と同じ並び。
+  // 本文の見出しの上（AppShell の .sheet-crumbs）の「組織 › ワークスペース › 画面」。kit.js の breadcrumbHtml と同じ並び。
   // href のある項目は最初の画面へのリンク。current の項目は今の画面（href が無ければリンクにしない。画面の名前が決まらない画面では、最後のワークスペースを href のまま今の画面にする）。長い名前は1行に収めて省略し、全文は title に残す
   let { crumbs }: { crumbs: { label: string; href?: string; current?: boolean }[] } = $props();
 </script>

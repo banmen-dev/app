@@ -36,7 +36,7 @@ SQ.mount("members", () => {
     </tr>`;
   }).join("");
   return `
-    ${pageHead(D.workspaces.wa.name, "メンバー", [
+    ${pageHead({ narrow: D.workspaces.wa.name }, "メンバー", [
       ["", "users", "所属", now.length],
       ["", "", t("leader"), now.filter((m) => m.role === "leader").length],
       ["is-warn", "", "11月の配分が未設定", now.filter((m) => m.alloc == null).length],

@@ -137,7 +137,7 @@
 {:else if workspace && inbox !== null}
   <PageHead
     title={t('inbox')}
-    eyebrow={workspace.name}
+    narrowEyebrow={workspace.name}
     tallies={[{ icon: 'inbox', label: t('inboxTallyArrived'), count: inbox.total }]}
   />
 

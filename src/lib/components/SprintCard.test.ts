@@ -11,6 +11,8 @@ const task: SprintBoardTask = {
   completed_at: '2026-11-16T00:00:00.000Z',
   reopenable: false,
   story: null,
+  epic: null,
+  category: null,
   repository: null,
   due_on: null,
   can_delete: false,

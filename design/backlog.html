@@ -84,7 +84,7 @@ SQ.mount("backlog", () => {
   // 何もないときは、絞り込みの帯も出さずに最初の一歩だけを示し、その下に木の末尾の空の行を出す
   if (!SQ.tasksWhere((x) => x.ws === "wa").length && !Object.keys(D.epics).length && !Object.keys(D.stories).length) {
     return `
-      ${pageHead(D.workspaces.wa.name, t("backlog"), [])}
+      ${pageHead("", t("backlog"), [])}
       ${SQTaskTemplates.backlogAction()}
       ${SQ.emptyState("board", `まだ${t("task")}がありません`,
         `${t("task")}を優先する順に並べる場所です。下の空の行に題を入れて、最初の${t("task")}を作ります。`, "", "notice")}
@@ -93,7 +93,7 @@ SQ.mount("backlog", () => {
       </div></section>`;
   }
   return `
-    ${pageHead(D.workspaces.wa.name, t("backlog"), [
+    ${pageHead("", t("backlog"), [
       ["", "board", `未完了の${t("task")}`, open.length],
       ["is-warn", "", "未見積もり", open.filter((x) => x.pts == null).length],
       ["", "", `${t("sprint")}に入っていない`, open.filter((x) => !x.sprint).length],

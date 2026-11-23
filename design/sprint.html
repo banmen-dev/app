@@ -18,7 +18,7 @@
 <script src="kit.js"></script>
 <script>
 "use strict";
-// ボード: 進行中のスプリントの列とカード。見出しの下の1段の道具の帯の右端に、スプリントのボタンと小窓（#1498）
+// ボード: 進行中のスプリントの列とカード。見出しの下の1段の道具の帯の左に検索、担当のアバター、フィルター（#1502）、右端に、スプリントのボタンと小窓（#1498）
 const { D, t, icon, pageHead, board, capacityRows, sumPts, progress } = SQ;
 
 // ?overdue は、最終日を過ぎた進行中のスプリントの状態。ふだんの見本の最終日（10/26）の前に今日があるので、期間を1週間前へずらして今日が最終日より後になる形にする。
@@ -50,7 +50,7 @@ SQ.mount("sprint", () => {
     // 進行中のスプリントがない。作って始めるのはリーダー
     const isLeader = SQ.user(D.me).role === "leader";
     return `
-      ${pageHead(D.workspaces.wa.name, t("board"))}
+      ${pageHead({ narrow: D.workspaces.wa.name }, t("board"))}
       ${SQ.emptyState("columns", `進行中の${t("sprint")}はありません`,
         isLeader
           ? `${t("plan")}の画面で${t("sprint")}を作り、${t("backlog")}から${t("task")}を入れてから始めます。始めると、ここに${t("column")}とカードが並びます。`
@@ -77,6 +77,12 @@ SQ.mount("sprint", () => {
     <div class="progress-summary">${progress(done, all, { markerPercent: day / s.days * 100, markerLabel: `経過 ${day} / ${s.days} 日（${Math.round(day / s.days * 100)}%）`, detailed: true })}<span class="progress-remaining">残り ${Math.max(0, s.days - s.dayIndex)} 日</span></div>
     ${s.goal ? `<div class="popover-section"><span class="popover-label">${t("sprintGoal")}</span><p class="popover-text">${SQ.esc(s.goal)}</p></div>` : ""}
     ${actions}`;
+  // 道具の帯の左の絞り込み（本番の BoardFilterBar。#1502）。?filtered は担当とストーリーで絞った状態、?search=語 は検索した状態
+  const filterOpts = {
+    end: "",
+    ...(params.has("filtered") ? { story: "s1", assignees: ["u1", "u2"] } : {}),
+    ...(params.get("search") ? { q: params.get("search") } : {}),
+  };
   const sprintButton = SQ.popover(label, panel, {
     label: `${t("sprint")}の情報: ${label}${overdue ? " 期限切れ（最終日を過ぎています）" : ""}`,
     dialogLabel: `${t("sprint")}の情報`,
@@ -84,11 +90,12 @@ SQ.mount("sprint", () => {
     tone: overdue ? "warn" : "",
     note: overdue ? "期限切れ" : "",
   });
+  filterOpts.end = sprintButton;
   return `
     ${pageHead("", t("board"))}
     <div class="board-page">
-      <div class="toolbar board-toolbar"><div class="toolbar-end">${sprintButton}</div></div>
-      ${board("sp14", { draft: true, collapsed: (c) => c.done && new URLSearchParams(location.search).has("collapsed") })}
+      ${SQ.boardToolbar("sp14", filterOpts)}
+      ${board("sp14", { ...filterOpts, draft: true, collapsed: (c) => c.done && new URLSearchParams(location.search).has("collapsed") })}
     </div>
     <span class="visually-hidden" id="board-key-hint">カードを別の${t("column")}へドラッグして移すか、カードを選んで Alt と ← → で隣の${t("column")}、Alt と ↑ ↓ で${t("column")}の中を動かせます。カードの「⋯」のメニューでも同じです。${t("done")}の${t("column")}の手前の${t("column")}から次へ送ると、${t("done")}になります。${t("done")}のカードは Alt と ← か「⋯」で戻せます。戻せないときは理由を知らせます。</span>
     <section class="section" aria-labelledby="cap">

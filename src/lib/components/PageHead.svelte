@@ -13,10 +13,12 @@
 
   // kit.js の pageHead。画面の見出し（h1）、上の小さな見出し、集計、右上の操作。
   // focusable は、画面を移った後や、操作した行が消えた後に見出しへフォーカスを置く画面（作ったワークスペースの画面、今日やること）が付ける。
-  // meta は集計の下に置く1行（エピックの状態など。kit.js の pageHead の meta）
+  // meta は集計の下に置く1行（エピックの状態など。kit.js の pageHead の meta）。
+  // narrowEyebrow は 760px 以下だけに出す小見出し（ワークスペースの画面のワークスペース名）。761px 以上はパンくずが同じ名前を見出しの上に出すので隠す
   let {
     title,
     eyebrow,
+    narrowEyebrow,
     tallies = [],
     actions,
     meta,
@@ -25,6 +27,7 @@
   }: {
     title: string;
     eyebrow?: string;
+    narrowEyebrow?: string;
     tallies?: Tally[];
     actions?: Snippet;
     meta?: Snippet;
@@ -41,7 +44,8 @@
 </script>
 
 <header class="page-head" class:is-compact={!!compactSummary}>
-  {#if eyebrow}<span class="page-eyebrow">{eyebrow}</span>{/if}
+  {#if eyebrow}<span class="page-eyebrow">{eyebrow}</span>
+  {:else if narrowEyebrow}<span class="page-eyebrow is-narrow-only">{narrowEyebrow}</span>{/if}
   <div class="page-head-row">
     <div class="page-title-row">
       <!-- tabindex="-1" は、プログラムからフォーカスを置くため（キーボードの Tab 順には入らない）。値は -1 か未指定だけ -->

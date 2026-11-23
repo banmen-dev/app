@@ -19,6 +19,13 @@ import {
 import { mockOperation, rewriteOperation } from './operations.ts';
 import { OVERDUE_BOARD, OVERDUE_PLAN, SAMPLE_BOARD } from './sprint-fixture.ts';
 
+// 道具の帯の地（押せる物の無い所）。帯の左は検索と絞り込み（#1502）なので、右端のスプリントのボタンのすぐ左の空きを押す
+async function toolbarBlank(page: Page): Promise<{ x: number; y: number }> {
+  const toolbar = (await page.locator('.board-toolbar').boundingBox())!;
+  const end = (await page.locator('.board-toolbar .toolbar-end').boundingBox())!;
+  return { x: end.x - toolbar.x - 4, y: end.y - toolbar.y + end.height / 2 };
+}
+
 const PATH = '/aoba/w/019a0000-0000-7000-8000-000000000401/board';
 test.use({ timezoneId: 'Asia/Tokyo' });
 
@@ -80,7 +87,7 @@ for (const [today, day, remaining] of [
 
     // 小窓の外（地）を押すと閉じ、フォーカスはボタンへ戻る
     await openSprintPopover(page);
-    await page.locator('.board-toolbar').click({ position: { x: 4, y: 4 } });
+    await page.locator('.board-toolbar').click({ position: await toolbarBlank(page) });
     await expect(popover).toBeHidden();
     await expect(button).toBeFocused();
 
@@ -91,7 +98,7 @@ for (const [today, day, remaining] of [
     await expect(popover).toBeHidden();
     await expect(draft).toBeFocused();
     await openSprintPopover(page);
-    await page.locator('.board-toolbar').click({ position: { x: 4, y: 4 } });
+    await page.locator('.board-toolbar').click({ position: await toolbarBlank(page) });
     await expect(button).toBeFocused();
     await draft.click();
     await expect(draft).toBeFocused();
@@ -102,7 +109,8 @@ for (const [today, day, remaining] of [
     const toolbarBox = (await page.locator('.board-toolbar').boundingBox())!;
     await page.mouse.move(goalBox.x + 4, goalBox.y + goalBox.height / 2);
     await page.mouse.down();
-    await page.mouse.move(toolbarBox.x + 4, toolbarBox.y + 4, { steps: 4 });
+    const blank = await toolbarBlank(page);
+    await page.mouse.move(toolbarBox.x + blank.x, toolbarBox.y + blank.y, { steps: 4 });
     await page.mouse.up();
     await expect(opened).toBeVisible();
     await page.keyboard.press('Escape');

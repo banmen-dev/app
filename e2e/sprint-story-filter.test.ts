@@ -68,7 +68,7 @@ test('親名のポインタとフォーカスで列をまたいで強調し、UR
     page.getByRole('status').filter({ hasText: `ストーリー「${STORY.title}」で絞り込みました` }),
   ).toBeVisible();
   await expect(page.locator('.card')).toHaveCount(3);
-  await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
+  await expect(page.locator('.board-filter-summary')).toContainText(STORY.title);
   await expect(page.locator('.board-col').first().locator('.board-col-n')).toHaveText('1');
   await expect(page.locator('.board-col').first().locator('.board-col-pts')).toHaveText('5 pt');
   // 見出しは絞る前の全体のまま（5+3+2 pt）
@@ -83,11 +83,11 @@ test('親名のポインタとフォーカスで列をまたいで強調し、UR
   await openSprintPopover(page);
   await page.keyboard.press('Escape');
   await expectFocusReturned(page, sprintButton(page));
-  await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
+  await expect(page.locator('.board-filter-summary')).toContainText(STORY.title);
   await expect(page).toHaveURL(new RegExp(`story=${STORY.id}`));
   await page.reload();
   await expect(page.locator('.card')).toHaveCount(3);
-  await page.getByRole('button', { name: '絞り込みを外す', exact: true }).click();
+  await page.getByRole('button', { name: 'すべてクリア', exact: true }).click();
   await expect(page).not.toHaveURL(/story=/);
   await expect(page.locator('.card')).toHaveCount(4);
   await expect(parents.first()).toBeFocused();
@@ -196,7 +196,7 @@ test('絞り込み中も完了の丸を出さず、最後の未完了列から�
   await expect.poll(() => completed).toBe(1);
   await expect(page.locator('.board-col.is-done').locator('.card')).toHaveCount(2);
   await expectSprintTotals(page, '完了 7 / 10 pt（70%）');
-  await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
+  await expect(page.locator('.board-filter-summary')).toContainText(STORY.title);
   await expect(page).toHaveURL(new RegExp(`story=${STORY.id}`));
   await expect(page.locator('.card')).toHaveCount(3);
 });
@@ -221,9 +221,9 @@ test('無効な親IDはURLから解除して全件に戻し、狭い幅と動き
   const parent = page.locator('.card-parent').first();
   await expect(parent).toHaveCSS('min-height', '44px');
   await parent.click();
-  await expect(page.locator('.story-filter-band')).toBeVisible();
+  await expect(page.locator('.board-filter-summary')).toBeVisible();
   await expect(page.locator('.card')).toHaveCount(3);
-  const clear = page.getByRole('button', { name: '絞り込みを外す', exact: true });
+  const clear = page.getByRole('button', { name: 'すべてクリア', exact: true });
   expect((await clear.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(391);
 });
@@ -247,7 +247,7 @@ test('絞り込み中にタスク詳細を開閉してもstoryを保持し、不
   await expect(page).not.toHaveURL(/task=/);
   await expect(page).toHaveURL(new RegExp(`story=${STORY.id}`));
   await expect(page.locator('.card')).toHaveCount(3);
-  await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
+  await expect(page.locator('.board-filter-summary')).toContainText(STORY.title);
 });
 
 test('バックログでは同じstoryクエリで従来の詳細を開き、閉じられる', async ({ page, context, baseURL }) => {
@@ -307,15 +307,15 @@ test('絞り込みと列の畳み・保存・下書き・移動先フォーカ�
   await expect(page.locator('.board-col').nth(1).locator('.board-col-n')).toHaveText('2');
   await expect(page.locator('.board-col').nth(1).locator('.card')).toHaveCount(0);
   await expectSprintTotals(page);
-  await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
+  await expect(page.locator('.board-filter-summary')).toContainText(STORY.title);
   await page.reload();
   await expect(workingToggle).toHaveAttribute('aria-expanded', 'false');
   await expect(page).toHaveURL(new RegExp(`story=${STORY.id}`));
-  await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
+  await expect(page.locator('.board-filter-summary')).toContainText(STORY.title);
   await todoToggle.click();
   await page.getByRole('button', { name: '完了の開閉', exact: true }).click();
   await expect(page.locator('.card')).toHaveCount(0);
-  await page.getByRole('button', { name: '絞り込みを外す', exact: true }).click();
+  await page.getByRole('button', { name: 'すべてクリア', exact: true }).click();
   await expect(page).not.toHaveURL(/story=/);
   await expect(todoToggle).toBeFocused();
   await expect(todoToggle).toHaveAttribute('aria-expanded', 'false');
@@ -551,7 +551,7 @@ for (const operation of ['key', 'menu', 'drag'] as const) {
     await expect(target.locator('.board-col-pts')).toHaveText('2 pt');
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
     if (operation !== 'drag') await expect(toggle).toBeFocused();
-    await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
+    await expect(page.locator('.board-filter-summary')).toContainText(STORY.title);
     await expect(page).toHaveURL(new RegExp(`story=${STORY.id}`));
     await expectSprintTotals(page, '完了 0 / 10 pt（0%）');
     await toggle.click();
@@ -583,7 +583,7 @@ test('絞り込み中も戻せない完了カードは理由を伝え、書き�
   ).toBeVisible();
   await waitForSettled(page);
   expect(sent).toBe(0);
-  await expect(page.locator('.story-filter-band')).toContainText(STORY.title);
+  await expect(page.locator('.board-filter-summary')).toContainText(STORY.title);
   await expect(page.locator('.card')).toHaveCount(3);
 });
 

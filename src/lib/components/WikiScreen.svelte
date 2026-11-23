@@ -423,7 +423,12 @@
   ></svelte:head
 >
 
-<PageHead title={t('wiki')} eyebrow={name}>
+<!-- ワークスペースの Wiki のワークスペース名は、761px 以上ではパンくずが見出しの上に出すので 760px 以下だけに出す。組織の Wiki の組織名はどの幅でも出す -->
+<PageHead
+  title={t('wiki')}
+  eyebrow={workspaceId === null ? name : undefined}
+  narrowEyebrow={workspaceId === null ? undefined : name}
+>
   {#snippet actions()}{#if canWrite}{#if mode === 'read'}<button
           class="btn"
           type="button"
