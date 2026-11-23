@@ -56,7 +56,7 @@ type Common<Input, Output> = {
   // 画面（src/lib/api.ts の callOperation）が応答を待つ上限（ミリ秒）。read の操作だけに付けられ、省けば既定の 10 秒。
   // 取り込み元に何度か問い合わせるなど、正常でも既定を超えうる read にだけ長い値を付ける
   readonly clientTimeoutMs?: number;
-  // API トークンでは呼べない（403）。Cookie のセッションの行や Cookie を直に扱う操作（ログアウト）に付ける。組織の外の操作だけ
+  // API トークンでは呼べない（403）。組織の外の操作か、管理者専用のワークスペースの書き込みに付けられる
   readonly cookieOnly?: true;
   // 同意していない人にも通す（同意の検査を飛ばす）。permission: 'login' の操作だけ
   readonly skipsConsent?: true;
@@ -120,8 +120,14 @@ export function assertOperationDefinition(definition: AnyOperationDefinition): v
   if (workspace === true && scope === 'organization' && permission !== 'admin') {
     throw new Error(`操作 ${name} は権限 ${permission} なので workspace: true にできない`);
   }
-  if (definition.cookieOnly !== undefined && (definition.cookieOnly !== true || scope !== 'outside')) {
-    throw new Error(`操作 ${name} の cookieOnly は、組織の外の操作に true だけ付けられる`);
+  const isAdminWorkspaceWrite = permission === 'admin' && workspace === true && definition.mode === 'write';
+  if (
+    definition.cookieOnly !== undefined &&
+    (definition.cookieOnly !== true || (scope !== 'outside' && !isAdminWorkspaceWrite))
+  ) {
+    throw new Error(
+      `操作 ${name} の cookieOnly は、組織の外の操作か、管理者専用のワークスペースの書き込みに true だけ付けられる`,
+    );
   }
   if (definition.skipsConsent !== undefined && (definition.skipsConsent !== true || permission !== 'login')) {
     throw new Error(`操作 ${name} の skipsConsent は、権限 login の操作に true だけ付けられる`);

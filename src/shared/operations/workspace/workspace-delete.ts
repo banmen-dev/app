@@ -9,6 +9,7 @@ export const workspaceDelete = defineOperation({
   permission: 'admin',
   workspace: true,
   allowClosed: true,
+  cookieOnly: true,
   storage: 'attachments',
   input: z.object({ workspace_id: idSchema, confirm_name: z.string().min(1).max(100) }),
   output: z.object({ workspace_id: idSchema }),
