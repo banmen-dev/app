@@ -186,7 +186,7 @@ Wikiの一括取り込みは、`requestRateLimit` の要求枠（本文を読む
 - Google Fonts は使わない。利用者の IP を外へ出さず、CSP に外の先を足さない。書体のファイルは build が `build/_app/immutable/assets/` に書き出し、自分の Worker から配る。
 - パッケージは `devDependencies` に置く。書体のファイルは build のときに CSS から拾って `build/` に書き出すだけで、Worker の実行時には要らない。
 - 日本語の書体は文字の範囲ごとに約120のファイルに分かれ（`unicode-range`）、ブラウザは使う文字のファイルだけを読む。可変版では各範囲の1ファイルで全ての太さを扱う（Workers Static Assets の上限は20,000ファイル）。
-- 可変版は woff2 のみ。`scripts/fontsource-woff2.ts` の Vite プラグインでパッケージの書体名 `Noto Sans JP Variable` を共通トークンの `Noto Sans JP` にそろえる。文字範囲・100〜900の太さ・swap は保つ。静的な `@fontsource` を使う場合の woff 除去も同じプラグインが扱う（`scripts/fontsource-woff2.test.ts`）。
+- 可変版は woff2 のみ。`scripts/fontsource-woff2.ts` の Vite プラグインでパッケージの書体名 `Noto Sans JP Variable` を共通トークンの `Noto Sans JP` にそろえる。文字範囲・100〜900の太さ・swap は保つ。静的な `@fontsource` を使う場合の woff 除去も同じプラグインが扱う（`scripts/fontsource-woff2.test.ts`）。共通の日本語と Latin の `url()` は `design/fonts/` の絶対パスへ置き換えるので、同じプラグインが `design/fonts/` だけを dev の `server.fs.allow` に足す。SvelteKit が `server.fs.allow` を `src` や `node_modules` に明示し、Vite の既定（workspace の根）が効かないため、足さないと dev で 403 になる（#1411）。
 - 書体の CSS は1本にまとまり、文字範囲と太さの定義を含む。`index.html` の `<link rel="stylesheet">` から読むので描画を止めるが、この大きさと止まることは受け入れた。可変版で太さごとの宣言をまとめても文字範囲の一覧は残る。理由は2つ。1つは、日本語の書体を文字の範囲で分けて読む以上、範囲の一覧（`unicode-range`）を CSS に持つ構造が避けられないこと（Google Fonts の CSS も同じ構造）。もう1つは、ファイル名にハッシュが入って `immutable` でキャッシュされ、2回目からの読み込みが軽いこと。
 - Vite は小さいファイルを `data:` の URI にして CSS へ埋め込むが、CSP の `font-src`（`default-src 'self'`）は `data:` を通さない。`vite.config.ts` の `build.assetsInlineLimit` を 0 にして、すべてファイルとして出す。
 - 太さを足すときは、見本の Google Fonts の URL も同じ PR で直す。
