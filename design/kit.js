@@ -1140,13 +1140,16 @@
     const picked = (key, id) => (key === "story" ? opts.story === id : key === "assignee" && assignees.includes(id));
     const count = (opts.story ? 1 : 0) + assignees.length;
     const panel = `<div class="filter-groups">${groups.map(([label, key, choices]) => `<fieldset class="filter-group"><legend class="popover-label">${esc(label)}</legend>${choices.map((c) =>
-      `<label class="filter-option"><input type="checkbox"${picked(key, c.id) ? " checked" : ""}><span class="filter-option-text">${esc(c.label)}</span><span class="filter-option-n">${c.count}</span></label>`).join("")}</fieldset>`).join("")}</div>`;
+      `<label class="filter-option"><input type="checkbox"${picked(key, c.id) ? " checked" : ""}><span class="filter-option-text">${esc(c.label)}</span><span class="filter-option-n"><span aria-hidden="true">${c.count}</span><span class="visually-hidden">${c.count} 件</span></span></label>`).join("")}</fieldset>`).join("")}</div>`;
     const filters = popover(count ? `フィルター（${count}）` : "フィルター", panel, {
       label: count ? `フィルター（${count} 件選択中）` : "フィルター", dialogLabel: `${t("board")}のフィルター`, icon: "filter", align: "start", active: count > 0,
     });
-    const avatars = named.slice(0, 5).map((c) => `<button class="avatar-filter-btn" type="button" aria-pressed="${assignees.includes(c.id)}" aria-label="${esc(c.label)}" title="${esc(c.label)}" data-avatar-filter>${avatarOf(c.id)}</button>`).join("") +
+    // 先頭の5人に加え、小窓で選んだ先頭の外の人も並べる（本番と同じ）
+    const shownPeople = named.filter((c, i) => i < 5 || assignees.includes(c.id));
+    const more = named.length - shownPeople.length;
+    const avatars = shownPeople.map((c) => `<button class="avatar-filter-btn" type="button" aria-pressed="${assignees.includes(c.id)}" aria-label="${esc(c.label)}" title="${esc(c.label)}" data-avatar-filter>${avatarOf(c.id)}</button>`).join("") +
       (people.some((c) => c.id === "none") ? `<button class="avatar-filter-btn" type="button" aria-pressed="${assignees.includes("none")}" aria-label="担当なし" title="担当なし" data-avatar-filter>${avatarOf(null)}</button>` : "") +
-      (named.length > 5 ? `<span class="avatar-filter-more" title="ほか ${named.length - 5} 人はフィルターから選べます"><span aria-hidden="true">+${named.length - 5}</span><span class="visually-hidden">ほか ${named.length - 5} 人はフィルターから選べます</span></span>` : "");
+      (more > 0 ? `<span class="avatar-filter-more" title="ほか ${more} 人はフィルターから選べます"><span aria-hidden="true">+${more}</span><span class="visually-hidden">ほか ${more} 人はフィルターから選べます</span></span>` : "");
     const filtering = Boolean(opts.story || assignees.length || opts.q);
     const conditions = [
       ...(opts.q ? [`「${esc(opts.q)}」`] : []),
