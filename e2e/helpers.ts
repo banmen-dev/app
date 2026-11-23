@@ -954,3 +954,11 @@ export async function shownBox(locator: Locator): Promise<{ x: number; y: number
   if (box === null) throw new Error(`見えていない要素の位置を比べようとした: ${locator.toString()}`);
   return box;
 }
+
+// ボードの画面（#1497）の見出しは「ボード」で、進行中のスプリントの名前（名前が無ければ期間）は小見出しの先頭に出る
+export async function expectBoardHeading(page: Page, sprint: string): Promise<void> {
+  await expect(page.getByRole('heading', { level: 1, name: 'ボード', exact: true })).toBeVisible();
+  await expect(page.locator('.page-head .page-eyebrow')).toHaveText(
+    new RegExp(`^${sprint.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}・`),
+  );
+}

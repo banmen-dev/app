@@ -10,7 +10,7 @@ afterEach(() => vi.useRealTimers());
 
 test('組織の中のパス変更だけを本文の待ちにする', () => {
   const from = target('/aoba/w/one');
-  expect(navigationLoadingKind(from, target('/aoba/w/one/sprint'))).toBe('inside');
+  expect(navigationLoadingKind(from, target('/aoba/w/one/board'))).toBe('inside');
   for (const path of ['/aoba/w/one?task=one', '/aoba/w/one?q=word', '/aoba/w/one#heading']) {
     expect(navigationLoadingKind(from, target(path))).toBeNull();
   }

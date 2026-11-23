@@ -45,7 +45,7 @@ test('g の次の s / b / t で画面を移る。g だけでは移らない', as
   await page.keyboard.press('g');
   await page.keyboard.press('s');
   await expect(page).toHaveURL(/\/aoba\/w\/[0-9a-f-]{36}\/sprint$/);
-  await expect(page.getByRole('heading', { level: 1, name: 'スプリント' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'ボード' })).toBeVisible();
 
   await page.keyboard.press('g');
   await page.keyboard.press('t');
@@ -57,7 +57,7 @@ test('g の次の s / b / t で画面を移る。g だけでは移らない', as
   await expect(page).toHaveURL(backlogUrl);
 
   // メニューの項目が、キーを説明として読み上げに伝える（続けて押すキーは aria-keyshortcuts に書けない）
-  await expect(page.getByRole('link', { name: 'スプリント', exact: true })).toHaveAccessibleDescription(
+  await expect(page.getByRole('link', { name: 'ボード', exact: true })).toHaveAccessibleDescription(
     'ショートカット: g を押してから s を押す',
   );
   await expect(page.getByRole('link', { name: '今日やること', exact: true })).toHaveAccessibleDescription(

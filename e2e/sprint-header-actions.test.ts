@@ -2,11 +2,11 @@ import { organizationInfo } from '../src/shared/operations/organization/index.ts
 import { sprintBoard, sprintList } from '../src/shared/operations/sprint/index.ts';
 import { workspaceInfo } from '../src/shared/operations/workspace/index.ts';
 import { expect, test } from './fixtures.ts';
-import { expectFocusReturned, signIn, waitForSettled } from './helpers.ts';
+import { expectFocusReturned, signIn, waitForSettled, expectBoardHeading } from './helpers.ts';
 import { mockOperation, rewriteOperation } from './operations.ts';
 import { OVERDUE_PLAN, SAMPLE_BOARD } from './sprint-fixture.ts';
 
-const PATH = '/aoba/w/019a0000-0000-7000-8000-000000000401/sprint';
+const PATH = '/aoba/w/019a0000-0000-7000-8000-000000000401/board';
 test.use({ timezoneId: 'Asia/Tokyo' });
 
 for (const today of ['2026-10-20', '2026-10-26', '2026-10-27']) {
@@ -77,7 +77,7 @@ for (const state of ['member', 'closed'] as const) {
     }
     await mockOperation(page, sprintBoard, { slug: 'aoba' }, { ...SAMPLE_BOARD, today: '2026-10-26' });
     await page.goto(PATH);
-    await expect(page.getByRole('heading', { level: 1, name: '第14回' })).toBeVisible();
+    await expectBoardHeading(page, '第14回');
     await waitForSettled(page);
     if (state === 'closed') {
       await expect(

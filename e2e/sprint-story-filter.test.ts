@@ -14,12 +14,12 @@ import { sprintBoard, taskColumnMove } from '../src/shared/operations/sprint/ind
 import { taskComplete, taskCreate, taskDelete, taskReopen } from '../src/shared/operations/task/index.ts';
 import { SAMPLE_BOARD } from './sprint-fixture.ts';
 
-const PATH = '/aoba/w/019a0000-0000-7000-8000-000000000401/sprint';
+const PATH = '/aoba/w/019a0000-0000-7000-8000-000000000401/board';
 const STORY = SAMPLE_BOARD.columns[0]!.tasks[0]!.story!;
 // ?story= を誤って詳細として扱うと、APIの応答順によらずこの検査で落とす。
 test.beforeEach(async ({ page }) => {
   await routeOperation(page, storyGet, { slug: 'aoba' }, async (call) => {
-    if (new URL(page.url()).pathname.endsWith('/sprint')) {
+    if (new URL(page.url()).pathname.endsWith('/board')) {
       expect.soft(false, 'スプリントのstory絞り込みでstory-getを呼んではいけない').toBe(true);
       await call.fail(500, 'internal');
     } else await call.passThrough();
@@ -241,7 +241,7 @@ test('絞り込み中にタスク詳細を開閉してもstoryを保持し、不
 
 test('バックログでは同じstoryクエリで従来の詳細を開き、閉じられる', async ({ page, context, baseURL }) => {
   await signIn(context, baseURL, 'admin');
-  await page.goto(PATH.replace('/sprint', ''));
+  await page.goto(PATH.replace('/board', ''));
   await page.getByRole('link', { name: STORY.title, exact: true }).click();
   const drawer = page.getByRole('dialog', { name: STORY.title, exact: true });
   await expect(drawer).toBeVisible();

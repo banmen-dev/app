@@ -167,7 +167,7 @@ export function urlWithoutOpenTask(href: string, taskId: string): string | null 
   if (url.searchParams.get('task') !== taskId) return null;
   for (const key of ['task', 'epic_id']) url.searchParams.delete(key);
   // 応答を待つ間に画面が変わることがあるため、削除開始時の画面ではなく、閉じる先の現在URLで決める。
-  const sprintStoryFilter = /^\/[^/]+\/w\/[^/]+\/sprint\/?$/.test(url.pathname);
+  const sprintStoryFilter = /^\/[^/]+\/w\/[^/]+\/board\/?$/.test(url.pathname);
   if (!sprintStoryFilter) url.searchParams.delete('story');
   return url.pathname + url.search;
 }

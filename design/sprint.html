@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Banmen スプリント</title>
+<title>Banmen ボード</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;900&display=swap">
@@ -50,7 +50,7 @@ SQ.mount("sprint", () => {
     // 進行中のスプリントがない。作って始めるのはリーダー
     const isLeader = SQ.user(D.me).role === "leader";
     return `
-      ${pageHead(D.workspaces.wa.name, t("sprint"))}
+      ${pageHead(D.workspaces.wa.name, t("board"))}
       ${SQ.emptyState("columns", `進行中の${t("sprint")}はありません`,
         isLeader
           ? `${t("plan")}の画面で${t("sprint")}を作り、${t("backlog")}から${t("task")}を入れてから始めます。始めると、ここに${t("column")}とカードが並びます。`
@@ -68,7 +68,7 @@ SQ.mount("sprint", () => {
     ])}
     ${lastDay || overdue ? `<button class="btn" type="button" data-dialog="sprintEnd" aria-label="終える: ${t("sprint")}「${SQ.esc(SQ.sprintLabel("sp14"))}」">終える</button>` : ""}` : "";
   return `
-    ${pageHead(`${SQ.md(s.start)}〜${SQ.md(s.end)}・${s.days} 日のうち ${Math.min(s.dayIndex + 1, s.days)} 日目`, SQ.sprintLabel("sp14"), [], actions,
+    ${pageHead(`${s.name ? `${SQ.esc(s.name)}・` : ""}${SQ.md(s.start)}〜${SQ.md(s.end)}・${s.days} 日のうち ${Math.min(s.dayIndex + 1, s.days)} 日目`, t("board"), [], actions,
       `<div class="progress-summary">${progress(done, all, { markerPercent: Math.min(s.dayIndex + 1, s.days) / s.days * 100, markerLabel: `経過 ${Math.min(s.dayIndex + 1, s.days)} / ${s.days} 日（${Math.round(Math.min(s.dayIndex + 1, s.days) / s.days * 100)}%）`, detailed: true })}<span class="progress-remaining">残り ${Math.max(0, s.days - s.dayIndex)} 日</span></div>`)}
     ${s.extended ? `<p class="action-note">延長 ${s.extended} 日</p>` : ""}
     ${overdue ? overdueNotice("sp14") : ""}

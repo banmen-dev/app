@@ -26,7 +26,7 @@ const byRoute: Record<string, LoadingShape | null> = {
   '/[slug]/w/[id]/members': 'list',
   '/[slug]/w/[id]/plan': 'plan',
   '/[slug]/w/[id]/settings': 'settings',
-  '/[slug]/w/[id]/sprint': 'board',
+  '/[slug]/w/[id]/board': 'board',
   '/[slug]/w/[id]/tasks/[taskId]': 'task',
   '/[slug]/w/[id]/wiki': 'wiki',
   '/[slug]/w/[id]/wiki/[pageId]': 'wiki',

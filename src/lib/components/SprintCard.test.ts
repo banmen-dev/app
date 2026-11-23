@@ -19,7 +19,7 @@ const html = (reopenable: boolean, writable = true) =>
   render(SprintCard, {
     props: {
       task: { ...task, reopenable },
-      href: '/aoba/w/test/sprint?task=x',
+      href: '/aoba/w/test/board?task=x',
       edges: null,
       writable,
       clock: { today: '2026-11-16', weekStart: 1 },

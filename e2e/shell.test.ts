@@ -1234,9 +1234,9 @@ test('組織の画面のパンくずは組織と画面で、ワークスペー�
 });
 
 test('ワークスペースの画面のパンくずから、組織とワークスペースの最初の画面へ移れる', async ({ page }) => {
-  await page.goto(`/aoba/w/${AOBA_WORKSPACE_ID}/sprint`);
+  await page.goto(`/aoba/w/${AOBA_WORKSPACE_ID}/board`);
   const crumbs = page.getByRole('navigation', { name: 'パンくず' });
-  await expect(crumbs.locator('[aria-current="page"]')).toHaveText('スプリント');
+  await expect(crumbs.locator('[aria-current="page"]')).toHaveText('ボード');
   await expect(crumbs.getByRole('link')).toHaveCount(2);
   await expect(crumbs.getByRole('link').nth(1)).toHaveAttribute('href', `/aoba/w/${AOBA_WORKSPACE_ID}`);
   await crumbs.getByRole('link').nth(1).click();

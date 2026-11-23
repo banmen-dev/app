@@ -6,7 +6,7 @@
 // ここでは、201 字の題を断る画面の検査だけを重ねる。CSP の違反も確かめる
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures.ts';
-import { createWorkspace, signIn, watchViolations } from './helpers.ts';
+import { createWorkspace, signIn, watchViolations, expectBoardHeading } from './helpers.ts';
 import { failOperation, routeOperation } from './operations.ts';
 import { SAMPLE_BOARD } from './sprint-fixture.ts';
 import { sprintBoard } from '../src/shared/operations/sprint/index.ts';
@@ -41,8 +41,8 @@ test('スプリントの各列の末尾の空の行に題を打って Enter で�
   await start.getByRole('button', { name: '始める' }).click();
   await expect(start).toBeHidden();
 
-  await page.getByRole('link', { name: 'スプリント', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: '第7回' })).toBeVisible();
+  await page.getByRole('link', { name: 'ボード', exact: true }).click();
+  await expectBoardHeading(page, '第7回');
 
   // 完了の列には空の行が無い。ほかの列には、場所の分かる名前で1つずつある
   await expect(page.locator('.board-col > .board-col-draft > .draft-row')).toHaveCount(3);
@@ -98,7 +98,7 @@ test('スプリントの各列の末尾の空の行に題を打って Enter で�
 
   // 読み直しても同じ列と並び
   await page.reload();
-  await expect(page.getByRole('heading', { level: 1, name: '第7回' })).toBeVisible();
+  await expectBoardHeading(page, '第7回');
   await expect(titlesIn(page, '未着手')).toHaveText(['見積もりを送る', '請求書を出す']);
   await expect(titlesIn(page, '作業中')).toHaveText(['障害の連絡手順を書く']);
 
@@ -138,7 +138,7 @@ test('作るのが断られたら、作られていないことを行の下に�
     boardCalls++;
     await call.fulfill(SAMPLE_BOARD);
   });
-  await page.goto('/aoba/w/019a0000-0000-7000-8000-000000000401/sprint');
+  await page.goto('/aoba/w/019a0000-0000-7000-8000-000000000401/board');
   const input = page.getByRole('textbox', { name: 'タスクを足す: 未着手' });
   await expect(input).toBeVisible();
   const alert = (text: string) => page.getByRole('alert').filter({ hasText: text });

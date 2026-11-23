@@ -3,7 +3,7 @@ import { backlogSearchHref, matchScreens, searchOptions } from './nav-search.ts'
 
 const screens = [
   { label: 'バックログ', href: '/aoba/w/w1' },
-  { label: 'スプリント', href: '/aoba/w/w1/sprint' },
+  { label: 'ボード', href: '/aoba/w/w1/board' },
   { label: 'Wiki', href: '/aoba/w/w1/wiki' },
 ];
 const backlog = { href: '/aoba/w/w1', label: (q: string) => `バックログで「${q}」を探す` };
@@ -12,8 +12,8 @@ describe('matchScreens', () => {
   it('空の入力は全部、語は大文字小文字と全角半角を見ずに含むものだけ', () => {
     expect(matchScreens('', screens)).toHaveLength(3);
     expect(matchScreens('ＷＩＫＩ', screens).map((s) => s.label)).toEqual(['Wiki']);
-    expect(matchScreens('スプ', screens).map((s) => s.label)).toEqual(['スプリント']);
-    expect(matchScreens('スプ ばっく', screens)).toEqual([]);
+    expect(matchScreens('ボー', screens).map((s) => s.label)).toEqual(['ボード']);
+    expect(matchScreens('ボー ばっく', screens)).toEqual([]);
   });
 });
 
@@ -28,12 +28,12 @@ describe('backlogSearchHref', () => {
 
 describe('searchOptions', () => {
   it('画面の候補の後ろにバックログの行を足し、ワークスペースが無ければ足さない', () => {
-    const options = searchOptions('スプ', screens, backlog);
+    const options = searchOptions('ボー', screens, backlog);
     expect(options.map((o) => [o.kind, o.label])).toEqual([
-      ['screen', 'スプリント'],
-      ['backlog', 'バックログで「スプ」を探す'],
+      ['screen', 'ボード'],
+      ['backlog', 'バックログで「ボー」を探す'],
     ]);
-    expect(searchOptions('スプ', screens, null).map((o) => o.kind)).toEqual(['screen']);
+    expect(searchOptions('ボー', screens, null).map((o) => o.kind)).toEqual(['screen']);
     expect(searchOptions('', screens, backlog).map((o) => o.kind)).toEqual(['screen', 'screen', 'screen']);
   });
 });

@@ -10,11 +10,13 @@
 (function () {
   var outside = ['auth', 'consent', 'invite', 'login', 'operator', 'privacy', 'signup', 'terms'];
   var workspacePages = {
+    board: 'board',
     connections: 'list',
     inbox: 'list',
     members: 'list',
     plan: 'plan',
     settings: 'settings',
+    // 前の経路（/sprint は /board へ移す。#1497）
     sprint: 'board',
   };
 

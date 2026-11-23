@@ -92,7 +92,7 @@ export const a11yScreens: {
   },
   {
     screen: 'sprint',
-    path: `${WORKSPACE}/sprint`,
+    path: `${WORKSPACE}/board`,
     // aoba のワークスペースには進行中のスプリントを置かない（seed の進行中は別の組織のワークスペース）ので、架空のスプリントと列とカードに差し替える
     prepare: (page) => mockOperation(page, sprintBoard, { slug: 'aoba' }, SAMPLE_BOARD),
     ready: (page) => [

@@ -312,12 +312,12 @@ describe('removeFromList', () => {
 
 describe('urlWithoutOpenTask', () => {
   test('スプリントの絞り込みはタスク詳細を閉じても残す', () => {
-    expect(urlWithoutOpenTask('http://x/a/w/1/sprint?task=t1&story=s&epic_id=e', 't1')).toBe('/a/w/1/sprint?story=s');
+    expect(urlWithoutOpenTask('http://x/a/w/1/board?task=t1&story=s&epic_id=e', 't1')).toBe('/a/w/1/board?story=s');
   });
   test('現在URLがスプリントでないときはstory詳細を残さない', () => {
     expect(urlWithoutOpenTask('http://x/a/w/1/plan?task=t1&story=s', 't1')).toBe('/a/w/1/plan');
-    expect(urlWithoutOpenTask('http://x/a/w/1/tasks/sprint?task=t1&story=s', 't1')).toBe('/a/w/1/tasks/sprint');
-    expect(urlWithoutOpenTask('http://x/prefix/a/w/1/sprint?task=t1&story=s', 't1')).toBe('/prefix/a/w/1/sprint');
+    expect(urlWithoutOpenTask('http://x/a/w/1/tasks/board?task=t1&story=s', 't1')).toBe('/a/w/1/tasks/board');
+    expect(urlWithoutOpenTask('http://x/prefix/a/w/1/board?task=t1&story=s', 't1')).toBe('/prefix/a/w/1/board');
   });
   test('開いているタスクだけ task、story、epic_id を外す。ほかの問い合わせは残す', () => {
     expect(urlWithoutOpenTask('http://x/a/w/1?task=t1&story=s&epic_id=e&q=z', 't1')).toBe('/a/w/1?q=z');

@@ -5,12 +5,12 @@ import type { IconName } from './icons.ts';
 // ワークスペースの経路（WorkspaceNavRoute）は、メニューの対象の ID があるときだけ出す（組織の画面も同じ）
 const workspaceRoutes = [
   '/[slug]/w/[id]',
+  '/[slug]/w/[id]/board',
   '/[slug]/w/[id]/connections',
   '/[slug]/w/[id]/inbox',
   '/[slug]/w/[id]/members',
   '/[slug]/w/[id]/plan',
   '/[slug]/w/[id]/settings',
-  '/[slug]/w/[id]/sprint',
   '/[slug]/w/[id]/wiki',
 ] as const;
 export type WorkspaceNavRoute = (typeof workspaceRoutes)[number];
@@ -19,7 +19,7 @@ export type NavRoute = '/[slug]' | '/[slug]/wiki' | '/[slug]/notifications' | Wo
 // `g` の次のキーで移る画面。メニューの項目の label から引く（AppShell が登録し、NavMenu が aria-keyshortcuts に伝える）
 export const GO_KEYS: Partial<Record<DictionaryKey, string>> = {
   backlog: 'g b',
-  sprint: 'g s',
+  board: 'g s',
   pageToday: 'g t',
 };
 
@@ -115,7 +115,7 @@ export const navSections: NavSection[] = [
     items: [
       { icon: 'inbox', label: 'inbox', href: '/[slug]/w/[id]/inbox' },
       { icon: 'board', label: 'backlog', href: '/[slug]/w/[id]' },
-      { icon: 'columns', label: 'sprint', href: '/[slug]/w/[id]/sprint' },
+      { icon: 'columns', label: 'board', href: '/[slug]/w/[id]/board' },
       { icon: 'calendar', label: 'plan', href: '/[slug]/w/[id]/plan' },
       { icon: 'flag', label: 'epic', href: null },
       { icon: 'file', label: 'wiki', href: '/[slug]/w/[id]/wiki' },

@@ -18,12 +18,12 @@ test('Ctrl+K で欄へ移り、画面の名前を打って選ぶとその画面�
   await page.keyboard.press('Control+k');
   await expect(search).toBeFocused();
   await expect(search).toHaveAttribute('aria-expanded', 'true');
-  await search.fill('スプリ');
-  await expect(list.getByRole('option')).toHaveText(['スプリント', 'バックログで「スプリ」を探す']);
+  await search.fill('ボー');
+  await expect(list.getByRole('option')).toHaveText(['ボード', 'バックログで「ボー」を探す']);
   await expect(page.getByRole('status').filter({ hasText: '2件の候補' })).toBeAttached();
   await page.keyboard.press('Enter');
-  await expect(page).toHaveURL(/\/aoba\/w\/[0-9a-f-]{36}\/sprint$/);
-  await expect(page.getByRole('heading', { level: 1, name: 'スプリント' })).toBeVisible();
+  await expect(page).toHaveURL(/\/aoba\/w\/[0-9a-f-]{36}\/board$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'ボード' })).toBeVisible();
   await expect(search).toHaveValue('');
   await expect(list).toBeHidden();
   expect(await collect()).toEqual([]);

@@ -76,7 +76,7 @@ describe('最初の読み込みの骨組みの形（static/boot-shape.js）', ()
   test('どの画面の URL でも、移る間の骨組み（src/lib/loading-shape.ts）と同じ形を選ぶ', () => {
     const ids = routeIds();
     assert.ok(ids.includes('/'));
-    assert.ok(ids.includes('/[slug]/w/[id]/sprint'));
+    assert.ok(ids.includes('/[slug]/w/[id]/board'));
     for (const id of ids) {
       for (const path of [samplePath(id), `${samplePath(id)}/`]) {
         assert.equal(runBootShape(path).dataset.boot, loadingShape(id) ?? undefined, `${id}（${path}）`);
@@ -115,7 +115,7 @@ describe('最初の読み込みの骨組みの形（static/boot-shape.js）', ()
       today: '/[slug]',
       aside: '/[slug]/w/[id]/epics/[epicId]',
       tree: '/[slug]/w/[id]',
-      board: '/[slug]/w/[id]/sprint',
+      board: '/[slug]/w/[id]/board',
       plan: '/[slug]/w/[id]/plan',
       list: '/[slug]/w/[id]/inbox',
       settings: '/[slug]/w/[id]/settings',

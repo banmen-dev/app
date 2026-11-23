@@ -141,16 +141,16 @@
     }
     return screens;
   });
-  // `g` の次のキーで、バックログ・スプリント・今日やることへ移る（shortcuts.svelte.ts に登録する）。
-  // バックログとスプリントは、メニューの対象のワークスペースがあるときだけ。今いる画面へは移らない
-  const goHref = (key: 'backlog' | 'sprint' | 'pageToday'): string | null => {
+  // `g` の次のキーで、バックログ・ボード・今日やることへ移る（shortcuts.svelte.ts に登録する）。
+  // バックログとボードは、メニューの対象のワークスペースがあるときだけ。今いる画面へは移らない
+  const goHref = (key: 'backlog' | 'board' | 'pageToday'): string | null => {
     if (key === 'pageToday') return resolve('/[slug]', { slug });
     if (!isWorkspaceId(workspace?.id)) return null;
     return key === 'backlog'
       ? resolve('/[slug]/w/[id]', { slug, id: workspace.id })
-      : resolve('/[slug]/w/[id]/sprint', { slug, id: workspace.id });
+      : resolve('/[slug]/w/[id]/board', { slug, id: workspace.id });
   };
-  for (const key of ['backlog', 'sprint', 'pageToday'] as const) {
+  for (const key of ['backlog', 'board', 'pageToday'] as const) {
     useShortcut(() => ({
       id: `go-${key}`,
       keys: GO_KEYS[key]!,
@@ -167,7 +167,7 @@
           void goto(
             key === 'backlog'
               ? resolve('/[slug]/w/[id]', { slug, id: workspace.id })
-              : resolve('/[slug]/w/[id]/sprint', { slug, id: workspace.id }),
+              : resolve('/[slug]/w/[id]/board', { slug, id: workspace.id }),
           );
       },
     }));
