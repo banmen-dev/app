@@ -135,7 +135,8 @@ test('列の末尾の行で担当と期日を選んで作ると、カードに�
   await expectBoardHeading(page, '第5回');
   await expect(cardOf(page, '見積もりを送る').getByRole('button', { name: '担当: ミナト' })).toBeVisible();
   await expect(cardOf(page, '見積もりを送る').locator('.card-meta')).toContainText('6/10');
-  expect(await collect()).toEqual([]);
+  // 断られた作成（わざと 400 にした1回）だけが、読み込みの失敗としてコンソールに出る
+  expect(await collect()).toEqual(['Failed to load resource: the server responded with a status of 400 (Bad Request)']);
 
   await expectNoA11yViolationsInThemes(page, 'sprint');
 });
