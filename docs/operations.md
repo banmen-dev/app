@@ -707,7 +707,7 @@ GitHub の Organization を `scrum-guild-dev` から `banmen-dev` に改名す�
    - Cloudflare の GitHub App: Cloudflare の接続の一覧に `banmen-dev` が出て、許可しているリポジトリが `banmen-dev/app` と `banmen-dev/website` の2件だけになっている。出ないときは、Cloudflare 側の GitHub 接続フローから認可し直す（上の「Workers Builds の接続」。GitHub の App のページから入れただけでは接続先として登録されない場合がある）
    - Builds の接続先: 本番 `banmen`、見本 `banmen-design`、プレビュー `banmen-preview`、紹介サイト `scrum-guild-website` の4つの Worker の Settings の Builds で、接続先が新しい名前を指し、Git 連携のエラーが無い。古い名前のままなら、「Disable builds」を挟んで接続し直し、ブランチ、コマンド、build watch paths、API トークンが前のままであることを見て有効に戻す（上の「Workers Builds の接続」の 2026-11-03 の記録と同じ）
    - Release の GitHub App: Organization の Settings の GitHub Apps に入ったまま、`app` のリポジトリを許可している
-   - Ruleset: `refs/tags/v*` と `refs/heads/production` の2つの Ruleset が残り、bypass が Release の GitHub App だけになっている（上の「Workers Builds の接続」）
+   - Ruleset: `refs/tags/v*` の `release-tags` と `refs/heads/production` の `release-production` の2つの Ruleset が残り、`release-tags` の bypass が管理者（Repository role の Admin）だけ、`release-production` の bypass が Release の GitHub App だけになっている（上の「Workers Builds の接続」）
    - Environment `release`: リポジトリの Settings の Environments に残り、保護の設定が前のまま
    - プレビューの Webhook: リポジトリの Settings の Webhooks の Recent Deliveries に失敗が無い。改名の後に番号付き PR を1つ更新し、プレビューの Builds が起きることを見る
    - GitHub OAuth App: 本番と開発用の OAuth App の持ち主と Client ID が変わらず、本番の GitHub のログインが通る（上の「GitHub OAuth App」）
