@@ -34,3 +34,11 @@ test('パンくずの帯は上の帯の外、本文の直前に置く（#1509）
     /<div class="sheet-crumbs"[^>]*><span class="skeleton-line is-crumb"><\/span><\/div>\s*<main\b/,
   );
 });
+
+test('組織の名前の帯は角のマスではなく、上の帯の検索とアカウントの間に置く（#1510）', () => {
+  const { body } = render(LoadingSheet, { props: { shape: 'today' } });
+  const head = body.match(/<div class="binding-head"[^>]*>[\s\S]*?<\/div>/)?.[0] ?? '';
+  expect(head).not.toContain('is-org-name');
+  const topbar = body.match(/<div class="topbar"[^>]*>[\s\S]*?<\/div>/)?.[0] ?? '';
+  expect(topbar).toMatch(/is-search[\s\S]*is-org-name[\s\S]*is-account/);
+});

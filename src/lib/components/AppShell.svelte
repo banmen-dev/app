@@ -28,11 +28,11 @@
   const createSheetId = $props.id();
   let createSheet = $state<ReturnType<typeof CreateSheet>>();
 
-  // kit.js の mount が組む画面の枠。左上の角のマス（マーク、組織の切り替え、開閉のボタン）と全幅の上の帯が十字に分かれ、
+  // kit.js の mount が組む画面の枠。左上の角のマス（マークと開閉のボタン）と全幅の上の帯が十字に分かれ、
   // 左のメニュー（綴じ）と本文（帳面）が続く。slug は今の組織で、組織の中の画面だけが使う。
-  // 組織の切り替え（角のマス。760px 以下は浮きメニューの先頭）、ワークスペースの切り替え、アシスタントのボタンは置き場所だけで、中身は snippet で渡す。
+  // 組織の切り替え（上の帯の右、アカウントの左。760px 以下は浮きメニューの先頭）、ワークスペースの切り替え、アシスタントのボタンは置き場所だけで、中身は snippet で渡す。
   // workspace はメニューの対象。「今日やること」など組織の画面でも渡す。
-  // 761px 以上は、上の帯に検索、assistant、account を右に寄せて並べ、パンくず（組織 › ワークスペース › 画面）は本文の見出しの上の帯（.sheet-crumbs）に出す。
+  // 761px 以上は、上の帯に検索、assistant、組織の切り替え、account を右に寄せて並べ、パンくず（組織 › ワークスペース › 画面）は本文の見出しの上の帯（.sheet-crumbs）に出す。
   // スマホは PageHead の右に検索と account を移し、PageHead が無い画面だけ代わりの見出しを置く
   let {
     current,
@@ -211,7 +211,6 @@
             <BrandSymbol />
             <span class="visually-hidden">{t('appName')}</span>
           </a>
-          {#if organizationSwitcher}{@render organizationSwitcher()}{/if}
           <button
             class="nav-toggle"
             type="button"
@@ -235,6 +234,7 @@
       <div class="topbar">
         <NavSearch screens={navScreens} {backlogHref} />
         {#if assistant}{@render assistant()}{/if}
+        {#if organizationSwitcher}{@render organizationSwitcher()}{/if}
         {#if account}{@render account()}{/if}
       </div>
     {/if}

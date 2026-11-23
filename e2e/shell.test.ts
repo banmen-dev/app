@@ -88,10 +88,11 @@ test('1280px では左のメニューを折りたため、幅とラベルと状�
   const item = page.locator('.nav-item').first();
   await expect(item.locator('.nav-item-label')).toHaveCSS('opacity', '0');
   await expect(page.locator('#app-nav').getByRole('link', { name: '今日やること' })).toBeVisible();
-  // 角のマスは組織のボタンのマークだけになり、マークのリンクは隠れる（読み上げの名前と行き先は残る）
-  await expect(page.locator('.binding-head .org-menu-button .brand-mark')).toBeVisible();
-  await expect(page.locator('.binding-head .brand')).toBeHidden();
+  // 角のマスはマークのリンクだけになり、組織の切り替えは上の帯の右に名前のまま残る（#1510）
+  await expect(page.locator('.binding-head .brand')).toBeVisible();
   await expect(page.locator('.binding-head .brand')).toHaveAttribute('href', '/aoba');
+  await expect(page.locator('.binding-head .org-menu')).toHaveCount(0);
+  await expect(page.locator('.topbar .org-menu-button > b')).toBeVisible();
 
   // 再読み込みしても畳んだまま。キーボードだけで広げられる
   await page.reload();
@@ -111,7 +112,7 @@ test('畳んだ列では、マウスを載せるかフォーカスすると項�
   await page.goto(today);
   await page.getByRole('button', { name: 'メニューを畳む' }).click();
   const items = page.locator('#app-nav .nav-item');
-  // キーボードで移ると名前が出る（開閉のボタンから Tab で組織の切り替えを越え、最初の項目へ）
+  // キーボードで移ると名前が出る（開閉のボタンから Tab で最初の項目へ）
   await page.getByRole('button', { name: 'メニューを広げる' }).focus();
   for (let i = 0; i < 5 && !(await items.nth(0).evaluate((el) => el === document.activeElement)); i++)
     await page.keyboard.press('Tab');
@@ -317,9 +318,9 @@ test.describe('ホバーのできない端末（1024px の指のタブレット�
     await expect(page.locator('.app')).toHaveAttribute('data-nav-collapsed', 'true');
     await expect(page.locator('.nav-toggle')).toBeHidden();
     await expect(page.locator('.binding')).toHaveJSProperty('offsetWidth', 240);
-    // 角のマスは広げた列の形（マークのリンクと組織の名前）のまま
+    // 角のマスは広げた列の形（マークのリンク）のまま。組織の名前は上の帯の右に出る
     await expect(page.locator('.binding-head .brand')).toBeVisible();
-    await expect(page.locator('.binding-head .org-menu-button > b')).toBeVisible();
+    await expect(page.locator('.topbar .org-menu-button > b')).toBeVisible();
     await expect(page.locator('#app-nav .nav-item-label').first()).toHaveCSS('opacity', '1');
   });
 });
@@ -332,7 +333,7 @@ test.describe('高さの低い指で押す画面の左のメニュー', () => {
   });
 
   // overflows: Wiki と接続を含む列は 1024×680 以下で溢れ、1024×768 では余白まで収まる
-  // （組織の切り替えは列の中ではなく角のマスにあるので、その分だけ列が短い）。
+  // （組織の切り替えは列の中ではなく上の帯にあるので、その分だけ列が短い）。
   for (const viewport of [
     { width: 844, height: 390, overflows: true },
     { width: 1024, height: 600, overflows: true },
@@ -373,14 +374,16 @@ test.describe('高さの低い指で押す画面の左のメニュー', () => {
       await expect(brand).toBeInViewport({ ratio: 1 });
       await brand.click({ trial: true });
 
-      // 広げた列の組織の一覧は角のマスの下に浮かび、列を送った後に開いても切れない。
-      await page.locator('.org-menu-button').click();
+      // 組織の一覧は上の帯の下に浮かび、列を送った後に開いても切れない。
+      await page.locator('.topbar .org-menu-button').click();
       const list = page.getByRole('list', { name: '入れる組織' });
       await expect(list).toBeVisible();
       // 表示直後は translate: 0 -4px から出る途中なので、動きが終わってから位置を測る。
       await expect(list).toHaveCSS('translate', /^0px(?: 0px)?$/);
-      const headBottom = (await page.locator('.binding-head').boundingBox())!;
-      expect((await list.boundingBox())!.y).toBeGreaterThanOrEqual(headBottom.y + headBottom.height);
+      const barBottom = (await page.locator('.topbar').boundingBox())!;
+      const listBox = (await list.boundingBox())!;
+      expect(listBox.y).toBeGreaterThanOrEqual(barBottom.y + barBottom.height);
+      expect(listBox.x + listBox.width).toBeLessThanOrEqual(viewport.width);
       const lastLink = list.getByRole('link').last();
       await lastLink.scrollIntoViewIfNeeded();
       await expect(lastLink).toBeInViewport({ ratio: 1 });
@@ -389,7 +392,7 @@ test.describe('高さの低い指で押す画面の左のメニュー', () => {
 });
 
 // 畳んだ列はホバーのできる端末だけに出る。高さの低い窓（細かいポインタ）で列を送った後も、
-// 浮かせた項目名と組織の一覧が、送った項目とボタンの横に揃う
+// 浮かせた項目名と開閉のボタンの札が、送った項目とボタンの横に揃う
 test.describe('高さの低い窓の畳んだ左のメニュー', () => {
   test.beforeEach(async ({ context, baseURL }) => {
     await signIn(context, baseURL, 'admin');
@@ -399,7 +402,7 @@ test.describe('高さの低い窓の畳んだ左のメニュー', () => {
     { width: 1280, height: 500 },
     { width: 1024, height: 420 },
   ]) {
-    test(`${viewport.width}×${viewport.height} で列を送っても、項目名の札と組織の一覧が揃う`, async ({ page }) => {
+    test(`${viewport.width}×${viewport.height} で列を送っても、項目名と開閉のボタンの札が揃う`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await page.goto(`/aoba/w/${AOBA_WORKSPACE_ID}`);
       await expect(page.locator('.tree-row').first()).toBeVisible();
@@ -428,11 +431,11 @@ test.describe('高さの低い窓の畳んだ左のメニュー', () => {
       expect(labelBox.y).toBeGreaterThanOrEqual(0);
       expect(labelBox.y + labelBox.height).toBeLessThanOrEqual(viewport.height);
 
-      // 列を少しだけ送った状態で、開閉のボタンと組織のボタンの札が、それぞれのボタンの右・縦の中央に揃う
+      // 列を少しだけ送った状態で、開閉のボタンの札が、ボタンの右・縦の中央に揃う
       await inner.evaluate((element) => {
         element.scrollTop = 40;
       });
-      for (const button of [page.locator('.nav-toggle'), page.locator('.org-menu-button')]) {
+      for (const button of [page.locator('.nav-toggle')]) {
         await expect(button).toBeInViewport({ ratio: 1 });
         await button.hover();
         const tip = button.locator('.nav-tip');
@@ -444,30 +447,17 @@ test.describe('高さの低い窓の畳んだ左のメニュー', () => {
         expect(tipBox.y + tipBox.height / 2).toBeCloseTo(buttonBox.y + buttonBox.height / 2, 0);
       }
 
-      // その状態で組織の一覧を開くと、一覧がボタンの横に揃い、画面の内側に収まる
-      const org = page.locator('.org-menu-button');
+      // 組織の切り替えは上の帯にあり、一覧は帯の下に開いて画面の内側に収まる
+      const org = page.locator('.topbar .org-menu-button');
       await org.click();
       const list = page.getByRole('list', { name: '入れる組織' });
       await expect(list).toBeVisible();
-      // 入場の120msが終わった最終位置で、アンカーへの追従を測る。
       await expect(list).toHaveCSS('translate', /^0px(?: 0px)?$/);
       const listBox = await list.boundingBox();
       const orgBox = await org.boundingBox();
       if (!listBox || !orgBox) throw new Error('組織の切り替えの位置が取れない');
-      expect(listBox.x).toBeCloseTo(orgBox.x + orgBox.width + 12, 0);
-      expect(listBox.y).toBeCloseTo(orgBox.y, 0);
-      expect(listBox.y).toBeGreaterThanOrEqual(0);
-      expect(listBox.y + listBox.height).toBeLessThanOrEqual(viewport.height);
-      const first = list.getByRole('link').first();
-      await expect
-        .poll(() =>
-          first.evaluate((element) => {
-            const r = element.getBoundingClientRect();
-            const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
-            return hit !== null && element.contains(hit);
-          }),
-        )
-        .toBe(true);
+      expect(listBox.y).toBeGreaterThanOrEqual(orgBox.y + orgBox.height);
+      expect(listBox.x + listBox.width).toBeLessThanOrEqual(viewport.width);
     });
   }
 });
@@ -504,25 +494,27 @@ test.describe('組織が2つの人（ミナト）', () => {
     await signIn(context, baseURL, 'admin');
   });
 
-  test('畳んだ列から組織の切り替えを開いて別の組織へ移れる', async ({ page }) => {
+  test('畳んだ列でも、上の帯の組織の切り替えから別の組織へ移れる', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(today);
     await page.getByRole('button', { name: 'メニューを畳む' }).click();
-    const org = page.getByRole('button', { name: '組織 あおば開発。組織を切り替える' });
+    const org = page.locator('.topbar').getByRole('button', { name: '組織 あおば開発。組織を切り替える' });
     await expect(org).toBeVisible();
+    // 畳んでも広げた列と同じ形で、名前を出したまま
+    await expect(org.locator('b')).toHaveText('あおば開発');
+    await expect(page.locator('.binding-head .org-menu')).toHaveCount(0);
     // 招待が無いときは印を出さない
     await expect(org.locator('.org-menu-invite')).toHaveCount(0);
     await org.click();
     const list = page.getByRole('list', { name: '入れる組織' });
     await expect(list).toBeVisible();
-    // 一覧は列の横に浮かせる
-    expect((await list.boundingBox())!.x).toBeGreaterThanOrEqual(64);
     await list.getByRole('link', { name: 'ひばり工房' }).click();
     await expect(page).toHaveURL(/\/hibari$/);
     await expect(page.locator('.app')).toHaveAttribute('data-nav-collapsed', 'true');
+    await expect(page.locator('.topbar .org-menu-button > b')).toHaveText('ひばり工房');
   });
 
-  test('畳んだ列で別の組織へ移っている間は、札に「移っています」を出したままにする', async ({ page }) => {
+  test('畳んだ列で別の組織へ移っている間も、上の帯の名前の欄に「移っています」を出す', async ({ page }) => {
     await routeOperation(page, organizationInfo, { slug: 'hibari' }, async (call) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await call.passThrough();
@@ -530,50 +522,16 @@ test.describe('組織が2つの人（ミナト）', () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(today);
     await page.getByRole('button', { name: 'メニューを畳む' }).click();
-    const org = page.locator('.org-menu-button');
+    const org = page.locator('.topbar .org-menu-button');
     await org.click();
     await page.locator('.org-menu-list').getByRole('link', { name: 'ひばり工房' }).click();
-    await page.mouse.move(700, 600);
-    await expect(org.locator('.nav-tip')).toBeVisible();
-    await expect(org.locator('.nav-tip')).toHaveText('移っています');
+    await expect(org.locator('b')).toHaveText('移っています');
+    await expect(org).toHaveAccessibleName('組織 移っています。組織を切り替える');
     await expect(page).toHaveURL(/\/hibari$/);
     await expect(org).not.toHaveAttribute('data-moving', 'true');
   });
 
-  test('畳んだ列で移っている最中に組織の一覧を開くと、札は一覧に重ねず、閉じるとまた出る', async ({ page }) => {
-    // 一覧を開き直して確かめる間、移り終わらないよう長めに待たせる
-    await routeOperation(page, organizationInfo, { slug: 'hibari' }, async (call) => {
-      await new Promise((resolve) => setTimeout(resolve, 4000));
-      await call.passThrough();
-    });
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto(today);
-    await page.getByRole('button', { name: 'メニューを畳む' }).click();
-    const org = page.locator('.org-menu-button');
-    const tip = org.locator('.nav-tip');
-    await org.click();
-    await page.locator('.org-menu-list').getByRole('link', { name: 'ひばり工房' }).click();
-    await page.mouse.move(700, 600);
-    await expect(org).toHaveAttribute('data-moving', 'true');
-    await expect(tip).toBeVisible();
-
-    await org.click();
-    await expect(org).toHaveAttribute('aria-expanded', 'true');
-    await expect(page.getByRole('list', { name: '入れる組織' })).toBeVisible();
-    await expect(tip).toBeHidden();
-
-    await page.keyboard.press('Escape');
-    await expect(org).toHaveAttribute('aria-expanded', 'false');
-    // ホバーとフォーカスの札の規則で出ないよう、ポインターを外し、Esc でボタンに戻ったフォーカスも外してから確かめる。
-    // これで札が見えるのは、移っている最中の規則（[data-moving="true"][aria-expanded="false"]）だけによる
-    await page.mouse.move(700, 600);
-    await org.evaluate((el) => el.blur());
-    await expect(org).toHaveAttribute('data-moving', 'true');
-    await expect(tip).toBeVisible();
-    await expect(page).toHaveURL(/\/hibari$/);
-  });
-
-  test('バックログの画面でも、畳んだ列から開いた組織の一覧は本文の行に覆われない', async ({ page }) => {
+  test('バックログの画面でも、上の帯から開いた組織の一覧は本文の行に覆われない', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(`/aoba/w/${AOBA_WORKSPACE_ID}`);
     await expect(page.locator('.tree-row').first()).toBeVisible();
@@ -583,7 +541,7 @@ test.describe('組織が2つの人（ミナト）', () => {
       expect(await frontmostAcross(page, selector)).toEqual([true, true, true]);
   });
 
-  test('畳んだ列でも、届いた招待があることが印と読み上げで分かる', async ({ page }) => {
+  test('上の帯の組織の切り替えで、届いた招待があることが印と読み上げで分かり、畳んでも変わらない', async ({ page }) => {
     await mockOperation(page, myOrganizations, {
       organizations: [{ slug: 'aoba', name: 'あおば開発', kind: 'team' }],
       invitations: [{ organization_name: 'つばめ商会', slug: 'tsubame' }],
@@ -592,9 +550,13 @@ test.describe('組織が2つの人（ミナト）', () => {
     });
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(today);
+    const org = page.locator('.topbar .org-menu-button');
+    await expect(org).toHaveAccessibleName('組織 あおば開発 届いた招待あり。組織を切り替える');
+    await expect(org.locator('.org-menu-invite')).toBeVisible();
+    // 帯の高さを変えないよう、チップは見せず点で示す
+    await expect(org.locator('.chip')).toBeHidden();
     await page.getByRole('button', { name: 'メニューを畳む' }).click();
-    const org = page.locator('.org-menu-button');
-    await expect(org).toHaveAttribute('aria-label', /届いた招待あり/);
+    await expect(org).toHaveAccessibleName('組織 あおば開発 届いた招待あり。組織を切り替える');
     await expect(org.locator('.org-menu-invite')).toBeVisible();
   });
 });
@@ -1149,42 +1111,60 @@ test('広い幅では角のマスと上の帯の下の罫が同じ高さで通�
   expect(toggle!.y).toBeGreaterThanOrEqual(collapsed.head);
 });
 
-// 角のマスに、マーク（組織のホームへのリンク）、組織の切り替え、開閉のボタンを1行で並べる（#1145）
-test('角のマスにマーク、組織の名前、開閉のボタンが1行で並び、左のメニューの先頭に切り替えが無い', async ({ page }) => {
+// 角のマスはマーク（組織のホームへのリンク）と開閉のボタンだけ。組織の切り替えは上の帯の右、アカウントの左に置く（#1145、#1510）
+test('角のマスにマークと開閉のボタンが並び、組織の切り替えは上の帯のアカウントの左にある', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`${today}/me`);
   const head = page.locator('.binding-head');
+  const bar = page.locator('.topbar');
   const brand = head.getByRole('link', { name: 'Banmen', exact: true });
-  const org = head.getByRole('button', { name: '組織 あおば開発。組織を切り替える' });
   const toggle = head.getByRole('button', { name: 'メニューを畳む' });
+  const org = bar.getByRole('button', { name: '組織 あおば開発。組織を切り替える' });
+  const account = bar.locator('.account-menu-button');
   await expect(org).toBeVisible();
   await expect(org.locator('b')).toHaveText('あおば開発');
+  await expect(head.locator('.org-menu')).toHaveCount(0);
   await expect(head.locator('.brand-name')).toHaveCount(0);
   await expect(page.locator('.binding-body .org-menu')).toHaveCount(0);
 
+  // 角のマスは左からマーク、開閉の順で、どちらも角のマスの高さに収まる
   const headBox = (await head.boundingBox())!;
-  const boxes = await Promise.all([brand, org, toggle].map(async (locator) => (await locator.boundingBox())!));
-  // 左からマーク、組織、開閉の順に並び、どれも角のマスの高さに収まる
-  expect(boxes[0].x + boxes[0].width).toBeLessThanOrEqual(boxes[1].x);
-  expect(boxes[1].x + boxes[1].width).toBeLessThanOrEqual(boxes[2].x);
-  for (const box of boxes) {
+  const [brandBox, toggleBox] = await Promise.all(
+    [brand, toggle].map(async (locator) => (await locator.boundingBox())!),
+  );
+  expect(brandBox.x + brandBox.width).toBeLessThanOrEqual(toggleBox.x);
+  for (const box of [brandBox, toggleBox]) {
     expect(box.y).toBeGreaterThanOrEqual(headBox.y);
     expect(box.y + box.height).toBeLessThanOrEqual(headBox.y + headBox.height);
   }
+  // 上の帯では、組織の切り替えがアカウントのすぐ左にあり、帯の高さに収まる
+  const barBox = (await bar.boundingBox())!;
+  const [orgBox, accountBox] = await Promise.all([org, account].map(async (locator) => (await locator.boundingBox())!));
+  expect(orgBox.x + orgBox.width).toBeLessThanOrEqual(accountBox.x);
+  expect(orgBox.x).toBeGreaterThan(barBox.x + barBox.width / 2);
+  expect(orgBox.y).toBeGreaterThanOrEqual(barBox.y);
+  expect(orgBox.y + orgBox.height).toBeLessThanOrEqual(barBox.y + barBox.height);
+  const order = await bar.evaluate((element) =>
+    [...element.querySelectorAll('.org-menu-button, .account-menu-button')].map((node) => node.className),
+  );
+  expect(order).toEqual(['org-menu-button', 'account-menu-button']);
 
   // マークは組織のホームへ戻る
   await brand.click();
   await expect(page).toHaveURL(/\/aoba$/);
 
-  // 組織の名前を押すと、一覧が角のマスの下に開く
+  // 組織の名前を押すと、一覧が帯の下に、ボタンの右端に揃えて開き、画面の右からはみ出さない
   await org.click();
   const list = page.getByRole('list', { name: '入れる組織' });
   await expect(list).toBeVisible();
   await expect(list).toHaveCSS('translate', /^0px(?: 0px)?$/);
   const listBox = (await list.boundingBox())!;
-  expect(listBox.y).toBeGreaterThanOrEqual(headBox.y + headBox.height);
-  expect(listBox.x + listBox.width).toBeLessThanOrEqual(240);
+  const openedOrg = (await org.boundingBox())!;
+  expect(listBox.y).toBeGreaterThanOrEqual(barBox.y + barBox.height);
+  expect(Math.abs(listBox.x + listBox.width - (openedOrg.x + openedOrg.width))).toBeLessThanOrEqual(1);
+  expect(listBox.x + listBox.width).toBeLessThanOrEqual(1280);
   await expect(list.getByRole('link', { name: 'あおば開発' })).toHaveAttribute('aria-current', 'page');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1280);
 });
 
 test('組織の一覧が読めず切り替えが無いときも、開閉のボタンは角のマスの右端に留まる', async ({ page }) => {
@@ -1193,7 +1173,7 @@ test('組織の一覧が読めず切り替えが無いときも、開閉のボ�
   await page.goto(today);
   const head = page.locator('.binding-head');
   await expect(head.getByRole('link', { name: 'Banmen', exact: true })).toBeVisible();
-  await expect(head.locator('.org-menu')).toHaveCount(0);
+  await expect(page.locator('.org-menu')).toHaveCount(0);
   const toggle = head.getByRole('button', { name: 'メニューを畳む' });
   const headBox = (await head.boundingBox())!;
   const padding = await head.evaluate((element) => parseFloat(getComputedStyle(element).paddingRight));
@@ -1201,8 +1181,8 @@ test('組織の一覧が読めず切り替えが無いときも、開閉のボ�
   expect(Math.abs(toggleBox.x + toggleBox.width - (headBox.x + headBox.width - padding))).toBeLessThanOrEqual(1);
 });
 
-test('長い組織の名前でも、角のマスは1行で省略し、十字の罫がずれない', async ({ page }) => {
-  const long = 'とても長い名前のあおば開発の組織で角のマスに収まらない名前';
+test('長い組織の名前でも、上の帯の切り替えは1行で省略し、十字の罫がずれない', async ({ page }) => {
+  const long = 'とても長い名前のあおば開発の組織で上の帯の切り替えのボタンに収まらない名前';
   await mockOperation(page, myOrganizations, {
     organizations: [{ slug: 'aoba', name: long, kind: 'team' }],
     invitations: [],
@@ -1211,14 +1191,13 @@ test('長い組織の名前でも、角のマスは1行で省略し、十字の�
   });
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(today);
-  const name = page.locator('.binding-head .org-menu-button > b');
+  const name = page.locator('.topbar .org-menu-button > b');
   await expect(name).toHaveText(long);
   await expect(name).toHaveCSS('text-overflow', 'ellipsis');
   expect(await name.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
-  // 開閉のボタンは押し出されず、角のマスの中に残る
-  await expect(page.getByRole('button', { name: 'メニューを畳む' })).toBeInViewport({ ratio: 1 });
-  const toggleBox = (await page.getByRole('button', { name: 'メニューを畳む' }).boundingBox())!;
-  expect(toggleBox.x + toggleBox.width).toBeLessThanOrEqual(240);
+  // アカウントのボタンは押し出されず、帯の中に残る
+  await expect(page.locator('.topbar .account-menu-button')).toBeInViewport({ ratio: 1 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1280);
   const bottoms = await page.evaluate(() => ({
     head: document.querySelector('.binding-head')!.getBoundingClientRect().bottom,
     bar: document.querySelector('.topbar')!.getBoundingClientRect().bottom,
