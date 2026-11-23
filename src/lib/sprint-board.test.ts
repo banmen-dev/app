@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import type { SprintBoardColumn } from '../shared/operations/sprint/index.ts';
-import { edgesOf, placeOf, planCardMove } from './sprint-board.ts';
+import { edgesOf, placeOf, planCardMove, planColumnChange } from './sprint-board.ts';
 
 function card(id: string) {
   return {
@@ -94,5 +94,34 @@ describe('planCardMove', () => {
   test('元の列を書き換えない', () => {
     planCardMove(columns, 'a', 'right');
     expect(ids(columns)).toEqual([['a', 'b', 'c'], ['d'], ['z']]);
+  });
+});
+
+describe('planColumnChange', () => {
+  test('選んだ列の末尾へ移し、直前のカードを送らない', () => {
+    const plan = planColumnChange(columns, 'a', 'c2');
+    expect(plan?.kind).toBe('moved');
+    if (plan?.kind !== 'moved') return;
+    expect(ids(plan.columns)).toEqual([['b', 'c'], ['d', 'a'], ['z']]);
+    expect(plan.column.id).toBe('c2');
+    expect(plan.index).toBe(1);
+    expect(plan.total).toBe(2);
+    expect(plan.afterTaskId).toBeUndefined();
+  });
+
+  test('前の列へも、離れた列へも移せる', () => {
+    const plan = planColumnChange(columns, 'd', 'c1');
+    expect(plan?.kind === 'moved' && ids(plan.columns)).toEqual([['a', 'b', 'c', 'd'], [], ['z']]);
+  });
+
+  test('完了の列を選ぶと完了にする', () => {
+    expect(planColumnChange(columns, 'a', 'done')).toEqual({ kind: 'complete' });
+  });
+
+  test('今の列、無い列、無いカード、完了したカードは null', () => {
+    expect(planColumnChange(columns, 'a', 'c1')).toBeNull();
+    expect(planColumnChange(columns, 'a', 'nope')).toBeNull();
+    expect(planColumnChange(columns, 'nope', 'c2')).toBeNull();
+    expect(planColumnChange(columns, 'z', 'c1')).toBeNull();
   });
 });

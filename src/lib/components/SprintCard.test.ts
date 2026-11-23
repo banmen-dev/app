@@ -98,3 +98,45 @@ test('書き込めないカードは、チップと鉛筆を出さない', () =>
   expect(body).not.toContain('chip-btn');
   expect(body).not.toContain('card-edit-btn');
 });
+
+test('書き込める未完了のカードの「⋯」に、列の変更、親の変更、リンクのコピーを置く', () => {
+  const body = render(SprintCard, {
+    props: {
+      task: { ...task, completed_at: null },
+      href: '/aoba/w/test/board?task=x',
+      edges: { top: true, bottom: true, prev: true, next: false, completes: false },
+      writable: true,
+      clock: { today: '2026-11-16', weekStart: 1 },
+      onmove: () => {},
+      onchangecolumn: () => {},
+      onchangeparent: () => {},
+    },
+  }).body;
+  const labels = [...body.matchAll(/role="menuitem"[^>]*>.*?<span>([^<]+)<\/span>/g)].map((match) => match[1]);
+  expect(labels).toEqual(['列を変更', '前の列へ', '上へ', '下へ', '次の列へ', '親を変更', 'リンクをコピー']);
+  expect(body).not.toContain('先に完了を戻してください');
+});
+
+test('完了したカードでは、列と親の変更を押せなくし、理由を title と読み上げで示す', () => {
+  const body = render(SprintCard, {
+    props: {
+      task: { ...task, reopenable: true },
+      href: '/aoba/w/test/board?task=x',
+      edges: null,
+      writable: true,
+      clock: { today: '2026-11-16', weekStart: 1 },
+      onmove: () => {},
+      onchangecolumn: () => {},
+      onchangeparent: () => {},
+    },
+  }).body;
+  const labels = [...body.matchAll(/role="menuitem"[^>]*>.*?<span>([^<]+)<\/span>/g)].map((match) => match[1]);
+  expect(labels).toEqual(['前の列へ（完了を戻す）', '列を変更', '親を変更', 'リンクをコピー']);
+  const column = 'このタスクは完了になっているため、列は変えられません。先に完了を戻してください。';
+  const parent = 'このタスクは完了になっているため、親は変えられません。';
+  expect(body).toContain(`title="${column}"`);
+  expect(body).toContain(`title="${parent}"`);
+  expect(body).toMatch(new RegExp(`class="visually-hidden" id="[^"]+-column-reason">${column}`));
+  expect(body).toMatch(new RegExp(`class="visually-hidden" id="[^"]+-parent-reason">${parent}`));
+  expect((body.match(/aria-disabled="true"/g) ?? []).length).toBeGreaterThanOrEqual(2);
+});

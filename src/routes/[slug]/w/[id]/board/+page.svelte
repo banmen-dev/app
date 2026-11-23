@@ -6,11 +6,13 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { callOperation, type ApiResult } from '../../../../../lib/api.ts';
+  import CardColumnDialog from '../../../../../lib/components/CardColumnDialog.svelte';
   import DraftRow from '../../../../../lib/components/DraftRow.svelte';
   import EmptyState from '../../../../../lib/components/EmptyState.svelte';
   import Icon from '../../../../../lib/components/Icon.svelte';
   import LoadFailed from '../../../../../lib/components/LoadFailed.svelte';
   import Markdown from '../../../../../lib/components/Markdown.svelte';
+  import MoveParentDialog from '../../../../../lib/components/MoveParentDialog.svelte';
   import Progress from '../../../../../lib/components/Progress.svelte';
   import PageHead from '../../../../../lib/components/PageHead.svelte';
   import Popover from '../../../../../lib/components/Popover.svelte';
@@ -29,7 +31,15 @@
   } from '../../../../../lib/task-reload-failure.svelte.ts';
   import { MoveQueue } from '../../../../../lib/move-queue.ts';
   import { ReopenKeyGuard } from '../../../../../lib/reopen-key.ts';
-  import { edgesOf, planCardMove, type MoveDirection, type MoveEdge } from '../../../../../lib/sprint-board.ts';
+  import { moveFailureMessage as parentMoveFailureMessage } from '../../../../../lib/move-failure.ts';
+  import type { ParentOption } from '../../../../../lib/parent-options.ts';
+  import {
+    edgesOf,
+    planCardMove,
+    planColumnChange,
+    type MoveDirection,
+    type MoveEdge,
+  } from '../../../../../lib/sprint-board.ts';
   import { storyColumns, storyHref, applyStoryMove } from '../../../../../lib/sprint-story-filter.ts';
   import { SprintColumnCollapse } from '../../../../../lib/sprint-column-collapse.svelte.ts';
   import { SprintDnd } from '../../../../../lib/sprint-dnd.svelte.ts';
@@ -49,8 +59,10 @@
     taskCreate,
     taskCreateConflictReasonOf,
     taskReopen,
+    taskMove,
     taskReopenConflictReasonOf,
   } from '../../../../../shared/operations/task/index.ts';
+  import { storyChoices } from '../../../../../shared/operations/story/index.ts';
   import { sprintProgress } from '../../../../../shared/sprint.ts';
   import { TASK_TITLE_MAX_LENGTH, taskTitleProblem } from '../../../../../shared/task.ts';
   import type { PageProps } from './$types';
@@ -66,6 +78,8 @@
   // 完了の列のカードは Alt と ← と「⋯」で戻す。戻せないカードを試すと既存の理由をトーストで読み上げ、書き込みは送らない。
   // 戻したら読み直して、戻した列のカードへフォーカスを移す。完了の列には、ワークスペースの完成の定義（空なら出さない）を畳んで置く。
   // 断られたら理由をトーストで知らせて読み直す。
+  // 「⋯」の「列を変更」は列を選ぶダイアログ（CardColumnDialog）で、選んだ列の末尾へ同じ流れで移し、完了の列なら完了にする。
+  // 「親を変更」は、押したときに story-choices で候補を読み、親を移すダイアログ（MoveParentDialog）で選んだ親へ task-move を積む（#1500）。
   // カードのドラッグ（SprintDnd。判定は sprint-drop.ts）は、カード全体をつかみ、カードの間の線か列の囲みに落として動かす。
   // 列の中と別の列へは、ボタンと同じ流れ（先に画面の並びを替え、読み上げ、MoveQueue に積んで task-column-move）。
   // 完了の列へ落としたら、完了の操作と同じく task-complete を積む（画面の並びは替えない）。
@@ -462,6 +476,81 @@
       return;
     }
     applyMove(task, plan);
+  }
+
+  // ---- カードの「⋯」の「列を変更」「親を変更」（#1500） ----
+  let columnDialog = $state<ReturnType<typeof CardColumnDialog>>();
+  let parentDialog = $state<ReturnType<typeof MoveParentDialog<SprintBoardTask>>>();
+  // 親の候補。「親を変更」を押すたびに story-choices で読み直す（木の全体を読む backlog-tree は呼ばない）
+  let parentChoices = $state<ParentOption[]>([]);
+  let loadingParentChoices = false;
+
+  function openColumnChange(task: SprintBoardTask, trigger: HTMLElement): void {
+    if (!canWrite || task.completed_at !== null) return;
+    const column = columns.find((candidate) => candidate.tasks.some((item) => item.id === task.id));
+    if (column !== undefined) columnDialog?.show(trigger, task, column.id);
+  }
+
+  // 選んだ列の末尾へ移す（「次の列へ」と同じ流れ。先に並びを替えて読み上げ、task-column-move を積む）。完了の列なら完了にする
+  function changeColumn(task: SprintBoardTask, columnId: string): void {
+    if (workspace === null || !canWrite) return;
+    const plan = planColumnChange(visibleColumns, task.id, columnId);
+    if (plan === null) return;
+    if (plan.kind === 'complete') queueComplete(task);
+    else applyMove(task, plan);
+  }
+
+  async function openParentChange(task: SprintBoardTask, trigger: HTMLElement): Promise<void> {
+    if (workspace === null || !canWrite || task.completed_at !== null || loadingParentChoices) return;
+    loadingParentChoices = true;
+    const workspaceId = workspace.id;
+    try {
+      const result = await callOperation(storyChoices, { workspace_id: workspaceId }, { slug });
+      if (workspaceId !== page.params.id) return;
+      if (!result.ok) {
+        if (result.status === 401) await invalidateAll();
+        else showToast(t('cardParentChoicesFailed'), 'alert');
+        return;
+      }
+      parentChoices = result.data.stories.map((story) => ({ id: story.id, title: story.title, group: story.epic }));
+      // 親が無く、選べるストーリーも無ければ、空の選択欄を開かずに理由を知らせる
+      if (task.story === null && parentChoices.length === 0) {
+        showToast(t('cardParentNoChoices', { story: t('story'), backlog: t('backlog') }), 'alert');
+        return;
+      }
+      await tick();
+      parentDialog?.show(trigger, task, task.story?.id ?? null);
+    } finally {
+      loadingParentChoices = false;
+    }
+  }
+
+  // 親を変える。先にカードの親の表示を替えて読み上げ、task-move を積む（移す先の末尾。直前の行は送らない）。
+  // 断られたら理由をトーストで知らせ、読み直して元の親に戻す
+  function changeParent(task: SprintBoardTask, storyId: string | null): void {
+    if (workspace === null || !canWrite) return;
+    const workspaceId = workspace.id;
+    const story = storyId === null ? null : (parentChoices.find((choice) => choice.id === storyId) ?? null);
+    if (storyId !== null && story === null) return;
+    patchCard(task.id, { story: story === null ? null : { id: story.id, title: story.title } });
+    void announce(
+      story === null
+        ? t('moveAnnouncedRoot', { title: task.title })
+        : t('moveAnnouncedUnder', { title: task.title, story: t('story'), parent: story.title }),
+    );
+    void moves.send(
+      () => callOperation(taskMove, { workspace_id: workspaceId, task_id: task.id, story_id: storyId }, { slug }),
+      async (result) => {
+        if (workspaceId !== page.params.id || result.ok) return;
+        if (result.status === 401) {
+          await invalidateAll();
+          return;
+        }
+        showToast(parentMoveFailureMessage(result, 'task'), 'alert');
+        if (result.status === 409 && result.error?.code === 'workspace_closed') await invalidate('app:workspace');
+        await reloadBoard();
+      },
+    );
   }
 
   // 完了にする。先に押した移動を送り終えてから送るよう、同じ列に並べる。
@@ -1080,6 +1169,10 @@
                       dnd={canWrite ? dnd : undefined}
                       onmove={moveCard}
                       ondelete={canWrite ? (target, keyboard) => void removeCard(target, keyboard) : undefined}
+                      onchangecolumn={canWrite ? openColumnChange : undefined}
+                      onchangeparent={canWrite
+                        ? (target, trigger) => void openParentChange(target, trigger)
+                        : undefined}
                       attrs={cardAttrs}
                     />
                   {:else}
@@ -1114,6 +1207,10 @@
         {t('sprintBoardKeyHint', { column: t('column'), done: t('done') })}
       </span>
     {/if}
+  {/if}
+  {#if canWrite}
+    <CardColumnDialog bind:this={columnDialog} {columns} onmove={changeColumn} />
+    <MoveParentDialog bind:this={parentDialog} parents={parentChoices} onmove={changeParent} />
   {/if}
   {#key workspace.id}
     <SprintExtendDialog

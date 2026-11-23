@@ -122,6 +122,7 @@ import {
   columnUpdateOperation,
 } from './column.ts';
 import {
+  storyChoicesOperation,
   storyCompleteOperation,
   storyCreateOperation,
   storyGetOperation,
@@ -234,6 +235,7 @@ const listedOperations: readonly ImplementedOperation[] = [
   epicReopenOperation,
   storyCreateOperation,
   storyGetOperation,
+  storyChoicesOperation,
   storyUpdateOperation,
   storyMoveOperation,
   storyCompleteOperation,

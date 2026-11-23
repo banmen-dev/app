@@ -255,6 +255,16 @@
     cardTitleEditLabel: "タイトルを直す: {title}",
     cardTitleDone: "この{task}は{done}になっているため、タイトルは直せません。",
     cardTitleImported: "取り込んだ{task}のタイトルは直せません。",
+    cardColumnChange: "{column}を変更",
+    cardColumnChangeTitle: "「{title}」の{column}を変更",
+    cardColumnChangeField: "移す先の{column}",
+    cardColumnChangeHint: "選んだ{column}の末尾に置きます。{done}を選ぶと{done}になります。",
+    cardColumnChangeSubmit: "移す",
+    cardColumnDone: "この{task}は{done}になっているため、{column}は変えられません。先に{done}を戻してください。",
+    cardParentChange: "親を変更",
+    cardParentDone: "この{task}は{done}になっているため、親は変えられません。",
+    cardLinkCopy: "リンクをコピー",
+    cardLinkCopied: "「{title}」のリンクをコピーしました",
     storyCreating: "作っています",
     dueClear: "クリア",
     storyTitlePlaceholder: "どこまで進めば区切りか",
@@ -704,9 +714,17 @@
 
   // 行の「⋯」のメニュー（.row-menu）。完了の丸のほかの操作（今日やる、並べ替え、親を移す、削除）をまとめる。
   // 広い幅ではホバーと行の中のフォーカスで「⋯」が出て、760px 以下と pointer: coarse では常に出して 44px 四方にする。
-  // items: [{ attr, label, icon, danger, disabled }]。attr は既存の操作の属性（data-order="up" など）をそのまま渡す
+  // items: [{ attr, label, icon, danger, disabled, reason }]。attr は既存の操作の属性（data-order="up" など）をそのまま渡す。
+  // reason は押せない理由の文（本番の RowMenu の reason）。aria-disabled にし、title と見えない文で理由を示し、押すと理由をトーストで知らせる
+  let rowMenuSequence = 0;
   function rowMenu(title, items, owner = "") {
-    const buttons = items.map((it) => `<li role="none"><button class="menu-item${it.danger ? " is-danger" : ""}" type="button" role="menuitem" ${it.attr}${it.disabled === undefined ? "" : ` aria-disabled="${it.disabled}"`}>${icon(it.icon)}<span>${it.label}</span></button></li>`).join("");
+    const buttons = items.map((it) => {
+      if (it.reason) {
+        const id = `row-menu-reason-${++rowMenuSequence}`;
+        return `<li role="none"><button class="menu-item" type="button" role="menuitem" aria-disabled="true" aria-describedby="${id}" title="${esc(it.reason)}" data-menu-reason="${esc(it.reason)}">${icon(it.icon)}<span>${it.label}</span></button><span class="visually-hidden" id="${id}">${esc(it.reason)}</span></li>`;
+      }
+      return `<li role="none"><button class="menu-item${it.danger ? " is-danger" : ""}" type="button" role="menuitem" ${it.attr}${it.disabled === undefined ? "" : ` aria-disabled="${it.disabled}"`}>${icon(it.icon)}<span>${it.label}</span></button></li>`;
+    }).join("");
     return `<span class="row-menu"><button class="icon-btn row-menu-btn" type="button" data-row-menu${owner ? ` data-menu-for="${owner}"` : ""} aria-haspopup="menu" aria-expanded="false" aria-label="操作: ${esc(title)}" title="操作">${icon("more")}</button>` +
       `<ul class="account-menu-list row-menu-list" role="menu" aria-label="操作: ${esc(title)}" hidden>${buttons}</ul></span>`;
   }
@@ -1107,6 +1125,13 @@
     return `<button class="icon-btn card-edit-btn" type="button" data-card-edit="${x.id}" aria-label="${esc(label)}" title="${esc(locked || label)}"${locked ? ` aria-disabled="true" aria-describedby="${titleId}-locked"` : ""}>${icon("pen")}</button>` +
       (locked ? `<span class="visually-hidden" id="${titleId}-locked">${locked}</span>` : "");
   }
+  // カードの「⋯」の「列を変更」「親を変更」「リンクをコピー」の文（本番の SprintCard。#1500）
+  function cardText(key, title = "") {
+    return t(key).replaceAll("{column}", t("column")).replaceAll("{task}", t("task")).replaceAll("{done}", t("done")).replaceAll("{title}", () => title);
+  }
+  function cardLinkItem(x) {
+    return { attr: `data-toast="${esc(cardText("cardLinkCopied", x.title))}"`, label: cardText("cardLinkCopy"), icon: "link" };
+  }
   function card(x, order, opts = {}) {
     const mark = opts.mark || {};
     const selectable = Boolean(order || x.doneAt);
@@ -1125,9 +1150,17 @@
       <div class="card-meta">${repoTag(x)}${sourceKey(x)}${taskFlags(x)}${taskDue(x)}</div>
       <div class="card-foot">${parent ? `<button class="card-parent is-action" type="button" aria-label="${esc(storyFilterText("sprintStoryFilterLabel", parent))}" title="${esc(parent)}" data-story-filter="${esc(x.story)}">${icon("flag")} ${esc(parent)}</button>` : ""}<span class="card-end">${selectable ? attrChip(x, "pts") + attrChip(x, "who", { search: true }) : pts(x.pts) + avatarOf(x.who)}${order ? rowMenu(x.title, [
         { attr: `data-sun="${x.id}"`, label: x.todayOn === D.today ? "今日やるを外す" : "今日やる", icon: "sun" },
+        { attr: `data-dialog="cardColumn" data-card-id="${x.id}"`, label: cardText("cardColumnChange"), icon: "columns" },
         ...orderItems(order),
+        { attr: `data-dialog="cardParent" data-card-id="${x.id}"`, label: cardText("cardParentChange"), icon: "swap" },
+        cardLinkItem(x),
         { attr: `data-task-delete="${x.id}"`, label: `この${t("task")}を削除する`, icon: "trash", danger: true },
-      ], x.id) : x.doneAt ? rowMenu(x.title, [{ attr: `data-card-reopen="${x.id}"`, label: `前の${t("column")}へ（${t("done")}を戻す）`, icon: "left" }], x.id) : ""}${doneControl(x, { card: true })}</span></div>
+      ], x.id) : x.doneAt ? rowMenu(x.title, [
+        { attr: `data-card-reopen="${x.id}"`, label: `前の${t("column")}へ（${t("done")}を戻す）`, icon: "left" },
+        { label: cardText("cardColumnChange"), icon: "columns", reason: cardText("cardColumnDone") },
+        { label: cardText("cardParentChange"), icon: "swap", reason: cardText("cardParentDone") },
+        cardLinkItem(x),
+      ], x.id) : ""}${doneControl(x, { card: true })}</span></div>
     </article>`;
   }
   // opts.key: カードの id の接頭辞、opts.cardMarks: (x, i, c) => card のドラッグの状態、opts.columnMarks: (c) => 列の囲み（{ drop: "into" }）、opts.grab: (x) => つかめるか（既定は完了カードを含むすべて）
@@ -2715,6 +2748,26 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
            <span class="field-hint" id="d-move-hint">移す先の末尾に置きます。</span></label>`,
         `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog>移す</button>`);
     },
+    // ボードのカードの「列を変更」（本番の CardColumnDialog。#1500）。移す先は今の列を除いた列で、完了の列は最後。今の列の次の列を選んでおく
+    cardColumn: (el) => {
+      const x = task(el?.dataset?.cardId) || tasksWhere((item) => item.sprint && !item.doneAt)[0];
+      const at = D.columns.findIndex((c) => c.id === x.col);
+      const next = D.columns[at + 1]?.id;
+      const options = D.columns.filter((c) => c.id !== x.col).map((c) => `<option value="${c.id}"${c.id === next ? " selected" : ""}>${esc(c.done ? t("done") : c.name)}</option>`).join("");
+      openDialog(esc(cardText("cardColumnChangeTitle", x.title)),
+        `<label class="field" for="d-card-column"><span class="field-label">${esc(cardText("cardColumnChangeField"))}</span><select class="select" id="d-card-column" aria-describedby="d-card-column-hint">${options}</select>
+           <span class="field-hint" id="d-card-column-hint">${esc(cardText("cardColumnChangeHint"))}</span></label>`,
+        `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-card-column-set="${x.id}">${esc(t("cardColumnChangeSubmit"))}</button>`);
+    },
+    // ボードのカードの「親を変更」（本番は MoveParentDialog を、story-choices で読んだ候補で開く。#1500）
+    cardParent: (el) => {
+      const x = task(el?.dataset?.cardId) || tasksWhere((item) => item.sprint && !item.doneAt)[0];
+      const others = Object.keys(D.stories).filter((sid) => sid !== x.story && !D.stories[sid].doneAt);
+      openDialog(`「${esc(x.title)}」の親を移す`,
+        `<label class="field" for="d-card-parent"><span class="field-label">移す先</span><select class="select" id="d-card-parent" aria-describedby="d-card-parent-hint">${x.story ? `<option value="">親なし</option>` : ""}${others.map((sid) => `<option value="${sid}">${esc(D.stories[sid].title)}</option>`).join("")}</select>
+           <span class="field-hint" id="d-card-parent-hint">移す先の末尾に置きます。</span></label>`,
+        `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-card-parent-set="${x.id}">移す</button>`);
+    },
     // ストーリーの親を移す（本番の MoveParentDialog。タスクの親を移すのと同じ部品）。移す先は親なしと、完了していないエピック（今の親を除く）
     moveStory: (el) => {
       const st = D.stories[el?.dataset?.storyId] || D.stories.s1;
@@ -4250,6 +4303,29 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       if (page?.current === "today") flashRow(document.querySelector(`[aria-labelledby="s-done"] [data-task="${x.id}"]`)?.closest(".entry"));
       toast(`${icon("check")}<span>${t("task")}を${t("done")}にしました</span>`);
       document.querySelector(`#content [data-undo="${x.id}"]`)?.focus();
+      return;
+    }
+    if ((el = hit("data-menu-reason"))) {
+      toast(`${icon("alert")}<span>${esc(el.dataset.menuReason)}</span>`); return;
+    }
+    if ((el = hit("data-card-column-set"))) {
+      const x = task(el.dataset.cardColumnSet);
+      const to = document.getElementById("d-card-column")?.value;
+      const target = D.columns.find((c) => c.id === to);
+      closeDialog();
+      if (!target) return;
+      if (target.done) { x.doneAt = "10/20 10:12"; x.prevCol = x.col; x.col = "done"; stamped.add(x.id); }
+      else x.col = target.id;
+      redrawAll();
+      toast(`${icon("check")}<span>「${esc(x.title)}」を${esc(target.done ? t("done") : target.name)}へ移しました</span>`);
+      return;
+    }
+    if ((el = hit("data-card-parent-set"))) {
+      const x = task(el.dataset.cardParentSet);
+      const to = document.getElementById("d-card-parent")?.value;
+      closeDialog();
+      x.story = to || null;
+      redrawAll();
       return;
     }
     if ((el = hit("data-card-reopen"))) {
