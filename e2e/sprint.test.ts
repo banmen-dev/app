@@ -701,7 +701,7 @@ test('最終日を過ぎた進行中のスプリントには終えるのを促�
 
   // ボードの画面。スプリントのボタンに警告の印を付け、小窓の先頭に知らせ、リーダーには「終える」を添える
   await page.goto(`${AOBA_TEAM}/board`);
-  await expect(sprintButton(page)).toHaveAccessibleName('スプリントの情報: 第14回（最終日を過ぎています）');
+  await expect(sprintButton(page)).toHaveAccessibleName('スプリントの情報: 第14回 期限切れ（最終日を過ぎています）');
   await expect(sprintButton(page)).toHaveClass(/is-warn/);
   await expect(notice).toHaveCount(0);
   const popover = await openSprintPopover(page);

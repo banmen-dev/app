@@ -885,6 +885,7 @@
               label={t(overdue ? 'sprintPopoverLabelOverdue' : 'sprintPopoverLabel', {
                 sprint: t('sprint'),
                 label: sprintLabel(sprint, t),
+                note: t('sprintPopoverOverdueNote'),
               })}
               dialogLabel={t('sprintPopoverDialog', { sprint: t('sprint') })}
               icon={overdue ? 'alert' : 'clock'}

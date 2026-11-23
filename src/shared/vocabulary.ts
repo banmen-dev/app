@@ -2567,7 +2567,8 @@ export const dictionary = defineDictionary({
   sprintBoardPageNameEmpty: '{board}・{workspace}',
   // ボードの道具の帯の右端のスプリントのボタンと小窓（#1498）。ボタンの見える文字は名前（無ければ期間）
   sprintPopoverLabel: '{sprint}の情報: {label}',
-  sprintPopoverLabelOverdue: '{sprint}の情報: {label}（最終日を過ぎています）',
+  // 見える言葉（sprintPopoverOverdueNote）を読み上げの名前にも含める（音声で見えるとおりに呼べるように）
+  sprintPopoverLabelOverdue: '{sprint}の情報: {label} {note}（最終日を過ぎています）',
   sprintPopoverDialog: '{sprint}の情報',
   sprintPopoverOverdueNote: '期限切れ',
   sprintPopoverPeriod: '{period}・{length} 日のうち {day} 日目',

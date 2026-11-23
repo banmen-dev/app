@@ -78,7 +78,7 @@ SQ.mount("sprint", () => {
     ${s.goal ? `<div class="popover-section"><span class="popover-label">${t("sprintGoal")}</span><p class="popover-text">${SQ.esc(s.goal)}</p></div>` : ""}
     ${actions}`;
   const sprintButton = SQ.popover(label, panel, {
-    label: `${t("sprint")}の情報: ${label}${overdue ? "（最終日を過ぎています）" : ""}`,
+    label: `${t("sprint")}の情報: ${label}${overdue ? " 期限切れ（最終日を過ぎています）" : ""}`,
     dialogLabel: `${t("sprint")}の情報`,
     icon: overdue ? "alert" : "clock",
     tone: overdue ? "warn" : "",
