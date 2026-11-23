@@ -3,6 +3,7 @@
   import {
     BOARD_FILTER_NONE,
     BOARD_QUERY_MAX_LENGTH,
+    clampQuery,
     isBoardFiltering,
     selectedCount,
     toggleBoardFilter,
@@ -65,7 +66,7 @@
   function sendSearch(): void {
     clearTimeout(timer);
     timer = undefined;
-    const q = text.trim().slice(0, BOARD_QUERY_MAX_LENGTH);
+    const q = clampQuery(text);
     if (q === filter.q) return;
     lastSent = q;
     onchange({ ...filter, q });
@@ -104,7 +105,8 @@
   const count = $derived(selectedCount(filter));
   const filtering = $derived(isBoardFiltering(filter) || text.trim() !== '');
   const named = $derived(choices.assignee.filter((choice) => choice.id !== BOARD_FILTER_NONE));
-  const avatars = $derived(named.slice(0, MAX_AVATARS));
+  // 先頭の人に加え、フィルターの小窓で選んだ先頭の外の人も並べる（選んだことがアバターにも映る）
+  const avatars = $derived(named.filter((choice, index) => index < MAX_AVATARS || filter.assignee.includes(choice.id)));
   const hasUnassigned = $derived(choices.assignee.some((choice) => choice.id === BOARD_FILTER_NONE));
 
   const labels = $derived<Record<BoardFilterKey, string>>({
@@ -131,20 +133,14 @@
     return choices[key].find((choice) => choice.id === value)?.label;
   }
 
-  // 帯の下の条件。検索の語、ストーリー、エピック、担当、区分の順
+  // 帯の下の条件。検索の語、ストーリー、エピック、担当、区分の順。今のボードに無い値（すぐ URL から外す）は出さず、
+  // 出す値が無い条件も出さない
   const conditions = $derived([
     ...(filter.q === '' ? [] : [t('boardFilterSearchCondition', { q: filter.q })]),
-    ...(['story', 'epic', 'assignee', 'category'] as const)
-      .filter((key) => filter[key].length > 0)
-      .map((key) =>
-        t('boardFilterCondition', {
-          label: labels[key],
-          values: filter[key]
-            .map((value) => nameOf(key, value))
-            .filter((name) => name !== undefined)
-            .join('、'),
-        }),
-      ),
+    ...(['story', 'epic', 'assignee', 'category'] as const).flatMap((key) => {
+      const names = filter[key].map((value) => nameOf(key, value)).filter((name) => name !== undefined);
+      return names.length === 0 ? [] : [t('boardFilterCondition', { label: labels[key], values: names.join('、') })];
+    }),
   ]);
 </script>
 
@@ -229,7 +225,11 @@
                   <span class="filter-option-text"
                     >{choice.id === BOARD_FILTER_NONE ? noneLabels[group.key] : choice.label}</span
                   >
-                  <span class="filter-option-n">{choice.count}</span>
+                  <span class="filter-option-n"
+                    ><span aria-hidden="true">{choice.count}</span><span class="visually-hidden"
+                      >{t('boardFilterOptionCount', { count: choice.count })}</span
+                    ></span
+                  >
                 </label>
               {/each}
             </fieldset>

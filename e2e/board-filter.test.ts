@@ -12,9 +12,10 @@ import {
   signIn,
   waitForSettled,
 } from './helpers.ts';
-import { mockOperation } from './operations.ts';
+import { mockOperation, routeOperation } from './operations.ts';
 import type { OutputOf } from '../src/shared/operations/define.ts';
 import { sprintBoard } from '../src/shared/operations/sprint/index.ts';
+import { taskCreate } from '../src/shared/operations/task/index.ts';
 import { SAMPLE_BOARD } from './sprint-fixture.ts';
 
 type Board = OutputOf<typeof sprintBoard>;
@@ -176,6 +177,50 @@ test('組み合わせた絞り込みは読み直しても保たれ、絞って�
   await expect(cards(page)).toHaveCount(1);
   // ?task= で引き出しを開いても、カードのリンクは絞り込みを保つ
   await expect(page.locator('a.card-title').first()).toHaveAttribute('href', new RegExp(`assignee=${HARUKA.id}`));
+});
+
+test('絞っている間に追加の行で作ったタスクが絞り込みに当たらないときは、隠れていることを知らせる', async ({ page }) => {
+  const current = board();
+  await routeOperation(page, sprintBoard, { slug: 'aoba' }, (call) => call.fulfill(current));
+  await routeOperation(page, taskCreate, { slug: 'aoba' }, async (call) => {
+    const task = {
+      ...current.columns[0]!.tasks[1]!,
+      id: '019a0000-0000-7000-8000-00000000f299',
+      title: call.input.title,
+      category: null,
+    };
+    current.columns[0]!.tasks.push(task);
+    await call.fulfill({
+      task: {
+        id: task.id,
+        title: task.title,
+        points: null,
+        due_on: null,
+        assignee: null,
+        delegatee: null,
+        category: null,
+        repository: null,
+        sprint: null,
+        can_delete: false,
+      },
+    });
+  });
+  await page.goto(`${PATH}?q=%E7%AE%A1%E7%90%86`);
+  await expect(cards(page)).toHaveCount(1);
+  const input = page.getByRole('textbox', { name: 'タスクを足す: 未着手', exact: true });
+  await input.fill('請求の確認');
+  await input.press('Enter');
+  await expect(
+    page
+      .getByRole('status')
+      .filter({ hasText: '「請求の確認」を未着手に足しました。絞り込みに当たらないため隠れています' }),
+  ).toBeVisible();
+  await expect(cards(page)).toHaveCount(1);
+  // 当たる題なら見えて、ふだんの知らせになる
+  await input.fill('管理の手順を書く');
+  await input.press('Enter');
+  await expect(page.getByRole('status').filter({ hasText: '「管理の手順を書く」を未着手に足しました' })).toBeVisible();
+  await expect(cards(page)).toHaveCount(2);
 });
 
 for (const theme of A11Y_THEMES) {

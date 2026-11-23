@@ -36,6 +36,8 @@
     boardChoicesOf,
     boardFilterHref,
     boardFilterOf,
+    boardFilterQuery,
+    cardMatches,
     emptyBoardFilter,
     filterColumns,
     isBoardFiltering,
@@ -163,7 +165,9 @@
   const columns = $derived(local ?? board?.columns ?? []);
   // 絞り込み（#1502）。URL の問い合わせ（?q=&assignee=&story=&epic=&category=）から読み、読み込んだボードを画面で絞る。
   // 前からある ?story=<ID> のリンク（通知など）も同じ形で読む
-  const filter = $derived(boardFilterOf(page.url.searchParams));
+  // 送っている途中の絞り込み。続けて押したとき、URL が替わる前でも直前の操作を土台にする（前の操作を落とさない）
+  let pendingFilter = $state<BoardFilter | null>(null);
+  const filter = $derived(pendingFilter ?? boardFilterOf(page.url.searchParams));
   const choices = $derived(boardChoicesOf(columns));
   // ストーリーを1つだけ選んでいる間は、追加の行で作るタスクをそのストーリーの下に入れる（前の ?story= の絞り込みと同じ）
   const storyId = $derived.by(() => {
@@ -171,7 +175,7 @@
     return id !== null && choices.story.some((choice) => choice.id === id) ? id : null;
   });
   // カードの題のリンク（?task=）にも絞り込みを添え、引き出しを開閉しても絞り込みを保つ
-  const cardFilterQuery = $derived(boardFilterHref(new URL('http://board.invalid/'), filter).replace(/^\/\??/, ''));
+  const cardFilterQuery = $derived(boardFilterQuery(filter));
   // ボード全体で選んだ値が無くなれば（消えたストーリー、別のボードのリンク）、URLを直接開いた場合も操作後も同じ条件で外す。
   const hasBoard = $derived(board !== null);
   let clearingFilterHref: string | null = null;
@@ -244,25 +248,40 @@
     };
   }
   // 絞り込みを URL に書く。履歴は積まない（読み直しても同じ絞り込みで開く）
-  async function applyFilter(next: BoardFilter): Promise<void> {
+  let filterSends = 0;
+  async function applyFilter(next: BoardFilter, message?: string): Promise<void> {
     if (sameBoardFilter(next, filter)) return;
     hoveredStory = undefined;
-    // eslint-disable-next-line svelte/no-navigation-without-resolve -- 現在の経路の絞り込みの問い合わせだけを替える
-    await goto(boardFilterHref(page.url, next), { replace: true, reset: false });
-    const shown = filterColumns(columns, next).reduce((total, column) => total + column.tasks.length, 0);
-    if (isBoardFiltering(next)) {
-      await announce(shown === 0 ? t('filterResultNone') : t('filterResultCount', { count: shown }));
+    const sent = ++filterSends;
+    pendingFilter = next;
+    try {
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- 現在の経路の絞り込みの問い合わせだけを替える
+      await goto(boardFilterHref(page.url, next), { replace: true, reset: false });
+    } finally {
+      if (sent === filterSends) pendingFilter = null;
     }
+    if (message !== undefined) {
+      await announce(message);
+      return;
+    }
+    const shown = filterColumns(columns, next).reduce((total, column) => total + column.tasks.length, 0);
+    await announce(
+      !isBoardFiltering(next)
+        ? t('boardFilterCleared')
+        : shown === 0
+          ? t('filterResultNone')
+          : t('filterResultCount', { count: shown }),
+    );
   }
 
   // カードの親のストーリーを押したら、そのストーリーで絞る（ほかの条件は残す）
   async function filterStory(id: string): Promise<void> {
     const title = columns.flatMap((column) => column.tasks).find((task) => task.story?.id === id)?.story?.title;
-    hoveredStory = undefined;
     focusedStory = null;
-    // eslint-disable-next-line svelte/no-navigation-without-resolve -- 現在の経路の絞り込みの問い合わせだけを替える
-    await goto(boardFilterHref(page.url, { ...filter, story: [id] }), { reset: false });
-    await announce(t('sprintStoryFilterApplied', { story: t('story'), title: title ?? '' }));
+    await applyFilter(
+      { ...filter, story: [id] },
+      t('sprintStoryFilterApplied', { story: t('story'), title: title ?? '' }),
+    );
   }
 
   // 「すべてクリア」。ストーリーを1つだけで絞っていたときは、そのストーリーの親名へフォーカスを戻す（前の絞り込みの帯と同じ）。
@@ -277,6 +296,9 @@
     const previousStory = onlyStory ? previous.story[0]! : null;
     hoveredStory = undefined;
     focusedStory = null;
+    // 送っている途中の絞り込みは捨てる（後から届いても全件のままにする）
+    filterSends += 1;
+    pendingFilter = null;
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- 現在の経路の絞り込みの問い合わせだけを除く
     await goto(boardFilterHref(page.url, emptyBoardFilter), { replace: true, reset: false });
     await announce(onlyStory ? t('sprintStoryFilterCleared', { story: t('story') }) : t('boardFilterCleared'));
@@ -318,7 +340,7 @@
   $effect(() => dnd.monitor());
   // 読み直したら、つかんでいるドラッグは取りやめる（離しても何も送らない）。光らせているカードは、読み直した後も残す
   dnd.resetWhenChanged(() => board);
-  dnd.resetWhenChanged(() => page.url.search);
+  dnd.resetWhenChanged(() => cardFilterQuery);
   // 完了にした、または戻したカード。読み直した後の列に出てから光らせる（応答の直後に光らせると、読み直しが遅いとき元の列で終わる）
   let flashAfterReload: string | null = null;
   $effect.pre(() => {
@@ -875,9 +897,17 @@
       }
       return t('taskCreateFailed');
     }
-    // 読み直して、足したカードを列の末尾に出す（トーストが読み上げる）
-    showToast(t('sprintBoardTaskAdded', { title: result.data.task.title, column: columnName(column) }), 'check');
+    // 読み直してから、足したカードを列の末尾に出す（トーストが読み上げる）。絞り込みに当たらず見えないときは、そのことも知らせる
     await reloadBoard();
+    const created = columns.flatMap((item) => item.tasks).find((task) => task.id === result.data.task.id);
+    const hidden = created !== undefined && !cardMatches(created, filter);
+    showToast(
+      t(hidden ? 'boardTaskAddedHidden' : 'sprintBoardTaskAdded', {
+        title: result.data.task.title,
+        column: columnName(column),
+      }),
+      hidden ? 'alert' : 'check',
+    );
     return null;
   }
 

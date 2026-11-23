@@ -13,13 +13,18 @@ export const BOARD_QUERY_MAX_LENGTH = 200;
 // 1つの条件で選べる値の上限。URL で多くの値を渡されても、ここで切る
 const MAX_VALUES = 100;
 
+// 検索の語の前後の空白を除き、上限の字数で切る。字数は題の上限と同じくコードポイントで数え、絵文字の途中で切らない
+export function clampQuery(text: string): string {
+  return [...text.trim()].slice(0, BOARD_QUERY_MAX_LENGTH).join('');
+}
+
 export const emptyBoardFilter: BoardFilter = { q: '', assignee: [], story: [], epic: [], category: [] };
 
 export function boardFilterOf(params: Pick<URLSearchParams, 'get' | 'getAll'>): BoardFilter {
   const values = (key: BoardFilterKey): string[] =>
     [...new Set(params.getAll(key).filter((value) => value !== ''))].slice(0, MAX_VALUES);
   return {
-    q: (params.get('q') ?? '').trim().slice(0, BOARD_QUERY_MAX_LENGTH),
+    q: clampQuery(params.get('q') ?? ''),
     assignee: values('assignee'),
     story: values('story'),
     epic: values('epic'),
@@ -27,13 +32,20 @@ export function boardFilterOf(params: Pick<URLSearchParams, 'get' | 'getAll'>): 
   };
 }
 
+// 絞り込みだけを書いた問い合わせ（先頭の ? を含まない）。絞っていなければ空
+export function boardFilterQuery(filter: BoardFilter): string {
+  const params = new URLSearchParams();
+  if (filter.q !== '') params.set('q', filter.q);
+  for (const key of BOARD_FILTER_KEYS) for (const value of filter[key]) params.append(key, value);
+  return params.toString();
+}
+
 // 今の URL の絞り込みだけを替えた行き先。ほかの問い合わせ（?task= など）とフラグメントは残す
 export function boardFilterHref(url: Pick<URL, 'href'>, filter: BoardFilter): string {
   const next = new URL(url.href);
   next.searchParams.delete('q');
   for (const key of BOARD_FILTER_KEYS) next.searchParams.delete(key);
-  if (filter.q !== '') next.searchParams.set('q', filter.q);
-  for (const key of BOARD_FILTER_KEYS) for (const value of filter[key]) next.searchParams.append(key, value);
+  for (const [key, value] of new URLSearchParams(boardFilterQuery(filter))) next.searchParams.append(key, value);
   return `${next.pathname}${next.search}${next.hash}`;
 }
 

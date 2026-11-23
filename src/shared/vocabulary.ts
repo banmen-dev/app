@@ -2584,12 +2584,16 @@ export const dictionary = defineDictionary({
   boardFilterClearAll: 'すべてクリア',
   boardFilterCleared: '絞り込みをすべて外しました',
   boardFilterInvalid: '絞り込み対象の一部が現在の{board}にないため、外しました',
-  // 絞っている間、帯の下に出す。{conditions} は「{label}: 値、値」を「・」でつないだもの
+  // 絞っている間、帯の下に条件ごとに並べる。{values} は値を「、」でつないだもの
   boardFilterCondition: '{label}: {values}',
   boardFilterSearchCondition: '「{q}」',
   boardFilterShown: '{total} 件中 {shown} 件を表示',
   // 絞った結果、カードが1枚も残らない列に出す（列には隠れたカードがある）
   boardColumnHidden: '絞り込みで {count} 件を隠しています',
+  // 絞っている間に列の末尾の行で作った{task}が、絞り込みに当たらず見えないとき
+  boardTaskAddedHidden: '「{title}」を{column}に足しました。絞り込みに当たらないため隠れています',
+  // フィルターの小窓の値の横の数（ボード全体で当たるカードの数）。見える文字は数だけで、読み上げにこの文を使う
+  boardFilterOptionCount: '{count} 件',
   sprintBoardAddStoryGone:
     'この{story}か{sprint}か{column}が見つかりません。{task}は作られていません。一覧を読み直します',
   sprintBoardPageName: '{board}・{name}・{workspace}',

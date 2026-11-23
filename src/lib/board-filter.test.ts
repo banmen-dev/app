@@ -132,6 +132,27 @@ describe('ボードの絞り込み', () => {
     expect(boardFilterOf(new URLSearchParams())).toEqual(emptyBoardFilter);
   });
 
+  test('検索の語の上限は絵文字の途中で切らない', () => {
+    const q = boardFilterOf(new URLSearchParams({ q: `${'a'.repeat(199)}😀😀` })).q;
+    expect(q.isWellFormed()).toBe(true);
+    expect([...q]).toHaveLength(200);
+    expect(q.endsWith('😀')).toBe(true);
+  });
+
+  test('同じ条件に 101 個の値を渡すと 100 個で切り、同名の担当は ID の順に並ぶ', () => {
+    const params = new URLSearchParams(Array.from({ length: 101 }, (_, i) => ['assignee', `u${i}`]));
+    expect(boardFilterOf(params).assignee).toHaveLength(100);
+    const twins: SprintBoardColumn[] = [
+      {
+        id: 'a',
+        name: '出発',
+        is_done: false,
+        tasks: [rich('x1', { assignee: person('u9', '辻') }), rich('x2', { assignee: person('u1', '辻') })],
+      },
+    ];
+    expect(boardChoicesOf(twins).assignee.map((choice) => choice.id)).toEqual(['u1', 'u9']);
+  });
+
   test('URL に書いて読み直すと同じ絞り込みに戻る', () => {
     const filter = by({ q: '見積 もり', assignee: ['u1', BOARD_FILTER_NONE], category: ['c1'] });
     const href = boardFilterHref(new URL('https://example.test/a/board?task=x'), filter);

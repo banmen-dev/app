@@ -590,6 +590,35 @@ describe('sprint-board', () => {
     ]);
   });
 
+  test('区分はエピック、ストーリー、タスク自身の順に引き継ぎ、親のあるカードは自身の区分を使わない', async () => {
+    const { target, board } = await setup();
+    const sprint = await activeSprintWith(target);
+    const userId = target.member.userId!;
+    const ws = target.workspace.id;
+    const [a, b, c] = [
+      await createCategory(target.organization, ws, { name: '甲', position: 'a0' }),
+      await createCategory(target.organization, ws, { name: '乙', position: 'a1' }),
+      await createCategory(target.organization, ws, { name: '丙', position: 'a2' }),
+    ];
+    const epic = await createEpic(target.organization, ws, userId, { category_id: a.id });
+    // 製品の道ではエピックの下のストーリーは区分を持たないが、持っていてもエピックの区分が先に来る
+    const underEpic = await createStory(target.organization, ws, userId, { epic_id: epic.id, category_id: b.id });
+    const rootStory = await createStory(target.organization, ws, userId, { category_id: b.id });
+    const bareStory = await createStory(target.organization, ws, userId);
+    await card(target, sprint.id, board.first.id, 'a0', { title: '三段', story_id: underEpic.id, category_id: c.id });
+    await card(target, sprint.id, board.first.id, 'a1', { title: '二段', story_id: rootStory.id, category_id: c.id });
+    await card(target, sprint.id, board.first.id, 'a2', { title: '親だけ', story_id: bareStory.id, category_id: c.id });
+
+    const body = (await (await call(target, sprintBoard, {})).json()) as {
+      columns: { tasks: { title: string; category: { name: string } | null }[] }[];
+    };
+    expect(body.columns[0]!.tasks.map(({ title, category }) => [title, category?.name ?? null])).toEqual([
+      ['三段', '甲'],
+      ['二段', '乙'],
+      ['親だけ', null],
+    ]);
+  });
+
   test('別のワークスペースと別の組織のエピックと区分は、指していてもカードに添えない', async () => {
     const { target, board } = await setup();
     const sprint = await activeSprintWith(target);
