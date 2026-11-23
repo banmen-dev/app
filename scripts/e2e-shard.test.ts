@@ -24,9 +24,9 @@ const SHARDS = 5;
 // ジョブ全体からテストの実時間を引いた準備（checkout、setup、Playwright、build、サーバーの起動、seed）は 29〜36 秒だった
 const RUNTIME_FACTOR = 1.1;
 const SETUP_SECONDS = 32;
-// 上限は #1345 の最初の重み（最長の見積もり 389 秒、換算で約 460 秒）に約 10 秒の余裕を持たせて決めた。
-// 2026-11-23 に main の 5 実行から作り直した重みでは、最長の見積もりが 335 秒で、換算は約 401 秒
-const MAX_SECONDS = 470;
+// 2026-11-23 に main の 10 実行から作り直した重み（#1345）では、最長の見積もりが 349 秒で、換算は約 416 秒。
+// 上限には約 25 秒の余裕を持たせる（重みの作り直しで見積もりが 1 割近く伸びたら落ちて気づく）
+const MAX_SECONDS = 440;
 const MAX_SPREAD_SECONDS = 60;
 
 describe('assignShards', () => {
