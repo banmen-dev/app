@@ -302,7 +302,7 @@
         <div class="choice-list">
           {#each data.organizations as organization (organization.slug)}<a
               class="choice"
-              data-sveltekit-preload-data="off"
+              data-sveltekit-preload-data="false"
               href={resolve(`/auth/billing?organization=${encodeURIComponent(organization.slug)}`)}
               ><div>
                 <b>{organizationName(organization)}</b>
