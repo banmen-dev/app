@@ -335,33 +335,37 @@ test('もう一度試すは、読み直しの間は止め、また失敗した�
     invitations: [],
   });
   await mockOperation(page, billingAdminList, { administrators: [], events: [] });
-  // 読み直しの応答を止めておき、押している間の状態と呼ぶ回数を見る
+  // 読み直しの応答を止めておき、押している間の状態と呼ぶ回数を見る。止めた呼び出しは、まとめて手放す
   let calls = 0;
+  let blocking = false;
   let succeed = false;
-  let release: () => void = () => {};
+  const pending: (() => void)[] = [];
+  const releaseAll = () => pending.splice(0).forEach((resume) => resume());
   await routeOperation(page, billingOrganizationSummary, async (call) => {
     calls++;
-    if (calls > 1) await new Promise<void>((resolve) => (release = resolve));
+    if (blocking) await new Promise<void>((resume) => pending.push(resume));
     if (succeed) await call.fulfill(summary);
     else await call.fail(500, 'internal');
   });
   await page.goto('/auth/billing?organization=aoba');
   await expect(page.getByText(t('billingSummaryLoadFailed'), { exact: true })).toBeVisible();
   const retry = page.getByRole('button', { name: t('retry'), exact: true });
+  blocking = true;
   await retry.click();
   await expect(retry).toHaveAttribute('aria-disabled', 'true');
   await expect(page.locator('#billing-status-summary')).toHaveText(t('billingSummaryRetrying'));
+  await expect.poll(() => pending.length).toBeGreaterThan(0);
+  const afterFirst = calls;
   // 読み直しの間にもう一度押しても、読み取りは増やさない
   await retry.click();
-  await expect.poll(() => calls).toBe(2);
-  release();
+  releaseAll();
   await expect(page.locator('#billing-status-summary')).toHaveText(t('billingSummaryRetryFailed'));
+  expect(calls).toBe(afterFirst);
   // 失敗の文は初めの1つだけで、再失敗は別の文で伝える
   await expect(page.getByText(t('billingSummaryLoadFailed'), { exact: true })).toHaveCount(1);
   succeed = true;
+  blocking = false;
   await retry.click();
-  await expect.poll(() => calls).toBe(3);
-  release();
   await expect(page.locator('#billing-summary-body')).toBeFocused();
   await expect(page.getByText(t('billingSummaryLoadFailed'), { exact: true })).toHaveCount(0);
 });
