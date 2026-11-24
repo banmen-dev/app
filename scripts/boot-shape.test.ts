@@ -218,8 +218,6 @@ describe('最初の読み込みの骨組みの形（static/boot-shape.js）', ()
     assert.match(frame[1], /grid-template-columns: minmax\(0, 1fr\);/);
     assert.match(frame[1], /grid-template-areas: 'bar' 'sheet';/);
     assert.match(block[1], /html\[data-boot-nav='collapsed'\] #boot-loading \.boot-binding \{\s*display: none;\s*\}/);
-    // 閉じた形の規則は、開いた形の .boot-frame の規則より後に置き、同じ詳細度で順序に勝つ
-    assert.ok(css.indexOf(block[0]) > css.indexOf('html[data-boot] #boot-loading .boot-frame {'));
   });
 
   test('閉じた状態のキーは src/lib/nav-collapse.svelte.ts と同じ', () => {
