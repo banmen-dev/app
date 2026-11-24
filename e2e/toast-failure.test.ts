@@ -106,6 +106,7 @@ test('URL を直接開いて木の読み込みが遅いとき、300ms 後に読�
   const bootHead = await shownBox(boot.locator('.boot-head'));
   const bootCrumbs = await shownBox(boot.locator('.boot-crumbs'));
   const bootMark = await shownBox(boot.locator('.boot-start .is-mark'));
+  const bootToggle = await shownBox(boot.locator('.boot-start .is-toggle'));
 
   release();
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
@@ -117,6 +118,7 @@ test('URL を直接開いて木の読み込みが遅いとき、300ms 後に読�
   const head = await shownBox(page.locator('.page-head'));
   const crumbs = await shownBox(page.locator('.sheet-crumbs'));
   const mark = await shownBox(page.locator('.topbar-start .brand-art'));
+  const toggle = await shownBox(page.locator('.nav-toggle'));
   expect(bootBinding.width).toBe(binding.width);
   // 上の帯は全幅で、左のメニューは帯の下から始まる（#1511）
   expect(bootTopbar.x).toBe(topbar.x);
@@ -126,6 +128,7 @@ test('URL を直接開いて木の読み込みが遅いとき、300ms 後に読�
   // 帯の左端のマークも、開閉のボタンの右の同じ位置にある
   expect(bootMark.x).toBe(mark.x);
   expect(bootMark.y).toBe(mark.y);
+  expect(bootToggle).toEqual(toggle);
   // パンくずの帯も、上の帯の下の同じ位置と高さにある（#1509）
   expect(bootCrumbs.x).toBe(crumbs.x);
   expect(bootCrumbs.y).toBe(crumbs.y);

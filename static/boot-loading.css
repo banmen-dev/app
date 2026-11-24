@@ -231,10 +231,14 @@ html[data-boot] #boot-loading .boot-frame {
   width: 34px;
   height: 34px;
 }
+/* 指で押す画面では、本物のマークのリンクが 44px 幅になり、34px のマークがその中央に来るので、左右に 5px ずつ空ける */
 @media (pointer: coarse) {
   #boot-loading .boot-start .is-toggle {
     width: 44px;
     height: 44px;
+  }
+  #boot-loading .boot-start .is-mark {
+    margin-inline: 5px;
   }
 }
 #boot-loading .boot-binding > .is-org {

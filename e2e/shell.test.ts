@@ -357,7 +357,9 @@ test.describe('高さの低い指で押す画面の左のメニュー', () => {
     { width: 1024, height: 680, overflows: true },
     { width: 1024, height: 768, overflows: false },
   ]) {
-    test(`${viewport.width}×${viewport.height} の広げた列で、最後の項目とブランドの両方に届く`, async ({ page }) => {
+    test(`${viewport.width}×${viewport.height} の広げた列で最後の項目に届き、帯のマークと開閉のボタンは見えたまま`, async ({
+      page,
+    }) => {
       await page.setViewportSize(viewport);
       // 管理者がワークスペースを開くと、設定を含むすべての項目と切り替えが並ぶ。
       await page.goto(`/aoba/w/${AOBA_WORKSPACE_ID}`);
@@ -385,11 +387,9 @@ test.describe('高さの低い指で押す画面の左のメニュー', () => {
       await last.click();
       await expect(page).toHaveURL(href!);
 
-      // 下まで送った後もブランドへ戻れる。
-      const brand = page.getByRole('link', { name: 'Banmen' });
-      await brand.scrollIntoViewIfNeeded();
-      await expect(brand).toBeInViewport({ ratio: 1 });
-      await brand.click({ trial: true });
+      // 列を下まで送った後も、上の帯のマークと開閉のボタンは送られずに見えたまま
+      await expect(page.getByRole('link', { name: 'Banmen' })).toBeInViewport({ ratio: 1 });
+      await expect(page.locator('.nav-toggle')).toBeInViewport({ ratio: 1 });
 
       // 組織の一覧は上の帯のボタンの下に浮かび、列を送った後に開いても切れない。
       const orgButton = page.locator('.topbar .org-menu-button');
@@ -465,7 +465,9 @@ test.describe('高さの低い窓の畳んだ左のメニュー', () => {
       if (!buttonBox || !tipBox) throw new Error('ボタンと札の位置が取れない');
       // 札はボタンの枠（1px）の内側を基準に置くので、1px までのずれを許す
       expect(Math.abs(tipBox.x - buttonBox.x)).toBeLessThanOrEqual(1);
-      expect(Math.abs(tipBox.y - (buttonBox.y + buttonBox.height + 8))).toBeLessThanOrEqual(1);
+      expect(Math.abs(tipBox.y - (buttonBox.y + buttonBox.height + 12))).toBeLessThanOrEqual(1);
+      // 札は帯の罫より下に出る
+      expect(tipBox.y).toBeGreaterThanOrEqual(60);
       expect(await frontmostAcross(page, '.nav-toggle .nav-tip')).toEqual([true, true, true]);
 
       // 組織の切り替えは上の帯にあり、一覧は帯の下に開いて画面の内側に収まる
