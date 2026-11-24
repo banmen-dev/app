@@ -1,6 +1,7 @@
 import { generateKeyBetween } from 'fractional-indexing';
 import { now } from '../../shared/clock.ts';
 import {
+  storyChoices,
   storyComplete,
   storyCreate,
   storyGet,
@@ -136,6 +137,41 @@ export const storyGetOperation = implement(storyGet, async ({ db, actor, workspa
     open_task_count: Number(open?.count ?? 0),
     // 削除したエピックは親として数えない（story-complete の判定と同じ）
     parent_finished: story.epic_deleted_at === null && story.epic_completed_at !== null,
+  };
+});
+
+// タスクの親に選べるストーリー。1つの文で、削除していない完了していないストーリーを、親のエピック（削除していないもの）と結んで読む。
+// 親のエピックが削除されているストーリーは出さない。並びは、エピックの順（position、id）にその下のもの、続けて親のないもの
+export const storyChoicesOperation = implement(storyChoices, async ({ db, workspace }) => {
+  const workspaceId = workspace.workspaceId;
+  const result = await db.rows(
+    db.statement((q) =>
+      q
+        .selectFrom('stories')
+        .leftJoin('epics', (join) =>
+          join
+            .onRef('epics.id', '=', 'stories.epic_id')
+            .on('epics.workspace_id', '=', workspaceId)
+            .on('epics.deleted_at', 'is', null),
+        )
+        .select(['stories.id', 'stories.title', 'epics.id as epic_ref_id', 'epics.title as epic_title'])
+        .where('stories.workspace_id', '=', workspaceId)
+        .where('stories.deleted_at', 'is', null)
+        .where('stories.completed_at', 'is', null)
+        .where((eb) => eb.or([eb('stories.epic_id', 'is', null), eb('epics.id', 'is not', null)]))
+        .orderBy((eb) => eb('stories.epic_id', 'is', null))
+        .orderBy('epics.position')
+        .orderBy('epics.id')
+        .orderBy('stories.position')
+        .orderBy('stories.id'),
+    ),
+  );
+  return {
+    stories: result.map((row) => ({
+      id: row.id,
+      title: row.title,
+      epic: row.epic_ref_id === null ? null : { id: row.epic_ref_id, title: row.epic_title ?? '' },
+    })),
   };
 });
 

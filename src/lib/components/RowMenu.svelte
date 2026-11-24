@@ -9,6 +9,9 @@
     describedby?: string;
     // 端で動かせないなど。フォーカスを失わないよう disabled でなく aria-disabled にし、押しても何もしない
     disabled?: boolean;
+    // 押せない理由の文。渡すと aria-disabled にし、title と読み上げ（aria-describedby）で理由を示し、押すとメニューを閉じて理由をトーストで知らせる
+    // （指の画面には title が出ないため。ボードの完了したカードの「列を変更」「親を変更」）
+    reason?: string;
     // 削除など、戻せない操作。文字を危険の色（.is-danger）にする
     danger?: boolean;
     // 押した項目。trigger は「⋯」のボタン（ダイアログを閉じたときのフォーカスの戻り先）。
@@ -19,6 +22,7 @@
 
 <script lang="ts">
   import { tick } from 'svelte';
+  import { showToast } from '../toast.svelte.ts';
   import { t } from '../vocabulary.svelte.ts';
   import Icon from './Icon.svelte';
 
@@ -27,6 +31,7 @@
   // 項目を移り、Esc で閉じて「⋯」へ戻る。外を押す、Tab、項目を選ぶと閉じる。一覧は position: fixed で、押したボタンの右端に合わせて
   // 下（収まらなければ上）に開く。幅の変化で閉じ、スクロールでは置き直す。
   let { title, items }: { title: string; items: readonly RowMenuItem[] } = $props();
+  const ids = $props.id();
 
   let open = $state(false);
   let root = $state<HTMLElement>();
@@ -76,6 +81,11 @@
   }
 
   function select(item: RowMenuItem, keyboard: boolean): void {
+    if (item.reason !== undefined) {
+      close(true);
+      showToast(item.reason, 'alert');
+      return;
+    }
     if (item.disabled === true || button === undefined) return;
     const trigger = button;
     close(true);
@@ -179,11 +189,16 @@
           class:is-danger={item.danger === true}
           type="button"
           role="menuitem"
-          aria-disabled={item.disabled === true}
-          aria-describedby={item.describedby}
+          aria-disabled={item.disabled === true || item.reason !== undefined}
+          aria-describedby={[item.reason !== undefined ? `${ids}-${item.key}-reason` : undefined, item.describedby]
+            .filter(Boolean)
+            .join(' ') || undefined}
+          title={item.reason}
           onclick={(event) => select(item, event.detail === 0)}
           ><Icon name={item.icon} /><span>{item.label}</span></button
         >
+        {#if item.reason !== undefined}<span class="visually-hidden" id="{ids}-{item.key}-reason">{item.reason}</span
+          >{/if}
       </li>
     {/each}
   </ul>

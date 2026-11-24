@@ -606,6 +606,7 @@ export const pointers: Pointers = {
     };
   },
   'story-create': async (target) => ({ workspace_id: target.workspace.id, title: '見積もりを整える' }),
+  'story-choices': async (target) => ({ workspace_id: target.workspace.id }),
   'story-get': async (target) => ({
     workspace_id: target.workspace.id,
     story_id: (await createStory(target.organization, target.workspace.id, target.admin.userId!)).id,
