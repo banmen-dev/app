@@ -131,6 +131,9 @@ test('作ったワークスペース: エピックを作り、ストーリーを
   await completeStory.click({ force: true });
   await expectNoRequest(page, /\/story-complete$/);
   expect(sent).toBe(0);
+  // 押せない項目を選んだ後もメニューは残る。タスクのボタンに重ならないよう閉じてから続ける
+  await rowMenuToggle(story, '残高が見える').press('Escape');
+  await expect(completeStory).toBeHidden();
 
   // タスクを完了にすると、読み直さずに押せるようになり、エピックの「完了」にも足される
   await story.getByRole('button', { name: '完了にする: 残高の API を作る' }).click();
