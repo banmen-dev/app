@@ -46,7 +46,9 @@ function created(overrides: Partial<Connection> = {}): Connection {
   };
 }
 
-test('ワークスペースの画面のタブの「接続」から開くと、ワークスペースの接続が状態と登録した人つきで並ぶ', async ({ page }) => {
+test('ワークスペースの画面のタブの「接続」から開くと、ワークスペースの接続が状態と登録した人つきで並ぶ', async ({
+  page,
+}) => {
   const collect = await watchViolations(page);
   await page.goto(WORKSPACE);
   const tabs = page.getByRole('navigation', { name: 'ワークスペースの画面' });

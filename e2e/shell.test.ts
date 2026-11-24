@@ -154,19 +154,16 @@ test('畳んだ列の名前と組織の一覧は、バックログの行に覆�
   await expect(page.locator('.tree-row').first()).toBeVisible();
   await page.getByRole('button', { name: 'メニューを閉じる' }).click();
 
-  const backlog = page.locator('#app-nav').getByRole('link', { name: 'バックログ' });
-  await backlog.hover();
-  const label = backlog.locator('.nav-item-label');
+  // ワークスペースの機能はタブにあり、左のメニューには組織の画面が並ぶ（#1514）
+  const todayItem = page.locator('#app-nav').getByRole('link', { name: '今日やること' });
+  await todayItem.hover();
+  const label = todayItem.locator('.nav-item-label');
   await expect(label).toHaveCSS('opacity', '1');
   const labelBox = await label.boundingBox();
-  const itemBox = await backlog.boundingBox();
+  const itemBox = await todayItem.boundingBox();
   expect(labelBox!.x).toBeCloseTo(itemBox!.x + itemBox!.width + 12, 0);
   expect(labelBox!.y + labelBox!.height / 2).toBeCloseTo(itemBox!.y + itemBox!.height / 2, 0);
-  expect(await frontmostAcross(page, '#app-nav .nav-item[aria-current="page"] .nav-item-label')).toEqual([
-    true,
-    true,
-    true,
-  ]);
+  expect(await frontmostAcross(page, '#app-nav .nav-item[href="/aoba"] .nav-item-label')).toEqual([true, true, true]);
 });
 
 test('760px 以下では、畳んだままでも下のタブバーと浮きメニューを出す', async ({ page }) => {
@@ -1439,9 +1436,12 @@ test('広い幅のパンくずは上の帯の外で、見出しのすぐ上に�
         async (locator) => (await locator.boundingBox())!,
       ),
     );
-    // 上の帯の下、見出しの上に並び、見出しとの間は本文の上の余白（--space-2 の 8px）だけ
+    // 上の帯の下、見出しの上に並ぶ。ワークスペースの画面はパンくずの下にタブの帯を挟み（#1514）、
+    // パンくずとタブの間は帯の上の余白（--space-2 の 8px）、タブと見出しの間は本文の上の余白（--space-4 の 16px）
+    const tabs = (await page.locator('.sheet-tabs').boundingBox())!;
     expect(crumb.y).toBeGreaterThanOrEqual(bar.y + bar.height);
-    expect(head.y - (crumb.y + crumb.height)).toBeCloseTo(8, 0);
+    expect(tabs.y).toBeCloseTo(crumb.y + crumb.height, 0);
+    expect(head.y - (tabs.y + tabs.height)).toBeCloseTo(16, 0);
     // パンくずの左端は見出しの左端と揃う
     expect(Math.abs((await crumbs.boundingBox())!.x - head.x)).toBeLessThanOrEqual(1);
     // ワークスペースの名前の小見出しは見えない（題名には残す）

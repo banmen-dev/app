@@ -37,15 +37,16 @@ test.describe('リーダー（あおば開発のミナト）', () => {
     // 組織の画面のメニューには、ワークスペースの経路の項目を出さない
     await page.goto('/aoba');
     await expect(page.locator('.nav-item', { hasText: 'メンバー' })).toHaveCount(0);
+    await expect(page.locator('.route-tab')).toHaveCount(0);
 
     await page.goto(`/aoba/w/${AOBA_WORKSPACE_ID}`);
-    await page.locator('.nav-item', { hasText: 'メンバー' }).click();
+    await page.locator('.route-tab', { hasText: 'メンバー' }).click();
     await expect(page).toHaveURL(new RegExp(`${MEMBERS_PATH}$`));
     await expect(page.getByRole('heading', { level: 1, name: 'メンバー' })).toBeVisible();
     await expect(
       page.getByRole('navigation', { name: 'パンくず' }).getByRole('link', { name: '受託開発チーム', exact: true }),
     ).toBeVisible();
-    await expect(page.locator('.nav-item[aria-current="page"]')).toHaveText('メンバー');
+    await expect(page.locator('.route-tab[aria-current="page"]')).toHaveText('メンバー');
     await expect(page).toHaveTitle('メンバー・受託開発チーム - Banmen');
 
     // 頭の数字は所属、リーダー、招待中

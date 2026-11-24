@@ -103,7 +103,10 @@ for (const pointer of ['細かいポインター', '指で押す 1024px'] as con
       await expect(boot.locator('.boot-frame')).toBeVisible();
       // 本文の上の余白は、上の帯の下のパンくずの帯が 16px を取り、本文はその下を 8px 空ける（#1509）
       await expect(boot.locator('.boot-crumbs')).toHaveCSS('padding-top', '16px');
-      await expect(boot.locator('.boot-content')).toHaveCSS('padding-top', '8px');
+      // ワークスペースの画面なので、パンくずの下にタブの帯を置き、本文はその下を 16px 空ける（#1514）
+      await expect(page.locator('html')).toHaveAttribute('data-boot-tabs', 'true');
+      await expect(boot.locator('.boot-tabs')).toBeVisible();
+      await expect(boot.locator('.boot-content')).toHaveCSS('padding-top', '16px');
       await expect(page.locator('html')).toHaveAttribute('data-boot', 'tree');
       await expect(boot.locator('.boot-body .boot-row .is-select')).toHaveCount(4);
       await expect(boot.locator('.boot-skeleton')).toBeHidden();
@@ -111,6 +114,7 @@ for (const pointer of ['細かいポインター', '指で押す 1024px'] as con
       const bootTopbar = await shownBox(boot.locator('.boot-topbar'));
       const bootHead = await shownBox(boot.locator('.boot-head'));
       const bootCrumbs = await shownBox(boot.locator('.boot-crumbs'));
+      const bootTabs = await shownBox(boot.locator('.boot-tablist'));
       const bootMark = await shownBox(boot.locator('.boot-start .is-mark'));
       const bootToggle = await shownBox(boot.locator('.boot-start .is-toggle'));
 
@@ -119,10 +123,12 @@ for (const pointer of ['細かいポインター', '指で押す 1024px'] as con
       await expect(boot).toHaveCount(0);
       // 描いた後は、骨組みの形の印を html に残さない
       await expect(page.locator('html')).not.toHaveAttribute('data-boot');
+      await expect(page.locator('html')).not.toHaveAttribute('data-boot-tabs');
       const binding = await shownBox(page.locator('.binding'));
       const topbar = await shownBox(page.locator('.topbar'));
       const head = await shownBox(page.locator('.page-head'));
       const crumbs = await shownBox(page.locator('.sheet-crumbs'));
+      const tabs = await shownBox(page.locator('.route-tabs'));
       const mark = await shownBox(page.locator('.topbar-start .brand-art'));
       const toggle = await shownBox(page.locator('.nav-toggle'));
       expect(bootBinding.width).toBe(binding.width);
@@ -142,6 +148,10 @@ for (const pointer of ['細かいポインター', '指で押す 1024px'] as con
       expect(bootCrumbs.x).toBe(crumbs.x);
       expect(bootCrumbs.y).toBe(crumbs.y);
       expect(bootCrumbs.height).toBe(crumbs.height);
+      // タブの帯も、パンくずの下の同じ位置と高さにある（#1514）
+      expect(bootTabs.x).toBe(tabs.x);
+      expect(bootTabs.y).toBe(tabs.y);
+      expect(bootTabs.height).toBe(tabs.height);
       // 画面の見出しの始まりも同じ位置（本文の余白が本物と同じ）
       expect(bootHead.x).toBe(head.x);
       expect(bootHead.y).toBe(head.y);

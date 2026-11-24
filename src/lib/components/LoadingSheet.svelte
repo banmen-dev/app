@@ -57,7 +57,8 @@
       {#if tabs}
         <div class="sheet-tabs" aria-hidden="true">
           <div class="route-tabs">
-            {#each { length: loadingTabCount }, i (i)}<span class="skeleton-tab"><span class="skeleton-line"></span></span
+            {#each { length: loadingTabCount }, i (i)}<span class="skeleton-tab"
+                ><span class="skeleton-line"></span></span
               >{/each}
           </div>
         </div>

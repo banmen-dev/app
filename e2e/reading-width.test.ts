@@ -92,10 +92,12 @@ test('左のメニューの「ワークスペース」は見出しの1回だけ�
   await expect(nav.locator('.ws-menu-button')).toHaveAccessibleName(/ワークスペース/);
 });
 
-test('選択中のメニューとパンくずの今の画面は太さ 600、群の見出しは字間を広げない', async ({ page }) => {
+test('選択中のメニューとタブとパンくずの今の画面は太さ 600、群の見出しは字間を広げない', async ({ page }) => {
+  await page.goto('/aoba');
+  await expect(page.locator('#app-nav .nav-item[aria-current="page"]')).toHaveCSS('font-weight', '600');
   await page.goto(`/aoba/w/${WORKSPACE.id}`);
   await expect(page.locator('.tree-row').first()).toBeVisible();
-  await expect(page.locator('#app-nav .nav-item[aria-current="page"]')).toHaveCSS('font-weight', '600');
+  await expect(page.locator('.route-tab[aria-current="page"]')).toHaveCSS('font-weight', '600');
   await expect(page.locator('.breadcrumb-item[aria-current="page"]')).toHaveCSS('font-weight', '600');
   const group = page.locator('#app-nav .nav-group').first();
   const spacing = await group.evaluate((element) => {

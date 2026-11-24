@@ -154,10 +154,11 @@ test.describe('所属が1つの一般のメンバー', () => {
     await page.keyboard.press('Tab');
     await page.keyboard.press('Tab');
     await expect(listOf(page)).toBeHidden();
-    // メニューの順は「受信箱」「バックログ」。続く Tab で次の項目へ移る
-    await expect(page.locator('.nav-item', { hasText: '受信箱' })).toBeFocused();
+    // 761px 以上の左のメニューは切り替えで終わる（機能はタブ。#1514）。続く Tab で本文の上のパンくずへ移る
+    const crumbs = page.getByRole('navigation', { name: 'パンくず' }).getByRole('link');
+    await expect(crumbs.first()).toBeFocused();
     await page.keyboard.press('Tab');
-    await expect(page.locator('.nav-item', { hasText: 'バックログ' })).toBeFocused();
+    await expect(crumbs.nth(1)).toBeFocused();
     await button.click();
     await expect(listOf(page)).toBeVisible();
     await page.getByRole('heading', { level: 1, name: 'バックログ', exact: true }).click();

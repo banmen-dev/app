@@ -191,7 +191,7 @@ test.beforeEach(async ({ context, baseURL }) => {
 test('frontmatter を表で読み、読めない YAML と値の無いページも保存して読める', async ({ page }) => {
   const violations = await watchViolations(page);
   await createWorkspace(page, 'Wikiのメタデータ');
-  await page.locator('.nav-item', { hasText: /^Wiki$/ }).click();
+  await page.locator('.route-tab', { hasText: /^Wiki$/ }).click();
   await page.getByRole('button', { name: 'ページを足す', exact: true }).click();
   const source =
     '---\ntitle: 手順の情報\nowner: 青葉\nreviewed: 2026-11-03\npeople: [青葉, 若葉]\nreview: {done: true}\nblank: ""\nmarkup: "<img src=x> **文字**"\n' +
@@ -256,7 +256,7 @@ test('frontmatter を表で読み、読めない YAML と値の無いページ�
 test('Wiki の木から親子を作り、番号の URL のまま題と本文を直せる', async ({ page }) => {
   const violations = await watchViolations(page);
   await createWorkspace(page, 'Wikiの手順書');
-  await page.locator('.nav-item', { hasText: /^Wiki$/ }).click();
+  await page.locator('.route-tab', { hasText: /^Wiki$/ }).click();
   await expect(page).toHaveTitle('Wiki・Wikiの手順書 - Banmen');
   await expect(page.getByRole('heading', { level: 1, name: 'Wiki' })).toBeVisible();
   await expect(page.getByText('ページはまだありません', { exact: true })).toBeVisible();
@@ -291,7 +291,7 @@ test('Wiki の木から親子を作り、番号の URL のまま題と本文を�
   await page.getByRole('button', { name: '保存する', exact: true }).click();
   await expect(page.getByRole('heading', { level: 2, name: '新しい手順' })).toBeVisible();
   expect(page.url()).toBe(childUrl);
-  await expect(page.locator('.nav-item[aria-current="page"]')).toHaveText('Wiki');
+  await expect(page.locator('.route-tab[aria-current="page"]')).toHaveText('Wiki');
   const parentLink = page.locator('.doc-box a', { hasText: '親の手順' });
   await expect(parentLink).not.toHaveAttribute('target', '_blank');
   await parentLink.click();
@@ -304,7 +304,7 @@ test('Wiki の木から親子を作り、番号の URL のまま題と本文を�
 
 test('同時保存の競合で入力を残し、今の版と見比べてから保存する', async ({ page, context }) => {
   await createWorkspace(page, 'Wikiの同時編集');
-  await page.locator('.nav-item', { hasText: /^Wiki$/ }).click();
+  await page.locator('.route-tab', { hasText: /^Wiki$/ }).click();
   await page.getByRole('button', { name: 'ページを足す', exact: true }).click();
   await page.getByLabel('題', { exact: true }).fill('共有の決まり');
   await page.getByLabel('本文', { exact: true }).fill('最初の本文');
@@ -365,7 +365,7 @@ for (const scope of ['organization', 'workspace'] as const) {
       await expect(page).toHaveURL(/\/aoba\/wiki$/);
     } else {
       await createWorkspace(page, 'Wikiのエディタ');
-      await page.locator('.nav-item', { hasText: /^Wiki$/ }).click();
+      await page.locator('.route-tab', { hasText: /^Wiki$/ }).click();
     }
     const uploads: string[] = [];
     page.on('request', (request) => {
@@ -476,7 +476,7 @@ for (const scope of ['organization', 'workspace'] as const) {
 
 test('保存前の入力を捨てるときは確かめ、文字数の誤りは欄に示す', async ({ page }) => {
   await createWorkspace(page, 'Wikiの入力確認');
-  await page.locator('.nav-item', { hasText: /^Wiki$/ }).click();
+  await page.locator('.route-tab', { hasText: /^Wiki$/ }).click();
   await page.getByRole('button', { name: 'ページを足す', exact: true }).click();
   await page.getByLabel('題', { exact: true }).fill('長'.repeat(101));
   await page.getByRole('button', { name: '保存する', exact: true }).click();
@@ -496,7 +496,7 @@ for (const scope of ['organization', 'workspace'] as const) {
     const violations = await watchViolations(page);
     if (scope === 'workspace') {
       await createWorkspace(page, 'Wikiの版を戻す');
-      await page.locator('.nav-item', { hasText: /^Wiki$/ }).click();
+      await page.locator('.route-tab', { hasText: /^Wiki$/ }).click();
     } else await page.goto('/aoba/wiki');
     const title = 'A'.repeat(100);
     await page.getByRole('button', { name: 'ページを足す', exact: true }).click();
@@ -738,7 +738,7 @@ for (const scenario of [
 test('Wiki の題・本文を全語で探し、結果から開け、0件・上限・失敗から再検索できる', async ({ page }) => {
   const violations = await watchViolations(page);
   await createWorkspace(page, 'Wikiの検索');
-  await page.locator('.nav-item', { hasText: /^Wiki$/ }).click();
+  await page.locator('.route-tab', { hasText: /^Wiki$/ }).click();
   const title = '検索の手順';
   await page.getByRole('button', { name: 'ページを足す', exact: true }).click();
   await page.getByLabel('題', { exact: true }).fill(title);
@@ -829,7 +829,7 @@ test('Wiki の題・本文を全語で探し、結果から開け、0件・上�
 
 test('遅い検索の応答が、新しい語の0件表示を上書きしない', async ({ page }) => {
   await createWorkspace(page, 'Wiki検索の応答順');
-  await page.locator('.nav-item', { hasText: /^Wiki$/ }).click();
+  await page.locator('.route-tab', { hasText: /^Wiki$/ }).click();
   let release: (() => void) | undefined;
   const waiting = new Promise<void>((resolve) => {
     release = resolve;
@@ -872,7 +872,7 @@ test('遅い検索の応答が、新しい語の0件表示を上書きしない'
 
 test('同じ題の検索結果を親の道筋で区別し、現在のページを示す', async ({ page }) => {
   await createWorkspace(page, 'Wiki検索の道筋');
-  await page.locator('.nav-item', { hasText: /^Wiki$/ }).click();
+  await page.locator('.route-tab', { hasText: /^Wiki$/ }).click();
   await page.getByRole('button', { name: 'ページを足す', exact: true }).click();
   await page.getByLabel('題', { exact: true }).fill('同じ手順');
   await page.getByLabel('本文', { exact: true }).fill('最上段の本文');
@@ -917,14 +917,14 @@ test('組織Wikiでも題と本文で探して開け、ワークスペースのW
   await expect(page).toHaveURL(url);
   await expect(page.locator('.doc-box')).toContainText('組織だけの本文');
   await createWorkspace(page, '組織検索との分離');
-  await page.locator('.nav-item', { hasText: /^Wiki$/ }).click();
+  await page.locator('.route-tab', { hasText: /^Wiki$/ }).click();
   await page.getByRole('searchbox', { name: 'Wiki の題と本文を探す', exact: true }).fill(word);
   await expect(page.getByText('当たるページはありません。語を変えて探してください。', { exact: true })).toBeVisible();
 });
 
 test('検索の800ms待ち・変換中・空白だけの変更を区別する', async ({ page }) => {
   await createWorkspace(page, 'Wiki検索の入力状態');
-  await page.locator('.nav-item', { hasText: /^Wiki$/ }).click();
+  await page.locator('.route-tab', { hasText: /^Wiki$/ }).click();
   const calls: string[] = [];
   await routeOperation(
     page,

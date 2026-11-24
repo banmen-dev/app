@@ -18,7 +18,7 @@ test('枠の中の遅い移動は本文だけを薄くし、別のリンクで�
     await call.passThrough();
   });
   try {
-    await page.locator('.binding').getByRole('link', { name: 'バックログ', exact: true }).click();
+    await page.locator('.route-tabs').getByRole('link', { name: 'バックログ', exact: true }).click();
     const main = page.locator('main.content');
     await expect(main).toHaveAttribute('aria-busy', 'true');
     await expect(main).toHaveCSS('opacity', '0.95');
@@ -44,7 +44,7 @@ test('遅い移動の完了で戻り、引き出しでは本文を薄くしな�
     await call.passThrough();
   });
   try {
-    await page.locator('.binding').getByRole('link', { name: 'バックログ', exact: true }).click();
+    await page.locator('.route-tabs').getByRole('link', { name: 'バックログ', exact: true }).click();
     await expect(page.locator('main.content')).toHaveAttribute('aria-busy', 'true');
   } finally {
     release();
