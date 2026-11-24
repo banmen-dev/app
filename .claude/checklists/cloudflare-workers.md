@@ -28,7 +28,7 @@
 
 ## 外への通信
 
-- 通信先が、取り込み元（Backlog、GitHub）と GitHub のログイン、Google のログイン（認可の URL への移動と、トークンのエンドポイント `oauth2.googleapis.com` だけ）、フィードバックの起票先（GitHub の API の banmen-dev/app の Issue だけ。`docs/requirements.md` の「フィードバック」）以外に及ぶこと（テレメトリは送らない。AI の機能を入れたときの Anthropic の扱いは `docs/ai.md`）
+- 通信先が、取り込み元（Backlog、GitHub）と GitHub のログイン、Google のログイン（認可の URL への移動と、トークンのエンドポイント `oauth2.googleapis.com` だけ）、フィードバックの起票先（`api.github.com` の、App のインストールのトークンを作る `POST /app/installations/<ID>/access_tokens` と、banmen-dev/app の Issue を立てる `POST /repos/banmen-dev/app/issues` だけ。`docs/requirements.md` の「フィードバック」）以外に及ぶこと（テレメトリは送らない。AI の機能を入れたときの Anthropic の扱いは `docs/ai.md`）
 - `fetch()` にタイムアウトが無い（`AbortSignal.timeout()` を渡す）
 - `fetch()` に `redirect: 'error'` を渡している（Workers は `follow` と `manual` しか受け付けず、`TypeError` で全部の通信が落ちた。追わないなら `'manual'` にし、3xx は `res.ok` の分岐で失敗に）
 - 外への通信のテストで、差し替えた fetcher が `RequestInit` を確かめていない（fetcher の中で `new Request(input, init)` を作り、Workers の実行環境が設定を受け付けるかまで確かめること）

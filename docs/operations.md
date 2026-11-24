@@ -221,10 +221,10 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
 6. 本番は `wrangler secret put FEEDBACK_GITHUB_APP_ID` と `wrangler secret put FEEDBACK_GITHUB_INSTALLATION_ID` で入れ、鍵は PKCS#8 に直したものを中間のファイルを作らずに流し込む。入れた後に、落とした `.pem` を消す
 
    ```bash
-   set -o pipefail; openssl pkcs8 -topk8 -nocrypt -in banmen-feedback.<日付>.private-key.pem | pnpm exec wrangler secret put FEEDBACK_GITHUB_PRIVATE_KEY
+   ( key="$(openssl pkcs8 -topk8 -nocrypt -in banmen-feedback.<日付>.private-key.pem)" && [ -n "$key" ] && printf '%s\n' "$key" | pnpm exec wrangler secret put FEEDBACK_GITHUB_PRIVATE_KEY )
    ```
 
-   `pipefail` を付けないと、`openssl` が失敗しても `wrangler` が空の値で上書きして成功に見える。入れた後に、ダッシュボードの Variables and Secrets に `FEEDBACK_GITHUB_PRIVATE_KEY` があることを見て、上の「送信を含む版を出す前に」の手順 3 で送れることを確かめる。ダッシュボード（Worker の Settings → Variables and Secrets、Type は `Secret`）で入れるときは、`openssl pkcs8 -topk8 -nocrypt -in <落とした.pem>` を端末に出し（ファイルに書かない）、先頭が `-----BEGIN PRIVATE KEY-----` の改行を含めた全体を貼る
+   変換が失敗するか空のときは流し込まない（パイプで直につなぐと、`openssl` が失敗しても `wrangler` が空の値で上書きする）。括弧のサブシェルで、鍵を端末のセッションの変数に残さない。ダッシュボードの一覧は値が空でも名前を出すので、入れたかの確かめにならない。入れた後の確かめは、下の「送信を含む版を出す前に」の手順 3 で実際に送れることだけ。上のコマンドで入れる（ダッシュボードで入れると、平文の鍵が画面とクリップボードを通る）。やむを得ずダッシュボード（Worker の Settings → Variables and Secrets、Type は `Secret`）で入れるときは、`openssl pkcs8 -topk8 -nocrypt -in <落とした.pem>` を端末に出し（ファイルに書かない）、先頭が `-----BEGIN PRIVATE KEY-----` の改行を含めた全体を貼る
 7. GitHub の banmen-dev/app に `feedback` のラベルがあることを確かめる（`gh api repos/banmen-dev/app/labels/feedback`。2026-11-24 に作った）。無いときの GitHub の振る舞い（作るか、黙って落とすか）に頼らないよう、ラベルは先に作っておき、消さない
 
 決まり。
@@ -232,7 +232,7 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
 - 3つのどれかが未設定か空だと、フィードバックの送信は断る。ほかの機能は動き、`/api/health` は 200 のまま
 - 開発用とプレビューには入れない。手元の確かめは GitHub への通信を模擬する（プレビューの決まり「外部連携の本番の秘密は入れない」と同じ）
 - 鍵を入れ替えるときは、App で新しい鍵を作り、PKCS#8 に直して `FEEDBACK_GITHUB_PRIVATE_KEY` を書き換え、送信が動くことを確かめてから古い鍵を App で消す
-- 鍵は git、ログ、Issue、PR に書かない。漏れたと分かったら、App で鍵を消して作り直す。漏れた鍵でできるのは、Issue を立てることだけではない。Issues の書き込みは、banmen-dev/app のすべての Issue とコメントの題と本文の書き換え、閉じる、ラベル（PR の `needs-human` を含む）の付け外しに及ぶ。セッションは Issue とコメントの信頼を作者で決めるので、身内の Issue の本文を書き換えると、開発のセッションに指示を仕込める。漏れていた疑いがあれば、鍵を作り直した後に、その間に App の bot が行ったことを洗い出し、戻す。見るのは、Issue と PR の題と本文、Issue と PR の会話のコメント（AI レビューのまとめを含む）の編集の履歴、timeline の `renamed`、`labeled`、`unlabeled`（特に PR の `needs-human` と `ai-review`）、`closed`、`reopened`、サブ Issue と依存関係の付け外し。コメントと Issue の削除は timeline に残らないので、banmen-dev の Organization の audit log（Settings → Audit log、`actor:` に App の bot）も見る
+- 鍵は git、ログ、Issue、PR に書かない。漏れたと分かったら、App で鍵を消して作り直す。漏れた鍵でできるのは、Issue を立てることだけではない。Issues の書き込みは、banmen-dev/app のすべての Issue とコメントの題と本文の書き換え、閉じる、ラベル（PR の `needs-human` を含む）の付け外しに及ぶ。セッションは Issue とコメントの信頼を作者で決めるので、身内の Issue の本文を書き換えると、開発のセッションに指示を仕込める。漏れていた疑いがあれば、鍵を作り直した後に、その間に App の bot が行ったことを洗い出し、戻す。見るのは、ラベルそのものの削除と改名（`needs-human` を消すか改名すると、人が読むはずの PR が人に聞かずにマージされうる。ラベルの一覧と `.github/labeler.yml` を突き合わせる）、Issue と PR のアサイン、マイルストーン、ロック、Issue と PR の題と本文、Issue と PR の会話のコメント（AI レビューのまとめを含む）の編集の履歴、timeline の `renamed`、`labeled`、`unlabeled`（特に PR の `needs-human` と `ai-review`）、`closed`、`reopened`、サブ Issue と依存関係の付け外し。コメントと Issue の削除は timeline に残らないので、banmen-dev の Organization の audit log（Settings → Audit log、`actor:` に App の bot）も見る
 - App の権限を足さない。足すと、漏れたときに書けるものが増え、インストールの承認も要る
 - 画像、URL、アカウントの ID は R2 の `feedback/` に置き、上の「R2」のライフサイクルの規則で消す。公開の Issue には載せない
 - 運用者は、Issue の本文のフィードバックの ID で、Cloudflare のダッシュボードの R2 Object Storage → `banmen-attachments` → `feedback/<ID>/` を開いて画像と `meta.json` を見る（運用の画面に口ができるまで）。画像はダウンロードして見る
@@ -243,7 +243,7 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
 
 1. 上の手順 1〜7 で App とシークレットを用意し、上の「R2」の `feedback-180d` の規則を入れる
 2. 同じ PR で、プライバシーポリシー（`src/lib/legal/privacy.md`）を下の文案で改め、版（`PRIVACY_VERSION`）と `seed/data.sql` の同意の行の版を上げる（下の「規約を改めるとき」。版を上げると全員が同意し直す）。文案は #1551 で決めた。機能の無い版で全員に同意し直させないよう、#1551 では文面も版も変えていない
-3. 出した後に、自分のアカウントで1件送り、Issue の題、本文（文の囲い、フィードバックの ID、アカウントの ID が無いこと）、`feedback` のラベル、R2 の `feedback/<ID>/` の画像と `meta.json` を見る。見た Issue は閉じて削除する
+3. 出した後に、自分のアカウントで1件送り、Issue の作者が App の bot（`user.type` が `Bot`、`author_association` が身内でない）であること、Issue の題、本文（文の囲い、フィードバックの ID、アカウントの ID が無いこと）、`feedback` のラベル、R2 の `feedback/<ID>/` の画像と `meta.json` を見る。見た Issue は閉じて削除する
 
 プライバシーポリシーの文案（`src/lib/legal/privacy.md` に足すもの）。
 
