@@ -67,7 +67,9 @@
 | 共通 | `accounts`、`account_profiles`、`account_logins`、`password_credentials`、`sessions`、`api_tokens`、`account_consents`、`oauth_states`、`rate_limits`、`organizations`、`organization_contracts`、`billing_administrators`、`billing_admin_events` | 共通の DB に1つだけ |
 | 組織の中 | それ以外のすべて | 組織が置かれた DB |
 
-添付ファイルの中身は D1 ではなく R2 に置く。`wrangler.jsonc` の binding は `ATTACHMENTS`、本番のバケット名は `banmen-attachments`。R2 のキーの先頭は組織の ID なので、D1 を分けても R2 は分けずに済む。プロフィール画像の中身も同じバケットに、`<組織の ID>/avatars/<users.id>/<画像の ID>` で置く（`user_avatars`）。組織の接頭辞の下に置くので、組織のデータを消す手順（`docs/operations.md`）で接頭辞ごと消える。
+添付ファイルの中身は D1 ではなく R2 に置く。`wrangler.jsonc` の binding は `ATTACHMENTS`、本番のバケット名は `banmen-attachments`。組織のデータ（添付ファイルとプロフィール画像）のキーの先頭は組織の ID なので、D1 を分けても R2 は分けずに済む。組織の ID で始まらないキーは、掃除の進捗の `system/` と、下のフィードバックの `feedback/` だけ。プロフィール画像の中身も同じバケットに、`<組織の ID>/avatars/<users.id>/<画像の ID>` で置く（`user_avatars`）。組織の接頭辞の下に置くので、組織のデータを消す手順（`docs/operations.md`）で接頭辞ごと消える。
+
+フィードバック（`docs/requirements.md` の「機能」の「フィードバック」）は D1 に行を持たず、同じバケットの `feedback/<フィードバックの ID>/` に、添えた画像と `meta.json`（送った画面の URL（オリジンとパスだけ）、送った人のアカウントの ID、立てた Issue の番号、送った日時）を置く。フィードバックの ID はサーバーが送信ごとに作る UUIDv7 で、クライアントから受けない。公開の Issue の本文にはこの ID を載せ、運用者は ID から R2 のファイルを辿る。書く順と失敗の扱いは要件の「フィードバック」の節。組織の接頭辞の外に置くので、D1 を分けても動かさず、組織のデータを消す手順でも消えない（`system/cleanup-attachments-cursor` と同じく、組織の削除の対象にしない）。消すのは R2 のライフサイクルの規則（接頭辞 `feedback/`、180 日。`docs/operations.md` の「R2」）だけで、アプリは消さない。見るのは運用者だけ。
 
 - 共通の表から組織の中の表へは外部キーを張らない。
 - 組織の中の表から共通の表へ張る外部キーは、`users.account_id` と、`users`、`workspaces`、`organization_holidays`、`delegatees`、`change_logs`、`wiki_pages`（組織の Wiki のページだけが持つ列）の `organization_id` だけにする。分けるときはこれらを外し、アプリの検査に替える。
@@ -240,13 +242,13 @@
 
 ### rate_limits
 
-ログイン（OAuth の手段とパスワード）、画面のエラーの送信（`POST /api/client-errors`）、手動の同期、招待（GitHub に問い合わせる `invitee-resolve` と `invitation-create`。`invitation-create` は GitHub に問い合わせない Google の招待も同じ枠で数える）、完成の定義の変更（`workspace-dod-update`。10 万字の本文を書く）、コメントの作成と編集（`comment-create`、`comment-update`。10 万字の本文を何件でも足せる。どれも 10 分に 30 回）、Wiki のページの作成、保存、アップロード（`org-wiki-page-create`、`org-wiki-page-update`、`org-wiki-upload` と、`workspace-wiki-` で始まる同じ3つ。保存のたびに版を残し、1ページが最悪で約 40MB になる。どれも 10 分に 30 回。`upload` はファイル数ぶんを数える）、添付ファイルを上げる操作（`attachment-upload`。組織の合計の上限と掃除が入るまでの仮の蓋で、10 分に 60 回）のレート制限。
+ログイン（OAuth の手段とパスワード）、画面のエラーの送信（`POST /api/client-errors`）、手動の同期、招待（GitHub に問い合わせる `invitee-resolve` と `invitation-create`。`invitation-create` は GitHub に問い合わせない Google の招待も同じ枠で数える）、完成の定義の変更（`workspace-dod-update`。10 万字の本文を書く）、コメントの作成と編集（`comment-create`、`comment-update`。10 万字の本文を何件でも足せる。どれも 10 分に 30 回）、Wiki のページの作成、保存、アップロード（`org-wiki-page-create`、`org-wiki-page-update`、`org-wiki-upload` と、`workspace-wiki-` で始まる同じ3つ。保存のたびに版を残し、1ページが最悪で約 40MB になる。どれも 10 分に 30 回。`upload` はファイル数ぶんを数える）、添付ファイルを上げる操作（`attachment-upload`。組織の合計の上限と掃除が入るまでの仮の蓋で、10 分に 60 回）、フィードバックの送信（アカウントごとに 1 時間に 10 回と、全体の枠 `feedback:global` の 1 時間に 60 回）のレート制限。
 
 | 列 | 型 | 制約 | 説明 |
 | --- | --- | --- | --- |
-| key | TEXT | PK | `login:<IP>`（ログインの開始と戻り先。`CF-Connecting-IP`。IPv6 は上位 64 ビットに丸めた `login:2001:db8:1:2::/64` と、上位 48 ビットの `login48:2001:db8:1::/48` の2つ。IPv4 を写した IPv6 は IPv4 に直す。解釈できない値と IP の無いリクエストは `login:unknown`）、`login:global`（ログインの開始の全体の枠）、`client-error:<IP>`（画面のエラーの送信。IP の丸め方はログインと同じで、IPv6 は `client-error:<…>::/64` と `client-error48:<…>::/48`、解釈できない値は `client-error:unknown`）、`client-error:global`（画面のエラーの送信の全体の枠）、`operation:<操作の名前>:<アカウントの ID>`（操作の定義の `rateLimit`）、`password:<IP>`（パスワードのログイン。IP の丸め方はログインと同じで、IPv6 は `password:<…>::/64` と `password48:<…>::/48`、解釈できない値は `password:unknown`）、`password-email:<そろえたメールアドレスの SHA-256 の16進>`（パスワードのログインの、メールアドレスごとの枠。メールアドレスそのものは持たない） |
+| key | TEXT | PK | `login:<IP>`（ログインの開始と戻り先。`CF-Connecting-IP`。IPv6 は上位 64 ビットに丸めた `login:2001:db8:1:2::/64` と、上位 48 ビットの `login48:2001:db8:1::/48` の2つ。IPv4 を写した IPv6 は IPv4 に直す。解釈できない値と IP の無いリクエストは `login:unknown`）、`login:global`（ログインの開始の全体の枠）、`client-error:<IP>`（画面のエラーの送信。IP の丸め方はログインと同じで、IPv6 は `client-error:<…>::/64` と `client-error48:<…>::/48`、解釈できない値は `client-error:unknown`）、`client-error:global`（画面のエラーの送信の全体の枠）、`feedback:global`（フィードバックの送信の全体の枠。アカウントごとの枠は操作の定義の `rateLimit` で数える）、`operation:<操作の名前>:<アカウントの ID>`（操作の定義の `rateLimit`）、`password:<IP>`（パスワードのログイン。IP の丸め方はログインと同じで、IPv6 は `password:<…>::/64` と `password48:<…>::/48`、解釈できない値は `password:unknown`）、`password-email:<そろえたメールアドレスの SHA-256 の16進>`（パスワードのログインの、メールアドレスごとの枠。メールアドレスそのものは持たない） |
 | window_start_at | TEXT | NOT NULL | 窓の最初の呼び出しの日時 |
-| count | INTEGER | NOT NULL | 窓の中の呼び出しの数。操作の定義の枠は、上限を超えた呼び出しも数える。ログインと画面のエラーの送信の枠は、覗いた時点で上限に届いていれば数えない（覗いた後に並行した呼び出しは、上限を少し超えて数えることがある） |
+| count | INTEGER | NOT NULL | 窓の中の呼び出しの数。操作の定義の枠は、上限を超えた呼び出しも数える。ログインと画面のエラーの送信の枠と `feedback:global` は、覗いた時点で上限に届いていれば数えない（覗いた後に並行した呼び出しは、上限を少し超えて数えることがある） |
 
 - 1文の upsert（`INSERT ... ON CONFLICT DO UPDATE ... RETURNING count`）で数える。`window_start_at` から窓の長さがたっていれば、`window_start_at` を今に、`count` を 1 に戻す。返った `count` が上限以下なら通す。
 - 重みつきで数える枠は `upload`（Wiki の .md のアップロード）だけ。ファイル数 N は入力の中にあり、操作の定義の `rateLimit` は入力を読む前に1回だけ数える（重みを持たない）ので、`upload` は入力を検証した後に、`count` を N 増やす upsert（窓が切れていれば `count` を N に戻す）を1文で送る。上限（10 分に 30 回）を超えるなら 429 で断り、書き込みはしない。`define.ts` の `weightedRateLimit`（`max`、`windowSeconds`、検証済み入力から件数を返す `weight`）で定義する。通常の `rateLimit` と同時には付けられない。
@@ -269,8 +271,9 @@
 - 残る限界: `Sec-Fetch` を送らない古いブラウザには、`<img>` で読ませる攻撃が通る。同じ IP を共有する人（同じオフィス）が、意図して枠を使い切ることは止められない。IP を多く持つ人は、IPv4 なら約10個（窓の境目をまたげば約5個）、IPv6 なら約5個（窓の境目をまたげば約3個）の /48 で全体の枠を使い切り、新しいログインを止められる。止まるのは新しいログインだけで、ログイン済みの人はセッションの期限まで使い続ける。覗いて断った呼び出しにも、Workers のリクエストと D1 の読み出しの料金はかかる。行の無い `state` を Cookie と合わせて送る戻り先も、枠では止まらず `oauth_states` の `DELETE` まで届く（消す行が無いので書き込みは0行）。リクエストの量そのものを止めるのは、ドメインを取った後の WAF の役目。
 - パスワードのログイン（`POST /api/auth/password/login`）は、OAuth のログインと別のキーで数える。10分に、同じ IP（IPv6 は /64）から30回、IPv6 の /48 は60回、同じメールアドレス（そろえた形の SHA-256）に向けて10回まで。順はログインの IP の枠と同じく、全部の枠を覗いて上限に届いた枠があれば何も書かずに断り、通ったら /48、/64（か IPv4）、メールアドレスの順に数える。照合の前に、成功も含めて数え、メールアドレスの登録の有無に依らず数える。そろえられないメールアドレスは IP の枠だけを数える。全体の枠は置かない（未ログインの人が書かせられる行は IP の枠で抑えられ、1回の照合の CPU は約 12ms）。アカウントは締め出さず、窓が過ぎれば通る。値は `src/server/auth/rate-limit.ts` の `PASSWORD_LOGIN_RATE_LIMITS`。
 - パスワードの指名 URL の照会は OAuth ログインのネットワーク枠（`login:`、`login48:`）を使う。承諾はパスワードのネットワーク枠（`password:`、`password48:`）と、指名されたメールアドレスの枠（`password-email:`）を使う。
+- フィードバックの送信は、アカウントごとの枠（操作の定義の `rateLimit`、1時間に10回。権限の検査の後、入力を読む前に、断った呼び出しも数える）に加えて、全部のアカウントを合わせた全体の枠 `feedback:global` を1時間に60回まで数える。公開のリポジトリへの荒らしと GitHub の二次レート制限に備えるため。全体の枠は、入力の検証の前に覗いて上限に届いていれば何も書かずに断り、検証を通った呼び出しだけを、画像を R2 に書く前に数える（数えて上限を超えたら、R2 にも GitHub にも何も書かずに断る）（画面のエラーの送信の全体の枠 `consumeClientErrorRateLimits` に倣う。アカウントの枠で断った呼び出しと検証で落ちた呼び出しで全体の枠を減らさない）。起票が GitHub で失敗しても、数えた分は戻さない。残る限界: 会員登録が開いているので、6つのアカウントで全体の枠を使い切ると、その1時間はほかの人が送れない。
 - 手動の同期の「接続ごとに5分に1回」は、この表ではなく `connections.last_manual_sync_at` で判定する。
-- `window_start_at <= 定期処理の基準の時刻 - 最長の窓` の行を、毎分の定期処理で消す（「期限切れの行の掃除」）。最長の窓は、ログイン（パスワードを含む）と画面のエラーの送信の枠（`src/server/auth/rate-limit.ts`）と操作の定義の `rateLimit` の窓のうち最も長いもの。短い窓の枠を過ぎていても、最長の窓の内にある行は残す。最長の窓に入らない窓の枠は、`consumeRateLimit` が例外にする。
+- `window_start_at <= 定期処理の基準の時刻 - 最長の窓` の行を、毎分の定期処理で消す（「期限切れの行の掃除」）。最長の窓は、ログイン（パスワードを含む）と画面のエラーの送信の枠（`src/server/auth/rate-limit.ts`）、フィードバックの全体の枠 `feedback:global`、操作の定義の `rateLimit` の窓のうち最も長いもの。フィードバックの枠（1時間）を入れると最長の窓は10分から1時間になり、短い窓の枠の行（IP のキーを含む）も最大1時間残る（プライバシーポリシーの「回数を数えるための IP アドレス」の期間も、送信を出す PR で「最長で1時間」に改める）。全体の枠の定数は `longestRateLimitWindowMs` に足し、操作の定義の窓を縮めても最長の窓から外れないようにする。短い窓の枠を過ぎていても、最長の窓の内にある行は残す。最長の窓に入らない窓の枠は、`consumeRateLimit` が例外にする。
 
 ### 期限切れの行の掃除
 

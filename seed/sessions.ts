@@ -28,6 +28,11 @@ export const SEED_SESSIONS = {
     accountId: '019a0000-0000-7000-8000-000000000104',
     description: 'どの組織にも属さない運用者',
   },
+  billingAdmin: {
+    token: 'dev-seed-billing-admin-00000000000000000000',
+    accountId: '019a0000-0000-7000-8000-000000000117',
+    description: '4つの担当組織の招待を承諾した請求管理者（アカネ）。業務用の所属は持たない',
+  },
   invitee: {
     token: 'dev-seed-invitee-00000000000000000000000000',
     accountId: '019a0000-0000-7000-8000-000000000108',
