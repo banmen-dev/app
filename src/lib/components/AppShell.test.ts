@@ -140,7 +140,7 @@ test('起票のコードを読む前も、ボタンのaria-controlsが指すid�
   expect(body).not.toContain('<dialog');
 });
 
-test('組織の切り替えは角のマスではなく、上の帯のアシスタントとアカウントの間に置く（#1510）', () => {
+test('組織の切り替えは上の帯のアシスタントとアカウントの間に置く（#1510）', () => {
   const body = render(AppShell, {
     props: {
       current: '/aoba',
@@ -153,10 +153,30 @@ test('組織の切り替えは角のマスではなく、上の帯のアシス�
       children: createRawSnippet(() => ({ render: () => '<p>架空の本文</p>' })),
     },
   }).body.replace(/<!--[^>]*-->/g, '');
-  const head = body.match(/<div class="binding-head">[\s\S]*?<div class="binding-body">/)?.[0] ?? '';
-  expect(head).toContain('class="brand"');
-  expect(head).toContain('class="nav-toggle"');
-  expect(head).not.toContain('org-menu');
-  const topbar = body.match(/<div class="topbar">[\s\S]*?(?=<div class="sheet-crumbs">)/)?.[0] ?? '';
+  const topbar = body.match(/<div class="topbar">[\s\S]*?(?=<aside class="binding")/)?.[0] ?? '';
   expect(topbar).toMatch(/assist-launch[\s\S]*class="org-menu"[\s\S]*class="account-menu"/);
+  const binding = body.match(/<aside class="binding"[\s\S]*?<\/aside>/)?.[0] ?? '';
+  expect(binding).not.toContain('org-menu');
+});
+
+// 上の帯は全幅で .app の先頭に置き、左端に開閉のボタン、マークの順で並べる。左のメニューと本文はその後に続く（#1511）
+test('上の帯は枠の先頭にあり、左端に開閉のボタンとマークを並べ、左のメニューに角のマスを持たない（#1511）', () => {
+  const body = render(AppShell, {
+    props: {
+      current: '/aoba',
+      slug: 'aoba',
+      hasWorkspace: false,
+      isAdmin: false,
+      account: createRawSnippet(() => ({ render: () => '<div class="account-menu">架空の人</div>' })),
+      children: createRawSnippet(() => ({ render: () => '<p>架空の本文</p>' })),
+    },
+  }).body.replace(/<!--[^>]*-->/g, '');
+  expect(body).toMatch(/<div class="app"[^>]*>\s*<div class="topbar">\s*<div class="topbar-start">/);
+  const start = body.match(/<div class="topbar-start">[\s\S]*?<\/a>\s*<\/div>/)?.[0] ?? '';
+  expect(start).toMatch(/class="nav-toggle"[\s\S]*class="brand" href="\/aoba"/);
+  expect(start).toContain('aria-controls="app-nav"');
+  expect(start).toContain('aria-expanded="true"');
+  expect(body.indexOf('class="topbar"')).toBeLessThan(body.indexOf('class="binding"'));
+  expect(body.indexOf('class="binding"')).toBeLessThan(body.indexOf('class="sheet"'));
+  expect(body).not.toContain('binding-head');
 });

@@ -28,11 +28,11 @@
   const createSheetId = $props.id();
   let createSheet = $state<ReturnType<typeof CreateSheet>>();
 
-  // kit.js の mount が組む画面の枠。左上の角のマス（マークと開閉のボタン）と全幅の上の帯が十字に分かれ、
-  // 左のメニュー（綴じ）と本文（帳面）が続く。slug は今の組織で、組織の中の画面だけが使う。
+  // kit.js の mount が組む画面の枠。全幅の上の帯（左端に開閉のボタンとマーク）の下に、
+  // 左のメニュー（綴じ）と本文（帳面）が並ぶ。slug は今の組織で、組織の中の画面だけが使う。
   // 組織の切り替え（上の帯の右、アカウントの左。760px 以下は浮きメニューの先頭）、ワークスペースの切り替え、アシスタントのボタンは置き場所だけで、中身は snippet で渡す。
   // workspace はメニューの対象。「今日やること」など組織の画面でも渡す。
-  // 761px 以上は、上の帯に検索、assistant、組織の切り替え、account を右に寄せて並べ、パンくず（組織 › ワークスペース › 画面）は本文の見出しの上の帯（.sheet-crumbs）に出す。
+  // 761px 以上は、上の帯の左に開閉のボタンとマーク、右に検索、assistant、組織の切り替え、account を寄せて並べ、パンくず（組織 › ワークスペース › 画面）は本文の見出しの上の帯（.sheet-crumbs）に出す。
   // スマホは PageHead の右に検索と account を移し、PageHead が無い画面だけ代わりの見出しを置く
   let {
     current,
@@ -204,25 +204,31 @@
 
 <div class="app" data-nav-collapsed={navState.collapsed ? 'true' : undefined}>
   {#if !narrow.current}
+    <div class="topbar">
+      <div class="topbar-start">
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-expanded={!navState.collapsed}
+          aria-controls={NAV_MENU_ID}
+          aria-label={t(navState.collapsed ? 'menuExpand' : 'menuCollapse')}
+          onclick={() => setNavCollapsed(!navState.collapsed)}
+        >
+          <Icon name="panel" />
+          <span class="nav-tip" aria-hidden="true">{t(navState.collapsed ? 'menuExpand' : 'menuCollapse')}</span>
+        </button>
+        <a class="brand" href={resolve('/[slug]', { slug })}>
+          <BrandSymbol />
+          <span class="visually-hidden">{t('appName')}</span>
+        </a>
+      </div>
+      <NavSearch screens={navScreens} {backlogHref} />
+      {#if assistant}{@render assistant()}{/if}
+      {#if organizationSwitcher}{@render organizationSwitcher()}{/if}
+      {#if account}{@render account()}{/if}
+    </div>
     <aside class="binding" aria-label={t('menu')}>
       <div class="binding-inner">
-        <div class="binding-head">
-          <a class="brand" href={resolve('/[slug]', { slug })}>
-            <BrandSymbol />
-            <span class="visually-hidden">{t('appName')}</span>
-          </a>
-          <button
-            class="nav-toggle"
-            type="button"
-            aria-expanded={!navState.collapsed}
-            aria-controls={NAV_MENU_ID}
-            aria-label={t(navState.collapsed ? 'menuExpand' : 'menuCollapse')}
-            onclick={() => setNavCollapsed(!navState.collapsed)}
-          >
-            <Icon name="panel" />
-            <span class="nav-tip" aria-hidden="true">{t(navState.collapsed ? 'menuExpand' : 'menuCollapse')}</span>
-          </button>
-        </div>
         <div class="binding-body">
           <NavMenu {current} {slug} {hasWorkspace} {isAdmin} {workspace} {workspaceSwitcher} />
         </div>
@@ -230,15 +236,6 @@
     </aside>
   {/if}
   <div class="sheet">
-    {#if !narrow.current}
-      <div class="topbar">
-        <NavSearch screens={navScreens} {backlogHref} />
-        {#if assistant}{@render assistant()}{/if}
-        {#if organizationSwitcher}{@render organizationSwitcher()}{/if}
-        {#if account}{@render account()}{/if}
-      </div>
-    {/if}
-
     {@render notice?.(narrow.current)}
     {#if !narrow.current}
       <div class="sheet-crumbs"><Breadcrumb crumbs={shownCrumbs} /></div>

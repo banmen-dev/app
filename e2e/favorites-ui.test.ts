@@ -221,9 +221,9 @@ test('畳んだメニューでは節を隠し、上限の拒否は星の近く�
   await page.goto(item.initial);
   const section = page.locator('.nav-favorites');
   await expect(section).toBeVisible();
-  await page.getByRole('button', { name: 'メニューを畳む', exact: true }).click();
+  await page.getByRole('button', { name: 'メニューを閉じる', exact: true }).click();
   await expect(section).toBeHidden();
-  await page.getByRole('button', { name: 'メニューを広げる', exact: true }).click();
+  await page.getByRole('button', { name: 'メニューを開く', exact: true }).click();
   await expect(section).toBeVisible();
   const star = page.getByRole('button', { name: 'お気に入りにする', exact: true });
   await star.click();
