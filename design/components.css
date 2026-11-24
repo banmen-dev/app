@@ -40,8 +40,8 @@ h1, h2, h3 { text-wrap: balance; }
    全幅の上の帯（高さ --header-height。左端に開閉のボタンとマーク）が1段目に通り、その下に綴じと帳面が並ぶ（Jira と同じ形）。
    帯は .app の直接の子で、格子の名前の付いた領域に置く（760px 以下は帯と綴じを出さず、帳面だけになる） */
 .app {
-  --binding-width-expanded: 240px;
-  display: grid; grid-template-columns: var(--binding-width-expanded) minmax(0, 1fr); grid-template-rows: auto 1fr;
+  --binding-width: 240px;
+  display: grid; grid-template-columns: var(--binding-width) minmax(0, 1fr); grid-template-rows: auto 1fr;
   grid-template-areas: "bar bar" "binding sheet";
   min-height: 100vh;
 }
@@ -222,9 +222,11 @@ h1, h2, h3 { text-wrap: balance; }
   }
 }
 /* 761px 以上では、左のメニューを閉じられる。閉じると列を残さず、本文が上の帯の下の全幅に広がる（Jira と同じ。#1512）。
-   綴じは DOM に残して（開閉のボタンの aria-controls の先を保つ）、見えなくし、キーボードと読み上げからも外す。
-   ホバーのできない端末（指だけのタブレットなど）でも開閉のボタンを出して閉じられる。狭い画面では下のタブバーと浮きメニューを使う */
-@media (min-width: 761px) {
+   本番の綴じは DOM に残して（開閉のボタンの aria-controls の先を保つ）、hidden でキーボードと読み上げから外す。
+   下の display: none は、hidden を持たない移る間の骨組み（LoadingSheet の .skeleton-frame）の綴じのため。
+   ホバーのできない端末（指だけのタブレットなど）でも開閉のボタンを出して閉じられる。狭い画面では下のタブバーと浮きメニューを使う。
+   760px と 761px の間の小数の幅でも、AppShell の狭い幅の判定（max-width: 760px）と隙間を作らないよう、not で分ける */
+@media not (max-width: 760px) {
   .app[data-nav-collapsed="true"] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "bar" "sheet"; }
   .app[data-nav-collapsed="true"] > .binding { display: none; }
 }

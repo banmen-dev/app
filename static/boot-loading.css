@@ -451,8 +451,9 @@ html[data-boot] #boot-loading .boot-frame {
     border: 1px solid CanvasText;
   }
 }
-/* 左のメニューを閉じたと覚えているときは、読み込んだ後と同じく左の列を出さず、本文を上の帯の下の全幅にする */
-@media (min-width: 761px) {
+/* 左のメニューを閉じたと覚えているときは、読み込んだ後と同じく左の列を出さず、本文を上の帯の下の全幅にする。
+   760px と 761px の間の小数の幅でも、design/components.css と同じく not で分ける */
+@media not (max-width: 760px) {
   html[data-boot][data-boot-nav='collapsed'] #boot-loading .boot-frame {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: 'bar' 'sheet';

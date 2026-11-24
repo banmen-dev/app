@@ -206,12 +206,20 @@ describe('最初の読み込みの骨組みの形（static/boot-shape.js）', ()
   // 閉じた形は、読み込んだ後（design/components.css の .app[data-nav-collapsed="true"]）と同じく左の列を残さない（#1512）
   test('閉じた形の骨組みは、左の列を出さず本文を全幅にする', () => {
     const css = readFileSync(new URL('../static/boot-loading.css', import.meta.url), 'utf8');
-    const frame = css.match(/html\[data-boot\]\[data-boot-nav='collapsed'\] #boot-loading \.boot-frame \{([^}]*)\}/);
+    // 狭い幅の規則（max-width: 760px）の補集合の中に置く。760px と 761px の間の小数の幅で、綴じだけ消えて空の列が残らないように
+    const block = css.match(
+      /@media not \(max-width: 760px\) \{\s*(html\[data-boot\]\[data-boot-nav='collapsed'\][\s\S]*?)\n\}/,
+    );
+    assert.ok(block, '閉じた形の規則が @media not (max-width: 760px) の中に無い');
+    const frame = block[1].match(
+      /html\[data-boot\]\[data-boot-nav='collapsed'\] #boot-loading \.boot-frame \{([^}]*)\}/,
+    );
     assert.ok(frame, '閉じた形の .boot-frame の規則が無い');
     assert.match(frame[1], /grid-template-columns: minmax\(0, 1fr\);/);
     assert.match(frame[1], /grid-template-areas: 'bar' 'sheet';/);
-    assert.match(css, /html\[data-boot-nav='collapsed'\] #boot-loading \.boot-binding \{\s*display: none;\s*\}/);
-    assert.doesNotMatch(css, /64px/);
+    assert.match(block[1], /html\[data-boot-nav='collapsed'\] #boot-loading \.boot-binding \{\s*display: none;\s*\}/);
+    // 閉じた形の規則は、開いた形の .boot-frame の規則より後に置き、同じ詳細度で順序に勝つ
+    assert.ok(css.indexOf(block[0]) > css.indexOf('html[data-boot] #boot-loading .boot-frame {'));
   });
 
   test('閉じた状態のキーは src/lib/nav-collapse.svelte.ts と同じ', () => {

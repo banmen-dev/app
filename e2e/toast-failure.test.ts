@@ -1,7 +1,7 @@
 // 失敗のトースト（左の縦線、成功より長く出る）と、URL を直接開いた最初の読み込みの表示（#boot-loading）を確かめる（#1004）。
 // 失敗は今日やることの印の付け外しを 404 で断られて作る。seed のセッション（seed/sessions.ts）の Cookie で開く。
 // 一般のユーザーはハルカ（あおば開発の受託開発チーム）、管理者はミナト。応答を差し替えるだけで、seed の行は書き換えない
-import { today } from '../src/shared/operations/organization/index.ts';
+import { organizationInfo, today } from '../src/shared/operations/organization/index.ts';
 import type { TodayTask } from '../src/shared/operations/organization/today.ts';
 import { backlogTree, taskTodayMark } from '../src/shared/operations/task/index.ts';
 import { expect, test } from './fixtures.ts';
@@ -148,6 +148,69 @@ for (const pointer of ['細かいポインター', '指で押す 1024px'] as con
     });
   });
 }
+
+// 左のメニューを閉じたと覚えているときは、最初の読み込みの骨組みも、移る間の骨組み（LoadingSheet）も、
+// 読み込んだ後と同じく左の列を出さず、本文を上の帯の下の全幅にする（#1512）
+test('閉じた左のメニューでは、最初の読み込みと移る間の骨組みにも列が無く、本文の位置が描いた後と揃う', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signIn(context, baseURL, 'admin');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.addInitScript(() => localStorage.setItem('sg-nav-collapsed', 'true'));
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  await routeOperation(page, backlogTree, { slug: 'aoba' }, async (call) => {
+    await gate;
+    await call.passThrough();
+  });
+  await page.goto(WORKSPACE, { waitUntil: 'commit' });
+
+  const boot = page.locator('#boot-loading');
+  await expect(boot.locator('.boot-frame')).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('data-boot-nav', 'collapsed');
+  await expect(boot.locator('.boot-binding')).toBeHidden();
+  const bootSheet = await shownBox(boot.locator('.boot-sheet'));
+  const bootHead = await shownBox(boot.locator('.boot-head'));
+  const bootCrumbs = await shownBox(boot.locator('.boot-crumbs'));
+  expect(bootSheet.x).toBe(0);
+
+  release();
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await expect(boot).toHaveCount(0);
+  await expect(page.locator('.app')).toHaveAttribute('data-nav-collapsed', 'true');
+  await expect(page.locator('.binding')).toBeHidden();
+  const sheet = await shownBox(page.locator('.sheet'));
+  const head = await shownBox(page.locator('.page-head'));
+  const crumbs = await shownBox(page.locator('.sheet-crumbs'));
+  expect(sheet.x).toBe(0);
+  expect(bootSheet.width).toBe(sheet.width);
+  expect(bootCrumbs.x).toBe(crumbs.x);
+  expect(bootCrumbs.y).toBe(crumbs.y);
+  expect(bootHead.x).toBe(head.x);
+  expect(bootHead.y).toBe(head.y);
+
+  // 枠の外（/）から組織へ移る間の骨組み（LoadingSheet）も、閉じた形のまま列を出さない
+  await page.goto('/');
+  let releaseOrganization: () => void = () => {};
+  const organizationGate = new Promise<void>((resolve) => (releaseOrganization = resolve));
+  await routeOperation(page, organizationInfo, { slug: 'aoba' }, async (call) => {
+    await organizationGate;
+    await call.passThrough();
+  });
+  await page
+    .getByRole('region', { name: '組織', exact: true })
+    .getByRole('link', { name: /あおば開発/ })
+    .click();
+  const frame = page.locator('.loading-overlay .skeleton-frame');
+  await expect(frame).toBeVisible();
+  await expect(frame).toHaveAttribute('data-nav-collapsed', 'true');
+  await expect(frame.locator('> .binding')).toBeHidden();
+  expect((await shownBox(frame.locator('> .sheet'))).x).toBe(0);
+  releaseOrganization();
+  await expect(page.getByRole('heading', { level: 1, name: '今日やること' })).toBeVisible();
+});
 
 for (const reducedMotion of ['no-preference', 'reduce'] as const) {
   test(`15 秒たっても描けないときは、読み込み中の文を失敗の文と再読み込みのリンクに替える（${reducedMotion}）`, async ({

@@ -29,13 +29,13 @@ function storage(value: string | null = null) {
 }
 
 describe('左のメニューの開閉の既定', () => {
-  test('未設定と不正な値は広げた状態', () => {
+  test('未設定と不正な値は開いた状態', () => {
     expect(readNavCollapsed()).toBe(false);
     storage('yes');
     expect(readNavCollapsed()).toBe(false);
   });
 
-  test('折りたたみ状態を保存し、状態にも反映する', () => {
+  test('閉じた状態を保存し、状態にも反映する', () => {
     const store = storage();
     setNavCollapsed(true);
     expect(store.setItem).toHaveBeenCalledWith(NAV_COLLAPSED_KEY, 'true');
@@ -83,7 +83,7 @@ describe('ほかのタブでの変更', () => {
     expect(navState.collapsed).toBe(true);
   });
 
-  test('キーの消去（removeItem）と、別のタブの clear() は広げた状態に戻す', () => {
+  test('キーの消去（removeItem）と、別のタブの clear() は開いた状態に戻す', () => {
     navState.collapsed = true;
     handleNavCollapsedStorage({ key: NAV_COLLAPSED_KEY, newValue: null });
     expect(navState.collapsed).toBe(false);
