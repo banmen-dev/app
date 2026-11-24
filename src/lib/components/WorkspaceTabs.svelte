@@ -25,9 +25,13 @@
 
   // 幅が足りず帯の中で横に送るとき（左のメニューを広げた 761〜850px ほど）、今の画面のタブが帯の外に隠れないよう、
   // 開いたときと画面を移るたびに帯の見える範囲へ送る。帯の横の送りだけを変え、ページの縦の位置は動かさない（scrollIntoView を使わない）
+  // 送るのは今の画面（パス）が替わったときだけ。current は親の page.url を読む getter なので、そのまま読むと
+  // `?task=` などのクエリが替わるたびに走り直し、帯の位置を測る読み出しが引き出しの出現の動き（CSS の transition）を潰す。
+  // $derived は値が同じなら下流へ知らせないので、パスが替わったときだけ走る
+  const path = $derived(current);
   let bar = $state<HTMLElement>();
   $effect(() => {
-    void current;
+    void path;
     const tab = bar?.querySelector<HTMLElement>('[aria-current="page"]');
     if (!bar || !tab) return;
     // 帯（position: relative）がタブの offsetParent なので、offsetLeft は帯の左端からの位置
