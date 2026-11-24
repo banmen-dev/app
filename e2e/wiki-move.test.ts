@@ -127,6 +127,8 @@ for (const scope of ['org', 'workspace'] as const) {
 }
 
 test('Wiki のつまみをドラッグして兄弟の間と子へ移す', async ({ page }) => {
+  // 木の行が窓の下端に寄ると、つまみを落とす位置が端の送りと重なる。見出しの上のタブの帯（#1514）の分も含めて、木が窓に収まる高さにする
+  await page.setViewportSize({ width: 1280, height: 900 });
   await createWorkspace(page, 'Wikiのドラッグ');
   await page.locator('.route-tab', { hasText: /^Wiki$/ }).click();
   await add(page, '親の手順');

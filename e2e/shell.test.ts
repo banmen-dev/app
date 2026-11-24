@@ -7,6 +7,7 @@ import {
   recentActivity,
   today as todayOperation,
 } from '../src/shared/operations/organization/index.ts';
+import { favoriteList } from '../src/shared/operations/favorite.ts';
 import { orgWikiTree } from '../src/shared/operations/wiki/index.ts';
 import { workspaceInfo } from '../src/shared/operations/workspace/workspace.ts';
 import { expect, test } from './fixtures.ts';
@@ -27,6 +28,20 @@ const version = process.env.APP_VERSION || 'dev';
 const today = '/aoba';
 // あおば開発のワークスペース（seed）。バックログの木の行が本文の左端に並ぶ
 const AOBA_WORKSPACE_ID = '019a0000-0000-7000-8000-000000000401';
+
+// 左のメニューを長くする。ワークスペースの機能の項目はタブへ移った（#1514）ので、列を溢れさせて送る検査では、
+// お気に入り（組織の Wiki の架空のページ）を並べて列を伸ばす（広げた列だけ。畳んだ列はお気に入りを出さない）
+async function lengthenNav(page: Page, count = 6): Promise<void> {
+  const favorites = Array.from({ length: count }, (_, i) => ({
+    id: `019a0000-0000-7000-8000-00000000f${String(i).padStart(3, '0')}`,
+    target_type: 'wiki_page' as const,
+    target_id: `019a0000-0000-7000-8000-00000000f${String(i + 100).padStart(3, '0')}`,
+    workspace_id: null,
+    title: `手順のページ ${i + 1}`,
+    created_at: '2026-11-10T00:00:00.000Z',
+  }));
+  await mockOperation(page, favoriteList, { slug: 'aoba' }, { favorites, marks: [] });
+}
 
 test.beforeEach(async ({ context, baseURL }) => {
   await signIn(context, baseURL, 'member');
@@ -355,12 +370,13 @@ test.describe('ホバーのできない端末（1024px の指のタブレット�
 test.describe('高さの低い指で押す画面の左のメニュー', () => {
   test.use({ hasTouch: true });
 
-  test.beforeEach(async ({ context, baseURL }) => {
+  test.beforeEach(async ({ page, context, baseURL }) => {
     await signIn(context, baseURL, 'admin');
+    await lengthenNav(page, 9);
   });
 
-  // overflows: Wiki と接続を含む列は 1024×680 以下で溢れ、1024×768 では余白まで収まる
-  // （組織の切り替えは列の中ではなく上の帯にあるので、その分だけ列が短い）。
+  // overflows: お気に入りを9つ並べた列（lengthenNav）は 1024×680 以下で溢れ、1024×768 では余白まで収まる
+  // （組織の切り替えは列の中ではなく上の帯にあり、ワークスペースの機能はタブにあるので、その分だけ列が短い）。
   for (const viewport of [
     { width: 844, height: 390, overflows: true },
     { width: 1024, height: 600, overflows: true },
@@ -371,7 +387,7 @@ test.describe('高さの低い指で押す画面の左のメニュー', () => {
       page,
     }) => {
       await page.setViewportSize(viewport);
-      // 管理者がワークスペースを開くと、設定を含むすべての項目と切り替えが並ぶ。
+      // 管理者がワークスペースを開くと、組織の画面、お気に入り、ワークスペースの見出しと切り替えが並ぶ（機能はタブ）。
       await page.goto(`/aoba/w/${AOBA_WORKSPACE_ID}`);
       await expect(page.locator('.tree-row').first()).toBeVisible();
       expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
@@ -427,9 +443,10 @@ test.describe('高さの低い窓の畳んだ左のメニュー', () => {
     await signIn(context, baseURL, 'admin');
   });
 
+  // 畳んだ列は組織の画面の項目と見出しだけになった（ワークスペースの機能はタブ。#1514）ので、列が溢れる低さで確かめる
   for (const viewport of [
-    { width: 1280, height: 500 },
-    { width: 1024, height: 420 },
+    { width: 1280, height: 240 },
+    { width: 1024, height: 220 },
   ]) {
     test(`${viewport.width}×${viewport.height} で列を送っても、項目名と開閉のボタンの札が揃う`, async ({ page }) => {
       await page.setViewportSize(viewport);
@@ -446,9 +463,11 @@ test.describe('高さの低い窓の畳んだ左のメニュー', () => {
 
       // 列を下まで送り、最後の項目に届いて、札が項目の右・縦の中央に揃う
       const last = page.locator('#app-nav .nav-item').last();
-      await last.scrollIntoViewIfNeeded();
-      await expect(last).toBeInViewport({ ratio: 1 });
+      await inner.evaluate((element) => {
+        element.scrollTop = element.scrollHeight;
+      });
       await expect.poll(() => inner.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+      await expect(last).toBeInViewport({ ratio: 1 });
       await last.hover();
       const label = last.locator('.nav-item-label');
       await expect(label).toHaveCSS('opacity', '1');
@@ -498,6 +517,7 @@ test.describe('高さの低い窓の畳んだ左のメニュー', () => {
 // 左のメニューを送り切った後のホイールは、本文を送る（列の端で止めない）
 test('左のメニューを送り切った後にホイールを回すと、本文が送れる', async ({ page, context, baseURL }) => {
   await signIn(context, baseURL, 'admin');
+  await lengthenNav(page);
   await page.setViewportSize({ width: 1280, height: 300 });
   await page.goto(`/aoba/w/${AOBA_WORKSPACE_ID}`);
   await expect(page.locator('.tree-row').first()).toBeVisible();
