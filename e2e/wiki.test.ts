@@ -67,14 +67,14 @@ for (const theme of A11Y_THEMES) {
     await page.getByRole('button', { name: 'すべてのメニュー', exact: true }).click();
     await menu.click();
     await expect(page).toHaveURL(/\/aoba\/wiki$/);
-    // 広い幅では長い名前のまま畳み、再び全文を表示できる。
+    // 広い幅では左のメニューを閉じると項目ごと隠れ、開き直すと再び全文を表示できる。
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.getByRole('button', { name: 'メニューを閉じる' }).click();
     await expect(page.locator('.app')).toHaveAttribute('data-nav-collapsed', 'true');
-    await expect(label).toHaveCSS('opacity', '0');
-    await expect(menu).toBeVisible();
+    await expect(menu).toBeHidden();
     await page.getByRole('button', { name: 'メニューを開く' }).click();
-    await expect(label).toHaveCSS('opacity', '1');
+    await expect(label).toBeVisible();
+    await expect(label).toHaveText(`${name}の Wiki`);
   });
 }
 

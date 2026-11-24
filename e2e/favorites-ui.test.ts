@@ -210,7 +210,7 @@ test('お気に入りのタスクを削除するとナビから消え、取り�
   expect(reads).toBeGreaterThan(afterDeleteReads);
 });
 
-test('畳んだメニューでは節を隠し、上限の拒否は星の近くで20件と次の手を伝える', async ({ page, context, baseURL }) => {
+test('閉じたメニューでは節を隠し、上限の拒否は星の近くで20件と次の手を伝える', async ({ page, context, baseURL }) => {
   if (!baseURL) throw new Error('baseURL が無い');
   await signIn(context, baseURL, 'admin');
   const item = await target(page, baseURL, 'task');

@@ -162,7 +162,7 @@ test.describe('所属が1つの一般のメンバー', () => {
     await expect(listOf(page)).toBeHidden();
   });
 
-  test('今日やることにも切り替えがあり、畳んだ列では隠し、760px以下では浮きメニューから開ける（#1102）', async ({
+  test('今日やることにも切り替えがあり、メニューを閉じると隠れ、760px以下では浮きメニューから開ける（#1102）', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 900 });

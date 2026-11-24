@@ -65,6 +65,15 @@
   const narrow = new MediaQuery('(max-width: 760px)');
   const pageHeads = new PageHeadOwners();
   let mounted = $state(false);
+  let navToggle = $state<HTMLButtonElement>();
+  let binding = $state<HTMLElement>();
+
+  // 左のメニューを閉じると綴じが hidden になり、中にあったフォーカスは body に落ちる（別のタブで閉じたときなど。
+  // 開閉のボタンで閉じたときはフォーカスがボタンにあるので当たらない）。DOM に当てる前に中にあったかを見て、開閉のボタンへ移す
+  $effect.pre(() => {
+    if (!navState.collapsed || !binding?.contains(document.activeElement)) return;
+    void tick().then(() => navToggle?.focus());
+  });
 
   // 760px 以下で別の画面へ移るとき、画面を短く入れ替える（View Transitions。タブバーは動かさない）。
   // onNavigate はデータの読み込みが済んだ後に呼ばれるので、読み込みの待ちには重ならない（前の画面の画像を撮る1フレームほどは遅れる）。
@@ -209,6 +218,7 @@
     <div class="topbar">
       <div class="topbar-start">
         <button
+          bind:this={navToggle}
           class="nav-toggle"
           type="button"
           aria-expanded={!navState.collapsed}
@@ -229,7 +239,8 @@
       {#if organizationSwitcher}{@render organizationSwitcher()}{/if}
       {#if account}{@render account()}{/if}
     </div>
-    <aside class="binding" aria-label={t('menu')}>
+    <!-- 閉じている間も NavMenu は DOM に残し（開閉のボタンの aria-controls の先を保つ）、hidden でキーボードと読み上げから外す -->
+    <aside class="binding" aria-label={t('menu')} hidden={navState.collapsed} bind:this={binding}>
       <div class="binding-inner">
         <div class="binding-body">
           <NavMenu {current} {slug} {hasWorkspace} {isAdmin} {workspace} {workspaceSwitcher} workspaceItems={false} />

@@ -57,7 +57,7 @@ test('組織の画面はシェルを返し、CSP の違反が無い', async ({ p
   expect(await collect()).toEqual([]);
 });
 
-test('1280px では左のメニューを折りたため、幅とラベルと状態を覚える', async ({ page }) => {
+test('1280px では左のメニューを閉じると列が残らず、本文が全幅に広がり、状態を覚える', async ({ page }) => {
   const collect = await watchViolations(page);
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(today);
@@ -65,91 +65,71 @@ test('1280px では左のメニューを折りたため、幅とラベルと状�
   await page.reload();
 
   const app = page.locator('.app');
+  const binding = page.locator('.binding');
   const toggle = page.getByRole('button', { name: 'メニューを閉じる' });
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await expect(toggle).toHaveAttribute('aria-controls', 'app-nav');
-  const before = await page.locator('.content').boundingBox();
+  await expect(binding).toHaveJSProperty('offsetWidth', 240);
+  const before = await page.locator('.sheet').boundingBox();
   await toggle.click();
   const expand = page.getByRole('button', { name: 'メニューを開く' });
   await expect(expand).toHaveAttribute('aria-expanded', 'false');
   // 押してもフォーカスはボタンに残る
   await expect(expand).toBeFocused();
   await expect(app).toHaveAttribute('data-nav-collapsed', 'true');
-  await expect(page.locator('.binding')).toHaveJSProperty('offsetWidth', 64);
-  const after = await page.locator('.content').boundingBox();
-  expect(after!.x).toBeLessThan(before!.x);
 
-  // 今のページは、太字の名前の代わりに左の縦棒（縁）で示す
-  // 縁の色は今のページのアイコンと同じ（操作の色）。縦棒は列の端でなく項目の左端に重ね（罫の太さで位置がにじまない）、
-  // 64px の列の内側に収まる
-  const bar = await page.locator('#app-nav .nav-item[aria-current="page"]').evaluate((el) => {
-    const before = getComputedStyle(el, '::before');
-    const item = el.getBoundingClientRect();
-    return {
-      width: before.borderLeftWidth,
-      color: before.borderLeftColor,
-      icon: getComputedStyle(el.querySelector('.ico')!).color,
-      offset: before.left,
-      left: item.left + parseFloat(before.left),
-    };
-  });
-  expect(bar.width).toBe('3px');
-  expect(bar.color).toBe(bar.icon);
-  expect(bar.offset).toBe('0px');
-  expect(bar.left).toBeGreaterThanOrEqual(0);
-  expect(bar.left + 3).toBeLessThanOrEqual(64);
+  // 列は残らず、本文が上の帯の下の全幅に広がる（#1512）
+  await expect(binding).toBeHidden();
+  await expect(binding).toHaveJSProperty('hidden', true);
+  const after = await page.locator('.sheet').boundingBox();
+  const bar = await page.locator('.topbar').boundingBox();
+  const viewportWidth = await page.evaluate(() => document.documentElement.clientWidth);
+  if (!before || !after || !bar) throw new Error('本文と帯の位置が取れない');
+  expect(after.x).toBe(0);
+  expect(after.width).toBeCloseTo(viewportWidth, 0);
+  expect(after.width).toBeGreaterThan(before.width);
+  expect(after.y).toBeGreaterThanOrEqual(bar.y + bar.height - 1);
 
-  // 項目はアイコンだけで、名前は見えないが読み上げには残る
-  const item = page.locator('.nav-item').first();
-  await expect(item.locator('.nav-item-label')).toHaveCSS('opacity', '0');
-  await expect(page.locator('#app-nav').getByRole('link', { name: '今日やること' })).toBeVisible();
-  // 上の帯は畳んでも形を変えず、左端のマークのリンクと、右の組織の切り替えの名前が残る（#1510、#1511）
+  // 開閉のボタンの aria-controls の先（nav）は DOM に残し、読み上げとキーボードからは外す
+  await expect(page.locator('#app-nav')).toHaveCount(1);
+  await expect(page.getByRole('complementary', { name: 'メニュー' })).toHaveCount(0);
+  await expect(page.locator('#app-nav').getByRole('link', { name: '今日やること' })).toBeHidden();
+  // サイドバーの中に、キーボードで移れる（見える）要素が1つも無い
+  expect(
+    await binding.evaluate((element) =>
+      [...element.querySelectorAll<HTMLElement>('a[href], button, input, select, textarea, [tabindex]')].some(
+        (target) => target.tabIndex >= 0 && target.checkVisibility(),
+      ),
+    ),
+  ).toBe(false);
+
+  // 上の帯は閉じても形を変えず、左端のマークのリンクと、右の組織の切り替えの名前が残る（#1510、#1511）
   await expect(page.locator('.topbar-start .brand')).toBeVisible();
   await expect(page.locator('.topbar-start .brand')).toHaveAttribute('href', '/aoba');
   await expect(page.locator('.binding .brand')).toHaveCount(0);
   await expect(page.locator('.topbar .org-menu-button > b')).toBeVisible();
 
-  // 再読み込みしても畳んだまま。キーボードだけで広げられる
+  // 再読み込みしても閉じたまま。キーボードだけで開け、開くと項目へ Tab で移れる
   await page.reload();
   await expect(app).toHaveAttribute('data-nav-collapsed', 'true');
-  await expect(page.locator('.binding')).toHaveJSProperty('offsetWidth', 64);
+  await expect(binding).toBeHidden();
   await expand.focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('button', { name: 'メニューを閉じる' })).toHaveAttribute('aria-expanded', 'true');
-  await expect(page.locator('.binding')).toHaveJSProperty('offsetWidth', 240);
+  const collapse = page.getByRole('button', { name: 'メニューを閉じる' });
+  await expect(collapse).toHaveAttribute('aria-expanded', 'true');
+  await expect(binding).toHaveJSProperty('offsetWidth', 240);
+  const first = page.locator('#app-nav .nav-item').first();
+  await expect(first).toBeVisible();
+  for (let i = 0; i < 12 && !(await first.evaluate((el) => el === document.activeElement)); i++)
+    await page.keyboard.press('Tab');
+  await expect(first).toBeFocused();
+  await collapse.focus();
   await page.keyboard.press('Space');
   await expect(expand).toHaveAttribute('aria-expanded', 'false');
   expect(await collect()).toEqual([]);
 });
 
-test('畳んだ列では、マウスを載せるかフォーカスすると項目の名前が横に見える', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto(today);
-  await page.getByRole('button', { name: 'メニューを閉じる' }).click();
-  const items = page.locator('#app-nav .nav-item');
-  // キーボードで移ると名前が出る（開閉のボタンから Tab で最初の項目へ）
-  await page.getByRole('button', { name: 'メニューを開く' }).focus();
-  for (let i = 0; i < 5 && !(await items.nth(0).evaluate((el) => el === document.activeElement)); i++)
-    await page.keyboard.press('Tab');
-  await expect(items.nth(0)).toBeFocused();
-  await expect(items.nth(0).locator('.nav-item-label')).toHaveCSS('opacity', '1');
-  // 組織の画面の左のメニューは「今日やること」の1項目だけ。フォーカスを外し、マウスを載せて名前が出ることを見る
-  await items.nth(0).evaluate((el) => (el as HTMLElement).blur());
-  await page.mouse.move(700, 600);
-  await expect(items.nth(0).locator('.nav-item-label')).toHaveCSS('opacity', '0');
-  await items.nth(0).hover();
-  await expect(items.nth(0).locator('.nav-item-label')).toHaveCSS('opacity', '1');
-  // 名前は列の外（右）に浮く
-  const label = await items.nth(0).locator('.nav-item-label').boundingBox();
-  expect(label!.x).toBeGreaterThanOrEqual(64);
-
-  // マウスで押した後は、マウスを外せば名前が消える（押したリンクにフォーカスが残っても出し続けない）
-  await items.nth(0).click();
-  await page.mouse.move(700, 600);
-  await expect(items.nth(0).locator('.nav-item-label')).toHaveCSS('opacity', '0');
-});
-
-// 浮かせた名前の中の点が、本文の要素に覆われずに名前自身を返すか（名前は pointer-events: none なので、測る間だけ戻す）
+// 浮かせたものの中の点が、本文の要素に覆われずに自身を返すか（pointer-events: none のものは、測る間だけ戻す）
 async function frontmostAcross(page: Page, selector: string): Promise<boolean[]> {
   return page.locator(selector).evaluate((el: HTMLElement) => {
     el.style.pointerEvents = 'auto';
@@ -163,25 +143,7 @@ async function frontmostAcross(page: Page, selector: string): Promise<boolean[]>
   });
 }
 
-test('畳んだ列の名前と組織の一覧は、バックログの行に覆われず、列の外に出る', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto(`/aoba/w/${AOBA_WORKSPACE_ID}`);
-  await expect(page.locator('.tree-row').first()).toBeVisible();
-  await page.getByRole('button', { name: 'メニューを閉じる' }).click();
-
-  // ワークスペースの機能はタブにあり、左のメニューには組織の画面が並ぶ（#1514）
-  const todayItem = page.locator('#app-nav').getByRole('link', { name: '今日やること' });
-  await todayItem.hover();
-  const label = todayItem.locator('.nav-item-label');
-  await expect(label).toHaveCSS('opacity', '1');
-  const labelBox = await label.boundingBox();
-  const itemBox = await todayItem.boundingBox();
-  expect(labelBox!.x).toBeCloseTo(itemBox!.x + itemBox!.width + 12, 0);
-  expect(labelBox!.y + labelBox!.height / 2).toBeCloseTo(itemBox!.y + itemBox!.height / 2, 0);
-  expect(await frontmostAcross(page, '#app-nav .nav-item[href="/aoba"] .nav-item-label')).toEqual([true, true, true]);
-});
-
-test('760px 以下では、畳んだままでも下のタブバーと浮きメニューを出す', async ({ page }) => {
+test('760px 以下では、閉じたままでも下のタブバーと浮きメニューを出す', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(today);
   await page.getByRole('button', { name: 'メニューを閉じる' }).click();
@@ -190,7 +152,33 @@ test('760px 以下では、畳んだままでも下のタブバーと浮きメ�
   await expect(page.locator('.binding')).toHaveCount(0);
   await expect(page.locator('.mobile-tabs')).toBeVisible();
   await page.getByRole('button', { name: 'すべてのメニュー', exact: true }).click();
-  await expect(page.locator('.nav-item-label').first()).toHaveCSS('opacity', '1');
+  await expect(page.locator('.mobile-menu').getByRole('link', { name: '今日やること' })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  // 広い幅へ戻すと、閉じたままで列は残らず、本文が左端から始まる
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(page.getByRole('button', { name: 'メニューを開く' })).toBeVisible();
+  await expect(page.locator('.binding')).toBeHidden();
+  expect((await page.locator('.sheet').boundingBox())!.x).toBe(0);
+});
+
+test('サイドバーの項目にフォーカスがあるまま別のタブで閉じると、フォーカスを開閉のボタンへ移す', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(today);
+  await page.evaluate(() => localStorage.removeItem('sg-nav-collapsed'));
+  await page.reload();
+  const item = page.locator('#app-nav').getByRole('link', { name: '今日やること' });
+  await item.focus();
+  await expect(item).toBeFocused();
+  // 別のタブの変更は storage のイベントで届く（同じタブの setItem では届かないので、値を書いてからイベントを送る）
+  await page.evaluate(() => {
+    localStorage.setItem('sg-nav-collapsed', 'true');
+    window.dispatchEvent(
+      new StorageEvent('storage', { key: 'sg-nav-collapsed', newValue: 'true', storageArea: localStorage }),
+    );
+  });
+  await expect(page.locator('.binding')).toBeHidden();
+  await expect(page.getByRole('button', { name: 'メニューを開く' })).toBeFocused();
 });
 
 test('760px 以下では、押したタブの読み込みを待つ間も先に選んだ印を移す', async ({ page }) => {
@@ -323,7 +311,7 @@ async function selectedTabBorder(page: Page): Promise<string> {
 test.describe('ホバーのできない端末（1024px の指のタブレット）', () => {
   test.use({ viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true });
 
-  test('開閉のボタンが上の帯の左端に 44px で出て、押すと畳み、覚えた状態も当てる', async ({ page }) => {
+  test('開閉のボタンが上の帯の左端に 44px で出て、押すと閉じ、覚えた状態も当てる', async ({ page }) => {
     await page.goto(today);
     expect(await page.evaluate(() => matchMedia('(hover: none)').matches)).toBe(true);
     await page.evaluate(() => localStorage.removeItem('sg-nav-collapsed'));
@@ -354,16 +342,19 @@ test.describe('ホバーのできない端末（1024px の指のタブレット�
 
     await toggle.tap();
     await expect(page.locator('.app')).toHaveAttribute('data-nav-collapsed', 'true');
-    await expect(page.locator('.binding')).toHaveJSProperty('offsetWidth', 64);
+    await expect(page.locator('.binding')).toBeHidden();
+    // 列は残らず、本文が左端から始まる（#1512）
+    expect((await page.locator('.sheet').boundingBox())!.x).toBe(0);
     // 押した後に :hover が残っても、札は出し続けない（ホバーで出す札はホバーのできる端末だけ）
     await expect(page.locator('.nav-toggle .nav-tip')).toBeHidden();
 
-    // 読み直しても畳んだまま。もう一度押すと広げる
+    // 読み直しても閉じたまま。もう一度押すと開く
     await page.reload();
-    await expect(page.locator('.binding')).toHaveJSProperty('offsetWidth', 64);
+    await expect(page.locator('.app')).toHaveAttribute('data-nav-collapsed', 'true');
+    await expect(page.locator('.binding')).toBeHidden();
     await page.getByRole('button', { name: 'メニューを開く' }).tap();
     await expect(page.locator('.binding')).toHaveJSProperty('offsetWidth', 240);
-    await expect(page.locator('#app-nav .nav-item-label').first()).toHaveCSS('opacity', '1');
+    await expect(page.locator('#app-nav').getByRole('link', { name: '今日やること' })).toBeVisible();
   });
 });
 
@@ -436,53 +427,27 @@ test.describe('高さの低い指で押す画面の左のメニュー', () => {
   }
 });
 
-// 高さの低い窓（細かいポインタ）で畳んだ列を送った後も、浮かせた項目名が送った項目の横に揃う。
+// 高さの低い窓（細かいポインタ）で左のメニューを閉じても、開閉のボタンの札と組織の一覧が上の帯の下に揃う。
 // 開閉のボタンは送らない上の帯にあり、札はボタンの下に出る
-test.describe('高さの低い窓の畳んだ左のメニュー', () => {
+test.describe('高さの低い窓の閉じた左のメニュー', () => {
   test.beforeEach(async ({ context, baseURL }) => {
     await signIn(context, baseURL, 'admin');
   });
 
-  // 畳んだ列は組織の画面の項目と見出しだけになった（ワークスペースの機能はタブ。#1514）ので、列が溢れる低さで確かめる
   for (const viewport of [
-    { width: 1280, height: 240 },
-    { width: 1024, height: 220 },
+    { width: 1280, height: 500 },
+    { width: 1024, height: 420 },
   ]) {
-    test(`${viewport.width}×${viewport.height} で列を送っても、項目名と開閉のボタンの札が揃う`, async ({ page }) => {
+    test(`${viewport.width}×${viewport.height} で閉じても、開閉のボタンの札と組織の一覧が揃う`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await page.goto(`/aoba/w/${AOBA_WORKSPACE_ID}`);
       await expect(page.locator('.tree-row').first()).toBeVisible();
       await page.getByRole('button', { name: 'メニューを閉じる' }).click();
       await expect(page.locator('.app')).toHaveAttribute('data-nav-collapsed', 'true');
-      await expect(page.locator('.binding')).toHaveJSProperty('offsetWidth', 64);
+      await expect(page.locator('.binding')).toBeHidden();
 
-      const inner = page.locator('.binding-inner');
-      await expect(inner).toHaveCSS('overflow-y', 'auto');
-      // この検査の前提: 列が画面より長く、中で送る必要がある
-      expect(await inner.evaluate((element) => element.scrollHeight - element.clientHeight)).toBeGreaterThan(0);
-
-      // 列を下まで送り、最後の項目に届いて、札が項目の右・縦の中央に揃う
-      const last = page.locator('#app-nav .nav-item').last();
-      await inner.evaluate((element) => {
-        element.scrollTop = element.scrollHeight;
-      });
-      await expect.poll(() => inner.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
-      await expect(last).toBeInViewport({ ratio: 1 });
-      await last.hover();
-      const label = last.locator('.nav-item-label');
-      await expect(label).toHaveCSS('opacity', '1');
-      const itemBox = await last.boundingBox();
-      const labelBox = await label.boundingBox();
-      if (!itemBox || !labelBox) throw new Error('項目と札の位置が取れない');
-      expect(labelBox.x).toBeCloseTo(itemBox.x + itemBox.width + 12, 0);
-      expect(labelBox.y + labelBox.height / 2).toBeCloseTo(itemBox.y + itemBox.height / 2, 0);
-      expect(labelBox.y).toBeGreaterThanOrEqual(0);
-      expect(labelBox.y + labelBox.height).toBeLessThanOrEqual(viewport.height);
-
-      // 列を送っても開閉のボタンは上の帯に残り、札はボタンの下に左端を揃えて出て、左のメニューに隠れない
-      await inner.evaluate((element) => {
-        element.scrollTop = 40;
-      });
+      // 本文を送っても開閉のボタンは上の帯に残り、札はボタンの下に左端を揃えて出て、本文に隠れない
+      await page.evaluate(() => window.scrollTo(0, 40));
       const button = page.locator('.nav-toggle');
       await expect(button).toBeInViewport({ ratio: 1 });
       await button.hover();
@@ -533,27 +498,32 @@ test('左のメニューを送り切った後にホイールを回すと、本�
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
 });
 
-test('畳んだ列のまま、全テーマでアクセシビリティの検査と CSP の違反が無い', async ({ page }) => {
-  const collect = await watchViolations(page);
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto(today);
-  await page.getByRole('button', { name: 'メニューを閉じる' }).click();
-  await expectNoA11yViolationsInThemes(page, 'today', exclusionsFor('today', isAxeCheck));
-  expect(await collect()).toEqual([]);
-});
+for (const width of [1280, 1024]) {
+  test(`閉じた左のメニューのまま、${width}px の全テーマでアクセシビリティの検査と CSP の違反が無い`, async ({
+    page,
+  }) => {
+    const collect = await watchViolations(page);
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(today);
+    await page.getByRole('button', { name: 'メニューを閉じる' }).click();
+    await expect(page.locator('.binding')).toBeHidden();
+    await expectNoA11yViolationsInThemes(page, 'today', exclusionsFor('today', isAxeCheck));
+    expect(await collect()).toEqual([]);
+  });
+}
 
 test.describe('組織が2つの人（ミナト）', () => {
   test.beforeEach(async ({ context, baseURL }) => {
     await signIn(context, baseURL, 'admin');
   });
 
-  test('畳んだ列でも、上の帯の組織の切り替えから別の組織へ移れる', async ({ page }) => {
+  test('左のメニューを閉じても、上の帯の組織の切り替えから別の組織へ移れる', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(today);
     await page.getByRole('button', { name: 'メニューを閉じる' }).click();
     const org = page.locator('.topbar').getByRole('button', { name: '組織 あおば開発。組織を切り替える' });
     await expect(org).toBeVisible();
-    // 畳んでも広げた列と同じ形で、名前を出したまま
+    // 閉じても開いたときと同じ形で、名前を出したまま
     await expect(org.locator('b')).toHaveText('あおば開発');
     await expect(page.locator('.binding .org-menu')).toHaveCount(0);
     // 招待が無いときは印を出さない
@@ -567,7 +537,7 @@ test.describe('組織が2つの人（ミナト）', () => {
     await expect(page.locator('.topbar .org-menu-button > b')).toHaveText('ひばり工房');
   });
 
-  test('畳んだ列で別の組織へ移っている間も、上の帯の名前の欄に「移っています」を出す', async ({ page }) => {
+  test('左のメニューを閉じて別の組織へ移っている間も、上の帯の名前の欄に「移っています」を出す', async ({ page }) => {
     await routeOperation(page, organizationInfo, { slug: 'hibari' }, async (call) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await call.passThrough();
@@ -593,7 +563,7 @@ test.describe('組織が2つの人（ミナト）', () => {
       expect(await frontmostAcross(page, selector)).toEqual([true, true, true]);
   });
 
-  test('上の帯の組織の切り替えで、届いた招待があることが印と読み上げで分かり、畳んでも変わらない', async ({ page }) => {
+  test('上の帯の組織の切り替えで、届いた招待があることが印と読み上げで分かり、閉じても変わらない', async ({ page }) => {
     await mockOperation(page, myOrganizations, {
       organizations: [{ slug: 'aoba', name: 'あおば開発', kind: 'team' }],
       invitations: [{ organization_name: 'つばめ商会', slug: 'tsubame' }],
@@ -1069,14 +1039,14 @@ test('組織の枠の外（ログインの画面）にも版を出す', async ({
 });
 
 // 本文（.content）は幅の上限を持たない。広い画面でも左のメニューの右から画面の右の端まで広がる
-// 4000px は、左のメニューを広げても畳んでも、2000px 台の上限を見逃さない幅
+// 4000px は、左のメニューを開いても閉じても、2000px 台の上限を見逃さない幅
 const WIDE_VIEWPORT = { width: 4000, height: 900 };
 // 縦スクロールバーの幅の余裕
 const SCROLLBAR_ALLOWANCE = 24;
 // 欄の幅の上限（design/components.css の `.form` などの 56rem）
 const FORM_MAX_PX = 56 * 16;
 
-test('4000px の幅で、本文が画面の右の端まで広がり、畳んでも変わらない', async ({ page }) => {
+test('4000px の幅で、本文が画面の右の端まで広がり、閉じても変わらない', async ({ page }) => {
   await page.setViewportSize(WIDE_VIEWPORT);
   await page.goto(today);
   await page.evaluate(() => localStorage.removeItem('sg-nav-collapsed'));
@@ -1146,6 +1116,7 @@ test('広い幅では上の帯が全幅に通り、左のメニューと本文�
         binding: box('.binding'),
         inner: box('.binding-inner'),
         crumbs: box('.sheet-crumbs'),
+        sheet: box('.sheet'),
         toggle: box('.nav-toggle'),
         viewport: document.documentElement.clientWidth,
       };
@@ -1160,22 +1131,31 @@ test('広い幅では上の帯が全幅に通り、左のメニューと本文�
     // 上の帯は画面の左端から右端まで通り、左のメニューと本文（パンくずの帯）は帯の下から始まる
     expect(top.bar.left).toBe(0);
     expect(top.bar.right).toBe(top.viewport);
-    expect(top.binding.top).toBe(top.bar.bottom);
     expect(top.crumbs.top).toBeGreaterThanOrEqual(top.bar.bottom);
     // 開閉のボタンは帯の中の左端にある
-    expect(top.toggle.left).toBeLessThan(top.binding.right);
+    expect(top.toggle.left).toBeLessThan(240);
     expect(top.toggle.top).toBeGreaterThanOrEqual(top.bar.top);
     expect(top.toggle.bottom).toBeLessThanOrEqual(top.bar.bottom);
     await expect(page.locator('.topbar')).not.toHaveCSS('border-bottom-width', '0px');
-    await expect(page.locator('.binding')).not.toHaveCSS('border-right-width', '0px');
+    if (collapse) {
+      // 閉じると左の列は残らず、本文が帯の下の左端から始まる（#1512）
+      await expect(page.locator('.binding')).toBeHidden();
+      expect(top.sheet.left).toBe(0);
+    } else {
+      expect(top.binding.top).toBe(top.bar.bottom);
+      expect(top.sheet.left).toBe(top.binding.right);
+      await expect(page.locator('.binding')).not.toHaveCSS('border-right-width', '0px');
+    }
 
-    // 本文を縦に送っても、帯は上に残り、左のメニューは帯のすぐ下に残る
+    // 本文を縦に送っても、帯は上に残り、開いた左のメニューは帯のすぐ下に残る
     await page.evaluate(() => window.scrollTo(0, 400));
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
     const scrolled = await frame();
     expect(scrolled.bar.top).toBe(0);
-    expect(scrolled.inner.top).toBe(scrolled.bar.bottom);
-    expect(scrolled.inner.bottom).toBeCloseTo(600, 0);
+    if (!collapse) {
+      expect(scrolled.inner.top).toBe(scrolled.bar.bottom);
+      expect(scrolled.inner.bottom).toBeCloseTo(600, 0);
+    }
     await expect(page.locator('.nav-toggle')).toBeInViewport({ ratio: 1 });
   }
 });
@@ -1251,7 +1231,7 @@ test('上の帯から開く組織の一覧とアカウントのメニューは�
   await page.goto(today);
   await expect(page.locator('.topbar .org-menu-button')).toBeVisible();
   await page.locator('.app').evaluate((element) => {
-    (element as HTMLElement).style.setProperty('--binding-width-expanded', '1200px');
+    (element as HTMLElement).style.setProperty('--binding-width', '1200px');
   });
   for (const [button, list] of [
     [page.locator('.topbar .org-menu-button'), page.getByRole('list', { name: '入れる組織' })],
@@ -1343,6 +1323,8 @@ test('761px で長い組織の名前でも、上の帯は1段に収まり、検�
         toggle: box('.nav-toggle'),
         bar: box('.topbar'),
         binding: box('.binding').top,
+        sheet: box('.sheet').top,
+        sheetLeft: box('.sheet').left,
         search: box('.topbar .nav-search'),
         org: box('.topbar .org-menu'),
         viewport: window.innerWidth,
@@ -1353,11 +1335,14 @@ test('761px で長い組織の名前でも、上の帯は1段に収まり、検�
     // 左端の開閉のボタンは画面の中にあり、検索の欄はマークの右から始まる
     expect(layout.toggle.left).toBeGreaterThanOrEqual(0);
     expect(layout.search.left).toBeGreaterThanOrEqual(layout.start.right);
-    // 組織の名前の幅は、畳んでも畳まなくても画面の幅の 1/4 で止まる（帯は全幅）
+    // 組織の名前の幅は、左のメニューを開いても閉じても画面の幅の 1/4 で止まる（帯は全幅）
     expect(layout.org.width).toBeCloseTo(layout.viewport / 4, 0);
-    // 帯は1段で、左のメニューは帯のすぐ下から始まる
+    // 帯は1段で、本文と開いた左のメニューは帯のすぐ下から始まる
     expect(layout.bar.height).toBe(60);
-    expect(layout.binding).toBe(layout.bar.bottom);
+    expect(layout.sheet).toBe(layout.bar.bottom);
+    if (!collapse) expect(layout.binding).toBe(layout.bar.bottom);
+    // 閉じると列は残らず、本文が左端から始まる（#1512）
+    else expect(layout.sheetLeft).toBe(0);
     await expect(page.locator('.topbar .account-menu-button')).toBeInViewport();
   }
 });

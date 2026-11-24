@@ -29,13 +29,13 @@ function storage(value: string | null = null) {
 }
 
 describe('左のメニューの開閉の既定', () => {
-  test('未設定と不正な値は広げた状態', () => {
+  test('未設定と不正な値は開いた状態', () => {
     expect(readNavCollapsed()).toBe(false);
     storage('yes');
     expect(readNavCollapsed()).toBe(false);
   });
 
-  test('折りたたみ状態を保存し、状態にも反映する', () => {
+  test('閉じた状態を保存し、状態にも反映する', () => {
     const store = storage();
     setNavCollapsed(true);
     expect(store.setItem).toHaveBeenCalledWith(NAV_COLLAPSED_KEY, 'true');
@@ -45,7 +45,7 @@ describe('左のメニューの開閉の既定', () => {
     expect(navState.collapsed).toBe(false);
   });
 
-  test('localStorage が使えないときは広げた状態で読み、押せば今の画面では畳める', () => {
+  test('localStorage が使えないときは開いた状態で読み、押せば今の画面では閉じられる', () => {
     Object.defineProperty(globalThis, 'localStorage', {
       configurable: true,
       get() {
@@ -83,7 +83,7 @@ describe('ほかのタブでの変更', () => {
     expect(navState.collapsed).toBe(true);
   });
 
-  test('キーの消去（removeItem）と、別のタブの clear() は広げた状態に戻す', () => {
+  test('キーの消去（removeItem）と、別のタブの clear() は開いた状態に戻す', () => {
     navState.collapsed = true;
     handleNavCollapsedStorage({ key: NAV_COLLAPSED_KEY, newValue: null });
     expect(navState.collapsed).toBe(false);
@@ -111,7 +111,7 @@ describe('ほかのタブでの変更', () => {
   });
 });
 
-test('保存された true を読むと畳んだ状態', () => {
+test('保存された true を読むと閉じた状態', () => {
   storage('true');
   expect(readNavCollapsed()).toBe(true);
 });

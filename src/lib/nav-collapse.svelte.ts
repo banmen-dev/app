@@ -1,3 +1,4 @@
+// 左のメニューを閉じた（列を残さず本文を全幅にする。#1512）かを端末に覚える。キーの名前は畳んだ列の頃のまま使う。
 // 最初の読み込みの骨組み（static/boot-shape.js）も読むので、変えるときは合わせる（scripts/boot-shape.test.ts）
 export const NAV_COLLAPSED_KEY = 'sg-nav-collapsed';
 // 左のメニュー（nav）の id。開閉のボタンの aria-controls が指す
@@ -27,7 +28,7 @@ export function readNavCollapsed(): boolean {
 
 export const navState = $state({ collapsed: readNavCollapsed() });
 
-// 覚えられない端末（localStorage が拒まれる）でも、押したら今の画面では開閉する。覚えないだけで、次に開くと広げた状態に戻る
+// 覚えられない端末（localStorage が拒まれる）でも、押したら今の画面では開閉する。覚えないだけで、次に開くと開いた状態に戻る
 export function setNavCollapsed(collapsed: boolean): void {
   navState.collapsed = collapsed;
   try {
@@ -37,7 +38,7 @@ export function setNavCollapsed(collapsed: boolean): void {
   }
 }
 
-// 別のタブでの変更を追う。key が null なのは別のタブの localStorage.clear() で、既定（広げた状態）に戻す。
+// 別のタブでの変更を追う。key が null なのは別のタブの localStorage.clear() で、既定（開いた状態）に戻す。
 // 値は 'true' と 'false' と消去（null）だけを当て、それ以外は今の状態を保つ（drawer.svelte.ts と同じ扱い）。
 // storage のイベントは sessionStorage の変更でも届き、その clear() も key が null になるので、localStorage のものだけを見る
 export function handleNavCollapsedStorage(event: {
