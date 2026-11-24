@@ -139,7 +139,11 @@
     done ? t('taskSaveConflict', { task: t('task'), done: t('done'), points: t('points') }) : undefined,
   );
   const assigneeLockedReason = $derived(
-    done ? t('taskAssigneeDone', { task: t('task'), done: t('done'), assignee: t('assignee') }) : undefined,
+    done
+      ? t('taskAssigneeDone', { task: t('task'), done: t('done'), assignee: t('assignee') })
+      : editor?.assignee.reserved === true
+        ? t('boardGroupAssignSending', { assignee: t('assignee') })
+        : undefined,
   );
 
   // ---- 題の書き換え ----

@@ -7,7 +7,13 @@ import type { SprintBoardColumn, SprintBoardTask } from '../shared/operations/sp
 export const BOARD_FILTER_NONE = 'none';
 export const BOARD_FILTER_KEYS = ['assignee', 'story', 'epic', 'category'] as const;
 export type BoardFilterKey = (typeof BOARD_FILTER_KEYS)[number];
-export type BoardFilter = { q: string } & Record<BoardFilterKey, readonly string[]>;
+export const BOARD_GROUPS = ['assignee', 'story', 'epic'] as const;
+export type BoardGroup = (typeof BOARD_GROUPS)[number];
+export function boardGroupOf(value: string | null): BoardGroup | undefined {
+  return BOARD_GROUPS.find((group) => group === value);
+}
+
+export type BoardFilter = { q: string; group?: BoardGroup } & Record<BoardFilterKey, readonly string[]>;
 // 検索の語の上限（題の上限と同じ 200 字）。URL で長い値を渡されても、ここで切る
 export const BOARD_QUERY_MAX_LENGTH = 200;
 // 1つの条件で選べる値の上限。URL で多くの値を渡されても、ここで切る
@@ -23,7 +29,9 @@ export const emptyBoardFilter: BoardFilter = { q: '', assignee: [], story: [], e
 export function boardFilterOf(params: Pick<URLSearchParams, 'get' | 'getAll'>): BoardFilter {
   const values = (key: BoardFilterKey): string[] =>
     [...new Set(params.getAll(key).filter((value) => value !== ''))].slice(0, MAX_VALUES);
+  const group = boardGroupOf(params.get('group'));
   return {
+    ...(group === undefined ? {} : { group }),
     q: clampQuery(params.get('q') ?? ''),
     assignee: values('assignee'),
     story: values('story'),
@@ -36,6 +44,7 @@ export function boardFilterOf(params: Pick<URLSearchParams, 'get' | 'getAll'>): 
 export function boardFilterQuery(filter: BoardFilter): string {
   const params = new URLSearchParams();
   if (filter.q !== '') params.set('q', filter.q);
+  if (filter.group !== undefined) params.set('group', filter.group);
   for (const key of BOARD_FILTER_KEYS) for (const value of filter[key]) params.append(key, value);
   return params.toString();
 }
@@ -44,6 +53,7 @@ export function boardFilterQuery(filter: BoardFilter): string {
 export function boardFilterHref(url: Pick<URL, 'href'>, filter: BoardFilter): string {
   const next = new URL(url.href);
   next.searchParams.delete('q');
+  next.searchParams.delete('group');
   for (const key of BOARD_FILTER_KEYS) next.searchParams.delete(key);
   for (const [key, value] of new URLSearchParams(boardFilterQuery(filter))) next.searchParams.append(key, value);
   return `${next.pathname}${next.search}${next.hash}`;
@@ -59,7 +69,9 @@ export function isBoardFiltering(filter: BoardFilter): boolean {
 }
 
 export function sameBoardFilter(a: BoardFilter, b: BoardFilter): boolean {
-  return a.q === b.q && BOARD_FILTER_KEYS.every((key) => a[key].join('\n') === b[key].join('\n'));
+  return (
+    a.group === b.group && a.q === b.q && BOARD_FILTER_KEYS.every((key) => a[key].join('\n') === b[key].join('\n'))
+  );
 }
 
 // 1つの値を選ぶか外す。選んでいなければ末尾に足し、選んでいれば外す
@@ -72,14 +84,16 @@ function folded(text: string): string {
   return text.normalize('NFKC').toLowerCase();
 }
 
-function valueOf(task: SprintBoardTask, key: BoardFilterKey): string {
+export function boardFilterValue(task: SprintBoardTask, key: BoardFilterKey): string {
   const ref = key === 'assignee' ? task.assignee : task[key];
   return ref?.id ?? BOARD_FILTER_NONE;
 }
 
 export function cardMatches(task: SprintBoardTask, filter: BoardFilter): boolean {
   if (filter.q !== '' && !folded(task.title).includes(folded(filter.q))) return false;
-  return BOARD_FILTER_KEYS.every((key) => filter[key].length === 0 || filter[key].includes(valueOf(task, key)));
+  return BOARD_FILTER_KEYS.every(
+    (key) => filter[key].length === 0 || filter[key].includes(boardFilterValue(task, key)),
+  );
 }
 
 // 列は残し、絞り込みに当たるカードだけを残す。全体の集計には元の列を使う

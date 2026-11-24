@@ -223,3 +223,49 @@ describe('resolveSprintDrop: 落とせない場所', () => {
     expect(resolveSprintDrop(columns, 'a', onColumn('nope'), 'into')).toBeNull();
   });
 });
+
+describe('帯のあるボードの落とし先', () => {
+  const member = { id: 'u1', name: 'ミナト' };
+  const story = { id: 's1', title: 'ポイントの履歴' };
+  const epic = { id: 'e1', title: '会員ポイント' };
+  const grouped = [
+    { ...columns[0]!, tasks: [card('a'), card('b', { assignee: member, story, epic }), card('c')] },
+    { ...columns[1]!, tasks: [card('d', { assignee: member, story, epic }), card('e')] },
+    ...columns.slice(2),
+  ];
+
+  test('別の担当の帯へ落とすと担当の後に、落とした位置へ列を移動する計画になる', () => {
+    expect(resolveSprintDrop(grouped, 'a', onCard('d'), 'after', 'assignee')?.plan).toMatchObject({
+      kind: 'assign',
+      assigneeId: member.id,
+      next: { kind: 'moved', column: { id: 'c2' }, afterTaskId: 'd', index: 1, total: 2 },
+    });
+  });
+
+  test('同じ列で担当なしの帯へ落とすと、担当だけを外す', () => {
+    expect(
+      resolveSprintDrop(grouped, 'b', { kind: 'column', id: 'c1', lane: 'none' }, 'into', 'assignee')?.plan,
+    ).toEqual({ kind: 'assign', assigneeId: null, next: null });
+  });
+
+  test('担当変更は完了より先に行い、すでに完了したカードの担当変更は受けない', () => {
+    expect(
+      resolveSprintDrop(grouped, 'b', { kind: 'column', id: 'done', lane: 'none' }, 'into', 'assignee')?.plan,
+    ).toEqual({ kind: 'assign', assigneeId: null, next: { kind: 'complete' } });
+    expect(resolveSprintDrop(grouped, 'z', onCard('d'), 'after', 'assignee')?.mark?.operation).toBe('blocked');
+  });
+
+  test.each(['story', 'epic'] as const)('%s の別の帯は受けず、重ねた列と帯に印を出す', (group) => {
+    expect(resolveSprintDrop(grouped, 'b', onCard('e'), 'before', group)).toMatchObject({
+      mark: { target: { kind: 'column', id: 'c2', lane: 'none' }, operation: 'blocked' },
+      plan: { kind: 'blocked' },
+    });
+  });
+
+  test('同じ帯に落とすと、他の帯のカードを保持して並べ替える', () => {
+    const drop = resolveSprintDrop(grouped, 'c', onCard('a'), 'before', 'assignee');
+    expect(drop?.plan).toMatchObject({ kind: 'moved', index: 0, total: 2 });
+    if (drop?.plan.kind !== 'moved') throw new Error('moved ではない');
+    expect(ids(drop.plan.columns)[0]).toEqual(['c', 'a', 'b']);
+  });
+});
