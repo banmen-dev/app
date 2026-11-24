@@ -1064,6 +1064,7 @@ test('広い幅では上の帯が全幅に通り、左のメニューと本文�
         binding: box('.binding'),
         inner: box('.binding-inner'),
         crumbs: box('.sheet-crumbs'),
+        sheet: box('.sheet'),
         toggle: box('.nav-toggle'),
         viewport: document.documentElement.clientWidth,
       };
@@ -1078,22 +1079,31 @@ test('広い幅では上の帯が全幅に通り、左のメニューと本文�
     // 上の帯は画面の左端から右端まで通り、左のメニューと本文（パンくずの帯）は帯の下から始まる
     expect(top.bar.left).toBe(0);
     expect(top.bar.right).toBe(top.viewport);
-    expect(top.binding.top).toBe(top.bar.bottom);
     expect(top.crumbs.top).toBeGreaterThanOrEqual(top.bar.bottom);
     // 開閉のボタンは帯の中の左端にある
-    expect(top.toggle.left).toBeLessThan(top.binding.right);
+    expect(top.toggle.left).toBeLessThan(240);
     expect(top.toggle.top).toBeGreaterThanOrEqual(top.bar.top);
     expect(top.toggle.bottom).toBeLessThanOrEqual(top.bar.bottom);
     await expect(page.locator('.topbar')).not.toHaveCSS('border-bottom-width', '0px');
-    await expect(page.locator('.binding')).not.toHaveCSS('border-right-width', '0px');
+    if (collapse) {
+      // 閉じると左の列は残らず、本文が帯の下の左端から始まる（#1512）
+      await expect(page.locator('.binding')).toBeHidden();
+      expect(top.sheet.left).toBe(0);
+    } else {
+      expect(top.binding.top).toBe(top.bar.bottom);
+      expect(top.sheet.left).toBe(top.binding.right);
+      await expect(page.locator('.binding')).not.toHaveCSS('border-right-width', '0px');
+    }
 
-    // 本文を縦に送っても、帯は上に残り、左のメニューは帯のすぐ下に残る
+    // 本文を縦に送っても、帯は上に残り、開いた左のメニューは帯のすぐ下に残る
     await page.evaluate(() => window.scrollTo(0, 400));
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
     const scrolled = await frame();
     expect(scrolled.bar.top).toBe(0);
-    expect(scrolled.inner.top).toBe(scrolled.bar.bottom);
-    expect(scrolled.inner.bottom).toBeCloseTo(600, 0);
+    if (!collapse) {
+      expect(scrolled.inner.top).toBe(scrolled.bar.bottom);
+      expect(scrolled.inner.bottom).toBeCloseTo(600, 0);
+    }
     await expect(page.locator('.nav-toggle')).toBeInViewport({ ratio: 1 });
   }
 });
@@ -1261,6 +1271,7 @@ test('761px で長い組織の名前でも、上の帯は1段に収まり、検�
         toggle: box('.nav-toggle'),
         bar: box('.topbar'),
         binding: box('.binding').top,
+        sheet: box('.sheet').top,
         search: box('.topbar .nav-search'),
         org: box('.topbar .org-menu'),
         viewport: window.innerWidth,
@@ -1273,9 +1284,10 @@ test('761px で長い組織の名前でも、上の帯は1段に収まり、検�
     expect(layout.search.left).toBeGreaterThanOrEqual(layout.start.right);
     // 組織の名前の幅は、左のメニューを開いても閉じても画面の幅の 1/4 で止まる（帯は全幅）
     expect(layout.org.width).toBeCloseTo(layout.viewport / 4, 0);
-    // 帯は1段で、左のメニューは帯のすぐ下から始まる
+    // 帯は1段で、本文と開いた左のメニューは帯のすぐ下から始まる
     expect(layout.bar.height).toBe(60);
-    expect(layout.binding).toBe(layout.bar.bottom);
+    expect(layout.sheet).toBe(layout.bar.bottom);
+    if (!collapse) expect(layout.binding).toBe(layout.bar.bottom);
     await expect(page.locator('.topbar .account-menu-button')).toBeInViewport();
   }
 });
