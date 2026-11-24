@@ -108,6 +108,13 @@ test('閉じた綴じと空の列を狭い幅の補集合で隠す', () => {
   assert.match(wideComponentRules, /\.app\[data-nav-collapsed="true"\] > \.binding\s*\{\s*display: none;/);
 });
 
+test('綴じの境目と見本のメニューの表示も狭い幅の補集合に揃える', () => {
+  const hover = mediaBody(wideComponents, '(hover: hover)');
+  assert.match(withoutNestedMedia(hover), /\.nav-resize\s*\{\s*display: block;/);
+  assert.match(mediaBody(hover, '(forced-colors: active)'), /\.nav-resize-tip\s*\{\s*border-color: CanvasText;/);
+  assert.match(wideComponentRules, /\.binding \.is-menu-only\s*\{\s*display: none;/);
+});
+
 test('初回読み込みの2列とマウス用の余白を狭い幅の補集合に置く', () => {
   assert.match(
     withoutNestedMedia(wideBoot),

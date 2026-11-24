@@ -40,7 +40,8 @@ h1, h2, h3 { text-wrap: balance; }
    全幅の上の帯（高さ --header-height。左端に開閉のボタンとマーク）が1段目に通り、その下に綴じと帳面が並ぶ（Jira と同じ形）。
    帯は .app の直接の子で、格子の名前の付いた領域に置く（760px 以下は帯と綴じを出さず、帳面だけになる） */
 .app {
-  --binding-width: 240px;
+  /* 綴じの幅。右の境目で変えた幅（--nav-width。本番は AppShell が CSSOM で渡す）を、下限 200px と上限 min(480px, 40vw) に収める（#1513） */
+  --binding-width: clamp(200px, var(--nav-width, 240px), min(480px, 40vw));
   display: grid; grid-template-columns: var(--binding-width) minmax(0, 1fr); grid-template-rows: auto 1fr;
   grid-template-areas: "bar bar" "binding sheet";
   min-height: 100vh;
@@ -64,6 +65,11 @@ h1, h2, h3 { text-wrap: balance; }
   padding-left: max(var(--space-4), env(safe-area-inset-left, 0px));
   padding-right: var(--space-4);
 }
+/* 綴じの右の境目（.nav-resize。760px を超える幅でホバーのできる端末だけ）を綴じの中身に重ねるため、綴じを1マスの格子にして同じマスに置く。
+   境目を .binding-inner の外に置くのは、中の overflow-x: hidden で境目と札が切れないため */
+.binding { display: grid; grid-template-columns: minmax(0, 1fr); }
+.binding > * { grid-area: 1 / 1; }
+.nav-resize { display: none; }
 .binding-foot { margin-top: auto; font-size: var(--text-xs); color: var(--color-faint); padding-inline: var(--space-2); }
 
 .brand { display: flex; align-items: center; gap: var(--space-2); padding-inline: var(--space-2); }
@@ -236,6 +242,44 @@ h1, h2, h3 { text-wrap: balance; }
     .nav-toggle:hover .nav-tip { display: grid; }
   }
 }
+/* 綴じの右の境目（#1513）。罫の上に幅 8px の掴む所を重ね、左右のドラッグで綴じの幅を変え、ダブルクリック（キーボードは Enter）で閉じる。
+   ホバーのできない端末（指だけのタブレットなど）には出さず、開閉のボタンだけで閉じる（人が決めた）。
+   帯の下に貼り付け、高さは綴じの中身と同じにする。掴む所は罫から本文の側へだけ出し、本文の上に重ねる（綴じの z-index）。
+   綴じの内側へ入れないのは、綴じの中身の縦のスクロールバーと重ねないため。
+   ホバー、フォーカス、ドラッグの間は罫の位置に操作の色の線を引き、札「ダブルクリックで閉じる」を境目の右（本文の上）に出す。
+   札の縦の位置は、ホバーではポインタの高さ（--nav-resize-tip-y。AppShell が CSSOM で渡す）、キーボードでは境目の上端に合わせる */
+@media not (max-width: 760px) {
+  @media (hover: hover) {
+    .nav-resize {
+      display: block; position: sticky; top: var(--header-height); align-self: start; justify-self: end;
+      width: var(--space-2); height: calc(100vh - var(--header-height)); height: calc(100dvh - var(--header-height));
+      margin-right: calc(-1 * var(--space-2)); cursor: col-resize; touch-action: none;
+    }
+    .nav-resize::before {
+      content: ""; position: absolute; inset-block: 0; left: -1px; width: 2px;
+      background: transparent; transition: background-color var(--duration-fast) var(--ease-out);
+    }
+    .nav-resize:hover::before, .nav-resize[data-dragging="true"]::before { background: var(--color-accent); }
+    /* キーボードのフォーカスは、掴む所を囲む輪郭（:focus-visible の既定）だけで示す。中の線も引くと三重の線に見えるため */
+    .nav-resize:focus-visible { outline-offset: 0; }
+    .nav-resize:focus-visible:not([data-dragging="true"])::before { background: transparent; }
+    .nav-resize-tip {
+      /* 縦の位置は境目の下端から札の高さ分（3rem）より下へ出さず、画面の下端で文書を伸ばさない */
+      display: none; position: absolute; z-index: 1; left: calc(100% + var(--space-1));
+      top: min(var(--nav-resize-tip-y, var(--space-4)), calc(100% - 3rem));
+      width: max-content; max-width: 18rem; padding: var(--space-1) var(--space-2); border: 1px solid var(--color-line);
+      border-radius: var(--radius-1); background: var(--color-surface); color: var(--color-fg);
+      font-size: var(--text-sm); box-shadow: var(--shadow-float); pointer-events: none; overflow-wrap: anywhere;
+    }
+    .nav-resize:is(:hover, :focus-visible):not([data-dragging="true"]) .nav-resize-tip { display: block; }
+    /* ドラッグの間は文字を選ばせず、ポインタを境目の形のまま保つ */
+    .app[data-nav-resizing="true"] { cursor: col-resize; user-select: none; }
+    @media (forced-colors: active) {
+      .nav-resize:hover::before, .nav-resize[data-dragging="true"]::before { background: Highlight; }
+      .nav-resize-tip { border-color: CanvasText; }
+    }
+  }
+}
 /* アカウントのメニュー。上の帯の自分の名前を押すと開く。リストの見た目は組織の切り替えと同じ（上の .org-menu-list と並べて書く）で、
    帯の下に重ねて出す（帯の高さを変えない）。広い幅ではボタンの右端に合わせて開く。760px 以下は、帯が左に寄って
    ボタンが左端に来るので、ボタンではなく帯を基準に、左右の余白の内側へ広げる（下の狭い画面の規則）。
@@ -299,6 +343,37 @@ h1, h2, h3 { text-wrap: balance; }
 .breadcrumb-item { min-width: 0; max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-muted); text-decoration: none; }
 a.breadcrumb-item:hover { color: var(--color-fg); text-decoration: underline; }
 .breadcrumb-item[aria-current="page"] { max-width: 100%; color: var(--color-fg); font-weight: 600; }
+/* ワークスペースの画面のタブ（#1514）。受信箱、バックログ、ボード、計画、Wiki、接続、メンバー（と、リーダーと管理者には設定）の画面へ移る。
+   パンくずの帯（.sheet-crumbs）の下、本文（.content）の直前の帯（.sheet-tabs）に置き、本文の見出しの上に出す。帯の下の本文の上の余白は既定の --space-4 に戻す。
+   画面を移るリンクの並びなので、.tabs（aria-selected の tablist とタブパネル）とは分け、nav の中のリンクにして今の画面に aria-current="page" を付ける。
+   今の画面は、文字の色と太さ（600。パンくずと左のメニューと同じ）と、下の操作の色の線で示す。太さで幅が変わって並びが動かないよう、::after で太い字の幅を先に取る。
+   タブの高さは 36px（指で押す画面は 44px）で、読み込み中の骨組み（.skeleton-frame の .sheet-tabs、static/boot-loading.css の .boot-tabs）と高さを揃える。
+   幅が足りなければ帯の中で横に送る（入らないタブを「その他」にまとめるのは #1516）。送りの棒は出さず（常に出す環境で帯の高さが変わり、骨組みとずれるため）、
+   今の画面のタブは WorkspaceTabs が帯の見える範囲へ送る。760px 以下は出さない */
+.sheet-tabs {
+  padding-top: var(--space-2);
+  padding-left: max(var(--space-8), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--space-8), env(safe-area-inset-right, 0px));
+}
+.route-tabs { position: relative; display: flex; gap: var(--space-1); border-bottom: 1px solid var(--color-line); overflow-x: auto; scrollbar-width: none; }
+.route-tabs::-webkit-scrollbar { display: none; }
+.route-tab {
+  box-sizing: border-box; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; flex: none;
+  min-height: calc(var(--space-6) + var(--space-3)); padding: 0 var(--space-3);
+  font-size: var(--text-sm); white-space: nowrap; color: var(--color-muted); text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+.route-tab::after { content: attr(data-label); font-weight: 600; height: 0; overflow: hidden; visibility: hidden; }
+.route-tab:hover { color: var(--color-fg); }
+.route-tab:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+.route-tab[aria-current="page"] { color: var(--color-fg); font-weight: 600; border-bottom-color: var(--color-accent); }
+@media (pointer: coarse) { .route-tab { min-height: 44px; } }
+@media (forced-colors: active) {
+  .route-tab { border-bottom-color: Canvas; }
+  .route-tab[aria-current="page"] { border-bottom-color: Highlight; }
+}
+/* 760px を超える幅の左のメニューに出さない項目（見本の kit.js の navHtml。機能はワークスペースの画面のタブで移る）。760px 以下の浮きメニューでは出す */
+@media not (max-width: 760px) { .binding .is-menu-only { display: none; } }
 /* 上の帯の検索。帯の右に寄せ、アシスタントと組織の切り替えとアカウントの左に置く。画面の名前を絞り、今のワークスペースがあれば末尾にバックログの検索の行を足す。Ctrl+K（⌘K）で欄へ移る。
    候補の小窓は帯の下へ重ね、狭い幅では欄を帯の1行に広げて小窓を画面の幅に収める */
 .nav-search {
@@ -950,7 +1025,7 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
     padding-right: max(var(--space-4), env(safe-area-inset-right, 0px));
   }
   .topbar { justify-content: flex-start; position: relative; z-index: auto; }
-  .sheet-crumbs { display: none; }
+  .sheet-crumbs, .sheet-tabs { display: none; }
   .sheet-crumbs + .content { padding-top: var(--space-4); }
   /* アカウントのボタンはアバターと▾だけにし、帯の1行目に幅を残す。表示名は読み上げの名前と一覧の「マイプロフィール」で分かる */
   .account-menu-button .me-detail { display: none; }
@@ -2079,6 +2154,11 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
 .skeleton-frame .topbar-start > .skeleton-line.is-toggle { flex: none; width: 36px; height: 36px; }
 @media (pointer: coarse) { .skeleton-frame .topbar-start > .skeleton-line.is-toggle { width: 44px; height: 44px; } }
 .skeleton-frame .sheet-crumbs > .skeleton-line.is-crumb { flex: 0 1 12rem; min-width: 4rem; }
+/* タブの帯の骨組み。本物のタブ（.route-tab）と同じ高さの行に、短い帯を並べる */
+.skeleton-frame .route-tabs { overflow: hidden; }
+.skeleton-frame .route-tabs > .skeleton-tab { box-sizing: border-box; display: flex; align-items: center; flex: none; min-height: calc(var(--space-6) + var(--space-3)); padding: 0 var(--space-3); }
+.skeleton-frame .route-tabs > .skeleton-tab > .skeleton-line { width: 3.5rem; }
+@media (pointer: coarse) { .skeleton-frame .route-tabs > .skeleton-tab { min-height: 44px; } }
 .skeleton-frame .topbar > .skeleton-line.is-search { flex: 0 1 18rem; min-width: 9rem; height: 36px; }
 .skeleton-frame .topbar > .skeleton-line.is-account { width: 7rem; height: 28px; }
 .skeleton-frame .topbar > .skeleton-line.is-org-name { width: 8rem; height: 1.25em; margin-inline: var(--space-2); }
@@ -2312,7 +2392,7 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
 .banner { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; padding: var(--space-2) var(--space-4); background: var(--color-accent); color: var(--color-on-accent); font-size: var(--text-sm); border-radius: var(--radius-1); }
 .banner .btn { margin-left: auto; }
 
-/* 左のメニュー（240px）の分だけ本文が狭いので、メニューのある幅でも説明と本文を縦に並べ、本文の表を潰さない */
+/* 左のメニュー（既定 240px。境目で 480px まで広げられる）の分だけ本文が狭いので、メニューのある幅でも説明と本文を縦に並べ、本文の表を潰さない */
 @media (max-width: 1080px) {
   .setting { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
 }

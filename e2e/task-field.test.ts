@@ -15,7 +15,7 @@ test.beforeEach(async ({ context, baseURL }) => {
 });
 
 async function openSettings(page: Page): Promise<void> {
-  await page.locator('.nav-item', { hasText: /^\s*設定\s*$/ }).click();
+  await page.locator('.route-tab', { hasText: /^\s*設定\s*$/ }).click();
   await expect(page).toHaveURL(/\/aoba\/w\/[0-9a-f-]{36}\/settings$/);
   await expect(page.getByRole('heading', { level: 1, name: '設定' })).toBeVisible();
 }
@@ -45,7 +45,7 @@ test('設定で欄を足す → 欄が空でも木と見出しに未記入は出
   await expect(page.getByText('同じ名前の決まった欄があります')).toBeVisible();
 
   // バックログ: 欄が空の行を作っても、行にも見出しの集計にも「詳細 未記入」は出ない
-  await page.locator('.nav-item', { hasText: 'バックログ' }).click();
+  await page.locator('.route-tab', { hasText: 'バックログ' }).click();
   await addTaskRow(page, '失効の通知を直す');
   await addTaskRow(page, '履歴の画面を作る');
   const row = page.locator('.entry', { hasText: '失効の通知を直す' });
@@ -104,7 +104,7 @@ test('設定で欄を足す → 欄が空でも木と見出しに未記入は出
   await expect(confirm.getByText(/未記入/)).toHaveCount(0);
   await confirm.getByRole('button', { name: '削除する' }).click();
   await expect(fields.locator('li')).toHaveText([/影響範囲/]);
-  await page.locator('.nav-item', { hasText: 'バックログ' }).click();
+  await page.locator('.route-tab', { hasText: 'バックログ' }).click();
   await row.getByRole('link', { name: '失効の通知を直す' }).click();
   await expect(fieldBlocks.locator('.field-label')).toHaveText(['影響範囲']);
   // 「同じ名前は断る」で起こした 409 だけが、ブラウザのコンソールに残る

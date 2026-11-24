@@ -165,7 +165,7 @@ html[data-boot-dashboard] #boot-loading .boot-skeleton {
   }
 }
 /* 行き先が組織の枠のとき（static/boot-shape.js が html に data-boot="<形>" を付ける）は、紙ではなく枠の形の骨組みを画面いっぱいに出す。
-   全幅の上の帯（高さ 60px。左端に開閉のボタンとマーク）の下に左のメニューと本文を並べる。左のメニューの幅（240px。閉じたときは列を出さず本文を全幅にする）、本文の余白は design/components.css の .app、.binding、.topbar、
+   全幅の上の帯（高さ 60px。左端に開閉のボタンとマーク）の下に左のメニューと本文を並べる。左のメニューの幅（既定 240px。覚えた幅を static/boot-shape.js が html の --nav-width に当て、200px と min(480px, 40vw) に収める。閉じたときは列を出さず本文を全幅にする）、本文の余白は design/components.css の .app、.binding、.topbar、
    .content と同じにし、本文は行き先の画面の組み（形は src/lib/loading-shape.ts と同じ。2列は .layout-aside の 320px、.layout-wiki、
    .setting の 260px、.board の 232px の列、.lanes の3列。どれも 1080px 以下で1列）に近づける。デザインシステムの LoadingSheet の
    .skeleton-frame と同じ並びにして、移る間と最初の読み込みで同じ形を見せる。
@@ -182,7 +182,7 @@ html[data-boot] #boot-loading .boot-frame {
   position: absolute;
   inset: 0;
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: clamp(200px, var(--nav-width, 240px), min(480px, 40vw)) minmax(0, 1fr);
   grid-template-rows: auto 1fr;
   grid-template-areas: 'bar bar' 'binding sheet';
   overflow: hidden;
@@ -296,11 +296,43 @@ html[data-boot] #boot-loading .boot-frame {
   padding: 16px 32px 40px;
   gap: 32px;
 }
-#boot-loading .boot-crumbs + .boot-content {
+#boot-loading .boot-crumbs ~ .boot-content {
   padding-top: 8px;
 }
 @media (pointer: coarse) {
   #boot-loading .boot-crumbs {
+    min-height: 44px;
+  }
+}
+/* タブの帯（ワークスペースの画面。static/boot-shape.js が html に data-boot-tabs を付ける）。本物の .sheet-tabs と同じく、パンくずの下に
+   上 8px の余白と、36px（指で押す画面は 44px）のタブの行と下の 1px の線を置き、下の本文の上の余白を 16px に戻す */
+#boot-loading .boot-tabs {
+  display: none;
+  padding: 8px 32px 0;
+}
+html[data-boot-tabs] #boot-loading .boot-tabs {
+  display: flex;
+}
+html[data-boot-tabs] #boot-loading .boot-tabs ~ .boot-content {
+  padding-top: 16px;
+}
+#boot-loading .boot-tablist {
+  flex-direction: row;
+  gap: 4px;
+  overflow: hidden;
+  border-bottom: 1px solid #d6d6da;
+}
+#boot-loading .boot-tablist > b {
+  flex: none;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 12px;
+}
+#boot-loading .boot-tablist i {
+  width: 3.5rem;
+}
+@media (pointer: coarse) {
+  #boot-loading .boot-tablist > b {
     min-height: 44px;
   }
 }
@@ -480,8 +512,9 @@ html[data-boot] #boot-loading .boot-frame {
     min-height: 60px;
     padding: 5px 16px;
   }
-  /* 畳んだ検索の虫眼鏡と、アバターだけのアカウントの1段。パンくずの帯は出さない */
-  #boot-loading .boot-crumbs {
+  /* 畳んだ検索の虫眼鏡と、アバターだけのアカウントの1段。パンくずの帯とタブの帯は出さない */
+  #boot-loading .boot-crumbs,
+  html[data-boot-tabs] #boot-loading .boot-tabs {
     display: none;
   }
   #boot-loading .boot-topbar .is-account {
@@ -499,7 +532,8 @@ html[data-boot] #boot-loading .boot-frame {
     height: 44px;
   }
   #boot-loading .boot-content,
-  #boot-loading .boot-crumbs + .boot-content {
+  #boot-loading .boot-crumbs ~ .boot-content,
+  html[data-boot-tabs] #boot-loading .boot-tabs ~ .boot-content {
     padding-top: 16px;
     padding-inline: 16px;
   }
@@ -602,6 +636,7 @@ html[data-boot] #boot-loading .boot-frame {
   #boot-loading .boot-binding,
   #boot-loading .boot-topbar,
   #boot-loading .boot-head,
+  #boot-loading .boot-tablist,
   #boot-loading .boot-col {
     border-color: #37373d;
   }
@@ -628,7 +663,7 @@ html[data-theme='simple_light'] #boot-loading .boot-frame i {
 html[data-theme='simple_light'] #boot-loading :is(.boot-binding, .boot-col) {
   background: #f2f2f3;
 }
-html[data-theme='simple_light'] #boot-loading :is(.boot-binding, .boot-topbar, .boot-head, .boot-col) {
+html[data-theme='simple_light'] #boot-loading :is(.boot-binding, .boot-topbar, .boot-head, .boot-tablist, .boot-col) {
   border-color: #d6d6da;
 }
 html[data-theme='simple_dark'] #boot-loading {
@@ -653,6 +688,6 @@ html[data-theme='simple_dark'] #boot-loading .boot-frame i {
 html[data-theme='simple_dark'] #boot-loading :is(.boot-binding, .boot-col) {
   background: #0e0e10;
 }
-html[data-theme='simple_dark'] #boot-loading :is(.boot-binding, .boot-topbar, .boot-head, .boot-col) {
+html[data-theme='simple_dark'] #boot-loading :is(.boot-binding, .boot-topbar, .boot-head, .boot-tablist, .boot-col) {
   border-color: #37373d;
 }

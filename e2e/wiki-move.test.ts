@@ -23,7 +23,7 @@ for (const scope of ['org', 'workspace'] as const) {
     const violations = await watchViolations(page);
     if (scope === 'workspace') {
       await createWorkspace(page, 'Wikiの移動');
-      await page.locator('.nav-item', { hasText: /^Wiki$/ }).click();
+      await page.locator('.route-tab', { hasText: /^Wiki$/ }).click();
     } else await page.goto('/aoba/wiki');
     const suffix = crypto.randomUUID().slice(0, 8);
     const first = `${'A'.repeat(80)}-${suffix}`,
@@ -127,8 +127,10 @@ for (const scope of ['org', 'workspace'] as const) {
 }
 
 test('Wiki のつまみをドラッグして兄弟の間と子へ移す', async ({ page }) => {
+  // 木の行が窓の下端に寄ると、つまみを落とす位置が端の送りと重なる。見出しの上のタブの帯（#1514）の分も含めて、木が窓に収まる高さにする
+  await page.setViewportSize({ width: 1280, height: 900 });
   await createWorkspace(page, 'Wikiのドラッグ');
-  await page.locator('.nav-item', { hasText: /^Wiki$/ }).click();
+  await page.locator('.route-tab', { hasText: /^Wiki$/ }).click();
   await add(page, '親の手順');
   const url = await add(page, '動かす手順');
   await page.getByRole('button', { name: '並べ替える', exact: true }).click();
@@ -156,7 +158,7 @@ test('Wiki のつまみをドラッグして兄弟の間と子へ移す', async 
 
 test('遅い移動応答が編集中のフォーカスを奪わない', async ({ page }) => {
   await createWorkspace(page, 'Wikiの遅い移動');
-  await page.locator('.nav-item', { hasText: /^Wiki$/ }).click();
+  await page.locator('.route-tab', { hasText: /^Wiki$/ }).click();
   await add(page, '前のページ');
   await add(page, '編集中のページ');
   await page.getByRole('button', { name: '並べ替える', exact: true }).click();
@@ -190,7 +192,7 @@ test('遅い移動応答が編集中のフォーカスを奪わない', async ({
 
 test('移動が失敗したらトーストと木の上に理由を残す', async ({ page }) => {
   await createWorkspace(page, 'Wikiの移動の失敗');
-  await page.locator('.nav-item', { hasText: /^Wiki$/ }).click();
+  await page.locator('.route-tab', { hasText: /^Wiki$/ }).click();
   await add(page, '親のページ');
   const url = await add(page, '動かせないページ');
   await failOperation(page, workspaceWikiMove, { slug: 'aoba' }, 409, 'conflict', { details: { reason: 'too_deep' } });
@@ -209,10 +211,10 @@ test('移動が失敗したらトーストと木の上に理由を残す', async
 
 test('別の Wiki へ画面内で移ると移動結果と並べ替えモードを持ち越さない', async ({ page }) => {
   await createWorkspace(page, '移動先のWiki');
-  await page.locator('.nav-item', { hasText: /^Wiki$/ }).click();
+  await page.locator('.route-tab', { hasText: /^Wiki$/ }).click();
   const destination = await add(page, '移動先だけのページ');
   await createWorkspace(page, '移動元のWiki');
-  await page.locator('.nav-item', { hasText: /^Wiki$/ }).click();
+  await page.locator('.route-tab', { hasText: /^Wiki$/ }).click();
   await add(page, '先にあるページ');
   await add(page, '移すページ');
   await page.getByRole('button', { name: '並べ替える', exact: true }).click();

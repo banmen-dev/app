@@ -56,7 +56,7 @@ test('完成の定義を書く → バックログと引き出しに出る → �
   await expect(page.getByRole('textbox', { name: 'Markdown' })).toHaveValue(DOD);
 
   // バックログの木の上に、畳んで1つだけ出る
-  await page.locator('.nav-item', { hasText: 'バックログ' }).click();
+  await page.locator('.route-tab', { hasText: 'バックログ' }).click();
   const dod = page.locator('details.dod');
   await expect(dod).toHaveCount(1);
   await expect(dod.locator('summary')).toHaveText('完成の定義');
@@ -95,7 +95,7 @@ test('完成の定義を書く → バックログと引き出しに出る → �
   await page.getByRole('region', { name: '完成の定義', exact: true }).getByRole('button', { name: '保存する' }).click();
   await expect(page.getByRole('status').filter({ hasText: '完成の定義を空にしました' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Markdown' })).toHaveValue('');
-  await page.locator('.nav-item', { hasText: 'バックログ' }).click();
+  await page.locator('.route-tab', { hasText: 'バックログ' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();
   await expect(page.locator('.dod')).toHaveCount(0);
   await page.locator('.entry', { hasText: '議事録をまとめる' }).getByRole('link', { name: '議事録をまとめる' }).click();
@@ -127,7 +127,7 @@ test('書きかけのまま別の画面へ移ると、捨てるかを確かめ�
   await openSettings(page);
   const field = page.getByRole('textbox', { name: 'Markdown' });
   await field.fill('- 書きかけの掟');
-  await page.locator('.nav-item', { hasText: 'バックログ' }).click();
+  await page.locator('.route-tab', { hasText: 'バックログ' }).click();
   const confirm = page.getByRole('dialog', { name: '書きかけを捨てますか' });
   await expect(confirm).toBeVisible();
   await confirm.getByRole('button', { name: '書き続ける' }).click();
@@ -135,7 +135,7 @@ test('書きかけのまま別の画面へ移ると、捨てるかを確かめ�
   await expect(page).toHaveURL(/\/settings$/);
   await expect(field).toHaveValue('- 書きかけの掟');
 
-  await page.locator('.nav-item', { hasText: 'バックログ' }).click();
+  await page.locator('.route-tab', { hasText: 'バックログ' }).click();
   await confirm.getByRole('button', { name: '捨てる' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();
   await expect(page.locator('.dod')).toHaveCount(0);

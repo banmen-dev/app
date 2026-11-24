@@ -19,6 +19,8 @@
   // ワークスペースの経路の項目（メンバーなど）は、対象の ID があるときだけ出す。
   // 組織の切り替えはメニューの外（AppShell のブランドの下）に置く。
   // ワークスペースの設定は、対象のリーダーと管理者にだけ出す。
+  // workspaceItems が偽（761px 以上の左のメニュー）なら、ワークスペースの機能の項目と「管理」の見出しを出さない。
+  // 機能はワークスペースの画面の上のタブ（WorkspaceTabs）で切り替える。ワークスペースの見出しと切り替えは残す
   let {
     current,
     slug,
@@ -26,6 +28,7 @@
     isAdmin,
     workspace,
     workspaceSwitcher,
+    workspaceItems = true,
   }: {
     current: string;
     slug: string;
@@ -33,6 +36,7 @@
     isAdmin: boolean;
     workspace?: NavigationWorkspace;
     workspaceSwitcher?: Snippet;
+    workspaceItems?: boolean;
   } = $props();
 
   const favoriteLinks = $derived(
@@ -48,6 +52,7 @@
       isLeader: workspace?.role === 'leader',
       hasWorkspaceMenu: workspaceSwitcher !== undefined,
       workspaceId: workspace?.id ?? null,
+      workspaceItems,
     }),
   );
 </script>
