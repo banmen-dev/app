@@ -48,6 +48,17 @@
 
 手元の `wrangler dev` と vitest の Workers の実行環境は R2 を模擬する。本番のバケットには触らず、手元用のバケットを Cloudflare に作る必要はない。
 
+#### フィードバックの消える期間（ライフサイクルの規則）
+
+フィードバックの画像と `meta.json` は、同じバケットの `feedback/` の下に置き、R2 のライフサイクルの規則で 180 日後に消す（`docs/data-model.md` の「データベースの分け方」）。アプリは消さないので、フィードバックの送信を含む版を出す前に、人が規則を入れる。
+
+1. Cloudflare のダッシュボードで R2 Object Storage → `banmen-attachments` → Settings → Object lifecycle rules →「Add rule」を開く
+2. 名前を `feedback-180d`、対象を接頭辞（Prefix）`feedback/` にする。接頭辞を空にしない（空だとバケットのすべて、つまり全組織の添付ファイルとプロフィール画像が消える）
+3. 「Delete objects」を、アップロードから 180 日（Age 180 days）にして保存する。ほかの操作（Abort multipart、Storage class の移し替え）は足さない
+4. 一覧に `feedback-180d` が接頭辞 `feedback/` で出ることを見る
+
+人の端末の `pnpm exec wrangler r2 bucket lifecycle add banmen-attachments feedback-180d feedback/ --expire-days 180` でも入れられる。入れた後は `pnpm exec wrangler r2 bucket lifecycle list banmen-attachments` で、接頭辞が `feedback/` であることを確かめる。規則は消すまで続き、バケットを作り直したら入れ直す。規則が無くても送信は動くが、画像と URL が消えずに残り、プライバシーポリシーの「消す時期」と食い違う。
+
 ### 容量警告と通知の定期処理
 
 毎分の処理は、組織の通知済み・配信待ち・容量確認待ちの印を持つ組織だけを集計し、80%未満への復帰と通知の再試行を行う。保存応答は集計・配信を待たず、印の登録後に集計・配信が失敗したときは `attachment_quota_check_pending_at` または `attachment_quota_warning_pending_at` が残る。通常の `organization` の読み取りでは容量を集計せず、管理画面の節が `include_storage: true` を明示したときだけ読む。
@@ -141,6 +152,9 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
 | `GOOGLE_CLIENT_ID` | Google のログインの OAuth クライアントのクライアント ID（下の「Google の OAuth クライアント」） |
 | `GOOGLE_CLIENT_SECRET` | 同じ OAuth クライアントのクライアントシークレット |
 | `CONNECTION_CREDENTIAL_KEYS` | 接続の認証情報を暗号化する鍵（下の「接続の認証情報の鍵」） |
+| `FEEDBACK_GITHUB_APP_ID` | フィードバックを起票する GitHub App の App ID（下の「フィードバックの GitHub App」） |
+| `FEEDBACK_GITHUB_PRIVATE_KEY` | 同じ App の秘密鍵を PKCS#8 の PEM に直したもの（改行を含めた全体） |
+| `FEEDBACK_GITHUB_INSTALLATION_ID` | 同じ App を banmen-dev/app に入れたときのインストールの ID |
 
 `GITHUB_CLIENT_ID` と `GITHUB_CLIENT_SECRET` の決まり。
 
@@ -182,6 +196,45 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
 - 開発用の戻り先は、`pnpm dev` の画面の URL（`http://localhost:5173`。ワークツリーのポートは名前からずれるので、本物のログインはワークツリーの `.dev-port-offset` に 0 を書いて確かめる。`docs/development.md` の「ポート」）。`DEV_PORT_OFFSET` で明示してポートをずらして確かめるときは、OAuth App の「Add redirect URI」で、そのポートの戻り先（例 `http://localhost:5183/api/auth/github/callback`）を足す（10個まで登録できる）
 - 開発用の OAuth App で確かめるのは、本物のログインとログアウトだけ。e2e は seed のセッションの Cookie で通し、OAuth App の値を渡さない（`docs/development.md` の「開発とテストでのログイン」）
 - シークレットは git、ログ、Issue、PR に書かない。漏れたと分かったら、OAuth App でシークレットを作り直して入れ替える
+
+### フィードバックの GitHub App
+
+画面のフィードバック（`docs/requirements.md` の「機能」の「フィードバック」）は、GitHub App のインストールのトークンで banmen-dev/app に Issue を立てる。ログインの OAuth App とは別に作る。個人のトークン（PAT）は使わない。PAT で立てた Issue は作者が身内になり、開発のセッションが利用者の文を身内の指示として読みうるため（`docs/development.md` の「Issue の運用」の `feedback`）。
+
+1. GitHub の banmen-dev の Settings → Developer settings → GitHub Apps → New GitHub App を開く（Organization の下に作る。個人のアカウントの下に作らない）
+2. 値を入れる
+
+   | 項目 | 値 |
+   | --- | --- |
+   | GitHub App name | Banmen Feedback |
+   | Homepage URL | `https://banmen.ucan-lab.workers.dev` |
+   | Callback URL、Setup URL | 空 |
+   | Webhook | Active を外す（受けない） |
+   | Repository permissions | Issues: Read and write だけ。Metadata: Read-only は GitHub が必ず付ける。ほかは No access |
+   | Organization permissions、Account permissions | すべて No access |
+   | Where can this GitHub App be installed? | Only on this account |
+
+3. 作った App の「App ID」を控える（Client ID ではない）
+4. 同じ画面の Private keys →「Generate a private key」で鍵（`.pem`）を落とす。GitHub が出す鍵は PKCS#1（`-----BEGIN RSA PRIVATE KEY-----`）で、Workers の Web Crypto は読めないので、人の端末で PKCS#8 に直す
+
+   ```bash
+   openssl pkcs8 -topk8 -nocrypt -in banmen-feedback.<日付>.private-key.pem -out feedback-key.pkcs8.pem
+   ```
+
+   出力の先頭が `-----BEGIN PRIVATE KEY-----` であることを見る。元の `.pem` と直した鍵は、シークレットに入れた後に端末から消す
+
+5. App の Install App → banmen-dev の「Install」を開き、「Only select repositories」で banmen-dev/app だけを選ぶ。入れた後の URL `https://github.com/organizations/banmen-dev/settings/installations/<数字>` の数字がインストールの ID
+6. 本番は `wrangler secret put FEEDBACK_GITHUB_APP_ID`、`wrangler secret put FEEDBACK_GITHUB_INSTALLATION_ID`、`wrangler secret put FEEDBACK_GITHUB_PRIVATE_KEY < feedback-key.pkcs8.pem`（か、ダッシュボードの Worker の Settings → Variables and Secrets で Type を `Secret`）で入れる。鍵は改行を含めた全体を入れる
+7. GitHub の banmen-dev/app に `feedback` のラベルがあることを確かめる（`gh api repos/banmen-dev/app/labels/feedback`。2026-11-24 に作った）。App はラベルを作らず、無いと Issue を立てられない
+
+決まり。
+
+- 3つのどれかが未設定か空だと、フィードバックの送信は断る。ほかの機能は動き、`/api/health` は 200 のまま
+- 開発用とプレビューには入れない。手元の確かめは GitHub への通信を模擬する（プレビューの決まり「外部連携の本番の秘密は入れない」と同じ）
+- 鍵を入れ替えるときは、App で新しい鍵を作り、PKCS#8 に直して `FEEDBACK_GITHUB_PRIVATE_KEY` を書き換え、送信が動くことを確かめてから古い鍵を App で消す
+- 鍵は git、ログ、Issue、PR に書かない。漏れたと分かったら、App で鍵を消して作り直す。漏れた鍵で立てられるのは banmen-dev/app の Issue とコメントの読み書きだけ
+- App の権限を足さない。足すと、漏れたときに書けるものが増え、インストールの承認も要る
+- 画像と完全な URL は R2 の `feedback/` に置き、上の「R2」のライフサイクルの規則で消す。公開の Issue には載せない
 
 ### Google の OAuth クライアント
 
