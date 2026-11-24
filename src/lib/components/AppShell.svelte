@@ -227,7 +227,8 @@
       {#if organizationSwitcher}{@render organizationSwitcher()}{/if}
       {#if account}{@render account()}{/if}
     </div>
-    <aside class="binding" aria-label={t('menu')}>
+    <!-- 閉じている間も NavMenu は DOM に残し（開閉のボタンの aria-controls の先を保つ）、hidden でキーボードと読み上げから外す -->
+    <aside class="binding" aria-label={t('menu')} hidden={navState.collapsed}>
       <div class="binding-inner">
         <div class="binding-body">
           <NavMenu {current} {slug} {hasWorkspace} {isAdmin} {workspace} {workspaceSwitcher} />

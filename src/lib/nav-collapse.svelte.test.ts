@@ -45,7 +45,7 @@ describe('左のメニューの開閉の既定', () => {
     expect(navState.collapsed).toBe(false);
   });
 
-  test('localStorage が使えないときは広げた状態で読み、押せば今の画面では畳める', () => {
+  test('localStorage が使えないときは開いた状態で読み、押せば今の画面では閉じられる', () => {
     Object.defineProperty(globalThis, 'localStorage', {
       configurable: true,
       get() {
@@ -111,7 +111,7 @@ describe('ほかのタブでの変更', () => {
   });
 });
 
-test('保存された true を読むと畳んだ状態', () => {
+test('保存された true を読むと閉じた状態', () => {
   storage('true');
   expect(readNavCollapsed()).toBe(true);
 });

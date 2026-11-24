@@ -41,7 +41,6 @@ h1, h2, h3 { text-wrap: balance; }
    帯は .app の直接の子で、格子の名前の付いた領域に置く（760px 以下は帯と綴じを出さず、帳面だけになる） */
 .app {
   --binding-width-expanded: 240px;
-  --binding-width-collapsed: 64px;
   display: grid; grid-template-columns: var(--binding-width-expanded) minmax(0, 1fr); grid-template-rows: auto 1fr;
   grid-template-areas: "bar bar" "binding sheet";
   min-height: 100vh;
@@ -76,7 +75,7 @@ h1, h2, h3 { text-wrap: balance; }
 .brand-art.is-symbol { display: grid; place-items: center; width: 34px; height: 34px; box-sizing: border-box; padding: var(--space-1); }
 .brand-art.is-symbol .brand-mark { display: block; width: auto; height: 26px; }
 /* 上の帯の左端。開閉のボタンとマーク（組織のホームへのリンク）を左から並べ、残りの項目を右へ押す。
-   帯は左詰めにし、項目が入り切らなくても左端を画面の外へ押し出さない。左のメニューを畳んでも形を変えない */
+   帯は左詰めにし、項目が入り切らなくても左端を画面の外へ押し出さない。左のメニューを閉じても形を変えない */
 .topbar-start { display: flex; align-items: center; gap: var(--space-2); margin-right: auto; }
 .topbar-start .brand { flex: none; padding-inline: 0; }
 #org-menu-slot { display: contents; }
@@ -85,7 +84,7 @@ h1, h2, h3 { text-wrap: balance; }
 /* 上の帯の組織の切り替え（761px 以上。アカウントの左）。名前は1行で、収まらなければ省略記号で切る（全文はボタンの読み上げの名前と一覧で読める）。
    帯の高さを変えないため、「組織」のラベルと「届いた招待あり」のチップは見せず、招待は点の印で示す。
    一覧はボタンの右端に合わせて帯の下に浮かせる（アカウントのメニューと同じ）。帯の右に置くので、画面の右からはみ出さない。
-   列を畳んでも形を変えない */
+   左のメニューを閉じても形を変えない */
 .topbar .org-menu { position: relative; display: block; min-width: 0; }
 .topbar .org-menu-button {
   position: relative; display: flex; align-items: center; gap: var(--space-1); width: auto; max-width: 100%; min-height: 36px;
@@ -138,7 +137,7 @@ h1, h2, h3 { text-wrap: balance; }
 .nav-badge { margin-left: auto; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-muted); }
 /* 組織とワークスペースの切り替え。共通のボタンとリンクの一覧。
    選ぶと画面が移るので select にしない（矢印キーで選んだだけで移ってしまう）。
-   組織は狭い幅でも出す。ワークスペースは畳んだ列で隠し、760px 以下は浮きメニューの中に出す（下の狭い画面の規則）。 */
+   組織は狭い幅でも出す。ワークスペースは左のメニューの中に置き、760px 以下は浮きメニューの中に出す（下の狭い画面の規則）。 */
 :is(.org-menu, .ws-menu) { display: grid; gap: var(--space-1); min-width: 0; }
 :is(.org-menu-button, .ws-menu-button) {
   display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-2);
@@ -207,7 +206,7 @@ h1, h2, h3 { text-wrap: balance; }
 }
 
 @media (min-width: 761px) {
-  /* 浮かせた札を本文の位置付きの要素（バックログの行など）より上に出す。綴じの sticky は自前の重なりの文脈を作り、
+  /* 綴じの中で開く一覧（ワークスペースの切り替え）を本文の位置付きの要素（バックログの行など）より上に出す。綴じの sticky は自前の重なりの文脈を作り、
      中の z-index は文脈の外に効かないので、綴じごと本文の上に置く。上の帯（6）は綴じより上に置き、帯から開く組織の一覧と
      アカウントのメニューを綴じの上に重ねる。どちらも引き出し（.scrim の 20）とアシスタント（15）より下 */
   .binding { position: relative; z-index: 5; }
@@ -222,61 +221,16 @@ h1, h2, h3 { text-wrap: balance; }
     overflow-wrap: anywhere;
   }
 }
-/* 761px 以上では、左のメニューを 64px のアイコン列へ畳む。ホバーのできない端末（指だけのタブレットなど）でも開閉のボタンを出して畳める
-   （項目の名前は読み上げの名前とキーボードのフォーカスで分かる）。狭い画面では下のタブバーと浮きメニューを使う */
+/* 761px 以上では、左のメニューを閉じられる。閉じると列を残さず、本文が上の帯の下の全幅に広がる（Jira と同じ。#1512）。
+   綴じは DOM に残して（開閉のボタンの aria-controls の先を保つ）、見えなくし、キーボードと読み上げからも外す。
+   ホバーのできない端末（指だけのタブレットなど）でも開閉のボタンを出して閉じられる。狭い画面では下のタブバーと浮きメニューを使う */
 @media (min-width: 761px) {
-  /* 項目の名前の札。開閉のボタンの札（.nav-tip）と同じ見た目 */
-  .app[data-nav-collapsed="true"] .nav-item-label {
-    position: absolute; z-index: 1; left: calc(100% + var(--space-3)); top: 50%; transform: translateY(-50%);
-    width: max-content; max-width: 18rem; padding: var(--space-1) var(--space-2); border: 1px solid var(--color-line);
-    border-radius: var(--radius-1); background: var(--color-surface); color: var(--color-fg);
-    font-size: var(--text-sm); font-weight: 400; text-align: left; box-shadow: var(--shadow-float); pointer-events: none;
-  }
-
-  .app[data-nav-collapsed="true"] { grid-template-columns: var(--binding-width-collapsed) minmax(0, 1fr); }
-  /* 列の罫を引いても、内側に 44px の項目が収まる余白にする */
-  .app[data-nav-collapsed="true"] .binding-body {
-    padding-left: max(var(--space-2), env(safe-area-inset-left, 0px)); padding-right: var(--space-2); align-items: center;
-  }
-  .app[data-nav-collapsed="true"] .ws-menu,
-  .app[data-nav-collapsed="true"] .nav-badge,
-  .app[data-nav-collapsed="true"] .binding-foot,
-  .app[data-nav-collapsed="true"] .nav-favorites { display: none; }
-  /* 節の見出しは罫だけを見せ、文字は読み上げに残す */
-  .app[data-nav-collapsed="true"] .nav-group-label {
-    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
-  }
-  .app[data-nav-collapsed="true"] .nav-item { width: 44px; min-height: 44px; justify-content: center; }
-  .app[data-nav-collapsed="true"] .nav-item { padding: 0; gap: 0; }
-  /* 今のページは、太字が名前と一緒に見えなくなるので、左に縦棒の形の印を足す。強制カラーでも残るよう、背景でなく縁で描く。
-     項目の内側（左端）に置く。列の端に寄せると、罫の太さで位置が半端になってにじむため */
-  .app[data-nav-collapsed="true"] .nav-item[aria-current="page"]::before {
-    content: ""; position: absolute; left: 0; top: var(--space-2); bottom: var(--space-2);
-    border-left: 3px solid var(--color-accent); border-radius: var(--radius-1);
-  }
-  /* 項目の名前は見えなくしても読み上げに残す（display: none にしない）。キーボードのフォーカスとホバーでだけ見せる。
-     :focus-within にしないのは、マウスで押した後もリンクにフォーカスが残り、札が出続けるため */
-  .app[data-nav-collapsed="true"] .nav-item-label { opacity: 0; }
-  .app[data-nav-collapsed="true"] .nav-item:focus-visible .nav-item-label { opacity: 1; }
-  .app[data-nav-collapsed="true"] .nav-group { height: 1px; margin: var(--space-3) 0; padding: 0; border-top: 1px solid var(--color-line); }
-  /* 項目の札も、fixed とアンカーをセットで当てて列のスクロールに追従させる（非対応のブラウザは上の absolute のまま） */
-  @supports (anchor-scope: --nav-hit) {
-    .app[data-nav-collapsed="true"] .nav-item { anchor-name: --nav-hit; anchor-scope: --nav-hit; }
-    .app[data-nav-collapsed="true"] .nav-item-label {
-      position: fixed; position-anchor: --nav-hit; left: calc(anchor(right) + var(--space-3)); top: anchor(center);
-    }
-  }
-  /* 非対応のブラウザでは、畳んだ列の absolute の札が overflow に切られて出なくなる。畳んだ列だけ縦に送らず（main と同じ）、
-     札を列の外に出す */
-  @supports not (anchor-scope: --nav-hit) {
-    .app[data-nav-collapsed="true"] .binding-inner { overflow: visible; }
-  }
-
+  .app[data-nav-collapsed="true"] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "bar" "sheet"; }
+  .app[data-nav-collapsed="true"] > .binding { display: none; }
 }
 /* ホバーで出す札。ホバーのできる端末だけに当て、押した後に :hover が残る指の端末には出さない */
 @media (min-width: 761px) and (hover: hover) {
   .nav-toggle:hover .nav-tip { display: grid; }
-  .app[data-nav-collapsed="true"] .nav-item:hover .nav-item-label { opacity: 1; }
 }
 /* アカウントのメニュー。上の帯の自分の名前を押すと開く。リストの見た目は組織の切り替えと同じ（上の .org-menu-list と並べて書く）で、
    帯の下に重ねて出す（帯の高さを変えない）。広い幅ではボタンの右端に合わせて開く。760px 以下は、帯が左に寄って
@@ -395,7 +349,7 @@ a.breadcrumb-item:hover { color: var(--color-fg); text-decoration: underline; }
   .topbar > :not(.account-menu, .nav-search, .org-menu), .topbar-tools > * { flex: none; }
   /* 組織の切り替えは縮めず、幅が足りないときは検索の欄とアカウントの表示名が受ける。
      長い名前は幅の上限（16rem と、画面の幅の 1/4 の小さいほう）で省略して受け、帯を1段に保つ。
-     帯は全幅なので、左のメニューを畳んでも上限は変えない */
+     帯は全幅なので、左のメニューを閉じても上限は変えない */
   .topbar .org-menu { flex: none; max-width: min(16rem, 25vw); }
   /* 長い表示名は、折り返さず右を切って受ける（帯の高さを保つ）。アバターと▾が見える幅より縮めない（ログアウトと招待の点の入口を残す） */
   .topbar > .account-menu, .topbar #account-menu-slot > .account-menu { flex: 0 1 auto; min-width: 4rem; }
@@ -2139,12 +2093,6 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
 .skeleton-row > .skeleton-line.is-select { flex: 0 1 7rem; height: 32px; }
 .skeleton-frame .skeleton-body .skeleton { gap: var(--space-4); }
 .skeleton-frame .board-col.skeleton { gap: var(--space-2); }
-@media (min-width: 761px) {
-  /* 畳んだ列（64px）では、組織と項目の帯をアイコンの大きさの四角にし、区切りの見出しは出さない */
-  .app.skeleton-frame[data-nav-collapsed="true"] .binding-body .skeleton-line { width: 32px; height: 32px; margin-inline: auto; }
-  .app.skeleton-frame[data-nav-collapsed="true"] .binding-body .skeleton-line.is-group-label { display: none; }
-  .app.skeleton-frame[data-nav-collapsed="true"] .skeleton-nav { padding-inline: 0; }
-}
 @media (max-width: 760px) {
   /* 狭い幅では左のメニューを隠し、検索・アカウントの帯から始める。 */
   /* アカウントのボタンは指で押す高さ（44px）になるので、帯の外の余白で同じ高さを取る */

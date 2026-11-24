@@ -4009,6 +4009,9 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   function applyNavCollapsed() {
     const app = document.querySelector(".app");
     if (app) { if (navCollapsed) app.setAttribute("data-nav-collapsed", "true"); else app.removeAttribute("data-nav-collapsed"); }
+    // 閉じている間は綴じを hidden にして、キーボードと読み上げから外す（nav は DOM に残し、開閉のボタンの aria-controls の先を保つ）
+    const binding = document.querySelector(".app > .binding");
+    if (binding) binding.hidden = navCollapsed;
     const toggle = document.querySelector("[data-nav-toggle]");
     if (!toggle) return;
     const label = t(navCollapsed ? "menuExpand" : "menuCollapse");
@@ -4078,7 +4081,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
         <div id="org-menu-slot"></div>
         <span id="account-menu-slot"></span>
       </div>
-      <aside class="binding" aria-label="メニュー"><div class="binding-inner">
+      <aside class="binding" aria-label="メニュー"${navCollapsed ? " hidden" : ""}><div class="binding-inner">
         <div class="binding-body">
           <nav class="nav" id="app-nav"></nav>
           <p class="binding-foot">デザインの見本。データはすべて架空の例です</p>
