@@ -232,9 +232,12 @@ test('親もストーリーも無いカードの「親を変更」は、ダイ�
 
 test('絞り込み中に最後のカードを別の親へ移して断られたら、絞り込みもカードも元のまま', async ({ page }) => {
   await startBoard(page, ['絞った札']);
+  // 親を変えたら読み直す。読み直しが終わる前に親名で絞ると、読み直しと重なって絞り込みが外れることがあるので、待ってから押す
   const moved = waitForResponses(page, '/task-move');
+  const reloaded = waitForResponses(page, '/sprint-board');
   await chooseParent(page, '絞った札', '通知を整える');
   await moved;
+  await reloaded;
   const card = cardOf(page, '絞った札');
   await card.locator('.card-parent').click();
   await expect(page).toHaveURL(/[?&]story=/);
@@ -255,8 +258,10 @@ test('絞り込み中に別の親へ移して通ると、カードが絞り込�
   await startBoard(page, ['残る札', '外す札']);
   for (const title of ['残る札', '外す札']) {
     const moved = waitForResponses(page, '/task-move');
+    const reloaded = waitForResponses(page, '/sprint-board');
     await chooseParent(page, title, '通知を整える');
     await moved;
+    await reloaded;
   }
   await cardOf(page, '残る札').locator('.card-parent').click();
   await expect(page).toHaveURL(/[?&]story=/);
@@ -276,8 +281,10 @@ test('絞り込み中に別の親へ移して通ると、カードが絞り込�
 test('絞り込み中に最後のカードを別の親へ移して通ると、絞り込みが解け、カードは全体のボードに残る', async ({ page }) => {
   await startBoard(page, ['最後の札']);
   const first = waitForResponses(page, '/task-move');
+  const reloaded = waitForResponses(page, '/sprint-board');
   await chooseParent(page, '最後の札', '通知を整える');
   await first;
+  await reloaded;
   await cardOf(page, '最後の札').locator('.card-parent').click();
   await expect(page).toHaveURL(/[?&]story=/);
 
