@@ -251,6 +251,17 @@ test.describe('管理者（あおば開発のミナト）', () => {
     // 作った管理者は所属していない。それでも画面に入れて、印が出る
     // 印は上の帯の直接の子。組織の切り替えとアカウントのボタンの中のチップ（招待、管理者）と分けて数える（#1510）
     await expect(page.locator('.topbar > .chip')).toHaveText(['所属せず管理者として開いています']);
+    // 所属していない管理者にも、設定を含むすべてのタブを出す（#1514）
+    await expect(page.getByRole('navigation', { name: 'ワークスペースの画面' }).getByRole('link')).toHaveText([
+      '受信箱',
+      'バックログ',
+      'ボード',
+      '計画',
+      'Wiki',
+      '接続',
+      'メンバー',
+      '設定',
+    ]);
 
     // 画面を読み直さずにワークスペースの外へ移ると、印が消える
     await page.getByRole('button', { name: /アカウントのメニュー$/ }).click();

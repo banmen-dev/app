@@ -75,6 +75,15 @@ test('浮きメニューの項目と検索の候補はタブと同じ定義か�
   const options = { hasWorkspace: true, hasWorkspaceMenu: true, isLeader: true, workspaceId: 'w1' };
   const inMenu = visibleNav(undefined, options);
   expect(inMenu.map((section) => section.heading)).toEqual([undefined, 'workspace', 'groupManage']);
+  // 浮きメニューの節の振り分けは今までどおり（「管理」の下は接続、メンバー、設定）
+  const labelsOf = (sections: typeof inMenu, heading: string) =>
+    sections.find((section) => section.heading === heading)?.items.map((item) => item.label);
+  expect(labelsOf(inMenu, 'workspace')).toEqual(['inbox', 'backlog', 'board', 'plan', 'wiki']);
+  expect(labelsOf(inMenu, 'groupManage')).toEqual(['connection', 'pageMembers', 'pageSettings']);
+  const asAdmin = visibleNav(undefined, { ...options, isLeader: false, isAdmin: true });
+  expect(labelsOf(asAdmin, 'groupManage')).toEqual(['connection', 'pageMembers', 'pageSettings']);
+  const asMember = visibleNav(undefined, { ...options, isLeader: false });
+  expect(labelsOf(asMember, 'groupManage')).toEqual(['connection', 'pageMembers']);
   expect(inMenu.flatMap((section) => section.items).filter((item) => item.href.startsWith('/[slug]/w/'))).toEqual(
     visibleWorkspaceTabs({ isLeader: true }).map(({ icon, label, href, leaderOnly }) => ({
       icon,
