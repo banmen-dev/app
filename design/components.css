@@ -1112,8 +1112,22 @@ a.brand { color: inherit; text-decoration: none; }
 .board-col-n { white-space: nowrap; flex: 0 0 auto; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-fg); background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-full); padding: 0 var(--space-2); }
 .board-col-pts { white-space: nowrap; flex: 0 0 auto; margin-left: auto; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-muted); }
 .board-col.is-done .board-col-head > .ico { color: var(--color-done); align-self: center; }
+/* 列の見出しの書き換えと「⋯」（#1504。リーダーの完了でない列だけ）。名前はボタンで、押すと同じ所に入力欄（.board-col-name-input）を置く。
+   上限（wip_limit）を超えた列は、件数の札を警告の色（.is-over）にし、アイコンを添える（色だけで伝えない） */
+.board-col-name.is-action { padding: 0 var(--space-1); margin: 0 calc(-1 * var(--space-1)); border: 1px solid transparent; border-radius: var(--radius-1); background: none; text-align: left; cursor: text; }
+.board-col-name.is-action:hover { border-color: var(--color-line); background: var(--color-surface); }
+.board-col-name.is-action[aria-disabled="true"] { cursor: default; color: var(--color-muted); }
+.board-col-name-input.input { flex: 1 1 8rem; min-width: 0; min-height: 0; padding: 0 var(--space-2); font-size: var(--text-xs); font-weight: 700; }
+.board-col-n.is-over { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--color-warn); background: var(--color-warn-soft); border-color: var(--color-warn); font-weight: 700; }
+.board-col-n.is-over .ico { width: 12px; height: 12px; }
+.board-col-head > .row-menu .row-menu-btn { width: 24px; height: 24px; }
+.board-col:is(:hover, :focus-within) .board-col-head .row-menu-btn { opacity: 1; }
 @media (max-width: 760px), (pointer: coarse) {
   .board-col-toggle { min-width: 44px; min-height: 44px; }
+  .board-col-name.is-action { min-height: 44px; min-width: 44px; }
+  /* 指の画面では、入力欄も 44px にし、文字を 16px にしてフォーカスでの拡大を避ける */
+  .board-col-name-input.input { min-height: 44px; font-size: var(--text-body); }
+  .board-col-head > .row-menu .row-menu-btn { width: 44px; height: 44px; }
 }
 .board-empty { font-size: var(--text-xs); color: var(--color-muted); padding: var(--space-2); }
 .dod { font-size: var(--text-xs); color: var(--color-muted); background: var(--color-surface); border: 1px dashed var(--color-line); border-radius: var(--radius-1); padding: var(--space-1) var(--space-3); }

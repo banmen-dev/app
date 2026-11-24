@@ -44,8 +44,9 @@ window.SQ_DATA = (function () {
       wb: { name: "社内ツール", role: "member" },
     },
     columns: [
-      { id: "c1", name: "未着手" },
-      { id: "c2", name: "作業中" },
+      // limit は列の上限（board_columns.wip_limit）。作業中は上限を超えた見た目、未着手は上限の内側の見た目を見せる
+      { id: "c1", name: "未着手", limit: 4 },
+      { id: "c2", name: "作業中", limit: 1 },
       { id: "c3", name: "レビュー" },
       { id: "done", done: true },
     ],

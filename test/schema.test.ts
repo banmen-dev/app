@@ -906,6 +906,35 @@ describe('board_columns', () => {
     const { workspaceId } = await workspace();
     await expect(column(workspaceId, null, 0)).rejects.toThrow(/CHECK/);
   });
+
+  test('上限は 1〜99 で、完了の列には付けない', async () => {
+    const { workspaceId } = await workspace();
+    const limit = (columnId: string, value: number | null) =>
+      run(`UPDATE board_columns SET wip_limit = ? WHERE id = ?`, value, columnId);
+    const openId = id();
+    await run(
+      `INSERT INTO board_columns (id, workspace_id, name, position, created_at, updated_at) VALUES (?, ?, '進行中', 'a0', ?, ?)`,
+      openId,
+      workspaceId,
+      AT,
+      AT,
+    );
+    const doneId = id();
+    await run(
+      `INSERT INTO board_columns (id, workspace_id, name, is_done, position, created_at, updated_at) VALUES (?, ?, NULL, 1, 'a1', ?, ?)`,
+      doneId,
+      workspaceId,
+      AT,
+      AT,
+    );
+    await expect(limit(openId, 1)).resolves.toBeTruthy();
+    await expect(limit(openId, 99)).resolves.toBeTruthy();
+    await expect(limit(openId, null)).resolves.toBeTruthy();
+    await expect(limit(openId, 0)).rejects.toThrow(/CHECK/);
+    await expect(limit(openId, 100)).rejects.toThrow(/CHECK/);
+    await expect(limit(doneId, 3)).rejects.toThrow(/CHECK/);
+    await expect(limit(doneId, null)).resolves.toBeTruthy();
+  });
 });
 
 describe('tasks', () => {

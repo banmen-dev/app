@@ -26,3 +26,15 @@ export const columnNameSchema = z
     const problem = columnNameProblem(name);
     if (problem !== null) ctx.addIssue({ code: 'custom', message: `列の名前が使えない（${problem}）` });
   });
+
+// 列の上限（board_columns.wip_limit）。仕掛かりの溜まりすぎに気づくための目安で、超えても移動と追加は止めない。
+// 空（null）は上限なし。完了の列には付けない（完了の列は溜まるのが正しい状態）
+export const COLUMN_WIP_LIMIT_MIN = 1;
+export const COLUMN_WIP_LIMIT_MAX = 99;
+
+export const columnWipLimitSchema = z.number().int().min(COLUMN_WIP_LIMIT_MIN).max(COLUMN_WIP_LIMIT_MAX);
+
+// 上限を超えているか。上限ちょうどは超えていない
+export function overWipLimit(count: number, limit: number | null): boolean {
+  return limit !== null && count > limit;
+}
