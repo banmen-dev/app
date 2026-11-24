@@ -96,7 +96,7 @@ describe('メニュー', () => {
     }));
     const headings = (hasWorkspace: boolean) => visibleNav(withAll, { hasWorkspace }).map((section) => section.heading);
     assert.deepEqual(headings(false), [undefined]);
-    assert.deepEqual(headings(true), [undefined, 'workspace', 'groupRecords', 'groupManage']);
+    assert.deepEqual(headings(true), [undefined, 'workspace', 'groupManage']);
   });
 
   test('行き先の無い（href が null の）項目と、項目の無い見出しは出さない', () => {

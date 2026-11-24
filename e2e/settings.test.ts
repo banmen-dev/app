@@ -18,7 +18,7 @@ const SEED_CLIENT_WORKSPACE = '/aoba/w/019a0000-0000-7000-8000-000000000401';
 
 async function openSettings(page: Page): Promise<void> {
   // 「マイプロフィール」の項目にも当たらないよう、全体が「設定」の項目だけを選ぶ
-  await page.locator('.nav-item', { hasText: /^\s*設定\s*$/ }).click();
+  await page.locator('.route-tab', { hasText: /^\s*設定\s*$/ }).click();
   await expect(page).toHaveURL(/\/aoba\/w\/[0-9a-f-]{36}\/settings$/);
   await expect(page.getByRole('heading', { level: 1, name: '設定' })).toBeVisible();
 }
@@ -41,7 +41,7 @@ test.describe('リーダー（あおば開発のミナト）', () => {
     await createWorkspace(page, '設定ワークスペース');
     await openSettings(page);
     await expect(page).toHaveTitle('設定・設定ワークスペース - Banmen');
-    await expect(page.locator('.nav-item[aria-current="page"]')).toHaveText('設定');
+    await expect(page.locator('.route-tab[aria-current="page"]')).toHaveText('設定');
 
     // 空のうちは案内を出す
     await expect(page.getByText('まだ区分がありません')).toBeVisible();
@@ -75,7 +75,7 @@ test.describe('リーダー（あおば開発のミナト）', () => {
     await expect(categories.getByRole('button', { name: '上へ: 改修' })).toBeFocused();
 
     // バックログで空の行からタスクを作る。リポジトリと区分は、作った後に行のチップで選ぶ（区分は親なしのときだけ選べる）
-    await page.locator('.nav-item', { hasText: 'バックログ' }).click();
+    await page.locator('.route-tab', { hasText: 'バックログ' }).click();
     await addTaskRow(page, 'ポイントの失効を直す');
     const row = page.locator('.entry', { hasText: 'ポイントの失効を直す' });
     await row.getByRole('button', { name: 'リポジトリ: 未設定' }).click();
@@ -118,7 +118,7 @@ test.describe('リーダー（あおば開発のミナト）', () => {
     await expect(confirm).toContainText('完了の記録は元の区分のまま残ります');
     await confirm.getByRole('button', { name: '削除する' }).click();
     await expect(page.getByRole('list', { name: '区分の一覧' }).locator('li')).toHaveText([/改修/]);
-    await page.locator('.nav-item', { hasText: 'バックログ' }).click();
+    await page.locator('.route-tab', { hasText: 'バックログ' }).click();
     await expect(row.getByRole('button', { name: 'リポジトリ: admin-web' })).toBeVisible();
     await expect(row.getByRole('button', { name: '区分: 未設定' })).toBeVisible();
     expect(await collect()).toEqual([]);
@@ -194,7 +194,7 @@ test.describe('リーダー（あおば開発のミナト）', () => {
     // 押したボタンが消えるので、先頭の節の見出しへフォーカスを移し、読み直せたことを常に置いた領域で伝える
     await expect(page.locator('.settings .setting-title').first()).toBeFocused();
     await expect(page.getByRole('status').filter({ hasText: '一覧を更新しました' })).toHaveCount(1);
-    await page.locator('.nav-item', { hasText: 'バックログ' }).click();
+    await page.locator('.route-tab', { hasText: 'バックログ' }).click();
 
     // 親のないストーリーに区分を振る
     await addStoryRow(page, 'ポイントを使える');
@@ -236,11 +236,20 @@ test.describe('一般のメンバー（あおば開発のハルカ）', () => {
     await signIn(context, baseURL, 'member');
   });
 
-  test('メニューに設定を出さず、URL で開くと入れないことを伝える', async ({ page }) => {
+  test('タブに設定を出さず、URL で開くと入れないことを伝える', async ({ page }) => {
     await page.goto(SEED_CLIENT_WORKSPACE);
     await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();
-    await expect(page.locator('.nav-item', { hasText: 'メンバー' })).toBeVisible();
-    await expect(page.locator('.nav-item', { hasText: /^\s*設定\s*$/ })).toHaveCount(0);
+    const tabs = page.getByRole('navigation', { name: 'ワークスペースの画面' });
+    await expect(tabs.getByRole('link')).toHaveText([
+      '受信箱',
+      'バックログ',
+      'ボード',
+      '計画',
+      'Wiki',
+      '接続',
+      'メンバー',
+    ]);
+    await expect(tabs.getByRole('link', { name: '設定', exact: true })).toHaveCount(0);
     await page.goto(`${SEED_CLIENT_WORKSPACE}/settings`);
     await expect(page.getByText('この画面には入れません')).toBeVisible();
     await expect(page.getByLabel('新しい区分の名前')).toHaveCount(0);

@@ -17,6 +17,7 @@
     loadingDashboard,
     loadingShape,
     loadingShapeNarrowEyebrow,
+    loadingShapeTabs,
     type LoadingShape,
   } from '../lib/loading-shape.ts';
   import { shortcuts } from '../lib/shortcuts.svelte.ts';
@@ -31,6 +32,7 @@
   let shownLoadingShape = $state<LoadingShape | null>(null);
   let shownLoadingDashboard = $state(false);
   let shownLoadingNarrowEyebrow = $state(false);
+  let shownLoadingTabs = $state(false);
 
   // URL を直接開いた最初の読み込みの表示（src/app.html の #boot-loading）は、画面が描かれたら要らない
   // （骨組みの形の印 data-boot と data-boot-nav も、以後の画面の開閉と食い違わないよう外す）
@@ -41,6 +43,7 @@
       delete document.documentElement.dataset.boot;
       delete document.documentElement.dataset.bootNav;
       delete document.documentElement.dataset.bootDashboard;
+      delete document.documentElement.dataset.bootTabs;
     };
     if (!boot) {
       removeBoot();
@@ -96,6 +99,7 @@
       shownLoadingShape = loadingShapeTo;
       shownLoadingDashboard = loadingDashboard(navigating.to?.route.id);
       shownLoadingNarrowEyebrow = loadingShapeNarrowEyebrow(navigating.to?.route.id);
+      shownLoadingTabs = loadingShapeTabs(navigating.to?.route.id);
     }
   });
 </script>
@@ -118,6 +122,7 @@
       shape={shownLoadingShape}
       dashboard={shownLoadingDashboard}
       narrowEyebrow={shownLoadingNarrowEyebrow}
+      tabs={shownLoadingTabs}
     />
   </div>
 {:else}

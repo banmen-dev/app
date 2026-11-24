@@ -613,6 +613,8 @@ export const dictionary = defineDictionary({
   navResize: 'メニューの幅',
   navResizeTip: 'ダブルクリックで閉じる',
   breadcrumb: 'パンくず',
+  // ワークスペースの画面の上のタブ（WorkspaceTabs）の nav の読み上げの名前
+  workspaceTabs: '{workspace}の画面',
   mobilePageToolsLabel: '検索とアカウント',
   navSearchLabel: '画面とタスクを探す',
   navSearchPlaceholder: '画面やタスクを探す',
@@ -645,7 +647,6 @@ export const dictionary = defineDictionary({
   pageMembers: 'メンバー',
   pageSettings: '設定',
   pageHistory: '変更の履歴',
-  groupRecords: '記録',
   groupManage: '管理',
 
   // 今日やること

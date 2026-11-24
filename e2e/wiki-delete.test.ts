@@ -258,7 +258,7 @@ test('削除の送信中はページ移動と書き込みを止め、確定後�
 
 test('終了したワークスペースでは自分のページも消すボタンがない', async ({ page }) => {
   await createWorkspace(page, `終了したWiki-${crypto.randomUUID().slice(0, 8)}`);
-  await page.locator('.nav-item', { hasText: /^Wiki$/ }).click();
+  await page.locator('.route-tab', { hasText: /^Wiki$/ }).click();
   const url = await add(page, '終了後に残すページ');
   await rewriteOperation(page, workspaceInfo, { slug: 'aoba' }, (output) => ({
     ...output,
@@ -460,9 +460,11 @@ for (const scope of ['organization', 'workspace'] as const) {
     await page.locator('.crumbs a').filter({ hasText: '警告を残さない親-' }).click();
     await expect(page).toHaveURL(parent);
     await expect(page.getByRole('alert')).toHaveCount(0);
+    // 組織の Wiki からは左のメニューの「今日やること」、ワークスペースの Wiki からは左のメニューの組織の Wiki へ移る
+    // （ワークスペースの Wiki はワークスペースの画面のタブにあり、組織の画面には出ない。#1514）
     const otherWiki =
       scope === 'organization'
-        ? page.locator('a.nav-item').filter({ hasText: /^Wiki$/ })
+        ? page.locator('a.nav-item[href="/aoba"]')
         : page.locator('a.nav-item[href="/aoba/wiki"]');
     const otherRoot = await otherWiki.getAttribute('href');
     expect(otherRoot).not.toBeNull();

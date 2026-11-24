@@ -54,18 +54,10 @@ test('今日やることから一般のメンバーが所属先を切り替え�
   const todayTasks = await page.locator('.content .entry-title').allTextContents();
   const nav = page.locator('#app-nav');
   await expect(nav.getByRole('link', { name: '今日やること', exact: true })).toHaveAttribute('aria-current', 'page');
-  for (const [label, suffix] of [
-    ['バックログ', ''],
-    ['ボード', '/board'],
-    ['計画', '/plan'],
-    ['Wiki', '/wiki'],
-    ['メンバー', '/members'],
-  ]) {
-    const link = nav.getByRole('link', { name: label, exact: true });
-    await expect(link).toHaveAttribute('href', `${backlog}${suffix}`);
-    await expect(link).not.toHaveAttribute('aria-current');
-  }
-  await expect(nav.getByRole('link', { name: '設定', exact: true })).toHaveCount(0);
+  // ワークスペースの機能は、ワークスペースの画面のタブにあり、組織の画面の左のメニューにもタブにも出さない（#1514）
+  for (const label of ['バックログ', 'ボード', '計画', 'Wiki', 'メンバー', '設定'])
+    await expect(nav.getByRole('link', { name: label, exact: true })).toHaveCount(0);
+  await expect(page.locator('.route-tabs')).toHaveCount(0);
   await expect(page.locator('.nav-item', { hasText: '組織の管理' })).toHaveCount(0);
   await buttonOf(page).click();
   const current = listOf(page).getByRole('link', { name: '受託開発チーム', exact: true });
@@ -87,9 +79,14 @@ test('今日やることから一般のメンバーが所属先を切り替え�
   await expect(page).toHaveURL(/\/aoba$/);
   await expect(buttonOf(page)).toContainText(name);
   await expect(page.locator('.content .entry-title')).toHaveText(todayTasks);
-  await expect(nav.getByRole('link', { name: '設定', exact: true })).toHaveAttribute('href', `${target}/settings`);
-  await expect(nav.getByRole('link', { name: 'メンバー', exact: true })).toHaveAttribute('href', `${target}/members`);
-  await nav.getByRole('link', { name: 'メンバー', exact: true }).click();
+  // 戻った対象のワークスペースへ切り替えから移ると、タブはその対象を指し、リーダーには設定も出す（#1514）
+  await buttonOf(page).click();
+  await listOf(page).getByRole('link', { name, exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`${target}$`));
+  const tabs = page.getByRole('navigation', { name: 'ワークスペースの画面' });
+  await expect(tabs.getByRole('link', { name: '設定', exact: true })).toHaveAttribute('href', `${target}/settings`);
+  await expect(tabs.getByRole('link', { name: 'メンバー', exact: true })).toHaveAttribute('href', `${target}/members`);
+  await tabs.getByRole('link', { name: 'メンバー', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`${target}/members$`));
   expect(await collect()).toEqual([]);
 });
@@ -154,10 +151,14 @@ test.describe('所属が1つの一般のメンバー', () => {
     await page.keyboard.press('Tab');
     await page.keyboard.press('Tab');
     await expect(listOf(page)).toBeHidden();
-    // メニューの順は「受信箱」「バックログ」。続く Tab で次の項目へ移る
-    await expect(page.locator('.nav-item', { hasText: '受信箱' })).toBeFocused();
+    // 761px 以上の左のメニューは切り替えで終わる（機能はタブ。#1514）。続く Tab で左のメニューの幅の境目（#1513）、
+    // その次で本文の上のパンくずへ移る
+    await expect(page.getByRole('separator')).toBeFocused();
     await page.keyboard.press('Tab');
-    await expect(page.locator('.nav-item', { hasText: 'バックログ' })).toBeFocused();
+    const crumbs = page.getByRole('navigation', { name: 'パンくず' }).getByRole('link');
+    await expect(crumbs.first()).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(crumbs.nth(1)).toBeFocused();
     await button.click();
     await expect(listOf(page)).toBeVisible();
     await page.getByRole('heading', { level: 1, name: 'バックログ', exact: true }).click();
@@ -213,7 +214,11 @@ test.describe('所属が1つの一般のメンバー', () => {
     await page.keyboard.press('Escape');
     await expect(listOf(page)).toBeHidden();
     await expectFocusReturned(page, button);
-    await page.locator('#app-nav').getByRole('link', { name: 'バックログ', exact: true }).click();
+    // 切り替えの一覧のリンクは対象のバックログへ移る（ワークスペースの機能の項目は左のメニューに無い。#1514）
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Tab');
+    await expect(listOf(page).getByRole('link')).toBeFocused();
+    await page.keyboard.press('Enter');
     await expect(page).toHaveURL(new RegExp(`${backlog}$`));
   });
 });

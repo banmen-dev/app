@@ -46,14 +46,17 @@ function created(overrides: Partial<Connection> = {}): Connection {
   };
 }
 
-test('メニューの「接続」から開くと、ワークスペースの接続が状態と登録した人つきで並ぶ', async ({ page }) => {
+test('ワークスペースの画面のタブの「接続」から開くと、ワークスペースの接続が状態と登録した人つきで並ぶ', async ({
+  page,
+}) => {
   const collect = await watchViolations(page);
   await page.goto(WORKSPACE);
-  await page.locator('.nav-item', { hasText: '接続' }).click();
+  const tabs = page.getByRole('navigation', { name: 'ワークスペースの画面' });
+  await tabs.getByRole('link', { name: '接続', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`${WORKSPACE}/connections$`));
   await expect(page.getByRole('heading', { level: 1, name: '接続' })).toBeVisible();
   await expect(page).toHaveTitle('接続 - 受託開発チーム - Banmen');
-  await expect(page.locator('.nav-item[aria-current="page"]')).toHaveText('接続');
+  await expect(tabs.locator('[aria-current="page"]')).toHaveText('接続');
 
   const list = page.getByRole('list', { name: '接続の一覧' });
   const row = list.getByRole('listitem').filter({ hasText: 'ミナトの GitHub' });

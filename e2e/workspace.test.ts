@@ -120,8 +120,8 @@ test.describe('管理者（あおば開発のミナト）', () => {
     // 所属しているので、所属していない印は出ない。メニューにワークスペースの節が出る
     await expect(page.getByText(/所属せず/)).toHaveCount(0);
     await expect(page.locator('.ws-menu > button')).toContainText('保守チーム');
-    // 画面のある項目だけを出すので、ワークスペースの節と、メンバーを持つ管理の節
-    await expect(page.locator('.nav-group')).toHaveText(['ワークスペース', '管理']);
+    // 761px 以上の左のメニューはワークスペースの見出しと切り替えだけ。機能はタブにあり、「管理」の見出しも出さない（#1514）
+    await expect(page.locator('.nav-group')).toHaveText(['ワークスペース']);
     // 完了のダイアログが同じことを伝えるので、トーストは出さない
     await expect(page.getByRole('status').filter({ hasText: 'ワークスペースを作りました' })).toHaveCount(0);
     expect(await collect()).toEqual([]);
@@ -246,11 +246,22 @@ test.describe('管理者（あおば開発のミナト）', () => {
       page.getByRole('navigation', { name: 'パンくず' }).getByRole('link', { name: '社内ツール改善', exact: true }),
     ).toBeVisible();
     // ワークスペースの中の言葉はスクラム。組織の言葉（管理者）はそのまま
-    await expect(page.locator('.nav-group')).toHaveText(['ワークスペース', '管理']);
+    await expect(page.locator('.nav-group')).toHaveText(['ワークスペース']);
     await expect(page.getByText('まだタスクがありません')).toBeVisible();
     // 作った管理者は所属していない。それでも画面に入れて、印が出る
     // 印は上の帯の直接の子。組織の切り替えとアカウントのボタンの中のチップ（招待、管理者）と分けて数える（#1510）
     await expect(page.locator('.topbar > .chip')).toHaveText(['所属せず管理者として開いています']);
+    // 所属していない管理者にも、設定を含むすべてのタブを出す（#1514）
+    await expect(page.getByRole('navigation', { name: 'ワークスペースの画面' }).getByRole('link')).toHaveText([
+      '受信箱',
+      'バックログ',
+      'ボード',
+      '計画',
+      'Wiki',
+      '接続',
+      'メンバー',
+      '設定',
+    ]);
 
     // 画面を読み直さずにワークスペースの外へ移ると、印が消える
     await page.getByRole('button', { name: /アカウントのメニュー$/ }).click();

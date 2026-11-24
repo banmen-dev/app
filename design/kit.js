@@ -3573,19 +3573,35 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     ["settings", "gear", () => "設定", "settings.html"],
     ["history", "clock", () => "変更の履歴", "history.html"],
   ];
+  // ワークスペースの中の画面へのリンク（今のワークスペースを付ける）
+  const workspaceHref = (href) => `${firstHref(href)}${firstHref(href).includes("?") ? "&" : "?"}workspace=${encodeURIComponent(D.workspace)}`;
   function navHtml(current, pages) {
     // ワークスペースがまだない管理者には、ワークスペースの中の画面を出さない
     const cut = Object.keys(D.workspaces).length ? pages.length : pages.indexOf("workspace");
     return pages.slice(0, cut < 0 ? pages.length : cut).map((p) => {
+      const inWs = PAGES.indexOf(p) > PAGES.indexOf("workspace");
+      // 761px 以上の左のメニューは、ワークスペースの機能の項目と「記録」「管理」の見出しを出さない（本番の NavMenu の workspaceItems）。
+      // 機能はワークスペースの画面の上のタブ（workspaceTabsHtml）で移る。760px 以下の浮きメニューには今までどおり出す（.is-menu-only）
+      const menuOnly = inWs ? " is-menu-only" : "";
       // 組織の切り替えは、メニューの外（上の帯の右）の orgMenuHtml
       if (p === "organization") return "";
       if (p === "workspace") return `<div class="nav-group"><span class="nav-group-label">${t("workspace")}</span></div>
         <div id="ws-menu-slot">${workspaceMenuHtml()}</div>`;
-      if (typeof p === "string") return `<div class="nav-group"><span class="nav-group-label">${p}</span></div>`;
+      if (typeof p === "string") return `<div class="nav-group${menuOnly}"><span class="nav-group-label">${p}</span></div>`;
       const [id, ic, label, href, badge] = p;
-      const target = PAGES.indexOf(p) > PAGES.indexOf("workspace") ? `${firstHref(href)}${firstHref(href).includes("?") ? "&" : "?"}workspace=${encodeURIComponent(D.workspace)}` : firstHref(href);
-      return `<a class="nav-item${id === "orgwiki" ? " is-wrapping" : ""}" href="${target}" ${current === id ? 'aria-current="page"' : ""}>${icon(ic)}<span class="nav-item-label">${label()}</span>${badge && !first ? `<span class="nav-badge">${badge}</span>` : ""}</a>`;
+      const target = inWs ? workspaceHref(href) : firstHref(href);
+      return `<a class="nav-item${id === "orgwiki" ? " is-wrapping" : ""}${menuOnly}" href="${target}" ${current === id ? 'aria-current="page"' : ""}>${icon(ic)}<span class="nav-item-label">${label()}</span>${badge && !first ? `<span class="nav-badge">${badge}</span>` : ""}</a>`;
     }).join("");
+  }
+  // ワークスペースの画面の上のタブ（761px 以上。本番の WorkspaceTabs.svelte と同じ並びと印。g b・g s の見えない案内と今のタブへの横の送りは本番だけ）。本番に画面のある機能だけを、本番と同じ並びで出す。
+  // 設定は対象のリーダーと管理者にだけ出す（見本の「最初の日・一般」では出さない）。見本だけの画面（エピック、積載量、記録など）ではどれも選ばない
+  const WORKSPACE_TABS = ["inbox", "backlog", "sprint", "plan", "wiki", "connection", "members", "settings"];
+  function workspaceTabsHtml(current) {
+    // タスクのページ全体（task.html。枠はバックログの見本で組む）では、本番と同じくどのタブも選ばない
+    if (location.pathname.endsWith("/task.html")) current = null;
+    const leader = D.workspaces[D.workspace]?.role !== "member";
+    const tabs = WORKSPACE_TABS.filter((id) => id !== "settings" || leader).map((id) => PAGES.find((p) => Array.isArray(p) && p[0] === id));
+    return `<nav class="route-tabs" aria-label="${t("workspace")}の画面">${tabs.map(([id, , label, href]) => `<a class="route-tab" href="${workspaceHref(href)}" data-label="${esc(label())}" ${current === id ? 'aria-current="page"' : ""}>${label()}</a>`).join("")}</nav>`;
   }
   // 全画面の起票の見本。属性は横に送り、種類を替えても題と本文を保つ。
   // 本番の CreateSheet も行と同じ AttrChip を使うので、包み（.attr-chip）と山形を付ける。ポイントは等幅の書体（.is-points）
@@ -3993,6 +4009,14 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       document.getElementById("org-menu-slot").innerHTML = orgMenuHtml();
       document.getElementById("account-menu-slot").innerHTML = accountMenuHtml();
       document.getElementById("breadcrumb-slot").innerHTML = breadcrumbHtml();
+      // ワークスペースの画面だけ、パンくずの下にタブの帯を置く（組織の画面には置かない。帯が無いときはパンくずの下の余白を 8px に詰める）
+      const inWs = PAGES.findIndex((p) => Array.isArray(p) && p[0] === page.current) > PAGES.indexOf("workspace") && Object.keys(D.workspaces).length > 0;
+      let tabsSlot = document.getElementById("tabs-slot");
+      if (inWs && !tabsSlot) {
+        tabsSlot = Object.assign(document.createElement("div"), { className: "sheet-tabs", id: "tabs-slot" });
+        document.getElementById("breadcrumb-slot").after(tabsSlot);
+      } else if (!inWs && tabsSlot) { tabsSlot.remove(); tabsSlot = null; }
+      if (tabsSlot) tabsSlot.innerHTML = workspaceTabsHtml(page.current);
       document.getElementById("app-nav").innerHTML = navHtml(page.current, PAGES);
     }
     const tabs = document.getElementById("mobile-navigation-slot");
