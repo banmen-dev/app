@@ -57,7 +57,7 @@
 3. 「Delete objects」を、アップロードから 180 日（Age 180 days）にして保存する。ほかの操作（Abort multipart、Storage class の移し替え）は足さない
 4. 一覧に `feedback-180d` が接頭辞 `feedback/` で出ることを見る
 
-人の端末の `pnpm exec wrangler r2 bucket lifecycle add banmen-attachments feedback-180d feedback/ --expire-days 180` でも入れられる。対話のある端末で、`-y` を付けずに打つ。接頭辞を省くと「すべての接頭辞に当てるか」の確認が出るので No と答える（対話の無い実行と `-y` では確認無しでバケット全体の規則になる）。入れた後は `pnpm exec wrangler r2 bucket lifecycle list banmen-attachments` で、接頭辞が `feedback/` の規則があり、接頭辞の無い規則が無いことを確かめる。規則は消すまで続き、バケットを作り直したら入れ直す。規則が無くても送信は動くが、画像と URL が消えずに残り、プライバシーポリシーの「消す時期」と食い違う。
+人の端末の `pnpm exec wrangler r2 bucket lifecycle add banmen-attachments feedback-180d feedback/ --expire-days 180` でも入れられる。対話のある端末で、`-y` を付けずに打つ。接頭辞を省くと「すべての接頭辞に当てるか」の確認が出るので No と答える（対話の無い実行と `-y` では確認無しでバケット全体の規則になる）。入れた後は `pnpm exec wrangler r2 bucket lifecycle list banmen-attachments` で、接頭辞が `feedback/` の規則があり、接頭辞が無くオブジェクトを消す規則が無いことを確かめる（R2 が既定で持つ、途中で止まったマルチパートを片付ける規則は残してよい）。規則は消すまで続き、バケットを作り直したら入れ直す。規則が無くても送信は動くが、画像と URL が消えずに残り、プライバシーポリシーの「消す時期」と食い違う。
 
 ### 容量警告と通知の定期処理
 
@@ -221,10 +221,10 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
 6. 本番は `wrangler secret put FEEDBACK_GITHUB_APP_ID` と `wrangler secret put FEEDBACK_GITHUB_INSTALLATION_ID` で入れ、鍵は PKCS#8 に直したものを中間のファイルを作らずに流し込む。入れた後に、落とした `.pem` を消す
 
    ```bash
-   openssl pkcs8 -topk8 -nocrypt -in banmen-feedback.<日付>.private-key.pem | pnpm exec wrangler secret put FEEDBACK_GITHUB_PRIVATE_KEY
+   set -o pipefail; openssl pkcs8 -topk8 -nocrypt -in banmen-feedback.<日付>.private-key.pem | pnpm exec wrangler secret put FEEDBACK_GITHUB_PRIVATE_KEY
    ```
 
-   ダッシュボード（Worker の Settings → Variables and Secrets、Type は `Secret`）で入れるときは、`umask 077` の下で `openssl pkcs8 -topk8 -nocrypt -in <落とした.pem>` を端末に出し、先頭が `-----BEGIN PRIVATE KEY-----` の改行を含めた全体を貼る
+   `pipefail` を付けないと、`openssl` が失敗しても `wrangler` が空の値で上書きして成功に見える。入れた後に、ダッシュボードの Variables and Secrets に `FEEDBACK_GITHUB_PRIVATE_KEY` があることを見て、上の「送信を含む版を出す前に」の手順 3 で送れることを確かめる。ダッシュボード（Worker の Settings → Variables and Secrets、Type は `Secret`）で入れるときは、`openssl pkcs8 -topk8 -nocrypt -in <落とした.pem>` を端末に出し（ファイルに書かない）、先頭が `-----BEGIN PRIVATE KEY-----` の改行を含めた全体を貼る
 7. GitHub の banmen-dev/app に `feedback` のラベルがあることを確かめる（`gh api repos/banmen-dev/app/labels/feedback`。2026-11-24 に作った）。無いときの GitHub の振る舞い（作るか、黙って落とすか）に頼らないよう、ラベルは先に作っておき、消さない
 
 決まり。
@@ -232,7 +232,7 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
 - 3つのどれかが未設定か空だと、フィードバックの送信は断る。ほかの機能は動き、`/api/health` は 200 のまま
 - 開発用とプレビューには入れない。手元の確かめは GitHub への通信を模擬する（プレビューの決まり「外部連携の本番の秘密は入れない」と同じ）
 - 鍵を入れ替えるときは、App で新しい鍵を作り、PKCS#8 に直して `FEEDBACK_GITHUB_PRIVATE_KEY` を書き換え、送信が動くことを確かめてから古い鍵を App で消す
-- 鍵は git、ログ、Issue、PR に書かない。漏れたと分かったら、App で鍵を消して作り直す。漏れた鍵でできるのは、Issue を立てることだけではない。Issues の書き込みは、banmen-dev/app のすべての Issue とコメントの題と本文の書き換え、閉じる、ラベル（PR の `needs-human` を含む）の付け外しに及ぶ。セッションは Issue とコメントの信頼を作者で決めるので、身内の Issue の本文を書き換えると、開発のセッションに指示を仕込める。漏れていた疑いがあれば、鍵を作り直した後に、その間に App の bot が編集した Issue とコメント（編集の履歴、timeline の `renamed`、`labeled`、`unlabeled`、`closed`）と、PR の `needs-human` の付け外しを洗い出し、戻す
+- 鍵は git、ログ、Issue、PR に書かない。漏れたと分かったら、App で鍵を消して作り直す。漏れた鍵でできるのは、Issue を立てることだけではない。Issues の書き込みは、banmen-dev/app のすべての Issue とコメントの題と本文の書き換え、閉じる、ラベル（PR の `needs-human` を含む）の付け外しに及ぶ。セッションは Issue とコメントの信頼を作者で決めるので、身内の Issue の本文を書き換えると、開発のセッションに指示を仕込める。漏れていた疑いがあれば、鍵を作り直した後に、その間に App の bot が行ったことを洗い出し、戻す。見るのは、Issue と PR の題と本文、Issue と PR の会話のコメント（AI レビューのまとめを含む）の編集の履歴、timeline の `renamed`、`labeled`、`unlabeled`（特に PR の `needs-human` と `ai-review`）、`closed`、`reopened`、サブ Issue と依存関係の付け外し。コメントと Issue の削除は timeline に残らないので、banmen-dev の Organization の audit log（Settings → Audit log、`actor:` に App の bot）も見る
 - App の権限を足さない。足すと、漏れたときに書けるものが増え、インストールの承認も要る
 - 画像、URL、アカウントの ID は R2 の `feedback/` に置き、上の「R2」のライフサイクルの規則で消す。公開の Issue には載せない
 - 運用者は、Issue の本文のフィードバックの ID で、Cloudflare のダッシュボードの R2 Object Storage → `banmen-attachments` → `feedback/<ID>/` を開いて画像と `meta.json` を見る（運用の画面に口ができるまで）。画像はダウンロードして見る
@@ -250,7 +250,7 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
 - 第1条 預かるもの に足す: 「フィードバック。利用者が画面のフィードバックから送った文、添えた画像（PNG、JPEG、WebP）、送った画面の URL（クエリとフラグメントを除く）、送った人のアカウントの番号（本サービスが振った番号で、GitHub や Google の番号とは別）。送ったときだけ預かります。」
 - 第4条 預け先と外部のサービス に足す: 「フィードバックを送ると、送った文を、本サービスの開発に使う GitHub の公開のリポジトリ（banmen-dev/app）に、Issue として載せます。公開の場所なので、だれでも読め、GitHub の規約とポリシーも適用されます。Issue に載るのは、送った文、送った画面の経路の形（組織の名前やワークスペースの ID を含みません）、そのフィードバックの番号だけで、送った人のアカウントの番号は載せません。文に書いたことはそのまま公開されるので、組織の名前、人の名前、秘密にしたいことは書かないでください。」「フィードバックに添えた画像、送った画面の URL、送った人のアカウントの番号は、公開しません。Cloudflare の R2 に保管し、運営者が見ます。」
 - 第3条 の AI の段落の後に足す: 「フィードバックとして公開の Issue に載った文は、だれでも読める場所にあるので、運営者が開発に使う AI の道具も読むことがあります。」
-- 第6条 消す時期 に足す: 「フィードバックに添えた画像、送った画面の URL、送った人のアカウントの番号は、送った日から 180 日で消します。解約した組織のデータを消すときも、この期間までは残ります。公開の Issue に載った文は、期間を決めずに残ります。消したいときは、下の問い合わせ先に連絡してください。」
+- 第6条 消す時期 に足す: 「フィードバックに添えた画像、送った画面の URL、送った人のアカウントの番号は、送った日から 180 日で消します。解約した組織のデータを消すときも、この期間までは残ります。公開の Issue に載った文は、期間を決めずに残ります。消したいときは、下の問い合わせ先に連絡してください。Issue を消しても、公開されていた間に外の人や仕組みが写した控えは消せません。」
 - 第6条 の「回数を数えるための IP アドレスは、数える窓が過ぎたら、定期の処理で消します。」を「回数を数えるための IP アドレスは、数える窓が過ぎたら（最長で 1 時間）、定期の処理で消します。」に直す
 - 第6条 の解約の項の「添付ファイルとプロフィール画像も消します。」の後に「フィードバックは上の 180 日の期間で消します。」を足す
 
