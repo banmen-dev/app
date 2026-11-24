@@ -20,12 +20,13 @@ test('既存の次番号は削除していない全状態のスプリント数�
     // 0038の依頼回と0039のプランを使う契約を除き、旧スキーマへ入れる。
     const seed = fillSeedDates(readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8'), new Date());
     const legacySeed = seed
-      .replace(/^UPDATE task_sources SET review_cycle = .*;$/m, '')
-      .replace(/INSERT INTO review_request_cycles[^;]*;/, '')
-      .replace(/INSERT INTO organization_contracts[^;]*;/, '');
-    assert.notEqual(legacySeed, seed, '0038のseedを旧スキーマ用に除いている');
-    assert.ok(!legacySeed.includes('UPDATE task_sources SET review_cycle ='));
-    assert.ok(!legacySeed.includes('INSERT INTO review_request_cycles'));
+      .replace(/^UPDATE task_sources SET review_cycle = .*;$/gm, '')
+      .replace(/^INSERT INTO review_request_cycles\b[^;]*;/gm, '')
+      .replace(/^INSERT INTO organization_contracts\b[^;]*;/gm, '');
+    assert.notEqual(legacySeed, seed, '0038・0039のseedを旧スキーマ用に除いている');
+    assert.ok(!legacySeed.includes('UPDATE task_sources SET review_cycle ='), '0038の依頼回の更新が残っている');
+    assert.ok(!legacySeed.includes('INSERT INTO review_request_cycles'), '0038の依頼回の行が残っている');
+    assert.ok(!legacySeed.includes('INSERT INTO organization_contracts'), '0039のプランを使う契約の行が残っている');
     db.exec(legacySeed);
     // seed の全スプリントを外して、状態と削除を明示する。
     // seed の関連行の外部キーを保つため、行を消すのではなく新しいworkspaceへ追加する。
