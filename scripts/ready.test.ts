@@ -68,8 +68,8 @@ describe('付ける', () => {
 describe('付かない', () => {
   const cases: [string, IssueSummary][] = [
     ['pt: が無い', issue(1, ['area:docs'])],
-    // 画面のフィードバックから GitHub App が立てる Issue は feedback だけを持ち、pt: が無いので着手の候補にならない（docs/development.md の「Issue の運用」）
-    ['feedback だけ', issue(1, ['feedback'])],
+    // 画面のフィードバックの Issue は、人が pt: を付けても着手の候補にしない（docs/development.md の「Issue の運用」）
+    ['feedback に pt: が付いている', issue(1, ['feedback', 'pt:3'])],
     ['pt: が2つ', issue(1, ['pt:2', 'pt:3'])],
     ['status:refining', issue(1, ['pt:3', 'status:refining'])],
     ['status:in-progress', issue(1, ['pt:3', 'status:in-progress'])],
@@ -102,6 +102,7 @@ describe('外す', () => {
     ['status:refining が付いた', issue(1, ['pt:3', 'status:ready', 'status:refining'])],
     ['epic になった', issue(1, ['pt:3', 'status:ready', 'epic'])],
     ['sprint-log になった', issue(1, ['pt:3', 'status:ready', 'sprint-log'])],
+    ['feedback が付いた', issue(1, ['pt:3', 'status:ready', 'feedback'])],
     ['子を持つようになった', issue(1, ['pt:3', 'status:ready'], { sub_issues_summary: { total: 1 } })],
     ['前に要るものが開いた', issue(1, ['pt:3', 'status:ready'], { issue_dependencies_summary: { blocked_by: 1 } })],
   ] as const) {
