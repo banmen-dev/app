@@ -165,7 +165,7 @@ html[data-boot-dashboard] #boot-loading .boot-skeleton {
   }
 }
 /* 行き先が組織の枠のとき（static/boot-shape.js が html に data-boot="<形>" を付ける）は、紙ではなく枠の形の骨組みを画面いっぱいに出す。
-   全幅の上の帯（高さ 60px。左端に開閉のボタンとマーク）の下に左のメニューと本文を並べる。左のメニューの幅（240px、畳んだ列は 64px）、本文の余白は design/components.css の .app、.binding、.topbar、
+   全幅の上の帯（高さ 60px。左端に開閉のボタンとマーク）の下に左のメニューと本文を並べる。左のメニューの幅（240px。閉じたときは列を出さず本文を全幅にする）、本文の余白は design/components.css の .app、.binding、.topbar、
    .content と同じにし、本文は行き先の画面の組み（形は src/lib/loading-shape.ts と同じ。2列は .layout-aside の 320px、.layout-wiki、
    .setting の 260px、.board の 232px の列、.lanes の3列。どれも 1080px 以下で1列）に近づける。デザインシステムの LoadingSheet の
    .skeleton-frame と同じ並びにして、移る間と最初の読み込みで同じ形を見せる。
@@ -451,20 +451,14 @@ html[data-boot] #boot-loading .boot-frame {
     border: 1px solid CanvasText;
   }
 }
-@media (min-width: 761px) {
+/* 左のメニューを閉じたと覚えているときは、読み込んだ後と同じく左の列を出さず、本文を上の帯の下の全幅にする。
+   760px と 761px の間の小数の幅でも、design/components.css と同じく not で分ける */
+@media not (max-width: 760px) {
   html[data-boot][data-boot-nav='collapsed'] #boot-loading .boot-frame {
-    grid-template-columns: 64px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'bar' 'sheet';
   }
   html[data-boot-nav='collapsed'] #boot-loading .boot-binding {
-    padding-inline: 0;
-    align-items: center;
-  }
-  html[data-boot-nav='collapsed'] #boot-loading .boot-binding i {
-    width: 32px;
-    height: 32px;
-    margin-inline: 0;
-  }
-  html[data-boot-nav='collapsed'] #boot-loading .boot-binding > .is-group-label {
     display: none;
   }
 }

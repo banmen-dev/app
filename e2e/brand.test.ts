@@ -222,7 +222,7 @@ for (const screen of [
   });
 }
 
-test('畳んだメニューでも上の帯の左端にマークのリンクを残し、狭い幅ではロゴを隠す', async ({
+test('メニューを閉じても上の帯の左端にマークのリンクを残し、狭い幅ではロゴを隠す', async ({
   page,
   context,
   baseURL,
@@ -237,7 +237,7 @@ test('畳んだメニューでも上の帯の左端にマークのリンクを�
   await page.getByRole('button', { name: 'メニューを閉じる' }).click();
   for (const theme of themes) {
     await page.evaluate((value) => (document.documentElement.dataset.theme = value), theme);
-    // 上の帯は畳んでも形を変えず、マークのリンクは同じ位置に残る（#1511）
+    // 上の帯は閉じても形を変えず、マークのリンクは同じ位置に残る（#1511）
     await expectTopbarSymbol(page);
     const box = (await brand.boundingBox())!;
     expect(box.x).toBe(open.x);

@@ -4,7 +4,7 @@
 // 形と URL の対応は src/lib/loading-shape.ts（画面を移るときの LoadingSheet）と同じにする（scripts/boot-shape.test.ts が突き合わせる）。
 // 枠の外の画面（ログイン、組織の選択、届いた招待など）と、どの画面にも当たらない URL は付けず、紙の形の骨組みのまま出す。
 // ログインの有無と組織に入れるかは見ないので、/<1語> は組織の枠の形で出し、読み込んだ後に見つからない画面やログインの画面に替わることがある。
-// 左のメニューを畳んだと覚えている（src/lib/nav-collapse.svelte.ts と同じキーと値）ときは data-boot-nav="collapsed" も付ける。
+// 左のメニューを閉じたと覚えている（src/lib/nav-collapse.svelte.ts と同じキーと値）ときは data-boot-nav="collapsed" も付ける。
 // #boot-loading の後に置いて同期で読む（本文の骨組みを #boot-loading の中に組み立てるため）。骨組みが見える 300ms より前に終わる。
 // インラインにすると CSP のハッシュから漏れて止まるので、自分のオリジンのファイルにしてある。中身は固定の文字列だけで、URL の値は入れない
 (function () {
@@ -111,7 +111,7 @@
   try {
     if (localStorage.getItem('sg-nav-collapsed') === 'true') root.dataset.bootNav = 'collapsed';
   } catch {
-    // 覚えていないものとして、広げた列で出す
+    // 覚えていないものとして、開いた列で出す
   }
   var content = document.querySelector('#boot-loading .boot-content');
   if (!content) return;

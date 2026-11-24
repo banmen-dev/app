@@ -197,19 +197,36 @@ describe('最初の読み込みの骨組みの形（static/boot-shape.js）', ()
     assert.equal(runBootShape('/aoba/%E0%A4%A').dataset.boot, undefined);
   });
 
-  test('左のメニューを畳んだと覚えていれば、畳んだ列の形にする', () => {
+  test('左のメニューを閉じたと覚えていれば、閉じた形の印を付ける', () => {
     assert.equal(runBootShape('/aoba', 'true').dataset.bootNav, 'collapsed');
     assert.equal(runBootShape('/aoba', 'false').dataset.bootNav, undefined);
     assert.equal(runBootShape('/login', 'true').dataset.bootNav, undefined);
   });
 
-  test('畳んだ状態のキーは src/lib/nav-collapse.svelte.ts と同じ', () => {
+  // 閉じた形は、読み込んだ後（design/components.css の .app[data-nav-collapsed="true"]）と同じく左の列を残さない（#1512）
+  test('閉じた形の骨組みは、左の列を出さず本文を全幅にする', () => {
+    const css = readFileSync(new URL('../static/boot-loading.css', import.meta.url), 'utf8');
+    // 狭い幅の規則（max-width: 760px）の補集合の中に置く。760px と 761px の間の小数の幅で、綴じだけ消えて空の列が残らないように
+    const block = css.match(
+      /@media not \(max-width: 760px\) \{\s*(html\[data-boot\]\[data-boot-nav='collapsed'\][\s\S]*?)\n\}/,
+    );
+    assert.ok(block, '閉じた形の規則が @media not (max-width: 760px) の中に無い');
+    const frame = block[1].match(
+      /html\[data-boot\]\[data-boot-nav='collapsed'\] #boot-loading \.boot-frame \{([^}]*)\}/,
+    );
+    assert.ok(frame, '閉じた形の .boot-frame の規則が無い');
+    assert.match(frame[1], /grid-template-columns: minmax\(0, 1fr\);/);
+    assert.match(frame[1], /grid-template-areas: 'bar' 'sheet';/);
+    assert.match(block[1], /html\[data-boot-nav='collapsed'\] #boot-loading \.boot-binding \{\s*display: none;\s*\}/);
+  });
+
+  test('閉じた状態のキーは src/lib/nav-collapse.svelte.ts と同じ', () => {
     const source = readFileSync(new URL('../src/lib/nav-collapse.svelte.ts', import.meta.url), 'utf8');
     assert.match(source, /export const NAV_COLLAPSED_KEY = 'sg-nav-collapsed';/);
     assert.match(script, /localStorage\.getItem\('sg-nav-collapsed'\) === 'true'/);
   });
 
-  test('localStorage が使えなくても落ちず、広げた列の枠にする', () => {
+  test('localStorage が使えなくても落ちず、開いた列の枠にする', () => {
     const dataset: BootDataset = {};
     const context = vm.createContext({
       location: { pathname: '/aoba' },
