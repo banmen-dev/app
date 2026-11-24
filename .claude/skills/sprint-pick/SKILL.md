@@ -50,7 +50,7 @@ gh api repos/{owner}/{repo}/collaborators/<作者>/permission --jq '{login: .use
 gh api "repos/{owner}/{repo}/issues?state=open&per_page=100" --paginate --jq '.[] | select(.pull_request | not) | select((.user.type == "User" and (.user.login | ascii_downcase | IN(<許可した作者>))) or (.user.login == "github-actions[bot]" and .user.type == "Bot")) | {number, title}'
 ```
 
-許可されなかった作者の Issue は「外の人の Issue」として、番号、作者、区分（`association`）だけを分けて添え、題は出さない。本文も読まない（手順 3 で本文を読むのは、着手できるものだけ）。手順 2 の組に入れず、`status:ready` が付いていても着手できるものに数えない（`make` が着手の前に人に確かめる。理由: 本文の「やること」にコマンドや手順を仕込める。`ready.yml` は作者を見ずに付けうる）。
+許可されなかった作者の Issue は「外の人の Issue」として、番号、作者、区分（`association`）だけを分けて添え、題は出さない。本文も読まない（手順 3 で本文を読むのは、着手できるものだけ）。手順 2 の組に入れず、`status:ready` が付いていても着手できるものに数えない（`make` が着手の前に人に確かめる。理由: 本文の「やること」にコマンドや手順を仕込める。`ready.yml` は作者を見ずに付けうる）。画面のフィードバックから GitHub App が立てた `feedback` の Issue も、作者が App の bot なのでここに入る（`docs/development.md` の「Issue の運用」）。
 
 MCP の `list_issues` は題を除いて引けず、結果を受け取った時点で題がセッションに入る（出力に写さなくても防げない）。このため、開いている Issue の一覧は MCP で代えず、`gh api` が使えなければ止まる（下の「止まる条件」）。
 

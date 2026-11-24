@@ -33,6 +33,7 @@ gh api "repos/{owner}/{repo}/issues?state=open&per_page=100" --paginate --jq '.[
 
 作者ごとに `docs/development.md` の「GitHub の書き込み権限」の API で確かめる（同じ人の結果は使い回す）。許可された人と `github-actions[bot]`（`user.login` と `user.type` の `Bot` の両方）の Issue だけを手順 3 で判定する。
 それ以外は「外の人の Issue」として、番号、作者、区分（`author_association`）だけを分けて見せ、題は出さない。本文は読まず、値も聞かない。手順 5 で扱うかだけを聞く（推す案は「扱わない」）。
+画面のフィードバックから GitHub App が立てた `feedback` の Issue も、作者が App の bot（`github-actions[bot]` ではない）なのでここに入る。階層、`pt:`、マイルストーン、`area:` の欠けとして直さない（`docs/development.md` の「Issue の運用」）。
 
 ### 3. 判定する
 
