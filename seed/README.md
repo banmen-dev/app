@@ -54,6 +54,8 @@ pnpm db:seed
 | `lookThemed` | くもラボの一般のユーザーで、自分のテーマ（シンプル（ダーク））を選んでいる（コハル） |
 | `avatarLeaver` | くもラボの一般のユーザー（シオン）。所属は保守だけで、担当のタスクは無い。e2e のプロフィール画像（`e2e/profile-avatar.test.ts`）が、画像を上げて保守を抜け、画像が消えることを確かめる。抜けた後はその e2e が手元の D1 に直に書いて所属を戻す（`e2e/local-d1.ts`。`pnpm db:seed` でも戻る） |
 
+`billingAdmin` の担当は承諾済みの状態から始まる。請求画面で契約と使用量を確認するための seed で、招待・承諾の履歴（`billing_admin_events`）は入れていない。
+
 同意の行（`account_consents`）は、`unconsented` 以外のセッションのアカウントすべてに、今の版（`src/lib/legal/versions.ts` の `TERMS_VERSION` と `PRIVACY_VERSION`）で `data.sql` に置く。同意の門（`docs/development.md` の「操作の定義」）を通って、同意済みの人が今までどおり操作できるようにするため。版を改めたときは、`data.sql` の行も同じ値に直す（`scripts/seed.test.ts` が照合する）。パスワードの2人（下の「パスワード」）はアカウントを持たず、初めてのログインで作られるので、同意の行も無い。ログインの直後に同意の画面へ移る。
 
 e2e は seed のセッションを全ファイルで共有し、ファイルを並列に走らせる。共有の `admin` や `operator` をログアウトすると、ほかのテストが 401 で落ちるので、ログアウトの e2e（`e2e/logout.test.ts`）は専用の2本だけを消す。ログアウトは今のセッションだけを消すので、同じアカウントの `admin` と `operator` は残る。消えた行は `pnpm db:seed` で戻る（`pnpm e2e` は毎回流し直す）。繰り返し（`--repeat-each`）の間は seed を流し直さないので、ログアウトの e2e は消す前に専用の行を手元の D1 へ入れ直す（`e2e/local-d1.ts`）。
