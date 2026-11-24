@@ -99,3 +99,31 @@ export function planCardMove(
     afterTaskId: undefined,
   };
 }
+
+// 「⋯」の「列を変更」で選んだ列へ移す計画（#1500）。選んだ列の末尾に置く。完了の列を選んだら完了にする（complete）。
+// 今の列を選んだときと、カードが無いか完了の列にあるとき（完了を戻すのは task-reopen）は null で、何もしない
+export function planColumnChange(
+  columns: readonly SprintBoardColumn[],
+  taskId: string,
+  columnId: string,
+): Extract<CardMovePlan, { kind: 'complete' | 'moved' }> | null {
+  const place = placeOf(columns, taskId);
+  if (place === null) return null;
+  const source = columns[place.columnIndex]!;
+  if (source.is_done || source.id === columnId) return null;
+  const targetIndex = columns.findIndex((column) => column.id === columnId);
+  const target = columns[targetIndex];
+  if (target === undefined) return null;
+  if (target.is_done) return { kind: 'complete' };
+  const card = source.tasks[place.index]!;
+  const moved = { ...target, tasks: [...target.tasks, card] };
+  const emptied = { ...source, tasks: source.tasks.filter((task) => task.id !== taskId) };
+  return {
+    kind: 'moved',
+    columns: columns.map((other, i) => (i === place.columnIndex ? emptied : i === targetIndex ? moved : other)),
+    column: moved,
+    index: moved.tasks.length - 1,
+    total: moved.tasks.length,
+    afterTaskId: undefined,
+  };
+}

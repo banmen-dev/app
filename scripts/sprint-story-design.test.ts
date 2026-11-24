@@ -52,6 +52,8 @@ const context = {
   cardEdit: () => '',
   rowMenu: () => '',
   orderItems: () => [],
+  cardText: (key: string) => key,
+  cardLinkItem: () => ({}),
 };
 const render = vm.runInNewContext(`${functions.join('\n')}; ({card, board, boardToolbar})`, context) as {
   card: (task: unknown, order: unknown, opts: unknown) => string;

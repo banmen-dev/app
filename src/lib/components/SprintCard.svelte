@@ -32,6 +32,9 @@
   // 題の横の鉛筆（ホバーとカードの中のフォーカスで出す）を押すと、題がその場で入力欄に替わり、Enter で task-update に送り、Esc で元の題に戻す。
   // 欄からフォーカスが外れたときも送る（引き出しの題と同じ）。完了したカードのチップと鉛筆、取り込んだタスクの鉛筆は押せず、理由が読める。
   // 保存が通ったら attrs.onpatch でカード（と列の合計）を直し、断られたら理由をトーストで知らせて元に戻し、attrs.onSaved で読み直す
+  // 「⋯」には、移す操作のほかに「列を変更」（列を選ぶダイアログ）、「親を変更」（親を選ぶダイアログ）、「リンクをコピー」（題のリンクと同じ
+  // 引き出しを開く URL を絶対 URL で写し、トーストで知らせる）を置く（#1500）。列と親は画面が渡したときだけ出し、完了したカードでは押せず
+  // 理由を title と読み上げで示し、押すとトーストで知らせる。どれも書き込めるカードにだけ出す
   type CardAttrs = {
     slug: string;
     workspaceId: string;
@@ -53,6 +56,8 @@
     dnd,
     onmove,
     ondelete,
+    onchangecolumn,
+    onchangeparent,
     highlightedStory = null,
     onstoryhover,
     onstoryfocus,
@@ -81,6 +86,10 @@
     onmove: (task: SprintBoardTask, direction: MoveDirection, repeat?: boolean) => void;
     // 渡すと（書き込めるとき）、task.can_delete が真のカードの「⋯」の末尾に危険色の「この<タスク>を削除する」を出す
     ondelete?: (task: SprintBoardTask, keyboard: boolean) => void;
+    // 渡すと（書き込めるとき）、「⋯」に「列を変更」と「親を変更」を出す（#1500）。trigger は「⋯」のボタン（ダイアログを閉じたときの戻り先）。
+    // 完了したカードでは押せず、理由を読める
+    onchangecolumn?: (task: SprintBoardTask, trigger: HTMLElement) => void;
+    onchangeparent?: (task: SprintBoardTask, trigger: HTMLElement) => void;
   } = $props();
 
   const done = $derived(task.completed_at !== null);
@@ -305,7 +314,57 @@
             },
           ],
   );
-  const menuItems = $derived<RowMenuItem[]>([...moveItems, ...deleteItems]);
+  // 「列を変更」「親を変更」「リンクをコピー」（#1500）。列と親は、完了したカードでは押せず理由を出す。
+  // 完了を戻せるカードにだけ「先に<完了>を戻してください」を足す（戻せないカードでは行き止まりの案内になるため）
+  const reopenFirst = $derived(task.reopenable ? t('cardReopenFirst', { done: t('done') }) : '');
+  const columnItems = $derived<RowMenuItem[]>(
+    onchangecolumn === undefined || !selectable
+      ? []
+      : [
+          {
+            key: 'column',
+            label: t('cardColumnChange', { column }),
+            icon: 'columns',
+            reason: done ? t('cardColumnDone', { task: t('task'), done: t('done'), column }) + reopenFirst : undefined,
+            onselect: (trigger) => onchangecolumn(task, trigger),
+          },
+        ],
+  );
+  const parentItems = $derived<RowMenuItem[]>(
+    onchangeparent === undefined || !selectable
+      ? []
+      : [
+          {
+            key: 'parent',
+            label: t('cardParentChange'),
+            icon: 'swap',
+            reason: done ? t('cardParentDone', { task: t('task'), done: t('done') }) + reopenFirst : undefined,
+            onselect: (trigger) => onchangeparent(task, trigger),
+          },
+        ],
+  );
+  // リンクは題のリンクと同じ行き先（引き出しを開く URL）を、絶対 URL にして写す。「⋯」を出す書き込めるカードにだけ置く
+  // （読み取りだけのカードは「⋯」を出さない。題のリンクをブラウザの操作で写せる）
+  async function copyLink(): Promise<void> {
+    // 絞り込み（#1502 の検索、担当、ストーリー、エピック、区分）は写さず、task だけを残す。受け取った人のボードを、写した人の絞り込みで開かないため
+    const parsed = new URL(taskDetailHref(href), location.href);
+    const taskId = parsed.searchParams.get('task');
+    const link = `${parsed.origin}${parsed.pathname}${taskId === null ? '' : `?task=${encodeURIComponent(taskId)}`}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      showToast(t('cardLinkCopied', { title: task.title }), 'check');
+    } catch {
+      showToast(t('cardLinkCopyFailed'), 'alert');
+    }
+  }
+  const linkItems = $derived<RowMenuItem[]>(
+    selectable ? [{ key: 'link', label: t('cardLinkCopy'), icon: 'link', onselect: () => void copyLink() }] : [],
+  );
+  const menuItems = $derived<RowMenuItem[]>(
+    done
+      ? [...moveItems, ...columnItems, ...parentItems, ...linkItems, ...deleteItems]
+      : [...columnItems, ...moveItems, ...parentItems, ...linkItems, ...deleteItems],
+  );
   // 書き込めるときは、戻せない完了カードも試せるようにつかめる
   const grabbable = $derived(selectable);
   const KEY_DIRECTIONS: Record<string, MoveDirection> = {

@@ -2214,6 +2214,23 @@ export const dictionary = defineDictionary({
   cardTitleEditLabel: 'タイトルを直す: {title}',
   cardTitleDone: 'この{task}は{done}になっているため、タイトルは直せません。',
   cardTitleImported: '取り込んだ{task}のタイトルは直せません。',
+  // ボードのカードの「⋯」の項目（#1500）。列を選ぶダイアログ、親を選ぶダイアログ（バックログの「親を移す」と同じ部品）、リンクのコピー
+  cardColumnChange: '{column}を変更',
+  cardColumnChangeTitle: '「{title}」の{column}を変更',
+  cardColumnChangeField: '移す先の{column}',
+  cardColumnChangeHint: '選んだ{column}の末尾に置きます。{done}の{column}を選ぶと、この{task}を{done}にします。',
+  cardColumnChangeSubmit: '移す',
+  cardColumnDone: 'この{task}は{done}になっているため、{column}は変えられません。',
+  cardParentChange: '親を変更',
+  cardParentDone: 'この{task}は{done}になっているため、親は変えられません。',
+  // 完了を戻せるカードにだけ、上の2つの理由の後ろに足す（戻せないカードでは行き止まりの案内になるため）
+  cardReopenFirst: '先に{done}を戻してください。',
+  cardParentLoading: '親の候補を読み込んでいます',
+  cardParentChoicesFailed: '親の候補を読み込めませんでした。もう一度お試しください',
+  cardParentNoChoices: '親にできる{story}がありません。{backlog}で{story}を作ってから選んでください',
+  cardLinkCopy: 'リンクをコピー',
+  cardLinkCopied: '「{title}」のリンクをコピーしました',
+  cardLinkCopyFailed: 'リンクをコピーできませんでした',
   pointsValue: '{value} pt',
   // 担当の選択（引き出しと起票のダイアログ）。候補は、そのワークスペースに今所属している人
   assigneeCandidatesFailed: '{assignee}の候補を読み込めませんでした',
