@@ -180,3 +180,31 @@ test('上の帯は枠の先頭にあり、左端に開閉のボタンとマー�
   expect(body.indexOf('class="binding"')).toBeLessThan(body.indexOf('class="sheet"'));
   expect(body).not.toContain('binding-head');
 });
+
+// 左のメニューの右の境目（#1513）。綴じの中、.binding-inner の後に置き（overflow-x: hidden で切れないため）、
+// 読み上げの名前と今の幅、範囲を持つ separator にする。札は見せるだけで、読み上げは aria の値が受け持つ
+test('左のメニューの右の境目は、幅の値と範囲を持つ separator として綴じの中身の後に置く（#1513）', () => {
+  const body = render(AppShell, {
+    props: {
+      current: '/aoba',
+      slug: 'aoba',
+      hasWorkspace: false,
+      isAdmin: false,
+      children: createRawSnippet(() => ({ render: () => '<p>架空の本文</p>' })),
+    },
+  }).body.replace(/<!--[^>]*-->/g, '');
+  const binding = body.match(/<aside class="binding"[\s\S]*?<\/aside>/)?.[0] ?? '';
+  expect(binding).toMatch(
+    /<\/div>\s*<\/div>\s*<div class="nav-resize"[^>]*>\s*<span class="nav-resize-tip" aria-hidden="true">ダブルクリックで閉じる<\/span>\s*<\/div>\s*<\/aside>$/,
+  );
+  const handle = binding.match(/<div class="nav-resize"[^>]*>/)?.[0] ?? '';
+  expect(handle).toContain('role="separator"');
+  expect(handle).toContain('tabindex="0"');
+  expect(handle).toContain('aria-orientation="vertical"');
+  expect(handle).toContain('aria-label="メニューの幅"');
+  expect(handle).toContain('aria-controls="app-nav"');
+  expect(handle).toContain('aria-valuenow="240"');
+  expect(handle).toContain('aria-valuemin="200"');
+  expect(handle).toContain('aria-valuemax="480"');
+  expect(body).toMatch(/<div class="app"[^>]*--nav-width: 240px/);
+});

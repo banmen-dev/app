@@ -530,7 +530,7 @@
     activityCreated: "{actor}が作成した", activityUpdated: "{actor}が{fields}を変更した", activityChanged: "{actor}が変更した", activityCompleted: "{actor}が{done}にした", activityReopened: "{actor}が{done}を戻した", activityCommented: "{actor}がコメントした",
     activityMore: "さらに読む", activityLoadFailed: "最近の更新を読み込めませんでした。", activityMoreFailed: "続きを読み込めませんでした。もう一度試してください。",
     workspace: "ワークスペース", inbox: "受信箱", backlog: "バックログ", board: "ボード", sprint: "スプリント", plan: "計画", epic: "エピック", story: "ストーリー", taskTemplate: "テンプレート",
-    menuCollapse: "メニューを閉じる", menuExpand: "メニューを開く", breadcrumb: "パンくず", organizationMoving: "移っています",
+    menuCollapse: "メニューを閉じる", menuExpand: "メニューを開く", navResize: "メニューの幅", navResizeTip: "ダブルクリックで閉じる", breadcrumb: "パンくず", organizationMoving: "移っています",
     personalOrganizationName: "自分用", dashboardPersonalHome: "ホーム", createPersonalOrganizationAction: "自分用を作る",
     task: "タスク", archive: "アーカイブ", connection: "接続", sprintGoal: "スプリントゴール", detail: "詳細", ac: "受け入れ基準", due: "期日",
     points: "ポイント", assignee: "担当", category: "区分", capacity: "作業量と基準", over: "超過", done: "完了", column: "列",
@@ -3838,6 +3838,11 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   // 閉じるのは、ボタン、外を押す、Tab で外へ出る、リンクを押す、Esc。メニューの中にフォーカスがあるときに閉じたら、ボタンへ戻す
   let orgMenuOpen = false;
   let navCollapsed = (() => { try { return localStorage.getItem("sg-nav-collapsed") === "true"; } catch (e) { return false; } })();
+  // 左のメニューの幅（#1513）。本番の src/lib/nav-width.ts と同じキー、範囲、読み方（数字だけの値を 200〜480 に収め、ほかは既定の 240）
+  const NAV_WIDTH = { key: "sg-nav-width", fallback: 240, min: 200, max: 480, step: 16 };
+  const navWidthLimit = () => Math.max(NAV_WIDTH.min, Math.min(NAV_WIDTH.max, Math.floor(window.innerWidth * 0.4)));
+  const clampNavWidth = (w, limit = NAV_WIDTH.max) => Math.min(limit, Math.max(NAV_WIDTH.min, Math.round(w)));
+  let navWidth = (() => { try { const v = localStorage.getItem(NAV_WIDTH.key); return v !== null && /^\d{1,4}$/.test(v) ? clampNavWidth(Number(v)) : NAV_WIDTH.fallback; } catch (e) { return NAV_WIDTH.fallback; } })();
   // カタログの見本は、開いた状態と閉じた状態、組織の数、招待の有無を替えて並べるので、引数で渡す。live が偽なら押しても動かない
   // moving は別の組織へ移っている最中（本番の OrganizationSwitcher の moving）。名前の欄に「移っています」を出す
   // 自分用の組織（kind が personal）は、名前の代わりに辞書の「自分用」で出す。
@@ -4020,6 +4025,75 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const tip = toggle.querySelector(".nav-tip");
     if (tip) tip.textContent = label;
   }
+  // 左のメニューの幅を .app の --nav-width（CSSOM）と境目の読み上げの値に当てる。persist で端末に覚える（ドラッグの間は覚えない）
+  function applyNavWidth(persist = false) {
+    const app = document.querySelector(".app");
+    if (app) app.style.setProperty("--nav-width", `${navWidth}px`);
+    const handle = document.querySelector("[data-nav-resize]");
+    if (handle) {
+      handle.setAttribute("aria-valuenow", String(Math.min(navWidth, navWidthLimit())));
+      handle.setAttribute("aria-valuemax", String(navWidthLimit()));
+    }
+    if (persist) { try { localStorage.setItem(NAV_WIDTH.key, String(navWidth)); } catch (e) { /* 覚えられないだけで、今の画面では変わる */ } }
+  }
+  // 境目のドラッグ、ダブルクリック、矢印キー（本番の AppShell.svelte と同じ動き）
+  function bindNavResize() {
+    const handle = document.querySelector("[data-nav-resize]");
+    if (!handle) return;
+    let drag = null;
+    const collapse = () => {
+      navCollapsed = true;
+      try { localStorage.setItem("sg-nav-collapsed", "true"); } catch (e) { /* 覚えられないだけ */ }
+      applyNavCollapsed();
+      document.querySelector("[data-nav-toggle]")?.focus();
+    };
+    handle.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || !event.isPrimary) return;
+      handle.setPointerCapture(event.pointerId);
+      drag = { id: event.pointerId, x: event.clientX, w: Math.min(navWidth, navWidthLimit()), stored: navWidth, moved: false };
+      handle.dataset.dragging = "true";
+      document.querySelector(".app")?.setAttribute("data-nav-resizing", "true");
+    });
+    handle.addEventListener("pointermove", (event) => {
+      // 3px 未満のずれは押して離しただけとみなし、幅を変えない（本番の draggedNavWidth と同じ）
+      if (drag && event.pointerId === drag.id) {
+        const dx = event.clientX - drag.x;
+        if (Math.abs(dx) >= 3) drag.moved = true;
+        if (drag.moved) { navWidth = clampNavWidth(Math.abs(dx) >= 3 ? drag.w + dx : drag.w, navWidthLimit()); applyNavWidth(); }
+        return;
+      }
+      handle.style.setProperty("--nav-resize-tip-y", `${event.clientY - handle.getBoundingClientRect().top}px`);
+    });
+    const end = (event) => {
+      if (!drag || event.pointerId !== drag.id) return;
+      // 見える幅が掴んだときと変わらなければ（押して離しただけ、上限に張り付いたまま動かした）、覚えた幅に戻して覚え直さない（本番の releasedNavWidth と同じ）
+      const changed = drag.moved && navWidth !== drag.w;
+      if (!changed) navWidth = drag.stored;
+      drag = null;
+      delete handle.dataset.dragging;
+      document.querySelector(".app")?.removeAttribute("data-nav-resizing");
+      applyNavWidth(changed);
+    };
+    handle.addEventListener("pointerup", end);
+    handle.addEventListener("pointercancel", end);
+    handle.addEventListener("lostpointercapture", end);
+    handle.addEventListener("pointerleave", () => handle.style.removeProperty("--nav-resize-tip-y"));
+    handle.addEventListener("dblclick", collapse);
+    handle.addEventListener("keydown", (event) => {
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      const shown = Math.min(navWidth, navWidthLimit());
+      const next = { ArrowLeft: shown - NAV_WIDTH.step, ArrowRight: shown + NAV_WIDTH.step, Home: NAV_WIDTH.min, End: navWidthLimit() }[event.key];
+      if (event.key === "Enter") { event.preventDefault(); collapse(); return; }
+      if (next === undefined) return;
+      event.preventDefault();
+      // 端に張り付いて見た目が変わらないときは覚え直さない（本番の keyedNavWidth と同じ）
+      const clamped = clampNavWidth(next, navWidthLimit());
+      if (clamped === shown) return;
+      navWidth = clamped;
+      applyNavWidth(true);
+    });
+    window.addEventListener("resize", () => applyNavWidth());
+  }
   // 本文の見出しの上のパンくず「組織 › ワークスペース › 画面」（本文の直前の帯 .sheet-crumbs に入れる）。本番の Breadcrumb.svelte と同じ並びと作り。
   // 組織とワークスペースは最初の画面へのリンク、今の画面は aria-current="page"（リンクにしない）。ワークスペースは、
   // ワークスペースの中の画面だけに出す。crumbs は [{ label, href?, current? }]。省くと今の画面から組み立てる
@@ -4086,7 +4160,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
           <nav class="nav" id="app-nav"></nav>
           <p class="binding-foot">デザインの見本。データはすべて架空の例です</p>
         </div>
-      </div></aside>
+      </div><div class="nav-resize" role="separator" tabindex="0" aria-orientation="vertical" aria-label="${t("navResize")}" aria-controls="app-nav" aria-keyshortcuts="Enter" aria-valuenow="${navWidth}" aria-valuemin="${NAV_WIDTH.min}" aria-valuemax="${NAV_WIDTH.max}" data-nav-resize><span class="nav-resize-tip" aria-hidden="true">${t("navResizeTip")}</span></div></aside>
       <div class="sheet">
         <div class="sheet-crumbs" id="breadcrumb-slot"></div>
         <main class="content" id="content"></main>
@@ -4099,12 +4173,18 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     <div class="dialog" id="dialog" hidden></div>
     <div class="toasts" id="toasts" aria-live="polite"></div>`;
     document.querySelector("[data-switch='theme']").addEventListener("click", cycleTheme);
+    // 押し続けた Enter の繰り返しでは押さない（Space は keyup で押されるので繰り返しでは押されない。境目の Enter で閉じた後、繰り返しがこのボタンに届いて開き直さないため。本番の AppShell と同じ）
+    document.querySelector("[data-nav-toggle]").addEventListener("keydown", (event) => {
+      if (event.repeat && event.key === "Enter") event.preventDefault();
+    });
     document.querySelector("[data-nav-toggle]").addEventListener("click", () => {
       navCollapsed = !navCollapsed;
       try { localStorage.setItem("sg-nav-collapsed", String(navCollapsed)); } catch (e) { /* 覚えられないだけで、今の画面では開閉する */ }
       applyNavCollapsed();
     });
     document.querySelector("[data-switch='first']")?.addEventListener("click", cycleFirst);
+    bindNavResize();
+    applyNavWidth();
     const mobileMenu = document.getElementById("mobile-menu");
     let pressedOutside = false;
     let releasedOutside = false;
