@@ -17,11 +17,12 @@ test('既存の次番号は削除していない全状態のスプリント数�
       .sort()) {
       db.exec(readFileSync(new URL(name, migrations), 'utf8'));
     }
-    // 現行seedのうち0038で追加された依頼回だけを除き、対象の旧スキーマへ入れる。
+    // 0038の依頼回と0039のプランを使う契約を除き、旧スキーマへ入れる。
     const seed = fillSeedDates(readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8'), new Date());
     const legacySeed = seed
       .replace(/^UPDATE task_sources SET review_cycle = .*;$/m, '')
-      .replace(/INSERT INTO review_request_cycles[^;]*;/, '');
+      .replace(/INSERT INTO review_request_cycles[^;]*;/, '')
+      .replace(/INSERT INTO organization_contracts[^;]*;/, '');
     assert.notEqual(legacySeed, seed, '0038のseedを旧スキーマ用に除いている');
     assert.ok(!legacySeed.includes('UPDATE task_sources SET review_cycle ='));
     assert.ok(!legacySeed.includes('INSERT INTO review_request_cycles'));

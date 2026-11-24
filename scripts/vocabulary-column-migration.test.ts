@@ -17,11 +17,13 @@ function oldDatabase() {
   for (const file of migrationFiles.filter((name) => name <= '0030_\uffff')) {
     db.exec(readFileSync(new URL(file, migrations), 'utf8'));
   }
-  // 現行seedのうち0038で追加された依頼回だけを除き、対象の旧スキーマへ入れる。
+  // 0033の請求管理者、0038の依頼回、0039のプランを使う契約を除き、旧スキーマへ入れる。
   const seed = fillSeedDates(readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8'), new Date());
   const legacySeed = seed
     .replace(/^UPDATE task_sources SET review_cycle = .*;$/m, '')
-    .replace(/INSERT INTO review_request_cycles[^;]*;/, '');
+    .replace(/INSERT INTO review_request_cycles[^;]*;/, '')
+    .replace(/INSERT INTO billing_administrators[^;]*;/, '')
+    .replace(/INSERT INTO organization_contracts[^;]*;/, '');
   assert.notEqual(legacySeed, seed, '0038のseedを旧スキーマ用に除いている');
   assert.ok(!legacySeed.includes('UPDATE task_sources SET review_cycle ='));
   assert.ok(!legacySeed.includes('INSERT INTO review_request_cycles'));

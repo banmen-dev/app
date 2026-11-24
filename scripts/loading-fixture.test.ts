@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
+import { SEED_SESSIONS } from '../seed/sessions.ts';
 import { loadingFixtureSql, loadingWorkspace } from './loading-fixture.ts';
 import { fillSeedDates } from './seed-dates.ts';
 
@@ -31,8 +32,10 @@ test('読み取り計測fixtureは実スキーマで最近の完了・経験値�
       );
     assert.equal(
       db
-        .prepare("SELECT count(*) AS n FROM billing_administrators WHERE organization_id=? AND status='active'")
-        .get('019a0000-0000-7000-8000-000000000201')?.n,
+        .prepare(
+          "SELECT count(*) AS n FROM billing_administrators WHERE organization_id=? AND account_id=? AND status='active'",
+        )
+        .get('019a0000-0000-7000-8000-000000000201', SEED_SESSIONS.admin.accountId)?.n,
       1,
     );
     assert.equal(count('tasks'), 5000);
