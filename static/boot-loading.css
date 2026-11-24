@@ -159,7 +159,7 @@ html[data-boot-dashboard] #boot-loading .boot-skeleton {
     padding-inline: 16px;
   }
 }
-@media (min-width: 761px) {
+@media not (max-width: 760px) {
   #boot-loading .boot-dashboard {
     grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   }
@@ -435,12 +435,14 @@ html[data-boot] #boot-loading .boot-frame {
   }
 }
 /* 広い幅でマウスだけで操作する画面は、本物と同じく本文の間と見出しの下を詰める（design/components.css の「広い幅でマウスで操作する画面の詰め」） */
-@media (min-width: 761px) and (pointer: fine) and (not (any-pointer: coarse)) {
-  #boot-loading .boot-content {
-    gap: 24px;
-  }
-  #boot-loading .boot-head {
-    padding-bottom: 16px;
+@media not (max-width: 760px) {
+  @media (pointer: fine) and (not (any-pointer: coarse)) {
+    #boot-loading .boot-content {
+      gap: 24px;
+    }
+    #boot-loading .boot-head {
+      padding-bottom: 16px;
+    }
   }
 }
 /* 強制色では地の色が消えるので、帯を縁で残す */

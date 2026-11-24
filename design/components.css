@@ -81,7 +81,7 @@ h1, h2, h3 { text-wrap: balance; }
 #org-menu-slot { display: contents; }
 /* 見本のアカウントのメニューの入れ物（kit.js が描き直すため）。本番には無いので箱を消し、.account-menu を帯の直接の子と同じに縮ませる */
 #account-menu-slot { display: contents; }
-/* 上の帯の組織の切り替え（761px 以上。アカウントの左）。名前は1行で、収まらなければ省略記号で切る（全文はボタンの読み上げの名前と一覧で読める）。
+/* 上の帯の組織の切り替え（760px を超える幅。アカウントの左）。名前は1行で、収まらなければ省略記号で切る（全文はボタンの読み上げの名前と一覧で読める）。
    帯の高さを変えないため、「組織」のラベルと「届いた招待あり」のチップは見せず、招待は点の印で示す。
    一覧はボタンの右端に合わせて帯の下に浮かせる（アカウントのメニューと同じ）。帯の右に置くので、画面の右からはみ出さない。
    左のメニューを閉じても形を変えない */
@@ -192,7 +192,7 @@ h1, h2, h3 { text-wrap: balance; }
   :is(.org-menu-list, .ws-menu-list) a, :is(.org-menu-list, .ws-menu-list) button, .account-menu-list a, .account-menu-list button, .account-menu-button { min-height: 44px; }
   .nav-toggle { width: 44px; height: 44px; }
   .brand, .nav-item:not(.is-later) { min-height: 44px; }
-  /* 上の帯のマークと組織のボタン（761px 以上の指の画面。760px 以下は上の帯を出さない） */
+  /* 上の帯のマークと組織のボタン（760px を超える幅の指の画面。760px 以下は上の帯を出さない） */
   .topbar-start .brand { justify-content: center; min-width: 44px; }
   .topbar .org-menu-button { min-height: 44px; }
   a.breadcrumb-item { display: block; line-height: 44px; min-width: 44px; }
@@ -205,7 +205,7 @@ h1, h2, h3 { text-wrap: balance; }
   .breadcrumb li:last-child { flex: 0 1 auto; min-width: 3.5rem; }
 }
 
-@media (min-width: 761px) {
+@media not (max-width: 760px) {
   /* 綴じの中で開く一覧（ワークスペースの切り替え）を本文の位置付きの要素（バックログの行など）より上に出す。綴じの sticky は自前の重なりの文脈を作り、
      中の z-index は文脈の外に効かないので、綴じごと本文の上に置く。上の帯（6）は綴じより上に置き、帯から開く組織の一覧と
      アカウントのメニューを綴じの上に重ねる。どちらも引き出し（.scrim の 20）とアシスタント（15）より下 */
@@ -221,7 +221,7 @@ h1, h2, h3 { text-wrap: balance; }
     overflow-wrap: anywhere;
   }
 }
-/* 761px 以上では、左のメニューを閉じられる。閉じると列を残さず、本文が上の帯の下の全幅に広がる（Jira と同じ。#1512）。
+/* 760px を超える幅では、左のメニューを閉じられる。閉じると列を残さず、本文が上の帯の下の全幅に広がる（Jira と同じ。#1512）。
    本番の綴じは DOM に残して（開閉のボタンの aria-controls の先を保つ）、hidden でキーボードと読み上げから外す。
    下の display: none は、hidden を持たない移る間の骨組み（LoadingSheet の .skeleton-frame）の綴じのため。
    ホバーのできない端末（指だけのタブレットなど）でも開閉のボタンを出して閉じられる。狭い画面では下のタブバーと浮きメニューを使う。
@@ -231,8 +231,10 @@ h1, h2, h3 { text-wrap: balance; }
   .app[data-nav-collapsed="true"] > .binding { display: none; }
 }
 /* ホバーで出す札。ホバーのできる端末だけに当て、押した後に :hover が残る指の端末には出さない */
-@media (min-width: 761px) and (hover: hover) {
-  .nav-toggle:hover .nav-tip { display: grid; }
+@media not (max-width: 760px) {
+  @media (hover: hover) {
+    .nav-toggle:hover .nav-tip { display: grid; }
+  }
 }
 /* アカウントのメニュー。上の帯の自分の名前を押すと開く。リストの見た目は組織の切り替えと同じ（上の .org-menu-list と並べて書く）で、
    帯の下に重ねて出す（帯の高さを変えない）。広い幅ではボタンの右端に合わせて開く。760px 以下は、帯が左に寄って
@@ -275,8 +277,8 @@ h1, h2, h3 { text-wrap: balance; }
 }
 /* 帯の高さ。上の帯の高さと、綴じの貼り付く位置で同じ値を使う */
 :root { --header-height: calc(var(--space-10) + var(--space-5)); }
-/* 貼り付く上の帯（761px 以上）の下にフォーカスが隠れないようにする */
-@media (min-width: 761px) {
+/* 貼り付く上の帯（760px を超える幅）の下にフォーカスが隠れないようにする */
+@media not (max-width: 760px) {
   html { scroll-padding-top: var(--header-height); }
 }
 /* パンくず。組織 › ワークスペース › 画面。上の帯ではなく、本文（.content）の直前の帯（.sheet-crumbs）に置き、本文の見出しのすぐ上に出す。
@@ -330,9 +332,11 @@ a.breadcrumb-item:hover { color: var(--color-fg); text-decoration: underline; }
 .topbar-tools { display: contents; }
 /* 見本だけの切り替え（テーマ、見本の状態）と、見本の帯のアシスタントは、帯に組織の切り替えまで並ぶ 1439px 以下ではアイコンだけにし、文字は読み上げに残す
    （本番の帯に無い道具の分で帯があふれ、検索の欄を潰したり、左端の開閉のボタンとマークを押し出したりしないため） */
-@media (min-width: 761px) and (max-width: 1439px) {
-  .topbar-tools [data-switch] > span, .topbar-tools .assist-launch > [data-assist-label] {
-    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+@media not (max-width: 760px) {
+  @media (max-width: 1439px) {
+    .topbar-tools [data-switch] > span, .topbar-tools .assist-launch > [data-assist-label] {
+      position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+    }
   }
 }
 /* 見本のワークスペースの切り替えの入れ物（kit.js が描き直すため）。本番には無いので、箱を消して .ws-menu を .nav の直接の子と同じに並べる */
@@ -345,8 +349,8 @@ a.breadcrumb-item:hover { color: var(--color-fg); text-decoration: underline; }
   .nav-search-list li { min-height: 44px; display: flex; align-items: center; }
   .nav-search-key { display: none; }
 }
-/* 761px 以上では帯を1段に固定し、帯の高さ（綴じの貼り付く位置）がずれないようにする。幅が足りないときは検索の欄（9rem まで）、アカウントの長い表示名、所属していない管理者の印が縮む */
-@media (min-width: 761px) {
+/* 760px を超える幅では帯を1段に固定し、帯の高さ（綴じの貼り付く位置）がずれないようにする。幅が足りないときは検索の欄（9rem まで）、アカウントの長い表示名、所属していない管理者の印が縮む */
+@media not (max-width: 760px) {
   .topbar { flex-wrap: nowrap; }
   .topbar > :not(.account-menu, .nav-search, .org-menu), .topbar-tools > * { flex: none; }
   /* 組織の切り替えは縮めず、幅が足りないときは検索の欄とアカウントの表示名が受ける。
@@ -406,7 +410,7 @@ a.breadcrumb-item:hover { color: var(--color-fg); text-decoration: underline; }
 /* ===== 画面の見出しと集計 ===== */
 .page-head { display: grid; gap: var(--space-3); padding-bottom: var(--space-5); border-bottom: var(--rule-double); }
 .page-eyebrow { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-muted); letter-spacing: 0.04em; min-width: 0; overflow-wrap: anywhere; }
-/* 760px 以下だけの小見出し（ワークスペースの画面のワークスペース名）。761px 以上は見出しの上のパンくずが同じ名前を出すので隠す。
+/* 760px 以下だけの小見出し（ワークスペースの画面のワークスペース名）。760px を超える幅は見出しの上のパンくずが同じ名前を出すので隠す。
    読み込み中の骨組みの小見出しの帯も同じ幅で隠す。760px と 761px の間の小数の幅でもパンくず（AppShell の max-width: 760px）と重ねないよう、not で分ける */
 @media not (max-width: 760px) { .page-eyebrow.is-narrow-only, .skeleton-line.is-eyebrow.is-narrow-only { display: none; } }
 .page-title { font-family: var(--font-display); font-weight: var(--weight-display); font-size: var(--text-2xl); line-height: var(--leading-tight); letter-spacing: 0.04em; min-width: 0; overflow-wrap: anywhere; }
@@ -785,11 +789,11 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
 .news-link:hover .ico, .news-link:focus-visible .ico { color: var(--color-accent); }
 .news-body { margin: 0; font-size: var(--text-sm); line-height: var(--leading-body); overflow-wrap: anywhere; }
 @media (max-width: 760px), (pointer: coarse) { .news-link { min-height: 44px; } }
-/* ダッシュボード: 761px 以上は左3、右2の2列。左の列（.dashboard-main）と右の列（.dashboard-side）に、それぞれ面を上から並べる。
+/* ダッシュボード: 760px を超える幅は左3、右2の2列。左の列（.dashboard-main）と右の列（.dashboard-side）に、それぞれ面を上から並べる。
    右の列に置く面が無いときは、右の列の要素を置かず、列の幅だけを空けておく（空の要素は置かない）。760px 以下は1列で、左の列、右の列の順に縦に並べる */
 .dashboard { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-8); align-items: start; min-width: 0; }
 .dashboard-main, .dashboard-side { display: grid; gap: var(--space-8); align-content: start; min-width: 0; }
-@media (min-width: 761px) {
+@media not (max-width: 760px) {
   .dashboard { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
 }
 /* 最近の更新（面の中の、日付ごとの区分と行）。日付の見出し（.activity-date、h3）の下に、押すと対象の詳細へ移る行（.activity-row）を並べる。
@@ -965,7 +969,7 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
   .entry-end { grid-column: -2; flex-wrap: wrap; }
 }
 
-@media (min-width: 761px) {
+@media not (max-width: 760px) {
   .mobile-navigation, .mobile-menu { display: none; }
 }
 
@@ -1434,34 +1438,36 @@ label.pick-row:hover { background: var(--color-accent-soft); }
 }
 
 /* ===== 広い幅でマウスで操作する画面の詰め =====
- * 761px 以上で、マウスなどの細かく指せる道具だけで操作する画面（pointer: fine で、指で押す入力も持たない）では、左のメニュー、行、表、
+ * 760px を超える幅で、マウスなどの細かく指せる道具だけで操作する画面（pointer: fine で、指で押す入力も持たない）では、左のメニュー、行、表、
  * カードの上下の余白を詰め、一画面に多くの記録を出す。狭い幅と指で押す画面（760px 以下か pointer: coarse）と、タッチの画面を持つ PC
  * （any-pointer: coarse）は、押せる範囲 44px のための余白を残して詰めない。
  * どのテーマでも同じ。上の各部品の規則より後ろに置く（同じ詳細度なので、後ろが勝つ） */
-@media (min-width: 761px) and (pointer: fine) and (not (any-pointer: coarse)) {
-  .nav-item { padding-block: var(--space-1); }
-  .content { gap: var(--space-6); }
-  .page-head { padding-bottom: var(--space-4); }
-  .entry { padding-block: var(--space-2); min-height: 48px; }
-  /* 組織ホームの台帳は、題に 12rem を取り、操作は右の列の中で折り返す。
-     左の印・余白・列の間の 80px と、期日切れの印を割らずに置く幅（6rem + 48px）を残す。
-     文字を拡大してこれらの幅を取れない場合は、操作を題の下に置く。 */
-  @container book (width > 440px) and (width >= calc(18rem + 128px)) {
-    .book.is-compact > .entry {
-      grid-template-columns: var(--grip-col, ) 32px minmax(12rem, 1fr) minmax(0, max-content);
+@media not (max-width: 760px) {
+  @media (pointer: fine) and (not (any-pointer: coarse)) {
+    .nav-item { padding-block: var(--space-1); }
+    .content { gap: var(--space-6); }
+    .page-head { padding-bottom: var(--space-4); }
+    .entry { padding-block: var(--space-2); min-height: 48px; }
+    /* 組織ホームの台帳は、題に 12rem を取り、操作は右の列の中で折り返す。
+       左の印・余白・列の間の 80px と、期日切れの印を割らずに置く幅（6rem + 48px）を残す。
+       文字を拡大してこれらの幅を取れない場合は、操作を題の下に置く。 */
+    @container book (width > 440px) and (width >= calc(18rem + 128px)) {
+      .book.is-compact > .entry {
+        grid-template-columns: var(--grip-col, ) 32px minmax(12rem, 1fr) minmax(0, max-content);
+      }
+      .book.is-compact > .entry .entry-end { grid-column: auto; flex-wrap: wrap; justify-content: flex-end; }
     }
-    .book.is-compact > .entry .entry-end { grid-column: auto; flex-wrap: wrap; justify-content: flex-end; }
+    /* 文字の拡大によって通常の台帳の折り返し境界より広い幅でも横並びにできない場合に、同じ縦並びにする。 */
+    @container book (520px < width < calc(18rem + 128px)) {
+      .book.is-compact > .entry { grid-template-columns: var(--grip-col, ) 32px minmax(0, 1fr); }
+      .book.is-compact > .entry:has(.entry-meta) { row-gap: var(--space-half); }
+      .book.is-compact > .entry .entry-end { grid-column: -2; flex-wrap: wrap; }
+    }
+    .tree-row { padding-block: var(--space-2); }
+    .table th, .table td { padding-block: var(--space-2); }
+    .board-col { padding-block: var(--space-2); }
+    .card { padding: var(--space-2) var(--space-3); }
   }
-  /* 文字の拡大によって通常の台帳の折り返し境界より広い幅でも横並びにできない場合に、同じ縦並びにする。 */
-  @container book (520px < width < calc(18rem + 128px)) {
-    .book.is-compact > .entry { grid-template-columns: var(--grip-col, ) 32px minmax(0, 1fr); }
-    .book.is-compact > .entry:has(.entry-meta) { row-gap: var(--space-half); }
-    .book.is-compact > .entry .entry-end { grid-column: -2; flex-wrap: wrap; }
-  }
-  .tree-row { padding-block: var(--space-2); }
-  .table th, .table td { padding-block: var(--space-2); }
-  .board-col { padding-block: var(--space-2); }
-  .card { padding: var(--space-2) var(--space-3); }
 }
 
 /* ===== エピックの詳細 ===== */
@@ -1882,14 +1888,16 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
 }
 /* 一覧が広いまま指で押す画面（タブレットの横置きなど）では、行の右端が題の下へ折り返さないまま 44px のボタンが並ぶ。
    題の列に 12rem を先に取り、右端は残りの幅に収まらなければ中で折り返す（右端の列は max-content まで、題の列を押しのけない） */
-@media (pointer: coarse) and (min-width: 761px) {
-  @container book (min-width: 521px) {
-    .entry { grid-template-columns: var(--grip-col, ) 32px minmax(12rem, 1fr) minmax(0, max-content); }
-    .entry-end { flex-wrap: wrap; justify-content: flex-end; }
-  }
-  @container tree (min-width: 641px) {
-    .entry { grid-template-columns: var(--grip-col, ) 32px minmax(12rem, 1fr) minmax(0, max-content); }
-    .entry-end { flex-wrap: wrap; justify-content: flex-end; }
+@media not (max-width: 760px) {
+  @media (pointer: coarse) {
+    @container book (min-width: 521px) {
+      .entry { grid-template-columns: var(--grip-col, ) 32px minmax(12rem, 1fr) minmax(0, max-content); }
+      .entry-end { flex-wrap: wrap; justify-content: flex-end; }
+    }
+    @container tree (min-width: 641px) {
+      .entry { grid-template-columns: var(--grip-col, ) 32px minmax(12rem, 1fr) minmax(0, max-content); }
+      .entry-end { flex-wrap: wrap; justify-content: flex-end; }
+    }
   }
 }
 .icon-btn.is-danger:hover { color: var(--color-danger); border-color: currentColor; }
@@ -2136,7 +2144,7 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
 /* 表を載せる枠の外の画面（運用）。紙の幅を広げる */
 /* 運用の組織の一覧（名前、集計の5列、操作）が、1280px の画面で横スクロールせずに収まる幅にする。
    実測（2026-10-26）: 停止中の行（操作が2つ）と、名前の列の長い印があるとき、表の最小の幅は 1056px。紙の内側は紙の幅より
-   52px 狭いので（761px 以上）、要るのは 1108px 以上。960px では表が内側の 908px に収まらない。1024px の画面では表の中の横スクロールで受ける */
+   52px 狭いので（760px を超える幅）、要るのは 1108px 以上。960px では表が内側の 908px に収まらない。1024px の画面では表の中の横スクロールで受ける */
 .gate.is-wide .gate-stack, .gate.is-wide .gate-sheet { width: min(1200px, 100%); }
 /* 760px 以下の広い紙（全組織のダッシュボードと運用）は、内側の左右を画面の端の余白（.gate の --space-4）と同じに詰め、中の一覧と表の幅を残す */
 @media (max-width: 760px) { .gate.is-wide .gate-sheet { padding-inline: var(--space-4); } }
