@@ -53,7 +53,6 @@ test.describe('リーダー（あおば開発のミナト）', () => {
     const nav = page.locator('#app-nav');
     await expect(nav.locator('.ws-menu-button')).toBeVisible();
     for (const name of ALL) await expect(nav.getByRole('link', { name, exact: true })).toHaveCount(0);
-    await expect(nav.locator('.nav-group-label')).not.toContainText(['記録']);
     await expect(nav.locator('.nav-group-label', { hasText: /^(記録|管理)$/ })).toHaveCount(0);
     // 組織の画面にはタブを出さない
     await page.goto('/aoba');

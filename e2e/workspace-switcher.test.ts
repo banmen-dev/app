@@ -214,6 +214,7 @@ test.describe('所属が1つの一般のメンバー', () => {
     // 切り替えの一覧のリンクは対象のバックログへ移る（ワークスペースの機能の項目は左のメニューに無い。#1514）
     await page.keyboard.press('Enter');
     await page.keyboard.press('Tab');
+    await expect(listOf(page).getByRole('link')).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(new RegExp(`${backlog}$`));
   });

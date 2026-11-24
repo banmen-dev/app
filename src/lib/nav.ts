@@ -33,8 +33,9 @@ export function isWorkspaceId(id: string | null | undefined): id is string {
   return typeof id === 'string' && id !== '';
 }
 
-// メニューの項目。kit.js の PAGES と同じ並びと見出し。
-// href が null の項目は、画面がまだ無いのでメニューに出さない（色を薄くして押せなくする形は、
+// メニューの項目。761px 以上の左のメニューは組織の画面だけ、760px 以下の浮きメニューはワークスペースの機能（workspaceTabs）も並べる。
+// 見本の kit.js の PAGES は、見本だけの画面（エピック、積載量、記録など）も持つ。
+// href が null の項目は、画面がまだ無いのでメニューに出さない（今の定義には無いが、visibleNav は外す）（色を薄くして押せなくする形は、
 // 状態が色だけに頼り、コントラストも足りないので採らない）。画面を足したら href に経路の ID を入れる。
 // leaderOnly の項目は、メニューの対象ワークスペースのリーダーと管理者にだけ出す
 export type NavItem = {

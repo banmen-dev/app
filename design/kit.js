@@ -3593,7 +3593,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       return `<a class="nav-item${id === "orgwiki" ? " is-wrapping" : ""}${menuOnly}" href="${target}" ${current === id ? 'aria-current="page"' : ""}>${icon(ic)}<span class="nav-item-label">${label()}</span>${badge && !first ? `<span class="nav-badge">${badge}</span>` : ""}</a>`;
     }).join("");
   }
-  // ワークスペースの画面の上のタブ（761px 以上。本番の WorkspaceTabs.svelte と同じ作り）。本番に画面のある機能だけを、本番と同じ並びで出す。
+  // ワークスペースの画面の上のタブ（761px 以上。本番の WorkspaceTabs.svelte と同じ並びと印。g b・g s の見えない案内と今のタブへの横の送りは本番だけ）。本番に画面のある機能だけを、本番と同じ並びで出す。
   // 設定は対象のリーダーと管理者にだけ出す（見本の「最初の日・一般」では出さない）。見本だけの画面（エピック、積載量、記録など）ではどれも選ばない
   const WORKSPACE_TABS = ["inbox", "backlog", "sprint", "plan", "wiki", "connection", "members", "settings"];
   function workspaceTabsHtml(current) {
