@@ -94,6 +94,8 @@ export function readyChanges(
     const ownConditions =
       !names.has('epic') &&
       !names.has('sprint-log') &&
+      // 画面のフィードバックから GitHub App が立てた Issue は利用者の入力なので、pt: が付いても着手の候補にしない（docs/development.md の「Issue の運用」）
+      !names.has('feedback') &&
       (issue.sub_issues_summary?.total ?? 0) === 0 &&
       [...names].filter((name) => name.startsWith('pt:')).length === 1 &&
       BLOCKING_STATUS_LABELS.every((name) => !names.has(name)) &&
