@@ -326,6 +326,13 @@ test.describe('ホバーのできない端末（1024px の指のタブレット�
     expect(brand.width).toBeGreaterThanOrEqual(44);
     expect(brand.height).toBeGreaterThanOrEqual(44);
     expect(box.x + box.width).toBeLessThanOrEqual(brand.x);
+    // 44px のボタンでも、札（キーボードのフォーカスで出る）は帯の罫の下 --space-1（4px）に来る
+    const tip = toggle.locator('.nav-tip');
+    await tip.evaluate((element) => ((element as HTMLElement).style.display = 'grid'));
+    const [tipBox, barBox] = await Promise.all([tip.boundingBox(), page.locator('.topbar').boundingBox()]);
+    expect(Math.abs(tipBox!.y - (barBox!.y + barBox!.height + 4))).toBeLessThanOrEqual(1);
+    expect(Math.abs(tipBox!.x - box.x)).toBeLessThanOrEqual(1);
+    await tip.evaluate((element) => ((element as HTMLElement).style.display = ''));
 
     await toggle.tap();
     await expect(page.locator('.app')).toHaveAttribute('data-nav-collapsed', 'true');
@@ -465,9 +472,9 @@ test.describe('高さの低い窓の畳んだ左のメニュー', () => {
       if (!buttonBox || !tipBox) throw new Error('ボタンと札の位置が取れない');
       // 札はボタンの枠（1px）の内側を基準に置くので、1px までのずれを許す
       expect(Math.abs(tipBox.x - buttonBox.x)).toBeLessThanOrEqual(1);
-      // 札は帯の罫より下、罫のすぐ近くに出る
-      expect(tipBox.y).toBeGreaterThanOrEqual(60);
-      expect(tipBox.y).toBeLessThanOrEqual(68);
+      // 札は帯の罫の下 --space-1（4px）に出る
+      const barBox = (await page.locator('.topbar').boundingBox())!;
+      expect(Math.abs(tipBox.y - (barBox.y + barBox.height + 4))).toBeLessThanOrEqual(1);
       expect(await frontmostAcross(page, '.nav-toggle .nav-tip')).toEqual([true, true, true]);
 
       // 組織の切り替えは上の帯にあり、一覧は帯の下に開いて画面の内側に収まる
