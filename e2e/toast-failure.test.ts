@@ -135,6 +135,9 @@ for (const pointer of ['細かいポインター', '指で押す 1024px'] as con
       expect(bootMark.x).toBe(mark.x);
       expect(bootMark.y).toBe(mark.y);
       expect(bootToggle).toEqual(toggle);
+      // 指で押す画面の分岐に入ったこと: 本物の開閉のボタンは指で押す画面だけ 44px、細かいポインターでは 36px
+      expect(toggle.width).toBe(pointer === '指で押す 1024px' ? 44 : 36);
+      expect(toggle.height).toBe(toggle.width);
       // パンくずの帯も、上の帯の下の同じ位置と高さにある（#1509）
       expect(bootCrumbs.x).toBe(crumbs.x);
       expect(bootCrumbs.y).toBe(crumbs.y);
