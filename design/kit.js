@@ -4173,9 +4173,9 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     <div class="dialog" id="dialog" hidden></div>
     <div class="toasts" id="toasts" aria-live="polite"></div>`;
     document.querySelector("[data-switch='theme']").addEventListener("click", cycleTheme);
-    // 押し続けたキーの繰り返しでは押さない（境目の Enter で閉じた後、繰り返しがこのボタンに届いて開き直さないため。本番の AppShell と同じ）
+    // 押し続けた Enter の繰り返しでは押さない（Space は keyup で押されるので繰り返しでは押されない。境目の Enter で閉じた後、繰り返しがこのボタンに届いて開き直さないため。本番の AppShell と同じ）
     document.querySelector("[data-nav-toggle]").addEventListener("keydown", (event) => {
-      if (event.repeat && (event.key === "Enter" || event.key === " ")) event.preventDefault();
+      if (event.repeat && event.key === "Enter") event.preventDefault();
     });
     document.querySelector("[data-nav-toggle]").addEventListener("click", () => {
       navCollapsed = !navCollapsed;

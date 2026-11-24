@@ -79,16 +79,17 @@
   // 幅の上限は画面の幅で変わる（min(480px, 40vw)）。覚えた幅が上限を超える細い窓では上限の幅で出し（CSS の clamp と同じ）、読み上げの値もそれに合わせる
   let viewportWidth = $state(0);
   const navWidthLimit = $derived(navWidthMax(viewportWidth));
-  const shownNavWidth = $derived(Math.min(navWidthState.width, navWidthLimit));
-  // moved はドラッグとみなす移動があったか、storedWidth は掴む前に覚えていた幅。
-  // 見える幅が掴んだときと変わらなければ（押して離しただけ、上限に張り付いたまま動かした）、覚えた広い幅に戻して覚え直さない
+  // width はドラッグの間だけの幅（ドラッグとみなす移動が無ければ null）。ドラッグの間は覚えた幅の状態（navWidthState）を書き換えず、
+  // 見た目だけをこの幅で出す。別のタブが覚えた幅を変えても状態に入り、離したときに見える幅が掴んだときと変わらなければ
+  // （押して離しただけ、上限に張り付いたまま動かした）何もしないので、覚えた広い幅も別のタブの変更も失わない
   let resize = $state<{
     pointerId: number;
     startX: number;
     startWidth: number;
-    storedWidth: number;
-    moved: boolean;
+    width: number | null;
   } | null>(null);
+  const navWidth = $derived(resize?.width ?? navWidthState.width);
+  const shownNavWidth = $derived(Math.min(navWidth, navWidthLimit));
   // 札の縦の位置。ホバーではポインタの高さに出し、キーボードで移ったときは境目の上端に出す（CSS の既定）
   let resizeTipY = $state<number | null>(null);
 
@@ -100,30 +101,25 @@
       pointerId: event.pointerId,
       startX: event.clientX,
       startWidth: shownNavWidth,
-      storedWidth: navWidthState.width,
-      moved: false,
+      width: null,
     };
   }
   function onResizePointerMove(event: PointerEvent) {
     if (resize && event.pointerId === resize.pointerId) {
-      // ドラッグの間は覚えずに見た目だけを変え、離したときに覚える（localStorage に動くたびに書かない）。
-      // 閾値未満のずれは動かしていないものとし、掴んだときの幅に戻す
+      // ドラッグの間は見た目だけを変え、離したときに覚える（localStorage に動くたびに書かない）。
+      // 閾値未満のずれは動かしていないものとし、一度ドラッグになった後は掴んだときの幅に戻す
       const next = draggedNavWidth(resize.startWidth, event.clientX - resize.startX, viewportWidth);
-      if (next !== null) resize.moved = true;
-      if (resize.moved) setNavWidth(next ?? resize.startWidth, { persist: false, viewportWidth });
+      if (next !== null || resize.width !== null) resize.width = next ?? resize.startWidth;
       return;
     }
     resizeTipY = event.clientY - (event.currentTarget as HTMLElement).getBoundingClientRect().top;
   }
   function onResizePointerEnd(event: PointerEvent) {
     if (!resize || event.pointerId !== resize.pointerId) return;
-    const { moved, startWidth, storedWidth } = resize;
+    const { startWidth, width } = resize;
     resize = null;
-    if (moved) {
-      const next = releasedNavWidth(startWidth, navWidthState.width);
-      if (next === null) navWidthState.width = storedWidth;
-      else setNavWidth(next, { viewportWidth });
-    }
+    const next = width === null ? null : releasedNavWidth(startWidth, width);
+    if (next !== null) setNavWidth(next, { viewportWidth });
     // 離した直後も :hover のまま札が出るので、今のポインタの高さに合わせる（lostpointercapture は座標を持たないことがあるので、pointerup だけ）
     if (event.type === 'pointerup')
       resizeTipY = event.clientY - (event.currentTarget as HTMLElement).getBoundingClientRect().top;
@@ -294,7 +290,7 @@
   class="app"
   data-nav-collapsed={navState.collapsed ? 'true' : undefined}
   data-nav-resizing={resize ? 'true' : undefined}
-  style:--nav-width="{navWidthState.width}px"
+  style:--nav-width="{navWidth}px"
 >
   {#if !narrow.current}
     <div class="topbar">
@@ -308,9 +304,10 @@
           aria-label={t(navState.collapsed ? 'menuExpand' : 'menuCollapse')}
           onclick={() => setNavCollapsed(!navState.collapsed)}
           onkeydown={(event) => {
-            // 押し続けたキーの繰り返しでは押さない。境目で Enter を押して閉じるとフォーカスがこのボタンへ移り、
+            // 押し続けた Enter の繰り返しでは押さない。境目で Enter を押して閉じるとフォーカスがこのボタンへ移り、
             // 押し続けた繰り返しの Enter がここに届いて開き直してしまうため（#1513）
-            if (event.repeat && (event.key === 'Enter' || event.key === ' ')) event.preventDefault();
+            // Space は keyup で押されるので、繰り返しの keydown では押されない。止めるのは Enter だけでよい
+            if (event.repeat && event.key === 'Enter') event.preventDefault();
           }}
         >
           <Icon name="panel" />

@@ -187,6 +187,27 @@ test('細い窓で境目を押すだけ、2px のずれ、上限での右への�
   await expect(page.locator('.app > .binding')).toHaveJSProperty('offsetWidth', 480);
 });
 
+test('ドラッグの間に別のタブが幅を変えたら、見える幅を変えずに離すと別のタブの幅になる', async ({ page }) => {
+  await openFresh(page, 900, '480');
+  const box = (await separator(page).boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + 200;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  // 上限（360px）に張り付いたまま右へ動かす
+  await page.mouse.move(x + 50, y, { steps: 4 });
+  await page.evaluate(() => {
+    localStorage.setItem('sg-nav-width', '400');
+    window.dispatchEvent(
+      new StorageEvent('storage', { key: 'sg-nav-width', newValue: '400', storageArea: localStorage }),
+    );
+  });
+  await page.mouse.up();
+  expect(await page.evaluate(() => localStorage.getItem('sg-nav-width'))).toBe('400');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(page.locator('.app > .binding')).toHaveJSProperty('offsetWidth', 400);
+});
+
 // 指だけの端末では境目を出さない（#1513。人が「開閉だけ出す」と決めた）
 test.describe('ホバーのできない端末（1024px の指のタブレット）', () => {
   test.use({ viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true });
