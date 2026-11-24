@@ -493,6 +493,28 @@ INSERT INTO board_columns (id, workspace_id, name, is_done, position, created_at
   ('019a0000-0000-7000-8000-000000000541', '019a0000-0000-7000-8000-000000000405', '未着手', 0, 'a0', '2026-10-20T00:00:00.000Z', '2026-10-20T00:00:00.000Z'),
   ('019a0000-0000-7000-8000-000000000544', '019a0000-0000-7000-8000-000000000405', NULL, 1, 'a1', '2026-10-20T00:00:00.000Z', '2026-10-20T00:00:00.000Z');
 
+-- 請求画面の確認用。アカネは業務用の users の行を持たず、担当の招待をすべて承諾済み。
+INSERT INTO accounts (id, last_login_at, created_at, updated_at) VALUES
+  ('019a0000-0000-7000-8000-000000000117', '2026-10-20T00:00:00.000Z', '2026-10-20T00:00:00.000Z', '2026-10-20T00:00:00.000Z');
+INSERT INTO account_logins (login_provider, login_subject, account_id, login_name, display_name, avatar_url, created_at, updated_at) VALUES
+  ('github', '9000000000000117', '019a0000-0000-7000-8000-000000000117', 'akane--seed', 'アカネ', NULL, '2026-10-20T00:00:00.000Z', '2026-10-20T00:00:00.000Z');
+INSERT INTO account_consents (account_id, terms_version, privacy_version, consented_at) VALUES
+  ('019a0000-0000-7000-8000-000000000117', '2026-11-02', '2026-11-15', '2026-10-20T00:00:00.000Z');
+
+-- 利用中のあおば開発とお試し中のかぜラボを使い、停止した2つの組織は専用に置く。
+-- 解約の消去予定日は seed を流した UTC の日付から30日後にする。
+INSERT INTO organizations (id, slug, name, created_by_operator, member_limit, attachment_quota_bytes, suspended_at, purge_on, created_at, updated_at) VALUES
+  ('019a0000-0000-7000-8000-000000000208', 'kaede', 'かえで製作所', 'github:9000000000000001', 15, 42949672960, '2026-10-20T00:00:00.000Z', NULL, '2026-10-01T00:00:00.000Z', '2026-10-20T00:00:00.000Z'),
+  ('019a0000-0000-7000-8000-000000000209', 'sumire', 'すみれ商会', 'github:9000000000000001', 50, 161061273600, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), date('now', '+30 days'), '2026-10-01T00:00:00.000Z', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+INSERT INTO organization_contracts (organization_id, plan, billing_interval, extra_10gb_units, extra_50gb_units, created_at, updated_at) VALUES
+  ('019a0000-0000-7000-8000-000000000208', 'team', 'monthly', 1, 0, '2026-10-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z'),
+  ('019a0000-0000-7000-8000-000000000209', 'pro', 'yearly', 0, 1, '2026-10-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z');
+INSERT INTO billing_administrators (id, organization_id, account_id, status, invited_by, is_bootstrap, created_at, updated_at) VALUES
+  ('019a0000-0000-7000-8000-000000001001', '019a0000-0000-7000-8000-000000000201', '019a0000-0000-7000-8000-000000000117', 'active', '019a0000-0000-7000-8000-000000000104', 1, '2026-10-02T00:00:00.000Z', '2026-10-03T00:00:00.000Z'),
+  ('019a0000-0000-7000-8000-000000001002', '019a0000-0000-7000-8000-000000000206', '019a0000-0000-7000-8000-000000000117', 'active', '019a0000-0000-7000-8000-000000000104', 1, '2026-10-21T00:00:00.000Z', '2026-10-22T00:00:00.000Z'),
+  ('019a0000-0000-7000-8000-000000001003', '019a0000-0000-7000-8000-000000000208', '019a0000-0000-7000-8000-000000000117', 'active', '019a0000-0000-7000-8000-000000000104', 1, '2026-10-02T00:00:00.000Z', '2026-10-03T00:00:00.000Z'),
+  ('019a0000-0000-7000-8000-000000001004', '019a0000-0000-7000-8000-000000000209', '019a0000-0000-7000-8000-000000000117', 'active', '019a0000-0000-7000-8000-000000000104', 1, '2026-10-02T00:00:00.000Z', '2026-10-03T00:00:00.000Z');
+
 -- レビュー依頼の依頼回（#1314）。旧版の NULL も読めるが、見本は現在の保存形にそろえる。
 UPDATE task_sources SET review_cycle = 'seed-review-1' WHERE task_id = '019a0000-0000-7000-8000-0000000008a3';
 INSERT INTO review_request_cycles (task_id, review_cycle, created_at) VALUES

@@ -168,7 +168,7 @@ describe('seedSql', () => {
 
 // 空の D1 に流して中身を数える。wrangler の手元の D1 を使うので数秒かかる
 describe('pnpm db:seed', () => {
-  test('2回流しても通り、自分用を含む組織7つと依頼先つきのタスク、全セッション、組織の無い運用者が入る', () => {
+  test('2回流しても通り、組織9つと依頼先つきのタスク、全セッション、運用者と請求管理者が入る', () => {
     const persistTo = mkdtempSync(path.join(tmpdir(), 'banmen-seed-test-'));
     const root = fileURLToPath(new URL('..', import.meta.url));
     const wrangler = path.join(root, 'node_modules', '.bin', 'wrangler');
@@ -195,6 +195,19 @@ describe('pnpm db:seed', () => {
           WHERE l.login_provider || ':' || l.login_subject = '${SEED_OPERATOR_LOGIN_ID}') AS operator_users,
         (SELECT count(*) FROM account_logins
           WHERE login_provider || ':' || login_subject = '${SEED_OPERATOR_LOGIN_ID}') AS operator_logins,
+        (SELECT count(*) FROM users
+          WHERE account_id = '${SEED_SESSIONS.billingAdmin.accountId}') AS billing_admin_users,
+        (SELECT count(*) FROM billing_administrators
+          WHERE account_id = '${SEED_SESSIONS.billingAdmin.accountId}' AND status = 'active') AS billing_admin_assignments,
+        (SELECT count(*) FROM billing_administrators b JOIN organizations o ON o.id = b.organization_id
+          LEFT JOIN organization_contracts c ON c.organization_id = o.id
+          WHERE b.account_id = '${SEED_SESSIONS.billingAdmin.accountId}' AND b.status = 'active' AND (
+            (o.slug = 'aoba' AND o.suspended_at IS NULL AND o.trial_ends_on IS NULL)
+            OR (o.slug = 'kaede' AND c.plan = 'team' AND o.suspended_at IS NOT NULL AND o.purge_on IS NULL)
+            OR (o.slug = 'sumire' AND c.plan = 'pro' AND o.suspended_at IS NOT NULL
+              AND o.purge_on = date(o.suspended_at, '+30 days') AND o.purge_on > date('now'))
+            OR (o.slug = 'kaze' AND c.plan IS NULL AND o.suspended_at IS NULL AND o.trial_ends_on > date('now'))
+          )) AS billing_admin_sample_states,
         (SELECT count(*) FROM sessions
           WHERE julianday(expires_at) - julianday(last_used_at) = 30) AS sessions_30_days`;
       const result = spawnSync(
@@ -205,13 +218,16 @@ describe('pnpm db:seed', () => {
       assert.equal(result.status, 0, result.stderr);
       const [row] = (JSON.parse(result.stdout) as { results: Record<string, number>[] }[])[0].results;
       assert.deepEqual(row, {
-        organizations: 7,
+        organizations: 9,
         personal_organizations: 1,
         personal_delegatees: 2,
         delegated_tasks: 1,
         sessions: sessions.length,
         operator_users: 0,
         operator_logins: 1,
+        billing_admin_users: 0,
+        billing_admin_assignments: 4,
+        billing_admin_sample_states: 4,
         sessions_30_days: sessions.length,
       });
 

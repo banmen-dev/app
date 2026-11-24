@@ -17,14 +17,18 @@ function oldDatabase() {
   for (const file of migrationFiles.filter((name) => name <= '0030_\uffff')) {
     db.exec(readFileSync(new URL(file, migrations), 'utf8'));
   }
-  // 現行seedのうち0038で追加された依頼回だけを除き、対象の旧スキーマへ入れる。
+  // 0033の請求管理者、0038の依頼回、0039のプランを使う契約を除き、旧スキーマへ入れる。
   const seed = fillSeedDates(readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8'), new Date());
   const legacySeed = seed
-    .replace(/^UPDATE task_sources SET review_cycle = .*;$/m, '')
-    .replace(/INSERT INTO review_request_cycles[^;]*;/, '');
-  assert.notEqual(legacySeed, seed, '0038のseedを旧スキーマ用に除いている');
-  assert.ok(!legacySeed.includes('UPDATE task_sources SET review_cycle ='));
-  assert.ok(!legacySeed.includes('INSERT INTO review_request_cycles'));
+    .replace(/^UPDATE task_sources SET review_cycle = .*;$/gm, '')
+    .replace(/^INSERT INTO review_request_cycles\b[^;]*;/gm, '')
+    .replace(/^INSERT INTO billing_administrators\b[^;]*;/gm, '')
+    .replace(/^INSERT INTO organization_contracts\b[^;]*;/gm, '');
+  assert.notEqual(legacySeed, seed, '0033・0038・0039のseedを旧スキーマ用に除いている');
+  assert.ok(!legacySeed.includes('UPDATE task_sources SET review_cycle ='), '0038の依頼回の更新が残っている');
+  assert.ok(!legacySeed.includes('INSERT INTO review_request_cycles'), '0038の依頼回の行が残っている');
+  assert.ok(!legacySeed.includes('INSERT INTO billing_administrators'), '0033の請求管理者の行が残っている');
+  assert.ok(!legacySeed.includes('INSERT INTO organization_contracts'), '0039のプランを使う契約の行が残っている');
   db.exec(legacySeed);
   for (const table of targetTables) {
     // 廃止前の値と、書き込み停止後の既定値のどちらが残っていても移行できる。
