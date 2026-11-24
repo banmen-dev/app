@@ -67,6 +67,9 @@ export type VisibleNavOptions = {
   hasWorkspaceMenu?: boolean;
   // メニューの対象ワークスペースの ID。無いときは、ワークスペースの経路の項目を出さない
   workspaceId?: string | null;
+  // ワークスペースの機能（workspaceTabs）の項目を出すか。761px 以上の左のメニューは、機能をタブに任せて出さない（偽）。
+  // 浮きメニュー、画面の検索の候補、パンくずは出す（真）
+  workspaceItems?: boolean;
 };
 
 // 画面のある項目だけを残す。項目が1つも無い見出しは、見出しごと外す（ワークスペースのメニューを出すときの slot を除く）
@@ -78,6 +81,7 @@ export function visibleNav(
     isLeader = false,
     hasWorkspaceMenu = false,
     workspaceId = null,
+    workspaceItems = true,
   }: VisibleNavOptions = {},
 ): VisibleNavSection[] {
   return sections
@@ -88,7 +92,7 @@ export function visibleNav(
         (item): item is VisibleNavItem =>
           item.href !== null &&
           (!item.leaderOnly || isAdmin || isLeader) &&
-          (!isWorkspaceRoute(item.href) || (hasWorkspaceMenu && isWorkspaceId(workspaceId))),
+          (!isWorkspaceRoute(item.href) || (workspaceItems && hasWorkspaceMenu && isWorkspaceId(workspaceId))),
       ),
     }))
     .filter((section) => section.items.length > 0 || (hasWorkspaceMenu && section.slot !== undefined));
@@ -100,6 +104,42 @@ export function isNavItemCurrent(label: DictionaryKey, href: string, current: st
   return current === href || ((label === 'wiki' || label === 'orgWiki') && current.startsWith(href + '/'));
 }
 
+// ワークスペースの機能。761px 以上はワークスペースの画面の上のタブ（WorkspaceTabs）、760px 以下は浮きメニューの項目
+// （下の navSections が manage で節を分けて読む）に出す。画面の検索の候補、パンくずの画面名、`g b`・`g s` も、
+// navSections を通してこの1つの定義を読む。並びはタブの並び。画面の無い機能（エピック、積載量、記録、アーカイブ、履歴）は載せない。
+// leaderOnly の項目は、対象のワークスペースのリーダーと管理者にだけ出す。manage の項目は、浮きメニューで「管理」の見出しの下に出す
+export type WorkspaceTab = {
+  icon: IconName;
+  label: DictionaryKey;
+  href: WorkspaceNavRoute;
+  leaderOnly?: true;
+  manage?: true;
+};
+
+export const workspaceTabs: readonly WorkspaceTab[] = [
+  { icon: 'inbox', label: 'inbox', href: '/[slug]/w/[id]/inbox' },
+  { icon: 'board', label: 'backlog', href: '/[slug]/w/[id]' },
+  { icon: 'columns', label: 'board', href: '/[slug]/w/[id]/board' },
+  { icon: 'calendar', label: 'plan', href: '/[slug]/w/[id]/plan' },
+  { icon: 'file', label: 'wiki', href: '/[slug]/w/[id]/wiki' },
+  { icon: 'link', label: 'connection', href: '/[slug]/w/[id]/connections', manage: true },
+  { icon: 'users', label: 'pageMembers', href: '/[slug]/w/[id]/members', manage: true },
+  { icon: 'gear', label: 'pageSettings', href: '/[slug]/w/[id]/settings', leaderOnly: true, manage: true },
+];
+
+// 出すタブ。設定は対象のリーダーと管理者にだけ出す（visibleNav の leaderOnly と同じ条件）
+export function visibleWorkspaceTabs({
+  isAdmin = false,
+  isLeader = false,
+}: { isAdmin?: boolean; isLeader?: boolean } = {}): WorkspaceTab[] {
+  return workspaceTabs.filter((tab) => !tab.leaderOnly || isAdmin || isLeader);
+}
+
+const tabItems = (manage: boolean): NavItem[] =>
+  workspaceTabs
+    .filter((tab) => (tab.manage === true) === manage)
+    .map(({ icon, label, href, leaderOnly }) => ({ icon, label, href, ...(leaderOnly ? { leaderOnly } : {}) }));
+
 export const navSections: NavSection[] = [
   {
     items: [
@@ -108,38 +148,8 @@ export const navSections: NavSection[] = [
       { icon: 'file', label: 'orgWiki', href: '/[slug]/wiki' },
     ],
   },
-  {
-    heading: 'workspace',
-    slot: 'workspace',
-    inWorkspace: true,
-    items: [
-      { icon: 'inbox', label: 'inbox', href: '/[slug]/w/[id]/inbox' },
-      { icon: 'board', label: 'backlog', href: '/[slug]/w/[id]' },
-      { icon: 'columns', label: 'board', href: '/[slug]/w/[id]/board' },
-      { icon: 'calendar', label: 'plan', href: '/[slug]/w/[id]/plan' },
-      { icon: 'flag', label: 'epic', href: null },
-      { icon: 'file', label: 'wiki', href: '/[slug]/w/[id]/wiki' },
-    ],
-  },
-  {
-    heading: 'groupRecords',
-    inWorkspace: true,
-    items: [
-      { icon: 'trend', label: 'capacity', href: null },
-      { icon: 'check', label: 'pageRecords', href: null },
-      { icon: 'archive', label: 'archive', href: null },
-    ],
-  },
-  {
-    heading: 'groupManage',
-    inWorkspace: true,
-    items: [
-      { icon: 'link', label: 'connection', href: '/[slug]/w/[id]/connections' },
-      { icon: 'users', label: 'pageMembers', href: '/[slug]/w/[id]/members' },
-      { icon: 'gear', label: 'pageSettings', href: '/[slug]/w/[id]/settings', leaderOnly: true },
-      { icon: 'clock', label: 'pageHistory', href: null },
-    ],
-  },
+  { heading: 'workspace', slot: 'workspace', inWorkspace: true, items: tabItems(false) },
+  { heading: 'groupManage', inWorkspace: true, items: tabItems(true) },
 ];
 
 // 読み取り操作が返した対象だけから、組織をまたがないリンクを組む。

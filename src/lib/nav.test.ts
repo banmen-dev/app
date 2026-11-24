@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { favoriteNavItem, visibleNav } from './nav.ts';
+import { favoriteNavItem, visibleNav, visibleWorkspaceTabs } from './nav.ts';
 
 test.each([false, true])(
   'ワークスペースの有無（%s）によらず、左のメニューにアカウントと組織の入口を出さない',
@@ -60,4 +60,35 @@ test.each(['task', 'story', 'epic'] as const)('workspaceを欠いた%sのお気�
       created_at: '',
     }).href,
   ).toBeNull();
+});
+
+test('ワークスペースのタブは、受信箱からメンバーの順に並べ、設定は管理者かリーダーにだけ出す', () => {
+  const labels = (options: { isAdmin?: boolean; isLeader?: boolean }) =>
+    visibleWorkspaceTabs(options).map((tab) => tab.label);
+  const common = ['inbox', 'backlog', 'board', 'plan', 'wiki', 'connection', 'pageMembers'];
+  expect(labels({})).toEqual(common);
+  expect(labels({ isLeader: true })).toEqual([...common, 'pageSettings']);
+  expect(labels({ isAdmin: true })).toEqual([...common, 'pageSettings']);
+});
+
+test('浮きメニューの項目と検索の候補はタブと同じ定義から作り、761px 以上の左のメニューはワークスペースの機能を出さない', () => {
+  const options = { hasWorkspace: true, hasWorkspaceMenu: true, isLeader: true, workspaceId: 'w1' };
+  const inMenu = visibleNav(undefined, options);
+  expect(inMenu.map((section) => section.heading)).toEqual([undefined, 'workspace', 'groupManage']);
+  expect(inMenu.flatMap((section) => section.items).filter((item) => item.href.startsWith('/[slug]/w/'))).toEqual(
+    visibleWorkspaceTabs({ isLeader: true }).map(({ icon, label, href, leaderOnly }) => ({
+      icon,
+      label,
+      href,
+      ...(leaderOnly ? { leaderOnly } : {}),
+    })),
+  );
+  const inBinding = visibleNav(undefined, { ...options, workspaceItems: false });
+  // ワークスペースの見出し（切り替えの置き場所）は残し、「管理」の見出しは項目が無いので外す
+  expect(inBinding.map((section) => section.heading)).toEqual([undefined, 'workspace']);
+  expect(inBinding.flatMap((section) => section.items).map((item) => item.label)).toEqual([
+    'pageToday',
+    'pageNotifications',
+    'orgWiki',
+  ]);
 });

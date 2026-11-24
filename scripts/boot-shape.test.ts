@@ -10,14 +10,16 @@ import {
   loadingShapeCounts,
   loadingShapeHasActions,
   loadingShapeNarrowEyebrow,
+  loadingShapeTabs,
   loadingShapes,
+  loadingTabCount,
   type LoadingShape,
 } from '../src/lib/loading-shape.ts';
 
 const script = readFileSync(new URL('../static/boot-shape.js', import.meta.url), 'utf8');
 const routesDir = fileURLToPath(new URL('../src/routes', import.meta.url));
 
-type BootDataset = { boot?: string; bootNav?: string; bootDashboard?: string };
+type BootDataset = { boot?: string; bootNav?: string; bootDashboard?: string; bootTabs?: string };
 type FakeContent = { innerHTML: string };
 
 // 最初の読み込みの骨組みの先当て（static/boot-shape.js）を、偽の location と localStorage と document で動かす
@@ -96,6 +98,24 @@ describe('最初の読み込みの骨組みの形（static/boot-shape.js）', ()
     assert.equal(loadingShapeNarrowEyebrow('/[slug]/w/[id]/epics/[epicId]'), false);
     assert.equal(loadingShapeNarrowEyebrow('/[slug]/wiki'), false);
     assert.equal(loadingShapeNarrowEyebrow('/[slug]/me'), false);
+  });
+
+  test('ワークスペースの画面は、移る間と同じく骨組みにタブの帯を出す（#1514）', () => {
+    for (const id of routeIds()) {
+      assert.equal(runBootShape(samplePath(id)).dataset.bootTabs === 'true', loadingShapeTabs(id), id);
+    }
+    assert.equal(loadingShapeTabs('/[slug]/w/[id]'), true);
+    assert.equal(loadingShapeTabs('/[slug]/w/[id]/tasks/[taskId]'), true);
+    assert.equal(loadingShapeTabs('/[slug]/w/[id]/wiki/[pageId]'), true);
+    assert.equal(loadingShapeTabs('/[slug]/wiki'), false);
+    assert.equal(loadingShapeTabs('/[slug]'), false);
+    assert.equal(runBootShape('/aoba/w/x/unknown').dataset.bootTabs, undefined);
+  });
+
+  test('タブの帯の骨組みの数は、移る間（LoadingSheet）と最初の読み込み（src/app.html）で同じ', () => {
+    const html = readFileSync(new URL('../src/app.html', import.meta.url), 'utf8');
+    const list = html.slice(html.indexOf('class="boot-tablist"'), html.indexOf('class="boot-content"'));
+    assert.equal((list.match(/<b><i><\/i><\/b>/g) ?? []).length, loadingTabCount);
   });
 
   test('組織の枠の中の画面は、どれも形を明示して決めている（既定の一覧の形に落ちない）', () => {

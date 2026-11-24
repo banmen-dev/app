@@ -72,3 +72,13 @@ export function loadingShapeNarrowEyebrow(routeId: string | null | undefined): b
 export function loadingDashboard(routeId: string | null | undefined): boolean {
   return routeId === '/';
 }
+
+// ワークスペースの画面（タスクとエピックの詳細も）は、761px 以上でパンくずの下にタブの帯（WorkspaceTabs）を持つ。
+// 骨組みも同じ画面にだけ帯を出し、読み込んだ後と見出しの位置を揃える。最初の読み込みの static/boot-shape.js は同じ対応を URL から持つ
+// （scripts/boot-shape.test.ts が突き合わせる）
+export function loadingShapeTabs(routeId: string | null | undefined): boolean {
+  return loadingShape(routeId) !== null && routeId!.startsWith('/[slug]/w/[id]');
+}
+
+// タブの帯の骨組みに並べる帯の数（タブは7つか8つ。帯は見た目の目安なので、一般のメンバーの数にそろえる）
+export const loadingTabCount = 7;

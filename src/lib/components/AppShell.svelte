@@ -21,6 +21,7 @@
   import Breadcrumb from './Breadcrumb.svelte';
   import NavMenu from './NavMenu.svelte';
   import NavSearch from './NavSearch.svelte';
+  import WorkspaceTabs from './WorkspaceTabs.svelte';
   import type { DictionaryKey } from '../../shared/vocabulary.ts';
   import Icon from './Icon.svelte';
   import type { NavigationWorkspace } from '../workspace-navigation.svelte.ts';
@@ -33,6 +34,7 @@
   // 組織の切り替え（上の帯の右、アカウントの左。760px 以下は浮きメニューの先頭）、ワークスペースの切り替え、アシスタントのボタンは置き場所だけで、中身は snippet で渡す。
   // workspace はメニューの対象。「今日やること」など組織の画面でも渡す。
   // 761px 以上は、上の帯の左に開閉のボタンとマーク、右に検索、assistant、組織の切り替え、account を寄せて並べ、パンくず（組織 › ワークスペース › 画面）は本文の見出しの上の帯（.sheet-crumbs）に出す。
+  // ワークスペースの画面では、パンくずの帯の下に機能のタブ（WorkspaceTabs、.sheet-tabs）を出し、左のメニューにはワークスペースの機能の項目を出さない（#1514）。
   // スマホは PageHead の右に検索と account を移し、PageHead が無い画面だけ代わりの見出しを置く
   let {
     current,
@@ -230,7 +232,7 @@
     <aside class="binding" aria-label={t('menu')}>
       <div class="binding-inner">
         <div class="binding-body">
-          <NavMenu {current} {slug} {hasWorkspace} {isAdmin} {workspace} {workspaceSwitcher} />
+          <NavMenu {current} {slug} {hasWorkspace} {isAdmin} {workspace} {workspaceSwitcher} workspaceItems={false} />
         </div>
       </div>
     </aside>
@@ -239,6 +241,17 @@
     {@render notice?.(narrow.current)}
     {#if !narrow.current}
       <div class="sheet-crumbs"><Breadcrumb crumbs={shownCrumbs} /></div>
+      {#if crumbWorkspace}
+        <div class="sheet-tabs">
+          <WorkspaceTabs
+            {current}
+            {slug}
+            workspaceId={crumbWorkspace.id}
+            {isAdmin}
+            isLeader={crumbWorkspace.role === 'leader'}
+          />
+        </div>
+      {/if}
     {/if}
     <main class="content" id="content" aria-busy={navigationLoading.kind === 'inside' ? true : undefined}>
       {#if mounted && narrow.current && pageHeads.empty}
