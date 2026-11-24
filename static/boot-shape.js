@@ -5,6 +5,7 @@
 // 枠の外の画面（ログイン、組織の選択、届いた招待など）と、どの画面にも当たらない URL は付けず、紙の形の骨組みのまま出す。
 // ログインの有無と組織に入れるかは見ないので、/<1語> は組織の枠の形で出し、読み込んだ後に見つからない画面やログインの画面に替わることがある。
 // 左のメニューを閉じたと覚えている（src/lib/nav-collapse.svelte.ts と同じキーと値）ときは data-boot-nav="collapsed" も付ける。
+// 左のメニューの幅を覚えている（src/lib/nav-width.svelte.ts と同じキーと読み方）ときは、html の --nav-width に px で当てる（CSSOM で当てるので CSP に止められない）。
 // #boot-loading の後に置いて同期で読む（本文の骨組みを #boot-loading の中に組み立てるため）。骨組みが見える 300ms より前に終わる。
 // インラインにすると CSP のハッシュから漏れて止まるので、自分のオリジンのファイルにしてある。中身は固定の文字列だけで、URL の値は入れない
 (function () {
@@ -110,6 +111,10 @@
   root.dataset.boot = shape;
   try {
     if (localStorage.getItem('sg-nav-collapsed') === 'true') root.dataset.bootNav = 'collapsed';
+    // 数字だけの値を 200〜480 に収める。それ以外は当てず、既定の 240px で出す（画面の幅の上限 40vw は CSS の clamp が当てる）
+    var width = localStorage.getItem('sg-nav-width');
+    if (width !== null && /^\d{1,4}$/.test(width))
+      root.style.setProperty('--nav-width', Math.min(480, Math.max(200, Number(width))) + 'px');
   } catch {
     // 覚えていないものとして、開いた列で出す
   }

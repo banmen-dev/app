@@ -609,6 +609,9 @@ export const dictionary = defineDictionary({
   mobileMenu: 'すべてのメニュー',
   menuCollapse: 'メニューを閉じる',
   menuExpand: 'メニューを開く',
+  // 左のメニューの右の境目（ドラッグと矢印キーで幅を変え、ダブルクリックと Enter で閉じる。#1513）
+  navResize: 'メニューの幅',
+  navResizeTip: 'ダブルクリックで閉じる',
   breadcrumb: 'パンくず',
   mobilePageToolsLabel: '検索とアカウント',
   navSearchLabel: '画面とタスクを探す',
