@@ -145,6 +145,25 @@ test('細い窓では、覚えた幅が上限を超えても 40vw で止め、�
   await expect(handle).toHaveAttribute('aria-valuenow', '480');
 });
 
+test('細い窓で境目を押すだけ、2px のずれ、上限での右の矢印では、覚えた広い幅を書き換えない', async ({ page }) => {
+  await openFresh(page, 900, '480');
+  const handle = separator(page);
+  await expect(page.locator('.app > .binding')).toHaveJSProperty('offsetWidth', 360);
+  // 押して離すだけ
+  await handle.click();
+  // 押したまま 2px ずれて離す（ダブルクリックの手ぶれ）
+  await drag(page, handle, 2);
+  await expect(page.locator('.app > .binding')).toHaveJSProperty('offsetWidth', 360);
+  // 上限に張り付いたまま右の矢印と End
+  await handle.focus();
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('End');
+  await expect(handle).toHaveAttribute('aria-valuenow', '360');
+  expect(await page.evaluate(() => localStorage.getItem('sg-nav-width'))).toBe('480');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(page.locator('.app > .binding')).toHaveJSProperty('offsetWidth', 480);
+});
+
 // 指だけの端末では境目を出さない（#1513。人が「開閉だけ出す」と決めた）
 test.describe('ホバーのできない端末（1024px の指のタブレット）', () => {
   test.use({ viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true });

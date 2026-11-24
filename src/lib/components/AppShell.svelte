@@ -9,7 +9,14 @@
   import { resolve } from '$app/paths';
   import { t } from '../vocabulary.svelte.ts';
   import { NAV_MENU_ID, navState, setNavCollapsed } from '../nav-collapse.svelte.ts';
-  import { NAV_WIDTH_MIN, NAV_WIDTH_STEP, navWidthMax, navWidthState, setNavWidth } from '../nav-width.svelte.ts';
+  import {
+    NAV_WIDTH_MIN,
+    draggedNavWidth,
+    keyedNavWidth,
+    navWidthMax,
+    navWidthState,
+    setNavWidth,
+  } from '../nav-width.svelte.ts';
   import { page } from '$app/state';
   import { accountScreenKey, workspaceIdOf } from '../breadcrumb.ts';
   import { goto, onNavigate } from '$app/navigation';
@@ -72,7 +79,8 @@
   let viewportWidth = $state(0);
   const navWidthLimit = $derived(navWidthMax(viewportWidth));
   const shownNavWidth = $derived(Math.min(navWidthState.width, navWidthLimit));
-  let resize = $state<{ pointerId: number; startX: number; startWidth: number } | null>(null);
+  // moved はドラッグで幅を変えたか。押して離しただけなら覚え直さない（細い窓の上限で覚えた広い幅を上書きしないため）
+  let resize = $state<{ pointerId: number; startX: number; startWidth: number; moved: boolean } | null>(null);
   // 札の縦の位置。ホバーではポインタの高さに出し、キーボードで移ったときは境目の上端に出す（CSS の既定）
   let resizeTipY = $state<number | null>(null);
 
@@ -80,36 +88,41 @@
     if (event.button !== 0 || !event.isPrimary) return;
     const target = event.currentTarget as HTMLElement;
     target.setPointerCapture(event.pointerId);
-    resize = { pointerId: event.pointerId, startX: event.clientX, startWidth: shownNavWidth };
+    resize = { pointerId: event.pointerId, startX: event.clientX, startWidth: shownNavWidth, moved: false };
   }
   function onResizePointerMove(event: PointerEvent) {
     if (resize && event.pointerId === resize.pointerId) {
-      // ドラッグの間は覚えずに見た目だけを変え、離したときに覚える（localStorage に動くたびに書かない）
-      setNavWidth(resize.startWidth + event.clientX - resize.startX, { persist: false, viewportWidth });
+      // ドラッグの間は覚えずに見た目だけを変え、離したときに覚える（localStorage に動くたびに書かない）。
+      // 閾値未満のずれは動かしていないものとし、掴んだときの幅に戻す
+      const next = draggedNavWidth(resize.startWidth, event.clientX - resize.startX, viewportWidth);
+      if (next !== null) resize.moved = true;
+      if (resize.moved) setNavWidth(next ?? resize.startWidth, { persist: false, viewportWidth });
       return;
     }
     resizeTipY = event.clientY - (event.currentTarget as HTMLElement).getBoundingClientRect().top;
   }
   function onResizePointerEnd(event: PointerEvent) {
     if (!resize || event.pointerId !== resize.pointerId) return;
+    const { moved } = resize;
     resize = null;
-    setNavWidth(navWidthState.width, { viewportWidth });
+    if (moved) setNavWidth(navWidthState.width, { viewportWidth });
+    // 離した直後も :hover のまま札が出るので、今のポインタの高さに合わせる（lostpointercapture は座標を持たないことがあるので、pointerup だけ）
+    if (event.type === 'pointerup')
+      resizeTipY = event.clientY - (event.currentTarget as HTMLElement).getBoundingClientRect().top;
   }
   function onResizeKeydown(event: KeyboardEvent) {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
-    let next: number | null = null;
-    if (event.key === 'ArrowLeft') next = shownNavWidth - NAV_WIDTH_STEP;
-    else if (event.key === 'ArrowRight') next = shownNavWidth + NAV_WIDTH_STEP;
-    else if (event.key === 'Home') next = NAV_WIDTH_MIN;
-    else if (event.key === 'End') next = navWidthLimit;
-    else if (event.key === 'Enter') {
+    if (event.key === 'Enter') {
       event.preventDefault();
-      setNavCollapsed(true);
+      // 押し続けた繰り返しは無視する。閉じるとフォーカスが開閉のボタンへ移り、繰り返しの Enter でまた開いてしまうため
+      if (!event.repeat) setNavCollapsed(true);
       return;
     }
-    if (next === null) return;
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
-    setNavWidth(next, { viewportWidth });
+    // 端に張り付いて見た目が変わらないときは覚え直さない
+    const next = keyedNavWidth(event.key, shownNavWidth, viewportWidth);
+    if (next !== null) setNavWidth(next, { viewportWidth });
   }
 
   // 左のメニューを閉じると綴じが hidden になり、中にあったフォーカスは body に落ちる（別のタブで閉じたときなど。
@@ -309,6 +322,7 @@
         aria-orientation="vertical"
         aria-label={t('navResize')}
         aria-controls={NAV_MENU_ID}
+        aria-keyshortcuts="Enter"
         aria-valuenow={shownNavWidth}
         aria-valuemin={NAV_WIDTH_MIN}
         aria-valuemax={navWidthLimit}
@@ -318,6 +332,7 @@
         onpointermove={onResizePointerMove}
         onpointerup={onResizePointerEnd}
         onpointercancel={onResizePointerEnd}
+        onlostpointercapture={onResizePointerEnd}
         onpointerleave={() => (resizeTipY = null)}
         ondblclick={() => setNavCollapsed(true)}
         onkeydown={onResizeKeydown}

@@ -28,3 +28,31 @@ export function parseNavWidth(value: string | null): number {
   if (value === null || !/^\d{1,4}$/.test(value)) return NAV_WIDTH_DEFAULT;
   return clampNavWidth(Number(value));
 }
+
+// ドラッグとみなす移動の下限（px）。これより小さいずれは、押して離しただけ（ダブルクリックの1回目を含む）として幅を変えない。
+// ダブルクリックの間に手がずれて、閉じる前の幅が数 px 変わるのを防ぐ
+export const NAV_WIDTH_DRAG_THRESHOLD = 3;
+
+// 境目を掴んだときの見えている幅（startWidth）と横の移動（dx）から、新しい幅を決める。動かしていなければ null（覚え直さない）
+export function draggedNavWidth(startWidth: number, dx: number, viewportWidth: number): number | null {
+  if (!Number.isFinite(dx) || Math.abs(dx) < NAV_WIDTH_DRAG_THRESHOLD) return null;
+  return clampNavWidth(startWidth + dx, viewportWidth);
+}
+
+// 境目のキーから新しい幅を決める。左右の矢印は NAV_WIDTH_STEP ずつ、Home と End は下限と画面の幅での上限。
+// ほかのキーと、端に張り付いて見えている幅（shownWidth）が変わらないときは null。細い窓で上限に張り付いたまま押しても、覚えた広い幅を上書きしない
+export function keyedNavWidth(key: string, shownWidth: number, viewportWidth: number): number | null {
+  const target =
+    key === 'ArrowLeft'
+      ? shownWidth - NAV_WIDTH_STEP
+      : key === 'ArrowRight'
+        ? shownWidth + NAV_WIDTH_STEP
+        : key === 'Home'
+          ? NAV_WIDTH_MIN
+          : key === 'End'
+            ? navWidthMax(viewportWidth)
+            : null;
+  if (target === null) return null;
+  const next = clampNavWidth(target, viewportWidth);
+  return next === shownWidth ? null : next;
+}

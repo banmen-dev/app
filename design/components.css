@@ -242,17 +242,18 @@ h1, h2, h3 { text-wrap: balance; }
 }
 /* 綴じの右の境目（#1513）。罫の上に幅 8px の掴む所を重ね、左右のドラッグで綴じの幅を変え、ダブルクリック（キーボードは Enter）で閉じる。
    ホバーのできない端末（指だけのタブレットなど）には出さず、開閉のボタンだけで閉じる（人が決めた）。
-   帯の下に貼り付け、高さは綴じの中身と同じにする。掴む所は罫を挟んで左右に半分ずつ出し、本文の側の半分は本文の上に重ねる（綴じの z-index）。
+   帯の下に貼り付け、高さは綴じの中身と同じにする。掴む所は罫から本文の側へだけ出し、本文の上に重ねる（綴じの z-index）。
+   綴じの内側へ入れないのは、綴じの中身の縦のスクロールバーと重ねないため。
    ホバー、フォーカス、ドラッグの間は罫の位置に操作の色の線を引き、札「ダブルクリックで閉じる」を境目の右（本文の上）に出す。
    札の縦の位置は、ホバーではポインタの高さ（--nav-resize-tip-y。AppShell が CSSOM で渡す）、キーボードでは境目の上端に合わせる */
 @media (min-width: 761px) and (hover: hover) {
   .nav-resize {
     display: block; position: sticky; top: var(--header-height); align-self: start; justify-self: end;
     width: var(--space-2); height: calc(100vh - var(--header-height)); height: calc(100dvh - var(--header-height));
-    margin-right: calc(-1 * var(--space-1)); cursor: col-resize; touch-action: none;
+    margin-right: calc(-1 * var(--space-2)); cursor: col-resize; touch-action: none;
   }
   .nav-resize::before {
-    content: ""; position: absolute; inset-block: 0; left: calc(50% - 1px); width: 2px;
+    content: ""; position: absolute; inset-block: 0; left: -1px; width: 2px;
     background: transparent; transition: background-color var(--duration-fast) var(--ease-out);
   }
   .nav-resize:hover::before, .nav-resize[data-dragging="true"]::before { background: var(--color-accent); }
@@ -260,10 +261,12 @@ h1, h2, h3 { text-wrap: balance; }
   .nav-resize:focus-visible { outline-offset: 0; }
   .nav-resize:focus-visible:not([data-dragging="true"])::before { background: transparent; }
   .nav-resize-tip {
-    display: none; position: absolute; z-index: 1; left: calc(100% + var(--space-1)); top: var(--nav-resize-tip-y, var(--space-4));
+    /* 縦の位置は境目の下端から札の高さ分（3rem）より下へ出さず、画面の下端で文書を伸ばさない */
+    display: none; position: absolute; z-index: 1; left: calc(100% + var(--space-1));
+    top: min(var(--nav-resize-tip-y, var(--space-4)), calc(100% - 3rem));
     width: max-content; max-width: 18rem; padding: var(--space-1) var(--space-2); border: 1px solid var(--color-line);
     border-radius: var(--radius-1); background: var(--color-surface); color: var(--color-fg);
-    font-size: var(--text-sm); box-shadow: var(--shadow-float); pointer-events: none; white-space: nowrap;
+    font-size: var(--text-sm); box-shadow: var(--shadow-float); pointer-events: none; overflow-wrap: anywhere;
   }
   .nav-resize:is(:hover, :focus-visible):not([data-dragging="true"]) .nav-resize-tip { display: block; }
   /* ドラッグの間は文字を選ばせず、ポインタを境目の形のまま保つ */
@@ -2343,7 +2346,7 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
 .banner { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; padding: var(--space-2) var(--space-4); background: var(--color-accent); color: var(--color-on-accent); font-size: var(--text-sm); border-radius: var(--radius-1); }
 .banner .btn { margin-left: auto; }
 
-/* 左のメニュー（240px）の分だけ本文が狭いので、メニューのある幅でも説明と本文を縦に並べ、本文の表を潰さない */
+/* 左のメニュー（既定 240px。境目で 480px まで広げられる）の分だけ本文が狭いので、メニューのある幅でも説明と本文を縦に並べ、本文の表を潰さない */
 @media (max-width: 1080px) {
   .setting { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
 }

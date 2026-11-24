@@ -4050,33 +4050,45 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     handle.addEventListener("pointerdown", (event) => {
       if (event.button !== 0 || !event.isPrimary) return;
       handle.setPointerCapture(event.pointerId);
-      drag = { id: event.pointerId, x: event.clientX, w: Math.min(navWidth, navWidthLimit()) };
+      drag = { id: event.pointerId, x: event.clientX, w: Math.min(navWidth, navWidthLimit()), moved: false };
       handle.dataset.dragging = "true";
       document.querySelector(".app")?.setAttribute("data-nav-resizing", "true");
     });
     handle.addEventListener("pointermove", (event) => {
-      if (drag && event.pointerId === drag.id) { navWidth = clampNavWidth(drag.w + event.clientX - drag.x, navWidthLimit()); applyNavWidth(); return; }
+      // 3px 未満のずれは押して離しただけとみなし、幅を変えない（本番の draggedNavWidth と同じ）
+      if (drag && event.pointerId === drag.id) {
+        const dx = event.clientX - drag.x;
+        if (Math.abs(dx) >= 3) drag.moved = true;
+        if (drag.moved) { navWidth = clampNavWidth(Math.abs(dx) >= 3 ? drag.w + dx : drag.w, navWidthLimit()); applyNavWidth(); }
+        return;
+      }
       handle.style.setProperty("--nav-resize-tip-y", `${event.clientY - handle.getBoundingClientRect().top}px`);
     });
     const end = (event) => {
       if (!drag || event.pointerId !== drag.id) return;
+      const moved = drag.moved;
       drag = null;
       delete handle.dataset.dragging;
       document.querySelector(".app")?.removeAttribute("data-nav-resizing");
-      applyNavWidth(true);
+      // 押して離しただけなら覚え直さない（細い窓の上限で、覚えた広い幅を上書きしないため）
+      applyNavWidth(moved);
     };
     handle.addEventListener("pointerup", end);
     handle.addEventListener("pointercancel", end);
+    handle.addEventListener("lostpointercapture", end);
     handle.addEventListener("pointerleave", () => handle.style.removeProperty("--nav-resize-tip-y"));
     handle.addEventListener("dblclick", collapse);
     handle.addEventListener("keydown", (event) => {
       if (event.altKey || event.ctrlKey || event.metaKey) return;
       const shown = Math.min(navWidth, navWidthLimit());
       const next = { ArrowLeft: shown - NAV_WIDTH.step, ArrowRight: shown + NAV_WIDTH.step, Home: NAV_WIDTH.min, End: navWidthLimit() }[event.key];
-      if (event.key === "Enter") { event.preventDefault(); collapse(); return; }
+      if (event.key === "Enter") { event.preventDefault(); if (!event.repeat) collapse(); return; }
       if (next === undefined) return;
       event.preventDefault();
-      navWidth = clampNavWidth(next, navWidthLimit());
+      // 端に張り付いて見た目が変わらないときは覚え直さない（本番の keyedNavWidth と同じ）
+      const clamped = clampNavWidth(next, navWidthLimit());
+      if (clamped === shown) return;
+      navWidth = clamped;
       applyNavWidth(true);
     });
     window.addEventListener("resize", () => applyNavWidth());
@@ -4147,7 +4159,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
           <nav class="nav" id="app-nav"></nav>
           <p class="binding-foot">デザインの見本。データはすべて架空の例です</p>
         </div>
-      </div><div class="nav-resize" role="separator" tabindex="0" aria-orientation="vertical" aria-label="${t("navResize")}" aria-controls="app-nav" aria-valuenow="${navWidth}" aria-valuemin="${NAV_WIDTH.min}" aria-valuemax="${NAV_WIDTH.max}" data-nav-resize><span class="nav-resize-tip" aria-hidden="true">${t("navResizeTip")}</span></div></aside>
+      </div><div class="nav-resize" role="separator" tabindex="0" aria-orientation="vertical" aria-label="${t("navResize")}" aria-controls="app-nav" aria-keyshortcuts="Enter" aria-valuenow="${navWidth}" aria-valuemin="${NAV_WIDTH.min}" aria-valuemax="${NAV_WIDTH.max}" data-nav-resize><span class="nav-resize-tip" aria-hidden="true">${t("navResizeTip")}</span></div></aside>
       <div class="sheet">
         <div class="sheet-crumbs" id="breadcrumb-slot"></div>
         <main class="content" id="content"></main>

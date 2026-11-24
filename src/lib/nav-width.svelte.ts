@@ -11,7 +11,10 @@ export {
   NAV_WIDTH_MIN,
   NAV_WIDTH_STEP,
   NAV_WIDTH_VIEWPORT_RATIO,
+  NAV_WIDTH_DRAG_THRESHOLD,
   clampNavWidth,
+  draggedNavWidth,
+  keyedNavWidth,
   navWidthMax,
   parseNavWidth,
 } from './nav-width.ts';
