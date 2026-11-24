@@ -31,7 +31,6 @@
       <div class="binding-inner">
         <div class="binding-head">
           <span class="brand"><BrandSymbol /></span>
-          <span class="skeleton-line is-org-name"></span>
         </div>
         <div class="binding-body">
           <div class="skeleton skeleton-nav">
@@ -53,6 +52,7 @@
     <div class="sheet">
       <div class="topbar" aria-hidden="true">
         <span class="skeleton-line is-search"></span>
+        <span class="skeleton-line is-org-name"></span>
         <span class="skeleton-line is-account"></span>
       </div>
       <div class="sheet-crumbs" aria-hidden="true"><span class="skeleton-line is-crumb"></span></div>

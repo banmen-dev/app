@@ -1253,8 +1253,26 @@
       const at = open.indexOf(c);
       // 最後の完了でない列の「次の列へ」は、完了の列へ移す代わりに完了にする（本番は task-complete を呼ぶ）ので、押せる
       const orderOf = (i) => ({ first: i === 0, last: i === items.length - 1, across: { first: at === 0, last: false } });
+      // 列の見出し（本番の BoardColumnHead）。lead（リーダーで書き込める）の完了でない列は、名前を押すと入力欄に替わり（data-column-rename）、
+      // 「⋯」から名前の変更、上限、左右への移動を選べる。上限があれば札を「件数 / 上限」にし、超えたら警告の色（.is-over）とアイコンにする
+      const lead = opts.lead && !c.done;
+      const limit = c.done ? null : (c.limit ?? null);
+      // 上限と比べるのは、ストーリーで絞っていても列の全件（本番の total）
+      const total = tasksWhere((x) => x.sprint === sprintId && (c.done ? x.doneAt : !x.doneAt && x.col === c.id)).length;
+      const over = limit !== null && total > limit;
+      const countText = limit === null ? `${items.length} 件` : over ? `${total} 件。上限の ${limit} 件を超えています` : `${total} 件（上限 ${limit} 件）`;
+      const colCount = `<span class="board-col-n${over ? " is-over" : ""}" aria-hidden="true">${over ? icon("alert") : ""}${limit === null ? items.length : `${total} / ${limit}`}</span><span class="visually-hidden">${countText}</span>`;
+      const colName = lead
+        ? `<button class="board-col-name is-action" type="button" data-column-rename aria-label="${t("column")}の名前を変更: ${esc(name)}">${esc(name)}</button>`
+        : `<span class="board-col-name">${esc(name)}</span>`;
+      const colMenu = lead ? rowMenu(`${t("column")}「${name}」`, [
+        { attr: "data-column-rename-menu", label: "名前を変更", icon: "pen" },
+        { attr: `data-dialog="columnLimit" data-column="${c.id}"`, label: "上限を決める", icon: "gear" },
+        { attr: at === 0 ? "" : `data-toast="「${esc(name)}」を左から ${at} 番目へ移しました"`, label: "左へ移動", icon: "left", disabled: at === 0 },
+        { attr: at === open.length - 1 ? "" : `data-toast="「${esc(name)}」を左から ${at + 2} 番目へ移しました"`, label: "右へ移動", icon: "right", disabled: at === open.length - 1 },
+      ]) : "";
       return `<section class="board-col ${c.done ? "is-done" : ""} ${collapsed ? "is-collapsed" : ""}"${dropAttr(opts.columnMarks && opts.columnMarks(c))} aria-label="${esc(name)}">
-        <div class="board-col-head"><button class="board-col-toggle" type="button" aria-label="${esc(name)}の開閉" aria-expanded="${!collapsed}" data-column-collapse="${esc(collapseKey)}">${icon("chevron")}</button>${c.done ? icon("check") : ""}<span class="board-col-name">${esc(name)}</span><span class="board-col-n">${items.length}</span><span class="board-col-pts">${sumPts(items)} pt</span></div>
+        <div class="board-col-head"><button class="board-col-toggle" type="button" aria-label="${esc(name)}の開閉" aria-expanded="${!collapsed}" data-column-collapse="${esc(collapseKey)}">${icon("chevron")}</button>${c.done ? icon("check") : ""}${colName}${colCount}<span class="board-col-pts">${sumPts(items)} pt</span>${colMenu}</div>
         ${collapsed ? "" : `${c.done && D.definitionOfDone.length ? `<details class="dod"><summary>${t("dod")}</summary>${dodDoc()}</details>` : ""}
         ${items.map((x, i) => card(x, c.done ? undefined : orderOf(i), { mark: opts.cardMarks && opts.cardMarks(x, i, c), grab: opts.grab ? opts.grab(x) : true, key: opts.key, highlightStory: opts.highlightStory })).join("") || `<p class="board-empty">${hidden > 0 ? `絞り込みで ${hidden} 件を隠しています` : "なし"}</p>`}
         ${opts.draft && !c.done ? `<div class="board-col-draft">${draftRow("col", c.id, `${t("task")}を足す: ${c.name}`, `${t("task")}を足す`)}${draftAttrs(c.id, c.name)}${opts.story ? `<p class="action-note">${storyFilterText("sprintStoryCreateUnder")}</p>` : ""}</div>` : ""}` }
@@ -2773,6 +2791,14 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
          <p class="field-hint">延ばした${t("sprint")}はベロシティの計算から除きます。</p>`,
         `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="${t("sprint")}を 2 日延長しました">2 日延長する</button>`);
     },
+    // ボードの列の上限（本番の ColumnLimitDialog）。空にして決めると上限を外す
+    columnLimit: (el) => {
+      const c = D.columns.find((item) => item.id === el?.dataset.column) || D.columns[1];
+      openDialog(`${t("column")}の上限`,
+        `<p>「${esc(c.name)}」に置く${t("task")}の数の目安です。超えても移せて、作れますが、件数が警告の色になります。</p>
+         <div class="field"><label class="field-label" for="d-limit">上限（件）</label><input class="input" id="d-limit" type="number" min="1" max="99" step="1" inputmode="numeric" value="${c.limit ?? ""}" aria-describedby="d-limit-hint"><p class="field-hint" id="d-limit-hint">1〜99 の整数。空にすると上限なし</p></div>`,
+        `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="「${esc(c.name)}」の上限を決めました">決める</button>`);
+    },
     // 進行中のスプリントの名前とゴールを直す（本番の SprintDialog の進行中）。期間は変えられないので、開始日と長さの欄は出さない
     sprintEditActive: () => {
       const s = D.sprints.sp14;
@@ -3478,7 +3504,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     // ワークスペースがまだない管理者には、ワークスペースの中の画面を出さない
     const cut = Object.keys(D.workspaces).length ? pages.length : pages.indexOf("workspace");
     return pages.slice(0, cut < 0 ? pages.length : cut).map((p) => {
-      // 組織の切り替えは、メニューの外（左上の角のマス）の orgMenuHtml
+      // 組織の切り替えは、メニューの外（上の帯の右）の orgMenuHtml
       if (p === "organization") return "";
       if (p === "workspace") return `<div class="nav-group"><span class="nav-group-label">${t("workspace")}</span></div>
         <div id="ws-menu-slot">${workspaceMenuHtml()}</div>`;
@@ -3695,7 +3721,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     return `<div class="mobile-navigation"><nav class="mobile-tabs" aria-label="${t("mobileTabs")}">${tabs.map(([id, ic, key, href]) => `<a class="mobile-tab" href="${firstHref(href)}" aria-label="${t(key)}" ${current === id ? 'aria-current="page" data-selected' : ""}>${icon(ic)}</a>`).join("")}<button class="mobile-tab" type="button" aria-label="${t("mobileMenu")}" aria-haspopup="dialog" aria-expanded="false" ${live ? 'data-mobile-menu-open aria-controls="mobile-menu"' : ""}><span class="mobile-menu-arrows" aria-hidden="true">${icon("chevron")}${icon("chevron")}</span></button></nav><div class="mobile-create-slot">${Object.keys(D.workspaces).length > 0 ? `<button class="mobile-create" type="button" aria-label="${t("createSheet")}" data-create-sheet-open>${icon("plus")}</button>` : ""}</div></div>`;
   }
   // 中身を複製せず、狭い幅では同じ組織切り替えと nav をダイアログに移す。
-  // 広い幅に戻すときは、組織切り替えを角のマスの開閉のボタンの前へ、nav を左のメニューへ戻す（本番の AppShell と同じ位置）
+  // 広い幅に戻すときは、組織切り替えを上の帯のアカウントの前へ、nav を左のメニューへ戻す（本番の AppShell と同じ位置）
   function syncMobileMenu() {
     const dialog = document.getElementById("mobile-menu");
     if (!dialog) return;
@@ -3708,8 +3734,11 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       for (const node of [org, nav]) if (node && node.parentElement !== sheet) sheet.append(node);
       return;
     }
-    const toggle = document.querySelector(".binding-head .nav-toggle");
-    if (org && toggle && org.nextElementSibling !== toggle) toggle.before(org);
+    // アカウントが見出しから帯へまだ戻っていないとき（幅を広げた直後）は帯の末尾に置き、後から戻るアカウントがその右に付く
+    const bar = document.querySelector(".topbar");
+    const account = bar?.querySelector(":scope > #account-menu-slot");
+    if (org && account) { if (org.nextElementSibling !== account) account.before(org); }
+    else if (org && bar && org.parentElement !== bar) bar.append(org);
     const body = document.querySelector(".binding-body");
     if (nav && nav.parentElement !== body) body.prepend(nav);
   }
@@ -3737,7 +3766,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   let orgMenuOpen = false;
   let navCollapsed = (() => { try { return localStorage.getItem("sg-nav-collapsed") === "true"; } catch (e) { return false; } })();
   // カタログの見本は、開いた状態と閉じた状態、組織の数、招待の有無を替えて並べるので、引数で渡す。live が偽なら押しても動かない
-  // moving は別の組織へ移っている最中（本番の OrganizationSwitcher の moving）。名前の欄と札に「移っています」を出す
+  // moving は別の組織へ移っている最中（本番の OrganizationSwitcher の moving）。名前の欄に「移っています」を出す
   // 自分用の組織（kind が personal）は、名前の代わりに辞書の「自分用」で出す。
   // 「自分用を作る」は、入れる組織（orgs）にも停止した組織（suspended）にも自分用が無い人にだけ出す（canCreatePersonal）。
   const orgName = (k) => (k.kind === "personal" ? t("personalOrganizationName") : k.name);
@@ -3745,7 +3774,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const current = orgs.find((k) => k.slug === D.organization) || orgs[0];
     const shown = moving ? t("organizationMoving") : orgName(current);
     const label = `${[t("organization"), shown, invited ? "届いた招待あり" : ""].filter(Boolean).join(" ")}。${t("organization")}を切り替える`;
-    return `<div class="org-menu"><button class="org-menu-button" type="button" aria-expanded="${open}" aria-controls="${id}" aria-label="${esc(label)}" ${moving ? 'data-moving="true"' : ""} ${live ? "data-org-menu" : ""}><span class="org-menu-label">${t("organization")}</span> <b>${esc(shown)}</b>${invited ? ' <span class="chip">届いた招待あり</span>' : ""}${invited ? '<span class="org-menu-invite" aria-hidden="true"></span>' : ""}${brandSymbol}${icon("chevron")}<span class="nav-tip" aria-hidden="true">${esc(shown)}${invited && !moving ? " <small>届いた招待あり</small>" : ""}</span></button><span class="visually-hidden" role="status">${moving ? t("organizationMoving") : ""}</span>
+    return `<div class="org-menu"><button class="org-menu-button" type="button" aria-expanded="${open}" aria-controls="${id}" aria-label="${esc(label)}" ${moving ? 'data-moving="true"' : ""} ${live ? "data-org-menu" : ""}><span class="org-menu-label">${t("organization")}</span> <b>${esc(shown)}</b>${invited ? ' <span class="chip">届いた招待あり</span>' : ""}${invited ? '<span class="org-menu-invite" aria-hidden="true"></span>' : ""}${icon("chevron")}</button><span class="visually-hidden" role="status">${moving ? t("organizationMoving") : ""}</span>
       <ul class="org-menu-list" id="${id}" aria-label="入れる${t("organization")}" ${open ? "" : "hidden"}>${orgs.map((k) => `<li><a href="today.html"${k.slug === current.slug ? ' aria-current="page"' : ""}><span class="org-menu-name">${esc(orgName(k))}</span>${k.slug === current.slug ? icon("check") : ""}</a></li>`).join("")}<li class="is-aside"><a href="organizations.html"><span class="org-menu-name">${t("organizationList")}</span>${invited ? '<span class="org-menu-note">招待が届いています</span>' : ""}</a></li><li class="is-aside"><button type="button" ${live ? 'data-dialog="createMyOrganization"' : ""}><span class="org-menu-name">${t("organization")}を作る</span></button></li>${canCreatePersonal ? `<li class="is-aside"><button type="button" ${live ? 'data-dialog="createPersonalOrganization"' : ""}><span class="org-menu-name">${t("createPersonalOrganizationAction")}</span></button></li>` : ""}</ul></div>`;
   }
   function setOrgMenu(open, focus) {
@@ -3963,7 +3992,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       <aside class="binding" aria-label="メニュー"><div class="binding-inner">
         <div class="binding-head">
           <a class="brand" href="index.html" title="デザインシステムのカタログへ">${brandSymbol}<span class="visually-hidden">Banmen</span></a>
-          <div id="org-menu-slot"></div>
           <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="${!navCollapsed}" aria-controls="app-nav" aria-label="${t(navCollapsed ? "menuExpand" : "menuCollapse")}">${icon("panel")}<span class="nav-tip" aria-hidden="true">${t(navCollapsed ? "menuExpand" : "menuCollapse")}</span></button>
         </div>
         <div class="binding-body">
@@ -3981,6 +4009,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
             <button class="pill" type="button" data-switch="first">${icon("redo")}<span>見本: ${firstLabel(first)}</span></button>
             ${bell}
           </div>
+          <div id="org-menu-slot"></div>
           <span id="account-menu-slot"></span>
         </div>
         <div class="sheet-crumbs" id="breadcrumb-slot"></div>
@@ -4293,6 +4322,32 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const input = button.parentElement.querySelector("[data-card-title-input]");
     button.remove(); input.focus(); input.select();
   });
+
+  // 列の名前の書き換え（本番の BoardColumnHead）。名前のボタンか「⋯」の「名前を変更」で入力欄に替え、Enter で保存、Esc で戻す
+  document.addEventListener("click", (ev) => {
+    const hitButton = ev.target.closest && ev.target.closest("[data-column-rename], [data-column-rename-menu]");
+    if (!hitButton) return;
+    const head = hitButton.closest(".board-col-head");
+    const button = head?.querySelector("[data-column-rename]");
+    if (!button) return;
+    const name = button.textContent;
+    button.insertAdjacentHTML("beforebegin", `<input class="input board-col-name-input" type="text" autocomplete="off" aria-label="${t("column")}の名前" data-column-name-input value="${esc(name)}">`);
+    const input = head.querySelector("[data-column-name-input]");
+    button.hidden = true; input.focus(); input.select();
+  });
+  document.addEventListener("keydown", (ev) => {
+    const input = ev.target.closest && ev.target.closest("[data-column-name-input]");
+    if (!input || ev.isComposing || !["Enter", "Escape"].includes(ev.key)) return;
+    ev.preventDefault();
+    const button = input.parentElement.querySelector("[data-column-rename]");
+    const next = input.value.trim();
+    if (ev.key === "Enter" && next) {
+      const taken = D.columns.some((c) => !c.done && c.name === next && c.name !== button.textContent);
+      if (taken) { toast(`${icon("alert")}同じ名前の${t("column")}があります`); return; }
+      button.textContent = next;
+    }
+    input.remove(); button.hidden = false; button.focus();
+  }, true);
 
   // ---- 操作（見本の中だけで動き、保存はしない） ----
   document.addEventListener("change", (ev) => {

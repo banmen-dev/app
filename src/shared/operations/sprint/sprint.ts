@@ -72,6 +72,8 @@ export const sprintBoardColumnSchema = z.object({
   id: z.string(),
   name: z.string().nullable(),
   is_done: z.boolean(),
+  // 列の上限。null は上限なし（完了の列は常に null）。超えても移動と追加は止めず、画面が件数を警告の色で出す
+  wip_limit: z.number().int().nullable(),
   tasks: z.array(sprintBoardTaskSchema),
 });
 

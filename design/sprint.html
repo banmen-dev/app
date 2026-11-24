@@ -95,7 +95,7 @@ SQ.mount("sprint", () => {
     ${pageHead("", t("board"))}
     <div class="board-page">
       ${SQ.boardToolbar("sp14", filterOpts)}
-      ${board("sp14", { ...filterOpts, draft: true, collapsed: (c) => c.done && new URLSearchParams(location.search).has("collapsed") })}
+      ${board("sp14", { ...filterOpts, draft: true, lead: true, collapsed: (c) => c.done && new URLSearchParams(location.search).has("collapsed") })}
     </div>
     <span class="visually-hidden" id="board-key-hint">カードを別の${t("column")}へドラッグして移すか、カードを選んで Alt と ← → で隣の${t("column")}、Alt と ↑ ↓ で${t("column")}の中を動かせます。カードの「⋯」のメニューでも同じです。${t("done")}の${t("column")}の手前の${t("column")}から次へ送ると、${t("done")}になります。${t("done")}のカードは Alt と ← か「⋯」で戻せます。戻せないときは理由を知らせます。</span>
     <section class="section" aria-labelledby="cap">

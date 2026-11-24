@@ -7,11 +7,12 @@
   import { page } from '$app/state';
   import { callOperation, type ApiResult } from '../../../../../lib/api.ts';
   import CardColumnDialog from '../../../../../lib/components/CardColumnDialog.svelte';
+  import BoardColumnHead, { type BoardColumnLead } from '../../../../../lib/components/BoardColumnHead.svelte';
+  import ColumnLimitDialog from '../../../../../lib/components/ColumnLimitDialog.svelte';
   import DraftAttrs from '../../../../../lib/components/DraftAttrs.svelte';
   import DraftRow from '../../../../../lib/components/DraftRow.svelte';
   import BoardFilterBar from '../../../../../lib/components/BoardFilterBar.svelte';
   import EmptyState from '../../../../../lib/components/EmptyState.svelte';
-  import Icon from '../../../../../lib/components/Icon.svelte';
   import LoadFailed from '../../../../../lib/components/LoadFailed.svelte';
   import Markdown from '../../../../../lib/components/Markdown.svelte';
   import MoveParentDialog from '../../../../../lib/components/MoveParentDialog.svelte';
@@ -545,6 +546,46 @@
       }
     }
     return t('sprintCardMoveFailed');
+  }
+
+  // 列の見出しの「⋯」と名前の書き換え（#1504）。終了していないワークスペースのリーダー（管理者を含む）の、完了でない列にだけ渡す。
+  // 左右の移動は column-move の after_column_id（完了でない列の並びで決める。完了の列は常に末尾で、並びに入らない）
+  let limitDialog = $state<ReturnType<typeof ColumnLimitDialog>>();
+
+  async function columnRefused(result: ApiResult<unknown>): Promise<void> {
+    if (result.ok) return;
+    if (result.status === 401) {
+      await invalidateAll();
+      return;
+    }
+    if (result.status === 409 && result.error?.code === 'workspace_closed') {
+      showToast(t('workspaceClosedReadOnly', { workspace: t('workspace') }), 'alert');
+      await invalidate('app:workspace');
+    } else if (result.status === 404) showToast(t('boardColumnGone', { column: t('column') }), 'alert');
+    else if (result.status === 403) {
+      showToast(t('boardColumnForbidden', { column: t('column'), leader: t('leader') }), 'alert');
+      await invalidate('app:workspace');
+    } else showToast(t('definitionSaveFailed', { kind: t('column') }), 'alert');
+    await reloadBoard();
+  }
+
+  function columnLead(column: SprintBoardColumn): BoardColumnLead | undefined {
+    if (workspace === null || !canLead || column.is_done) return undefined;
+    const open = columns.filter((item) => !item.is_done);
+    const at = open.findIndex((item) => item.id === column.id);
+    if (at < 0) return undefined;
+    return {
+      slug,
+      workspaceId: workspace.id,
+      leftAfter: at === 0 ? undefined : (open[at - 2]?.id ?? null),
+      rightAfter: open[at + 1]?.id,
+      leftPosition: at,
+      rightPosition: at + 2,
+      onlimit: (trigger) =>
+        limitDialog?.show(trigger, { id: column.id, name: column.name ?? '', wip_limit: column.wip_limit }),
+      onchanged: reloadBoard,
+      onfailed: (result) => void columnRefused(result),
+    };
   }
 
   const reopenKey = new ReopenKeyGuard();
@@ -1308,20 +1349,16 @@
                 data-drop={canWrite ? dnd.markOfColumn(column.id) : undefined}
                 {@attach canWrite ? dnd.column(column.id) : undefined}
               >
-                <div class="board-col-head">
-                  <button
-                    class="board-col-toggle"
-                    type="button"
-                    data-column-toggle={column.id}
-                    aria-label={t('sprintBoardColumnToggle', { column: columnName(column) })}
-                    aria-expanded={!collapsedColumns.isCollapsed(column.id)}
-                    onclick={() => collapsedColumns.toggle(column.id)}><Icon name="chevron" /></button
-                  >
-                  {#if column.is_done}<Icon name="check" />{/if}
-                  <span class="board-col-name">{columnName(column)}</span>
-                  <span class="board-col-n">{column.tasks.length}</span>
-                  <span class="board-col-pts">{t('sprintBoardColumnPoints', { points: pointsOf(column.tasks) })}</span>
-                </div>
+                <BoardColumnHead
+                  {column}
+                  name={columnName(column)}
+                  count={column.tasks.length}
+                  total={columns.find((item) => item.id === column.id)?.tasks.length ?? column.tasks.length}
+                  points={pointsOf(column.tasks)}
+                  collapsed={collapsedColumns.isCollapsed(column.id)}
+                  ontoggle={() => collapsedColumns.toggle(column.id)}
+                  lead={columnLead(column)}
+                />
                 {#if !collapsedColumns.isCollapsed(column.id)}
                   <!-- 完成の定義（components.css の .dod。kit.js の board）。完了の列にだけ畳んで置き、空なら出さない。本文は開くまで描かない -->
                   {#if column.is_done && workspace.definitionOfDone !== null}
@@ -1421,6 +1458,13 @@
       <CardColumnDialog bind:this={columnDialog} {columns} onmove={changeColumn} />
       <MoveParentDialog bind:this={parentDialog} parents={parentChoices} onmove={changeParent} />
     {/if}
+    <ColumnLimitDialog
+      bind:this={limitDialog}
+      {slug}
+      workspaceId={workspace.id}
+      onsaved={() => void reloadBoard()}
+      onfailed={(result) => void columnRefused(result)}
+    />
     <SprintExtendDialog
       bind:this={extendDialog}
       {slug}

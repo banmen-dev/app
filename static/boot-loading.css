@@ -213,7 +213,7 @@ html[data-boot] #boot-loading .boot-frame {
 #boot-loading .boot-binding > i {
   margin-inline: 8px;
 }
-/* 角のマス。読み込んだ後と同じく、左にマーク（34px）、続けて組織の名前、右に開閉のボタンの分（36px と隙間）を空ける */
+/* 角のマス。読み込んだ後と同じく、左にマーク（34px）、右に開閉のボタンの分（36px と隙間）を空ける */
 #boot-loading .boot-corner {
   flex-direction: row;
   align-items: center;
@@ -226,11 +226,6 @@ html[data-boot] #boot-loading .boot-frame {
 #boot-loading .boot-corner .is-mark {
   width: 34px;
   height: 34px;
-}
-#boot-loading .boot-corner .is-org-name {
-  flex: 1 1 auto;
-  height: 1.25em;
-  margin-left: 8px;
 }
 #boot-loading .boot-binding > .is-org {
   height: 44px;
@@ -261,6 +256,12 @@ html[data-boot] #boot-loading .boot-frame {
 #boot-loading .boot-topbar .is-account {
   width: 7rem;
   height: 28px;
+}
+/* 上の帯の組織の切り替え（アカウントの左） */
+#boot-loading .boot-topbar .is-org-name {
+  width: 8rem;
+  height: 1.25em;
+  margin-inline: 8px;
 }
 /* パンくずの帯。本物の .sheet-crumbs と同じく、本文の直前に 24px（指で押す画面は 44px）の高さで置き、下の本文の上の余白を 8px に詰める */
 #boot-loading .boot-crumbs {
@@ -449,10 +450,7 @@ html[data-boot] #boot-loading .boot-frame {
     align-self: stretch;
     align-items: center;
   }
-  /* 畳んだ列の角のマスはマークだけ（組織の名前は札でだけ出す）。マークは読み込んだ後と同じ 34px にする */
-  html[data-boot-nav='collapsed'] #boot-loading .boot-corner .is-org-name {
-    display: none;
-  }
+  /* 畳んだ列の角のマスはマークだけ。マークは読み込んだ後と同じ 34px にする */
   html[data-boot-nav='collapsed'] #boot-loading .boot-corner .is-mark {
     width: 34px;
     height: 34px;
@@ -487,6 +485,10 @@ html[data-boot] #boot-loading .boot-frame {
   #boot-loading .boot-topbar .is-account {
     width: 3.5rem;
     margin-block: 8px;
+  }
+  /* 組織の切り替えは浮きメニューの先頭にあるので、帯には出さない */
+  #boot-loading .boot-topbar .is-org-name {
+    display: none;
   }
   #boot-loading .boot-topbar .is-search {
     flex: none;

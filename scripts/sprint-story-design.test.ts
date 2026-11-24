@@ -72,7 +72,7 @@ test('ボードの絞り込みは道具の帯に条件と解除操作を持ち�
   assert.match(toolbar, /2 件中 1 件を表示/);
   assert.doesNotMatch(render.boardToolbar('sprint'), /board-filter-summary|data-story-clear/);
   const html = render.board('sprint', { story: 'story' });
-  assert.match(html, /board-col-n">1</);
+  assert.match(html, /board-col-n" aria-hidden="true">1</);
   assert.match(html, /board-col-pts">3 pt</);
   assert.equal((html.match(/<article /g) ?? []).length, 1);
   assert.equal((render.board('sprint').match(/<article /g) ?? []).length, 2);
@@ -83,7 +83,7 @@ test('絞り込み後に列を畳んでも、件数とポイントと帯は保�
   try {
     const html = render.board('sprint', { story: 'story' });
     assert.match(html, /is-collapsed/);
-    assert.match(html, /board-col-n">1</);
+    assert.match(html, /board-col-n" aria-hidden="true">1</);
     assert.match(html, /board-col-pts">3 pt</);
     assert.equal((html.match(/<article /g) ?? []).length, 0);
   } finally {
