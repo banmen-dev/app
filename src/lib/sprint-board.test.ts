@@ -21,12 +21,13 @@ function card(id: string) {
 }
 
 const columns: SprintBoardColumn[] = [
-  { id: 'c1', name: '出発前', is_done: false, tasks: [card('a'), card('b'), card('c')] },
-  { id: 'c2', name: '遂行中', is_done: false, tasks: [card('d')] },
+  { id: 'c1', name: '出発前', is_done: false, wip_limit: null, tasks: [card('a'), card('b'), card('c')] },
+  { id: 'c2', name: '遂行中', is_done: false, wip_limit: null, tasks: [card('d')] },
   {
     id: 'done',
     name: null,
     is_done: true,
+    wip_limit: null,
     tasks: [{ ...card('z'), completed_at: '2026-10-20T00:00:00.000Z', reopenable: true }],
   },
 ];

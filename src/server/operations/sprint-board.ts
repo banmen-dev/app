@@ -61,7 +61,7 @@ export const sprintBoardOperation = implement(sprintBoard, async ({ db, actor, w
     db.statement((q) =>
       q
         .selectFrom('board_columns')
-        .select(['board_columns.id', 'board_columns.name', 'board_columns.is_done'])
+        .select(['board_columns.id', 'board_columns.name', 'board_columns.is_done', 'board_columns.wip_limit'])
         .where('board_columns.workspace_id', '=', workspaceId)
         .where('board_columns.deleted_at', 'is', null)
         .orderBy('board_columns.is_done')
@@ -197,6 +197,7 @@ export const sprintBoardOperation = implement(sprintBoard, async ({ db, actor, w
     id: column.id,
     name: column.name,
     is_done: column.is_done === 1,
+    wip_limit: column.is_done === 1 ? null : column.wip_limit,
     tasks: cardsByColumn.get(column.id) ?? [],
   }));
   return { sprint: summaryOf(sprintRow), columns, today, week_start: weekStart };

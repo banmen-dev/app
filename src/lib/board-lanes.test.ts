@@ -37,12 +37,14 @@ test('絞り込んだカードを列を保って分け、担当なしは最後�
       id: 'todo',
       name: '未着手',
       is_done: false,
+      wip_limit: null,
       tasks: [card('3', '履歴の検索', minato), card('1', '履歴の一覧', haruka), card('2', '障害時の連絡手順', null)],
     },
     {
       id: 'working',
       name: '作業中',
       is_done: false,
+      wip_limit: null,
       tasks: [card('4', '履歴の保存', minato)],
     },
   ];

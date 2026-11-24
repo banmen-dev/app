@@ -115,7 +115,9 @@
   {#snippet account(narrow = false)}
     <!-- 所属していない管理者がワークスペースの画面を開いているときの印。所属していないことを、画面のどこからでも見て分かるようにする -->
     {#if !narrow && openWorkspace?.role === null}
-      <span class="chip">{t('notMemberAdminChip', { admin: t('admin') })}</span>
+      <span class="chip" title={t('notMemberAdminChip', { admin: t('admin') })}
+        >{t('notMemberAdminChip', { admin: t('admin') })}</span
+      >
     {/if}
     <AccountMenu
       userId={organization.me.id}

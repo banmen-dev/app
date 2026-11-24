@@ -201,16 +201,15 @@ for (const screen of [
       await page.setViewportSize({ width, height: 900 });
       for (const theme of themes) {
         await page.evaluate((value) => (document.documentElement.dataset.theme = value), theme);
-        // 折り畳まれた組織メニューのBrandSymbolも、同じ配信用素材を読み込む。
+        // 角のマスの BrandSymbol も、同じ配信用素材を読み込む。
         for (const mark of await page.locator('.brand-art .brand-mark').all()) {
           await expect(mark).toHaveAttribute('src', /\/brand\/master\/symbol\.webp$/);
           await expect.poll(() => mark.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBe(629);
         }
         if (screen.path.startsWith('/aoba') && width <= 760) {
-          // 角のマスは出さない。残るマークは浮きメニューの中の組織の切り替えのもので、見えない
+          // 角のマスは出さない。浮きメニューの中の組織の切り替えにもマークは無い（#1510）
           await expect(page.locator('.binding-head')).toHaveCount(0);
-          await expect(page.locator('.brand-art')).toHaveCount(1);
-          await expect(page.locator('.brand-art')).toBeHidden();
+          await expect(page.locator('.brand-art')).toHaveCount(0);
           await expect(page.locator('.mobile-tabs')).toBeVisible();
         } else if (screen.path.startsWith('/aoba')) {
           await expectCornerSymbol(page);
@@ -222,11 +221,7 @@ for (const screen of [
   });
 }
 
-test('畳んだメニューの角のマスは組織のボタンのマークだけを出し、狭い幅ではロゴを隠す', async ({
-  page,
-  context,
-  baseURL,
-}) => {
+test('畳んだメニューの角のマスはマークのリンクだけを出し、狭い幅ではロゴを隠す', async ({ page, context, baseURL }) => {
   await signIn(context, baseURL, 'member');
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/aoba');
@@ -234,19 +229,13 @@ test('畳んだメニューの角のマスは組織のボタンのマークだ�
   await expect(brand).toHaveAttribute('href', '/aoba');
   await expectCornerSymbol(page);
   await page.getByRole('button', { name: 'メニューを畳む' }).click();
-  const org = page.locator('.binding-head .org-menu-button');
   for (const theme of themes) {
     await page.evaluate((value) => (document.documentElement.dataset.theme = value), theme);
-    // マークのリンクは隠し、組織のボタンの中のマークを見せる（押すと組織の一覧）
-    await expect(brand).toBeHidden();
-    const symbol = org.locator('.brand-mark');
-    await expect(symbol).toBeVisible();
-    await expect(org.locator('.brand-art')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
-    await expect.poll(() => symbol.evaluate((img) => (img as HTMLImageElement).naturalWidth)).toBe(629);
-    const box = (await symbol.boundingBox())!;
-    expect(box.x).toBeGreaterThanOrEqual(0);
+    // 組織の切り替えは上の帯にあるので、畳んだ角のマスにはマークのリンクを残す（#1510）
+    await expectCornerSymbol(page);
+    const box = (await brand.locator('.brand-mark').boundingBox())!;
     expect(box.x + box.width).toBeLessThanOrEqual(64);
-    await expect(org).toHaveAccessibleName('組織 あおば開発。組織を切り替える');
+    await expect(page.locator('.org-menu-button .brand-art')).toHaveCount(0);
   }
   await page.setViewportSize({ width: 390, height: 700 });
   await expect(brand).toHaveCount(0);

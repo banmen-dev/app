@@ -577,6 +577,7 @@ export async function createBoardColumn(
     name: '出発前',
     is_done: 0,
     position: 'a0',
+    wip_limit: null,
     deleted_at: null,
     created_at: AT,
     updated_at: AT,
