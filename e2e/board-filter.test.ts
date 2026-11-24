@@ -182,10 +182,13 @@ test('組み合わせた絞り込みは読み直しても保たれ、絞って�
 test('絞っている間に追加の行で作ったタスクが絞り込みに当たらないときは、隠れていることを知らせる', async ({ page }) => {
   const current = board();
   await routeOperation(page, sprintBoard, { slug: 'aoba' }, (call) => call.fulfill(current));
+  // 画面は応答の task.id で読み直した盤からカードを探すので、呼ぶたびに別の ID で足す
+  let created = 0;
   await routeOperation(page, taskCreate, { slug: 'aoba' }, async (call) => {
+    created += 1;
     const task = {
       ...current.columns[0]!.tasks[1]!,
-      id: '019a0000-0000-7000-8000-00000000f299',
+      id: `019a0000-0000-7000-8000-${(0xf290 + created).toString(16).padStart(12, '0')}`,
       title: call.input.title,
       category: null,
     };
@@ -219,8 +222,11 @@ test('絞っている間に追加の行で作ったタスクが絞り込みに�
   // 当たる題なら見えて、ふだんの知らせになる
   await input.fill('管理の手順を書く');
   await input.press('Enter');
-  // 「隠れています」の知らせと接頭辞が同じなので、文の全体が一致することで、ふだんの知らせであることを確かめる
-  await expect(page.getByText('「管理の手順を書く」を未着手に足しました', { exact: true })).toBeVisible();
+  // 「隠れています」の知らせと接頭辞が同じなので、文の全体が一致することで、ふだんの知らせであることを確かめる。
+  // 知らせは閉じたダイアログの中の領域（隠れている）にも入るので、見えている status の中で探す
+  await expect(
+    page.getByRole('status').getByText('「管理の手順を書く」を未着手に足しました', { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText(/「管理の手順を書く」.*隠れています/)).toHaveCount(0);
   await expect(cards(page)).toHaveCount(2);
 });
