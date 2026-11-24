@@ -465,9 +465,9 @@ test.describe('高さの低い窓の畳んだ左のメニュー', () => {
       if (!buttonBox || !tipBox) throw new Error('ボタンと札の位置が取れない');
       // 札はボタンの枠（1px）の内側を基準に置くので、1px までのずれを許す
       expect(Math.abs(tipBox.x - buttonBox.x)).toBeLessThanOrEqual(1);
-      expect(Math.abs(tipBox.y - (buttonBox.y + buttonBox.height + 12))).toBeLessThanOrEqual(1);
-      // 札は帯の罫より下に出る
+      // 札は帯の罫より下、罫のすぐ近くに出る
       expect(tipBox.y).toBeGreaterThanOrEqual(60);
+      expect(tipBox.y).toBeLessThanOrEqual(68);
       expect(await frontmostAcross(page, '.nav-toggle .nav-tip')).toEqual([true, true, true]);
 
       // 組織の切り替えは上の帯にあり、一覧は帯の下に開いて画面の内側に収まる

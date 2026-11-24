@@ -212,9 +212,10 @@ h1, h2, h3 { text-wrap: balance; }
      アカウントのメニューを綴じの上に重ねる。どちらも引き出し（.scrim の 20）とアシスタント（15）より下 */
   .binding { position: relative; z-index: 5; }
   .nav-toggle:focus-visible .nav-tip { display: grid; }
-  /* 開閉のボタンの札は、ボタンの下（帯の罫より下、綴じの上）に左端を揃えて出す。帯は送っても動かないので、アンカーは要らない */
+  /* 開閉のボタンの札は、ボタンの下（帯の罫より下、綴じの上）に左端を揃えて出す。帯は送っても動かないので、アンカーは要らない。
+     ボタンは帯の縦の中央にあるので、ボタンの中央から帯の高さの半分と --space-1 だけ下げ、ボタンの大きさ（36px と 44px）によらず罫の下に置く */
   .nav-tip {
-    position: absolute; z-index: 1; left: 0; top: calc(100% + var(--space-3));
+    position: absolute; z-index: 1; left: 0; top: calc(50% + var(--header-height) / 2 + var(--space-1));
     width: max-content; max-width: 18rem; padding: var(--space-1) var(--space-2); border: 1px solid var(--color-line);
     border-radius: var(--radius-1); background: var(--color-surface); color: var(--color-fg);
     font-size: var(--text-sm); font-weight: 400; text-align: left; box-shadow: var(--shadow-float); pointer-events: none;
