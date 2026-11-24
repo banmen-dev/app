@@ -171,3 +171,19 @@ test('メンバーには列の「⋯」と名前の書き換えが出ず、上�
   await expect(page.locator('.board-col-head .row-menu')).toHaveCount(0);
   await expect(page.locator('.board-col-name.is-action')).toHaveCount(0);
 });
+
+test('担当者の帯で絞り込んでも、列の見出しは1つで上限は列全体の件数を使う', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'admin');
+  await mockOperation(page, sprintBoard, { slug: 'aoba' }, LIMITED);
+  const task = TODO!.tasks[0]!;
+  await page.goto(`${TEAM}/board?group=assignee&q=${encodeURIComponent(task.title)}`);
+
+  await expect(page.locator('.board-lane .card')).toHaveCount(1);
+  const head = columnOf(page, '未着手').locator('.board-col-head');
+  await expect(head).toHaveCount(1);
+  await expect(head.locator('.board-col-n')).toHaveText('2 / 1');
+  await expect(head.locator('.board-col-n')).toHaveClass(/is-over/);
+  await head.getByRole('button', { name: '操作: 列「未着手」', exact: true }).click();
+  await page.getByRole('menuitem', { name: '上限を決める', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: '列の上限', exact: true })).toBeVisible();
+});

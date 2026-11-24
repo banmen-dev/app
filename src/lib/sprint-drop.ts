@@ -12,17 +12,18 @@
 //   戻す前に画面の並びは替えない（task-reopen は列を渡せず、戻した列は task-reopen が決めるため）
 // - 元と同じ位置なら null（何も示さず、何も送らない）
 import type { SprintBoardColumn } from '../shared/operations/sprint/index.ts';
+import { applyFilteredMove, BOARD_FILTER_NONE, boardFilterValue, type BoardGroup } from './board-filter.ts';
 import { insertAround, insertAtEnd } from './list-drop.ts';
 import { placeOf, type CardMovePlan } from './sprint-board.ts';
 
 // 重ねる先。カードか、列そのもの
-export type SprintDropTarget = { kind: 'card'; id: string } | { kind: 'column'; id: string };
+export type SprintDropTarget = { kind: 'card'; id: string } | { kind: 'column'; id: string; lane?: string };
 
 // card は重ねたカードの上半分（before）か下半分（after）。into は列を囲む
 export type SprintDropOperation = 'before' | 'after' | 'into';
 
 // 印を付ける先。before と after はカード、into は列
-export type SprintDropMark = { target: SprintDropTarget; operation: SprintDropOperation };
+export type SprintDropMark = { target: SprintDropTarget; operation: SprintDropOperation | 'blocked' };
 
 // 画面の並びを先に替えて、task-column-move を送る
 export type MovedPlan = Extract<CardMovePlan, { kind: 'moved' }>;
@@ -38,7 +39,12 @@ export type ReopenPlan = {
 };
 
 export type SprintDropPlan =
-  MovedPlan | Extract<CardMovePlan, { kind: 'complete' }> | ReopenPlan | { kind: 'reopen-blocked' };
+  | MovedPlan
+  | Extract<CardMovePlan, { kind: 'complete' }>
+  | ReopenPlan
+  | { kind: 'reopen-blocked' }
+  | { kind: 'blocked' }
+  | { kind: 'assign'; assigneeId: string | null; next: MovedPlan | { kind: 'complete' } | null };
 
 export type SprintDrop = {
   // つかんだカード
@@ -67,6 +73,7 @@ export function resolveSprintDrop(
   taskId: string,
   target: SprintDropTarget,
   operation: SprintDropOperation,
+  group?: BoardGroup,
 ): SprintDrop | null {
   if (!isGrabbable(columns, taskId)) return null;
   const from = placeOf(columns, taskId)!;
@@ -80,21 +87,47 @@ export function resolveSprintDrop(
       ? (placeOf(columns, target.id)?.columnIndex ?? -1)
       : columns.findIndex((column) => column.id === target.id);
   if (toIndex === -1) return null;
-  const dest = columns[toIndex]!;
+  const destination = columns[toIndex]!;
+  const anchor = destination.tasks.find((task) => task.id === anchorId);
+  const sourceLane = group === undefined ? undefined : boardFilterValue(card, group);
+  const lane =
+    group === undefined
+      ? undefined
+      : target.kind === 'column'
+        ? target.lane
+        : anchor && boardFilterValue(anchor, group);
+  if (group !== undefined && lane === undefined) return null;
+  const columnTarget: SprintDropTarget = {
+    kind: 'column',
+    id: destination.id,
+    ...(lane === undefined ? {} : { lane }),
+  };
+  const crossedLane = lane !== sourceLane;
+  if (crossedLane && (group !== 'assignee' || source.is_done)) {
+    return { taskId, mark: { target: columnTarget, operation: 'blocked' }, plan: { kind: 'blocked' } };
+  }
+  const dest =
+    group === undefined
+      ? destination
+      : { ...destination, tasks: destination.tasks.filter((task) => boardFilterValue(task, group) === lane) };
+  const placeInColumn: SprintDropMark = { target: columnTarget, operation: 'into' };
+  const assigneeId = lane === undefined || lane === BOARD_FILTER_NONE ? null : lane;
+  if (crossedLane && source.id === dest.id) {
+    return { taskId, mark: placeInColumn, plan: { kind: 'assign', assigneeId, next: null } };
+  }
 
   // 完了の列は、どこに重ねても列を囲む
   if (dest.is_done) {
     if (source.is_done) return null;
-    return { taskId, mark: { target: { kind: 'column', id: dest.id }, operation: 'into' }, plan: { kind: 'complete' } };
+    const next = { kind: 'complete' } as const;
+    return { taskId, mark: placeInColumn, plan: crossedLane ? { kind: 'assign', assigneeId, next } : next };
   }
 
   const ids = dest.tasks.map((task) => task.id);
   const around = anchorId !== null && operation !== 'into';
   const insertion = around ? insertAround(ids, taskId, anchorId, operation) : insertAtEnd(ids, taskId);
   if (insertion === null) return null;
-  const mark: SprintDropMark = around
-    ? { target: { kind: 'card', id: anchorId }, operation }
-    : { target: { kind: 'column', id: dest.id }, operation: 'into' };
+  const mark: SprintDropMark = around ? { target: { kind: 'card', id: anchorId }, operation } : placeInColumn;
 
   if (source.is_done) {
     if (!card.reopenable) return { taskId, mark: null, plan: { kind: 'reopen-blocked' } };
@@ -114,17 +147,13 @@ export function resolveSprintDrop(
   const tasks = dest.tasks.filter((task) => task.id !== taskId);
   tasks.splice(insertion.index, 0, card);
   const moved = { ...dest, tasks };
-  const emptied = { ...source, tasks: source.tasks.filter((task) => task.id !== taskId) };
-  return {
-    taskId,
-    mark,
-    plan: {
-      kind: 'moved',
-      columns: columns.map((column, i) => (i === toIndex ? moved : i === from.columnIndex ? emptied : column)),
-      column: moved,
-      index: insertion.index,
-      total: tasks.length,
-      afterTaskId: insertion.afterId,
-    },
+  const plan: MovedPlan = {
+    kind: 'moved',
+    columns: applyFilteredMove(columns, taskId, dest.id, insertion.afterId),
+    column: moved,
+    index: insertion.index,
+    total: tasks.length,
+    afterTaskId: insertion.afterId,
   };
+  return { taskId, mark, plan: crossedLane ? { kind: 'assign', assigneeId, next: plan } : plan };
 }

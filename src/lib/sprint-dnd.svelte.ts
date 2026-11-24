@@ -23,6 +23,7 @@ import {
 } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import type { ElementDragPayload } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import type { SprintBoardColumn } from '../shared/operations/sprint/index.ts';
+import type { BoardGroup } from './board-filter.ts';
 import { DropFlash } from './drop-flash.svelte.ts';
 import {
   gapAbove,
@@ -41,6 +42,7 @@ type Cleanup = () => void;
 export type SprintDndOptions = {
   // 今の列とカードの並び（画面で動かした並びを含む）。ドラッグの出来事のたびに読む
   columns: () => readonly SprintBoardColumn[];
+  group?: () => BoardGroup | undefined;
   // つかめるか（書き込めるときだけ）
   enabled: () => boolean;
   // そのカードの完了か戻し（と、続く列の移動）を送っている間か。真の間は、そのカードをつかめない
@@ -79,13 +81,14 @@ export class SprintDnd {
   markOfCard(id: string): 'before' | 'after' | undefined {
     const mark = this.mark;
     if (mark === null || mark.target.kind !== 'card' || mark.target.id !== id) return undefined;
-    return mark.operation === 'into' ? undefined : mark.operation;
+    return mark.operation === 'before' || mark.operation === 'after' ? mark.operation : undefined;
   }
 
   // 列に付ける印。その列を囲むときだけ 'into'
-  markOfColumn(id: string): 'into' | undefined {
+  markOfColumn(id: string, lane?: string): 'into' | 'blocked' | undefined {
     const mark = this.mark;
-    return mark !== null && mark.target.kind === 'column' && mark.target.id === id ? 'into' : undefined;
+    if (mark?.target.kind !== 'column' || mark.target.id !== id || mark.target.lane !== lane) return undefined;
+    return mark.operation === 'into' || mark.operation === 'blocked' ? mark.operation : undefined;
   }
 
   isDragging(id: string): boolean {
@@ -152,7 +155,7 @@ export class SprintDnd {
     const stale = this.#grabbed !== this.#generation;
     this.taskId = null;
     this.mark = null;
-    if (drop === null) return;
+    if (drop === null || drop.plan.kind === 'blocked') return;
     if (stale) this.#options.onStale();
     else this.#options.onDrop(drop);
   }
@@ -190,7 +193,7 @@ export class SprintDnd {
 
   // 列（.board-col）。カードの無い所と列の頭に重ねると、列の末尾に入る。
   // ただし、カードとカードの間の隙間に重ねたときは、上のカードの後ろ（after）の線として扱い、列の囲みに切り替えない
-  column(id: string) {
+  column(id: string, lane?: string) {
     return (node: HTMLElement): Cleanup =>
       dropTargetForElements({
         element: node,
@@ -201,7 +204,7 @@ export class SprintDnd {
             return { id: card.dataset.cardId ?? '', top: box.top, bottom: box.bottom };
           });
           const gap = gapAbove(cards, input.clientY);
-          return gap === null ? { kind: 'column', id } : { kind: 'column', id, gap };
+          return { kind: 'column', id, lane, gap };
         },
       });
   }
@@ -234,19 +237,22 @@ export class SprintDnd {
     if (taskId === null || hit === undefined) return null;
     const id = hit.data.id;
     if (typeof id !== 'string') return null;
+    const columns = this.#options.columns();
+    const group = this.#options.group?.();
     if (hit.data.kind === 'column') {
       // カードの間の隙間は、上のカードの後ろ
       const gap = hit.data.gap;
       if (typeof gap === 'string') {
-        return resolveSprintDrop(this.#options.columns(), taskId, { kind: 'card', id: gap }, 'after');
+        return resolveSprintDrop(columns, taskId, { kind: 'card', id: gap }, 'after', group);
       }
-      return resolveSprintDrop(this.#options.columns(), taskId, { kind: 'column', id }, 'into');
+      const lane = typeof hit.data.lane === 'string' ? hit.data.lane : undefined;
+      return resolveSprintDrop(columns, taskId, { kind: 'column', id, lane }, 'into', group);
     }
     if (hit.data.kind !== 'card') return null;
     const operation = extractInstruction(hit.data)?.operation;
     if (operation !== 'reorder-before' && operation !== 'reorder-after') return null;
     const edge: SprintDropOperation = operation === 'reorder-before' ? 'before' : 'after';
-    return resolveSprintDrop(this.#options.columns(), taskId, { kind: 'card', id }, edge);
+    return resolveSprintDrop(columns, taskId, { kind: 'card', id }, edge, group);
   }
 
   #show(drop: SprintDrop | null): void {
@@ -256,7 +262,10 @@ export class SprintDnd {
         ? next === this.mark
         : next.operation === this.mark.operation &&
           next.target.kind === this.mark.target.kind &&
-          next.target.id === this.mark.target.id;
+          next.target.id === this.mark.target.id &&
+          (next.target.kind !== 'column' ||
+            this.mark.target.kind !== 'column' ||
+            next.target.lane === this.mark.target.lane);
     if (!same) this.mark = next;
   }
 }

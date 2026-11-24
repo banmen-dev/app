@@ -36,6 +36,7 @@ export class AttributeQueue<T> {
   error = $state<string | null>(null);
   errorViaToast = $state(false);
   sending = $state(false);
+  reserved = $state(false);
   private readAt = -Infinity;
   private savedAt = -Infinity;
   private initialized = false;
@@ -60,7 +61,17 @@ export class AttributeQueue<T> {
     this.pending = { value, toast };
     this.error = null;
     this.errorViaToast = false;
-    if (!this.sending) void this.drain();
+    if (!this.sending && !this.reserved) void this.drain();
+  }
+  // ドラッグで担当変更と列移動を続ける間、同じ担当欄の保存は後ろに並べる。
+  reserve(): (() => void) | null {
+    if (this.sending || this.reserved) return null;
+    this.reserved = true;
+    return () => {
+      this.reserved = false;
+      if (this.pending === null) this.idle();
+      else void this.drain();
+    };
   }
   private async drain(): Promise<void> {
     this.sending = true;
@@ -156,7 +167,8 @@ export class TaskAttributes {
   private cleanup(): void {
     // 親の移動で同じ描画中に置き直される行には、同じ送信列を渡す。
     queueMicrotask(() => {
-      if (this.observers.size === 0 && !this.points.sending && !this.assignee.sending) this.dispose();
+      if (this.observers.size === 0 && !this.points.sending && !this.assignee.sending && !this.assignee.reserved)
+        this.dispose();
     });
   }
   observe(task: { points: TaskDetail['points']; assignee: { id: string } | null }, at: number): void {
