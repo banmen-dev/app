@@ -139,3 +139,24 @@ test('起票のコードを読む前も、ボタンのaria-controlsが指すid�
   expect(body.match(/id="create-target"/g)).toHaveLength(1);
   expect(body).not.toContain('<dialog');
 });
+
+test('組織の切り替えは角のマスではなく、上の帯のアシスタントとアカウントの間に置く（#1510）', () => {
+  const body = render(AppShell, {
+    props: {
+      current: '/aoba',
+      slug: 'aoba',
+      hasWorkspace: false,
+      isAdmin: false,
+      assistant: createRawSnippet(() => ({ render: () => '<button class="assist-launch">架空の頼む</button>' })),
+      organizationSwitcher: createRawSnippet(() => ({ render: () => '<div class="org-menu">架空の組織</div>' })),
+      account: createRawSnippet(() => ({ render: () => '<div class="account-menu">架空の人</div>' })),
+      children: createRawSnippet(() => ({ render: () => '<p>架空の本文</p>' })),
+    },
+  }).body.replace(/<!--[^>]*-->/g, '');
+  const head = body.match(/<div class="binding-head">[\s\S]*?<div class="binding-body">/)?.[0] ?? '';
+  expect(head).toContain('class="brand"');
+  expect(head).toContain('class="nav-toggle"');
+  expect(head).not.toContain('org-menu');
+  const topbar = body.match(/<div class="topbar">[\s\S]*?(?=<div class="sheet-crumbs">)/)?.[0] ?? '';
+  expect(topbar).toMatch(/assist-launch[\s\S]*class="org-menu"[\s\S]*class="account-menu"/);
+});

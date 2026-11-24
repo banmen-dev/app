@@ -249,14 +249,15 @@ test.describe('管理者（あおば開発のミナト）', () => {
     await expect(page.locator('.nav-group')).toHaveText(['ワークスペース', '管理']);
     await expect(page.getByText('まだタスクがありません')).toBeVisible();
     // 作った管理者は所属していない。それでも画面に入れて、印が出る
-    await expect(page.locator('.topbar .chip').first()).toHaveText('所属せず管理者として開いています');
+    // 印は上の帯の直接の子。組織の切り替えとアカウントのボタンの中のチップ（招待、管理者）と分けて数える（#1510）
+    await expect(page.locator('.topbar > .chip')).toHaveText(['所属せず管理者として開いています']);
 
     // 画面を読み直さずにワークスペースの外へ移ると、印が消える
     await page.getByRole('button', { name: /アカウントのメニュー$/ }).click();
     await page.locator('.account-menu-list').getByRole('link', { name: '組織の管理', exact: true }).click();
     await expect(page).toHaveURL(/\/aoba\/admin$/);
     await expect(page.getByRole('button', { name: 'ワークスペースを作る' }).first()).toBeVisible();
-    await expect(page.locator('.topbar .chip')).toHaveCount(1);
+    await expect(page.locator('.topbar > .chip')).toHaveCount(0);
   });
 
   test('完了の表示の「続けて作る」で、名前が空でリーダーが自分に戻った作成のフォームになり、名前の欄にフォーカスが移る', async ({

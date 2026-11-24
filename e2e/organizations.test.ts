@@ -26,7 +26,7 @@ const AOBA_WITH_INVITATION: OutputOf<typeof myOrganizations> = {
   operator: false,
 };
 
-// 組織の切り替え（メニューの上の開閉するメニュー）
+// 組織の切り替え（761px 以上は上の帯の右、760px 以下は浮きメニューの先頭の開閉するメニュー）
 const menuButton = (page: Page) => page.locator('.org-menu-button');
 
 const menuLinks = (page: Page) => page.locator('.org-menu-list a');
@@ -464,9 +464,9 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
     await menuButton(page).focus();
     await page.keyboard.press('Enter');
     await expect(menuButton(page)).toHaveAttribute('aria-expanded', 'true');
-    // 3つのリンクと「組織を作る」「自分用を作る」のボタンを通り過ぎて、メニューの外（角のマスの開閉のボタン）へ出る
+    // 3つのリンクと「組織を作る」「自分用を作る」のボタンを通り過ぎて、メニューの外（上の帯の右隣のアカウントのボタン）へ出る
     for (let index = 0; index < 6; index++) await page.keyboard.press('Tab');
-    await expect(page.getByRole('button', { name: 'メニューを畳む' })).toBeFocused();
+    await expect(page.locator('.topbar .account-menu-button')).toBeFocused();
     await expect(menuButton(page)).toHaveAttribute('aria-expanded', 'false');
   });
 
@@ -511,7 +511,7 @@ test.describe('組織が2つの人（あおば開発の管理者でひばり工�
   test('1組織でも招待の印を出し、ダッシュボードへ戻る行に招待が届いていることを添える', async ({ page }) => {
     await mockOperation(page, myOrganizations, AOBA_WITH_INVITATION);
     await page.goto('/aoba');
-    // 角のマスは1行に収めるため、チップの代わりに点の印で示し、読み上げの名前で伝える
+    // 上の帯の高さを保つため、チップの代わりに点の印で示し、読み上げの名前で伝える
     await expect(menuButton(page).locator('.org-menu-invite')).toBeVisible();
     await expect(menuButton(page).locator('.chip')).toBeHidden();
     await expect(menuButton(page)).toHaveAttribute('aria-label', /届いた招待あり/);

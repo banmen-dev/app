@@ -3424,7 +3424,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     // ワークスペースがまだない管理者には、ワークスペースの中の画面を出さない
     const cut = Object.keys(D.workspaces).length ? pages.length : pages.indexOf("workspace");
     return pages.slice(0, cut < 0 ? pages.length : cut).map((p) => {
-      // 組織の切り替えは、メニューの外（左上の角のマス）の orgMenuHtml
+      // 組織の切り替えは、メニューの外（上の帯の右）の orgMenuHtml
       if (p === "organization") return "";
       if (p === "workspace") return `<div class="nav-group"><span class="nav-group-label">${t("workspace")}</span></div>
         <div id="ws-menu-slot">${workspaceMenuHtml()}</div>`;
@@ -3641,7 +3641,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     return `<div class="mobile-navigation"><nav class="mobile-tabs" aria-label="${t("mobileTabs")}">${tabs.map(([id, ic, key, href]) => `<a class="mobile-tab" href="${firstHref(href)}" aria-label="${t(key)}" ${current === id ? 'aria-current="page" data-selected' : ""}>${icon(ic)}</a>`).join("")}<button class="mobile-tab" type="button" aria-label="${t("mobileMenu")}" aria-haspopup="dialog" aria-expanded="false" ${live ? 'data-mobile-menu-open aria-controls="mobile-menu"' : ""}><span class="mobile-menu-arrows" aria-hidden="true">${icon("chevron")}${icon("chevron")}</span></button></nav><div class="mobile-create-slot">${Object.keys(D.workspaces).length > 0 ? `<button class="mobile-create" type="button" aria-label="${t("createSheet")}" data-create-sheet-open>${icon("plus")}</button>` : ""}</div></div>`;
   }
   // 中身を複製せず、狭い幅では同じ組織切り替えと nav をダイアログに移す。
-  // 広い幅に戻すときは、組織切り替えを角のマスの開閉のボタンの前へ、nav を左のメニューへ戻す（本番の AppShell と同じ位置）
+  // 広い幅に戻すときは、組織切り替えを上の帯のアカウントの前へ、nav を左のメニューへ戻す（本番の AppShell と同じ位置）
   function syncMobileMenu() {
     const dialog = document.getElementById("mobile-menu");
     if (!dialog) return;
@@ -3654,8 +3654,11 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       for (const node of [org, nav]) if (node && node.parentElement !== sheet) sheet.append(node);
       return;
     }
-    const toggle = document.querySelector(".binding-head .nav-toggle");
-    if (org && toggle && org.nextElementSibling !== toggle) toggle.before(org);
+    // アカウントが見出しから帯へまだ戻っていないとき（幅を広げた直後）は帯の末尾に置き、後から戻るアカウントがその右に付く
+    const bar = document.querySelector(".topbar");
+    const account = bar?.querySelector(":scope > #account-menu-slot");
+    if (org && account) { if (org.nextElementSibling !== account) account.before(org); }
+    else if (org && bar && org.parentElement !== bar) bar.append(org);
     const body = document.querySelector(".binding-body");
     if (nav && nav.parentElement !== body) body.prepend(nav);
   }
@@ -3683,7 +3686,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   let orgMenuOpen = false;
   let navCollapsed = (() => { try { return localStorage.getItem("sg-nav-collapsed") === "true"; } catch (e) { return false; } })();
   // カタログの見本は、開いた状態と閉じた状態、組織の数、招待の有無を替えて並べるので、引数で渡す。live が偽なら押しても動かない
-  // moving は別の組織へ移っている最中（本番の OrganizationSwitcher の moving）。名前の欄と札に「移っています」を出す
+  // moving は別の組織へ移っている最中（本番の OrganizationSwitcher の moving）。名前の欄に「移っています」を出す
   // 自分用の組織（kind が personal）は、名前の代わりに辞書の「自分用」で出す。
   // 「自分用を作る」は、入れる組織（orgs）にも停止した組織（suspended）にも自分用が無い人にだけ出す（canCreatePersonal）。
   const orgName = (k) => (k.kind === "personal" ? t("personalOrganizationName") : k.name);
@@ -3691,7 +3694,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const current = orgs.find((k) => k.slug === D.organization) || orgs[0];
     const shown = moving ? t("organizationMoving") : orgName(current);
     const label = `${[t("organization"), shown, invited ? "届いた招待あり" : ""].filter(Boolean).join(" ")}。${t("organization")}を切り替える`;
-    return `<div class="org-menu"><button class="org-menu-button" type="button" aria-expanded="${open}" aria-controls="${id}" aria-label="${esc(label)}" ${moving ? 'data-moving="true"' : ""} ${live ? "data-org-menu" : ""}><span class="org-menu-label">${t("organization")}</span> <b>${esc(shown)}</b>${invited ? ' <span class="chip">届いた招待あり</span>' : ""}${invited ? '<span class="org-menu-invite" aria-hidden="true"></span>' : ""}${brandSymbol}${icon("chevron")}<span class="nav-tip" aria-hidden="true">${esc(shown)}${invited && !moving ? " <small>届いた招待あり</small>" : ""}</span></button><span class="visually-hidden" role="status">${moving ? t("organizationMoving") : ""}</span>
+    return `<div class="org-menu"><button class="org-menu-button" type="button" aria-expanded="${open}" aria-controls="${id}" aria-label="${esc(label)}" ${moving ? 'data-moving="true"' : ""} ${live ? "data-org-menu" : ""}><span class="org-menu-label">${t("organization")}</span> <b>${esc(shown)}</b>${invited ? ' <span class="chip">届いた招待あり</span>' : ""}${invited ? '<span class="org-menu-invite" aria-hidden="true"></span>' : ""}${icon("chevron")}</button><span class="visually-hidden" role="status">${moving ? t("organizationMoving") : ""}</span>
       <ul class="org-menu-list" id="${id}" aria-label="入れる${t("organization")}" ${open ? "" : "hidden"}>${orgs.map((k) => `<li><a href="today.html"${k.slug === current.slug ? ' aria-current="page"' : ""}><span class="org-menu-name">${esc(orgName(k))}</span>${k.slug === current.slug ? icon("check") : ""}</a></li>`).join("")}<li class="is-aside"><a href="organizations.html"><span class="org-menu-name">${t("organizationList")}</span>${invited ? '<span class="org-menu-note">招待が届いています</span>' : ""}</a></li><li class="is-aside"><button type="button" ${live ? 'data-dialog="createMyOrganization"' : ""}><span class="org-menu-name">${t("organization")}を作る</span></button></li>${canCreatePersonal ? `<li class="is-aside"><button type="button" ${live ? 'data-dialog="createPersonalOrganization"' : ""}><span class="org-menu-name">${t("createPersonalOrganizationAction")}</span></button></li>` : ""}</ul></div>`;
   }
   function setOrgMenu(open, focus) {
@@ -3909,7 +3912,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       <aside class="binding" aria-label="メニュー"><div class="binding-inner">
         <div class="binding-head">
           <a class="brand" href="index.html" title="デザインシステムのカタログへ">${brandSymbol}<span class="visually-hidden">Banmen</span></a>
-          <div id="org-menu-slot"></div>
           <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="${!navCollapsed}" aria-controls="app-nav" aria-label="${t(navCollapsed ? "menuExpand" : "menuCollapse")}">${icon("panel")}<span class="nav-tip" aria-hidden="true">${t(navCollapsed ? "menuExpand" : "menuCollapse")}</span></button>
         </div>
         <div class="binding-body">
@@ -3927,6 +3929,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
             <button class="pill" type="button" data-switch="first">${icon("redo")}<span>見本: ${firstLabel(first)}</span></button>
             ${bell}
           </div>
+          <div id="org-menu-slot"></div>
           <span id="account-menu-slot"></span>
         </div>
         <div class="sheet-crumbs" id="breadcrumb-slot"></div>

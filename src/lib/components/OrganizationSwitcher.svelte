@@ -4,11 +4,10 @@
   import type { OrganizationKind } from '../../shared/organization-kind.ts';
   import { organizationLabel } from '../organization-label.ts';
   import { t } from '../vocabulary.svelte.ts';
-  import BrandSymbol from './BrandSymbol.svelte';
   import Icon from './Icon.svelte';
   import { SwitcherMenu } from './switcher-menu.svelte.ts';
 
-  // kit.js の orgMenuHtml。761px 以上は左上の角のマス、760px 以下は浮きメニューの先頭に置く。
+  // kit.js の orgMenuHtml。761px 以上は上の帯の右（アカウントの左）、760px 以下は浮きメニューの先頭に置く。
   // 開閉するメニューで、中は各組織へのリンクと、最後に組織の選択の画面（/）へ戻るリンク。
   // 選ぶと画面が移るので select にしない（矢印キーで選んだだけで移ってしまう）。
   // 閉じるのは、ボタン、メニューの外を押す、Tab でメニューの外へ出る、リンクを押す、Esc。
@@ -46,7 +45,7 @@
   const moving = $derived(
     navigating.to !== null && (navigating.to.route.id === '/' || navigating.to.params?.slug !== currentSlug),
   );
-  // 名前の欄と、畳んだ列の札に出す文字。移っている最中はどちらも「移っています」
+  // 名前の欄に出す文字。移っている最中は「移っています」
   const shownName = $derived(moving ? t('organizationMoving') : currentName);
   // 浮きメニューで見える「組織」、名前欄、招待の印を表示順に読み上げる（WCAG 2.5.3）。
   const invitationBadge = $derived(invited ? t('invitationsBadge') : '');
@@ -82,15 +81,7 @@
     <b>{shownName}</b>
     {#if invited}<span class="chip">{invitationBadge}</span>{/if}
     {#if invited}<span class="org-menu-invite" aria-hidden="true"></span>{/if}
-    <!-- マークは畳んだ列でだけ見せ、名前の欄の代わりにする（広げた列はマークのリンクがボタンの左に別にある） -->
-    <BrandSymbol />
     <Icon name="chevron" />
-    <!-- 畳んだ列で、ホバーとキーボードのフォーカスのときに今の組織と招待の有無を目で読ませる札。読み上げは aria-label が受け持つ。
-         移っている最中は、広げた列の名前の欄と同じく「移っています」を出し、畳んだ列では札を出したままにする（押し直しを誘わない） -->
-    <span class="nav-tip" aria-hidden="true"
-      >{shownName}
-      {#if invited && !moving}<small>{invitationBadge}</small>{/if}</span
-    >
   </button>
   <!-- 移っている最中を読み上げに伝える。領域は常に置き、中の文字だけを替える -->
   <span class="visually-hidden" role="status">{moving ? t('organizationMoving') : ''}</span>
