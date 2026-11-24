@@ -80,6 +80,7 @@ SQ.mount("sprint", () => {
   // 道具の帯の左の絞り込み（本番の BoardFilterBar。#1502）。?filtered は担当とストーリーで絞った状態、?search=語 は検索した状態
   const filterOpts = {
     end: "",
+    group: ["assignee", "story", "epic"].includes(params.get("group")) ? params.get("group") : "",
     ...(params.has("filtered") ? { story: "s1", assignees: ["u1", "u2"] } : {}),
     ...(params.get("search") ? { q: params.get("search") } : {}),
   };
