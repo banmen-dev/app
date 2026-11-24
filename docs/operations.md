@@ -48,6 +48,17 @@
 
 手元の `wrangler dev` と vitest の Workers の実行環境は R2 を模擬する。本番のバケットには触らず、手元用のバケットを Cloudflare に作る必要はない。
 
+#### フィードバックの消える期間（ライフサイクルの規則）
+
+フィードバックの画像と `meta.json` は、同じバケットの `feedback/` の下に置き、R2 のライフサイクルの規則で 180 日後に消す（`docs/data-model.md` の「データベースの分け方」）。アプリは消さないので、フィードバックの送信を含む版を出す前に、人が規則を入れる。
+
+1. Cloudflare のダッシュボードで R2 Object Storage → `banmen-attachments` → Settings → Object lifecycle rules →「Add rule」を開く
+2. 名前を `feedback-180d`、対象を接頭辞（Prefix）`feedback/` にする。接頭辞を空にしない（空だとバケットのすべて、つまり全組織の添付ファイルとプロフィール画像が消える）
+3. 「Delete objects」を、アップロードから 180 日（Age 180 days）にして保存する。ほかの操作（Abort multipart、Storage class の移し替え）は足さない
+4. 一覧に `feedback-180d` が接頭辞 `feedback/` で出ることを見る
+
+人の端末の `pnpm exec wrangler r2 bucket lifecycle add banmen-attachments feedback-180d feedback/ --expire-days 180` でも入れられる。対話のある端末で、`-y` を付けずに打つ。接頭辞を省くと「すべての接頭辞に当てるか」の確認が出るので No と答える（対話の無い実行と `-y` では確認無しでバケット全体の規則になる）。入れた後は `pnpm exec wrangler r2 bucket lifecycle list banmen-attachments` で、接頭辞が `feedback/` の規則があり、接頭辞が無くオブジェクトを消す規則が無いことを確かめる（R2 が既定で持つ、途中で止まったマルチパートを片付ける規則は残してよい）。規則は消すまで続き、バケットを作り直したら入れ直す。規則が無くても送信は動くが、画像と URL が消えずに残り、プライバシーポリシーの「消す時期」と食い違う。
+
 ### 容量警告と通知の定期処理
 
 毎分の処理は、組織の通知済み・配信待ち・容量確認待ちの印を持つ組織だけを集計し、80%未満への復帰と通知の再試行を行う。保存応答は集計・配信を待たず、印の登録後に集計・配信が失敗したときは `attachment_quota_check_pending_at` または `attachment_quota_warning_pending_at` が残る。通常の `organization` の読み取りでは容量を集計せず、管理画面の節が `include_storage: true` を明示したときだけ読む。
@@ -141,6 +152,9 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
 | `GOOGLE_CLIENT_ID` | Google のログインの OAuth クライアントのクライアント ID（下の「Google の OAuth クライアント」） |
 | `GOOGLE_CLIENT_SECRET` | 同じ OAuth クライアントのクライアントシークレット |
 | `CONNECTION_CREDENTIAL_KEYS` | 接続の認証情報を暗号化する鍵（下の「接続の認証情報の鍵」） |
+| `FEEDBACK_GITHUB_APP_ID` | フィードバックを起票する GitHub App の App ID（下の「フィードバックの GitHub App」） |
+| `FEEDBACK_GITHUB_PRIVATE_KEY` | 同じ App の秘密鍵を PKCS#8 の PEM に直したもの（改行を含めた全体） |
+| `FEEDBACK_GITHUB_INSTALLATION_ID` | 同じ App を banmen-dev/app に入れたときのインストールの ID |
 
 `GITHUB_CLIENT_ID` と `GITHUB_CLIENT_SECRET` の決まり。
 
@@ -182,6 +196,63 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
 - 開発用の戻り先は、`pnpm dev` の画面の URL（`http://localhost:5173`。ワークツリーのポートは名前からずれるので、本物のログインはワークツリーの `.dev-port-offset` に 0 を書いて確かめる。`docs/development.md` の「ポート」）。`DEV_PORT_OFFSET` で明示してポートをずらして確かめるときは、OAuth App の「Add redirect URI」で、そのポートの戻り先（例 `http://localhost:5183/api/auth/github/callback`）を足す（10個まで登録できる）
 - 開発用の OAuth App で確かめるのは、本物のログインとログアウトだけ。e2e は seed のセッションの Cookie で通し、OAuth App の値を渡さない（`docs/development.md` の「開発とテストでのログイン」）
 - シークレットは git、ログ、Issue、PR に書かない。漏れたと分かったら、OAuth App でシークレットを作り直して入れ替える
+
+### フィードバックの GitHub App
+
+画面のフィードバック（`docs/requirements.md` の「機能」の「フィードバック」）は、GitHub App のインストールのトークンで banmen-dev/app に Issue を立てる。ログインの OAuth App とは別に作る。個人のトークン（PAT）は使わない。PAT で立てた Issue は作者が身内になり、開発のセッションが利用者の文を身内の指示として読みうるため（`docs/development.md` の「Issue の運用」の `feedback`）。
+
+1. GitHub の banmen-dev の Settings → Developer settings → GitHub Apps → New GitHub App を開く（Organization の下に作る。個人のアカウントの下に作らない）
+2. 値を入れる
+
+   | 項目 | 値 |
+   | --- | --- |
+   | GitHub App name | Banmen Feedback |
+   | Homepage URL | `https://banmen.ucan-lab.workers.dev` |
+   | Callback URL、Setup URL | 空 |
+   | Webhook | Active を外す（受けない） |
+   | Repository permissions | Issues: Read and write だけ。Metadata: Read-only は GitHub が必ず付ける。ほかは No access |
+   | Organization permissions、Account permissions | すべて No access |
+   | Where can this GitHub App be installed? | Only on this account |
+
+3. 作った App の「App ID」を控える（Client ID ではない）
+4. 同じ画面の Private keys →「Generate a private key」で鍵（`.pem`）を落とす。クラウドに同期されない場所に置く。GitHub が出す鍵は PKCS#1（`-----BEGIN RSA PRIVATE KEY-----`）で、Workers の Web Crypto は読めないので、次の手順 6 で PKCS#8 に直しながら入れる。直した鍵をファイルに書かない
+
+5. App の Install App → banmen-dev の「Install」を開き、「Only select repositories」で banmen-dev/app だけを選ぶ。入れた後の URL `https://github.com/organizations/banmen-dev/settings/installations/<数字>` の数字がインストールの ID
+6. 本番は `wrangler secret put FEEDBACK_GITHUB_APP_ID` と `wrangler secret put FEEDBACK_GITHUB_INSTALLATION_ID` で入れ、鍵は PKCS#8 に直したものを中間のファイルを作らずに流し込む。入れた後に、落とした `.pem` を消す
+
+   ```bash
+   ( key="$(openssl pkcs8 -topk8 -nocrypt -in banmen-feedback.<日付>.private-key.pem)" && [ -n "$key" ] && printf '%s\n' "$key" | pnpm exec wrangler secret put FEEDBACK_GITHUB_PRIVATE_KEY )
+   ```
+
+   変換が失敗するか空のときは流し込まない（パイプで直につなぐと、`openssl` が失敗しても `wrangler` が空の値で上書きする）。括弧のサブシェルで、鍵を端末のセッションの変数に残さない。ダッシュボードの一覧は値が空でも名前を出すので、入れたかの確かめにならない。入れた後の確かめは、下の「送信を含む版を出す前に」の手順 3 で実際に送れることだけ。上のコマンドで入れる（ダッシュボードで入れると、平文の鍵が画面とクリップボードを通る）。やむを得ずダッシュボード（Worker の Settings → Variables and Secrets、Type は `Secret`）で入れるときは、`openssl pkcs8 -topk8 -nocrypt -in <落とした.pem>` を端末に出し（ファイルに書かない）、先頭が `-----BEGIN PRIVATE KEY-----` の改行を含めた全体を貼る
+7. GitHub の banmen-dev/app に `feedback` のラベルがあることを確かめる（`gh api repos/banmen-dev/app/labels/feedback`。2026-11-24 に作った）。無いときの GitHub の振る舞い（作るか、黙って落とすか）に頼らないよう、ラベルは先に作っておき、消さない
+
+決まり。
+
+- 3つのどれかが未設定か空だと、フィードバックの送信は断る。ほかの機能は動き、`/api/health` は 200 のまま
+- 開発用とプレビューには入れない。手元の確かめは GitHub への通信を模擬する（プレビューの決まり「外部連携の本番の秘密は入れない」と同じ）
+- 鍵を入れ替えるときは、App で新しい鍵を作り、PKCS#8 に直して `FEEDBACK_GITHUB_PRIVATE_KEY` を書き換え、送信が動くことを確かめてから古い鍵を App で消す
+- 鍵は git、ログ、Issue、PR に書かない。漏れたと分かったら、App で鍵を消して作り直す。漏れた鍵でできるのは、Issue を立てることだけではない。Issues の書き込みは、banmen-dev/app のすべての Issue とコメントの題と本文の書き換え、閉じる、ラベル（PR の `needs-human` を含む）の付け外しに及ぶ。セッションは Issue とコメントの信頼を作者で決めるので、身内の Issue の本文を書き換えると、開発のセッションに指示を仕込める。漏れていた疑いがあれば、鍵を作り直した後に、その間に App の bot が行ったことを洗い出し、戻す。見るのは、ラベルそのものの削除と改名（`needs-human` を消すか改名すると、人が読むはずの PR が人に聞かずにマージされうる。ラベルの削除は PR ごとの timeline に出ないことがあるので、ラベルの一覧に `needs-human`、`feedback`、`status:` で始まるもの、`ai-review` が今の名前であるかを見て、開いている PR の `label` のジョブを走らせ直して `needs-human` を付け直す）、Issue と PR のアサイン、マイルストーン、ロック、Issue と PR の題と本文、Issue と PR の会話のコメント（AI レビューのまとめを含む）の編集の履歴、timeline の `renamed`、`labeled`、`unlabeled`（特に PR の `needs-human` と `ai-review`）、`closed`、`reopened`、サブ Issue と依存関係の付け外し。コメントと Issue の削除は timeline に残らないので、banmen-dev の Organization の audit log（Settings → Audit log、`actor:` に App の bot）も見る
+- App の権限を足さない。足すと、漏れたときに書けるものが増え、インストールの承認も要る
+- 画像、URL、アカウントの ID は R2 の `feedback/` に置き、上の「R2」のライフサイクルの規則で消す。公開の Issue には載せない
+- 運用者は、Issue の本文のフィードバックの ID で、Cloudflare のダッシュボードの R2 Object Storage → `banmen-attachments` → `feedback/<ID>/` を開いて画像と `meta.json` を見る（運用の画面に口ができるまで）。画像はダウンロードして見る
+- 荒らしの Issue（全体の枠を使って同じ文を並べたものなど）は、運用者が banmen-dev/app で「Close as not planned」で閉じる。続くときは、`meta.json` のアカウントの ID を見て、そのアカウントのセッションを消す手段を別の Issue で決める
+- 利用者から公開の Issue を消す求めがあったら、運用者が banmen-dev/app の Issue を削除する（Issue の削除はリポジトリの管理者だけができる）
+
+#### 送信を含む版を出す前に
+
+1. 上の手順 1〜7 で App とシークレットを用意し、上の「R2」の `feedback-180d` の規則を入れる
+2. 同じ PR で、プライバシーポリシー（`src/lib/legal/privacy.md`）を下の文案で改め、版（`PRIVACY_VERSION`）と `seed/data.sql` の同意の行の版を上げる（下の「規約を改めるとき」。版を上げると全員が同意し直す）。文案は #1551 で決めた。機能の無い版で全員に同意し直させないよう、#1551 では文面も版も変えていない
+3. 出した後に、自分のアカウントで1件送り、Issue の作者が App の bot（`user.type` が `Bot`、`author_association` が身内でない）であること、Issue の題、本文（文の囲い、フィードバックの ID、アカウントの ID が無いこと）、`feedback` のラベル、R2 の `feedback/<ID>/` の画像と `meta.json` を見る。見た Issue は閉じて削除する
+
+プライバシーポリシーの文案（`src/lib/legal/privacy.md` に足すもの）。
+
+- 第1条 預かるもの に足す: 「フィードバック。利用者が画面のフィードバックから送った文、添えた画像（PNG、JPEG、WebP）、送った画面の URL（クエリとフラグメントを除く）、送った人のアカウントの番号（本サービスが振った番号で、GitHub や Google の番号とは別）。送ったときだけ預かります。」
+- 第4条 預け先と外部のサービス に足す: 「フィードバックを送ると、送った文を、本サービスの開発に使う GitHub の公開のリポジトリ（banmen-dev/app）に、Issue として載せます。公開の場所なので、だれでも読め、GitHub の規約とポリシーも適用されます。Issue に載るのは、送った文、送った画面の経路の形（組織の名前やワークスペースの ID を含みません）、そのフィードバックの番号だけで、送った人のアカウントの番号は載せません。文に書いたことはそのまま公開されるので、組織の名前、人の名前、秘密にしたいことは書かないでください。」「フィードバックに添えた画像、送った画面の URL、送った人のアカウントの番号は、公開しません。Cloudflare の R2 に保管し、運営者が見ます。」
+- 第3条 の AI の段落の後に足す: 「フィードバックとして公開の Issue に載った文は、だれでも読める場所にあるので、運営者が開発に使う AI の道具も読むことがあります。」
+- 第6条 消す時期 に足す: 「フィードバックに添えた画像、送った画面の URL、送った人のアカウントの番号は、送った日から 180 日で消します。解約した組織のデータを消すときも、この期間までは残ります。公開の Issue に載った文は、期間を決めずに残ります。消したいときは、下の問い合わせ先に連絡してください。Issue を消しても、公開されていた間に外の人や仕組みが写した控えは消せません。」
+- 第6条 の「回数を数えるための IP アドレスは、数える窓が過ぎたら、定期の処理で消します。」を「回数を数えるための IP アドレスは、数える窓が過ぎたら（最長で 1 時間）、定期の処理で消します。」に直す
+- 第6条 の解約の項の「添付ファイルとプロフィール画像も消します。」の後に「フィードバックは上の 180 日の期間で消します。」を足す
 
 ### Google の OAuth クライアント
 
@@ -297,7 +368,7 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
 利用規約かプライバシーポリシーを改めて版を上げると、全員が次に開いたときに同意の画面（`/consent`）で同意し直す。前の版に同意した人には、同意の画面が改めたこと、改めた文書の名前と改定日を出す。利用規約とプライバシーポリシーのどちらか一方だけを改めても、全員が同意し直す（同意は2つの文書の版の組に対する1回の記録で、片方の版が変われば組が変わるため）。画面の案内に挙がるのは、前の同意と版が違う文書だけ。
 
 1. 文面（`src/lib/legal/terms.md`、`src/lib/legal/privacy.md`）を直す。末尾の「改定日: YYYY-MM-DD」の行も、改めた日に直す
-2. `src/lib/legal/versions.ts` の版（`TERMS_VERSION`、`PRIVACY_VERSION`）を、改めた文書の末尾の「改定日: YYYY-MM-DD」と同じ日に上げる。文面の改定日と版が食い違うと、テスト（`src/lib/legal/documents.test.ts`）が落ちる
+2. `src/lib/legal/versions.ts` の版（`TERMS_VERSION`、`PRIVACY_VERSION`）を、改めた文書の末尾の「改定日: YYYY-MM-DD」と同じ日に上げる。文面の改定日と版が食い違うと、テスト（`src/lib/legal/documents.test.ts`）が落ちる。`seed/data.sql` の同意の行の版も同じ値に直す（`scripts/seed.test.ts` が照合する。直さないと seed のアカウントが同意の画面に止まり、e2e が落ちる）
 3. 出す前に、チームとお試しの組織の人に、次に開いたときに全員が同意の画面を通ることを伝える。連絡の中身は上の「規約への同意の門を出す前に」の3点と同じ（CLI と MCP も、本人がブラウザで同意するまで 403 の `terms_required` になる）
 4. 出した後に、運用者が同意し直す画面（前の版に同意した運用者が `/consent` で「改められました」の案内を見て、同意して元の画面に戻ること）を、人が本番の画面で確かめる
 
@@ -1055,7 +1126,7 @@ Wiki、お気に入り（`favorites`）、依頼先（`delegatees`）、組織�
 | `version` | 受けた Worker の版 |
 | `browser` | `family`（`chrome`、`firefox`、`safari`、`edge`、`other`）、`major`（主な版）、`mobile` |
 
-誰のエラーか、IP、URL のクエリはログに残らない。ただし、回数の上限を数える D1 の `rate_limits` には、IP のキー（`client-error:<IP>`、IPv6 は /64 と /48）が、最長の窓（10分）を過ぎて毎分の掃除が消すまで残る（`docs/data-model.md` の `rate_limits`）。送信は10分に、同じ IP（IPv6 は /64）から20回、IPv6 の /48 から40回、全体で300回までで、超えた分と、同じページで同じエラーの2回目からは残らない。数が少ないから影響が小さいとは限らない。Origin の検査はブラウザの外（`curl` など）からは偽れるので、行は誰でも作れる。画面の外から来た行を見分ける手段は無く、手元で再現できるかで確かめる。
+誰のエラーか、IP、URL のクエリはログに残らない。ただし、回数の上限を数える D1 の `rate_limits` には、IP のキー（`client-error:<IP>`、IPv6 は /64 と /48）が、最長の窓（10分。フィードバックの送信を出した後は1時間）を過ぎて毎分の掃除が消すまで残る（`docs/data-model.md` の `rate_limits`）。送信は10分に、同じ IP（IPv6 は /64）から20回、IPv6 の /48 から40回、全体で300回までで、超えた分と、同じページで同じエラーの2回目からは残らない。数が少ないから影響が小さいとは限らない。Origin の検査はブラウザの外（`curl` など）からは偽れるので、行は誰でも作れる。画面の外から来た行を見分ける手段は無く、手元で再現できるかで確かめる。
 
 残る危険（受け入れた）: `message` の伏せ方は、引用符、区切り（`: `、` in `）、英字でない文字を目印にする。英字だけの値（人の名前や英単語のパスワードなど）が、引用符の外で、区切りに当たらない位置に入る文言は、伏せられずに残りうる。ログを読めるのは運用者（Cloudflare のアカウントのメンバー）だけ。読んだ行を Issue などに貼るときは、`message` に利用者の値が残っていないかを見てから貼る。
 
