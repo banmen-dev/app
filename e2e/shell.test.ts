@@ -326,13 +326,19 @@ test.describe('ホバーのできない端末（1024px の指のタブレット�
     expect(brand.width).toBeGreaterThanOrEqual(44);
     expect(brand.height).toBeGreaterThanOrEqual(44);
     expect(box.x + box.width).toBeLessThanOrEqual(brand.x);
-    // 44px のボタンでも、札（キーボードのフォーカスで出る）は帯の罫の下 --space-1（4px）に来る
+    // 指だけの端末では、札はキーボードのフォーカス（:focus-visible）だけで出る。44px のボタンでも帯の罫の下 --space-1（4px）に来る
+    for (let i = 0; i < 5 && !(await toggle.evaluate((element) => element === document.activeElement)); i++)
+      await page.keyboard.press('Tab');
+    await expect(toggle).toBeFocused();
     const tip = toggle.locator('.nav-tip');
-    await tip.evaluate((element) => ((element as HTMLElement).style.display = 'grid'));
-    const [tipBox, barBox] = await Promise.all([tip.boundingBox(), page.locator('.topbar').boundingBox()]);
-    expect(Math.abs(tipBox!.y - (barBox!.y + barBox!.height + 4))).toBeLessThanOrEqual(1);
-    expect(Math.abs(tipBox!.x - box.x)).toBeLessThanOrEqual(1);
-    await tip.evaluate((element) => ((element as HTMLElement).style.display = ''));
+    await expect(tip).toBeVisible();
+    const tipBox = await tip.boundingBox();
+    const barBox = await page.locator('.topbar').boundingBox();
+    if (!tipBox || !barBox) throw new Error('札と帯の位置が取れない');
+    expect(Math.abs(tipBox.y - (barBox.y + barBox.height + 4))).toBeLessThanOrEqual(1);
+    expect(Math.abs(tipBox.x - box.x)).toBeLessThanOrEqual(1);
+    await toggle.blur();
+    await expect(tip).toBeHidden();
 
     await toggle.tap();
     await expect(page.locator('.app')).toHaveAttribute('data-nav-collapsed', 'true');
