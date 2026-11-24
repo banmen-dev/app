@@ -12,6 +12,10 @@
 
 以下の `/` の数値と「従なし」は、`my-today` を追加する前の過去の実測で、書き換えていない。現在の `/` は `load` で `my-organizations` だけを待ち、その後に `MyTodayPane` が `my-today` を読む。`scripts/loading-screens.ts` も `operations` に主の `my-organizations`、`after` に従の `my-today` を置き、`deferSecondary: true` で面内の後回し表示を表す。変更後の新しい数値は未計測で、過去の0差を現在の表示時間や改善量には使わない。初回転送量の #1236 はこの変更に未取り込みで、その取り込み後の `/` の初回読み込みへの影響も未検証。
 
+## エピックの詳細の画面の行を外したこと（#1561）
+
+エピックの詳細の画面（`/[slug]/w/[id]/epics/[epicId]`）の行は、下の診断値の表と1回目・2回目の全結果から外した。元の値は `epic-detail`（主）と `category-repository-list`（従）を並べて発行した計測で、#1058 で load から `category-repository-list` を外した後の構成（`scripts/loading-screens.ts` の操作は `epic-detail` だけ）と合わない。主の `epic-detail` の値も従と並べたときのもので、今の条件の値として使えないため一緒に外した。今の構成のこの表の方式での値は未計測。#1058 の採否の計測は [エピック詳細のブラウザ計測の追試](epic-loading-replication-results.md) に残っている。
+
 ## 結論と判定できないこと
 
 このローカル計測では、**並列の従のデータを後回しにすべきかは判定不能**。Worker/D1 が要求を実質直列に処理する場合、発行順で完了順も替わる。正順と逆順の両方で差が正になるかという条件でも、操作の重さと待ちの構造を切り分けられない。差が0になることから「後回しは不要」「実装を勧めない」とは結論しない。
@@ -26,7 +30,6 @@
 | `/[slug]` | 13.97 / 23.19 | 0.00 / 0.00 | 12.72 / 15.82 | 0.00 / 0.00 | 並列の従は判定不能（#1065 で再測定） |
 | `/[slug]/w/[id]` | 17.01 / 19.99 | 0.00 / 0.00 | 16.44 / 18.65 | 0.00 / 0.00 | 並列の従は判定不能 |
 | `/[slug]/w/[id]/plan` | 14.11 / 18.13 | 0.00 / 0.00 | 14.97 / 22.32 | 0.00 / 0.05 | 並列の従は判定不能 |
-| `/[slug]/w/[id]/epics/[epicId]` | 9.03 / 10.52 | 0.00 / 0.00 | 9.17 / 10.13 | 0.00 / 0.00 | 並列の従は判定不能 |
 
 単位は ms。正順をまとめて測ってから逆順を測るので、時間経過・キャッシュと発行順の効果も分離していない。招待ありの行は招待件数を逐次で読む分岐を強制する。招待なしの枠は、その追加待ちがない。管理のページは親の権限確認だけなので操作なし。
 
@@ -195,15 +198,6 @@
 | /[slug]/w/[id]/connections | 逆順: 合計（各試行の最終完了） | 11.25 | 12.43 |
 | /[slug]/w/[id]/connections | 逆順: 従と主の完了差（診断値） | 0.00 | 0.00 |
 | /[slug]/w/[id]/connections | 従なし | — | — |
-| /[slug]/w/[id]/epics/[epicId] | 正順: epic-detail（主） | 12.55 | 20.70 |
-| /[slug]/w/[id]/epics/[epicId] | 正順: category-repository-list（従） | 21.55 | 27.54 |
-| /[slug]/w/[id]/epics/[epicId] | 正順: 合計（各試行の最終完了） | 21.76 | 27.70 |
-| /[slug]/w/[id]/epics/[epicId] | 正順: 従と主の完了差（診断値） | 9.03 | 10.52 |
-| /[slug]/w/[id]/epics/[epicId] | 逆順: epic-detail（主） | 23.21 | 28.06 |
-| /[slug]/w/[id]/epics/[epicId] | 逆順: category-repository-list（従） | 11.46 | 15.56 |
-| /[slug]/w/[id]/epics/[epicId] | 逆順: 合計（各試行の最終完了） | 23.44 | 28.32 |
-| /[slug]/w/[id]/epics/[epicId] | 逆順: 従と主の完了差（診断値） | 0.00 | 0.00 |
-| /[slug]/w/[id]/epics/[epicId] | 並列の従: 判定不能 | — | — |
 | /[slug]/wiki | 正順: org-wiki-tree（主） | 9.91 | 12.59 |
 | /[slug]/wiki | 正順: 合計（各試行の最終完了） | 9.93 | 12.62 |
 | /[slug]/wiki | 正順: 従と主の完了差（診断値） | 0.00 | 0.00 |
@@ -386,15 +380,6 @@
 | /[slug]/w/[id]/connections | 逆順: 合計（各試行の最終完了） | 10.33 | 12.16 |
 | /[slug]/w/[id]/connections | 逆順: 従と主の完了差（診断値） | 0.00 | 0.00 |
 | /[slug]/w/[id]/connections | 従なし | — | — |
-| /[slug]/w/[id]/epics/[epicId] | 正順: epic-detail（主） | 11.99 | 18.05 |
-| /[slug]/w/[id]/epics/[epicId] | 正順: category-repository-list（従） | 21.01 | 26.41 |
-| /[slug]/w/[id]/epics/[epicId] | 正順: 合計（各試行の最終完了） | 21.20 | 26.69 |
-| /[slug]/w/[id]/epics/[epicId] | 正順: 従と主の完了差（診断値） | 9.17 | 10.13 |
-| /[slug]/w/[id]/epics/[epicId] | 逆順: epic-detail（主） | 21.36 | 24.21 |
-| /[slug]/w/[id]/epics/[epicId] | 逆順: category-repository-list（従） | 11.20 | 18.90 |
-| /[slug]/w/[id]/epics/[epicId] | 逆順: 合計（各試行の最終完了） | 21.57 | 24.49 |
-| /[slug]/w/[id]/epics/[epicId] | 逆順: 従と主の完了差（診断値） | 0.00 | 0.00 |
-| /[slug]/w/[id]/epics/[epicId] | 並列の従: 判定不能 | — | — |
 | /[slug]/wiki | 正順: org-wiki-tree（主） | 10.18 | 11.63 |
 | /[slug]/wiki | 正順: 合計（各試行の最終完了） | 10.22 | 11.66 |
 | /[slug]/wiki | 正順: 従と主の完了差（診断値） | 0.00 | 0.00 |
