@@ -180,7 +180,9 @@ test('760pxまでタブを出し、761px以上では既存の枠・検索・表�
     } else {
       await expect(page.locator('.mobile-tabs')).toHaveCount(0);
       await expect(page.locator('.mobile-menu')).toHaveCount(0);
-      await expect(page.locator('.binding .brand')).toBeVisible();
+      await expect(page.locator('.binding')).toBeVisible();
+      await expect(page.locator('.topbar-start .brand')).toBeVisible();
+      await expect(page.locator('.nav-toggle')).toBeVisible();
       await expect(page.getByRole('combobox', { name: '画面とタスクを探す' })).toBeVisible();
       await expect(page.locator('.account-menu-button .me-detail')).toBeVisible();
     }

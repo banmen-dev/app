@@ -530,7 +530,7 @@
     activityCreated: "{actor}が作成した", activityUpdated: "{actor}が{fields}を変更した", activityChanged: "{actor}が変更した", activityCompleted: "{actor}が{done}にした", activityReopened: "{actor}が{done}を戻した", activityCommented: "{actor}がコメントした",
     activityMore: "さらに読む", activityLoadFailed: "最近の更新を読み込めませんでした。", activityMoreFailed: "続きを読み込めませんでした。もう一度試してください。",
     workspace: "ワークスペース", inbox: "受信箱", backlog: "バックログ", board: "ボード", sprint: "スプリント", plan: "計画", epic: "エピック", story: "ストーリー", taskTemplate: "テンプレート",
-    menuCollapse: "メニューを畳む", menuExpand: "メニューを広げる", breadcrumb: "パンくず", organizationMoving: "移っています",
+    menuCollapse: "メニューを閉じる", menuExpand: "メニューを開く", breadcrumb: "パンくず", organizationMoving: "移っています",
     personalOrganizationName: "自分用", dashboardPersonalHome: "ホーム", createPersonalOrganizationAction: "自分用を作る",
     task: "タスク", archive: "アーカイブ", connection: "接続", sprintGoal: "スプリントゴール", detail: "詳細", ac: "受け入れ基準", due: "期日",
     points: "ポイント", assignee: "担当", category: "区分", capacity: "作業量と基準", over: "超過", done: "完了", column: "列",
@@ -627,7 +627,7 @@
   // 提供された横組みロゴとマーク。名前は隣の視覚的に隠した文字で1回だけ読ませる。
   // 枠の外の紙では白い下地の箱の左端を本文とそろえる。BrandMark.svelte と共通。
   const brandMark = `<span class="brand-art" aria-hidden="true"><img class="brand-mark" src="brand/master/symbol.webp" width="629" height="678" alt=""><span class="brand-name">${t('brandName')}</span></span>`;
-  // 左上の角のマスのマーク単体。白い下地の枠の中に置く。BrandSymbol.svelte と共通
+  // 上の帯の左端（開閉のボタンの右）のマーク単体。白い下地の枠の中に置く。BrandSymbol.svelte と共通
   const brandSymbol = `<span class="brand-art is-symbol" aria-hidden="true"><img class="brand-mark" src="brand/master/symbol.webp" width="629" height="678" alt=""></span>`;
   // Google の G のロゴ。Google のブランドの決まりの公式の SVG で、形も4色も変えない（本番は GoogleMark.svelte）
   const googleMark = `<svg class="google-mark" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>`;
@@ -4062,29 +4062,29 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       : `<button class="pill" type="button" aria-label="通知 3件">${icon("bell")}<span class="pill-count">3</span></button>`;
     document.getElementById("app").innerHTML = `
     <div class="app">
-      <aside class="binding" aria-label="メニュー"><div class="binding-inner">
-        <div class="binding-head">
-          <a class="brand" href="index.html" title="デザインシステムのカタログへ">${brandSymbol}<span class="visually-hidden">Banmen</span></a>
+      <div class="topbar">
+        <div class="topbar-start">
           <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="${!navCollapsed}" aria-controls="app-nav" aria-label="${t(navCollapsed ? "menuExpand" : "menuCollapse")}">${icon("panel")}<span class="nav-tip" aria-hidden="true">${t(navCollapsed ? "menuExpand" : "menuCollapse")}</span></button>
+          <a class="brand" href="index.html" title="デザインシステムのカタログへ">${brandSymbol}<span class="visually-hidden">Banmen</span></a>
         </div>
+        <button class="nav-search-toggle" type="button" data-nav-search-toggle aria-label="画面とタスクを探す" aria-expanded="false" aria-controls="nav-search-box" aria-keyshortcuts="Control+K Meta+K">${icon("search")}</button>
+        <div class="nav-search" id="nav-search-box" role="search" aria-label="画面とタスクを探す">${icon("search")}<input class="nav-search-input" id="nav-search-input" type="text" role="combobox" autocomplete="off" spellcheck="false" aria-label="画面とタスクを探す" aria-expanded="false" aria-controls="nav-search-list" aria-autocomplete="list" aria-keyshortcuts="Control+K Meta+K" placeholder="画面やタスクを探す"><kbd class="kbd nav-search-key" aria-hidden="true">${ASSIST_KEY}</kbd><ul class="nav-search-list" id="nav-search-list" role="listbox" aria-label="画面とタスクを探す" hidden></ul><span class="visually-hidden" role="status" id="nav-search-status"></span></div>
+        <div class="topbar-tools">
+          <button class="pill assist-launch" type="button" data-assist-open>${icon("spark")}<span data-assist-label></span></button>
+          <button class="pill" type="button" data-switch="theme">${icon("moon")}<span data-theme-label></span></button>
+          <button class="pill" type="button" data-switch="first">${icon("redo")}<span>見本: ${firstLabel(first)}</span></button>
+          ${bell}
+        </div>
+        <div id="org-menu-slot"></div>
+        <span id="account-menu-slot"></span>
+      </div>
+      <aside class="binding" aria-label="メニュー"><div class="binding-inner">
         <div class="binding-body">
           <nav class="nav" id="app-nav"></nav>
           <p class="binding-foot">デザインの見本。データはすべて架空の例です</p>
         </div>
       </div></aside>
       <div class="sheet">
-        <div class="topbar">
-          <button class="nav-search-toggle" type="button" data-nav-search-toggle aria-label="画面とタスクを探す" aria-expanded="false" aria-controls="nav-search-box" aria-keyshortcuts="Control+K Meta+K">${icon("search")}</button>
-          <div class="nav-search" id="nav-search-box" role="search" aria-label="画面とタスクを探す">${icon("search")}<input class="nav-search-input" id="nav-search-input" type="text" role="combobox" autocomplete="off" spellcheck="false" aria-label="画面とタスクを探す" aria-expanded="false" aria-controls="nav-search-list" aria-autocomplete="list" aria-keyshortcuts="Control+K Meta+K" placeholder="画面やタスクを探す"><kbd class="kbd nav-search-key" aria-hidden="true">${ASSIST_KEY}</kbd><ul class="nav-search-list" id="nav-search-list" role="listbox" aria-label="画面とタスクを探す" hidden></ul><span class="visually-hidden" role="status" id="nav-search-status"></span></div>
-          <div class="topbar-tools">
-            <button class="pill assist-launch" type="button" data-assist-open>${icon("spark")}<span data-assist-label></span></button>
-            <button class="pill" type="button" data-switch="theme">${icon("moon")}<span data-theme-label></span></button>
-            <button class="pill" type="button" data-switch="first">${icon("redo")}<span>見本: ${firstLabel(first)}</span></button>
-            ${bell}
-          </div>
-          <div id="org-menu-slot"></div>
-          <span id="account-menu-slot"></span>
-        </div>
         <div class="sheet-crumbs" id="breadcrumb-slot"></div>
         <main class="content" id="content"></main>
       </div>

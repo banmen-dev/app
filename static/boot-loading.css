@@ -165,7 +165,7 @@ html[data-boot-dashboard] #boot-loading .boot-skeleton {
   }
 }
 /* 行き先が組織の枠のとき（static/boot-shape.js が html に data-boot="<形>" を付ける）は、紙ではなく枠の形の骨組みを画面いっぱいに出す。
-   左のメニューの幅（240px、畳んだ列は 64px）、上の帯の高さ（60px）、本文の余白は design/components.css の .app、.binding、.topbar、
+   全幅の上の帯（高さ 60px。左端に開閉のボタンとマーク）の下に左のメニューと本文を並べる。左のメニューの幅（240px、畳んだ列は 64px）、本文の余白は design/components.css の .app、.binding、.topbar、
    .content と同じにし、本文は行き先の画面の組み（形は src/lib/loading-shape.ts と同じ。2列は .layout-aside の 320px、.layout-wiki、
    .setting の 260px、.board の 232px の列、.lanes の3列。どれも 1080px 以下で1列）に近づける。デザインシステムの LoadingSheet の
    .skeleton-frame と同じ並びにして、移る間と最初の読み込みで同じ形を見せる。
@@ -183,6 +183,8 @@ html[data-boot] #boot-loading .boot-frame {
   inset: 0;
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  grid-template-areas: 'bar bar' 'binding sheet';
   overflow: hidden;
   animation: boot-wait-hide 0s linear 15s forwards;
 }
@@ -206,26 +208,38 @@ html[data-boot] #boot-loading .boot-frame {
   width: 70%;
 }
 #boot-loading .boot-binding {
+  grid-area: binding;
   background: #f2f2f3;
   border-right: 1px solid #d6d6da;
-  padding: 0 16px 20px;
+  padding: 16px 16px 20px;
 }
 #boot-loading .boot-binding > i {
   margin-inline: 8px;
 }
-/* 角のマス。読み込んだ後と同じく、左にマーク（34px）、右に開閉のボタンの分（36px と隙間）を空ける */
-#boot-loading .boot-corner {
+/* 上の帯の左端。読み込んだ後と同じく、開閉のボタン（36px、指で押す画面は 44px）、マーク（34px）の順に並べ、残りを右へ押す */
+#boot-loading .boot-start {
   flex-direction: row;
   align-items: center;
-  gap: 4px;
-  height: 60px;
-  margin: 0 -16px 4px;
-  padding-inline: 16px 56px;
-  border-bottom: 1px solid #d6d6da;
+  gap: 8px;
+  margin-right: auto;
 }
-#boot-loading .boot-corner .is-mark {
+#boot-loading .boot-start .is-toggle {
+  width: 36px;
+  height: 36px;
+}
+#boot-loading .boot-start .is-mark {
   width: 34px;
   height: 34px;
+}
+/* 指で押す画面では、本物のマークのリンクが 44px 幅になり、34px のマークがその中央に来るので、左右に 5px ずつ空ける */
+@media (pointer: coarse) {
+  #boot-loading .boot-start .is-toggle {
+    width: 44px;
+    height: 44px;
+  }
+  #boot-loading .boot-start .is-mark {
+    margin-inline: 5px;
+  }
 }
 #boot-loading .boot-binding > .is-org {
   height: 44px;
@@ -237,14 +251,16 @@ html[data-boot] #boot-loading .boot-frame {
   margin-top: 8px;
 }
 #boot-loading .boot-sheet {
+  grid-area: sheet;
   gap: 0;
 }
 #boot-loading .boot-topbar {
+  grid-area: bar;
   flex-direction: row;
   align-items: center;
   justify-content: flex-end;
   height: 60px;
-  padding-inline: 32px;
+  padding-inline: 16px 32px;
   border-bottom: 1px solid #d6d6da;
   gap: 8px;
 }
@@ -435,25 +451,13 @@ html[data-boot] #boot-loading .boot-frame {
     border: 1px solid CanvasText;
   }
 }
-@media (min-width: 761px) and (hover: hover) {
+@media (min-width: 761px) {
   html[data-boot][data-boot-nav='collapsed'] #boot-loading .boot-frame {
     grid-template-columns: 64px minmax(0, 1fr);
   }
   html[data-boot-nav='collapsed'] #boot-loading .boot-binding {
     padding-inline: 0;
     align-items: center;
-  }
-  html[data-boot-nav='collapsed'] #boot-loading .boot-corner {
-    justify-content: center;
-    margin-inline: 0;
-    padding-inline: 0;
-    align-self: stretch;
-    align-items: center;
-  }
-  /* 畳んだ列の角のマスはマークだけ。マークは読み込んだ後と同じ 34px にする */
-  html[data-boot-nav='collapsed'] #boot-loading .boot-corner .is-mark {
-    width: 34px;
-    height: 34px;
   }
   html[data-boot-nav='collapsed'] #boot-loading .boot-binding i {
     width: 32px;
@@ -467,9 +471,11 @@ html[data-boot] #boot-loading .boot-frame {
 @media (max-width: 760px) {
   html[data-boot] #boot-loading .boot-frame {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 1fr;
+    grid-template-areas: 'bar' 'sheet';
   }
-  #boot-loading .boot-binding {
+  /* 左のメニューと、上の帯の左端（開閉のボタンとマーク）は出さない */
+  #boot-loading .boot-binding,
+  #boot-loading .boot-start {
     display: none;
   }
   #boot-loading .boot-topbar {
@@ -598,7 +604,6 @@ html[data-boot] #boot-loading .boot-frame {
     background: #0e0e10;
   }
   #boot-loading .boot-binding,
-  #boot-loading .boot-corner,
   #boot-loading .boot-topbar,
   #boot-loading .boot-head,
   #boot-loading .boot-col {
@@ -627,7 +632,7 @@ html[data-theme='simple_light'] #boot-loading .boot-frame i {
 html[data-theme='simple_light'] #boot-loading :is(.boot-binding, .boot-col) {
   background: #f2f2f3;
 }
-html[data-theme='simple_light'] #boot-loading :is(.boot-binding, .boot-corner, .boot-topbar, .boot-head, .boot-col) {
+html[data-theme='simple_light'] #boot-loading :is(.boot-binding, .boot-topbar, .boot-head, .boot-col) {
   border-color: #d6d6da;
 }
 html[data-theme='simple_dark'] #boot-loading {
@@ -652,6 +657,6 @@ html[data-theme='simple_dark'] #boot-loading .boot-frame i {
 html[data-theme='simple_dark'] #boot-loading :is(.boot-binding, .boot-col) {
   background: #0e0e10;
 }
-html[data-theme='simple_dark'] #boot-loading :is(.boot-binding, .boot-corner, .boot-topbar, .boot-head, .boot-col) {
+html[data-theme='simple_dark'] #boot-loading :is(.boot-binding, .boot-topbar, .boot-head, .boot-col) {
   border-color: #37373d;
 }

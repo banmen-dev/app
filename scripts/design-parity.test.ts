@@ -77,7 +77,7 @@ const readSvg = (source: string) => readElements(source, 'svg')[0];
 const readTags = (source: string) => [...source.matchAll(/<([a-zA-Z][\w-]*)\b/g)].map(([, tag]) => tag);
 
 describe('見本との照合', () => {
-  // 横組みのロゴ（枠の外の画面）と、左上の角のマスのマーク単体
+  // 横組みのロゴ（枠の外の画面）と、上の帯の左端のマーク単体
   for (const { name, file, count, wrapper } of [
     { name: 'brandMark', file: 'BrandMark.svelte', count: 1, wrapper: /<span class="brand-art" aria-hidden="true">/ },
     {

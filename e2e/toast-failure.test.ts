@@ -75,57 +75,79 @@ test('失敗のトーストは左に縦線が付き、成功の倍の 8 秒ほ�
     .toBeGreaterThan(0);
 });
 
-test('URL を直接開いて木の読み込みが遅いとき、300ms 後に読み込み中の表示が出て、描けたら消える', async ({
-  page,
-  context,
-  baseURL,
-}) => {
-  await signIn(context, baseURL, 'admin');
-  let release: () => void = () => {};
-  const gate = new Promise<void>((resolve) => (release = resolve));
-  await routeOperation(page, backlogTree, { slug: 'aoba' }, async (call) => {
-    await gate;
-    await call.passThrough();
+// 指で押す画面（761px 以上）では、開閉のボタンが 44px、マークのリンクが 44px 幅になる。骨組みも同じ位置に置く（#1511）
+for (const pointer of ['細かいポインター', '指で押す 1024px'] as const) {
+  test.describe(pointer, () => {
+    if (pointer === '指で押す 1024px')
+      test.use({ viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true });
+
+    test(`URL を直接開いて木の読み込みが遅いとき、300ms 後に読み込み中の表示が出て、描けたら消える（${pointer}）`, async ({
+      page,
+      context,
+      baseURL,
+    }) => {
+      await signIn(context, baseURL, 'admin');
+      let release: () => void = () => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      await routeOperation(page, backlogTree, { slug: 'aoba' }, async (call) => {
+        await gate;
+        await call.passThrough();
+      });
+      await page.goto(WORKSPACE, { waitUntil: 'commit' });
+
+      const boot = page.locator('#boot-loading');
+      await expect(boot).toBeVisible();
+      await expect(boot.locator('.boot-wait')).toHaveText('読み込んでいます');
+      // 行き先が組織の枠なので、紙ではなく枠の形の骨組みを出す。左のメニューの幅と上の帯の高さは描いた後と同じ。
+      // 本文はバックログの組み（絞り込みの行と木の行）
+      await expect(boot.locator('.boot-frame')).toBeVisible();
+      // 本文の上の余白は、上の帯の下のパンくずの帯が 16px を取り、本文はその下を 8px 空ける（#1509）
+      await expect(boot.locator('.boot-crumbs')).toHaveCSS('padding-top', '16px');
+      await expect(boot.locator('.boot-content')).toHaveCSS('padding-top', '8px');
+      await expect(page.locator('html')).toHaveAttribute('data-boot', 'tree');
+      await expect(boot.locator('.boot-body .boot-row .is-select')).toHaveCount(4);
+      await expect(boot.locator('.boot-skeleton')).toBeHidden();
+      const bootBinding = await shownBox(boot.locator('.boot-binding'));
+      const bootTopbar = await shownBox(boot.locator('.boot-topbar'));
+      const bootHead = await shownBox(boot.locator('.boot-head'));
+      const bootCrumbs = await shownBox(boot.locator('.boot-crumbs'));
+      const bootMark = await shownBox(boot.locator('.boot-start .is-mark'));
+      const bootToggle = await shownBox(boot.locator('.boot-start .is-toggle'));
+
+      release();
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+      await expect(boot).toHaveCount(0);
+      // 描いた後は、骨組みの形の印を html に残さない
+      await expect(page.locator('html')).not.toHaveAttribute('data-boot');
+      const binding = await shownBox(page.locator('.binding'));
+      const topbar = await shownBox(page.locator('.topbar'));
+      const head = await shownBox(page.locator('.page-head'));
+      const crumbs = await shownBox(page.locator('.sheet-crumbs'));
+      const mark = await shownBox(page.locator('.topbar-start .brand-art'));
+      const toggle = await shownBox(page.locator('.nav-toggle'));
+      expect(bootBinding.width).toBe(binding.width);
+      // 上の帯は全幅で、左のメニューは帯の下から始まる（#1511）
+      expect(bootTopbar.x).toBe(topbar.x);
+      expect(bootTopbar.width).toBe(topbar.width);
+      expect(bootTopbar.height).toBe(topbar.height);
+      expect(bootBinding.y).toBe(binding.y);
+      // 帯の左端のマークも、開閉のボタンの右の同じ位置にある
+      expect(bootMark.x).toBe(mark.x);
+      expect(bootMark.y).toBe(mark.y);
+      expect(bootToggle).toEqual(toggle);
+      // 指で押す画面の分岐に入ったこと: 本物の開閉のボタンは指で押す画面だけ 44px、細かいポインターでは 36px
+      expect(toggle.width).toBe(pointer === '指で押す 1024px' ? 44 : 36);
+      expect(toggle.height).toBe(toggle.width);
+      // パンくずの帯も、上の帯の下の同じ位置と高さにある（#1509）
+      expect(bootCrumbs.x).toBe(crumbs.x);
+      expect(bootCrumbs.y).toBe(crumbs.y);
+      expect(bootCrumbs.height).toBe(crumbs.height);
+      // 画面の見出しの始まりも同じ位置（本文の余白が本物と同じ）
+      expect(bootHead.x).toBe(head.x);
+      expect(bootHead.y).toBe(head.y);
+    });
   });
-  await page.goto(WORKSPACE, { waitUntil: 'commit' });
-
-  const boot = page.locator('#boot-loading');
-  await expect(boot).toBeVisible();
-  await expect(boot.locator('.boot-wait')).toHaveText('読み込んでいます');
-  // 行き先が組織の枠なので、紙ではなく枠の形の骨組みを出す。左のメニューの幅と上の帯の高さは描いた後と同じ。
-  // 本文はバックログの組み（絞り込みの行と木の行）
-  await expect(boot.locator('.boot-frame')).toBeVisible();
-  // 本文の上の余白は、上の帯の下のパンくずの帯が 16px を取り、本文はその下を 8px 空ける（#1509）
-  await expect(boot.locator('.boot-crumbs')).toHaveCSS('padding-top', '16px');
-  await expect(boot.locator('.boot-content')).toHaveCSS('padding-top', '8px');
-  await expect(page.locator('html')).toHaveAttribute('data-boot', 'tree');
-  await expect(boot.locator('.boot-body .boot-row .is-select')).toHaveCount(4);
-  await expect(boot.locator('.boot-skeleton')).toBeHidden();
-  const bootBinding = await shownBox(boot.locator('.boot-binding'));
-  const bootTopbar = await shownBox(boot.locator('.boot-topbar'));
-  const bootHead = await shownBox(boot.locator('.boot-head'));
-  const bootCrumbs = await shownBox(boot.locator('.boot-crumbs'));
-
-  release();
-  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-  await expect(boot).toHaveCount(0);
-  // 描いた後は、骨組みの形の印を html に残さない
-  await expect(page.locator('html')).not.toHaveAttribute('data-boot');
-  const binding = await shownBox(page.locator('.binding'));
-  const topbar = await shownBox(page.locator('.topbar'));
-  const head = await shownBox(page.locator('.page-head'));
-  const crumbs = await shownBox(page.locator('.sheet-crumbs'));
-  expect(bootBinding.width).toBe(binding.width);
-  expect(bootTopbar.x).toBe(topbar.x);
-  expect(bootTopbar.height).toBe(topbar.height);
-  // パンくずの帯も、上の帯の下の同じ位置と高さにある（#1509）
-  expect(bootCrumbs.x).toBe(crumbs.x);
-  expect(bootCrumbs.y).toBe(crumbs.y);
-  expect(bootCrumbs.height).toBe(crumbs.height);
-  // 画面の見出しの始まりも同じ位置（本文の余白が本物と同じ）
-  expect(bootHead.x).toBe(head.x);
-  expect(bootHead.y).toBe(head.y);
-});
+}
 
 for (const reducedMotion of ['no-preference', 'reduce'] as const) {
   test(`15 秒たっても描けないときは、読み込み中の文を失敗の文と再読み込みのリンクに替える（${reducedMotion}）`, async ({

@@ -170,9 +170,9 @@ test.describe('所属が1つの一般のメンバー', () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/aoba');
     await expect(buttonOf(page)).toBeVisible();
-    await page.getByRole('button', { name: 'メニューを畳む' }).click();
+    await page.getByRole('button', { name: 'メニューを閉じる' }).click();
     await expect(buttonOf(page)).toBeHidden();
-    await page.getByRole('button', { name: 'メニューを広げる' }).click();
+    await page.getByRole('button', { name: 'メニューを開く' }).click();
     for (const width of [760, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await page.getByRole('button', { name: 'すべてのメニュー', exact: true }).click();

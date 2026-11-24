@@ -162,9 +162,9 @@ test('文字を拡大してもロゴの名前が白い下地に収まる', async
   }
 });
 
-// 組織の枠の左上の角のマスは、横組みではなくマーク単体を白い枠の中に出し、角のマスの高さに収める
-async function expectCornerSymbol(page: Page): Promise<void> {
-  const brand = page.locator('.binding-head .brand');
+// 組織の枠の上の帯の左端（開閉のボタンの右）は、横組みではなくマーク単体を白い枠の中に出し、帯の高さに収める
+async function expectTopbarSymbol(page: Page): Promise<void> {
+  const brand = page.locator('.topbar-start .brand');
   const art = brand.locator('.brand-art');
   const symbol = art.locator('.brand-mark');
   await expect(art).toHaveAttribute('aria-hidden', 'true');
@@ -175,10 +175,11 @@ async function expectCornerSymbol(page: Page): Promise<void> {
   await expect(symbol).toHaveAttribute('src', /\/brand\/master\/symbol\.webp$/);
   await expect.poll(() => symbol.evaluate((img) => (img as HTMLImageElement).naturalWidth)).toBe(629);
   const box = (await symbol.boundingBox())!;
-  const head = (await page.locator('.binding-head').boundingBox())!;
-  expect(box.x).toBeGreaterThanOrEqual(head.x);
-  expect(box.y).toBeGreaterThanOrEqual(head.y);
-  expect(box.y + box.height).toBeLessThanOrEqual(head.y + head.height);
+  const bar = (await page.locator('.topbar').boundingBox())!;
+  const toggle = (await page.locator('.nav-toggle').boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(toggle.x + toggle.width);
+  expect(box.y).toBeGreaterThanOrEqual(bar.y);
+  expect(box.y + box.height).toBeLessThanOrEqual(bar.y + bar.height);
   await expect(brand).toHaveAccessibleName('Banmen');
 }
 
@@ -201,18 +202,18 @@ for (const screen of [
       await page.setViewportSize({ width, height: 900 });
       for (const theme of themes) {
         await page.evaluate((value) => (document.documentElement.dataset.theme = value), theme);
-        // 角のマスの BrandSymbol も、同じ配信用素材を読み込む。
+        // 上の帯の BrandSymbol も、同じ配信用素材を読み込む。
         for (const mark of await page.locator('.brand-art .brand-mark').all()) {
           await expect(mark).toHaveAttribute('src', /\/brand\/master\/symbol\.webp$/);
           await expect.poll(() => mark.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBe(629);
         }
         if (screen.path.startsWith('/aoba') && width <= 760) {
-          // 角のマスは出さない。浮きメニューの中の組織の切り替えにもマークは無い（#1510）
-          await expect(page.locator('.binding-head')).toHaveCount(0);
+          // 上の帯（マークを含む）は出さない。浮きメニューの中の組織の切り替えにもマークは無い（#1510）
+          await expect(page.locator('.topbar')).toHaveCount(0);
           await expect(page.locator('.brand-art')).toHaveCount(0);
           await expect(page.locator('.mobile-tabs')).toBeVisible();
         } else if (screen.path.startsWith('/aoba')) {
-          await expectCornerSymbol(page);
+          await expectTopbarSymbol(page);
         } else {
           await expectHorizontalBrand(page, true);
         }
@@ -221,20 +222,26 @@ for (const screen of [
   });
 }
 
-test('畳んだメニューの角のマスはマークのリンクだけを出し、狭い幅ではロゴを隠す', async ({ page, context, baseURL }) => {
+test('畳んだメニューでも上の帯の左端にマークのリンクを残し、狭い幅ではロゴを隠す', async ({
+  page,
+  context,
+  baseURL,
+}) => {
   await signIn(context, baseURL, 'member');
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/aoba');
   const brand = page.getByRole('link', { name: 'Banmen', exact: true });
   await expect(brand).toHaveAttribute('href', '/aoba');
-  await expectCornerSymbol(page);
-  await page.getByRole('button', { name: 'メニューを畳む' }).click();
+  await expectTopbarSymbol(page);
+  const open = (await brand.boundingBox())!;
+  await page.getByRole('button', { name: 'メニューを閉じる' }).click();
   for (const theme of themes) {
     await page.evaluate((value) => (document.documentElement.dataset.theme = value), theme);
-    // 組織の切り替えは上の帯にあるので、畳んだ角のマスにはマークのリンクを残す（#1510）
-    await expectCornerSymbol(page);
-    const box = (await brand.locator('.brand-mark').boundingBox())!;
-    expect(box.x + box.width).toBeLessThanOrEqual(64);
+    // 上の帯は畳んでも形を変えず、マークのリンクは同じ位置に残る（#1511）
+    await expectTopbarSymbol(page);
+    const box = (await brand.boundingBox())!;
+    expect(box.x).toBe(open.x);
+    expect(box.y).toBe(open.y);
     await expect(page.locator('.org-menu-button .brand-art')).toHaveCount(0);
   }
   await page.setViewportSize({ width: 390, height: 700 });
