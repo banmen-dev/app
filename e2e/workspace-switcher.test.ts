@@ -151,7 +151,10 @@ test.describe('所属が1つの一般のメンバー', () => {
     await page.keyboard.press('Tab');
     await page.keyboard.press('Tab');
     await expect(listOf(page)).toBeHidden();
-    // 761px 以上の左のメニューは切り替えで終わる（機能はタブ。#1514）。続く Tab で本文の上のパンくずへ移る
+    // 761px 以上の左のメニューは切り替えで終わる（機能はタブ。#1514）。続く Tab で左のメニューの幅の境目（#1513）、
+    // その次で本文の上のパンくずへ移る
+    await expect(page.getByRole('separator')).toBeFocused();
+    await page.keyboard.press('Tab');
     const crumbs = page.getByRole('navigation', { name: 'パンくず' }).getByRole('link');
     await expect(crumbs.first()).toBeFocused();
     await page.keyboard.press('Tab');
