@@ -346,13 +346,15 @@ a.breadcrumb-item:hover { color: var(--color-fg); text-decoration: underline; }
    画面を移るリンクの並びなので、.tabs（aria-selected の tablist とタブパネル）とは分け、nav の中のリンクにして今の画面に aria-current="page" を付ける。
    今の画面は、文字の色と太さ（600。パンくずと左のメニューと同じ）と、下の操作の色の線で示す。太さで幅が変わって並びが動かないよう、::after で太い字の幅を先に取る。
    タブの高さは 36px（指で押す画面は 44px）で、読み込み中の骨組み（.skeleton-frame の .sheet-tabs、static/boot-loading.css の .boot-tabs）と高さを揃える。
-   幅が足りなければ帯の中で横に送る（入らないタブを「その他」にまとめるのは #1516）。760px 以下は出さない */
+   幅が足りなければ帯の中で横に送る（入らないタブを「その他」にまとめるのは #1516）。送りの棒は出さず（常に出す環境で帯の高さが変わり、骨組みとずれるため）、
+   今の画面のタブは WorkspaceTabs が帯の見える範囲へ送る。760px 以下は出さない */
 .sheet-tabs {
   padding-top: var(--space-2);
   padding-left: max(var(--space-8), env(safe-area-inset-left, 0px));
   padding-right: max(var(--space-8), env(safe-area-inset-right, 0px));
 }
-.route-tabs { display: flex; gap: var(--space-1); border-bottom: 1px solid var(--color-line); overflow-x: auto; scrollbar-width: thin; }
+.route-tabs { position: relative; display: flex; gap: var(--space-1); border-bottom: 1px solid var(--color-line); overflow-x: auto; scrollbar-width: none; }
+.route-tabs::-webkit-scrollbar { display: none; }
 .route-tab {
   box-sizing: border-box; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; flex: none;
   min-height: calc(var(--space-6) + var(--space-3)); padding: 0 var(--space-3);

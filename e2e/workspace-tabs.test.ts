@@ -94,6 +94,29 @@ test.describe('リーダー（あおば開発のミナト）', () => {
   });
 });
 
+test.describe('左のメニューを広げた 800px', () => {
+  test.use({ viewport: { width: 800, height: 900 } });
+  test('タブが帯に入りきらなくても、今の画面のタブを帯の見える範囲に出す', async ({ page, context, baseURL }) => {
+    await signIn(context, baseURL, 'admin');
+    await page.goto(`${WORKSPACE}/settings`);
+    await expect(page.getByRole('heading', { level: 1, name: '設定' })).toBeVisible();
+    const bar = page.locator('.route-tabs');
+    // この検査の前提: 帯が溢れている
+    expect(await bar.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+    const current = tabsOf(page).locator('[aria-current="page"]');
+    await expect(current).toHaveText('設定');
+    const [barBox, tabBox] = [(await bar.boundingBox())!, (await current.boundingBox())!];
+    expect(tabBox.x).toBeGreaterThanOrEqual(barBox.x - 1);
+    expect(tabBox.x + tabBox.width).toBeLessThanOrEqual(barBox.x + barBox.width + 1);
+    // ページは横に送られない
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    // 左端の画面へ移ると、今のタブへ送り戻す
+    await tabsOf(page).getByRole('link', { name: '受信箱', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`${WORKSPACE}/inbox$`));
+    await expect.poll(() => bar.evaluate((el) => el.scrollLeft)).toBe(0);
+  });
+});
+
 test.describe('一般のメンバー（あおば開発のハルカ）', () => {
   test.use({ viewport: { width: 1280, height: 900 } });
   test('設定のタブを出さない', async ({ page, context, baseURL }) => {

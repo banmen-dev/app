@@ -22,9 +22,23 @@
       link: resolve(tab.href, { slug, id: workspaceId }),
     })),
   );
+
+  // 幅が足りず帯の中で横に送るとき（左のメニューを広げた 761〜850px ほど）、今の画面のタブが帯の外に隠れないよう、
+  // 開いたときと画面を移るたびに帯の見える範囲へ送る。帯の横の送りだけを変え、ページの縦の位置は動かさない（scrollIntoView を使わない）
+  let bar = $state<HTMLElement>();
+  $effect(() => {
+    void current;
+    const tab = bar?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!bar || !tab) return;
+    // 帯（position: relative）がタブの offsetParent なので、offsetLeft は帯の左端からの位置
+    const start = tab.offsetLeft;
+    const end = start + tab.offsetWidth;
+    if (start < bar.scrollLeft) bar.scrollLeft = start;
+    else if (end > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = end - bar.clientWidth;
+  });
 </script>
 
-<nav class="route-tabs" aria-label={t('workspaceTabs', { workspace: t('workspace') })}>
+<nav bind:this={bar} class="route-tabs" aria-label={t('workspaceTabs', { workspace: t('workspace') })}>
   {#each tabs as tab (tab.label)}
     <a
       class="route-tab"
