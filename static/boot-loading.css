@@ -165,7 +165,7 @@ html[data-boot-dashboard] #boot-loading .boot-skeleton {
   }
 }
 /* 行き先が組織の枠のとき（static/boot-shape.js が html に data-boot="<形>" を付ける）は、紙ではなく枠の形の骨組みを画面いっぱいに出す。
-   全幅の上の帯（高さ 60px。左端に開閉のボタンとマーク）の下に左のメニューと本文を並べる。左のメニューの幅（240px。閉じたときは列を出さず本文を全幅にする）、本文の余白は design/components.css の .app、.binding、.topbar、
+   全幅の上の帯（高さ 60px。左端に開閉のボタンとマーク）の下に左のメニューと本文を並べる。左のメニューの幅（既定 240px。覚えた幅を static/boot-shape.js が html の --nav-width に当て、200px と min(480px, 40vw) に収める。閉じたときは列を出さず本文を全幅にする）、本文の余白は design/components.css の .app、.binding、.topbar、
    .content と同じにし、本文は行き先の画面の組み（形は src/lib/loading-shape.ts と同じ。2列は .layout-aside の 320px、.layout-wiki、
    .setting の 260px、.board の 232px の列、.lanes の3列。どれも 1080px 以下で1列）に近づける。デザインシステムの LoadingSheet の
    .skeleton-frame と同じ並びにして、移る間と最初の読み込みで同じ形を見せる。
@@ -182,7 +182,7 @@ html[data-boot] #boot-loading .boot-frame {
   position: absolute;
   inset: 0;
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: clamp(200px, var(--nav-width, 240px), min(480px, 40vw)) minmax(0, 1fr);
   grid-template-rows: auto 1fr;
   grid-template-areas: 'bar bar' 'binding sheet';
   overflow: hidden;

@@ -9,6 +9,15 @@
   import { resolve } from '$app/paths';
   import { t } from '../vocabulary.svelte.ts';
   import { NAV_MENU_ID, navState, setNavCollapsed } from '../nav-collapse.svelte.ts';
+  import {
+    NAV_WIDTH_MIN,
+    draggedNavWidth,
+    keyedNavWidth,
+    releasedNavWidth,
+    navWidthMax,
+    navWidthState,
+    setNavWidth,
+  } from '../nav-width.svelte.ts';
   import { page } from '$app/state';
   import { accountScreenKey, workspaceIdOf } from '../breadcrumb.ts';
   import { goto, onNavigate } from '$app/navigation';
@@ -67,6 +76,69 @@
   let mounted = $state(false);
   let navToggle = $state<HTMLButtonElement>();
   let binding = $state<HTMLElement>();
+
+  // 左のメニューの右の境目（#1513）。ドラッグと左右の矢印キーで幅を変え、ダブルクリックと Enter で閉じる。
+  // 幅の上限は画面の幅で変わる（min(480px, 40vw)）。覚えた幅が上限を超える細い窓では上限の幅で出し（CSS の clamp と同じ）、読み上げの値もそれに合わせる
+  let viewportWidth = $state(0);
+  const navWidthLimit = $derived(navWidthMax(viewportWidth));
+  // width はドラッグの間だけの幅（ドラッグとみなす移動が無ければ null）。ドラッグの間は覚えた幅の状態（navWidthState）を書き換えず、
+  // 見た目だけをこの幅で出す。別のタブが覚えた幅を変えても状態に入り、離したときに見える幅が掴んだときと変わらなければ
+  // （押して離しただけ、上限に張り付いたまま動かした）何もしないので、覚えた広い幅も別のタブの変更も失わない
+  let resize = $state<{
+    pointerId: number;
+    startX: number;
+    startWidth: number;
+    width: number | null;
+  } | null>(null);
+  const navWidth = $derived(resize?.width ?? navWidthState.width);
+  const shownNavWidth = $derived(Math.min(navWidth, navWidthLimit));
+  // 札の縦の位置。ホバーではポインタの高さに出し、キーボードで移ったときは境目の上端に出す（CSS の既定）
+  let resizeTipY = $state<number | null>(null);
+
+  function onResizePointerDown(event: PointerEvent) {
+    if (event.button !== 0 || !event.isPrimary) return;
+    const target = event.currentTarget as HTMLElement;
+    target.setPointerCapture(event.pointerId);
+    resize = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startWidth: shownNavWidth,
+      width: null,
+    };
+  }
+  function onResizePointerMove(event: PointerEvent) {
+    if (resize && event.pointerId === resize.pointerId) {
+      // ドラッグの間は見た目だけを変え、離したときに覚える（localStorage に動くたびに書かない）。
+      // 閾値未満のずれは動かしていないものとし、一度ドラッグになった後は掴んだときの幅に戻す
+      const next = draggedNavWidth(resize.startWidth, event.clientX - resize.startX, viewportWidth);
+      if (next !== null || resize.width !== null) resize.width = next ?? resize.startWidth;
+      return;
+    }
+    resizeTipY = event.clientY - (event.currentTarget as HTMLElement).getBoundingClientRect().top;
+  }
+  function onResizePointerEnd(event: PointerEvent) {
+    if (!resize || event.pointerId !== resize.pointerId) return;
+    const { startWidth, width } = resize;
+    resize = null;
+    const next = width === null ? null : releasedNavWidth(startWidth, width);
+    if (next !== null) setNavWidth(next, { viewportWidth });
+    // 離した直後も :hover のまま札が出るので、今のポインタの高さに合わせる（lostpointercapture は座標を持たないことがあるので、pointerup だけ）
+    if (event.type === 'pointerup')
+      resizeTipY = event.clientY - (event.currentTarget as HTMLElement).getBoundingClientRect().top;
+  }
+  function onResizeKeydown(event: KeyboardEvent) {
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      setNavCollapsed(true);
+      return;
+    }
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    // 端に張り付いて見た目が変わらないときは覚え直さない
+    const next = keyedNavWidth(event.key, shownNavWidth, viewportWidth);
+    if (next !== null) setNavWidth(next, { viewportWidth });
+  }
 
   // 左のメニューを閉じると綴じが hidden になり、中にあったフォーカスは body に落ちる（別のタブで閉じたときなど。
   // 開閉のボタンで閉じたときはフォーカスがボタンにあるので当たらない）。DOM に当てる前に中にあったかを見て、開閉のボタンへ移す
@@ -213,7 +285,15 @@
   </div>
 {/snippet}
 
-<div class="app" data-nav-collapsed={navState.collapsed ? 'true' : undefined}>
+<svelte:window bind:innerWidth={viewportWidth} />
+
+<!-- 幅は CSSOM（style:）で渡す。CSP が style 属性の文字列を止めるため（Avatar.svelte と同じ扱い） -->
+<div
+  class="app"
+  data-nav-collapsed={navState.collapsed ? 'true' : undefined}
+  data-nav-resizing={resize ? 'true' : undefined}
+  style:--nav-width="{navWidth}px"
+>
   {#if !narrow.current}
     <div class="topbar">
       <div class="topbar-start">
@@ -225,6 +305,12 @@
           aria-controls={NAV_MENU_ID}
           aria-label={t(navState.collapsed ? 'menuExpand' : 'menuCollapse')}
           onclick={() => setNavCollapsed(!navState.collapsed)}
+          onkeydown={(event) => {
+            // 押し続けた Enter の繰り返しでは押さない。境目で Enter を押して閉じるとフォーカスがこのボタンへ移り、
+            // 押し続けた繰り返しの Enter がここに届いて開き直してしまうため（#1513）
+            // Space は keyup で押されるので、繰り返しの keydown では押されない。止めるのは Enter だけでよい
+            if (event.repeat && event.key === 'Enter') event.preventDefault();
+          }}
         >
           <Icon name="panel" />
           <span class="nav-tip" aria-hidden="true">{t(navState.collapsed ? 'menuExpand' : 'menuCollapse')}</span>
@@ -245,6 +331,34 @@
         <div class="binding-body">
           <NavMenu {current} {slug} {hasWorkspace} {isAdmin} {workspace} {workspaceSwitcher} workspaceItems={false} />
         </div>
+      </div>
+      <!-- 右の境目。ホバーのできない端末では CSS で出さない（開閉のボタンだけで閉じる）。
+           フォーカスできる separator（値を持つ）は ARIA では操作できる部品だが、Svelte の検査は非対話の役割と見なすので外す -->
+      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+      <div
+        class="nav-resize"
+        role="separator"
+        tabindex="0"
+        aria-orientation="vertical"
+        aria-label={t('navResize')}
+        aria-controls={NAV_MENU_ID}
+        aria-keyshortcuts="Enter"
+        aria-valuenow={shownNavWidth}
+        aria-valuemin={NAV_WIDTH_MIN}
+        aria-valuemax={navWidthLimit}
+        data-dragging={resize ? 'true' : undefined}
+        style:--nav-resize-tip-y={resizeTipY === null ? undefined : `${resizeTipY}px`}
+        onpointerdown={onResizePointerDown}
+        onpointermove={onResizePointerMove}
+        onpointerup={onResizePointerEnd}
+        onpointercancel={onResizePointerEnd}
+        onlostpointercapture={onResizePointerEnd}
+        onpointerleave={() => (resizeTipY = null)}
+        ondblclick={() => setNavCollapsed(true)}
+        onkeydown={onResizeKeydown}
+      >
+        <span class="nav-resize-tip" aria-hidden="true">{t('navResizeTip')}</span>
       </div>
     </aside>
   {/if}

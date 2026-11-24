@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t } from '../vocabulary.svelte.ts';
   import { navState } from '../nav-collapse.svelte.ts';
+  import { navWidthState } from '../nav-width.svelte.ts';
   import { loadingShapeCounts, loadingShapeHasActions, loadingTabCount, type LoadingShape } from '../loading-shape.ts';
   import BrandSymbol from './BrandSymbol.svelte';
   import Gate from './Gate.svelte';
@@ -28,7 +29,12 @@
 </svelte:head>
 
 {#if shape}
-  <div class="app skeleton-frame" data-nav-collapsed={navState.collapsed ? 'true' : undefined} data-shape={shape}>
+  <div
+    class="app skeleton-frame"
+    data-nav-collapsed={navState.collapsed ? 'true' : undefined}
+    data-shape={shape}
+    style:--nav-width="{navWidthState.width}px"
+  >
     <div class="topbar" aria-hidden="true">
       <div class="topbar-start">
         <span class="skeleton-line is-toggle"></span>

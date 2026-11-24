@@ -15,6 +15,7 @@ import {
   loadingTabCount,
   type LoadingShape,
 } from '../src/lib/loading-shape.ts';
+import { NAV_WIDTH_KEY, parseNavWidth } from '../src/lib/nav-width.ts';
 
 const script = readFileSync(new URL('../static/boot-shape.js', import.meta.url), 'utf8');
 const routesDir = fileURLToPath(new URL('../src/routes', import.meta.url));
@@ -22,19 +23,24 @@ const routesDir = fileURLToPath(new URL('../src/routes', import.meta.url));
 type BootDataset = { boot?: string; bootNav?: string; bootDashboard?: string; bootTabs?: string };
 type FakeContent = { innerHTML: string };
 
-// 最初の読み込みの骨組みの先当て（static/boot-shape.js）を、偽の location と localStorage と document で動かす
+// 最初の読み込みの骨組みの先当て（static/boot-shape.js）を、偽の location と localStorage と document で動かす。
+// stored は閉じた状態（sg-nav-collapsed）、width は幅（sg-nav-width）の覚えた値。styles は html に CSSOM で当てた値
 function runBootShape(
   pathname: string,
   stored: string | null = null,
-): { dataset: BootDataset; content: FakeContent; paper: FakeContent } {
+  width: string | null = null,
+): { dataset: BootDataset; content: FakeContent; paper: FakeContent; styles: Map<string, string> } {
   const dataset: BootDataset = {};
   const content: FakeContent = { innerHTML: '' };
   const paper: FakeContent = { innerHTML: '' };
+  const styles = new Map<string, string>();
   vm.runInNewContext(script, {
     location: { pathname },
-    localStorage: { getItem: (key: string) => (key === 'sg-nav-collapsed' ? stored : null) },
+    localStorage: {
+      getItem: (key: string) => (key === 'sg-nav-collapsed' ? stored : key === 'sg-nav-width' ? width : null),
+    },
     document: {
-      documentElement: { dataset },
+      documentElement: { dataset, style: { setProperty: (name: string, value: string) => styles.set(name, value) } },
       querySelector: (selector: string) =>
         selector === '#boot-loading .boot-content'
           ? content
@@ -43,7 +49,7 @@ function runBootShape(
             : null,
     },
   });
-  return { dataset, content, paper };
+  return { dataset, content, paper, styles };
 }
 
 // src/routes の +page.svelte から、画面の route.id（/[slug]/w/[id] など）を集める
@@ -244,6 +250,33 @@ describe('最初の読み込みの骨組みの形（static/boot-shape.js）', ()
     const source = readFileSync(new URL('../src/lib/nav-collapse.svelte.ts', import.meta.url), 'utf8');
     assert.match(source, /export const NAV_COLLAPSED_KEY = 'sg-nav-collapsed';/);
     assert.match(script, /localStorage\.getItem\('sg-nav-collapsed'\) === 'true'/);
+  });
+
+  // 覚えた幅は、読み込んだ後（src/lib/nav-width.ts の parseNavWidth）と同じ読み方で html の --nav-width に当てる（#1513）
+  test('左のメニューの幅を覚えていれば、読み込んだ後と同じ幅を当てる', () => {
+    assert.equal(NAV_WIDTH_KEY, 'sg-nav-width');
+    for (const value of ['200', '240', '333', '480', '100', '0', '9999', '0320']) {
+      assert.equal(runBootShape('/aoba', null, value).styles.get('--nav-width'), `${parseNavWidth(value)}px`, value);
+    }
+    // 読めない値は当てず、CSS の既定（240px。parseNavWidth の既定と同じ）で出す
+    for (const value of [null, '', '320px', '320.5', ' 320', '-300', '1e3', 'abc', '99999']) {
+      assert.equal(runBootShape('/aoba', null, value).styles.get('--nav-width'), undefined, String(value));
+      assert.equal(parseNavWidth(value), 240);
+    }
+    assert.equal(runBootShape('/login', null, '320').styles.get('--nav-width'), undefined);
+  });
+
+  test('骨組みの綴じの幅は、読み込んだ後の .app と同じ式で範囲に収める', () => {
+    const boot = readFileSync(new URL('../static/boot-loading.css', import.meta.url), 'utf8');
+    const components = readFileSync(new URL('../design/components.css', import.meta.url), 'utf8');
+    const clamp = 'clamp(200px, var(--nav-width, 240px), min(480px, 40vw))';
+    assert.ok(components.includes(`--binding-width: ${clamp};`), '.app の --binding-width の式が変わった');
+    assert.match(
+      boot,
+      new RegExp(
+        `html\\[data-boot\\] #boot-loading \\.boot-frame \\{[^}]*grid-template-columns: ${clamp.replace(/[()]/g, '\\$&')} minmax\\(0, 1fr\\);`,
+      ),
+    );
   });
 
   test('localStorage が使えなくても落ちず、開いた列の枠にする', () => {
