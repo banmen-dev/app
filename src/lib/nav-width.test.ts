@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { NAV_WIDTH_DRAG_THRESHOLD, draggedNavWidth, keyedNavWidth } from './nav-width.ts';
+import { NAV_WIDTH_DRAG_THRESHOLD, draggedNavWidth, keyedNavWidth, releasedNavWidth } from './nav-width.ts';
 
 describe('境目のドラッグで決める幅', () => {
   test('押して離しただけ、または閾値（3px）未満のずれは幅を変えない（ダブルクリックの間のずれで前の幅を失わない）', () => {
@@ -37,5 +37,19 @@ describe('境目のキーで決める幅', () => {
     expect(keyedNavWidth('Home', 200, 1280)).toBeNull();
     // 上限から左へは変わる
     expect(keyedNavWidth('ArrowLeft', 360, 900)).toBe(344);
+  });
+});
+
+describe('境目を離したときの幅', () => {
+  test('見えている幅が掴んだときと同じなら null（呼ぶ側は覚えた広い幅に戻して覚え直さない）', () => {
+    // 覚えた 480 を 900px の窓（上限 360）で見ていて、右へ動かしても 360 のまま
+    expect(releasedNavWidth(360, 360)).toBeNull();
+    // 動かしてから元の幅へ戻して離した
+    expect(releasedNavWidth(300, 300)).toBeNull();
+  });
+
+  test('見えている幅が変わったら、その幅を覚える', () => {
+    expect(releasedNavWidth(360, 300)).toBe(300);
+    expect(releasedNavWidth(240, 340)).toBe(340);
   });
 });

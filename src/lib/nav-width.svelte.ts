@@ -15,6 +15,7 @@ export {
   clampNavWidth,
   draggedNavWidth,
   keyedNavWidth,
+  releasedNavWidth,
   navWidthMax,
   parseNavWidth,
 } from './nav-width.ts';

@@ -133,6 +133,24 @@ test('キーボードで境目に移り、左右の矢印キーで幅を変え�
   await expect(page.getByRole('button', { name: 'メニューを開く' })).toBeFocused();
 });
 
+test('境目で Enter を押し続けても、フォーカスが移った開閉のボタンの繰り返しで開き直さない', async ({ page }) => {
+  await openFresh(page);
+  await focusByTab(page, separator(page));
+  // 2回目以降の down は repeat: true の keydown になり、閉じた後にフォーカスが移った開閉のボタンへ届く
+  await page.keyboard.down('Enter');
+  const expand = page.getByRole('button', { name: 'メニューを開く' });
+  await expect(expand).toBeFocused();
+  // 繰り返しは1回ずつ確かめる（2回送ると、開いてまた閉じて、閉じたままに見えるため）
+  await page.keyboard.down('Enter');
+  await expect(page.locator('.app')).toHaveAttribute('data-nav-collapsed', 'true');
+  await page.keyboard.down('Enter');
+  await page.keyboard.up('Enter');
+  await expect(page.locator('.app')).toHaveAttribute('data-nav-collapsed', 'true');
+  // 押し直せば、開閉のボタンはふつうに開く
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.app')).not.toHaveAttribute('data-nav-collapsed', 'true');
+});
+
 test('細い窓では、覚えた幅が上限を超えても 40vw で止め、読み上げの値も合わせる', async ({ page }) => {
   await openFresh(page, 800, '480');
   const handle = separator(page);
@@ -145,7 +163,9 @@ test('細い窓では、覚えた幅が上限を超えても 40vw で止め、�
   await expect(handle).toHaveAttribute('aria-valuenow', '480');
 });
 
-test('細い窓で境目を押すだけ、2px のずれ、上限での右の矢印では、覚えた広い幅を書き換えない', async ({ page }) => {
+test('細い窓で境目を押すだけ、2px のずれ、上限での右へのドラッグと右の矢印では、覚えた広い幅を書き換えない', async ({
+  page,
+}) => {
   await openFresh(page, 900, '480');
   const handle = separator(page);
   await expect(page.locator('.app > .binding')).toHaveJSProperty('offsetWidth', 360);
@@ -153,6 +173,9 @@ test('細い窓で境目を押すだけ、2px のずれ、上限での右の矢�
   await handle.click();
   // 押したまま 2px ずれて離す（ダブルクリックの手ぶれ）
   await drag(page, handle, 2);
+  await expect(page.locator('.app > .binding')).toHaveJSProperty('offsetWidth', 360);
+  // 上限に張り付いたまま右へ大きくドラッグする（見える幅は 360 のまま）
+  await drag(page, handle, 50);
   await expect(page.locator('.app > .binding')).toHaveJSProperty('offsetWidth', 360);
   // 上限に張り付いたまま右の矢印と End
   await handle.focus();

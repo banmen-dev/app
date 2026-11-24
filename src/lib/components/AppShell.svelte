@@ -13,6 +13,7 @@
     NAV_WIDTH_MIN,
     draggedNavWidth,
     keyedNavWidth,
+    releasedNavWidth,
     navWidthMax,
     navWidthState,
     setNavWidth,
@@ -79,8 +80,15 @@
   let viewportWidth = $state(0);
   const navWidthLimit = $derived(navWidthMax(viewportWidth));
   const shownNavWidth = $derived(Math.min(navWidthState.width, navWidthLimit));
-  // moved はドラッグで幅を変えたか。押して離しただけなら覚え直さない（細い窓の上限で覚えた広い幅を上書きしないため）
-  let resize = $state<{ pointerId: number; startX: number; startWidth: number; moved: boolean } | null>(null);
+  // moved はドラッグとみなす移動があったか、storedWidth は掴む前に覚えていた幅。
+  // 見える幅が掴んだときと変わらなければ（押して離しただけ、上限に張り付いたまま動かした）、覚えた広い幅に戻して覚え直さない
+  let resize = $state<{
+    pointerId: number;
+    startX: number;
+    startWidth: number;
+    storedWidth: number;
+    moved: boolean;
+  } | null>(null);
   // 札の縦の位置。ホバーではポインタの高さに出し、キーボードで移ったときは境目の上端に出す（CSS の既定）
   let resizeTipY = $state<number | null>(null);
 
@@ -88,7 +96,13 @@
     if (event.button !== 0 || !event.isPrimary) return;
     const target = event.currentTarget as HTMLElement;
     target.setPointerCapture(event.pointerId);
-    resize = { pointerId: event.pointerId, startX: event.clientX, startWidth: shownNavWidth, moved: false };
+    resize = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startWidth: shownNavWidth,
+      storedWidth: navWidthState.width,
+      moved: false,
+    };
   }
   function onResizePointerMove(event: PointerEvent) {
     if (resize && event.pointerId === resize.pointerId) {
@@ -103,9 +117,13 @@
   }
   function onResizePointerEnd(event: PointerEvent) {
     if (!resize || event.pointerId !== resize.pointerId) return;
-    const { moved } = resize;
+    const { moved, startWidth, storedWidth } = resize;
     resize = null;
-    if (moved) setNavWidth(navWidthState.width, { viewportWidth });
+    if (moved) {
+      const next = releasedNavWidth(startWidth, navWidthState.width);
+      if (next === null) navWidthState.width = storedWidth;
+      else setNavWidth(next, { viewportWidth });
+    }
     // 離した直後も :hover のまま札が出るので、今のポインタの高さに合わせる（lostpointercapture は座標を持たないことがあるので、pointerup だけ）
     if (event.type === 'pointerup')
       resizeTipY = event.clientY - (event.currentTarget as HTMLElement).getBoundingClientRect().top;
@@ -114,8 +132,7 @@
     if (event.altKey || event.ctrlKey || event.metaKey) return;
     if (event.key === 'Enter') {
       event.preventDefault();
-      // 押し続けた繰り返しは無視する。閉じるとフォーカスが開閉のボタンへ移り、繰り返しの Enter でまた開いてしまうため
-      if (!event.repeat) setNavCollapsed(true);
+      setNavCollapsed(true);
       return;
     }
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
@@ -290,6 +307,11 @@
           aria-controls={NAV_MENU_ID}
           aria-label={t(navState.collapsed ? 'menuExpand' : 'menuCollapse')}
           onclick={() => setNavCollapsed(!navState.collapsed)}
+          onkeydown={(event) => {
+            // 押し続けたキーの繰り返しでは押さない。境目で Enter を押して閉じるとフォーカスがこのボタンへ移り、
+            // 押し続けた繰り返しの Enter がここに届いて開き直してしまうため（#1513）
+            if (event.repeat && (event.key === 'Enter' || event.key === ' ')) event.preventDefault();
+          }}
         >
           <Icon name="panel" />
           <span class="nav-tip" aria-hidden="true">{t(navState.collapsed ? 'menuExpand' : 'menuCollapse')}</span>

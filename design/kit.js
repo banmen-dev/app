@@ -4050,7 +4050,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     handle.addEventListener("pointerdown", (event) => {
       if (event.button !== 0 || !event.isPrimary) return;
       handle.setPointerCapture(event.pointerId);
-      drag = { id: event.pointerId, x: event.clientX, w: Math.min(navWidth, navWidthLimit()), moved: false };
+      drag = { id: event.pointerId, x: event.clientX, w: Math.min(navWidth, navWidthLimit()), stored: navWidth, moved: false };
       handle.dataset.dragging = "true";
       document.querySelector(".app")?.setAttribute("data-nav-resizing", "true");
     });
@@ -4066,12 +4066,13 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     });
     const end = (event) => {
       if (!drag || event.pointerId !== drag.id) return;
-      const moved = drag.moved;
+      // 見える幅が掴んだときと変わらなければ（押して離しただけ、上限に張り付いたまま動かした）、覚えた幅に戻して覚え直さない（本番の releasedNavWidth と同じ）
+      const changed = drag.moved && navWidth !== drag.w;
+      if (!changed) navWidth = drag.stored;
       drag = null;
       delete handle.dataset.dragging;
       document.querySelector(".app")?.removeAttribute("data-nav-resizing");
-      // 押して離しただけなら覚え直さない（細い窓の上限で、覚えた広い幅を上書きしないため）
-      applyNavWidth(moved);
+      applyNavWidth(changed);
     };
     handle.addEventListener("pointerup", end);
     handle.addEventListener("pointercancel", end);
@@ -4082,7 +4083,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       if (event.altKey || event.ctrlKey || event.metaKey) return;
       const shown = Math.min(navWidth, navWidthLimit());
       const next = { ArrowLeft: shown - NAV_WIDTH.step, ArrowRight: shown + NAV_WIDTH.step, Home: NAV_WIDTH.min, End: navWidthLimit() }[event.key];
-      if (event.key === "Enter") { event.preventDefault(); if (!event.repeat) collapse(); return; }
+      if (event.key === "Enter") { event.preventDefault(); collapse(); return; }
       if (next === undefined) return;
       event.preventDefault();
       // 端に張り付いて見た目が変わらないときは覚え直さない（本番の keyedNavWidth と同じ）
@@ -4172,6 +4173,10 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     <div class="dialog" id="dialog" hidden></div>
     <div class="toasts" id="toasts" aria-live="polite"></div>`;
     document.querySelector("[data-switch='theme']").addEventListener("click", cycleTheme);
+    // 押し続けたキーの繰り返しでは押さない（境目の Enter で閉じた後、繰り返しがこのボタンに届いて開き直さないため。本番の AppShell と同じ）
+    document.querySelector("[data-nav-toggle]").addEventListener("keydown", (event) => {
+      if (event.repeat && (event.key === "Enter" || event.key === " ")) event.preventDefault();
+    });
     document.querySelector("[data-nav-toggle]").addEventListener("click", () => {
       navCollapsed = !navCollapsed;
       try { localStorage.setItem("sg-nav-collapsed", String(navCollapsed)); } catch (e) { /* 覚えられないだけで、今の画面では開閉する */ }

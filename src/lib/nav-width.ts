@@ -56,3 +56,10 @@ export function keyedNavWidth(key: string, shownWidth: number, viewportWidth: nu
   const next = clampNavWidth(target, viewportWidth);
   return next === shownWidth ? null : next;
 }
+
+// 境目を離したときに覚える幅を決める。startWidth は掴んだときに見えていた幅、currentWidth は離したときの幅。
+// 見えている幅が掴んだときと同じなら null を返し、呼ぶ側は掴む前に覚えていた幅に戻して覚え直さない。
+// 細い窓で上限に張り付いたまま動かしても、覚えた広い幅を上限の幅で上書きしないため
+export function releasedNavWidth(startWidth: number, currentWidth: number): number | null {
+  return currentWidth === startWidth ? null : currentWidth;
+}
