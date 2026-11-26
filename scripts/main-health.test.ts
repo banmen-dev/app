@@ -396,6 +396,8 @@ test('閉じる操作が失敗しても、次の監視で復旧コメントを�
   await assert.rejects(reconcile(api));
   assert.equal(state.comments.length, 1);
   await reconcile(api);
+  // 復旧コメントの実行の印を、印の無い記録として引き直さない
+  assert.ok(!state.reads.includes('/actions/runs/12/attempts/1/jobs?per_page=100&page=1'));
   assert.equal(state.comments.length, 1);
   assert.equal(closes(state.writes), 1);
 });

@@ -171,7 +171,11 @@ export async function reconcile(api: Api, notify = '', log: (message: string) =>
       return;
     }
     for (const issue of recovered) {
-      await commentOnce(issue, `最新の main の CI が成功しました。通常の作業を再開できます。\n\n${summary}`);
+      // 成功した実行の印も残す。閉じる操作が失敗して次の監視で読み直すとき、印の無い記録としてジョブを引かない。
+      await commentOnce(
+        issue,
+        `最新の main の CI が成功しました。通常の作業を再開できます。\n\n${summary}\n<!-- main-health:requires:run=${run.id}:attempt=${run.run_attempt}:e2e-dev=0 -->`,
+      );
       await api(`/issues/${issue.number}`, 'PATCH', { state: 'closed', state_reason: 'completed' });
     }
     return;
