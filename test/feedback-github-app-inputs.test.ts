@@ -103,6 +103,12 @@ describe('閲覧の口の URL', () => {
     'https://banmen.example.test/operator/feedback#@octocat',
     'javascript:alert(1)',
     'https://user@banmen.example.test/operator',
+    'https://banmen.example.test/operator/a b',
+    'https://banmen.example.test/operator/`x`',
+    'https://banmen.example.test/operator/[x]',
+    'https://banmen.example.test/operator/*x*',
+    'https://banmen.example.test/operator/%40x',
+    'https://banmen.example.test',
   ];
   test.each(rejected)('載せない: %j', (viewerUrl) => {
     const after = linesAfterFence(feedbackIssueBody(input({ viewerUrl })));
