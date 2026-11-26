@@ -140,6 +140,29 @@ describe('見えない文を運べる文字を除く', () => {
     expect(normalizeFeedbackText(`${at(0x1f600)}${hidden.join('')}`)).toBe(at(0x1f600));
   });
 
+  test('U+FE0F を並べて運ぶ文は、直前の文字に1つだけ残る', () => {
+    const heart = `${at(0x2764)}${at(0xfe0f)}`;
+    expect(normalizeFeedbackText(`${heart}${at(0xfe0f).repeat(8)}a`)).toBe(`${heart}a`);
+    expect(normalizeFeedbackText(`a${at(0xfe0f).repeat(5)}b${at(0xfe0f).repeat(3)}`)).toBe(
+      `a${at(0xfe0f)}b${at(0xfe0f)}`,
+    );
+  });
+
+  test('文の先頭の U+FE0F と、除いた文字の後に残る U+FE0F の連なりは残らない', () => {
+    expect(normalizeFeedbackText(`${at(0xfe0f)}a`)).toBe('a');
+    expect(normalizeFeedbackText(`a${at(0xfe0f)}${at(0x200b)}${at(0xfe0f)}`)).toBe(`a${at(0xfe0f)}`);
+  });
+
+  test('正規化は2回かけても変わらない（U+FE0F の連なり）', () => {
+    const text = `${at(0xfe0f)}x${at(0xfe0f)}${at(0xfe0e)}${at(0xfe0f)}y`;
+    const once = normalizeFeedbackText(text);
+    expect(normalizeFeedbackText(once)).toBe(once);
+  });
+
+  test('漢字の異体字の指定（IVS）は除き、基本の字は残す', () => {
+    expect(normalizeFeedbackText(`${at(0x845b)}${at(0xe0100)}`)).toBe(at(0x845b));
+  });
+
   test('絵文字の見た目を決める U+FE0F は残す', () => {
     const heart = `${at(0x2764)}${at(0xfe0f)}`;
     expect(normalizeFeedbackText(heart)).toBe(heart);

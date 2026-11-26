@@ -324,12 +324,19 @@ export function feedbackIssueBody(input: FeedbackIssueInput): string {
 // 対にならないサロゲートの片割れ（U+D800〜U+DFFF）も除く。残すと、間の文字を除いた後で上位と下位の片割れがつながり、
 // 除いたはずのタグの文字などが生まれる（JSON の \u エスケープから片割れのまま届く）。
 // ほかに Unicode の Default_Ignorable_Code_Point（ハングルの埋め字、ソフトハイフン、異体字セレクタなど）と注釈の文字（U+FFF9〜U+FFFB）も除く。
-// 異体字セレクタは並べると見えない文を運べるので、絵文字の見た目を決める U+FE0F だけを残す
+// 異体字セレクタは並べると見えない文を運べるので、絵文字の見た目を決める U+FE0F だけを、直前の文字に1つだけ残す
+// （文の先頭と、U+FE0F の後に続くものは除く）。漢字の異体字の指定（IVS、U+E0100〜U+E01EF）も除くので、人名や地名の字形は基本の字形で届く
 export function normalizeFeedbackText(text: string): string {
   const unified = text.replace(/\r\n|[\r\u0085\u2028\u2029]/g, '\n');
   let result = '';
+  let previous: number | undefined;
   for (const char of unified) {
-    if (!isRemovedChar(char.codePointAt(0) ?? 0)) result += char;
+    const code = char.codePointAt(0) ?? 0;
+    if (isRemovedChar(code)) continue;
+    if (code === EMOJI_PRESENTATION_SELECTOR && (previous === undefined || previous === EMOJI_PRESENTATION_SELECTOR))
+      continue;
+    result += char;
+    previous = code;
   }
   return result;
 }
