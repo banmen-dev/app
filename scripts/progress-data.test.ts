@@ -9,9 +9,12 @@ import {
   lookupsFor,
   parseClosing,
   parseSprintLog,
+  rejectedClosingWarning,
   pullTargets,
   toRawIssue,
+  trustedClosings,
   withoutPulls,
+  type ApiComment,
   type ApiIssue,
   type BoardIssue,
   type RawBlocker,
@@ -19,6 +22,7 @@ import {
   type RawIssue,
   type RawPull,
 } from './progress-data.ts';
+import { cachedLookup } from './github-write-permissions.ts';
 
 const NOW = new Date('2026-10-30T01:02:03Z');
 
@@ -755,5 +759,101 @@ describe('コマンドの引数', () => {
     assert.equal(result.status, 1);
     assert.match(result.stderr, /使い方: node scripts\/progress-data\.ts <出力のパス>/);
     assert.equal(result.stdout, '');
+  });
+});
+
+describe('締めのコメントの作者', () => {
+  const CLOSING = '## 締め（2026-11-04）\n\nベロシティ: 12';
+  const comment = (login: string, body = CLOSING, type = 'User'): ApiComment => ({ body, user: { login, type } });
+  // 架空の権限の表。writer だけが書き込み権限を持ち、member は区分が MEMBER でも read、broken は API が失敗する
+  const permissions: Record<string, string> = { writer: 'write', outsider: 'read', member: 'read' };
+  const lookup = async (login: string): Promise<unknown> => {
+    if (login === 'broken') throw new Error('API が失敗した');
+    return { permission: permissions[login] ?? 'none', user: { login, type: 'User' } };
+  };
+
+  test('書き込み権限のある作者の締めだけを返す', async () => {
+    assert.deepEqual(await trustedClosings([comment('Writer')], lookup), { bodies: [CLOSING], rejected: 0 });
+  });
+
+  test('外の人（read）、権限の無い MEMBER、API が失敗した作者の締めは返さず、読まなかった数に数える', async () => {
+    // API の応答の author_association は型に持たず、判定に使わない。MEMBER と書いても権限の表で決まる
+    const member = { ...comment('member'), author_association: 'MEMBER' };
+    assert.deepEqual(await trustedClosings([comment('outsider'), member, comment('broken')], lookup), {
+      bodies: [],
+      rejected: 3,
+    });
+  });
+
+  test('Bot の型、login の無いコメント、不正な login の締めは返さない', async () => {
+    const comments: ApiComment[] = [
+      comment('writer', CLOSING, 'Bot'),
+      { body: CLOSING, user: null },
+      comment('writer/../x'),
+    ];
+    assert.deepEqual(await trustedClosings(comments, lookup), { bodies: [], rejected: 3 });
+  });
+
+  test('同じ login の User が許可されていても、Bot の型の締めは返さない', async () => {
+    const comments = [comment('Writer', '## 締め\nBOT', 'Bot'), comment('writer', '## 締め\nOK')];
+    assert.deepEqual(await trustedClosings(comments, lookup), { bodies: ['## 締め\nOK'], rejected: 1 });
+  });
+
+  test('締めでないコメントは、作者に権限があっても返さず、権限も引かない', async () => {
+    const asked: string[] = [];
+    const counting = async (login: string) => {
+      asked.push(login);
+      return lookup(login);
+    };
+    assert.deepEqual(await trustedClosings([comment('writer', 'ほかのコメント'), { body: null }], counting), {
+      bodies: [],
+      rejected: 0,
+    });
+    assert.deepEqual(asked, []);
+  });
+
+  test('cachedLookup は、記録をまたいでも許可の結果を本人ごとに1回だけ引き、失敗は次に引き直す', async () => {
+    const asked: string[] = [];
+    const cached = cachedLookup(async (login: string) => {
+      asked.push(login);
+      return lookup(login);
+    });
+    for (let i = 0; i < 2; i++) {
+      assert.deepEqual(await trustedClosings([comment('writer'), comment('broken')], cached), {
+        bodies: [CLOSING],
+        rejected: 1,
+      });
+    }
+    assert.deepEqual(asked, ['writer', 'broken', 'broken']);
+  });
+
+  test('cachedLookup は、一時的に失敗した本人を次の記録で引き直し、通れば許可する', async () => {
+    let calls = 0;
+    const flaky = cachedLookup(async (login: string) => {
+      calls += 1;
+      if (calls === 1) throw new Error('タイムアウト');
+      return lookup(login);
+    });
+    assert.deepEqual(await trustedClosings([comment('writer')], flaky), { bodies: [], rejected: 1 });
+    assert.deepEqual(await trustedClosings([comment('writer')], flaky), { bodies: [CLOSING], rejected: 0 });
+  });
+
+  test('読まなかった締めの警告は、記録の番号と件数だけを出し、原因を断定せず、0 件なら出さない', () => {
+    assert.equal(
+      rejectedClosingWarning(7, 2),
+      '記録 #7 の締めのコメント 2 件は、作者の書き込み権限を確認できた締めではないので読まなかった',
+    );
+    assert.equal(rejectedClosingWarning(7, 0), null);
+  });
+
+  test('偽の締めが後ろにあっても、履歴は書き込み権限のある作者の締めを読む', async () => {
+    const real = '## 締め\n\n| 計画 | 17 | 5 |\n\nベロシティ: 12';
+    const fake = '## 締め\n\n| 計画 | 99 | 9 |\n\nベロシティ: 99';
+    const issues = [closed(1, { labels: ['sprint-log'], title: 'スプリント 1（2026-10-22〜2026-10-28）' })];
+    const { bodies } = await trustedClosings([comment('writer', real), comment('outsider', fake)], lookup);
+    const { history } = buildProgress(raw({ issues, comments: { 1: bodies } }), NOW);
+    assert.equal(history.length, 1);
+    assert.equal(history[0]?.velocity, 12);
+    assert.deepEqual(history[0]?.planned, { pt: 17, count: 5 });
   });
 });
