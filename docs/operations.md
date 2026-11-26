@@ -229,7 +229,7 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
 
 決まり。
 
-- 3つのどれかが未設定か空だと（鍵が PKCS#8 の PEM でない、GitHub が出したままの PKCS#1 のときも同じ）、フィードバックの送信は断る。ほかの機能は動き、`/api/health` は 200 のまま
+- 3つのどれかが未設定か空だと（鍵が PKCS#8 の PEM でない、GitHub が出したままの PKCS#1 のとき、改行が文字の `\n` のまま1行で入ったときも同じ）、フィードバックの送信は断る。ほかの機能は動き、`/api/health` は 200 のまま
 - 開発用とプレビューには入れない。手元の確かめは GitHub への通信を模擬する（プレビューの決まり「外部連携の本番の秘密は入れない」と同じ）
 - 鍵を入れ替えるときは、App で新しい鍵を作り、PKCS#8 に直して `FEEDBACK_GITHUB_PRIVATE_KEY` を書き換え、送信が動くことを確かめてから古い鍵を App で消す
 - 鍵は git、ログ、Issue、PR に書かない。漏れたと分かったら、App で鍵を消して作り直す。漏れた鍵でできるのは、Issue を立てることだけではない。Issues の書き込みは、banmen-dev/app のすべての Issue とコメントの題と本文の書き換え、閉じる、ラベル（PR の `needs-human` を含む）の付け外しに及ぶ。セッションは Issue とコメントの信頼を作者で決めるので、身内の Issue の本文を書き換えると、開発のセッションに指示を仕込める。漏れていた疑いがあれば、鍵を作り直した後に、その間に App の bot が行ったことを洗い出し、戻す。見るのは、ラベルそのものの削除と改名（`needs-human` を消すか改名すると、人が読むはずの PR が人に聞かずにマージされうる。ラベルの削除は PR ごとの timeline に出ないことがあるので、ラベルの一覧に `needs-human`、`feedback`、`status:` で始まるもの、`ai-review` が今の名前であるかを見て、開いている PR の `label` のジョブを走らせ直して `needs-human` を付け直す）、Issue と PR のアサイン、マイルストーン、ロック、Issue と PR の題と本文、Issue と PR の会話のコメント（AI レビューのまとめを含む）の編集の履歴、timeline の `renamed`、`labeled`、`unlabeled`（特に PR の `needs-human` と `ai-review`）、`closed`、`reopened`、サブ Issue と依存関係の付け外し。コメントと Issue の削除は timeline に残らないので、banmen-dev の Organization の audit log（Settings → Audit log、`actor:` に App の bot）も見る

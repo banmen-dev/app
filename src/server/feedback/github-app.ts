@@ -25,6 +25,8 @@ const TOKEN_REFRESH_MARGIN_MS = 5 * 60 * 1000;
 
 const DECIMAL_ID_PATTERN = /^[0-9]+$/;
 const PEM_PATTERN = /-----BEGIN PRIVATE KEY-----([\s\S]*?)-----END PRIVATE KEY-----/;
+// PEM の本文（空白を除いたもの）は base64 の文字だけ
+const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
 // route ID に載せてよい文字: 空白と制御文字を除く ASCII の印字文字から、インラインのコードを閉じるバッククォート（U+0060）を除く
 const ROUTE_ID_PATTERN = /^[\u0021-\u005F\u0061-\u007E]+$/;
 // フィードバックの ID はサーバーが作る UUIDv7。形が違えば、本文の囲いの外に載せずに断る
@@ -39,7 +41,8 @@ const EMOJI_PRESENTATION_SELECTOR = 0xfe0f;
 export type FeedbackGithubCredentials = { appId: string; installationId: string; privateKeyPem: string };
 
 // env から FEEDBACK_GITHUB_APP_ID、FEEDBACK_GITHUB_INSTALLATION_ID、FEEDBACK_GITHUB_PRIVATE_KEY を読む。
-// どれかが無い・空・文字列でない、または App ID とインストールの ID が10進の数字だけでなければ undefined
+// どれかが無い・空・文字列でない、App ID とインストールの ID が10進の数字だけでない、または鍵が PKCS#8 の PEM
+// （BEGIN PRIVATE KEY の囲みで、本文が base64）でなければ undefined
 export function feedbackGithubCredentials(env: object): FeedbackGithubCredentials | undefined {
   // シークレットは型に出ないことがある。型に頼らず、値の有無を見る
   const appId = 'FEEDBACK_GITHUB_APP_ID' in env ? env.FEEDBACK_GITHUB_APP_ID : undefined;
@@ -47,9 +50,9 @@ export function feedbackGithubCredentials(env: object): FeedbackGithubCredential
   const privateKeyPem = 'FEEDBACK_GITHUB_PRIVATE_KEY' in env ? env.FEEDBACK_GITHUB_PRIVATE_KEY : undefined;
   if (typeof appId !== 'string' || !DECIMAL_ID_PATTERN.test(appId)) return undefined;
   if (typeof installationId !== 'string' || !DECIMAL_ID_PATTERN.test(installationId)) return undefined;
-  // GitHub が出す PKCS#1（BEGIN RSA PRIVATE KEY）や暗号化した鍵は Web Crypto で読めないので、設定が無いものとして扱う
-  // （docs/operations.md の「フィードバックの GitHub App」の手順 6 で PKCS#8 に直して入れる）
-  if (typeof privateKeyPem !== 'string' || !PEM_PATTERN.test(privateKeyPem)) return undefined;
+  // GitHub が出す PKCS#1（BEGIN RSA PRIVATE KEY）、暗号化した鍵、改行が文字の \n のまま入った鍵は Web Crypto で読めないので、
+  // 設定が無いものとして扱う（docs/operations.md の「フィードバックの GitHub App」の手順 6 で PKCS#8 に直して入れる）
+  if (typeof privateKeyPem !== 'string' || pemBody(privateKeyPem) === undefined) return undefined;
   return { appId, installationId, privateKeyPem };
 }
 
@@ -115,11 +118,18 @@ function base64UrlJson(value: unknown): string {
   return base64Url(new TextEncoder().encode(JSON.stringify(value)));
 }
 
+// PKCS#8 の PEM の本文（空白を除いた base64）。形が違えば undefined
+function pemBody(pem: string): string | undefined {
+  const match = PEM_PATTERN.exec(pem);
+  const body = match?.[1].replace(/\s/g, '');
+  return body && BASE64_PATTERN.test(body) ? body : undefined;
+}
+
 // PKCS#8 の PEM を署名用の鍵に読む。失敗は呼ぶ側が名前だけを残す（PEM の中身を例外に載せない）
 async function importPrivateKey(pem: string): Promise<CryptoKey> {
-  const match = PEM_PATTERN.exec(pem);
-  if (!match) throw new TypeError('PEM');
-  const der = Uint8Array.from(atob(match[1].replace(/\s/g, '')), (c) => c.charCodeAt(0));
+  const body = pemBody(pem);
+  if (body === undefined) throw new TypeError('PEM');
+  const der = Uint8Array.from(atob(body), (c) => c.charCodeAt(0));
   return crypto.subtle.importKey('pkcs8', der, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
 }
 

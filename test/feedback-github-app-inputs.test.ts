@@ -185,6 +185,10 @@ describe('鍵の形', () => {
     '-----BEGIN RSA PRIVATE KEY-----\nMIIfake\n-----END RSA PRIVATE KEY-----\n',
     '-----BEGIN ENCRYPTED PRIVATE KEY-----\nMIIfake\n-----END ENCRYPTED PRIVATE KEY-----\n',
     '   ',
+    // 改行が文字の \n のまま1行で入った鍵（ダッシュボードに貼ると起きやすい）
+    '-----BEGIN PRIVATE KEY-----\\nMIIfake\\n-----END PRIVATE KEY-----',
+    '-----BEGIN PRIVATE KEY-----\n\n-----END PRIVATE KEY-----\n',
+    '-----BEGIN PRIVATE KEY-----\nMII*fake!\n-----END PRIVATE KEY-----\n',
   ])('PKCS#8 の PEM でなければ設定が無いものとして扱う: %j', (key) => {
     expect(feedbackGithubCredentials(env(key))).toBeUndefined();
   });
