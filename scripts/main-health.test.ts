@@ -70,7 +70,10 @@ function fixture() {
         ],
       } as T;
     }
-    if (path.endsWith('/comments?direction=asc&per_page=100&page=1')) return state.comments as T;
+    if (path.endsWith('/comments?direction=asc&per_page=100&page=1')) {
+      state.reads.push(path);
+      return state.comments as T;
+    }
     if (path.startsWith('/issues?')) return state.issues as T;
     if (path.startsWith('/labels?')) return [{ name: 'main-broken' }] as T;
     throw new Error(`Unexpected API: ${path}`);
@@ -454,4 +457,14 @@ test('e2e-dev の復旧の判定中に同じ実行が再実行されれば閉じ
   };
   await reconcile(racingApi);
   assert.equal(closes(state.writes), 0);
+});
+
+test('bot のコメントは、判定と追記の重複確認で Issue ごとに1回だけ引く', async () => {
+  const { state, api } = await e2eDevFailure();
+  state.runs[0] = { ...run, id: 12, event: 'schedule', conclusion: 'success' };
+  state.jobs[12] = fullJobs();
+  state.reads.length = 0;
+  await reconcile(api);
+  assert.equal(closes(state.writes), 1);
+  assert.equal(state.reads.filter((path) => path.startsWith('/issues/1/comments')).length, 1);
 });
