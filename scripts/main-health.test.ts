@@ -2,9 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { load } from 'js-yaml';
-import { reconcile, requiredE2eDev, ISSUE_MARKER, type Api, type Run } from './main-health.ts';
+import { reconcile, requiredE2eDev, ISSUE_MARKER, type Api, type Job, type Run } from './main-health.ts';
 
-type Job = { name: string; conclusion: string | null; html_url: string };
 const job = (name: string, conclusion: string | null): Job => ({
   name,
   conclusion,
@@ -12,8 +11,12 @@ const job = (name: string, conclusion: string | null): Job => ({
 });
 const shards = (conclusion: string | null, failedShard?: number) =>
   [1, 2, 3, 4, 5].map((shard) => job(`e2e-dev (${shard})`, shard === failedShard ? 'failure' : conclusion));
-// push の CI は e2e-dev を飛ばす。定期・手動実行は5シャードを走らせる
-const pushJobs = (conclusion = 'success') => [job('test', conclusion), job('e2e (1)', 'success'), ...shards('skipped')];
+// push の CI は e2e-dev を飛ばす。if が偽の matrix は展開されず、skipped の1件で返る。定期・手動実行は5シャードを走らせる
+const pushJobs = (conclusion = 'success') => [
+  job('test', conclusion),
+  job('e2e (1)', 'success'),
+  job('e2e-dev', 'skipped'),
+];
 const fullJobs = (failedShard?: number) => [
   job('test', 'success'),
   job('e2e (1)', 'success'),
@@ -39,10 +42,15 @@ function fixture() {
     writes: [] as { path: string; method: string; body: Record<string, unknown> }[],
     jobs: {} as Record<number, Job[]>,
     jobErrors: new Set<number>(),
+    patchErrors: 0,
     reads: [] as string[],
   };
   const api: Api = async <T>(path: string, method = 'GET', body?: unknown): Promise<T> => {
     if (method !== 'GET') {
+      if (method === 'PATCH' && state.patchErrors > 0) {
+        state.patchErrors--;
+        throw new Error(`GitHub API PATCH ${path}: 502`);
+      }
       state.writes.push({ path, method, body: body as Record<string, unknown> });
       if (path === '/issues')
         state.issues.push({ number: 1, body: (body as { body: string }).body, user: { login: 'github-actions[bot]' } });
@@ -206,6 +214,7 @@ test('失敗した e2e-dev のジョブの数を、e2e-dev が失敗したとき
   assert.equal(requiredE2eDev(fullJobs(3)), 5);
   assert.equal(requiredE2eDev([job('test', 'failure'), ...shards('success')]), 0);
   assert.equal(requiredE2eDev(pushJobs('failure')), 0);
+  assert.equal(requiredE2eDev([job('e2e-dev', 'skipped'), job('ci-ok', 'failure')]), 0);
   // 失敗したジョブだけを再実行した試行でも、1つ以上を求める
   assert.equal(requiredE2eDev([job('e2e-dev (2)', 'cancelled')]), 1);
   assert.equal(requiredE2eDev([job('e2e-dev-extra', 'failure')]), 0);
@@ -373,6 +382,72 @@ test('e2e-dev の復旧の判定中に main が進めば閉じない', async () 
   state.jobs[12] = fullJobs();
   const racingApi: Api = async <T>(path: string, method?: string, body?: unknown) => {
     if (path.startsWith('/actions/runs/12/')) state.sha = 'new';
+    return api<T>(path, method, body);
+  };
+  await reconcile(racingApi);
+  assert.equal(closes(state.writes), 0);
+});
+
+test('閉じる操作が失敗しても、次の監視で復旧コメントを重ねない', async () => {
+  const { state, api } = await e2eDevFailure();
+  state.runs[0] = { ...run, id: 12, event: 'schedule', conclusion: 'success' };
+  state.jobs[12] = fullJobs();
+  state.patchErrors = 1;
+  await assert.rejects(reconcile(api));
+  assert.equal(state.comments.length, 1);
+  await reconcile(api);
+  assert.equal(state.comments.length, 1);
+  assert.equal(closes(state.writes), 1);
+});
+
+test('印を残した記録は、その実行のジョブを引き直さない', async () => {
+  const { state, api } = await e2eDevFailure();
+  state.jobErrors.add(10);
+  state.runs[0] = { ...run, id: 12, event: 'schedule', conclusion: 'success' };
+  state.jobs[12] = fullJobs();
+  await reconcile(api);
+  assert.equal(closes(state.writes), 1);
+});
+
+test('同じ実行の印が重なっても、小さい数で上書きしない', async () => {
+  const { state, api } = await e2eDevFailure();
+  state.issues[0].body += '\n<!-- main-health:requires:run=10:attempt=1:e2e-dev=0 -->';
+  state.runs[0] = { ...run, id: 11, conclusion: 'success' };
+  state.jobs[11] = pushJobs();
+  await reconcile(api);
+  assert.equal(closes(state.writes), 0);
+});
+
+test('印の無い既存の Issue で、記録した実行のジョブが0件なら閉じない', async () => {
+  const { state, api } = fixture();
+  legacyIssue(state);
+  state.jobs[9] = [];
+  await reconcile(api);
+  assert.equal(state.writes.length, 0);
+});
+
+test('最新 main の CI のジョブを取得できなくても、e2e-dev の要らない Issue は閉じる', async () => {
+  const { state, api } = await e2eDevFailure();
+  state.issues.push({
+    number: 2,
+    body: `${ISSUE_MARKER}\n<!-- main-health:requires:run=8:attempt=1:e2e-dev=0 -->`,
+    user: { login: 'github-actions[bot]' },
+  });
+  state.runs[0] = { ...run, id: 12, event: 'schedule', conclusion: 'success' };
+  state.jobErrors.add(12);
+  await reconcile(api);
+  assert.deepEqual(
+    state.writes.filter((write) => write.body?.state === 'closed').map((write) => write.path),
+    ['/issues/2'],
+  );
+});
+
+test('e2e-dev の復旧の判定中に同じ実行が再実行されれば閉じない', async () => {
+  const { state, api } = await e2eDevFailure();
+  state.runs[0] = { ...run, id: 12, event: 'schedule', conclusion: 'success' };
+  state.jobs[12] = fullJobs();
+  const racingApi: Api = async <T>(path: string, method?: string, body?: unknown) => {
+    if (path.startsWith('/actions/runs/12/')) state.runs[0] = { ...state.runs[0], run_attempt: 2 };
     return api<T>(path, method, body);
   };
   await reconcile(racingApi);
