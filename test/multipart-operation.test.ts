@@ -26,6 +26,7 @@ const multipartBase = {
   input: z.object({ text: z.string().min(1).max(100) }).strict(),
   output: z.object({ files: z.number(), names: z.array(z.string()), text: z.string() }),
   maxBodyBytes: MAX,
+  rateLimit: { max: 1000, windowSeconds: 600 },
 } as const;
 
 const downloadBase = {
@@ -316,5 +317,232 @@ describe('運用者のファイルを返す操作', () => {
     expect(
       (await get(operationPath(definition, undefined, { id: 'not-a-uuid' }), { headers: cookie(operator) })).status,
     ).toBe(400);
+  });
+});
+
+describe('multipart の定義の上限と回数', () => {
+  test('maxBodyBytes は 13MiB まで。ちょうどは通り、超えると断る', () => {
+    expect(() =>
+      assertOperationDefinition(forged(multipartBase, { body: 'multipart', maxBodyBytes: 13 * 1024 * 1024 })),
+    ).not.toThrow();
+    expect(() =>
+      assertOperationDefinition(forged(multipartBase, { body: 'multipart', maxBodyBytes: 13 * 1024 * 1024 + 1 })),
+    ).toThrow(/maxBodyBytes/);
+  });
+
+  test('rateLimit も requestRateLimit も無いと断り、requestRateLimit だけでも通る', () => {
+    expect(() => assertOperationDefinition(forged(multipartBase, { body: 'multipart', rateLimit: undefined }))).toThrow(
+      /rateLimit/,
+    );
+    expect(() =>
+      assertOperationDefinition(
+        forged(multipartBase, {
+          body: 'multipart',
+          rateLimit: undefined,
+          requestRateLimit: { max: 5, windowSeconds: 60 },
+        }),
+      ),
+    ).not.toThrow();
+  });
+});
+
+describe('multipart の検査の順序', () => {
+  const calls: string[] = [];
+  const definition = defineOperation({
+    ...multipartBase,
+    name: 'lantern-ordered',
+    body: 'multipart',
+    rateLimit: { max: 1, windowSeconds: 600 },
+  });
+  const app = createApp([
+    implement(definition, async ({ input }) => {
+      calls.push(input.text);
+      return { files: 0, names: [], text: input.text };
+    }),
+  ]);
+  // 本文のストリームが読まれたかを見る
+  function watched(): { pulled: () => boolean; send: (person: Person) => Promise<Response> } {
+    let pulled = false;
+    const form = new Response(multipartForm({ text: 'a' }));
+    const contentType = form.headers.get('Content-Type')!;
+    const source = form.body!;
+    const reader = source.getReader();
+    const stream = new ReadableStream<Uint8Array>(
+      {
+        async pull(controller) {
+          pulled = true;
+          const step = await reader.read();
+          if (step.done) controller.close();
+          else controller.enqueue(step.value);
+        },
+      },
+      { highWaterMark: 0 },
+    );
+    return {
+      pulled: () => pulled,
+      send: async (person) =>
+        app.request(
+          operationPath(definition),
+          {
+            method: 'POST',
+            headers: {
+              Origin: testEnv.PUBLIC_ORIGIN,
+              Cookie: `${sessionCookieName(testEnv.PUBLIC_ORIGIN)}=${person.token}`,
+              'Content-Type': contentType,
+            },
+            body: stream,
+            duplex: 'half',
+          } as RequestInit,
+          testEnv,
+        ),
+    };
+  }
+
+  test('同意していない人は、本文を読む前に 403 の terms_required', async () => {
+    const person = await createLoginPerson({ consented: false });
+    const probe = watched();
+    const res = await probe.send(person);
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe('terms_required');
+    expect(probe.pulled()).toBe(false);
+  });
+
+  test('回数の上限を超えた呼び出しは、本文を読む前に 429', async () => {
+    const person = await createLoginPerson();
+    const first = watched();
+    expect((await first.send(person)).status).toBe(200);
+    const second = watched();
+    const res = await second.send(person);
+    expect(res.status).toBe(429);
+    expect(second.pulled()).toBe(false);
+  });
+});
+
+describe('添付なしのプレビューでは multipart と運用者の binary を 503 にする', () => {
+  const previewEnv = {
+    ...testEnv,
+    PUBLIC_ORIGIN: 'https://pr-1406-banmen-preview.banmen-preview.workers.dev',
+    PREVIEW_WITHOUT_ATTACHMENTS: '1',
+    ATTACHMENTS: undefined,
+  } as unknown as Env;
+
+  test('multipart の write', async () => {
+    const definition = defineOperation({ ...multipartBase, name: 'lantern-preview', body: 'multipart' });
+    const app = createApp([implement(definition, async () => ({ files: 0, names: [], text: '' }))]);
+    const person = await createLoginPerson();
+    const res = await app.request(
+      operationPath(definition),
+      {
+        method: 'POST',
+        headers: {
+          Origin: previewEnv.PUBLIC_ORIGIN,
+          Cookie: `${sessionCookieName(previewEnv.PUBLIC_ORIGIN)}=${person.token}`,
+        },
+        body: multipartForm({ text: 'a' }),
+      },
+      previewEnv,
+    );
+    expect(res.status).toBe(503);
+  });
+
+  test('運用者の binary の read', async () => {
+    const definition = defineOperation({ ...downloadBase, name: 'lantern-preview-picture', response: 'binary' });
+    const app = createApp([implement(definition, async () => new Response('x'))]);
+    const operator = await getOperator();
+    const res = await app.request(
+      operationPath(definition, undefined, { id: crypto.randomUUID() }),
+      { headers: { Cookie: `${sessionCookieName(previewEnv.PUBLIC_ORIGIN)}=${operator.token}` } },
+      previewEnv,
+    );
+    expect(res.status).toBe(503);
+  });
+});
+
+describe('multipart の境界', () => {
+  const definition = defineOperation({ ...multipartBase, name: 'lantern-edge', body: 'multipart' });
+  const app = createApp([
+    implement(definition, async ({ input, multipart }) => ({
+      files: multipart.files.length,
+      names: [],
+      text: input.text,
+    })),
+  ]);
+  const send = async (person: Person, body: BodyInit, headers: Record<string, string> = {}) =>
+    app.request(
+      operationPath(definition),
+      {
+        method: 'POST',
+        headers: {
+          Origin: testEnv.PUBLIC_ORIGIN,
+          Cookie: `${sessionCookieName(testEnv.PUBLIC_ORIGIN)}=${person.token}`,
+          ...headers,
+        },
+        body,
+        ...(typeof body === 'string' || body instanceof FormData ? {} : { duplex: 'half' }),
+      } as RequestInit,
+      testEnv,
+    );
+  const withFiles = (count: number) => {
+    const form = multipartForm({ text: 'a' });
+    for (let index = 0; index < count; index += 1) form.append('file', new File(['x'], `${index}.png`));
+    return form;
+  };
+  // 本文のバイト数が bytes ちょうどになる multipart（境界の長さに合わせて、ファイルの長さを調整する）
+  async function exactly(bytes: number): Promise<{ body: Uint8Array; contentType: string }> {
+    let padding = bytes - 600;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const response = new Response(
+        multipartForm({ text: 'a' }, [{ name: 'a.png', type: 'image/png', body: 'x'.repeat(padding) }]),
+      );
+      const body = new Uint8Array(await response.arrayBuffer());
+      if (body.byteLength === bytes) return { body, contentType: response.headers.get('Content-Type')! };
+      padding += bytes - body.byteLength;
+    }
+    throw new Error('大きさを合わせられない');
+  }
+
+  test('部分が21（input とファイル20個）は通り、22 は 400', async () => {
+    const person = await createLoginPerson();
+    expect((await send(person, withFiles(20))).status).toBe(200);
+    expect((await send(person, withFiles(21))).status).toBe(400);
+  });
+
+  test('小さな部分を大量に並べた本文は、解析に入る前に 400', async () => {
+    const person = await createLoginPerson();
+    const boundary = 'edge';
+    const part = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="a"\r\n\r\nx\r\n`;
+    const input = `--${boundary}\r\nContent-Disposition: form-data; name="input"\r\n\r\n{"text":"a"}\r\n`;
+    const body = input + part.repeat(MAX / part.length - 20) + `--${boundary}--\r\n`;
+    const res = await send(person, body, { 'Content-Type': `multipart/form-data; boundary=${boundary}` });
+    expect(res.status).toBe(400);
+  });
+
+  test('本文がちょうど上限なら通り、1バイト超えれば 413（申告あり、chunked の両方）', async () => {
+    const person = await createLoginPerson();
+    for (const [size, status] of [
+      [MAX, 200],
+      [MAX + 1, 413],
+    ] as const) {
+      const { body, contentType } = await exactly(size);
+      const declared = await send(person, body, { 'Content-Type': contentType, 'Content-Length': String(size) });
+      expect(declared.status, `申告 ${size}`).toBe(status);
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(body);
+          controller.close();
+        },
+      });
+      const chunked = await send(person, stream, { 'Content-Type': contentType });
+      expect(chunked.status, `chunked ${size}`).toBe(status);
+    }
+  });
+
+  test('input の部分が壊れた UTF-8 なら 400', async () => {
+    const person = await createLoginPerson();
+    const head = new TextEncoder().encode('--b\r\nContent-Disposition: form-data; name="input"\r\n\r\n{"text":"a');
+    const tail = new TextEncoder().encode('b"}\r\n--b--\r\n');
+    const body = new Uint8Array([...head, 0xff, ...tail]);
+    const res = await send(person, body, { 'Content-Type': 'multipart/form-data; boundary=b' });
+    expect(res.status).toBe(400);
   });
 });

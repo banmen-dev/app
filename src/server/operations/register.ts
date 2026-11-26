@@ -43,7 +43,7 @@ import {
   requireDownloadOrigin,
   requireOrigin,
 } from './guards.ts';
-import type { CurrentSession, Defer, ImplementedOperation } from './implement.ts';
+import type { CurrentSession, Defer, ImplementedOperation, MultipartBody } from './implement.ts';
 import { operatorTools, type OperatorTools } from './operator-tools.ts';
 import { organizationTools } from './organization-tools.ts';
 import { logOperation } from './operation-log.ts';
@@ -358,8 +358,10 @@ async function execute(
       );
     }
     await enforceRateLimit(c, definition, accountId);
+    // R2 を持たない隔離プレビューでは、R2 に触る本文と応答の操作を本文を読む前に 503 にする（組織の中の操作と同じ）
+    checkAttachmentAvailability(isPreviewWithoutAttachments(c.env), definition, undefined);
     // 運用者のファイルを返す操作（GET /api/<name>/:id）は入力がパスの id だけ。multipart は入力の JSON とファイルを1回で読む
-    let multipart: { files: readonly File[] } | undefined;
+    let multipart: MultipartBody | undefined;
     let input: unknown;
     if (definition.response === 'binary') {
       input = readDownloadInput(c, definition.input);

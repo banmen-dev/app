@@ -231,6 +231,7 @@ describe('multipart の送信', () => {
     mode: 'write',
     permission: 'login',
     maxBodyBytes: 1024,
+    rateLimit: { max: 1000, windowSeconds: 600 },
     body: 'multipart',
     input: z.object({ text: z.string() }),
     output: z.object({}),
