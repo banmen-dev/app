@@ -514,13 +514,40 @@ describe('multipart の境界', () => {
     expect((await send(person, withFiles(21))).status).toBe(400);
   });
 
-  test('小さな部分を大量に並べた本文は、解析に入る前に 400', async () => {
+  test('小さな部分を大量に並べた本文は、区切りがチャンクの境目をまたいでも、最後まで読まずに 400', async () => {
     const person = await createLoginPerson();
     const boundary = 'edge';
     const part = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="a"\r\n\r\nx\r\n`;
     const input = `--${boundary}\r\nContent-Disposition: form-data; name="input"; filename="input.json"\r\nContent-Type: application/json\r\n\r\n{"text":"a"}\r\n`;
-    const body = input + part.repeat(MAX / part.length - 20) + `--${boundary}--\r\n`;
-    const res = await send(person, body, { 'Content-Type': `multipart/form-data; boundary=${boundary}` });
+    const bytes = new TextEncoder().encode(
+      input + part.repeat(Math.floor(MAX / part.length) - 20) + `--${boundary}--\r\n`,
+    );
+    // 区切りの長さと互いに素な 37 バイトずつ送り、区切りがチャンクの境目をまたぐようにする
+    const size = 37;
+    let sent = 0;
+    const stream = new ReadableStream<Uint8Array>(
+      {
+        pull(controller) {
+          if (sent >= bytes.byteLength) return controller.close();
+          controller.enqueue(bytes.slice(sent, sent + size));
+          sent += size;
+        },
+      },
+      { highWaterMark: 0 },
+    );
+    const res = await send(person, stream, { 'Content-Type': `multipart/form-data; boundary=${boundary}` });
+    expect(res.status).toBe(400);
+    expect(sent).toBeLessThan(bytes.byteLength / 2);
+  });
+
+  test.each([
+    ['boundary が2つ（先の引数に boundary を含む値）', 'multipart/form-data; x=";boundary=zz"; boundary=real'],
+    ['引用符の中のバックスラッシュ', 'multipart/form-data; boundary="a\\"b"'],
+    ['71字の boundary', `multipart/form-data; boundary=${'a'.repeat(71)}`],
+    ['ほかの引数が並ぶ', 'multipart/form-data; boundary=edge; charset=utf-8'],
+  ])('境界が不正な Content-Type は 400: %s', async (_label, contentType) => {
+    const person = await createLoginPerson();
+    const res = await send(person, multipartForm({ text: 'a' }), { 'Content-Type': contentType });
     expect(res.status).toBe(400);
   });
 

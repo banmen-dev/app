@@ -113,19 +113,18 @@ const MULTIPART_MAX_PARTS = 21;
 // 本文のストリームを、読んだ分を数えて上限で止めるものに包む。申告の Content-Length が上限を超えれば読まずに 413、
 // 無い（chunked の）本文も、超えた時点で止めて 413。本文を連結せず、解析（formData）へ直に流してメモリの写しを増やさない。
 // exceeded() は、超えて止めたかどうか（解析の失敗が上限の超過によるものかを見分ける）
-// 境界（--<boundary>）の出現も数え、部分が多すぎる本文は解析に入る前に止める（tooManyParts）
+// 境界（--<boundary>）の出現も数え、部分が多すぎる本文は解析に入る前に止める（止めると解析が失敗し、400 になる）
 function limitedBody(
   c: Context<AppEnv>,
   maxBytes: number,
   boundary: string,
-): { stream: ReadableStream<Uint8Array>; exceeded: () => boolean; tooManyParts: () => boolean } {
+): { stream: ReadableStream<Uint8Array>; exceeded: () => boolean } {
   const declared = c.req.header('Content-Length');
   if (declared !== undefined && Number(declared) > maxBytes) throw new ApiError(413, 'invalid_input');
   const body = c.req.raw.body;
   if (body === null) throw new ApiError(400, 'invalid_input');
   let received = 0;
   let over = false;
-  let many = false;
   const delimiter = `--${boundary}`;
   let tail = '';
   let delimiters = 0;
@@ -143,7 +142,6 @@ function limitedBody(
         for (let at = text.indexOf(delimiter); at !== -1; at = text.indexOf(delimiter, at + delimiter.length)) {
           // 開きの区切りが部分の数 + 1（閉じの区切りを含む）
           if (++delimiters > MULTIPART_MAX_PARTS + 1) {
-            many = true;
             controller.error(new Error('too many parts'));
             return;
           }
@@ -153,7 +151,7 @@ function limitedBody(
       },
     }),
   );
-  return { stream, exceeded: () => over, tooManyParts: () => many };
+  return { stream, exceeded: () => over };
 }
 
 // 文とファイルを1リクエストで受ける multipart/form-data。`input` の部分が入力の JSON（文字列の1つだけ）で、
@@ -168,13 +166,19 @@ export async function readMultipartInput<Schema extends z.ZodType>(
   if (contentType?.split(';')[0]?.trim().toLowerCase() !== 'multipart/form-data') {
     throw new ApiError(400, 'invalid_input');
   }
-  const boundary = /;\s*boundary=(?:"([^"]+)"|([^;\s]+))/i.exec(contentType);
+  // 境界は RFC 2046 の bchars（1〜70字）の1つだけを受け、解析には検証した境界から組み直した Content-Type を渡す
+  // （数える側と解析する側が必ず同じ境界を見る。引用符の中のエスケープや、複数の boundary で食い違わせない）
+  const boundary =
+    /^[^;]*;\s*boundary=(?:"([0-9A-Za-z'()+_,\-./:=? ]{1,70})"|([0-9A-Za-z'()+_,\-./:=?]{1,70}))\s*$/i.exec(
+      contentType,
+    );
   const boundaryValue = boundary?.[1] ?? boundary?.[2];
-  if (boundaryValue === undefined) throw new ApiError(400, 'invalid_input');
+  if (boundaryValue === undefined || boundaryValue.endsWith(' ')) throw new ApiError(400, 'invalid_input');
   const limited = limitedBody(c, maxBodyBytes, boundaryValue);
+  const parseType = `multipart/form-data; boundary="${boundaryValue}"`;
   let form: FormData;
   try {
-    form = await new Response(limited.stream, { headers: { 'Content-Type': contentType } }).formData();
+    form = await new Response(limited.stream, { headers: { 'Content-Type': parseType } }).formData();
   } catch {
     throw new ApiError(limited.exceeded() ? 413 : 400, 'invalid_input');
   }
