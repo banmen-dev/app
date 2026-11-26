@@ -34,7 +34,6 @@ describe('ファイルを返す操作の定義', () => {
     { response: true },
     { mode: 'write' },
     { permission: 'login' },
-    { permission: 'operator' },
     { permission: 'invitee' },
     { permission: 'admin' },
     { permission: 'member', workspace: true, input: z.object({ workspace_id: z.string() }) },

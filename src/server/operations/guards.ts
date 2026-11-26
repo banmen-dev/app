@@ -89,6 +89,10 @@ export async function readInput<Schema extends z.ZodType>(
     if (err instanceof ApiError) throw err;
     throw new ApiError(400, 'invalid_input');
   }
+  return parseInput(schema, body);
+}
+
+function parseInput<Schema extends z.ZodType>(schema: Schema, body: unknown): z.output<Schema> {
   const parsed = schema.safeParse(body);
   if (parsed.success) return parsed.data;
   // 項目ごとの結果。message は zod の文で、入力の値は含めないが、入力のキーの名前は含みうる（未知のキーの指摘など）
@@ -101,6 +105,83 @@ export async function readInput<Schema extends z.ZodType>(
       message: issue.message,
     })),
   );
+}
+
+// multipart の部分の数の上限（input を含む）。上限の字数に収まる細かい部分を大量に並べて、解析を重くさせない
+const MULTIPART_MAX_PARTS = 21;
+
+// 本文をバイトで上限まで読む。申告の Content-Length が上限を超えれば読まずに 413、無い（chunked の）本文も読んだ分を数えて止める
+async function readBodyBytes(c: Context<AppEnv>, maxBytes: number): Promise<Uint8Array> {
+  const declared = c.req.header('Content-Length');
+  if (declared !== undefined && Number(declared) > maxBytes) throw new ApiError(413, 'invalid_input');
+  const body = c.req.raw.body;
+  if (body === null) throw new ApiError(400, 'invalid_input');
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  for (;;) {
+    let step: ReadableStreamReadResult<Uint8Array>;
+    try {
+      step = await reader.read();
+    } catch {
+      throw new ApiError(400, 'invalid_input');
+    }
+    if (step.done) break;
+    received += step.value.byteLength;
+    if (received > maxBytes) {
+      await reader.cancel();
+      throw new ApiError(413, 'invalid_input');
+    }
+    chunks.push(step.value);
+  }
+  const bytes = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+}
+
+// 文とファイルを1リクエストで受ける multipart/form-data。`input` の部分が入力の JSON（文字列の1つだけ）で、
+// ほかの部分はすべてファイル。入力の部分が無い、重複、JSON でない、スキーマに合わない、ファイルでない部分、壊れた本文は 400 の invalid_input。
+// 本文の全体が maxBodyBytes を超えれば 413 の invalid_input。Origin とセッションの検査の後に呼ぶ
+export async function readMultipartInput<Schema extends z.ZodType>(
+  c: Context<AppEnv>,
+  schema: Schema,
+  maxBodyBytes: number,
+): Promise<{ input: z.output<Schema>; files: File[] }> {
+  const contentType = c.req.header('Content-Type');
+  if (contentType?.split(';')[0]?.trim().toLowerCase() !== 'multipart/form-data') {
+    throw new ApiError(400, 'invalid_input');
+  }
+  const bytes = await readBodyBytes(c, maxBodyBytes);
+  let form: FormData;
+  try {
+    form = await new Response(bytes, { headers: { 'Content-Type': contentType } }).formData();
+  } catch {
+    throw new ApiError(400, 'invalid_input');
+  }
+  const entries = [...form.entries()];
+  if (entries.length > MULTIPART_MAX_PARTS) throw new ApiError(400, 'invalid_input');
+  const inputs = form.getAll('input');
+  const text = inputs[0];
+  if (inputs.length !== 1 || typeof text !== 'string') throw new ApiError(400, 'invalid_input');
+  const files: File[] = [];
+  for (const [key, value] of entries) {
+    if (key === 'input') continue;
+    if (typeof value === 'string') throw new ApiError(400, 'invalid_input');
+    files.push(value);
+  }
+  let body: unknown;
+  try {
+    if (maxBodyBytes > MAX_BODY_BYTES) checkLargeJsonStructure(text);
+    body = JSON.parse(text);
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
+    throw new ApiError(400, 'invalid_input');
+  }
+  return { input: parseInput(schema, body), files };
 }
 
 // JSON.parseの前に構造の量を制限し、大量の空オブジェクト等を実体化させない。
