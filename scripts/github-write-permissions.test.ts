@@ -103,3 +103,13 @@ describe('GitHub API で確認したリポジトリの書き込み権限', () =>
     assert.deepEqual(calls, ['aoba']);
   });
 });
+
+describe('ghPermissionLookup', () => {
+  test('形の違う login は、gh を呼ばずに失敗にする', async () => {
+    const { ghPermissionLookup } = await import('./github-write-permissions.ts');
+    const lookup = ghPermissionLookup('banmen-dev/app');
+    for (const login of ['../x', 'a/b', '-flag', '']) {
+      await assert.rejects(lookup(login), /login の形が不正/);
+    }
+  });
+});

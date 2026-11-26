@@ -48,9 +48,11 @@ export async function resolveWriteUsers(
 }
 
 // gh で collaborators/<login>/permission を引く lookup。repo は `owner/name` か、gh が置き換える `{owner}/{repo}`。
-// login は resolveWriteUsers が normalizeLogin を通した値だけが来る。失敗は投げ、許可しない側に倒す
+// 失敗と不正な login は投げ、許可しない側に倒す
 export function ghPermissionLookup(repo: string): PermissionLookup {
   return async (login) => {
+    // 呼び出し側の検査に頼らず、ここでも形を確かめる（login を gh の引数のパスに置くため）
+    if (normalizeLogin(login) === undefined) throw new Error('login の形が不正');
     const response = spawnSync('gh', ['api', `repos/${repo}/collaborators/${login}/permission`], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
