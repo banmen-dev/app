@@ -7,6 +7,7 @@ import {
   feedbackGithubCredentials,
   feedbackIssueBody,
   FeedbackIssueError,
+  feedbackIssueTitle,
   normalizeFeedbackText,
   type FeedbackGithubCredentials,
   type FeedbackIssueInput,
@@ -281,5 +282,29 @@ describe('トークンの期限の境界と応答の型', () => {
     );
     expect((error as FeedbackIssueError).failure).toBe('not_created');
     expect(counts.issue).toBe(0);
+  });
+});
+
+describe('題の年の境界', () => {
+  test.each([
+    [new Date('0000-01-01T00:00:00Z'), 'フィードバック 0000-01-01 00:00:00 UTC'],
+    [new Date('9999-12-31T23:59:59Z'), 'フィードバック 9999-12-31 23:59:59 UTC'],
+  ])('%s は題を作る', (submittedAt, title) => {
+    expect(feedbackIssueTitle(submittedAt)).toBe(title);
+  });
+
+  test.each([new Date('+010000-01-01T00:00:00Z'), new Date('-000001-12-31T23:59:59Z')])(
+    '%s は投げる',
+    (submittedAt) => {
+      expect(() => feedbackIssueTitle(submittedAt)).toThrow(RangeError);
+    },
+  );
+});
+
+describe('route ID が文字列でないとき', () => {
+  test('undefined でも行を載せない', () => {
+    const body = feedbackIssueBody({ ...input(), routeId: undefined as unknown as null });
+    expect(linesAfterFence(body).some((line) => line.startsWith('- 送った画面'))).toBe(false);
+    expect(body).not.toContain('undefined');
   });
 });

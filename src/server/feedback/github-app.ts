@@ -316,7 +316,8 @@ export function feedbackIssueBody(input: FeedbackIssueInput): string {
     '',
   ];
   // route ID は呼ぶ側が既知のものと照らして渡す。形が合わないものは、インラインのコードを壊しうるので載せない
-  if (input.routeId !== null && ROUTE_ID_PATTERN.test(input.routeId)) lines.push(`- 送った画面: \`${input.routeId}\``);
+  if (typeof input.routeId === 'string' && ROUTE_ID_PATTERN.test(input.routeId))
+    lines.push(`- 送った画面: \`${input.routeId}\``);
   lines.push(`- フィードバックの ID: ${input.feedbackId}`);
   // 閲覧の口は https の URL で、地の文を壊す文字の無いものだけを載せる。合わなければ載せない
   if (input.viewerUrl && VIEWER_URL_PATTERN.test(input.viewerUrl)) lines.push(`- 運用者の閲覧: ${input.viewerUrl}`);
