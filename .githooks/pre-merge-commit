@@ -1,3 +1,0 @@
-#!/bin/sh
-# main の上でのマージのコミットを止める。fast-forward（pull --ff-only）はコミットを作らないので、このフックは動かない
-exec "$(dirname "$0")/pre-commit"

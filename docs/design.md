@@ -880,7 +880,7 @@ Linear の提供画像7枚を参考に、登録 → プロフィール（個人�
 
 追加容量の見本は構造と注意の表示を確かめるためのもの。口数が不正なときは確定を無効にし、本番の送信時エラー（`.field-error`、`aria-invalid`、最初の不正欄へのフォーカス）は `OrganizationStorageDialog.svelte` と E2E で確かめる。数値列内の `.props-note` は全て本文の書体で折り返し、運用の一覧以外の数値列の注記にも同じ規則を適用する。
 
-- `components.css` は、枠の開閉のボタンの押せる範囲（狭い幅と指の画面では 44px 四方）も受け持つ。画面は `.svelte` に `<style>` を書かない。足りない CSS は components.css とカタログに先に足す。フックと `pnpm lint` が止める。
+- `components.css` は、枠の開閉のボタンの押せる範囲（狭い幅と指の画面では 44px 四方）も受け持つ。画面は `.svelte` に `<style>` を書かない。足りない CSS は components.css とカタログに先に足す。`pnpm lint` が止める。
 - インラインの `style` 属性は CSP に止められる。動く値は `style:--h` のように CSSOM で当てる（Svelte の `style:` ディレクティブ）。
 - アイコン、線画、言葉の辞書は、見本と本番の二重持ち。`scripts/design-parity.test.ts`（`pnpm test` の `node --test`）が `design/icons.js`、`design/art.js`、`kit.js` の `DICT` を読み、見本にあるアイコン、線画、キーが本番（`src/lib/icons.ts`、`src/lib/art.ts`、辞書）に同じ中身で在ることを突き合わせる（辞書は、キーごとの文字列どうし）。片方だけを直すと、このテストが落ちる。
 - 照合の対象は見本にあるキーだけで、本番の辞書は画面の文言を足して大きくなってよい。見本を直した PR では、`src/lib/icons.ts` と `src/shared/vocabulary.ts` も一緒に直す。

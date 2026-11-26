@@ -235,7 +235,7 @@ async function seedSessionsRejected(deps: DeployDeps): Promise<SeedCheck> {
 
 // 成功なら 0、失敗なら 1 を返す
 export async function deploy(deps: DeployDeps): Promise<number> {
-  // 手元に wrangler のログインが残っていると、作業ツリーがそのまま本番に出る。フックだけに頼らず、ここでも止める
+  // 手元に wrangler のログインが残っていると、作業ツリーがそのまま本番に出る。ここで止める
   if (!deps.inWorkersBuilds) {
     deps.error('Workers Builds の外では動かしません（WORKERS_CI が 1 でない）。本番に触らずに終えます');
     return 1;

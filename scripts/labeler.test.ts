@@ -37,7 +37,7 @@ describe('needs-human の .claude/ の規則', () => {
   test('.md 以外のファイルは、スキルの下でも守る', () => {
     for (const path of [
       '.claude/settings.json',
-      '.claude/hooks/guard-bash.mjs',
+      '.claude/skills/rename-session/rename-line.mjs',
       '.claude/skills/pr/run.py',
       '.claude/skills/sprint-review/check-criterion.py',
       '.claude/checklists/run.sh',
@@ -51,7 +51,6 @@ describe('needs-human の .claude/ の規則', () => {
     for (const path of [
       '.claude/skills/ai-review/SKILL.md',
       '.claude/agents/code-reviewer.md',
-      '.claude/hooks/README.md',
     ]) {
       assert.equal(needsHuman(path), true, path);
     }

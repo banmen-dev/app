@@ -31,7 +31,7 @@ jobs:
     steps:
       # 判定のスクリプトは、イベントの ref（タグ）ではなく main の版で動かす。fetch-depth: 0 で全部のブランチとタグを取る。
       # このワークフローの YAML そのものは、GitHub がタグのコミットの版で動かす。YAML を書き換えたコミットにタグを付けられないよう、
-      # v* のタグはセッションから作らせない（.claude/hooks/bash-rules.mjs）
+      # v* のタグはセッションから作らない（CLAUDE.md の「守ること」）
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main

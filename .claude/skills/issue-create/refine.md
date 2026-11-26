@@ -20,7 +20,7 @@
 - `gh api repos/{owner}/{repo}/issues/<番号> --jq '[.labels[].name]'` でラベルを見て、`status:in-progress` が無ければ `gh api -X POST repos/{owner}/{repo}/issues/<番号>/labels -f 'labels[]=status:refining'` で付ける。作業中の Issue を詰め直すときは付けない
 - REST を使う。GraphQL の `gh issue edit` はクラウドのセッションで 403 になるため
 - Issue がまだ無い計画には付けない
-- 詰め終えてワークツリーを切れば、`post-checkout` のフックが `status:in-progress` に付け替える。詰めるのをやめて着手しないときだけ、`gh api -X DELETE "repos/{owner}/{repo}/issues/<番号>/labels/status%3Arefining"` で外す
+- 詰め終えてワークツリーを切ったら、`status:in-progress` を付け、`status:refining` を外す。詰めるのをやめて着手しないときだけ、`gh api -X DELETE "repos/{owner}/{repo}/issues/<番号>/labels/status%3Arefining"` で外す
 
 ## 進捗の可視化（論点ボード）
 

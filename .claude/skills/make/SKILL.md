@@ -35,14 +35,14 @@ Issue の番号。並べて進めているほかの Issue があれば、その�
 
 ### 5. ワークツリーを切る
 
-ブランチとワークツリーの名前 `<番号>-<短い名前>` を、ファイルを書き始める前に決める（後で名前を変えると、フックが自分の変更と数えなくなる）。
+ブランチとワークツリーの名前 `<番号>-<短い名前>` を、ファイルを書き始める前に決める（後で名前を変えると、ワークツリーの移動で手間が増える）。
 
 ```bash
 git fetch origin
 git worktree add worktrees/<名前> -b <名前> origin/main
 ```
 
-`post-checkout` が `status:in-progress` を付けて `status:refining` を外す。
+`status:in-progress` を付けて `status:refining` を外す。
 ワークツリーのルートで [ワークツリーで作業する](../../../docs/development.md#ワークツリーで作業する) に従い、`pnpm store path` で保存先を確認してから依存を入れる。
 以降の git、`pnpm`、`done-check` は、ワークツリーの絶対パスの中で行う。Bash のカレントは呼び出しごとに本体へ戻るので、コマンドごとに `cd <絶対パス> ||` を付けるか `git -C <絶対パス>` で打つ。
 

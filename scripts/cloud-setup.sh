@@ -1,6 +1,6 @@
 #!/bin/bash
 # クラウド環境のセットアップスクリプト。中身をクラウド環境の設定に貼って使う（docs/development.md の「クラウド環境」）。
-# VM の用意だけを受け持つ（Node、pnpm、pnpm のストア、Playwright の chromium）。依存の導入は毎回 session-start.sh が行い、
+# VM の用意だけを受け持つ（Node、pnpm、pnpm のストア、Playwright の chromium）。依存の導入はセッションで人か Claude が行い、
 # ここで温めたストアから組む。終了コードが 0 以外だとセッションが始まらないので、どの段の失敗も警告にとどめて先へ進む。
 # 約5分を超えるとスナップショットが作られないので、全体を 270 秒の予算に収め、各段の上限を残りの時間で切り詰める。
 set -u
@@ -108,7 +108,7 @@ install_node_in() {
 }
 if install_node; then
   # VM の PATH には /opt/node22/bin があるので、シェルの初期化で先頭に足す。Claude の Bash は初期化ファイルを読まないので、
-  # そちらは session-start.sh が CLAUDE_ENV_FILE で先頭に足す。
+  # セッションの Bash は初期化ファイルを読まない。
   # Ubuntu の .bashrc は対話でないと冒頭で return するので、末尾ではなく先頭に置く
   line="export PATH=\"${node_dir}/bin:\$PATH\""
   echo "$line" >/etc/profile.d/banmen-node.sh
@@ -132,7 +132,7 @@ info "pnpm: $(command -v pnpm) $(pnpm --version 2>/dev/null)"
 
 if [ -n "$repo" ] && cd "$repo"; then
   # ストアはリポジトリの外にあり、スナップショットに残る。スナップショットを作るときのブランチのコードを
-  # root で動かして後のセッションに残さないよう、依存のスクリプトと .pnpmfile を動かさない（毎回の session-start.sh は動かす）。
+  # root で動かして後のセッションに残さないよう、依存のスクリプトと .pnpmfile を動かさない（セッションでの依存の導入は動かす）。
   # 下の playwright だけは、ロックファイルから入れた Playwright 本体のコードを root で動かす
   log=$(mktemp)
   if ! within 120 pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile >"$log" 2>&1; then
@@ -151,12 +151,12 @@ if [ -n "$repo" ] && cd "$repo"; then
     within 90 node_modules/.bin/playwright install-deps chromium >/dev/null 2>&1 \
       || warn "chromium の動くライブラリを apt で入れられなかった"
   fi
-  # --ignore-scripts で組んだ node_modules を残すと、session-start.sh の pnpm install が組み済みとみなし、
+  # --ignore-scripts で組んだ node_modules を残すと、セッションの pnpm install が組み済みとみなし、
   # esbuild と workerd のビルドが走らないままになりうる。ストアと chromium だけを残す
   rm -rf node_modules
 fi
 
-# セッションの Bash は初期化ファイルを読まず、session-start.sh が CLAUDE_ENV_FILE で /opt/node<主版>/bin を選ばせる。
+# セッションの Bash は初期化ファイルを読まない。/opt/node<主版>/bin は、セッションの環境で PATH に足す。
 # そこに置いた node の版を確かめる
 got=$("${node_dir}/bin/node" --version 2>/dev/null)
 if [[ "$got" != "v${node_major}."* ]]; then

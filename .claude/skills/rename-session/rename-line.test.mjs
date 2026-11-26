@@ -1,4 +1,4 @@
-// node --test .claude/hooks/*.test.mjs
+// node --test .claude/skills/rename-session/*.test.mjs
 // rename-session の rename-line.mjs。偽の gh と pbcopy を PATH の先頭に置き、子プロセスで走らせる。
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 const ZWSP = String.fromCodePoint(0x200b);
 const RLO = String.fromCodePoint(0x202e);
 
-const script = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'skills', 'rename-session', 'rename-line.mjs');
+const script = path.join(path.dirname(fileURLToPath(import.meta.url)), 'rename-line.mjs');
 
 describe('rename-line.mjs（偽の gh と pbcopy）', () => {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'rename-line-')));

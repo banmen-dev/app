@@ -180,7 +180,7 @@ Issue ごとに、場所と条件の数を表にして出し、`AskUserQuestion`
 
 #### 手元を立てる
 
-本体の作業コピーで `pnpm dev` を立てない（`worktrees/` の変更で読み直しが続く。#367）。`origin/main` の detached のワークツリーを切って立てる。detached のワークツリーには `post-checkout` がラベルを付けない。
+本体の作業コピーで `pnpm dev` を立てない（`worktrees/` の変更で読み直しが続く。#367）。`origin/main` の detached のワークツリーを切って立てる。
 
 ```bash
 git fetch origin main

@@ -15,13 +15,12 @@ Codex は依頼を調査から実装、検証まで受け持つ。Claude と Cod
 - AI レビューの指摘への返信・解決と、修正コミットをまとめた push は `docs/development.md` の「AI レビューへの対応と push」に従う。実際の投稿・解決・push は、対象と操作について既に得た承認の範囲で行う。未承認ならローカルの修正・検査と返信案まで準備し、未完了の外部操作を報告する
 - CI・AI レビューへの対応後は、`docs/development.md` の「CI・AI レビュー対応後のレポート」の6行形式で報告する。ローカル点検だけでマージ可能とせず、未検証・未承認・未解決を残件に明示する
 - 手元では `main` を書き換えず、作業用のワークツリーで進める。既に指定されたワークツリーがあればそれを使う。Issue があれば `<Issue番号>-<短い名前>`、Issue の無い直接依頼は内容の分かる短い名前にする
-- `post-checkout` は Issue のラベル更新と `.dev.vars` のリンク作成も行う。これらを承認されていないワークツリーの作成では、そのコマンドだけ `git -c core.hooksPath=/dev/null worktree add ...` として副作用を避ける。コミットや push の保護を迂回するためには使わない
 
 Codex の進行役が **`implementer` として実装を委譲したときだけ**、`.codex/agents/implementer.toml` の役割に従う。
 
 - ワークツリーの絶対パス、Issue の番号とやること（Issue が無ければ番号は「無し」、会話で決めた目的と範囲）、完了条件、変えてよい範囲、受け入れ条件の5つを受け取る。不足は推測で埋めずに呼び出し元へ返す
 - 実装と指定された検査だけを行う。独立したレビュー、コミット、push、PR や Issue への書き込みは呼び出し元が受け持つ
-- `.claude/settings*.json`、`.claude/hooks/`、`.codex/`、`.agents/` は書き換えない。指定された範囲を超える必要があれば、差分を残して呼び出し元へ返す
+- `.claude/settings*.json`、`.codex/`、`.agents/` は書き換えない。指定された範囲を超える必要があれば、差分を残して呼び出し元へ返す
 - 呼び出し元へ、変更ファイル、検査の結果、残った問題、Issue と文書に無い判断と根拠を返す
 
 ## スキルと点検の原本
@@ -34,9 +33,9 @@ Codex 用の入口は `.agents/skills/`。`add-operation`、`d1-migration`、外
 `Skill`、`Agent`、`AskUserQuestion`、`SendMessage`、Artifact は Claude 固有の道具名で、その名前の道具が Codex にあるとは限らない。
 スキルはファイルを読み、質問や委譲は利用できる Codex の道具を使う。必要な道具が無ければ、その工程を実施済みとせず報告する。
 
-## フックが代行しないこと
+## 守ること
 
-`.claude/` のフックは Codex に効かない。次は指示として守るもので、Codex の操作を機械的に遮断する設定ではない。
+次は指示として守るもので、Codex の操作を機械的に遮断する設定ではない。
 
 - wrangler の本番の操作（`deploy`、`versions deploy`、`rollback`）と、`--remote` を付けた `wrangler d1` を打たない。wrangler の設定に remote の binding を足さない
 - `.dev.vars` と `.env`、ホームの `~/.wrangler` と `~/.config/.wrangler` を読まず、書き込まない

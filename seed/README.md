@@ -93,7 +93,7 @@ curl -s -X POST -H "Authorization: Bearer sgp_dev-seed-admin-write00000000000000
 
 トークンとパスワードは、リポジトリを読める人なら誰でも知っている値。本番の D1 に入れば、その人たちが管理者や運用者としてログインできてしまう。
 
-- `scripts/db-seed.ts` が付けるのは `--local` だけで、`--remote` はフックの `guard-bash.mjs` も止める
+- `scripts/db-seed.ts` が付けるのは `--local` だけで、`--remote` は付けない
 - セッションから `seed/` の SQL を `wrangler d1 execute --remote` に渡さない。例外は Workers Builds 専用の `scripts/deploy-preview.ts` が、本番と別の新規プレビュー D1 を検査して流す場合だけ（上の説明と `docs/operations.md` の「プレビュー環境」）
 
 かぜラボは、お試しの期限の表示（`e2e/trial-deadline.test.ts`）に使う組織。`trialAdmin`（イツキ）と `trialMember`（フウカ）は、この組織だけに入る。期限は seed を流した UTC の日付の30日後で、固定の日付による期限切れを避ける。

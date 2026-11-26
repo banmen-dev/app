@@ -1,5 +1,5 @@
 // Workers Builds のデプロイのコマンド（node scripts/deploy-production.ts）。手順は scripts/deploy.ts。
-// 本番に触るのは Workers Builds だけ。セッションからは .claude/hooks/ のフックが止め、Workers Builds の外では deploy() も止まる
+// 本番に触るのは Workers Builds だけ。Workers Builds の外では deploy() も止まる
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';

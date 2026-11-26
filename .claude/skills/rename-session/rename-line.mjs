@@ -3,7 +3,7 @@
 // 標準出力は `/rename <名前>` の1行。`--copy` を付けると、同じ行を pbcopy でクリップボードに入れる。
 // 引けなかった値と pbcopy の失敗は、標準エラーに理由を出して終了コード 1 で終わる。
 import { execFileSync, spawnSync } from 'node:child_process';
-import { titleFor } from '../../hooks/session-title-rules.mjs';
+import { titleFor } from './session-title-rules.mjs';
 
 // 値の無いフラグ、重複、未知の引数は失敗にする（黙って無視すると、PR の後なのに PR の前の名前をクリップボードに入れる）
 function parseArgs(argv) {

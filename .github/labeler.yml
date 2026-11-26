@@ -48,12 +48,10 @@ needs-human:
           - ".node-version"
           # lint の設定（組織で絞る層を守る規則を含む）
           - "eslint.config.*"
-          # GitHub と Claude の設定、git のフック
+          # GitHub と Claude の設定
           - ".github/**"
-          - ".githooks/**"
           - ".claude/settings.json"
-          - ".claude/hooks/**"
-          # CI の ai-review が書き込みのトークンを持って読むスキルとエージェント（frontmatter で道具の許可を広げ、フックを走らせられる）
+          # CI の ai-review が書き込みのトークンを持って読むスキルとエージェント（frontmatter で道具の許可を広げられる）
           - ".claude/skills/ai-review/**"
           - ".claude/agents/**"
           - ".mcp.json"

@@ -13,15 +13,14 @@ description: D1 のマイグレーションを作成・検証する。表・列�
 前提（理由も含めて守る）。
 
 - D1 のマイグレーションは戻せない。ステージングも無い。本番に当てるのは Workers Builds のデプロイのスクリプトだけで、人が Release を publish したときに、マイグレーションを当ててから版を切り替える（`main` へのマージでは当たらない）。煙のテストに落ちたら、コードだけを1つ前の版に戻す（`docs/development.md` の「CD」）。そのため、新しいスキーマの上で1つ前の版のコードが動く変更しか、1つの PR に入れられない
-- `--remote` は使わない。付けた wrangler は本番の D1 に触る。フック（`guard-bash.mjs`）も止める
-- `main` にあるマイグレーションのファイルは開いて読むだけにする。本番の D1 は当てたファイルの名前しか覚えていないので、書き換えた中身は本番に届かず、手元と本番のスキーマがずれる。直すときは新しい番号のファイルを足す。フック（`guard-files.mjs`）も止める。この PR で足した、まだ `main` に無いファイルは直してよい
+- `--remote` は使わない。付けた wrangler は本番の D1 に触る
+- `main` にあるマイグレーションのファイルは開いて読むだけにする。本番の D1 は当てたファイルの名前しか覚えていないので、書き換えた中身は本番に届かず、手元と本番のスキーマがずれる。直すときは新しい番号のファイルを足す。この PR で足した、まだ `main` に無いファイルは直してよい
 - 表と列の決まりは `docs/data-model.md` の「決まりごと」と「データベースの分け方」、レビューで見る項目は `.claude/checklists/database.md`。このスキルは手順を書き、決まりそのものはそちらを読む
 
 マイグレーションのまとめ直し（既にあるファイルを1つにまとめ、本番の D1 を作り直す）は、このスキルの範囲の外。人が決めた Issue の中でだけ行い、そのときは Issue の指示に従う（`docs/development.md` の「DB を作り直してよい期間」）。
 
 GitHub の操作は `gh api` の REST で行う（理由: クラウドのセッションでは、GraphQL を使う `gh pr` と `gh issue` が 403 で止まる）。
 `gh` が無いか認証で失敗するときは、`pr/github-mcp.md` に従い、GitHub の MCP ツールで代える（PR の変更ファイルは `pull_request_read` の `get_files`、マージした日時とコミットは `get` の `merged_at` と `merge_commit_sha`）。
-フックが確認を挟んだまま人の答えが得られないときは、止まって伝える。
 
 ## 広げる変更と縮める変更
 
@@ -82,7 +81,7 @@ git ls-remote --heads origin '<他の Issue の番号>-*'                       
 pnpm exec wrangler d1 migrations create DB <名前>
 ```
 
-フックが確認を挟む。`<名前>` は英語の小文字とスネークケースで、変更が分かるもの（例 `add_sprints`、`add_tasks_today_on`）。
+`<名前>` は英語の小文字とスネークケースで、変更が分かるもの（例 `add_sprints`、`add_tasks_today_on`）。
 番号は wrangler が `migrations/` の最大の番号の次を振る。`migrations/` が無ければ作る。
 
 ### 4. SQL を書く
@@ -187,7 +186,7 @@ pnpm exec wrangler d1 execute DB --local --persist-to <一時の場所>/d1-with-
 git worktree remove worktrees/main-snapshot
 ```
 
-- `<一時の場所>` はセッションの一時のディレクトリ（スクラッチパッドなど）。リポジトリの中に置かない。変数で書かずに絶対パスで書く（`--persist-to "$TMPDIR/…"` は、フックが展開した結果をフラグと読みうるものとして止める。変数を使うなら `--persist-to="$DIR/d1-with-rows"` の形にする）
+- `<一時の場所>` はセッションの一時のディレクトリ（スクラッチパッドなど）。リポジトリの中に置かない。変数で書かずに絶対パスで書く
 - 起点は `origin/main` ではなく、このブランチとの分かれ目（`merge-base`）にする。ブランチに無いマイグレーションが混ざらないようにするため
 - `--config` を渡すと、wrangler はその設定の `migrations_dir` から読む。手元の D1 は `database_id` で決まるので、分かれ目の状態に seed を入れてから、このブランチの設定で当て直すと、新しいファイルだけが当たる。`database_id` を変える PR では、この手順は使えない
 - seed の流し方は、分かれ目の `CLAUDE.md` の「コマンド」に従う。seed がまだ無い間は、新しいファイルが当たる行（重なりや NULL や親の無い行になりうる値を含む）を入れる SQL を自分で書いて流す

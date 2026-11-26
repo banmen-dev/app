@@ -105,14 +105,8 @@ jobs:
       - run: pnpm check
       - run: pnpm lint
       - run: pnpm format:check
-      # Claude のフックの判定が壊れたら落とす
-      - name: フックのテスト
-        run: node --test .claude/hooks/*.test.mjs
-      # クラウドのセッションの環境でも、フックのテストの結果が変わらないことを確かめる
-      - name: フックのテスト（CLAUDE_CODE_REMOTE=true）
-        run: node --test .claude/hooks/*.test.mjs
-        env:
-          CLAUDE_CODE_REMOTE: 'true'
+      - name: rename-session のテスト
+        run: node --test .claude/skills/rename-session/*.test.mjs
 
   test:
     needs: changes
