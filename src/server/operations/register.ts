@@ -35,8 +35,15 @@ import { ApiError, knownError } from '../errors.ts';
 import { executionContextOf } from '../execution-context.ts';
 import { outsideAccount } from './account.ts';
 import { isCurrentConsent, latestConsentOf } from './consent.ts';
-import { readBinaryBody, readDownloadInput, readInput, requireDownloadOrigin, requireOrigin } from './guards.ts';
-import type { CurrentSession, Defer, ImplementedOperation } from './implement.ts';
+import {
+  readBinaryBody,
+  readDownloadInput,
+  readInput,
+  readMultipartInput,
+  requireDownloadOrigin,
+  requireOrigin,
+} from './guards.ts';
+import type { CurrentSession, Defer, ImplementedOperation, MultipartBody } from './implement.ts';
 import { operatorTools, type OperatorTools } from './operator-tools.ts';
 import { organizationTools } from './organization-tools.ts';
 import { logOperation } from './operation-log.ts';
@@ -351,7 +358,21 @@ async function execute(
       );
     }
     await enforceRateLimit(c, definition, accountId);
-    const input = await readInput(c, definition.input, undefined, definition.maxBodyBytes);
+    // R2 を持たない隔離プレビューでは、R2 に触る本文と応答の操作を本文を読む前に 503 にする（組織の中の操作と同じ）
+    checkAttachmentAvailability(isPreviewWithoutAttachments(c.env), definition, undefined);
+    // 運用者のファイルを返す操作（GET /api/<name>/:id）は入力がパスの id だけ。multipart は入力の JSON とファイルを1回で読む
+    let multipart: MultipartBody | undefined;
+    let input: unknown;
+    if (definition.response === 'binary') {
+      input = readDownloadInput(c, definition.input);
+    } else if (definition.body === 'multipart') {
+      if (definition.maxBodyBytes === undefined) throw new Error(`操作 ${definition.name} に maxBodyBytes が無い`);
+      const read = await readMultipartInput(c, definition.input, definition.maxBodyBytes);
+      input = read.input;
+      multipart = { files: read.files };
+    } else {
+      input = await readInput(c, definition.input, undefined, definition.maxBodyBytes);
+    }
     await enforceWeightedRateLimit(c, definition, accountId, input);
     result = await handler({
       db: commonDb(c.env),
@@ -361,6 +382,17 @@ async function execute(
       tokenScope: apiToken?.scope,
       ...(operator === undefined ? {} : { operator }),
       input,
+      ...(multipart === undefined ? {} : { multipart }),
+      ...(definition.response === 'binary'
+        ? {
+            download: {
+              bucket: c.env.ATTACHMENTS,
+              range: c.req.header('Range'),
+              ifRange: c.req.header('If-Range'),
+              head: c.req.method === 'HEAD',
+            },
+          }
+        : {}),
     });
   } else {
     // 運用者かどうかは組織に入れるかを変えない。入れる組織が無い運用者は、組織が無いときと同じ 404 になる
@@ -397,7 +429,12 @@ async function execute(
     const input =
       definition.response === 'binary'
         ? readDownloadInput(c, definition.input)
-        : await readInput(c, definition.input, definition.body, definition.maxBodyBytes);
+        : await readInput(
+            c,
+            definition.input,
+            definition.body === 'binary' ? 'binary' : undefined,
+            definition.maxBodyBytes,
+          );
     const binary =
       definition.body === 'binary'
         ? { binary: readBinaryBody(c, definition.maxBodyBytes), requestId: c.get('requestId') }

@@ -64,6 +64,9 @@ export type BinaryBody = {
   bucket: R2Bucket;
 };
 
+// multipart の操作だけに渡す。入力の JSON の部分（`input`）は検証して input に入り、ここにはそれ以外のファイルの部分が順に入る
+export type MultipartBody = { files: readonly File[] };
+
 type BaseContextOf<D extends AnyOperationDefinition> = D extends OutsideOperationDefinition
   ? D['permission'] extends 'operator'
     ? OperatorContext<z.output<D['input']>>
@@ -77,6 +80,7 @@ export type ContextOf<D extends AnyOperationDefinition> = BaseContextOf<D> &
   (D extends { readonly body: 'binary' }
     ? { binary: BinaryBody; requestId: string } // requestId は失敗のログ用（deferrer のログと同じ値）
     : unknown) &
+  (D extends { readonly body: 'multipart' } ? { multipart: MultipartBody } : unknown) &
   (D extends { readonly response: 'binary' }
     ? { download: { bucket: R2Bucket; range: string | undefined; ifRange: string | undefined; head: boolean } }
     : unknown);

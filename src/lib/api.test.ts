@@ -223,3 +223,41 @@ test('成功した組織内の書き込みだけを通知し、読み取り・�
     stopThrowing();
   }
 });
+
+describe('multipart の送信', () => {
+  const multipartOperation = defineOperation({
+    name: 'multipart-write',
+    description: '文とファイルを送る書き込み',
+    mode: 'write',
+    permission: 'login',
+    maxBodyBytes: 1024,
+    rateLimit: { max: 1000, windowSeconds: 600 },
+    body: 'multipart',
+    input: z.object({ text: z.string() }),
+    output: z.object({}),
+  });
+
+  test('入力の JSON を input の部分、ファイルを file の部分に入れ、Content-Type はブラウザに任せる', async () => {
+    const fetcher = vi.fn(async () => jsonResponse({}));
+    const file = new File(['png'], 'shot.png', { type: 'image/png' });
+    const result = await callOperation(multipartOperation, { text: '押せない' }, { fetcher, files: [file] });
+    expect(result).toEqual({ ok: true, data: {} });
+    const [path, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
+    expect(path).toBe('/api/multipart-write');
+    expect(init.method).toBe('POST');
+    expect(init.headers).toBeUndefined();
+    const form = init.body as FormData;
+    expect(form).toBeInstanceOf(FormData);
+    expect(await (form.get('input') as Blob).text()).toBe(JSON.stringify({ text: '押せない' }));
+    const sent = form.getAll('file');
+    expect(sent).toHaveLength(1);
+    expect((sent[0] as File).name).toBe('shot.png');
+  });
+
+  test('ファイルが無ければ input の部分だけを送る', async () => {
+    const fetcher = vi.fn(async () => jsonResponse({}));
+    await callOperation(multipartOperation, { text: 'a' }, { fetcher });
+    const [, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
+    expect([...(init.body as FormData).keys()]).toEqual(['input']);
+  });
+});

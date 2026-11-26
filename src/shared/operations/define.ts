@@ -32,6 +32,9 @@ export const permissions = Object.keys(permissionScopes) as Permission[];
 // setTimeout が受け付ける最大の待ち時間（符号付き 32 ビット）。超えると即座に発火し、長く待つつもりの読み取りがすぐ切れる
 const MAX_TIMER_MS = 2_147_483_647;
 
+// multipart は本文をメモリに載せて解析するので、1リクエストの上限を16MiBより小さく抑える（4MiB の画像3枚と文が収まる）
+const MULTIPART_MAX_BODY_BYTES = 13 * 1024 * 1024;
+
 // URL の最後の1区分になるので、英小文字と数字をハイフンでつないだ1語に限る
 const OPERATION_NAME_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 
@@ -60,11 +63,14 @@ type Common<Input, Output> = {
   readonly cookieOnly?: true;
   // 同意していない人にも通す（同意の検査を飛ばす）。permission: 'login' の操作だけ
   readonly skipsConsent?: true;
-  // 本文がファイルのバイトの操作。入力の JSON はヘッダー X-Operation-Input で運ぶ。組織の中の write の操作だけ
-  readonly body?: 'binary';
+  // 本文の種類。
+  //   binary: 本文がファイルのバイトの操作。入力の JSON はヘッダー X-Operation-Input で運ぶ。組織の中の write の操作だけ
+  //   multipart: 文とファイルを1リクエストで受ける multipart/form-data。入力の JSON は `input` の部分に、ファイルはほかの部分に入れる。
+  //     権限 login の write の操作だけで、maxBodyBytes が要る
+  readonly body?: 'binary' | 'multipart';
   // 添付を削除する道具。組織の中の write だけが宣言できる。
   readonly storage?: 'attachments';
-  // ファイルを返す GET /api/<slug>/<name>/<id>。組織の直下の read だけ。
+  // ファイルを返す GET /api/<slug>/<name>/<id>（運用者の read は GET /api/<name>/<id>）。組織の直下の read と運用者の read だけ。
   // 入力はパスの id、応答は Response。CLI と MCP（JSON）からは呼べない。
   readonly response?: 'binary';
   // 200 の応答の Cache-Control。response: 'binary' の操作だけで、private で始まる値だけ。
@@ -132,21 +138,34 @@ export function assertOperationDefinition(definition: AnyOperationDefinition): v
   if (definition.skipsConsent !== undefined && (definition.skipsConsent !== true || permission !== 'login')) {
     throw new Error(`操作 ${name} の skipsConsent は、権限 login の操作に true だけ付けられる`);
   }
-  if (
-    definition.body !== undefined &&
-    (definition.body !== 'binary' || scope === 'outside' || definition.mode !== 'write')
-  ) {
-    throw new Error(`操作 ${name} の body は、組織の中の write の操作に 'binary' だけ付けられる`);
+  if (definition.body !== undefined) {
+    const allowed =
+      definition.mode === 'write' &&
+      ((definition.body === 'binary' && scope !== 'outside') ||
+        (definition.body === 'multipart' && permission === 'login'));
+    if (!allowed) {
+      throw new Error(
+        `操作 ${name} の body は、組織の中の write の操作に 'binary'、権限 login の write の操作に 'multipart' だけ付けられる`,
+      );
+    }
+    if (definition.body === 'multipart') {
+      if (definition.maxBodyBytes === undefined || definition.maxBodyBytes > MULTIPART_MAX_BODY_BYTES) {
+        throw new Error(`操作 ${name} の body が multipart なので maxBodyBytes（13MiB 以下）が要る`);
+      }
+      if (definition.rateLimit === undefined && definition.requestRateLimit === undefined) {
+        throw new Error(`操作 ${name} の body が multipart なので rateLimit か requestRateLimit が要る`);
+      }
+    }
   }
   if (
     definition.response !== undefined &&
     (definition.response !== 'binary' ||
-      definition.permission !== 'organization' ||
+      (definition.permission !== 'organization' && definition.permission !== 'operator') ||
       workspace === true ||
       definition.mode !== 'read' ||
       definition.body !== undefined)
   ) {
-    throw new Error(`操作 ${name} の response は、組織の直下の read の操作に 'binary' だけ付けられる`);
+    throw new Error(`操作 ${name} の response は、組織の直下の read か運用者の read の操作に 'binary' だけ付けられる`);
   }
   // 公開のキャッシュ（共有キャッシュ）に載せない値だけ。private で始め、後ろは印字できる文字だけで、
   // 共有キャッシュに載せる指示（public、s-maxage）を後ろに足した値も断る
@@ -225,7 +244,12 @@ export function isWorkspaceOperation(definition: AnyOperationDefinition): defini
 
 // 組織の中の操作だけ slug を取る。URL の形はここに1つだけ持つ
 export function operationPath(definition: AnyOperationDefinition, slug?: string, input?: { id: string }): string {
-  if (isOutsideOperation(definition)) return `/api/${definition.name}`;
+  if (isOutsideOperation(definition)) {
+    const outside = `/api/${definition.name}`;
+    return definition.response === 'binary'
+      ? `${outside}/${input === undefined ? ':id' : encodeURIComponent(input.id)}`
+      : outside;
+  }
   if (slug === undefined) throw new Error(`組織の中の操作 ${definition.name} には slug が要る`);
   const path = `/api/${encodeURIComponent(slug)}/${definition.name}`;
   return definition.response === 'binary'

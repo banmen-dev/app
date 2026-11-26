@@ -23,6 +23,7 @@ export function checkAttachmentAvailability(
   if (!previewWithoutAttachments) return;
   if (
     definition.body === 'binary' ||
+    definition.body === 'multipart' ||
     definition.response === 'binary' ||
     definition.name === attachmentDelete.name ||
     definition.name === meAvatarDelete.name ||

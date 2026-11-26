@@ -12,7 +12,16 @@ import {
 
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number; error: ErrorBody['error'] | null };
 
-type CallOptions = { fetcher?: typeof fetch };
+// files は body: 'multipart' の操作だけが読む添付のファイル（入力の JSON とは別の部分で送る）
+type CallOptions = { fetcher?: typeof fetch; files?: readonly File[] };
+
+// multipart の本文。入力の JSON は `input` の部分（application/json の Blob）に、ファイルは `file` の部分に並べる。Content-Type は境界を含むのでブラウザに任せる
+function multipartBody(input: unknown, files: readonly File[]): FormData {
+  const form = new FormData();
+  form.append('input', new Blob([JSON.stringify(input)], { type: 'application/json' }));
+  for (const file of files) form.append('file', file, file.name);
+  return form;
+}
 
 // 組織の中の操作は slug を要る。組織の外の操作は要らない
 type CallArguments<D extends AnyOperationDefinition> = D extends OutsideOperationDefinition
@@ -48,10 +57,11 @@ export async function callOperation<D extends AnyOperationDefinition>(
   let res: Response;
   let body: unknown;
   try {
+    const multipart = definition.body === 'multipart';
     res = await fetcher(operationPath(definition, slug), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
+      ...(multipart ? {} : { headers: { 'Content-Type': 'application/json' } }),
+      body: multipart ? multipartBody(input, options?.files ?? []) : JSON.stringify(input),
       ...(controller === null ? {} : { signal: controller.signal }),
     });
     body = await res.json().catch(() => NOT_JSON);

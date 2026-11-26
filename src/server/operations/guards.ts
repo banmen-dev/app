@@ -89,6 +89,10 @@ export async function readInput<Schema extends z.ZodType>(
     if (err instanceof ApiError) throw err;
     throw new ApiError(400, 'invalid_input');
   }
+  return parseInput(schema, body);
+}
+
+function parseInput<Schema extends z.ZodType>(schema: Schema, body: unknown): z.output<Schema> {
   const parsed = schema.safeParse(body);
   if (parsed.success) return parsed.data;
   // 項目ごとの結果。message は zod の文で、入力の値は含めないが、入力のキーの名前は含みうる（未知のキーの指摘など）
@@ -101,6 +105,117 @@ export async function readInput<Schema extends z.ZodType>(
       message: issue.message,
     })),
   );
+}
+
+// multipart の部分の数の上限（input を含む）。上限の字数に収まる細かい部分を大量に並べて、解析を重くさせない
+const MULTIPART_MAX_PARTS = 21;
+
+// 本文のストリームを、読んだ分を数えて上限で止めるものに包む。申告の Content-Length が上限を超えれば読まずに 413、
+// 無い（chunked の）本文も、超えた時点で止めて 413。本文を連結せず、解析（formData）へ直に流してメモリの写しを増やさない。
+// exceeded() は、超えて止めたかどうか（解析の失敗が上限の超過によるものかを見分ける）
+// 境界（--<boundary>）の出現も数え、部分が多すぎる本文は解析に入る前に止める（止めると解析が失敗し、400 になる）
+function limitedBody(
+  c: Context<AppEnv>,
+  maxBytes: number,
+  boundary: string,
+): { stream: ReadableStream<Uint8Array>; exceeded: () => boolean } {
+  const declared = c.req.header('Content-Length');
+  if (declared !== undefined && Number(declared) > maxBytes) throw new ApiError(413, 'invalid_input');
+  const body = c.req.raw.body;
+  if (body === null) throw new ApiError(400, 'invalid_input');
+  let received = 0;
+  let over = false;
+  const delimiter = `--${boundary}`;
+  let tail = '';
+  let delimiters = 0;
+  const stream = body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        received += chunk.byteLength;
+        if (received > maxBytes) {
+          over = true;
+          controller.error(new Error('body too large'));
+          return;
+        }
+        // 区切りは ASCII なので、バイトをそのまま1文字ずつ読む（latin1）。チャンクの境目をまたぐ分は末尾を持ち越す
+        const text = tail + new TextDecoder('latin1').decode(chunk);
+        for (let at = text.indexOf(delimiter); at !== -1; at = text.indexOf(delimiter, at + delimiter.length)) {
+          // 開きの区切りが部分の数 + 1（閉じの区切りを含む）
+          if (++delimiters > MULTIPART_MAX_PARTS + 1) {
+            controller.error(new Error('too many parts'));
+            return;
+          }
+        }
+        tail = text.slice(Math.max(0, text.length - delimiter.length + 1));
+        controller.enqueue(chunk);
+      },
+    }),
+  );
+  return { stream, exceeded: () => over };
+}
+
+// 文とファイルを1リクエストで受ける multipart/form-data。`input` の部分が入力の JSON（文字列の1つだけ）で、
+// ほかの部分はすべてファイル。入力の部分が無い、重複、JSON でない、スキーマに合わない、ファイルでない部分、壊れた本文は 400 の invalid_input。
+// 本文の全体が maxBodyBytes を超えれば 413 の invalid_input。Origin とセッションの検査の後に呼ぶ
+export async function readMultipartInput<Schema extends z.ZodType>(
+  c: Context<AppEnv>,
+  schema: Schema,
+  maxBodyBytes: number,
+): Promise<{ input: z.output<Schema>; files: File[] }> {
+  const contentType = c.req.header('Content-Type');
+  if (contentType?.split(';')[0]?.trim().toLowerCase() !== 'multipart/form-data') {
+    throw new ApiError(400, 'invalid_input');
+  }
+  // 境界は RFC 2046 の bchars（1〜70字）の1つだけを受け、解析には検証した境界から組み直した Content-Type を渡す
+  // （数える側と解析する側が必ず同じ境界を見る。引用符の中のエスケープや、複数の boundary で食い違わせない）
+  const boundary =
+    /^[^;]*;\s*boundary=(?:"([0-9A-Za-z'()+_,\-./:=? ]{1,70})"|([0-9A-Za-z'()+_,\-./:=?]{1,70}))\s*$/i.exec(
+      contentType,
+    );
+  const boundaryValue = boundary?.[1] ?? boundary?.[2];
+  if (boundaryValue === undefined || boundaryValue.endsWith(' ')) throw new ApiError(400, 'invalid_input');
+  const limited = limitedBody(c, maxBodyBytes, boundaryValue);
+  const parseType = `multipart/form-data; boundary="${boundaryValue}"`;
+  let form: FormData;
+  try {
+    form = await new Response(limited.stream, { headers: { 'Content-Type': parseType } }).formData();
+  } catch {
+    throw new ApiError(limited.exceeded() ? 413 : 400, 'invalid_input');
+  }
+  // 配列に展開する前に、部分の数で止める
+  let parts = 0;
+  form.forEach(() => {
+    parts += 1;
+  });
+  if (parts > MULTIPART_MAX_PARTS) throw new ApiError(400, 'invalid_input');
+  const inputs = form.getAll('input');
+  const inputPart = inputs[0];
+  // input はファイル（application/json の Blob）の部分で受ける。文字列の部分は formData が壊れた UTF-8 を U+FFFD に
+  // 置き換えて見分けられないので、バイトのまま fatal のデコーダーで検査し、JSON の本文と同じく壊れたバイトだけを 400 にする
+  if (inputs.length !== 1 || typeof inputPart === 'string' || inputPart === undefined) {
+    throw new ApiError(400, 'invalid_input');
+  }
+  let text: string;
+  try {
+    text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(await inputPart.arrayBuffer());
+  } catch {
+    throw new ApiError(400, 'invalid_input');
+  }
+  const files: File[] = [];
+  for (const [key, value] of form.entries()) {
+    if (key === 'input') continue;
+    if (typeof value === 'string') throw new ApiError(400, 'invalid_input');
+    files.push(value);
+  }
+  let body: unknown;
+  try {
+    if (maxBodyBytes > MAX_BODY_BYTES) checkLargeJsonStructure(text);
+    body = JSON.parse(text);
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
+    throw new ApiError(400, 'invalid_input');
+  }
+  return { input: parseInput(schema, body), files };
 }
 
 // JSON.parseの前に構造の量を制限し、大量の空オブジェクト等を実体化させない。

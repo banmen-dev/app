@@ -6,7 +6,7 @@ export function tokenAllows(definition: AnyOperationDefinition, scope: 'read' | 
   if (
     definition.permission === 'operator' ||
     definition.cookieOnly === true ||
-    definition.body === 'binary' ||
+    definition.body !== undefined ||
     definition.response === 'binary'
   ) {
     return false;
