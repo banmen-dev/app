@@ -105,7 +105,10 @@ describe('assertOperationDefinition と運用者の response: binary', () => {
 
 function multipartForm(input: unknown, files: { name: string; type: string; body: string }[] = []): FormData {
   const form = new FormData();
-  form.append('input', typeof input === 'string' ? input : JSON.stringify(input));
+  form.append(
+    'input',
+    new Blob([typeof input === 'string' ? input : JSON.stringify(input)], { type: 'application/json' }),
+  );
   for (const file of files) form.append('file', new File([file.body], file.name, { type: file.type }));
   return form;
 }
@@ -183,13 +186,13 @@ describe('multipart の読み取り', () => {
   test('入力の部分が2つ、入力がファイル、ファイルでない部分は 400 の invalid_input', async () => {
     const person = await createLoginPerson();
     const twice = new FormData();
-    twice.append('input', JSON.stringify({ text: 'a' }));
-    twice.append('input', JSON.stringify({ text: 'b' }));
-    const asFile = new FormData();
-    asFile.append('input', new File([JSON.stringify({ text: 'a' })], 'input.json'));
+    twice.append('input', new Blob([JSON.stringify({ text: 'a' })]));
+    twice.append('input', new Blob([JSON.stringify({ text: 'b' })]));
+    const asString = new FormData();
+    asString.append('input', JSON.stringify({ text: 'a' }));
     const stray = multipartForm({ text: 'a' });
     stray.append('note', 'ファイルではない文');
-    for (const body of [twice, asFile, stray]) {
+    for (const body of [twice, asString, stray]) {
       const res = await send(person, body);
       expect(res.status).toBe(400);
       expect(await code(res)).toBe('invalid_input');
@@ -209,9 +212,13 @@ describe('multipart の読み取り', () => {
     const person = await createLoginPerson();
     const broken = [
       await send(person, '--nope\r\ngarbage', { 'Content-Type': 'multipart/form-data; boundary=zzz' }),
-      await send(person, '--zzz\r\nContent-Disposition: form-data; name="input"\r\n\r\n{', {
-        'Content-Type': 'multipart/form-data; boundary=zzz',
-      }),
+      await send(
+        person,
+        '--zzz\r\nContent-Disposition: form-data; name="input"; filename="input.json"\r\nContent-Type: application/json\r\n\r\n{',
+        {
+          'Content-Type': 'multipart/form-data; boundary=zzz',
+        },
+      ),
       await send(person, 'x', { 'Content-Type': 'multipart/form-data' }),
       await send(person, JSON.stringify({ text: 'a' }), { 'Content-Type': 'application/json' }),
     ];
@@ -511,7 +518,7 @@ describe('multipart の境界', () => {
     const person = await createLoginPerson();
     const boundary = 'edge';
     const part = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="a"\r\n\r\nx\r\n`;
-    const input = `--${boundary}\r\nContent-Disposition: form-data; name="input"\r\n\r\n{"text":"a"}\r\n`;
+    const input = `--${boundary}\r\nContent-Disposition: form-data; name="input"; filename="input.json"\r\nContent-Type: application/json\r\n\r\n{"text":"a"}\r\n`;
     const body = input + part.repeat(MAX / part.length - 20) + `--${boundary}--\r\n`;
     const res = await send(person, body, { 'Content-Type': `multipart/form-data; boundary=${boundary}` });
     expect(res.status).toBe(400);
@@ -539,10 +546,35 @@ describe('multipart の境界', () => {
 
   test('input の部分が壊れた UTF-8 なら 400', async () => {
     const person = await createLoginPerson();
-    const head = new TextEncoder().encode('--b\r\nContent-Disposition: form-data; name="input"\r\n\r\n{"text":"a');
+    const head = new TextEncoder().encode(
+      '--b\r\nContent-Disposition: form-data; name="input"; filename="input.json"\r\nContent-Type: application/json\r\n\r\n{"text":"a',
+    );
     const tail = new TextEncoder().encode('b"}\r\n--b--\r\n');
     const body = new Uint8Array([...head, 0xff, ...tail]);
     const res = await send(person, body, { 'Content-Type': 'multipart/form-data; boundary=b' });
     expect(res.status).toBe(400);
+  });
+});
+
+describe('multipart の input の文字', () => {
+  const definition = defineOperation({ ...multipartBase, name: 'lantern-text', body: 'multipart' });
+  const app = createApp([implement(definition, async ({ input }) => ({ files: 0, names: [], text: input.text }))]);
+
+  test('利用者が入力した U+FFFD は通り、そのまま処理に渡る', async () => {
+    const person = await createLoginPerson();
+    const res = await app.request(
+      operationPath(definition),
+      {
+        method: 'POST',
+        headers: {
+          Origin: testEnv.PUBLIC_ORIGIN,
+          Cookie: `${sessionCookieName(testEnv.PUBLIC_ORIGIN)}=${person.token}`,
+        },
+        body: multipartForm({ text: 'a�b' }),
+      },
+      testEnv,
+    );
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { text: string }).text).toBe('a�b');
   });
 });

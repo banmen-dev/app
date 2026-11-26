@@ -248,7 +248,7 @@ describe('multipart の送信', () => {
     expect(init.headers).toBeUndefined();
     const form = init.body as FormData;
     expect(form).toBeInstanceOf(FormData);
-    expect(form.get('input')).toBe(JSON.stringify({ text: '押せない' }));
+    expect(await (form.get('input') as Blob).text()).toBe(JSON.stringify({ text: '押せない' }));
     const sent = form.getAll('file');
     expect(sent).toHaveLength(1);
     expect((sent[0] as File).name).toBe('shot.png');

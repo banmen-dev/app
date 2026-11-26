@@ -185,9 +185,16 @@ export async function readMultipartInput<Schema extends z.ZodType>(
   });
   if (parts > MULTIPART_MAX_PARTS) throw new ApiError(400, 'invalid_input');
   const inputs = form.getAll('input');
-  const text = inputs[0];
-  // 壊れた UTF-8 は formData が U+FFFD に置き換えるので、JSON の本文と同じく 400 にする
-  if (inputs.length !== 1 || typeof text !== 'string' || text.includes('\uFFFD')) {
+  const inputPart = inputs[0];
+  // input はファイル（application/json の Blob）の部分で受ける。文字列の部分は formData が壊れた UTF-8 を U+FFFD に
+  // 置き換えて見分けられないので、バイトのまま fatal のデコーダーで検査し、JSON の本文と同じく壊れたバイトだけを 400 にする
+  if (inputs.length !== 1 || typeof inputPart === 'string' || inputPart === undefined) {
+    throw new ApiError(400, 'invalid_input');
+  }
+  let text: string;
+  try {
+    text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(await inputPart.arrayBuffer());
+  } catch {
     throw new ApiError(400, 'invalid_input');
   }
   const files: File[] = [];
