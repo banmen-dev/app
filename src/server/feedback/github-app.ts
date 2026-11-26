@@ -288,7 +288,9 @@ export function createFeedbackGithubClient(
 
 // 題: 「フィードバック YYYY-MM-DD HH:MM:SS UTC」（例 'フィードバック 2026-11-26 03:57:50 UTC'）。利用者の文から作らない
 export function feedbackIssueTitle(submittedAt: Date): string {
-  // toISOString は UTC の「YYYY-MM-DDTHH:MM:SS.mmmZ」
+  // toISOString は UTC の「YYYY-MM-DDTHH:MM:SS.mmmZ」。年が4桁を外れると「+010000-…」の形になり題が崩れるので投げる
+  const year = submittedAt.getUTCFullYear();
+  if (!(year >= 0 && year <= 9999)) throw new RangeError('フィードバックの日時の年');
   const iso = submittedAt.toISOString();
   return `フィードバック ${iso.slice(0, 10)} ${iso.slice(11, 19)} UTC`;
 }

@@ -60,6 +60,8 @@ describe('組み立てられない入力は、何も送らずに not_created で
     ['ID の前に文字', { feedbackId: `x${FEEDBACK_ID}` }],
     ['ID の variant の桁が c', { feedbackId: '019a8f41-2b3c-7d4e-cf50-6a7b8c9d0e1f' }],
     ['不正な日時', { submittedAt: new Date(Number.NaN) }],
+    ['年が4桁を超える日時', { submittedAt: new Date(Date.UTC(10000, 0, 1)) }],
+    ['年が負の日時', { submittedAt: new Date(Date.UTC(-1, 0, 1)) }],
   ];
   test.each(cases)('%s', async (_name, overrides) => {
     let requests = 0;
