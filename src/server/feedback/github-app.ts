@@ -294,8 +294,10 @@ export function feedbackIssueTitle(submittedAt: Date): string {
 }
 
 // 本文。文は normalizeFeedbackText を通し、文の中で一番長く続くバッククォートより1つ長い（最低3つ）フェンスで囲う（info string は text）。
-// 囲いの外には、固定の案内の文、route ID（インラインのコード）、フィードバックの ID、viewerUrl（あれば）だけを載せる
+// 囲いの外には、固定の案内の文、route ID（インラインのコード）、フィードバックの ID、viewerUrl（あれば）だけを載せる。
+// フィードバックの ID が UUIDv7 の形でなければ TypeError を投げる（囲いの外に載るので、呼ぶ側の誤りで文や改行が混ざらないように）
 export function feedbackIssueBody(input: FeedbackIssueInput): string {
+  if (!FEEDBACK_ID_PATTERN.test(input.feedbackId)) throw new TypeError('フィードバックの ID の形');
   const text = normalizeFeedbackText(input.text);
   let longest = 0;
   for (const run of text.match(/`+/g) ?? []) longest = Math.max(longest, run.length);
@@ -310,8 +312,6 @@ export function feedbackIssueBody(input: FeedbackIssueInput): string {
   ];
   // route ID は呼ぶ側が既知のものと照らして渡す。形が合わないものは、インラインのコードを壊しうるので載せない
   if (input.routeId !== null && ROUTE_ID_PATTERN.test(input.routeId)) lines.push(`- 送った画面: \`${input.routeId}\``);
-  // ID は囲いの外に載るので、形が違えば載せずに投げる（呼ぶ側の誤りで文や改行が混ざらないように）
-  if (!FEEDBACK_ID_PATTERN.test(input.feedbackId)) throw new TypeError('フィードバックの ID の形');
   lines.push(`- フィードバックの ID: ${input.feedbackId}`);
   // 閲覧の口は https の URL で、地の文を壊す文字の無いものだけを載せる。合わなければ載せない
   if (input.viewerUrl && VIEWER_URL_PATTERN.test(input.viewerUrl)) lines.push(`- 運用者の閲覧: ${input.viewerUrl}`);
