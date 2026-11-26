@@ -289,6 +289,8 @@ export function feedbackIssueBody(input: FeedbackIssueInput): string {
 // 改行（CR LF、CR、U+0085 NEL、U+2028 LS、U+2029 PS）を LF にそろえ、制御文字（タブと LF を除く C0、DEL、C1）と
 // 画面に出ない文字（双方向の制御 U+061C、U+200E、U+200F、U+202A〜U+202E、U+2066〜U+2069、ゼロ幅 U+200B〜U+200D、U+2060、U+FEFF、
 // U+180E、目に見えない演算子 U+2061〜U+2064、使われなくなった書式の文字 U+206A〜U+206F、タグの文字 U+E0001 と U+E0020〜U+E007F）を除く。
+// 対にならないサロゲートの片割れ（U+D800〜U+DFFF）も除く。残すと、間の文字を除いた後で上位と下位の片割れがつながり、
+// 除いたはずのタグの文字などが生まれる（JSON の \u エスケープから片割れのまま届く）。
 // 絵文字の見た目を変える異体字セレクタ（U+FE0F など）は、除くと文が変わるので残す
 export function normalizeFeedbackText(text: string): string {
   const unified = text.replace(/\r\n|[\r\u0085\u2028\u2029]/g, '\n');
@@ -299,12 +301,14 @@ export function normalizeFeedbackText(text: string): string {
   return result;
 }
 
-// タブ（U+0009）と LF（U+000A）を除く C0、DEL、C1 と、画面に出ない文字
+// タブ（U+0009）と LF（U+000A）を除く C0、DEL、C1 と、画面に出ない文字と、対にならないサロゲートの片割れ
 function isRemovedChar(code: number): boolean {
   if (code === 0x09 || code === 0x0a) return false;
   return (
     code <= 0x1f ||
     (code >= 0x7f && code <= 0x9f) ||
+    // for...of は対になったサロゲートを1つのコードポイントで返す。ここに来る U+D800〜U+DFFF は対にならない片割れ
+    (code >= 0xd800 && code <= 0xdfff) ||
     code === 0x061c ||
     code === 0x180e ||
     (code >= 0x200b && code <= 0x200f) ||
