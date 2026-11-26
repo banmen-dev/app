@@ -52,11 +52,11 @@ function linesAfterFence(body: string): string[] {
 
 describe('組み立てられない入力は、何も送らずに not_created で断る', () => {
   const cases: [string, Partial<FeedbackIssueInput>][] = [
-    ['ID に改行とメンション', { feedbackId: `${FEEDBACK_ID}\n@octocat` }],
+    ['ID に改行とメンション', { feedbackId: `${FEEDBACK_ID}\n@kakuu-taro-1552` }],
     ['ID が UUIDv4', { feedbackId: '3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b' }],
     ['ID が大文字', { feedbackId: FEEDBACK_ID.toUpperCase() }],
     ['ID が空', { feedbackId: '' }],
-    ['ID の前にメンション', { feedbackId: `@octocat\n${FEEDBACK_ID}` }],
+    ['ID の前にメンション', { feedbackId: `@kakuu-taro-1552\n${FEEDBACK_ID}` }],
     ['ID の前に文字', { feedbackId: `x${FEEDBACK_ID}` }],
     ['ID の variant の桁が c', { feedbackId: '019a8f41-2b3c-7d4e-cf50-6a7b8c9d0e1f' }],
     ['不正な日時', { submittedAt: new Date(Number.NaN) }],
@@ -79,11 +79,11 @@ describe('組み立てられない入力は、何も送らずに not_created で
     expect(error).toBeInstanceOf(FeedbackIssueError);
     expect((error as FeedbackIssueError).failure).toBe('not_created');
     expect(requests).toBe(0);
-    expect(warnings.join('\n')).not.toContain('octocat');
+    expect(warnings.join('\n')).not.toContain('kakuu-taro-1552');
   });
 
   test('本文の組み立ても ID の形が違えば投げる', () => {
-    expect(() => feedbackIssueBody(input({ feedbackId: 'x\n@octocat' }))).toThrow(TypeError);
+    expect(() => feedbackIssueBody(input({ feedbackId: 'x\n@kakuu-taro-1552' }))).toThrow(TypeError);
   });
 });
 
@@ -94,13 +94,13 @@ describe('閲覧の口の URL', () => {
   });
 
   const rejected = [
-    'x\n\n@octocat [a](http://e)',
-    'https://banmen.example.test/operator\n@octocat',
+    'x\n\n@kakuu-taro-1552 [a](http://e)',
+    'https://banmen.example.test/operator\n@kakuu-taro-1552',
     'http://banmen.example.test/operator/feedback',
-    'https://banmen.example.test/operator/feedback?next=@octocat',
+    'https://banmen.example.test/operator/feedback?next=@kakuu-taro-1552',
     'https://banmen.example.test/operator/(feedback)',
     'https://banmen.example.test/operator/<img>',
-    'https://banmen.example.test/operator/feedback#@octocat',
+    'https://banmen.example.test/operator/feedback#@kakuu-taro-1552',
     'javascript:alert(1)',
     'https://user@banmen.example.test/operator',
     'https://banmen.example.test/operator/a b',
@@ -113,7 +113,7 @@ describe('閲覧の口の URL', () => {
   test.each(rejected)('載せない: %j', (viewerUrl) => {
     const after = linesAfterFence(feedbackIssueBody(input({ viewerUrl })));
     expect(after.some((line) => line.startsWith('- 運用者の閲覧'))).toBe(false);
-    expect(after.join('\n')).not.toContain('octocat');
+    expect(after.join('\n')).not.toContain('kakuu-taro-1552');
   });
 });
 
@@ -185,11 +185,14 @@ describe('route ID', () => {
     expect(linesAfterFence(feedbackIssueBody(input({ routeId })))).toContain(`- 送った画面: \`${routeId}\``);
   });
 
-  test.each(['/x`@octocat`', '/a b', '/a\n@octocat', '', `/a${at(0x200b)}`, '/日本語'])('載せない: %j', (routeId) => {
-    const after = linesAfterFence(feedbackIssueBody(input({ routeId })));
-    expect(after.some((line) => line.startsWith('- 送った画面'))).toBe(false);
-    expect(after.join('\n')).not.toContain('octocat');
-  });
+  test.each(['/x`@kakuu-taro-1552`', '/a b', '/a\n@kakuu-taro-1552', '', `/a${at(0x200b)}`, '/日本語'])(
+    '載せない: %j',
+    (routeId) => {
+      const after = linesAfterFence(feedbackIssueBody(input({ routeId })));
+      expect(after.some((line) => line.startsWith('- 送った画面'))).toBe(false);
+      expect(after.join('\n')).not.toContain('kakuu-taro-1552');
+    },
+  );
 
   test('null なら行が無く、null の文字も出ない', () => {
     const after = linesAfterFence(feedbackIssueBody(input({ routeId: null })));

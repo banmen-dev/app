@@ -420,7 +420,7 @@ describe('完了条件1: JWT の署名とトークンの取得、使い回し、
   test('起票の要求の URL、ヘッダー、本文（題、本文、feedback のラベルだけ）と、返す番号', async () => {
     const { seen, fetcher } = githubFetcher({ issue: () => issueOk(1552) });
     const client = createFeedbackGithubClient(await credentials(), fetcher, { warn: () => {}, now: () => NOW });
-    const issue = input({ text: '@octocat https://example.test を見て', viewerUrl: null });
+    const issue = input({ text: '@kakuu-taro-1552 https://example.test を見て', viewerUrl: null });
     await expect(client.createFeedbackIssue(issue)).resolves.toEqual({ issueNumber: 1552 });
     const [{ request, init, body }] = issueRequests(seen);
     expect(request.method).toBe('POST');
@@ -582,7 +582,7 @@ describe('完了条件2: 文はコードブロックの外に出ない', () => {
     ['```` の連続', 'x ```` y\n`````'],
     ['長いバッククォートの行', '`'.repeat(12)],
     ['~~~', '~~~\n~~~~~~'],
-    ['@ のメンション', '@octocat と @banmen-dev/team を呼ぶ'],
+    ['@ のメンション', '@kakuu-taro-1552 と @banmen-dev/team を呼ぶ'],
     ['URL', 'https://example.test と www.example.test'],
     ['画像', '![x](https://example.test/a.png)'],
     ['リンク', '[ここ](https://example.test) <https://example.test>'],
@@ -596,7 +596,7 @@ describe('完了条件2: 文はコードブロックの外に出ない', () => {
   ])('%s', (_name, text) => {
     const body = expectContained(text);
     for (const fragment of [
-      '@octocat',
+      '@kakuu-taro-1552',
       'example.test',
       '#123',
       '<img',
@@ -646,7 +646,7 @@ describe('完了条件2: 文はコードブロックの外に出ない', () => {
 
   test('閲覧の口があっても、文は囲いの外に出ない', () => {
     const viewerUrl = `https://banmen.example.test/ops/feedback/${FEEDBACK_ID}`;
-    expectContained('```\n@octocat https://example.test\n```', { viewerUrl });
+    expectContained('```\n@kakuu-taro-1552 https://example.test\n```', { viewerUrl });
     expectContained('ふつうの文', { routeId: null, viewerUrl });
   });
 
@@ -794,12 +794,12 @@ describe('完了条件4: ログとエラーの message に本文と認証情報�
       now: () => NOW,
     });
     const error = await failureOf(() =>
-      client.createFeedbackIssue(input({ text: `${SECRET_TEXT}\n@octocat https://example.test` })),
+      client.createFeedbackIssue(input({ text: `${SECRET_TEXT}\n@kakuu-taro-1552 https://example.test` })),
     );
     const jwts = tokenRequests(seen).map((s) => (s.request.headers.get('Authorization') ?? '').replace(/^Bearer /, ''));
     const forbidden = [
       SECRET_TEXT,
-      '@octocat',
+      '@kakuu-taro-1552',
       'example.test',
       FAKE_TOKEN,
       RESPONSE_MARKER,

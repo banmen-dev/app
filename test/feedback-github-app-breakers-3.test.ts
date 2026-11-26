@@ -185,7 +185,7 @@ const PIECES = [
   '---',
   '#',
   '#12',
-  '@octocat',
+  '@kakuu-taro-1552',
   '@banmen-dev/team',
   'https://example.test/x',
   'www.example.test',
@@ -232,21 +232,21 @@ afterEach(() => {
 // ここでは画面の Markdown と同じ解析器（micromark と GFM の拡張）で読む
 describe('本物の CommonMark と GFM の解析器で読んでも、文はコードブロックの外に出ない', () => {
   test('前提: 解析器は、閉じていないフェンスを文の終わりまでのコードにし、外のリンクとメンションの形を文の節にする', () => {
-    const shape = shapeOf('前 @octocat https://example.test\n\n```text\n中\n');
+    const shape = shapeOf('前 @kakuu-taro-1552 https://example.test\n\n```text\n中\n');
     expect(shape.codes.map((c) => c.value)).toEqual(['中']);
     expect(shape.links).toEqual(['https://example.test']);
-    expect(shape.outsideText).toContain('@octocat');
+    expect(shape.outsideText).toContain('@kakuu-taro-1552');
   });
 
   test.each([
-    ['閉じのフェンスより長いバッククォートの行', 'a\n`````\n@octocat'],
+    ['閉じのフェンスより長いバッククォートの行', 'a\n`````\n@kakuu-taro-1552'],
     ['チルダの長い行の後のバッククォート', '~~~~~~~~\n```\nhttps://example.test'],
-    ['表の形の行', '| @octocat | https://example.test |\n| --- | --- |\n| ``` | x |'],
-    ['引用とリストの中のフェンス', '> ```\n> @octocat\n- ```\n  https://example.test'],
-    ['HTML のコメントの開き', '<!-- \n```\n@octocat'],
-    ['文字参照のバッククォート', '&#96;&#96;&#96;\n@octocat'],
-    ['バックスラッシュでのエスケープ', '\\```\n\\@octocat https://example.test'],
-    ['info string に見える行で始まる', 'text @octocat\n```text @octocat'],
+    ['表の形の行', '| @kakuu-taro-1552 | https://example.test |\n| --- | --- |\n| ``` | x |'],
+    ['引用とリストの中のフェンス', '> ```\n> @kakuu-taro-1552\n- ```\n  https://example.test'],
+    ['HTML のコメントの開き', '<!-- \n```\n@kakuu-taro-1552'],
+    ['文字参照のバッククォート', '&#96;&#96;&#96;\n@kakuu-taro-1552'],
+    ['バックスラッシュでのエスケープ', '\\```\n\\@kakuu-taro-1552 https://example.test'],
+    ['info string に見える行で始まる', 'text @kakuu-taro-1552\n```text @kakuu-taro-1552'],
     ['空の文（正規化で全部消える）', `${cp(0x200b)}${cp(0x0000)}${cp(0x202e)}`],
   ])('%s', (_name, text) => {
     expectContainedByParser(text);

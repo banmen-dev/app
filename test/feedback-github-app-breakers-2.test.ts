@@ -281,7 +281,7 @@ describe('console に直に出さない', () => {
 describe('JSON に直したときの往復', () => {
   test.each([
     ['引用符とバックスラッシュ', 'a "b" \\ c \\" d \\\\'],
-    ['JSON のエスケープに見える並び', '\\u0060\\u0060\\u0060 と \\n @octocat'],
+    ['JSON のエスケープに見える並び', '\\u0060\\u0060\\u0060 と \\n @kakuu-taro-1552'],
     ['BMP の外の文字と結合', `${String.fromCodePoint(0x1f600)} ${String.fromCodePoint(0x20bb7)}野家 e${unit(0x301)}`],
     ['閉じタグに見える並びと LS', `</script>${unit(0x2028)}</details>`],
   ])('%s', async (_name, text) => {
