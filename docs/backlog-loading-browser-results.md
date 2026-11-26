@@ -62,17 +62,17 @@ JS
 
 ## 消す前のコミットを用意する
 
-計測器は #1479 で消したので、再集計と再計測は、消す前の main のコミット `baedb4fa3cda9b5533768465a2fab81eb4fdaa88` を別の場所に checkout し、その中で走らせる。現在の作業コピーは上書きしない。浅い clone ではこのコミットが手元に無いことがあるので、先に fetch する。依存を入れる前に、[ワークツリーで作業する](development.md#ワークツリーで作業する) に従って pnpm の保存先を確かめる。
+計測器は #1479 で消したので、再集計と再計測は、消す前の main のコミット `baedb4fa3cda9b5533768465a2fab81eb4fdaa88` を別の場所に checkout し、その中で走らせる。現在の作業コピーは上書きしない。浅い clone ではこのコミットが手元に無いことがあるので、先に fetch する。計測器は `.ts` を直に実行するので、Node は `.node-version`（26）、pnpm は `packageManager` の版を使う。依存を入れる前に、[ワークツリーで作業する](development.md#ワークツリーで作業する) に従って pnpm の保存先を確かめる。前の実行の `/tmp/backlog-loading-tools` が残っていれば、`git worktree remove --force /tmp/backlog-loading-tools` で外してから始める。
 
 ```sh
 git fetch origin baedb4fa3cda9b5533768465a2fab81eb4fdaa88
 git worktree add --detach /tmp/backlog-loading-tools baedb4fa3cda9b5533768465a2fab81eb4fdaa88
 cd /tmp/backlog-loading-tools
 pnpm install --frozen-lockfile
-node --test scripts/backlog-loading-summary.test.ts
+pnpm exec node --test scripts/backlog-loading-summary.test.ts
 ```
 
-最後の行は、保存した生データと計測時の実行コードが保存済みのハッシュと一致することを確かめる。再集計と再計測を続けて行うときは、同じ checkout を使い回す。終わったら元の作業コピーに戻り、`git worktree remove /tmp/backlog-loading-tools` で片付ける。
+最後の行は、展開した生データの SHA-256 と、`backlog-loading-source.json.gz` に保存した計測時の実行コード6件が、生データの `inputHashes` と一致することを確かめる。checkout の `scripts/` のファイルは照合しない（上の「生データと再集計」のとおり、計測後に直したのでハッシュが異なる）。再集計と再計測を続けて行うときは、同じ checkout を使い回す。終わったら元の作業コピーに戻り、`git worktree remove /tmp/backlog-loading-tools` で片付ける。
 
 ## 採用基準
 
@@ -133,7 +133,7 @@ API の主・各従は JSON 読み取り完了まで。応答のスキーマ検�
 
 ローカル Worker/D1 の直列処理、実行順、キャッシュ、経時変化を完全には切り分けられない。正逆順の差や1巡だけの差を因果的な改善・悪化と断定しない。HTTPキャッシュ無効でも、同じ context のメモリ・JIT・SPA の利用条件は経路ごとに異なる。ブラウザの確認処理自体の時間も含むため、確認時点は内部描画の厳密な最早時点ではない。全条件は一般メンバーで、他のロール・個人用組織・大規模データ・実運用の同時実行へは外挿しない。
 
-C は成功経路の性能試作であり、製品の認証・失敗表示・再試行・古い401の処理を実装済みとは扱わない。追加の製品実装は合意した採用基準を満たす場合だけ行う。測定不能や通信失敗は正常試行に混ぜず、未完了の報告は再集計器が拒否する。
+C は成功経路の性能試作であり、製品の認証・失敗表示・再試行・古い401の処理を実装済みとは扱わない。#1056 は閉じたので、追加の製品実装はしない。再開するときは別の Issue で基準から決め直す。測定不能や通信失敗は正常試行に混ぜず、未完了の報告は再集計器が拒否する。
 
 
 ## API（ms、p50 / p95）
