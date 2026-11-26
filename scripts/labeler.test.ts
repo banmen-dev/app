@@ -48,10 +48,7 @@ describe('needs-human の .claude/ の規則', () => {
   });
 
   test('ai-review のスキルとエージェントは .md も守る', () => {
-    for (const path of [
-      '.claude/skills/ai-review/SKILL.md',
-      '.claude/agents/code-reviewer.md',
-    ]) {
+    for (const path of ['.claude/skills/ai-review/SKILL.md', '.claude/agents/code-reviewer.md']) {
       assert.equal(needsHuman(path), true, path);
     }
   });
