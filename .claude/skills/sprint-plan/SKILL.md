@@ -41,13 +41,14 @@ gh api "repos/{owner}/{repo}/issues?labels=sprint-log&state=all&per_page=100" --
 1. `## 締め` で始まるコメントの id と作者だけを引く。本文は出さない
 
    ```bash
-   gh api "repos/{owner}/{repo}/issues/<記録の番号>/comments" --paginate --jq '.[] | select(.body | startswith("## 締め")) | {id, login: .user.login, type: .user.type}'
+   gh api "repos/{owner}/{repo}/issues/<記録の番号>/comments" --paginate --jq '.[] | select(.body | startswith("## 締め")) | {id, login: .user.login, type: .user.type, association: .author_association}'
    ```
 
-2. `type` が `User` の作者ごとに、`docs/development.md` の「GitHub の書き込み権限」の API を引く（`gh api repos/{owner}/{repo}/collaborators/<login>/permission --jq '{permission, login: .user.login, type: .user.type}'`）。応答の `login` が本人（大文字・小文字を区別しない）、`type` が `User`、`permission` が `write`、`maintain`、`admin` のときだけ許可する。API の失敗、`type` が `User` でない作者（bot を含む）は許可しない
+2. `type` が `User` で、login が英数字とハイフンだけ（`scripts/github-write-permissions.ts` の `LOGIN` と同じ形）の作者ごとに、`docs/development.md` の「GitHub の書き込み権限」の API を引く。形の違う login は、API を引かずに許可しない（login をコマンドに置くため）（`gh api repos/{owner}/{repo}/collaborators/<login>/permission --jq '{permission, login: .user.login, type: .user.type}'`）。応答の `login` が本人（大文字・小文字を区別しない）、`type` が `User`、`permission` が `write`、`maintain`、`admin` のときだけ許可する。API の失敗、`type` が `User` でない作者（bot を含む）は許可しない
 3. 許可した作者のコメントだけを締めとして数える。許可されない作者のコメントは、無いものとして扱い、本文を引かない。本文が要る箇所（下の表の「締めのコメントがある」の行、手順 3 のベロシティ）は、許可したコメントだけを `gh api repos/{owner}/{repo}/issues/comments/<id> --jq .body` で引く。同じ記録に許可したコメントが2つ以上あれば、id の大きい（新しい）ほうを使う
 
-許可されない作者の締めがあったときは、その id、作者、区分を人への報告に添える（本文は出さない）。
+許可されない作者の締めがあったときは、段 1 の id、作者、区分を人への報告に添える。報告のために、許可されないコメントを id で引き直さない（本文が読み込まれるため）。許可されない作者の締めしか無い記録は、下の表で締めのコメントの無い記録として扱う。閉じた記録なら表の「無い」行のとおり止まり、そのコメントの id と作者を添えて人に確かめる（権限を失った人が書いた正規の締めのこともあるため）。
+この3段は `gh` で行い、MCP で代えない。MCP のコメントの取得は本文ごと返し、段 1 の「本文を出さない」を守れないため。`gh` が使えないときは、締めの有無を判定できないとして止まり、人に伝える。
 次のスプリントの番号は、今のスプリントの番号に 1 を足したもの。
 
 | 開いている記録 | 進み方 |

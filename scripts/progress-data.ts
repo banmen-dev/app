@@ -15,14 +15,20 @@
 //            sprint は sprint:<番号> の付いた最大の番号、areas は area: の後ろ、
 //            deps は開いた Issue の前に要るものすべて、waitingOn はそのうち開いていて status:accepting の無いもの、
 //            prs は開いた PR の番号、closeReason は閉じた Issue の state_reason
-//   history  閉じた記録のうち締めのコメントのあるもの（番号の昇順）
+//   history  閉じた記録のうち、書き込み権限を確かめた作者の締めのコメントのあるもの（番号の昇順）
 //            { n, log, planned: { pt, count }, velocity, accepted: [{ number, prs }] }
 //            accepted は sprint:<n> が付いて completed で閉じた Issue で、prs はそのマージ済みの PR
 // Issue と PR の本文は、計画の表と PR の参照を読むのに使うだけで、出力に入れない
 // 締めのコメントは、書き込み権限を API で確かめた作者のものだけを読む（docs/development.md の「GitHub の書き込み権限」）
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
-import { normalizeLogin, resolveWriteUsers } from './github-write-permissions.ts';
+import {
+  cachedLookup,
+  ghPermissionLookup,
+  normalizeLogin,
+  resolveWriteUsers,
+  type PermissionLookup,
+} from './github-write-permissions.ts';
 
 export type State = 'done' | 'accept' | 'review' | 'wip' | 'refining' | 'todo';
 export type Level = 'epic' | 'story' | 'task';
@@ -460,7 +466,6 @@ export type ApiIssue = {
 type ApiPull = { number: number; head: { ref: string }; body: string | null; merged_at: string | null };
 type ApiBlocker = { number: number; state: 'open' | 'closed'; labels: { name: string }[] };
 export type ApiComment = { body: string | null; user?: { login?: string | null; type?: string | null } | null };
-type PermissionLookup = (login: string) => Promise<unknown>;
 
 // gh の出力は大きくなりうる
 const MAX_BUFFER = 512 * 1024 * 1024;
@@ -510,36 +515,32 @@ export function toRawIssue(issue: ApiIssue): RawIssue {
 
 const toRawPull = (pull: ApiPull): RawPull => ({ number: pull.number, head: pull.head.ref, body: pull.body ?? '' });
 
-// 締めのコメントのうち、書き込み権限を確かめた作者のものの本文だけを返す。
+// 締めのコメントのうち、書き込み権限を確かめた作者のものの本文（bodies）と、読まなかった締めの数（rejected）を返す。
 // 締めでないコメントは、作者を確かめずに本文を運ばないよう、ここで捨てる
-export async function trustedClosings(comments: ApiComment[], lookup: PermissionLookup): Promise<string[]> {
+export async function trustedClosings(
+  comments: ApiComment[],
+  lookup: PermissionLookup,
+): Promise<{ bodies: string[]; rejected: number }> {
   const closings = comments.filter((comment) => (comment.body ?? '').startsWith(CLOSING_HEADING));
-  if (closings.length === 0) return [];
+  if (closings.length === 0) return { bodies: [], rejected: 0 };
   const writers = await resolveWriteUsers(
     closings.map((comment) => ({ login: comment.user?.login, type: comment.user?.type })),
     lookup,
   );
-  return closings
+  const bodies = closings
     .filter((comment) => {
       const login = normalizeLogin(comment.user?.login);
       return comment.user?.type === 'User' && login !== undefined && writers.has(login);
     })
     .map((comment) => comment.body ?? '');
+  return { bodies, rejected: closings.length - bodies.length };
 }
 
-// collaborators/<login>/permission を引く。失敗は投げ、resolveWriteUsers が許可しない側に倒す
-async function ghPermission(login: string): Promise<unknown> {
-  const response = spawnSync('gh', ['api', `repos/{owner}/{repo}/collaborators/${login}/permission`], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'ignore'],
-    timeout: 10_000,
-    maxBuffer: 1024 * 1024,
-  });
-  if (response.error || response.status !== 0) throw new Error('権限を取得できなかった');
-  return JSON.parse(response.stdout) as unknown;
-}
-
-export async function readGitHub(lookup: PermissionLookup = ghPermission): Promise<RawData> {
+export async function readGitHub(
+  lookup: PermissionLookup = ghPermissionLookup('{owner}/{repo}'),
+): Promise<{ raw: RawData; warnings: string[] }> {
+  const permission = cachedLookup(lookup);
+  const warnings: string[] = [];
   const apiIssues = withoutPulls(ghPages<ApiIssue>('repos/{owner}/{repo}/issues?state=all&per_page=100'));
   const issues = apiIssues.map(toRawIssue);
   const openPulls = ghPages<ApiPull>('repos/{owner}/{repo}/pulls?state=open&per_page=100').map(toRawPull);
@@ -553,10 +554,17 @@ export async function readGitHub(lookup: PermissionLookup = ghPermission): Promi
   for (const issue of apiIssues) {
     const lookups = lookupsFor(issue);
     if (lookups.comments) {
-      comments[issue.number] = await trustedClosings(
+      const { bodies, rejected } = await trustedClosings(
         ghPages<ApiComment>(`repos/{owner}/{repo}/issues/${issue.number}/comments?per_page=100`),
-        lookup,
+        permission,
       );
+      comments[issue.number] = bodies;
+      // 権限を確かめられなかったのか、外の人の偽の締めなのかは分けない。本文は出さない
+      if (rejected > 0) {
+        warnings.push(
+          `記録 #${issue.number} の締めのコメント ${rejected} 件は、作者の書き込み権限を確かめられないので読まなかった`,
+        );
+      }
     }
     if (lookups.blockers) {
       blockers[issue.number] = ghPages<ApiBlocker>(
@@ -569,7 +577,7 @@ export async function readGitHub(lookup: PermissionLookup = ghPermission): Promi
       ).map((sub) => sub.number);
     }
   }
-  return { issues, openPulls, mergedPulls, blockers, subOrder, comments };
+  return { raw: { issues, openPulls, mergedPulls, blockers, subOrder, comments }, warnings };
 }
 
 // import されたとき（テスト）に gh を呼ばないよう、直に動かしたときだけ動く
@@ -579,8 +587,9 @@ if (import.meta.main) {
     console.error('使い方: node scripts/progress-data.ts <出力のパス>');
     process.exit(1);
   }
-  const { warnings, ...progress } = buildProgress(await readGitHub(), new Date());
-  for (const warning of warnings) console.error(`警告: ${warning}`);
+  const read = await readGitHub();
+  const { warnings, ...progress } = buildProgress(read.raw, new Date());
+  for (const warning of [...read.warnings, ...warnings]) console.error(`警告: ${warning}`);
   writeFileSync(out, `${JSON.stringify(progress, null, 2)}\n`);
   console.log(`${out} に書いた（Issue ${progress.issues.length} 件、スプリント ${progress.sprint?.n ?? 'なし'}）`);
 }

@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 type User = { login?: string | null; type?: string | null };
-type PermissionLookup = (login: string) => Promise<unknown>;
+export type PermissionLookup = (login: string) => Promise<unknown>;
 const WRITE_PERMISSIONS: ReadonlySet<string> = new Set(['write', 'maintain', 'admin']);
 const LOGIN = /^[a-z\d](?:[a-z\d-]{0,37}[a-z\d])?$/i;
 
@@ -47,6 +47,34 @@ export async function resolveWriteUsers(
   return writers;
 }
 
+// gh で collaborators/<login>/permission を引く lookup。repo は `owner/name` か、gh が置き換える `{owner}/{repo}`。
+// login は resolveWriteUsers が normalizeLogin を通した値だけが来る。失敗は投げ、許可しない側に倒す
+export function ghPermissionLookup(repo: string): PermissionLookup {
+  return async (login) => {
+    const response = spawnSync('gh', ['api', `repos/${repo}/collaborators/${login}/permission`], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 10_000,
+      maxBuffer: 1024 * 1024,
+    });
+    if (response.error || response.status !== 0) throw new Error('権限を取得できなかった');
+    return JSON.parse(response.stdout) as unknown;
+  };
+}
+
+// 同じ実行の中で、本人ごとの確認結果を使い回す（docs/development.md の「GitHub の書き込み権限」）
+export function cachedLookup(lookup: PermissionLookup): PermissionLookup {
+  const seen = new Map<string, Promise<unknown>>();
+  return (login) => {
+    let found = seen.get(login);
+    if (found === undefined) {
+      found = lookup(login);
+      seen.set(login, found);
+    }
+    return found;
+  };
+}
+
 function readUsers(rawDir: string): User[] {
   const result: User[] = [];
   for (const name of ['pr.json', 'issue-comments.json', 'review-comments.json']) {
@@ -81,16 +109,7 @@ if (import.meta.main) {
     console.error('::warning::書き込み権限を確認するリポジトリが不正');
     process.exit(1);
   }
-  const writers = await resolveWriteUsers(readUsers(rawDir), async (login) => {
-    const response = spawnSync('gh', ['api', `repos/${repo}/collaborators/${login}/permission`], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: 10_000,
-      maxBuffer: 1024 * 1024,
-    });
-    if (response.error || response.status !== 0) throw new Error('権限を取得できなかった');
-    return JSON.parse(response.stdout) as unknown;
-  });
+  const writers = await resolveWriteUsers(readUsers(rawDir), ghPermissionLookup(repo));
   writeFileSync(outFile, JSON.stringify([...writers]));
   console.log(`書き込み権限を確認した人数: ${writers.size}`);
 }
