@@ -23,7 +23,7 @@
 
 Node は `.node-version`（26）、pnpm は `package.json` の `packageManager` の版を使う。
 
-- 依存の導入: `pnpm install`（`prepare` が `core.hooksPath` を `.githooks` にし、`main` を守る git のフックを有効にする）。
+- 依存の導入: `pnpm install`。
   ワークツリーで依存を入れるときは、[ワークツリーで作業する](docs/development.md#ワークツリーで作業する) に従って先に pnpm の保存先を確認する。
 - 開発用のサーバー: `pnpm dev`（画面 `http://localhost:5173`、`/api` は `wrangler dev` へ転送）。ワークツリーではポートが名前から自動で決まり、Issue の番号が違うワークツリーとは重ならない（441 を超える番号と番号の無い名前は重なりうる。直し方は `docs/development.md` の「ポート」）
 - 画面の自己レビューの撮影: `pnpm screen-review today [list] [--round <1–3>]`（実装と見本を2テーマと2幅で撮る。[画面の自己レビュー](docs/agent-workflows/screen-review.md)）
@@ -32,9 +32,8 @@ Node は `.node-version`（26）、pnpm は `package.json` の `packageManager` 
 - 型の検査: `pnpm check`（`svelte-check`、Worker の `tsc`）。Worker の型（`worker-configuration.d.ts`）は、`pnpm install`、`dev`、`test`、`check` の前に `wrangler types` で作り直す
 - lint と整形: `pnpm lint`、`pnpm format:check`、直すときは `pnpm format`
 - build: `pnpm build`（`build/` に書き出し、`build/_headers` を作る）
-- フックのテスト: `node --test .claude/hooks/*.test.mjs`
 - CLI: `pnpm -s sg ops`、`pnpm -s sg call <操作名>`（API トークンで操作を呼ぶ。設定と手元のサーバーへの向け方は `docs/development.md` の「CLI（sg）」）、`pnpm -s sg mcp`（MCP の stdio サーバー。登録は `docs/development.md` の「MCP（sg mcp）」）
-- e2e: ローカルのセッションでは走らせない（フックが止める）。クラウドでは PR 作成前に `pnpm e2e:preflight [base-ref] --files … --reason …` を通す（対象の通常・開発・繰り返しを確認し、全件は CI に任せる。対象指定なしは変更 e2e を選び、候補なしでは明示指定を求める。必要時だけ `--all --reason …` で全件を選ぶ。base の既定は `origin/main`。実行後は `pnpm e2e:preflight --verify <result.json> [base-ref] <同じ選定オプション>` で成功記録と現在のコードを照合する。手順は `docs/development.md` の「クラウドで PR 前に e2e を確かめる」。`e2e:preflight` を実行して Playwright が無いとして終了コード 3 が返ったときだけ、e2e を省いて PR を作り、本文に未実施の理由と対象を書いて CI で担保する。3 以外の失敗は省く理由にしない）。PR の CI の `e2e`、`e2e-dev`、`e2e-repeat` が確かめ、落ちたらジョブのログと成果物の trace で直す（`docs/development.md` の「CI の e2e が落ちたとき」）。人が自分の端末で調べるときは `pnpm e2e`（build し直してサーバーを立て、手元の D1 を seed で入れ直してから Playwright で確かめる。手元の D1 の行は消える。初めは `pnpm exec playwright install chromium`）で、`pnpm e2e e2e/members.test.ts` のようにファイルを渡せる。サーバーの扱い、`--workers`、`expect` の待ち、`E2E_DEV_BUILD=1` は `docs/development.md` の「e2e のサーバー」「e2e の書き方」
+- e2e: ローカルのセッションでは走らせない。クラウドでは PR 作成前に `pnpm e2e:preflight [base-ref] --files … --reason …` を通す（対象の通常・開発・繰り返しを確認し、全件は CI に任せる。対象指定なしは変更 e2e を選び、候補なしでは明示指定を求める。必要時だけ `--all --reason …` で全件を選ぶ。base の既定は `origin/main`。実行後は `pnpm e2e:preflight --verify <result.json> [base-ref] <同じ選定オプション>` で成功記録と現在のコードを照合する。手順は `docs/development.md` の「クラウドで PR 前に e2e を確かめる」。`e2e:preflight` を実行して Playwright が無いとして終了コード 3 が返ったときだけ、e2e を省いて PR を作り、本文に未実施の理由と対象を書いて CI で担保する。3 以外の失敗は省く理由にしない）。PR の CI の `e2e`、`e2e-dev`、`e2e-repeat` が確かめ、落ちたらジョブのログと成果物の trace で直す（`docs/development.md` の「CI の e2e が落ちたとき」）。人が自分の端末で調べるときは `pnpm e2e`（build し直してサーバーを立て、手元の D1 を seed で入れ直してから Playwright で確かめる。手元の D1 の行は消える。初めは `pnpm exec playwright install chromium`）で、`pnpm e2e e2e/members.test.ts` のようにファイルを渡せる。サーバーの扱い、`--workers`、`expect` の待ち、`E2E_DEV_BUILD=1` は `docs/development.md` の「e2e のサーバー」「e2e の書き方」
 - 空の D1 に全マイグレーションを当て、seed を2回流して確かめる: `pnpm db:migrate:fresh`
 - Wiki の検索を測る: `pnpm exec node scripts/wiki-search-bench.ts`（使い捨てのローカルD1で5,000ページの検索と走査上限の拒否を測る。`docs/development.md` の「Wiki の検索を測る」）
 - 画面の読み込みを測る: `pnpm bench:loading [--layout-only] [--layout-before]`（組織の枠だけ・変更前の待ち順との比較も指定できる。使い捨て D1 で各 load の主・従の操作と合計の p50・p95 を測る。`docs/development.md` の「画面の読み込みを測る」）
@@ -47,7 +46,7 @@ Node は `.node-version`（26）、pnpm は `package.json` の `packageManager` 
 
 ## 守ること
 
-- `main` に直接コミットも push もしない。文書だけの変更も PR を通す。1 Issue に 1 ブランチ、1 PR。ブランチ名は `<Issue番号>-<短い名前>`（クラウドのセッションの `claude/*` はそのまま）。手元では同じ名前のワークツリー（`./worktrees/<ブランチ名>`）を切って作業する（`docs/development.md` の「ワークツリーで作業する」）。`main` の作業コピーのファイルは Write と Edit をフックが止めるので、書く前にワークツリーを切る。Bash で書いて迂回しない。マージは squash で行う。手元の対話のセッションは、`needs-human` の無い PR で `label` と `ci-ok` が成功し、AI レビューの CRITICAL と HIGH が残っていなければ、人に聞かずにマージする。`needs-human` の PR と確かめを満たさない PR、クラウドのセッション、非対話の実行（`claude -p`、CI の中）は人に任せる（`docs/development.md` の「マージの判定」）。GitHub のブランチ保護は無く、`.claude/` のフックと `.githooks/` は踏み線にすぎないので、この決まりは自分で守る
+- `main` に直接コミットも push もしない。文書だけの変更も PR を通す。1 Issue に 1 ブランチ、1 PR。ブランチ名は `<Issue番号>-<短い名前>`（クラウドのセッションの `claude/*` はそのまま）。手元では同じ名前のワークツリー（`./worktrees/<ブランチ名>`）を切って作業する（`docs/development.md` の「ワークツリーで作業する」）。`main` の作業コピーのファイルは書き換えず、書く前にワークツリーを切る。マージは squash で行う。手元の対話のセッションは、`needs-human` の無い PR で `label` と `ci-ok` が成功し、AI レビューの CRITICAL と HIGH が残っていなければ、人に聞かずにマージする。`needs-human` の PR と確かめを満たさない PR、クラウドのセッション、非対話の実行（`claude -p`、CI の中）は人に任せる（`docs/development.md` の「マージの判定」）。GitHub のブランチ保護もフックも無いので、この決まりは自分で守る
 - 実装を終えたら、確認を取らずにコミットし、`done-check` を通して PR を作る。`pr` も承認を取らずに作成まで進め、作った後に内容を報告する（作業ブランチのコミットと PR は後から直せるため）。承認を取るのは `pr/create.md` の Step 4 に挙げた場合（直さなかった CRITICAL か HIGH が残る、done-check を省いた、既存の PR を書き換える）だけ。マージはこの決まりと別で、`pr` の確かめを満たせば承認を取らずに行う
 - AI レビューの指摘は全件、対応方針と結果を返信し、インラインのスレッドは解決済みを確認して対応完了とする。修正・検査・必要なベース取り込みを済ませ、ローカルのコミットをまとめて1回で push する。指摘ごと・コミットごとに push しない（詳細は `docs/development.md` の「AI レビューへの対応と push」）
 - PR を作ったら、マージされるか閉じるまで監視する（クラウドは `subscribe_pr_activity`）。指摘は直すかを判断して直し、まとめて1回で push して返事をし、インラインは resolve する。`main` とコンフリクトしたらすぐに `sync-base` で取り込む。CI が落ちたら直して成功するまで続け、原因が `main` にあるときはその旨を伝えて止まる（`docs/development.md` の「PR の監視」）

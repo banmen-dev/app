@@ -1,3 +1,0 @@
-#!/bin/sh
-# cherry-pick と revert は pre-commit を動かさないので、ここでも止める。--no-verify でも飛ばされない
-exec "$(dirname "$0")/pre-commit"

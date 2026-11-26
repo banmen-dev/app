@@ -49,8 +49,8 @@ describe('isDocsOnly', () => {
     assert.equal(isDocsOnly(['README.md']), false);
   });
 
-  test('.claude/ のフックと設定は文書に数えない', () => {
-    assert.equal(isDocsOnly(['.claude/hooks/guard-bash.mjs']), false);
+  test('.claude/ の設定とスクリプトは文書に数えない', () => {
+    assert.equal(isDocsOnly(['.claude/skills/rename-session/rename-line.mjs']), false);
     assert.equal(isDocsOnly(['.claude/settings.json']), false);
   });
 
@@ -128,7 +128,7 @@ describe('needsDevBuild', () => {
     'docs/development.md',
     'scripts/ci.ts',
     '.github/workflows/ai-review.yml',
-    '.claude/hooks/guard-bash.mjs',
+    '.claude/skills/rename-session/rename-line.mjs',
     'scripts/dev-open.ts',
     'xsrc/lib/a.svelte',
     'package.json.bak',

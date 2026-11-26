@@ -1,3 +1,0 @@
-#!/bin/sh
-# git am は pre-commit を動かさないので、ここで止める
-exec "$(dirname "$0")/pre-commit"

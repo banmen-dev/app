@@ -108,8 +108,7 @@ git diff <base>...HEAD
 呼ぶ直前に `git rev-parse HEAD` の完全な SHA を控え、出力の「点検した head」に書く（理由: 出力を書くときに取ると、手順 7 の直しのコミットを含む head を点検済みにしうる）。2巡目を呼ぶときは、その直前に控え直し、出力には2巡目に渡した SHA を書く（1巡目の直しは2巡目が見ているので含めてよい。2巡目の後の直しは含めない）。
 2点の `git diff <base>` と `git diff <base>..HEAD` は使わない（理由: どちらもベースの先端と比べるので、作業中にベースが進むと、ベース側の新しいコミットが逆向きの差分として混ざり、触っていない処理を消したという指摘が出る）。
 
-レビューのエージェント（`code-reviewer`、`security-reviewer`、`database-reviewer`、`ui-reviewer`、`falsification-qa`）は、ブランチごとに2巡まで起動できる（フック `.claude/hooks/review-budget.mjs`。最初の起動から120秒以内の起動は同じ巡）。`finding-verifier` は数えない（理由: 指摘を反証にかけるだけで、新しい指摘を出す巡ではないため）。
-起動が拒否されたら、エージェントの名前を変えて呼び直す、Skill や別の経路で同じ点検をするなどで回避しない。`AskUserQuestion` でユーザーに延長を聞き、承認されたら `node .claude/hooks/review-budget.mjs extend <巡数> --reason <理由>` を実行してから呼び直す。承認されなければ、レビューを省いた旨を出力に書いて続ける。
+レビューのエージェント（`code-reviewer`、`security-reviewer`、`database-reviewer`、`ui-reviewer`、`falsification-qa`）は、ブランチごとに2巡までを目安に起動する。`finding-verifier` は数えない（理由: 指摘を反証にかけるだけで、新しい指摘を出す巡ではないため）。
 
 ### 7. 直す
 

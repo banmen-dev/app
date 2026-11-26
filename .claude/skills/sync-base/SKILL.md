@@ -162,7 +162,7 @@ push 保留の指定があれば、下の push を飛ばして取り込み・検
 git push origin <branch>    # リモートに無ければ git push -u origin <branch>
 ```
 
-`<branch>` は手順 1 の出力を直に書く（理由: `$(git branch --show-current)` や変数で渡すと、フックが push の先を判定できずに確認を挟む）。
+`<branch>` は手順 1 の出力を直に書く。
 
 non-fast-forward で失敗したら、手順 2 の後に誰かが push している。force push に切り替えずに止まり、`git fetch origin` の後に手元と `origin/<branch>` の差を示して伝える。
 

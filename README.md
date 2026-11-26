@@ -17,8 +17,6 @@ pnpm dev       # http://localhost:5173
 
 `pnpm db:seed` は手元の D1 の行をすべて消してから seed を入れ直します。手元で入れたデータは失われるので、残したいときは実行しないでください。
 
-`pnpm install` の `prepare` が `core.hooksPath` を `.githooks` にし、`main` を守るフックを有効にします。
-
 テスト、型の検査、lint、build、本番と同じ配り方での確認などのコマンドは `CLAUDE.md` の「コマンド」にまとめています。ここには重ねて書きません。
 
 ## 開発の決まり
