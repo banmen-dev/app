@@ -10,6 +10,8 @@ needs-human:
           # 認証と GitHub OAuth、暗号、シークレット
           - "src/server/auth/**"
           - "src/server/crypto/**"
+          # フィードバックの起票（GitHub App の秘密鍵、公開の Issue に載せる本文の組み立て）
+          - "src/server/feedback/**"
           - ".dev.vars*"
           # 組織で絞る層（Kysely の2つの入口と batch() の関数）
           - "src/server/db/**"

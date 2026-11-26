@@ -27,6 +27,14 @@ const DECIMAL_ID_PATTERN = /^[0-9]+$/;
 const PEM_PATTERN = /-----BEGIN PRIVATE KEY-----([\s\S]*?)-----END PRIVATE KEY-----/;
 // route ID に載せてよい文字: 空白と制御文字を除く ASCII の印字文字から、インラインのコードを閉じるバッククォート（U+0060）を除く
 const ROUTE_ID_PATTERN = /^[\u0021-\u005F\u0061-\u007E]+$/;
+// フィードバックの ID はサーバーが作る UUIDv7。形が違えば、本文の囲いの外に載せずに断る
+const FEEDBACK_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+// 閲覧の口の URL に使ってよい文字（Markdown の地の文でリンクの外に出る括弧、山括弧、空白、バッククォートを含まない）
+const VIEWER_URL_PATTERN = /^https:\/\/[A-Za-z0-9.:-]+\/[A-Za-z0-9._~/-]*$/;
+// 画面に出ない文字（Unicode の Default_Ignorable_Code_Point）。異体字セレクタを並べると見えない文を運べるので、
+// 絵文字の見た目を決める U+FE0F だけを残し、ほかの異体字セレクタも除く
+const DEFAULT_IGNORABLE = /\p{Default_Ignorable_Code_Point}/u;
+const EMOJI_PRESENTATION_SELECTOR = 0xfe0f;
 
 export type FeedbackGithubCredentials = { appId: string; installationId: string; privateKeyPem: string };
 
@@ -212,6 +220,15 @@ export function createFeedbackGithubClient(
 
   return {
     async createFeedbackIssue(input: FeedbackIssueInput): Promise<{ issueNumber: number }> {
+      // 題と本文はトークンを取る前に組み立てる。組み立てられない入力（形の違う ID、不正な日時）は、何も送らずに断る
+      let title: string;
+      let issueBody: string;
+      try {
+        title = feedbackIssueTitle(input.submittedAt);
+        issueBody = feedbackIssueBody(input);
+      } catch (err) {
+        throw failure('not_created', `フィードバックの Issue の本文を組み立てられなかった（${nameOf(err)}）`);
+      }
       const token = await installationToken();
       const sent = await send(ISSUES_URL, {
         method: 'POST',
@@ -223,8 +240,8 @@ export function createFeedbackGithubClient(
           'X-GitHub-Api-Version': API_VERSION,
         },
         body: JSON.stringify({
-          title: feedbackIssueTitle(input.submittedAt),
-          body: feedbackIssueBody(input),
+          title,
+          body: issueBody,
           labels: [LABEL],
         }),
       });
@@ -281,8 +298,11 @@ export function feedbackIssueBody(input: FeedbackIssueInput): string {
   ];
   // route ID は呼ぶ側が既知のものと照らして渡す。形が合わないものは、インラインのコードを壊しうるので載せない
   if (input.routeId !== null && ROUTE_ID_PATTERN.test(input.routeId)) lines.push(`- 送った画面: \`${input.routeId}\``);
+  // ID は囲いの外に載るので、形が違えば載せずに投げる（呼ぶ側の誤りで文や改行が混ざらないように）
+  if (!FEEDBACK_ID_PATTERN.test(input.feedbackId)) throw new TypeError('フィードバックの ID の形');
   lines.push(`- フィードバックの ID: ${input.feedbackId}`);
-  if (input.viewerUrl) lines.push(`- 運用者の閲覧: ${input.viewerUrl}`);
+  // 閲覧の口は https の URL で、地の文を壊す文字の無いものだけを載せる。合わなければ載せない
+  if (input.viewerUrl && VIEWER_URL_PATTERN.test(input.viewerUrl)) lines.push(`- 運用者の閲覧: ${input.viewerUrl}`);
   return lines.join('\n');
 }
 
@@ -291,7 +311,8 @@ export function feedbackIssueBody(input: FeedbackIssueInput): string {
 // U+180E、目に見えない演算子 U+2061〜U+2064、使われなくなった書式の文字 U+206A〜U+206F、タグの文字 U+E0001 と U+E0020〜U+E007F）を除く。
 // 対にならないサロゲートの片割れ（U+D800〜U+DFFF）も除く。残すと、間の文字を除いた後で上位と下位の片割れがつながり、
 // 除いたはずのタグの文字などが生まれる（JSON の \u エスケープから片割れのまま届く）。
-// 絵文字の見た目を変える異体字セレクタ（U+FE0F など）は、除くと文が変わるので残す
+// ほかに Unicode の Default_Ignorable_Code_Point（ハングルの埋め字、ソフトハイフン、異体字セレクタなど）と注釈の文字（U+FFF9〜U+FFFB）も除く。
+// 異体字セレクタは並べると見えない文を運べるので、絵文字の見た目を決める U+FE0F だけを残す
 export function normalizeFeedbackText(text: string): string {
   const unified = text.replace(/\r\n|[\r\u0085\u2028\u2029]/g, '\n');
   let result = '';
@@ -316,6 +337,9 @@ function isRemovedChar(code: number): boolean {
     (code >= 0x2060 && code <= 0x2064) ||
     (code >= 0x2066 && code <= 0x206f) ||
     code === 0xfeff ||
+    // 注釈の文字（U+FFF9〜U+FFFB）は Default_Ignorable に入らないが、画面に出ずに文を囲う
+    (code >= 0xfff9 && code <= 0xfffb) ||
+    (code !== EMOJI_PRESENTATION_SELECTOR && DEFAULT_IGNORABLE.test(String.fromCodePoint(code))) ||
     code === 0xe0001 ||
     (code >= 0xe0020 && code <= 0xe007f)
   );

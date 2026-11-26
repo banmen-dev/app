@@ -959,6 +959,7 @@ git の保護フックと CI は既存のものを使う。
 | マイグレーション | `migrations/` |
 | seed（公開された開発用のトークンのセッションを入れる。本番に入ると誰でもログインできる） | `seed/` |
 | 認証とログインの手段（GitHub OAuth、Google、パスワード）、セッションの読み取り、運用者の判定、暗号、シークレット | `src/server/auth/`、`src/server/crypto/`、`.dev.vars*` |
+| フィードバックの起票（GitHub App の秘密鍵、利用者の文を公開の Issue に載せる本文の組み立て） | `src/server/feedback/` |
 | 組織で絞る層（組織をまたぐデータの分離。Kysely の2つの入口と `batch()` の関数、組織とワークスペースを確かめる処理） | `src/server/db/` |
 | 運用者の権限（運用者だけの操作の定義） | `src/shared/operations/operator/` |
 | 権限の検査（操作の定義を登録する関数。Origin、セッション、権限、組織とワークスペースの確かめを順に行う）と、それが頼るもの | `src/server/operations/register.ts`、`guards.ts`、`token-scope.ts`（API トークンで呼べるかの判定）、`implement.ts`、`operation-log.ts`（権限の検査と処理に渡すもの、ログの項目）、`src/server/app.ts`、`src/server/errors.ts`（応答の形、運用者の一覧が壊れたときの 500）、`src/shared/operations/define.ts`（権限の種類と実行時の検査）、`src/shared/session-cookie.ts`（Cookie の名前と属性） |
