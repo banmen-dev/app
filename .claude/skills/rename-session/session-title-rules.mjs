@@ -1,4 +1,4 @@
-// session-title.mjs と rename-session の rename-line.mjs が使う判定。副作用を持たない純関数だけを置く。
+// rename-session の rename-line.mjs が使う判定。副作用を持たない純関数だけを置く。
 
 const MAX_LENGTH = 80;
 

@@ -589,7 +589,7 @@ claude mcp add banmen -- node <main の作業コピーの絶対パス>/cli/sg.ts
 
 ### Claude の設定
 
-フックは使わない。1人で開発しているので、守りは `permissions.deny` と、この文書の決まりを自分で守ることに置く。sandbox もこのリポジトリでは使わない（`.claude/settings.json` の `sandbox.enabled` は `false`）。
+フックは使わない。1人で開発しているので、守りは `permissions.deny` と、この文書の決まりを自分で守ることに置く（2026-11-27 に決めた）。`permissions.deny` は Read と Edit の道具にだけ効き、Bash で `.dev.vars` を読むことや、本番への操作、`gh release`、`v*` タグの push、`gh pr merge` の形は止めない。sandbox もこのリポジトリでは使わない（`.claude/settings.json` の `sandbox.enabled` は `false`）。
 
 | 仕組み | 中身 |
 | --- | --- |
@@ -688,7 +688,7 @@ Issue が無い直接依頼には、内容を表す短いブランチ名を使�
 
 ```bash
 git fetch origin
-git -c core.hooksPath=/dev/null worktree add worktrees/123-invitation-expiry -b 123-invitation-expiry origin/main
+git worktree add worktrees/123-invitation-expiry -b 123-invitation-expiry origin/main
 codex -C worktrees/123-invitation-expiry
 ```
 
