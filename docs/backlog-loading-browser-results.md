@@ -2,7 +2,7 @@
 
 **2026-11-23 に、#1056 は実装せずに閉じた（not planned）。** 結論と理由は [#1056 の結論のコメント](https://github.com/banmen-dev/app/issues/1056#issuecomment-7098452355) を正とする。2026-11-17 の正式計測で採用基準を満たす根拠が得られず、#1432 で従が1つになって見込める短縮がさらに小さくなったため。後回しそのものが悪いと示した結果ではない。従が重くなる変更があれば、別の Issue で扱う。
 
-計測器（`scripts/backlog-loading-*.ts`）は #1479 で消した。この文書と生データは判断の記録として残す。再集計と再計測は、消す前の main のコミット `baedb4fa3cda9b5533768465a2fab81eb4fdaa88` を別の場所に checkout して走らせる（下の「生データと再集計」「計測器の入口」）。
+計測器（`scripts/backlog-loading-*.ts`）は #1479 で消した。この文書と生データは判断の記録として残す。再集計と再計測は、消す前の main のコミット `baedb4fa3cda9b5533768465a2fab81eb4fdaa88` を別の場所に checkout して走らせる（下の「消す前のコミットを用意する」）。
 
 ## 2026-11-17 の結果
 
@@ -26,16 +26,13 @@
 
 ## 生データと再集計
 
-正式生データを [backlog-loading-samples.json.gz](backlog-loading-samples.json.gz) に、採否とセルごとの分位点を [backlog-loading-decision.json](backlog-loading-decision.json) に保存した。展開後の生データの SHA-256 は `d4cda2c9226ba943615aad64536ebb9e883a7588ba0316dd13bfc7d602b6e14c`。架空の計測データ・版・条件・計測器の入力ハッシュを含み、セッションのトークンや環境変数は含めない。計測に使ったコードは基準コミットと `inputHashes` で識別する。`inputHashes` の対象は追加した `scripts/backlog-loading-*.ts` で、既存の `today-loading-support.ts`・`loading-server.ts`・`boot-proxy.ts` と製品ソースは基準コミットの版を使った。正式計測時の実行コード6件は [backlog-loading-source.json.gz](backlog-loading-source.json.gz) にも保存し、各ファイルを保存済みハッシュと照合するテスト（`scripts/backlog-loading-summary.test.ts`）は、消す前のコミット `baedb4fa3cda9b5533768465a2fab81eb4fdaa88` にある。PRの途中のコミットがmainの履歴に残ることには依存しない。
+正式生データを [backlog-loading-samples.json.gz](backlog-loading-samples.json.gz) に、採否とセルごとの分位点を [backlog-loading-decision.json](backlog-loading-decision.json) に保存した。展開後の生データの SHA-256 は `d4cda2c9226ba943615aad64536ebb9e883a7588ba0316dd13bfc7d602b6e14c`。架空の計測データ・版・条件・計測器の入力ハッシュを含み、セッションのトークンや環境変数は含めない。計測に使ったコードは基準コミットと `inputHashes` で識別する。`inputHashes` の対象は追加した `scripts/backlog-loading-*.ts` で、既存の `today-loading-support.ts`・`loading-server.ts`・`boot-proxy.ts` と製品ソースは基準コミットの版を使った。正式計測時の実行コード6件は [backlog-loading-source.json.gz](backlog-loading-source.json.gz) にも保存し、生データと各ファイルを保存済みハッシュと照合するテスト（`scripts/backlog-loading-summary.test.ts`）は、消す前のコミット `baedb4fa3cda9b5533768465a2fab81eb4fdaa88` にあり、main の CI では走らない。走らせ方は下の「消す前のコミットを用意する」。PRの途中のコミットがmainの履歴に残ることには依存しない。
 
 消す前のコミットの計測器には、計測後に未使用の応答フィールド・戻り値の除去、必要な応答情報だけを受け取る型への整理、採用基準のコメント追記を入れたため、そのコミットのファイルのハッシュと保存値が異なる。測定する時点・保存する列・採否の式は変えていない。正式データと全表・採否は計測時のものを維持する。
 
-計測器は #1479 で消したので、消す前の main のコミットを別の場所に checkout して走らせる。現在の作業コピーは上書きしない。依存を入れる前に、[ワークツリーで作業する](development.md#ワークツリーで作業する) に従って pnpm の保存先を確かめる。
+下の「消す前のコミットを用意する」で作った checkout の中で走らせる。
 
 ```sh
-git worktree add --detach /tmp/backlog-loading-tools baedb4fa3cda9b5533768465a2fab81eb4fdaa88
-cd /tmp/backlog-loading-tools
-pnpm install
 pnpm exec node scripts/backlog-loading-summary.ts docs/backlog-loading-samples.json.gz /tmp/backlog-summary
 ```
 
@@ -44,7 +41,7 @@ pnpm exec node scripts/backlog-loading-summary.ts docs/backlog-loading-samples.j
 
 ## 計測時のコードを復元する
 
-基準コミット `ab2588b250ee4ffc13a876b30216cfe68c6ae22d` の検証用checkoutを別の場所に用意し、保存した実行コードをその `scripts/` に書き出す。以下の第2引数は用意済みのcheckoutの絶対パスに置き換える。既存の共通ヘルパー・製品ソース・依存は基準コミットから復元する。現在の作業コピーを上書きせず、計測時の版と現行版を区別する。
+基準コミット `ab2588b250ee4ffc13a876b30216cfe68c6ae22d` の検証用checkoutを別の場所に用意し、保存した実行コードをその `scripts/` に書き出す。以下の第2引数は用意済みのcheckoutの絶対パスに置き換える。既存の共通ヘルパー・製品ソース・依存は基準コミットから復元する。現在の作業コピーを上書きせず、計測時の版と、消す前のコミットの版を区別する。
 
 ```sh
 node --input-type=module - docs/backlog-loading-source.json.gz /tmp/backlog-loading-measured <<'JS'
@@ -63,7 +60,23 @@ JS
 
 これはコードと計測方法を復元する手順であり、別時刻・別環境でも同じ応答時間になる保証ではない。保存済みの数値と採否の再現には上の再集計の入口を使う。
 
+## 消す前のコミットを用意する
+
+計測器は #1479 で消したので、再集計と再計測は、消す前の main のコミット `baedb4fa3cda9b5533768465a2fab81eb4fdaa88` を別の場所に checkout し、その中で走らせる。現在の作業コピーは上書きしない。浅い clone ではこのコミットが手元に無いことがあるので、先に fetch する。依存を入れる前に、[ワークツリーで作業する](development.md#ワークツリーで作業する) に従って pnpm の保存先を確かめる。
+
+```sh
+git fetch origin baedb4fa3cda9b5533768465a2fab81eb4fdaa88
+git worktree add --detach /tmp/backlog-loading-tools baedb4fa3cda9b5533768465a2fab81eb4fdaa88
+cd /tmp/backlog-loading-tools
+pnpm install --frozen-lockfile
+node --test scripts/backlog-loading-summary.test.ts
+```
+
+最後の行は、保存した生データと計測時の実行コードが保存済みのハッシュと一致することを確かめる。再集計と再計測を続けて行うときは、同じ checkout を使い回す。終わったら元の作業コピーに戻り、`git worktree remove /tmp/backlog-loading-tools` で片付ける。
+
 ## 採用基準
+
+2026-11-23 に #1056 を閉じる前の基準の記録で、今は使わない。
 
 2026-11-17 の backlog-refine で、#1055 と同じ基準と方式を採用した。一般メンバーの同一条件・同一経路・現行の正順で、B に対して C の操作開始 p95 が100ms以上かつ10%以上短縮し、独立2巡以上で再現すること。実行した全巡の比較を、下記の悪化の検査に使う。他条件（逆順と空の表示も含む）に同規模の悪化がないこと。API差だけ、空の表示だけ、従だけの人工遅延だけでは採用しない。未達・不安定・測定不能なら画面変更を保留し、Issue を継続する。
 
@@ -71,12 +84,9 @@ JS
 
 ## 計測器の入口
 
-再集計と同じく、消す前の main のコミットを別の場所に checkout して走らせる。現在の作業コピーは上書きしない。依存を入れる前に、[ワークツリーで作業する](development.md#ワークツリーで作業する) に従って pnpm の保存先を確かめる。
+再集計と同じく、上の「消す前のコミットを用意する」で作った checkout の中で走らせる。
 
 ```sh
-git worktree add --detach /tmp/backlog-loading-tools baedb4fa3cda9b5533768465a2fab81eb4fdaa88
-cd /tmp/backlog-loading-tools
-pnpm install
 pnpm exec node scripts/backlog-loading-browser-bench.ts --runs 20 --rounds 2 --output /tmp/backlog-loading.json
 pnpm exec node scripts/backlog-loading-summary.ts /tmp/backlog-loading.json /tmp/backlog-summary
 ```
