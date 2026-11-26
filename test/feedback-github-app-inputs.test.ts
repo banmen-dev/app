@@ -4,6 +4,7 @@
 import { describe, expect, test } from 'vitest';
 import {
   createFeedbackGithubClient,
+  feedbackGithubCredentials,
   feedbackIssueBody,
   FeedbackIssueError,
   normalizeFeedbackText,
@@ -55,6 +56,9 @@ describe('組み立てられない入力は、何も送らずに not_created で
     ['ID が UUIDv4', { feedbackId: '3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b' }],
     ['ID が大文字', { feedbackId: FEEDBACK_ID.toUpperCase() }],
     ['ID が空', { feedbackId: '' }],
+    ['ID の前にメンション', { feedbackId: `@octocat\n${FEEDBACK_ID}` }],
+    ['ID の前に文字', { feedbackId: `x${FEEDBACK_ID}` }],
+    ['ID の variant の桁が c', { feedbackId: '019a8f41-2b3c-7d4e-cf50-6a7b8c9d0e1f' }],
     ['不正な日時', { submittedAt: new Date(Number.NaN) }],
   ];
   test.each(cases)('%s', async (_name, overrides) => {
@@ -144,5 +148,92 @@ describe('見えない文を運べる文字を除く', () => {
   test('ふつうの日本語と絵文字は変わらない', () => {
     const text = `架空の画面で保存できない。${at(0x1f62d)}\n手順: 開く → 保存`;
     expect(normalizeFeedbackText(text)).toBe(text);
+  });
+});
+
+describe('route ID', () => {
+  test.each(['/[slug]/w/[workspace]/board', '/~', '/'])('載る: %j', (routeId) => {
+    expect(linesAfterFence(feedbackIssueBody(input({ routeId })))).toContain(`- 送った画面: \`${routeId}\``);
+  });
+
+  test.each(['/x`@octocat`', '/a b', '/a\n@octocat', '', `/a${at(0x200b)}`, '/日本語'])('載せない: %j', (routeId) => {
+    const after = linesAfterFence(feedbackIssueBody(input({ routeId })));
+    expect(after.some((line) => line.startsWith('- 送った画面'))).toBe(false);
+    expect(after.join('\n')).not.toContain('octocat');
+  });
+
+  test('null なら行が無く、null の文字も出ない', () => {
+    const after = linesAfterFence(feedbackIssueBody(input({ routeId: null })));
+    expect(after.some((line) => line.startsWith('- 送った画面'))).toBe(false);
+    expect(after.join('\n')).not.toContain('null');
+  });
+});
+
+describe('対にならないサロゲートの境界', () => {
+  test.each([0xd800, 0xdbff, 0xdc00, 0xdfff])('U+%s の片割れを除く', (code) => {
+    expect(normalizeFeedbackText(`a${String.fromCharCode(code)}b`)).toBe('ab');
+  });
+});
+
+describe('鍵の形', () => {
+  const env = (key: string) => ({
+    FEEDBACK_GITHUB_APP_ID: '864201',
+    FEEDBACK_GITHUB_INSTALLATION_ID: '9753102',
+    FEEDBACK_GITHUB_PRIVATE_KEY: key,
+  });
+  test.each([
+    '-----BEGIN RSA PRIVATE KEY-----\nMIIfake\n-----END RSA PRIVATE KEY-----\n',
+    '-----BEGIN ENCRYPTED PRIVATE KEY-----\nMIIfake\n-----END ENCRYPTED PRIVATE KEY-----\n',
+    '   ',
+  ])('PKCS#8 の PEM でなければ設定が無いものとして扱う: %j', (key) => {
+    expect(feedbackGithubCredentials(env(key))).toBeUndefined();
+  });
+});
+
+describe('トークンの期限の境界と応答の型', () => {
+  const NOW = Date.UTC(2026, 10, 26, 7, 20, 30);
+  const MARGIN = 5 * 60 * 1000;
+
+  function fetcherWith(tokenBody: () => unknown) {
+    const counts = { token: 0, issue: 0 };
+    const fetcher: typeof fetch = async (input, init) => {
+      const request = new Request(input, init);
+      if (request.url.endsWith('/access_tokens')) {
+        counts.token += 1;
+        return new Response(JSON.stringify(tokenBody()), { status: 201 });
+      }
+      counts.issue += 1;
+      return new Response(JSON.stringify({ number: 42 }), { status: 201 });
+    };
+    return { counts, fetcher };
+  }
+
+  test('期限の5分前の1ミリ秒前までは使い回し、5分前ちょうどで取り直す', async () => {
+    const expiresAt = NOW + 60 * 60 * 1000;
+    const { counts, fetcher } = fetcherWith(() => ({
+      token: 'ghs_FakeBoundaryToken',
+      expires_at: new Date(expiresAt).toISOString(),
+    }));
+    let now = NOW;
+    const client = createFeedbackGithubClient(await credentials(), fetcher, { warn: () => {}, now: () => now });
+    await client.createFeedbackIssue(input());
+    now = expiresAt - MARGIN - 1;
+    await client.createFeedbackIssue(input());
+    expect(counts.token).toBe(1);
+    now = expiresAt - MARGIN;
+    await client.createFeedbackIssue(input());
+    expect(counts.token).toBe(2);
+    expect(counts.issue).toBe(3);
+  });
+
+  test('expires_at が数なら not_created で、起票を送らない', async () => {
+    const { counts, fetcher } = fetcherWith(() => ({ token: 'ghs_FakeBoundaryToken', expires_at: 1234 }));
+    const client = createFeedbackGithubClient(await credentials(), fetcher, { warn: () => {}, now: () => NOW });
+    const error = await client.createFeedbackIssue(input()).then(
+      () => undefined,
+      (err: unknown) => err,
+    );
+    expect((error as FeedbackIssueError).failure).toBe('not_created');
+    expect(counts.issue).toBe(0);
   });
 });

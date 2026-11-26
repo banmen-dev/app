@@ -47,7 +47,9 @@ export function feedbackGithubCredentials(env: object): FeedbackGithubCredential
   const privateKeyPem = 'FEEDBACK_GITHUB_PRIVATE_KEY' in env ? env.FEEDBACK_GITHUB_PRIVATE_KEY : undefined;
   if (typeof appId !== 'string' || !DECIMAL_ID_PATTERN.test(appId)) return undefined;
   if (typeof installationId !== 'string' || !DECIMAL_ID_PATTERN.test(installationId)) return undefined;
-  if (typeof privateKeyPem !== 'string' || privateKeyPem === '') return undefined;
+  // GitHub が出す PKCS#1（BEGIN RSA PRIVATE KEY）や暗号化した鍵は Web Crypto で読めないので、設定が無いものとして扱う
+  // （docs/operations.md の「フィードバックの GitHub App」の手順 6 で PKCS#8 に直して入れる）
+  if (typeof privateKeyPem !== 'string' || !PEM_PATTERN.test(privateKeyPem)) return undefined;
   return { appId, installationId, privateKeyPem };
 }
 
