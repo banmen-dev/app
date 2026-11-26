@@ -287,7 +287,9 @@ export function feedbackIssueBody(input: FeedbackIssueInput): string {
 }
 
 // 改行（CR LF、CR、U+0085 NEL、U+2028 LS、U+2029 PS）を LF にそろえ、制御文字（タブと LF を除く C0、DEL、C1）と
-// 画面に出ない文字（双方向の制御 U+061C、U+200E、U+200F、U+202A〜U+202E、U+2066〜U+2069、ゼロ幅 U+200B〜U+200D、U+2060、U+FEFF）を除く
+// 画面に出ない文字（双方向の制御 U+061C、U+200E、U+200F、U+202A〜U+202E、U+2066〜U+2069、ゼロ幅 U+200B〜U+200D、U+2060、U+FEFF、
+// U+180E、目に見えない演算子 U+2061〜U+2064、使われなくなった書式の文字 U+206A〜U+206F、タグの文字 U+E0001 と U+E0020〜U+E007F）を除く。
+// 絵文字の見た目を変える異体字セレクタ（U+FE0F など）は、除くと文が変わるので残す
 export function normalizeFeedbackText(text: string): string {
   const unified = text.replace(/\r\n|[\r\u0085\u2028\u2029]/g, '\n');
   let result = '';
@@ -304,10 +306,13 @@ function isRemovedChar(code: number): boolean {
     code <= 0x1f ||
     (code >= 0x7f && code <= 0x9f) ||
     code === 0x061c ||
+    code === 0x180e ||
     (code >= 0x200b && code <= 0x200f) ||
     (code >= 0x202a && code <= 0x202e) ||
-    code === 0x2060 ||
-    (code >= 0x2066 && code <= 0x2069) ||
-    code === 0xfeff
+    (code >= 0x2060 && code <= 0x2064) ||
+    (code >= 0x2066 && code <= 0x206f) ||
+    code === 0xfeff ||
+    code === 0xe0001 ||
+    (code >= 0xe0020 && code <= 0xe007f)
   );
 }
