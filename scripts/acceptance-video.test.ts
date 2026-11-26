@@ -334,6 +334,11 @@ describe('gallery.mjs', () => {
     captions: ['報酬を変える', '依頼主を替える'],
   };
   const run = (dir: string) => spawnSync(process.execPath, [galleryScript, dir], { encoding: 'utf8' });
+  // file:// の HTML を開き直して判定の保存と復元を確かめるブラウザ。Chromium は、file:// の文書が読み込みの直後
+  // （restore() の読み出し）に localStorage に触れると、その文書の後の書き込みが保存先に届かないことがあり、
+  // 開き直すと判定が消えてテストがときどき落ちた（#1387。開き直す前に待っても防げず、http で配れば起きない）。
+  // このフラグで file:// の扱いを http と同じに揃え、gallery.mjs の保存と復元の決まりだけを確かめる
+  const launchFileBrowser = () => chromium.launch({ args: ['--allow-file-access-from-files'] });
 
   test('動画、飛ばした Issue、撮れなかった Issue が、それぞれの形で並び、数が出る', () => {
     const html: string = call('renderGallery', {
@@ -550,7 +555,7 @@ describe('gallery.mjs', () => {
         'manifest.json': JSON.stringify({ judge: true, items: [video] }),
         'issue-574.mp4': 'dummy',
       };
-      const browser = await chromium.launch();
+      const browser = await launchFileBrowser();
       try {
         await inTempDirAsync(files, async (path) => {
           const dir = join(path('manifest.json'), '..');
@@ -605,7 +610,7 @@ describe('gallery.mjs', () => {
         'issue-574.mp4': 'dummy',
         'issue-575.mp4': 'dummy',
       };
-      const browser = await chromium.launch();
+      const browser = await launchFileBrowser();
       try {
         await inTempDirAsync(files, async (path) => {
           const dir = join(path('manifest.json'), '..');
@@ -682,7 +687,7 @@ describe('gallery.mjs', () => {
   ): Promise<void> {
     const files: Record<string, string> = { 'manifest.json': JSON.stringify({ judge: true, items }) };
     for (const item of items as { video?: string }[]) if (item.video) files[item.video] = 'dummy';
-    const browser = await chromium.launch();
+    const browser = await launchFileBrowser();
     try {
       await inTempDirAsync(files, async (path) => {
         assert.equal(run(join(path('manifest.json'), '..')).status, 0);
