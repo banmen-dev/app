@@ -148,17 +148,23 @@ describe('見えない文を運べる文字を除く', () => {
     expect(normalizeFeedbackText(`${at(0x1f600)}${hidden.join('')}`)).toBe(at(0x1f600));
   });
 
-  test('U+FE0F を並べて運ぶ文は、直前の文字に1つだけ残る', () => {
-    const heart = `${at(0x2764)}${at(0xfe0f)}`;
-    expect(normalizeFeedbackText(`${heart}${at(0xfe0f).repeat(8)}a`)).toBe(`${heart}a`);
-    expect(normalizeFeedbackText(`a${at(0xfe0f).repeat(5)}b${at(0xfe0f).repeat(3)}`)).toBe(
-      `a${at(0xfe0f)}b${at(0xfe0f)}`,
-    );
+  test('U+FE0F を並べて運ぶ文は、絵文字になりうる文字の直後に1つだけ残る', () => {
+    const fe0f = at(0xfe0f);
+    const heart = `${at(0x2764)}${fe0f}`;
+    expect(normalizeFeedbackText(`${heart}${fe0f.repeat(8)}a`)).toBe(`${heart}a`);
+    expect(normalizeFeedbackText(`#${fe0f.repeat(5)}1${fe0f.repeat(3)}`)).toBe(`#${fe0f}1${fe0f}`);
+  });
+
+  test('絵文字でない文字の後の U+FE0F は残らない', () => {
+    const fe0f = at(0xfe0f);
+    const kanji = at(0x6f22);
+    expect(normalizeFeedbackText(`a${fe0f}b${fe0f} ${fe0f}\n${fe0f}${kanji}${fe0f}`)).toBe(`ab \n${kanji}`);
   });
 
   test('文の先頭の U+FE0F と、除いた文字の後に残る U+FE0F の連なりは残らない', () => {
     expect(normalizeFeedbackText(`${at(0xfe0f)}a`)).toBe('a');
-    expect(normalizeFeedbackText(`a${at(0xfe0f)}${at(0x200b)}${at(0xfe0f)}`)).toBe(`a${at(0xfe0f)}`);
+    const heart = at(0x2764);
+    expect(normalizeFeedbackText(`${heart}${at(0xfe0f)}${at(0x200b)}${at(0xfe0f)}`)).toBe(`${heart}${at(0xfe0f)}`);
   });
 
   test('正規化は2回かけても変わらない（U+FE0F の連なり）', () => {
@@ -223,6 +229,8 @@ describe('鍵の形', () => {
     '-----BEGIN PRIVATE KEY-----\\nMIIfake\\n-----END PRIVATE KEY-----',
     '-----BEGIN PRIVATE KEY-----\n\n-----END PRIVATE KEY-----\n',
     '-----BEGIN PRIVATE KEY-----\nMII*fake!\n-----END PRIVATE KEY-----\n',
+    // 長さが 4 で割って 1 余る本文（atob が読めない）
+    '-----BEGIN PRIVATE KEY-----\nAAAAA\n-----END PRIVATE KEY-----\n',
   ])('PKCS#8 の PEM でなければ設定が無いものとして扱う: %j', (key) => {
     expect(feedbackGithubCredentials(env(key))).toBeUndefined();
   });

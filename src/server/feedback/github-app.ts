@@ -37,6 +37,8 @@ const VIEWER_URL_PATTERN = /^https:\/\/[A-Za-z0-9.:-]+\/[A-Za-z0-9._~/-]*$/;
 // 絵文字の見た目を決める U+FE0F だけを残し、ほかの異体字セレクタも除く
 const DEFAULT_IGNORABLE = /\p{Default_Ignorable_Code_Point}/u;
 const EMOJI_PRESENTATION_SELECTOR = 0xfe0f;
+// U+FE0F を残してよい直前の文字（絵文字になりうる文字。キーキャップの基底の #、*、数字を含む）
+const EMOJI_BASE = /\p{Emoji}/u;
 
 export type FeedbackGithubCredentials = { appId: string; installationId: string; privateKeyPem: string };
 
@@ -122,7 +124,8 @@ function base64UrlJson(value: unknown): string {
 function pemBody(pem: string): string | undefined {
   const match = PEM_PATTERN.exec(pem);
   const body = match?.[1].replace(/\s/g, '');
-  return body && BASE64_PATTERN.test(body) ? body : undefined;
+  // 長さが 4 で割って 1 余る base64 は atob が読めない
+  return body && BASE64_PATTERN.test(body) && body.length % 4 !== 1 ? body : undefined;
 }
 
 // PKCS#8 の PEM を署名用の鍵に読む。失敗は呼ぶ側が名前だけを残す（PEM の中身を例外に載せない）
@@ -326,8 +329,9 @@ export function feedbackIssueBody(input: FeedbackIssueInput): string {
 // 対にならないサロゲートの片割れ（U+D800〜U+DFFF）も除く。残すと、間の文字を除いた後で上位と下位の片割れがつながり、
 // 除いたはずのタグの文字などが生まれる（JSON の \u エスケープから片割れのまま届く）。
 // ほかに Unicode の Default_Ignorable_Code_Point（ハングルの埋め字、ソフトハイフン、異体字セレクタなど）と注釈の文字（U+FFF9〜U+FFFB）も除く。
-// 異体字セレクタは並べると見えない文を運べるので、絵文字の見た目を決める U+FE0F だけを、直前の文字に1つだけ残す
-// （文の先頭と、U+FE0F の後に続くものは除く）。漢字の異体字の指定（IVS、U+E0100〜U+E01EF）も除くので、人名や地名の字形は基本の字形で届く
+// 異体字セレクタは並べると見えない文を運べるので、絵文字の見た目を決める U+FE0F だけを、絵文字になりうる文字（\p{Emoji}）の
+// 直後に1つだけ残す（文の先頭、ほかの文字の後、U+FE0F の後に続くものは除く。キーキャップの基底の #、*、数字の後には残るので、
+// その文字ごとに1ビットは運べる）。漢字の異体字の指定（IVS、U+E0100〜U+E01EF）も除くので、人名や地名の字形は基本の字形で届く
 export function normalizeFeedbackText(text: string): string {
   const unified = text.replace(/\r\n|[\r\u0085\u2028\u2029]/g, '\n');
   let result = '';
@@ -335,7 +339,10 @@ export function normalizeFeedbackText(text: string): string {
   for (const char of unified) {
     const code = char.codePointAt(0) ?? 0;
     if (isRemovedChar(code)) continue;
-    if (code === EMOJI_PRESENTATION_SELECTOR && (previous === undefined || previous === EMOJI_PRESENTATION_SELECTOR))
+    if (
+      code === EMOJI_PRESENTATION_SELECTOR &&
+      (previous === undefined || !EMOJI_BASE.test(String.fromCodePoint(previous)))
+    )
       continue;
     result += char;
     previous = code;
