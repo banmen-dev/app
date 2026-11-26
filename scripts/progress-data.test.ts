@@ -11,7 +11,9 @@ import {
   parseSprintLog,
   pullTargets,
   toRawIssue,
+  trustedClosings,
   withoutPulls,
+  type ApiComment,
   type ApiIssue,
   type BoardIssue,
   type RawBlocker,
@@ -755,5 +757,56 @@ describe('コマンドの引数', () => {
     assert.equal(result.status, 1);
     assert.match(result.stderr, /使い方: node scripts\/progress-data\.ts <出力のパス>/);
     assert.equal(result.stdout, '');
+  });
+});
+
+describe('締めのコメントの作者', () => {
+  const CLOSING = '## 締め（2026-11-04）\n\nベロシティ: 12';
+  const comment = (login: string, body = CLOSING, type = 'User'): ApiComment => ({ body, user: { login, type } });
+  // 架空の権限の表。writer だけが書き込み権限を持ち、member は区分が MEMBER でも read、broken は API が失敗する
+  const permissions: Record<string, string> = { writer: 'write', outsider: 'read', member: 'read' };
+  const lookup = async (login: string): Promise<unknown> => {
+    if (login === 'broken') throw new Error('API が失敗した');
+    return { permission: permissions[login] ?? 'none', user: { login, type: 'User' } };
+  };
+
+  test('書き込み権限のある作者の締めだけを返す', async () => {
+    assert.deepEqual(await trustedClosings([comment('Writer')], lookup), [CLOSING]);
+  });
+
+  test('外の人（read）、権限の無い MEMBER、API が失敗した作者の締めは返さない', async () => {
+    // API の応答の author_association は型に持たず、判定に使わない。MEMBER と書いても権限の表で決まる
+    const member = { ...comment('member'), author_association: 'MEMBER' };
+    assert.deepEqual(await trustedClosings([comment('outsider'), member, comment('broken')], lookup), []);
+  });
+
+  test('Bot の型、login の無いコメント、不正な login の締めは返さない', async () => {
+    const comments: ApiComment[] = [
+      comment('writer', CLOSING, 'Bot'),
+      { body: CLOSING, user: null },
+      comment('writer/../x'),
+    ];
+    assert.deepEqual(await trustedClosings(comments, lookup), []);
+  });
+
+  test('締めでないコメントは、作者に権限があっても返さず、権限も引かない', async () => {
+    const asked: string[] = [];
+    const counting = async (login: string) => {
+      asked.push(login);
+      return lookup(login);
+    };
+    assert.deepEqual(await trustedClosings([comment('writer', 'ほかのコメント'), { body: null }], counting), []);
+    assert.deepEqual(asked, []);
+  });
+
+  test('偽の締めが後ろにあっても、履歴は書き込み権限のある作者の締めを読む', async () => {
+    const real = '## 締め\n\n| 計画 | 17 | 5 |\n\nベロシティ: 12';
+    const fake = '## 締め\n\n| 計画 | 99 | 9 |\n\nベロシティ: 99';
+    const issues = [closed(1, { labels: ['sprint-log'], title: 'スプリント 1（2026-10-22〜2026-10-28）' })];
+    const comments = { 1: await trustedClosings([comment('writer', real), comment('outsider', fake)], lookup) };
+    const { history } = buildProgress(raw({ issues, comments }), NOW);
+    assert.equal(history.length, 1);
+    assert.equal(history[0]?.velocity, 12);
+    assert.deepEqual(history[0]?.planned, { pt: 17, count: 5 });
   });
 });

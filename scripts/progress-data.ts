@@ -19,8 +19,10 @@
 //            { n, log, planned: { pt, count }, velocity, accepted: [{ number, prs }] }
 //            accepted は sprint:<n> が付いて completed で閉じた Issue で、prs はそのマージ済みの PR
 // Issue と PR の本文は、計画の表と PR の参照を読むのに使うだけで、出力に入れない
-import { execFileSync } from 'node:child_process';
+// 締めのコメントは、書き込み権限を API で確かめた作者のものだけを読む（docs/development.md の「GitHub の書き込み権限」）
+import { execFileSync, spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
+import { normalizeLogin, resolveWriteUsers } from './github-write-permissions.ts';
 
 export type State = 'done' | 'accept' | 'review' | 'wip' | 'refining' | 'todo';
 export type Level = 'epic' | 'story' | 'task';
@@ -90,7 +92,7 @@ export type RawData = {
   blockers: Record<number, RawBlocker[]>;
   // 親の番号から、サブ Issue の並び（作る順）へ。サブ Issue を持つ親だけ引く
   subOrder: Record<number, number[]>;
-  // 閉じた記録の Issue の番号から、コメントの本文へ
+  // 閉じた記録の Issue の番号から、書き込み権限を確かめた作者の締めのコメントの本文へ（trustedClosings）
   comments: Record<number, string[]>;
 };
 
@@ -457,7 +459,8 @@ export type ApiIssue = {
 };
 type ApiPull = { number: number; head: { ref: string }; body: string | null; merged_at: string | null };
 type ApiBlocker = { number: number; state: 'open' | 'closed'; labels: { name: string }[] };
-type ApiComment = { body: string };
+export type ApiComment = { body: string | null; user?: { login?: string | null; type?: string | null } | null };
+type PermissionLookup = (login: string) => Promise<unknown>;
 
 // gh の出力は大きくなりうる
 const MAX_BUFFER = 512 * 1024 * 1024;
@@ -507,7 +510,36 @@ export function toRawIssue(issue: ApiIssue): RawIssue {
 
 const toRawPull = (pull: ApiPull): RawPull => ({ number: pull.number, head: pull.head.ref, body: pull.body ?? '' });
 
-export function readGitHub(): RawData {
+// 締めのコメントのうち、書き込み権限を確かめた作者のものの本文だけを返す。
+// 締めでないコメントは、作者を確かめずに本文を運ばないよう、ここで捨てる
+export async function trustedClosings(comments: ApiComment[], lookup: PermissionLookup): Promise<string[]> {
+  const closings = comments.filter((comment) => (comment.body ?? '').startsWith(CLOSING_HEADING));
+  if (closings.length === 0) return [];
+  const writers = await resolveWriteUsers(
+    closings.map((comment) => ({ login: comment.user?.login, type: comment.user?.type })),
+    lookup,
+  );
+  return closings
+    .filter((comment) => {
+      const login = normalizeLogin(comment.user?.login);
+      return comment.user?.type === 'User' && login !== undefined && writers.has(login);
+    })
+    .map((comment) => comment.body ?? '');
+}
+
+// collaborators/<login>/permission を引く。失敗は投げ、resolveWriteUsers が許可しない側に倒す
+async function ghPermission(login: string): Promise<unknown> {
+  const response = spawnSync('gh', ['api', `repos/{owner}/{repo}/collaborators/${login}/permission`], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+    timeout: 10_000,
+    maxBuffer: 1024 * 1024,
+  });
+  if (response.error || response.status !== 0) throw new Error('権限を取得できなかった');
+  return JSON.parse(response.stdout) as unknown;
+}
+
+export async function readGitHub(lookup: PermissionLookup = ghPermission): Promise<RawData> {
   const apiIssues = withoutPulls(ghPages<ApiIssue>('repos/{owner}/{repo}/issues?state=all&per_page=100'));
   const issues = apiIssues.map(toRawIssue);
   const openPulls = ghPages<ApiPull>('repos/{owner}/{repo}/pulls?state=open&per_page=100').map(toRawPull);
@@ -521,9 +553,10 @@ export function readGitHub(): RawData {
   for (const issue of apiIssues) {
     const lookups = lookupsFor(issue);
     if (lookups.comments) {
-      comments[issue.number] = ghPages<ApiComment>(
-        `repos/{owner}/{repo}/issues/${issue.number}/comments?per_page=100`,
-      ).map((comment) => comment.body);
+      comments[issue.number] = await trustedClosings(
+        ghPages<ApiComment>(`repos/{owner}/{repo}/issues/${issue.number}/comments?per_page=100`),
+        lookup,
+      );
     }
     if (lookups.blockers) {
       blockers[issue.number] = ghPages<ApiBlocker>(
@@ -546,7 +579,7 @@ if (import.meta.main) {
     console.error('使い方: node scripts/progress-data.ts <出力のパス>');
     process.exit(1);
   }
-  const { warnings, ...progress } = buildProgress(readGitHub(), new Date());
+  const { warnings, ...progress } = buildProgress(await readGitHub(), new Date());
   for (const warning of warnings) console.error(`警告: ${warning}`);
   writeFileSync(out, `${JSON.stringify(progress, null, 2)}\n`);
   console.log(`${out} に書いた（Issue ${progress.issues.length} 件、スプリント ${progress.sprint?.n ?? 'なし'}）`);
