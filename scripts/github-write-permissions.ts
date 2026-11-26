@@ -62,7 +62,8 @@ export function ghPermissionLookup(repo: string): PermissionLookup {
   };
 }
 
-// 同じ実行の中で、本人ごとの確認結果を使い回す（docs/development.md の「GitHub の書き込み権限」）
+// 同じ実行の中で、本人ごとの確認結果を使い回す（docs/development.md の「GitHub の書き込み権限」）。
+// 失敗（タイムアウト、5xx など）は使い回さず、次に聞かれたときに引き直す
 export function cachedLookup(lookup: PermissionLookup): PermissionLookup {
   const seen = new Map<string, Promise<unknown>>();
   return (login) => {
@@ -70,6 +71,7 @@ export function cachedLookup(lookup: PermissionLookup): PermissionLookup {
     if (found === undefined) {
       found = lookup(login);
       seen.set(login, found);
+      found.catch(() => seen.delete(login));
     }
     return found;
   };

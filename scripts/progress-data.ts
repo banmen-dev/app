@@ -536,6 +536,14 @@ export async function trustedClosings(
   return { bodies, rejected: closings.length - bodies.length };
 }
 
+// 読まなかった締めの警告。API の失敗と、権限が無いと分かった作者と、Bot や不正な login とを分けず、
+// 原因を断定しない。本文は出さない
+export function rejectedClosingWarning(log: number, rejected: number): string | null {
+  return rejected > 0
+    ? `記録 #${log} の締めのコメント ${rejected} 件は、作者の書き込み権限を確認できた締めではないので読まなかった`
+    : null;
+}
+
 export async function readGitHub(
   lookup: PermissionLookup = ghPermissionLookup('{owner}/{repo}'),
 ): Promise<{ raw: RawData; warnings: string[] }> {
@@ -559,12 +567,8 @@ export async function readGitHub(
         permission,
       );
       comments[issue.number] = bodies;
-      // 権限を確かめられなかったのか、外の人の偽の締めなのかは分けない。本文は出さない
-      if (rejected > 0) {
-        warnings.push(
-          `記録 #${issue.number} の締めのコメント ${rejected} 件は、作者の書き込み権限を確かめられないので読まなかった`,
-        );
-      }
+      const warning = rejectedClosingWarning(issue.number, rejected);
+      if (warning) warnings.push(warning);
     }
     if (lookups.blockers) {
       blockers[issue.number] = ghPages<ApiBlocker>(

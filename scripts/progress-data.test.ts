@@ -9,6 +9,7 @@ import {
   lookupsFor,
   parseClosing,
   parseSprintLog,
+  rejectedClosingWarning,
   pullTargets,
   toRawIssue,
   trustedClosings,
@@ -811,7 +812,7 @@ describe('締めのコメントの作者', () => {
     assert.deepEqual(asked, []);
   });
 
-  test('cachedLookup は、記録をまたいでも本人ごとに1回だけ引き、失敗も使い回して許可しない', async () => {
+  test('cachedLookup は、記録をまたいでも許可の結果を本人ごとに1回だけ引き、失敗は次に引き直す', async () => {
     const asked: string[] = [];
     const cached = cachedLookup(async (login: string) => {
       asked.push(login);
@@ -823,7 +824,26 @@ describe('締めのコメントの作者', () => {
         rejected: 1,
       });
     }
-    assert.deepEqual(asked, ['writer', 'broken']);
+    assert.deepEqual(asked, ['writer', 'broken', 'broken']);
+  });
+
+  test('cachedLookup は、一時的に失敗した本人を次の記録で引き直し、通れば許可する', async () => {
+    let calls = 0;
+    const flaky = cachedLookup(async (login: string) => {
+      calls += 1;
+      if (calls === 1) throw new Error('タイムアウト');
+      return lookup(login);
+    });
+    assert.deepEqual(await trustedClosings([comment('writer')], flaky), { bodies: [], rejected: 1 });
+    assert.deepEqual(await trustedClosings([comment('writer')], flaky), { bodies: [CLOSING], rejected: 0 });
+  });
+
+  test('読まなかった締めの警告は、記録の番号と件数だけを出し、原因を断定せず、0 件なら出さない', () => {
+    assert.equal(
+      rejectedClosingWarning(7, 2),
+      '記録 #7 の締めのコメント 2 件は、作者の書き込み権限を確認できた締めではないので読まなかった',
+    );
+    assert.equal(rejectedClosingWarning(7, 0), null);
   });
 
   test('偽の締めが後ろにあっても、履歴は書き込み権限のある作者の締めを読む', async () => {
