@@ -32,7 +32,7 @@
   // 行き先の情報は到着時に消える。退場中に枠を紙へ替えないよう、表示した形を保持する。
   let shownLoadingShape = $state<LoadingShape | null>(null);
   let shownLoadingDashboard = $state(false);
-  let shownLoadingEyebrow = $state<LoadingEyebrow>('none');
+  let shownLoadingEyebrow = $state<LoadingEyebrow>('always');
   let shownLoadingTabs = $state(false);
 
   // URL を直接開いた最初の読み込みの表示（src/app.html の #boot-loading）は、画面が描かれたら要らない
