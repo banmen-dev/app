@@ -142,6 +142,40 @@ describe('connection-stop', () => {
     expect(await logsOf(target, row.id)).toEqual([]);
   });
 
+  test.each(['user_disabled', 'member_left'])(
+    '%s で止まった接続を止めると、leader に書き換え、履歴に残る',
+    async (reason) => {
+      const target = await createTarget();
+      const row = await connectionOf(target, target.member, { status: 'stopped', stopped_reason: reason });
+
+      const res = await call(connectionStop, target, target.leader, row.id);
+      expect(res.status).toBe(200);
+      expect(await rowOf(target, row.id)).toMatchObject({ status: 'stopped', stopped_reason: 'leader' });
+      expect(await logsOf(target, row.id)).toHaveLength(1);
+    },
+  );
+
+  test.each(['leader', 'workspace_closed'])(
+    '%s で止まっている接続を止めても、理由を書き換えず、履歴も足さない',
+    async (reason) => {
+      const target = await createTarget();
+      const row = await connectionOf(target, target.member, { status: 'stopped', stopped_reason: reason });
+
+      const res = await call(connectionStop, target, target.member, row.id);
+      expect(res.status).toBe(200);
+      expect(await rowOf(target, row.id)).toMatchObject({ status: 'stopped', stopped_reason: reason });
+      expect(await logsOf(target, row.id)).toEqual([]);
+    },
+  );
+
+  test('止まっている接続の停止も、閉じたワークスペースでは 409 の workspace_closed（開いていれば何もせず 200）', async () => {
+    const target = await createTarget({ closed: true });
+    const row = await connectionOf(target, target.member, { status: 'stopped', stopped_reason: 'owner' });
+
+    expect((await call(connectionStop, target, target.admin, row.id)).status).toBe(409);
+    expect(await rowOf(target, row.id)).toMatchObject({ stopped_reason: 'owner' });
+  });
+
   test('ワークスペースを抜けた持ち主の接続も、リーダーが止められる', async () => {
     const target = await createTarget();
     const row = await connectionOf(target, target.member);
@@ -317,6 +351,36 @@ describe('他のメンバーの接続の範囲', () => {
       });
       expect(res.status).toBe(403);
     }
+  });
+});
+
+describe('同時の停止と削除', () => {
+  test('停止が接続を読んだ後に削除されたら、停止は 404（削除済みと同じ）。停止の履歴は残らない', async () => {
+    const target = await createTarget();
+    const row = await connectionOf(target, target.member);
+    const bindings = afterFirstQuery(
+      env,
+      (sql) => sql.includes('from "connections"') && sql.includes('"owner_user_id"'),
+      async () => {
+        const db = orgDb(env, target.organization.verified);
+        await db.run(
+          db.statement((q) =>
+            q
+              .updateTable('connections')
+              .set({
+                deleted_at: '2026-11-27T00:00:00.000Z',
+                credential_ciphertext: null,
+                credential_key_version: null,
+                credential_last4: null,
+              })
+              .where('id', '=', row.id),
+          ),
+        );
+      },
+    );
+
+    expect((await call(connectionStop, target, target.member, row.id, bindings)).status).toBe(404);
+    expect(await logsOf(target, row.id)).toEqual([]);
   });
 });
 

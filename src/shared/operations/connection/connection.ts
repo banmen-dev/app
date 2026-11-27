@@ -53,6 +53,17 @@ export function isOwnerGoneStop(connection: { status: string; stopped_reason: st
   );
 }
 
+// 範囲の候補と保存を断る停止の理由。持ち主が去ったときの3つに、本人かリーダーが止めた owner と leader を足す
+// （止めた接続では、保存した認証情報で取り込み元に問い合わせない）。auth_failed は新しい認証情報で再開できるので断らない
+export const CONNECTION_SCOPE_BLOCKED_REASONS = [...CONNECTION_OWNER_GONE_REASONS, 'owner', 'leader'] as const;
+
+export function isScopeBlockedStop(connection: { status: string; stopped_reason: string | null }): boolean {
+  return (
+    connection.status === 'stopped' &&
+    (CONNECTION_SCOPE_BLOCKED_REASONS as readonly (string | null)[]).includes(connection.stopped_reason)
+  );
+}
+
 // 1接続に選べる範囲の数の上限。保存は D1 の束縛の上限に収まる数の文に分ける
 export const CONNECTION_SCOPES_MAX = 200;
 

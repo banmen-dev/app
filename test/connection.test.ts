@@ -648,7 +648,7 @@ describe('持ち主が去って止めた接続の範囲', () => {
     return (body as { error: { code: string; details?: { reason?: string } } }).error;
   }
 
-  test.each(['member_left', 'user_disabled', 'workspace_closed'])(
+  test.each(['member_left', 'user_disabled', 'workspace_closed', 'owner', 'leader'])(
     '%s で止めた接続は、候補も保存も 409 の connection_stopped で、取り込み元に問い合わせず範囲も履歴も変わらない',
     async (reason) => {
       const ctx = setup();

@@ -6,7 +6,7 @@ import { now } from '../../shared/clock.ts';
 import {
   CONNECTIONS_PER_MEMBER_MAX,
   CONNECTION_MANUAL_SYNC_INTERVAL_SECONDS,
-  CONNECTION_OWNER_GONE_REASONS,
+  CONNECTION_SCOPE_BLOCKED_REASONS,
   connectionCreate,
   connectionDelete,
   connectionList,
@@ -16,7 +16,7 @@ import {
   connectionSync,
   connectionUpdate,
   CONNECTION_CREDENTIAL_RESUME_REASONS,
-  isOwnerGoneStop,
+  isScopeBlockedStop,
   resumesOnCredential,
   type Connection,
   type ConnectionCreateProblem,
@@ -342,15 +342,15 @@ async function ownConnection(db: OrganizationDb, actorUserId: string, workspaceI
   return row;
 }
 
-// 持ち主が去って止めた接続は、保存した認証情報で取り込み元に問い合わせない（範囲の候補と保存は 409 の connection_stopped）。
-// 去ったと見るのは、離脱・無効化・閉鎖の理由で止めたときと、止まった接続の持ち主が今のメンバーでないとき
+// 止めた接続は、保存した認証情報で取り込み元に問い合わせない（範囲の候補と保存は 409 の connection_stopped）。
+// 断るのは、離脱・無効化・閉鎖と、本人かリーダーが止めた（owner、leader）理由のときと、止まった接続の持ち主が今のメンバーでないとき
 // （離脱と無効化は既に止まった接続の理由を書き換えないので、先に auth_failed などで止まった接続は理由だけでは分からない）
 function throwIfOwnerGone(row: {
   status: string;
   stopped_reason: string | null;
   owner_is_member: number | boolean | null;
 }): void {
-  if (isOwnerGoneStop(row) || (row.status === 'stopped' && !row.owner_is_member)) {
+  if (isScopeBlockedStop(row) || (row.status === 'stopped' && !row.owner_is_member)) {
     throw new ApiError(409, 'conflict', { reason: 'connection_stopped' });
   }
 }
@@ -556,12 +556,12 @@ export const connectionScopesSaveOperation = implement(
           .where('workspace_id', '=', workspaceId)
           .where('owner_user_id', '=', actorUserId)
           .where('deleted_at', 'is', null)
-          // 候補を取っている間に持ち主の離脱や無効化で止まった接続の範囲は書かない（throwIfOwnerGone と同じ条件）
+          // 候補を取っている間に止まった接続（auth_failed を除く）と持ち主が抜けた接続の範囲は書かない（throwIfOwnerGone と同じ条件）
           .where((eb) =>
             eb.or([
               eb('status', '!=', 'stopped'),
               eb.and([
-                eb('stopped_reason', 'not in', CONNECTION_OWNER_GONE_REASONS),
+                eb('stopped_reason', 'not in', CONNECTION_SCOPE_BLOCKED_REASONS),
                 eb.exists(activeMemberName(q, organizationId, workspaceId, actorUserId)),
               ]),
             ]),
