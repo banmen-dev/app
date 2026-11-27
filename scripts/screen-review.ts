@@ -14,7 +14,13 @@ import {
 } from '../e2e/screen-capture.ts';
 import { word } from '../src/shared/vocabulary.ts';
 import { extractDesignRules } from './screen-review-design.ts';
-import { composeContactSheet, composePair, frameComposer, referenceFontFailure } from './screen-review-images.ts';
+import {
+  composeContactSheet,
+  composePair,
+  frameComposer,
+  referenceFontFailure,
+  reviewImagePaths,
+} from './screen-review-images.ts';
 import { captureReviewMotion } from './screen-review-motion.ts';
 import { reviewCaptureTime, screenReviewOptions, screenReviewOutput } from './screen-review-options.ts';
 import { launchChromium, localReviewRuntime, serveReference } from './screen-review-runtime.ts';
@@ -246,6 +252,9 @@ async function main() {
     abort.signal.throwIfAborted();
     await saveRound(staging, output);
     console.log(`撮影が完了しました。採点資料: ${output}`);
+    console.log(
+      `採点役に渡す画像（周のディレクトリでなく、この絶対パスを1枚ずつ渡す）:\n${(await reviewImagePaths(output)).join('\n')}`,
+    );
   } catch (error) {
     const failed = join(output, `failed-${randomUUID()}`);
     try {

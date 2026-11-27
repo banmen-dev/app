@@ -7,7 +7,7 @@ import { join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Page } from '@playwright/test';
 import { NARROW_VIEWPORT, setCaptureViewport } from '../e2e/screen-capture.ts';
-import { comparisonBands, referenceFontFailure } from './screen-review-images.ts';
+import { comparisonBands, referenceFontFailure, reviewImagePaths } from './screen-review-images.ts';
 import { motionAnimationSelectors } from './screen-review-motion.ts';
 import { reviewCaptureTime, screenReviewOptions, screenReviewOutput } from './screen-review-options.ts';
 import { serveReference } from './screen-review-runtime.ts';
@@ -151,4 +151,29 @@ test('見本の外部フォントの通信と HTTP の失敗だけを記録す�
   assert.equal(referenceFontFailure('https://fonts.googleapis.com.example.com/font', 404), undefined);
   assert.equal(referenceFontFailure('https://example.com/image.png'), undefined);
   assert.equal(referenceFontFailure('not a URL', 400), undefined);
+});
+
+test('採点役に渡す画像は、pairs/ の全画像と motion/ の合成画像を絶対パスで並べ、コマは含めない', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'screen-review-paths-'));
+  try {
+    mkdirSync(join(directory, 'pairs'));
+    mkdirSync(join(directory, 'motion'));
+    for (const file of ['pairs/light-1280.png', 'pairs/light-390-1.png', 'pairs/light-390-2.png'])
+      writeFileSync(join(directory, file), '');
+    for (const file of [
+      'motion/dark-stamp.png',
+      'motion/dark-stamp-1.png',
+      'motion/dark-stamp-2.png',
+      'motion/results.json',
+    ])
+      writeFileSync(join(directory, file), '');
+    assert.deepEqual(
+      await reviewImagePaths(directory),
+      ['pairs/light-1280.png', 'pairs/light-390-1.png', 'pairs/light-390-2.png', 'motion/dark-stamp.png'].map((file) =>
+        resolve(directory, file),
+      ),
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
