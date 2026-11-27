@@ -363,7 +363,7 @@ export type ImportedUpdate = {
 // 取り込み済みの1件の更新（docs/data-model.md の「書き込みの単位」）: tasks のタイトルと task_sources の取り込み元の属性だけを、1回の batch() で書く文の組を作る。
 // 列、スプリント、親、ポイント、期日、担当、リポジトリ、完了は書かない。変更の履歴（change_logs）も書かない。
 // 完了の印（is_source_done）は付け外しだけで、タスクの完了には触れない。
-// どちらの文も、同じ項目の task_sources の行があり、その source_updated_at が取り込み元の更新日時以前（古い頁で新しい値を戻さない）ことを条件にする。
+// どちらの文も、同じ項目の task_sources の行があり、その source_updated_at が取り込み元の更新日時以前（古い頁で新しい値を戻さない）ことを条件にする。task_sources の文は加えて、値がどれか変わるときだけ書く。
 // tasks の文を先に流すので、task_sources の条件は tasks の文でも同じ値を見る。行が無い（まだ取り込んでいない）項目では、どちらも0件になる
 export function updateImportedStatements(
   db: OrganizationDb,
@@ -378,23 +378,21 @@ export function updateImportedStatements(
       .where('tasks.is_imported', '=', 1)
       .where('tasks.deleted_at', 'is', null)
       .where('tasks.title', '!=', update.title)
-      .where((eb) =>
-        eb.and([
-          eb.exists(
-            q
-              .selectFrom('task_sources')
-              .select('task_sources.task_id')
-              .where(sql<boolean>`task_sources.task_id = tasks.id`)
-              .where('task_sources.workspace_id', '=', update.workspaceId)
-              .where('task_sources.provider', '=', update.provider)
-              .where('task_sources.source_kind', '=', update.kind)
-              .where('task_sources.source_id', '=', update.sourceId)
-              .where('task_sources.reviewer_source_id', '=', '')
-              .where('task_sources.source_updated_at', '<=', update.updatedAt),
-          ),
-          activeConnectionExists(db, q, eb, update),
-        ]),
-      ),
+      // 項目の一意のキー（task_sources の一意の索引）で1行に絞ってから tasks を引く（ワークスペースのタスクを全件なめない）
+      .where(
+        'tasks.id',
+        '=',
+        q
+          .selectFrom('task_sources')
+          .select('task_sources.task_id')
+          .where('task_sources.workspace_id', '=', update.workspaceId)
+          .where('task_sources.provider', '=', update.provider)
+          .where('task_sources.source_kind', '=', update.kind)
+          .where('task_sources.source_id', '=', update.sourceId)
+          .where('task_sources.reviewer_source_id', '=', '')
+          .where('task_sources.source_updated_at', '<=', update.updatedAt),
+      )
+      .where((eb) => activeConnectionExists(db, q, eb, update)),
   );
   const updateSource = db.statement((q) =>
     q
@@ -414,6 +412,16 @@ export function updateImportedStatements(
       .where('task_sources.source_id', '=', update.sourceId)
       .where('task_sources.reviewer_source_id', '=', '')
       .where('task_sources.source_updated_at', '<=', update.updatedAt)
+      // 何も変わらない項目は書かない（同期のたびに全行を書き直さない）
+      .where((eb) =>
+        eb.or([
+          eb('task_sources.source_updated_at', '<', update.updatedAt),
+          eb('task_sources.source_url', '!=', update.url),
+          eb('task_sources.source_status', '!=', update.status),
+          eb('task_sources.source_due_on', 'is not', update.dueOn),
+          eb('task_sources.is_source_done', '!=', update.isDone ? 1 : 0),
+        ]),
+      )
       .where((eb) =>
         eb.and([
           eb.exists(

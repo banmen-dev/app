@@ -336,6 +336,32 @@ describe('取り込みの同期', () => {
       });
     });
 
+    test('同期の最中に止まった接続は、取り込み済みの項目も更新しない', async () => {
+      const { workspace, connection, db } = await setup();
+      await syncConnection(env, db, workspace.id, connection.id, {
+        source: fakeSource({ '501': [{ items: [item(1)], next: null }] }).source,
+      });
+      const stopMidway: ImportSource = {
+        ...fakeSource({}).source,
+        async fetchPage() {
+          await db.run(
+            db.statement((q) =>
+              q
+                .updateTable('connections')
+                .set({ status: 'stopped', stopped_reason: 'leader' })
+                .where('id', '=', connection.id),
+            ),
+          );
+          return { items: [item(1, { title: '止まった後', updatedAt: '2026-11-09T00:00:00.000Z' })], next: null };
+        },
+      };
+      await syncConnection(env, db, workspace.id, connection.id, { source: stopMidway });
+      expect(await firstTask(db, workspace.id)).toMatchObject({
+        title: '項目 1',
+        source_updated_at: '2026-11-01T00:00:00.000Z',
+      });
+    });
+
     test('別のワークスペースの同じ項目、レビュー依頼の行、削除したタスクは更新しない', async () => {
       const mine = await setup();
       const theirs = await setup();
