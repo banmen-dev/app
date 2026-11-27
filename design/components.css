@@ -135,7 +135,8 @@ h1, h2, h3 { text-wrap: balance; }
 .nav-group-toggle .ico { flex: none; rotate: 90deg; transition: rotate var(--duration-fast) var(--ease-out); }
 .nav-group-toggle[aria-expanded="false"] .ico { rotate: 0deg; }
 /* 所属するワークスペースの一覧。行は .nav-item を使い、長い名前は省略する（全文は title と読み上げの名前に残る） */
-.nav-ws-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-half); min-width: 0; }
+.nav-ws-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-half); min-width: 0; }
+.nav-ws-list > li { min-width: 0; }
 .nav-ws-list[hidden] { display: none; }
 .nav-ws-list .nav-item-label { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-ws-list .nav-item .ico { flex: none; margin-left: auto; color: var(--color-accent); }
