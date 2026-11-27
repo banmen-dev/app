@@ -150,6 +150,8 @@ async function saveRound(staging: string, output: string) {
   ];
   // capture.json は最後に置く。途中で移動が止まった周は採点資料として使わない。
   await rm(join(output, 'capture.json'), { force: true });
+  // この変更より前の周に残った全文の写し。
+  await rm(join(output, 'design.md'), { force: true });
   for (const name of files) {
     await rm(join(output, name), { recursive: true, force: true });
     await rename(join(staging, name), join(output, name));

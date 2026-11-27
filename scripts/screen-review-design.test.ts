@@ -11,7 +11,27 @@ describe('採点役に渡す設計文書の抜粋', () => {
       assert.ok(text.includes(`\n${heading}\n`) || text.startsWith(`${heading}\n`));
     assert.ok(!text.includes('## 文字サイズ'));
     assert.ok(!text.includes('### テーマごとの違い'));
-    assert.ok(text.length < 40_000);
+    // 節ごとの最後の項目まで入っている（途中で切れていない）
+    assert.ok(text.includes('6. **言葉が長くなっても崩れない。**'));
+    assert.ok(text.includes('**演出・面の出現と行の合図:**'));
+    // 見出しから次の見出しまでを別の方法で切り出した全文と一致する
+    const source = readFileSync(new URL('../docs/design.md', import.meta.url), 'utf8');
+    const slice = (from: string, to: string) =>
+      source.slice(source.indexOf(`\n${from}\n`) + 1, source.indexOf(`\n${to}\n`) + 1);
+    assert.equal(
+      text,
+      `${slice('## デザイン原則', '## 文字サイズ').trimEnd()}\n\n${slice('### どのテーマにも共通すること', '### テーマごとの違い').trimEnd()}\n`,
+    );
+  });
+
+  test('コードフェンスの中の # は見出しにしない', () => {
+    const md = '## A\nx\n```sh\n# comment\n## A\n```\ny\n## B\nb\n';
+    assert.equal(extractDesignSection(md, '## A'), '## A\nx\n```sh\n# comment\n## A\n```\ny\n');
+  });
+
+  test('CRLF、末尾の空白、ファイル末尾までの節を扱う', () => {
+    assert.equal(extractDesignSection('## A \r\nx\r\n## B\r\n', '## A'), '## A \nx\n');
+    assert.equal(extractDesignSection('## B\nb\n## A\nx\n', '## A'), '## A\nx\n');
   });
 
   test('節は同じ深さか浅い次の見出しで終わり、深い見出しは含む', () => {

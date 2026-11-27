@@ -2,23 +2,33 @@
 // 採点の根拠になる節だけを見出しの名前で抜き出して周に残す。
 export const DESIGN_RULE_HEADINGS = ['## デザイン原則', '### どのテーマにも共通すること'] as const;
 
-function headingDepth(line: string): number | null {
-  const match = /^(#{1,6}) /.exec(line);
-  return match ? match[1].length : null;
+// コードフェンスの中の `#` は見出しにしない。
+function headingDepths(lines: string[]): (number | null)[] {
+  let fenced = false;
+  return lines.map((line) => {
+    if (/^(```|~~~)/.test(line)) {
+      fenced = !fenced;
+      return null;
+    }
+    if (fenced) return null;
+    const match = /^(#{1,6}) /.exec(line);
+    return match ? match[1].length : null;
+  });
 }
 
 // 見出しの完全一致で節を探し、同じ深さか浅い次の見出しの手前までを返す。
 // 見出しが0件か2件以上、本文が空のときは、見出しの名前を添えて例外を投げる。
 export function extractDesignSection(markdown: string, heading: string): string {
   const lines = markdown.split('\n').map((line) => line.replace(/\r$/, ''));
-  const starts = lines.flatMap((line, index) => (line.trimEnd() === heading ? [index] : []));
+  const depths = headingDepths(lines);
+  const starts = lines.flatMap((line, index) => (depths[index] !== null && line.trimEnd() === heading ? [index] : []));
   if (starts.length === 0) throw new Error(`docs/design.md に見出し「${heading}」がありません`);
   if (starts.length > 1) throw new Error(`docs/design.md に見出し「${heading}」が${starts.length}件あります`);
   const start = starts[0];
-  const depth = headingDepth(heading) ?? 1;
+  const depth = depths[start] ?? 1;
   let end = lines.length;
   for (let index = start + 1; index < lines.length; index++) {
-    const next = headingDepth(lines[index]);
+    const next = depths[index];
     if (next !== null && next <= depth) {
       end = index;
       break;
