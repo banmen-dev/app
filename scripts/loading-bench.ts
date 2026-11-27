@@ -1,4 +1,4 @@
-// pnpm bench:loading [--runs 20] [--port 9742] [--layout-only] [--layout-before]
+// pnpm bench:loading [--runs 20] [--port 9742] [--layout-only] [--layout-before] [--route <路線の接頭辞>]
 // 本番・既存のローカル D1 は使わない。
 import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -24,6 +24,7 @@ const { values: args } = parseArgs({
     port: { type: 'string', multiple: true },
     'layout-only': { type: 'boolean' },
     'layout-before': { type: 'boolean' },
+    route: { type: 'string', multiple: true },
   },
 });
 
@@ -126,7 +127,12 @@ async function report() {
   );
   console.log('| load | 操作（主/従） | p50 ms | p95 ms |');
   console.log('| --- | --- | ---: | ---: |');
-  for (const screen of screens.filter((screen) => !args['layout-only'] || screen.route.startsWith('/[slug]/+layout'))) {
+  const routes = args.route ?? [];
+  for (const screen of screens.filter(
+    (screen) =>
+      (!args['layout-only'] || screen.route.startsWith('/[slug]/+layout')) &&
+      (routes.length === 0 || routes.some((route) => screen.route.startsWith(route))),
+  )) {
     if (!screen.operations.length) {
       console.log(`| ${screen.route} | 操作なし | — | — |`);
       continue;

@@ -491,6 +491,8 @@ Wrangler の assets で本番ビルドを SPA として配り、ループバッ�
 
 `pnpm bench:loading`（`scripts/loading-bench.ts`）で、load を持つ各画面・枠の操作ごとの p50・p95、合計、従のデータを後回しにした場合の短縮見込みを Markdown の表で出す。既定は各 load・発行順ごとの温め2回と計測20回（正順と逆順で各20回）。`pnpm bench:loading --runs 50 --port 9742` で回数とポートを変えられる（デバッガーは指定ポート + 1）。Node と pnpm はこの文書の指定版を使う。他の build・テストや計測と同時に走らせず、2回以上比べる。
 
+画面を絞って測るときは `--route <路線の接頭辞>`（複数可。例: `--route '/[slug]/w/[id]/connections'`）を付ける。取り込みが3万件ある接続1つの行（接続の一覧の状態名を集める読み）は [画面の読み込みの計測結果](loading-bench-results.md) の「接続の一覧の状態名を集める読み」に残した。
+
 組織の枠だけを測るときは `pnpm bench:loading --layout-only`、変更前の通知・招待件数も待つ順序を比較するときは `pnpm bench:loading --layout-only --layout-before` を使う。通常の計測では、組織の枠の2行で「枠を返せる時点」（主だけの最終完了）も出す。変更前の比較ではこの時点が全応答の最終完了になる。`--layout-before` は他画面には作用しない。条件と再計測の全値は [組織の枠の読み込みの変更と再計測](organization-shell-loading-results.md) を参照。
 
 一時ディレクトリに独立した Wrangler 設定と D1 を作り、全マイグレーション・seed・計測用データを入れ、`wrangler dev --local` を起動する。既存の `.dev.vars`・`.env` を探索しないよう Wrangler の作業ディレクトリも一時ディレクトリにする。公開 seed の管理者（運用画面だけ運用者）で呼ぶ。設定に使う認証情報の鍵は公開の計測用固定値で、本番用ではない。起動ごとの版の識別子を health で照合し、同じポートの別サーバーを測らない。通常終了、失敗、SIGINT・SIGTERM・SIGHUP では子の終了を待って D1 と設定を消す。POSIX では専用プロセスグループの子孫も止める（SIGKILL やホスト停止では後片付けできない）。既存の手元 D1 と本番は使わない。

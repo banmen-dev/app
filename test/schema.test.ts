@@ -490,6 +490,22 @@ describe('外部キー', () => {
     expect(details).not.toMatch(/^SCAN tasks\b/m);
   });
 
+  // 接続の一覧が集める状態名（#1654）は、接続から task_sources_connection_status を引いて重複を除く。
+  // task_sources をワークスペースの索引でたどると、取り込みが数万件の接続で全件を読む
+  test('接続の状態名を集める文は、接続から task_sources_connection_status の索引だけで引く', async () => {
+    const { results } = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT DISTINCT ts.connection_id, ts.source_status FROM task_sources AS ts
+        INNER JOIN connections AS c ON c.id = ts.connection_id
+        WHERE c.workspace_id = ? AND c.deleted_at IS NULL ORDER BY ts.source_status`,
+    )
+      .bind(id())
+      .all<{ detail: string }>();
+    const details = results.map((row) => row.detail).join('\n');
+
+    expect(details).toContain('SEARCH ts USING COVERING INDEX task_sources_connection_status (connection_id=?)');
+    expect(details).not.toMatch(/task_sources_container|^SCAN ts\b/m);
+  });
+
   // 今日やること（today）は未完了と完了を別の文にして、どちらも tasks_assignee_user の範囲で引く。
   // memberships、workspaces、tasks を結合する本物の文で、別の索引が選ばれて tasks を全件走査していないこと
   test('今日やることの未完了と完了の文は、tasks_assignee_user で引き、tasks を SCAN しない', async () => {
