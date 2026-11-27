@@ -586,7 +586,7 @@
                     {/if}
                     <span class="field-hint" id="connection-edit-credential-hint"
                       >{connection.status === 'stopped' && !staysStopped
-                        ? t('connectionEditResumeHint')
+                        ? t('connectionEditResumeHint', { connection: t('connection') })
                         : t('connectionEditCredentialHint')}</span
                     >
                     {#if staysStopped}
