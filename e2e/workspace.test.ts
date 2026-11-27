@@ -598,7 +598,9 @@ test.describe('管理者（あおば開発のミナト）', () => {
     ).toBeVisible();
     // 移る動作が組織の枠を読み直す（所属するワークスペースにも入っているので、メニューに出る）
     expect(organizationReads).toBeGreaterThanOrEqual(1);
-    await expect(page.getByRole('list', { name: '所属するワークスペース' })).toContainText(openedName);
+    await expect(
+      page.getByRole('list', { name: '所属するワークスペース' }).getByRole('link', { name: openedName, exact: true }),
+    ).toBeVisible();
   });
 
   test('選んだ最初のリーダーが指せなくなっていて 404 になったら、選び直しを促し、候補を取り直す', async ({ page }) => {

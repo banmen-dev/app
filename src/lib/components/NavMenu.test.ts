@@ -199,6 +199,13 @@ describe('ワークスペースの一覧', () => {
     expect(body).toMatch(/<ul[^>]*id="app-nav-workspaces"[^>]*hidden/);
   });
 
+  test('畳んだ状態でも、浮きメニューの機能の項目（バックログ、メンバー、設定）は畳まない', () => {
+    navWorkspacesState.collapsed = true;
+    const body = render(NavMenu, { props: { ...props, workspace: { ...workspace, role: 'leader' } } }).body;
+    expect(body).toMatch(/<ul[^>]*id="app-nav-workspaces"[^>]*hidden/);
+    for (const path of ['', '/members', '/settings']) expect(body).toContain(`href="/aoba/w/one${path}"`);
+  });
+
   test('今日やることの画面では、対象の行にチェックだけを付け、現在地にはしない', () => {
     const body = render(NavMenu, {
       props: { ...props, current: '/aoba', inWorkspaceScreen: false, workspaceItems: false },

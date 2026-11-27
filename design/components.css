@@ -1027,6 +1027,9 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
   .mobile-menu .org-menu { position: relative; min-width: 0; }
   /* 切り替えの一覧は面を押し広げる。スクロール領域の外へ切らない。 */
   .mobile-menu .org-menu-list { position: static; margin-top: var(--space-2); }
+  /* ワークスペースの一覧は、所属が多くても下の機能の項目まで届くよう高さを抑えて中で送り、長い名前は指の端末で読めるよう折り返す */
+  .mobile-menu .nav-ws-list { max-height: 40vh; overflow-y: auto; overscroll-behavior: contain; }
+  .mobile-menu .nav-ws-list .nav-item-label { white-space: normal; overflow-wrap: anywhere; }
   .mobile-menu .org-menu-button { min-height: 44px; }
 
 @media (max-width: 760px) {
