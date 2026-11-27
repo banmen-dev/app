@@ -33,7 +33,7 @@ function conn(c) {
       <h2 class="conn-name">${esc(c.name)}</h2>
       <span class="state-badge ${cls}">${label}</span>
       <span class="conn-actions">
-        ${mine ? `<button class="btn is-sm" type="button" data-toast="3 件届きました">${icon("refresh")}今すぐ同期</button><button class="btn is-sm is-quiet" type="button">編集</button>`
+        ${mine ? `<button class="btn is-sm" type="button" data-toast="3 件届きました">${icon("refresh")}今すぐ同期</button><button class="btn is-sm is-quiet" type="button">${t("column")}の対応</button><button class="btn is-sm is-quiet" type="button">編集</button>`
           : `<button class="btn is-sm is-quiet" type="button">止める</button><button class="btn is-sm is-quiet is-danger" type="button">削除</button>`}
       </span>
     </div>
@@ -45,9 +45,24 @@ function conn(c) {
       <div><dt>${c.scope.mode === "include" ? "取り込む範囲" : "除外する範囲"}</dt><dd>${c.scope.items.map((s) => `<span class="tag">${esc(s)}</span>`).join("")}</dd></div>
       <div><dt>最後に成功</dt><dd class="mono">${esc(c.lastSuccess)}</dd></div>
       <div><dt>認証情報</dt><dd class="mono">••••${esc(c.last4)}</dd></div>
+      <div><dt>取り込み元の期限</dt><dd>${c.ignoreDue ? "無視する" : "出す"}</dd></div>
       <div><dt>状態から${t("column")}への対応</dt><dd>${c.mappings.length ? c.mappings.map(([a, b]) => `<span class="tag">${esc(a)} → ${esc(b)}</span>`).join("") : "なし（先頭の列に置く）"}</dd></div>
     </dl>
   </section>`;
+}
+
+function mappingForm() {
+  return `<section class="section" aria-labelledby="mapping"><div class="section-head"><h2 class="section-title" id="mapping">状態から${t("column")}への対応</h2><span class="section-hint">ミナトの GitHub（編集中の例）</span></div>
+  <div class="panel"><form class="form" onsubmit="return false">
+    <fieldset class="form-fields"><legend class="step-title">状態から${t("column")}への対応</legend>
+      <span class="field-hint">取り込んだ${t("task")}を${t("sprint")}に入れたとき、取り込み元の状態に合う${t("column")}に置きます。選ばない状態は先頭の${t("column")}に置きます。完了の${t("column")}は選べません。</span>
+      <div class="field"><label class="field-label" for="map-open">open の${t("column")}</label><select class="select" id="map-open"><option>先頭の${t("column")}（既定）</option><option selected>未着手</option><option>作業中</option><option>レビュー</option></select></div>
+      <div class="field"><label class="field-label" for="map-draft">draft の${t("column")}</label><select class="select" id="map-draft"><option selected>先頭の${t("column")}（既定）</option><option>未着手</option><option>作業中</option><option>レビュー</option></select></div>
+      <label class="toggle"><input type="checkbox"><span>取り込み元の期限を無視する</span></label>
+      <span class="field-hint">期限を運用していない取り込み元向けの設定です。選ぶと、取り込み元の期限を${t("task")}に出しません。</span>
+    </fieldset>
+    <div class="form-actions"><button class="btn is-primary" type="button" data-toast="対応を保存しました">保存する</button><button class="btn is-quiet" type="button">閉じる</button></div>
+  </form></div></section>`;
 }
 
 function register() {
@@ -86,6 +101,7 @@ SQ.mount("connection", () => `
   ])}
   <p class="action-note">取り込みは15分ごと。「今すぐ同期」は登録した本人が、${t("connection")}ごとに5分に1回まで押せます。${t("leader")}は他のメンバーの${t("connection")}を止めたり削除したりできますが、範囲は変えられません。</p>
   ${D.connections.map(conn).join("")}
+  ${mappingForm()}
   ${register()}`);
 </script>
 </body>

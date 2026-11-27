@@ -13,6 +13,7 @@
   import {
     connectionCreateFailure,
     connectionManageFailure,
+    connectionMappingFailure,
     connectionScopeFailure,
     connectionSyncFailure,
     connectionSyncOutcome,
@@ -24,10 +25,12 @@
   import { isUnauthenticated, loginUrl } from '../../../../../lib/login-redirect.ts';
   import { showToast } from '../../../../../lib/toast.svelte.ts';
   import { t } from '../../../../../lib/vocabulary.svelte.ts';
+  import { columnList, type Column } from '../../../../../shared/operations/column/index.ts';
   import {
     CONNECTION_SCOPES_MAX,
     connectionCreate,
     connectionDelete,
+    connectionMappingSave,
     connectionScopeCandidates,
     connectionScopesSave,
     connectionStop,
@@ -104,8 +107,19 @@
   let saving = $state(false);
   // 同期中の接続の ID（同時に1つだけ）
   let syncingId = $state<string | null>(null);
+  // 状態から列への対応と、取り込み元の期限を無視する設定。開いている接続の ID と、選べる列（完了の列を除く）、
+  // 状態ごとの選び（空は先頭の列）、保存の間の印
+  let mappingId = $state<string | null>(null);
+  // 選べる列（完了の列を除く）。読めなかったときは null
+  const mappingColumns = $derived<Column[] | null>(data.columns?.filter((column) => !column.is_done) ?? null);
+  const columnNames = $derived(new Map((data.columns ?? []).map((column) => [column.id, column.name])));
+  let mappingDraft = $state<Record<string, string>>({});
+  let mappingIgnoreDue = $state(false);
+  let mappingFailure = $state<DictionaryKey | null>(null);
+  let mappingSaving = $state(false);
+
   // 止める、削除、同期、編集の保存、範囲の保存のどれかが進んでいる間は、行の操作を重ねない（ガードとボタンの aria-disabled が同じ式を使う）
-  const busyElsewhere = $derived(managingId !== null || syncingId !== null || updating || saving);
+  const busyElsewhere = $derived(managingId !== null || syncingId !== null || updating || saving || mappingSaving);
 
   const overLimit = $derived(chosen.length > CONNECTION_SCOPES_MAX);
 
@@ -350,6 +364,67 @@
     }
   }
 
+  async function retryMappingColumns(): Promise<void> {
+    mappingFailure = null;
+    await reload();
+    if (data.columns === null) mappingFailure = 'connectionMappingFailed';
+  }
+
+  async function openMapping(target: Connection): Promise<void> {
+    if (mappingSaving) return;
+    if (mappingId === target.id) {
+      closeMapping();
+      return;
+    }
+    mappingId = target.id;
+    mappingDraft = Object.fromEntries(target.status_mappings.map((m) => [m.source_status, m.column_id]));
+    mappingIgnoreDue = target.ignore_source_due;
+    mappingFailure = mappingColumns === null ? 'connectionMappingFailed' : null;
+    await tick();
+    document.getElementById('connection-mapping-title')?.focus();
+  }
+
+  function closeMapping(): void {
+    if (mappingSaving) return;
+    const id = mappingId;
+    mappingId = null;
+    mappingFailure = null;
+    void tick().then(() => document.getElementById(`connection-mapping-${id}`)?.focus());
+  }
+
+  async function saveMapping(event: SubmitEvent, target: Connection): Promise<void> {
+    event.preventDefault();
+    if (mappingSaving || workspace === null || !canWrite || mappingId !== target.id || mappingColumns === null) return;
+    const live = new Set(mappingColumns.map((column) => column.id));
+    // 状態の一覧に無くなった状態と、列の一覧に無い選びは送らない
+    const mappings = target.source_statuses
+      .filter((status) => (mappingDraft[status] ?? '') !== '' && live.has(mappingDraft[status]!))
+      .map((status) => ({ source_status: status, column_id: mappingDraft[status]! }));
+    mappingSaving = true;
+    mappingFailure = null;
+    try {
+      const result = await callOperation(
+        connectionMappingSave,
+        { workspace_id: workspace.id, connection_id: target.id, mappings, ignore_source_due: mappingIgnoreDue },
+        { slug },
+      );
+      if (!result.ok && unauthenticated(result)) return;
+      if (result.ok) {
+        showToast(t('connectionMappingSaved', { name: result.data.connection.name }), 'check');
+        mappingSaving = false;
+        closeMapping();
+        await reload();
+      } else {
+        mappingFailure = connectionMappingFailure(result);
+        if (result.status === 400) await reload();
+        else if (result.error?.code === 'workspace_closed') await invalidate('app:workspace');
+        else if (result.status === 403 || result.status === 404) await reload();
+      }
+    } finally {
+      mappingSaving = false;
+    }
+  }
+
   async function manage(kind: 'stop' | 'delete', target: Connection, trigger: HTMLElement | null): Promise<void> {
     if (busyElsewhere || workspace === null || !canWrite) return;
     managing = { kind, connection: target };
@@ -504,6 +579,17 @@
                   <button
                     class="btn is-sm is-quiet"
                     type="button"
+                    id={`connection-mapping-${connection.id}`}
+                    aria-expanded={mappingId === connection.id}
+                    aria-disabled={mappingSaving}
+                    onclick={() => openMapping(connection)}
+                    >{t('connectionMappingOpen', { column: t('column') })}</button
+                  >
+                {/if}
+                {#if mine}
+                  <button
+                    class="btn is-sm is-quiet"
+                    type="button"
                     id={`connection-edit-${connection.id}`}
                     aria-expanded={editingId === connection.id}
                     aria-disabled={updating}
@@ -586,6 +672,25 @@
                   {t('connectionFactScopeNone')}
                 {/each}
               </dd>
+            </div>
+            <div>
+              <dt>{t('connectionFactMapping', { column: t('column') })}</dt>
+              <dd>
+                {#each connection.status_mappings as mapping (mapping.source_status)}
+                  <span class="tag"
+                    >{t('connectionFactMappingArrow', {
+                      status: mapping.source_status,
+                      column: columnNames.get(mapping.column_id) ?? '—',
+                    })}</span
+                  >
+                {:else}
+                  {t('connectionFactMappingNone', { sprint: t('sprint'), column: t('column') })}
+                {/each}
+              </dd>
+            </div>
+            <div>
+              <dt>{t('connectionFactDue')}</dt>
+              <dd>{connection.ignore_source_due ? t('connectionFactDueIgnored') : t('connectionFactDueShown')}</dd>
             </div>
             <div>
               <dt>{t('connectionFactLastSuccess')}</dt>
@@ -695,6 +800,78 @@
                   type="button"
                   aria-disabled={updating}
                   onclick={() => !updating && closeEdit(connection.id)}>{t('cancel')}</button
+                >
+              </div>
+            </form>
+          {/if}
+          {#if canWrite && mine && mappingId === connection.id}
+            <form
+              class="form"
+              method="post"
+              aria-labelledby="connection-mapping-title"
+              onsubmit={(event) => saveMapping(event, connection)}
+              novalidate
+            >
+              <fieldset class="form-fields">
+                <legend class="step-title" id="connection-mapping-title" tabindex="-1"
+                  >{t('connectionMappingTitle', { column: t('column') })}</legend
+                >
+                <span class="field-hint"
+                  >{t('connectionMappingHint', { task: t('task'), sprint: t('sprint'), column: t('column') })}</span
+                >
+                {#if mappingColumns !== null}
+                  {#if connection.source_statuses.length === 0}
+                    <span class="field-hint" role="status">{t('connectionMappingNoStatus', { task: t('task') })}</span>
+                  {/if}
+                  {#each connection.source_statuses as status (status)}
+                    <div class="field">
+                      <label class="field-label" for={`connection-mapping-select-${status}`}
+                        >{t('connectionMappingColumnLabel', { status, column: t('column') })}</label
+                      >
+                      <select
+                        class="select"
+                        id={`connection-mapping-select-${status}`}
+                        bind:value={mappingDraft[status]}
+                        disabled={mappingSaving}
+                      >
+                        <option value="">{t('connectionMappingDefault', { column: t('column') })}</option>
+                        {#each mappingColumns as column (column.id)}
+                          <option value={column.id}>{column.name}</option>
+                        {/each}
+                      </select>
+                    </div>
+                  {/each}
+                {/if}
+                <label class="toggle">
+                  <input type="checkbox" bind:checked={mappingIgnoreDue} disabled={mappingSaving} /><span
+                    >{t('connectionMappingIgnoreDue')}</span
+                  >
+                </label>
+                <span class="field-hint">{t('connectionMappingIgnoreDueHint', { task: t('task') })}</span>
+                {#if mappingFailure !== null}
+                  <div class="callout is-warn" role="alert">
+                    <Icon name="alert" /><span
+                      >{t(mappingFailure, {
+                        connection: t('connection'),
+                        workspace: t('workspace'),
+                        column: t('column'),
+                      })}</span
+                    >
+                  </div>
+                {/if}
+              </fieldset>
+              <div class="form-actions">
+                {#if mappingColumns !== null}
+                  <button class="btn is-primary" type="submit" aria-disabled={mappingSaving} aria-busy={mappingSaving}
+                    >{mappingSaving ? t('connectionMappingSaving') : t('connectionMappingSave')}</button
+                  >
+                {:else}
+                  <button class="btn" type="button" onclick={retryMappingColumns}
+                    >{t('connectionMappingRetry', { column: t('column') })}</button
+                  >
+                {/if}
+                <button class="btn is-quiet" type="button" aria-disabled={mappingSaving} onclick={closeMapping}
+                  >{t('connectionMappingCancel')}</button
                 >
               </div>
             </form>

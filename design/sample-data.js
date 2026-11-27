@@ -208,7 +208,7 @@ Object.assign(window.SQ_DATA, {
 
   connections: [
     { id: "c1", owner: "u1", provider: "backlog", name: "ミナトの Backlog", host: "acme.backlog.jp", status: "active",
-      lastSuccess: "10/20 10:00", scope: { mode: "include", items: ["SHOP（ECサイト）"] }, last4: "q9Zt", mappings: [["未対応", "未着手"], ["処理中", "作業中"], ["処理済み", "レビュー"]] },
+      lastSuccess: "10/20 10:00", scope: { mode: "include", items: ["SHOP（ECサイト）"] }, last4: "q9Zt", ignoreDue: true, mappings: [["未対応", "未着手"], ["処理中", "作業中"], ["処理済み", "レビュー"]] },
     { id: "c2", owner: "u1", provider: "github", name: "ミナトの GitHub", host: "github.com", status: "error",
       lastSuccess: "10/20 08:15", error: "GitHub の応答が遅れています（503）。次の同期で再試行します。", errorAt: "10/20 10:00", failures: 2,
       scope: { mode: "include", items: ["acme/shop", "acme/web"] }, last4: "Xk2c", mappings: [["open", "未着手"]] },

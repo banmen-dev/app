@@ -57,6 +57,10 @@ export function isOwnerGoneStop(connection: { status: string; stopped_reason: st
 // 1接続に選べる範囲の数の上限。保存は D1 の束縛の上限に収まる数の文に分ける
 export const CONNECTION_SCOPES_MAX = 200;
 
+// 状態から列への対応の数の上限と、状態名の長さ。取り込み元の状態名は取り込んだ項目に現れたもので、対応を持てる数を抑える
+export const CONNECTION_STATUS_MAPPINGS_MAX = 50;
+export const CONNECTION_SOURCE_STATUS_MAX_LENGTH = 100;
+
 // 接続の一覧と登録・範囲の保存が返す形。暗号文・鍵の版・同期の状態は含めない。認証情報は末尾4文字（credential_last4）だけ
 export const connectionSchema = z.object({
   id: z.string(),
@@ -67,6 +71,12 @@ export const connectionSchema = z.object({
   stopped_reason: z.string().nullable(),
   scope_mode: z.enum(['include', 'exclude']),
   scopes: z.array(z.object({ id: z.string(), name: z.string() })),
+  // 取り込み元の期限を無視する（同期で期限を書かず、画面にも出さない）
+  ignore_source_due: z.boolean(),
+  // 取り込み元の状態から列への対応。対応の無い状態は、スプリントに入れるとき先頭の列に置く
+  status_mappings: z.array(z.object({ source_status: z.string(), column_id: z.string() })),
+  // 対応を選べる状態名（取り込んだ項目に現れたものと、保存済みの対応の状態名）
+  source_statuses: z.array(z.string()),
   credential_last4: z.string().nullable(),
   owner_user_id: z.string(),
   owner_name: z.string().nullable(),

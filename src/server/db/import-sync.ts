@@ -15,6 +15,7 @@ export type SyncConnection = {
   provider: string;
   status: string;
   scope_mode: string;
+  ignore_source_due: number;
   settings_json: string;
   credential_ciphertext: string | null;
   credential_key_version: number | null;
@@ -66,6 +67,7 @@ export async function readSyncConnection(
           'connections.provider',
           'connections.status',
           'connections.scope_mode',
+          'connections.ignore_source_due',
           'connections.settings_json',
           'connections.credential_ciphertext',
           'connections.credential_key_version',
