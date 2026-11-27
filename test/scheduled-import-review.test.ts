@@ -135,9 +135,10 @@ test('壊れた進捗は読み飛ばして先頭から同期する', async () =>
 
 test('接続がない組織も含め50組織で巡回を区切り、次の回に51番目の組織を同期する', async () => {
   const started = Date.parse(CREATED_AT);
-  for (let index = 0; index < 50; index++) {
+  for (let index = 0; index < 49; index++) {
     await addOrganization(uuidv7(started + index));
   }
+  const fiftieth = await addOrganization(uuidv7(started + 49));
   const scope = await setup(await addOrganization(uuidv7(started + 50)));
   await scope.addConnection({ scope: true });
   const options = { fetcher: scope.fake.fetcher };
@@ -145,6 +146,9 @@ test('接続がない組織も含め50組織で巡回を区切り、次の回に
   await syncImports(env, new Date(), options);
   expect(scope.fake.calls).toHaveLength(0);
   expect(await scope.tasks()).toHaveLength(0);
+  expect(await (await env.ATTACHMENTS.get(CURSOR))?.json()).toMatchObject({
+    position: { organizationId: fiftieth.id, connection: null },
+  });
 
   await syncImports(env, new Date(), options);
   expect(await scope.tasks()).toEqual([PENDING_IMPORT]);

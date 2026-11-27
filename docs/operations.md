@@ -657,7 +657,11 @@ WHERE tbl = 'tasks' AND idx = 'tasks_workspace_tray';
 
 取り込みの定期処理は既定で15分ごとに起動する。1回に10接続・50組織・60秒の予算があるため、全接続を一巡するまでに複数回かかることがある。間隔を変えるときは、`wrangler.jsonc` の `vars.IMPORT_SYNC_CRON` と `triggers.crons` の取り込み用の式を同じ PR で変更する。たとえば30分ごとなら、両方を `*/30 * * * *` にする。毎分や毎時 0 分に合わせる場合は、同じ式を `triggers.crons` に1つだけ置くと、その回で両方の処理が動く。前の回の終了前に次の回が起きると、同じ接続への外部要求が重なることがある。時刻は UTC で判定する。
 
-動作は Workers Logs の `job: "sync-imports"` で確認する。`outcomes` は同期結果ごとの件数、`failures` は予期せぬ失敗の工程ごとの件数。`cursor_read` と `cursor_write` は R2 の進捗の読み書き、`organization_list` は共通 DB の組織一覧、`organization` と `connection` は個別の組織と接続の処理を表す。認証の失敗で停止した接続と再試行するエラーは、接続の一覧で確認できる。
+接続数が多い組織では、後続の組織が同期されるまでに時間がかかる。たとえば1組織に同期対象が1,000件ある場合、毎回10件を処理できても、既定の間隔で後続に進むまでに約25時間かかる。時間の予算が先に尽きる回はさらに時間がかかる。
+
+動作は Workers Logs の `job: "sync-imports"` で確認する。`complete` は巡回を一巡したかを示し、`cursorConflict` は別の実行が先に進捗を保存したため、この実行の保存を見送った回数。`outcomes` は接続の同期を試みた結果ごとの件数を表す。範囲未設定の `include` と、無効・離脱済みの登録者の接続は、候補を選ぶ段階で外れるため `outcomes` に含まれない。この選定は接続の状態を更新しない。
+
+`failures` は予期せぬ失敗の工程ごとの件数を表す。`cursor_read` と `cursor_write` は R2 の進捗の読み書き、`organization_list` は共通 DB の組織一覧、`organization` と `connection` は個別の組織と接続の処理を表す。認証の失敗で停止した接続と再試行するエラーは、接続の一覧で確認できる。
 
 ## ドメインへ移す
 
