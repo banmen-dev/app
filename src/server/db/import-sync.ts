@@ -17,6 +17,7 @@ export type SyncConnection = {
   settings_json: string;
   credential_ciphertext: string | null;
   credential_key_version: number | null;
+  last_success_at: string | null;
   sync_state_json: string;
   consecutive_failures: number;
 };
@@ -67,6 +68,7 @@ export async function readSyncConnection(
           'connections.settings_json',
           'connections.credential_ciphertext',
           'connections.credential_key_version',
+          'connections.last_success_at',
           'connections.sync_state_json',
           'connections.consecutive_failures',
         ])

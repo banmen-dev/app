@@ -342,6 +342,25 @@ describe('connection-scopes-save', () => {
     expect((await rowsOf(target)).scopes).toHaveLength(0);
   });
 
+  test('保存すると、前回の成功の時刻と同期の続きを空に戻し、次の同期は全部を読む', async () => {
+    const ctx = setup();
+    const target = await createTarget();
+    const { id } = await registered(ctx, target, target.member, 'save-reset');
+    await save(ctx, target, target.member, id, ['1001']);
+    const db = orgDb(env, target.organization.verified);
+    await db.batch([
+      db.statement((q) =>
+        q
+          .updateTable('connections')
+          .set({ last_success_at: '2026-10-22T00:00:00.000Z', sync_state_json: '{"version":2}' })
+          .where('id', '=', id),
+      ),
+    ]);
+
+    expect((await save(ctx, target, target.member, id, ['1001', '1002'])).status).toBe(200);
+    expect((await rowsOf(target)).connections[0]).toMatchObject({ last_success_at: null, sync_state_json: '{}' });
+  });
+
   test('候補に無い ID は 400 で、今の範囲は変わらない', async () => {
     const ctx = setup();
     const target = await createTarget();

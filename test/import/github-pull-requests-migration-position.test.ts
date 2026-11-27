@@ -54,16 +54,16 @@ describe('旧カーソル移行後の取得位置', () => {
     },
   );
 
-  test('旧 PR カーソルの2頁目を保ち、本人確認後に同じ頁から再開する', async () => {
+  test('旧 PR カーソル（作成順の頁）は、本人確認後に更新日時の降順で先頭の頁から読み直す', async () => {
     const f = fixture();
     const next = await f.migrate('v1:pulls:old-login:2');
     await f.page(next);
     expect(f.calls).toHaveLength(2);
     const url = new URL(f.calls[1]!.url);
     expect(url.pathname).toBe('/repositories/1001/pulls');
-    expect(url.searchParams.get('page')).toBe('2');
+    expect(url.searchParams.get('page')).toBe('1');
     expect(url.searchParams.get('state')).toBe('all');
-    expect(url.searchParams.get('sort')).toBe('created');
-    expect(url.searchParams.get('direction')).toBe('asc');
+    expect(url.searchParams.get('sort')).toBe('updated');
+    expect(url.searchParams.get('direction')).toBe('desc');
   });
 });

@@ -89,7 +89,7 @@ describe('PR 一覧の権限不足と範囲の読み取り失敗', () => {
     expect(checkpoint).not.toBe('{}');
     expect(JSON.parse(checkpoint)).toMatchObject({
       version: 2,
-      position: { scope: PULL_SCOPE.id, phase: 'items', cursor: 'v2:pulls:42:fake-ranger:1' },
+      position: { scope: PULL_SCOPE.id, phase: 'items', cursor: 'v3:pulls:42:fake-ranger:1' },
     });
     expect(await sync(1)).toEqual({ outcome: 'error', imported: 0 });
     expect(await sync()).toEqual({ outcome: 'error', imported: 0 });

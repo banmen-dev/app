@@ -496,7 +496,13 @@ export const connectionScopesSaveOperation = implement(
       db.statement((q) =>
         q
           .updateTable('connections')
-          .set({ scope_mode: 'include', updated_at: stamp })
+          .set({
+            scope_mode: 'include',
+            updated_at: stamp,
+            // 範囲が変わるので、次の同期は全部を読む（足した範囲の古い項目は、前回の成功より前に更新されている）
+            last_success_at: null,
+            sync_state_json: '{}',
+          })
           .where('id', '=', row.id)
           .where('workspace_id', '=', workspaceId)
           .where('owner_user_id', '=', actorUserId)
