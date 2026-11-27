@@ -947,6 +947,7 @@ GitHub の標準の応答では `maintain` は `write`、`triage` は `read` に
 API の失敗、未知の権限、欠けた欄は許可しない。同じ処理内では本人ごとに確認結果を再利用してよい。
 `github-actions[bot]` は `user.login` と `user.type` の `Bot` の両方が一致したときだけ、既存のワークフローのコメントとして許可する。ほかの bot は許可しない。
 GitHub CLI や MCP で権限を確認できないときは、区分から推測せず、各スキルの外の人への扱いに従う。
+PR で Issue の状態（レビュー中、`prs`）を決めるのは、上の基準で許可された作者（と `github-actions[bot]`）の PR だけにする。fork の PR のブランチ名は外の人が自由に付けられ、本文の `Closes #N` も誰でも書けるので、外の人は PR を1つ開くだけで、任意の Issue を人の番に移し、着手できるものから消せるため。`sprint-pick` と `sprint-review` と `scripts/progress-data.ts`（`daily-scrum` と `sprint-review` が使う）は、PR の一覧を、ブランチ名の全文でなく先頭の番号と本文の参照の数字だけで読み、作者を確かめた後に数える。許可されない作者の PR は、スキルでは番号と作者だけを出し、数えない。`progress-data.ts` は、取得の段（`readGitHub`）で、Issue を指す PR の作者だけ権限を確かめた login の集合（`writeUsers`）を `buildProgress` に渡し、外した PR（Issue を指すものだけ）の件数を警告に出す（番号と作者は出さない）。このほか、`make` の着手前の確認（`docs/agent-workflows/issue.md`）と `d1-migration` の PR の一覧は、この段落の対象に入れていない（別の Issue で直す）。開いた PR を MCP の `list_pull_requests` で引くとブランチ名と本文が、マージ済みの PR を `search_pull_requests` で引くと題、本文、ブランチ名が、結果を受け取った時点で外の人の分まで入るので、`sprint-pick` の開いた PR の一覧と `sprint-review` のマージ済みの PR の一覧は MCP で代えない（#1571）。
 
 ### AI レビュー
 
@@ -1497,7 +1498,7 @@ Issue はエピック、ストーリー、タスクの3階層にし、親子は�
 | 着手できる | `status:ready`。開いた末端の Issue（`epic` でなく、サブ Issue を持たず、`sprint-log` と `feedback` でない）で、`pt:` が1つ付き、`status:refining`、`status:in-progress`、`status:accepting` が無く、このリポジトリのブランチの開いた PR に指されておらず、自分と祖先（親のストーリー、エピック。閉じた祖先から上は見ない）の前に要るもののうち開いていて `status:accepting` の無いものが無いとき | `.github/workflows/ready.yml` が付け外しする。Issue の開閉（作者がオーナーかメンバーかコラボレーターの Issue だけ）と判定に効くラベルの付け外し、`accepting.yml` の成功、1時間ごとの定期、手動の実行で動き、開いている Issue をすべて数え直して、変わる Issue だけ直す。当てはまらなくなれば（作業中のラベルが付いた、前に要るものが開いた、など）外れる（2026-10-29 に決めた。#476） |
 | 要件整理中 | `status:refining` | `issue-create` で既にある Issue を詰め始めたときか計画を書き始めたとき、`make` が着手前の要約の問いで「1つずつ詰める」と答えられ、詰め始めたとき。セッションが付ける |
 | 作業中 | `status:in-progress` | 着手したとき。ワークツリーを切っても自動では付かないので、 `gh api -X POST repos/{owner}/{repo}/issues/<番号>/labels -f 'labels[]=status:in-progress'` で付け、`status:refining` を外す |
-| レビュー中 | その Issue を指す開いた PR があること。ラベルは使わない | PR の作成 |
+| レビュー中 | その Issue を指す、書き込み権限のある作者の開いた PR があること。ラベルは使わない | PR の作成 |
 | 受け入れ待ち | `status:accepting`。子を持つストーリーとエピックは、子がすべて閉じているか受け入れ待ちのとき（ラベルは付けない。子を持つ子は同じ判定を当てる） | main への PR のマージ（本文の行頭に `Part of #<番号>` のある Issue は除外し、状態を変えない）。`.github/workflows/accepting.yml` が付け、`status:in-progress` と `status:refining`（付いていれば）を外す（2026-10-28 に決めた。#370） |
 | 済み | Issue が閉じたこと | 原則、人が受け入れで閉じる。上の基準を満たす `Closes` はマージ時に GitHub が閉じる。セッションが直接閉じる操作はしない。ただし `sprint-review` で、すべての条件に印が付き、人が閉じると答えた Issue は、セッションが閉じる。エピックは、下の「エピックをセッションが閉じる条件」を満たせば、セッションが閉じてよい（2026-11-06 に決めた。#825）。スプリントの記録の Issue（`sprint-log`）は作業ではなく、`sprint-plan` が締めで閉じる |
 

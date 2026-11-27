@@ -19,7 +19,8 @@
 //            { n, log, planned: { pt, count }, velocity, accepted: [{ number, prs }] }
 //            accepted は sprint:<n> が付いて completed で閉じた Issue で、prs はそのマージ済みの PR
 // Issue と PR の本文は、計画の表と PR の参照を読むのに使うだけで、出力に入れない
-// 締めのコメントは、書き込み権限を API で確かめた作者のものだけを読む（docs/development.md の「GitHub の書き込み権限」）
+// 締めのコメントと PR は、書き込み権限を API で確かめた作者のものだけを読む（docs/development.md の「GitHub の書き込み権限」）。
+// 外の人の PR は、ブランチ名も本文の Closes も、Issue の状態と prs に数えない
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import {
@@ -88,7 +89,8 @@ export type RawIssue = {
   parent: number | null;
   body: string;
 };
-export type RawPull = { number: number; head: string; body: string };
+// author は PR の user.login、type は user.type。取れなければ null（許可しない側に倒す）
+export type RawPull = { number: number; head: string; body: string; author: string | null; type: string | null };
 export type RawBlocker = { number: number; state: 'open' | 'closed'; labels: string[] };
 export type RawData = {
   issues: RawIssue[];
@@ -100,6 +102,8 @@ export type RawData = {
   subOrder: Record<number, number[]>;
   // 閉じた記録の Issue の番号から、書き込み権限を確かめた作者の締めのコメントの本文へ（trustedClosings）
   comments: Record<number, string[]>;
+  // PR の作者のうち、書き込み権限を API で確かめた User の login（小文字）。ここに無い User の PR は数えない
+  writeUsers: string[];
 };
 
 const SPRINT_LOG = 'sprint-log';
@@ -149,6 +153,38 @@ export function pullTargets(pull: RawPull): number[] {
   if (head) found.add(Number(head[1]));
   for (const match of pull.body.matchAll(/\b(?:closes|fixes|refs) #(\d+)/gi)) found.add(Number(match[1]));
   return [...found];
+}
+
+// github-actions[bot] は、login と type の Bot の両方が一致したときだけ許可する（ほかの bot は許可しない）
+const isWorkflowBot = (pull: RawPull): boolean => pull.author === 'github-actions[bot]' && pull.type === 'Bot';
+
+// 書き込み権限を確かめた作者の PR だけを残す。外した件数も返す（呼び出し側が警告にする。ブランチ名と本文は出さない）。
+// 件数に数えるのは Issue を指す PR だけ（Issue と無関係な bot の PR などで、警告が毎回出て埋もれないため）
+export function trustedPulls(pulls: RawPull[], writeUsers: readonly string[]): { kept: RawPull[]; rejected: number } {
+  const writers = new Set(writeUsers);
+  const kept: RawPull[] = [];
+  let rejected = 0;
+  for (const pull of pulls) {
+    const login = normalizeLogin(pull.author);
+    if (isWorkflowBot(pull) || (pull.type === 'User' && login !== undefined && writers.has(login))) kept.push(pull);
+    else if (pullTargets(pull).length > 0) rejected += 1;
+  }
+  return { kept, rejected };
+}
+
+// PR の作者のうち、書き込み権限を確かめられた User の login。権限を引くのは Issue を指す PR の作者だけにする
+// （閉じた PR は全期間を引くので、無関係な作者まで1人ずつ引くと遅くなる）
+export async function pullWriters(pulls: readonly RawPull[], lookup: PermissionLookup): Promise<ReadonlySet<string>> {
+  return resolveWriteUsers(
+    pulls.filter((pull) => pullTargets(pull).length > 0).map((pull) => ({ login: pull.author, type: pull.type })),
+    lookup,
+  );
+}
+
+export function rejectedPullWarning(kind: '開いた' | 'マージ済みの', rejected: number): string | null {
+  return rejected > 0
+    ? `${kind} PR ${rejected} 件は、作者の書き込み権限を確認できないので、Issue の状態と prs に数えなかった`
+    : null;
 }
 
 function pullsByIssue(pulls: RawPull[]): Map<number, number[]> {
@@ -393,8 +429,10 @@ export function buildProgress(raw: RawData, now: Date): Built {
   const logs = raw.issues.filter((issue) => issue.labels.includes(SPRINT_LOG));
   const work = raw.issues.filter((issue) => !issue.labels.includes(SPRINT_LOG));
   const byNumber = new Map(work.map((issue) => [issue.number, issue]));
-  const openPrs = pullsByIssue(raw.openPulls);
-  const mergedPrs = pullsByIssue(raw.mergedPulls);
+  const open = trustedPulls(raw.openPulls, raw.writeUsers);
+  const merged = trustedPulls(raw.mergedPulls, raw.writeUsers);
+  const openPrs = pullsByIssue(open.kept);
+  const mergedPrs = pullsByIssue(merged.kept);
   const children = childrenByParent(work, raw.subOrder);
   const stateOf = stateReader(byNumber, children, openPrs);
   // 子を持つ Issue のポイントは子の合計なので、自分のラベルは数えない
@@ -430,6 +468,11 @@ export function buildProgress(raw: RawData, now: Date): Built {
     });
 
   const { history, warnings } = buildHistory(logs, work, mergedPrs, raw.comments);
+  for (const warning of [
+    rejectedPullWarning('開いた', open.rejected),
+    rejectedPullWarning('マージ済みの', merged.rejected),
+  ])
+    if (warning) warnings.push(warning);
 
   // 今のスプリントは開いている記録。2つ開いていれば番号の大きいほう。題を読めない記録は飛ばし、どれも読めなければ止まる
   const openLogs = logs.filter((issue) => issue.state === 'open');
@@ -463,7 +506,13 @@ export type ApiIssue = {
   issue_dependencies_summary?: { blocked_by: number; total_blocked_by: number };
   sub_issues_summary?: { total: number };
 };
-type ApiPull = { number: number; head: { ref: string }; body: string | null; merged_at: string | null };
+type ApiPull = {
+  number: number;
+  head: { ref: string };
+  body: string | null;
+  merged_at: string | null;
+  user?: { login?: string | null; type?: string | null } | null;
+};
 type ApiBlocker = { number: number; state: 'open' | 'closed'; labels: { name: string }[] };
 export type ApiComment = { body: string | null; user?: { login?: string | null; type?: string | null } | null };
 
@@ -513,7 +562,13 @@ export function toRawIssue(issue: ApiIssue): RawIssue {
   };
 }
 
-const toRawPull = (pull: ApiPull): RawPull => ({ number: pull.number, head: pull.head.ref, body: pull.body ?? '' });
+export const toRawPull = (pull: ApiPull): RawPull => ({
+  number: pull.number,
+  head: pull.head.ref,
+  body: pull.body ?? '',
+  author: pull.user?.login ?? null,
+  type: pull.user?.type ?? null,
+});
 
 // 締めのコメントのうち、書き込み権限を確かめた作者のものの本文（bodies）と、読まなかった締めの数（rejected）を返す。
 // 締めでないコメントは、作者を確かめずに本文を運ばないよう、ここで捨てる
@@ -581,7 +636,12 @@ export async function readGitHub(
       ).map((sub) => sub.number);
     }
   }
-  return { raw: { issues, openPulls, mergedPulls, blockers, subOrder, comments }, warnings };
+  // PR の作者も、締めのコメントと同じ確かめ（キャッシュ込み）で書き込み権限を確かめる
+  const writers = await pullWriters([...openPulls, ...mergedPulls], permission);
+  return {
+    raw: { issues, openPulls, mergedPulls, blockers, subOrder, comments, writeUsers: [...writers] },
+    warnings,
+  };
 }
 
 // import されたとき（テスト）に gh を呼ばないよう、直に動かしたときだけ動く

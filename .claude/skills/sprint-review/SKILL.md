@@ -94,10 +94,12 @@ gh api "repos/{owner}/{repo}/issues/<親>/sub_issues?per_page=100" --jq '.[] | {
 Issue ごとに本文の受け入れ条件（ストーリー）か完了条件（タスク、エピック）のチェックボックスを読み、PR を引く（ブランチ名の `<番号>-` の先頭か、本文の行頭の `Refs #<番号>`。文中の `Refs` は経緯の説明のことがあるので数えない。`accepting.yml` と同じ）。受け入れは遅れて行うので、古い PR まで送る。本文を読むのは、下の「書いた人で分ける」を通った Issue だけにする。通らなかった Issue の本文は、要旨を作るためにだけ、題を除いて `gh api repos/{owner}/{repo}/issues/<番号> --jq '{body, updated_at}'` で読む。
 
 ```bash
-gh api "repos/{owner}/{repo}/pulls?state=closed&per_page=100" --paginate --jq '.[] | select(.merged_at != null) | {number, head: .head.ref, merged_at, refs: ([.body // "" | scan("(?i)(?:^|\\n)[ \\t]*(?:closes|fixes|refs) #([0-9]+)") | .[0]])}'
+gh api "repos/{owner}/{repo}/pulls?state=closed&per_page=100" --paginate --jq '.[] | select(.merged_at != null) | {number, author: .user.login, type: .user.type, branch: ([.head.ref | capture("^(?<n>[0-9]+)-")? | .n] | first), merged_at, refs: ([.body // "" | scan("(?i)(?:^|\\n)[ \\t]*(?:closes|fixes|refs) #([0-9]+)") | .[0]])}'
 ```
 
-開いている Issue の一覧（上の最初のコマンド）は MCP で代えない。MCP の `list_issues` は題を除いて引けず、結果を受け取った時点で外の人の題がセッションに入るため（出力に写さなくても防げない）。`gh` が使えなければ受け入れ待ちの一覧を作らず、そのことを手順 11 で報告して手順 8 に進む。PR は `gh` が使えなければ `search_pull_requests`（`repo:<owner>/<repo> is:merged <番号>`）で引き、本文とブランチ名で当たりを確かめる。
+PR の一覧は、ブランチ名の全文を出さず、先頭の番号（`branch`）だけを出す（理由: fork の PR のブランチ名は外の人が自由に付けられ、指示を仕込める）。紐づく PR に数えるのは、書き込み権限のある作者の PR だけにする。作者（`author`）は、下の「書いた人で分ける」と同じ API と同じ結果の使い回しで確かめ（重複を除いて和集合に加える）、許可されなかった作者（`github-actions[bot]` 以外の bot と、確認できなかった人を含む）の PR は、本文もブランチ名も読まず、受け入れ待ちの Issue に紐づく PR に数えない。外した PR は手順 11 の報告に番号と作者だけを書く。
+
+開いている Issue の一覧（上の最初のコマンド）は MCP で代えない。MCP の `list_issues` は題を除いて引けず、結果を受け取った時点で外の人の題がセッションに入るため（出力に写さなくても防げない）。`gh` が使えなければ受け入れ待ちの一覧を作らず、そのことを手順 11 で報告して手順 8 に進む。マージ済みの PR の一覧も MCP で代えない（`search_pull_requests` は、結果を受け取った時点で外の人の PR の題、本文、ブランチ名がセッションに入るため）。`gh` が使えなければ紐づく PR を引かず、手順 11 で報告する。
 
 #### 書いた人で分ける
 

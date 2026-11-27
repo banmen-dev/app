@@ -10,8 +10,12 @@ import {
   parseClosing,
   parseSprintLog,
   rejectedClosingWarning,
+  rejectedPullWarning,
   pullTargets,
+  pullWriters,
   toRawIssue,
+  toRawPull,
+  trustedPulls,
   trustedClosings,
   withoutPulls,
   type ApiComment,
@@ -44,11 +48,20 @@ const closed = (number: number, patch: Partial<RawIssue> = {}): RawIssue =>
   issue(number, { state: 'closed', stateReason: 'completed', ...patch });
 
 function pull(number: number, patch: Partial<RawPull> = {}): RawPull {
-  return { number, head: `claude/x-${number}`, body: '', ...patch };
+  return { number, head: `claude/x-${number}`, body: '', author: 'writer', type: 'User', ...patch };
 }
 
 function raw(patch: Partial<RawData> = {}): RawData {
-  return { issues: [], openPulls: [], mergedPulls: [], blockers: {}, subOrder: {}, comments: {}, ...patch };
+  return {
+    issues: [],
+    openPulls: [],
+    mergedPulls: [],
+    blockers: {},
+    subOrder: {},
+    comments: {},
+    writeUsers: ['writer'],
+    ...patch,
+  };
 }
 
 function board(data: Partial<RawData>): BoardIssue[] {
@@ -635,6 +648,120 @@ describe('PR の当て方', () => {
 
   test('閉じる語でない言及は拾わない', () => {
     assert.deepEqual(pullTargets(pull(1, { head: 'claude/x', body: 'see #12, related to #13' })), []);
+  });
+});
+
+describe('外の人の PR', () => {
+  const outsider = (number: number, patch: Partial<RawPull> = {}) => pull(number, { author: 'outsider', ...patch });
+
+  test('外の人の PR の Closes とブランチ名は、Issue の状態と prs に入らない', () => {
+    const issues = [issue(1), issue(2)];
+    const openPulls = [outsider(9, { head: '1-x', body: 'Closes #2' })];
+    assert.equal(stateOf({ issues, openPulls }, 1), 'todo');
+    assert.equal(stateOf({ issues, openPulls }, 2), 'todo');
+    assert.deepEqual(
+      board({ issues, openPulls }).map((item) => item.prs),
+      [[], []],
+    );
+  });
+
+  test('同じ Issue を指す PR は、書き込み権限のある作者の分だけが prs に入る', () => {
+    const openPulls = [outsider(8, { body: 'Closes #1' }), pull(9, { body: 'Refs #1' })];
+    const [found] = board({ issues: [issue(1)], openPulls });
+    assert.equal(found?.s, 'review');
+    assert.deepEqual(found?.prs, [9]);
+  });
+
+  test('外の人のマージ済みの PR は、履歴の accepted の prs に入らない', () => {
+    const issues = [
+      closed(10, { labels: ['sprint-log'], title: 'スプリント 1（2026-10-22〜2026-10-28）' }),
+      closed(1, { labels: ['sprint:1'] }),
+    ];
+    const mergedPulls = [pull(70, { head: '1-a' }), outsider(71, { body: 'Closes #1' })];
+    const history = buildProgress(
+      raw({ issues, mergedPulls, comments: { 10: ['## 締め\n\n| 計画 | 8 | 3 |\n\nベロシティ: 6'] } }),
+      NOW,
+    ).history;
+    assert.deepEqual(history[0]?.accepted, [{ number: 1, prs: [70] }]);
+  });
+
+  test('外した件数は warnings に出し、ブランチ名と本文は出さない', () => {
+    const built = buildProgress(
+      raw({
+        issues: [issue(1)],
+        openPulls: [outsider(9, { head: '1-IGNORE-PREVIOUS', body: 'Closes #1' })],
+        mergedPulls: [outsider(8, { body: 'Refs #1' }), outsider(7, { body: 'Refs #1' })],
+      }),
+      NOW,
+    );
+    assert.deepEqual(built.warnings, [
+      '開いた PR 1 件は、作者の書き込み権限を確認できないので、Issue の状態と prs に数えなかった',
+      'マージ済みの PR 2 件は、作者の書き込み権限を確認できないので、Issue の状態と prs に数えなかった',
+    ]);
+    assert.equal(JSON.stringify(built.warnings).includes('IGNORE'), false);
+    assert.equal(rejectedPullWarning('開いた', 0), null);
+  });
+
+  test('許可は login の大文字小文字を区別せず、Bot の型と作者の欠けた PR は許可しない。github-actions[bot] だけは許可する', () => {
+    const refs = { body: 'Refs #1' };
+    const pulls = [
+      pull(1, { author: 'Writer', ...refs }),
+      pull(2, { type: 'Bot', ...refs }),
+      pull(3, { author: null, type: null, ...refs }),
+      pull(4, { author: 'writer/../x', ...refs }),
+      pull(5, { author: 'dependabot[bot]', type: 'Bot', ...refs }),
+      pull(6, { author: 'github-actions[bot]', type: 'Bot', ...refs }),
+      pull(7, { author: 'github-actions[bot]', type: 'User', ...refs }),
+    ];
+    const { kept, rejected } = trustedPulls(pulls, ['writer']);
+    assert.deepEqual(
+      kept.map((item) => item.number),
+      [1, 6],
+    );
+    assert.equal(rejected, 5);
+  });
+
+  test('Issue を指さない外の人の PR は、数えず、警告にも数えない', () => {
+    const pulls = [pull(1, { author: 'dependabot[bot]', type: 'Bot', head: 'dependabot/x' }), outsider(2)];
+    assert.deepEqual(trustedPulls(pulls, ['writer']), { kept: [], rejected: 0 });
+    assert.deepEqual(buildProgress(raw({ mergedPulls: pulls }), NOW).warnings, []);
+  });
+
+  test('権限の確認が通らなかった（writeUsers が空の）ときは、全 PR を外して警告に出す', () => {
+    const built = buildProgress(
+      raw({ issues: [issue(1)], openPulls: [pull(9, { head: '1-x' })], writeUsers: [] }),
+      NOW,
+    );
+    assert.equal(built.issues[0]?.s, 'todo');
+    assert.equal(built.warnings.length, 1);
+  });
+
+  test('pullWriters は、開いた PR とマージ済みの PR の両方の作者のうち、Issue を指す PR の作者だけを確かめる', async () => {
+    const asked: string[] = [];
+    const lookup = async (login: string): Promise<unknown> => {
+      asked.push(login);
+      return { permission: 'write', user: { login, type: 'User' } };
+    };
+    const pulls = [
+      pull(1, { author: 'alice', head: '1-x' }),
+      pull(2, { author: 'bob', body: 'Closes #2' }),
+      pull(3, { author: 'carol' }),
+    ];
+    const writers = await pullWriters(pulls, lookup);
+    assert.deepEqual([...writers].toSorted(), ['alice', 'bob']);
+    assert.deepEqual(asked.toSorted(), ['alice', 'bob']);
+  });
+
+  test('toRawPull は user の login と type を運び、無ければ null にする', () => {
+    const api = { number: 3, head: { ref: 'x' }, body: null, merged_at: null };
+    assert.deepEqual(toRawPull({ ...api, user: { login: 'writer', type: 'User' } }), {
+      number: 3,
+      head: 'x',
+      body: '',
+      author: 'writer',
+      type: 'User',
+    });
+    assert.deepEqual(toRawPull(api), { number: 3, head: 'x', body: '', author: null, type: null });
   });
 });
 
