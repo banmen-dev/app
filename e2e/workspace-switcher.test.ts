@@ -1,12 +1,12 @@
 import type { Page } from '@playwright/test';
 import { organizationInfo } from '../src/shared/operations/organization/index.ts';
 import { expect, test } from './fixtures.ts';
-import { expectFocusReturned, signIn, watchViolations } from './helpers.ts';
+import { signIn, watchViolations } from './helpers.ts';
 import { rewriteOperation } from './operations.ts';
 
 const workspaceId = '019a0000-0000-7000-8000-000000000401';
 const backlog = `/aoba/w/${workspaceId}`;
-const buttonOf = (page: Page) => page.locator('.ws-menu-button');
+const toggleOf = (page: Page) => page.locator('#app-nav .nav-group-toggle');
 const listOf = (page: Page) => page.getByRole('list', { name: '所属するワークスペース' });
 
 async function oneWorkspace(page: Page) {
@@ -16,7 +16,7 @@ async function oneWorkspace(page: Page) {
   }));
 }
 
-test('今日やることから一般のメンバーが所属先を切り替え、戻っても対象を保つ', async ({ page, context, baseURL }) => {
+test('今日やることから一般のメンバーが一覧で所属先へ移り、戻っても対象を保つ', async ({ page, context, baseURL }) => {
   // seed を変えず、この回だけの移動先を作る。一般のユーザーのハルカを最初のリーダーにする。
   await signIn(context, baseURL, 'admin');
   const name = `架空の切り替え先 ${test.info().repeatEachIndex}-${test.info().retry}`;
@@ -32,11 +32,12 @@ test('今日やることから一般のメンバーが所属先を切り替え�
   const target = new URL(page.url()).pathname;
 
   // 所属していない管理者には、今のものは押せない現在地の行、リンクは所属先だけ。
-  const adminButton = buttonOf(page);
-  await adminButton.click();
-  await expect(listOf(page).locator('.ws-menu-current')).toHaveText(name);
+  await expect(toggleOf(page)).toHaveAttribute('aria-expanded', 'true');
+  await expect(listOf(page).locator('.nav-item.is-current')).toHaveText(name);
+  await expect(listOf(page).locator('.nav-item.is-current')).toHaveAttribute('aria-current', 'page');
   await expect(listOf(page).getByRole('link', { name, exact: true })).toHaveCount(0);
-  await page.keyboard.press('Escape');
+  // 所属していない管理者が開いているものは、一覧の先頭に出る
+  await expect(listOf(page).locator('li').first()).toHaveText(name);
 
   await page.goto('/aoba/admin');
   const row = page.getByRole('region', { name: 'ワークスペース', exact: true }).locator('tbody tr', { hasText: name });
@@ -59,7 +60,6 @@ test('今日やることから一般のメンバーが所属先を切り替え�
     await expect(nav.getByRole('link', { name: label, exact: true })).toHaveCount(0);
   await expect(page.locator('.route-tabs')).toHaveCount(0);
   await expect(page.locator('.nav-item', { hasText: '組織の管理' })).toHaveCount(0);
-  await buttonOf(page).click();
   const current = listOf(page).getByRole('link', { name: '受託開発チーム', exact: true });
   await expect(current).not.toHaveAttribute('aria-current');
   await expect(current.locator('use')).toHaveAttribute('href', '#i-check');
@@ -67,20 +67,20 @@ test('今日やることから一般のメンバーが所属先を切り替え�
   await expect(destination).toHaveAttribute('href', target);
   await destination.click();
   await expect(page).toHaveURL(new RegExp(`${target}$`));
-  await expect(listOf(page)).toBeHidden();
-  await expect(buttonOf(page)).toHaveAttribute('aria-expanded', 'false');
+  // 移っても一覧は開いたまま。開いているワークスペースの行に印と現在地が付く
+  await expect(listOf(page)).toBeVisible();
   await expect(page.getByRole('heading', { level: 1, name: 'バックログ', exact: true })).toBeVisible();
-  await expect(buttonOf(page)).toContainText(name);
   await expect(page.getByText(/に終了しました。読み取り専用です。/).first()).toBeVisible();
-  await buttonOf(page).click();
   await expect(listOf(page).getByRole('link', { name, exact: true })).toHaveAttribute('aria-current', 'page');
-  await page.keyboard.press('Escape');
   await nav.getByRole('link', { name: '今日やること', exact: true }).click();
   await expect(page).toHaveURL(/\/aoba$/);
-  await expect(buttonOf(page)).toContainText(name);
+  await expect(listOf(page).getByRole('link', { name, exact: true })).not.toHaveAttribute('aria-current');
+  await expect(listOf(page).getByRole('link', { name, exact: true }).locator('use')).toHaveAttribute(
+    'href',
+    '#i-check',
+  );
   await expect(page.locator('.content .entry-title')).toHaveText(todayTasks);
-  // 戻った対象のワークスペースへ切り替えから移ると、タブはその対象を指し、リーダーには設定も出す（#1514）
-  await buttonOf(page).click();
+  // 戻った対象のワークスペースへ一覧から移ると、タブはその対象を指し、リーダーには設定も出す（#1514）
   await listOf(page).getByRole('link', { name, exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`${target}$`));
   const tabs = page.getByRole('navigation', { name: 'ワークスペースの画面' });
@@ -91,11 +91,36 @@ test('今日やることから一般のメンバーが所属先を切り替え�
   expect(await collect()).toEqual([]);
 });
 
-test('所属が複数の一覧で、矢印キーを押しただけでは移らず、開いたままフォーカスも動かない', async ({
+test('見出しを押すと一覧が畳まれ、もう一度押すと開き、読み直しても畳んだ状態を保つ', async ({
   page,
   context,
   baseURL,
 }) => {
+  await signIn(context, baseURL, 'member');
+  await page.goto(backlog);
+  const toggle = toggleOf(page);
+  await expect(toggle).toHaveAccessibleName(/ワークスペース/);
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(toggle).toHaveAttribute('aria-controls', 'app-nav-workspaces');
+  await expect(listOf(page)).toBeVisible();
+  // キーボードでも開閉できる。押してもフォーカスは見出しのボタンに残る
+  await toggle.focus();
+  await page.keyboard.press('Enter');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(listOf(page)).toBeHidden();
+  await expect(toggle).toBeFocused();
+  await page.reload();
+  await expect(toggleOf(page)).toHaveAttribute('aria-expanded', 'false');
+  await expect(listOf(page)).toBeHidden();
+  await toggleOf(page).click();
+  await expect(toggleOf(page)).toHaveAttribute('aria-expanded', 'true');
+  await expect(listOf(page)).toBeVisible();
+  await page.reload();
+  await expect(toggleOf(page)).toHaveAttribute('aria-expanded', 'true');
+  await expect(listOf(page)).toBeVisible();
+});
+
+test('所属が複数でも一覧は通常のリンクで、矢印キーを押しただけでは移らない', async ({ page, context, baseURL }) => {
   await signIn(context, baseURL, 'member');
   await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (body) => ({
     ...body,
@@ -110,17 +135,20 @@ test('所属が複数の一覧で、矢印キーを押しただけでは移ら�
     ],
   }));
   await page.goto(backlog);
-  await buttonOf(page).focus();
-  await page.keyboard.press('Enter');
-  await page.keyboard.press('Tab');
+  await expect(listOf(page).getByRole('link')).toHaveCount(2);
   const first = listOf(page).getByRole('link').first();
-  await expect(first).toBeFocused();
+  await first.focus();
   for (const key of ['ArrowDown', 'ArrowUp']) {
     await page.keyboard.press(key);
     await expect(first).toBeFocused();
-    await expect(listOf(page)).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`${backlog}$`));
   }
+  await page.keyboard.press('Tab');
+  await expect(listOf(page).getByRole('link').nth(1)).toBeFocused();
+  await expect(listOf(page).getByRole('link').nth(1)).toHaveAttribute(
+    'href',
+    '/aoba/w/019a0000-0000-7000-8000-000000009001',
+  );
 });
 
 test.describe('所属が1つの一般のメンバー', () => {
@@ -129,57 +157,33 @@ test.describe('所属が1つの一般のメンバー', () => {
     await oneWorkspace(page);
   });
 
-  test('キーボードで開き、Tab でリンクを選ぶ。矢印では移らず、Esc で閉じてボタンへ戻る', async ({ page }) => {
+  test('所属が1つでも見出しと一覧を出し、開いているものに印と現在地が付く。切り替えのボタンは無い', async ({
+    page,
+  }) => {
     await page.goto(backlog);
-    const button = buttonOf(page);
-    await expect(button).toHaveAttribute('aria-expanded', 'false');
-    await button.focus();
-    await page.keyboard.press('Enter');
-    await expect(listOf(page)).toBeVisible();
-    await page.keyboard.press('Tab');
+    await expect(toggleOf(page)).toBeVisible();
+    await expect(page.locator('.ws-menu, .ws-menu-button')).toHaveCount(0);
     const current = listOf(page).getByRole('link');
-    await expect(current).toBeFocused();
-    for (const key of ['ArrowDown', 'ArrowUp']) {
-      await page.keyboard.press(key);
-      await expect(current).toBeFocused();
-      await expect(page).toHaveURL(new RegExp(`${backlog}$`));
-    }
-    await page.keyboard.press('Escape');
-    await expect(listOf(page)).toBeHidden();
-    await expectFocusReturned(page, button);
-    await page.keyboard.press('Enter');
-    await page.keyboard.press('Tab');
-    await page.keyboard.press('Tab');
-    await expect(listOf(page)).toBeHidden();
-    // 761px 以上の左のメニューは切り替えで終わる（機能はタブ。#1514）。続く Tab で左のメニューの幅の境目（#1513）、
-    // その次で本文の上のパンくずへ移る
-    await expect(page.getByRole('separator')).toBeFocused();
-    await page.keyboard.press('Tab');
-    const crumbs = page.getByRole('navigation', { name: 'パンくず' }).getByRole('link');
-    await expect(crumbs.first()).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(crumbs.nth(1)).toBeFocused();
-    await button.click();
-    await expect(listOf(page)).toBeVisible();
-    await page.getByRole('heading', { level: 1, name: 'バックログ', exact: true }).click();
-    await expect(listOf(page)).toBeHidden();
+    await expect(current).toHaveCount(1);
+    await expect(current).toHaveAttribute('aria-current', 'page');
+    await expect(current).toHaveAttribute('href', backlog);
+    await expect(current.locator('use')).toHaveAttribute('href', '#i-check');
   });
 
-  test('今日やることにも切り替えがあり、メニューを閉じると隠れ、760px以下では浮きメニューから開ける（#1102）', async ({
+  test('今日やることにも一覧があり、左のメニューを閉じると隠れ、760px以下では浮きメニューから移れる（#1102）', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/aoba');
-    await expect(buttonOf(page)).toBeVisible();
+    await expect(listOf(page)).toBeVisible();
     await page.getByRole('button', { name: 'メニューを閉じる' }).click();
-    await expect(buttonOf(page)).toBeHidden();
+    await expect(listOf(page)).toBeHidden();
     await page.getByRole('button', { name: 'メニューを開く' }).click();
     for (const width of [760, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await page.getByRole('button', { name: 'すべてのメニュー', exact: true }).click();
-      // 切り替えの一覧は浮きメニューの面の中に広がる
-      await expect(page.locator('#app-nav .ws-menu-button')).toHaveCount(1);
-      await buttonOf(page).click();
+      // 一覧は浮きメニューの面の中に出る。切り替えのドロップダウンは無い
+      await expect(page.locator('#app-nav .ws-menu-button')).toHaveCount(0);
       const list = listOf(page);
       await expect(list).toBeVisible();
       const link = list.getByRole('link').first();
@@ -189,33 +193,29 @@ test.describe('所属が1つの一般のメンバー', () => {
           return element.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
         }),
       ).toBe(true);
-      const box = await list.boundingBox();
-      expect(box!.x).toBeGreaterThanOrEqual(0);
-      expect(box!.x + box!.width).toBeLessThanOrEqual(width);
-      await page.keyboard.press('Escape');
-      await expect(list).toBeHidden();
+      expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      expect((await toggleOf(page).boundingBox())!.height).toBeGreaterThanOrEqual(44);
       await page.keyboard.press('Escape');
       await expect(page.locator('.mobile-menu')).toBeHidden();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     }
+    await page.setViewportSize({ width: 390, height: 900 });
+    await page.getByRole('button', { name: 'すべてのメニュー', exact: true }).click();
+    await listOf(page).getByRole('link').click();
+    await expect(page).toHaveURL(new RegExp(`${backlog}$`));
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/aoba');
-    await expect(buttonOf(page)).toBeVisible();
+    await expect(listOf(page)).toBeVisible();
   });
 
-  test('今日やることからキーボードで開閉し、対象のバックログを開ける', async ({ page }) => {
+  test('今日やることからキーボードで畳み、Tab で行へ進んで対象のバックログを開ける', async ({ page }) => {
     await page.goto('/aoba');
-    const button = buttonOf(page);
-    await button.focus();
-    await page.keyboard.press('Enter');
-    await expect(listOf(page)).toBeVisible();
-    await page.keyboard.press('Tab');
-    await expect(listOf(page).getByRole('link')).toBeFocused();
-    await page.keyboard.press('Escape');
+    const toggle = toggleOf(page);
+    await toggle.focus();
+    await page.keyboard.press('Space');
     await expect(listOf(page)).toBeHidden();
-    await expectFocusReturned(page, button);
-    // 切り替えの一覧のリンクは対象のバックログへ移る（ワークスペースの機能の項目は左のメニューに無い。#1514）
-    await page.keyboard.press('Enter');
+    await page.keyboard.press('Space');
+    await expect(listOf(page)).toBeVisible();
     await page.keyboard.press('Tab');
     await expect(listOf(page).getByRole('link')).toBeFocused();
     await page.keyboard.press('Enter');
@@ -223,21 +223,26 @@ test.describe('所属が1つの一般のメンバー', () => {
   });
 });
 
-test('所属0件の今日やることには切り替えや行き先のないメニューを出さない', async ({ page, context, baseURL }) => {
+test('所属0件の今日やることには見出しも一覧も行き先のないメニューも出さない', async ({ page, context, baseURL }) => {
   await signIn(context, baseURL, 'admin');
   await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (body) => ({ ...body, workspaces: [] }));
   await page.goto('/aoba');
   await expect(page.getByRole('heading', { level: 1, name: '今日やること', exact: true })).toBeVisible();
-  await expect(buttonOf(page)).toHaveCount(0);
+  await expect(toggleOf(page)).toHaveCount(0);
+  await expect(listOf(page)).toHaveCount(0);
   await expect(page.locator('#app-nav a[href*="/w/"]')).toHaveCount(0);
 });
 
 for (const width of [1280, 1024]) {
-  test(`${width}px で多数の長い名前を一覧内でスクロールでき、本文に隠れない`, async ({ page, context, baseURL }) => {
+  test(`${width}px で長い名前は行の中で省略され、全文を title と読み上げで読め、横にはみ出さない`, async ({
+    page,
+    context,
+    baseURL,
+  }) => {
     await signIn(context, baseURL, 'member');
     const names = Array.from({ length: 30 }, (_, i) => ({
       id: `019a0000-0000-7000-8000-${String(8000 + i).padStart(12, '0')}`,
-      name: `架空の開発チーム ${i}・長いワークスペースの名前も折り返して表示する`,
+      name: `架空の開発チーム ${i}・長いワークスペースの名前は行に収まらないと省略して表示する`,
       role: 'member' as const,
       closed_at: null,
     }));
@@ -247,23 +252,15 @@ for (const width of [1280, 1024]) {
     }));
     await page.setViewportSize({ width, height: 900 });
     await page.goto(backlog);
-    await buttonOf(page).click();
     const list = listOf(page);
     await expect(list.getByRole('link')).toHaveCount(31);
-    const measurements = await list.evaluate((element) => ({
-      overflow: element.scrollHeight > element.clientHeight,
-      width: element.scrollWidth <= element.clientWidth,
-      maxHeight: element.getBoundingClientRect().height <= innerHeight * 0.4 + 1,
-    }));
-    expect(measurements).toEqual({ overflow: true, width: true, maxHeight: true });
-    await list.getByRole('link').last().scrollIntoViewIfNeeded();
-    expect(await list.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
-    const link = list.getByRole('link').last();
-    expect(
-      await link.evaluate((element) => {
-        const box = element.getBoundingClientRect();
-        return element.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
-      }),
-    ).toBe(true);
+    const link = list.getByRole('link', { name: names[7]!.name, exact: true });
+    await expect(link).toHaveAttribute('title', names[7]!.name);
+    const label = link.locator('.nav-item-label');
+    expect(await label.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+    expect(await label.evaluate((element) => getComputedStyle(element).textOverflow)).toBe('ellipsis');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const nav = page.locator('#app-nav');
+    expect(await nav.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
   });
 }

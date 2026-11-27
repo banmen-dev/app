@@ -1226,8 +1226,8 @@ export const dictionary = defineDictionary({
   // 組織の切り替えのボタンと一覧の読み上げの名前。{name} はボタンに見える文字の並び
   organizationSwitchLabel: '{name}。組織を切り替える',
   organizationListLabel: '入れる組織',
-  workspaceSwitchLabel: '{workspace} {name}。切り替える',
-  workspaceSwitchListLabel: '所属する{workspace}',
+  workspaceListToggleLabel: '所属する{workspace}の一覧',
+  workspaceNavListLabel: '所属する{workspace}',
   organizationMoving: '移っています',
   invitationsBadge: '届いた招待あり',
   invitationsReceived: '招待が届いています',

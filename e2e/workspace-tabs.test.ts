@@ -51,7 +51,7 @@ test.describe('リーダー（あおば開発のミナト）', () => {
   test('左のメニューにはワークスペースの機能の項目と「記録」「管理」の見出しを出さない', async ({ page }) => {
     await page.goto(WORKSPACE);
     const nav = page.locator('#app-nav');
-    await expect(nav.locator('.ws-menu-button')).toBeVisible();
+    await expect(nav.locator('.nav-group-toggle')).toBeVisible();
     for (const name of ALL) await expect(nav.getByRole('link', { name, exact: true })).toHaveCount(0);
     await expect(nav.locator('.nav-group-label', { hasText: /^(記録|管理)$/ })).toHaveCount(0);
     // 組織の画面にはタブを出さない

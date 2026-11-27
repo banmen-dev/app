@@ -1,7 +1,7 @@
 import { expect, test } from './fixtures.ts';
 import { A11Y_THEMES, applyTheme, expectNoA11yViolationsInThemes, signIn } from './helpers.ts';
 
-test('切り替えとアカウントのメニューは短く開き、閉じると即座に消え、動きを減らす設定では動かない', async ({
+test('組織の切り替えとアカウントのメニューは短く開き、閉じると即座に消え、動きを減らす設定では動かない', async ({
   page,
   context,
   baseURL,
@@ -11,7 +11,6 @@ test('切り替えとアカウントのメニューは短く開き、閉じる�
   await page.goto('/aoba/w/019a0000-0000-7000-8000-000000000401');
   for (const [buttonSelector, menuSelector] of [
     ['.org-menu-button', '.org-menu-list'],
-    ['.ws-menu-button', '.ws-menu-list'],
     ['.account-menu-button', '.account-menu-list:not(.row-menu-list)'],
   ]) {
     const button = page.locator(buttonSelector);

@@ -83,13 +83,13 @@ test('節の補足は見出しの行の右端へ離れず、件数のすぐ後�
   expect(Math.abs(hintBox.y + hintBox.height - (countBox.y + countBox.height))).toBeLessThanOrEqual(4);
 });
 
-test('左のメニューの「ワークスペース」は見出しの1回だけ見え、切り替えのボタンの名前には残る', async ({ page }) => {
+test('左のメニューの「ワークスペース」は見出しの1回だけ見え、見出しのボタンの名前には残る', async ({ page }) => {
   await page.goto(`/aoba/w/${WORKSPACE.id}`);
   const nav = page.locator('#app-nav');
-  await expect(nav.locator('.ws-menu-button')).toBeVisible();
+  await expect(nav.locator('.nav-group-toggle')).toBeVisible();
   await expect(nav.getByText('ワークスペース', { exact: true })).toHaveCount(1);
   await expect(nav.locator('.nav-group-label', { hasText: 'ワークスペース' })).toBeVisible();
-  await expect(nav.locator('.ws-menu-button')).toHaveAccessibleName(/ワークスペース/);
+  await expect(nav.locator('.nav-group-toggle')).toHaveAccessibleName(/ワークスペース/);
 });
 
 test('選択中のメニューとタブとパンくずの今の画面は太さ 600、群の見出しは字間を広げない', async ({ page }) => {

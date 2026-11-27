@@ -3,6 +3,10 @@
 export const NAV_COLLAPSED_KEY = 'sg-nav-collapsed';
 // 左のメニュー（nav）の id。開閉のボタンの aria-controls が指す
 export const NAV_MENU_ID = 'app-nav';
+// 左のメニューの「ワークスペース」の一覧（見出しのボタンの aria-controls が指す）と、その一覧を畳んだか（#1515）を端末に覚えるキー。
+// 左のメニューの開閉とは別に覚える。既定は開いた状態
+export const NAV_WORKSPACES_ID = 'app-nav-workspaces';
+export const NAV_WORKSPACES_COLLAPSED_KEY = 'sg-nav-workspaces-collapsed';
 
 function isCollapsedValue(value: string | null): boolean {
   return value === 'true';
@@ -16,17 +20,36 @@ function storage(): Storage | null {
   }
 }
 
-export function readNavCollapsed(): boolean {
+function readFlag(key: string): boolean {
   const store = storage();
   if (!store) return false;
   try {
-    return isCollapsedValue(store.getItem(NAV_COLLAPSED_KEY));
+    return isCollapsedValue(store.getItem(key));
   } catch {
     return false;
   }
 }
 
+export function readNavCollapsed(): boolean {
+  return readFlag(NAV_COLLAPSED_KEY);
+}
+
+export function readNavWorkspacesCollapsed(): boolean {
+  return readFlag(NAV_WORKSPACES_COLLAPSED_KEY);
+}
+
 export const navState = $state({ collapsed: readNavCollapsed() });
+export const navWorkspacesState = $state({ collapsed: readNavWorkspacesCollapsed() });
+
+// ワークスペースの一覧を畳む。覚えられない端末でも、押したら今の画面では畳める（次に開くと開いた状態に戻る）
+export function setNavWorkspacesCollapsed(collapsed: boolean): void {
+  navWorkspacesState.collapsed = collapsed;
+  try {
+    storage()?.setItem(NAV_WORKSPACES_COLLAPSED_KEY, String(collapsed));
+  } catch {
+    // 容量超過や拒否は、覚えないだけにする
+  }
+}
 
 // 覚えられない端末（localStorage が拒まれる）でも、押したら今の画面では開閉する。覚えないだけで、次に開くと開いた状態に戻る
 export function setNavCollapsed(collapsed: boolean): void {
@@ -49,11 +72,14 @@ export function handleNavCollapsedStorage(event: {
   if (event.storageArea !== undefined && event.storageArea !== storage()) return;
   if (event.key === null) {
     navState.collapsed = false;
+    navWorkspacesState.collapsed = false;
     return;
   }
-  if (event.key !== NAV_COLLAPSED_KEY) return;
-  if (event.newValue === null || event.newValue === 'false') navState.collapsed = false;
-  else if (event.newValue === 'true') navState.collapsed = true;
+  const target =
+    event.key === NAV_COLLAPSED_KEY ? navState : event.key === NAV_WORKSPACES_COLLAPSED_KEY ? navWorkspacesState : null;
+  if (target === null) return;
+  if (event.newValue === null || event.newValue === 'false') target.collapsed = false;
+  else if (event.newValue === 'true') target.collapsed = true;
 }
 
 export function listenNavCollapsedStorage(target: Pick<Window, 'addEventListener'>): void {

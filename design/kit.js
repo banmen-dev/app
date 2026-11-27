@@ -552,7 +552,7 @@
     wikiHistoryRetry: "版の一覧を読み直す",
     wikiRestoreFailed: "戻せませんでした。もう一度試してください。",
 
-    workspaceSwitchLabel: "{workspace} {name}。切り替える", workspaceSwitchListLabel: "所属する{workspace}",
+    workspaceListToggleLabel: "所属する{workspace}の一覧", workspaceNavListLabel: "所属する{workspace}",
     workspacePaneHint: "押すと{backlog}を開きます", paneNews: "{app} のニュース", appName: "Banmen",
     paneActivity: "最近の更新", activityEmptyTitle: "まだ更新はありません", activityEmptyText: "所属する{workspace}の{task}、{story}、{epic}の変更とコメントが、ここに新しい順に並びます。", activityEmptyNoWorkspaceText: "{workspace}に所属すると、{task}、{story}、{epic}の更新がここに並びます。",
     activityCreated: "{actor}が作成した", activityUpdated: "{actor}が{fields}を変更した", activityChanged: "{actor}が変更した", activityCompleted: "{actor}が{done}にした", activityReopened: "{actor}が{done}を戻した", activityCommented: "{actor}がコメントした",
@@ -3641,7 +3641,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       // 組織の切り替えは、メニューの外（上の帯の右）の orgMenuHtml
       if (p === "organization") return "";
       if (p === "workspace") return `<div class="nav-group"><span class="nav-group-label">${t("workspace")}</span></div>
-        <div id="ws-menu-slot">${workspaceMenuHtml()}</div>`;
+        ${workspaceListHtml()}`;
       if (typeof p === "string") return `<div class="nav-group${menuOnly}"><span class="nav-group-label">${p}</span></div>`;
       const [id, ic, label, href, badge] = p;
       const target = inWs ? workspaceHref(href) : firstHref(href);
@@ -3940,28 +3940,25 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const next = ev.relatedTarget;
     if (orgMenuOpen && next && !next.closest(".org-menu")) setOrgMenu(false);
   });
-  // ワークスペースの切り替え。組織と同じ開閉と通常のリンクを使い、移動先はバックログ。
-  let workspaceMenuOpen = false;
-  function workspaceMenuHtml({ open = workspaceMenuOpen, id = "ws-menu-list", live = true, workspaces = Object.entries(D.workspaces).map(([id, w]) => ({ id, ...w })), current = { id: D.workspace, ...D.workspaces[D.workspace] }, inWorkspaceScreen = !page || !["today", "notifications", "orgwiki", "me", "admin", "favorites", "operator"].includes(page.current) } = {}) {
-    const name = workspaces.find((w) => w.id === current.id)?.name || current.name;
-    const label = t("workspaceSwitchLabel").replace("{name}", name).replace("{workspace}", t("workspace"));
-    const listLabel = t("workspaceSwitchListLabel").replace("{workspace}", t("workspace"));
-    return `<div class="ws-menu"><button class="ws-menu-button" type="button" aria-expanded="${open}" aria-controls="${id}" aria-label="${esc(label)}" ${live ? "data-ws-menu" : ""}><b>${esc(name)}</b>${icon("chevron")}</button>
-      <ul class="ws-menu-list" id="${id}" aria-label="${esc(listLabel)}" ${open ? "" : "hidden"}>${workspaces.some((w) => w.id === current.id) ? "" : `<li class="ws-menu-current"><span aria-current="page">${esc(current.name)}</span>${icon("check")}</li>`}${workspaces.map((w) => `<li><a href="${firstHref("backlog.html")}${first ? "&" : "?"}workspace=${encodeURIComponent(w.id)}" ${live ? `data-ws-target="${esc(w.id)}"` : ""}${w.id === current.id && inWorkspaceScreen ? ' aria-current="page"' : ""}><span class="org-menu-name">${esc(w.name)}</span>${w.id === current.id ? icon("check") : ""}</a></li>`).join("")}</ul></div>`;
+  // ワークスペースの一覧（左のメニューの「ワークスペース」の見出しの下）。見出しのボタンで畳み、畳んだ状態は本番と同じキーに覚える（#1515）。
+  // 行は通常のリンクで、押すとそのワークスペースのバックログへ移る。畳むのは一覧だけで、760px 以下の浮きメニューの機能の項目は畳まない
+  const WS_LIST_KEY = "sg-nav-workspaces-collapsed";
+  let workspaceListCollapsed = false;
+  try { workspaceListCollapsed = localStorage.getItem(WS_LIST_KEY) === "true"; } catch { /* 覚えられない端末は開いた状態 */ }
+  function workspaceListHtml({ collapsed = workspaceListCollapsed, id = "app-nav-workspaces", live = true, workspaces = Object.entries(D.workspaces).map(([id, w]) => ({ id, ...w })), current = { id: D.workspace, ...D.workspaces[D.workspace] }, inWorkspaceScreen = !page || !["today", "notifications", "orgwiki", "me", "admin", "favorites", "operator"].includes(page.current) } = {}) {
+    const label = t("workspaceListToggleLabel").replace("{workspace}", t("workspace"));
+    const listLabel = t("workspaceNavListLabel").replace("{workspace}", t("workspace"));
+    const row = (w) => `<li><a class="nav-item" href="${firstHref("backlog.html")}${first ? "&" : "?"}workspace=${encodeURIComponent(w.id)}" title="${esc(w.name)}" ${live ? `data-ws-target="${esc(w.id)}"` : ""}${w.id === current.id && inWorkspaceScreen ? ' aria-current="page"' : ""}><span class="nav-item-label">${esc(w.name)}</span>${w.id === current.id ? icon("check") : ""}</a></li>`;
+    const outside = workspaces.some((w) => w.id === current.id) ? "" : `<li><span class="nav-item is-current" aria-current="page" title="${esc(current.name)}"><span class="nav-item-label">${esc(current.name)}</span>${icon("check")}</span></li>`;
+    return `<div class="nav-group is-toggle"><button class="nav-group-toggle" type="button" aria-expanded="${!collapsed}" aria-controls="${id}" aria-label="${esc(label)}" ${live ? "data-ws-list" : ""}>${icon("chevron")}<span class="nav-group-label">${t("workspace")}</span></button></div>
+      <ul class="nav-ws-list" id="${id}" aria-label="${esc(listLabel)}" ${collapsed ? "hidden" : ""}>${outside}${workspaces.map(row).join("")}</ul>`;
   }
-  function setWorkspaceMenu(open, focus) {
-    workspaceMenuOpen = open;
-    const slot = document.getElementById("ws-menu-slot");
-    if (slot) slot.innerHTML = workspaceMenuHtml();
-    if (focus) document.querySelector("[data-ws-menu]")?.focus();
+  function toggleWorkspaceList(button) {
+    workspaceListCollapsed = button.getAttribute("aria-expanded") === "true";
+    try { localStorage.setItem(WS_LIST_KEY, String(workspaceListCollapsed)); } catch { /* 覚えないだけにする */ }
+    button.setAttribute("aria-expanded", String(!workspaceListCollapsed));
+    document.getElementById(button.getAttribute("aria-controls"))?.toggleAttribute("hidden", workspaceListCollapsed);
   }
-  function closeWorkspaceMenu() {
-    setWorkspaceMenu(false, !!document.activeElement?.closest?.(".ws-menu"));
-  }
-  document.addEventListener("focusout", (ev) => {
-    const next = ev.relatedTarget;
-    if (workspaceMenuOpen && next && !next.closest(".ws-menu")) setWorkspaceMenu(false);
-  });
   // アカウントのメニュー。上の帯の自分の名前を押すと開き、中は「マイプロフィール」、管理者だけ「組織の管理」、最後に「ログアウト」。
   // 開閉は組織の切り替えと同じ: ボタン、外を押す、Tab で外へ出る、Esc。メニューの中にフォーカスがあるときに閉じたら、ボタンへ戻す。
   // 見本ではログアウトせず、トーストだけを出す。運用者の画面（operator.html）は紙の枠なので、このメニューを持たず紙の下のボタンでログアウトする
@@ -4647,17 +4644,13 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     }
     // 組織の切り替えを開閉する。外を押したら閉じる（押したものの動きは続ける）
     if (hit("data-org-menu")) {
-      if (workspaceMenuOpen) setWorkspaceMenu(false);
       setOrgMenu(!orgMenuOpen, true);
       return;
     }
     if (orgMenuOpen && ev.target.closest(".org-menu-list a, .org-menu-list button")) closeOrgMenu();
     else if (orgMenuOpen && !ev.target.closest(".org-menu")) closeOrgMenu();
-    if (hit("data-ws-menu")) { setWorkspaceMenu(!workspaceMenuOpen, true); return; }
-    if ((el = hit("data-ws-target"))) {
-      D.workspace = el.dataset.wsTarget;
-      closeWorkspaceMenu();
-    } else if (workspaceMenuOpen && !ev.target.closest(".ws-menu")) closeWorkspaceMenu();
+    if ((el = hit("data-ws-list"))) { toggleWorkspaceList(el); return; }
+    if ((el = hit("data-ws-target"))) D.workspace = el.dataset.wsTarget;
     // アカウントのメニューも同じ。ただしログアウトの項目を押しても閉じない（本番は待ちの表示を見せるため）
     if (hit("data-account-link")) { closeAccountMenu(); return; }
     if (hit("data-account-menu")) { setAccountMenu(!accountMenuOpen, true); return; }
@@ -5034,7 +5027,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     }
     if (ev.key !== "Escape" || ev.isComposing || ev.keyCode === 229) return;
     if (orgMenuOpen) { ev.preventDefault(); ev.stopPropagation(); closeOrgMenu(); return; }
-    if (workspaceMenuOpen) { ev.preventDefault(); ev.stopPropagation(); closeWorkspaceMenu(); return; }
     if (accountMenuOpen) { ev.stopPropagation(); closeAccountMenu(); return; }
     if (dialogOnlyButtons && !document.getElementById("dialog")?.hidden) return;
     if (closeDialog()) return;
@@ -5291,7 +5283,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     user, task, tasksWhere, repoTag, categoryTag, sprintTag, repoPicker, sprintLabel, colName, categoryOf, storyPts, epicPts, dueOf,
     attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, pts, dueChip, taskDue, sourceKey, entry, rowMenu, orderItems, draftRow, draftAttrs, attrChip, book, section, foldedSection, pane, paneList, newsList, dashboard, activity, activityLoading, activityFailed, activityEmptyNoWorkspace, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
     narrowDisclosure, popover, card, board, boardToolbar, treeStory, treeEpic, completedTasks, sprintNotice, progress, load, capacityRows,
-    openDialog, closeDialog, toast, miniCap, redraw: () => redrawAll(), DIALOGS, loginTarget, orgMenuHtml, workspaceMenuHtml, accountMenuHtml, breadcrumbHtml,
+    openDialog, closeDialog, toast, miniCap, redraw: () => redrawAll(), DIALOGS, loginTarget, orgMenuHtml, workspaceListHtml, accountMenuHtml, breadcrumbHtml,
     filesOf, fileThumb, fileRow, dropzone, attachments, markdownEditor, markdownToolbarHtml, mdBody, markdownSample, meter, storageBytes,
     PROVIDER, ASSIST_KEY, assistMsg, assistBlocked, assistSuggest, openAssist,
     enableAssistOnCatalog: () => { assistOnCatalog = true; },

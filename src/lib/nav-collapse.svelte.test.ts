@@ -3,9 +3,13 @@ import {
   handleNavCollapsedStorage,
   listenNavCollapsedStorage,
   navState,
+  navWorkspacesState,
   NAV_COLLAPSED_KEY,
+  NAV_WORKSPACES_COLLAPSED_KEY,
   readNavCollapsed,
+  readNavWorkspacesCollapsed,
   setNavCollapsed,
+  setNavWorkspacesCollapsed,
 } from './nav-collapse.svelte.ts';
 
 const storageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
@@ -15,6 +19,7 @@ afterEach(() => {
   if (storageDescriptor) Object.defineProperty(globalThis, 'localStorage', storageDescriptor);
   else Reflect.deleteProperty(globalThis, 'localStorage');
   navState.collapsed = false;
+  navWorkspacesState.collapsed = false;
 });
 
 function storage(value: string | null = null) {
@@ -114,4 +119,50 @@ describe('ほかのタブでの変更', () => {
 test('保存された true を読むと閉じた状態', () => {
   storage('true');
   expect(readNavCollapsed()).toBe(true);
+});
+
+describe('ワークスペースの一覧を畳む状態（#1515）', () => {
+  test('未設定と不正な値は開いた状態で、畳んだ状態は左のメニューの開閉とは別のキーに覚える', () => {
+    expect(readNavWorkspacesCollapsed()).toBe(false);
+    storage('true');
+    expect(readNavWorkspacesCollapsed()).toBe(false);
+    const store = storage();
+    setNavWorkspacesCollapsed(true);
+    expect(store.setItem).toHaveBeenCalledWith(NAV_WORKSPACES_COLLAPSED_KEY, 'true');
+    expect(navWorkspacesState.collapsed).toBe(true);
+    expect(navState.collapsed).toBe(false);
+    setNavWorkspacesCollapsed(false);
+    expect(store.setItem).toHaveBeenLastCalledWith(NAV_WORKSPACES_COLLAPSED_KEY, 'false');
+    expect(navWorkspacesState.collapsed).toBe(false);
+  });
+
+  test('保存された true は読み直しても畳んだ状態', () => {
+    const store = { getItem: (key: string) => (key === NAV_WORKSPACES_COLLAPSED_KEY ? 'true' : null) };
+    vi.stubGlobal('localStorage', store);
+    expect(readNavWorkspacesCollapsed()).toBe(true);
+  });
+
+  test('保存が失敗しても落ちず、今の画面では畳める', () => {
+    const store = storage();
+    store.setItem.mockImplementation(() => {
+      throw new Error('QuotaExceededError');
+    });
+    expect(() => setNavWorkspacesCollapsed(true)).not.toThrow();
+    expect(navWorkspacesState.collapsed).toBe(true);
+  });
+
+  test('ほかのタブでの変更と clear() を追い、左のメニューの開閉には触れない', () => {
+    handleNavCollapsedStorage({ key: NAV_WORKSPACES_COLLAPSED_KEY, newValue: 'true' });
+    expect(navWorkspacesState.collapsed).toBe(true);
+    expect(navState.collapsed).toBe(false);
+    handleNavCollapsedStorage({ key: NAV_WORKSPACES_COLLAPSED_KEY, newValue: 'unknown' });
+    expect(navWorkspacesState.collapsed).toBe(true);
+    handleNavCollapsedStorage({ key: NAV_WORKSPACES_COLLAPSED_KEY, newValue: null });
+    expect(navWorkspacesState.collapsed).toBe(false);
+    navState.collapsed = true;
+    navWorkspacesState.collapsed = true;
+    handleNavCollapsedStorage({ key: null, newValue: null });
+    expect(navState.collapsed).toBe(false);
+    expect(navWorkspacesState.collapsed).toBe(false);
+  });
 });

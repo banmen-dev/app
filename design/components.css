@@ -124,6 +124,21 @@ h1, h2, h3 { text-wrap: balance; }
 
 .nav { display: grid; gap: var(--space-half); }
 .nav-group { font-size: var(--text-xs); color: var(--color-muted); letter-spacing: var(--tracking-label); padding: var(--space-2) var(--space-2) var(--space-1); }
+/* 畳める見出し（ワークスペース）。見出しの全体を1つのボタンにし、▸ は畳んだ状態、▾ は開いた状態。余白はボタンが持つ */
+.nav-group.is-toggle { padding: 0; }
+.nav-group-toggle {
+  display: flex; align-items: center; gap: var(--space-1); width: 100%;
+  padding: var(--space-2) var(--space-2) var(--space-1); border: 0; border-radius: var(--radius-1);
+  background: none; color: inherit; font: inherit; letter-spacing: inherit; text-align: left; cursor: pointer;
+}
+.nav-group-toggle:hover { color: var(--color-fg); }
+.nav-group-toggle .ico { flex: none; rotate: 90deg; transition: rotate var(--duration-fast) var(--ease-out); }
+.nav-group-toggle[aria-expanded="false"] .ico { rotate: 0deg; }
+/* 所属するワークスペースの一覧。行は .nav-item を使い、長い名前は省略する（全文は title と読み上げの名前に残る） */
+.nav-ws-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-half); min-width: 0; }
+.nav-ws-list[hidden] { display: none; }
+.nav-ws-list .nav-item-label { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-ws-list .nav-item .ico { flex: none; margin-left: auto; color: var(--color-accent); }
 .nav-item {
   position: relative;
   display: flex; align-items: center; gap: var(--space-3);
@@ -141,62 +156,59 @@ h1, h2, h3 { text-wrap: balance; }
 .nav-item.is-wrapping { flex-shrink: 0; }
 .nav-item.is-wrapping .nav-item-label { white-space: normal; overflow-wrap: anywhere; }
 .nav-badge { margin-left: auto; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-muted); }
-/* 組織とワークスペースの切り替え。共通のボタンとリンクの一覧。
+/* 組織の切り替え。ボタンとリンクの一覧。
    選ぶと画面が移るので select にしない（矢印キーで選んだだけで移ってしまう）。
-   組織は狭い幅でも出す。ワークスペースは左のメニューの中に置き、760px 以下は浮きメニューの中に出す（下の狭い画面の規則）。 */
-:is(.org-menu, .ws-menu) { display: grid; gap: var(--space-1); min-width: 0; }
-:is(.org-menu-button, .ws-menu-button) {
+   組織は狭い幅でも出す。 */
+.org-menu { display: grid; gap: var(--space-1); min-width: 0; }
+.org-menu-button {
   display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-2);
   width: 100%; padding: var(--space-2); text-align: left; font: inherit; color: inherit; cursor: pointer;
   border-radius: var(--radius-1); border: 1px solid var(--color-control-edge); background: var(--color-surface);
 }
-:is(.org-menu-button, .ws-menu-button):hover { border-color: var(--color-muted); }
-/* ワークスペースの切り替えは、左のメニューの「ワークスペース」の見出しのすぐ下にだけ出すので、枠の中にラベルを持たない */
+.org-menu-button:hover { border-color: var(--color-muted); }
 .org-menu-label { grid-column: 1; font-size: var(--text-xs); color: var(--color-muted); }
-:is(.org-menu-button, .ws-menu-button) > b { grid-column: 1; font-weight: 700; overflow-wrap: anywhere; }
-:is(.org-menu-button, .ws-menu-button) > .chip { grid-column: 1; justify-self: start; margin-top: var(--space-1); }
-:is(.org-menu-button, .ws-menu-button) > .ico { grid-column: 2; grid-row: 1 / span 3; color: var(--color-muted); transform: rotate(90deg); }
-:is(.org-menu-button, .ws-menu-button)[aria-expanded="true"] > .ico:last-of-type { transform: rotate(-90deg); }
+.org-menu-button > b { grid-column: 1; font-weight: 700; overflow-wrap: anywhere; }
+.org-menu-button > .chip { grid-column: 1; justify-self: start; margin-top: var(--space-1); }
+.org-menu-button > .ico { grid-column: 2; grid-row: 1 / span 3; color: var(--color-muted); transform: rotate(90deg); }
+.org-menu-button[aria-expanded="true"] > .ico:last-of-type { transform: rotate(-90deg); }
 /* 招待の点の印は、上の帯でだけ見せる（760px 以下の浮きメニューは「届いた招待あり」のチップで示す） */
 .org-menu-invite { display: none; }
 /* 組織が多いときは、一覧の中でスクロールする（メニューの綴じが画面の高さに収まらなくなるため） */
-:is(.org-menu-list, .ws-menu-list), .account-menu-list {
+.org-menu-list, .account-menu-list {
   list-style: none; margin: 0; padding: var(--space-1); display: grid; gap: 1px;
   max-height: 40vh; overflow-y: auto; overscroll-behavior: contain;
   border-radius: var(--radius-1); border: 1px solid var(--color-line); background: var(--color-surface);
 }
-:is(.org-menu-list, .ws-menu-list)[hidden], .account-menu-list[hidden] { display: none; }
+.org-menu-list[hidden], .account-menu-list[hidden] { display: none; }
 /* 開くときだけ押した場所から短く出す。hidden への切り替えには退場の待ちを入れない。
    配置用の transform と干渉しないよう、動きには個別の translate を使う。 */
-:is(.org-menu-list, .ws-menu-list, .account-menu-list):not(.row-menu-list):not([hidden]) {
+:is(.org-menu-list, .account-menu-list):not(.row-menu-list):not([hidden]) {
   opacity: 1; translate: 0 0;
   transition: opacity var(--duration-fast) var(--ease-out), translate var(--duration-fast) var(--ease-out);
   @starting-style { opacity: 0; translate: 0 -4px; }
 }
 
-:is(.org-menu-list, .ws-menu-list) a, :is(.org-menu-list, .ws-menu-list) button, .account-menu-list a, .account-menu-list button:not(.btn) {
+.org-menu-list a, .org-menu-list button, .account-menu-list a, .account-menu-list button:not(.btn) {
   display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--space-2);
   padding: var(--space-2); border-radius: var(--radius-1); color: var(--color-fg); text-decoration: none;
 }
-:is(.org-menu-list, .ws-menu-list) button, .account-menu-list button:not(.btn) { width: 100%; border: 0; background: none; text-align: left; }
-:is(.org-menu-list, .ws-menu-list) a:hover, :is(.org-menu-list, .ws-menu-list) button:hover, .account-menu-list a:hover, .account-menu-list button:not(.btn):hover:not([aria-disabled="true"]) { background: var(--color-rule); }
+.org-menu-list button, .account-menu-list button:not(.btn) { width: 100%; border: 0; background: none; text-align: left; }
+.org-menu-list a:hover, .org-menu-list button:hover, .account-menu-list a:hover, .account-menu-list button:not(.btn):hover:not([aria-disabled="true"]) { background: var(--color-rule); }
 /* 招待件数の読み込み・失敗・再試行。通常の項目と左端をそろえ、ボタンは共通の .btn のまま使う。 */
 .account-menu-status { display: grid; gap: var(--space-2); padding: var(--space-2); color: var(--color-muted); font-size: var(--text-xs); overflow-wrap: anywhere; }
 .account-menu-status .btn { justify-self: start; }
 .account-menu-list button[aria-disabled="true"]:not(.btn) { opacity: 0.45; cursor: not-allowed; }
-:is(.org-menu-list, .ws-menu-list) a[aria-current="page"], .account-menu-list a[aria-current="page"] { background: var(--color-sunken); font-weight: 700; box-shadow: 0 0 0 1px var(--color-line); }
-:is(.org-menu-list, .ws-menu-list) a .ico { margin-left: auto; color: var(--color-accent); }
+.org-menu-list a[aria-current="page"], .account-menu-list a[aria-current="page"] { background: var(--color-sunken); font-weight: 700; box-shadow: 0 0 0 1px var(--color-line); }
+.org-menu-list a .ico { margin-left: auto; color: var(--color-accent); }
 .org-menu-name { min-width: 0; overflow-wrap: anywhere; }
-/* 所属していない管理者が開いているワークスペースの名前。押せない行だが、現在地は所属先の現在地と同じ形（背景、太字、枠、チェック）で示す。 */
-.ws-menu-current { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2); background: var(--color-sunken); font-weight: 700; box-shadow: 0 0 0 1px var(--color-line); overflow-wrap: anywhere; }
-.ws-menu-current .ico { margin-left: auto; color: var(--color-accent); }
 .org-menu-note { flex-basis: 100%; font-size: var(--text-xs); color: var(--color-muted); }
 /* 組織ではない行（組織の一覧へ戻るリンクと、押すとダイアログを開く「組織を作る」）は、組織の行より控えめにする */
-:is(.org-menu-list, .ws-menu-list) .is-aside a, :is(.org-menu-list, .ws-menu-list) .is-aside button { color: var(--color-muted); }
+.org-menu-list .is-aside a, .org-menu-list .is-aside button { color: var(--color-muted); }
 /* 狭い幅と、指で押す画面では、押す所を 44px 以上にする。左のメニューのロゴと項目（狭い幅では項目を浮きメニューに出す）も同じ */
 @media (max-width: 760px), (pointer: coarse) {
-  :is(.org-menu-list, .ws-menu-list) a, :is(.org-menu-list, .ws-menu-list) button, .account-menu-list a, .account-menu-list button, .account-menu-button { min-height: 44px; }
+  .org-menu-list a, .org-menu-list button, .account-menu-list a, .account-menu-list button, .account-menu-button { min-height: 44px; }
   .nav-toggle { width: 44px; height: 44px; }
+  .nav-group-toggle { min-height: 44px; }
   .brand, .nav-item:not(.is-later) { min-height: 44px; }
   /* 上の帯のマークと組織のボタン（760px を超える幅の指の画面。760px 以下は上の帯を出さない） */
   .topbar-start .brand { justify-content: center; min-width: 44px; }
@@ -212,7 +224,7 @@ h1, h2, h3 { text-wrap: balance; }
 }
 
 @media not (max-width: 760px) {
-  /* 綴じの中で開く一覧（ワークスペースの切り替え）を本文の位置付きの要素（バックログの行など）より上に出す。綴じの sticky は自前の重なりの文脈を作り、
+  /* 綴じの中で開く一覧（上の帯から開く組織の一覧など）を本文の位置付きの要素（バックログの行など）より上に出す。綴じの sticky は自前の重なりの文脈を作り、
      中の z-index は文脈の外に効かないので、綴じごと本文の上に置く。上の帯（6）は綴じより上に置き、帯から開く組織の一覧と
      アカウントのメニューを綴じの上に重ねる。どちらも引き出し（.scrim の 20）とアシスタント（15）より下 */
   .binding { position: relative; z-index: 5; }
@@ -414,8 +426,6 @@ a.breadcrumb-item:hover { color: var(--color-fg); text-decoration: underline; }
     }
   }
 }
-/* 見本のワークスペースの切り替えの入れ物（kit.js が描き直すため）。本番には無いので、箱を消して .ws-menu を .nav の直接の子と同じに並べる */
-#ws-menu-slot { display: contents; }
 @media (max-width: 760px) {
   .nav-search-toggle { display: inline-grid; }
   .nav-search:not([data-open]) { display: none; }
@@ -1011,10 +1021,10 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
   .mobile-menu .nav-favorites { display: grid; }
   .mobile-menu .nav-item { white-space: normal; min-width: 44px; min-height: 44px; }
   .mobile-menu .nav-item-label { overflow-wrap: anywhere; }
-  .mobile-menu .org-menu, .mobile-menu .ws-menu { position: relative; min-width: 0; }
+  .mobile-menu .org-menu { position: relative; min-width: 0; }
   /* 切り替えの一覧は面を押し広げる。スクロール領域の外へ切らない。 */
-  .mobile-menu .org-menu-list, .mobile-menu .ws-menu-list { position: static; margin-top: var(--space-2); }
-  .mobile-menu .org-menu-button, .mobile-menu .ws-menu-button { min-height: 44px; }
+  .mobile-menu .org-menu-list { position: static; margin-top: var(--space-2); }
+  .mobile-menu .org-menu-button { min-height: 44px; }
 
 @media (max-width: 760px) {
   .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "bar" "sheet"; }
@@ -2142,7 +2152,7 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
 /* 組織の枠へ移る間の骨組み（LoadingSheet の shape）。枠と同じ部品（.app、.binding、.topbar、.content、.page-head）の中に帯を置き、
    左のメニューの幅、上の帯の高さ、本文の余白を読み込んだ後と同じにする。本文は行き先の画面の組み（data-shape）に近い形にし、
    2列や節は本物と同じ部品（.layout-aside、.layout-wiki、.settings、.board、.lanes）に任せて、畳む幅も本物と揃える。
-   帯の大きさは、上の帯の組織の名前、ワークスペースの切り替え（.ws-menu-button の 60px）、
+   帯の大きさは、上の帯の組織の名前、ワークスペースの一覧の行、
    メニューの項目、パンくず、検索の欄（.nav-search-input の 36px）、アカウントのボタン、行、カードのおおよその大きさを写した値で、
    本物の部品を変えても追従しない（形が近ければよく、位置を揃えるのは枠の部品）。最初の読み込みの static/boot-loading.css も同じ値を写す */
 .skeleton-frame .skeleton-line.is-org { height: 44px; }
