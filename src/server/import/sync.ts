@@ -1,7 +1,8 @@
 // 取り込み元に依らない同期の仕組み（docs/requirements.md の「取り込み」、docs/data-model.md の「書き込みの単位」）。
 // 接続を1つ、範囲ごとに続きの位置で頁を取り、頁ごとに1回の batch() で、新しい項目をタスクと task_sources に書く。
 // 「今すぐ同期」と、後の定期処理が同じ関数を呼ぶ。取り込み元ごとの違いは ImportSource の実装の中に閉じ、ここは取り込み元の名前を知らない。
-// 通常項目は新規未完了だけを取り込む。レビュー依頼は target で照合し、完了印と再依頼時の復帰を保存する。汎用の属性更新と応答保存は別工程。
+// 通常項目は新規未完了だけを取り込み、既にある項目は取り込み元が持つ属性（タイトル、状態、期限、URL、完了の印）だけを更新する。
+// レビュー依頼は target で照合し、完了印と再依頼時の復帰を保存する。応答保存は別工程。
 //
 // 人が差分を読む領域（docs/development.md の「マージの判定」）
 import { generateNKeysBetween } from 'fractional-indexing';
@@ -9,6 +10,7 @@ import {
   importTaskStatements,
   readReviewTarget,
   reviewUpdateStatements,
+  updateImportedStatements,
   readInboxTailPosition,
   readRepositoriesByContainer,
   readSyncConnection,
@@ -628,7 +630,9 @@ function failureOf(error: unknown): { stop: boolean; message: string } {
   return { stop: false, message: UNKNOWN_FAILURE_MESSAGE };
 }
 
-// 1頁を、未完了の新しい項目だけ、1回の batch() で書く。入れたタスクの数を返す
+// 1頁を、1回の batch() で書く。入れたタスクの数を返す。
+// 既にある項目（Issue と PR）は、取り込み元が持つ属性だけを更新する（完了した項目の完了の印と、開き直された項目の印の取り外しもここ）。
+// 新しく入れるのは未完了の項目だけ（取り込んでいない項目が完了していたら取り込まない）。形の合わない項目は飛ばす
 async function writePage(
   db: OrganizationDb,
   connection: {
@@ -643,11 +647,38 @@ async function writePage(
   repositories: ReadonlyMap<string, string>,
   now: () => Date,
 ): Promise<number> {
-  // 完了した項目は入れない（取り込んでいない項目が完了していたら取り込まない）。形の合わない項目も飛ばす
-  const open = items.filter((item) => isValidItem(item) && !item.isDone);
-  if (open.length === 0) return 0;
-
+  const valid = items.filter((item) => isValidItem(item));
+  const open = valid.filter((item) => !item.isDone);
   const at = now();
+  // 更新の文を先に流す（新しい項目の行はまだ無いので0件になり、入れた直後の行を書き直さない）。レビュー依頼は個別の照合が持つので対象にしない
+  const updates = valid.flatMap((item) =>
+    item.kind === 'review_request'
+      ? []
+      : updateImportedStatements(
+          db,
+          {
+            workspaceId,
+            connectionId: connection.id,
+            provider: connection.provider,
+            credentialCiphertext: connection.credential_ciphertext,
+            credentialKeyVersion: connection.credential_key_version,
+            kind: item.kind,
+            sourceId: item.sourceId,
+            title: titleOf(item),
+            url: item.url,
+            status: stripHiddenCharacters(item.status),
+            dueOn: item.dueOn,
+            isDone: item.isDone,
+            updatedAt: isoInstant(item.updatedAt)!,
+          },
+          at.toISOString(),
+        ),
+  );
+  if (open.length === 0) {
+    if (updates.length > 0) await db.batch(updates);
+    return 0;
+  }
+
   const tail = await readInboxTailPosition(db, workspaceId);
   const positions = generateNKeysBetween(tail ?? null, null, open.length);
   const tasks: ImportedTask[] = open.map((item, index) => ({
@@ -658,7 +689,7 @@ async function writePage(
     assigneeUserId: connection.owner_user_id,
     repositoryId: repositories.get(item.containerId) ?? null,
     position: positions[index]!,
-    title: importedTitle(item.title, item.key) || importedTitle(item.sourceId, ''),
+    title: titleOf(item),
     kind: item.kind,
     sourceId: item.sourceId,
     reviewerSourceId: item.reviewerSourceId,
@@ -674,13 +705,17 @@ async function writePage(
     updatedAt: isoInstant(item.updatedAt)!,
   }));
   const groups = tasks.map((task) => importTaskStatements(db, task, at.toISOString()));
-  const results = await db.batch(groups.flat());
-  // 各組の先頭（tasks）が書いた数が、入れたタスクの数。レビュー依頼は依頼回の記録も含む
+  const results = await db.batch([...updates, ...groups.flat()]);
+  // 各組の先頭（tasks）が書いた数が、入れたタスクの数。レビュー依頼は依頼回の記録も含む。更新の文の結果は数えない
   let imported = 0;
-  let index = 0;
+  let index = updates.length;
   for (const group of groups) {
     imported += results[index]!.changes;
     index += group.length;
   }
   return imported;
+}
+
+function titleOf(item: ImportItem): string {
+  return importedTitle(item.title, item.key) || importedTitle(item.sourceId, '');
 }

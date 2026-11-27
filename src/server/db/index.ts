@@ -31,6 +31,7 @@ export {
   importTaskStatements,
   readReviewTarget,
   reviewUpdateStatements,
+  updateImportedStatements,
   readInboxTailPosition,
   readRepositoriesByContainer,
   readSyncConnection,
