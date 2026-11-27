@@ -595,7 +595,79 @@ describe('gallery.mjs', () => {
   );
 
   test(
-    '判定の画面: 復元の前に付けた判定とコメントは、前の判定で上書きせず、復元の後に保存する',
+    '判定の画面: 復元の前に触った項目だけを画面の値で残し、触っていない項目とパネルは前の判定に戻し、復元の後に保存する',
+    { skip: !existsSync(chromium.executablePath()) && 'Playwright の chromium が無い' },
+    async () => {
+      const files = {
+        'manifest.json': JSON.stringify({
+          judge: true,
+          items: [video, { issue: 575, title: '別の Issue', video: 'issue-575.mp4' }],
+        }),
+        'issue-574.mp4': 'dummy',
+        'issue-575.mp4': 'dummy',
+      };
+      const browser = await chromium.launch();
+      try {
+        await inTempDirAsync(files, async (path) => {
+          assert.equal(run(join(path('manifest.json'), '..')).status, 0);
+          const context = await browser.newContext();
+          const lines = async (page: Page) => {
+            const text = await page.locator('#result').inputValue();
+            return text.split('\n').filter((line) => /^- #|^ {2}- コメント/.test(line));
+          };
+          // 前の判定を保存しておく
+          const first = await context.newPage();
+          await openGallery(first, path('index.html'));
+          await first.click('#tab-574');
+          await first.click('#panel-574 [data-set=ok]');
+          await first.fill('#panel-574 textarea', '前のコメント');
+          await first.click('#tab-575');
+          await first.click('#panel-575 [data-set=ng]');
+          await first.fill('#panel-575 textarea', '575 のコメント');
+          // 開き直し、復元の前（DOMContentLoaded）に #574 のコメントだけを替える。前の判定の復元は load の後に間を置いて行う
+          const commentOnly = await context.newPage();
+          await commentOnly.addInitScript(() => {
+            document.addEventListener('DOMContentLoaded', () => {
+              const comment = document.querySelector('#panel-574 textarea') as HTMLTextAreaElement;
+              comment.value = '復元の前のコメント';
+              comment.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+          });
+          await openGallery(commentOnly, path('index.html'));
+          assert.deepEqual(await lines(commentOnly), [
+            '- #574 クリア報酬を変える: ok',
+            '  - コメント: 復元の前のコメント',
+            '- #575 別の Issue: ng',
+            '  - コメント: 575 のコメント',
+          ]);
+          // 開き直し、復元の前に #574 の判定だけを ng に替える。コメントは前に保存した値に戻る
+          const statusOnly = await context.newPage();
+          await statusOnly.addInitScript(() => {
+            document.addEventListener('DOMContentLoaded', () => {
+              (document.querySelector('#panel-574 [data-set=ng]') as HTMLElement).click();
+            });
+          });
+          await openGallery(statusOnly, path('index.html'));
+          const expected = [
+            '- #574 クリア報酬を変える: ng',
+            '  - コメント: 復元の前のコメント',
+            '- #575 別の Issue: ng',
+            '  - コメント: 575 のコメント',
+          ];
+          assert.deepEqual(await lines(statusOnly), expected);
+          // 復元の後に保存したので、別のページで開き直しても残る（初期化のスクリプトは前のページだけに付けた）
+          const reopened = await context.newPage();
+          await openGallery(reopened, path('index.html'));
+          assert.deepEqual(await lines(reopened), expected);
+        });
+      } finally {
+        await browser.close();
+      }
+    },
+  );
+
+  test(
+    '判定の画面: load が来なくても、3 秒たてば前の判定を復元する',
     { skip: !existsSync(chromium.executablePath()) && 'Playwright の chromium が無い' },
     async () => {
       const files = {
@@ -607,32 +679,24 @@ describe('gallery.mjs', () => {
         await inTempDirAsync(files, async (path) => {
           assert.equal(run(join(path('manifest.json'), '..')).status, 0);
           const context = await browser.newContext();
-          const page = await context.newPage();
-          const result = () => page.locator('#result').inputValue();
-          const open = () => openGallery(page, path('index.html'));
-          // 前の判定（ok とコメント）を保存しておく
-          await open();
-          await page.click('#tab-574');
-          await page.click('#panel-574 [data-set=ok]');
-          await page.fill('#panel-574 textarea', '前のコメント');
-          // 開き直し、復元の前（DOMContentLoaded）に ng とコメントを付ける。前の判定の復元は load の後に間を置いて行う
-          await page.addInitScript(() => {
-            document.addEventListener('DOMContentLoaded', () => {
-              (document.querySelector('#panel-574 [data-set=ng]') as HTMLElement).click();
-              const comment = document.querySelector('#panel-574 textarea') as HTMLTextAreaElement;
-              comment.value = '復元の前のコメント';
-              comment.dispatchEvent(new Event('input', { bubbles: true }));
-            });
+          const first = await context.newPage();
+          await openGallery(first, path('index.html'));
+          await first.click('#tab-574');
+          await first.click('#panel-574 [data-set=ng]');
+          // gallery の load の待ちを登録させず、load が来ない文書にする（CSP で外の読み込みは止まるので、遅らせる代わり）
+          const noLoad = await context.newPage();
+          await noLoad.addInitScript(() => {
+            const original = window.addEventListener.bind(window);
+            window.addEventListener = ((type: string, ...rest: [EventListenerOrEventListenerObject, unknown?]) => {
+              if (type !== 'load') original(type, ...(rest as [EventListenerOrEventListenerObject]));
+            }) as typeof window.addEventListener;
           });
-          await open();
-          assert.equal(await page.evaluate(() => document.body.hasAttribute('data-restored')), true);
-          assert.match(await result(), /#574 .*: ng/);
-          assert.match(await result(), /コメント: 復元の前のコメント/);
-          // 復元の後に保存したので、別のページで開き直しても残る（初期化のスクリプトは前のページだけに付けた）
-          const reopened = await context.newPage();
-          await openGallery(reopened, path('index.html'));
-          assert.match(await reopened.locator('#result').inputValue(), /#574 .*: ng/);
-          assert.match(await reopened.locator('#result').inputValue(), /コメント: 復元の前のコメント/);
+          const started = Date.now();
+          await noLoad.goto(pathToFileURL(path('index.html')).href);
+          assert.equal(await noLoad.evaluate(() => document.body.hasAttribute('data-restored')), false);
+          await noLoad.waitForSelector('body[data-restored]', { state: 'attached', timeout: 10_000 });
+          assert.ok(Date.now() - started >= 2_500, '3 秒の逃げ道より早く復元した');
+          assert.match(await noLoad.locator('#result').inputValue(), /#574 .*: ng/);
         });
       } finally {
         await browser.close();
