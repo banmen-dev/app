@@ -1,6 +1,7 @@
 // 着手できる Issue に status:ready を付け、当てはまらなくなったら外す（.github/workflows/ready.yml が動かす。docs/development.md の「Issue の状態」）。
 // ワークフローは pnpm install をしないので、node: の組み込みだけを import する
 import { spawnSync } from 'node:child_process';
+import { cachedLookup, ghPermissionLookup, normalizeLogin, resolveWriteUsers } from './github-write-permissions.ts';
 
 export const READY_LABEL = 'status:ready';
 
@@ -17,8 +18,13 @@ export type IssueSummary = {
   parent?: number | null;
 };
 
-// 開いた PR のうち、指す Issue を拾うのに使う項目だけ
-export type OpenPr = { head: string; body: string | null; sameRepo: boolean };
+// 開いた PR のうち、指す Issue を拾うのに使う項目だけ。author は作者の login と type（User か Bot）
+export type OpenPr = {
+  head: string;
+  body: string | null;
+  sameRepo: boolean;
+  author?: { login?: string | null; type?: string | null } | null;
+};
 
 // dependencies/blocked_by の要素のうち、判定に使う項目だけ
 export type Blocker = { state: string; labels: Label[] };
@@ -30,12 +36,22 @@ const BLOCKING_STATUS_LABELS = ['status:refining', 'status:in-progress', 'status
 
 const PR_REFERENCE = /\b(?:closes|fixes|refs) #([0-9]+)/gi;
 
+// github-actions[bot] は、login と type の Bot の両方が一致したときだけ許可する（ほかの bot は許可しない）
+function isWorkflowBot(author: OpenPr['author']): boolean {
+  return author?.login === 'github-actions[bot]' && author.type === 'Bot';
+}
+
 // 開いた PR が指す Issue の番号。sprint-pick と同じく、ブランチ名の先頭の <番号>- と、本文の Closes、Fixes、Refs を拾う。
-// fork の PR はブランチ名も本文も外の人が決めるので拾わない（関係の無い Issue のラベルを外させない）
-export function issuesWithOpenPr(prs: readonly OpenPr[]): Set<number> {
+// fork の PR はブランチ名も本文も外の人が決めるので拾わない。
+// このリポジトリのブランチの PR も、書き込み権限を確かめた作者（writers。docs/development.md の「GitHub の書き込み権限」）と
+// github-actions[bot] のものだけ拾う（書き込み権限の無い人が Closes #N で、関係の無い Issue のラベルを外させないため）。
+// 作者が分からない・確かめられない PR は数えない
+export function issuesWithOpenPr(prs: readonly OpenPr[], writers: ReadonlySet<string> = new Set()): Set<number> {
   const numbers = new Set<number>();
   for (const pr of prs) {
     if (!pr.sameRepo) continue;
+    const login = pr.author?.type === 'User' ? normalizeLogin(pr.author.login) : undefined;
+    if (!isWorkflowBot(pr.author) && !(login !== undefined && writers.has(login))) continue;
     const branch = /^([0-9]+)-/.exec(pr.head);
     if (branch) numbers.add(Number(branch[1]));
     for (const match of (pr.body ?? '').matchAll(PR_REFERENCE)) numbers.add(Number(match[1]));
@@ -138,7 +154,7 @@ function parseLines<T>(stdout: string): T[] {
     .map((line) => JSON.parse(line) as T);
 }
 
-function run(repo: string): number {
+async function run(repo: string): Promise<number> {
   // 題と本文はログにも読み込みにも要らないので、jq で判定に使う項目だけに絞る
   const list = gh([
     'api',
@@ -159,13 +175,19 @@ function run(repo: string): number {
     `repos/${repo}/pulls?state=open&per_page=100`,
     '--paginate',
     '--jq',
-    '.[] | {head: .head.ref, body, sameRepo: (.head.repo.full_name == .base.repo.full_name)}',
+    '.[] | {head: .head.ref, body, sameRepo: (.head.repo.full_name == .base.repo.full_name), author: {login: .user.login, type: .user.type}}',
   ]);
   if (!pulls.ok) {
     console.error(`開いた PR の一覧を読めなかった: ${pulls.stderr}`);
     return 1;
   }
-  const withOpenPr = issuesWithOpenPr(parseLines<OpenPr>(pulls.stdout));
+  const openPrs = parseLines<OpenPr>(pulls.stdout);
+  // 書き込み権限を引くのは、Issue を指しうる（このリポジトリのブランチの）PR の作者だけ。引けない作者は許可しない側に倒れる
+  const writers = await resolveWriteUsers(
+    openPrs.filter((pr) => pr.sameRepo).flatMap((pr) => (pr.author ? [pr.author] : [])),
+    cachedLookup(ghPermissionLookup(repo)),
+  );
+  const withOpenPr = issuesWithOpenPr(openPrs, writers);
 
   let failed = 0;
   let added = 0;
@@ -256,5 +278,5 @@ if (import.meta.main) {
     console.error('環境変数 REPO（owner/name）が無い');
     process.exit(1);
   }
-  process.exit(run(repo));
+  process.exit(await run(repo));
 }

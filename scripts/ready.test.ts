@@ -212,11 +212,17 @@ describe('開いた PR', () => {
 });
 
 describe('issuesWithOpenPr', () => {
+  const WRITERS = new Set(['alice']);
+  const alice = { login: 'Alice', type: 'User' };
+
   test('ブランチ名の先頭の番号と、本文の Refs、Closes、Fixes を拾う', () => {
-    const numbers = issuesWithOpenPr([
-      { head: '476-status-ready', body: null, sameRepo: true },
-      { head: 'claude/x', body: '説明\n\nRefs #12\ncloses #13 と FIXES #14', sameRepo: true },
-    ]);
+    const numbers = issuesWithOpenPr(
+      [
+        { head: '476-status-ready', body: null, sameRepo: true, author: alice },
+        { head: 'claude/x', body: '説明\n\nRefs #12\ncloses #13 と FIXES #14', sameRepo: true, author: alice },
+      ],
+      WRITERS,
+    );
     assert.deepEqual(
       [...numbers].sort((a, b) => a - b),
       [12, 13, 14, 476],
@@ -224,15 +230,74 @@ describe('issuesWithOpenPr', () => {
   });
 
   test('語の途中に現れた閉じる語（prefixes、hrefs）は拾わない', () => {
-    assert.deepEqual([...issuesWithOpenPr([{ head: 'x', body: 'prefixes #12 と hrefs #13', sameRepo: true }])], []);
+    assert.deepEqual(
+      [...issuesWithOpenPr([{ head: 'x', body: 'prefixes #12 と hrefs #13', sameRepo: true, author: alice }], WRITERS)],
+      [],
+    );
   });
 
   test('番号の無いブランチ名と、閉じる語の無い番号は拾わない', () => {
-    assert.deepEqual([...issuesWithOpenPr([{ head: 'feature-476', body: '#15 を見た', sameRepo: true }])], []);
+    assert.deepEqual(
+      [...issuesWithOpenPr([{ head: 'feature-476', body: '#15 を見た', sameRepo: true, author: alice }], WRITERS)],
+      [],
+    );
   });
 
   test('fork の PR は拾わない（外の人がブランチ名と本文で関係の無い Issue のラベルを外せないように）', () => {
-    assert.deepEqual([...issuesWithOpenPr([{ head: '476-x', body: 'Refs #12', sameRepo: false }])], []);
+    assert.deepEqual(
+      [...issuesWithOpenPr([{ head: '476-x', body: 'Refs #12', sameRepo: false, author: alice }], WRITERS)],
+      [],
+    );
+  });
+
+  test('書き込み権限を確かめられない作者の PR は、ブランチ名も Closes も拾わない', () => {
+    const outsider = { login: 'mallory', type: 'User' };
+    assert.deepEqual(
+      [...issuesWithOpenPr([{ head: '476-x', body: 'Closes #12', sameRepo: true, author: outsider }], WRITERS)],
+      [],
+    );
+    // 権限の確認に失敗すると writers は空になり、許可しない側に倒れる
+    assert.deepEqual([...issuesWithOpenPr([{ head: '476-x', body: 'Closes #12', sameRepo: true, author: alice }])], []);
+  });
+
+  test('作者が分からない PR と、login が不正な作者の PR は拾わない', () => {
+    assert.deepEqual([...issuesWithOpenPr([{ head: '476-x', body: 'Closes #12', sameRepo: true }], WRITERS)], []);
+    assert.deepEqual(
+      [
+        ...issuesWithOpenPr(
+          [{ head: '476-x', body: 'Closes #12', sameRepo: true, author: { login: 'alice/..', type: 'User' } }],
+          new Set(['alice/..']),
+        ),
+      ],
+      [],
+    );
+  });
+
+  test('作者の type が User でないときは、login が集合にあっても拾わない', () => {
+    assert.deepEqual(
+      [
+        ...issuesWithOpenPr(
+          [{ head: '476-x', body: 'Closes #12', sameRepo: true, author: { login: 'alice', type: 'Bot' } }],
+          WRITERS,
+        ),
+      ],
+      [],
+    );
+  });
+
+  test('github-actions[bot] は login と Bot 型が両方一致したときだけ拾い、ほかの bot は拾わない', () => {
+    const pr = (author: { login: string; type: string }) => ({
+      head: '476-x',
+      body: 'Closes #12',
+      sameRepo: true,
+      author,
+    });
+    assert.deepEqual(
+      [...issuesWithOpenPr([pr({ login: 'github-actions[bot]', type: 'Bot' })])].sort((a, b) => a - b),
+      [12, 476],
+    );
+    assert.deepEqual([...issuesWithOpenPr([pr({ login: 'github-actions[bot]', type: 'User' })])], []);
+    assert.deepEqual([...issuesWithOpenPr([pr({ login: 'dependabot[bot]', type: 'Bot' })])], []);
   });
 });
 
