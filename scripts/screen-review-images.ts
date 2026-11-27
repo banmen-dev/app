@@ -1,5 +1,5 @@
-import { readFile } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { readdir, readFile } from 'node:fs/promises';
+import { basename, join, resolve } from 'node:path';
 import type { Browser, Page } from '@playwright/test';
 
 const GAP = 12;
@@ -119,4 +119,15 @@ export function frameComposer(browser: Browser) {
       await page.close();
     }
   };
+}
+
+// 採点役は Read だけでディレクトリを一覧できないので、渡す画像を絶対パスで1枚ずつ数える。
+// motion/ には合成前のコマ（<テーマ>-<演出>-<番号>.png）も残るため、合成した連続コマだけを数える。
+export async function reviewImagePaths(directory: string) {
+  const pngs = async (name: string, accept: (file: string) => boolean) =>
+    (await readdir(join(directory, name)))
+      .filter((file) => file.endsWith('.png') && accept(file))
+      .sort()
+      .map((file) => resolve(directory, name, file));
+  return [...(await pngs('pairs', () => true)), ...(await pngs('motion', (file) => !/-\d+\.png$/.test(file)))];
 }
