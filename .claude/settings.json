@@ -9,6 +9,29 @@
   "env": {
     "WRANGLER_SEND_METRICS": "false"
   },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/japanese-guard.py\"; [ -f \"$f\" ] && python3 -I \"$f\"; exit 0"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "mcp__.*__wrap_up",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/japanese-guard.py\"; [ -f \"$f\" ] && python3 -I \"$f\"; exit 0"
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "allow": [
       "Bash(gh pr merge --squash --match-head-commit *)",
