@@ -716,7 +716,7 @@ Codex が探索する入口は `.agents/skills/`。原本を複製せず、共�
 | `pr` | Codex 用の入口。PR の状態に合う共有手順を読み、承認範囲と E2E の CI 実行方針を優先する |
 | `make` | Codex 用の `SKILL.md`。着手の判定、着手前の要約、受け入れ条件は `docs/agent-workflows/` を参照し、実装の進行は Codex が受け持つ |
 | `done-check` | Codex 用の `SKILL.md`。検査・点検基準は `docs/agent-workflows/`、レビューの役割は共有定義を参照し、未コミット・新規ファイルも点検する |
-| `screen-review` | Codex 用の入口から、[共通の撮影手順](agent-workflows/screen-review.md) と採点役の定義を使う。会話履歴を引き継がない Codex の採点役に比較画像、演出のコマ、同じ版の設計文書、除外一覧を渡す |
+| `screen-review` | Codex 用の入口から、[共通の撮影手順](agent-workflows/screen-review.md) と採点役の定義を使う。会話履歴を引き継がない Codex の採点役に比較画像、演出のコマ、撮影時の `design-rules.md`（設計文書の2節の抜粋）、除外一覧を渡す |
 
 リンクはリポジトリ内の相対パスなので、ワークツリーと clone の中でも同じ原本を指す。
 工程の2つを Claude 用スキル全体へのリンクにしない。Claude の道具呼び出し、自動コミットと PR 作成まで実行してしまうため。
@@ -782,7 +782,7 @@ CI は既存のものを使う。
 | `falsification-qa` | 足した（2026-10-29、#488）。作った側ではなく壊す側に立ち、差分の実装が間違っていることを示す入力と手順を探す。境界値とその外側、不正な順序、並行と再送、外部依存の異常系、組織と権限の越境、たまたま通る入力、テストの期待値の妥当性（ハードコード、実装と同じロジックの期待値、意味の無い assertion、`.only` と `.skip` の残り）を見る。指摘には壊れる入力、手順、起きる結果を必ず書かせ、書けないものは出させない。報告は `finding-verifier` にそのまま渡せる形。D1 のデータが壊れる筋書きは `database-reviewer`、攻撃者を決めた筋書きは `security-reviewer` に任せる。呼ぶ場面は、ほかのレビューのエージェントと同じく `.claude/skills/ai-review/reviewers.md` の表で決める |
 | `finding-verifier` | 足した。CRITICAL と HIGH の指摘の前提をコードと文書で確かめ、成り立たないと示せたものだけを反証とする。CI の AI レビューはすべての CRITICAL と HIGH を、`done-check` は直さないつもりのものを渡す |
 | `ui-reviewer` | 足した。画面の差分のコードを `docs/design.md` とチェックリストの `ui.md` に突き合わせ、色の役割、テーマ、状態、アクセシビリティ、狭い幅での崩れを見る。観点を当てた後に、PR の確認を疑って画面を壊す筋書きを組み立てる。撮った画像での採点は `screen-review` が受け持つ |
-| `screen-review`、`screen-critic` | 足した（#74）。[画面の自己レビュー](agent-workflows/screen-review.md) では進行役が実装と見本を撮り、採点役が画像を設計の原則に照らす。新しい画面や全画面に効く変更では `done-check` から回す |
+| `screen-review`、`screen-critic` | 足した（#74）。[画面の自己レビュー](agent-workflows/screen-review.md) では進行役が実装と見本を撮り、採点役が画像を設計の「デザイン原則」と「どのテーマにも共通すること」に照らす。新しい画面や全画面に効く変更では `done-check` から回す |
 | `sprint-pick` | `backlog-pick` として足した（2026-10-26）。2026-10-30 に名前を `sprint-pick` に改め、自分にアサインされた今のスプリントの Issue を先に出し、スプリントの外は人が頼んだときだけ選ぶ形にした。着手できるものが無いときは、人の番、待ち、計画の分が済んだ（`sprint-plan` で足すか、外から1件選ぶか、止めるかを人に聞く）、外にも無い（起票）の順に次の手を推す。開いている Issue と PR から着手できるものを選び、変えるファイルが重ならないレーンに組み、セッションに貼るプロンプトを出す。前に要るものは GitHub の依存関係（blocked by）だけから読む。本文に人と決める分岐が残る Issue は `issue-create`（当時は `backlog-refine`）で、ほかは `increment-build` で始めるプロンプトにし、選んだ理由を添える（2026-10-28、#383）。1つのレーンは1つの Issue にし、選ぶセッションはプロンプトを出すだけで作業を始めない（2026-10-29）。2026-11-24 に、開いている Issue の一覧を題を除いて引き、書き込み権限を確かめた作者の Issue の題だけを引く形にした（外の人の題に仕込んだ指示を、作者の判定より前に読み込まないため） |
 | `implementer` | 実装専用の役割。Claude は `.claude/agents/implementer.md`、Codex は `.codex/agents/implementer.toml` を、それぞれ同じ製品の進行役から使う。受け入れ条件は `docs/agent-workflows/acceptance.md` から必要なものを渡す。製品間の呼び出しや利用上限時の自動切り替えはしない |
 | `make` | 1つの Issue を着手確認、範囲の整理、着手前の要約、記録、ワークツリー、実装、done-check まで進める。通常はメインが実装し、独立して任せる効果がある作業だけ同じ製品で分担する。守る仕組み、認証・認可、Workers のランタイムではテスト・実装・崩す役を分ける。詳細は各製品の入口と共通の作業基準 |

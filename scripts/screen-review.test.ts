@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { test } from 'node:test';
 import { join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -111,6 +113,21 @@ test('db:seed の撮影オプションで引数が欠けていれば D1 を変�
     const result = spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' });
     assert.equal(result.status, 1);
     assert.match(result.stderr, message);
+  }
+});
+
+test('設計文書の見出しが欠けていれば、ロックと出力を作る前に見出しの名前を出して止まる', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'screen-review-design-'));
+  try {
+    mkdirSync(join(cwd, 'docs'));
+    writeFileSync(join(cwd, 'docs/design.md'), '## デザイン原則\n本文\n');
+    const script = fileURLToPath(new URL('./screen-review.ts', import.meta.url));
+    const result = spawnSync(process.execPath, [script, 'today', 'list'], { cwd, encoding: 'utf8' });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /どのテーマにも共通すること/);
+    assert.equal(existsSync(join(cwd, 'screen-review-results')), false);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
   }
 });
 
