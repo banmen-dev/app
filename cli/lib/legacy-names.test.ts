@@ -3,6 +3,8 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { access, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
@@ -92,6 +94,11 @@ describe('旧名の注意（legacyNoticeOf）', () => {
   test('pnpm sg で動いたら pnpm banmen へ移るよう促す', () => {
     const notice = legacyNoticeOf({ npm_lifecycle_event: 'sg' });
     assert.ok(notice?.includes('pnpm sg → pnpm banmen'));
+  });
+
+  test('スクリプトの名前が sg で始まるだけなら、pnpm sg とみなさない', () => {
+    assert.equal(legacyNoticeOf({ npm_lifecycle_event: 'sg:dev' }), undefined);
+    assert.equal(legacyNoticeOf({ npm_lifecycle_event: 'sgx' }), undefined);
   });
 
   test('空の SG_* は未設定と同じで、注意を出さない', () => {
@@ -220,6 +227,39 @@ describe('BANMEN_* と SG_* の選び方', () => {
     assert.deepEqual(saved, { profiles: { night: { org: 'kaede' } } });
   });
 
+  const twoProfiles = () => ({
+    read: async () => ({
+      default_profile: 'main',
+      profiles: {
+        main: { url: URL_NEW, token: TOKEN_NEW, org: 'aoba' },
+        sub: { url: URL_OLD, token: TOKEN_OLD, org: 'kaede' },
+      },
+    }),
+    write: async () => {},
+  });
+
+  test('SG_PROFILE だけでも接続先を選び、注意を出す', async () => {
+    const w = world({ SG_PROFILE: 'sub' });
+    w.deps.config = twoProfiles();
+    assert.equal(await main(['call', 'lantern-org'], w.deps), 0);
+    assert.equal(w.calls.at(-1)?.url, `${URL_OLD}/api/kaede/lantern-org`);
+    assert.equal(w.calls.at(-1)?.authorization, `Bearer ${TOKEN_OLD}`);
+    assert.ok(w.output().stderr.includes('SG_PROFILE → BANMEN_PROFILE'));
+  });
+
+  test('config set は SG_PROFILE だけでもその名前の接続先に書く', async () => {
+    const w = world({ SG_PROFILE: 'sub' });
+    let saved: unknown;
+    w.deps.config = {
+      read: async () => ({ profiles: {} }),
+      write: async (config) => {
+        saved = config;
+      },
+    };
+    assert.equal(await main(['config', 'set', 'org', 'kaede'], w.deps), 0);
+    assert.deepEqual(saved, { profiles: { sub: { org: 'kaede' } } });
+  });
+
   test('BANMEN_PROFILE は SG_PROFILE に勝つ', async () => {
     const w = world({ BANMEN_PROFILE: 'main', SG_PROFILE: 'sub' });
     w.deps.config = {
@@ -275,6 +315,46 @@ describe('入口の名前', () => {
     assert.equal(pkg.scripts.banmen, 'node cli/banmen.ts');
     assert.equal(pkg.scripts.sg, pkg.scripts.banmen);
     await assert.rejects(access(join(root, 'cli/sg.ts')));
+  });
+
+  test('pnpm sg として起動しても、成功の標準出力と終了コードは pnpm banmen と同じ', async () => {
+    const server = createServer((request, response) => {
+      response.setHeader('content-type', 'application/json');
+      response.end(JSON.stringify(request.url === '/api/operation-list' ? catalog : { ok: true }));
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address() as AddressInfo;
+    const home = await mkdtemp(join(tmpdir(), 'banmen-legacy-'));
+    try {
+      const runAs = (script: string) =>
+        new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve) => {
+          const child = execFile(
+            process.execPath,
+            [join(root, 'cli/banmen.ts'), 'ops'],
+            {
+              env: {
+                PATH: process.env.PATH,
+                HOME: home,
+                BANMEN_URL: `http://127.0.0.1:${port}`,
+                BANMEN_TOKEN: TOKEN_NEW,
+                npm_lifecycle_event: script,
+              },
+            },
+            (_error, stdout, stderr) => resolve({ code: child.exitCode, stdout, stderr }),
+          );
+        });
+      const legacy = await runAs('sg');
+      const current = await runAs('banmen');
+      assert.equal(current.code, 0);
+      assert.equal(legacy.code, current.code);
+      assert.equal(legacy.stdout, current.stdout);
+      assert.ok(current.stdout.includes('lantern-org'));
+      assert.equal(current.stderr, '');
+      assert.ok(legacy.stderr.includes('pnpm sg → pnpm banmen'));
+    } finally {
+      server.close();
+      await rm(home, { recursive: true, force: true });
+    }
   });
 
   test('pnpm sg として起動されたら（npm_lifecycle_event が sg）、標準エラーに注意を出す', async () => {
