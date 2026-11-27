@@ -13,6 +13,7 @@ import {
   setSeedTheme,
 } from '../e2e/screen-capture.ts';
 import { word } from '../src/shared/vocabulary.ts';
+import { extractDesignRules } from './screen-review-design.ts';
 import { composeContactSheet, composePair, frameComposer, referenceFontFailure } from './screen-review-images.ts';
 import { captureReviewMotion } from './screen-review-motion.ts';
 import { reviewCaptureTime, screenReviewOptions, screenReviewOutput } from './screen-review-options.ts';
@@ -138,7 +139,15 @@ async function captureToday(
 }
 
 async function saveRound(staging: string, output: string) {
-  const files = ['originals', 'pairs', 'motion', 'contact-sheet.png', 'design.md', 'exclusions.md', 'capture.json'];
+  const files = [
+    'originals',
+    'pairs',
+    'motion',
+    'contact-sheet.png',
+    'design-rules.md',
+    'exclusions.md',
+    'capture.json',
+  ];
   // capture.json は最後に置く。途中で移動が止まった周は採点資料として使わない。
   await rm(join(output, 'capture.json'), { force: true });
   for (const name of files) {
@@ -153,6 +162,8 @@ async function main() {
   const fixedTime = reviewCaptureTime(new Date());
   const output = screenReviewOutput(root, options);
   const exclusions = options.exclusions && (await readFile(resolve(root, options.exclusions)));
+  // 見出しが変わったときに空の規則で採点しないよう、ロックとブラウザの前に抜き出す。
+  const designRules = extractDesignRules(await readFile(join(root, 'docs/design.md'), 'utf8'));
   await mkdir(output, { recursive: true });
   const lock = join(output, '.capture-in-progress');
   try {
@@ -198,7 +209,7 @@ async function main() {
       setTheme: setSeedTheme,
       composeFrames: frameComposer(browser),
     });
-    await copyFile(join(root, 'docs/design.md'), join(staging, 'design.md'));
+    await writeFile(join(staging, 'design-rules.md'), designRules.text);
     if (exclusions) await writeFile(join(staging, 'exclusions.md'), exclusions);
     else {
       await copyFile(join(output, 'exclusions.md'), join(staging, 'exclusions.md'), constants.COPYFILE_EXCL).catch(
@@ -220,7 +231,8 @@ async function main() {
           images,
           contactSheet: 'contact-sheet.png',
           motion: 'motion/results.json',
-          design: 'design.md',
+          designRules: 'design-rules.md',
+          designRuleHeadings: designRules.headings,
           exclusions: 'exclusions.md',
         },
         null,
