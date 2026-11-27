@@ -71,6 +71,20 @@
     feedbackDraft.error = value;
   }
 
+  // 送れた。送った文と今の欄の文が同じときだけ空にしてダイアログを閉じる（詰まった後に直している文を消さない）。
+  // 送り直した後に前の送信が送れたときは、送り直した方の結果を待たない（attempt を進めて、その結果は捨てる側に回す）
+  function delivered(attempt: number, sentText: string): void {
+    if (feedbackDraft.attempt !== attempt) feedbackDraft.attempt++;
+    feedbackDraft.sending = false;
+    feedbackDraft.stalled = false;
+    setError(null);
+    if (feedbackDraft.text === sentText) {
+      feedbackDraft.text = '';
+      feedbackDraft.sent++;
+    }
+    showToast(t('feedbackSent'), 'check');
+  }
+
   async function submit(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     if (waiting) return;
@@ -81,6 +95,7 @@
       return;
     }
     const attempt = ++feedbackDraft.attempt;
+    const sentText = feedbackDraft.text;
     feedbackDraft.sending = true;
     feedbackDraft.stalled = false;
     setError(null);
@@ -88,22 +103,13 @@
       if (feedbackDraft.attempt === attempt) feedbackDraft.stalled = true;
     }, FEEDBACK_STALL_MS);
     try {
-      const result = await callOperation(
-        feedbackSubmit,
-        feedbackInput(feedbackDraft.text, page.route.id, window.location),
-      );
-      // 詰まったとみなして送り直した後に、前の送信の応答が届いた。送れていれば知らせるだけにし、今の送信の状態は変えない
-      if (feedbackDraft.attempt !== attempt) {
-        if (result.ok) showToast(t('feedbackSent'), 'check');
-        return;
-      }
+      const result = await callOperation(feedbackSubmit, feedbackInput(sentText, page.route.id, window.location));
       if (result.ok) {
-        feedbackDraft.text = '';
-        setError(null);
-        feedbackDraft.sent++;
-        showToast(t('feedbackSent'), 'check');
+        delivered(attempt, sentText);
         return;
       }
+      // 送り直した後か、前の送信が送れた後に、捨てた側の送信の失敗が届いた。画面の状態は変えない
+      if (feedbackDraft.attempt !== attempt) return;
       if (isUnauthenticated(result)) {
         window.location.assign(loginUrl(page.url));
         return;
@@ -167,15 +173,17 @@
           aria-invalid={error !== null}
           aria-describedby="{publicId} {hintId}{error !== null ? ` ${errorId}` : ''}"></textarea>
         <p class="field-hint" id={hintId}>{t('feedbackHint', { max })}</p>
-        {#if feedbackDraft.sending && feedbackDraft.stalled}<p class="field-hint" role="status">
-            <Icon name="alert" />{t('feedbackStalled')}
-          </p>{/if}
+        {#if feedbackDraft.sending && feedbackDraft.stalled}<div class="callout is-warn">
+            <Icon name="alert" /><span>{t('feedbackStalled')}</span>
+          </div>{/if}
         {#if error !== null}<span class="field-error" id={errorId} role="alert"
             ><Icon name="alert" />{t(error, { max })}</span
           >{/if}
       </div>
-      <!-- 送っている間は、目にはボタンの文言で、読み上げにはこの領域で伝える -->
-      <span class="visually-hidden" role="status">{waiting ? t('feedbackSending') : ''}</span>
+      <!-- 送っている間と詰まったときは、目にはボタンの文言と欄の下の囲みで、読み上げには常に置いたこの領域で伝える -->
+      <span class="visually-hidden" role="status"
+        >{waiting ? t('feedbackSending') : feedbackDraft.sending ? t('feedbackStalled') : ''}</span
+      >
     </form>
   {/if}
   {#snippet footer(close)}

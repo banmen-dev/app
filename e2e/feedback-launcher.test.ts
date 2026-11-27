@@ -170,7 +170,7 @@ test.describe('ログインした画面', () => {
     release();
     const toast = page.getByRole('status').filter({ hasText: '今はフィードバックを受け付けられませんでした' });
     await expect(toast).toBeVisible();
-    await expect(toast).toContainText('開き直すと残っています');
+    await expect(toast).toContainText('書いた文は残っています');
     // 送り直すと同じ文が2件載りうることを添える
     await expect(toast).toContainText('同じ文が2件になることがあります');
     await launcher(page).click();
@@ -250,7 +250,7 @@ test.describe('ログインした画面', () => {
     release();
     const toast = page.getByRole('status').filter({ hasText: '送る回数の上限に達しました' });
     await expect(toast).toBeVisible();
-    await expect(toast).toContainText('開き直すと残っています');
+    await expect(toast).toContainText('書いた文は残っています');
     await launcher(page).click();
     await expect(field(page)).toHaveValue('閉じたまま失敗する文');
     await expect(dialog(page).getByRole('alert')).toHaveCount(0);
@@ -271,13 +271,79 @@ test.describe('ログインした画面', () => {
     await dialog(page).getByRole('button', { name: '送る' }).click();
     await expect(dialog(page).getByRole('button', { name: '送っています…' })).toBeVisible();
     await page.clock.fastForward(30_000);
-    await expect(dialog(page).getByText(/応答がありません。送り直せますが/)).toBeVisible();
+    await expect(
+      dialog(page).locator('.callout.is-warn', { hasText: /応答がありません。送り直せますが/ }),
+    ).toBeVisible();
     await expect(field(page)).not.toHaveAttribute('readonly');
     await dialog(page).getByRole('button', { name: '送る' }).click();
     await expect.poll(() => calls).toBe(2);
-    for (const release of releases) release();
+    // 前の送信が先に送れたら、送り直した方を待たずに閉じて知らせる
+    releases[0]!();
     await expect(dialog(page)).toBeHidden();
     await expect(page.getByRole('status').filter({ hasText: 'フィードバックを送りました' }).first()).toBeVisible();
+    releases[1]!();
+    await launcher(page).click();
+    await expect(field(page)).toHaveValue('');
+    await expect(dialog(page).getByRole('alert')).toHaveCount(0);
+  });
+
+  test('詰まるのは 29 秒より後、30 秒までで、送り直した後に前の送信の失敗が届いても画面は変えず、送り直した方の結果を出す', async ({
+    page,
+  }) => {
+    await page.clock.install();
+    const releases: (() => void)[] = [];
+    let calls = 0;
+    await routeOperation(page, feedbackSubmit, async (call) => {
+      const nth = ++calls;
+      await new Promise<void>((resolve) => releases.push(resolve));
+      if (nth === 1) await call.fail(429, 'rate_limited');
+      else await call.fulfill({ feedback_id: FEEDBACK_ID });
+    });
+    await page.goto('/aoba');
+    await launcher(page).click();
+    await field(page).fill('境目を確かめる文');
+    await dialog(page).getByRole('button', { name: '送る' }).click();
+    // 時計は実時間でも進むので、境目は 1 秒の幅で見る（29 秒では詰まらず、30 秒で詰まる）
+    await page.clock.fastForward(29_000);
+    await expect(dialog(page).getByRole('button', { name: '送っています…' })).toBeVisible();
+    await expect(field(page)).toHaveAttribute('readonly', '');
+    await expect(dialog(page).locator('.callout.is-warn', { hasText: /応答がありません/ })).toHaveCount(0);
+    await page.clock.fastForward(1_000);
+    await expect(dialog(page).locator('.callout.is-warn', { hasText: /応答がありません/ })).toBeVisible();
+    await dialog(page).getByRole('button', { name: '送る' }).click();
+    await expect.poll(() => calls).toBe(2);
+    // 前の送信の失敗は、送り直した方を待っている画面に出さない
+    releases[0]!();
+    await expect(dialog(page).getByRole('button', { name: '送っています…' })).toBeVisible();
+    await expect(dialog(page).getByRole('alert')).toHaveCount(0);
+    await expect(field(page)).toHaveValue('境目を確かめる文');
+    releases[1]!();
+    await expect(dialog(page)).toBeHidden();
+    await expect(page.getByRole('status').filter({ hasText: 'フィードバックを送りました' })).toBeVisible();
+  });
+
+  test('詰まった後に文を直している間に前の送信が送れても、直している文は消さず、ダイアログも閉じない', async ({
+    page,
+  }) => {
+    await page.clock.install();
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await routeOperation(page, feedbackSubmit, async (call) => {
+      await held;
+      await call.fulfill({ feedback_id: FEEDBACK_ID });
+    });
+    await page.goto('/aoba');
+    await launcher(page).click();
+    await field(page).fill('最初の文');
+    await dialog(page).getByRole('button', { name: '送る' }).click();
+    await page.clock.fastForward(30_000);
+    await expect(field(page)).not.toHaveAttribute('readonly');
+    await field(page).fill('直している文');
+    release();
+    await expect(page.getByRole('status').filter({ hasText: 'フィードバックを送りました' })).toBeVisible();
+    await expect(dialog(page)).toBeVisible();
+    await expect(field(page)).toHaveValue('直している文');
+    await expect(dialog(page).getByRole('button', { name: '送る' })).toBeVisible();
   });
 
   test('ログインが切れていたらログインへ、同意していなければ同意の画面へ移す', async ({ page }) => {
@@ -330,10 +396,16 @@ test.describe('ログインした画面', () => {
     // トーストはボタンより上に重なる。トーストの中ほどを指すと、トーストの中の要素に当たる
     const box = await toast.boundingBox();
     if (box === null) throw new Error('トーストの箱が無い');
-    const hit = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('.toast') !== null, {
-      x: box.x + box.width - 12,
-      y: box.y + box.height / 2,
-    });
+    const hit = await page.evaluate(
+      ({ x, y }) => {
+        const element = document.elementFromPoint(x, y);
+        return element !== null && element.closest('.toast') !== null;
+      },
+      {
+        x: box.x + box.width - 12,
+        y: box.y + box.height / 2,
+      },
+    );
     expect(hit).toBe(true);
   });
 });
