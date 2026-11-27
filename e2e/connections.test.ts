@@ -328,6 +328,50 @@ test('止まっている接続は、停止の理由と登録した人に応じ�
   await expect(tokenField).toHaveAccessibleDescription('空欄のまま保存すると、現在のトークンを使い続けます。');
 });
 
+test('持ち主が去って止めた接続には範囲を選ぶボタンが出ず、選んでいる間に止まったら段を閉じて一覧を読み直す', async ({
+  page,
+}) => {
+  const departed = created({
+    id: 'departed',
+    name: '抜けた後の接続',
+    status: 'stopped',
+    stopped_reason: 'member_left',
+  });
+  const fresh = created({ id: 'fresh', name: '選んでいる接続' });
+  let stopped = false;
+  let lists = 0;
+  await routeOperation(page, connectionList, { slug: 'aoba' }, (call) => {
+    lists += 1;
+    return call.fulfill({
+      connections: [departed, stopped ? { ...fresh, status: 'stopped', stopped_reason: 'member_left' } : fresh],
+    });
+  });
+  await routeOperation(page, connectionScopeCandidates, { slug: 'aoba' }, async (call) => {
+    expect(call.input.connection_id).toBe('fresh');
+    stopped = true;
+    await call.fail(409, 'conflict', { details: { reason: 'connection_stopped' } });
+  });
+
+  await page.goto(`${WORKSPACE}/connections`);
+  const list = page.getByRole('list', { name: '接続の一覧' });
+  const departedItem = list.getByRole('listitem').filter({ hasText: '抜けた後の接続' });
+  await expect(departedItem).toContainText('止まっています。');
+  await expect(departedItem.getByRole('button', { name: '範囲を選ぶ' })).toHaveCount(0);
+
+  const freshItem = list.getByRole('listitem').filter({ hasText: '選んでいる接続' });
+  const before = lists;
+  await freshItem.getByRole('button', { name: '範囲を選ぶ' }).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'この接続は止まっているため、範囲を選べません' }),
+  ).toBeVisible();
+  // 読み直しても選べないので、候補を読み直すボタンを出さずに段を閉じ、止まった行に変える
+  await expect(page.getByRole('button', { name: '候補を読み直す' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'あとで選ぶ' })).toHaveCount(0);
+  await expect(freshItem.locator('.state-badge')).toHaveText('停止');
+  await expect(freshItem.getByRole('button', { name: '範囲を選ぶ' })).toHaveCount(0);
+  expect(lists).toBeGreaterThan(before);
+});
+
 test('他の人の接続には、範囲を選ぶボタンと編集ボタンが出ない', async ({ context, baseURL, page }) => {
   await signIn(context, baseURL, 'member');
   await page.goto(`${WORKSPACE}/connections`);

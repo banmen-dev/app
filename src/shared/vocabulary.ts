@@ -3117,7 +3117,7 @@ export const dictionary = defineDictionary({
   connectionScopeCancel: 'あとで選ぶ',
   connectionScopeRetry: '候補を読み直す',
   connectionScopeRejected: '保存した認証情報を GitHub が受け付けませんでした。トークンを確かめてください。',
-  connectionScopeStopped: 'この{connection}は止まっているため、範囲を選べません。',
+  connectionScopeStopped: 'この{connection}は止まっているため、範囲を選べません。理由は{connection}の欄に出ています',
   connectionScopeGone: 'この{connection}の範囲は、登録した本人しか選べません。一覧を読み直します。',
   connectionScopeInvalid: '選んだリポジトリが候補にありません。候補を読み直してください。',
   connectionScopeFailed: '範囲を扱えませんでした。もう一度試してください。',

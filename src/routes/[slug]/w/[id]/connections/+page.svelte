@@ -29,6 +29,7 @@
     connectionScopesSave,
     connectionSync,
     connectionUpdate,
+    isOwnerGoneStop,
     type Connection,
   } from '../../../../../shared/operations/connection/index.ts';
   import type { DictionaryKey } from '../../../../../shared/vocabulary.ts';
@@ -218,9 +219,20 @@
       const live = new Set(candidates.map((candidate) => candidate.id));
       chosen = chosen.filter((id) => live.has(id));
     } else {
-      scopeFailure = connectionScopeFailure(result);
-      if (result.status === 403 || result.status === 404) await reload();
+      const key = connectionScopeFailure(result);
+      if (key === 'connectionScopeStopped') await scopeStopped();
+      else {
+        scopeFailure = key;
+        if (result.status === 403 || result.status === 404) await reload();
+      }
     }
+  }
+
+  // 持ち主が去って止めた接続（読んだ後に止まったものを含む）は、読み直しても選べないので段を閉じ、止まった理由が出る一覧を読み直す
+  async function scopeStopped(): Promise<void> {
+    showToast(t('connectionScopeStopped', { connection: t('connection') }), 'alert');
+    closeScope(true);
+    await reload();
   }
 
   function toggle(id: string, on: boolean): void {
@@ -302,7 +314,12 @@
         await tick();
         document.getElementById('connection-scope')?.focus();
       } else {
-        scopeFailure = connectionScopeFailure(result);
+        const key = connectionScopeFailure(result);
+        if (key === 'connectionScopeStopped') {
+          await scopeStopped();
+          return;
+        }
+        scopeFailure = key;
         if (result.error?.code === 'workspace_closed') {
           showToast(t('connectionWorkspaceClosed', { workspace: t('workspace') }), 'alert');
           await invalidate('app:workspace');
@@ -404,7 +421,7 @@
             <span class="state-badge {state.cls}">{t(state.key)}</span>
             {#if canWrite && mine}
               <span class="conn-actions">
-                {#if connection.scopes.length === 0 && choosing?.id !== connection.id}
+                {#if connection.scopes.length === 0 && choosing?.id !== connection.id && !isOwnerGoneStop(connection)}
                   <button class="btn is-sm" type="button" aria-disabled={saving} onclick={() => openScope(connection)}
                     >{t('connectionChooseScope')}</button
                   >
