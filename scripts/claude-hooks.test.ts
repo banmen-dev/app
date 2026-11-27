@@ -7,8 +7,9 @@ import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 // .claude/settings.json の japanese-guard のフックの command を、sh -c で実際に走らせて確かめる（docs/development.md の「Claude の設定」）。
-// command を python3 の直書きに戻す、[ -f ] や exit 0 や -I を消す、のどれをしてもここが落ちる。
-// python3 はスクリプトが無いと終了コード 2 を返し、Stop のフックでは終了を止める扱いになるので、必ず 0 で終えることを固定する
+// python3 はスクリプトが無いと終了コード 2 を返し、Stop のフックでは終了を止める扱いになるので、必ず 0 で終えることを固定する。
+// 落ちるのは、command を python3 の直書きに戻す、exit 0 を消す、-I を消す、引用符を外す、のとき。
+// [ -f ] だけを消しても、exit 0 が終了コード 2 を潰すので落ちない（スクリプトが無いときに python3 を起動しないための前置き）
 type Hook = { matcher?: string; hooks: { type: string; command: string }[] };
 
 const settings = JSON.parse(readFileSync(new URL('../.claude/settings.json', import.meta.url), 'utf8')) as {
@@ -86,12 +87,24 @@ describe('japanese-guard はセッションを止めない', () => {
       assert.deepEqual(result, { status: 0, stdout: '' });
     });
 
-    test(`${event}: パスに空白があり、スクリプトが 0 以外で終わっても、終了コード 0 で終わる`, () => {
+    // -I が無いと、python3 はスクリプトのあるディレクトリを import の探索に入れ、隣に置かれた json.py などを先に読む
+    test(`${event}: -I で起動し、スクリプトの隣の同名モジュールを読まない`, () => {
+      const projectDir = mkdtempSync(join(tmpdir(), 'japanese-guard-'));
+      const hooksDir = join(projectDir, '.claude', 'hooks');
+      mkdirSync(hooksDir, { recursive: true });
+      writeFileSync(join(hooksDir, 'japanese-guard.py'), "import json\nprint('ran')\n");
+      writeFileSync(join(hooksDir, 'json.py'), 'raise SystemExit(7)\n');
+      const result = run(commandOf(event), projectDir, STOP_INPUT);
+      assert.deepEqual(result, { status: 0, stdout: 'ran\n' });
+    });
+
+    // 'ran' を出させて、スクリプトが実際に走ったことを確かめる（引用符を外すと、空白入りのパスでは [ -f ] が偽になり、何も走らずに 0 で終わる）
+    test(`${event}: パスに空白があっても走り、スクリプトが 0 以外で終わっても、終了コード 0 で終わる`, () => {
       const projectDir = join(mkdtempSync(join(tmpdir(), 'japanese-guard-')), 'a b');
       mkdirSync(join(projectDir, '.claude', 'hooks'), { recursive: true });
-      writeFileSync(join(projectDir, '.claude', 'hooks', 'japanese-guard.py'), 'import sys\nsys.exit(3)\n');
+      writeFileSync(join(projectDir, '.claude', 'hooks', 'japanese-guard.py'), "import sys\nprint('ran')\nsys.exit(3)\n");
       const result = run(commandOf(event), projectDir, STOP_INPUT);
-      assert.deepEqual(result, { status: 0, stdout: '' });
+      assert.deepEqual(result, { status: 0, stdout: 'ran\n' });
     });
   }
 });
