@@ -362,6 +362,27 @@ describe('取り込みの同期', () => {
       });
     });
 
+    test('期限を取り込み元で外すと映り、新しい項目と混ざった頁でも入れた数は新しい項目だけを数える', async () => {
+      const { workspace, connection, db } = await setup();
+      const run = (items: ImportItem[]) =>
+        syncConnection(env, db, workspace.id, connection.id, {
+          source: fakeSource({ '501': [{ items, next: null }] }).source,
+        });
+      await run([item(1, { dueOn: '2026-12-10' })]);
+      expect(await firstTask(db, workspace.id)).toMatchObject({ source_due_on: '2026-12-10' });
+      const result = await run([
+        item(1, { dueOn: null, title: '改名', updatedAt: '2026-11-02T00:00:00.000Z' }),
+        item(2),
+      ]);
+      expect(result).toMatchObject({ imported: 1 });
+      expect(await tasksOf(db, workspace.id)).toHaveLength(2);
+      expect((await sourcesOf(db, workspace.id)).length).toBe(2);
+      const row = await db.first(
+        db.statement((q) => q.selectFrom('task_sources').select('source_due_on').where('source_id', '=', 'src-1')),
+      );
+      expect(row).toEqual({ source_due_on: null });
+    });
+
     test('別のワークスペースの同じ項目、レビュー依頼の行、削除したタスクは更新しない', async () => {
       const mine = await setup();
       const theirs = await setup();
