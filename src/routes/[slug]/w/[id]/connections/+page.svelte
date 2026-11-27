@@ -15,7 +15,6 @@
     connectionSyncFailure,
     connectionSyncOutcome,
     connectionUpdateFailure,
-    validateConnectionCreate,
     validateConnectionInput,
     type ConnectionFailure,
   } from '../../../../../lib/connection-form.ts';
@@ -137,21 +136,21 @@
   async function saveEdit(event: SubmitEvent & { currentTarget: HTMLFormElement }, id: string): Promise<void> {
     event.preventDefault();
     if (updating || workspace === null || !canWrite || editingId !== id || (saving && choosing?.id === id)) return;
-    editFailure = validateConnectionInput({ name: editName });
+    const field = event.currentTarget.elements.namedItem('connection-edit-credential') as HTMLInputElement;
+    const secret = field.value || undefined;
+    editFailure = validateConnectionInput({ name: editName, credential: secret });
     if (editFailure !== null) {
       await focusEditFailure();
       return;
     }
 
-    const field = event.currentTarget.elements.namedItem('connection-edit-credential') as HTMLInputElement;
-    const secret = field.value.trim();
-    const sentCredential = secret !== '';
+    const sentCredential = secret !== undefined;
     field.value = '';
     updating = true;
     try {
       const result = await callOperation(
         connectionUpdate,
-        { workspace_id: workspace.id, connection_id: id, name: editName.trim(), credential: secret || undefined },
+        { workspace_id: workspace.id, connection_id: id, name: editName.trim(), credential: secret },
         { slug },
       );
       if (!result.ok && unauthenticated(result)) return;
@@ -230,7 +229,7 @@
     event.preventDefault();
     // 範囲を保存している間は登録しない（登録の後の範囲の段が、保存の間は開かないため）
     if (creating || saving || workspace === null || !canWrite) return;
-    const invalid = validateConnectionCreate({ name, credential });
+    const invalid = validateConnectionInput({ name, credential });
     if (invalid !== null) {
       failure = invalid;
       await focusFailure();
@@ -565,7 +564,7 @@
                   class="btn is-primary"
                   type="submit"
                   aria-disabled={updating || (saving && choosing?.id === connection.id)}
-                  aria-busy={updating}>{updating ? t('connectionScopeSaving') : t('connectionEditSave')}</button
+                  aria-busy={updating}>{updating ? t('connectionEditSaving') : t('connectionEditSave')}</button
                 >
                 <button
                   class="btn is-quiet"

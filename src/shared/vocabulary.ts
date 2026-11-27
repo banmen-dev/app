@@ -3066,6 +3066,11 @@ export const dictionary = defineDictionary({
   connectionEditCredentialLabel: '新しい GitHub の PAT',
   connectionEditCredentialHint: '空欄のまま保存すると、現在のトークンを使い続けます。',
   connectionEditSave: '保存する',
+  connectionEditSaving: '保存しています',
+  connectionEditKeysUnavailable:
+    'サービスの設定に不備があるため、認証情報を更新できません。管理者か運用者に、サービスの設定を確かめるよう伝えてください。',
+  connectionEditNetworkCredential: '通信できませんでした。トークンを入れ直して、もう一度試してください。',
+  connectionEditNetwork: '通信できませんでした。もう一度試してください。',
   connectionEditSaved: '「{name}」を更新しました',
   connectionUpdateCredentialFailed: '保存できませんでした。トークンを入れ直して、もう一度試してください。',
   connectionUpdateFailed: '保存できませんでした。もう一度試してください。',

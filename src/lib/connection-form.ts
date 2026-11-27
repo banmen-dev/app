@@ -1,4 +1,4 @@
-// 接続の画面（connections/+page.svelte）の、登録・範囲の候補・範囲の保存の失敗の振り分け。
+// 接続の画面（connections/+page.svelte）の、登録・編集・範囲・同期の入力と失敗の振り分け。
 // 画面の状態を持たない関数だけを置く（$app を読まないので、node で試せる）。文言は言葉の辞書から出す
 import type { ApiResult } from './api.ts';
 import { connectionNameProblem } from '../shared/operations/connection/index.ts';
@@ -14,17 +14,12 @@ export type ConnectionFailure = { field: ConnectionField; key: DictionaryKey; re
 // ここでは認証情報が空かどうかだけを見る。編集では認証情報を省略できる
 export function validateConnectionInput(input: { name: string; credential?: string }): ConnectionFailure | null {
   const name = input.name.trim();
-  if (name === '') return { field: 'name', key: 'connectionNameRequired' };
   const problem = connectionNameProblem(name);
   if (problem === 'required') return { field: 'name', key: 'connectionNameRequired' };
   if (problem === 'invalid_character') return { field: 'name', key: 'connectionNameInvalid' };
   if (problem === 'too_long') return { field: 'name', key: 'connectionNameTooLong' };
   if (input.credential?.trim() === '') return { field: 'credential', key: 'connectionCredentialRequired' };
   return null;
-}
-
-export function validateConnectionCreate(input: { name: string; credential: string }): ConnectionFailure | null {
-  return validateConnectionInput(input);
 }
 
 // 400 の details のうち、path が引数の項目の code
@@ -72,12 +67,20 @@ export function connectionUpdateFailure(result: FailedResult, sentCredential: bo
     return connectionInputFailure(result) ?? { field: 'form', key: 'connectionCreateInvalid' };
   }
   if (result.error?.code === 'credential_keys_unavailable') {
-    return { field: 'form', key: 'connectionCredentialKeysUnavailable' };
+    return { field: 'form', key: 'connectionEditKeysUnavailable' };
   }
   if (result.status === 429) {
     return sentCredential
       ? { field: 'form', key: 'connectionCreateRateLimited', refocus: 'credential' }
       : { field: 'form', key: 'connectionRateLimited' };
+  }
+  if (result.status === 503 && sentCredential) {
+    return { field: 'form', key: 'connectionCreateUnreachable', refocus: 'credential' };
+  }
+  if (result.status === 0 || result.status === 503) {
+    return sentCredential
+      ? { field: 'form', key: 'connectionEditNetworkCredential', refocus: 'credential' }
+      : { field: 'form', key: 'connectionEditNetwork' };
   }
   return sentCredential
     ? { field: 'form', key: 'connectionUpdateCredentialFailed', refocus: 'credential' }
