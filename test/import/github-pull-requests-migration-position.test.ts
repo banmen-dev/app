@@ -50,7 +50,7 @@ describe('旧カーソル移行後の取得位置', () => {
       expect(url.searchParams.get('page')).toBe('3');
       expect(url.searchParams.get('assignee')).toBe('new-login');
       expect(url.searchParams.get('since')).toBe('2025-12-31T23:59:59.000Z');
-      expect(url.searchParams.get('state')).toBe('open');
+      expect(url.searchParams.get('state')).toBe('all');
     },
   );
 
