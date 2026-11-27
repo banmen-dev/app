@@ -63,7 +63,9 @@ test.describe('ログインした画面', () => {
     await expect(page.locator('.callout')).toHaveCount(1);
     await expect(field(page)).toBeFocused();
     await page.keyboard.type('一覧の見出しが読みにくいです');
-    // 欄から、やめる、送るの順に進む
+    // 欄から、画像を選ぶ、やめる、送るの順に進む
+    await page.keyboard.press('Tab');
+    await expect(dialog(page).getByRole('button', { name: '画像を選ぶ' })).toBeFocused();
     await page.keyboard.press('Tab');
     await page.keyboard.press('Tab');
     await expect(dialog(page).getByRole('button', { name: '送る' })).toBeFocused();
