@@ -31,7 +31,7 @@
       {#if data.state === 'not-found'}
         <EmptyState icon="search" title={t('operatorFeedbackNotFoundTitle')} text={t('operatorFeedbackNotFoundText')}>
           {#snippet actions()}
-            <a class="btn is-sm" href={resolve('/operator')}>{t('operatorOpen')}</a>
+            <a class="btn" href={resolve('/operator')}>{t('operatorOpen')}</a>
           {/snippet}
         </EmptyState>
       {:else}
@@ -40,30 +40,31 @@
         <dl class="props">
           <div>
             <dt>{t('operatorFeedbackSubmittedAt')}</dt>
-            <dd>{formatDateTime(feedback.submitted_at)}</dd>
+            <dd><span class="mono">{formatDateTime(feedback.submitted_at)}</span></dd>
           </div>
           <div>
             <dt>{t('operatorFeedbackAccount')}</dt>
-            <dd>{feedback.account_id}</dd>
+            <dd><span class="mono">{feedback.account_id}</span></dd>
           </div>
           <div>
             <dt>{t('operatorFeedbackUrl')}</dt>
             <dd>
-              {#if feedback.url === null}<span class="props-note">{t('operatorFeedbackUrlNone')}</span
-                >{:else}{feedback.url}{/if}
+              {#if feedback.url === null}<span class="props-note">{t('operatorFeedbackUrlNone')}</span>{:else}<span
+                  class="mono">{feedback.url}</span
+                >{/if}
             </dd>
           </div>
           <div>
             <dt>{t('operatorFeedbackRoute')}</dt>
             <dd>
               {#if feedback.route_id === null}<span class="props-note">{t('operatorFeedbackRouteNone')}</span
-                >{:else}{feedback.route_id}{/if}
+                >{:else}<span class="mono">{feedback.route_id}</span>{/if}
             </dd>
           </div>
         </dl>
         <h2 class="dialog-title">{t('operatorFeedbackText')}</h2>
         <!-- 利用者の文はそのまま文字として出す（Markdown や HTML として解釈しない）。改行は残す -->
-        <div class="doc-box is-plain">{feedback.text}</div>
+        <div><div class="doc-box is-plain">{feedback.text}</div></div>
         <h2 class="dialog-title">{t('operatorFeedbackImages')}</h2>
         {#if feedback.images.length === 0}
           <p class="props-note">{t('operatorFeedbackImagesNone')}</p>

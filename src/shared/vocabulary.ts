@@ -1266,11 +1266,11 @@ export const dictionary = defineDictionary({
   operatorFeedbackNotice:
     '利用者が自分で送った文、画面の URL、アカウントの ID、画像だけを見られます。{organization}の中のデータは見られません。送られて 180 日で消えます。',
   operatorFeedbackText: '送られた文',
-  operatorFeedbackUrl: '送った画面の URL',
+  operatorFeedbackUrl: '送った画面',
   operatorFeedbackUrlNone: '残していません（招待と認証の画面から送られた）',
   operatorFeedbackRoute: '画面の経路',
   operatorFeedbackRouteNone: '既知の経路に合いませんでした',
-  operatorFeedbackAccount: '送った人のアカウントの ID',
+  operatorFeedbackAccount: 'アカウントの ID',
   operatorFeedbackSubmittedAt: '送った日時',
   operatorFeedbackImages: '画像',
   operatorFeedbackImagesNone: '画像は添えられていません',
