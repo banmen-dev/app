@@ -374,6 +374,42 @@ test('本人が表示名と PAT を更新すると接続が再開し、PAT 欄�
   await expect(row.getByRole('button', { name: '今すぐ同期' })).toBeVisible();
 });
 
+test('編集で空白だけの PAT を断り、拒否と通信の失敗を区別して入力欄に戻る', async ({ page }) => {
+  let attempts = 0;
+  await routeOperation(page, connectionUpdate, { slug: 'aoba' }, async (call) => {
+    attempts += 1;
+    if (attempts === 1) {
+      await call.fail(400, 'invalid_input', {
+        details: [{ path: 'credential', code: 'credential_rejected', message: '拒否' }],
+      });
+    } else {
+      await call.fail(503, 'unavailable');
+    }
+  });
+
+  await page.goto(`${WORKSPACE}/connections`);
+  const row = page.getByRole('list', { name: '接続の一覧' }).getByRole('listitem');
+  await row.getByRole('button', { name: '編集', exact: true }).click();
+  const form = page.getByRole('form', { name: '接続を編集' });
+  const tokenField = form.getByLabel('新しい GitHub の PAT');
+  const save = form.getByRole('button', { name: '保存する', exact: true });
+
+  await tokenField.fill(' ');
+  await save.click();
+  await expect(form.getByRole('alert')).toHaveText('トークンを入れてください');
+  expect(attempts).toBe(0);
+
+  const token = 'github_pat_' + 'A'.repeat(30) + '1234';
+  for (const message of ['GitHub がこのトークンを受け付けませんでした', 'GitHub に届きませんでした']) {
+    await tokenField.fill(token);
+    await save.click();
+    await expect(form.getByRole('alert')).toContainText(message);
+    await expect(tokenField).toHaveValue('');
+    await expect(tokenField).toBeFocused();
+  }
+  expect(attempts).toBe(2);
+});
+
 test('今すぐ同期は本人の接続にだけ出て、押すと届いた件数がトーストに出る。5分以内の再押しは断りが出る', async ({
   page,
 }) => {
