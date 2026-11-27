@@ -182,8 +182,10 @@
   let rootKind = $state<DraftKind>(readDraftKind());
   const rootDraft = new DraftRowState();
   // ワークスペースが替わったら、前のワークスペースの書きかけと失敗の文を持ち越さない
+  // workspace は読み直しのたびに新しいオブジェクトになるので、id の文字列だけを見る（同じ id なら走り直さず、打ちかけの題を残す）
+  const workspaceId = $derived(workspace?.id);
   $effect(() => {
-    void workspace?.id;
+    void workspaceId;
     rootDraft.value = '';
     rootDraft.error = null;
   });
@@ -220,7 +222,8 @@
     enabled: () => rootTaskRow != null,
     // 名前（「<タスク>を書く」）と食い違わないよう、覚えた種類が何でもタスクに戻してから移る
     run: () => {
-      chooseRootKind('task');
+      // 送っている間は種類を替えない（選択は押せない）。すでにタスクなら失敗の文も消さない
+      if (!rootDraft.sending && rootKind !== 'task') chooseRootKind('task');
       rootTaskRow?.focus();
     },
   }));

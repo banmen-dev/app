@@ -2267,7 +2267,7 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
 .draft-row.is-lead { flex-wrap: wrap; }
 .draft-row.is-lead > .segmented { flex: none; }
 .draft-row.is-lead > .input { flex: 1 1 14rem; }
-@media (max-width: 760px) { .draft-row.is-lead > .input { flex-basis: 100%; } .draft-row.is-lead + .draft-error { padding-left: var(--space-3); } }
+@media (max-width: 760px) { .draft-row.is-lead > .input { flex-basis: 100%; } .draft-row.is-lead ~ .draft-error { padding-left: var(--space-3); } }
 /* 空の行の失敗の文。行の下に出し、字下げは行と揃える */
 .draft-error { margin: 0; padding: 0 var(--space-3) var(--space-2) calc(var(--space-3) + var(--space-5) + var(--space-2)); }
 .tree-children .draft-error { padding-left: calc(var(--space-10) + var(--space-5) + var(--space-2)); }
