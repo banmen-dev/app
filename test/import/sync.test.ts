@@ -383,6 +383,69 @@ describe('取り込みの同期', () => {
       expect(row).toEqual({ source_due_on: null });
     });
 
+    describe('変わらない項目は書かない', () => {
+      async function stamps(db: ReturnType<typeof orgDb>, workspaceId: string) {
+        return (await db.first(
+          db.statement((q) =>
+            q
+              .selectFrom('task_sources')
+              .innerJoin('tasks', 'tasks.id', 'task_sources.task_id')
+              .select([
+                'task_sources.last_seen_at as seen',
+                'task_sources.updated_at as sourceUpdated',
+                'tasks.updated_at as taskUpdated',
+                'task_sources.source_url',
+                'task_sources.source_status',
+                'task_sources.source_due_on',
+                'task_sources.is_source_done',
+              ])
+              .where('task_sources.workspace_id', '=', workspaceId),
+          ),
+        ))!;
+      }
+
+      test('同じ頁を日時を進めて2回流しても、書いた日時は1回目のまま', async () => {
+        const { workspace, connection, db } = await setup();
+        const run = (at: string) =>
+          syncConnection(env, db, workspace.id, connection.id, {
+            source: fakeSource({ '501': [{ items: [item(1)], next: null }] }).source,
+            now: () => new Date(at),
+          });
+        await run('2026-11-10T00:00:00.000Z');
+        const first = await stamps(db, workspace.id);
+        await run('2026-11-11T00:00:00.000Z');
+        expect(await stamps(db, workspace.id)).toEqual(first);
+      });
+
+      test.each([
+        ['URL', { url: 'https://fake.example/box/1-new' }, { source_url: 'https://fake.example/box/1-new' }],
+        ['状態', { status: 'in review' }, { source_status: 'in review' }],
+        ['期限を付ける', { dueOn: '2026-12-10' }, { source_due_on: '2026-12-10' }],
+        ['完了の印', { isDone: true }, { is_source_done: 1 }],
+      ])('更新日時が同じでも、%s が変われば映る', async (_name, over, expected) => {
+        const { workspace, connection, db } = await setup();
+        const run = (o: Partial<ImportItem>, at: string) =>
+          syncConnection(env, db, workspace.id, connection.id, {
+            source: fakeSource({ '501': [{ items: [item(1, o)], next: null }] }).source,
+            now: () => new Date(at),
+          });
+        await run({}, '2026-11-10T00:00:00.000Z');
+        await run(over, '2026-11-11T00:00:00.000Z');
+        expect(await stamps(db, workspace.id)).toMatchObject({ ...expected, seen: '2026-11-11T00:00:00.000Z' });
+      });
+
+      test('期限を取り込み元で外すと、更新日時が同じでも映る', async () => {
+        const { workspace, connection, db } = await setup();
+        const run = (o: Partial<ImportItem>) =>
+          syncConnection(env, db, workspace.id, connection.id, {
+            source: fakeSource({ '501': [{ items: [item(1, o)], next: null }] }).source,
+          });
+        await run({ dueOn: '2026-12-10' });
+        await run({ dueOn: null });
+        expect(await stamps(db, workspace.id)).toMatchObject({ source_due_on: null });
+      });
+    });
+
     test('別のワークスペースの同じ項目、レビュー依頼の行、削除したタスクは更新しない', async () => {
       const mine = await setup();
       const theirs = await setup();
