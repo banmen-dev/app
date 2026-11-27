@@ -349,9 +349,12 @@
   }
 
   async function manage(kind: 'stop' | 'delete', target: Connection, trigger: HTMLElement | null): Promise<void> {
-    if (managingId !== null || workspace === null || !canWrite) return;
+    const busy = () => managingId !== null || syncingId !== null || updating || saving;
+    if (busy() || workspace === null || !canWrite) return;
     managing = { kind, connection: target };
     if (!(await confirmDialog?.ask(trigger))) return;
+    // 確認している間に、同期、編集、範囲の保存が始まっていたら、重ねない
+    if (busy()) return;
     managingId = target.id;
     try {
       const input = { workspace_id: workspace.id, connection_id: target.id };
@@ -362,10 +365,9 @@
       if (!result.ok && unauthenticated(result)) return;
       if (result.ok) {
         showToast(t(kind === 'stop' ? 'connectionStopDone' : 'connectionDeleteDone', { name: target.name }), 'check');
-        if (kind === 'delete') {
-          if (editingId === target.id) await closeEdit(target.id);
-          if (choosing?.id === target.id) closeScope(true);
-        }
+        // 止めた接続にも、消した接続にも、開いている編集と範囲の段は閉じる
+        if (editingId === target.id) await closeEdit(target.id);
+        if (choosing?.id === target.id) closeScope(true);
       } else {
         showToast(
           t(connectionManageFailure(result), { connection: t('connection'), workspace: t('workspace') }),
@@ -374,16 +376,17 @@
         if (result.error?.code === 'workspace_closed') await invalidate('app:workspace');
       }
       await reload();
-      // 押したボタンが消えるので、フォーカスを見出しへ戻す
+      // 成功すると押したボタンが消える（止めた行は「止める」、消した行は行ごと）ので、見出しへ戻す。失敗してボタンが残るなら、そこへ戻す
       await tick();
-      document.querySelector<HTMLElement>('main h1')?.focus();
+      if (!result.ok && trigger?.isConnected) trigger.focus();
+      else document.querySelector<HTMLElement>('main h1')?.focus();
     } finally {
       managingId = null;
     }
   }
 
   async function syncNow(target: Connection): Promise<void> {
-    if (syncingId !== null || workspace === null || !canWrite) return;
+    if (syncingId !== null || managingId !== null || workspace === null || !canWrite) return;
     syncingId = target.id;
     try {
       const result = await callOperation(
@@ -477,7 +480,7 @@
             <span class="state-badge {state.cls}">{t(state.key)}</span>
             {#if canWrite && (mine || managesOthers)}
               <span class="conn-actions">
-                {#if mine && connection.scopes.length === 0 && choosing?.id !== connection.id && !ownerGone}
+                {#if mine && connection.status !== 'stopped' && connection.scopes.length === 0 && choosing?.id !== connection.id && !ownerGone}
                   <button class="btn is-sm" type="button" aria-disabled={saving} onclick={() => openScope(connection)}
                     >{t('connectionChooseScope')}</button
                   >
@@ -503,7 +506,7 @@
                     onclick={() => openEdit(connection)}>{t('connectionEdit')}</button
                   >
                 {/if}
-                {#if connection.status !== 'stopped'}
+                {#if connection.status !== 'stopped' || resumesOnCredential(connection)}
                   <button
                     class="btn is-sm is-quiet"
                     type="button"

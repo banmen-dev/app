@@ -1353,7 +1353,7 @@ export const dictionary = defineDictionary({
     '停止から {days} 日後に、運用の手順でデータをすべて消します。消す予定日の当日までは再開できます。過ぎると、再開も停止の理由の切り替えもできません。',
   operatorSuspending: '停止しています',
   operatorResuming: '再開しています',
-  operatorSuspendDone: '「{name}」を止めました',
+  operatorSuspendDone: '「{name}」を停止しました',
   operatorResumeDone: '「{name}」を再開しました',
   // 停止中の組織の停止の理由を、再開せずに切り替える（停止した日時は変えない）
   operatorChangeAction: '停止の理由を変える',

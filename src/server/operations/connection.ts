@@ -721,7 +721,7 @@ async function manageableConnection(
   const row = await db.first(
     db.statement((q) =>
       liveConnections(q, workspace.workspaceId)
-        .select(['c.id', 'c.owner_user_id', 'c.status', 'c.stopped_reason', 'c.credential_ciphertext'])
+        .select(['c.id', 'c.owner_user_id', 'c.status'])
         .where('c.id', '=', connectionId),
     ),
   );
@@ -787,7 +787,11 @@ export const connectionStopOperation = implement(connectionStop, async ({ db, ac
             .where((eb) =>
               eb.and([
                 eb('c.id', '=', row.id),
-                eb('c.status', '!=', 'stopped'),
+                // 止まっていない接続と、本人が認証情報で再開できる理由で止まった接続を止める（後者は理由を owner か leader に書き換える）
+                eb.or([
+                  eb('c.status', '!=', 'stopped'),
+                  eb('c.stopped_reason', 'in', [...CONNECTION_CREDENTIAL_RESUME_REASONS]),
+                ]),
                 eb.exists(openWorkspace(q, organizationId, workspaceId)),
                 stillMayManage(
                   eb,
@@ -826,7 +830,9 @@ export const connectionStopOperation = implement(connectionStop, async ({ db, ac
         .where('id', '=', row.id)
         .where('workspace_id', '=', workspaceId)
         .where('deleted_at', 'is', null)
-        .where('status', '!=', 'stopped')
+        .where((eb) =>
+          eb.or([eb('status', '!=', 'stopped'), eb('stopped_reason', 'in', [...CONNECTION_CREDENTIAL_RESUME_REASONS])]),
+        )
         .where(previousStatementChanged),
     ),
   ] as const);

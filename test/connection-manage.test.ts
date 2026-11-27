@@ -92,6 +92,13 @@ describe('connection-stop', () => {
     expect(await rowOf(target, row.id)).toMatchObject({ stopped_reason: 'owner' });
   });
 
+  test('管理者が自分の接続を止めたときも owner（ワークスペースの非メンバーでも）', async () => {
+    const target = await createTarget();
+    const row = await connectionOf(target, target.admin);
+    expect((await call(connectionStop, target, target.admin, row.id)).status).toBe(200);
+    expect(await rowOf(target, row.id)).toMatchObject({ stopped_reason: 'owner' });
+  });
+
   test('メンバーは他のメンバーの接続を止められない（403）。何も書かない', async () => {
     const target = await createTarget();
     const row = await connectionOf(target, target.leader);
@@ -101,15 +108,47 @@ describe('connection-stop', () => {
     expect(await logsOf(target, row.id)).toEqual([]);
   });
 
-  test('止まっている接続は理由を書き換えず、履歴も足さない', async () => {
+  test('本人が再開できる理由で止まった接続は、止めると owner か leader に変わり、再開しない停止になる', async () => {
     const target = await createTarget();
-    const row = await connectionOf(target, target.member, { status: 'stopped', stopped_reason: 'auth_failed' });
+    const auth = await connectionOf(target, target.member, { status: 'stopped', stopped_reason: 'auth_failed' });
+    const left = await connectionOf(target, target.member, { status: 'stopped', stopped_reason: 'member_left' });
+
+    expect((await call(connectionStop, target, target.leader, auth.id)).status).toBe(200);
+    expect((await call(connectionStop, target, target.member, left.id)).status).toBe(200);
+    expect(await rowOf(target, auth.id)).toMatchObject({ status: 'stopped', stopped_reason: 'leader' });
+    expect(await rowOf(target, left.id)).toMatchObject({ status: 'stopped', stopped_reason: 'owner' });
+    expect(JSON.parse((await logsOf(target, auth.id))[0]!.changes_json)).toEqual({
+      status: ['stopped', 'stopped'],
+      stopped_reason: ['auth_failed', 'leader'],
+    });
+  });
+
+  test('owner、leader、workspace_closed で止まっている接続は理由を書き換えず、履歴も足さない', async () => {
+    const target = await createTarget();
+    const row = await connectionOf(target, target.member, { status: 'stopped', stopped_reason: 'owner' });
 
     const res = await call(connectionStop, target, target.leader, row.id);
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ connection: { status: 'stopped', stopped_reason: 'auth_failed' } });
-    expect(await rowOf(target, row.id)).toMatchObject({ stopped_reason: 'auth_failed' });
+    expect(await res.json()).toMatchObject({ connection: { status: 'stopped', stopped_reason: 'owner' } });
+    expect(await rowOf(target, row.id)).toMatchObject({ stopped_reason: 'owner' });
     expect(await logsOf(target, row.id)).toEqual([]);
+  });
+
+  test('ワークスペースを抜けた持ち主の接続も、リーダーが止められる', async () => {
+    const target = await createTarget();
+    const row = await connectionOf(target, target.member);
+    const db = orgDb(env, target.organization.verified);
+    await db.run(
+      db.statement((q) =>
+        q
+          .updateTable('memberships')
+          .set({ left_at: '2026-11-01T00:00:00.000Z', left_on: '2026-11-01' })
+          .where('user_id', '=', target.member.userId!)
+          .where('workspace_id', '=', target.workspace.id),
+      ),
+    );
+    expect((await call(connectionStop, target, target.leader, row.id)).status).toBe(200);
+    expect(await rowOf(target, row.id)).toMatchObject({ status: 'stopped', stopped_reason: 'leader' });
   });
 
   test('別のワークスペースと削除済みの接続は 404', async () => {
@@ -176,6 +215,7 @@ describe('connection-delete', () => {
       credential_last4: null,
       sync_state_json: '{}',
       reconcile_state_json: '{}',
+      last_success_at: null,
     });
     expect((await rowOf(target, row.id))!.deleted_at).not.toBeNull();
 
@@ -210,6 +250,20 @@ describe('connection-delete', () => {
     expect((await call(connectionDelete, target, target.admin, byAdmin.id)).status).toBe(200);
     expect((await rowOf(target, stopped.id))!.deleted_at).not.toBeNull();
     expect((await rowOf(target, byAdmin.id))!.deleted_at).not.toBeNull();
+  });
+
+  test('認証情報が既に無い接続を消しても、履歴に credential_removed は入らない', async () => {
+    const target = await createTarget();
+    const row = await connectionOf(target, target.member, {
+      status: 'stopped',
+      stopped_reason: 'user_disabled',
+      credential_ciphertext: null,
+      credential_key_version: null,
+      credential_last4: null,
+    });
+
+    expect((await call(connectionDelete, target, target.leader, row.id)).status).toBe(200);
+    expect(JSON.parse((await logsOf(target, row.id))[0]!.changes_json)).toEqual({ name: ['あおばの GitHub', null] });
   });
 
   test('メンバーは他のメンバーの接続を消せない（403）', async () => {
