@@ -48,7 +48,7 @@ gh api "repos/{owner}/{repo}/issues?labels=sprint-log&state=open&per_page=100" -
 ```bash
 git fetch origin
 mkdir -p <作業場所>
-git archive origin/main scripts/progress-data.ts | tar -x -C <作業場所>
+git archive origin/main scripts/progress-data.ts scripts/github-write-permissions.ts | tar -x -C <作業場所>
 node <作業場所>/scripts/progress-data.ts <作業場所>/data.json
 ```
 
