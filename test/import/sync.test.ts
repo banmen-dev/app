@@ -286,20 +286,82 @@ describe('取り込みの同期', () => {
       expect(await logCount(db, workspace.id)).toBe(0);
     });
 
-    test('取り込んでいない完了済みの項目は入れず、古い更新日時の頁は新しい値を戻さない', async () => {
+    test('取り込んでいない完了済みの項目は入れない', async () => {
       const { workspace, connection, db } = await setup();
-      const run = (items: ImportItem[]) =>
-        syncConnection(env, db, workspace.id, connection.id, {
-          source: fakeSource({ '501': [{ items, next: null }] }).source,
-        });
-      await run([item(1), item(2, { isDone: true })]);
+      await syncConnection(env, db, workspace.id, connection.id, {
+        source: fakeSource({ '501': [{ items: [item(1), item(2, { isDone: true })], next: null }] }).source,
+      });
       expect(await tasksOf(db, workspace.id)).toHaveLength(1);
-      await run([item(1, { title: '新しい', updatedAt: '2026-11-05T00:00:00.000Z' })]);
-      await run([item(1, { title: '古い', updatedAt: '2026-11-03T00:00:00.000Z' })]);
+    });
+
+    test('古い更新日時の頁は新しい値を戻さず、同じ更新日時の頁は受ける', async () => {
+      const { workspace, connection, db } = await setup();
+      const run = (over: Partial<ImportItem>) =>
+        syncConnection(env, db, workspace.id, connection.id, {
+          source: fakeSource({ '501': [{ items: [item(1, over)], next: null }] }).source,
+        });
+      await run({});
+      await run({ title: '新しい', updatedAt: '2026-11-05T00:00:00.000Z' });
+      await run({ title: '古い', updatedAt: '2026-11-03T00:00:00.000Z' });
       expect(await firstTask(db, workspace.id)).toMatchObject({
         title: '新しい',
         source_updated_at: '2026-11-05T00:00:00.000Z',
       });
+      await run({ title: '同じ時刻', updatedAt: '2026-11-05T00:00:00.000Z' });
+      expect(await firstTask(db, workspace.id)).toMatchObject({ title: '同じ時刻' });
+    });
+
+    test('人が完了したタスクは、取り込み元で閉じても開き直しても完了のまま', async () => {
+      const { owner, workspace, connection, db } = await setup();
+      const run = (over: Partial<ImportItem>) =>
+        syncConnection(env, db, workspace.id, connection.id, {
+          source: fakeSource({ '501': [{ items: [item(1, over)], next: null }] }).source,
+        });
+      await run({});
+      const id = (await firstTask(db, workspace.id)).id;
+      await db.run(
+        db.statement((q) =>
+          q
+            .updateTable('tasks')
+            .set({ completed_at: '2026-11-01T01:00:00.000Z', completed_by: owner.id })
+            .where('id', '=', id),
+        ),
+      );
+      await run({ isDone: true, updatedAt: '2026-11-02T00:00:00.000Z' });
+      await run({ isDone: false, updatedAt: '2026-11-03T00:00:00.000Z' });
+      expect(await firstTask(db, workspace.id)).toMatchObject({
+        completed_at: '2026-11-01T01:00:00.000Z',
+        completed_by: owner.id,
+        is_source_done: 0,
+      });
+    });
+
+    test('別のワークスペースの同じ項目、レビュー依頼の行、削除したタスクは更新しない', async () => {
+      const mine = await setup();
+      const theirs = await setup();
+      const run = (s: Awaited<ReturnType<typeof setup>>, items: ImportItem[]) =>
+        syncConnection(env, s.db, s.workspace.id, s.connection.id, {
+          source: fakeSource({ '501': [{ items, next: null }] }).source,
+        });
+      const review = item(2, { kind: 'review_request', reviewerSourceId: 'r-1', reviewCycle: 'c-1' });
+      await run(mine, [item(1), review, item(3)]);
+      await run(theirs, [item(1)]);
+      const deleted = (await sourcesOf(mine.db, mine.workspace.id)).find((r) => r.source_id === 'src-3')!;
+      await mine.db.run(
+        mine.db.statement((q) =>
+          q.updateTable('tasks').set({ deleted_at: '2026-11-01T02:00:00.000Z' }).where('id', '=', deleted.task_id),
+        ),
+      );
+      const changed = { updatedAt: '2026-11-04T00:00:00.000Z' };
+      await run(mine, [
+        item(1, { ...changed, title: '自分だけ' }),
+        { ...review, ...changed, title: '書き換わらない' },
+        item(3, { ...changed, title: '削除済み' }),
+      ]);
+      const titles = async (s: Awaited<ReturnType<typeof setup>>) =>
+        (await tasksOf(s.db, s.workspace.id)).map((t) => t.title).sort();
+      expect(await titles(theirs)).toEqual(['項目 1']);
+      expect(await titles(mine)).toEqual(['項目 2', '項目 3', '自分だけ'].sort());
     });
   });
 
