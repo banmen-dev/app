@@ -4,6 +4,7 @@ import { describe, expect, test } from 'vitest';
 import { orgDb } from '../../src/server/db/index.ts';
 import { encryptCredential } from '../../src/server/crypto/credential.ts';
 import { syncConnection } from '../../src/server/import/sync.ts';
+import { discoveryOnly } from './discovery-only.ts';
 import {
   createConnection,
   createConnectionScope,
@@ -66,7 +67,7 @@ describe('PR 一覧の権限不足と範囲の読み取り失敗', () => {
       return f.fetcher(input, init);
     };
     const sync = (maxPages?: number) =>
-      syncConnection(env, t.db, t.workspace.id, t.connection.id, { fetcher, maxPages });
+      syncConnection(env, t.db, t.workspace.id, t.connection.id, { fetcher, maxPages, source: discoveryOnly });
 
     // 最初の走査では Issue の保存まで成功し、PR の失敗で後続範囲を読む前に止まる。
     expect(await sync()).toEqual({ outcome: 'error', imported: 1 });

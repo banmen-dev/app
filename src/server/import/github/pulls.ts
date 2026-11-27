@@ -2,7 +2,7 @@
 // 後ろの項目は頁を下へずれるだけなので、読み終えた頁より後ろの項目を取りこぼさない（重なりは sourceId で除く）。
 // GitHub の pulls 一覧に since は無いので、差分の起点（input.since）より古い項目に達したら頁を打ち切る。
 // 起点が無い（初めての同期）ときは最後の頁まで読む。更新日時による Issue の頁送りは流用しない。
-import type { FetchPageInput, FetchPageResult, ImportItem } from '../source.ts';
+import type { FetchPageInput, FetchPageResult, ImportItem, ScopeCandidate } from '../source.ts';
 import { PAGE_SIZE, fail, getJson, idOf, isRecord } from './client.ts';
 
 const MAX_PAGE = 1_000_000;
@@ -22,16 +22,19 @@ function isoOf(value: unknown): string {
   return new Date(value).toISOString();
 }
 
-function convert(raw: unknown, input: FetchPageInput, owner: GithubOwner): ImportItem | null {
+export function convertPull(raw: unknown, scope: ScopeCandidate, owner: GithubOwner | null): ImportItem | null {
   if (!isRecord(raw) || (raw.state !== 'open' && raw.state !== 'closed')) throw fail('unavailable');
   const closed = raw.state === 'closed';
-  const authored = isOwner(raw.user, owner);
-  const assigned =
-    isOwner(raw.assignee, owner) || (Array.isArray(raw.assignees) && raw.assignees.some((a) => isOwner(a, owner)));
-  if (!authored && !assigned) return null;
+  // owner が null のときは作者と担当を見ない（保存済みの項目を ID で取る場合。担当が外れた項目も返す）
+  if (owner !== null) {
+    const authored = isOwner(raw.user, owner);
+    const assigned =
+      isOwner(raw.assignee, owner) || (Array.isArray(raw.assignees) && raw.assignees.some((a) => isOwner(a, owner)));
+    if (!authored && !assigned) return null;
+  }
 
   // 一覧の範囲を応答の base.repo でも確かめる。フォーク元（head.repo）とは比べない。
-  if (!isRecord(raw.base) || !isRecord(raw.base.repo) || idOf(raw.base.repo.id) !== input.scope.id) {
+  if (!isRecord(raw.base) || !isRecord(raw.base.repo) || idOf(raw.base.repo.id) !== scope.id) {
     throw fail('unavailable');
   }
   const sourceId = idOf(raw.id);
@@ -64,8 +67,8 @@ function convert(raw: unknown, input: FetchPageInput, owner: GithubOwner): Impor
     key: `${repositoryOwner}/${repo}#${number}`,
     url: `https://github.com/${repositoryOwner}/${repo}/pull/${number}`,
     title: raw.title,
-    containerId: input.scope.id,
-    containerName: input.scope.name,
+    containerId: scope.id,
+    containerName: scope.name,
     // 閉じた PR は完了の印つきで返す。マージされたものは 'merged'、されずに閉じたものは 'closed'
     status: !closed ? 'open' : typeof raw.merged_at === 'string' ? 'merged' : 'closed',
     dueOn,
@@ -102,7 +105,7 @@ export async function fetchOwnPullsPage(
       reachedOlder = true;
       break;
     }
-    const item = convert(raw, input, owner);
+    const item = convertPull(raw, input.scope, owner);
     if (item !== null) found.set(item.sourceId, item);
   }
   const last = !reachedOlder && body.length === PAGE_SIZE;

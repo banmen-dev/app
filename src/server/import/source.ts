@@ -76,6 +76,23 @@ export type ReviewRequestPageInput = FetchPageInput & {
 // items は未完了のものも完了したものも含んでよい（同期の仕組みが完了を除く）。next が null なら、この範囲は終わり
 export type FetchPageResult = { items: ImportItem[]; next: string | null };
 
+// 保存済みの項目を不変の ID で取るときの入力。同期の仕組みが task_sources から読んだ値を、そのまま渡す。
+// 範囲（担当や範囲の絞り込み）では引かないので、担当が外れた項目も範囲の外へ移った項目も取れる。
+// key は保存したときの表示キー、containerId と containerName は保存したときの入れ物。取り込み元は、番号やキーだけで一致と判断せず、
+// 応答の不変の ID が sourceId と同じかを確かめる（#914 の照合も同じ口を使う）
+export type KnownItemInput = {
+  credential: string;
+  fetcher: typeof fetch;
+  settings: Record<string, unknown>;
+  target: {
+    kind: 'issue' | 'pull_request';
+    sourceId: string;
+    key: string;
+    containerId: string;
+    containerName: string;
+  };
+};
+
 export interface ImportSource {
   readonly kind: ImportSourceKind;
   readonly scopeKind: ScopeKind;
@@ -100,4 +117,7 @@ export interface ImportSource {
   // 任意のレビュー依頼取得口。1呼び出し1要求。履歴の途中は空の items と next を返す。
   // 同期はこの取得口を fetchPage と分けて呼び、依頼回と照合状態を保存する。
   fetchReviewRequestsPage?(input: ReviewRequestPageInput): Promise<FetchPageResult>;
+  // 任意の保存済み項目の取得口。1呼び出しで1項目を不変の ID で取り、現在の属性を ImportItem で返す（閉じていれば isDone を真に）。
+  // 取れない項目（見つからない、ID が合わない、権限で断られた）は ImportSourceError を投げる。同期は、その項目を動かさず次へ進む
+  fetchKnownItem?(input: KnownItemInput): Promise<ImportItem>;
 }

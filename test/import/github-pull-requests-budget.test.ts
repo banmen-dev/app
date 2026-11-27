@@ -4,6 +4,7 @@ import { describe, expect, test, vi } from 'vitest';
 import { orgDb } from '../../src/server/db/index.ts';
 import { encryptCredential } from '../../src/server/crypto/credential.ts';
 import { syncConnection } from '../../src/server/import/sync.ts';
+import { discoveryOnly } from './discovery-only.ts';
 import {
   createConnection,
   createConnectionScope,
@@ -88,7 +89,9 @@ describe('同期の項目取得予算', () => {
       clock.mockRestore();
     }
     const before = f.calls.length;
-    expect(await syncConnection(env, t.db, t.workspace.id, connection.id, { fetcher: f.fetcher })).toEqual({
+    expect(
+      await syncConnection(env, t.db, t.workspace.id, connection.id, { fetcher: f.fetcher, source: discoveryOnly }),
+    ).toEqual({
       outcome: 'success',
       imported: 1,
       more: false,

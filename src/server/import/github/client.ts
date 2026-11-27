@@ -45,7 +45,14 @@ async function discard(res: Response): Promise<void> {
   await res.body?.cancel().catch(() => {});
 }
 
-export async function getJson(url: string, credential: string, fetcher: typeof fetch): Promise<unknown> {
+// moved: 301 の移動先の URL を確かめる関数。許す形なら URL を返し、許さなければ null。渡したときだけ、確かめた先へ1回だけ追う
+// （認証情報を付けて送るので、移動先は呼び出し側が固定のホストと形に絞る。追った先の 301 はもう追わない）
+export async function getJson(
+  url: string,
+  credential: string,
+  fetcher: typeof fetch,
+  moved?: (location: string) => string | null,
+): Promise<unknown> {
   let res: Response;
   try {
     // リダイレクトは追わない。3xx は res.ok が偽なので失敗になる
@@ -65,7 +72,13 @@ export async function getJson(url: string, credential: string, fetcher: typeof f
     throw fail('unavailable');
   }
   if (!res.ok) {
+    const location = res.status === 301 ? res.headers.get('location') : null;
     await discard(res);
+    if (moved !== undefined && location !== null) {
+      const target = moved(location);
+      if (target === null) throw fail('unavailable');
+      return getJson(target, credential, fetcher);
+    }
     if (res.status === 404 || res.status === 410) throw new GithubResourceMissing();
     if (res.status === 401) throw fail('unauthorized');
     if (res.status === 403 || res.status === 429) throw fail('forbidden');
