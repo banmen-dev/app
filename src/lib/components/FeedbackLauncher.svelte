@@ -10,9 +10,10 @@
     admitFeedbackImages,
     feedbackFailure,
     feedbackInput,
+    feedbackStallMs,
     validateFeedback,
   } from '../feedback-form.ts';
-  import { FEEDBACK_STALL_MS, feedbackDraft } from '../feedback-draft.svelte.ts';
+  import { feedbackDraft } from '../feedback-draft.svelte.ts';
   import { consentUrl, isTermsRequired, isUnauthenticated, loginUrl } from '../login-redirect.ts';
   import { showToast } from '../toast.svelte.ts';
   import { t } from '../vocabulary.svelte.ts';
@@ -39,6 +40,7 @@
   const publicId = `${ids}-public`;
   const errorId = `${ids}-error`;
   const imageHintId = `${ids}-image-hint`;
+  const imageLabelId = `${ids}-image-label`;
 
   let dialog = $state<ReturnType<typeof Dialog>>();
   let launcher = $state<HTMLButtonElement>();
@@ -77,6 +79,8 @@
 
   function show(): void {
     setError(null);
+    feedbackDraft.imageProblems = [];
+    imageStatus = '';
     dialog?.show(launcher);
   }
 
@@ -106,21 +110,49 @@
 
   // 付けようとしたファイルを確かめて足す。続けて呼ばれても、付けた枚数を数え直してから足す（上限を越えない）
   let admitting: Promise<void> = Promise.resolve();
+  let addedCount = 0;
   function addImages(files: readonly File[]): void {
-    if (waiting || files.length === 0) return;
-    admitting = admitting.then(async () => {
-      const { accepted, rejected } = await admitFeedbackImages(feedbackDraft.images, files);
-      feedbackDraft.images = [...feedbackDraft.images, ...accepted];
-      feedbackDraft.imageProblems = rejected;
-      imageStatus = accepted.map((file) => t('feedbackImageAdded', { name: file.name })).join('\n');
-    });
+    if (files.length === 0) return;
+    if (waiting) {
+      imageStatus = t('feedbackImageBusy');
+      return;
+    }
+    admitting = admitting
+      .then(async () => {
+        const { accepted, rejected } = await admitFeedbackImages(feedbackDraft.images, files);
+        // 確かめている間に送り始めたら、送った分とずれるので足さない
+        if (waiting) {
+          imageStatus = t('feedbackImageBusy');
+          return;
+        }
+        feedbackDraft.images = [...feedbackDraft.images, ...accepted];
+        feedbackDraft.imageProblems = rejected;
+        // 同じ名前を続けて付けても読み上げられるよう、通し番号を添えて毎回違う文にする
+        addedCount += accepted.length;
+        imageStatus =
+          accepted.length === 0
+            ? ''
+            : `${t('feedbackImageAdded', { name: accepted.map((f) => f.name).join('、') })}（${addedCount}）`;
+        if (imagesFull)
+          void tick().then(() =>
+            document.activeElement === document.body || !dialogHasFocus() ? textarea?.focus() : undefined,
+          );
+      })
+      // 1回の失敗で、以後の追加が止まらないようにする
+      .catch(() => undefined);
+  }
+
+  function dialogHasFocus(): boolean {
+    const active = document.activeElement;
+    return active instanceof HTMLElement && active.closest('dialog') !== null && active !== active.closest('dialog');
   }
 
   function removeImage(file: File): void {
     if (waiting) return;
     feedbackDraft.images = feedbackDraft.images.filter((item) => item !== file);
     feedbackDraft.imageProblems = [];
-    imageStatus = t('feedbackImageRemoved', { name: file.name });
+    addedCount++;
+    imageStatus = `${t('feedbackImageRemoved', { name: file.name })}（${addedCount}）`;
     void tick().then(() => (chooseButton ?? textarea)?.focus());
   }
 
@@ -134,27 +166,31 @@
   // 画像だけの貼り付け（スクリーンショットなど）を画像として付ける。文字も一緒のとき（表計算のセルなど）は文字の貼り付けに任せる
   function paste(event: ClipboardEvent): void {
     const clipboard = event.clipboardData;
-    if (clipboard === null || clipboard.files.length === 0 || clipboard.getData('text/plain') !== '') return;
+    if (clipboard === null || clipboard.files.length === 0) return;
+    // ファイルをコピーして貼ると、ファイル名の文字も一緒に入る。表計算のセル（表の HTML と画像）は文字として貼る
+    const images = [...clipboard.files].filter((file) => file.type.startsWith('image/'));
+    if (images.length === 0 || clipboard.getData('text/html').includes('<table')) return;
+    if (clipboard.getData('text/plain') !== '' && images.length !== clipboard.files.length) return;
     event.preventDefault();
-    addImages([...clipboard.files]);
+    addImages(images);
   }
 
   function carriesFiles(event: DragEvent): boolean {
     return event.dataTransfer?.types.includes('Files') === true;
   }
 
+  // 落とす先はダイアログが開いている間の画面全体で受ける（見出し、フッター、背景に落としても、ブラウザがファイルを開いて書きかけを失わないように）
   function dragover(event: DragEvent): void {
     if (!carriesFiles(event)) return;
-    // 受け止めないと、ブラウザが落としたファイルを開いて書きかけを失う
     event.preventDefault();
-    over = !waiting && !imagesFull;
+    const accepting = !waiting && !imagesFull;
+    if (event.dataTransfer) event.dataTransfer.dropEffect = accepting ? 'copy' : 'none';
+    over = accepting;
   }
 
   function dragleave(event: DragEvent): void {
-    const next = event.relatedTarget;
-    if (!(event.currentTarget instanceof Node) || !(next instanceof Node) || !event.currentTarget.contains(next)) {
-      over = false;
-    }
+    // 画面の外へ出たときだけ（子の間の移動では relatedTarget が子になる）
+    if (event.relatedTarget === null) over = false;
   }
 
   function drop(event: DragEvent): void {
@@ -163,6 +199,19 @@
     over = false;
     addImages([...(event.dataTransfer?.files ?? [])]);
   }
+
+  $effect(() => {
+    if (!open) return;
+    window.addEventListener('dragover', dragover);
+    window.addEventListener('dragleave', dragleave);
+    window.addEventListener('drop', drop);
+    return () => {
+      window.removeEventListener('dragover', dragover);
+      window.removeEventListener('dragleave', dragleave);
+      window.removeEventListener('drop', drop);
+      over = false;
+    };
+  });
 
   // 付ける前の画像の縮小を canvas に描く（CSP の img-src が blob: を許さないので <img> に URL を渡さない）。
   // 中央を正方形に切り抜く。読めない画像は地のまま残す
@@ -213,9 +262,12 @@
     feedbackDraft.sending = true;
     feedbackDraft.stalled = false;
     setError(null);
-    const stallTimer = setTimeout(() => {
-      if (feedbackDraft.attempt === attempt) feedbackDraft.stalled = true;
-    }, FEEDBACK_STALL_MS);
+    const stallTimer = setTimeout(
+      () => {
+        if (feedbackDraft.attempt === attempt) feedbackDraft.stalled = true;
+      },
+      feedbackStallMs(sentImages.reduce((total, file) => total + file.size, 0)),
+    );
     try {
       const result = await callOperation(feedbackSubmit, feedbackInput(sentText, page.route.id, window.location), {
         files: sentImages,
@@ -237,7 +289,9 @@
       const reason = feedbackFailure(result);
       // 送り始めた部品が外れていても、今どこかでダイアログが開いていれば、その欄の下に出す
       if (feedbackDraft.openCount > 0) {
-        setError(reason);
+        // 画像の理由は画像の欄に出す（文の欄を誤りにしない）
+        if (reason.startsWith('feedbackImage')) feedbackDraft.imageProblems = [{ name: '', reason }];
+        else setError(reason);
       } else {
         showToast(t('feedbackFailedClosed', { reason: t(reason, params) }), 'alert');
       }
@@ -266,17 +320,8 @@
 <Dialog bind:this={dialog} bind:open title={t('feedbackTitle')}>
   <!-- 中身は開いている間だけ描く。閉じている間に、囲みや欄が画面の DOM に残らないようにする（書いた文は feedbackDraft に残る） -->
   {#if open}
-    <!-- 貼り付けと落とすは、ダイアログの中身全体で受ける（落とした先がずれてブラウザがファイルを開き、書きかけを失わないように） -->
-    <form
-      class="form"
-      id="{ids}-form"
-      onsubmit={submit}
-      onpaste={paste}
-      ondragover={dragover}
-      ondragleave={dragleave}
-      ondrop={drop}
-      novalidate
-    >
+    <!-- 貼り付けはダイアログの中身全体で受ける。落とすは上の window で受ける -->
+    <form class="form" id="{ids}-form" onsubmit={submit} onpaste={paste} novalidate>
       <div class="callout is-info" id={publicId}>
         <Icon name="alert" />
         <span
@@ -306,8 +351,13 @@
             ><Icon name="alert" />{t(error, params)}</span
           >{/if}
       </div>
-      <div class="field" class:is-invalid={feedbackDraft.imageProblems.length > 0}>
-        <span class="field-label">{t('feedbackImageField')}</span>
+      <div
+        class="field"
+        class:is-invalid={feedbackDraft.imageProblems.length > 0}
+        role="group"
+        aria-labelledby={imageLabelId}
+      >
+        <span class="field-label" id={imageLabelId}>{t('feedbackImageField')}</span>
         {#if feedbackDraft.images.length > 0}
           <ul class="files" aria-label={t('feedbackImageListLabel')}>
             {#each feedbackDraft.images as file (file)}
@@ -331,7 +381,7 @@
           </ul>
         {/if}
         {#if imagesFull}
-          <div class="dropzone is-disabled" aria-disabled="true" aria-describedby={imageHintId}>
+          <div class="dropzone is-disabled">
             <Icon name="alert" />
             <span class="dropzone-text"
               ><b>{t('feedbackImageFull', params)}</b><span id={imageHintId}>{t('feedbackImageFullHint')}</span></span
@@ -366,12 +416,11 @@
           bind:this={picker}
           onchange={picked}
         />
-        {#each feedbackDraft.imageProblems as problem (problem.name + problem.reason)}
+        {#each feedbackDraft.imageProblems as problem, index (index)}
           <span class="field-error" role="alert"
-            ><Icon name="alert" />{t('feedbackImageRejected', {
-              name: problem.name,
-              reason: t(problem.reason, params),
-            })}</span
+            ><Icon name="alert" />{problem.name === ''
+              ? t(problem.reason, params)
+              : t('feedbackImageRejected', { name: problem.name, reason: t(problem.reason, params) })}</span
           >
         {/each}
       </div>

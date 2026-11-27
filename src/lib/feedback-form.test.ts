@@ -5,6 +5,7 @@ import {
   FEEDBACK_IMAGE_MAX_BYTES,
   FEEDBACK_TEXT_MAX,
   admitFeedbackImages,
+  feedbackStallMs,
   sniffFeedbackImage,
   feedbackFailure,
   feedbackInput,
@@ -124,5 +125,25 @@ describe('画像を付ける前の確かめ', () => {
     expect(reason('too_many_images')).toBe('feedbackImageTooMany');
     expect(reason('image_too_large')).toBe('feedbackImageTooLarge');
     expect(reason('image_unsupported')).toBe('feedbackImageUnsupported');
+  });
+
+  test('読めないファイルは、そのファイルだけ断り、ほかは付ける', async () => {
+    const unreadable = new File([new Uint8Array(png)], 'gone.png');
+    Object.defineProperty(unreadable, 'slice', {
+      value: () => ({ arrayBuffer: () => Promise.reject(new Error('NotReadableError')) }),
+    });
+    const { accepted, rejected } = await admitFeedbackImages([], [unreadable, file(png, 'ok.png')]);
+    expect(accepted.map((f) => f.name)).toEqual(['ok.png']);
+    expect(rejected).toEqual([{ name: 'gone.png', reason: 'feedbackImageUnsupported' }]);
+  });
+
+  test('RIFF だけで WebP とみなさず、PNG の署名は8バイト全部を見る', () => {
+    expect(sniffFeedbackImage(new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x41, 0x56, 0x45]))).toBeNull();
+    expect(sniffFeedbackImage(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0]))).toBeNull();
+  });
+
+  test('詰まったとみなす時間は、付けた画像の大きさに応じて延びる', () => {
+    expect(feedbackStallMs(0)).toBe(30_000);
+    expect(feedbackStallMs(12 * 1024 * 1024)).toBe(30_000 + 120_000);
   });
 });

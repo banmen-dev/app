@@ -95,6 +95,15 @@ export const FEEDBACK_MESSAGE_PARAMS = {
   side: FEEDBACK_IMAGE_MAX_SIDE.toLocaleString('ja-JP'),
 } as const;
 
+// 書き込みを詰まったとみなすまでの時間（feedback-draft.svelte.ts の説明）
+export const FEEDBACK_STALL_MS = 30_000;
+
+// 送っている間を詰まったとみなすまでの時間。画像は大きいので、付けた分の大きさに応じて延ばす（遅い回線で、送れている最中に
+// 詰まったと出して二重に送らせないため）。1 MiB あたり 10 秒を足す
+export function feedbackStallMs(imageBytes: number): number {
+  return FEEDBACK_STALL_MS + Math.ceil(imageBytes / (1024 * 1024)) * 10_000;
+}
+
 export type FeedbackImageType = 'image/png' | 'image/jpeg' | 'image/webp';
 
 // 先頭のバイトで形式を決める（ファイルの種類と名前は申告なので使わない。サーバーも中身で決める）。
@@ -122,7 +131,12 @@ export async function admitFeedbackImages(
   const accepted: File[] = [];
   const rejected: FeedbackImageRejection[] = [];
   for (const file of candidates) {
-    const kind = sniffFeedbackImage(new Uint8Array(await file.slice(0, 16).arrayBuffer()));
+    // 読めないファイル（選んだ後に消えた、フォルダーなど）は、形式の外として断る
+    const kind = await file
+      .slice(0, 16)
+      .arrayBuffer()
+      .then((head) => sniffFeedbackImage(new Uint8Array(head)))
+      .catch(() => null);
     if (kind === null) {
       rejected.push({ name: file.name, reason: 'feedbackImageUnsupported' });
     } else if (file.size > FEEDBACK_IMAGE_MAX_BYTES) {

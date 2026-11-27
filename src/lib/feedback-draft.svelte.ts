@@ -1,3 +1,4 @@
+export { FEEDBACK_STALL_MS } from './feedback-form.ts';
 import type { DictionaryKey } from '../shared/vocabulary.ts';
 
 // 右下のフィードバックの書きかけの文と、送っている途中か、欄の下に出す理由。FeedbackLauncher は組織の枠、組織の選択、運用の画面に
@@ -8,7 +9,6 @@ import type { DictionaryKey } from '../shared/vocabulary.ts';
 // 書き込みは画面で打ち切らない（src/lib/api.ts）ので、応答が FEEDBACK_STALL_MS 来なければ stalled にして、送り直せるようにする
 // （読み直さずに抜けられるようにするため。送り直すと同じ文が2件になりうることを欄の下に出す）。
 // attempt は送り始めるたびに1つ増やし、送り直した後に届いた前の送信の応答を見分ける
-export const FEEDBACK_STALL_MS = 30_000;
 
 // images は付けた画像（File はそのまま持ち、縮小の絵は部品が描く）。imageProblems は付けられなかった画像の名前と理由。
 // どちらも書いた文と同じくタブで1つ持ち、読み直すと消える

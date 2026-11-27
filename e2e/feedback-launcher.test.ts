@@ -500,6 +500,33 @@ test.describe('画像を付ける', () => {
     await expect(dialog(page).getByRole('alert').filter({ hasText: '4.png' })).toContainText('3枚まで');
   });
 
+  test('ダイアログのフッターに落としても付き、ブラウザがファイルを開かない', async ({ page }) => {
+    await page.goto('/aoba');
+    await launcher(page).click();
+    await field(page).fill('書きかけの文');
+    await dialog(page)
+      .getByRole('button', { name: 'やめる' })
+      .evaluate((element, data) => {
+        const transfer = new DataTransfer();
+        const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+        transfer.items.add(new File([bytes], '落とした.png', { type: 'image/png' }));
+        for (const type of ['dragover', 'drop']) {
+          element.dispatchEvent(new DragEvent(type, { dataTransfer: transfer, bubbles: true, cancelable: true }));
+        }
+      }, PNG_BASE64);
+    await expect(dialog(page).locator('.file-row')).toContainText('落とした.png');
+    await expect(field(page)).toHaveValue('書きかけの文');
+  });
+
+  test('同じ名前の画像をまとめて断られても、一覧が崩れない', async ({ page }) => {
+    await page.goto('/aoba');
+    await launcher(page).click();
+    const picker = dialog(page).locator('input[data-feedback-images]');
+    await picker.setInputFiles([png('a.png'), png('b.png'), png('c.png')]);
+    await picker.setInputFiles([png('image.png'), png('image.png')]);
+    await expect(dialog(page).getByRole('alert')).toHaveCount(2);
+  });
+
   test('画像を付けて送ると画像が同じリクエストで送られ、送れたら空になる', async ({ page }) => {
     const parts: number[] = [];
     page.on('request', async (request) => {
