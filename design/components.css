@@ -2215,7 +2215,7 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
 .skeleton-frame .route-tabs { overflow: hidden; }
 .skeleton-frame .route-tabs > .skeleton-tab { box-sizing: border-box; display: flex; align-items: center; flex: none; min-height: calc(var(--space-6) + var(--space-3)); padding: 0 var(--space-3); }
 .skeleton-frame .route-tabs > .skeleton-tab > .skeleton-line { width: 3.5rem; }
-@media (pointer: coarse) { .skeleton-frame .route-tabs > .skeleton-tab { min-height: 44px; } }
+@media (max-width: 760px), (pointer: coarse) { .skeleton-frame .route-tabs > .skeleton-tab { min-height: 44px; } }
 .skeleton-frame .topbar > .skeleton-line.is-search { flex: 0 1 18rem; min-width: 9rem; height: 36px; }
 .skeleton-frame .topbar > .skeleton-line.is-account { width: 7rem; height: 28px; }
 .skeleton-frame .topbar > .skeleton-line.is-org-name { width: 8rem; height: 1.25em; margin-inline: var(--space-2); }

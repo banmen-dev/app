@@ -52,12 +52,20 @@
     const more = measurer.querySelector<HTMLElement>('[data-measure-more]');
     if (items.length === 0 || !more) return;
     const gap = Number.parseFloat(getComputedStyle(measurer).columnGap) || 0;
-    fitCount = fitTabCount(
+    const next = fitTabCount(
       items.map((item) => item.getBoundingClientRect().width),
       bar.getBoundingClientRect().width,
       gap,
       more.getBoundingClientRect().width,
     );
+    // 一覧の項目や列のタブにフォーカスがあるまま数が変わると、その要素が消えてフォーカスが body に落ちる。落ちたら、帯の中の今の画面か先頭のリンクへ移す
+    const hadFocus = bar.contains(document.activeElement);
+    fitCount = next;
+    if (hadFocus)
+      void tick().then(() => {
+        if (bar && !bar.contains(document.activeElement))
+          bar.querySelector<HTMLElement>('a.route-tab[aria-current="page"], a.route-tab')?.focus();
+      });
   }
 
   // 帯の幅、測る側の幅（文字の読み込みや拡大で変わる）、タブの数（ロールで設定が増減する）のどれかが変わったら決め直す
@@ -76,23 +84,6 @@
   $effect(() => {
     void path;
     menu.open = false;
-  });
-  // 一覧の項目や列のタブにフォーカスがあるまま、まとめる数が変わると、その要素が消えてフォーカスが body に落ちる。
-  // DOM に当てる前に中にあったかを見て、帯の中に残るリンク（今の画面か先頭）へ移す
-  $effect.pre(() => {
-    void shownCount;
-    const active = document.activeElement;
-    if (!bar || !(active instanceof HTMLElement) || !bar.contains(active)) return;
-    const stays =
-      active.closest('.route-tabs-more') === null &&
-      shownCount > 0 &&
-      tabs.slice(0, shownCount).some((tab) => tab.link === active.getAttribute('href'));
-    const insideMenu = active.closest('.route-tabs-more') !== null;
-    if (stays || (insideMenu && rest.length > 0)) return;
-    const next = bar.querySelector<HTMLElement>('a.route-tab[aria-current="page"], a.route-tab');
-    void tick().then(() =>
-      (bar?.querySelector<HTMLElement>('a.route-tab[aria-current="page"], a.route-tab') ?? next)?.focus(),
-    );
   });
   $effect(() => {
     if (rest.length === 0) menu.open = false;

@@ -331,7 +331,7 @@ html[data-boot-tabs] #boot-loading .boot-tabs ~ .boot-content {
 #boot-loading .boot-tablist i {
   width: 3.5rem;
 }
-@media (pointer: coarse) {
+@media (max-width: 760px), (pointer: coarse) {
   #boot-loading .boot-tablist > b {
     min-height: 44px;
   }
