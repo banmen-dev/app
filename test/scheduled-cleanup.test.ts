@@ -49,8 +49,7 @@ async function insertOauthState(expiresAt: string) {
   return state;
 }
 
-async function insertRateLimit(windowStartAt: string) {
-  const key = `login:test-${uuidv7()}`;
+async function insertRateLimit(windowStartAt: string, key = `login:test-${uuidv7()}`) {
   const db = commonDb(env);
   await db.run(
     db.statement((q) => q.insertInto('rate_limits').values({ key, window_start_at: windowStartAt, count: 1 })),
@@ -131,6 +130,19 @@ describe('期限を過ぎた行を消す', () => {
     await runScheduled();
 
     expect(await remaining('rate_limits', [old, boundary, inside])).toEqual([inside]);
+  });
+
+  test('feedback:global は1時間の窓が過ぎるまで残り、操作の定義の窓を含めなくても保護される', async () => {
+    const hour = 60 * MINUTE;
+    const longestWindowMs = longestRateLimitWindowMs([]);
+    expect(longestWindowMs).toBe(hour);
+    const key = await insertRateLimit(iso(-hour + 1), 'feedback:global');
+
+    await runScheduled();
+    expect(await remaining('rate_limits', [key])).toEqual([key]);
+
+    await runScheduled(env, EVERY_MINUTE, NOW + 1);
+    expect(await remaining('rate_limits', [key])).toEqual([]);
   });
 
   test('rate_limits で、最長の窓の内にある行は、短い窓の枠を過ぎていても残る', async () => {

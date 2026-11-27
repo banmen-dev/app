@@ -77,7 +77,7 @@ export type FeedbackIssueInput = {
   feedbackId: string;
   // 利用者の文（未加工）
   text: string;
-  // 既知と照らした route ID（例 '/[slug]/w/[workspace]/board'）。null なら載せない
+  // 既知と照らした route ID（例 '/[slug]/w/[id]/board'）。null なら載せない
   routeId: string | null;
   // 運用者の閲覧の口（#1556 以降）。無ければ載せない
   viewerUrl?: string | null;
@@ -93,7 +93,10 @@ export type FeedbackGithubOptions = {
 
 export type FeedbackGithubClient = {
   // 成功すれば立てた Issue の番号。失敗は FeedbackIssueError を投げる
-  createFeedbackIssue(input: FeedbackIssueInput): Promise<{ issueNumber: number }>;
+  createFeedbackIssue(
+    input: FeedbackIssueInput,
+    waitUntil?: (promise: Promise<void>) => void,
+  ): Promise<{ issueNumber: number }>;
 };
 
 // 読まない応答の本文を捨てる。本文を持ったままにすると、接続が解放されない
@@ -225,16 +228,26 @@ export function createFeedbackGithubClient(
     return token;
   }
 
-  async function installationToken(): Promise<string> {
+  async function installationToken(waitUntil: ((promise: Promise<void>) => void) | undefined): Promise<string> {
     if (cached && now() < cached.expiresAt - TOKEN_REFRESH_MARGIN_MS) return cached.token;
-    inflight ??= fetchToken().finally(() => {
-      inflight = undefined;
-    });
+    if (inflight === undefined) {
+      inflight = fetchToken().finally(() => {
+        inflight = undefined;
+      });
+      // 同じ取得を待つ別のリクエストのため、取得を始めたリクエストが中断されても取得は完了させる。
+      // 起票は共有せず、ここで渡す Promise には起票を含めない。失敗は起票を呼んだ側で処理する。
+      waitUntil?.(
+        inflight.then(
+          () => undefined,
+          () => undefined,
+        ),
+      );
+    }
     return inflight;
   }
 
   return {
-    async createFeedbackIssue(input: FeedbackIssueInput): Promise<{ issueNumber: number }> {
+    async createFeedbackIssue(input: FeedbackIssueInput, waitUntil): Promise<{ issueNumber: number }> {
       // 題と本文はトークンを取る前に組み立てる。組み立てられない入力（形の違う ID、不正な日時）は、何も送らずに断る
       let title: string;
       let issueBody: string;
@@ -244,7 +257,7 @@ export function createFeedbackGithubClient(
       } catch (err) {
         throw failure('not_created', `フィードバックの Issue の本文を組み立てられなかった（${nameOf(err)}）`);
       }
-      const token = await installationToken();
+      const token = await installationToken(waitUntil);
       const sent = await send(ISSUES_URL, {
         method: 'POST',
         headers: {

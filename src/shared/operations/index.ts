@@ -1,3 +1,4 @@
+import { feedbackSubmit } from './feedback.ts';
 import {
   myBillingOrganizations,
   billingAdminList,
@@ -34,6 +35,7 @@ export const operations: readonly AnyOperationDefinition[] = [
   billingOrganizationSummary,
   notificationList,
   notificationRead,
+  feedbackSubmit,
   favoriteList,
   favoriteSet,
   ...operatorOperations,

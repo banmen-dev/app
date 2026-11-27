@@ -419,7 +419,7 @@ describe('設定の検査', () => {
   });
 });
 
-describe('GitHub 固有の値は github/ の外に出ない', () => {
+describe('取り込み用の GitHub 固有の値は github/ の外に出ない', () => {
   const files = import.meta.glob('../../src/**/*.ts', { query: '?raw', import: 'default', eager: true }) as Record<
     string,
     string
@@ -430,9 +430,11 @@ describe('GitHub 固有の値は github/ の外に出ない', () => {
     expect(entries.some(([path]) => path.endsWith('server/import/github/index.ts'))).toBe(true);
   });
 
-  test('PAT の接頭辞と取り込みの通信先は import/github/ だけにある', () => {
+  test('PAT の接頭辞を持つのは GitHub 取り込みと公開前のフィードバック検証だけ', () => {
     const offenders = entries
       .filter(([path]) => !path.includes('/server/import/github/'))
+      // フィードバックでは PAT を認証に使わず、公開する文に混ざっていれば断る。
+      .filter(([path]) => path !== '../../src/server/operations/feedback.ts')
       .filter(([, text]) => /github_pat_/.test(text))
       .map(([path]) => path);
     expect(offenders).toEqual([]);
