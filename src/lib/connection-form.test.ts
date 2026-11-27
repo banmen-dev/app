@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ApiResult } from './api.ts';
 import {
   connectionCreateFailure,
+  connectionManageFailure,
   connectionScopeFailure,
   connectionSyncFailure,
   connectionSyncOutcome,
@@ -185,5 +186,15 @@ describe('接続の暗号鍵の設定不備', () => {
     expect(connectionScopeFailure(failed(503, 'credential_keys_unavailable'))).toBe(
       'connectionCredentialKeysUnavailable',
     );
+  });
+});
+
+describe('connectionManageFailure', () => {
+  it('断られた理由を振り分ける', () => {
+    expect(connectionManageFailure(failed(409, 'workspace_closed'))).toBe('connectionWorkspaceClosed');
+    expect(connectionManageFailure(failed(403, 'forbidden'))).toBe('connectionManageGone');
+    expect(connectionManageFailure(failed(404, 'not_found'))).toBe('connectionManageGone');
+    expect(connectionManageFailure(failed(0, null))).toBe('connectionUnreachable');
+    expect(connectionManageFailure(failed(500, null))).toBe('connectionManageFailed');
   });
 });

@@ -36,8 +36,8 @@ export const CONNECTIONS_PER_MEMBER_MAX = 20;
 // workspace_closed は書く処理が無い（閉じても接続は止まらない）が、CHECK が許す値なので、行があっても同じ扱いで断る防御として残す
 export const CONNECTION_OWNER_GONE_REASONS = ['member_left', 'user_disabled', 'workspace_closed'] as const;
 
-// 持ち主が今のメンバーなら、新しい認証情報の保存で再開する停止の理由。ここに無い理由（owner、leader、workspace_closed）は
-// 今は書く処理が無く CHECK にだけ残る値だが、行があっても本人の認証情報では戻さない
+// 持ち主が今のメンバーなら、新しい認証情報の保存で再開する停止の理由。owner と leader（本人かリーダーが下した停止）と
+// workspace_closed（書く処理が無く CHECK にだけ残る値）は、本人の認証情報では戻さない
 export const CONNECTION_CREDENTIAL_RESUME_REASONS = ['auth_failed', 'member_left', 'user_disabled'] as const;
 
 export function resumesOnCredential(connection: { status: string; stopped_reason: string | null }): boolean {

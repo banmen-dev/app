@@ -150,7 +150,9 @@ async function saveRound(staging: string, output: string) {
   ];
   // capture.json は最後に置く。途中で移動が止まった周は採点資料として使わない。
   await rm(join(output, 'capture.json'), { force: true });
-  // この変更より前の周に残った全文の写し。
+  // #1605 より前の版は、周のディレクトリに docs/design.md の全文を design.md として置いた。
+  // 撮り直した周に古い全文が design-rules.md と並んで残り、採点役に混ざるので、ここで消す。
+  // 手元の screen-review-results/ に design.md の残る周が無くなったら、この削除は外してよい。
   await rm(join(output, 'design.md'), { force: true });
   for (const name of files) {
     await rm(join(output, name), { recursive: true, force: true });

@@ -26,6 +26,9 @@ function headingDepths(lines: string[]): (number | null)[] {
 
 // 見出しの完全一致で節を探し、同じ深さか浅い次の見出しの手前までを返す。
 // 見出しが0件か2件以上、本文が空のときは、見出しの名前を添えて例外を投げる。
+// 本文は、見出しの次の行から終わりまでの全体（子見出しの行も含む）。
+// 子見出しの行だけが残って説明が消えた節は、本文ありと数え、例外にしない（検知しないと決めた）。
+// その場合、抜粋が子見出しだけになりうる。対象の2節は本文を持ち、そうなる見込みが薄いため許容する。
 export function extractDesignSection(markdown: string, heading: string): string {
   const lines = markdown.split('\n').map((line) => line.replace(/\r$/, ''));
   const depths = headingDepths(lines);
