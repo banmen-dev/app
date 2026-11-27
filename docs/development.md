@@ -592,12 +592,13 @@ claude mcp add banmen -- node <main の作業コピーの絶対パス>/cli/banme
 
 ### Claude の設定
 
-フックは使わない。1人で開発しているので、守りは `permissions.deny` と、この文書の決まりを自分で守ることに置く（2026-11-27 に決めた）。`permissions.deny` は Read と Edit の道具にだけ効き、Bash で `.dev.vars` を読むことや、本番への操作、`gh release`、`v*` タグの push、`gh pr merge` の形は止めない。sandbox もこのリポジトリでは使わない（`.claude/settings.json` の `sandbox.enabled` は `false`）。
+フックは、応答が英語に切り替わるのを日本語に直させる `japanese-guard` の1つだけを使う。1人で開発しているので、守りは `permissions.deny` と、この文書の決まりを自分で守ることに置く。`permissions.deny` は Read と Edit の道具にだけ効き、Bash で `.dev.vars` を読むことや、本番への操作、`gh release`、`v*` タグの push、`gh pr merge` の形は止めない。sandbox もこのリポジトリでは使わない（`.claude/settings.json` の `sandbox.enabled` は `false`）。
 
 | 仕組み | 中身 |
 | --- | --- |
 | `permissions.allow` | GitHub の MCP の読むだけのツール。決め方は表の下の「allow に入れるもの」 |
 | `permissions.deny` | `.dev.vars`、`.env` とその環境ごとのファイル（`.local`、`.production` など）の読み取り、`.dev.vars` と `.env` の書き込み、wrangler の資格情報のディレクトリの読み取り |
+| `hooks` | `.claude/hooks/japanese-guard.py` を `Stop` と、デスクトップアプリの「次の一手」の箱（`mcp__.*__wrap_up`）の `PreToolUse` に登録する。本文の英字が日本語の3倍を超えたら終了を止め、英語の箇所だけ日本語に書き直させる（1ターンに1回まで）。コードブロック、インラインコード、URL、JSON だけの回答は数えない。`~/.claude` に届かないクラウドのセッションにも効かせるため、リポジトリに置く。`claude -p` で人が読まない出力を作るときは `JAPANESE_GUARD_DISABLE=1` で止める。しきい値は `JAPANESE_GUARD_*` の環境変数で変える。出典は [claude-code-japanese-guard](https://github.com/minorun365/claude-code-japanese-guard)（Apache License 2.0） |
 | `env` | `WRANGLER_SEND_METRICS=false`（テレメトリを送らない） |
 | `attribution`、`includeCoAuthoredBy` | コミットと PR に Claude の署名（`Co-Authored-By` と生成の行）を付けない |
 
