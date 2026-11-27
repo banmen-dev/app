@@ -997,6 +997,12 @@ export const pointers: Pointers = {
     connection_id: (await connectionFor(target, caller)).id,
     source_ids: ['1000'],
   }),
+  'connection-mapping-save': async (target, caller) => ({
+    workspace_id: target.workspace.id,
+    connection_id: (await connectionFor(target, caller)).id,
+    mappings: [],
+    ignore_source_due: false,
+  }),
   'connection-sync': async (target, caller) => ({
     workspace_id: target.workspace.id,
     connection_id: (await connectionFor(target, caller)).id,

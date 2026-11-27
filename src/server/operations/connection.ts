@@ -10,6 +10,9 @@ import {
   connectionCreate,
   connectionDelete,
   connectionList,
+  connectionMappingSave,
+  CONNECTION_SOURCE_STATUS_MAX_LENGTH,
+  CONNECTION_STATUS_MAPPINGS_MAX,
   connectionScopeCandidates,
   connectionScopesSave,
   connectionStop,
@@ -22,6 +25,7 @@ import {
   type ConnectionCreateProblem,
 } from '../../shared/operations/connection/index.ts';
 import {
+  jsonList,
   previousStatementChanged,
   type Expression,
   type ExpressionBuilder,
@@ -58,7 +62,7 @@ function liveConnections(from: From, workspaceId: string) {
 
 // 接続の一覧の形に直して返す。connectionId を渡すとその1件。暗号文と同期の状態は選ばない
 async function readConnections(db: OrganizationDb, workspaceId: string, connectionId?: string): Promise<Connection[]> {
-  const [connections, scopes] = await db.batch([
+  const [connections, scopes, mappings, statuses] = await db.batch([
     db.statement((q) => {
       const query = liveConnections(q, workspaceId)
         .leftJoin('users as u', (join) =>
@@ -72,6 +76,7 @@ async function readConnections(db: OrganizationDb, workspaceId: string, connecti
           'c.status',
           'c.stopped_reason',
           'c.scope_mode',
+          'c.ignore_source_due',
           'c.credential_last4',
           'c.owner_user_id',
           'u.name as owner_name',
@@ -96,7 +101,42 @@ async function readConnections(db: OrganizationDb, workspaceId: string, connecti
         .orderBy('s.source_id');
       return connectionId === undefined ? query : query.where('c.id', '=', connectionId);
     }),
+    db.statement((q) => {
+      const query = q
+        .selectFrom('connection_status_mappings as m')
+        .innerJoin('connections as c', 'c.id', 'm.connection_id')
+        .where('c.workspace_id', '=', workspaceId)
+        .where('c.deleted_at', 'is', null)
+        .select(['m.connection_id', 'm.source_status', 'm.column_id'])
+        .orderBy('m.source_status');
+      return connectionId === undefined ? query : query.where('c.id', '=', connectionId);
+    }),
+    // 取り込んだ項目に現れた状態名（対応を選べる状態）
+    db.statement((q) => {
+      const query = q
+        .selectFrom('task_sources as ts')
+        .innerJoin('connections as c', 'c.id', 'ts.connection_id')
+        .where('c.workspace_id', '=', workspaceId)
+        .where('ts.workspace_id', '=', workspaceId)
+        .where('c.deleted_at', 'is', null)
+        .select(['ts.connection_id', 'ts.source_status'])
+        .distinct()
+        .orderBy('ts.source_status');
+      return connectionId === undefined ? query : query.where('c.id', '=', connectionId);
+    }),
   ] as const);
+  const mappingsOf = new Map<string, { source_status: string; column_id: string }[]>();
+  for (const row of mappings.rows) {
+    const list = mappingsOf.get(row.connection_id) ?? [];
+    list.push({ source_status: row.source_status, column_id: row.column_id });
+    mappingsOf.set(row.connection_id, list);
+  }
+  const statusesOf = new Map<string, Set<string>>();
+  for (const row of statuses.rows) {
+    const set = statusesOf.get(row.connection_id) ?? new Set<string>();
+    set.add(row.source_status);
+    statusesOf.set(row.connection_id, set);
+  }
   const scopesOf = new Map<string, { id: string; name: string }[]>();
   for (const row of scopes.rows) {
     const list = scopesOf.get(row.connection_id) ?? [];
@@ -112,6 +152,10 @@ async function readConnections(db: OrganizationDb, workspaceId: string, connecti
     stopped_reason: row.stopped_reason,
     scope_mode: row.scope_mode as Connection['scope_mode'],
     scopes: scopesOf.get(row.id) ?? [],
+    ignore_source_due: Number(row.ignore_source_due) === 1,
+    status_mappings: mappingsOf.get(row.id) ?? [],
+    // 保存済みの対応の状態名を先に残し、残りの枠に取り込んだ状態名を入れる（切り詰めで保存済みの対応を落とさない）
+    source_statuses: statusNames(mappingsOf.get(row.id) ?? [], statusesOf.get(row.id)),
     credential_last4: row.credential_last4,
     owner_user_id: row.owner_user_id,
     owner_name: row.owner_name,
@@ -121,6 +165,20 @@ async function readConnections(db: OrganizationDb, workspaceId: string, connecti
     consecutive_failures: Number(row.consecutive_failures),
     created_at: row.created_at,
   }));
+}
+
+function selectableStatus(name: string): boolean {
+  return name.trim() !== '' && [...name].length <= CONNECTION_SOURCE_STATUS_MAX_LENGTH;
+}
+
+function statusNames(mappings: readonly { source_status: string }[], seen: ReadonlySet<string> | undefined): string[] {
+  const names = new Set(mappings.map((mapping) => mapping.source_status));
+  // 保存できない状態名（空、上限超え）は選ばせない
+  for (const name of [...(seen ?? [])].filter(selectableStatus).sort()) {
+    if (names.size >= CONNECTION_STATUS_MAPPINGS_MAX) break;
+    names.add(name);
+  }
+  return [...names].sort();
 }
 
 // 鍵の設定不備だけを区別する。復号の失敗など想定外の例外は従来どおり伝える。
@@ -329,6 +387,7 @@ async function ownConnection(db: OrganizationDb, actorUserId: string, workspaceI
           'c.last_manual_sync_at',
           'c.status',
           'c.stopped_reason',
+          'c.ignore_source_due',
         ])
         // 本人が今もそのワークスペースのメンバーか（403 で断らなければ、持ち主は呼んだ本人）
         .select((eb) =>
@@ -632,6 +691,173 @@ export const connectionScopesSaveOperation = implement(
       await throwIfClosed(db, workspaceId);
       // 読んだ後に接続が削除されたときは、存在しないときと同じ 404
       throwIfScopeBlocked(await ownConnection(db, actorUserId, workspaceId, row.id));
+      throw new ApiError(409, 'conflict');
+    }
+    const [connection] = await readConnections(db, workspaceId, row.id);
+    if (connection === undefined) throw new ApiError(404, 'not_found');
+    return { connection };
+  },
+);
+
+// 取り込み元の状態から列への対応と、期限を無視する設定を置き換える。取り込み元には問い合わせない。
+// 列は、そのワークスペースの削除していない、完了でない列だけ（完了の列は対応先にしない）。
+// 1回の batch() で、接続の更新、変更の履歴、対応の置き換え、期限を無視するときは取り込み済みの取り込み元の期限を空にする（履歴の行があるときだけ動く）
+export const connectionMappingSaveOperation = implement(
+  connectionMappingSave,
+  async ({ db, actor, workspace, input }) => {
+    const actorUserId = actorUserIdOf(actor);
+    const workspaceId = workspace.workspaceId;
+    const organizationId = db.organizationId;
+    const row = await ownConnection(db, actorUserId, workspaceId, input.connection_id);
+    // 持ち主が去って止めた接続は、画面と同じく断る（範囲の保存と同じ 409 の connection_stopped）
+    throwIfScopeBlocked(row);
+
+    // 同じ状態名は後の指定を採る
+    const byStatus = new Map<string, string>();
+    for (const mapping of input.mappings) byStatus.set(mapping.source_status, mapping.column_id);
+    const columnIds = [...new Set(byStatus.values())];
+    if (columnIds.length > 0) {
+      const found = await db.rows(
+        db.statement((q) =>
+          q
+            .selectFrom('board_columns')
+            .select(['id', 'is_done'])
+            .where('workspace_id', '=', workspaceId)
+            .where('deleted_at', 'is', null)
+            .where('id', 'in', jsonList(columnIds)),
+        ),
+      );
+      const known = new Map(found.map((column) => [column.id, Number(column.is_done) === 1]));
+      for (const id of columnIds) {
+        const done = known.get(id);
+        if (done === undefined || done) {
+          throw new ApiError(400, 'invalid_input', [
+            {
+              path: 'mappings',
+              code: done === undefined ? 'column_unknown' : 'column_done',
+              message: done === undefined ? '列が見つからない' : '完了の列は選べない',
+            },
+          ]);
+        }
+      }
+    }
+
+    const at = now();
+    const stamp = at.toISOString();
+    const logId = uuidv7(at);
+    const logged = (q: Pick<QueryCreator<Tables>, 'selectFrom'>) =>
+      q.selectFrom('change_logs').select('change_logs.id').where('change_logs.id', '=', logId);
+    const statements = [
+      db.statement((q) =>
+        q
+          .updateTable('connections')
+          // 無視をやめる保存では、次の同期で全部を読む（差分では、取り込み元で更新されていない項目の期限が戻らない）
+          .set({
+            ignore_source_due: input.ignore_source_due ? 1 : 0,
+            updated_at: stamp,
+            ...(!input.ignore_source_due && Number(row.ignore_source_due) === 1
+              ? { last_success_at: null, sync_state_json: '{}' }
+              : {}),
+          })
+          .where('id', '=', row.id)
+          .where('workspace_id', '=', workspaceId)
+          .where('owner_user_id', '=', actorUserId)
+          .where('deleted_at', 'is', null)
+          // 読んだ設定のまま（並行する保存で、巻き戻しの有無がずれない）
+          .where('ignore_source_due', '=', Number(row.ignore_source_due))
+          .where((eb) => eb.exists(openWorkspace(q, organizationId, workspaceId)))
+          // 読んだ列が今もすべてある（読んでから書くまでに消えた列を指す対応を書かない）
+          .where((eb) =>
+            eb(
+              eb
+                .selectFrom('board_columns as col')
+                .select((count) => count.fn.countAll<number>().as('n'))
+                .where('col.workspace_id', '=', workspaceId)
+                .where('col.deleted_at', 'is', null)
+                .where('col.is_done', '=', 0)
+                .where('col.id', 'in', jsonList(columnIds)),
+              '=',
+              columnIds.length,
+            ),
+          ),
+      ),
+      db.statement((q) =>
+        q
+          .insertInto('change_logs')
+          .columns(changeLogColumns)
+          .expression(
+            q
+              .selectNoFrom((eb) => [
+                eb.val(logId).as('id'),
+                eb.val(organizationId).as('organization_id'),
+                eb.val(workspaceId).as('workspace_id'),
+                eb.val(actorUserId).as('actor_user_id'),
+                eb.val('connection').as('entity_type'),
+                eb.val(row.id).as('entity_id'),
+                eb.val('update').as('action'),
+                // 前の値は履歴の文の中で読む（読んでから書くまでの並行する保存で食い違わない）。対応は件数だけ残す
+                eb
+                  .fn<string>('json_object', [
+                    eb.val('status_mappings_count'),
+                    eb.fn('json_array', [
+                      eb
+                        .selectFrom('connection_status_mappings')
+                        .select((count) => count.fn.countAll<number>().as('n'))
+                        .where('connection_id', '=', row.id),
+                      eb.cast(eb.val(byStatus.size), 'integer'),
+                    ]),
+                    eb.val('ignore_source_due'),
+                    eb.fn('json_array', [
+                      eb.cast(eb.val(Number(row.ignore_source_due) === 1 ? 1 : 0), 'integer'),
+                      eb.cast(eb.val(input.ignore_source_due ? 1 : 0), 'integer'),
+                    ]),
+                  ])
+                  .as('changes_json'),
+                eb.val(stamp).as('created_at'),
+              ])
+              .where(previousStatementChanged),
+          ),
+      ),
+      db.statement((q) =>
+        q
+          .deleteFrom('connection_status_mappings')
+          .where('connection_id', '=', row.id)
+          .where((eb) => eb.exists(logged(q))),
+      ),
+      ...[...byStatus].map(([sourceStatus, columnId]) =>
+        db.statement((q) =>
+          q
+            .insertInto('connection_status_mappings')
+            .columns(['connection_id', 'source_status', 'column_id'])
+            .expression(
+              q
+                .selectNoFrom((eb) => [
+                  eb.val(row.id).as('connection_id'),
+                  eb.val(sourceStatus).as('source_status'),
+                  eb.val(columnId).as('column_id'),
+                ])
+                .where((eb) => eb.exists(logged(q))),
+            ),
+        ),
+      ),
+    ];
+    if (input.ignore_source_due) {
+      statements.push(
+        db.statement((q) =>
+          q
+            .updateTable('task_sources')
+            .set({ source_due_on: null })
+            .where('connection_id', '=', row.id)
+            .where('workspace_id', '=', workspaceId)
+            .where('source_due_on', 'is not', null)
+            .where((eb) => eb.exists(logged(q))),
+        ),
+      );
+    }
+    const results = await db.batch(statements as never);
+    if (((results as readonly { changes?: number }[])[0]?.changes ?? 0) === 0) {
+      await throwIfClosed(db, workspaceId);
+      await ownConnection(db, actorUserId, workspaceId, row.id);
       throw new ApiError(409, 'conflict');
     }
     const [connection] = await readConnections(db, workspaceId, row.id);

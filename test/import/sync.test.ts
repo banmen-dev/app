@@ -269,6 +269,21 @@ describe('取り込みの同期', () => {
       expect(await logCount(db, workspace.id)).toBe(0);
     });
 
+    test('期限を無視する接続は、新しい項目も更新でも取り込み元の期限を書かない', async () => {
+      const { workspace, connection, db } = await setup();
+      await db.run(
+        db.statement((q) => q.updateTable('connections').set({ ignore_source_due: 1 }).where('id', '=', connection.id)),
+      );
+      const run = (over: Partial<ImportItem>) =>
+        syncConnection(env, db, workspace.id, connection.id, {
+          source: fakeSource({ '501': [{ items: [item(1, over)], next: null }] }).source,
+        });
+      await run({ dueOn: '2026-12-10' });
+      expect((await firstTask(db, workspace.id)).source_due_on).toBeNull();
+      await run({ dueOn: '2026-12-11', status: 'in review', updatedAt: '2026-11-02T00:00:00.000Z' });
+      expect(await firstTask(db, workspace.id)).toMatchObject({ source_status: 'in review', source_due_on: null });
+    });
+
     test('取り込み元で閉じると完了の印が付き、タスクは完了にならない。開き直すと印が外れる', async () => {
       const { workspace, connection, db } = await setup();
       const run = async (over: Partial<ImportItem>) =>

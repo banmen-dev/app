@@ -2,7 +2,8 @@
 // 形の違う PAT が理由つきで断られること、登録から範囲の選択と保存までの流れ、本人による接続の編集を確かめる。
 // 取り込み元に届く操作は応答を差し替える（seed の行を変えず、GitHub にも問い合わせない）
 import { expect, test } from './fixtures.ts';
-import { signIn, watchViolations } from './helpers.ts';
+import { createWorkspace, signIn, waitForResponses, watchViolations } from './helpers.ts';
+import { seedInboxTasks } from './local-d1.ts';
 import { failOperation, mockOperation, routeOperation } from './operations.ts';
 import {
   connectionCreate,
@@ -20,6 +21,7 @@ const WORKSPACE_ID = '019a0000-0000-7000-8000-000000000401';
 const WORKSPACE = `/aoba/w/${WORKSPACE_ID}`;
 const HIBARI_TOOLS = '/hibari/w/019a0000-0000-7000-8000-000000000402';
 const MINATO = '019a0000-0000-7000-8000-000000000301';
+const ADMIN_USER_ID = MINATO;
 const NEW_ID = '019a0000-0000-7000-8000-000000000f99';
 
 test.use({ timezoneId: 'Asia/Tokyo' });
@@ -37,6 +39,9 @@ function created(overrides: Partial<Connection> = {}): Connection {
     stopped_reason: null,
     scope_mode: 'include',
     scopes: [],
+    ignore_source_due: false,
+    status_mappings: [],
+    source_statuses: [],
     credential_last4: 'abcd',
     owner_user_id: MINATO,
     owner_name: 'ミナト',
@@ -706,4 +711,65 @@ test('リーダーでも管理者でもないメンバーには、他の人の�
   // seed の接続はミナト（メンバーではない人）のもの
   await expect(page.getByRole('button', { name: '止める' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '削除' })).toHaveCount(0);
+});
+
+test('接続の画面で状態に列を対応させると、取り込んだタスクをスプリントに入れたとき、その列に置かれる', async ({
+  page,
+}) => {
+  // 受信箱から入れて、スプリントを作って始めるまでの長い流れ。ほかのファイルと並べて走ると既定の 30 秒を超えうる
+  test.setTimeout(90_000);
+  const suffix = `${test.info().repeatEachIndex}-${test.info().retry}`;
+  const title = `対応の確かめ-${suffix}`;
+  const sprint = `対応-${suffix}`;
+  await createWorkspace(page, `対応-${suffix}`);
+  const workspaceId = /\/w\/([0-9a-f-]{36})/.exec(page.url())?.[1];
+  if (workspaceId === undefined) throw new Error('ワークスペースの ID を URL から取れなかった');
+  await seedInboxTasks(workspaceId, ADMIN_USER_ID, [title]);
+
+  // 受信箱から、バックログへ入れる
+  await page.goto(`/aoba/w/${workspaceId}/inbox`);
+  const toBacklog = waitForResponses(page, '/inbox-to-backlog');
+  await page.getByRole('button', { name: `「${title}」をバックログへ入れる` }).click();
+  await toBacklog;
+
+  // 接続の画面で、状態「open」を「レビュー」に対応させる。完了の列は選択肢に無い
+  await page.goto(`/aoba/w/${workspaceId}/connections`);
+  const row = page.getByRole('list', { name: '接続の一覧' }).getByRole('listitem');
+  await expect(row).toContainText('なし（スプリントに入れるとき、先頭の列に置きます）');
+  await row.getByRole('button', { name: '列の対応', exact: true }).click();
+  const form = page.getByRole('form', { name: '状態から列への対応' });
+  const select = form.getByLabel('open の列');
+  await expect(select.locator('option')).toHaveText(['先頭の列（既定）', '未着手', '作業中', 'レビュー']);
+  await select.selectOption({ label: 'レビュー' });
+  const saved = waitForResponses(page, '/connection-mapping-save');
+  await form.getByRole('button', { name: '保存する', exact: true }).click();
+  expect((await saved).ok()).toBe(true);
+  await expect(form).toHaveCount(0);
+  await expect(row.locator('.tag', { hasText: 'open → レビュー' })).toBeVisible();
+
+  // スプリントを作って入れ、始めると、カードは「レビュー」の列にある（対応が無い状態なら先頭の「未着手」）
+  await page.getByRole('link', { name: '計画' }).click();
+  await page.getByRole('button', { name: 'スプリントを作る' }).click();
+  const create = page.getByRole('dialog', { name: 'スプリントを作る' });
+  await create.getByLabel('開始日').fill('2099-05-03');
+  await create.getByLabel('長さ（日）').fill('14');
+  await create.getByLabel('名前（任意）').fill(sprint);
+  await create.getByRole('button', { name: '作る' }).click();
+  await expect(create).toBeHidden();
+  await page.getByRole('button', { name: `バックログから入れる: スプリント「${sprint}」` }).click();
+  const picker = page.getByRole('dialog', { name: `スプリント「${sprint}」に入れる` });
+  await picker
+    .getByRole('group', { name: '入れるタスク' })
+    .getByRole('checkbox', { name: new RegExp(`^${title}`) })
+    .check();
+  await picker.getByRole('button', { name: '1 件入れる' }).click();
+  await expect(picker).toBeHidden();
+  await page.getByRole('button', { name: `始める: スプリント「${sprint}」` }).click();
+  const start = page.getByRole('dialog', { name: 'スプリントを始める' });
+  await start.getByRole('button', { name: '始める' }).click();
+  await expect(start).toBeHidden();
+  await page.getByRole('link', { name: 'ボード', exact: true }).click();
+  const titlesIn = (column: string) => page.getByRole('region', { name: column, exact: true }).locator('.card-title');
+  await expect(titlesIn('レビュー')).toHaveText([title]);
+  await expect(titlesIn('未着手')).toHaveText([]);
 });

@@ -805,10 +805,10 @@ function nothingAdded(skipped: AddCounts): ApiError {
 }
 
 // スプリントにタスクを入れる。書く文は送られたタスクの数によらない4文で、1回の batch() で送る。
-// どの文も同じ前提（閉じていないワークスペース、入れる先が削除していない planned か active、読んだ先頭の列が今もある）と、
+// どの文も同じ前提（閉じていないワークスペース、入れる先が削除していない planned か active、置く列（先頭の列と、取り込み元の状態に対応する列）が今もある）と、
 // タスクごとの条件（そのワークスペースの、バックログの、未完了の、削除していない、このスプリントに入っていないタスク）を持つ。
 // 1. 変更の履歴（{"sprint": [前, 後]}。前は今入っているスプリントか null）、2. 別のスプリントに入っている行を removed で閉じる、
-// 3. 入った行を足す、4. タスクのスプリント、先頭の列、列の中の末尾の位置を書く。1〜3 はタスクを書き換えないので、4 まで同じタスクに当たる
+// 3. 入った行を足す、4. タスクのスプリント、置く列（対応する列か先頭の列）、その列の中の末尾の位置を書く。1〜3 はタスクを書き換えないので、4 まで同じタスクに当たる
 export const sprintTaskAddOperation = implement(sprintTaskAdd, async ({ db, actor, workspace, input }) => {
   const actorUserId = actorUserIdOf(actor);
   const organizationId = db.organizationId;
@@ -836,7 +836,7 @@ async function addOnce(
   db: OrganizationDb,
   { organizationId, workspaceId, actorUserId, sprintId, taskIds }: AddContext,
 ): Promise<{ added: number; skipped: AddCounts } | 'retry'> {
-  const [sprintResult, rowsResult, columnResult, lastResult] = await db.batch([
+  const [sprintResult, rowsResult, columnResult, tailsResult, mappedResult] = await db.batch([
     db.statement((q) =>
       q
         .selectFrom('sprints')
@@ -847,17 +847,36 @@ async function addOnce(
     ),
     addRowsStatement(db, workspaceId, taskIds),
     db.statement((q) => firstColumn(q, workspaceId)),
-    // 先頭の列の、このスプリントでの末尾
+    // 列ごとの、このスプリントでの末尾
     db.statement((q) =>
       q
         .selectFrom('tasks')
-        .select('tasks.column_position')
+        .select(['tasks.column_id', (eb) => eb.fn.max('tasks.column_position').as('tail')])
         .where('tasks.workspace_id', '=', workspaceId)
         .where('tasks.sprint_id', '=', sprintId)
-        .where('tasks.column_id', '=', firstColumn(q, workspaceId))
+        .where('tasks.column_id', 'is not', null)
         .where('tasks.deleted_at', 'is', null)
-        .orderBy('tasks.column_position', 'desc')
-        .limit(1),
+        .groupBy('tasks.column_id'),
+    ),
+    // 取り込んだタスクの、取り込み元の状態に対応する列（削除していない、完了でない列だけ）
+    db.statement((q) =>
+      q
+        .selectFrom('task_sources as ts')
+        .innerJoin('connections as mcon', (join) =>
+          join.onRef('mcon.id', '=', 'ts.connection_id').on('mcon.workspace_id', '=', workspaceId),
+        )
+        .innerJoin('connection_status_mappings as m', (join) =>
+          join.onRef('m.connection_id', '=', 'ts.connection_id').onRef('m.source_status', '=', 'ts.source_status'),
+        )
+        .innerJoin('board_columns as mc', (join) =>
+          join.onRef('mc.id', '=', 'm.column_id').on('mc.workspace_id', '=', workspaceId),
+        )
+        .select(['ts.task_id', 'mc.id as column_id'])
+        .where('ts.workspace_id', '=', workspaceId)
+        .where('mcon.deleted_at', 'is', null)
+        .where('ts.task_id', 'in', jsonList(taskIds))
+        .where('mc.deleted_at', 'is', null)
+        .where('mc.is_done', '=', 0),
     ),
   ] as const);
 
@@ -883,8 +902,18 @@ async function addOnce(
 
   const at = now();
   const addedAt = at.toISOString();
-  const keys = generateNKeysBetween(lastResult.rows[0]?.column_position ?? null, null, addable.length);
-  const positions = addable.map((id, index) => [id, keys[index]!] as const);
+  // 取り込み元の状態に対応する列があればそこへ、無ければ先頭の列へ置く。列ごとに、このスプリントでの末尾の後ろへ並べる
+  const mappedColumn = new Map(mappedResult.rows.map((row) => [row.task_id, row.column_id]));
+  const tails = new Map(tailsResult.rows.map((row) => [row.column_id, row.tail]));
+  const columnOf = new Map(addable.map((id) => [id, mappedColumn.get(id) ?? columnId] as const));
+  const usedColumns = [...new Set(columnOf.values())];
+  const positions: (readonly [string, string])[] = [];
+  for (const used of usedColumns) {
+    const ids = addable.filter((id) => columnOf.get(id) === used);
+    const keys = generateNKeysBetween(tails.get(used) ?? null, null, ids.length);
+    ids.forEach((id, index) => positions.push([id, keys[index]!] as const));
+  }
+  const columnPairs = addable.map((id) => [id, columnOf.get(id)!] as const);
 
   // 入れられるタスクの ID（そのワークスペースの、バックログの、未完了の、削除していない、このスプリントに入っていない、
   // 終了した（削除していない）スプリントに入っていないもの）
@@ -920,14 +949,18 @@ async function addOnce(
       .where('gw.organization_id', '=', organizationId)
       .where('gw.closed_at', 'is', null)
       .where((eb) => eb.exists(openSprint(from, workspaceId, sprintId)))
+      // 置く列がすべて今もある（先頭の列と、対応先の列。対応先は完了でない列のまま）
       .where((eb) =>
-        eb.exists(
-          from
+        eb(
+          eb
             .selectFrom('board_columns as col')
-            .select('col.id')
-            .where('col.id', '=', columnId)
+            .select((count) => count.fn.countAll<number>().as('n'))
+            .where('col.id', 'in', jsonList(usedColumns))
             .where('col.workspace_id', '=', workspaceId)
-            .where('col.deleted_at', 'is', null),
+            .where('col.deleted_at', 'is', null)
+            .where((cond) => cond.or([cond('col.id', '=', columnId), cond('col.is_done', '=', 0)])),
+          '=',
+          usedColumns.length,
         ),
       );
 
@@ -1017,7 +1050,7 @@ async function addOnce(
         .updateTable('tasks')
         .set((eb) => ({
           sprint_id: sprintId,
-          column_id: columnId,
+          column_id: jsonPairLookup(columnPairs, eb.ref('tasks.id')),
           column_position: jsonPairLookup(positions, eb.ref('tasks.id')),
           updated_at: addedAt,
         }))
