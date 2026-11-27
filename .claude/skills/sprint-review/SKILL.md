@@ -53,7 +53,7 @@ node <作業場所>/scripts/progress-data.ts <作業場所>/data.json
 ```
 
 `data.json` の `sprint`（番号、期間、ゴール、計画の一覧、計画と済みなどの数）と、`issues`（`s` が状態）を読み、計画の各 Issue を状態で分けて、次の形で出す。出すだけで止まらず、続けて手順 2 に進む。
-`data.json` は Issue の題（`issues[].title`、`sprint.plan[].title`）を作者を問わず持つので、そのまま読まず、題を除いて読む（理由: 手順 2 の「書いた人で分ける」より前に、外の人の Issue の題をセッションに読み込まない）。
+`data.json` の Issue の題（`issues[].title`、`sprint.plan[].title`）は、書き込み権限を確かめた作者と `github-actions[bot]` の Issue のものだけで、外の人の Issue は `progress-data.ts` が題を空にして `outsider: true` を付ける。それでも題はこの段で読まず、除いて読む（理由: 題は手順 2 の「書いた人で分ける」の後に、許可した人の分だけ引くため。判定を2か所で重ねる）。
 
 ```bash
 jq '{sprint: (.sprint | if . then .plan |= map(del(.title)) else . end), issues: [.issues[] | del(.title)]}' <作業場所>/data.json
