@@ -97,7 +97,7 @@ test.describe('管理者（あおば開発のミナト）', () => {
     // 所属の数は API の値。ハルカは seed では 2 だが、ほかのファイル（e2e/workspace.test.ts）がハルカをリーダーにワークスペースを作り、
     // 消せずに残るので、並べて走る順と繰り返し（--repeat-each）で増える。所属の無いソラは、このファイルしか触らないので 0 のまま
     const harukaCount = listed?.users.find((user) => user.name === 'ハルカ')?.workspace_count;
-    expect(harukaCount).toBeGreaterThanOrEqual(1);
+    expect(harukaCount).toBeGreaterThanOrEqual(2);
     await expect(haruka.locator('td.is-num')).toHaveText(String(harukaCount));
     await expect(rowOf(page, 'ソラ').locator('td.is-num')).toHaveText('0');
     await expect(haruka.getByRole('button', { name: 'ハルカを無効にする' })).toHaveText('無効にする');
