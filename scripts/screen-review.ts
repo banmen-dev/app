@@ -272,11 +272,19 @@ async function main() {
     if (scratch) await rm(scratch, { recursive: true, force: true });
     await rm(lock, { recursive: true, force: true });
   }
-  // 周の確定後の表示なので try の外に置く。表示の失敗で撮影の成功を失敗として扱わない。
-  if (completed)
-    console.log(
-      `採点役に渡す画像（周のディレクトリでなく、この絶対パスを1枚ずつ渡す）:\n${(await reviewImagePaths(output)).join('\n')}`,
-    );
+  // 周の確定後の表示なので try の外に置く。一覧を作れなくても撮影は成功のまま、理由だけ出して終了コードは変えない。
+  if (completed) {
+    try {
+      console.log(
+        `採点役に渡す画像（周のディレクトリでなく、この絶対パスを1枚ずつ渡す）:\n${(await reviewImagePaths(output)).join('\n')}`,
+      );
+    } catch (error) {
+      console.error(
+        '採点役に渡す画像の一覧を作れません。周のディレクトリの pairs/ と motion/ を確かめてください',
+        error,
+      );
+    }
+  }
 }
 
 void main().catch((error: unknown) => {
