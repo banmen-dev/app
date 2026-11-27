@@ -1,4 +1,4 @@
-// sg mcp の道具（cli/lib/mcp-tools.ts）と本物の app のつなぎ。app の fetch を渡し、テストで足した仮の操作が道具に出て呼べること、
+// banmen mcp の道具（cli/lib/mcp-tools.ts）と本物の app のつなぎ。app の fetch を渡し、テストで足した仮の操作が道具に出て呼べること、
 // 読み取りのトークンでは書き込みの道具が出ず呼ぶと isError になること、別の組織の ID が API と同じエラーになること（Issue #583）
 import { describe, expect, test } from 'vitest';
 import { z } from 'zod';
@@ -93,7 +93,7 @@ function noToken(connection: Connection, ...texts: string[]) {
 
 const textOf = (result: McpToolResult) => result.content[0]!.text;
 
-describe('sg mcp の道具の一覧', () => {
+describe('banmen mcp の道具の一覧', () => {
   test('サーバーにだけ足した仮の操作が道具に出る。運用者の操作は出ない', async () => {
     const person = await createLoginPerson();
     const connection = await connectionOf(person);
@@ -150,7 +150,7 @@ describe('sg mcp の道具の一覧', () => {
   });
 });
 
-describe('sg mcp の道具の呼び出し', () => {
+describe('banmen mcp の道具の呼び出し', () => {
   test('サーバーにだけ足した操作を呼べる', async () => {
     const person = await createLoginPerson();
     const connection = await connectionOf(person);
@@ -226,7 +226,7 @@ describe('sg mcp の道具の呼び出し', () => {
   });
 });
 
-describe('sg mcp の既定は読み取りだけ（--allow-write）', () => {
+describe('banmen mcp の既定は読み取りだけ（--allow-write）', () => {
   test('書き込みのトークンでも、既定では書き込みの道具が一覧に無く、呼ぶと isError で実行されない。--allow-write で出て呼べる', async () => {
     const person = await createLoginPerson();
     const connection = await connectionOf(person, { scope: 'write' });

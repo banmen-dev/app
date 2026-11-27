@@ -51,14 +51,17 @@ describe('URL の問い合わせと断片', () => {
     });
 
     test(`使うときも ${url} は 2 で、送らない`, async () => {
-      const result = await sg(['ops'], memoryStore(base()), { SG_URL: url, SG_TOKEN: TOKEN });
+      const result = await sg(['ops'], memoryStore(base()), { BANMEN_URL: url, BANMEN_TOKEN: TOKEN });
       assert.equal(result.code, 2, result.stderr);
       assert.deepEqual(result.urls, []);
     });
   }
 
   test('パスを含む URL は受け付け、その下に /api を足す', async () => {
-    const result = await sg(['ops'], memoryStore(base()), { SG_URL: 'https://guild.example/team/', SG_TOKEN: TOKEN });
+    const result = await sg(['ops'], memoryStore(base()), {
+      BANMEN_URL: 'https://guild.example/team/',
+      BANMEN_TOKEN: TOKEN,
+    });
     assert.equal(result.code, 0, result.stderr);
     assert.deepEqual(result.urls, ['https://guild.example/team/api/operation-list']);
   });

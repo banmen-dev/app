@@ -1,4 +1,4 @@
-// sg の本体（main）を崩しにいくテストの2周目。期待は Issue #582 の前提と受け入れ条件に照らす
+// banmen の本体（main）を崩しにいくテストの2周目。期待は Issue #582 の前提と受け入れ条件に照らす
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -181,16 +181,16 @@ describe('config の書き込みの経路', () => {
   });
 
   // 前提「トークンと URL は環境変数か設定ファイルから読み」「環境変数が設定ファイルに勝つ」。環境変数は読むだけで、設定に書き写さない
-  test('SG_TOKEN を付けたまま config set url しても、環境変数のトークンを設定に保存しない', async () => {
+  test('BANMEN_TOKEN を付けたまま config set url しても、環境変数のトークンを設定に保存しない', async () => {
     const config = memoryStore({ default_profile: 'main', profiles: { main: {} } });
-    const result = await sg(['config', 'set', 'url', URL_MAIN], { config, env: { SG_TOKEN: TOKEN_ENV } });
+    const result = await sg(['config', 'set', 'url', URL_MAIN], { config, env: { BANMEN_TOKEN: TOKEN_ENV } });
     assert.equal(result.code, 0, result.stderr);
     assert.deepEqual(config.current()!.profiles.main, { url: URL_MAIN });
   });
 
-  test('SG_PROFILE を付けた config set は、その名前の接続先に書き、ほかの接続先と既定を変えない', async () => {
+  test('BANMEN_PROFILE を付けた config set は、その名前の接続先に書き、ほかの接続先と既定を変えない', async () => {
     const config = memoryStore(oneProfile());
-    const result = await sg(['config', 'set', 'org', 'kaede'], { config, env: { SG_PROFILE: 'night' } });
+    const result = await sg(['config', 'set', 'org', 'kaede'], { config, env: { BANMEN_PROFILE: 'night' } });
     assert.equal(result.code, 0, result.stderr);
     assert.deepEqual(config.current(), {
       default_profile: 'main',
@@ -210,7 +210,7 @@ describe('JSON としては読めるが、形の違う設定ファイル', () =>
     return { path, store: fileConfigStore(path) };
   }
 
-  test('sg ops は、つながらない（3）ではなく使い方の誤り（2）で、トークンを出さない', async () => {
+  test('banmen ops は、つながらない（3）ではなく使い方の誤り（2）で、トークンを出さない', async () => {
     const { store } = await flatConfig();
     const result = await sg(['ops'], { config: store });
     assert.ok(!result.stderr.includes(TOKEN), result.stderr);
@@ -218,7 +218,7 @@ describe('JSON としては読めるが、形の違う設定ファイル', () =>
     usageError(result);
   });
 
-  test('sg config set url は、つながらない（3）ではなく使い方の誤り（2）で、ファイルを書き換えない', async () => {
+  test('banmen config set url は、つながらない（3）ではなく使い方の誤り（2）で、ファイルを書き換えない', async () => {
     const { path, store } = await flatConfig();
     const before = await readFile(path, 'utf8');
     const result = await sg(['config', 'set', 'url', 'https://other.guild.example'], { config: store });

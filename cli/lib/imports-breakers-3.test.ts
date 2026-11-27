@@ -27,8 +27,8 @@ describe('cli/ から src/ に届く import を止める', () => {
     });
   }
 
-  test('cli/sg.ts（入口）から ../src/ も止める', async () => {
-    assert.equal(await restricted("import { x } from '../src/shared/operations/index.ts';", 'cli/sg.ts'), true);
+  test('cli/banmen.ts（入口）から ../src/ も止める', async () => {
+    assert.equal(await restricted("import { x } from '../src/shared/operations/index.ts';", 'cli/banmen.ts'), true);
   });
 
   // $lib は SvelteKit の別名で src/lib を指す。型だけの import は node の型の除去で消えるので、実行でも落ちずに src/ に届く
