@@ -1,4 +1,4 @@
-// sg の入口（cli/sg.ts）の mcp を、子プロセスで確かめる。標準入出力の MCP、標準入力が閉じたときの終了、起動の誤りの終了コード 2
+// banmen の入口（cli/banmen.ts）の mcp を、子プロセスで確かめる。標準入出力の MCP、標準入力が閉じたときの終了、起動の誤りの終了コード 2
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-const ENTRY = fileURLToPath(new URL('../sg.ts', import.meta.url));
+const ENTRY = fileURLToPath(new URL('../banmen.ts', import.meta.url));
 const TOKEN = `sgp_${'M'.repeat(43)}`;
 
 function run(args: string[], env: Record<string, string>, input: string[]) {
@@ -36,7 +36,7 @@ function run(args: string[], env: Record<string, string>, input: string[]) {
   });
 }
 
-describe('sg mcp（子プロセス）', () => {
+describe('banmen mcp（子プロセス）', () => {
   test('標準入力で initialize と tools/list を受け、標準出力にはプロトコルだけを出し、標準入力が閉じたら 0 で終わる', async () => {
     const server = createServer((request, response) => {
       assert.equal(request.headers.authorization, `Bearer ${TOKEN}`);
@@ -60,7 +60,7 @@ describe('sg mcp（子プロセス）', () => {
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     try {
-      const result = await run(['mcp'], { SG_URL: url, SG_TOKEN: TOKEN }, [
+      const result = await run(['mcp'], { BANMEN_URL: url, BANMEN_TOKEN: TOKEN }, [
         JSON.stringify({
           jsonrpc: '2.0',
           id: 1,
@@ -91,7 +91,12 @@ describe('sg mcp（子プロセス）', () => {
     const home = mkdtempSync(join(tmpdir(), 'sg-mcp-home-'));
     try {
       const child = spawn(process.execPath, [ENTRY, 'mcp'], {
-        env: { PATH: process.env.PATH, HOME: home, SG_URL: 'http://127.0.0.1:9', SG_TOKEN: TOKEN } as NodeJS.ProcessEnv,
+        env: {
+          PATH: process.env.PATH,
+          HOME: home,
+          BANMEN_URL: 'http://127.0.0.1:9',
+          BANMEN_TOKEN: TOKEN,
+        } as NodeJS.ProcessEnv,
       });
       let stderr = '';
       child.stderr.on('data', (chunk) => (stderr += chunk));
@@ -144,7 +149,7 @@ describe('sg mcp（子プロセス）', () => {
       JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' }),
     ];
     const toolNames = async (args: string[]) => {
-      const result = await run(args, { SG_URL: url, SG_TOKEN: TOKEN }, input);
+      const result = await run(args, { BANMEN_URL: url, BANMEN_TOKEN: TOKEN }, input);
       assert.equal(result.code, 0, result.stderr);
       const list = result.stdout
         .trim()

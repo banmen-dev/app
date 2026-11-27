@@ -1,4 +1,4 @@
-// sg の本体（main）を崩しにいくテスト。期待は Issue #582 の前提と受け入れ条件に照らす
+// banmen の本体（main）を崩しにいくテスト。期待は Issue #582 の前提と受け入れ条件に照らす
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -108,11 +108,11 @@ describe('トークンを出力に出さない', () => {
       },
     ],
     [
-      '環境変数 SG_TOKEN で渡したとき',
+      '環境変数 BANMEN_TOKEN で渡したとき',
       () =>
         sg(['ops'], {
           config: memoryStore(),
-          env: { SG_URL: URL_MAIN, SG_TOKEN: `${TOKEN}\n${MEMO}` },
+          env: { BANMEN_URL: URL_MAIN, BANMEN_TOKEN: `${TOKEN}\n${MEMO}` },
         }),
     ],
   ] as const) {

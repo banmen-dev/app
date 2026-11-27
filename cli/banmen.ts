@@ -24,7 +24,7 @@ const deps: CliDeps = {
   config,
 };
 if (argv[0] === 'mcp') {
-  // SDK は sg mcp のときだけ読む（ほかのコマンドの起動を遅くしない）
+  // SDK は banmen mcp のときだけ読む（ほかのコマンドの起動を遅くしない）
   const { runMcp } = await import('./lib/mcp-server.ts');
   process.exitCode = await runMcp(argv.slice(1), deps);
 } else {

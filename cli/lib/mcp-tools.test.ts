@@ -1,4 +1,4 @@
-// sg mcp の道具の一覧と呼び出し（mcp-tools.ts）を、偽の fetch と操作の一覧の見本で確かめる。決まりは Issue #583 の前提
+// banmen mcp の道具の一覧と呼び出し（mcp-tools.ts）を、偽の fetch と操作の一覧の見本で確かめる。決まりは Issue #583 の前提
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import type { CliDeps, Connection } from './main.ts';

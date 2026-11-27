@@ -1,10 +1,10 @@
-// sg mcp: MCP の SDK の低水準 Server で tools/list と tools/call を結ぶ。道具の一覧と呼び出しの本体は mcp-tools.ts。
+// banmen mcp: MCP の SDK の低水準 Server で tools/list と tools/call を結ぶ。道具の一覧と呼び出しの本体は mcp-tools.ts。
 // 標準出力は MCP のプロトコル専用。ここからも本体からも、標準出力へ書かない。src/ は import しない
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError } from '@modelcontextprotocol/sdk/types.js';
-import { connectionFromArgs, reportOf, type CliDeps, type Connection } from './main.ts';
+import { connectionFromArgs, noticeLegacyNames, reportOf, type CliDeps, type Connection } from './main.ts';
 import { callTool, listTools, type McpOptions } from './mcp-tools.ts';
 
 // idle は、処理中のリクエストが無くなるまで待つ（標準入力が閉じても、送られた分の応答は返してから閉じる）
@@ -52,6 +52,7 @@ export function createMcpServer(
 // 接続先の誤りは標準エラーに JSON で出して 2。標準入力が閉じる（transport が閉じる）まで動く。
 // transport を渡さないときは標準入出力で動き、標準入力の終わりで閉じる
 export async function runMcp(args: string[], deps: CliDeps, transport?: Transport): Promise<number> {
+  noticeLegacyNames(deps);
   let connection: Connection;
   let allowWrite: boolean;
   try {

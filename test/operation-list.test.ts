@@ -195,7 +195,7 @@ describe('本番の一覧', () => {
     });
   }
 
-  // CLI の sg ops はこの一覧を出す。経験値とレベルの操作は外した（#1432）。このテストが見るのは操作の名前と説明だけで、
+  // CLI の banmen ops はこの一覧を出す。経験値とレベルの操作は外した（#1432）。このテストが見るのは操作の名前と説明だけで、
   // 出力の項目（level、reward_xp、xp_granted）が無いことは各操作のテスト（member-list、organization、epic-detail、task）が見る
   test('経験値とレベルの操作を載せず、説明にも経験値とレベルを書かない', async () => {
     const person = await createLoginPerson();
