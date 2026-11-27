@@ -697,6 +697,27 @@ describe('connection-update', () => {
     expect(ctx.github.calls).toHaveLength(afterRejection);
   });
 
+  test('別の組織と別のワークスペースの接続は 404、閉じたワークスペースの接続は 409', async () => {
+    const ctx = setup();
+    const target = await createTarget();
+    const other = await createTarget();
+    const closed = await createTarget({ closed: true });
+    const foreign = await createConnection(other.organization, other.workspace.id, other.member.userId!);
+    const sibling = await createConnection(target.organization, target.otherWorkspace.id, target.bystander.userId!);
+    const readOnly = await createConnection(closed.organization, closed.workspace.id, closed.member.userId!);
+    const pat = fakePat('workspace-boundary-update');
+
+    for (const connection of [foreign, sibling]) {
+      const response = await update(ctx, target, target.member, connection.id, pat);
+      expect(response.status).toBe(404);
+      expect(await response.json()).toMatchObject({ error: { code: 'not_found' } });
+    }
+    const response = await update(ctx, closed, closed.member, readOnly.id, pat);
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ error: { code: 'workspace_closed' } });
+    expect(ctx.github.calls).toHaveLength(0);
+  });
+
   test('新しい PAT を検証している間に所属を失うと、接続も履歴も更新しない', async () => {
     const ctx = setup();
     const target = await createTarget();
@@ -724,23 +745,28 @@ describe('connection-update', () => {
     expect(await rowsOf(target)).toEqual(before);
   });
 
-  test('リーダーが停止した接続は PAT を更新しても停止したまま', async () => {
+  test.each([
+    { status: 'stopped', stopped_reason: 'leader' },
+    { status: 'error', stopped_reason: null },
+  ] as const)('PAT を更新しても認証失敗以外では状態（$status）と失敗の記録を保つ', async (state) => {
     const ctx = setup();
     const target = await createTarget();
-    const { id } = await registered(ctx, target, target.member, 'leader-stop');
-    const db = orgDb(env, target.organization.verified);
-    await db.run(
-      db.statement((q) =>
-        q.updateTable('connections').set({ status: 'stopped', stopped_reason: 'leader' }).where('id', '=', id),
-      ),
-    );
+    const failure = {
+      last_error_message: '取り込み元に届きませんでした',
+      last_error_at: '2026-11-26T00:00:00.000Z',
+      consecutive_failures: 2,
+    };
+    const connection = await createConnection(target.organization, target.workspace.id, target.member.userId!, {
+      ...state,
+      ...failure,
+    });
 
-    const pat = fakePat('leader-stop-new');
+    const pat = fakePat('keep-state-update');
     ctx.github.addAccount(pat, OWNER, fakeRepos(2));
-    const res = await update(ctx, target, target.member, id, pat);
+    const res = await update(ctx, target, target.member, connection.id, pat);
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({
-      connection: { status: 'stopped', stopped_reason: 'leader', credential_last4: pat.slice(-4) },
+      connection: { ...state, ...failure, credential_last4: pat.slice(-4) },
     });
   });
 });
