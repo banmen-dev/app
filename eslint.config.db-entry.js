@@ -14,7 +14,7 @@
 //     取り出し（{ name } と、Reflect.get、Reflect.getOwnPropertyDescriptor、Object.getOwnPropertyDescriptor の文字列のキー））。
 //     使えるのは運用者の道具 src/server/operations/operator-tools.ts だけ。
 //     組織の中の表に運用者が書く口と、組織で絞らずに数える口を、処理から直に呼ばせない
-//   - 定期処理の履歴の appendScheduledChangeLog と未添付の掃除の deleteExpiredAttachments
+//   - 定期処理の履歴の appendScheduledChangeLog、未添付の掃除の deleteExpiredAttachments、取り込みの専用関数
 //     （運用者の道具だけの関数と同じ形で止める）。
 //     使えるのは定期処理 src/server/scheduled/ のファイルだけ。operator-tools.ts や、ほかの場所からは使えない。
 //     運用者の道具だけの関数とは別の集合で、appendOperatorChangeLog は定期処理から使えないまま
@@ -45,7 +45,12 @@ const OPERATOR_TOOLS = 'src/server/operations/operator-tools.ts';
 // 定期処理（src/server/scheduled/）だけが使える db/ の関数。
 // appendScheduledChangeLog は、既にある組織の変更の履歴に operator も actor_user_id も空で足す口（組織の中の入口を渡さない）
 // deleteExpiredAttachments は、共通の表で確認した組織の ID を受けて期限切れの未添付の行だけを消す口
-const SCHEDULED_ONLY = new Set(['appendScheduledChangeLog', 'deleteExpiredAttachments']);
+const SCHEDULED_ONLY = new Set([
+  'appendScheduledChangeLog',
+  'deleteExpiredAttachments',
+  'readScheduledImportConnections',
+  'syncScheduledImportConnection',
+]);
 const SCHEDULED_DIR = 'src/server/scheduled/';
 // 組織の外の操作の文脈（src/server/operations/account.ts）だけが使える db/ の関数。
 // readBillingOrganizationSummary は、承諾済みの担当者かを共通の表で確かめ、1組織の人数と容量の合計の2値だけを返す口
@@ -83,7 +88,7 @@ const rule = {
       accountOnly:
         '請求管理者に見せる使用量の集計は、組織の外の操作の文脈（src/server/operations/account.ts）だけが使う。請求の操作には account.billingOrganization を通して渡す',
       scheduledOnly:
-        '定期処理専用の関数は、定期処理（src/server/scheduled/）のファイルだけが使う。ほかの処理から組織の確認を経ずに履歴や未添付の行を書き換えさせない',
+        '定期処理専用の関数は、定期処理（src/server/scheduled/）のファイルだけが使う。ほかの処理から組織の確認を経ずに組織のデータを読み書きさせない',
       createRequire:
         'createRequire と process.getBuiltinModule を使わない。import の検査を抜けて kysely と db/ の内部のファイルを読めてしまう',
       binding: 'D1 の binding（DB）を直に使わない。src/server/db/ の入口（commonDb、orgDb）から問い合わせる',

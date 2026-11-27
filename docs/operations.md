@@ -591,7 +591,7 @@ rollback で戻るのは、版が持つものすべて。コードと設定の�
 次のものは戻らない。
 
 - D1 のデータとスキーマ（下の「DB を戻す」）
-- cron やルート（triggers）の変更。`wrangler deploy` が版と一緒に反映する。triggers を変えた版を戻すときは、手元（上の「手元の準備」）で戻し先の版のコミットを checkout し、その `wrangler.jsonc` で `wrangler triggers deploy` を実行して当て直す。今の `production` で実行すると、戻したい triggers をもう一度当てるだけになる。今の `wrangler.jsonc` の triggers は、毎分（`* * * * *`）の期限切れ・保持期限後の行の掃除と容量警告の再試行、および毎時 0 分（`0 * * * *`）のお試しの期限切れの停止と未添付ファイルの掃除、という2つの式
+- cron やルート（triggers）の変更。`wrangler deploy` が版と一緒に反映する。triggers を変えた版を戻すときは、手元（上の「手元の準備」）で戻し先の版のコミットを checkout し、その `wrangler.jsonc` で `wrangler triggers deploy` を実行して当て直す。今の `production` で実行すると、戻したい triggers をもう一度当てるだけになる。`wrangler.jsonc` の triggers は、毎分（`* * * * *`）の期限切れ・保持期限後の行の掃除と容量警告の再試行、毎時 0 分（`0 * * * *`）のお試しの期限切れの停止と未添付ファイルの掃除、および取り込みの同期（既定 `*/15 * * * *`）
 
 ### 外部キー検査用の索引を適用したあとで旧版を使う
 
@@ -650,6 +650,12 @@ WHERE tbl = 'tasks' AND idx = 'tasks_workspace_tray';
 - `level: "error"`: その表の掃除が失敗した。`table` が表の名前、`error` が例外の種類、`cause` が例外の message を分けた分類名（`network`、`timeout`、`overloaded`、`busy`、`reset`、`storage`、`constraint`、`syntax`、どれにも当たらないものは `unknown`。message そのものは SQL や値が混ざりうるので出さない）、`rounds` がその表で成功した文の回数、`elapsedMs` がその表の掃除を始めてからの経過時間。`network`、`timeout`、`overloaded`、`busy`、`reset` は D1 側の一時的な失敗で、次の回で消えていれば様子を見る。`constraint`、`syntax` は文の不具合なので直す。`storage` は D1 の容量の上限なので、容量を調べる。`unknown` は分類に無い失敗なので、`requestId` と `traceId` から Workers Logs を調べ、分類を足す。cron の失敗にも残る。ほかの表は消えている
 - `level: "info"`: 1行以上消した回の件数（`deleted` は表ごとの合計、`rounds` は表ごとに文を送った回数）。掃除が動いていることは、このログが出ることで分かる。行が無い回は何も出ない
 - 掃除だけが静かに止まったときは、通知が来ないので気づきにくい
+
+### 取り込みの定期同期
+
+既定では15分ごとに、対象の接続を同期する。間隔を変えるときは、`wrangler.jsonc` の `vars.IMPORT_SYNC_CRON` と `triggers.crons` の取り込み用の式を同じ PR で変更する。たとえば30分ごとなら、両方を `*/30 * * * *` にする。毎分や毎時 0 分に合わせる場合は、同じ式を `triggers.crons` に1つだけ置くと、その回で両方の処理が動く。時刻は UTC で判定する。
+
+動作は Workers Logs の `job: "sync-imports"` で確認する。ログには取り込んだ件数と結果の種類ごとの件数を出す。認証の失敗で停止した接続と再試行するエラーは、接続の一覧で確認できる。
 
 ## ドメインへ移す
 

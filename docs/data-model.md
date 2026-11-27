@@ -829,7 +829,9 @@
 - `CHECK`: `credential_ciphertext`、`credential_key_version`、`credential_last4` は3つとも空か3つとも入る。`deleted_at` が入っていれば認証情報は空。
 - 索引: `(workspace_id) WHERE deleted_at IS NULL`、`(owner_user_id)`。`owner_user_id` は外部キーの検査にも使うので、部分索引にしない。
 - 索引（外部キーの検査）: `(workspace_id, deleted_at)`。
-- 定期処理は `status IN ('active', 'error') AND deleted_at IS NULL` を `last_success_at` の古い順に処理する。
+- 定期処理は停止していない組織を ID 順に巡る。組織ごとに閉鎖・削除されていないワークスペースの接続を `status IN ('active', 'error') AND deleted_at IS NULL` で絞り、`last_success_at` が空の接続を先に、残りを古い順に処理する。同じ値なら接続の ID 順にする。
+- 1回に10接続、50組織、60秒を上限にする。開始した頁の処理と続きの保存は終えてから止める。巡回の開始時刻と処理位置は R2 の `system/sync-imports-cursor` に保存し、次の回で残りを処理する。巡回の開始後に作られた組織・接続と、その巡回中に同期に成功した接続は次の巡回で選ぶ。接続の中で頁の上限に達したときは、既存の `sync_state_json` から次の同期を続ける。
+- 同期を始める前に組織の停止状態を確かめ直す。すでに始まった接続の同期は完了することがある。認証の失敗では接続を停止する。ほかの失敗はエラーにして、残りの接続や組織の処理を続ける。上限で未処理の接続が残った場合はそちらを先に巡り、一巡した次の回からエラーの接続も再試行する。
 - 削除は論理削除にする。取り込んだタスクが `task_sources.connection_id` で指すため。削除したら認証情報の列を消す。
 - `credential_*` と `sync_state_json` は API で返さない。返すのは `credential_last4` まで。
 - 鍵の入れ替えは `credential_key_version` が古い行を選んで書き直す。

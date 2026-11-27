@@ -22,6 +22,8 @@
     "APP_VERSION": "dev",
     // 0043 と削除済みを除外する版を公開した後、別の Release で true にする。
     "WORKSPACE_DELETE_ENABLED": "false",
+    // 取り込みの間隔。変えるときは triggers.crons にも同じ式を置く。
+    "IMPORT_SYNC_CRON": "*/15 * * * *",
     // 公開する URL。更新系の API の Origin の検査に使う。scripts/dev.ts が pnpm dev と pnpm preview の画面の URL に上書きする。
     // Worker の名前か独自ドメインを変えるときに直す（docs/operations.md）
     "PUBLIC_ORIGIN": "https://banmen.ucan-lab.workers.dev"
@@ -40,8 +42,8 @@
   // 添付ファイルの中身を置く。手元の dev とテストは R2 を模擬し、本番のバケットには触らない
   "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "banmen-attachments" }],
   "workers_dev": true,
-  // 毎分、期限を過ぎた行を消し、毎時 0 分に、お試しの期限を過ぎた組織を一時停止にする（src/server/scheduled/）
-  "triggers": { "crons": ["* * * * *", "0 * * * *"] },
+  // 毎分と毎時 0 分の処理に加え、IMPORT_SYNC_CRON と同じ式で取り込みを同期する（src/server/scheduled/）。
+  "triggers": { "crons": ["* * * * *", "0 * * * *", "*/15 * * * *"] },
   // 版ごとのプレビュー URL は本番と同じ D1 につながるので作らない
   "preview_urls": false,
   "observability": {
