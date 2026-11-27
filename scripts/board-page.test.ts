@@ -572,6 +572,13 @@ describe('validateData', () => {
     assert.match(validateData(withSprint({ n: '1' })) ?? '', /n/);
   });
 
+  test('計画の表の outsider の行が題を持つ、または outsider が true でないときは通さない', () => {
+    const row = { number: 1, pt: 3 };
+    assert.match(validateData(withSprint({ plan: [{ ...row, title: '指示', outsider: true }] })) ?? '', /outsider/);
+    assert.match(validateData(withSprint({ plan: [{ ...row, title: '', outsider: false }] })) ?? '', /outsider/);
+    assert.equal(validateData(withSprint({ plan: [{ ...row, title: '', outsider: true }] })), null);
+  });
+
   test('sprint の期間が日付として読めなければ理由を返す', () => {
     assert.match(validateData(withSprint({ from: 'bad' })) ?? '', /from/);
     assert.match(validateData(withSprint({ to: '2026-02-30' })) ?? '', /to/);

@@ -505,6 +505,8 @@ function sprintProblem(sprint) {
   if (!Array.isArray(sprint.plan)) return 'sprint.plan は配列が要る';
   const row = sprint.plan.find((r) => !isObject(r) || !isNumber(r.number) || !isNumber(r.pt));
   if (row !== undefined) return 'sprint.plan の行は number と pt が要る';
+  const mismatch = sprint.plan.find((r) => r.outsider !== undefined && (r.outsider !== true || r.title !== ''));
+  if (mismatch !== undefined) return 'sprint.plan の outsider の行は outsider: true と空の title が要る';
   const count = SPRINT_COUNTS.find((key) => !isCount(sprint[key]));
   return count === undefined ? null : `sprint.${count} は { pt, count } が要る`;
 }
