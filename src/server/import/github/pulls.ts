@@ -24,7 +24,7 @@ function isoOf(value: unknown): string {
 
 function convert(raw: unknown, input: FetchPageInput, owner: GithubOwner): ImportItem | null {
   if (!isRecord(raw) || (raw.state !== 'open' && raw.state !== 'closed')) throw fail('unavailable');
-  if (raw.state !== 'open') return null;
+  const closed = raw.state === 'closed';
   const authored = isOwner(raw.user, owner);
   const assigned =
     isOwner(raw.assignee, owner) || (Array.isArray(raw.assignees) && raw.assignees.some((a) => isOwner(a, owner)));
@@ -66,10 +66,11 @@ function convert(raw: unknown, input: FetchPageInput, owner: GithubOwner): Impor
     title: raw.title,
     containerId: input.scope.id,
     containerName: input.scope.name,
-    status: 'open',
+    // 閉じた PR は完了の印つきで返す。マージされたものは 'merged'、されずに閉じたものは 'closed'
+    status: !closed ? 'open' : typeof raw.merged_at === 'string' ? 'merged' : 'closed',
     dueOn,
     updatedAt: isoOf(raw.updated_at),
-    isDone: false,
+    isDone: closed,
   };
 }
 

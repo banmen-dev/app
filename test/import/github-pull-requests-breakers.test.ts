@@ -54,7 +54,7 @@ describe('反証: PR の範囲と頁境界', () => {
     expect(new URL(f.calls[1]!.url).pathname).toBe('/repositories/1001/pulls');
   });
 
-  test('閉じたPRだけの満杯頁でも終わらず、後続の未完了PRへ進む', async () => {
+  test('閉じたPRだけの満杯頁でも終わらず、後続のPRへ進む', async () => {
     const f = ownPullFixture();
     f.data.pulls = [
       // 更新日時の新しい順に読むので、未完了の PR を最も古くして、閉じた PR だけの満杯頁の後ろに置く
@@ -62,7 +62,8 @@ describe('反証: PR の範囲と頁境界', () => {
       ...Array.from({ length: 100 }, (_, index) => fakePull(index + 2, { state: 'closed' })),
     ];
     const first = await page(f);
-    expect(first.items).toEqual([]);
+    expect(first.items).toHaveLength(100);
+    expect(first.items.every((item) => item.isDone && item.status === 'closed')).toBe(true);
     expect(first.next).not.toBeNull();
     const second = await page(f, first.next);
     expect(second.items.map((item) => item.sourceId)).toEqual(['800001']);
