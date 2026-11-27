@@ -48,3 +48,6 @@ export const SEED_LEGACY_API_TOKENS: Record<string, { token: string }> = Object.
     { token: `sgp_${seed.token.slice(4)}` },
   ]),
 );
+
+// 本番に拒ませる Bearer の seed の値のすべて（新旧）。デプロイの煙のテストとそのテストが同じ束を使う
+export const SEED_BEARER_TOKENS: Record<string, { token: string }> = { ...SEED_API_TOKENS, ...SEED_LEGACY_API_TOKENS };

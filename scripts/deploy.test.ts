@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, test } from 'node:test';
 import ts from 'typescript';
-import { SEED_API_TOKENS, SEED_LEGACY_API_TOKENS } from '../seed/api-tokens.ts';
+import { SEED_API_TOKENS, SEED_BEARER_TOKENS } from '../seed/api-tokens.ts';
 import { SEED_SESSIONS } from '../seed/sessions.ts';
 import { LEGACY_REDIRECT_TARGET } from '../src/legacy-redirect/worker.ts';
 import { deploy, PRODUCTION_URL, versionFromHealth, type DeployDeps, type WranglerResult } from './deploy.ts';
@@ -123,9 +123,8 @@ function fake(options: {
   return result;
 }
 
-// Cookie のセッションと Bearer の API トークンを合わせた、本番に拒ませる seed のトークンの数
-// 新旧の接頭辞の seed の値。旧 sgp_ の値も本番が拒むことを確かめる
-const BEARER_SEEDS: Record<string, { token: string }> = { ...SEED_API_TOKENS, ...SEED_LEGACY_API_TOKENS };
+// 新旧の接頭辞の Bearer の seed の値（旧 sgp_ の値も本番が拒むことを確かめる）と、Cookie のセッションを合わせた、本番に拒ませる seed のトークンの数
+const BEARER_SEEDS = SEED_BEARER_TOKENS;
 const seedCount = Object.keys(SEED_SESSIONS).length + Object.keys(BEARER_SEEDS).length;
 
 const commands = (calls: string[][]) => calls.map((args) => args.slice(0, 2).join(' '));
