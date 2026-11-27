@@ -3640,8 +3640,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       const menuOnly = inWs ? " is-menu-only" : "";
       // 組織の切り替えは、メニューの外（上の帯の右）の orgMenuHtml
       if (p === "organization") return "";
-      if (p === "workspace") return `<div class="nav-group"><span class="nav-group-label">${t("workspace")}</span></div>
-        ${workspaceListHtml()}`;
+      if (p === "workspace") return workspaceListHtml();
       if (typeof p === "string") return `<div class="nav-group${menuOnly}"><span class="nav-group-label">${p}</span></div>`;
       const [id, ic, label, href, badge] = p;
       const target = inWs ? workspaceHref(href) : firstHref(href);

@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { organizationInfo } from '../src/shared/operations/organization/index.ts';
 import { expect, test } from './fixtures.ts';
-import { signIn, watchViolations } from './helpers.ts';
+import { A11Y_THEMES, applyTheme, findA11yViolations, signIn, watchViolations } from './helpers.ts';
 import { rewriteOperation } from './operations.ts';
 
 const workspaceId = '019a0000-0000-7000-8000-000000000401';
@@ -162,7 +162,9 @@ test.describe('所属が1つの一般のメンバー', () => {
   }) => {
     await page.goto(backlog);
     await expect(toggleOf(page)).toBeVisible();
-    await expect(page.locator('.ws-menu, .ws-menu-button')).toHaveCount(0);
+    // 切り替えのドロップダウンは無い。ポップアップを開くボタンも、開閉を持つボタンは見出しの1つだけ
+    await expect(page.locator('#app-nav button[aria-haspopup]')).toHaveCount(0);
+    await expect(page.locator('#app-nav button[aria-expanded]')).toHaveCount(1);
     const current = listOf(page).getByRole('link');
     await expect(current).toHaveCount(1);
     await expect(current).toHaveAttribute('aria-current', 'page');
@@ -183,7 +185,7 @@ test.describe('所属が1つの一般のメンバー', () => {
       await page.setViewportSize({ width, height: 900 });
       await page.getByRole('button', { name: 'すべてのメニュー', exact: true }).click();
       // 一覧は浮きメニューの面の中に出る。切り替えのドロップダウンは無い
-      await expect(page.locator('#app-nav .ws-menu-button')).toHaveCount(0);
+      await expect(page.locator('#app-nav button[aria-haspopup]')).toHaveCount(0);
       const list = listOf(page);
       await expect(list).toBeVisible();
       const link = list.getByRole('link').first();
@@ -264,3 +266,19 @@ for (const width of [1280, 1024]) {
     expect(await nav.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
   });
 }
+
+test('開いた一覧と畳んだ一覧が、ライトとダークで axe の違反を持たない', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'member');
+  await page.goto(backlog);
+  await expect(listOf(page)).toBeVisible();
+  for (const theme of A11Y_THEMES) {
+    await applyTheme(page, theme);
+    for (const collapsed of [false, true]) {
+      const toggle = toggleOf(page);
+      if ((await toggle.getAttribute('aria-expanded')) === String(collapsed)) await toggle.click();
+      await expect(toggle).toHaveAttribute('aria-expanded', String(!collapsed));
+      expect(await findA11yViolations(page, '#app-nav'), `${theme} ${collapsed ? '畳んだ' : '開いた'}状態`).toEqual([]);
+    }
+    await toggleOf(page).click();
+  }
+});

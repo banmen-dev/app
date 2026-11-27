@@ -140,6 +140,8 @@ h1, h2, h3 { text-wrap: balance; }
 .nav-ws-list[hidden] { display: none; }
 .nav-ws-list .nav-item-label { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-ws-list .nav-item .ico { flex: none; margin-left: auto; color: var(--color-accent); }
+/* 所属していない管理者が開いているものは押せない行。押せる行と同じホバーの見た目にしない */
+.nav-item.is-current { cursor: default; }
 .nav-item {
   position: relative;
   display: flex; align-items: center; gap: var(--space-3);
@@ -2780,8 +2782,10 @@ body.has-assist .toasts { right: calc(400px + var(--space-4)); }
 
 /* title を開けないタッチ端末では、項目にフォーカスすると省略した題を全文にする。 */
 @media (hover: none) {
-  .nav-favorites .nav-item:focus .nav-item-label { white-space: normal; overflow-wrap: anywhere; }
+  .nav-favorites .nav-item:focus .nav-item-label, .nav-ws-list .nav-item:focus .nav-item-label { white-space: normal; overflow-wrap: anywhere; }
 }
+/* キーボードで行に当てたときも、省略した名前を全文にする（title はホバーでしか出ないため） */
+.nav-ws-list .nav-item:focus-visible .nav-item-label { white-space: normal; overflow-wrap: anywhere; }
 
 /* 全画面の起票。上の行をスクロールから分け、ソフトキーボードの上でも作成へ届く。 */
 .mobile-create {
