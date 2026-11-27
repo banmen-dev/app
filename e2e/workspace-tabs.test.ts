@@ -207,7 +207,8 @@ test.describe('760px 以下と「その他」', () => {
     await expect(more(page)).toBeFocused();
     await more(page).click();
     await expect(moreList(page)).toBeVisible();
-    await page.getByRole('heading', { level: 1, name: 'バックログ' }).click();
+    // 一覧は見出しに重なるので、帯の左上の余白（リンクでない場所）を押す
+    await page.locator('.sheet-tabs').click({ position: { x: 2, y: 2 } });
     await expect(moreList(page)).toBeHidden();
   });
 
@@ -221,6 +222,12 @@ test.describe('760px 以下と「その他」', () => {
     await page.setViewportSize({ width: 390, height: 800 });
     await expect(more(page)).toBeVisible();
   });
+});
+
+test.describe('指で押す 390px と 1280px', () => {
+  test.use({ viewport: { width: 390, height: 800 }, hasTouch: true, isMobile: true });
+  const more = (page: Page) => page.getByRole('button', { name: /^その他/ });
+  const moreList = (page: Page) => page.getByRole('list', { name: 'ワークスペースのその他の画面' });
 
   test('4つの見た目で axe と押せる範囲 44px が、390px と 1280px で通る', async ({ page, context, baseURL }) => {
     await signIn(context, baseURL, 'admin');
