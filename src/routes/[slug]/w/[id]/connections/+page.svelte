@@ -250,7 +250,7 @@
     }
   }
 
-  // 持ち主が去って止めた接続（読んだ後に止まったものを含む）は、読み直しても選べないので段を閉じ、止まった理由が出る一覧を読み直す
+  // 止めた接続（読んだ後に止まったものを含む）は、読み直しても選べないので段を閉じ、止まった理由が出る一覧を読み直す
   async function scopeStopped(): Promise<void> {
     showToast(t('connectionScopeStopped', { connection: t('connection') }), 'alert');
     closeScope(true);

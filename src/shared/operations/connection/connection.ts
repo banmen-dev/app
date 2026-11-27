@@ -31,8 +31,8 @@ export const connectionCredentialSchema = z.string().max(CONNECTION_CREDENTIAL_M
 // 1人が1つのワークスペースに登録できる接続の数の上限。超える登録は 409（conflict、details.reason は connection_limit）
 export const CONNECTIONS_PER_MEMBER_MAX = 20;
 
-// 持ち主が抜けた、無効にされたことで止めた接続の理由。保存した認証情報を使わないので、
-// 範囲の候補と保存は 409（conflict、details.reason は connection_stopped）で断り、画面は範囲を選ぶ入口を出さない。
+// 持ち主が抜けた、無効にされたことで止めた接続の理由。CONNECTION_SCOPE_BLOCKED_REASONS の一部で、
+// 保存した認証情報を使わないので、範囲の候補と保存は 409（conflict、details.reason は connection_stopped）で断る。
 // workspace_closed は書く処理が無い（閉じても接続は止まらない）が、CHECK が許す値なので、行があっても同じ扱いで断る防御として残す
 export const CONNECTION_OWNER_GONE_REASONS = ['member_left', 'user_disabled', 'workspace_closed'] as const;
 
@@ -44,13 +44,6 @@ export function resumesOnCredential(connection: { status: string; stopped_reason
   return (
     connection.status === 'stopped' &&
     (CONNECTION_CREDENTIAL_RESUME_REASONS as readonly (string | null)[]).includes(connection.stopped_reason)
-  );
-}
-
-export function isOwnerGoneStop(connection: { status: string; stopped_reason: string | null }): boolean {
-  return (
-    connection.status === 'stopped' &&
-    (CONNECTION_OWNER_GONE_REASONS as readonly (string | null)[]).includes(connection.stopped_reason)
   );
 }
 

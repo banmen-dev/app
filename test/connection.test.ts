@@ -676,8 +676,8 @@ describe('持ち主が去って止めた接続の範囲', () => {
     },
   );
 
-  test.each(['auth_failed', 'owner', 'leader'])(
-    '先に %s で止まった接続は、持ち主の管理者がワークスペースを抜けると、候補も保存も 409 の connection_stopped',
+  test.each(['auth_failed'])(
+    '先に %s（理由だけでは持ち主が去ったと分からない停止）で止まった接続は、持ち主の管理者がワークスペースを抜けると、候補も保存も 409 の connection_stopped',
     async (reason) => {
       const ctx = setup();
       const target = await createTarget();
@@ -762,28 +762,31 @@ describe('持ち主が去って止めた接続の範囲', () => {
     expect((await save(ctx, target, target.member, id, ['1001'])).status).toBe(200);
   });
 
-  test('候補を取っている間に持ち主が抜けて止まったら、保存は 409 の connection_stopped で範囲も履歴も増えない', async () => {
-    const github = createFakePatGithub();
-    const target = await createTarget();
-    let connectionId = '';
-    let armed = false;
-    const fetcher: typeof fetch = async (input, init) => {
-      const res = await github.fetcher(input, init);
-      if (armed) await stop(target, connectionId, 'member_left');
-      return res;
-    };
-    const ctx = { github, app: createApp(implementedOperations, { fetcher }) };
-    connectionId = (await registered(ctx, target, target.member, 'gone-race')).id;
-    const before = await rowsOf(target);
-    armed = true;
+  test.each(['member_left', 'owner', 'leader'])(
+    '候補を取っている間に %s で止まったら、保存は 409 の connection_stopped で範囲も履歴も増えない',
+    async (reason) => {
+      const github = createFakePatGithub();
+      const target = await createTarget();
+      let connectionId = '';
+      let armed = false;
+      const fetcher: typeof fetch = async (input, init) => {
+        const res = await github.fetcher(input, init);
+        if (armed) await stop(target, connectionId, reason);
+        return res;
+      };
+      const ctx = { github, app: createApp(implementedOperations, { fetcher }) };
+      connectionId = (await registered(ctx, target, target.member, 'gone-race')).id;
+      const before = await rowsOf(target);
+      armed = true;
 
-    const res = await save(ctx, target, target.member, connectionId, ['1001']);
-    expect(res.status).toBe(409);
-    expect(errorOf(await res.json())).toMatchObject({ details: { reason: 'connection_stopped' } });
-    const rows = await rowsOf(target);
-    expect(rows.scopes).toEqual(before.scopes);
-    expect(rows.logs).toEqual(before.logs);
-  });
+      const res = await save(ctx, target, target.member, connectionId, ['1001']);
+      expect(res.status).toBe(409);
+      expect(errorOf(await res.json())).toMatchObject({ details: { reason: 'connection_stopped' } });
+      const rows = await rowsOf(target);
+      expect(rows.scopes).toEqual(before.scopes);
+      expect(rows.logs).toEqual(before.logs);
+    },
+  );
 });
 
 describe('connection-update', () => {

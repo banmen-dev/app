@@ -345,7 +345,7 @@ async function ownConnection(db: OrganizationDb, actorUserId: string, workspaceI
 // 止めた接続は、保存した認証情報で取り込み元に問い合わせない（範囲の候補と保存は 409 の connection_stopped）。
 // 断るのは、離脱・無効化の理由（書かれない workspace_closed の行も同じ）と、本人かリーダーが止めた（owner、leader）理由のときと、止まった接続の持ち主が今のメンバーでないとき
 // （離脱と無効化は既に止まった接続の理由を書き換えないので、先に auth_failed などで止まった接続は理由だけでは分からない）
-function throwIfOwnerGone(row: {
+function throwIfScopeBlocked(row: {
   status: string;
   stopped_reason: string | null;
   owner_is_member: number | boolean | null;
@@ -501,7 +501,7 @@ export const connectionScopeCandidatesOperation = implement(
   connectionScopeCandidates,
   async ({ db, actor, tools, workspace, input }) => {
     const row = await ownConnection(db, actorUserIdOf(actor), workspace.workspaceId, input.connection_id);
-    throwIfOwnerGone(row);
+    throwIfScopeBlocked(row);
     return { candidates: await fetchCandidates(tools, row) };
   },
 );
@@ -513,7 +513,7 @@ export const connectionScopesSaveOperation = implement(
     const workspaceId = workspace.workspaceId;
     const organizationId = db.organizationId;
     const row = await ownConnection(db, actorUserId, workspaceId, input.connection_id);
-    throwIfOwnerGone(row);
+    throwIfScopeBlocked(row);
     const source = isImportSourceKind(row.provider) ? tools.importSource(row.provider) : undefined;
     if (source === undefined) throw new ApiError(409, 'conflict', { reason: 'provider_unknown' });
 
@@ -556,7 +556,7 @@ export const connectionScopesSaveOperation = implement(
           .where('workspace_id', '=', workspaceId)
           .where('owner_user_id', '=', actorUserId)
           .where('deleted_at', 'is', null)
-          // 候補を取っている間に持ち主の離脱や無効化で止まった接続の範囲は書かない（throwIfOwnerGone と同じ条件）
+          // 候補を取っている間に止まった接続（auth_failed を除く）の範囲は書かない（throwIfScopeBlocked と同じ条件）
           .where((eb) =>
             eb.or([
               eb('status', '!=', 'stopped'),
@@ -631,7 +631,7 @@ export const connectionScopesSaveOperation = implement(
     if (((results as readonly { changes?: number }[])[0]?.changes ?? 0) === 0) {
       await throwIfClosed(db, workspaceId);
       // 読んだ後に接続が削除されたときは、存在しないときと同じ 404
-      throwIfOwnerGone(await ownConnection(db, actorUserId, workspaceId, row.id));
+      throwIfScopeBlocked(await ownConnection(db, actorUserId, workspaceId, row.id));
       throw new ApiError(409, 'conflict');
     }
     const [connection] = await readConnections(db, workspaceId, row.id);

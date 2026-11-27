@@ -5,7 +5,7 @@ import { CONNECTION_SCOPES_MAX, connectionIdInput, connectionSchema } from './co
 
 // 取り込む範囲を置き換える。登録した本人だけ。入力は取り込み元の ID だけで、名前はサーバーが取り込み元の候補から引く
 // （候補に無い ID は 400）。scope_mode は include に固定する。閉じたワークスペースでは 409 の workspace_closed。
-// 持ち主の離脱、無効化で止めた接続と、止まった接続で持ち主が今のメンバーでないものは 409 の conflict
+// 持ち主の離脱、無効化と、本人かリーダーが止めた（owner、leader）接続と、止まった接続で持ち主が今のメンバーでないものは 409 の conflict
 // （details.reason は connection_stopped）
 export const connectionScopesSave = defineOperation({
   name: 'connection-scopes-save',
