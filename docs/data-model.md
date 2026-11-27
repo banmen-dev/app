@@ -188,7 +188,7 @@
 
 | 列 | 型 | 制約 | 説明 |
 | --- | --- | --- | --- |
-| token_hash | TEXT | PK、`CHECK (length(token_hash) = 64 AND token_hash NOT GLOB '*[^0-9a-f]*')` | 生の値 `sgp_` + 32 バイトの乱数の base64url（43文字）の SHA-256 を小文字の16進（64文字）にしたもの。生の値は発行の応答で1回だけ返し、DB にもログにも残さない。形は `sessions.token_hash` と同じ CHECK |
+| token_hash | TEXT | PK、`CHECK (length(token_hash) = 64 AND token_hash NOT GLOB '*[^0-9a-f]*')` | 生の値 `bnp_`（旧名の `sgp_` で発行済みのものも、`API_TOKEN_LEGACY_LAST_DAY` までは読める）+ 32 バイトの乱数の base64url（43文字）の SHA-256 を小文字の16進（64文字）にしたもの。生の値は発行の応答で1回だけ返し、DB にもログにも残さない。形は `sessions.token_hash` と同じ CHECK |
 | account_id | TEXT | NOT NULL、FK accounts | トークンを発行した人。呼び出しはこの人として行う |
 | name | TEXT | NOT NULL、`CHECK (length(name) BETWEEN 1 AND 100)` | 発行した人が付ける、用途を思い出すための名前。SQLite の `length()` は NUL（U+0000）で数えるのをやめて CHECK に落ちるので、発行の入力の検証で NUL を断る |
 | scope | TEXT | NOT NULL、`CHECK (scope IN ('read', 'write'))` | `read` は読み取りの操作（`mode: 'read'`）だけ、`write` は読み取りと書き込みの両方を呼べる |
@@ -199,7 +199,7 @@
 | authenticated_at | TEXT | NULL 可、`????-??-??T??:??:??*Z` の GLOB CHECK（ミリ秒の桁数は固定しない） | 発行元のセッションの `created_at`。組織の認証の線と比べる。旧版の行や seed の NULL は `created_at` として読み、既存行は追加時に新しい CHECK の UTC 形式に合う `created_at` だけで埋め、合わない行は NULL のまま読み取り時に元の値へフォールバックする |
 
 - 索引: `(account_id)`。その人のトークンを取り消すときと、一覧が引く。
-- 読めるのは、`token_hash` の行があり、`revoked_at` が空で、`expires_at` が基準の時刻より後のとき。形が違う値（`API_TOKEN_PATTERN` に合わない）は DB を引かずに断る。
+- 読めるのは、`token_hash` の行があり、`revoked_at` が空で、`expires_at` が基準の時刻より後のとき。形が違う値（`API_TOKEN_PATTERN` に合わない。最終日を過ぎた `sgp_` も含む）は DB を引かずに断る。
 - 入れる組織を失ったことでは取り消さない（`sessions` と同じ。アカウントがあれば、組織の外の操作で使える）。`revoked_at` を書くのは、本人が取り消したときと、設定の全失効（`credentials-revoke-all`。実行したセッションの行が残っているときだけで、先に自分のセッションを消された側は何も取り消さず、件数 0 を返す。「書き込みの単位」）を実行したときだけ。取り消したトークンは戻さない。
 - 行数の上限: 1アカウントの有効な行（`revoked_at` が空で、`expires_at` が基準の時刻より後）は20件まで（`API_TOKEN_MAX_ACTIVE`）。発行の `INSERT` を `INSERT ... SELECT ... WHERE (有効な行の数) < 20` の1文にして守り、同時に発行しても超えない。発行元のセッションが有効でも入らなかったとき（`changes` が 0）は 409 の `conflict`（`details.reason` は `limit`）。取り消し済みと期限切れの行は数えない。一覧は上限と同じ件数までを返す（超えないはずの保険）。
 - Cookie からの発行は、発行元の `sessions.created_at` を、組織の線の比較と同じ JavaScript の日時の解釈で UTC ミリ秒表記へ揃えて `authenticated_at` に写す。INSERT の存在条件は、読んだセッションの作成時刻が変わっていないことも確かめる。トークンの発行日時では比べないので、古い Cookie で新しいトークンを発行しても組織の線を越えられない。ログインし直したセッションからトークンも発行し直す必要がある。セッションを渡さないテストの発行は発行日時を使う。

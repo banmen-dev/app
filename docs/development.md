@@ -70,10 +70,11 @@
   - Origin: Cookie の呼び出しのすべての操作に掛ける（`Authorization: Bearer` の呼び出しには掛けない。下の「API トークン」）。`wrangler.jsonc` の `vars` の `PUBLIC_ORIGIN`（`scripts/dev.ts` が `pnpm dev` と `pnpm preview` の画面の URL で上書きする。下の「ポート」の決め方でずれた値も）と一致しない、または Origin の無い呼び出しは 403 の `forbidden`。検査は本文を読む前。`curl` で呼ぶときの付け方は `-H "Origin: http://localhost:5173"`。`PUBLIC_ORIGIN` に使えるのは、https と、ループバックのホスト（`localhost`、`127.0.0.1`、`[::1]`）への http だけ。それ以外（本番の設定が http になった、値が無い、解釈できない）は、`OPERATOR_LOGIN_IDS` の検査と同じく app のミドルウェアが、`/api/health` を含むすべてのリクエストを 500 にして、デプロイの煙のテストで見つけさせる。綴りだけで決めると、Cookie の Secure と `__Host-` が黙って外れるため。
     - `response: 'binary'` の GET と HEAD は、画像・動画やリンクからの要求に Origin が付かないため、Origin の省略を許す。付いていれば同じ公開 URL と照合し、違えば 403。`Sec-Fetch-Site` があれば `same-origin` と `none` だけを受け、それ以外（`same-site` を含む）は 403。両方のヘッダーが無い HTTP クライアントもセッションの検査へ進める。ほかの POST の検査は変えない。
   - セッション: Cookie のトークンを SHA-256 にして `sessions` を引く（`src/server/auth/session.ts`）。Cookie の名前は `sessionCookieName(PUBLIC_ORIGIN)`（`src/shared/session-cookie.ts`）で決め、https の公開 URL では `__Host-banmen_session`、http の localhost（`pnpm dev`、`pnpm preview`）では `banmen_session`。読む側とログインの発行（`src/server/auth/login-routes.ts`）と e2e が同じ関数を使う。無い、形が違う、期限を過ぎた、のどれも 401 の `unauthenticated`。`last_used_at` は前回から1時間以上たったときだけ、読んだ値が変わっていないことを条件に書き直し（並行した呼び出しの片方だけが書く）、`expires_at` を30日後にして、書けたときだけ Cookie を同じ属性で出し直す。書き直しの失敗はログに例外の名前だけを残し、リクエストは続ける。
-  - API トークン: `Authorization: Bearer sgp_<43文字>` を付けた呼び出しは、API トークンだけで認証する（`src/server/auth/api-token.ts`、`register.ts` の `execute()` の冒頭）。`Authorization` が `Bearer` ちょうどか、`Bearer ` で始まる（大文字小文字を区別する）ヘッダーがあれば、値が空でも Bearer の呼び出し。それ以外の書き方（`bearer`、`Basic`）は Cookie の呼び出しとして扱い、Origin の検査が掛かる。
+  - API トークン: `Authorization: Bearer bnp_<43文字>` を付けた呼び出しは、API トークンだけで認証する（`src/server/auth/api-token.ts`、`register.ts` の `execute()` の冒頭）。`Authorization` が `Bearer` ちょうどか、`Bearer ` で始まる（大文字小文字を区別する）ヘッダーがあれば、値が空でも Bearer の呼び出し。それ以外の書き方（`bearer`、`Basic`）は Cookie の呼び出しとして扱い、Origin の検査が掛かる。
     - Origin の検査と Cookie の読み取りを飛ばし、応答には Cookie の延長も消去も付けない。ブラウザは `Authorization` を他のサイトからの要求に勝手に付けず、CSRF は成り立たないため
-    - トークンの値の形（`API_TOKEN_PATTERN`）を確かめ、SHA-256 にして `api_tokens` を引く。形が違う、行が無い、期限切れ（`expires_at <= now`）、取消済みは、どれも 401 の `unauthenticated`。有効な Cookie が同じリクエストにあっても Cookie に落とさない
+    - トークンの値の形（`API_TOKEN_PATTERN`）を確かめ、旧 `sgp_` は最終日（下の「接頭辞」）を過ぎていれば形が違う値と同じに断り、SHA-256 にして `api_tokens` を引く。形が違う、行が無い、期限切れ（`expires_at <= now`）、取消済みは、どれも 401 の `unauthenticated`。有効な Cookie が同じリクエストにあっても Cookie に落とさない
     - 読めたら `last_used_at` を今に書き直す（前の値が今より前のときだけ）。`expires_at` は延ばさない。期限は発行のとき固定で、上限は90日（`API_TOKEN_MAX_LIFETIME_DAYS`）
+    - 接頭辞: 新しく発行するトークンは `bnp_`（`API_TOKEN_PREFIX`）。旧名（Scrum Guild）の `sgp_` で発行済みのトークンは、`API_TOKEN_LEGACY_LAST_DAY`（`src/shared/api-token.ts`。UTC の日付で、その日の終わりまで通し、翌日の 00:00 から断る）まで使える。最終日は、旧を受け付ける版を本番に出した日 + 最長の有効日数（90日）以降でなければならず（旧のトークンが最長でその日まで有効なため）、Release が遅れて足りなくなるときは Release の前に定数を直す。最終日の翌日以降に、定数と分岐を消す（[#1611](https://github.com/banmen-dev/app/issues/1611)）
     - 入れる組織を失った人のトークンも、取り消さず、組織の外の操作で使える（セッションと同じ。取り消すのは、本人が取り消したときと、設定の全失効（下の `credentials-revoke-all`）を実行したときと、期限が来たときだけ）。組織の中の操作は、トークンでも Cookie と同じく 404 か 403 になる
     - トークンの呼び出しにセッションは無い。処理に渡す `session` は、使うと例外を投げる（`tokenHash`、`clearCookie()`）ので、セッションを使う操作は `cookieOnly` を付ける
     - 回数の上限のキー `operation:<名>:<accountId>` は Cookie と同じ。同じ人の呼び出しを、認証の種類によらず1つの枠で数える
@@ -533,7 +534,7 @@ Wrangler の assets で本番ビルドを SPA として配り、ループバッ�
 手元のサーバーへ向けるときは、`pnpm db:seed` と `pnpm dev` の後に次を打つ。seed のトークンは `seed/api-tokens.ts` にある。URL は `pnpm dev` が出す画面の URL を使う（ワークツリーではポートがずれる。下の「ポート」）。
 
 ```bash
-printf '%s\n' 'sgp_dev-seed-admin-write00000000000000000000000' | pnpm -s banmen config set token
+printf '%s\n' 'bnp_dev-seed-admin-write00000000000000000000000' | pnpm -s banmen config set token
 pnpm -s banmen config set url http://localhost:5173
 pnpm -s banmen config set org aoba
 pnpm -s banmen ops
