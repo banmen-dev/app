@@ -319,7 +319,7 @@ export function importTaskStatements(db: OrganizationDb, task: ImportedTask, at:
             eb.val(task.containerId).as('source_container_id'),
             eb.val(task.containerName).as('source_container_name'),
             eb.val(task.status).as('source_status'),
-            eb.cast<string | null>(eb.val(task.dueOn), 'text').as('source_due_on'),
+            effectiveSourceDue(task.connectionId, task.dueOn).as('source_due_on'),
             eb.val(task.updatedAt).as('source_updated_at'),
             eb.val(0).as('is_source_done'),
             eb.cast<string | null>(eb.val(null), 'text').as('missing_since_at'),
@@ -402,7 +402,7 @@ export function updateImportedStatements(
       .set({
         source_url: update.url,
         source_status: update.status,
-        source_due_on: update.dueOn,
+        source_due_on: effectiveSourceDue(update.connectionId, update.dueOn),
         is_source_done: update.isDone ? 1 : 0,
         source_updated_at: update.updatedAt,
         last_seen_at: at,
@@ -420,7 +420,7 @@ export function updateImportedStatements(
           eb('task_sources.source_updated_at', '<', update.updatedAt),
           eb('task_sources.source_url', '!=', update.url),
           eb('task_sources.source_status', '!=', update.status),
-          eb('task_sources.source_due_on', 'is not', update.dueOn),
+          eb('task_sources.source_due_on', 'is not', effectiveSourceDue(update.connectionId, update.dueOn)),
           eb('task_sources.is_source_done', '!=', update.isDone ? 1 : 0),
         ]),
       )
@@ -440,6 +440,13 @@ export function updateImportedStatements(
       ),
   );
   return [updateTask, updateSource];
+}
+
+// 書く期限。接続の今の ignore_source_due が 1 なら、同期が読んだ値に依らず空にする（同期の途中で無視に変えられても、保存が空にした期限を書き戻さない）
+function effectiveSourceDue(connectionId: string, dueOn: string | null) {
+  return sql<
+    string | null
+  >`CASE WHEN EXISTS (SELECT 1 FROM connections WHERE connections.id = ${connectionId} AND connections.ignore_source_due = 1) THEN NULL ELSE ${dueOn} END`;
 }
 
 // 接続が今も削除されず止まっておらず、認証情報が読んだときのままで、ワークスペースが閉じておらず、登録者が今もいる、という条件

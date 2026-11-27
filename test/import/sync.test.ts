@@ -284,6 +284,106 @@ describe('取り込みの同期', () => {
       expect(await firstTask(db, workspace.id)).toMatchObject({ source_status: 'in review', source_due_on: null });
     });
 
+    describe('同期の途中で期限の無視を変える', () => {
+      // 2頁目を取る直前に、本人の保存（connection-mapping-save）と同じ書き込みを差し込む偽の取り込み元
+      function racing(pages: Page[], beforeSecondPage: () => Promise<void>) {
+        const fake = fakeSource({ '501': pages });
+        const fetchPage = fake.source.fetchPage.bind(fake.source);
+        fake.source.fetchPage = async (input) => {
+          if (input.cursor === '1') await beforeSecondPage();
+          return fetchPage(input);
+        };
+        return fake.source;
+      }
+      async function dues(db: ReturnType<typeof orgDb>, workspaceId: string) {
+        const rows = await sourcesOfDue(db, workspaceId);
+        return Object.fromEntries(rows.map((r) => [r.source_id, r.source_due_on]));
+      }
+      async function sourcesOfDue(db: ReturnType<typeof orgDb>, workspaceId: string) {
+        return db.rows(
+          db.statement((q) =>
+            q.selectFrom('task_sources').select(['source_id', 'source_due_on']).where('workspace_id', '=', workspaceId),
+          ),
+        );
+      }
+
+      test('有効にした回の残りの頁は、保存が空にした期限を書き戻さず、次の同期が全部を読む', async () => {
+        const { workspace, connection, db } = await setup();
+        const source = racing(
+          [
+            { items: [item(1, { dueOn: '2026-12-10' })], next: '1' },
+            {
+              items: [
+                item(1, { dueOn: '2026-12-11', status: 'in review', updatedAt: '2026-11-02T00:00:00.000Z' }),
+                item(2, { dueOn: '2026-12-12' }),
+              ],
+              next: null,
+            },
+          ],
+          async () => {
+            await db.batch([
+              db.statement((q) =>
+                q.updateTable('connections').set({ ignore_source_due: 1 }).where('id', '=', connection.id),
+              ),
+              db.statement((q) =>
+                q.updateTable('task_sources').set({ source_due_on: null }).where('connection_id', '=', connection.id),
+              ),
+            ]);
+          },
+        );
+        await syncConnection(env, db, workspace.id, connection.id, { source });
+        expect(await dues(db, workspace.id)).toEqual({ 'src-1': null, 'src-2': null });
+        expect((await sourcesOf(db, workspace.id)).length).toBe(2);
+        // 状態の更新は書かれている（期限だけを書かない）
+        expect(
+          (
+            await db.first(
+              db.statement((q) =>
+                q
+                  .selectFrom('task_sources')
+                  .select('source_status')
+                  .where('workspace_id', '=', workspace.id)
+                  .where('source_id', '=', 'src-1'),
+              ),
+            )
+          )?.source_status,
+        ).toBe('in review');
+        // 読んだ値と今の値が違うので、次の同期が全部を読む
+        expect((await connectionOf(db, connection.id)).last_success_at).toBeNull();
+      });
+
+      test('外した回の残りの頁は期限を空で書くが、次の同期が全部を読んで期限が戻る', async () => {
+        const { workspace, connection, db } = await setup();
+        await db.run(
+          db.statement((q) =>
+            q.updateTable('connections').set({ ignore_source_due: 1 }).where('id', '=', connection.id),
+          ),
+        );
+        const pages: Page[] = [
+          { items: [item(1, { dueOn: '2026-12-10' })], next: '1' },
+          { items: [item(2, { dueOn: '2026-12-12' })], next: null },
+        ];
+        const source = racing(pages, async () => {
+          await db.run(
+            db.statement((q) =>
+              q
+                .updateTable('connections')
+                .set({ ignore_source_due: 0, last_success_at: null, sync_state_json: '{}' })
+                .where('id', '=', connection.id),
+            ),
+          );
+        });
+        await syncConnection(env, db, workspace.id, connection.id, { source });
+        // 2頁目は読んだ値（無視）のまま空で書かれる
+        expect(await dues(db, workspace.id)).toEqual({ 'src-1': null, 'src-2': null });
+        const done = await connectionOf(db, connection.id);
+        expect(done.last_success_at).toBeNull();
+        expect(done.sync_state_json).toBe('{}');
+        await syncConnection(env, db, workspace.id, connection.id, { source: fakeSource({ '501': pages }).source });
+        expect(await dues(db, workspace.id)).toEqual({ 'src-1': '2026-12-10', 'src-2': '2026-12-12' });
+      });
+    });
+
     test('取り込み元で閉じると完了の印が付き、タスクは完了にならない。開き直すと印が外れる', async () => {
       const { workspace, connection, db } = await setup();
       const run = async (over: Partial<ImportItem>) =>
