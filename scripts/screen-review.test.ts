@@ -164,6 +164,8 @@ test('採点役に渡す画像は、pairs/ の全画像と motion/ の合成画�
       'motion/simple_dark-stamp.png',
       'motion/simple_dark-stamp-1.png',
       'motion/simple_dark-stamp-2.png',
+      'motion/simple_dark-stamp-3.png',
+      'motion/simple_dark-stamp-4.png',
       'motion/results.json',
     ])
       writeFileSync(join(directory, file), '');
