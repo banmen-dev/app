@@ -8,22 +8,27 @@ import {
   CONNECTION_MANUAL_SYNC_INTERVAL_SECONDS,
   CONNECTION_OWNER_GONE_REASONS,
   connectionCreate,
+  connectionDelete,
   connectionList,
   connectionScopeCandidates,
   connectionScopesSave,
+  connectionStop,
   connectionSync,
   connectionUpdate,
   CONNECTION_CREDENTIAL_RESUME_REASONS,
   isOwnerGoneStop,
+  resumesOnCredential,
   type Connection,
   type ConnectionCreateProblem,
 } from '../../shared/operations/connection/index.ts';
 import {
   previousStatementChanged,
+  type Expression,
   type ExpressionBuilder,
   type OrganizationDb,
   type QueryCreator,
   type OrganizationTables,
+  type SqlBool,
 } from '../db/index.ts';
 import { ApiError } from '../errors.ts';
 import { CredentialKeysError } from '../crypto/credential.ts';
@@ -31,7 +36,14 @@ import { ImportSourceError, isImportSourceKind, type ScopeCandidate } from '../i
 import { uuidv7 } from '../uuid.ts';
 import { implement } from './implement.ts';
 import type { BoundImportSource, OrganizationTools } from './organization-tools.ts';
-import { activeMemberName, actorUserIdOf, changeLogColumns, openWorkspace, throwIfClosed } from './write-guards.ts';
+import {
+  activeMemberName,
+  actorUserIdOf,
+  changeLogColumns,
+  isLeaderOrAdmin,
+  openWorkspace,
+  throwIfClosed,
+} from './write-guards.ts';
 
 type Tables = OrganizationTables;
 type From = Pick<QueryCreator<Tables>, 'selectFrom'>;
@@ -697,4 +709,222 @@ export const connectionSyncOperation = implement(connectionSync, async ({ db, ac
     return { result: 'success' as const, imported: synced.imported, more: synced.more, connection };
   }
   return { result: synced.outcome, imported: synced.imported, more: false, connection };
+});
+
+// 止める、消す操作の対象。登録した本人か、ワークスペースのリーダーと管理者だけが触れる。
+// 無い（別のワークスペース、別の組織、削除済み）は 404、権限が無ければ 403
+async function manageableConnection(
+  db: OrganizationDb,
+  actor: { userId: string | null; isAdmin: boolean },
+  workspace: { workspaceId: string; actorRole: string | null },
+  connectionId: string,
+) {
+  const row = await db.first(
+    db.statement((q) =>
+      liveConnections(q, workspace.workspaceId)
+        .select(['c.id', 'c.owner_user_id', 'c.status', 'c.stopped_reason'])
+        .where('c.id', '=', connectionId),
+    ),
+  );
+  if (row === undefined) throw new ApiError(404, 'not_found');
+  const actorUserId = actorUserIdOf(actor);
+  if (row.owner_user_id !== actorUserId && !isLeaderOrAdmin(actor, workspace)) throw new ApiError(403, 'forbidden');
+  return row;
+}
+
+// 書く直前に、操作した人が今も本人（今のメンバーか管理者）か、そのワークスペースのリーダーか管理者かを確かめる条件。
+// 読んでから書くまでの間に所属や権限を失った人の操作を書かない
+function stillMayManage<DB extends Tables, TB extends keyof DB>(
+  eb: ExpressionBuilder<DB, TB>,
+  q: From,
+  organizationId: string,
+  workspaceId: string,
+  ownedByActor: Expression<SqlBool>,
+  actorUserId: string,
+) {
+  return eb.or([
+    eb.and([ownedByActor, ownerStillAllowed(eb, q, organizationId, workspaceId, actorUserId)]),
+    eb.exists(
+      q
+        .selectFrom('users as au')
+        .select('au.id')
+        .where('au.id', '=', actorUserId)
+        .where('au.organization_id', '=', organizationId)
+        .where('au.disabled_at', 'is', null)
+        .where('au.is_admin', '=', 1),
+    ),
+    eb.exists(
+      q
+        .selectFrom('memberships as am')
+        .innerJoin('users as amu', 'amu.id', 'am.user_id')
+        .select('am.id')
+        .where('am.workspace_id', '=', workspaceId)
+        .where('am.user_id', '=', actorUserId)
+        .where('am.role', '=', 'leader')
+        .where('am.left_at', 'is', null)
+        .where('amu.organization_id', '=', organizationId)
+        .where('amu.disabled_at', 'is', null),
+    ),
+  ]);
+}
+
+export const connectionStopOperation = implement(connectionStop, async ({ db, actor, workspace, input }) => {
+  const actorUserId = actorUserIdOf(actor);
+  const { workspaceId } = workspace;
+  const { organizationId } = db;
+  const row = await manageableConnection(db, actor, workspace, input.connection_id);
+  // 本人が止めたら owner、ほかの人（リーダー、管理者）が止めたら leader
+  const reason = row.owner_user_id === actorUserId ? 'owner' : 'leader';
+  const at = now();
+  const stamp = at.toISOString();
+  // 条件は履歴の文と更新の文で同じ。止まっている接続は書き換えない（理由は、止めた最初の理由のまま）
+  const results = await db.batch([
+    db.statement((q) =>
+      q
+        .insertInto('change_logs')
+        .columns(changeLogColumns)
+        .expression(
+          liveConnections(q, workspaceId)
+            .where((eb) =>
+              eb.and([
+                eb('c.id', '=', row.id),
+                // 止まっていない接続と、本人が認証情報で再開できる理由で止まった接続を止める（後者は理由を owner か leader に書き換える）
+                eb.or([
+                  eb('c.status', '!=', 'stopped'),
+                  eb('c.stopped_reason', 'in', [...CONNECTION_CREDENTIAL_RESUME_REASONS]),
+                ]),
+                eb.exists(openWorkspace(q, organizationId, workspaceId)),
+                stillMayManage(
+                  eb,
+                  q,
+                  organizationId,
+                  workspaceId,
+                  eb('c.owner_user_id', '=', actorUserId),
+                  actorUserId,
+                ),
+              ]),
+            )
+            .select((eb) => [
+              eb.val(uuidv7(at)).as('id'),
+              eb.val(organizationId).as('organization_id'),
+              eb.val(workspaceId).as('workspace_id'),
+              eb.val(actorUserId).as('actor_user_id'),
+              eb.val('connection').as('entity_type'),
+              eb.ref('c.id').as('entity_id'),
+              eb.val('update').as('action'),
+              eb
+                .fn<string>('json_object', [
+                  eb.val('status'),
+                  eb.fn('json_array', [eb.ref('c.status'), eb.val('stopped')]),
+                  eb.val('stopped_reason'),
+                  eb.fn('json_array', [eb.ref('c.stopped_reason'), eb.val(reason)]),
+                ])
+                .as('changes_json'),
+              eb.val(stamp).as('created_at'),
+            ]),
+        ),
+    ),
+    db.statement((q) =>
+      q
+        .updateTable('connections')
+        .set({ status: 'stopped', stopped_reason: reason, updated_at: stamp })
+        .where('id', '=', row.id)
+        .where('workspace_id', '=', workspaceId)
+        .where('deleted_at', 'is', null)
+        .where((eb) =>
+          eb.or([eb('status', '!=', 'stopped'), eb('stopped_reason', 'in', [...CONNECTION_CREDENTIAL_RESUME_REASONS])]),
+        )
+        .where(previousStatementChanged),
+    ),
+  ] as const);
+  if ((results[1]?.changes ?? 0) === 0) {
+    await throwIfClosed(db, workspaceId);
+    // 読んだ後に、別の操作で止まった、消えた、操作した人の権限が変わった。成功として返すのは、別の操作が先に
+    // 再開しない停止にしたときだけ。再開できる理由のまま止まっているなら、書けなかったのは権限を失ったため
+    const latest = await manageableConnection(db, actor, workspace, row.id);
+    if (latest.status !== 'stopped' || resumesOnCredential(latest)) throw new ApiError(403, 'forbidden');
+  }
+  const [connection] = await readConnections(db, workspaceId, row.id);
+  if (connection === undefined) throw new ApiError(404, 'not_found');
+  return { connection };
+});
+
+export const connectionDeleteOperation = implement(connectionDelete, async ({ db, actor, workspace, input }) => {
+  const actorUserId = actorUserIdOf(actor);
+  const { workspaceId } = workspace;
+  const { organizationId } = db;
+  const row = await manageableConnection(db, actor, workspace, input.connection_id);
+  const at = now();
+  const stamp = at.toISOString();
+  const results = await db.batch([
+    // 履歴を先に置く（消した後では、消す前の表示名と認証情報の有無を読めない）。認証情報の値は入れない
+    db.statement((q) =>
+      q
+        .insertInto('change_logs')
+        .columns(changeLogColumns)
+        .expression(
+          liveConnections(q, workspaceId)
+            .where((eb) =>
+              eb.and([
+                eb('c.id', '=', row.id),
+                eb.exists(openWorkspace(q, organizationId, workspaceId)),
+                stillMayManage(
+                  eb,
+                  q,
+                  organizationId,
+                  workspaceId,
+                  eb('c.owner_user_id', '=', actorUserId),
+                  actorUserId,
+                ),
+              ]),
+            )
+            .select((eb) => [
+              eb.val(uuidv7(at)).as('id'),
+              eb.val(organizationId).as('organization_id'),
+              eb.val(workspaceId).as('workspace_id'),
+              eb.val(actorUserId).as('actor_user_id'),
+              eb.val('connection').as('entity_type'),
+              eb.ref('c.id').as('entity_id'),
+              eb.val('delete').as('action'),
+              eb
+                .fn<string>('json_patch', [
+                  eb.fn<string>('json_object', [eb.val('name'), eb.fn('json_array', [eb.ref('c.name'), eb.val(null)])]),
+                  eb
+                    .case()
+                    .when('c.credential_ciphertext', 'is not', null)
+                    .then('{"credential_removed":[null,true]}')
+                    .else('{}')
+                    .end(),
+                ])
+                .as('changes_json'),
+              eb.val(stamp).as('created_at'),
+            ]),
+        ),
+    ),
+    db.statement((q) =>
+      q
+        .updateTable('connections')
+        .set({
+          deleted_at: stamp,
+          updated_at: stamp,
+          credential_ciphertext: null,
+          credential_key_version: null,
+          credential_last4: null,
+          sync_state_json: '{}',
+          reconcile_state_json: '{}',
+          last_success_at: null,
+        })
+        .where('id', '=', row.id)
+        .where('workspace_id', '=', workspaceId)
+        .where('deleted_at', 'is', null)
+        .where(previousStatementChanged),
+    ),
+  ] as const);
+  if ((results[1]?.changes ?? 0) === 0) {
+    await throwIfClosed(db, workspaceId);
+    // 読んだ後に、別の操作で消えた（404）か、操作した人の権限が変わった
+    await manageableConnection(db, actor, workspace, row.id);
+    throw new ApiError(403, 'forbidden');
+  }
+  return { connection_id: row.id };
 });

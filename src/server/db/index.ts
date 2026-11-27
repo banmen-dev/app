@@ -4,7 +4,7 @@
 // 鍵と値の組を1つの値で渡して式で引く jsonPairLookup と、変更の履歴に残すスプリントの値 sprintLogRefSql と sprintLeftLogSql と、行ごとの ID を SQL の中で作る uuidv7Sql と、部分索引に合わせた組織の変更の履歴の条件 organizationHistoryRowFilter と進行中のスプリントの条件 activeSprintRowFilter と、
 // メールアドレスで待つ承諾待ちの招待の条件 pendingEmailInvitationRowFilter と、複数の行を1つの文で並びの末尾に振る tailPosition と、タイトルの検索の条件 titleContainsAll と、バックログのタスクを引く索引指定と、列に索引を使わせない unindexed だけを出す）。
 // 照合用の値はテストの口（testing.ts）から出す
-export type { Expression, ExpressionBuilder, Insertable, QueryCreator, Selectable } from 'kysely';
+export type { Expression, ExpressionBuilder, Insertable, QueryCreator, Selectable, SqlBool } from 'kysely';
 export type { Statement } from './entry.ts';
 export { commonDb, orgDb, type CommonDb, type OrganizationDb } from './entries.ts';
 export { DatabaseUnavailableError, pingDatabase } from './ping.ts';

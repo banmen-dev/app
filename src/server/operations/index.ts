@@ -32,9 +32,11 @@ import {
 import type { ImplementedOperation } from './implement.ts';
 import {
   connectionCreateOperation,
+  connectionDeleteOperation,
   connectionListOperation,
   connectionScopeCandidatesOperation,
   connectionScopesSaveOperation,
+  connectionStopOperation,
   connectionSyncOperation,
   connectionUpdateOperation,
 } from './connection.ts';
@@ -325,6 +327,8 @@ const listedOperations: readonly ImplementedOperation[] = [
   connectionScopesSaveOperation,
   connectionSyncOperation,
   connectionUpdateOperation,
+  connectionStopOperation,
+  connectionDeleteOperation,
   invitationListOperation,
   invitationAcceptOperation,
   invitationDeclineOperation,
