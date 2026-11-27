@@ -149,3 +149,16 @@ export async function admitFeedbackImages(
   }
   return { accepted, rejected };
 }
+
+// 貼り付けから、画像として付けるファイルを選ぶ。文字を捨てない側に倒す: 文字が無いか、文字がファイルの名前（ファイルをコピーして
+// 貼ったときに一緒に入る）だけのときだけ、画像として付ける。表計算のセルや文書の一部のように、文字と画像の表現が一緒に入る貼り付けは、
+// 文字として貼る（ブラウザに任せる）
+export function clipboardImages(files: readonly File[], plainText: string): File[] {
+  if (files.length === 0 || files.some((file) => !file.type.startsWith('image/'))) return [];
+  const lines = plainText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line !== '');
+  const namesOnly = lines.every((line) => files.some((file) => file.name !== '' && line.endsWith(file.name)));
+  return namesOnly ? [...files] : [];
+}

@@ -8,6 +8,7 @@
     FEEDBACK_IMAGE_MAX_COUNT,
     FEEDBACK_MESSAGE_PARAMS as params,
     admitFeedbackImages,
+    clipboardImages,
     feedbackFailure,
     feedbackInput,
     feedbackStallMs,
@@ -167,10 +168,8 @@
   function paste(event: ClipboardEvent): void {
     const clipboard = event.clipboardData;
     if (clipboard === null || clipboard.files.length === 0) return;
-    // ファイルをコピーして貼ると、ファイル名の文字も一緒に入る。表計算のセル（表の HTML と画像）は文字として貼る
-    const images = [...clipboard.files].filter((file) => file.type.startsWith('image/'));
-    if (images.length === 0 || clipboard.getData('text/html').includes('<table')) return;
-    if (clipboard.getData('text/plain') !== '' && images.length !== clipboard.files.length) return;
+    const images = clipboardImages([...clipboard.files], clipboard.getData('text/plain'));
+    if (images.length === 0) return;
     event.preventDefault();
     addImages(images);
   }

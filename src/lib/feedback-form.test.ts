@@ -5,6 +5,7 @@ import {
   FEEDBACK_IMAGE_MAX_BYTES,
   FEEDBACK_TEXT_MAX,
   admitFeedbackImages,
+  clipboardImages,
   feedbackStallMs,
   sniffFeedbackImage,
   feedbackFailure,
@@ -145,5 +146,17 @@ describe('画像を付ける前の確かめ', () => {
   test('詰まったとみなす時間は、付けた画像の大きさに応じて延びる', () => {
     expect(feedbackStallMs(0)).toBe(30_000);
     expect(feedbackStallMs(12 * 1024 * 1024)).toBe(30_000 + 120_000);
+  });
+
+  test('貼り付けは、文字が無いか、文字がファイルの名前だけのときだけ画像として付ける', () => {
+    const image = new File([new Uint8Array(1)], 'shot.png', { type: 'image/png' });
+    expect(clipboardImages([image], '')).toEqual([image]);
+    expect(clipboardImages([image], 'shot.png')).toEqual([image]);
+    expect(clipboardImages([image], '/Users/a/Desktop/shot.png\n')).toEqual([image]);
+    // 文字が一緒（表計算のセル、文書の一部）、画像以外が混ざる、ファイルが無いときは、画像として付けない
+    expect(clipboardImages([image], '売上\t120')).toEqual([]);
+    expect(clipboardImages([image], '<TABLE>')).toEqual([]);
+    expect(clipboardImages([image, new File(['a'], 'a.txt', { type: 'text/plain' })], '')).toEqual([]);
+    expect(clipboardImages([], '')).toEqual([]);
   });
 });
