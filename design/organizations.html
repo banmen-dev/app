@@ -185,6 +185,8 @@ function render() {
 }
 SQ.applyTheme();
 render();
+// 右下のフィードバックの入口（本番の組織の選択と同じく、ログインした人の画面に置く）
+document.body.insertAdjacentHTML("beforeend", `<button class="feedback-launch" type="button" data-dialog="feedback" aria-label="${t("feedbackOpen")}" title="${t("feedbackOpen")}" aria-haspopup="dialog">${icon("message")}</button>`);
 
 </script>
 </body>
