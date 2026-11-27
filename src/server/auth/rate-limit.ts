@@ -1,10 +1,10 @@
 // アプリ側のレート制限（docs/data-model.md の `rate_limits`）。設けるのは、ログイン、画面のエラーの送信（POST /api/client-errors）、
 // 手動の同期、招待（GitHub に問い合わせる invitee-resolve と invitation-create。invitation-create は GitHub に問い合わせない Google の招待も同じ枠で数える）、長い本文を書く操作（workspace-dod-update、
-// comment-create、comment-update）など。添付ファイルは組織の容量上限と未添付の掃除で守る。
+// comment-create、comment-update）、フィードバックの送信など。添付ファイルは組織の容量上限と未添付の掃除で守る。
 // 並びの正は docs/requirements.md の「運用」。
 // 窓の最初の呼び出しから windowMs の間に max 回まで。1文の upsert で数えるので、並行した呼び出しも取りこぼさず、
-// 窓を過ぎた最初の呼び出しが数え直す。断った呼び出しも数える。ログインと画面のエラーの送信だけは、数える前に覗いて、
-// 上限に届いた枠を数えずに断る（未ログインの人が、叩く速さに比例して行を書き換えさせられないため。窓は固定なので、
+// 窓を過ぎた最初の呼び出しが数え直す。断った呼び出しも数える。ログイン、画面のエラーの送信、フィードバックの全体枠は、数える前に覗いて、
+// 上限に届いた枠を数えずに断る（呼び出しの速さに比例して行を書き換えさせられないため。窓は固定なので、
 // 断る効き目は同じ）
 import type { AnyOperationDefinition } from '../../shared/operations/define.ts';
 import { operations } from '../../shared/operations/index.ts';
@@ -68,7 +68,13 @@ export async function consumeClientErrorRateLimits(env: Env, ip: string | undefi
   return result.allowed;
 }
 
-// consumeRateLimit に渡る全部の枠（ログインと画面のエラーの送信の枠と、操作の定義の rateLimit）のうち、最長の窓。
+// フィードバックで、全アカウントを合わせて数える枠。操作ごとのアカウント枠とは別に数える。
+export const FEEDBACK_GLOBAL_RATE_LIMIT = {
+  key: 'feedback:global',
+  policy: { max: 60, windowMs: 60 * 60 * 1000 },
+} as const satisfies { key: string; policy: RateLimitPolicy };
+
+// consumeRateLimit に渡る全部の枠のうち、最長の窓。
 // この窓を過ぎた行は、どの枠から見ても数え直しになるので消してよい（src/server/scheduled/cleanup-expired.ts）。
 // 操作の定義は src/shared/operations の operations（sessionOperations を含む全部）。register.ts の enforceRateLimit が
 // windowSeconds * 1000 で使う
@@ -77,6 +83,7 @@ export function longestRateLimitWindowMs(definitions: readonly AnyOperationDefin
     ...LOGIN_RATE_LIMIT_POLICIES.map((policy) => policy.windowMs),
     ...Object.values(CLIENT_ERROR_RATE_LIMITS).map((policy) => policy.windowMs),
     ...Object.values(PASSWORD_LOGIN_RATE_LIMITS).map((policy) => policy.windowMs),
+    FEEDBACK_GLOBAL_RATE_LIMIT.policy.windowMs,
     ...definitions.flatMap((definition) =>
       [definition.rateLimit, definition.weightedRateLimit, definition.requestRateLimit].flatMap((limit) =>
         limit === undefined ? [] : [limit.windowSeconds * 1000],

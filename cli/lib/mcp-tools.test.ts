@@ -438,6 +438,19 @@ describe('--allow-write（allowWrite）', () => {
     assert.equal(server.calls()[0]!.path, '/api/aoba/task-edit');
   });
 
+  test('allowWrite でも公開のフィードバックは一覧に出さず、名指しでも API を呼ばない', async () => {
+    const name = 'feedback-submit';
+    const feedback = { ...catalog.operations[0], name, scope: 'outside', permission: 'login' };
+    const server = fakeServer({ operations: { operations: [...catalog.operations, feedback] } });
+    const deps = depsOf(server);
+    const connection = connectionOf();
+
+    assert.ok(!names(await listTools(deps, connection)).includes(name));
+    const result = await callTool(deps, connection, name, { text: '画面についての感想です' });
+    assert.equal(result.isError, true);
+    assert.equal(server.calls().length, 0);
+  });
+
   test('読み取りのトークンでは、allowWrite でもサーバーが一覧に載せない書き込みの道具は出ず、呼べない', async () => {
     // 読み取りのトークンの一覧は、サーバーが書き込みの操作を除いて返す
     const readOnly = { operations: catalog.operations.filter((operation) => operation.mode === 'read') };

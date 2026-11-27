@@ -25,7 +25,7 @@ import { implementedOperations } from './operations/index.ts';
 import { operationsApp } from './operations/register.ts';
 
 export type AppOptions = {
-  // ログインの手段（GitHub）への通信。テストが差し替える
+  // ログイン、ユーザー名の解決、フィードバックの起票で GitHub と通信する。テストが差し替える
   fetcher?: typeof fetch;
   // メールアドレスとパスワードでのログインの口を登録するか。省略すると PASSWORD_LOGIN_ENABLED。テストが開いた経路を確かめるのに使う
   passwordLogin?: boolean;

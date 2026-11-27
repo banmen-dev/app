@@ -109,8 +109,9 @@ function toolOf(operation: CatalogOperation, connection: Connection): McpTool {
 // sg mcp の --allow-write。既定（false）では、読み取り（mode: 'read'）の操作だけを道具にする。
 // 付けても、読み取りのトークンでは書き込みの操作が一覧に来ない（サーバーがトークンで絞る）ので、書き込みの道具は出ない
 export type McpOptions = { allowWrite?: boolean };
+// 公開リポジトリに文を送るフィードバックは、人が画面か CLI から明示して送る。
 const visible = (operation: CatalogOperation, options: McpOptions) =>
-  options.allowWrite === true || operation.mode === 'read';
+  operation.name !== 'feedback-submit' && (options.allowWrite === true || operation.mode === 'read');
 
 // tools/list のたびに操作の一覧を取る（キャッシュしない）。取れないときは ApiCliError か CliError を投げる
 export async function listTools(deps: CliDeps, connection: Connection, options: McpOptions = {}): Promise<McpTool[]> {
@@ -129,7 +130,7 @@ export async function callTool(
   options: McpOptions = {},
 ): Promise<McpToolResult> {
   try {
-    // 一覧に出さない操作（既定の書き込み）は、無い操作と同じ使い方の誤りで断る
+    // 一覧に出さない操作は、無い操作と同じ使い方の誤りで断る
     const operation = (await catalogFor(deps, connection))
       .filter((item) => visible(item, options))
       .find((item) => item.name === name);

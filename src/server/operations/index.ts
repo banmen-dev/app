@@ -1,3 +1,4 @@
+import { feedbackSubmitOperation } from './feedback.ts';
 import { billingOperations } from './billing.ts';
 import {
   delegateeCreateOperation,
@@ -163,6 +164,7 @@ const listedOperations: readonly ImplementedOperation[] = [
   ...billingOperations,
   notificationListOperation,
   notificationReadOperation,
+  feedbackSubmitOperation,
   favoriteListOperation,
   favoriteSetOperation,
   orgWikiDeleteOperation,
