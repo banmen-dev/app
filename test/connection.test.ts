@@ -759,6 +759,8 @@ describe('connection-update', () => {
     const connection = await createConnection(target.organization, target.workspace.id, target.member.userId!, {
       ...state,
       ...failure,
+      sync_state_json: '{"position":{}}',
+      reconcile_state_json: '{"position":{}}',
     });
 
     const pat = fakePat('keep-state-update');
@@ -767,6 +769,10 @@ describe('connection-update', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({
       connection: { ...state, ...failure, credential_last4: pat.slice(-4) },
+    });
+    expect((await rowsOf(target)).connections[0]).toMatchObject({
+      sync_state_json: '{}',
+      reconcile_state_json: '{}',
     });
   });
 });
