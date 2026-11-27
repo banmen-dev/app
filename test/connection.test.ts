@@ -952,8 +952,73 @@ describe('connection-update', () => {
     expect(await again.json()).toMatchObject({ connection: { status: 'active', stopped_reason: null } });
   });
 
+  test.each(['member_left', 'user_disabled'] as const)(
+    '%s で止めた接続は、所属している本人が PAT を保存すると再開し、履歴に状態と理由の前後が残る',
+    async (reason) => {
+      const ctx = setup();
+      const target = await createTarget();
+      const connection = await createConnection(target.organization, target.workspace.id, target.member.userId!, {
+        status: 'stopped',
+        stopped_reason: reason,
+        last_error_message: '離れたので止めました',
+        last_error_at: '2026-11-26T00:00:00.000Z',
+        consecutive_failures: 1,
+      });
+
+      const pat = fakePat(`resume-${reason}`);
+      ctx.github.addAccount(pat, OWNER, fakeRepos(2));
+      const res = await update(ctx, target, target.member, connection.id, pat);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toMatchObject({
+        connection: {
+          status: 'active',
+          stopped_reason: null,
+          last_error_message: null,
+          consecutive_failures: 0,
+          credential_last4: pat.slice(-4),
+        },
+      });
+      const { logs } = await rowsOf(target);
+      const changes = JSON.parse(logs.find((log) => log.action === 'update')!.changes_json!);
+      expect(changes).toMatchObject({
+        credential_updated: [null, true],
+        status: ['stopped', 'active'],
+        stopped_reason: [reason, null],
+      });
+      expect(JSON.stringify(logs)).not.toContain(pat);
+    },
+  );
+
+  test.each(['member_left', 'user_disabled'] as const)(
+    '持ち主が所属していないと、%s の接続は PAT を保存しても止まったまま（履歴に状態の変化は残らない）',
+    async (reason) => {
+      const ctx = setup();
+      const target = await createTarget();
+      await createMembership(target.organization, target.workspace.id, target.admin.userId!, {
+        left_at: '2026-11-26T00:00:00.000Z',
+        left_on: '2026-11-26',
+      });
+      const connection = await createConnection(target.organization, target.workspace.id, target.admin.userId!, {
+        status: 'stopped',
+        stopped_reason: reason,
+      });
+
+      const pat = fakePat(`gone-${reason}`);
+      ctx.github.addAccount(pat, OWNER, fakeRepos(2));
+      const res = await update(ctx, target, target.admin, connection.id, pat);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toMatchObject({ connection: { status: 'stopped', stopped_reason: reason } });
+      const { logs } = await rowsOf(target);
+      const changes = JSON.parse(logs.find((log) => log.action === 'update')!.changes_json!);
+      expect(changes).not.toHaveProperty('status');
+      expect(changes).not.toHaveProperty('stopped_reason');
+    },
+  );
+
   test.each([
     { status: 'stopped', stopped_reason: 'leader' },
+    { status: 'stopped', stopped_reason: 'owner' },
+    { status: 'stopped', stopped_reason: 'workspace_closed' },
     { status: 'error', stopped_reason: null },
   ] as const)('PAT を更新しても認証失敗以外では状態（$status）と失敗の記録を保つ', async (state) => {
     const ctx = setup();

@@ -35,6 +35,17 @@ export const CONNECTIONS_PER_MEMBER_MAX = 20;
 // 範囲の候補と保存は 409（conflict、details.reason は connection_stopped）で断り、画面は範囲を選ぶ入口を出さない
 export const CONNECTION_OWNER_GONE_REASONS = ['member_left', 'user_disabled', 'workspace_closed'] as const;
 
+// 持ち主が今のメンバーなら、新しい認証情報の保存で再開する停止の理由。owner と leader（リーダーが下した停止）と
+// workspace_closed は、本人の認証情報では戻さない
+export const CONNECTION_CREDENTIAL_RESUME_REASONS = ['auth_failed', 'member_left', 'user_disabled'] as const;
+
+export function resumesOnCredential(connection: { status: string; stopped_reason: string | null }): boolean {
+  return (
+    connection.status === 'stopped' &&
+    (CONNECTION_CREDENTIAL_RESUME_REASONS as readonly (string | null)[]).includes(connection.stopped_reason)
+  );
+}
+
 export function isOwnerGoneStop(connection: { status: string; stopped_reason: string | null }): boolean {
   return (
     connection.status === 'stopped' &&

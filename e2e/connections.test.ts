@@ -257,7 +257,14 @@ test('止まっている接続は、停止の理由と登録した人に応じ�
     {
       connections: [
         created({ id: 'stopped-auth', name: '認証が切れた接続', status: 'stopped', stopped_reason: 'auth_failed' }),
-        created({ id: 'stopped-other', name: '別の理由の接続', status: 'stopped', stopped_reason: 'member_left' }),
+        created({ id: 'stopped-other', name: '別の理由の接続', status: 'stopped', stopped_reason: 'leader' }),
+        created({ id: 'stopped-left', name: '抜けて止まった接続', status: 'stopped', stopped_reason: 'member_left' }),
+        created({
+          id: 'stopped-disabled',
+          name: '無効で止まった接続',
+          status: 'stopped',
+          stopped_reason: 'user_disabled',
+        }),
         created({
           id: 'stopped-theirs',
           name: 'ハルカの接続',
@@ -303,6 +310,13 @@ test('止まっている接続は、停止の理由と登録した人に応じ�
   await expect(other.locator('.callout.is-danger')).toHaveText(
     '止まっています。リーダーに、止まっていることを伝えてください。',
   );
+  // 抜けた人と無効にされた人の接続は、所属し直した本人が新しいトークンを保存すると再開する
+  await expect(page.locator('[data-connection-id="stopped-left"] .callout.is-danger')).toHaveText(
+    'ワークスペースを抜けたので止めました。新しいトークンを保存すると再開します。',
+  );
+  await expect(page.locator('[data-connection-id="stopped-disabled"] .callout.is-danger')).toHaveText(
+    'アカウントが無効になったので止めました。認証情報は消えています。新しいトークンを保存すると再開します。',
+  );
   await expect(page.locator('[data-connection-id="stopped-theirs"] .callout.is-danger')).toHaveText(
     '認証に失敗したので止めました。登録したハルカかリーダーに、止まっていることを伝えてください。',
   );
@@ -325,6 +339,8 @@ test('止まっている接続は、停止の理由と登録した人に応じ�
   await other.getByRole('button', { name: '編集', exact: true }).click();
   await expect(tokenField).toHaveAccessibleDescription(/この接続は停止したままです/);
   await auth.getByRole('button', { name: '編集', exact: true }).click();
+  await expect(tokenField).toHaveAccessibleDescription('空欄のまま保存すると、現在のトークンを使い続けます。');
+  await page.locator('[data-connection-id="stopped-left"]').getByRole('button', { name: '編集', exact: true }).click();
   await expect(tokenField).toHaveAccessibleDescription('空欄のまま保存すると、現在のトークンを使い続けます。');
 });
 
@@ -355,7 +371,7 @@ test('持ち主が去って止めた接続には範囲を選ぶボタンが出�
   await page.goto(`${WORKSPACE}/connections`);
   const list = page.getByRole('list', { name: '接続の一覧' });
   const departedItem = list.getByRole('listitem').filter({ hasText: '抜けた後の接続' });
-  await expect(departedItem).toContainText('止まっています。');
+  await expect(departedItem).toContainText('ワークスペースを抜けたので止めました。');
   await expect(departedItem.getByRole('button', { name: '範囲を選ぶ' })).toHaveCount(0);
 
   const freshItem = list.getByRole('listitem').filter({ hasText: '選んでいる接続' });

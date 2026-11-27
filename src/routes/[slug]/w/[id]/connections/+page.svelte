@@ -30,6 +30,7 @@
     connectionSync,
     connectionUpdate,
     isOwnerGoneStop,
+    resumesOnCredential,
     type Connection,
   } from '../../../../../shared/operations/connection/index.ts';
   import type { DictionaryKey } from '../../../../../shared/vocabulary.ts';
@@ -415,8 +416,7 @@
       {#each connections as connection (connection.id)}
         {@const state = STATE[connection.status]}
         {@const mine = meId !== null && connection.owner_user_id === meId}
-        {@const staysStopped =
-          connection.status === 'stopped' && (connection.stopped_reason !== 'auth_failed' || !isMember)}
+        {@const staysStopped = connection.status === 'stopped' && (!resumesOnCredential(connection) || !isMember)}
         {@const ownerGone = isOwnerGoneStop(connection) || (mine && connection.status === 'stopped' && !isMember)}
         {@const who =
           mine || !connection.owner_name
@@ -474,11 +474,14 @@
               <Icon name="alert" /><span
                 >{connection.stopped_reason === 'auth_failed'
                   ? t('connectionStoppedAuthFailed')
-                  : t('connectionStoppedOther')}{mine &&
-                canWrite &&
-                isMember &&
-                connection.stopped_reason === 'auth_failed'
-                  ? t('connectionStoppedEditHint')
+                  : connection.stopped_reason === 'member_left'
+                    ? t('connectionStoppedMemberLeft', { workspace: t('workspace') })
+                    : connection.stopped_reason === 'user_disabled'
+                      ? t('connectionStoppedUserDisabled')
+                      : t('connectionStoppedOther')}{mine && canWrite && isMember && resumesOnCredential(connection)
+                  ? connection.stopped_reason === 'auth_failed'
+                    ? t('connectionStoppedEditHint')
+                    : t('connectionStoppedResumeHint')
                   : t('connectionNextStopped', { who })}</span
               >
             </div>
