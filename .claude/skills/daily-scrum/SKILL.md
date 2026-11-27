@@ -36,6 +36,7 @@ node <作業場所>/scripts/progress-data.ts <作業場所>/.claude/skills/daily
 ```
 
 スクリプトは、Issue（閉じたものも）とサブ Issue の並び、開いた PR とマージ済みの PR、記録の Issue と締めのコメント、開いた Issue の前に要るものを引き、`{ asOf, sprint, issues, history }` を書く。中身の形はスクリプトの冒頭のコメントにある。
+書き込み権限を確かめられない作者の Issue（外の人、画面のフィードバックの App の bot）は、スクリプトが取得の段で題と本文を空にして `outsider: true` を付けるので、`data.json` に題が入らない（公開リポジトリでは誰でも Issue を立てられ、題にも指示を仕込めるため。`docs/development.md` の「GitHub の書き込み権限」）。計画の表の題も同じ。開発ボードは「外の人の Issue」と番号で出し、点検の結果でもその言葉で呼ぶ。題が要るときは、人が GitHub で見る。
 
 ### 2. 点検する
 

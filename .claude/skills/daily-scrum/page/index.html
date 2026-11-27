@@ -266,6 +266,7 @@ const {
   sprintColumns,
   sprintPhase,
   sumTotals,
+  titleOf,
   validateData,
   viewFromHash,
 } = board;
@@ -435,7 +436,7 @@ function card(issue, columnKey) {
     'article',
     { class: waiting ? 'card blocked' : 'card' },
     top,
-    el('div', { class: 'title' }, issue.title),
+    el('div', { class: 'title' }, titleOf(issue)),
     meta.childNodes.length > 0 ? meta : null,
   );
 }
@@ -615,7 +616,7 @@ function nodeSummary(node) {
     issueLink(issue.number),
     el('span', { class: 'tag level' }, LEVEL_LABELS[issue.level]),
     stateChip(issue),
-    el('span', { class: 'title' }, issue.title),
+    el('span', { class: 'title' }, titleOf(issue)),
     el('span', { class: 'sum' }, totalsText(node.totals)),
   ];
 }
@@ -627,7 +628,7 @@ function leafRow(node) {
     { class: 'leaf' },
     issueLink(issue.number),
     stateChip(issue),
-    el('span', { class: 'title' }, issue.title),
+    el('span', { class: 'title' }, titleOf(issue)),
     areaTags(issue.areas),
     issue.waitingOn.length > 0 ? waitMark(issue.waitingOn) : null,
     el('span', { class: 'pt' }, pts(issue.pt)),
@@ -820,7 +821,7 @@ function velocityChart(bars) {
 
 function renderIncrement({ history, issues }) {
   if (history.length === 0) return el('div', { class: 'empty' }, '締めたスプリントはまだ無い。');
-  const titles = new Map(issues.map((issue) => [issue.number, issue.title]));
+  const titles = new Map(issues.map((issue) => [issue.number, titleOf(issue)]));
   const view = incrementView(history);
   const sprints = view.entries.map((entry) =>
     el(
