@@ -1075,4 +1075,22 @@ describe('外の人の Issue の題と本文', () => {
     assert.deepEqual(built.warnings, []);
     assert.deepEqual(built.sprint?.plan, [{ number: 2, title: '自分の Issue', pt: 2 }]);
   });
+
+  test('作者を確かめられない記録の Issue は、例外にも履歴の題の警告にもせず、読まなかった理由を警告に出す', () => {
+    const unread = (patch: Partial<RawIssue>) => ({ ...patch, title: '', body: '', outsider: true as const });
+    const openLog = unread(sprintLog(10, 7, ['| #2 | | 題 | 2 |']));
+    const closedLog = unread(closed(9, { labels: ['sprint-log'] }));
+    const built = buildProgress(
+      raw({ issues: [openLog, closedLog, issue(2)], comments: { 9: ['## 締め\nベロシティ: 1'] } }),
+      NOW,
+    );
+    assert.equal(built.sprint, null);
+    assert.deepEqual(built.history, []);
+    assert.equal(built.issues.length, 1);
+    assert.equal(built.warnings.filter((w) => w.includes('題を読めないのではない')).length, 2);
+    assert.equal(
+      built.warnings.some((w) => w.includes('履歴から飛ばした')),
+      false,
+    );
+  });
 });

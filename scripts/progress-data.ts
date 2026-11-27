@@ -435,7 +435,10 @@ function buildHistory(
 export type Built = Progress & { warnings: string[] };
 
 export function buildProgress(raw: RawData, now: Date): Built {
-  const logs = raw.issues.filter((issue) => issue.labels.includes(SPRINT_LOG));
+  const allLogs = raw.issues.filter((issue) => issue.labels.includes(SPRINT_LOG));
+  // 作者の書き込み権限を確かめられない記録は、題も本文も空なので読めない。題が壊れたものと分けて飛ばし、理由を警告に出す
+  const logs = allLogs.filter((issue) => issue.outsider !== true);
+  const unreadableLogs = allLogs.filter((issue) => issue.outsider === true);
   const work = raw.issues.filter((issue) => !issue.labels.includes(SPRINT_LOG));
   const byNumber = new Map(work.map((issue) => [issue.number, issue]));
   const open = trustedPulls(raw.openPulls, raw.writeUsers);
@@ -478,6 +481,8 @@ export function buildProgress(raw: RawData, now: Date): Built {
     });
 
   const { history, warnings } = buildHistory(logs, work, mergedPrs, raw.comments);
+  for (const log of unreadableLogs)
+    warnings.push(`記録 #${log.number} は、作者の書き込み権限を確認できないので読まなかった（題を読めないのではない）`);
   const outsiders = raw.issues.filter((issue) => issue.outsider === true).length;
   if (outsiders > 0)
     warnings.push(`外の人の Issue ${outsiders} 件は、作者の書き込み権限を確認できないので、題と本文を読まなかった`);
