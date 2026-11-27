@@ -276,6 +276,11 @@ test('見本のバックログ: 続けて消した2件を古い方から取り�
   const titles = page.locator('.tree > div:has(> .entry) > .entry .entry-title');
   const before = await titles.allTextContents();
   for (let i = 0; i < 2; i++) {
+    // 行を画面の上へ寄せる（木の末尾が短く、下に残った行の「⋯」のメニューが、先に出たトーストと重なるため）
+    await page
+      .locator('.tree > div:has(> .entry) > .entry')
+      .first()
+      .evaluate((el) => el.scrollIntoView({ block: 'start' }));
     await page.locator('.tree > div:has(> .entry) > .entry').first().hover();
     await page.locator('.tree > div:has(> .entry) > .entry .row-menu-btn').first().click();
     await page.locator('.row-menu-list:not([hidden]) [data-task-delete]').click();
@@ -393,6 +398,11 @@ test('見本のバックログ: 下の行を先に、上の行を後に消し、
   const before = await titles.allTextContents();
   // 2 行目、1 行目の順に消す
   for (const index of [1, 0]) {
+    // 行を画面の上へ寄せる（下に残った行の「⋯」のメニューが、先に出たトーストと重なるため）
+    await page
+      .locator(rows)
+      .nth(index)
+      .evaluate((el) => el.scrollIntoView({ block: 'start' }));
     await page.locator(rows).nth(index).hover();
     await page.locator(`${rows} .row-menu-btn`).nth(index).click();
     await page.locator('.row-menu-list:not([hidden]) [data-task-delete]').click();
