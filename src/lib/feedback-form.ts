@@ -1,10 +1,15 @@
 // 右下のフィードバックのダイアログ（FeedbackLauncher.svelte）の、送る値の組み立て、入力の確かめ、失敗の振り分け。
 // 画面の状態を持たない関数だけを置く（$app を読まないので、node で試せる）
 import type { ApiResult } from './api.ts';
-import { FEEDBACK_TEXT_MAX } from '../shared/operations/feedback.ts';
+import {
+  FEEDBACK_IMAGE_MAX_BYTES,
+  FEEDBACK_IMAGE_MAX_COUNT,
+  FEEDBACK_IMAGE_MAX_SIDE,
+  FEEDBACK_TEXT_MAX,
+} from '../shared/operations/feedback.ts';
 import type { DictionaryKey } from '../shared/vocabulary.ts';
 
-export { FEEDBACK_TEXT_MAX };
+export { FEEDBACK_IMAGE_MAX_BYTES, FEEDBACK_IMAGE_MAX_COUNT, FEEDBACK_TEXT_MAX };
 
 // 画面の経路が無いとき（どの route にも合わない画面）に送る値。操作の入力の形には合うが既知の経路の一覧に無いので、
 // サーバーが null に置き換え、公開の Issue には経路が載らない。/ を送ると、組織の選択の画面から送ったように見えるため
@@ -59,8 +64,74 @@ function hasSecretProblem(result: FailedResult): boolean {
 // 失敗を、欄の下に出す文言に写す。どの失敗でも入力は残す。
 // ログインが切れた（401）と、規約に同意していない（403 の terms_required）は、呼び出し側が画面ごと移すので、ここへ渡さない
 export function feedbackFailure(result: FailedResult): DictionaryKey {
-  if (result.status === 400) return hasSecretProblem(result) ? 'feedbackSecret' : 'feedbackInvalid';
+  if (result.status === 400) {
+    if (hasSecretProblem(result)) return 'feedbackSecret';
+    return imageProblemKey(result) ?? 'feedbackInvalid';
+  }
   if (result.status === 429) return 'feedbackRateLimited';
   if (result.status === 503) return 'feedbackUnavailable';
   return 'feedbackFailed';
+}
+
+// サーバーが画像を断った理由（details の message）を、欄の下に出す文言に写す。画面の確かめを通っても、
+// サーバーだけが見られる理由（動く画像、一辺の画素数の上限、申告と違う中身）で断られることがある
+function imageProblemKey(result: FailedResult): DictionaryKey | null {
+  const details = result.error?.details;
+  if (!Array.isArray(details)) return null;
+  for (const item of details as unknown[]) {
+    if (typeof item !== 'object' || item === null || !('message' in item)) continue;
+    if (item.message === 'too_many_images') return 'feedbackImageTooMany';
+    if (item.message === 'image_too_large') return 'feedbackImageTooLarge';
+    if (item.message === 'image_unsupported') return 'feedbackImageUnsupported';
+  }
+  return null;
+}
+
+// 文言の {count}、{size}、{max} に入れる値。画面とサーバーで同じ上限を使う
+export const FEEDBACK_MESSAGE_PARAMS = {
+  max: FEEDBACK_TEXT_MAX.toLocaleString('ja-JP'),
+  count: String(FEEDBACK_IMAGE_MAX_COUNT),
+  size: String(FEEDBACK_IMAGE_MAX_BYTES / 1024 / 1024),
+  side: FEEDBACK_IMAGE_MAX_SIDE.toLocaleString('ja-JP'),
+} as const;
+
+export type FeedbackImageType = 'image/png' | 'image/jpeg' | 'image/webp';
+
+// 先頭のバイトで形式を決める（ファイルの種類と名前は申告なので使わない。サーバーも中身で決める）。
+// 貼り付けた画像は種類が空のことがあるので、種類で決めない
+export function sniffFeedbackImage(head: Uint8Array): FeedbackImageType | null {
+  const at = (offset: number, bytes: readonly number[]) => bytes.every((byte, i) => head[offset + i] === byte);
+  if (at(0, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'image/png';
+  if (at(0, [0xff, 0xd8, 0xff])) return 'image/jpeg';
+  if (at(0, [0x52, 0x49, 0x46, 0x46]) && at(8, [0x57, 0x45, 0x42, 0x50])) return 'image/webp';
+  return null;
+}
+
+export type FeedbackImageRejection = {
+  name: string;
+  reason: 'feedbackImageTooLarge' | 'feedbackImageUnsupported' | 'feedbackImageTooMany';
+};
+
+// 付けようとしたファイルを、付けた分に足せるかを確かめる。足せないものは、名前と理由を返す（付けた分は変えない）。
+// 枚数は、付けた分と合わせて上限まで先着順に足し、はみ出した分は枚数の理由で断る。
+// 動く画像と画素数の上限はサーバーだけが読むので、ここでは見ず、送ったときの失敗で出す
+export async function admitFeedbackImages(
+  current: readonly File[],
+  candidates: readonly File[],
+): Promise<{ accepted: File[]; rejected: FeedbackImageRejection[] }> {
+  const accepted: File[] = [];
+  const rejected: FeedbackImageRejection[] = [];
+  for (const file of candidates) {
+    const kind = sniffFeedbackImage(new Uint8Array(await file.slice(0, 16).arrayBuffer()));
+    if (kind === null) {
+      rejected.push({ name: file.name, reason: 'feedbackImageUnsupported' });
+    } else if (file.size > FEEDBACK_IMAGE_MAX_BYTES) {
+      rejected.push({ name: file.name, reason: 'feedbackImageTooLarge' });
+    } else if (current.length + accepted.length >= FEEDBACK_IMAGE_MAX_COUNT) {
+      rejected.push({ name: file.name, reason: 'feedbackImageTooMany' });
+    } else {
+      accepted.push(file);
+    }
+  }
+  return { accepted, rejected };
 }

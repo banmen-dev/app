@@ -10,8 +10,12 @@ import type { DictionaryKey } from '../shared/vocabulary.ts';
 // attempt は送り始めるたびに1つ増やし、送り直した後に届いた前の送信の応答を見分ける
 export const FEEDBACK_STALL_MS = 30_000;
 
+// images は付けた画像（File はそのまま持ち、縮小の絵は部品が描く）。imageProblems は付けられなかった画像の名前と理由。
+// どちらも書いた文と同じくタブで1つ持ち、読み直すと消える
 export const feedbackDraft = $state({
   text: '',
+  images: [] as File[],
+  imageProblems: [] as { name: string; reason: DictionaryKey }[],
   sending: false,
   stalled: false,
   attempt: 0,
