@@ -41,7 +41,8 @@ const EMPTY_EXTRA = /[\ufe0f\ufff9-\ufffb\ud800-\udfff]/gu;
 
 // 送る前の確かめ。空（空白と画面に出ない文字だけを含む）と、上限を超えた文は送らない
 export function validateFeedback(text: string): DictionaryKey | null {
-  if (text.replace(INVISIBLE, '').replace(EMPTY_EXTRA, '').trim() === '') return 'feedbackEmpty';
+  // 対にならないサロゲートを先に除く（見えない文字を先に除くと、間に挟まれた上位と下位の片割れが対になって残る）
+  if (text.replace(EMPTY_EXTRA, '').replace(INVISIBLE, '').trim() === '') return 'feedbackEmpty';
   if (feedbackTextLength(text) > FEEDBACK_TEXT_MAX) return 'feedbackTooLong';
   return null;
 }

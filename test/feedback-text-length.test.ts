@@ -51,6 +51,7 @@ describe('サーバーが空にする文は、画面も空とみなす', () => {
     'U+FE0F だけ': c(0xfe0f),
     注釈の文字だけ: c(0xfff9, 0xfffa, 0xfffb),
     対にならないサロゲートだけ: String.fromCharCode(0xd800),
+    見えない文字を挟んだ上位と下位の片割れ: `${String.fromCharCode(0xd83d)}${c(0x200b)}${String.fromCharCode(0xde00)}`,
     画面に出ない文字と空白だけ: `${c(0x200b)} ${c(0x2060)}${c(0x09)}${c(0x85)}`,
   };
   for (const [name, text] of Object.entries(empties)) {
