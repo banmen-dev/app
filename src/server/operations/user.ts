@@ -21,6 +21,7 @@ import {
 import { removeAvatarObjects } from '../avatars/remove.ts';
 import { ApiError } from '../errors.ts';
 import { uuidv7 } from '../uuid.ts';
+import { stopDepartedConnectionStatements } from './connection-departure.ts';
 import { implement } from './implement.ts';
 import { removeDepartedAvatarObjects, removeDepartedAvatarStatement } from './organization-departure.ts';
 import { readSeats } from './invitation.ts';
@@ -336,9 +337,11 @@ export const userAdminUpdateOperation = implement(
 // 3, 4. その人のログイン（手段と ID）への承諾待ちの招待を、組織のすべてのワークスペースで取り消す（招待の取り消しと同じ記録を先に書く）
 // 5. 所属の終わりの記録（離脱と同じ形）  6. 担当を外すタスクの記録（担当の変更と同じ形）  7. tasks の担当と今日やるの印を外す
 // 8. memberships（left_on はワークスペースのタイムゾーンの今日、left_at）
-// 3〜8 は閉じたワークスペースも含めたすべてのワークスペースに当て、「この要求で無効になった（disabled_at がこの要求の時刻）」を条件にする。
+// 9. 接続の記録  10. connections を user_disabled で止め、認証情報の列を消す。組織のすべてのワークスペース（閉じたもの、論理削除したものも）の
+//    その人の削除していない接続に当てる（PAT を DB に残さない）。既に止まった接続は、理由を書き換えず、認証情報だけを消す
+// 3〜10 は閉じたワークスペースも含めたすべてのワークスペースに当て、「この要求で無効になった（disabled_at がこの要求の時刻）」を条件にする。
 // 記録はどれも、変える文より前に置く（変えた後では対象の行を選べない）。行の ID は SQL の中で作るので、件数によらず文の数は決まっている。
-// 完了したタスク、完了の記録、経験値は変えない。接続は #67 で足す。
+// 完了したタスク、完了の記録、経験値は変えない。
 // 最後に、その人のプロフィール画像の行（user_avatars）を同じ条件で消す（変更の履歴は残さない）。R2 のファイルは batch の後に消し、
 // 失敗は件数だけをログに出す。有効に戻しても画像は戻さない
 export const userDisableOperation = implement(userDisable, async ({ db, actor, input, attachmentStorage }) => {
@@ -559,6 +562,15 @@ export const userDisableOperation = implement(userDisable, async ({ db, actor, i
           ]),
         ),
     ),
+    // 9, 10. 接続を止め、認証情報を消す
+    ...stopDepartedConnectionStatements(db, {
+      actorUserId,
+      ownerUserId: userId,
+      at,
+      reason: 'user_disabled',
+      removeCredential: true,
+      writtenHere: disabledHere,
+    }),
     removeAvatar,
   ];
   const results = await db.batch(statements);
