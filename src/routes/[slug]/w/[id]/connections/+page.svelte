@@ -33,7 +33,7 @@
     connectionStop,
     connectionSync,
     connectionUpdate,
-    isOwnerGoneStop,
+    isScopeBlockedStop,
     resumesOnCredential,
     type Connection,
   } from '../../../../../shared/operations/connection/index.ts';
@@ -62,7 +62,12 @@
 
   // 停止と削除の確認。ダイアログは1つで、押した行の接続と操作を持つ
   let confirmDialog = $state<ReturnType<typeof ConfirmDialog>>();
-  let managing = $state<{ kind: 'stop' | 'delete'; connection: Connection } | null>(null);
+  let managing = $state<{
+    kind: 'stop' | 'delete';
+    connection: Connection;
+    resumable: boolean;
+    discards: boolean;
+  } | null>(null);
   let managingId = $state<string | null>(null);
 
   const STATE: Record<Connection['status'], { cls: string; key: DictionaryKey }> = {
@@ -245,7 +250,7 @@
     }
   }
 
-  // 持ち主が去って止めた接続（読んだ後に止まったものを含む）は、読み直しても選べないので段を閉じ、止まった理由が出る一覧を読み直す
+  // 止めた接続（読んだ後に止まったものを含む）は、読み直しても選べないので段を閉じ、止まった理由が出る一覧を読み直す
   async function scopeStopped(): Promise<void> {
     showToast(t('connectionScopeStopped', { connection: t('connection') }), 'alert');
     closeScope(true);
@@ -352,7 +357,13 @@
 
   async function manage(kind: 'stop' | 'delete', target: Connection, trigger: HTMLElement | null): Promise<void> {
     if (busyElsewhere || workspace === null || !canWrite) return;
-    managing = { kind, connection: target };
+    managing = {
+      kind,
+      connection: target,
+      // 再開できる理由で止まった接続を止めると、再開できなくなる。開いている編集と範囲の段は、続けると入力が消える
+      resumable: kind === 'stop' && target.status === 'stopped' && resumesOnCredential(target),
+      discards: editingId === target.id || choosing?.id === target.id,
+    };
     if (!(await confirmDialog?.ask(trigger))) return;
     // 確認している間に、同期、編集、範囲の保存が始まっていたら、重ねずに知らせる
     if (busyElsewhere) {
@@ -469,7 +480,7 @@
         {@const state = STATE[connection.status]}
         {@const mine = meId !== null && connection.owner_user_id === meId}
         {@const staysStopped = connection.status === 'stopped' && !(resumesOnCredential(connection) && isMember)}
-        {@const ownerGone = isOwnerGoneStop(connection) || (mine && connection.status === 'stopped' && !isMember)}
+        {@const scopeBlocked = isScopeBlockedStop(connection) || (mine && connection.status === 'stopped' && !isMember)}
         {@const who =
           mine ||
           !connection.owner_name ||
@@ -480,13 +491,17 @@
         <section class="panel conn" role="listitem" data-connection-id={connection.id}>
           <div class="conn-head">
             <span class="kind is-story"><Icon name="git" /></span>
-            <h2 class="conn-name">{connection.name}</h2>
+            <h2 class="conn-name" id={`connection-name-${connection.id}`}>{connection.name}</h2>
             <span class="state-badge {state.cls}">{t(state.key)}</span>
             {#if canWrite && (mine || managesOthers)}
               <span class="conn-actions">
-                {#if mine && connection.status !== 'stopped' && connection.scopes.length === 0 && choosing?.id !== connection.id && !ownerGone}
-                  <button class="btn is-sm" type="button" aria-disabled={saving} onclick={() => openScope(connection)}
-                    >{t('connectionChooseScope')}</button
+                {#if mine && connection.status !== 'stopped' && connection.scopes.length === 0 && choosing?.id !== connection.id && !scopeBlocked}
+                  <button
+                    class="btn is-sm"
+                    type="button"
+                    aria-disabled={saving}
+                    aria-describedby={`connection-name-${connection.id}`}
+                    onclick={() => openScope(connection)}>{t('connectionChooseScope')}</button
                   >
                 {:else if mine && connection.status !== 'stopped' && connection.scopes.length > 0}
                   <button
@@ -494,6 +509,7 @@
                     type="button"
                     aria-disabled={busyElsewhere}
                     aria-busy={syncingId === connection.id}
+                    aria-describedby={`connection-name-${connection.id}`}
                     onclick={() => syncNow(connection)}
                     ><Icon name="refresh" />{syncingId === connection.id
                       ? t('connectionSyncing')
@@ -506,6 +522,7 @@
                     type="button"
                     id={`connection-edit-${connection.id}`}
                     aria-expanded={editingId === connection.id}
+                    aria-describedby={`connection-name-${connection.id}`}
                     aria-disabled={updating}
                     onclick={() => openEdit(connection)}>{t('connectionEdit')}</button
                   >
@@ -516,6 +533,7 @@
                     type="button"
                     data-action="connection-stop"
                     aria-disabled={busyElsewhere}
+                    aria-describedby={`connection-name-${connection.id}`}
                     onclick={(event) => manage('stop', connection, event.currentTarget)}>{t('connectionStop')}</button
                   >
                 {/if}
@@ -524,12 +542,13 @@
                   type="button"
                   data-action="connection-delete"
                   aria-disabled={busyElsewhere}
+                  aria-describedby={`connection-name-${connection.id}`}
                   onclick={(event) => manage('delete', connection, event.currentTarget)}>{t('connectionDelete')}</button
                 >
               </span>
             {/if}
           </div>
-          {#if connection.last_error_message}
+          {#if connection.last_error_message && !(connection.stopped_reason === 'owner' || connection.stopped_reason === 'leader')}
             <div class="callout is-warn">
               <Icon name="alert" /><span
                 >{connection.last_error_at === null || connection.consecutive_failures === 0
@@ -866,7 +885,12 @@
     <p>
       {managing?.kind === 'delete'
         ? t('connectionDeleteBody', { task: t('task') })
-        : t('connectionStopBody', { connection: t('connection'), task: t('task') })}
+        : managing?.resumable
+          ? t('connectionStopBodyResumable', { connection: t('connection'), task: t('task') })
+          : t('connectionStopBody', { connection: t('connection'), task: t('task') })}
     </p>
+    {#if managing?.discards}
+      <p>{t('connectionManageBodyDiscards')}</p>
+    {/if}
   </ConfirmDialog>
 {/if}

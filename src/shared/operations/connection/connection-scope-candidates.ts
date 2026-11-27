@@ -4,7 +4,7 @@ import { connectionIdInput } from './connection.ts';
 
 // 範囲の候補。登録した本人だけが、保存した認証情報を復号して取り込み元に問い合わせる（ほかのメンバーは 403、
 // 別のワークスペースと別の組織の接続は 404）。認証情報を取り込み元が受け付けなければ 409 の conflict（details.reason は credential_rejected）、
-// 届かなければ 503。持ち主の離脱、無効化で止めた接続と、止まった接続で持ち主が今のメンバーでないものは、
+// 届かなければ 503。持ち主の離脱、無効化と、本人かリーダーが止めた（owner、leader）接続と、止まった接続で持ち主が今のメンバーでないものは、
 // 取り込み元に問い合わせずに 409 の conflict
 // （details.reason は connection_stopped）。閉じたワークスペースでも読める
 export const connectionScopeCandidates = defineOperation({
