@@ -974,6 +974,11 @@ export const pointers: Pointers = {
     patGithub.addAccount(pat, { type: 'User', id: 7_000_002, login: 'guild-fake' }, []);
     return { workspace_id: target.workspace.id, provider: 'github', name: 'あおばの GitHub', credential: pat };
   },
+  'connection-update': async (target, caller) => ({
+    workspace_id: target.workspace.id,
+    connection_id: (await connectionFor(target, caller)).id,
+    name: '取り込みの接続',
+  }),
   'connection-scope-candidates': async (target, caller) => ({
     workspace_id: target.workspace.id,
     connection_id: (await connectionFor(target, caller)).id,

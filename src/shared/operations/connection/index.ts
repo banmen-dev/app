@@ -6,13 +6,23 @@ import { connectionScopeCandidates } from './connection-scope-candidates.ts';
 import { connectionScopesSave } from './connection-scopes-save.ts';
 import { connectionSync } from './connection-sync.ts';
 
-export { connectionCreate, connectionList, connectionScopeCandidates, connectionScopesSave, connectionSync };
+import { connectionUpdate } from './connection-update.ts';
+
+export {
+  connectionCreate,
+  connectionList,
+  connectionScopeCandidates,
+  connectionScopesSave,
+  connectionSync,
+  connectionUpdate,
+};
 export * from './connection-sync.ts';
 export * from './connection.ts';
 
 export const connectionOperations: readonly AnyOperationDefinition[] = [
   connectionList,
   connectionCreate,
+  connectionUpdate,
   connectionScopeCandidates,
   connectionScopesSave,
   connectionSync,
