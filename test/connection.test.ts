@@ -709,6 +709,40 @@ describe('持ち主が去って止めた接続の範囲', () => {
     },
   );
 
+  test('auth_failed で止まった接続の持ち主が候補を取っている間に抜けたら、保存は 409 の connection_stopped で範囲も履歴も増えない', async () => {
+    const github = createFakePatGithub();
+    const target = await createTarget();
+    const joined = await createMembership(target.organization, target.workspace.id, target.admin.userId!);
+    const db = orgDb(env, target.organization.verified);
+    let armed = false;
+    const fetcher: typeof fetch = async (input, init) => {
+      const res = await github.fetcher(input, init);
+      if (armed) {
+        await db.run(
+          db.statement((q) =>
+            q
+              .updateTable('memberships')
+              .set({ left_at: '2026-11-26T00:00:00.000Z', left_on: '2026-11-26' })
+              .where('id', '=', joined.id),
+          ),
+        );
+      }
+      return res;
+    };
+    const ctx = { github, app: createApp(implementedOperations, { fetcher }) };
+    const { id } = await registered(ctx, target, target.admin, 'gone-admin-race');
+    await stop(target, id, 'auth_failed');
+    const before = await rowsOf(target);
+    armed = true;
+
+    const res = await save(ctx, target, target.admin, id, ['1001']);
+    expect(res.status).toBe(409);
+    expect(errorOf(await res.json())).toMatchObject({ details: { reason: 'connection_stopped' } });
+    const rows = await rowsOf(target);
+    expect(rows.scopes).toEqual(before.scopes);
+    expect(rows.logs).toEqual(before.logs);
+  });
+
   test('メンバーでない管理者も、動いている自分の接続の範囲は選べる', async () => {
     const ctx = setup();
     const target = await createTarget();

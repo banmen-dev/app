@@ -366,6 +366,8 @@ test('持ち主が去って止めた接続には範囲を選ぶボタンが出�
   ).toBeVisible();
   // 読み直しても選べないので、候補を読み直すボタンを出さずに段を閉じ、止まった行に変える
   await expect(page.getByRole('button', { name: '候補を読み直す' })).toHaveCount(0);
+  // 押したボタンが消えるので、フォーカスは段のタイトルへ戻る
+  await expect(page.locator('#connection-scope')).toBeFocused();
   await expect(page.getByRole('button', { name: 'あとで選ぶ' })).toHaveCount(0);
   await expect(freshItem.locator('.state-badge')).toHaveText('停止');
   await expect(freshItem.getByRole('button', { name: '範囲を選ぶ' })).toHaveCount(0);

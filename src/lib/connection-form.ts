@@ -98,7 +98,7 @@ export function connectionUpdateFailure(result: FailedResult, sentCredential: bo
 
 // 範囲の候補（connection-scope-candidates）と保存（connection-scopes-save）の失敗。
 // 候補の 409（credential_rejected）は、保存した認証情報を取り込み元が受け付けなくなったこと。
-// 409（connection_stopped）は、持ち主の離脱、無効化、ワークスペースの閉鎖で止めた接続
+// 409（connection_stopped）は、持ち主の離脱、無効化、ワークスペースの閉鎖で止めた接続か、止まった接続で持ち主が今のメンバーでないもの
 export function connectionScopeFailure(result: FailedResult): DictionaryKey {
   if (result.error?.code === 'credential_keys_unavailable') return 'connectionCredentialKeysUnavailable';
   if (result.error?.code === 'workspace_closed') return 'connectionWorkspaceClosed';
