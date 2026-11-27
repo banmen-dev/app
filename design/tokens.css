@@ -42,6 +42,9 @@
   --mobile-tab-size: 48px;
   --mobile-bar-height: calc(var(--mobile-tab-size) + 2 * var(--space-2) + 2px);
   --mobile-navigation-clearance: calc(var(--mobile-bar-height) + 2 * var(--space-4));
+  /* 右下のフィードバックの入口（.feedback-launch）。押せる範囲の 44px 四方。本文（.content）と枠の外の紙（.gate）は、入口の下端からこの分を足して空ける */
+  --feedback-launch-size: 44px;
+  --feedback-launch-stack: calc(var(--feedback-launch-size) + var(--space-2));
 
   /* ---- 動き ---- */
   --duration-fast: 120ms;

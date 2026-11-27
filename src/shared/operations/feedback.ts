@@ -12,6 +12,9 @@ export const FEEDBACK_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
 // 一辺の画素数の上限
 export const FEEDBACK_IMAGE_MAX_SIDE = 8192;
 
+// 本文の上限（字）。サーバーは見えない文字を除いた後のコードポイントで数え、画面も同じ数で送る前に確かめる
+export const FEEDBACK_TEXT_MAX = 5000;
+
 export const feedbackSubmit = defineOperation({
   name: 'feedback-submit',
   description: '画面から文と画像（3枚まで）のフィードバックを送る。文は公開の Issue に載り、画像は運用者だけが見る',
