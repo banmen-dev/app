@@ -283,7 +283,8 @@ test('見本のバックログ: 続けて消した2件を古い方から取り�
       .evaluate((el) => el.scrollIntoView({ block: 'start' }));
     await page.locator('.tree > div:has(> .entry) > .entry').first().hover();
     await page.locator('.tree > div:has(> .entry) > .entry .row-menu-btn').first().click();
-    await page.locator('.row-menu-list:not([hidden]) [data-task-delete]').click();
+    // 木の末尾が短く、2件目のメニューの「削除」が先に出たトーストの下に隠れるので、当たり判定を通さず click を送る
+    await page.locator('.row-menu-list:not([hidden]) [data-task-delete]').dispatchEvent('click');
   }
   await page.locator('.toast-action').first().click();
   await page.locator('.toast-action').first().click();
@@ -405,7 +406,8 @@ test('見本のバックログ: 下の行を先に、上の行を後に消し、
       .evaluate((el) => el.scrollIntoView({ block: 'start' }));
     await page.locator(rows).nth(index).hover();
     await page.locator(`${rows} .row-menu-btn`).nth(index).click();
-    await page.locator('.row-menu-list:not([hidden]) [data-task-delete]').click();
+    // 木の末尾が短く、2件目のメニューの「削除」が先に出たトーストの下に隠れるので、当たり判定を通さず click を送る
+    await page.locator('.row-menu-list:not([hidden]) [data-task-delete]').dispatchEvent('click');
   }
   await page.locator('.toast-action').first().click();
   await page.locator('.toast-action').first().click();
