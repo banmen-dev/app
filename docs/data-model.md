@@ -808,7 +808,7 @@
 | provider | TEXT | NOT NULL | 取り込み元の種類（初版は `backlog` と `github`）。値は取り込み元の型の一覧でアプリが検証する |
 | name | TEXT | NOT NULL | 本人が付けた表示名 |
 | status | TEXT | NOT NULL、`active`、`error`、`stopped` | |
-| stopped_reason | TEXT | `auth_failed`、`owner`、`leader`、`member_left`、`workspace_closed`、`user_disabled` | 停止の理由。`status = 'stopped'` のときは必ず入り、ほかは空（`CHECK`）。書くのは `auth_failed`（同期の認証失敗）、`member_left`、`user_disabled`（離脱と無効化）だけ。`owner`（本人が止めた）と `leader`（リーダーが止めた）は、接続を止める操作がまだ無いので書かず、導入する Issue も無い。`workspace_closed` も使わない（閉じたワークスペースは接続の行を書き換えず、同期で飛ばす。「ワークスペース」の節）。3つとも値は `CHECK` に残るが、どこからも書かない（`CHECK` を縮めるのは、使わなくなった版を出した後の別の PR） |
+| stopped_reason | TEXT | `auth_failed`、`owner`、`leader`、`member_left`、`workspace_closed`、`user_disabled` | 停止の理由。`status = 'stopped'` のときは必ず入り、ほかは空（`CHECK`）。書くのは `auth_failed`（同期の認証失敗）、`member_left`、`user_disabled`（離脱と無効化）だけ。`owner`（本人が止めた）と `leader`（リーダーが止めた）は、接続を止める操作がまだ無いので書かない（要件のリーダーと管理者による停止は、「要件」の接続の節の記述で、操作は未実装）。`workspace_closed` も使わない（閉じたワークスペースは接続の行を書き換えず、同期で飛ばす。「ワークスペース」の節）。3つとも値は `CHECK` に残るが、どこからも書かない（`CHECK` を縮めるのは、使わなくなった版を出した後の別の PR） |
 | scope_mode | TEXT | NOT NULL、`include` か `exclude`、既定 `include` | 対象を挙げるか、除外を挙げるか |
 | ignore_source_due | INTEGER | NOT NULL、既定 0 | 取り込み元の期限を無視する |
 | settings_json | TEXT | NOT NULL、既定 `'{}'`、`json_valid` | 取り込み元に固有の設定。Backlog のスペースのドメインとユーザー ID、GitHub の PAT を発行したユーザーの ID（担当分の判定に使う「自分」）と PAT の持ち主（ユーザーか組織。範囲の候補を出す先）など。型が検証する |
