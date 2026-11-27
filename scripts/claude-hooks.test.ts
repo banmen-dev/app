@@ -32,11 +32,14 @@ function commandOf(event: string): string {
   return commands[0]!;
 }
 
-function run(command: string, projectDir: string, input: string) {
+// 親に JAPANESE_GUARD_*（ai-review の JAPANESE_GUARD_DISABLE や、人が付けたしきい値）があると、スクリプトが何も出さずにテストが退行と関係なく落ちる。
+// 親の値は引き継がず、必要なものだけを extraEnv で渡す
+function run(command: string, projectDir: string, input: string, extraEnv: Record<string, string> = {}) {
+  const inherited = Object.entries(process.env).filter(([key]) => !key.startsWith('JAPANESE_GUARD_'));
   const result = spawnSync('sh', ['-c', command], {
     input,
     encoding: 'utf8',
-    env: { ...process.env, CLAUDE_PROJECT_DIR: projectDir },
+    env: { ...Object.fromEntries(inherited), CLAUDE_PROJECT_DIR: projectDir, ...extraEnv },
   });
   return { status: result.status, stdout: result.stdout };
 }
@@ -55,6 +58,12 @@ describe('japanese-guard の登録', () => {
     const japanese = run(commandOf('Stop'), repoRoot, JAPANESE_STOP_INPUT);
     assert.equal(japanese.status, 0);
     assert.equal(japanese.stdout, '');
+  });
+
+  test('JAPANESE_GUARD_DISABLE=1 のときは、英語でも何も出さない（ai-review の設定の意味）', () => {
+    const disabled = { JAPANESE_GUARD_DISABLE: '1' };
+    assert.deepEqual(run(commandOf('Stop'), repoRoot, STOP_INPUT, disabled), { status: 0, stdout: '' });
+    assert.deepEqual(run(commandOf('PreToolUse'), repoRoot, WRAP_UP_INPUT, disabled), { status: 0, stdout: '' });
   });
 
   test('英語の wrap_up は PreToolUse で deny する', () => {
