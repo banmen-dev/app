@@ -1,7 +1,7 @@
 // 本番へのデプロイの手順（docs/development.md の「CD」）。Workers Builds のデプロイのコマンドが
 // scripts/deploy-production.ts から呼ぶ。wrangler と HTTP を差し替えて node --test にかけられるよう、外への作用は deps で受け取る。
 
-import { SEED_API_TOKENS } from '../seed/api-tokens.ts';
+import { SEED_API_TOKENS, SEED_LEGACY_API_TOKENS } from '../seed/api-tokens.ts';
 import { SEED_SESSIONS } from '../seed/sessions.ts';
 import { isErrorBody } from '../src/shared/errors.ts';
 import { isHealth } from '../src/shared/health.ts';
@@ -125,7 +125,8 @@ async function waitForVersion(deps: DeployDeps, expected: string): Promise<boole
 // 401 だけが「拒んだ」。2xx（受け付けた）とそのほかの 4xx、3xx（リダイレクトは辿らない）は、繰り返さずに失敗にする
 type SeedCheck = { ok: true } | { ok: false; reason: string };
 
-const SEED_COUNT = Object.keys(SEED_SESSIONS).length + Object.keys(SEED_API_TOKENS).length;
+const SEED_COUNT =
+  Object.keys(SEED_SESSIONS).length + Object.keys(SEED_API_TOKENS).length + Object.keys(SEED_LEGACY_API_TOKENS).length;
 
 function isRetryableStatus(status: number): boolean {
   return status >= 500 || status === 429;
@@ -211,7 +212,10 @@ async function seedSessionsRejected(deps: DeployDeps): Promise<SeedCheck> {
   const problems: string[] = [];
   const checks = [
     ...Object.entries(SEED_SESSIONS).map(([name, seed]) => ({ name, request: cookieRequest(seed.token) })),
-    ...Object.entries(SEED_API_TOKENS).map(([name, seed]) => ({ name, request: bearerRequest(seed.token) })),
+    ...Object.entries({ ...SEED_API_TOKENS, ...SEED_LEGACY_API_TOKENS }).map(([name, seed]) => ({
+      name,
+      request: bearerRequest(seed.token),
+    })),
   ];
   for (const { name, request } of checks) {
     const result = await checkSeedToken(deps, name, request);

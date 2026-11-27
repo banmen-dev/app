@@ -38,3 +38,13 @@ export const SEED_API_TOKENS = {
     description: '運用者の書き込みのトークン。運用者の操作はどのトークンでも 403',
   },
 } as const satisfies Record<string, SeedApiToken>;
+
+// 旧名（Scrum Guild）の接頭辞 `sgp_` だった seed の値。公開のリポジトリの履歴に残り、本番に旧の行が残っていれば
+// API_TOKEN_LEGACY_LAST_DAY（src/shared/api-token.ts）まで通るので、デプロイの煙のテストが本番に拒まれることを確かめ続ける。
+// data.sql には入れない。最終日の翌日に旧の分岐と一緒に消す（#1611）
+export const SEED_LEGACY_API_TOKENS: Record<string, { token: string }> = Object.fromEntries(
+  Object.entries(SEED_API_TOKENS).map(([name, seed]) => [
+    `${name}（旧 sgp_）`,
+    { token: `sgp_${seed.token.slice(4)}` },
+  ]),
+);

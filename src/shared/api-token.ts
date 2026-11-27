@@ -6,7 +6,7 @@ export const API_TOKEN_LEGACY_PREFIX = 'sgp_';
 export const API_TOKEN_LEGACY_LAST_DAY = '2027-03-27';
 
 // 検証が通す形。新しい接頭辞と、最終日までの旧の接頭辞のどちらも、乱数は base64url の43文字
-export const API_TOKEN_PATTERN = /^(?:bnp|sgp)_[A-Za-z0-9_-]{43}$/;
+export const API_TOKEN_PATTERN = new RegExp(`^(?:${API_TOKEN_PREFIX}|${API_TOKEN_LEGACY_PREFIX})[A-Za-z0-9_-]{43}$`);
 
 // 旧の接頭辞を受け付けるのは、now の UTC の日付が最終日以前のあいだ（最終日の終わりまで通し、翌日の 00:00 から断る）
 export function isLegacyApiTokenAccepted(now: Date): boolean {
