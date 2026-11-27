@@ -1,5 +1,5 @@
 // 着手できる Issue に status:ready を付け、当てはまらなくなったら外す（.github/workflows/ready.yml が動かす。docs/development.md の「Issue の状態」）。
-// ワークフローは pnpm install をしないので、node: の組み込みだけを import する
+// ワークフローは pnpm install をしないので、node: の組み込みと、同じ scripts/ の依存の無いファイルだけを import する
 import { spawnSync } from 'node:child_process';
 import { cachedLookup, ghPermissionLookup, normalizeLogin, resolveWriteUsers } from './github-write-permissions.ts';
 
@@ -46,7 +46,7 @@ function isWorkflowBot(author: OpenPr['author']): boolean {
 // このリポジトリのブランチの PR も、書き込み権限を確かめた作者（writers。docs/development.md の「GitHub の書き込み権限」）と
 // github-actions[bot] のものだけ拾う（書き込み権限の無い人が Closes #N で、関係の無い Issue のラベルを外させないため）。
 // 作者が分からない・確かめられない PR は数えない
-export function issuesWithOpenPr(prs: readonly OpenPr[], writers: ReadonlySet<string> = new Set()): Set<number> {
+export function issuesWithOpenPr(prs: readonly OpenPr[], writers: ReadonlySet<string>): Set<number> {
   const numbers = new Set<number>();
   for (const pr of prs) {
     if (!pr.sameRepo) continue;
@@ -187,6 +187,15 @@ async function run(repo: string): Promise<number> {
     openPrs.filter((pr) => pr.sameRepo).flatMap((pr) => (pr.author ? [pr.author] : [])),
     cachedLookup(ghPermissionLookup(repo)),
   );
+  const unverified = new Set(
+    openPrs.flatMap((pr) =>
+      pr.sameRepo && pr.author?.type === 'User' && !writers.has(normalizeLogin(pr.author.login) ?? '')
+        ? [normalizeLogin(pr.author.login) ?? '']
+        : [],
+    ),
+  );
+  // 作者の login と本文は出さず、数えなかった作者の人数だけを残す
+  if (unverified.size > 0) console.log(`書き込み権限を確認できない作者 ${unverified.size} 人の PR は数えない`);
   const withOpenPr = issuesWithOpenPr(openPrs, writers);
 
   let failed = 0;

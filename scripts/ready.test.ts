@@ -257,7 +257,10 @@ describe('issuesWithOpenPr', () => {
       [],
     );
     // 権限の確認に失敗すると writers は空になり、許可しない側に倒れる
-    assert.deepEqual([...issuesWithOpenPr([{ head: '476-x', body: 'Closes #12', sameRepo: true, author: alice }])], []);
+    assert.deepEqual(
+      [...issuesWithOpenPr([{ head: '476-x', body: 'Closes #12', sameRepo: true, author: alice }], new Set())],
+      [],
+    );
   });
 
   test('作者が分からない PR と、login が不正な作者の PR は拾わない', () => {
@@ -293,11 +296,11 @@ describe('issuesWithOpenPr', () => {
       author,
     });
     assert.deepEqual(
-      [...issuesWithOpenPr([pr({ login: 'github-actions[bot]', type: 'Bot' })])].sort((a, b) => a - b),
+      [...issuesWithOpenPr([pr({ login: 'github-actions[bot]', type: 'Bot' })], new Set())].sort((a, b) => a - b),
       [12, 476],
     );
-    assert.deepEqual([...issuesWithOpenPr([pr({ login: 'github-actions[bot]', type: 'User' })])], []);
-    assert.deepEqual([...issuesWithOpenPr([pr({ login: 'dependabot[bot]', type: 'Bot' })])], []);
+    assert.deepEqual([...issuesWithOpenPr([pr({ login: 'github-actions[bot]', type: 'User' })], new Set())], []);
+    assert.deepEqual([...issuesWithOpenPr([pr({ login: 'dependabot[bot]', type: 'Bot' })], new Set())], []);
   });
 });
 
