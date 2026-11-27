@@ -182,6 +182,8 @@ const CLIENT_SCRIPT = String.raw`(function () {
   var issuePanels = panels.filter(function (p) { return p.hasAttribute('data-issue'); });
   // 作り直した HTML に、前の判定を引き継がないよう、生成ごとの値をキーに入れる。file:// は同じ origin で共有される
   var storeKey = 'scrum-guild-review:' + location.pathname + ':' + document.body.getAttribute('data-run');
+  // 前の判定を復元し終えたか。済むまでは保存しない（下の restoreLater）
+  var restored = false;
 
   function select(id, focus) {
     tabList().forEach(function (tab) {
@@ -267,7 +269,7 @@ const CLIENT_SCRIPT = String.raw`(function () {
     document.getElementById('counts').textContent = 'ok ' + n('ok') + ' 件、ng ' + n('ng') + ' 件、未判定 ' + n('') + ' 件';
     document.getElementById('result').value = buildResult(entries);
     layout();
-    if (save) {
+    if (save && restored) {
       var kept = entries.map(function (e) {
         return { issue: e.issue, status: e.status, reasons: e.reasons, comment: e.comment, returned: e.returned };
       });
@@ -349,8 +351,21 @@ const CLIENT_SCRIPT = String.raw`(function () {
         fallback();
       }
     });
-    restore();
     refresh(false);
+    // 前の判定の復元は、load の後に間を置いてから読む。Chromium は、file:// の文書が読み込みの直後に localStorage に
+    // 触れると、その文書の後の書き込みが保存先に届かず、開き直すと判定が消えることがある（#1387。load の直後に読むと
+    // 1 割近くで起き、5ms 後からは起きなかった。開き直す前に待っても防げず、http で配れば起きない）。
+    // 復元するまでは保存しない（復元の前の操作で、前の判定を空で上書きしない）。済んだら body に data-restored を付ける
+    var restoreLater = function () {
+      setTimeout(function () {
+        restore();
+        restored = true;
+        refresh(false);
+        document.body.setAttribute('data-restored', '');
+      }, 100);
+    };
+    if (document.readyState === 'complete') restoreLater();
+    else window.addEventListener('load', restoreLater);
   }
 
   var initial = location.hash.slice(1);
