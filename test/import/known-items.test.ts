@@ -56,7 +56,7 @@ function fakeGithub() {
   return { calls, issues, single, fetcher };
 }
 
-async function setup(scopes = [PULL_SCOPE]) {
+async function setup(scopes = [PULL_SCOPE], scopeMode: 'include' | 'exclude' = 'include') {
   const organization = await createOrganization();
   const owner = await createUser(organization);
   const workspace = await createWorkspace(organization, owner.id);
@@ -69,6 +69,7 @@ async function setup(scopes = [PULL_SCOPE]) {
     credential_ciphertext: sealed.ciphertext,
     credential_key_version: sealed.keyVersion,
     credential_last4: PULL_PAT.slice(-4),
+    scope_mode: scopeMode,
   });
   for (const scope of scopes) {
     await createConnectionScope(organization, id, { source_id: scope.id, source_name: scope.name });
@@ -337,24 +338,52 @@ describe('同期: 担当が外れた項目と範囲の外へ移した項目', ()
     expect((await t.tasks()).filter((task) => task.title.startsWith('改題'))).toHaveLength(1);
   });
 
-  test('続けて3件取れなければ、その回の段を止めて位置を戻し、次の回にやり直す', async () => {
+  test('続けて3件取れなければ、最初の1件だけを飛ばしてその回の段を止め、次の回で後ろへ進む', async () => {
     const t = await setup();
     const f = fakeGithub();
     for (const n of [1, 2, 3, 4]) put(f, PULL_SCOPE, n);
     await t.sync(f);
-    for (const n of [1, 2, 3, 4]) put(f, PULL_SCOPE, n, { title: `改題 ${n}`, updated_at: '2026-12-08T00:00:00.000Z' });
+    const order = (await t.sources()).sort((a, b) => (a.task_id < b.task_id ? -1 : 1));
+    const number = (row: (typeof order)[number]) => Number(row.source_id) - 500_000;
+    for (const row of order)
+      put(f, PULL_SCOPE, number(row), { title: `改題 ${number(row)}`, updated_at: '2026-12-08T00:00:00.000Z' });
     f.issues.set(PULL_SCOPE.id, []);
-    for (const n of [1, 2, 3, 4]) f.single.set(`/repositories/1001/issues/${n}`, { status: 429 });
+    // 先頭の3件は恒久に権限で断られ、4件目は取れる
+    for (const row of order.slice(0, 3)) f.single.set(`/repositories/1001/issues/${number(row)}`, { status: 403 });
     f.calls.length = 0;
     expect(await t.sync(f)).toEqual({ outcome: 'success', imported: 0, more: false });
-    // 4件目は取りに行かない。位置は最初に取れなかった項目の手前（先頭）に戻る
+    // 4件目は取りに行かない。位置は最初に取れなかった1件を飛ばした先に進む
     expect(f.calls.filter((c) => /\/issues\/\d+$/.test(c))).toHaveLength(3);
-    expect(JSON.parse((await t.state())!)).toMatchObject({ known: { after: '' } });
-    for (const n of [1, 2, 3, 4]) put(f, PULL_SCOPE, n, { title: `改題 ${n}`, updated_at: '2026-12-08T00:00:00.000Z' });
+    expect(JSON.parse((await t.state())!)).toMatchObject({ known: { after: order[0]!.task_id } });
+    // 同期を重ねるたびに1件ずつ進み、4件目に届く
+    await t.sync(f);
+    await t.sync(f);
+    expect((await t.tasks()).filter((task) => task.title.startsWith('改題'))).toHaveLength(1);
+  });
+
+  test('除外で持つ接続は、除外した範囲の項目を取りに行かず、除外していない範囲の項目は取りに行く', async () => {
+    const t = await setup([], 'exclude');
+    const f = fakeGithub();
+    const all = {
+      ...source,
+      fetchScopeCandidatesPage: undefined,
+      listScopeCandidates: async () => [PULL_SCOPE, OTHER_SCOPE],
+    };
+    put(f, PULL_SCOPE, 1);
+    put(f, OTHER_SCOPE, 5);
+    await syncConnection(env, t.db, t.workspace.id, t.id, { fetcher: f.fetcher, source: all });
+    expect(await t.sources()).toHaveLength(2);
+
+    // 2002 を除外に足し、どちらの項目も担当が外れて題が変わる
+    await createConnectionScope(t.organization, t.id, { source_id: OTHER_SCOPE.id, source_name: OTHER_SCOPE.name });
+    put(f, PULL_SCOPE, 1, { assignees: [], assignee: null, title: '改題 1', updated_at: '2026-12-14T00:00:00.000Z' });
+    put(f, OTHER_SCOPE, 5, { assignees: [], assignee: null, title: '改題 5', updated_at: '2026-12-14T00:00:00.000Z' });
     f.issues.set(PULL_SCOPE.id, []);
-    expect(await t.sync(f)).toEqual({ outcome: 'success', imported: 0, more: false });
-    expect((await t.tasks()).filter((task) => task.title.startsWith('改題'))).toHaveLength(4);
-    expect(await t.state()).toBe('{}');
+    f.issues.set(OTHER_SCOPE.id, []);
+    f.calls.length = 0;
+    await syncConnection(env, t.db, t.workspace.id, t.id, { fetcher: f.fetcher, source: all });
+    expect(f.calls.filter((c) => /\/issues\/\d+$/.test(c))).toEqual(['/repositories/1001/issues/1']);
+    expect((await t.tasks()).map((task) => task.title).sort()).toEqual(['改題 1', '架空の課題 5']);
   });
 
   test('上限で止まった同期は、次の回で続きの項目から取りに行く', async () => {

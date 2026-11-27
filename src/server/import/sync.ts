@@ -591,7 +591,7 @@ export async function syncConnection(
       requestLimit = Math.max(requestLimit, requests + KNOWN_RESERVE * 2);
       // 一時的な失敗と思われるもの（権限、届かない）が続いたら、その回の段を止め、続く項目を無駄に飛ばさない
       let streak = 0;
-      let streakStart = known.after;
+      let streakFirst = '';
       const stop = async (): Promise<SyncResult> => {
         if (!(await finish({ kind: 'success', syncStateJson: stateJson(), lastSuccessAt: startedAt }))) {
           return interrupted();
@@ -623,7 +623,7 @@ export async function syncConnection(
           if (budgetReached) throw error;
           // 取れない項目（見つからない、権限で断られた、応答が想定と違う）は動かさず、次の項目へ進む。
           // 「取り込み元で見つからない」の印は #914 の照合が付ける。3件続けて取れなければ、
-          // 取り込み元の障害か制限とみなし、最初に取れなかった項目の手前の位置に戻して、その回の段を止める
+          // 取り込み元の障害か制限とみなし、最初に取れなかった項目までを済ませた位置に戻して、その回の段を止める
           if (error instanceof ImportSourceError && error.gone) {
             // 恒久的に取れない項目（取り込み元に無い、ID が合わない、保存値の形が合わない）は、障害とみなさず飛ばす
             known = { after: target.task_id };
@@ -633,10 +633,11 @@ export async function syncConnection(
             error instanceof ImportSourceError &&
             (error.failure === 'unavailable' || error.failure === 'forbidden')
           ) {
-            if (streak === 0) streakStart = known.after;
+            if (streak === 0) streakFirst = target.task_id;
             streak++;
             if (streak >= 3) {
-              known = { after: streakStart };
+              // 最初に取れなかった項目だけを飛ばして止める（同じ3件で毎回止まり、後ろの項目に届かなくなるのを防ぐ）
+              known = { after: streakFirst };
               return await stop();
             }
             known = { after: target.task_id };
