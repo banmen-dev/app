@@ -24,7 +24,7 @@ export function feedbackInput(
 // 画面に出ない文字（U+FE0F を除く Default_Ignorable と、タブと改行の外の制御文字）。サーバー（normalizeFeedbackText）も
 // これらを除いてから数える。U+FE0F はサーバーが絵文字の直後の1つを残すので、ここでは除かずに数える
 // （サーバーが受ける文より多めに数えるのは、絵文字でない文字の後の U+FE0F、対にならないサロゲート、U+FFF9〜U+FFFB だけで、
-// どれも画面が断る側に出る。画面が通してサーバーが 400 を返す向きは作らない）
+// どれも画面が断る側に出る。字数では、画面が通してサーバーが 400 を返す向きは作らない）
 const INVISIBLE = /(?!\ufe0f)\p{Default_Ignorable_Code_Point}|(?![\t\n])\p{Cc}/gu;
 // サーバーが LF にそろえる改行（CR LF、CR、NEL、LS、PS）。NEL は制御文字なので、除く前に改行へ直す
 const LINE_BREAK = /\r\n|[\r\u0085\u2028\u2029]/g;
@@ -34,15 +34,14 @@ export function feedbackTextLength(text: string): number {
   return [...text.replace(LINE_BREAK, '\n').replace(INVISIBLE, '')].length;
 }
 
+// 空の判定で、字数では数えるがサーバーが除く文字（U+FE0F、注釈の文字 U+FFF9〜U+FFFB、対にならないサロゲート）も除く。
+// 除かないと、これらだけの文を画面が通し、サーバーが空として 400 を返して「送れない文字」と出る。
+// u フラグの文字の集合は、対になったサロゲートを1つのコードポイントとして扱うので、対にならない片割れだけに当たる
+const EMPTY_EXTRA = /[\ufe0f\ufff9-\ufffb\ud800-\udfff]/gu;
+
 // 送る前の確かめ。空（空白と画面に出ない文字だけを含む）と、上限を超えた文は送らない
 export function validateFeedback(text: string): DictionaryKey | null {
-  if (
-    text
-      .replace(INVISIBLE, '')
-      .replace(/\ufe0f/g, '')
-      .trim() === ''
-  )
-    return 'feedbackEmpty';
+  if (text.replace(INVISIBLE, '').replace(EMPTY_EXTRA, '').trim() === '') return 'feedbackEmpty';
   if (feedbackTextLength(text) > FEEDBACK_TEXT_MAX) return 'feedbackTooLong';
   return null;
 }

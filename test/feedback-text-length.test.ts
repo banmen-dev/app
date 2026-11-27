@@ -45,3 +45,22 @@ describe('画面の字数はサーバーの字数より少なくならない', (
     expect(validateFeedback(text + 'a')).toBe('feedbackTooLong');
   });
 });
+
+describe('サーバーが空にする文は、画面も空とみなす', () => {
+  const empties: Record<string, string> = {
+    'U+FE0F だけ': c(0xfe0f),
+    注釈の文字だけ: c(0xfff9, 0xfffa, 0xfffb),
+    対にならないサロゲートだけ: String.fromCharCode(0xd800),
+    画面に出ない文字と空白だけ: `${c(0x200b)} ${c(0x2060)}${c(0x09)}${c(0x85)}`,
+  };
+  for (const [name, text] of Object.entries(empties)) {
+    test(name, () => {
+      expect(normalizeFeedbackText(text).trim()).toBe('');
+      expect(validateFeedback(text)).toBe('feedbackEmpty');
+    });
+  }
+
+  test('対になったサロゲート（絵文字）は空にしない', () => {
+    expect(validateFeedback(c(0x1f600))).toBeNull();
+  });
+});
