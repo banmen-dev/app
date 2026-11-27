@@ -26,7 +26,7 @@
   // 組織の切り替えはメニューの外（AppShell のブランドの下）に置く。
   // ワークスペースの設定は、対象のリーダーと管理者にだけ出す。
   // inWorkspaceScreen が偽（「今日やること」など組織の画面）のときは、対象の行にチェックだけを付け、現在地（aria-current）にはしない。
-  // 現在地（aria-current）は、workspaceItems が真（760px 以下の浮きメニュー）では機能の項目だけが伝える（対象の行も同じ宛先で、
+  // 現在地（aria-current）は、workspaceItems が真（760px 以下の浮きメニュー）では、機能の項目のどれかが現在地のとき、その項目だけが伝える（対象の行も同じ宛先で、
   // 両方に付けると現在地が二重に読み上げられるため）。行は目に見えない「（開いている）」で伝え、チェックは見た目に残す。
   // workspaceItems が偽（761px 以上の左のメニュー）なら、ワークスペースの機能の項目と「管理」の見出しを出さない。
   // 機能はワークスペースの画面の上のタブ（WorkspaceTabs）で切り替える。ワークスペースの見出しと一覧は残す
@@ -78,6 +78,21 @@
       workspaceItems,
     }),
   );
+
+  // 浮きメニューの機能の項目のどれかが現在地か。そうなら対象の行は aria-current を付けない（二重にしない）。
+  // タスクの詳細のように、どの項目も当たらない画面では、行が現在地を伝える
+  const itemIsCurrent = $derived(
+    workspaceItems &&
+      workspace !== undefined &&
+      isWorkspaceId(workspace.id) &&
+      sections.some((section) =>
+        section.items.some(
+          (item) =>
+            isWorkspaceRoute(item.href) &&
+            isNavItemCurrent(item.label, resolve(item.href, { slug, id: workspace.id }), current),
+        ),
+      ),
+  );
 </script>
 
 <nav class="nav" id={NAV_MENU_ID}>
@@ -107,8 +122,8 @@
         {#if !isMember}
           <!-- 所属していない管理者が開いているものは、移動先に加えず、押せない行で先頭に出す。長い名前は折り返して全文を見せる -->
           <li>
-            <span class="nav-item is-current" aria-current={workspaceItems ? undefined : 'page'} title={workspace.name}>
-              <span class="nav-item-label">{workspace.name}</span><Icon name="check" />{#if workspaceItems}<span
+            <span class="nav-item is-current" aria-current={itemIsCurrent ? undefined : 'page'} title={workspace.name}>
+              <span class="nav-item-label">{workspace.name}</span><Icon name="check" />{#if itemIsCurrent}<span
                   class="visually-hidden">{t('workspaceNavOpened')}</span
                 >{/if}
             </span>
@@ -121,11 +136,11 @@
               class="nav-item"
               href={resolve('/[slug]/w/[id]', { slug, id: entry.id })}
               title={entry.name}
-              aria-current={isCurrent && inWorkspaceScreen && !workspaceItems ? 'page' : undefined}
+              aria-current={isCurrent && inWorkspaceScreen && !itemIsCurrent ? 'page' : undefined}
             >
               <span class="nav-item-label">{entry.name}</span>{#if isCurrent}<Icon
                   name="check"
-                />{#if workspaceItems}<span class="visually-hidden">{t('workspaceNavOpened')}</span>{/if}{/if}
+                />{#if itemIsCurrent}<span class="visually-hidden">{t('workspaceNavOpened')}</span>{/if}{/if}
             </a>
           </li>
         {/each}

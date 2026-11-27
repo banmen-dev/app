@@ -187,7 +187,7 @@ describe('ワークスペースの一覧', () => {
     expect(body).toMatch(
       /<button[^>]*class="nav-group-toggle"[^>]*aria-expanded="true"[^>]*aria-controls="app-nav-workspaces"/,
     );
-    expect(body).toContain('aria-label="ワークスペースの一覧"');
+    expect(body).toContain('aria-label="ワークスペースの一覧を開閉"');
     expect(body).not.toMatch(/<ul[^>]*\shidden/);
     expect(body.indexOf('href="/aoba/w/one"')).toBeLessThan(body.indexOf('href="/aoba/w/two"'));
     expect(body).toMatch(/href="\/aoba\/w\/one"[^>]*aria-current="page"/);

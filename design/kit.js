@@ -552,7 +552,7 @@
     wikiHistoryRetry: "版の一覧を読み直す",
     wikiRestoreFailed: "戻せませんでした。もう一度試してください。",
 
-    workspaceListToggleLabel: "{workspace}の一覧", workspaceNavListLabel: "{workspace}の一覧", workspaceNavOpened: "（開いている）",
+    workspaceListToggleLabel: "{workspace}の一覧を開閉", workspaceNavListLabel: "{workspace}の一覧", workspaceNavOpened: "（開いている）",
     workspacePaneHint: "押すと{backlog}を開きます", paneNews: "{app} のニュース", appName: "Banmen",
     paneActivity: "最近の更新", activityEmptyTitle: "まだ更新はありません", activityEmptyText: "所属する{workspace}の{task}、{story}、{epic}の変更とコメントが、ここに新しい順に並びます。", activityEmptyNoWorkspaceText: "{workspace}に所属すると、{task}、{story}、{epic}の更新がここに並びます。",
     activityCreated: "{actor}が作成した", activityUpdated: "{actor}が{fields}を変更した", activityChanged: "{actor}が変更した", activityCompleted: "{actor}が{done}にした", activityReopened: "{actor}が{done}を戻した", activityCommented: "{actor}がコメントした",

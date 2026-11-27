@@ -314,9 +314,10 @@ test('キーボードで長い名前の行に当てても、下の行は動か�
   await expect(target.locator('.nav-item-label')).toHaveCSS('white-space', 'nowrap');
   const bubble = await target.evaluate((element) => {
     const style = getComputedStyle(element.parentElement!, '::after');
-    return { content: style.content, position: style.position };
+    return { content: style.content, position: style.position, height: parseFloat(style.height) };
   });
   expect(bubble.position).toBe('absolute');
+  expect(bubble.height).toBeGreaterThan(0);
   expect(bubble.content).toContain(manyNames[7]!.name);
   await expect(target).toHaveAccessibleName(manyNames[7]!.name);
 });

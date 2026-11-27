@@ -1030,7 +1030,7 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
   /* 切り替えの一覧は面を押し広げる。スクロール領域の外へ切らない。 */
   .mobile-menu .org-menu-list { position: static; margin-top: var(--space-2); }
   /* ワークスペースの一覧は、所属が多くても下の機能の項目まで届くよう高さを抑えて中で送り、長い名前は指の端末で読めるよう折り返す */
-  .mobile-menu .nav-ws-list { max-height: 40dvh; overflow-y: auto; overscroll-behavior: contain; padding: var(--space-1); }
+  .mobile-menu .nav-ws-list { max-height: 40vh; max-height: 40dvh; overflow-y: auto; overscroll-behavior: contain; padding: var(--space-1); }
   .mobile-menu .nav-ws-list .nav-item-label { white-space: normal; overflow-wrap: anywhere; }
   .mobile-menu .org-menu-button { min-height: 44px; }
 
@@ -2793,24 +2793,18 @@ body.has-assist .toasts { right: calc(400px + var(--space-4)); }
    行の下に全文の吹き出しを浮かせる（li の data-name。読み上げは行の文字で足りるので、代替の文字を空にして二重に読ませない）。
    760px 以下の浮きメニューは、行が折り返して全文が見えているので出さない */
 .nav-ws-list > li { position: relative; }
-.nav-ws-list > li:has(> .nav-item:focus-visible)::after {
-  content: attr(data-name) / "";
+.nav-ws-list > li:has(> .nav-item:focus-visible)::after { content: attr(data-name) / ""; }
+@media (hover: none) {
+  .nav-ws-list > li:has(> .nav-item:focus)::after { content: attr(data-name) / ""; }
+}
+.nav-ws-list > li::after {
   position: absolute; inset: calc(100% + var(--space-half)) 0 auto; z-index: 1;
-  padding: var(--space-1) var(--space-2); overflow-wrap: anywhere;
+  padding: var(--space-1) var(--space-2); overflow-wrap: anywhere; font-size: var(--text-sm);
   background: var(--color-surface); color: var(--color-fg); border: 1px solid var(--color-line);
   border-radius: var(--radius-1); box-shadow: var(--shadow-float); pointer-events: none;
 }
-@media (hover: none) {
-  .nav-ws-list > li:has(> .nav-item:focus)::after {
-    content: attr(data-name) / "";
-    position: absolute; inset: calc(100% + var(--space-half)) 0 auto; z-index: 1;
-    padding: var(--space-1) var(--space-2); overflow-wrap: anywhere;
-    background: var(--color-surface); color: var(--color-fg); border: 1px solid var(--color-line);
-    border-radius: var(--radius-1); box-shadow: var(--shadow-float); pointer-events: none;
-  }
-}
 @media (max-width: 760px) {
-  .mobile-menu .nav-ws-list > li::after { content: none !important; }
+  .mobile-menu .nav-ws-list > li::after { display: none; }
 }
 
 /* 全画面の起票。上の行をスクロールから分け、ソフトキーボードの上でも作成へ届く。 */
