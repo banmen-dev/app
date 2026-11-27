@@ -815,7 +815,7 @@
 | credential_ciphertext | TEXT | | 暗号化した認証情報。退会で消す |
 | credential_key_version | INTEGER | | 暗号化に使った鍵の版 |
 | credential_last4 | TEXT | | 画面に出す末尾4文字 |
-| sync_state_json | TEXT | NOT NULL、既定 `'{}'`、`json_valid` | 続きが無ければ `{}`。版2は `version: 2`、`position: {scope, cursor, phase, after, targetId?, targetRevision?}`、認証情報の指紋 `credential`、現在の候補頁 `scopeBatch: {candidates, next}`、候補取得位置 `candidateCursor`、通常項目（Issue/PR）だけを走査する `itemsOnly`、保留したレビューの位置・候補頁 `reviewRetry` を持つ。phase は items / reviews / targets、after は照合済みの最後の task_id。通常項目（Issue/PR）だけの途中保存・完走では、レビューの失敗の記録と最後の成功日時を更新しない。認証情報の指紋が無い旧形式と版が違う形式は破棄する。旧版が読む root の resume は書かず、旧版へのコードの戻しでは Issue 走査を安全に先頭から再開する。前回成功した時点は last_success_at が持つ。差分で取るため、進行中の同期の差分の起点 `since` も持つ（同期の始めに決め、続きの間は変えない。無ければ全部を読む）。認証情報の指紋が合わず捨てた続きの後も全部を読む |
+| sync_state_json | TEXT | NOT NULL、既定 `'{}'`、`json_valid` | 続きが無ければ `{}`。版2は `version: 2`、`position: {scope, cursor, phase, after, targetId?, targetRevision?}`、認証情報の指紋 `credential`、現在の候補頁 `scopeBatch: {candidates, next}`、候補取得位置 `candidateCursor`、通常項目（Issue/PR）だけを走査する `itemsOnly`、保留したレビューの位置・候補頁 `reviewRetry` を持つ。phase は items / reviews / targets、after は照合済みの最後の task_id。通常項目（Issue/PR）だけの途中保存・完走では、レビューの失敗の記録と最後の成功日時を更新しない。認証情報の指紋が無い旧形式と版が違う形式は破棄する。旧版が読む root の resume は書かず、旧版へのコードの戻しでは Issue 走査を安全に先頭から再開する。前回成功した時点は last_success_at が持つ。差分で取るため、進行中の同期の差分の起点 `since` と始めた時刻 `startedAt` も持つ（同期の始めに決め、続きの間は変えない。`since` が無ければ全部を読む。全部を読み終えたとき `last_success_at` に `startedAt` を書く）。認証情報の指紋が合わず捨てた続きの後も全部を読む |
 | reconcile_state_json | TEXT | NOT NULL、既定 `'{}'`、`json_valid` | 1日1回の照合の続きの位置 |
 | last_success_at | TEXT | | |
 | last_reconciled_at | TEXT | | |

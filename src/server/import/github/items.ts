@@ -25,10 +25,9 @@ function parsePosition(cursor: string | null): Position {
       invalid();
     return { phase: 'pulls', page: 1, anchor: null, owner: { id: legacyPulls[1]!, login: legacyPulls[2]! } };
   }
-  const modern = /^(?:v2|v3):(issues|pulls):([1-9][0-9]{0,15}):(.+)$/.exec(cursor);
+  // 書くのは v2:issues と v3:pulls だけ（正規表現の先読みで、ほかの組を断る）
+  const modern = /^(?:v2:(?=issues)|v3:(?=pulls))(issues|pulls):([1-9][0-9]{0,15}):(.+)$/.exec(cursor);
   if (modern !== null) {
-    // 書くのは v2:issues と v3:pulls だけ
-    if (cursor.startsWith(modern[1] === 'issues' ? 'v3:' : 'v2:')) invalid();
     const id = modern[2]!;
     if (!Number.isSafeInteger(Number(id)) || String(Number(id)) !== id) invalid();
     if (modern[1] === 'issues') {
