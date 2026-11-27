@@ -7,7 +7,7 @@ import { rewriteOperation } from './operations.ts';
 const workspaceId = '019a0000-0000-7000-8000-000000000401';
 const backlog = `/aoba/w/${workspaceId}`;
 const toggleOf = (page: Page) => page.locator('#app-nav .nav-group-toggle');
-const listOf = (page: Page) => page.getByRole('list', { name: '所属するワークスペース' });
+const listOf = (page: Page) => page.getByRole('list', { name: 'ワークスペースの一覧' });
 
 async function oneWorkspace(page: Page) {
   await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (body) => ({
@@ -38,6 +38,8 @@ test('今日やることから一般のメンバーが一覧で所属先へ移�
   await expect(listOf(page).getByRole('link', { name, exact: true })).toHaveCount(0);
   // 所属していない管理者が開いているものは、一覧の先頭に出る
   await expect(listOf(page).locator('li').first()).toHaveText(name);
+  // 押せない行は、省略せず折り返して全文を見せる（フォーカスが来ないので、title だけでは読めない）
+  await expect(listOf(page).locator('.nav-item.is-current .nav-item-label')).toHaveCSS('white-space', 'normal');
 
   await page.goto('/aoba/admin');
   const row = page.getByRole('region', { name: 'ワークスペース', exact: true }).locator('tbody tr', { hasText: name });
@@ -281,4 +283,161 @@ test('開いた一覧と畳んだ一覧が、ライトとダークで axe の違
     }
     await toggleOf(page).click();
   }
+});
+
+const manyNames = Array.from({ length: 30 }, (_, i) => ({
+  id: `019a0000-0000-7000-8000-${String(8000 + i).padStart(12, '0')}`,
+  name: `架空の開発チーム ${i}・長いワークスペースの名前は行に収まらないと省略して表示する`,
+  role: 'member' as const,
+  closed_at: null,
+}));
+
+test('キーボードで長い名前の行に当てても、下の行は動かず、全文の吹き出しが出る', async ({ page, context, baseURL }) => {
+  await signIn(context, baseURL, 'member');
+  await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (body) => ({
+    ...body,
+    workspaces: [...body.workspaces.filter((workspace) => workspace.id === workspaceId), ...manyNames],
+  }));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(backlog);
+  const links = listOf(page).getByRole('link');
+  await expect(links).toHaveCount(31);
+  const target = listOf(page).getByRole('link', { name: manyNames[7]!.name, exact: true });
+  const next = listOf(page).getByRole('link', { name: manyNames[8]!.name, exact: true });
+  const before = (await next.boundingBox())!.y;
+  await target.focus();
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
+  await expect(target).toBeFocused();
+  expect((await next.boundingBox())!.y).toBe(before);
+  // 行は省略したまま。全文は行の下の吹き出し（li の ::after）に出し、読み上げの名前には含めない
+  await expect(target.locator('.nav-item-label')).toHaveCSS('white-space', 'nowrap');
+  const bubble = await target.evaluate((element) => {
+    const style = getComputedStyle(element.parentElement!, '::after');
+    return { content: style.content, position: style.position, height: parseFloat(style.height) };
+  });
+  expect(bubble.position).toBe('absolute');
+  expect(bubble.height).toBeGreaterThan(0);
+  expect(bubble.content).toContain(manyNames[7]!.name);
+  await expect(target).toHaveAccessibleName(manyNames[7]!.name);
+});
+
+test('別のタブで一覧を畳むと、このタブで一覧の中にあったフォーカスは見出しのボタンへ移る', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signIn(context, baseURL, 'member');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(backlog);
+  await expect(toggleOf(page)).toHaveAttribute('aria-expanded', 'true');
+  await listOf(page).getByRole('link').first().focus();
+  await expect(listOf(page).getByRole('link').first()).toBeFocused();
+
+  const other = await context.newPage();
+  await other.setViewportSize({ width: 1280, height: 900 });
+  await other.goto(backlog);
+  await toggleOf(other).click();
+  await expect(toggleOf(other)).toHaveAttribute('aria-expanded', 'false');
+
+  await expect(listOf(page)).toBeHidden();
+  await expect(toggleOf(page)).toHaveAttribute('aria-expanded', 'false');
+  await expect(toggleOf(page)).toBeFocused();
+  // 一覧の外にあったフォーカスは動かさない
+  await toggleOf(other).click();
+  await expect(listOf(page)).toBeVisible();
+  await page.getByRole('link', { name: '今日やること', exact: true }).first().focus();
+  await toggleOf(other).click();
+  await expect(listOf(page)).toBeHidden();
+  await expect(page.getByRole('link', { name: '今日やること', exact: true }).first()).toBeFocused();
+  await other.close();
+});
+
+test.describe('760px 以下の浮きメニュー', () => {
+  test.use({ viewport: { width: 390, height: 700 } });
+
+  const openMenu = async (page: Page) => {
+    await page.getByRole('button', { name: 'すべてのメニュー', exact: true }).click();
+    const dialog = page.locator('.mobile-menu');
+    await expect(dialog).toBeVisible();
+    return dialog;
+  };
+
+  test('現在地は機能の項目の1つだけで、一覧の行は見えない文言で開いているものを伝える', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await signIn(context, baseURL, 'member');
+    await page.goto(backlog);
+    const dialog = await openMenu(page);
+    // 組織の切り替え（今の組織）の aria-current は別。メニュー（nav）の中の現在地が1つだけ
+    await expect(dialog.locator('#app-nav [aria-current="page"]')).toHaveCount(1);
+    await expect(dialog.locator('.nav-ws-list [aria-current]')).toHaveCount(0);
+    await expect(dialog.locator('.nav-ws-list .nav-item').filter({ has: page.locator('.ico') })).toContainText(
+      '（開いている）',
+    );
+  });
+
+  test('一覧の高さは 40dvh までで、超えたら一覧の中でスクロールし、下の機能の項目に届く', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await signIn(context, baseURL, 'member');
+    await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (body) => ({
+      ...body,
+      workspaces: [...body.workspaces.filter((workspace) => workspace.id === workspaceId), ...manyNames],
+    }));
+    await page.goto(backlog);
+    const dialog = await openMenu(page);
+    const list = dialog.getByRole('list', { name: 'ワークスペースの一覧' });
+    const box = (await list.boundingBox())!;
+    expect(box.height).toBeLessThanOrEqual(700 * 0.4 + 1);
+    expect(await list.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+    // 長い名前は浮きメニューでは折り返して全文が見え、吹き出しは出さない
+    const label = list.getByRole('link', { name: manyNames[3]!.name, exact: true }).locator('.nav-item-label');
+    await label.scrollIntoViewIfNeeded();
+    expect(await label.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    // 一覧の下の機能の項目へ、メニューのスクロールで届く
+    const members = dialog.getByRole('link', { name: 'メンバー', exact: true });
+    await members.scrollIntoViewIfNeeded();
+    await expect(members).toBeInViewport();
+  });
+
+  test('開いた、畳んだ、長い名前の一覧が、ライトとダークで axe の違反を持たず、押せる範囲が 44px 以上で、テーマが戻らない', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await signIn(context, baseURL, 'member');
+    await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (body) => ({
+      ...body,
+      workspaces: [...body.workspaces.filter((workspace) => workspace.id === workspaceId), ...manyNames.slice(0, 5)],
+    }));
+    await page.goto(backlog);
+    const dialog = await openMenu(page);
+    const toggle = dialog.locator('.nav-group-toggle');
+    for (const theme of A11Y_THEMES) {
+      await applyTheme(page, theme);
+      for (const collapsed of [false, true]) {
+        if ((await toggle.getAttribute('aria-expanded')) === String(collapsed)) await toggle.click();
+        await expect(toggle).toHaveAttribute('aria-expanded', String(!collapsed));
+        const list = dialog.getByRole('list', { name: 'ワークスペースの一覧' });
+        if (collapsed) await expect(list).toBeHidden();
+        else {
+          await expect(list).toBeVisible();
+          for (const link of await list.getByRole('link').all())
+            expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+        }
+        expect((await toggle.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+        expect(
+          await findA11yViolations(page, '.mobile-menu'),
+          `${theme} ${collapsed ? '畳んだ' : '開いた'}状態`,
+        ).toEqual([]);
+        expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe(theme);
+      }
+      await toggle.click();
+    }
+  });
 });
