@@ -164,6 +164,7 @@ test('終了したワークスペースでは、引き出しを読み取り専�
   }));
   await page.goto(SEED_WORKSPACE);
   await expect(page.getByRole('textbox', { name: /エピックを足す/ })).toHaveCount(0);
+  await expect(page.getByRole('radiogroup', { name: '足す種類' })).toHaveCount(0);
   await page.getByRole('link', { name: SEED_EPIC_TITLE, exact: true }).click();
   const drawer = page.getByRole('dialog', { name: SEED_EPIC_TITLE, exact: true });
   await expect(drawer.getByText(/読み取りだけできます/)).toBeVisible();

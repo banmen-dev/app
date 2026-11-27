@@ -181,6 +181,12 @@
   // 題の書きかけは、種類を替えても残す（DraftRowState を替えない）
   let rootKind = $state<DraftKind>(readDraftKind());
   const rootDraft = new DraftRowState();
+  // ワークスペースが替わったら、前のワークスペースの書きかけと失敗の文を持ち越さない
+  $effect(() => {
+    void workspace?.id;
+    rootDraft.value = '';
+    rootDraft.error = null;
+  });
   function chooseRootKind(kind: DraftKind): void {
     rootKind = kind;
     rootDraft.error = null;

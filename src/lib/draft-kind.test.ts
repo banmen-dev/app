@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defaultDraftKind, draftKindKey, isDraftKind, readDraftKind, writeDraftKind } from './draft-kind.ts';
+import {
+  defaultDraftKind,
+  draftKinds,
+  draftKindKey,
+  isDraftKind,
+  readDraftKind,
+  writeDraftKind,
+} from './draft-kind.ts';
 
 function fakeStorage(initial: Record<string, string> = {}): Storage {
   const map = new Map(Object.entries(initial));
@@ -51,6 +58,10 @@ describe('draft-kind', () => {
     });
     expect(readDraftKind()).toBe('task');
     expect(() => writeDraftKind('story')).not.toThrow();
+  });
+
+  it('並びはエピック、ストーリー、タスク', () => {
+    expect([...draftKinds]).toEqual(['epic', 'story', 'task']);
   });
 
   it('種類かどうかを見分ける', () => {
