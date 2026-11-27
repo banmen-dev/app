@@ -40,6 +40,8 @@ export const DEFAULT_MAX_PAGES = 10;
 export const DEFAULT_MAX_DURATION_MS = 60_000;
 // 1頁の項目の数の上限。超える応答は想定と違うものとして断る（1回の batch() の文を抑える）
 export const MAX_ITEMS_PER_PAGE = 100;
+// 発見の走査が予算を使い切っても、取り込み済みの項目の段が1回の同期で最低これだけの項目を取れるようにする
+const KNOWN_RESERVE = 3;
 // 続きの位置の長さの上限（取り込み元が返した値をそのまま保存するため）
 const MAX_CURSOR_LENGTH = 2000;
 const MAX_FIELD_LENGTH = 2000;
@@ -315,7 +317,7 @@ export async function syncConnection(
   const jobTimeExpired = () => absoluteDeadline !== undefined && Date.now() >= absoluteDeadline;
   let requests = 0;
   let budgetReached = false;
-  const requestLimit = DEFAULT_MAX_PAGES;
+  let requestLimit = DEFAULT_MAX_PAGES;
   const fetcher: typeof fetch = async (...args) => {
     if (requests >= requestLimit) {
       budgetReached = true;
@@ -583,6 +585,10 @@ export async function syncConnection(
     if (source.fetchKnownItem !== undefined) {
       inKnown = true;
       known ??= { after: '' };
+      // 発見の走査が予算を使い切っても、取り込み済みの項目の段が進むよう、最低 KNOWN_RESERVE 項目ぶんは取れるようにする
+      // （範囲が2つなどで発見が10要求を使うと、この段に一度も入れず、担当が外れた項目が永久に更新されない）
+      const knownPageEnd = Math.max(maxPages, pages + KNOWN_RESERVE);
+      requestLimit = Math.max(requestLimit, requests + KNOWN_RESERVE * 2);
       // 一時的な失敗と思われるもの（権限、届かない）が続いたら、その回の段を止め、続く項目を無駄に飛ばさない
       let streak = 0;
       let streakStart = known.after;
@@ -595,7 +601,7 @@ export async function syncConnection(
       while (true) {
         const target = await readKnownTarget(db, connection, known.after);
         if (!target) break;
-        if (pages >= maxPages || requests >= requestLimit || Date.now() >= deadline || jobTimeExpired()) {
+        if (pages >= knownPageEnd || requests >= requestLimit || Date.now() >= deadline || jobTimeExpired()) {
           return await stop();
         }
         pages++;
@@ -618,6 +624,11 @@ export async function syncConnection(
           // 取れない項目（見つからない、権限で断られた、応答が想定と違う）は動かさず、次の項目へ進む。
           // 「取り込み元で見つからない」の印は #914 の照合が付ける。3件続けて取れなければ、
           // 取り込み元の障害か制限とみなし、最初に取れなかった項目の手前の位置に戻して、その回の段を止める
+          if (error instanceof ImportSourceError && error.gone) {
+            // 恒久的に取れない項目（取り込み元に無い、ID が合わない、保存値の形が合わない）は、障害とみなさず飛ばす
+            known = { after: target.task_id };
+            continue;
+          }
           if (
             error instanceof ImportSourceError &&
             (error.failure === 'unavailable' || error.failure === 'forbidden')

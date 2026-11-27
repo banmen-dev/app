@@ -86,7 +86,7 @@ async function setup(scopes = [PULL_SCOPE]) {
   const state = async () =>
     (await db.first(db.statement((q) => q.selectFrom('connections').select('sync_state_json').where('id', '=', id))))
       ?.sync_state_json;
-  return { db, workspace, id, sync, sources, tasks, state };
+  return { db, organization, owner, workspace, id, sync, sources, tasks, state };
 }
 
 // 1001 のリポジトリの Issue n を、一覧と1件の引き口の両方に置く
@@ -360,13 +360,12 @@ describe('同期: 担当が外れた項目と範囲の外へ移した項目', ()
   test('上限で止まった同期は、次の回で続きの項目から取りに行く', async () => {
     const t = await setup();
     const f = fakeGithub();
-    for (const n of [1, 2, 3]) put(f, PULL_SCOPE, n);
+    for (const n of [1, 2, 3, 4, 5]) put(f, PULL_SCOPE, n);
     await t.sync(f);
-    const ids = (await t.sources()).map((s) => s.task_id).sort();
-    expect(ids).toHaveLength(3);
+    expect(await t.sources()).toHaveLength(5);
 
-    // 3件とも担当が外れて題が変わる。1回に取れるのは、発見の走査が使った分を除いて1項目
-    for (const n of [1, 2, 3])
+    // 5件とも担当が外れて題が変わる
+    for (const n of [1, 2, 3, 4, 5])
       put(f, PULL_SCOPE, n, {
         assignees: [],
         assignee: null,
@@ -375,23 +374,23 @@ describe('同期: 担当が外れた項目と範囲の外へ移した項目', ()
       });
     f.issues.set(PULL_SCOPE.id, []);
     f.calls.length = 0;
-    // 発見の走査は4回の取得口の呼び出し（Issue、PR、レビュー依頼の本人照会と一覧）。5回目の1項目だけ取って止まる
-    const first = await t.sync(f, { maxPages: 5 });
+    // 発見の走査は4回の取得口の呼び出し（Issue、PR、レビュー依頼の本人照会と一覧）。予算を使い切っても、最低3項目は取る
+    const first = await t.sync(f, { maxPages: 4 });
     // 発見の走査は終えているので、続きは同期をまたいで残すが、同期は終えた（more は偽）
     expect(first).toEqual({ outcome: 'success', imported: 0, more: false });
     const known = () => f.calls.filter((c) => /\/issues\/\d+$/.test(c));
-    expect(known()).toHaveLength(1);
+    expect(known()).toHaveLength(3);
     expect(JSON.parse((await t.state())!)).toMatchObject({ version: 2, known: { after: expect.any(String) } });
-    expect((await t.tasks()).filter((task) => task.title.startsWith('改題'))).toHaveLength(1);
+    expect((await t.tasks()).filter((task) => task.title.startsWith('改題'))).toHaveLength(3);
 
-    // 次の回は、発見の走査を先にやり直し、残りの予算で続きの項目から取りに行く（取った項目をもう一度取らない）
+    // 次の回は、発見の走査を先にやり直し、続きの項目から取りに行く（取った項目をもう一度取らない）
     const firstCalls = known();
     f.calls.length = 0;
-    expect(await t.sync(f, { maxPages: 6 })).toEqual({ outcome: 'success', imported: 0, more: false });
+    expect(await t.sync(f, { maxPages: 4 })).toEqual({ outcome: 'success', imported: 0, more: false });
     expect(f.calls.some((c) => c.includes('assignee='))).toBe(true);
     expect(known()).toHaveLength(2);
-    expect(new Set([...firstCalls, ...known()]).size).toBe(3);
-    expect((await t.tasks()).filter((task) => task.title.startsWith('改題'))).toHaveLength(3);
+    expect(new Set([...firstCalls, ...known()]).size).toBe(5);
+    expect((await t.tasks()).filter((task) => task.title.startsWith('改題'))).toHaveLength(5);
     expect(await t.state()).toBe('{}');
   });
 
@@ -421,6 +420,102 @@ describe('同期: 担当が外れた項目と範囲の外へ移した項目', ()
     expect(titleBefore.filter((title) => titles.includes(title))).toHaveLength(2);
     // 接続はエラーにも停止にもしない
     expect(await t.state()).toBe('{}');
+  });
+
+  test('範囲が2つで発見の走査が10要求を使い切る接続でも、取り込み済みの項目の段が進む', async () => {
+    const scopes = [
+      { id: '3000', name: 'guild-fake/r0' },
+      { id: '3001', name: 'guild-fake/r1' },
+    ];
+    const t = await setup(scopes);
+    const f = fakeGithub();
+    put(f, scopes[0]!, 1);
+    put(f, scopes[1]!, 2);
+    for (let i = 0; i < 3; i++) await t.sync(f);
+    expect(await t.sources()).toHaveLength(2);
+    for (const [scope, n] of [
+      [scopes[0]!, 1],
+      [scopes[1]!, 2],
+    ] as const) {
+      put(f, scope, n, { assignees: [], assignee: null, title: `改題 ${n}`, updated_at: '2026-12-09T00:00:00.000Z' });
+      f.issues.set(scope.id, []);
+    }
+    for (let i = 0; i < 3; i++) await t.sync(f);
+    expect((await t.tasks()).filter((task) => task.title.startsWith('改題'))).toHaveLength(2);
+  });
+
+  test('恒久に取れない項目が3件続いても、後ろの項目まで進む', async () => {
+    const t = await setup();
+    const f = fakeGithub();
+    for (const n of [1, 2, 3, 4]) put(f, PULL_SCOPE, n);
+    await t.sync(f);
+    const order = (await t.sources()).sort((a, b) => (a.task_id < b.task_id ? -1 : 1));
+    const number = (row: (typeof order)[number]) => Number(row.source_id) - 500_000;
+    for (const row of order)
+      put(f, PULL_SCOPE, number(row), { title: `改題 ${number(row)}`, updated_at: '2026-12-10T00:00:00.000Z' });
+    f.issues.set(PULL_SCOPE.id, []);
+    for (const row of order.slice(0, 3)) f.single.delete(`/repositories/1001/issues/${number(row)}`);
+    expect(await t.sync(f)).toEqual({ outcome: 'success', imported: 0, more: false });
+    expect((await t.tasks()).filter((task) => task.title.startsWith('改題'))).toHaveLength(1);
+    expect(await t.state()).toBe('{}');
+  });
+
+  test('取れた項目を挟んだ失敗は、続けた失敗に数えない', async () => {
+    const t = await setup();
+    const f = fakeGithub();
+    for (const n of [1, 2, 3, 4, 5]) put(f, PULL_SCOPE, n);
+    await t.sync(f);
+    const order = (await t.sources()).sort((a, b) => (a.task_id < b.task_id ? -1 : 1));
+    const number = (row: (typeof order)[number]) => Number(row.source_id) - 500_000;
+    for (const row of order)
+      put(f, PULL_SCOPE, number(row), { title: `改題 ${number(row)}`, updated_at: '2026-12-11T00:00:00.000Z' });
+    f.issues.set(PULL_SCOPE.id, []);
+    // 失敗、失敗、成功、失敗、失敗: どこでも3件続かないので、最後まで進む
+    for (const i of [0, 1, 3, 4]) f.single.set(`/repositories/1001/issues/${number(order[i]!)}`, { status: 429 });
+    expect(await t.sync(f)).toEqual({ outcome: 'success', imported: 0, more: false });
+    expect((await t.tasks()).filter((task) => task.title.startsWith('改題'))).toHaveLength(1);
+    expect(await t.state()).toBe('{}');
+  });
+
+  test('別の項目が返ったときは、何も書かない', async () => {
+    const t = await setup();
+    const f = fakeGithub();
+    put(f, PULL_SCOPE, 1);
+    await t.sync(f);
+    const before = await t.sources();
+    const wrong = {
+      ...source,
+      fetchKnownItem: async (input: Parameters<NonNullable<typeof source.fetchKnownItem>>[0]) => ({
+        ...(await source.fetchKnownItem!(input)),
+        sourceId: '999999',
+        title: '別の項目',
+      }),
+    };
+    f.issues.set(PULL_SCOPE.id, []);
+    put(f, PULL_SCOPE, 1, { title: '改題', updated_at: '2026-12-12T00:00:00.000Z' });
+    f.issues.set(PULL_SCOPE.id, []);
+    await syncConnection(env, t.db, t.workspace.id, t.id, { fetcher: f.fetcher, source: wrong });
+    expect(await t.sources()).toEqual(before);
+    expect((await t.tasks()).map((task) => task.title)).toEqual(['架空の課題 1']);
+  });
+
+  test('同じワークスペースの別の接続が取り込んだ項目は、この接続では取りに行かない', async () => {
+    const t = await setup();
+    const f = fakeGithub();
+    put(f, PULL_SCOPE, 1);
+    await t.sync(f);
+    // 別の接続を同じワークスペースに足し、項目の持ち主をその接続へ移す
+    const other = await createConnection(t.organization, t.workspace.id, t.owner.id, {});
+    await t.db.batch([
+      t.db.statement((q) =>
+        q.updateTable('task_sources').set({ connection_id: other.id }).where('workspace_id', '=', t.workspace.id),
+      ),
+    ]);
+    put(f, PULL_SCOPE, 1, { assignees: [], assignee: null, title: '改題', updated_at: '2026-12-13T00:00:00.000Z' });
+    f.issues.set(PULL_SCOPE.id, []);
+    f.calls.length = 0;
+    await t.sync(f);
+    expect(f.calls.filter((c) => /\/issues\/\d+$/.test(c))).toEqual([]);
   });
 
   test('完了の印が付いた項目は取りに行かない', async () => {

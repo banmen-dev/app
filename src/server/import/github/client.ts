@@ -23,7 +23,7 @@ const MESSAGES: Record<ImportSourceFailure, string> = {
 // 全呼び出しの404・410応答を区別する。項目と一覧の扱いは呼び出し側が決める。failure と文言は従来どおり。
 export class GithubResourceMissing extends ImportSourceError {
   constructor() {
-    super('unavailable', MESSAGES.unavailable);
+    super('unavailable', MESSAGES.unavailable, true);
   }
 }
 

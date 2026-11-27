@@ -7,7 +7,7 @@
 //
 // 人が差分を読む領域（docs/development.md の「マージの判定」）
 import type { ImportItem, KnownItemInput } from '../source.ts';
-import { FULL_NAME_PATTERN, fail, getJson, idOf, isRecord } from './client.ts';
+import { FULL_NAME_PATTERN, GithubResourceMissing, getJson, idOf, isRecord } from './client.ts';
 import { convertIssue } from './issues.ts';
 import { convertPull } from './pulls.ts';
 
@@ -17,7 +17,7 @@ const MOVED_ISSUE = /^https:\/\/api\.github\.com\/repositories\/[1-9][0-9]{0,15}
 
 function invalid(): never {
   // 保存済みの行の形の不備。1行のために同期を止めず、取れない項目として扱わせる（通信はしない）
-  throw fail('unavailable');
+  throw new GithubResourceMissing();
 }
 
 // 移動先は、固定のホストと形の URL だけを許す（クエリ、断片、認証情報は通さない）
@@ -43,15 +43,15 @@ export async function fetchKnownItem(input: KnownItemInput): Promise<ImportItem>
 
   if (target.kind === 'issue') {
     const raw = await getJson(`${base}/issues/${number}`, input.credential, input.fetcher, movedIssueUrl);
-    if (!isRecord(raw) || idOf(raw.id) !== target.sourceId) throw fail('unavailable');
+    if (!isRecord(raw) || idOf(raw.id) !== target.sourceId) throw new GithubResourceMissing();
     // 一覧は PR も返す。Issue の ID に PR が返った応答は、別の項目なので断る
     const item = convertIssue(raw, scope, null);
-    if (item === null) throw fail('unavailable');
+    if (item === null) throw new GithubResourceMissing();
     return item;
   }
   const raw = await getJson(`${base}/pulls/${number}`, input.credential, input.fetcher);
-  if (!isRecord(raw) || idOf(raw.id) !== target.sourceId) throw fail('unavailable');
+  if (!isRecord(raw) || idOf(raw.id) !== target.sourceId) throw new GithubResourceMissing();
   const item = convertPull(raw, scope, null);
-  if (item === null) throw fail('unavailable');
+  if (item === null) throw new GithubResourceMissing();
   return item;
 }

@@ -25,11 +25,15 @@ export type ImportSourceFailure = 'invalid_format' | 'unauthorized' | 'forbidden
 // message は固定の文だけにする。認証情報、応答の本文、URL を入れない（ログに出るため）
 export class ImportSourceError extends Error {
   readonly failure: ImportSourceFailure;
+  // 保存済みの項目の取得で、その項目が恒久的に取れない（取り込み元に無い、ID が合わない、保存値の形が合わない）とき真。
+  // 取り込み元の一時的な障害や制限（権限、5xx、届かない）とは区別する
+  readonly gone: boolean;
 
-  constructor(failure: ImportSourceFailure, message: string) {
+  constructor(failure: ImportSourceFailure, message: string, gone = false) {
     super(message);
     this.name = 'ImportSourceError';
     this.failure = failure;
+    this.gone = gone;
   }
 }
 

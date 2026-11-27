@@ -113,7 +113,7 @@ describe('エラーの安全性: 例外から PAT が漏れない', () => {
       const text = everyText(error);
       expect(text).not.toContain(PAT);
       expect(text).not.toContain(SECRET);
-      expect(Object.keys(error).sort()).toEqual(['failure', 'name']);
+      expect(Object.keys(error).sort()).toEqual(['failure', 'gone', 'name']);
     }
   });
 
