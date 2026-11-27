@@ -204,6 +204,56 @@ test.describe('ログインした画面', () => {
     await expect(dialog(page).getByRole('button', { name: '送る' })).toBeVisible();
   });
 
+  test('送り始めた画面から移った後に送れたら、移った先で開いているダイアログを閉じて知らせる', async ({ page }) => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await routeOperation(page, feedbackSubmit, async (call) => {
+      await held;
+      await call.fulfill({ feedback_id: FEEDBACK_ID });
+    });
+    await page.goto('/');
+    await launcher(page).click();
+    await field(page).fill('移った先で送れる文');
+    await dialog(page).getByRole('button', { name: '送る' }).click();
+    await expect(dialog(page).getByRole('button', { name: '送っています…' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await page.locator('a[href="/aoba"]').first().click();
+    await expect(page).toHaveURL(/\/aoba$/);
+    await launcher(page).click();
+    await expect(dialog(page)).toBeVisible();
+    release();
+    await expect(dialog(page)).toBeHidden();
+    await expect(page.getByRole('status').filter({ hasText: 'フィードバックを送りました' })).toBeVisible();
+    await launcher(page).click();
+    await expect(field(page)).toHaveValue('');
+  });
+
+  test('送り始めた画面から移り、閉じたまま失敗が届いたら、理由をトーストで出し、開き直すと文が残っている', async ({
+    page,
+  }) => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await routeOperation(page, feedbackSubmit, async (call) => {
+      await held;
+      await call.fail(429, 'rate_limited');
+    });
+    await page.goto('/');
+    await launcher(page).click();
+    await field(page).fill('閉じたまま失敗する文');
+    await dialog(page).getByRole('button', { name: '送る' }).click();
+    await expect(dialog(page).getByRole('button', { name: '送っています…' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await page.locator('a[href="/aoba"]').first().click();
+    await expect(page).toHaveURL(/\/aoba$/);
+    release();
+    const toast = page.getByRole('status').filter({ hasText: '送る回数の上限に達しました' });
+    await expect(toast).toBeVisible();
+    await expect(toast).toContainText('開き直すと残っています');
+    await launcher(page).click();
+    await expect(field(page)).toHaveValue('閉じたまま失敗する文');
+    await expect(dialog(page).getByRole('alert')).toHaveCount(0);
+  });
+
   test('ログインが切れていたらログインへ、同意していなければ同意の画面へ移す', async ({ page }) => {
     const unroute = await failOperation(page, feedbackSubmit, 401, 'unauthenticated');
     await page.goto('/aoba');
