@@ -153,11 +153,8 @@ async function readConnections(db: OrganizationDb, workspaceId: string, connecti
     scopes: scopesOf.get(row.id) ?? [],
     ignore_source_due: Number(row.ignore_source_due) === 1,
     status_mappings: mappingsOf.get(row.id) ?? [],
-    source_statuses: [
-      ...new Set([...(statusesOf.get(row.id) ?? []), ...(mappingsOf.get(row.id) ?? []).map((m) => m.source_status)]),
-    ]
-      .sort()
-      .slice(0, CONNECTION_STATUS_MAPPINGS_MAX),
+    // 保存済みの対応の状態名を先に残し、残りの枠に取り込んだ状態名を入れる（切り詰めで保存済みの対応を落とさない）
+    source_statuses: statusNames(mappingsOf.get(row.id) ?? [], statusesOf.get(row.id)),
     credential_last4: row.credential_last4,
     owner_user_id: row.owner_user_id,
     owner_name: row.owner_name,
@@ -167,6 +164,15 @@ async function readConnections(db: OrganizationDb, workspaceId: string, connecti
     consecutive_failures: Number(row.consecutive_failures),
     created_at: row.created_at,
   }));
+}
+
+function statusNames(mappings: readonly { source_status: string }[], seen: ReadonlySet<string> | undefined): string[] {
+  const names = new Set(mappings.map((mapping) => mapping.source_status));
+  for (const name of [...(seen ?? [])].sort()) {
+    if (names.size >= CONNECTION_STATUS_MAPPINGS_MAX) break;
+    names.add(name);
+  }
+  return [...names].sort();
 }
 
 // 鍵の設定不備だけを区別する。復号の失敗など想定外の例外は従来どおり伝える。

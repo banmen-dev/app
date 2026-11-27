@@ -3202,6 +3202,7 @@ export const dictionary = defineDictionary({
   connectionMappingRetry: '{column}を読み直す',
   connectionMappingInvalid: '選んだ{column}が使えません。{column}の一覧を読み直してください。',
   connectionMappingGone: 'この{connection}の対応は、登録した本人しか選べません。一覧を読み直します。',
+  connectionMappingColumnsFailed: '{column}を読み込めませんでした。読み直してください。',
   connectionMappingFailed: '対応を保存できませんでした。もう一度試してください。',
   connectionSyncNow: '今すぐ同期',
   connectionSyncing: '同期しています',

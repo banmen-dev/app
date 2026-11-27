@@ -25,7 +25,7 @@
   import { isUnauthenticated, loginUrl } from '../../../../../lib/login-redirect.ts';
   import { showToast } from '../../../../../lib/toast.svelte.ts';
   import { t } from '../../../../../lib/vocabulary.svelte.ts';
-  import { columnList, type Column } from '../../../../../shared/operations/column/index.ts';
+  import type { Column } from '../../../../../shared/operations/column/index.ts';
   import {
     CONNECTION_SCOPES_MAX,
     connectionCreate,
@@ -139,6 +139,7 @@
       await closeEdit(target.id);
       return;
     }
+    if (mappingId !== null && !mappingSaving) mappingId = null;
     editName = target.name;
     editFailure = null;
     editingId = target.id;
@@ -367,7 +368,7 @@
   async function retryMappingColumns(): Promise<void> {
     mappingFailure = null;
     await reload();
-    if (data.columns === null) mappingFailure = 'connectionMappingFailed';
+    if (data.columns === null) mappingFailure = 'connectionMappingColumnsFailed';
   }
 
   async function openMapping(target: Connection): Promise<void> {
@@ -376,10 +377,15 @@
       closeMapping();
       return;
     }
+    if (editingId !== null && !updating) editingId = null;
     mappingId = target.id;
-    mappingDraft = Object.fromEntries(target.status_mappings.map((m) => [m.source_status, m.column_id]));
+    // 今は選べない列（完了の列に変わった、削除された）を指す対応は、先頭の列（既定）として開く
+    const liveIds = new Set((mappingColumns ?? []).map((column) => column.id));
+    mappingDraft = Object.fromEntries(
+      target.status_mappings.filter((m) => liveIds.has(m.column_id)).map((m) => [m.source_status, m.column_id]),
+    );
     mappingIgnoreDue = target.ignore_source_due;
-    mappingFailure = mappingColumns === null ? 'connectionMappingFailed' : null;
+    mappingFailure = mappingColumns === null ? 'connectionMappingColumnsFailed' : null;
     await tick();
     document.getElementById('connection-mapping-title')?.focus();
   }
@@ -416,7 +422,7 @@
         await reload();
       } else {
         mappingFailure = connectionMappingFailure(result);
-        if (result.status === 400) await reload();
+        if (result.status === 400 || result.status === 409) await reload();
         else if (result.error?.code === 'workspace_closed') await invalidate('app:workspace');
         else if (result.status === 403 || result.status === 404) await reload();
       }
@@ -446,6 +452,7 @@
         showToast(t(kind === 'stop' ? 'connectionStopDone' : 'connectionDeleteDone', { name: target.name }), 'check');
         // 止めた接続にも、消した接続にも、開いている編集と範囲の段は閉じる
         if (editingId === target.id) await closeEdit(target.id);
+        if (mappingId === target.id) mappingId = null;
         if (choosing?.id === target.id) closeScope(true);
       } else {
         showToast(
@@ -575,7 +582,7 @@
                       : t('connectionSyncNow')}</button
                   >
                 {/if}
-                {#if mine}
+                {#if mine && !ownerGone}
                   <button
                     class="btn is-sm is-quiet"
                     type="button"
@@ -804,7 +811,7 @@
               </div>
             </form>
           {/if}
-          {#if canWrite && mine && mappingId === connection.id}
+          {#if canWrite && mine && !ownerGone && mappingId === connection.id}
             <form
               class="form"
               method="post"
@@ -823,16 +830,15 @@
                   {#if connection.source_statuses.length === 0}
                     <span class="field-hint" role="status">{t('connectionMappingNoStatus', { task: t('task') })}</span>
                   {/if}
-                  {#each connection.source_statuses as status (status)}
+                  {#each connection.source_statuses as status, index (status)}
                     <div class="field">
-                      <label class="field-label" for={`connection-mapping-select-${status}`}
+                      <label class="field-label" for={`connection-mapping-select-${index}`}
                         >{t('connectionMappingColumnLabel', { status, column: t('column') })}</label
                       >
                       <select
                         class="select"
-                        id={`connection-mapping-select-${status}`}
+                        id={`connection-mapping-select-${index}`}
                         bind:value={mappingDraft[status]}
-                        disabled={mappingSaving}
                       >
                         <option value="">{t('connectionMappingDefault', { column: t('column') })}</option>
                         {#each mappingColumns as column (column.id)}
@@ -843,8 +849,7 @@
                   {/each}
                 {/if}
                 <label class="toggle">
-                  <input type="checkbox" bind:checked={mappingIgnoreDue} disabled={mappingSaving} /><span
-                    >{t('connectionMappingIgnoreDue')}</span
+                  <input type="checkbox" bind:checked={mappingIgnoreDue} /><span>{t('connectionMappingIgnoreDue')}</span
                   >
                 </label>
                 <span class="field-hint">{t('connectionMappingIgnoreDueHint', { task: t('task') })}</span>

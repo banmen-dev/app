@@ -114,7 +114,7 @@ export function connectionScopeFailure(result: FailedResult): DictionaryKey {
 // 状態から列への対応の保存（connection-mapping-save）が断られた理由。400 は選んだ列が使えない（消えた、完了の列）
 export function connectionMappingFailure(result: FailedResult): DictionaryKey {
   if (result.error?.code === 'workspace_closed') return 'connectionWorkspaceClosed';
-  if (result.status === 400) return 'connectionMappingInvalid';
+  if (result.status === 400 || result.status === 409) return 'connectionMappingInvalid';
   if (result.status === 403 || result.status === 404) return 'connectionMappingGone';
   if (result.status === 429) return 'connectionRateLimited';
   if (result.status === 0 || result.status === 503) return 'connectionUnreachable';

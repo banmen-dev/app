@@ -177,4 +177,50 @@ describe('列の削除', () => {
     );
     expect(rows).toEqual([]);
   });
+
+  test('タスクが残る列を削除すると、移した件数が返り、その列への対応だけが外れる。ほかの対応は残る', async () => {
+    const { target, review, first, connection } = await setup();
+    const other = await createBoardColumn(target.organization, target.workspace.id, { name: '作業中', position: 'a2' });
+    await createConnectionStatusMapping(target.organization, connection.id, review, { source_status: 'open' });
+    await createConnectionStatusMapping(target.organization, connection.id, other.id, { source_status: 'draft' });
+    const sprint = await createSprint(target.organization, target.workspace.id, { name: '第15回' });
+    for (const position of ['a0', 'a1']) {
+      await createTask(target.organization, target.workspace.id, target.member.userId!, {
+        sprint_id: sprint.id,
+        column_id: review,
+        column_position: position,
+      });
+    }
+    const res = await post(app, columnDelete, {
+      slug: target.slug,
+      token: target.leader.token,
+      body: { workspace_id: target.workspace.id, column_id: review, target_column_id: first },
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ moved_count: 2 });
+    const db = orgDb(env, target.organization.verified);
+    const rows = await db.rows(
+      db.statement((q) =>
+        q.selectFrom('connection_status_mappings').select('source_status').where('connection_id', '=', connection.id),
+      ),
+    );
+    expect(rows).toEqual([{ source_status: 'draft' }]);
+  });
+});
+
+describe('connection-mapping-save の範囲外', () => {
+  test('別のワークスペースと削除済みの接続は 404', async () => {
+    const { target, connection } = await setup();
+    const elsewhere = await setup();
+    const foreign = await save(target, elsewhere.connection.id, { mappings: [], ignore_source_due: true });
+    expect(foreign.status).toBe(404);
+    const db = orgDb(env, target.organization.verified);
+    await db.run(
+      db.statement((q) =>
+        q.updateTable('connections').set({ deleted_at: '2026-11-02T00:00:00.000Z' }).where('id', '=', connection.id),
+      ),
+    );
+    const deleted = await save(target, connection.id, { mappings: [], ignore_source_due: true });
+    expect(deleted.status).toBe(404);
+  });
 });

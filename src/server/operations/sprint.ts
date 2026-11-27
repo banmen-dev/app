@@ -862,6 +862,9 @@ async function addOnce(
     db.statement((q) =>
       q
         .selectFrom('task_sources as ts')
+        .innerJoin('connections as mcon', (join) =>
+          join.onRef('mcon.id', '=', 'ts.connection_id').on('mcon.workspace_id', '=', workspaceId),
+        )
         .innerJoin('connection_status_mappings as m', (join) =>
           join.onRef('m.connection_id', '=', 'ts.connection_id').onRef('m.source_status', '=', 'ts.source_status'),
         )
@@ -870,6 +873,7 @@ async function addOnce(
         )
         .select(['ts.task_id', 'mc.id as column_id'])
         .where('ts.workspace_id', '=', workspaceId)
+        .where('mcon.deleted_at', 'is', null)
         .where('ts.task_id', 'in', jsonList(taskIds))
         .where('mc.deleted_at', 'is', null)
         .where('mc.is_done', '=', 0),

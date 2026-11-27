@@ -23,7 +23,7 @@ export const connectionMappingSave = defineOperation({
     mappings: z
       .array(
         z.object({
-          source_status: z.string().trim().min(1).max(CONNECTION_SOURCE_STATUS_MAX_LENGTH),
+          source_status: z.string().min(1).max(CONNECTION_SOURCE_STATUS_MAX_LENGTH),
           column_id: idSchema,
         }),
       )
