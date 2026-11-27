@@ -66,8 +66,13 @@ function secretValue(env: object, name: string): unknown {
   return name in env ? (env as Record<string, unknown>)[name] : undefined;
 }
 
+function absentOrNotString(name: string, value: unknown): string {
+  return value === undefined || value === null ? `${name} が無い` : `${name} が文字列でない`;
+}
+
 function idProblem(name: string, value: unknown): string | undefined {
-  if (typeof value !== 'string' || value === '') return `${name} が無い`;
+  if (typeof value !== 'string') return absentOrNotString(name, value);
+  if (value === '') return `${name} が無い`;
   if (DECIMAL_ID_PATTERN.test(value)) return undefined;
   // 前後の空白と改行は読み替えない。入れ直してもらうために、数字の誤りと分けて知らせる
   if (DECIMAL_ID_PATTERN.test(value.trim())) return `${name} の前後に空白か改行がある`;
@@ -77,7 +82,8 @@ function idProblem(name: string, value: unknown): string | undefined {
 // GitHub が出す PKCS#1（BEGIN RSA PRIVATE KEY）、暗号化した鍵、改行が文字の \n のまま入った鍵は Web Crypto で読めないので、
 // 設定が無いものとして扱う（docs/operations.md の「フィードバックの GitHub App」の手順 6 で PKCS#8 に直して入れる）
 function privateKeyProblems(name: string, value: unknown): string[] {
-  if (typeof value !== 'string' || value.trim() === '') return [`${name} が無い`];
+  if (typeof value !== 'string') return [absentOrNotString(name, value)];
+  if (value.trim() === '') return [`${name} が無い`];
   if (pemBody(value) !== undefined) return [];
   const problems: string[] = [];
   if (value.includes('-----BEGIN RSA PRIVATE KEY-----')) problems.push(`${name} が PKCS#1（BEGIN RSA PRIVATE KEY）`);

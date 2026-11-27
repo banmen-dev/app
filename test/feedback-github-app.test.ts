@@ -400,7 +400,8 @@ describe('inspectFeedbackGithubCredentials', () => {
 
   test.each([
     ['', 'FEEDBACK_GITHUB_APP_ID が無い'],
-    [123456, 'FEEDBACK_GITHUB_APP_ID が無い'],
+    [undefined, 'FEEDBACK_GITHUB_APP_ID が無い'],
+    [123456, 'FEEDBACK_GITHUB_APP_ID が文字列でない'],
     ['123456\n', 'FEEDBACK_GITHUB_APP_ID の前後に空白か改行がある'],
     [' 123456', 'FEEDBACK_GITHUB_APP_ID の前後に空白か改行がある'],
     ['Iv23lifake', 'FEEDBACK_GITHUB_APP_ID が10進の数字だけでない'],

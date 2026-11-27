@@ -51,9 +51,17 @@ export function createFeedbackToolsFactory(fetcher: typeof fetch) {
     async reserve() {
       const inspected = inspectFeedbackGithubCredentials(env);
       if (!inspected.ok) {
-        // 503 の応答はログに残らない（onError は既知のエラーを出さない）。設定の誤りを Workers Logs で見分けられるよう、
-        // シークレットの名前と形の違いの種類だけを出す。値は出さない
-        console.warn(`フィードバックの GitHub App の設定が使えない（${inspected.problems.join('、')}）`);
+        // 操作のログ（logOperation）には code と status だけが残り、どの設定が悪いかは残らない。
+        // 設定の誤りを Workers Logs で見分けられるよう、シークレットの名前と形の違いの種類だけを出す。値は出さない
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            code: 'unavailable',
+            operation: 'feedback-submit',
+            reason: 'フィードバックの GitHub App の設定が使えない',
+            problems: inspected.problems,
+          }),
+        );
         throw new ApiError(503, 'unavailable');
       }
       const { key, policy } = FEEDBACK_GLOBAL_RATE_LIMIT;

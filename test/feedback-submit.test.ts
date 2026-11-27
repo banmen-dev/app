@@ -223,9 +223,17 @@ test('GitHub App の設定が使えない 503 では、使えない理由だけ�
 
     expect(requests).toHaveLength(0);
     const logged = warn.mock.calls.map((args) => args.join(' '));
-    expect(logged).toEqual([
-      'フィードバックの GitHub App の設定が使えない（FEEDBACK_GITHUB_INSTALLATION_ID が無い、FEEDBACK_GITHUB_PRIVATE_KEY が PKCS#1（BEGIN RSA PRIVATE KEY））',
-    ]);
+    expect(logged).toHaveLength(1);
+    expect(JSON.parse(logged[0])).toEqual({
+      level: 'warn',
+      code: 'unavailable',
+      operation: 'feedback-submit',
+      reason: 'フィードバックの GitHub App の設定が使えない',
+      problems: [
+        'FEEDBACK_GITHUB_INSTALLATION_ID が無い',
+        'FEEDBACK_GITHUB_PRIVATE_KEY が PKCS#1（BEGIN RSA PRIVATE KEY）',
+      ],
+    });
     expect(logged.join('\n')).not.toContain('864201');
     expect(logged.join('\n')).not.toContain('MIIkakuuSecretBody');
   } finally {
