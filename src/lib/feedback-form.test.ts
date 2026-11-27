@@ -161,9 +161,9 @@ describe('画像を付ける前の確かめ', () => {
     expect(clipboardImages([], '')).toEqual([]);
   });
 
-  test('大きさは attachmentSize と同じ書き方', () => {
-    expect(feedbackImageSize(FEEDBACK_IMAGE_MAX_BYTES)).toBe('4 MB');
-    expect(feedbackImageSize(1536)).toBe('1.5 KB');
+  test('大きさは上限の文言と同じ MiB、KiB の書き方', () => {
+    expect(feedbackImageSize(FEEDBACK_IMAGE_MAX_BYTES)).toBe('4 MiB');
+    expect(feedbackImageSize(1536)).toBe('1.5 KiB');
     expect(feedbackImageSize(12)).toBe('12 B');
   });
 });

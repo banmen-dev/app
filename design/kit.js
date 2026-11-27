@@ -75,7 +75,7 @@
     feedbackImageField: "画像（なくても送れます）",
     feedbackImageDrop: "ここに画像をドラッグするか、貼り付けて付ける",
     feedbackImageDropOver: "離すと画像を付けます",
-    feedbackImageHint: "PNG、JPEG、WebP の静止画を{count}枚まで、1枚 {size} MB まで。画像は運用者だけが見ます。",
+    feedbackImageHint: "PNG、JPEG、WebP の静止画を{count}枚まで、1枚 {size} MiB まで。画像は運用者だけが見ます。",
     feedbackImageChoose: "画像を選ぶ",
     feedbackImageFull: "画像は{count}枚まで付いています",
     feedbackImageFullHint: "別の画像を付けるには、付けた画像を外してください。",
@@ -85,7 +85,7 @@
     feedbackImageBusy: "送っている間は、画像を付けたり外したりできません。",
     feedbackImageRejected: "{name} は付けられませんでした。{reason}",
     feedbackImageTooMany: "付けられる画像は{count}枚までです。",
-    feedbackImageTooLarge: "1枚 {size} MB まで、一辺 {side} 画素までの画像だけ付けられます。",
+    feedbackImageTooLarge: "1枚 {size} MiB まで、一辺 {side} 画素までの画像だけ付けられます。",
     feedbackImageUnsupported: "PNG、JPEG、WebP の静止画だけ付けられます。",
     taskTemplateEmpty: "テンプレートがまだありません。",
     taskTemplateAskLeader: "ワークスペースのリーダーにテンプレートの作成を依頼してください。",
@@ -2905,7 +2905,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       const imageCount = imageState === "3" ? 3 : imageState === "1" ? 1 : 0;
       const imageRule = (text) => text.replace("{count}", "3").replace("{size}", "4").replace("{side}", "8,192");
       const imageNames = ["画面.png", "列の見出し.webp", "貼り付け.jpeg"];
-      const imageRows = Array.from({ length: imageCount }, (_, i) => `<li class="file-row"><span class="file-preview" aria-hidden="true">${icon("image")}</span><div class="file-main"><span class="file-name">${imageNames[i]}</span><span class="file-meta mono">${[ "812 KB", "1.4 MB", "96 KB" ][i]}</span></div><div class="file-actions"><button class="btn is-sm is-quiet" type="button" aria-label="${t("feedbackImageRemoveLabel").replace("{name}", imageNames[i])}">${t("feedbackImageRemove")}</button></div></li>`).join("");
+      const imageRows = Array.from({ length: imageCount }, (_, i) => `<li class="file-row"><span class="file-preview" aria-hidden="true">${icon("image")}</span><div class="file-main"><span class="file-name">${imageNames[i]}</span><span class="file-meta mono">${[ "812 KiB", "1.4 MiB", "96 KiB" ][i]}</span></div><div class="file-actions"><button class="btn is-sm is-quiet" type="button" aria-label="${t("feedbackImageRemoveLabel").replace("{name}", imageNames[i])}">${t("feedbackImageRemove")}</button></div></li>`).join("");
       const imageZone = imageCount >= 3
         ? `<div class="dropzone is-disabled">${icon("alert")}<span class="dropzone-text"><b>${imageRule(t("feedbackImageFull"))}</b><span id="d-fb-image-hint">${t("feedbackImageFullHint")}</span></span></div>`
         : `<div class="dropzone${imageState === "over" ? " is-over" : ""}">${icon("upload")}<span class="dropzone-text"><b>${imageState === "over" ? t("feedbackImageDropOver") : t("feedbackImageDrop")}</b><span id="d-fb-image-hint">${imageRule(t("feedbackImageHint"))}</span></span><button class="btn is-sm" type="button" aria-describedby="d-fb-image-hint">${icon("clip")}${t("feedbackImageChoose")}</button></div>`;
