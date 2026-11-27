@@ -13,7 +13,8 @@ export const FEEDBACK_IMAGE_REF_PATTERN = new RegExp(
   `^(${FEEDBACK_ID_PATTERN.source.slice(1, -1)})\\.(${FEEDBACK_ID_PATTERN.source.slice(1, -1)})$`,
 );
 // パスの id は上の2つの UUID と区切りの1字。長い値を R2 に引く前に 400 で止める
-const FEEDBACK_REF_MAX_LENGTH = 36 + 1 + 36;
+const FEEDBACK_ID_MAX_LENGTH = 36;
+const FEEDBACK_REF_MAX_LENGTH = FEEDBACK_ID_MAX_LENGTH + 1 + 36;
 
 export const feedbackImageTypes = ['image/png', 'image/jpeg', 'image/webp'] as const;
 
@@ -27,7 +28,7 @@ export const operatorFeedback = defineOperation({
     'フィードバックの文、送った画面の URL と route ID、送った人のアカウントの ID、画像の一覧（ID、種類、大きさ）、送った日時を、フィードバックの ID で返す。見つからない、または消えた（180 日）ときは 404',
   mode: 'read',
   permission: 'operator',
-  input: z.object({ id: z.string().max(FEEDBACK_REF_MAX_LENGTH) }),
+  input: z.object({ id: z.string().max(FEEDBACK_ID_MAX_LENGTH) }),
   output: z.object({
     feedback_id: z.string(),
     // 送った人のアカウントの ID（accounts.id）。組織ごとの users.id ではない

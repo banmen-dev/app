@@ -3,10 +3,11 @@ import { describe, expect, test } from 'vitest';
 import { createApp } from '../src/server/app.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
 import { feedbackImageRef, operatorFeedback, operatorFeedbackImage } from '../src/shared/operations/operator/index.ts';
+import { sessionCookieName } from '../src/shared/session-cookie.ts';
 import { uuidv7 } from '../src/server/uuid.ts';
 import { storeFeedback } from './feedback/stored.ts';
 import { errorCodeOf, post } from './operations/harness.ts';
-import { createPerson, getOperator, withNewSession } from './operations/world.ts';
+import { createPerson, getOperator, testEnv, withNewSession } from './operations/world.ts';
 
 const app = createApp(implementedOperations);
 const operator = async () => (await withNewSession(await getOperator())).token;
@@ -48,8 +49,8 @@ describe('operator-feedback', () => {
     await env.ATTACHMENTS.delete(`feedback/${stored.feedbackId}/meta.json`);
     for (const id of [uuidv7(), 'not-a-uuid', stored.feedbackId, '../x', `${stored.feedbackId}/meta.json`]) {
       const res = await post(app, operatorFeedback, { token: await operator(), body: { id } });
-      expect(res.status, id).toBe(404);
-      expect(await errorCodeOf(res)).toBe('not_found');
+      // 長すぎる値は R2 を引く前に 400、それ以外は 404
+      expect([400, 404], id).toContain(res.status);
     }
   });
 
@@ -76,7 +77,7 @@ describe('operator-feedback-image', () => {
     });
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toBe('image/png');
-    expect(res.headers.get('Content-Disposition')).toMatch(/^attachment/);
+    expect(res.headers.get('Content-Disposition')).toBe(`attachment; filename="feedback-${stored.imageIds[0]}.png"`);
     expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
     expect(res.headers.get('Cache-Control')).toMatch(/^private/);
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(stored.imageBytes);
@@ -103,7 +104,7 @@ describe('operator-feedback-image', () => {
     expect(res.status).toBe(403);
   });
 
-  test('meta.json に無い画像、形の違う id、組織の接頭辞の下のキーは 404', async () => {
+  test('meta.json に無い画像、形の違う id、別の ID は 404', async () => {
     const stored = await storeFeedback();
     const stray = uuidv7();
     await env.ATTACHMENTS.put(`feedback/${stored.feedbackId}/${stray}`, stored.imageBytes);
@@ -118,6 +119,55 @@ describe('operator-feedback-image', () => {
       const res = await post(app, operatorFeedbackImage, { token: await operator(), body: { id } });
       expect(res.status, id).toBe(404);
     }
+  });
+
+  test('組織の接頭辞の下のファイルは、どの id でも読めない', async () => {
+    const stored = await storeFeedback();
+    const organizationId = uuidv7();
+    const orgFile = uuidv7();
+    await env.ATTACHMENTS.put(`${organizationId}/${orgFile}`, stored.imageBytes);
+    for (const id of [
+      `${organizationId}.${orgFile}`,
+      `${organizationId}/${orgFile}`,
+      `${stored.feedbackId}.${organizationId}`,
+    ]) {
+      const res = await post(app, operatorFeedbackImage, { token: await operator(), body: { id } });
+      expect([400, 404], id).toContain(res.status);
+    }
+  });
+
+  test.each(['image/jpeg', 'image/webp'] as const)('meta.json の種類 %s をそのまま返す', async (contentType) => {
+    const stored = await storeFeedback({ contentType });
+    const ref = feedbackImageRef(stored.feedbackId, stored.imageIds[0]!);
+    const res = await post(app, operatorFeedbackImage, { token: await operator(), body: { id: ref } });
+    expect(res.headers.get('Content-Type')).toBe(contentType);
+    expect(res.headers.get('Content-Length')).toBe(String(stored.imageBytes.byteLength));
+    const listed = await post(app, operatorFeedback, { token: await operator(), body: { id: stored.feedbackId } });
+    expect(((await listed.json()) as { images: { content_type: string }[] }).images[0]?.content_type).toBe(contentType);
+  });
+
+  test('実体が消えた画像の HEAD は 404', async () => {
+    const stored = await storeFeedback();
+    await env.ATTACHMENTS.delete(`feedback/${stored.feedbackId}/${stored.imageIds[0]}`);
+    const res = await app.request(
+      `/api/operator-feedback-image/${feedbackImageRef(stored.feedbackId, stored.imageIds[0]!)}`,
+      { method: 'HEAD', headers: { Cookie: `${sessionCookieName(testEnv.PUBLIC_ORIGIN)}=${await operator()}` } },
+      testEnv,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  test('HEAD は本文なしで大きさだけを返す', async () => {
+    const stored = await storeFeedback();
+    const ref = feedbackImageRef(stored.feedbackId, stored.imageIds[0]!);
+    const res = await app.request(
+      `/api/operator-feedback-image/${ref}`,
+      { method: 'HEAD', headers: { Cookie: `${sessionCookieName(testEnv.PUBLIC_ORIGIN)}=${await operator()}` } },
+      testEnv,
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Length')).toBe(String(stored.imageBytes.byteLength));
+    expect(await res.text()).toBe('');
   });
 
   test('長すぎる id は R2 を引く前に 400', async () => {

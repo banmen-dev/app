@@ -1,7 +1,7 @@
 // フィードバックの閲覧（Issue #1557）。R2 の `feedback/<フィードバックの ID>/meta.json` を読んで検証する。
 // キーは、検証した UUID から決まった形で組む（組織の接頭辞の下の添付は読めない）。
 // 種類と大きさは、R2 のメタ情報ではなく meta.json の検証済みの値を使う（置いたのはサーバーで、中身のバイトで決めた値）。
-// 読めない、形が合わない、消えた（ライフサイクルの規則の 180 日）ものは、どれも undefined（呼ぶ側が 404 にする）。
+// 見つからない、消えた（ライフサイクルの規則の 180 日）、中身が壊れている、形が合わないものは undefined（呼ぶ側が 404 にする）。R2 自体の失敗は握らず 500 になる。
 // 失敗のログに本文、URL、アカウントの ID、キーを出さない
 import { z } from 'zod';
 import { FEEDBACK_ID_PATTERN, feedbackImageTypes } from '../../shared/operations/operator/feedback.ts';

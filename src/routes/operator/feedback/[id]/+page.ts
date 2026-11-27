@@ -12,7 +12,8 @@ export const load: PageLoad = async ({ fetch, url, params }) => {
   if (isTermsRequired(result)) redirect(307, consentUrl(url));
   if (isUnauthenticated(result)) redirect(307, loginUrl(url));
   if (!result.ok && result.status === 403) redirect(307, resolve('/'));
-  if (!result.ok && result.status === 404) return { state: 'not-found' as const };
+  // 長すぎる ID（400）も、存在しない ID と同じ「見つからない」にする
+  if (!result.ok && (result.status === 404 || result.status === 400)) return { state: 'not-found' as const };
   if (!result.ok) return { state: 'failed' as const };
   return { state: 'ok' as const, feedback: result.data };
 };

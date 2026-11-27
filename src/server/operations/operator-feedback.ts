@@ -9,6 +9,8 @@ import { ApiError } from '../errors.ts';
 import { feedbackKey } from '../feedback/read.ts';
 import { implement } from './implement.ts';
 
+const EXTENSIONS = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' } as const;
+
 export const operatorFeedbackOperation = implement(operatorFeedback, async ({ input, operator }) => {
   const feedback = await operator.readFeedback(input.id);
   if (feedback === undefined) throw new ApiError(404, 'not_found');
@@ -30,7 +32,8 @@ export const operatorFeedbackImageOperation = implement(
     // 描かずに保存させる（運用者の画面と同じオリジンで画像を開かない）。種類は meta.json の値
     const headers = new Headers({
       'Content-Type': image.content_type,
-      'Content-Disposition': 'attachment; filename="feedback-image"',
+      // 画像の ID は検証済みの UUID なのでヘッダーに入れてよい。拡張子は meta.json の種類から決める
+      'Content-Disposition': `attachment; filename="feedback-${imageId}.${EXTENSIONS[image.content_type]}"`,
       'X-Content-Type-Options': 'nosniff',
     });
     if (download.head) {

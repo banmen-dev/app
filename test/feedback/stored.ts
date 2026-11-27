@@ -14,7 +14,13 @@ export type StoredFeedback = {
 };
 
 export async function storeFeedback(
-  options: { images?: number; text?: string; url?: string | null; accountId?: string } = {},
+  options: {
+    images?: number;
+    text?: string;
+    url?: string | null;
+    accountId?: string;
+    contentType?: FeedbackImage['contentType'];
+  } = {},
 ): Promise<StoredFeedback> {
   const feedbackId = uuidv7();
   const accountId = options.accountId ?? uuidv7();
@@ -23,8 +29,8 @@ export async function storeFeedback(
   const imageBytes = pngImage(2, 2);
   const images: FeedbackImage[] = Array.from({ length: options.images ?? 1 }, () => ({
     id: uuidv7(),
-    contentType: 'image/png',
-    file: new Blob([imageBytes], { type: 'image/png' }),
+    contentType: options.contentType ?? 'image/png',
+    file: new Blob([imageBytes], { type: options.contentType ?? 'image/png' }),
   }));
   const stored = await putFeedbackObjects(
     env.ATTACHMENTS,
