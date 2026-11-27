@@ -16,6 +16,15 @@ export const REPO_URL = 'https://github.com/banmen-dev/app';
 export const issueUrl = (/** @type {number} */ n) => `${REPO_URL}/issues/${n}`;
 export const pullUrl = (/** @type {number} */ n) => `${REPO_URL}/pull/${n}`;
 
+/** 作者の書き込み権限を確かめられなかった Issue の題の代わりに出す言葉。題は人が GitHub で見る（scripts/progress-data.ts は題を渡さない） */
+export const OUTSIDER_TITLE = '外の人の Issue';
+
+/**
+ * 画面に出す Issue の題。外の人の Issue は、data.json の題が空なので、決まった言葉で出す
+ * @param {{ title: string, outsider?: boolean } | undefined} issue
+ */
+export const titleOf = (issue) => (issue === undefined ? '' : issue.outsider === true ? OUTSIDER_TITLE : issue.title);
+
 export const VIEWS = ['sprint', 'backlog', 'increment'];
 export const DEFAULT_VIEW = 'sprint';
 
@@ -400,7 +409,7 @@ export function dependencyGraph(issues, n) {
     const issue = byNumber.get(num);
     return {
       number: num,
-      title: issue?.title ?? '',
+      title: titleOf(issue),
       s: stateOf(num),
       outside: issue?.sprint !== n,
       blocking: (waitingSuccs.get(num) ?? []).length > 0,
@@ -505,6 +514,9 @@ function issueProblem(issue) {
   if (!isObject(issue) || !isNumber(issue.number)) return 'issues の項目は number を持つ object が要る';
   const at = `issues #${issue.number}`;
   if (typeof issue.title !== 'string') return `${at} の title は文字列が要る`;
+  if (typeof issue.outsider !== 'boolean') return `${at} の outsider は真偽値が要る`;
+  // 外の人の Issue の題を持ったデータは、読み込み前の取り違えなので描かない
+  if (issue.outsider && issue.title !== '') return `${at} は外の人の Issue なのに title が空でない`;
   if (!['epic', 'story', 'task'].includes(/** @type {string} */ (issue.level))) return `${at} の level が不正`;
   if (!Object.keys(STATE_NAMES).includes(/** @type {string} */ (issue.s))) return `${at} の s が不正`;
   if (!isNumberOrNull(issue.pt)) return `${at} の pt は数か null が要る`;

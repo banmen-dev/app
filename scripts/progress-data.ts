@@ -5,12 +5,14 @@
 // 出力: { asOf, sprint, issues, history }
 //   asOf     作った日時（日本時間の ISO 8601、+09:00 付き）
 //   sprint   今のスプリント。開いている記録（sprint-log）が無ければ null、2つ開いていれば番号の大きいほう
-//            { n, log, from, to, goal, plan: [{ number, title, pt }],
+//            { n, log, from, to, goal, plan: [{ number, title, pt, outsider? }],
 //              planned, plannedDone, added, addedDone, withdrawn, accepting, wip }
 //            数はどれも { pt, count }。wip は作業中の数
 //   issues   sprint-log を除く Issue（番号の昇順）。not_planned と duplicate で閉じたものは入れない
-//            { number, title, level: epic | story | task, s: done | accept | review | wip | refining | todo,
+//            { number, title, outsider, level: epic | story | task, s: done | accept | review | wip | refining | todo,
 //              parent, children, pt, sprint, areas, deps, waitingOn, prs, closeReason, milestone }
+//            outsider は、作者の書き込み権限を確かめられなかった Issue の印。title は空で、本文も読まない。
+//            計画の表（sprint.plan）の行も、その Issue なら title を空にして outsider を付ける
 //            pt は pt: のラベルの数で、子を持つ Issue は null（合計は使う側が子から出す）。
 //            sprint は sprint:<番号> の付いた最大の番号、areas は area: の後ろ、
 //            deps は開いた Issue の前に要るものすべて、waitingOn はそのうち開いていて status:accepting の無いもの、
@@ -19,6 +21,9 @@
 //            { n, log, planned: { pt, count }, velocity, accepted: [{ number, prs }] }
 //            accepted は sprint:<n> が付いて completed で閉じた Issue で、prs はそのマージ済みの PR
 // Issue と PR の本文は、計画の表と PR の参照を読むのに使うだけで、出力に入れない
+// Issue の題と本文は、書き込み権限を API で確かめた作者と github-actions[bot] のものだけを読む。
+// それ以外の作者（外の人、権限を確かめられなかった人、画面のフィードバックを立てる App の bot）の Issue は、
+// 題と本文を読み込む前に空にして outsider の印を付ける（題にも指示を仕込めるため）
 // 締めのコメントと PR は、書き込み権限を API で確かめた作者のものだけを読む（docs/development.md の「GitHub の書き込み権限」）。
 // 外の人の PR は、ブランチ名も本文の Closes も、Issue の状態と prs に数えない
 import { execFileSync } from 'node:child_process';
@@ -34,11 +39,12 @@ import {
 export type State = 'done' | 'accept' | 'review' | 'wip' | 'refining' | 'todo';
 export type Level = 'epic' | 'story' | 'task';
 export type Count = { pt: number; count: number };
-export type PlanRow = { number: number; title: string; pt: number };
+export type PlanRow = { number: number; title: string; pt: number; outsider?: true };
 
 export type BoardIssue = {
   number: number;
   title: string;
+  outsider: boolean;
   level: Level;
   s: State;
   parent: number | null;
@@ -88,6 +94,8 @@ export type RawIssue = {
   milestone: string | null;
   parent: number | null;
   body: string;
+  // 作者の書き込み権限を確かめられなかった Issue。title と body は読み込まず空にしてある
+  outsider?: true;
 };
 // author は PR の user.login、type は user.type。取れなければ null（許可しない側に倒す）
 export type RawPull = { number: number; head: string; body: string; author: string | null; type: string | null };
@@ -360,7 +368,8 @@ function buildSprint({ log, work, pointsOfIssue, openPrs }: SprintInput): Sprint
     from: parsed.from,
     to: parsed.to,
     goal: parsed.goal,
-    plan: parsed.plan,
+    // 外の人の Issue の行は、記録の表に写った題も出さない
+    plan: parsed.plan.map((row) => (byNumber.get(row.number)?.outsider ? { ...row, title: '', outsider: true } : row)),
     planned: tally(parsed.plan.map((row) => row.pt)),
     plannedDone: tally(rows.filter(({ issue }) => issue && isAccepted(issue)).map(({ row }) => row.pt)),
     added: tally(added.map(pointsFor)),
@@ -448,6 +457,7 @@ export function buildProgress(raw: RawData, now: Date): Built {
       return {
         number: issue.number,
         title: issue.title,
+        outsider: issue.outsider === true,
         level: levelOf(issue.labels),
         s: stateOf(issue.number),
         parent: issue.parent,
@@ -468,6 +478,9 @@ export function buildProgress(raw: RawData, now: Date): Built {
     });
 
   const { history, warnings } = buildHistory(logs, work, mergedPrs, raw.comments);
+  const outsiders = raw.issues.filter((issue) => issue.outsider === true).length;
+  if (outsiders > 0)
+    warnings.push(`外の人の Issue ${outsiders} 件は、作者の書き込み権限を確認できないので、題と本文を読まなかった`);
   for (const warning of [
     rejectedPullWarning('開いた', open.rejected),
     rejectedPullWarning('マージ済みの', merged.rejected),
@@ -502,6 +515,7 @@ export type ApiIssue = {
   milestone: { title: string } | null;
   parent_issue_url?: string | null;
   body: string | null;
+  user?: { login?: string | null; type?: string | null } | null;
   pull_request?: unknown;
   issue_dependencies_summary?: { blocked_by: number; total_blocked_by: number };
   sub_issues_summary?: { total: number };
@@ -549,16 +563,28 @@ export function lookupsFor(issue: ApiIssue): { comments: boolean; blockers: bool
   };
 }
 
-export function toRawIssue(issue: ApiIssue): RawIssue {
+// 題と本文を読んでよい作者か。書き込み権限を確かめた User（writeUsers は小文字の login）と、
+// login と type の Bot の両方が一致した github-actions[bot] だけ。ほかの bot、権限を確かめられない人は許可しない
+export function isTrustedAuthor(user: ApiIssue['user'], writeUsers: ReadonlySet<string>): boolean {
+  if (user?.login === 'github-actions[bot]') return user.type === 'Bot';
+  const login = normalizeLogin(user?.login);
+  return user?.type === 'User' && login !== undefined && writeUsers.has(login);
+}
+
+// 作者を許可できない Issue は、題と本文をここで空にして outsider の印を付ける。
+// writeUsers を渡さなければ、全員を許可しない側に倒す
+export function toRawIssue(issue: ApiIssue, writeUsers: ReadonlySet<string> = new Set()): RawIssue {
+  const trusted = isTrustedAuthor(issue.user, writeUsers);
   return {
     number: issue.number,
-    title: issue.title,
+    title: trusted ? issue.title : '',
     state: issue.state,
     stateReason: issue.state_reason,
     labels: issue.labels.map((label) => label.name),
     milestone: issue.milestone?.title ?? null,
     parent: issue.parent_issue_url ? Number(issue.parent_issue_url.split('/').at(-1)) : null,
-    body: issue.body ?? '',
+    body: trusted ? (issue.body ?? '') : '',
+    ...(trusted ? {} : { outsider: true as const }),
   };
 }
 
@@ -605,7 +631,13 @@ export async function readGitHub(
   const permission = cachedLookup(lookup);
   const warnings: string[] = [];
   const apiIssues = withoutPulls(ghPages<ApiIssue>('repos/{owner}/{repo}/issues?state=all&per_page=100'));
-  const issues = apiIssues.map(toRawIssue);
+  // Issue の作者も、締めのコメントや PR と同じ確かめ（キャッシュ込み）で書き込み権限を確かめる。
+  // 題と本文は、この判定を通った作者のものだけを RawIssue に入れる
+  const issueWriters = await resolveWriteUsers(
+    apiIssues.map((issue) => issue.user ?? {}),
+    permission,
+  );
+  const issues = apiIssues.map((issue) => toRawIssue(issue, issueWriters));
   const openPulls = ghPages<ApiPull>('repos/{owner}/{repo}/pulls?state=open&per_page=100').map(toRawPull);
   const mergedPulls = ghPages<ApiPull>('repos/{owner}/{repo}/pulls?state=closed&per_page=100')
     .filter((pull) => pull.merged_at)
