@@ -10,6 +10,7 @@ import {
   feedbackIssueBody,
   feedbackIssueTitle,
   FeedbackIssueError,
+  inspectFeedbackGithubCredentials,
   normalizeFeedbackText,
   type FeedbackGithubCredentials,
   type FeedbackIssueFailure,
@@ -370,6 +371,91 @@ describe('feedbackGithubCredentials', () => {
       expect(feedbackGithubCredentials({ ...full, FEEDBACK_GITHUB_INSTALLATION_ID: value })).toBeUndefined();
     },
   );
+});
+
+// 本番の 503 の原因を Workers Logs で見分けるための理由（Issue #1657）
+describe('inspectFeedbackGithubCredentials', () => {
+  const PEM = '-----BEGIN PRIVATE KEY-----\nMIIfake\n-----END PRIVATE KEY-----\n';
+  const full = {
+    FEEDBACK_GITHUB_APP_ID: APP_ID,
+    FEEDBACK_GITHUB_INSTALLATION_ID: INSTALLATION_ID,
+    FEEDBACK_GITHUB_PRIVATE_KEY: PEM,
+  };
+  const problemsOf = (env: object) => {
+    const inspected = inspectFeedbackGithubCredentials(env);
+    return inspected.ok ? [] : inspected.problems;
+  };
+
+  test('3つがそろえば ok で、feedbackGithubCredentials と同じ値を返す', () => {
+    expect(inspectFeedbackGithubCredentials(full)).toEqual({ ok: true, credentials: feedbackGithubCredentials(full) });
+  });
+
+  test('3つとも無ければ、3つの名前をすべて挙げる', () => {
+    expect(problemsOf({})).toEqual([
+      'FEEDBACK_GITHUB_APP_ID が無い',
+      'FEEDBACK_GITHUB_INSTALLATION_ID が無い',
+      'FEEDBACK_GITHUB_PRIVATE_KEY が無い',
+    ]);
+  });
+
+  test.each([
+    ['', 'FEEDBACK_GITHUB_APP_ID が無い'],
+    [undefined, 'FEEDBACK_GITHUB_APP_ID が無い'],
+    [123456, 'FEEDBACK_GITHUB_APP_ID が文字列でない'],
+    ['123456\n', 'FEEDBACK_GITHUB_APP_ID の前後に空白か改行がある'],
+    [' 123456', 'FEEDBACK_GITHUB_APP_ID の前後に空白か改行がある'],
+    ['Iv23lifake', 'FEEDBACK_GITHUB_APP_ID が10進の数字だけでない'],
+    ['   ', 'FEEDBACK_GITHUB_APP_ID が10進の数字だけでない'],
+  ])('App ID が %j なら %s', (value, problem) => {
+    expect(problemsOf({ ...full, FEEDBACK_GITHUB_APP_ID: value })).toEqual([problem]);
+  });
+
+  test('インストールの ID の誤りは、その名前で挙げる', () => {
+    expect(problemsOf({ ...full, FEEDBACK_GITHUB_INSTALLATION_ID: '7654321 ' })).toEqual([
+      'FEEDBACK_GITHUB_INSTALLATION_ID の前後に空白か改行がある',
+    ]);
+  });
+
+  test.each([
+    ['   ', ['FEEDBACK_GITHUB_PRIVATE_KEY が無い']],
+    [
+      '-----BEGIN RSA PRIVATE KEY-----\nMIIfake\n-----END RSA PRIVATE KEY-----\n',
+      ['FEEDBACK_GITHUB_PRIVATE_KEY が PKCS#1（BEGIN RSA PRIVATE KEY）'],
+    ],
+    [
+      '-----BEGIN ENCRYPTED PRIVATE KEY-----\nMIIfake\n-----END ENCRYPTED PRIVATE KEY-----\n',
+      ['FEEDBACK_GITHUB_PRIVATE_KEY が暗号化された鍵'],
+    ],
+    [
+      '-----BEGIN PRIVATE KEY-----\\nMIIfake\\n-----END PRIVATE KEY-----',
+      ['FEEDBACK_GITHUB_PRIVATE_KEY の改行が文字の \\n のまま'],
+    ],
+    [
+      '-----BEGIN RSA PRIVATE KEY-----\\nMIIfake\\n-----END RSA PRIVATE KEY-----',
+      [
+        'FEEDBACK_GITHUB_PRIVATE_KEY が PKCS#1（BEGIN RSA PRIVATE KEY）',
+        'FEEDBACK_GITHUB_PRIVATE_KEY の改行が文字の \\n のまま',
+      ],
+    ],
+    ['MIIfake', ['FEEDBACK_GITHUB_PRIVATE_KEY が PKCS#8 の PEM でない']],
+    [
+      '-----BEGIN PRIVATE KEY-----\nMII*fake!\n-----END PRIVATE KEY-----\n',
+      ['FEEDBACK_GITHUB_PRIVATE_KEY が PKCS#8 の PEM でない'],
+    ],
+  ])('鍵が %j なら %j', (value, problems) => {
+    expect(problemsOf({ ...full, FEEDBACK_GITHUB_PRIVATE_KEY: value })).toEqual(problems);
+  });
+
+  test('理由に値とその一部を含めない', () => {
+    const problems = problemsOf({
+      FEEDBACK_GITHUB_APP_ID: 'Iv23liSecretish',
+      FEEDBACK_GITHUB_INSTALLATION_ID: ' 7654321',
+      FEEDBACK_GITHUB_PRIVATE_KEY: '-----BEGIN RSA PRIVATE KEY-----\nMIIsecretbody\n-----END RSA PRIVATE KEY-----\n',
+    }).join('\n');
+    expect(problems).not.toContain('Iv23li');
+    expect(problems).not.toContain('7654321');
+    expect(problems).not.toContain('MIIsecretbody');
+  });
 });
 
 describe('完了条件1: JWT の署名とトークンの取得、使い回し、取り直し', () => {
