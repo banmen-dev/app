@@ -81,6 +81,54 @@ describe('完了条件: PR を受信箱へ同期する', () => {
       expect(task).toMatchObject({ tray: 'inbox', assignee_user_id: t.owner.id, is_imported: 1 });
   });
 
+  test('GitHub で閉じると完了の印が付き、開き直すと外れる。タスクは完了にならない（Issue と PR）', async () => {
+    const t = await setup();
+    const c = await t.addConnection();
+    const f = ownPullFixture();
+    const options = { fetcher: f.fetcher };
+    const sync = () => syncConnection(env, t.db, t.workspace.id, c.id, options);
+    const marks = async () =>
+      Object.fromEntries((await t.sources()).map((s) => [s.source_kind, [s.source_status, s.is_source_done]]));
+    // 差分の起点（前回の成功の少し前）より新しい更新日時にする
+    const at = (step: number) => new Date(Date.now() + step * 1000).toISOString();
+    const state = (day: number, closed: boolean) => {
+      f.data.issues = [
+        fakeIssue(PULL_SCOPE.name, 1, { id: 800001, state: closed ? 'closed' : 'open', updatedAt: at(day) }),
+      ];
+      f.data.pulls = [
+        fakePull(1, {
+          state: closed ? 'closed' : 'open',
+          merged_at: closed ? at(day) : null,
+          updated_at: at(day),
+        }),
+      ];
+    };
+    state(1, false);
+    expect(await sync()).toMatchObject({ outcome: 'success', imported: 2 });
+    expect(await marks()).toEqual({ issue: ['open', 0], pull_request: ['open', 0] });
+
+    state(2, true);
+    expect(await sync()).toMatchObject({ outcome: 'success', imported: 0 });
+    expect(await marks()).toEqual({ issue: ['closed', 1], pull_request: ['merged', 1] });
+    for (const task of await t.tasks()) expect(task.completed_at).toBeNull();
+
+    state(3, false);
+    expect(await sync()).toMatchObject({ outcome: 'success', imported: 0 });
+    expect(await marks()).toEqual({ issue: ['open', 0], pull_request: ['open', 0] });
+  });
+
+  test('取り込んでいない閉じた項目は取り込まない', async () => {
+    const t = await setup();
+    const c = await t.addConnection();
+    const f = ownPullFixture();
+    f.data.issues = [fakeIssue(PULL_SCOPE.name, 1, { id: 800001, state: 'closed' })];
+    f.data.pulls = [fakePull(1, { state: 'closed' })];
+    expect(await syncConnection(env, t.db, t.workspace.id, c.id, { fetcher: f.fetcher })).toMatchObject({
+      imported: 0,
+    });
+    expect(await t.sources()).toHaveLength(0);
+  });
+
   test('頁予算で Issue/PR の途中に止めても、次の同期で続きから取り込む', async () => {
     const t = await setup();
     const c = await t.addConnection();

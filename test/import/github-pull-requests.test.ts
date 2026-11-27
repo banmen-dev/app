@@ -80,11 +80,21 @@ describe('完了条件: 作者か担当者が自分の PR', () => {
     });
   });
 
-  test('閉じた PR と他人の PR は、API が絞り込みを無視しても返さない', async () => {
+  test('閉じた PR は完了の印つきで返し（マージ済みは merged）、他人の PR は API が絞り込みを無視しても返さない', async () => {
     const f = ownPullFixture();
     f.data.loose = true;
-    f.data.pulls = [fakePull(1, { state: 'closed' }), fakePull(2, { user: { login: 'fake-other' } }), fakePull(3)];
-    expect((await drain(f)).map((i) => i.sourceId)).toEqual(['800003']);
+    f.data.pulls = [
+      fakePull(1, { state: 'closed' }),
+      fakePull(2, { user: { login: 'fake-other' } }),
+      fakePull(3),
+      fakePull(4, { state: 'closed', merged_at: '2026-01-02T00:00:00Z' }),
+    ];
+    const items = (await drain(f)).sort((a, b) => a.sourceId.localeCompare(b.sourceId));
+    expect(items.map((i) => [i.sourceId, i.status, i.isDone])).toEqual([
+      ['800001', 'closed', true],
+      ['800003', 'open', false],
+      ['800004', 'merged', true],
+    ]);
     expect(f.calls.every((c) => !c.url.includes('/repositories/') || c.url.includes('/repositories/1001/'))).toBe(true);
   });
 

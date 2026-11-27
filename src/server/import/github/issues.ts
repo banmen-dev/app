@@ -73,13 +73,13 @@ function partsOfIssueUrl(url: string): { key: string; url: string; number: strin
   };
 }
 
-// null は、返さない項目（PR、閉じた Issue、担当が他人）
+// null は、返さない項目（PR、担当が他人）。閉じた Issue は完了（isDone）の印つきで返す（同期の仕組みが、取り込み済みの項目の印を付け、開き直されたら外す）
 function convert(raw: unknown, scope: ScopeCandidate, login: string): ImportItem | null {
   if (!isRecord(raw)) throw fail('unavailable');
   // 一覧は PR も返す。PR は次のストーリーで扱う
   if (raw.pull_request !== undefined) return null;
   if (raw.state !== 'open' && raw.state !== 'closed') throw fail('unavailable');
-  if (raw.state !== 'open') return null;
+  const closed = raw.state === 'closed';
   if (!isAssignedTo(raw, login)) return null;
 
   const id = idOf(raw.id);
@@ -107,10 +107,10 @@ function convert(raw: unknown, scope: ScopeCandidate, login: string): ImportItem
     title,
     containerId: scope.id,
     containerName: scope.name,
-    status: 'open',
+    status: closed ? 'closed' : 'open',
     dueOn,
     updatedAt: isoOf(raw.updated_at),
-    isDone: false,
+    isDone: closed,
   };
 }
 
@@ -138,7 +138,7 @@ export async function loginOf(input: FetchPageInput): Promise<string> {
 
 function urlOf(scope: ScopeCandidate, assignee: string, since: string | null, page: number): string {
   const query = new URLSearchParams({
-    state: 'open',
+    state: 'all',
     assignee,
     sort: 'updated',
     direction: 'asc',

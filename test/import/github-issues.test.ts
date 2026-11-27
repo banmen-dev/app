@@ -54,7 +54,7 @@ async function failureOf(work: Promise<unknown>): Promise<ImportSourceError> {
   throw new Error('失敗するはずが成功した');
 }
 
-describe('完了条件: 担当者が自分の未完了の Issue だけ', () => {
+describe('完了条件: 担当者が自分の Issue だけ（閉じた Issue は完了の印つき）', () => {
   const mixed = () => [
     fakeIssue(REPO_A.name, 1),
     fakeIssue(REPO_A.name, 2, { state: 'closed' }),
@@ -63,12 +63,25 @@ describe('完了条件: 担当者が自分の未完了の Issue だけ', () => {
     fakeIssue(REPO_A.name, 5, { assignees: ['fake-other', 'fake-ranger'] }),
   ];
 
-  test('閉じた Issue、他人の担当、PR は返らない', async () => {
+  test('閉じた Issue は完了の印つきで返し、他人の担当と PR は返さない', async () => {
     const fake = setup();
     fake.addIssues(1001, mixed());
     const { items, next } = await page(fake);
-    expect(items.map((i) => i.key)).toEqual(['guild-fake/alpha#1', 'guild-fake/alpha#5']);
+    expect(items.map((i) => [i.key, i.status, i.isDone])).toEqual([
+      ['guild-fake/alpha#1', 'open', false],
+      ['guild-fake/alpha#2', 'closed', true],
+      ['guild-fake/alpha#5', 'open', false],
+    ]);
     expect(next).toBeNull();
+  });
+
+  test('閉じて開き直した Issue は、同じ sourceId で完了の印が付き、外れる', async () => {
+    const fake = setup();
+    fake.addIssues(1001, [fakeIssue(REPO_A.name, 1, { state: 'closed', updatedAt: '2026-01-02T00:00:00Z' })]);
+    expect((await page(fake)).items[0]).toMatchObject({ sourceId: '500001', status: 'closed', isDone: true });
+    const reopened = setup();
+    reopened.addIssues(1001, [fakeIssue(REPO_A.name, 1, { updatedAt: '2026-01-03T00:00:00Z' })]);
+    expect((await page(reopened)).items[0]).toMatchObject({ sourceId: '500001', status: 'open', isDone: false });
   });
 
   test('絞り込みを無視する応答でも、実装側で同じに絞る', async () => {
@@ -76,7 +89,7 @@ describe('完了条件: 担当者が自分の未完了の Issue だけ', () => {
     fake.addIssues(1001, mixed());
     fake.ignoreIssueFilters();
     const { items } = await page(fake);
-    expect(items.map((i) => i.key)).toEqual(['guild-fake/alpha#1', 'guild-fake/alpha#5']);
+    expect(items.map((i) => i.key)).toEqual(['guild-fake/alpha#1', 'guild-fake/alpha#2', 'guild-fake/alpha#5']);
   });
 
   test('範囲のリポジトリだけを問い合わせる', async () => {
@@ -146,7 +159,7 @@ describe('完了条件: 不変の ID', () => {
     const url = new URL(fake.calls.find((c) => c.url.includes('/repositories/'))!.url);
     expect(url.pathname).toBe('/repositories/1001/issues');
     expect(url.searchParams.get('assignee')).toBe('fake-ranger');
-    expect(url.searchParams.get('state')).toBe('open');
+    expect(url.searchParams.get('state')).toBe('all');
     expect(url.searchParams.get('sort')).toBe('updated');
     expect(url.searchParams.get('direction')).toBe('asc');
   });
