@@ -169,7 +169,7 @@ html[data-boot-dashboard] #boot-loading .boot-skeleton {
    .content と同じにし、本文は行き先の画面の組み（形は src/lib/loading-shape.ts と同じ。2列は .layout-aside の 320px、.layout-wiki、
    .setting の 260px、.board の 232px の列、.lanes の3列。どれも 1080px 以下で1列）に近づける。デザインシステムの LoadingSheet の
    .skeleton-frame と同じ並びにして、移る間と最初の読み込みで同じ形を見せる。
-   760px 以下は、左のメニューの骨組みを隠して上の帯から始める */
+   760px 以下は左のメニューを隠す。バックログとボードは本文から、ほかの形は上の帯から始める */
 #boot-loading .boot-frame {
   display: none;
 }
@@ -501,7 +501,7 @@ html[data-boot-tabs] #boot-loading .boot-tabs ~ .boot-content {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: 'bar' 'sheet';
   }
-  /* バックログとボードは、移る間の骨組みと同じく本文から始め、読み込み後と題の位置を揃える */
+  /* #1528 はバックログとボードが対象。本文から始め、移る間と読み込み後の題の位置に揃える */
   html:is([data-boot='tree'], [data-boot='board']) #boot-loading .boot-frame {
     grid-template-rows: 1fr;
     grid-template-areas: 'sheet';
@@ -520,7 +520,7 @@ html[data-boot-tabs] #boot-loading .boot-tabs ~ .boot-content {
     min-height: 60px;
     padding: 5px 16px;
   }
-  /* 畳んだ検索の虫眼鏡と、アバターだけのアカウントの1段。パンくずの帯とタブの帯は出さない */
+  /* 狭い幅ではパンくずとタブの帯を出さない。上の帯が残る形では検索とアカウントだけを出す */
   #boot-loading .boot-crumbs,
   html[data-boot-tabs] #boot-loading .boot-tabs {
     display: none;
