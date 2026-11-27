@@ -21,7 +21,8 @@ export type SyncConnection = {
   consecutive_failures: number;
 };
 
-// 登録者が無効でなく、ワークスペースに今も所属している、という条件（接続の停止は #67 で足すまでの守り）
+// 登録者が無効でなく、ワークスペースに今も所属している、という条件。離脱と無効化は接続を止める（operations/connection-departure.ts）が、
+// 止める前に作られた行や止めた後に所属し直した人の接続を取り込まないための、二重の守りとして残す
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function ownerIsActive(eb: any, q: any, ownerColumn: string, workspaceColumn: string) {
   return eb.and([

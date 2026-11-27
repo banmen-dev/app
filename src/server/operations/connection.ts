@@ -17,6 +17,7 @@ import {
 } from '../../shared/operations/connection/index.ts';
 import {
   previousStatementChanged,
+  type ExpressionBuilder,
   type OrganizationDb,
   type QueryCreator,
   type OrganizationTables,
@@ -220,6 +221,8 @@ export const connectionCreateOperation = implement(connectionCreate, async ({ db
               eb.val(stamp).as('updated_at'),
             ])
             .where((eb) => eb.exists(openWorkspace(q, organizationId, workspaceId)))
+            // PAT の検証中に抜けた（外された）か無効にされた人の接続を作らない（離脱と無効化が止める接続は、その時点でまだ無い。#1546）
+            .where((eb) => ownerStillAllowed(eb, q, organizationId, workspaceId, ownerUserId))
             // 1人が1つのワークスペースに持てる接続の数に上限を置く（共通の D1 を埋める登録の繰り返しを止める）
             .where(
               (eb) =>
@@ -258,13 +261,44 @@ export const connectionCreateOperation = implement(connectionCreate, async ({ db
   ] as const);
   if ((results[0]?.changes ?? 0) === 0) {
     await throwIfClosed(db, workspaceId);
-    // 書けなかった理由は、閉じたワークスペースでなければ接続の数の上限
+    const allowed = await db.first(
+      db.statement((q) =>
+        q
+          .selectNoFrom((eb) => eb.val(1).as('allowed'))
+          .where((eb) => ownerStillAllowed(eb, q, organizationId, workspaceId, ownerUserId)),
+      ),
+    );
+    if (allowed === undefined) throw new ApiError(403, 'forbidden');
+    // 書けなかった理由は、閉じたワークスペースでも権限を失ったのでもなければ接続の数の上限
     throw new ApiError(409, 'conflict', { reason: 'connection_limit' });
   }
   const [connection] = await readConnections(db, workspaceId, connectionId);
   if (connection === undefined) throw new ApiError(409, 'conflict');
   return { connection };
 });
+
+// 接続を書く人が、今もそのワークスペースのメンバーか、無効でない管理者である。PAT を取り込み元で確かめている間に
+// 抜けた（外された）か無効にされた人の接続を、作りも書き換えもしない
+function ownerStillAllowed<DB extends Tables, TB extends keyof DB>(
+  eb: ExpressionBuilder<DB, TB>,
+  q: From,
+  organizationId: string,
+  workspaceId: string,
+  ownerUserId: string,
+) {
+  return eb.or([
+    eb.exists(activeMemberName(q, organizationId, workspaceId, ownerUserId)),
+    eb.exists(
+      q
+        .selectFrom('users')
+        .select('id')
+        .where('id', '=', ownerUserId)
+        .where('organization_id', '=', organizationId)
+        .where('disabled_at', 'is', null)
+        .where('is_admin', '=', 1),
+    ),
+  ]);
+}
 
 // 登録した本人の、削除していない接続の行。無い（別のワークスペース、別の組織、削除済み）は 404、本人でなければ 403
 async function ownConnection(db: OrganizationDb, actorUserId: string, workspaceId: string, connectionId: string) {
@@ -314,20 +348,7 @@ export const connectionUpdateOperation = implement(connectionUpdate, async ({ db
             .where('c.owner_user_id', '=', ownerUserId)
             .where((eb) => eb.exists(openWorkspace(q, organizationId, workspaceId)))
             // PAT の検証中に所属や管理者の権限を失った場合は書かない。
-            .where((eb) =>
-              eb.or([
-                eb.exists(activeMemberName(q, organizationId, workspaceId, ownerUserId)),
-                eb.exists(
-                  q
-                    .selectFrom('users')
-                    .select('id')
-                    .where('id', '=', ownerUserId)
-                    .where('organization_id', '=', organizationId)
-                    .where('disabled_at', 'is', null)
-                    .where('is_admin', '=', 1),
-                ),
-              ]),
-            )
+            .where((eb) => ownerStillAllowed(eb, q, organizationId, workspaceId, ownerUserId))
             .select((eb) => [
               eb.val(uuidv7(at)).as('id'),
               eb.val(organizationId).as('organization_id'),

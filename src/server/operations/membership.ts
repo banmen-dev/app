@@ -12,6 +12,7 @@ import {
 } from '../db/index.ts';
 import { ApiError } from '../errors.ts';
 import { uuidv7 } from '../uuid.ts';
+import { stopDepartedConnectionStatements } from './connection-departure.ts';
 import { implement } from './implement.ts';
 import {
   cannotEnterOrganization,
@@ -152,8 +153,9 @@ export const membershipRoleUpdateOperation = implement(
 // 所属の文の条件は今の所属と開いているワークスペースで、所属の履歴は直前の文が行を変えたときだけ入れる。
 // タスクの2文は「この要求で所属が終わった（その所属の行の left_at がこの要求の時刻）」を条件にし、履歴を UPDATE より先に置く
 // （区分の削除の、振っていた行を戻す書き方と同じ。件数によらず文の数は決まっている）。
+// 続けて、抜けた人のそのワークスペースの接続を member_left で止める（履歴を先に置き、既に止まった接続の理由は書き換えない。
+// 認証情報は消さない。条件はタスクの2文と同じ「この要求で所属が終わった」）。
 // 完了したタスク、完了の記録（completions）、経験値（xp_grants）は変えない。
-// 接続（connections）は #67 で足す。
 // 最後に、この要求で組織に入れなくなった（管理者でなく、閉じたワークスペースを含めてほかに今の所属が無い）ときだけ、
 // その人のプロフィール画像の行（user_avatars）を消し、R2 のファイルは batch の後に消す（#1273。所属し直しても戻さない）
 export const membershipLeaveOperation = implement(membershipLeave, async (context) => {
@@ -321,6 +323,14 @@ export const membershipLeaveOperation = implement(membershipLeave, async (contex
           ]),
         ),
     ),
+    // 抜けた人のこのワークスペースの接続を止める（履歴と接続の2文）
+    ...stopDepartedConnectionStatements(db, {
+      actorUserId,
+      ownerUserId: userId,
+      at,
+      departure: { reason: 'member_left', workspaceId },
+      writtenHere: endedHere,
+    }),
     ...(removingOther
       ? [
           db.statement((q) =>
