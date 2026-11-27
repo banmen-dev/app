@@ -371,7 +371,20 @@ describe('取り込みの同期', () => {
         expect(await dues(db, workspace.id)).toEqual({ 'src-1': null });
       });
 
-      test('外した回の残りの頁は期限を空で書くが、次の同期が全部を読んで期限が戻る', async () => {
+      test('無視をしている接続が、持ち主でない項目の期限を空にしない', async () => {
+        const { organization, owner, workspace, connection, db } = await setup();
+        const other = await createConnection(organization, workspace.id, owner.id, { ignore_source_due: 1 });
+        await createConnectionScope(organization, other.id, { source_id: '501', source_name: 'fake/box' });
+        const run = (id: string, over: Partial<ImportItem>) =>
+          syncConnection(env, db, workspace.id, id, {
+            source: fakeSource({ '501': [{ items: [item(1, over)], next: null }] }).source,
+          });
+        await run(connection.id, { dueOn: '2026-12-10' });
+        await run(other.id, { dueOn: '2026-12-11', updatedAt: '2026-11-02T00:00:00.000Z' });
+        expect(await dues(db, workspace.id)).toEqual({ 'src-1': '2026-12-10' });
+      });
+
+      test('外した回の残りの頁は今の設定で期限を書き、読み済みの頁の期限は次の同期が全部を読んで戻る', async () => {
         const { workspace, connection, db } = await setup();
         await db.run(
           db.statement((q) =>
@@ -393,8 +406,8 @@ describe('取り込みの同期', () => {
           );
         });
         await syncConnection(env, db, workspace.id, connection.id, { source });
-        // 2頁目は読んだ値（無視）のまま空で書かれる
-        expect(await dues(db, workspace.id)).toEqual({ 'src-1': null, 'src-2': null });
+        // 2頁目は今の設定（無視を外した）で書かれる。1頁目は無視のまま空
+        expect(await dues(db, workspace.id)).toEqual({ 'src-1': null, 'src-2': '2026-12-12' });
         const done = await connectionOf(db, connection.id);
         expect(done.last_success_at).toBeNull();
         expect(done.sync_state_json).toBe('{}');
