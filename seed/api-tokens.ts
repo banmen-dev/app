@@ -1,7 +1,7 @@
 // seed（pnpm db:seed）が手元の D1 に入れる API トークンの生の値。手元の API を curl で確かめるときに使う
 // （`curl -X POST -H "Authorization: Bearer <値>" -H "Content-Type: application/json" -d '{}' http://localhost:8787/api/me`）。
 // どれも開発用の値で、リポジトリを読める人なら誰でも知っている。本番の D1 には入れない（seed/README.md）。
-// 形は発行が作るトークンと同じ `sgp_` + base64url の43文字。DB の `api_tokens.token_hash` には、その SHA-256 の16進を
+// 形は発行が作るトークンと同じ `bnp_` + base64url の43文字。DB の `api_tokens.token_hash` には、その SHA-256 の16進を
 // seed/data.sql に固定で書く（test/api-token-seed.test.ts が、ここの値と data.sql のハッシュが合うことを確かめる）
 
 export type SeedApiToken = {
@@ -14,25 +14,25 @@ export type SeedApiToken = {
 
 export const SEED_API_TOKENS = {
   adminWrite: {
-    token: 'sgp_dev-seed-admin-write00000000000000000000000',
+    token: 'bnp_dev-seed-admin-write00000000000000000000000',
     accountId: '019a0000-0000-7000-8000-000000000101',
     scope: 'write',
     description: 'あおば開発の管理者（ミナト）の書き込みのトークン',
   },
   memberRead: {
-    token: 'sgp_dev-seed-member-read00000000000000000000000',
+    token: 'bnp_dev-seed-member-read00000000000000000000000',
     accountId: '019a0000-0000-7000-8000-000000000102',
     scope: 'read',
     description: 'あおば開発の一般のユーザー（ハルカ）の読み取りのトークン。書き込みの操作は 403',
   },
   personalWrite: {
-    token: 'sgp_dev-seed-personal-write00000000000000000000',
+    token: 'bnp_dev-seed-personal-write00000000000000000000',
     accountId: '019a0000-0000-7000-8000-000000000115',
     scope: 'write',
     description: '自分用の組織（personal）の本人（ユズキ）の書き込みのトークン',
   },
   operatorWrite: {
-    token: 'sgp_dev-seed-operator-write00000000000000000000',
+    token: 'bnp_dev-seed-operator-write00000000000000000000',
     accountId: '019a0000-0000-7000-8000-000000000104',
     scope: 'write',
     description: '運用者の書き込みのトークン。運用者の操作はどのトークンでも 403',

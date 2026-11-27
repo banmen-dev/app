@@ -14,7 +14,7 @@ import { fileConfigStore } from './config-file.ts';
 import { main, type CliDeps } from './main.ts';
 
 const ENTRY = fileURLToPath(new URL('../banmen.ts', import.meta.url));
-const TOKEN = `sgp_${'M'.repeat(43)}`;
+const TOKEN = `bnp_${'M'.repeat(43)}`;
 
 const catalog = {
   operations: [

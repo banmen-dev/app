@@ -462,10 +462,10 @@ INSERT INTO tasks (id, workspace_id, is_imported, tray, title, assignee_user_id,
 -- API トークン。生の値は seed/api-tokens.ts（ここには SHA-256 の16進だけを書く。test/api-token-seed.test.ts が合うことを確かめる）。
 -- 期限は流した時刻から90日後を SQL で入れる（固定の日時だと切れて、手元の確かめが 401 になるため。セッションは scripts/seed.ts が同じ理由で流す時刻から数える）
 INSERT INTO api_tokens (token_hash, account_id, name, scope, created_at, last_used_at, expires_at, revoked_at) VALUES
-  ('f9aa895ffeb5f4c90ee6b70c4fc962a8cb697dfc459b0ffba700432052e03b03', '019a0000-0000-7000-8000-000000000101', 'seed の書き込み', 'write', '2026-10-20T00:00:00.000Z', NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+90 days'), NULL),
-  ('b548a85e3132792fe348465b5835363d7dbe5ee39f721f9ddf9ae44a9a734374', '019a0000-0000-7000-8000-000000000102', 'seed の読み取り', 'read', '2026-10-20T00:00:00.000Z', NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+90 days'), NULL),
-  ('ca334aeefd2f7fe883e099b222f0d0e167e8d93c6653ce1729714c32f005532c', '019a0000-0000-7000-8000-000000000104', 'seed の運用者', 'write', '2026-10-20T00:00:00.000Z', NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+90 days'), NULL),
-  ('dd747439eadf8548cfa202b9f7dc05c1d49db3f30394e0b0e5b72af95a8e1de1', '019a0000-0000-7000-8000-000000000115', 'seed の自分用', 'write', '2026-10-20T00:00:00.000Z', NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+90 days'), NULL);
+  ('b2b8a7e1b684135a77bba1838d47ae5438972c4bd8518fde62055bf8ee486955', '019a0000-0000-7000-8000-000000000101', 'seed の書き込み', 'write', '2026-10-20T00:00:00.000Z', NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+90 days'), NULL),
+  ('39532987d9dd40575ebb7c937eb21d170962967c905b12b58d7ade240f22dfce', '019a0000-0000-7000-8000-000000000102', 'seed の読み取り', 'read', '2026-10-20T00:00:00.000Z', NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+90 days'), NULL),
+  ('b85134f94d107a93fadcf84f6a9ca23b8a70e258d2a181180db776ce6695d012', '019a0000-0000-7000-8000-000000000104', 'seed の運用者', 'write', '2026-10-20T00:00:00.000Z', NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+90 days'), NULL),
+  ('57070f49c1a6ba61c8e41eb56fe43552f89e1d877a38401c096dfa98d3bbbbe4', '019a0000-0000-7000-8000-000000000115', 'seed の自分用', 'write', '2026-10-20T00:00:00.000Z', NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+90 days'), NULL);
 
 INSERT INTO accounts (id, last_login_at, created_at, updated_at) VALUES
   ('019a0000-0000-7000-8000-000000000113', '2026-10-20T00:00:00.000Z', '2026-10-20T00:00:00.000Z', '2026-10-20T00:00:00.000Z'),

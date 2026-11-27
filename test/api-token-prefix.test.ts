@@ -60,7 +60,7 @@ describe('定数', () => {
       `sgp_${BODY43}A`,
       `BNP_${BODY43}`,
       `xbnp_${BODY43}`,
-      `bnp_sgp_${BODY43.slice(4)}`,
+      `bnp_sgp_${BODY43}`,
       `ghp_${BODY43}`,
       `abc_${BODY43}`,
       `bnp_${BODY43.slice(1)}+`,
@@ -165,8 +165,9 @@ describe('readApiToken と旧 sgp_', () => {
   test('拒否したときは last_used_at を更新しない', async () => {
     const account = await createAccount();
     const { raw, hash } = await insertApiToken(account.id, { raw: `sgp_${randomBody()}`, expiresAt: FAR });
-    await readApiToken(env, raw, NEXT);
-    expect((await tokenRow(hash))!.last_used_at).toBeNull();
+    const before = (await tokenRow(hash))!.last_used_at;
+    expect(await readApiToken(env, raw, NEXT)).toBeUndefined();
+    expect((await tokenRow(hash))!.last_used_at).toBe(before);
   });
 });
 

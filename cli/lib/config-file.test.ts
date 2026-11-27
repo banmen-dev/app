@@ -9,7 +9,7 @@ import type { Config } from './main.ts';
 
 const sample: Config = {
   default_profile: 'main',
-  profiles: { main: { url: 'https://guild.example', token: `sgp_${'F'.repeat(43)}`, org: 'aoba', workspace: 'ws-1' } },
+  profiles: { main: { url: 'https://guild.example', token: `bnp_${'F'.repeat(43)}`, org: 'aoba', workspace: 'ws-1' } },
 };
 
 async function inTempDir(run: (dir: string) => Promise<void>): Promise<void> {

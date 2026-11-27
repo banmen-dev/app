@@ -8,7 +8,7 @@ import { fileConfigStore } from './config-file.ts';
 import { main, type CliDeps, type Config, type ConfigStore } from './main.ts';
 
 const URL_MAIN = 'https://guild.example';
-const TOKEN = `sgp_${'K'.repeat(43)}`;
+const TOKEN = `bnp_${'K'.repeat(43)}`;
 
 const catalog = {
   operations: [

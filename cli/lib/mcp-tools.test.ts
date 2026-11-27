@@ -11,7 +11,7 @@ const callTool = (deps: CliDeps, connection: Connection, name: string, args: Rec
   callToolWith(deps, connection, name, args, { allowWrite: true });
 
 const URL_MAIN = 'https://guild.example';
-const TOKEN = `sgp_${'M'.repeat(43)}`;
+const TOKEN = `bnp_${'M'.repeat(43)}`;
 
 const object = (properties: Record<string, unknown>, required: string[] = []) => ({
   $schema: 'https://json-schema.org/draft/2020-12/schema',

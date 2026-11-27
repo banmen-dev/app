@@ -10,7 +10,7 @@ import { signIn, waitForSettled, watchViolations } from './helpers.ts';
 import { resetApiTokenRateLimits } from './local-d1.ts';
 import { failOperation, mockOperation } from './operations.ts';
 
-const TOKEN_PATTERN = /^sgp_[A-Za-z0-9_-]{43}$/;
+const TOKEN_PATTERN = /^bnp_[A-Za-z0-9_-]{43}$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 test.beforeEach(async ({ context, baseURL }) => {
@@ -100,7 +100,7 @@ test('発行すると値が1回だけ見え、一覧に出て（値は出ない�
   await expect(row.locator('td[data-label="範囲"]')).toHaveText('書き込み');
   await expect(row.locator('td[data-label="期限"]')).toHaveText(DATE_PATTERN);
   await expect(row.locator('td[data-label="最後に使った日"]')).toHaveText('未使用');
-  await expect(row).not.toContainText('sgp_');
+  await expect(row).not.toContainText('bnp_');
 
   // そのトークンで API を呼べる（Cookie でなく Authorization だけで）
   const call = () =>

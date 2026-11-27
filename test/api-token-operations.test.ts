@@ -1,4 +1,4 @@
-// API トークン（Authorization: Bearer sgp_...）での操作の呼び出し（src/server/operations/register.ts の execute）。
+// API トークン（Authorization: Bearer bnp_...）での操作の呼び出し（src/server/operations/register.ts の execute）。
 // 一覧を回す検査は test/operation-registry.test.ts。ここでは、トークンならではの取り決めを仮の操作と本番の logout で確かめる
 import { env } from 'cloudflare:workers';
 import { afterEach, describe, expect, test, vi } from 'vitest';
@@ -116,10 +116,10 @@ describe('無効なトークンは 401', () => {
     await unauthenticated(await post(app, whoAmI, { bearer: rawApiToken() }));
   });
 
-  test('形の違う値（sgp_ が無い、長さ違い、文字種違い、大文字小文字違い）は、行があっても 401', async () => {
+  test('形の違う値（bnp_ が無い、長さ違い、文字種違い、大文字小文字違い）は、行があっても 401', async () => {
     const person = await createLoginPerson();
     const body = 'm'.repeat(43);
-    for (const raw of [body, `sgp_${body.slice(1)}`, `sgp_${body}m`, `sgp_${body.slice(1)}+`, `SGP_${body}`]) {
+    for (const raw of [body, `bnp_${body.slice(1)}`, `bnp_${body}m`, `bnp_${body.slice(1)}+`, `SGP_${body}`]) {
       await tokenOf(person, 'write', { raw });
       await unauthenticated(await post(app, whoAmI, { bearer: raw }));
     }

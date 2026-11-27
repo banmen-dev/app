@@ -6,8 +6,8 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { CliDeps, Config } from './main.ts';
 import { runMcp } from './mcp-server.ts';
 
-const TOKEN = `sgp_${'M'.repeat(43)}`;
-const OTHER_TOKEN = `sgp_${'E'.repeat(43)}`;
+const TOKEN = `bnp_${'M'.repeat(43)}`;
+const OTHER_TOKEN = `bnp_${'E'.repeat(43)}`;
 
 const object = (properties: Record<string, unknown>, required: string[] = []) => ({
   $schema: 'https://json-schema.org/draft/2020-12/schema',
