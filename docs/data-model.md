@@ -1099,6 +1099,7 @@
 
 - 一意: `(workspace_id, provider, source_kind, source_id, reviewer_source_id)`。同じワークスペースで同じ項目を1件にまとめ、レビュー依頼だけはレビュアーごとに分ける。
 - 索引: `(connection_id)`、`(workspace_id, source_container_id)`、`(connection_id, source_status)`。最後のものは、`connection-list` が接続ごとに状態名の重複を除いて集める読み（カバリング索引で足りる）のため。この読みはワークスペースを結んだ接続（`connections.workspace_id`）で絞り、`task_sources.workspace_id` では絞らない（絞ると、ワークスペースの索引で `task_sources` を全件たどるか、カバリング索引にならない）。取り込みが3万件の接続で測った（`pnpm bench:loading --route '/[slug]/w/[id]/connections'`）。
+- `workspace_id` は、`connection_id` の接続の `connections.workspace_id` と同じ。取り込みが入れるときだけ書き（同じワークスペースの接続を条件にする）、以後書き換えない（DB の制約ではなくアプリが守る）。`connection-list` の状態名の読みは、この一致を前提に `task_sources.workspace_id` では絞らない。
 - 接続が削除されても行は残す。続けて同期する接続がなくなるだけ。
 
 - レビュー依頼の既存行は、対象の PR を指定する target 付き照合で、不変の PR ID・レビュアー ID・リポジトリ ID が一致したときだけ更新する。発見の全走査で出ないことだけでは保存内容を変えない。照合で項目が返らない場合や、個別の不整合や 404/410 で照合できない場合も保存内容を保持する。同じ依頼回の提出・PR 終了では、同期の管理列と `is_source_done` を更新する。タスクの完了日時・完了者・配置、完了記録、経験値は保持する。

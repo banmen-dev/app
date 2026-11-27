@@ -61,7 +61,7 @@ INSERT INTO tasks (id, workspace_id, is_imported, tray, title, story_id, categor
 }
 
 export const loadingWorkspace = id('1', 1);
-// 取り込み済みの項目が多い接続だけを置く別のワークスペース（接続の一覧の読みを測る。ほかの画面の件数を変えない）
+// 取り込み済みの項目が多い接続だけを置く別のワークスペース（接続の一覧の読みを測る。ワークスペースで絞る画面の件数は変えない。組織全体を読む操作は、この行の分だけ読む行が増える）
 export const loadingImportWorkspace = id('2', 1);
 export const IMPORTED_TASK_COUNT = 30000;
 // 運用者のフィードバックの閲覧（/operator/feedback/[id]）の計測が読む R2 の meta.json の ID。計測の開始時に置く（scripts/loading-bench.ts）

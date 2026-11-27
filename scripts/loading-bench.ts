@@ -128,6 +128,8 @@ async function report() {
   console.log('| load | 操作（主/従） | p50 ms | p95 ms |');
   console.log('| --- | --- | ---: | ---: |');
   const routes = args.route ?? [];
+  if (routes.length > 0 && !screens.some((screen) => routes.some((route) => screen.route.startsWith(route))))
+    throw new Error(`--route に当たる画面が計測表にありません: ${routes.join(', ')}`);
   for (const screen of screens.filter(
     (screen) =>
       (!args['layout-only'] || screen.route.startsWith('/[slug]/+layout')) &&

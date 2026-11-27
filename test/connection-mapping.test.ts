@@ -3,7 +3,7 @@
 import { env } from 'cloudflare:workers';
 import { describe, expect, test } from 'vitest';
 import { columnDelete } from '../src/shared/operations/column/index.ts';
-import { connectionMappingSave } from '../src/shared/operations/connection/index.ts';
+import { connectionList, connectionMappingSave } from '../src/shared/operations/connection/index.ts';
 import { sprintTaskAdd } from '../src/shared/operations/sprint/index.ts';
 import { createApp } from '../src/server/app.ts';
 import { orgDb } from '../src/server/db/index.ts';
@@ -342,5 +342,27 @@ describe('connection-mapping-save の追加の確かめ', () => {
     expect(((await res.json()) as { connection: { source_statuses: string[] } }).connection.source_statuses).toEqual([
       'open',
     ]);
+  });
+
+  // 状態名の読みは task_sources.workspace_id で絞らず、結んだ接続（connections.workspace_id）で絞る（#1654）。
+  // 別の組織の接続の状態名と、同じワークスペースの別の接続の状態名が混ざらない
+  test('選べる状態の一覧は、その接続の状態だけで、別の接続と別の組織の状態を混ぜない', async () => {
+    const { target, connection } = await setup();
+    const other = await createConnection(target.organization, target.workspace.id, target.member.userId!);
+    await importedTask(target, connection.id, 'open');
+    await importedTask(target, other.id, 'other-connection-status');
+    const foreign = await setup();
+    await importedTask(foreign.target, foreign.connection.id, 'foreign-organization-status');
+
+    const res = await post(app, connectionList, {
+      slug: target.slug,
+      token: target.member.token,
+      body: { workspace_id: target.workspace.id },
+    });
+    const { connections } = (await res.json()) as { connections: { id: string; source_statuses: string[] }[] };
+    expect(Object.fromEntries(connections.map((row) => [row.id, row.source_statuses]))).toEqual({
+      [connection.id]: ['open'],
+      [other.id]: ['other-connection-status'],
+    });
   });
 });

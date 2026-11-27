@@ -6,6 +6,7 @@ import { describe, expect, test, vi } from 'vitest';
 import { orgDb } from '../src/server/db/index.ts';
 import { compiledQueryForTest, queryPlanForTest, verifiedOrganizationForTest } from '../src/server/db/testing.ts';
 import { revokeSameEmailStatements } from '../src/server/operations/invitation.ts';
+import { connectionListOperation } from '../src/server/operations/connection.ts';
 import { todayOperation } from '../src/server/operations/today.ts';
 import {
   createComment,
@@ -491,19 +492,24 @@ describe('外部キー', () => {
   });
 
   // 接続の一覧が集める状態名（#1654）は、接続から task_sources_connection_status を引いて重複を除く。
-  // task_sources をワークスペースの索引でたどると、取り込みが数万件の接続で全件を読む
+  // task_sources をワークスペースの索引でたどると、取り込みが数万件の接続で全件を読む。connection-list の本物の文で見る
   test('接続の状態名を集める文は、接続から task_sources_connection_status の索引だけで引く', async () => {
-    const { results } = await env.DB.prepare(
-      `EXPLAIN QUERY PLAN SELECT DISTINCT ts.connection_id, ts.source_status FROM task_sources AS ts
-        INNER JOIN connections AS c ON c.id = ts.connection_id
-        WHERE c.workspace_id = ? AND c.deleted_at IS NULL ORDER BY ts.source_status`,
-    )
-      .bind(id())
-      .all<{ detail: string }>();
-    const details = results.map((row) => row.detail).join('\n');
+    const db = orgDb(env, verifiedOrganizationForTest(id()));
+    const batch = vi.spyOn(db, 'batch');
+    try {
+      await connectionListOperation.handler({ db, workspace: { workspaceId: id() }, input: {} } as never);
+      const statements = batch.mock.calls[0][0].filter((candidate) =>
+        compiledQueryForTest(candidate).sql.includes('from "task_sources" as "ts"'),
+      );
+      expect(statements).toHaveLength(1);
+      const details = await queryPlanForTest(env, statements[0]!);
+      const text = details.join('\n');
 
-    expect(details).toContain('SEARCH ts USING COVERING INDEX task_sources_connection_status (connection_id=?)');
-    expect(details).not.toMatch(/task_sources_container|^SCAN ts\b/m);
+      expect(text).toContain('SEARCH ts USING COVERING INDEX task_sources_connection_status (connection_id=?)');
+      expect(text).not.toMatch(/task_sources_container|^SCAN ts\b/m);
+    } finally {
+      batch.mockRestore();
+    }
   });
 
   // 今日やること（today）は未完了と完了を別の文にして、どちらも tasks_assignee_user の範囲で引く。
