@@ -3,10 +3,12 @@
 // 一般のユーザーはハルカ（あおば開発の受託開発チーム）、管理者はミナト。応答を差し替えるだけで、seed の行は書き換えない
 import { organizationInfo, today } from '../src/shared/operations/organization/index.ts';
 import type { TodayTask } from '../src/shared/operations/organization/today.ts';
+import { sprintBoard } from '../src/shared/operations/sprint/index.ts';
 import { backlogTree, taskTodayMark } from '../src/shared/operations/task/index.ts';
 import { expect, test } from './fixtures.ts';
 import { shownBox, signIn } from './helpers.ts';
 import { routeOperation } from './operations.ts';
+import { SAMPLE_BOARD } from './sprint-fixture.ts';
 
 const WORKSPACE = '/aoba/w/019a0000-0000-7000-8000-000000000401';
 
@@ -175,7 +177,7 @@ for (const entry of ['URL を直接開く', 'ダッシュボードから移る']
     const loadingHead = page.locator(
       direct ? '#boot-loading .boot-head' : '.loading-overlay [data-shape="tree"] .page-head',
     );
-    let loadingTitle;
+    let loadingTitle: Awaited<ReturnType<typeof shownBox>>;
     try {
       if (direct) await page.goto(WORKSPACE, { waitUntil: 'commit' });
       else await page.locator(`a.pane-link[href="${WORKSPACE}"]`).click();
@@ -191,6 +193,56 @@ for (const entry of ['URL を直接開く', 'ダッシュボードから移る']
     await expect(title).toBeVisible();
     await expect(loadingHead).toHaveCount(0);
     expect(loadingTitle.y).toBeCloseTo((await shownBox(title)).y, 0);
+  });
+}
+
+for (const activeSprint of [true, false]) {
+  test(`390px のボードは進行中のスプリントがある見出しに骨組みを合わせる（進行中${activeSprint ? 'あり' : 'なし'}）`, async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await signIn(context, baseURL, 'admin');
+    await page.setViewportSize({ width: 390, height: 844 });
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    await routeOperation(page, sprintBoard, { slug: 'aoba' }, async (call) => {
+      await gate;
+      await call.fulfill(activeSprint ? SAMPLE_BOARD : { ...SAMPLE_BOARD, sprint: null, columns: [] });
+    });
+
+    const boot = page.locator('#boot-loading');
+    const loadingTitle = boot.locator('.boot-head .is-title');
+    let loadingY: number;
+    try {
+      await page.goto(`${WORKSPACE}/board`, { waitUntil: 'commit' });
+      await expect(loadingTitle).toBeVisible();
+      await expect(boot.locator('.boot-head .is-eyebrow')).toHaveCount(0);
+      loadingY = (await shownBox(loadingTitle)).y;
+
+      if (activeSprint) {
+        const topbar = boot.locator('.boot-topbar');
+        await page.setViewportSize({ width: 760, height: 844 });
+        await expect(topbar).toBeHidden();
+        await page.setViewportSize({ width: 761, height: 844 });
+        await expect(topbar).toBeVisible();
+        await page.setViewportSize({ width: 390, height: 844 });
+      }
+    } finally {
+      release();
+    }
+
+    const title = page.getByRole('heading', { level: 1, name: 'ボード' });
+    const eyebrow = page.locator('.page-head .page-eyebrow');
+    await expect(title).toBeVisible();
+    await expect(boot).toHaveCount(0);
+    if (activeSprint) {
+      await expect(eyebrow).toHaveCount(0);
+      expect((await shownBox(title)).y).toBeCloseTo(loadingY, 0);
+    } else {
+      await expect(eyebrow).toBeVisible();
+      expect((await shownBox(title)).y).toBeGreaterThan(loadingY);
+    }
   });
 }
 
