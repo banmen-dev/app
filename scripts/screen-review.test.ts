@@ -158,20 +158,23 @@ test('採点役に渡す画像は、pairs/ の全画像と motion/ の合成画�
   try {
     mkdirSync(join(directory, 'pairs'));
     mkdirSync(join(directory, 'motion'));
-    for (const file of ['pairs/light-1280.png', 'pairs/light-390-1.png', 'pairs/light-390-2.png'])
+    for (const file of ['pairs/simple_light-1280.png', 'pairs/simple_light-390-1.png', 'pairs/simple_light-390-2.png'])
       writeFileSync(join(directory, file), '');
     for (const file of [
-      'motion/dark-stamp.png',
-      'motion/dark-stamp-1.png',
-      'motion/dark-stamp-2.png',
+      'motion/simple_dark-stamp.png',
+      'motion/simple_dark-stamp-1.png',
+      'motion/simple_dark-stamp-2.png',
       'motion/results.json',
     ])
       writeFileSync(join(directory, file), '');
     assert.deepEqual(
       await reviewImagePaths(directory),
-      ['pairs/light-1280.png', 'pairs/light-390-1.png', 'pairs/light-390-2.png', 'motion/dark-stamp.png'].map((file) =>
-        resolve(directory, file),
-      ),
+      [
+        'pairs/simple_light-1280.png',
+        'pairs/simple_light-390-1.png',
+        'pairs/simple_light-390-2.png',
+        'motion/simple_dark-stamp.png',
+      ].map((file) => resolve(directory, file)),
     );
   } finally {
     rmSync(directory, { recursive: true, force: true });

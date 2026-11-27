@@ -197,6 +197,7 @@ async function main() {
   process.once('SIGTERM', interrupt);
   const staging = join(lock, 'output');
   let scratch: string | undefined;
+  let completed = false;
   let runtime: ReturnType<typeof localReviewRuntime> | undefined;
   let reference: Awaited<ReturnType<typeof serveReference>> | undefined;
   try {
@@ -252,9 +253,7 @@ async function main() {
     abort.signal.throwIfAborted();
     await saveRound(staging, output);
     console.log(`撮影が完了しました。採点資料: ${output}`);
-    console.log(
-      `採点役に渡す画像（周のディレクトリでなく、この絶対パスを1枚ずつ渡す）:\n${(await reviewImagePaths(output)).join('\n')}`,
-    );
+    completed = true;
   } catch (error) {
     const failed = join(output, `failed-${randomUUID()}`);
     try {
@@ -273,6 +272,11 @@ async function main() {
     if (scratch) await rm(scratch, { recursive: true, force: true });
     await rm(lock, { recursive: true, force: true });
   }
+  // 周の確定後の表示なので try の外に置く。表示の失敗で撮影の成功を失敗として扱わない。
+  if (completed)
+    console.log(
+      `採点役に渡す画像（周のディレクトリでなく、この絶対パスを1枚ずつ渡す）:\n${(await reviewImagePaths(output)).join('\n')}`,
+    );
 }
 
 void main().catch((error: unknown) => {
