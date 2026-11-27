@@ -52,6 +52,7 @@ import { meThemeUpdateOperation } from './me-theme.ts';
 import { membershipLeaveOperation, membershipRoleUpdateOperation } from './membership.ts';
 import { createOrganizationOperation, listOrganizationsOperation, resolveGithubUserOperation } from './operator.ts';
 import { organizationAdminReassignOperation } from './operator-admin.ts';
+import { operatorFeedbackImageOperation, operatorFeedbackOperation } from './operator-feedback.ts';
 import { organizationStorageUpdateOperation } from './operator-storage.ts';
 import { organizationPlanUpdateOperation } from './operator-plan.ts';
 import { organizationQuotaUpdateOperation } from './operator-quota.ts';
@@ -188,6 +189,8 @@ const listedOperations: readonly ImplementedOperation[] = [
   workspaceWikiUpdateOperation,
   listOrganizationsOperation,
   resolveGithubUserOperation,
+  operatorFeedbackOperation,
+  operatorFeedbackImageOperation,
   createOrganizationOperation,
   organizationSuspendOperation,
   organizationSuspensionUpdateOperation,

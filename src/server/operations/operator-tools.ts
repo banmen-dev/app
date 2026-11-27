@@ -24,8 +24,11 @@ import {
 import type { EmailAdminNomineeInput } from '../../shared/operations/operator/create-organization.ts';
 import type { AdminStatus } from '../../shared/operations/operator/list-organizations.ts';
 import type { AdminNominee } from '../organizations/designate-admin.ts';
+import { readFeedbackMeta, type FeedbackView } from '../feedback/read.ts';
 
 export type OperatorTools = {
+  // フィードバックの meta.json（R2 の `feedback/<ID>/meta.json` だけを読む）。形が違う ID、見つからない、消えた、壊れているものは undefined
+  readFeedback(feedbackId: string): Promise<FeedbackView | undefined>;
   // この運用者のログインの ID（`github:12345` の形）。organizations.created_by_operator と change_logs.operator に残す
   readonly loginId: string;
   // このリクエストの ID。失敗のログに添える（エラーのログと操作のログで揃える）
@@ -62,6 +65,7 @@ export function operatorTools(
   return {
     loginId: context.loginId,
     requestId: context.requestId,
+    readFeedback: (feedbackId) => readFeedbackMeta(env.ATTACHMENTS, feedbackId),
     inviteeResolver,
     passwordLoginEnabled: context.passwordLoginEnabled,
     inviteUrl: (provider, claimToken) => {

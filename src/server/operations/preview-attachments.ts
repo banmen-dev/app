@@ -1,5 +1,6 @@
 import { attachmentDelete } from '../../shared/operations/attachment/index.ts';
 import type { AnyOperationDefinition } from '../../shared/operations/define.ts';
+import { operatorFeedback } from '../../shared/operations/operator/feedback.ts';
 import { meAvatarDelete } from '../../shared/operations/organization/me-avatar.ts';
 import { previewBranchNumber } from '../../shared/preview-branch.ts';
 import { isIsolatedPreviewSubdomain, PREVIEW_ORIGIN_PATTERN, previewOrigin } from '../../shared/preview-cloudflare.ts';
@@ -27,6 +28,7 @@ export function checkAttachmentAvailability(
     definition.response === 'binary' ||
     definition.name === attachmentDelete.name ||
     definition.name === meAvatarDelete.name ||
+    definition.name === operatorFeedback.name ||
     (typeof input === 'object' &&
       input !== null &&
       'attachment_ids' in input &&
