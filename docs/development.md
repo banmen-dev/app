@@ -1497,7 +1497,7 @@ Issue はエピック、ストーリー、タスクの3階層にし、親子は�
 
 | 状態 | 表し方 | 付け替えるきっかけ |
 | --- | --- | --- |
-| 着手できる | `status:ready`。開いた末端の Issue（`epic` でなく、サブ Issue を持たず、`sprint-log` と `feedback` でない）で、`pt:` が1つ付き、`status:refining`、`status:in-progress`、`status:accepting` が無く、このリポジトリのブランチの開いた PR に指されておらず、自分と祖先（親のストーリー、エピック。閉じた祖先から上は見ない）の前に要るもののうち開いていて `status:accepting` の無いものが無いとき | `.github/workflows/ready.yml` が付け外しする。Issue の開閉（作者がオーナーかメンバーかコラボレーターの Issue だけ）と判定に効くラベルの付け外し、`accepting.yml` の成功、1時間ごとの定期、手動の実行で動き、開いている Issue をすべて数え直して、変わる Issue だけ直す。当てはまらなくなれば（作業中のラベルが付いた、前に要るものが開いた、など）外れる（2026-10-29 に決めた。#476） |
+| 着手できる | `status:ready`。開いた末端の Issue（`epic` でなく、サブ Issue を持たず、`sprint-log` と `feedback` でない）で、`pt:` が1つ付き、`status:refining`、`status:in-progress`、`status:accepting` が無く、このリポジトリのブランチで書き込み権限のある作者（上の「GitHub の書き込み権限」、`github-actions[bot]` を含む）の開いた PR に指されておらず、自分と祖先（親のストーリー、エピック。閉じた祖先から上は見ない）の前に要るもののうち開いていて `status:accepting` の無いものが無いとき | `.github/workflows/ready.yml` が付け外しする（`scripts/ready.ts` が PR の作者の権限を確かめ、確かめられない作者の PR は数えない）。Issue の開閉（作者がオーナーかメンバーかコラボレーターの Issue だけ）と判定に効くラベルの付け外し、`accepting.yml` の成功、1時間ごとの定期、手動の実行で動き、開いている Issue をすべて数え直して、変わる Issue だけ直す。当てはまらなくなれば（作業中のラベルが付いた、前に要るものが開いた、など）外れる（2026-10-29 に決めた。#476） |
 | 要件整理中 | `status:refining` | `issue-create` で既にある Issue を詰め始めたときか計画を書き始めたとき、`make` が着手前の要約の問いで「1つずつ詰める」と答えられ、詰め始めたとき。セッションが付ける |
 | 作業中 | `status:in-progress` | 着手したとき。ワークツリーを切っても自動では付かないので、 `gh api -X POST repos/{owner}/{repo}/issues/<番号>/labels -f 'labels[]=status:in-progress'` で付け、`status:refining` を外す |
 | レビュー中 | その Issue を指す、書き込み権限のある作者の開いた PR があること。ラベルは使わない | PR の作成 |
