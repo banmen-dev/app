@@ -3194,7 +3194,7 @@ export const dictionary = defineDictionary({
   connectionMappingColumnLabel: '{status} の{column}',
   connectionMappingIgnoreDue: '取り込み元の期限を無視する',
   connectionMappingIgnoreDueHint:
-    '期限を運用していない取り込み元向けの設定です。選ぶと、取り込み元の期限を{task}に出しません。',
+    '期限を運用していない取り込み元向けの設定です。選ぶと、取り込み元の期限を{task}に出しません。外すと、次の同期で期限が戻ります。',
   connectionMappingSave: '保存する',
   connectionMappingSaving: '保存しています',
   connectionMappingSaved: '「{name}」の対応を保存しました',

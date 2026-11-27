@@ -743,7 +743,14 @@ export const connectionMappingSaveOperation = implement(
       db.statement((q) =>
         q
           .updateTable('connections')
-          .set({ ignore_source_due: input.ignore_source_due ? 1 : 0, updated_at: stamp })
+          // 無視をやめる保存では、次の同期で全部を読む（差分では、取り込み元で更新されていない項目の期限が戻らない）
+          .set({
+            ignore_source_due: input.ignore_source_due ? 1 : 0,
+            updated_at: stamp,
+            ...(!input.ignore_source_due && Number(row.ignore_source_due) === 1
+              ? { last_success_at: null, sync_state_json: '{}' }
+              : {}),
+          })
           .where('id', '=', row.id)
           .where('workspace_id', '=', workspaceId)
           .where('owner_user_id', '=', actorUserId)

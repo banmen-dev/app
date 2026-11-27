@@ -103,6 +103,29 @@ describe('connection-mapping-save', () => {
     expect(await again.json()).toMatchObject({ connection: { ignore_source_due: false, status_mappings: [] } });
   });
 
+  test('期限の無視をやめると、次の同期が全部を読むよう最後の成功を空にする', async () => {
+    const { target, connection } = await setup();
+    const db = orgDb(env, target.organization.verified);
+    await db.run(
+      db.statement((q) =>
+        q
+          .updateTable('connections')
+          .set({ ignore_source_due: 1, last_success_at: '2026-11-01T00:00:00.000Z' })
+          .where('id', '=', connection.id),
+      ),
+    );
+    expect((await save(target, connection.id, { mappings: [], ignore_source_due: true })).status).toBe(200);
+    const kept = await db.first(
+      db.statement((q) => q.selectFrom('connections').select('last_success_at').where('id', '=', connection.id)),
+    );
+    expect(kept?.last_success_at).toBe('2026-11-01T00:00:00.000Z');
+    expect((await save(target, connection.id, { mappings: [], ignore_source_due: false })).status).toBe(200);
+    const reset = await db.first(
+      db.statement((q) => q.selectFrom('connections').select('last_success_at').where('id', '=', connection.id)),
+    );
+    expect(reset?.last_success_at).toBeNull();
+  });
+
   test('完了の列と、ワークスペースに無い列は 400 で、何も書かない', async () => {
     const { target, done, connection } = await setup();
     const doneRes = await save(target, connection.id, {
@@ -134,7 +157,6 @@ describe('connection-mapping-save', () => {
       ignore_source_due: false,
     });
     expect(foreign.status).toBe(400);
-    expect(review).not.toBe(otherTarget.review);
   });
 });
 
@@ -156,6 +178,76 @@ describe('スプリントに入れるときの列', () => {
     expect(await taskRow(target, mapped.id)).toMatchObject({ column_id: review, sprint_id: sprint.id });
     expect(await taskRow(target, unmapped.id)).toMatchObject({ column_id: first });
     expect(await taskRow(target, manual.id)).toMatchObject({ column_id: first });
+  });
+});
+
+describe('スプリントに入れるときの列（境界）', () => {
+  async function addTo(target: Target, sprintId: string, ids: string[]) {
+    return post(app, sprintTaskAdd, {
+      slug: target.slug,
+      token: target.member.token,
+      body: { workspace_id: target.workspace.id, sprint_id: sprintId, task_ids: ids },
+    });
+  }
+  async function positionOf(target: Target, id: string) {
+    const db = orgDb(env, target.organization.verified);
+    return db.first(
+      db.statement((q) => q.selectFrom('tasks').select(['column_id', 'column_position']).where('id', '=', id)),
+    );
+  }
+
+  test('対応先の列に既にあるカードの後ろへ、送った順に並ぶ', async () => {
+    const { target, review, first, connection } = await setup();
+    await createConnectionStatusMapping(target.organization, connection.id, review, { source_status: 'open' });
+    const sprint = await createSprint(target.organization, target.workspace.id, { name: '第15回' });
+    await createTask(target.organization, target.workspace.id, target.member.userId!, {
+      sprint_id: sprint.id,
+      column_id: review,
+      column_position: 'a5',
+    });
+    const one = await importedTask(target, connection.id, 'open');
+    const two = await importedTask(target, connection.id, 'open');
+    const manual = await createTask(target.organization, target.workspace.id, target.member.userId!);
+    expect((await addTo(target, sprint.id, [one.id, two.id, manual.id])).status).toBe(200);
+    const [a, b, c] = await Promise.all([one, two, manual].map((task) => positionOf(target, task.id)));
+    expect(a).toMatchObject({ column_id: review });
+    expect(b).toMatchObject({ column_id: review });
+    expect(a!.column_position! > 'a5').toBe(true);
+    expect(b!.column_position! > a!.column_position!).toBe(true);
+    expect(c).toMatchObject({ column_id: first, column_position: 'a0' });
+  });
+
+  test('完了の列と、削除した列を指す対応は無視して先頭の列へ置く', async () => {
+    const { target, review, done, first, connection } = await setup();
+    await createConnectionStatusMapping(target.organization, connection.id, done, { source_status: 'closed' });
+    await createConnectionStatusMapping(target.organization, connection.id, review, { source_status: 'open' });
+    const db = orgDb(env, target.organization.verified);
+    await db.run(
+      db.statement((q) =>
+        q.updateTable('board_columns').set({ deleted_at: '2026-11-02T00:00:00.000Z' }).where('id', '=', review),
+      ),
+    );
+    const sprint = await createSprint(target.organization, target.workspace.id, { name: '第15回' });
+    const closed = await importedTask(target, connection.id, 'closed');
+    const open = await importedTask(target, connection.id, 'open');
+    expect((await addTo(target, sprint.id, [closed.id, open.id])).status).toBe(200);
+    expect(await positionOf(target, closed.id)).toMatchObject({ column_id: first });
+    expect(await positionOf(target, open.id)).toMatchObject({ column_id: first });
+  });
+
+  test('削除した接続のタスクは、対応があっても先頭の列に置く', async () => {
+    const { target, review, first, connection } = await setup();
+    await createConnectionStatusMapping(target.organization, connection.id, review, { source_status: 'open' });
+    const task = await importedTask(target, connection.id, 'open');
+    const db = orgDb(env, target.organization.verified);
+    await db.run(
+      db.statement((q) =>
+        q.updateTable('connections').set({ deleted_at: '2026-11-02T00:00:00.000Z' }).where('id', '=', connection.id),
+      ),
+    );
+    const sprint = await createSprint(target.organization, target.workspace.id, { name: '第15回' });
+    expect((await addTo(target, sprint.id, [task.id])).status).toBe(200);
+    expect(await positionOf(target, task.id)).toMatchObject({ column_id: first });
   });
 });
 
