@@ -122,6 +122,7 @@ export interface ImportSource {
   // 同期はこの取得口を fetchPage と分けて呼び、依頼回と照合状態を保存する。
   fetchReviewRequestsPage?(input: ReviewRequestPageInput): Promise<FetchPageResult>;
   // 任意の保存済み項目の取得口。1呼び出しで1項目を不変の ID で取り、現在の属性を ImportItem で返す（閉じていれば isDone を真に）。
-  // 取れない項目（見つからない、ID が合わない、権限で断られた）は ImportSourceError を投げる。同期は、その項目を動かさず次へ進む
+  // 取れない項目（見つからない、ID が合わない、権限で断られた）は ImportSourceError を投げる。同期は、その項目を動かさず次へ進む。
+  // 恒久に取れないもの（取り込み元に無い、ID が合わない、保存値の形が合わない）は gone を真にして投げ、同期は連続の失敗に数えない
   fetchKnownItem?(input: KnownItemInput): Promise<ImportItem>;
 }

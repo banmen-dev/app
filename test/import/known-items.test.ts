@@ -506,26 +506,89 @@ describe('同期: 担当が外れた項目と範囲の外へ移した項目', ()
     expect(await t.state()).toBe('{}');
   });
 
-  test('別の項目が返ったときは、何も書かない', async () => {
+  test('別の項目が返ったときは、何も書かない（別の項目の行も書き換えない）', async () => {
     const t = await setup();
     const f = fakeGithub();
     put(f, PULL_SCOPE, 1);
+    put(f, PULL_SCOPE, 2);
     await t.sync(f);
     const before = await t.sources();
+    const tasksBefore = (await t.tasks()).map((task) => task.title).sort();
+    // どの項目を取りに行っても、別の取り込み済みの項目（ID）の内容を返す取り込み元
     const wrong = {
       ...source,
-      fetchKnownItem: async (input: Parameters<NonNullable<typeof source.fetchKnownItem>>[0]) => ({
-        ...(await source.fetchKnownItem!(input)),
-        sourceId: '999999',
-        title: '別の項目',
-      }),
+      fetchKnownItem: async (input: Parameters<NonNullable<typeof source.fetchKnownItem>>[0]) => {
+        const other = input.target.sourceId === '500001' ? '500002' : '500001';
+        return {
+          ...(await source.fetchKnownItem!(input)),
+          sourceId: other,
+          title: '別の項目',
+          updatedAt: '2026-12-12T00:00:00.000Z',
+        };
+      },
     };
-    f.issues.set(PULL_SCOPE.id, []);
-    put(f, PULL_SCOPE, 1, { title: '改題', updated_at: '2026-12-12T00:00:00.000Z' });
     f.issues.set(PULL_SCOPE.id, []);
     await syncConnection(env, t.db, t.workspace.id, t.id, { fetcher: f.fetcher, source: wrong });
     expect(await t.sources()).toEqual(before);
-    expect((await t.tasks()).map((task) => task.title)).toEqual(['架空の課題 1']);
+    expect((await t.tasks()).map((task) => task.title).sort()).toEqual(tasksBefore);
+  });
+
+  test('止めた位置は、最初に取れなかった項目までを済ませた位置になる（途中の成功を挟んだ後も）', async () => {
+    const t = await setup();
+    const f = fakeGithub();
+    for (const n of [1, 2, 3, 4, 5]) put(f, PULL_SCOPE, n);
+    await t.sync(f);
+    const order = (await t.sources()).sort((a, b) => (a.task_id < b.task_id ? -1 : 1));
+    const number = (row: (typeof order)[number]) => Number(row.source_id) - 500_000;
+    for (const row of order)
+      put(f, PULL_SCOPE, number(row), { title: `改題 ${number(row)}`, updated_at: '2026-12-15T00:00:00.000Z' });
+    f.issues.set(PULL_SCOPE.id, []);
+    // 成功、失敗、失敗、失敗: 数えるのは2件目から。5件目には届かない
+    for (const i of [1, 2, 3]) f.single.set(`/repositories/1001/issues/${number(order[i]!)}`, { status: 500 });
+    await t.sync(f);
+    expect(JSON.parse((await t.state())!)).toMatchObject({ known: { after: order[1]!.task_id } });
+    expect((await t.tasks()).filter((task) => task.title.startsWith('改題'))).toHaveLength(1);
+  });
+
+  test('移動を追う項目は2要求を使い、要求の上限で止まった項目は更新せず、同じ項目から再開する', async () => {
+    const t = await setup();
+    const f = fakeGithub();
+    for (const n of [1, 2, 3, 4, 5, 6]) put(f, PULL_SCOPE, n);
+    await t.sync(f);
+    const order = (await t.sources()).sort((a, b) => (a.task_id < b.task_id ? -1 : 1));
+    const number = (row: (typeof order)[number]) => Number(row.source_id) - 500_000;
+    // 先頭の1件は移らず（1要求）、残りは別のリポジトリ（2002）へ移った（追うたびに2要求を使う）
+    for (const row of order) {
+      const n = number(row);
+      if (row === order[0]) {
+        put(f, PULL_SCOPE, n, {
+          assignees: [],
+          assignee: null,
+          title: `改題 ${n}`,
+          updated_at: '2026-12-16T00:00:00.000Z',
+        });
+        continue;
+      }
+      f.single.set(`/repositories/1001/issues/${n}`, {
+        moved: `https://api.github.com/repositories/2002/issues/${n + 10}`,
+      });
+      put(f, OTHER_SCOPE, n + 10, {
+        id: 500_000 + n,
+        assignees: [],
+        assignee: null,
+        title: `改題 ${n}`,
+        updated_at: '2026-12-16T00:00:00.000Z',
+      });
+    }
+    f.issues.set(PULL_SCOPE.id, []);
+    f.issues.set(OTHER_SCOPE.id, []);
+    // 発見の走査が5要求、この段の上限は 5 + 6 = 11 要求。1 + 2 + 2 = 5 要求で3項目を取り、4項目目の1要求目（11要求目）は通るが、移動を追う2要求目が上限に当たる
+    expect(await t.sync(f)).toEqual({ outcome: 'success', imported: 0, more: false });
+    expect((await t.tasks()).filter((task) => task.title.startsWith('改題'))).toHaveLength(3);
+    expect(JSON.parse((await t.state())!)).toMatchObject({ known: { after: order[2]!.task_id } });
+    // 次の回は、更新されなかった4項目目から続ける
+    await t.sync(f);
+    expect((await t.tasks()).filter((task) => task.title.startsWith('改題'))).toHaveLength(6);
   });
 
   test('同じワークスペースの別の接続が取り込んだ項目は、この接続では取りに行かない', async () => {
