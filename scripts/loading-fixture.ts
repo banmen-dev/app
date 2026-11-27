@@ -61,13 +61,41 @@ INSERT INTO tasks (id, workspace_id, is_imported, tray, title, story_id, categor
 }
 
 export const loadingWorkspace = id('1', 1);
+// 取り込み済みの項目が多い接続だけを置く別のワークスペース（接続の一覧の読みを測る。ほかの画面の件数を変えない）
+export const loadingImportWorkspace = id('2', 1);
+export const IMPORTED_TASK_COUNT = 30000;
 // 運用者のフィードバックの閲覧（/operator/feedback/[id]）の計測が読む R2 の meta.json の ID。計測の開始時に置く（scripts/loading-bench.ts）
 export const loadingFeedback = '01939c12-0000-7000-8000-00000000fb01';
 export const loadingEpic = id('1', 1, 'e');
+// 取り込んだ項目が数万件ある接続1つ。状態名は12種類で、受信箱のタスクと task_sources を1件ずつ作る
+function importedSql(): string {
+  const ws = loadingImportWorkspace;
+  return `
+INSERT INTO workspaces (id, organization_id, name, timezone, created_by, created_at, updated_at) VALUES
+  ('${ws}', '${ORGANIZATION_ID}', '取り込みが多い', 'Asia/Tokyo', '${ADMIN_USER_ID}', '${AT}', '${AT}');
+INSERT INTO memberships (id, workspace_id, user_id, role, joined_on, joined_at) VALUES
+  ('${id('2', 1, 'm')}', '${ws}', '${ADMIN_USER_ID}', 'leader', '2026-10-01', '${AT}');
+INSERT INTO board_columns (id, workspace_id, name, is_done, position, created_at, updated_at) VALUES
+  ('${id('2', 1, 'b')}', '${ws}', '未着手', 0, 'a0', '${AT}', '${AT}'),
+  ('${id('2', 2, 'b')}', '${ws}', '完了', 1, 'a1', '${AT}', '${AT}');
+INSERT INTO connections (id, workspace_id, owner_user_id, provider, name, status, last_success_at, created_at, updated_at) VALUES
+  ('${id('2', 1, 'k')}', '${ws}', '${ADMIN_USER_ID}', 'github', '取り込みが多い GitHub', 'active', '${AT}', '${AT}', '${AT}');
+INSERT INTO tasks (id, workspace_id, is_imported, tray, title, position, created_at, updated_at)
+  WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < ${IMPORTED_TASK_COUNT})
+  SELECT ${sqlId('2', 't', 'i')}, '${ws}', 1, 'inbox', '取り込んだ項目 ' || i, printf('a0%06dV', i), '${AT}', '${AT}' FROM n;
+INSERT INTO task_sources (task_id, workspace_id, connection_id, provider, source_kind, source_id, reviewer_source_id, source_key,
+    source_url, source_container_id, source_container_name, source_status, source_updated_at, last_seen_at, created_at, updated_at)
+  WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < ${IMPORTED_TASK_COUNT})
+  SELECT ${sqlId('2', 't', 'i')}, '${ws}', '${id('2', 1, 'k')}', 'github', 'issue', 'I_bench_' || i, '', 'aoba/bench#' || i,
+    'https://github.com/aoba/bench/issues/' || i, '3001', 'aoba/bench', 'status-' || (i % 12), '${AT}', '${AT}', '${AT}', '${AT}' FROM n;
+`;
+}
+
 export function loadingFixtureSql(now = new Date()): string {
   const timestamp = now.toISOString();
   return (
     shapeSql({ workspaceId: loadingWorkspace, prefix: '1', completedPerTen: 8 }) +
+    importedSql() +
     `
 -- 専用の請求画面の成功経路だけに使う。通常seedの業務管理者に請求権限を自動付与しない。
 INSERT INTO billing_administrators (id, organization_id, account_id, status, invited_by, created_at, updated_at)
