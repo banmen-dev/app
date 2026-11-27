@@ -590,6 +590,53 @@ export async function readReviewTarget(db: OrganizationDb, connection: SyncConne
     ),
   );
 }
+// 取り込み済みの Issue と PR を、不変の ID で取りに行くための1件を、task_id の順に読む（#1543）。after より後の最初の1件。
+// 完了の印が付いていない（まだ追う）項目だけを、この接続が取り込んだもので読む。担当では絞らない（担当が外れても追うため）が、入れ物は今の範囲の中のものに限る。
+// 組織は、ワークスペースを workspaces.organization_id で確かめる
+export async function readKnownTarget(db: OrganizationDb, connection: SyncConnection, after: string) {
+  return db.first(
+    db.statement((q) =>
+      q
+        .selectFrom('task_sources as s')
+        .innerJoin('tasks as t', 't.id', 's.task_id')
+        .innerJoin('workspaces as w', 'w.id', 's.workspace_id')
+        .select([
+          's.task_id',
+          's.source_kind',
+          's.source_id',
+          's.source_key',
+          's.source_container_id',
+          's.source_container_name',
+        ])
+        .where('s.workspace_id', '=', connection.workspace_id)
+        .where('t.workspace_id', '=', connection.workspace_id)
+        .where('w.organization_id', '=', db.organizationId)
+        .where('w.closed_at', 'is', null)
+        .where('s.connection_id', '=', connection.id)
+        .where('s.provider', '=', connection.provider)
+        .where('s.source_kind', 'in', ['issue', 'pull_request'])
+        .where('s.reviewer_source_id', '=', '')
+        .where('s.is_source_done', '=', 0)
+        .where('t.deleted_at', 'is', null)
+        .where('s.task_id', '>', after)
+        // 今の範囲の中の入れ物で取り込んだ項目に限る（範囲から外したリポジトリの内容を取り続けない。移した項目は、入れ物が今も範囲の中なら追う）
+        .where((eb) => {
+          const scoped = eb.exists(
+            eb
+              .selectFrom('connection_scopes as cs')
+              .select('cs.source_id')
+              .whereRef('cs.connection_id', '=', 's.connection_id')
+              .whereRef('cs.source_id', '=', 's.source_container_id'),
+          );
+          return connection.scope_mode === 'exclude' ? eb.not(scoped) : scoped;
+        })
+        .orderBy('s.task_id')
+        .limit(1),
+    ),
+  );
+}
+export type KnownTarget = NonNullable<Awaited<ReturnType<typeof readKnownTarget>>>;
+
 export type ReviewTarget = NonNullable<Awaited<ReturnType<typeof readReviewTarget>>>;
 
 // target で確かめた項目だけを書く。CAS と回の記録で並行・遅着の再復帰を防ぐ。

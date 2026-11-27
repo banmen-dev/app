@@ -129,6 +129,11 @@
     if (event.type === 'pointerup')
       resizeTipY = event.clientY - (event.currentTarget as HTMLElement).getBoundingClientRect().top;
   }
+  // 境目を掴んで動かす間に、下にあるメニューのリンクのブラウザ標準のドラッグが始まると、pointercancel で境目の操作が打ち切られる
+  // （リンクが境目の掴んだ高さに来るかは、メニューの中身で決まる）。リサイズの間はドラッグの開始を止める
+  function onDragStart(event: DragEvent) {
+    if (resize) event.preventDefault();
+  }
   function onResizeKeydown(event: KeyboardEvent) {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
     if (event.key === 'Enter') {
@@ -288,7 +293,7 @@
   </div>
 {/snippet}
 
-<svelte:window bind:innerWidth={viewportWidth} />
+<svelte:window bind:innerWidth={viewportWidth} ondragstart={onDragStart} />
 
 <!-- 幅は CSSOM（style:）で渡す。CSP が style 属性の文字列を止めるため（Avatar.svelte と同じ扱い） -->
 <div

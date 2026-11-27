@@ -17,6 +17,7 @@ import {
 } from '../factories.ts';
 import { fakeIssue } from './fake-github-pat.ts';
 import { fakePull, ownPullFixture, PULL_PAT, PULL_SCOPE } from './fake-github-pulls.ts';
+import { discoveryOnly } from './discovery-only.ts';
 
 const source = importSourceOf('github');
 const BASE = Date.UTC(2026, 5, 1, 0, 0, 0);
@@ -179,11 +180,15 @@ describe('同期: 前回成功した時点からの差分', () => {
     const f = ownPullFixture();
     const since = new Date(Date.parse(last) - SINCE_MARGIN_MS).toISOString();
     f.data.pulls = Array.from({ length: 150 }, (_, i) => fakePull(i + 1, { updated_at: at(2000 + i) }));
-    const paused = await syncConnection(env, t.db, t.workspace.id, t.id, { fetcher: f.fetcher, maxPages: 2 });
+    const paused = await syncConnection(env, t.db, t.workspace.id, t.id, {
+      fetcher: f.fetcher,
+      maxPages: 2,
+      source: discoveryOnly,
+    });
     expect(paused).toMatchObject({ outcome: 'success', more: true });
     // 途中保存で last_success_at が進んでも、続きは始めの起点で読む
     f.calls.length = 0;
-    const done = await syncConnection(env, t.db, t.workspace.id, t.id, { fetcher: f.fetcher });
+    const done = await syncConnection(env, t.db, t.workspace.id, t.id, { fetcher: f.fetcher, source: discoveryOnly });
     expect(done).toMatchObject({ outcome: 'success', more: false });
     expect(listCalls(f, 'issues').every((u) => (u.searchParams.get('since') ?? since) === since)).toBe(true);
     expect((await t.sources()).filter((s) => s.source_kind === 'pull_request')).toHaveLength(150);
@@ -199,12 +204,17 @@ describe('同期: 前回成功した時点からの差分', () => {
       fetcher: f.fetcher,
       maxPages: 2,
       now: nowFn,
+      source: discoveryOnly,
     });
     expect(paused).toMatchObject({ outcome: 'success', more: true });
     // 読み終えた先頭の頁に、走査中に新しい PR が作られる
     f.data.pulls.push(fakePull(999, { updated_at: at(1002) }));
     now = at(1030);
-    const done = await syncConnection(env, t.db, t.workspace.id, t.id, { fetcher: f.fetcher, now: nowFn });
+    const done = await syncConnection(env, t.db, t.workspace.id, t.id, {
+      fetcher: f.fetcher,
+      now: nowFn,
+      source: discoveryOnly,
+    });
     expect(done).toMatchObject({ outcome: 'success', more: false });
     // last_success_at は、全部を読み終えた時刻でなく、その同期を始めた時刻
     expect((await t.read())?.last_success_at).toBe(at(1000));

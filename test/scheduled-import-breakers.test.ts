@@ -155,7 +155,8 @@ test('時間切れの時点で開始済みの頁を保存し、次の定期処�
   const firstPageEnd = fakeIssue(REPO_NAME, 100).updated_at;
   expect(issuePositions(scope.fake)).toEqual([new Date(Date.parse(firstPageEnd) - 1_000).toISOString()]);
   expect(await scope.tasks()).toHaveLength(101);
-  expect((await scope.connection())?.sync_state_json).toBe('{}');
+  // 発見の走査は終わり、残りは取り込み済みの項目を ID で取りに行く段（#1543）。101件は1回の上限（10要求）で終わらない
+  expect(JSON.parse((await scope.connection())!.sync_state_json)).toMatchObject({ position: null, known: {} });
 });
 
 test('取り込みと掃除の cron の式が同じなら、同じ回で両方が動く', async () => {

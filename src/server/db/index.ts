@@ -29,6 +29,7 @@ export { backlogTasksUnder, backlogTasksUnderStories } from './backlog-tasks.ts'
 // 取り込みの同期（src/server/import/sync.ts）が使う文
 export {
   importTaskStatements,
+  readKnownTarget,
   readReviewTarget,
   reviewUpdateStatements,
   updateImportedStatements,

@@ -111,13 +111,13 @@ async function readConnections(db: OrganizationDb, workspaceId: string, connecti
         .orderBy('m.source_status');
       return connectionId === undefined ? query : query.where('c.id', '=', connectionId);
     }),
-    // 取り込んだ項目に現れた状態名（対応を選べる状態）
+    // 取り込んだ項目に現れた状態名（対応を選べる状態）。ワークスペースは結んだ接続（c.workspace_id）で絞る。task_sources の
+    // workspace_id でも絞ると、その索引で task_sources を全件たどり、(connection_id, source_status) のカバリング索引が使われない（#1654）
     db.statement((q) => {
       const query = q
         .selectFrom('task_sources as ts')
         .innerJoin('connections as c', 'c.id', 'ts.connection_id')
         .where('c.workspace_id', '=', workspaceId)
-        .where('ts.workspace_id', '=', workspaceId)
         .where('c.deleted_at', 'is', null)
         .select(['ts.connection_id', 'ts.source_status'])
         .distinct()

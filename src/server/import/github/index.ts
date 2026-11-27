@@ -12,6 +12,7 @@ import {
 } from '../source.ts';
 import { FULL_NAME_PATTERN, LOGIN_PATTERN, PAGE_SIZE, fail, getJson, idOf, isRecord } from './client.ts';
 import { fetchOwnItemsPage } from './items.ts';
+import { fetchKnownItem } from './known-item.ts';
 import { fetchReviewRequestsPage } from './review-requests.ts';
 
 const USER_URL = 'https://api.github.com/user';
@@ -115,5 +116,8 @@ export const githubImportSource: ImportSource = {
   fetchScopeCandidatesPage,
   async fetchReviewRequestsPage(input) {
     return fetchReviewRequestsPage({ ...input, credential: requireShape(input.credential) });
+  },
+  async fetchKnownItem(input) {
+    return fetchKnownItem({ ...input, credential: requireShape(input.credential) });
   },
 };

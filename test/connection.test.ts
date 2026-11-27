@@ -1189,7 +1189,8 @@ describe('connection-sync（今すぐ同期）', () => {
     const responses = await Promise.all([1, 2, 3].map(() => sync(ctx, target, target.member, id)));
     expect(responses.map((res) => res.status).sort()).toEqual([200, 429, 429]);
     expect(await inboxTitles(target)).toHaveLength(2);
-    expect(ctx.github.calls.filter((call) => call.url.includes('/issues')).length).toBe(1);
+    // 一覧の取得だけを数える（取り込み済みの項目を ID で取りに行く `/issues/番号` は別）
+    expect(ctx.github.calls.filter((call) => /\/issues(\?|$)/.test(call.url)).length).toBe(1);
   });
 
   test('ほかのメンバー、リーダー、管理者は 403 で、取り込み元に問い合わせず、制限の印も付かない', async () => {

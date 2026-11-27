@@ -8,6 +8,7 @@
 import { generateNKeysBetween } from 'fractional-indexing';
 import {
   importTaskStatements,
+  readKnownTarget,
   readReviewTarget,
   reviewUpdateStatements,
   updateImportedStatements,
@@ -39,6 +40,8 @@ export const DEFAULT_MAX_PAGES = 10;
 export const DEFAULT_MAX_DURATION_MS = 60_000;
 // 1頁の項目の数の上限。超える応答は想定と違うものとして断る（1回の batch() の文を抑える）
 export const MAX_ITEMS_PER_PAGE = 100;
+// 発見の走査が予算を使い切っても、取り込み済みの項目の段が1回の同期で最低これだけの項目を取れるようにする
+const KNOWN_RESERVE = 3;
 // 続きの位置の長さの上限（取り込み元が返した値をそのまま保存するため）
 const MAX_CURSOR_LENGTH = 2000;
 const MAX_FIELD_LENGTH = 2000;
@@ -96,8 +99,11 @@ type Resume = {
 };
 type ScopeBatch = { candidates: Scope[]; next: string | null };
 type Progress = { resume: Resume | null; scopeBatch: ScopeBatch | null; candidateCursor: string | null };
+// 発見の走査の後で、取り込み済みの項目を不変の ID で取りに行く段の続きの位置（#1543）。after は最後に取りに行った task_id
+type Known = { after: string };
 type SyncState = Progress & {
   credential: string | null;
+  known: Known | null;
   itemsOnly: boolean;
   reviewRetry: Progress | null;
   // 進行中の同期の差分の起点。同期の始めに決め、途中保存をまたいで変えない
@@ -139,6 +145,7 @@ function parseSyncState(json: string): SyncState {
     candidateCursor: null,
     itemsOnly: false,
     reviewRetry: null,
+    known: null,
     since: null,
     startedAt: null,
   };
@@ -149,6 +156,10 @@ function parseSyncState(json: string): SyncState {
       ...parseProgress(value),
       credential: typeof value.credential === 'string' ? value.credential : null,
       itemsOnly: value.itemsOnly === true,
+      known:
+        value.known && typeof value.known === 'object' && typeof value.known.after === 'string'
+          ? { after: value.known.after.slice(0, MAX_CURSOR_LENGTH) }
+          : null,
       startedAt:
         typeof value.startedAt === 'string' && !Number.isNaN(Date.parse(value.startedAt)) ? value.startedAt : null,
       since: typeof value.since === 'string' && !Number.isNaN(Date.parse(value.since)) ? value.since : null,
@@ -306,7 +317,7 @@ export async function syncConnection(
   const jobTimeExpired = () => absoluteDeadline !== undefined && Date.now() >= absoluteDeadline;
   let requests = 0;
   let budgetReached = false;
-  const requestLimit = DEFAULT_MAX_PAGES;
+  let requestLimit = DEFAULT_MAX_PAGES;
   const fetcher: typeof fetch = async (...args) => {
     if (requests >= requestLimit) {
       budgetReached = true;
@@ -331,6 +342,9 @@ export async function syncConnection(
   let scopeBatch: ScopeBatch | null = null;
   let candidateCursor: string | null = null;
   let reviewRetry: Progress | null = null;
+  let known: Known | null = null;
+  // 取り込み済みの項目の段に入った（発見の走査は終えている）
+  let inKnown = false;
   let itemsOnly = false;
   // 認証情報を替えた場合、本人 ID を含む保存カーソルは使わない。平文も暗号文も状態には保存しない。
   const digest = await crypto.subtle.digest(
@@ -344,6 +358,7 @@ export async function syncConnection(
     scopeBatch = storedState.scopeBatch;
     candidateCursor = storedState.candidateCursor;
     reviewRetry = storedState.reviewRetry;
+    known = storedState.known;
     itemsOnly = storedState.itemsOnly;
   }
   // 続きの位置があるのに認証情報の指紋が合わず捨てた状態は、起点を失っているので全部を読む
@@ -354,6 +369,8 @@ export async function syncConnection(
       storedState.scopeBatch !== null ||
       storedState.candidateCursor !== null ||
       storedState.reviewRetry !== null);
+  // known（取り込み済みの項目を取りに行く段の位置）は発見の走査の続きではないので、進行中に数えない。
+  // 発見の走査は毎回の同期で差分から始め、known は同期をまたいで残りの予算で進める（新しい担当の取り込みを遅らせないため）
   const inProgress = resume !== null || scopeBatch !== null || candidateCursor !== null || reviewRetry !== null;
   // 続きの同期は、始めに決めた起点を使う（途中保存でも last_success_at は進むので、新しい同期の起点とは別に持つ）。
   // 新しい同期は、前の同期が全部を読み終えた時点（その書き込みが最後の last_success_at）から始める。
@@ -368,7 +385,7 @@ export async function syncConnection(
         : sinceOf(connection.last_success_at);
   const startedAt: string = (inProgress ? storedState.startedAt : null) ?? now().toISOString();
   const stateJson = () =>
-    resume === null && scopeBatch === null && candidateCursor === null && reviewRetry === null
+    resume === null && scopeBatch === null && candidateCursor === null && reviewRetry === null && known === null
       ? '{}'
       : JSON.stringify({
           version: 2,
@@ -377,6 +394,7 @@ export async function syncConnection(
           since,
           startedAt,
           itemsOnly,
+          known,
           reviewRetry: reviewRetry === null ? null : progressValue(reviewRetry),
         });
   // 通常項目（Issue/PR）だけの走査はレビューの失敗を解消していないので、接続の成功・失敗の記録を変えない。
@@ -572,9 +590,90 @@ export async function syncConnection(
       return { outcome: 'success', imported, more: true };
     }
     resume = null;
+    // 発見の走査で見えなかった取り込み済みの項目（担当が外れた、範囲の外へ移った）も、不変の ID で取りに行って同じ更新を当てる。
+    // 発見の走査を先に済ませ、残りの予算（頁・要求・時間は発見の走査と同じに数える）で、続きの task_id から進める。
+    // 全件を取り終えるまでは同期をまたぎ、止まった位置は known に残す（発見の走査は毎回やり直す）
+    if (source.fetchKnownItem !== undefined) {
+      inKnown = true;
+      known ??= { after: '' };
+      // 発見の走査が予算を使い切っても、取り込み済みの項目の段が進むよう、最低 KNOWN_RESERVE 項目ぶんは取れるようにする
+      // （範囲が2つなどで発見が10要求を使うと、この段に一度も入れず、担当が外れた項目が永久に更新されない）
+      const knownPageEnd = Math.max(maxPages, pages + KNOWN_RESERVE);
+      requestLimit = Math.max(requestLimit, requests + KNOWN_RESERVE * 2);
+      // 一時的な失敗と思われるもの（権限、届かない）が続いたら、その回の段を止め、続く項目を無駄に飛ばさない
+      let streak = 0;
+      let streakFirst = '';
+      const stop = async (): Promise<SyncResult> => {
+        if (!(await finish({ kind: 'success', syncStateJson: stateJson(), lastSuccessAt: startedAt }))) {
+          return interrupted();
+        }
+        return { outcome: 'success', imported, more: false };
+      };
+      while (true) {
+        const target = await readKnownTarget(db, connection, known.after);
+        if (!target) break;
+        if (pages >= knownPageEnd || requests >= requestLimit || Date.now() >= deadline || jobTimeExpired()) {
+          return await stop();
+        }
+        pages++;
+        let item: ImportItem;
+        try {
+          item = await source.fetchKnownItem({
+            credential,
+            fetcher,
+            settings,
+            target: {
+              kind: target.source_kind as 'issue' | 'pull_request',
+              sourceId: target.source_id,
+              key: target.source_key,
+              containerId: target.source_container_id,
+              containerName: target.source_container_name,
+            },
+          });
+        } catch (error) {
+          if (budgetReached) throw error;
+          // 取れない項目（見つからない、権限で断られた、応答が想定と違う）は動かさず、次の項目へ進む。
+          // 「取り込み元で見つからない」の印は #914 の照合が付ける。3件続けて取れなければ、
+          // 取り込み元の障害か制限とみなし、最初に取れなかった項目までを済ませた位置に戻して、その回の段を止める
+          if (error instanceof ImportSourceError && error.gone) {
+            // 恒久的に取れない項目（取り込み元に無い、ID が合わない、保存値の形が合わない）は、障害とみなさず飛ばす
+            known = { after: target.task_id };
+            continue;
+          }
+          if (
+            error instanceof ImportSourceError &&
+            (error.failure === 'unavailable' || error.failure === 'forbidden')
+          ) {
+            if (streak === 0) streakFirst = target.task_id;
+            streak++;
+            if (streak >= 3) {
+              // 最初に取れなかった項目だけを飛ばして止める（同じ3件で毎回止まり、後ろの項目に届かなくなるのを防ぐ）
+              known = { after: streakFirst };
+              return await stop();
+            }
+            known = { after: target.task_id };
+            continue;
+          }
+          throw error;
+        }
+        streak = 0;
+        // 別の項目が返った応答は使わない（不変の ID と種別が保存した値と同じ項目だけ更新する）
+        if (isValidItem(item) && item.kind === target.source_kind && item.sourceId === target.source_id) {
+          await writeKnown(db, connection, workspaceId, withoutIgnoredDue(connection, item), now);
+        }
+        known = { after: target.task_id };
+      }
+      known = null;
+    }
     if (!(await finish({ kind: 'success', syncStateJson: '{}', lastSuccessAt: startedAt }))) return interrupted();
     return { outcome: 'success', imported, more: false };
   } catch (error) {
+    if (budgetReached && inKnown) {
+      if (!(await finish({ kind: 'success', syncStateJson: stateJson(), lastSuccessAt: startedAt }))) {
+        return interrupted();
+      }
+      return { outcome: 'success', imported, more: false };
+    }
     if (budgetReached && (resume !== null || candidateCursor !== null || scopeBatch !== null)) {
       if (!(await finish(checkpoint()))) return interrupted();
       return { outcome: 'success', imported, more: true };
@@ -662,29 +761,7 @@ async function writePage(
   const open = valid.filter((item) => !item.isDone);
   const at = now();
   // 更新の文を先に流す（新しい項目の行はまだ無いので0件になり、入れた直後の行を書き直さない）。レビュー依頼は個別の照合が持つので対象にしない
-  const updates = valid.flatMap((item) =>
-    item.kind === 'review_request'
-      ? []
-      : updateImportedStatements(
-          db,
-          {
-            workspaceId,
-            connectionId: connection.id,
-            provider: connection.provider,
-            credentialCiphertext: connection.credential_ciphertext,
-            credentialKeyVersion: connection.credential_key_version,
-            kind: item.kind,
-            sourceId: item.sourceId,
-            title: titleOf(item),
-            url: item.url,
-            status: stripHiddenCharacters(item.status),
-            dueOn: item.dueOn,
-            isDone: item.isDone,
-            updatedAt: isoInstant(item.updatedAt)!,
-          },
-          at.toISOString(),
-        ),
-  );
+  const updates = valid.flatMap((item) => updateStatementsOf(db, connection, workspaceId, item, at));
   if (open.length === 0) {
     if (updates.length > 0) await db.batch(updates);
     return 0;
@@ -725,6 +802,51 @@ async function writePage(
     index += group.length;
   }
   return imported;
+}
+
+type UpdateConnection = Parameters<typeof writePage>[1];
+
+// 取り込み済みの1件に当てる更新の文。発見の走査と、不変の ID で取りに行く段が同じ更新を当てる
+function updateStatementsOf(
+  db: OrganizationDb,
+  connection: UpdateConnection,
+  workspaceId: string,
+  item: ImportItem,
+  at: Date,
+) {
+  // レビュー依頼は対象にしない（個別の照合が持つ）
+  if (item.kind === 'review_request') return [];
+  return updateImportedStatements(
+    db,
+    {
+      workspaceId,
+      connectionId: connection.id,
+      provider: connection.provider,
+      credentialCiphertext: connection.credential_ciphertext,
+      credentialKeyVersion: connection.credential_key_version,
+      kind: item.kind,
+      sourceId: item.sourceId,
+      title: titleOf(item),
+      url: item.url,
+      status: stripHiddenCharacters(item.status),
+      dueOn: item.dueOn,
+      isDone: item.isDone,
+      updatedAt: isoInstant(item.updatedAt)!,
+    },
+    at.toISOString(),
+  );
+}
+
+// 不変の ID で取った1件を、更新だけで書く（新しい項目は入れない。項目の行が無ければ0件になる）
+async function writeKnown(
+  db: OrganizationDb,
+  connection: UpdateConnection,
+  workspaceId: string,
+  item: ImportItem,
+  now: () => Date,
+): Promise<void> {
+  const statements = updateStatementsOf(db, connection, workspaceId, item, now());
+  if (statements.length > 0) await db.batch(statements);
 }
 
 // 取り込み元の期限を無視する接続は、期限を書かない（取り込み元の値を task_sources に残さない）
