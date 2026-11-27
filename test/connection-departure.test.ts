@@ -313,11 +313,15 @@ describe('組織の分離と、この要求で書いたことの条件', () => {
     expect((await leave(target, target.member, memberId)).status).toBe(200);
     expect(await connectionOf(elsewhere, foreign.id)).toEqual(foreign);
 
-    // 所属し直してから無効にする（無効化は所属に依らず当たる）
+    // 抜けた後に無効にする（無効化は所属に依らず、組織のすべてのワークスペースに当たる）
     expect((await disable(target, memberId)).status).toBe(200);
     expect(await connectionOf(elsewhere, foreign.id)).toEqual(foreign);
     expect(await connectionOf(elsewhere, foreignOther.id)).toEqual(foreignOther);
+    // 履歴はどちらの組織にも入らない（絞り込みを外すと、呼んだ組織の行として別の組織の接続の履歴が入る）
     expect((await connectionLogs(elsewhere)).size).toBe(0);
+    const ownLogs = await connectionLogs(target);
+    expect(ownLogs.has(foreign.id)).toBe(false);
+    expect(ownLogs.has(foreignOther.id)).toBe(false);
   });
 
   test('この要求で書いた行が無ければ、2文とも何も書かない', async () => {
