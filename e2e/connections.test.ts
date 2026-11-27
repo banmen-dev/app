@@ -639,6 +639,67 @@ test('管理者は他のメンバーの接続を止めて消せる。止めた�
   expect(calls).toEqual(['stop:others', 'delete:others']);
 });
 
+test('再開できる理由で止まった接続は、止めるときに再開できなくなると伝え、止めると警告なしの再開しない停止になる', async ({
+  page,
+}) => {
+  let rows: Connection[] = [
+    created({
+      id: 'resumable',
+      name: 'ハルカの GitHub',
+      scopes: [{ id: '2001', name: 'aoba/point-api' }],
+      owner_user_id: 'other',
+      owner_name: 'ハルカ',
+      status: 'stopped',
+      stopped_reason: 'auth_failed',
+      last_error_message: '認証に失敗しました',
+    }),
+  ];
+  await routeOperation(page, connectionList, { slug: 'aoba' }, (call) => call.fulfill({ connections: rows }));
+  await routeOperation(page, connectionStop, { slug: 'aoba' }, async (call) => {
+    rows = rows.map((row) => ({ ...row, status: 'stopped', stopped_reason: 'leader' }));
+    await call.fulfill({ connection: rows[0]! });
+  });
+
+  await page.goto(`${WORKSPACE}/connections`);
+  const item = page
+    .getByRole('list', { name: '接続の一覧' })
+    .getByRole('listitem')
+    .filter({ hasText: 'ハルカの GitHub' });
+  await item.getByRole('button', { name: '止める' }).click();
+  const dialog = page.getByRole('dialog', { name: '「ハルカの GitHub」を止めますか' });
+  await expect(dialog).toContainText('止めると再開できなくなり');
+  await dialog.getByRole('button', { name: '止める' }).click();
+  await expect(item).toContainText('リーダーが止めました。再開はできません。');
+  await expect(item).not.toContainText('認証に失敗しました');
+});
+
+test('編集を開いたまま止めると、確認の文が入力の消えることを伝え、続けると編集の段が閉じる。ボタンは接続の名前で説明される', async ({
+  page,
+}) => {
+  let rows: Connection[] = [
+    created({ id: 'mine', name: '自分の GitHub', scopes: [{ id: '2001', name: 'aoba/point-api' }] }),
+  ];
+  await routeOperation(page, connectionList, { slug: 'aoba' }, (call) => call.fulfill({ connections: rows }));
+  await routeOperation(page, connectionStop, { slug: 'aoba' }, async (call) => {
+    rows = rows.map((row) => ({ ...row, status: 'stopped', stopped_reason: 'owner' }));
+    await call.fulfill({ connection: rows[0]! });
+  });
+
+  await page.goto(`${WORKSPACE}/connections`);
+  const item = page
+    .getByRole('list', { name: '接続の一覧' })
+    .getByRole('listitem')
+    .filter({ hasText: '自分の GitHub' });
+  await expect(item.getByRole('button', { name: '止める' })).toHaveAccessibleDescription('自分の GitHub');
+  await item.getByRole('button', { name: '編集', exact: true }).click();
+  await item.getByRole('button', { name: '止める' }).click();
+  const dialog = page.getByRole('dialog', { name: '「自分の GitHub」を止めますか' });
+  await expect(dialog).toContainText('入力した内容は消えます');
+  await dialog.getByRole('button', { name: '止める' }).click();
+  await expect(item).toContainText('登録した人が止めました。再開はできません。');
+  await expect(item.getByRole('button', { name: '編集', exact: true })).toHaveAttribute('aria-expanded', 'false');
+});
+
 test('リーダーでも管理者でもないメンバーには、他の人の接続の止めるボタンと削除ボタンが出ない', async ({
   context,
   baseURL,

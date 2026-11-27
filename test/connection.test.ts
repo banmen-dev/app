@@ -634,7 +634,7 @@ describe('守りの条件', () => {
   });
 });
 
-describe('持ち主が去って止めた接続の範囲', () => {
+describe('止めた接続の範囲', () => {
   async function stop(target: Target, connectionId: string, reason: string) {
     const db = orgDb(env, target.organization.verified);
     await db.run(
@@ -648,7 +648,7 @@ describe('持ち主が去って止めた接続の範囲', () => {
     return (body as { error: { code: string; details?: { reason?: string } } }).error;
   }
 
-  test.each(['member_left', 'user_disabled', 'workspace_closed'])(
+  test.each(['member_left', 'user_disabled', 'workspace_closed', 'owner', 'leader'])(
     '%s で止めた接続は、候補も保存も 409 の connection_stopped で、取り込み元に問い合わせず範囲も履歴も変わらない',
     async (reason) => {
       const ctx = setup();
@@ -676,38 +676,35 @@ describe('持ち主が去って止めた接続の範囲', () => {
     },
   );
 
-  test.each(['auth_failed', 'owner', 'leader'])(
-    '先に %s で止まった接続は、持ち主の管理者がワークスペースを抜けると、候補も保存も 409 の connection_stopped',
-    async (reason) => {
-      const ctx = setup();
-      const target = await createTarget();
-      const joined = await createMembership(target.organization, target.workspace.id, target.admin.userId!);
-      const { id } = await registered(ctx, target, target.admin, `gone-admin-${reason}`);
-      await stop(target, id, reason);
-      const db = orgDb(env, target.organization.verified);
-      await db.run(
-        db.statement((q) =>
-          q
-            .updateTable('memberships')
-            .set({ left_at: '2026-11-26T00:00:00.000Z', left_on: '2026-11-26' })
-            .where('id', '=', joined.id),
-        ),
-      );
-      const before = await rowsOf(target);
-      const calls = ctx.github.calls.length;
+  test('先に auth_failed（理由だけでは持ち主が去ったと分からない停止）で止まった接続は、持ち主の管理者がワークスペースを抜けると、候補も保存も 409 の connection_stopped', async () => {
+    const ctx = setup();
+    const target = await createTarget();
+    const joined = await createMembership(target.organization, target.workspace.id, target.admin.userId!);
+    const { id } = await registered(ctx, target, target.admin, `gone-admin-auth-failed`);
+    await stop(target, id, 'auth_failed');
+    const db = orgDb(env, target.organization.verified);
+    await db.run(
+      db.statement((q) =>
+        q
+          .updateTable('memberships')
+          .set({ left_at: '2026-11-26T00:00:00.000Z', left_on: '2026-11-26' })
+          .where('id', '=', joined.id),
+      ),
+    );
+    const before = await rowsOf(target);
+    const calls = ctx.github.calls.length;
 
-      const listed = await candidates(ctx, target, target.admin, id);
-      expect(listed.status).toBe(409);
-      expect(errorOf(await listed.json())).toMatchObject({ details: { reason: 'connection_stopped' } });
-      for (const ids of [['1001'], []]) {
-        const saved = await save(ctx, target, target.admin, id, ids);
-        expect(saved.status).toBe(409);
-        expect(errorOf(await saved.json())).toMatchObject({ details: { reason: 'connection_stopped' } });
-      }
-      expect(ctx.github.calls).toHaveLength(calls);
-      expect(await rowsOf(target)).toEqual(before);
-    },
-  );
+    const listed = await candidates(ctx, target, target.admin, id);
+    expect(listed.status).toBe(409);
+    expect(errorOf(await listed.json())).toMatchObject({ details: { reason: 'connection_stopped' } });
+    for (const ids of [['1001'], []]) {
+      const saved = await save(ctx, target, target.admin, id, ids);
+      expect(saved.status).toBe(409);
+      expect(errorOf(await saved.json())).toMatchObject({ details: { reason: 'connection_stopped' } });
+    }
+    expect(ctx.github.calls).toHaveLength(calls);
+    expect(await rowsOf(target)).toEqual(before);
+  });
 
   test('auth_failed で止まった接続の持ち主が候補を取っている間に抜けたら、保存は 409 の connection_stopped で範囲も履歴も増えない', async () => {
     const github = createFakePatGithub();
@@ -762,28 +759,31 @@ describe('持ち主が去って止めた接続の範囲', () => {
     expect((await save(ctx, target, target.member, id, ['1001'])).status).toBe(200);
   });
 
-  test('候補を取っている間に持ち主が抜けて止まったら、保存は 409 の connection_stopped で範囲も履歴も増えない', async () => {
-    const github = createFakePatGithub();
-    const target = await createTarget();
-    let connectionId = '';
-    let armed = false;
-    const fetcher: typeof fetch = async (input, init) => {
-      const res = await github.fetcher(input, init);
-      if (armed) await stop(target, connectionId, 'member_left');
-      return res;
-    };
-    const ctx = { github, app: createApp(implementedOperations, { fetcher }) };
-    connectionId = (await registered(ctx, target, target.member, 'gone-race')).id;
-    const before = await rowsOf(target);
-    armed = true;
+  test.each(['member_left', 'owner', 'leader'])(
+    '候補を取っている間に %s で止まったら、保存は 409 の connection_stopped で範囲も履歴も増えない',
+    async (reason) => {
+      const github = createFakePatGithub();
+      const target = await createTarget();
+      let connectionId = '';
+      let armed = false;
+      const fetcher: typeof fetch = async (input, init) => {
+        const res = await github.fetcher(input, init);
+        if (armed) await stop(target, connectionId, reason);
+        return res;
+      };
+      const ctx = { github, app: createApp(implementedOperations, { fetcher }) };
+      connectionId = (await registered(ctx, target, target.member, 'gone-race')).id;
+      const before = await rowsOf(target);
+      armed = true;
 
-    const res = await save(ctx, target, target.member, connectionId, ['1001']);
-    expect(res.status).toBe(409);
-    expect(errorOf(await res.json())).toMatchObject({ details: { reason: 'connection_stopped' } });
-    const rows = await rowsOf(target);
-    expect(rows.scopes).toEqual(before.scopes);
-    expect(rows.logs).toEqual(before.logs);
-  });
+      const res = await save(ctx, target, target.member, connectionId, ['1001']);
+      expect(res.status).toBe(409);
+      expect(errorOf(await res.json())).toMatchObject({ details: { reason: 'connection_stopped' } });
+      const rows = await rowsOf(target);
+      expect(rows.scopes).toEqual(before.scopes);
+      expect(rows.logs).toEqual(before.logs);
+    },
+  );
 });
 
 describe('connection-update', () => {
