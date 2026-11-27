@@ -195,7 +195,8 @@ async function run(repo: string): Promise<number> {
     ),
   );
   // 作者の login と本文は出さず、数えなかった作者の人数だけを残す
-  if (unverified.size > 0) console.log(`書き込み権限の無い、または確認できない作者 ${unverified.size} 人の PR は数えない`);
+  if (unverified.size > 0)
+    console.log(`書き込み権限の無い、または確認できない作者 ${unverified.size} 人の PR は数えない`);
   const withOpenPr = issuesWithOpenPr(openPrs, writers);
 
   let failed = 0;
