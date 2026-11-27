@@ -4,7 +4,7 @@
 
 | 操作 | MCP ツール |
 | --- | --- |
-| 開いた PR の一覧 | `list_pull_requests`（`head` は `<owner>:<branch>`。`fields` で絞るときは `number`、`head`、`base` と、要るなら `body` を入れる） |
+| 自分のブランチの PR の取得 | `list_pull_requests`（`head` は `<owner>:<branch>`。`fields` で絞るときは `number`、`head`、`base` と、要るなら `body` を入れる）。開いた PR の一覧の入口には使わない。作者を確かめる前に、外の人の PR のブランチ名と本文が結果に入るため（`make` の着手前の確認、`d1-migration`、`sprint-pick` は、`gh` が使えなければ止まる） |
 | PR の作成 | `create_pull_request`（本文を用意し、`draft: false` を明示） |
 | PR の読み取り（本文、レビュー、レビューのスレッド、check-runs、変更ファイル） | `pull_request_read` の `get`、`get_reviews`、`get_review_comments`、`get_check_runs`、`get_files` |
 | PR のタイトルと本文の更新、レビュワーの依頼 | `update_pull_request`（`reviewers`） |
