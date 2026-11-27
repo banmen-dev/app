@@ -1,4 +1,4 @@
-// CLI（cli/lib/main.ts）と本物の app のつなぎ。app の fetch を CLI に渡し、テストで足した仮の操作を sg call で呼べることを確かめる。
+// CLI（cli/lib/main.ts）と本物の app のつなぎ。app の fetch を CLI に渡し、テストで足した仮の操作を banmen call で呼べることを確かめる。
 // CLI は定義を import せず一覧を API から取るので、サーバーに定義を足せば CLI を作り直さずに使える（Issue #582）
 import { describe, expect, test } from 'vitest';
 import { z } from 'zod';
@@ -78,7 +78,7 @@ function apiError(result: { code: number; stdout: string; stderr: string }, stat
   expect(JSON.parse(result.stderr)).toMatchObject({ status, error: { code } });
 }
 
-describe('sg ops', () => {
+describe('banmen ops', () => {
   test('サーバーに足した仮の操作が一覧に載り、運用者の操作は載らない', async () => {
     const person = await createLoginPerson();
     const { code, stdout } = await sg(['ops'], { token: await tokenOf(person) });
@@ -89,7 +89,7 @@ describe('sg ops', () => {
     expect(stdout).not.toContain('operator-ping');
   });
 
-  test('sg ops <操作名> で説明と入力の形を見られる', async () => {
+  test('banmen ops <操作名> で説明と入力の形を見られる', async () => {
     const person = await createLoginPerson();
     const { code, stdout } = await sg(['ops', 'lantern-light'], { token: await tokenOf(person) });
     expect(code).toBe(0);
@@ -99,7 +99,7 @@ describe('sg ops', () => {
   });
 });
 
-describe('sg call で本物の app の操作を呼べる', () => {
+describe('banmen call で本物の app の操作を呼べる', () => {
   test('組織の外の操作', async () => {
     const person = await createLoginPerson();
     const { code, stdout, stderr } = await sg(['call', 'who-am-i'], { token: await tokenOf(person) });

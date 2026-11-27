@@ -10,7 +10,7 @@
 | 領域 | 確認した内容 |
 | --- | --- |
 | 製品 | 組織とワークスペースを作り、タスクをバックログやスプリントで管理する。組織をまたぐ自分のワークスペース一覧、受信箱、Wiki、添付、経験値の実装もある。GitHub からの取り込みを備える。[要件](requirements.md) / [画面](../src/routes/) / [取り込み](../src/server/import/) |
-| 構成 | SvelteKit の画面を静的にビルドし、Cloudflare Worker が画面と Hono の API を配る。D1 に業務データ、R2 に添付などを保存する。API の操作定義を画面、サーバー、CLI、MCP で共有する。[技術の選択](development.md#技術の選択) / [Worker の設定](../wrangler.jsonc) / [CLI](../cli/sg.ts) |
+| 構成 | SvelteKit の画面を静的にビルドし、Cloudflare Worker が画面と Hono の API を配る。D1 に業務データ、R2 に添付などを保存する。API の操作定義を画面、サーバー、CLI、MCP で共有する。[技術の選択](development.md#技術の選択) / [Worker の設定](../wrangler.jsonc) / [CLI](../cli/banmen.ts) |
 | データと権限 | 共通の表と組織内の表を扱う型と入口が分かれている。同じ種類の入口でも、別の入口で組み立てた文を実行時に拒む。組織をまたぐ操作には専用の実装とテストがある。[DB の入口](../src/server/db/entry.ts) / [別 DB の組織を使うテスト](../test/cross-organization-databases.test.ts) |
 | 品質 | Worker の API、画面のロジック、CLI と開発用ツールを別の環境で検査する。既存の GitHub Actions は型、lint、整形、テスト、空の D1 へのマイグレーション、ブラウザでの E2E を実行し、結果を `ci-ok` に集約する。権限の境界やデータ量の上限など、繰り返し見つかった問題の点検項目もある。[テストの設定](../vitest.config.ts) / [CI](../.github/workflows/ci.yml) / [レビューの観点](../REVIEW.md) |
 | 運用 | 文書上の本番手順は、GitHub で人が Release を公開し、ワークフローが `production` を進め、Workers Builds が配信する流れ。配信後のヘルスチェックと失敗時のコード切り戻しがあり、DB を戻すかは人が判断する。[リリースと復旧の手順](operations.md) |

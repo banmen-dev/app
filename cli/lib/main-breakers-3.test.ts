@@ -1,4 +1,4 @@
-// sg の入口（cli/sg.ts）を子プロセスで動かし、設定ファイルのストアの書き込みを崩しにいくテスト。期待は Issue #582 の前提と受け入れ条件に照らす
+// banmen の入口（cli/banmen.ts）を子プロセスで動かし、設定ファイルのストアの書き込みを崩しにいくテスト。期待は Issue #582 の前提と受け入れ条件に照らす
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { fileConfigStore } from './config-file.ts';
 import { main, type CliDeps } from './main.ts';
 
-const ENTRY = fileURLToPath(new URL('../sg.ts', import.meta.url));
+const ENTRY = fileURLToPath(new URL('../banmen.ts', import.meta.url));
 const TOKEN = `sgp_${'M'.repeat(43)}`;
 
 const catalog = {
@@ -94,7 +94,7 @@ function sg(
   });
 }
 
-describe('入口（cli/sg.ts）を子プロセスで動かす', () => {
+describe('入口（cli/banmen.ts）を子プロセスで動かす', () => {
   test('標準入力から設定したトークンで ops と call を呼べ、終了コードがプロセスに渡り、出力にトークンが出ない', async () => {
     const home = tempDir();
     try {
@@ -132,7 +132,7 @@ describe('入口（cli/sg.ts）を子プロセスで動かす', () => {
   test('つながらない URL では終了コード 3 がプロセスに渡り、トークンが出ない', async () => {
     const home = tempDir();
     try {
-      const result = await sg(['ops'], { HOME: home, SG_URL: 'http://127.0.0.1:9', SG_TOKEN: TOKEN });
+      const result = await sg(['ops'], { HOME: home, BANMEN_URL: 'http://127.0.0.1:9', BANMEN_TOKEN: TOKEN });
       assert.equal(result.code, 3);
       assert.equal(JSON.parse(result.stderr).error.code, 'connection_failed');
       assert.ok(!result.stdout.includes(TOKEN) && !result.stderr.includes(TOKEN));

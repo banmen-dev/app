@@ -85,7 +85,7 @@ async function connected(args: string[], world: ReturnType<typeof setup>) {
   return { client, done };
 }
 
-describe('sg mcp', () => {
+describe('banmen mcp', () => {
   test('tools/list で操作の一覧が道具として見える。サーバーに足すと次の tools/list で増える', async () => {
     resetOperations();
     const world = setup(profile({ org: 'aoba', workspace: 'ws-1' }));
@@ -199,7 +199,7 @@ describe('sg mcp', () => {
   });
 });
 
-describe('sg mcp の起動の誤り', () => {
+describe('banmen mcp の起動の誤り', () => {
   const startupError = async (args: string[], world: ReturnType<typeof setup>) => {
     const [, serverSide] = InMemoryTransport.createLinkedPair();
     const code = await runMcp(args, world.deps, serverSide);
@@ -224,13 +224,13 @@ describe('sg mcp の起動の誤り', () => {
   });
 
   test('エラーの出力にトークンを含めない', async () => {
-    const result = await startupError([], setup(undefined, { SG_TOKEN: OTHER_TOKEN }));
+    const result = await startupError([], setup(undefined, { BANMEN_TOKEN: OTHER_TOKEN }));
     assert.equal(result.code, 2);
     assert.ok(!result.stderr.includes(OTHER_TOKEN));
   });
 });
 
-describe('sg mcp の --allow-write', () => {
+describe('banmen mcp の --allow-write', () => {
   test('既定では読み取りの道具だけを出し、書き込みの道具の tools/call は isError', async () => {
     resetOperations();
     const world = setup(profile({ org: 'aoba', workspace: 'ws-1' }));

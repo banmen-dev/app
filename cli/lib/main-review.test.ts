@@ -1,4 +1,4 @@
-// sg の本体（main）の done-check の指摘を止めるテスト。期待は Issue #582 の前提と受け入れ条件（終了コード 1 / 2 / 3、トークンを出さない）に照らす
+// banmen の本体（main）の done-check の指摘を止めるテスト。期待は Issue #582 の前提と受け入れ条件（終了コード 1 / 2 / 3、トークンを出さない）に照らす
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { main, type CliDeps, type Config, type ConfigStore } from './main.ts';
@@ -118,9 +118,9 @@ describe('call の JSON は、つながる前に確かめる', () => {
 });
 
 describe('空の環境変数は未設定として扱う', () => {
-  test('SG_URL、SG_TOKEN、SG_ORG、SG_WORKSPACE、SG_PROFILE が空なら、設定の値を使う', async () => {
+  test('BANMEN_URL、BANMEN_TOKEN、BANMEN_ORG、BANMEN_WORKSPACE、BANMEN_PROFILE が空なら、設定の値を使う', async () => {
     const result = await sg(['call', 'lantern-ws'], {
-      env: { SG_URL: '', SG_TOKEN: '', SG_ORG: '', SG_WORKSPACE: '', SG_PROFILE: '' },
+      env: { BANMEN_URL: '', BANMEN_TOKEN: '', BANMEN_ORG: '', BANMEN_WORKSPACE: '', BANMEN_PROFILE: '' },
     });
     assert.equal(result.code, 0, result.stderr);
     const last = result.calls.at(-1)!;
@@ -132,25 +132,25 @@ describe('空の環境変数は未設定として扱う', () => {
 
 describe('URL とトークンは同じ出どころから取る', () => {
   for (const [label, env] of [
-    ['SG_URL だけ', { SG_URL: URL_B }],
-    ['SG_TOKEN だけ', { SG_TOKEN: TOKEN_ENV }],
+    ['BANMEN_URL だけ', { BANMEN_URL: URL_B }],
+    ['BANMEN_TOKEN だけ', { BANMEN_TOKEN: TOKEN_ENV }],
   ] as const) {
     test(`${label}を設定すると 2 で、値を出さず、送らない`, async () => {
       const result = await sg(['ops'], { env });
       usageError(result, [URL_B, TOKEN_ENV, TOKEN_A]);
-      assert.equal(JSON.parse(result.stderr).error.message, 'SG_URL と SG_TOKEN は両方を設定する');
+      assert.equal(JSON.parse(result.stderr).error.message, 'BANMEN_URL と BANMEN_TOKEN は両方を設定する');
     });
   }
 
   test('両方あれば環境変数の組を使い、設定の token と混ぜない', async () => {
-    const result = await sg(['ops'], { env: { SG_URL: URL_B, SG_TOKEN: TOKEN_ENV } });
+    const result = await sg(['ops'], { env: { BANMEN_URL: URL_B, BANMEN_TOKEN: TOKEN_ENV } });
     assert.equal(result.code, 0, result.stderr);
     assert.equal(result.calls[0]!.url, `${URL_B}/api/operation-list`);
     assert.equal(result.calls[0]!.authorization, `Bearer ${TOKEN_ENV}`);
   });
 
-  test('空でない SG_URL と SG_TOKEN のどちらも無ければ、接続先の設定の組を使う', async () => {
-    const result = await sg(['ops'], { env: { SG_URL: '', SG_TOKEN: '' } });
+  test('空でない BANMEN_URL と BANMEN_TOKEN のどちらも無ければ、接続先の設定の組を使う', async () => {
+    const result = await sg(['ops'], { env: { BANMEN_URL: '', BANMEN_TOKEN: '' } });
     assert.equal(result.calls[0]!.authorization, `Bearer ${TOKEN_A}`);
   });
 });
@@ -178,9 +178,9 @@ describe('接続先の名前は自分の項目だけを引く', () => {
       usageError(await sg(['config', 'use', name], { config }));
       assert.equal(config.current()!.default_profile, 'main');
     });
-    test(`ops --profile ${name} と SG_PROFILE=${name} は 2`, async () => {
+    test(`ops --profile ${name} と BANMEN_PROFILE=${name} は 2`, async () => {
       usageError(await sg(['ops', '--profile', name]));
-      usageError(await sg(['ops'], { env: { SG_PROFILE: name } }));
+      usageError(await sg(['ops'], { env: { BANMEN_PROFILE: name } }));
     });
     test(`default_profile が ${name} の設定は 2`, async () => {
       const config: Config = { default_profile: name, profiles: { main: { url: URL_A, token: TOKEN_A } } };
@@ -210,7 +210,7 @@ describe('URL を確かめる', () => {
       assert.deepEqual(config.current(), twoProfiles());
     });
     test(`使うときも ${url} は 2 で、送らず、URL を出さない`, async () => {
-      const viaEnv = await sg(['ops'], { env: { SG_URL: url, SG_TOKEN: TOKEN_ENV } });
+      const viaEnv = await sg(['ops'], { env: { BANMEN_URL: url, BANMEN_TOKEN: TOKEN_ENV } });
       usageError(viaEnv, ['hunter2', 'evil.example', TOKEN_ENV]);
       const config: Config = { profiles: { main: { url, token: TOKEN_A } } };
       usageError(await sg(['ops'], { config: memoryStore(config) }), ['hunter2', 'evil.example', TOKEN_A]);
@@ -222,13 +222,13 @@ describe('URL を確かめる', () => {
       const config = memoryStore(twoProfiles());
       assert.equal((await sg(['config', 'set', 'url', url], { config })).code, 0);
       assert.equal(config.current()!.profiles.main!.url, url);
-      const result = await sg(['ops'], { env: { SG_URL: url, SG_TOKEN: TOKEN_ENV } });
+      const result = await sg(['ops'], { env: { BANMEN_URL: url, BANMEN_TOKEN: TOKEN_ENV } });
       assert.equal(result.code, 0, result.stderr);
     });
   }
 
   test('url の末尾の / は二重にならない', async () => {
-    const result = await sg(['ops'], { env: { SG_URL: `${URL_A}///`, SG_TOKEN: TOKEN_ENV } });
+    const result = await sg(['ops'], { env: { BANMEN_URL: `${URL_A}///`, BANMEN_TOKEN: TOKEN_ENV } });
     assert.equal(result.calls[0]!.url, `${URL_A}/api/operation-list`);
   });
 });
@@ -414,7 +414,7 @@ describe('変異で生き残った箇所', () => {
 
   test('偽 fetch が token を含む誤りを投げても、出力にトークンが出ない', async () => {
     const result = await sg(['ops'], {
-      env: { SG_URL: URL_A, SG_TOKEN: TOKEN_ENV },
+      env: { BANMEN_URL: URL_A, BANMEN_TOKEN: TOKEN_ENV },
       fetcher: (async () => {
         throw new Error(`bad Bearer ${TOKEN_ENV}`);
       }) as typeof fetch,
