@@ -615,6 +615,11 @@ export const dictionary = defineDictionary({
   breadcrumb: 'パンくず',
   // ワークスペースの画面の上のタブ（WorkspaceTabs）の nav の読み上げの名前
   workspaceTabs: '{workspace}の画面',
+  // 幅が足りずに入りきらないタブをまとめるボタン（「その他 3」）と、開く一覧の読み上げの名前。
+  // 今の画面がまとめた中にあるときは、ボタンの名前でも伝える
+  workspaceTabsMore: 'その他',
+  workspaceTabsMoreCurrent: '{more} {count}（開いている画面を含む）',
+  workspaceTabsMoreList: '{workspace}のその他の画面',
   mobilePageToolsLabel: '検索とアカウント',
   navSearchLabel: '画面とタスクを探す',
   navSearchPlaceholder: '画面やタスクを探す',

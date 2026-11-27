@@ -1,13 +1,21 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import { GO_KEYS, isNavItemCurrent, visibleWorkspaceTabs } from '../nav.ts';
+  import { fitTabCount } from '../tab-fit.ts';
   import { t } from '../vocabulary.svelte.ts';
+  import Icon from './Icon.svelte';
+  import { SwitcherMenu } from './switcher-menu.svelte.ts';
 
-  // ワークスペースの画面の上のタブ（761px 以上）。kit.js の workspaceTabsHtml と同じ作り。
+  // ワークスペースの画面の上のタブ（どの幅でも出す）。kit.js の workspaceTabsHtml と同じ作り。
   // 画面を移るリンクの並びなので、tablist（.tabs と aria-selected）ではなく nav の中のリンクにし、今の画面に aria-current="page" を付ける。
   // 項目と並びと出す条件は nav.ts の workspaceTabs（設定は対象のリーダーと管理者だけ）。今の画面の判定はパンくずと同じ isNavItemCurrent で、
   // タスクとエピックの詳細ではどれも選ばず、Wiki の下の階層（ページ）では Wiki を選ぶ。
-  // 置き場所は AppShell のパンくずの帯（.sheet-crumbs）の下、本文（main）の外。760px 以下は出さない（スマホのタブは #1516）
+  // 置き場所は AppShell の本文（main）の外、見出しの上。761px 以上はパンくずの帯（.sheet-crumbs）の下、760px 以下は上の帯の下（#1516）。
+  // 幅が足りないときは、入るだけを前から並べ、残りを「その他 <件数>」のボタンにまとめる（Jira の狭い幅と同じ）。入る数は、
+  // 全部のタブと「その他」のボタンを見えない場所に並べて測った幅（measurer）と帯の幅から fitTabCount で決め、帯か測った幅が変わるたびに決め直す
+  // （幅を広げるとまとめていたタブが列に戻る）。測るまでは全部を並べて、はみ出す分を隠す。
+  // 今の画面のタブが「その他」に入るときは、ボタンを今のタブと同じ印にして読み上げの名前でも伝え、開いた一覧の中のその項目に aria-current="page" を付ける。
+  // 一覧はボタンの下に開き、組織の切り替えと同じ SwitcherMenu で、Esc、外を押す、Tab で外へ出る、項目を押すと閉じる
   let {
     current,
     slug,
@@ -20,37 +28,114 @@
     visibleWorkspaceTabs({ isAdmin, isLeader }).map((tab) => ({
       ...tab,
       link: resolve(tab.href, { slug, id: workspaceId }),
+      isCurrent: isNavItemCurrent(tab.label, resolve(tab.href, { slug, id: workspaceId }), current),
     })),
   );
 
-  // 幅が足りず帯の中で横に送るとき（左のメニューを広げた 761〜850px ほど）、今の画面のタブが帯の外に隠れないよう、
-  // 開いたときと画面を移るたびに帯の見える範囲へ送る。帯の横の送りだけを変え、ページの縦の位置は動かさない（scrollIntoView を使わない）
-  // 送るのは今の画面（パス）が替わったときだけ。current は親の page.url を読む getter なので、そのまま読むと
-  // `?task=` などのクエリが替わるたびに走り直し、帯の位置を測る読み出しが引き出しの出現の動き（CSS の transition）を潰す。
-  // $derived は値が同じなら下流へ知らせないので、パスが替わったときだけ走る
-  const path = $derived(current);
   let bar = $state<HTMLElement>();
+  let measurer = $state<HTMLElement>();
+  // 列に残す数。null は測る前（全部を並べる）
+  let fitCount = $state<number | null>(null);
+
+  const shownCount = $derived(fitCount === null ? tabs.length : Math.min(fitCount, tabs.length));
+  const shown = $derived(tabs.slice(0, shownCount));
+  const rest = $derived(tabs.slice(shownCount));
+  const restHasCurrent = $derived(rest.some((tab) => tab.isCurrent));
+
+  const listId = $props.id();
+  const menu = new SwitcherMenu();
+
+  function measure(): void {
+    if (!bar || !measurer) return;
+    const items = [...measurer.querySelectorAll<HTMLElement>('[data-measure-tab]')];
+    const more = measurer.querySelector<HTMLElement>('[data-measure-more]');
+    if (items.length === 0 || !more) return;
+    const gap = Number.parseFloat(getComputedStyle(measurer).columnGap) || 0;
+    fitCount = fitTabCount(
+      items.map((item) => item.getBoundingClientRect().width),
+      bar.clientWidth,
+      gap,
+      more.getBoundingClientRect().width,
+    );
+  }
+
+  // 帯の幅、測る側の幅（文字の読み込みや拡大で変わる）、タブの数（ロールで設定が増減する）のどれかが変わったら決め直す
+  $effect(() => {
+    void tabs.length;
+    if (!bar || !measurer) return;
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    observer.observe(measurer);
+    return () => observer.disconnect();
+  });
+
+  // 画面を移ったときと、まとめるタブが無くなったとき（幅を広げた）は一覧を閉じる。移った先にフォーカスを残す（移る前の項目は消える）
+  const path = $derived(current);
   $effect(() => {
     void path;
-    const tab = bar?.querySelector<HTMLElement>('[aria-current="page"]');
-    if (!bar || !tab) return;
-    // 帯（position: relative）がタブの offsetParent なので、offsetLeft は帯の左端からの位置
-    const start = tab.offsetLeft;
-    const end = start + tab.offsetWidth;
-    if (start < bar.scrollLeft) bar.scrollLeft = start;
-    else if (end > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = end - bar.clientWidth;
+    menu.open = false;
+  });
+  $effect(() => {
+    if (rest.length === 0) menu.open = false;
   });
 </script>
 
-<nav bind:this={bar} class="route-tabs" aria-label={t('workspaceTabs', { workspace: t('workspace') })}>
-  {#each tabs as tab (tab.label)}
+<svelte:window onkeydown={menu.onkeydown} onclick={menu.onclick} />
+
+<nav
+  bind:this={bar}
+  class="route-tabs"
+  class:is-fit={fitCount !== null}
+  aria-label={t('workspaceTabs', { workspace: t('workspace') })}
+>
+  {#each shown as tab (tab.label)}
     <a
       class="route-tab"
       href={tab.link}
       data-label={t(tab.label)}
-      aria-current={isNavItemCurrent(tab.label, tab.link, current) ? 'page' : undefined}
+      aria-current={tab.isCurrent ? 'page' : undefined}
       aria-describedby={GO_KEYS[tab.label] === undefined ? undefined : `tab-go-${tab.label}`}>{t(tab.label)}</a
     >
+  {/each}
+  {#if rest.length > 0}
+    <div class="route-tab-more" bind:this={menu.root} onfocusout={menu.onfocusout}>
+      <button
+        class="route-tab"
+        type="button"
+        data-label="{t('workspaceTabsMore')} {rest.length}"
+        data-current={restHasCurrent ? 'true' : undefined}
+        aria-expanded={menu.open}
+        aria-controls={listId}
+        aria-label={restHasCurrent
+          ? t('workspaceTabsMoreCurrent', { more: t('workspaceTabsMore'), count: String(rest.length) })
+          : undefined}
+        bind:this={menu.button}
+        onclick={menu.toggle}
+      >
+        {t('workspaceTabsMore')} <span class="route-tab-count">{rest.length}</span><Icon name="chevron" />
+      </button>
+      <ul
+        class="route-tabs-more-list"
+        id={listId}
+        aria-label={t('workspaceTabsMoreList', { workspace: t('workspace') })}
+        hidden={!menu.open}
+      >
+        {#each rest as tab (tab.label)}
+          <li>
+            <a
+              href={tab.link}
+              aria-current={tab.isCurrent ? 'page' : undefined}
+              aria-describedby={GO_KEYS[tab.label] === undefined ? undefined : `tab-go-${tab.label}`}
+              onclick={menu.close}
+              ><span class="route-tabs-more-name">{t(tab.label)}</span>{#if tab.isCurrent}<Icon name="check" />{/if}</a
+            >
+          </li>
+        {/each}
+      </ul>
+    </div>
+  {/if}
+  {#each tabs as tab (tab.label)}
     {#if GO_KEYS[tab.label] !== undefined}
       <!-- 続けて押すキーは aria-keyshortcuts に書けないので、リンクの説明として伝える（目には見せない。NavMenu と同じ） -->
       <span class="visually-hidden" id="tab-go-{tab.label}"
@@ -61,4 +146,13 @@
       >
     {/if}
   {/each}
+  <!-- 幅を測るための見えない並び。全部のタブと、全部をまとめた件数の「その他」のボタンを、本物と同じ部品で置く -->
+  <div class="route-tabs-measure" aria-hidden="true" bind:this={measurer}>
+    {#each tabs as tab (tab.label)}
+      <span class="route-tab" data-measure-tab data-label={t(tab.label)}>{t(tab.label)}</span>
+    {/each}
+    <span class="route-tab" data-measure-more data-label="{t('workspaceTabsMore')} {tabs.length}"
+      >{t('workspaceTabsMore')} <span class="route-tab-count">{tabs.length}</span><Icon name="chevron" /></span
+    >
+  </div>
 </nav>

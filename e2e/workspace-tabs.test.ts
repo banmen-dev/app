@@ -1,9 +1,9 @@
-// ワークスペースの画面のタブ（#1514）。761px 以上で、ワークスペースのどの画面でもパンくずの下に機能のタブが並び、
-// 左のメニューにはワークスペースの機能の項目を出さない。760px 以下は今までどおり浮きメニューの項目で移る。
+// ワークスペースの画面のタブ（#1514、#1516）。ワークスペースのどの画面でも本文の見出しの上に機能のタブが並び、
+// 左のメニューにも浮きメニューにもワークスペースの機能の項目を出さない。幅が足りなければ入りきらないタブを「その他 <件数>」にまとめる。
 // axe はワークスペースの画面ごとの検査（backlog、members など。タブを含む画面全体）が2つのテーマで受け持つ
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures.ts';
-import { signIn, watchViolations } from './helpers.ts';
+import { A11Y_THEMES, applyTheme, findA11yViolations, signIn, watchViolations } from './helpers.ts';
 
 const WORKSPACE = '/aoba/w/019a0000-0000-7000-8000-000000000401';
 const TASK = '019a0000-0000-7000-8000-000000000801';
@@ -95,24 +95,30 @@ test.describe('リーダー（あおば開発のミナト）', () => {
 
 test.describe('左のメニューを広げた 800px', () => {
   test.use({ viewport: { width: 800, height: 900 } });
-  test('タブが帯に入りきらなくても、今の画面のタブを帯の見える範囲に出す', async ({ page, context, baseURL }) => {
+  test('761px 以上でも幅が足りなければ同じ形でまとめ、今の画面のタブが入ったときはボタンに印を付ける', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
     await signIn(context, baseURL, 'admin');
     await page.goto(`${WORKSPACE}/settings`);
     await expect(page.getByRole('heading', { level: 1, name: '設定' })).toBeVisible();
-    const bar = page.locator('.route-tabs');
-    // この検査の前提: 帯が溢れている
-    expect(await bar.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
-    const current = tabsOf(page).locator('[aria-current="page"]');
-    await expect(current).toHaveText('設定');
-    const [barBox, tabBox] = [(await bar.boundingBox())!, (await current.boundingBox())!];
-    expect(tabBox.x).toBeGreaterThanOrEqual(barBox.x - 1);
-    expect(tabBox.x + tabBox.width).toBeLessThanOrEqual(barBox.x + barBox.width + 1);
-    // ページは横に送られない
+    const more = tabsOf(page).getByRole('button', { name: /^その他/ });
+    // この検査の前提: 800px では全部が入らず、末尾の設定がまとめられる
+    await expect(more).toBeVisible();
+    await expect(more).toHaveAttribute('data-current', 'true');
+    // 帯は横に送られず、ページも溢れない
+    expect(await page.locator('.route-tabs').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    // 左端の画面へ移ると、今のタブへ送り戻す
+    await more.click();
+    await expect(
+      page.getByRole('list', { name: 'ワークスペースのその他の画面' }).locator('[aria-current="page"]'),
+    ).toHaveText('設定');
+    // 左端の画面へ移ると、ボタンの印は外れる
+    await page.keyboard.press('Escape');
     await tabsOf(page).getByRole('link', { name: '受信箱', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`${WORKSPACE}/inbox$`));
-    await expect.poll(() => bar.evaluate((el) => el.scrollLeft)).toBe(0);
+    await expect(more).not.toHaveAttribute('data-current', 'true');
   });
 });
 
@@ -131,21 +137,113 @@ test.describe('指で押す 1024px の端末', () => {
     await signIn(context, baseURL, 'admin');
     await page.goto(WORKSPACE);
     const tabs = tabsOf(page).getByRole('link');
-    await expect(tabs).toHaveCount(ALL.length);
+    const more = tabsOf(page).getByRole('button', { name: /^その他/ });
+    await expect(tabs.first()).toBeVisible();
     for (const tab of await tabs.all()) expect((await tab.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    if (await more.isVisible()) expect((await more.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   });
 });
 
-test.describe('760px 以下', () => {
+test.describe('760px 以下と「その他」', () => {
   test.use({ viewport: { width: 390, height: 800 } });
-  test('タブを出さず、浮きメニューにワークスペースの項目を今までどおり出す', async ({ page, context, baseURL }) => {
+
+  const more = (page: Page) => page.getByRole('button', { name: /^その他/ });
+  const moreList = (page: Page) => page.getByRole('list', { name: 'ワークスペースのその他の画面' });
+
+  test('見出しの上にタブと「その他」が出て、浮きメニューには機能の項目が無い', async ({ page, context, baseURL }) => {
     await signIn(context, baseURL, 'admin');
     await page.goto(WORKSPACE);
-    await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();
-    await expect(page.locator('.route-tabs')).toHaveCount(0);
+    const heading = page.getByRole('heading', { level: 1, name: 'バックログ' });
+    await expect(heading).toBeVisible();
+    await expect(tabsOf(page)).toBeVisible();
+    await expect(more(page)).toBeVisible();
+    // 帯は見出しの上にあり、横に溢れない
+    const tabsBox = (await tabsOf(page).boundingBox())!;
+    expect(tabsBox.y + tabsBox.height).toBeLessThanOrEqual((await heading.boundingBox())!.y);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    // どの機能へも、列のタブか「その他」の一覧から移れる
+    const shown = await tabsOf(page).getByRole('link').count();
+    await more(page).click();
+    await expect(more(page)).toHaveAttribute('aria-expanded', 'true');
+    expect(shown + (await moreList(page).getByRole('link').count())).toBe(ALL.length);
+    await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'すべてのメニュー', exact: true }).click();
     const menu = page.locator('.mobile-menu');
-    for (const name of ALL) await expect(menu.getByRole('link', { name, exact: true })).toBeVisible();
-    await expect(menu.locator('.nav-group-label', { hasText: '管理' })).toBeVisible();
+    for (const name of ALL.filter((label) => label !== 'バックログ' && label !== 'ボード'))
+      await expect(menu.getByRole('link', { name, exact: true })).toHaveCount(0);
+    await expect(menu.locator('.nav-group-label', { hasText: '管理' })).toHaveCount(0);
+    // 下のタブバーは今のまま
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.mobile-tabs')).toBeVisible();
+  });
+
+  test('「その他」の中のメンバーへ移ると、ボタンに印が付き、一覧でその項目が今の画面と分かる', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await signIn(context, baseURL, 'admin');
+    await page.goto(WORKSPACE);
+    await more(page).click();
+    await moreList(page).getByRole('link', { name: 'メンバー', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`${WORKSPACE}/members$`));
+    await expect(moreList(page)).toBeHidden();
+    await expect(more(page)).toHaveAttribute('data-current', 'true');
+    await expect(more(page)).toHaveAccessibleName(/開いている画面を含む/);
+    await more(page).click();
+    await expect(moreList(page).getByRole('link', { name: 'メンバー', exact: true })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
+  test('一覧は Esc と外を押すと閉じ、フォーカスがボタンに戻る', async ({ page, context, baseURL }) => {
+    await signIn(context, baseURL, 'admin');
+    await page.goto(WORKSPACE);
+    await more(page).click();
+    await moreList(page).getByRole('link').first().focus();
+    await page.keyboard.press('Escape');
+    await expect(moreList(page)).toBeHidden();
+    await expect(more(page)).toBeFocused();
+    await more(page).click();
+    await expect(moreList(page)).toBeVisible();
+    await page.getByRole('heading', { level: 1, name: 'バックログ' }).click();
+    await expect(moreList(page)).toBeHidden();
+  });
+
+  test('幅を広げると、まとめていたタブが列に戻る', async ({ page, context, baseURL }) => {
+    await signIn(context, baseURL, 'admin');
+    await page.goto(WORKSPACE);
+    await expect(more(page)).toBeVisible();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect(more(page)).toHaveCount(0);
+    for (const name of ALL) await expect(tabsOf(page).getByRole('link', { name, exact: true })).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 800 });
+    await expect(more(page)).toBeVisible();
+  });
+
+  test('4つの見た目で axe と押せる範囲 44px が、390px と 1280px で通る', async ({ page, context, baseURL }) => {
+    await signIn(context, baseURL, 'admin');
+    await page.goto(WORKSPACE);
+    for (const theme of A11Y_THEMES) {
+      await applyTheme(page, theme);
+      for (const width of [390, 1280]) {
+        await page.setViewportSize({ width, height: 800 });
+        await expect(tabsOf(page)).toBeVisible();
+        if (width === 390) {
+          await more(page).click();
+          await expect(moreList(page)).toBeVisible();
+        }
+        expect(await findA11yViolations(page), `${theme} ${width}px`).toEqual([]);
+        const targets = [
+          ...(await tabsOf(page).getByRole('link').all()),
+          ...(await tabsOf(page).getByRole('button').all()),
+        ];
+        for (const target of targets) {
+          if (await target.isVisible()) expect((await target.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+        }
+        if (width === 390) await page.keyboard.press('Escape');
+      }
+    }
   });
 });
