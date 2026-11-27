@@ -4,7 +4,7 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures.ts';
 import { taskCreate } from '../src/shared/operations/task/task-create.ts';
-import { addStoryRow, addTaskRow, createWorkspace, signIn, watchViolations } from './helpers.ts';
+import { addStoryRow, addTaskRow, chooseTreeKind, createWorkspace, signIn, watchViolations } from './helpers.ts';
 import { AOBA_CLIENT_WORKSPACE_ID, E2E_SEED_TASK_PREFIX, removeE2eSeedTasks } from './local-d1.ts';
 import { failOperation } from './operations.ts';
 
@@ -31,7 +31,7 @@ test('エピックとストーリーを、木の空の行に題を打って Ente
   await addTaskRow(page, '最初のタスク');
 
   // 木の末尾の「エピックを足す」。空のまま Enter を押しても何も作らない
-  const epicInput = treeTail(page).getByRole('textbox', { name: 'エピックを足す' });
+  const epicInput = await chooseTreeKind(page, 'エピック');
   await epicInput.press('Enter');
   await expect(page.locator('.tree-row.is-epic')).toHaveCount(0);
 
@@ -62,7 +62,7 @@ test('エピックとストーリーを、木の空の行に題を打って Ente
   await expect(titles).toHaveText(['残高を見せる', '失効日を見せる']);
 
   // 木の末尾の「ストーリーを足す」は、親のないストーリーを作る（エピックの配下には入らない）
-  const rootInput = treeTail(page).getByRole('textbox', { name: 'ストーリーを足す' });
+  const rootInput = await chooseTreeKind(page, 'ストーリー');
   await rootInput.fill('親のないストーリー');
   await rootInput.press('Enter');
   await expect(page.getByRole('link', { name: '親のないストーリー', exact: true })).toBeVisible();
@@ -108,7 +108,7 @@ test('タスクを、ストーリーの配下の末尾と木の末尾の空の�
   await expect(story.getByText('一つ目のタスク', { exact: true })).toBeVisible();
 
   // 木の末尾の「タスクを足す」は、親のないタスクを作る
-  const rootInput = treeTail(page).getByRole('textbox', { name: 'タスクを足す' });
+  const rootInput = await chooseTreeKind(page, 'タスク');
   await rootInput.fill('親のないタスク');
   await rootInput.press('Enter');
   await expect(page.getByText('親のないタスク', { exact: true })).toBeVisible();
@@ -181,4 +181,56 @@ test('タスクの空の行が断られたら、理由を出して題を残す�
   // 空の行がフォーカスを取り戻す。行が消えるときの見出しへのフォーカスは、ストーリーの空の行と同じ rowGone が受け持つ）
   await expect(input).toHaveValue('断られる題');
   await expect(page.locator('.draft-error')).toContainText('タスクを足せません');
+});
+
+// 木の末尾の空の行は1つで、種類（エピック、ストーリー、タスク）を行の中で選ぶ（#1645）
+test('木の末尾の空の行は1つ。種類を選んで3種類を作れ、書きかけは種類を替えても残り、選んだ種類は読み直しても残る', async ({
+  page,
+}) => {
+  await createWorkspace(page, '種類を選ぶ空の行');
+
+  // 空の行は1つだけで、初めて開いたときはタスクが選ばれている
+  await expect(treeTail(page)).toHaveCount(1);
+  const kinds = treeTail(page).getByRole('radiogroup', { name: '足す種類' });
+  await expect(kinds.getByRole('radio')).toHaveCount(3);
+  await expect(kinds.getByRole('radio', { name: 'タスク', exact: true })).toBeChecked();
+  const input = treeTail(page).getByRole('textbox', { name: 'タスクを足す', exact: true });
+  await expect(input).toHaveAttribute('placeholder', 'タスクを足す（題を打って Enter）');
+
+  // 題を書きかけのまま種類を替えても、題は残る。欄の案内文と読み上げの名前は選んだ種類に変わる
+  await input.fill('書きかけの題');
+  await kinds.getByRole('radio', { name: 'エピック', exact: true }).check({ force: true });
+  const epicInput = treeTail(page).getByRole('textbox', { name: 'エピックを足す', exact: true });
+  await expect(epicInput).toHaveValue('書きかけの題');
+  await expect(epicInput).toHaveAttribute('placeholder', 'エピックを足す（題を打って Enter）');
+  await epicInput.press('Enter');
+  await expect(page.locator('.tree-row.is-epic').getByText('書きかけの題', { exact: true })).toBeVisible();
+  await expect(epicInput).toHaveValue('');
+  await expect(epicInput).toBeFocused();
+
+  // ストーリーとタスクも同じ行で作る。続けて打てる
+  const storyInput = await chooseTreeKind(page, 'ストーリー');
+  await storyInput.fill('親のないストーリー');
+  await storyInput.press('Enter');
+  await expect(page.locator('.tree-row.is-story').getByText('親のないストーリー', { exact: true })).toBeVisible();
+  const taskInput = await chooseTreeKind(page, 'タスク');
+  await taskInput.fill('親のないタスク');
+  await taskInput.press('Enter');
+  await expect(page.getByText('親のないタスク', { exact: true })).toBeVisible();
+
+  // 最後に選んだ種類は、読み直しても選ばれている
+  await chooseTreeKind(page, 'ストーリー');
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();
+  await expect(
+    treeTail(page)
+      .getByRole('radiogroup', { name: '足す種類' })
+      .getByRole('radio', { name: 'ストーリー', exact: true }),
+  ).toBeChecked();
+  await expect(treeTail(page).getByRole('textbox', { name: 'ストーリーを足す', exact: true })).toBeVisible();
+
+  // `c` のショートカットで、この行の題の欄にフォーカスが移る
+  await page.getByRole('heading', { level: 1, name: 'バックログ' }).click();
+  await page.keyboard.press('c');
+  await expect(treeTail(page).getByRole('textbox', { name: 'ストーリーを足す', exact: true })).toBeFocused();
 });

@@ -2263,6 +2263,10 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
 .draft-row .input { flex: 1 1 auto; min-width: 0; border-style: dashed; }
 .draft-row .input:focus { border-style: solid; }
 .tree-children .draft-row { padding-left: var(--space-10); }
+/* 種類を選べる空の行（.is-lead。バックログの木の末尾。#1645）。種類の選択（.segmented）を題の欄の前に置き、狭い幅では題の欄が下の段へ折り返す */
+.draft-row.is-lead { flex-wrap: wrap; }
+.draft-row.is-lead > .segmented { flex: none; }
+.draft-row.is-lead > .input { flex: 1 1 14rem; }
 /* 空の行の失敗の文。行の下に出し、字下げは行と揃える */
 .draft-error { margin: 0; padding: 0 var(--space-3) var(--space-2) calc(var(--space-3) + var(--space-5) + var(--space-2)); }
 .tree-children .draft-error { padding-left: calc(var(--space-10) + var(--space-5) + var(--space-2)); }

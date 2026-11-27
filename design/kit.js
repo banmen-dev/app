@@ -773,10 +773,21 @@
     ];
   }
   // 空の行（.draft-row）。題だけを打って Enter で足す。kind は root（親なし）、story（ストーリーの下）、col（スプリントの列）
-  function draftRow(kind, key, label, placeholder) {
+  // lead は題の欄の前に置く部品（バックログの木の末尾の、種類の選択。draftKindRow）
+  function draftRow(kind, key, label, placeholder, lead) {
     const id = `draft-${kind}-${key}`;
-    return `<div class="draft-row" data-draft-row>${icon("plus")}<label class="visually-hidden" for="${id}">${esc(label)}</label>` +
+    return `<div class="draft-row${lead ? " is-lead" : ""}" data-draft-row>${icon("plus")}${lead || ""}<label class="visually-hidden" for="${id}">${esc(label)}</label>` +
       `<input class="input" id="${id}" data-draft="${kind}:${key}" placeholder="${esc(placeholder ?? `${label}（題を打って Enter）`)}" autocomplete="off" enterkeyhint="done"></div>`;
+  }
+  // バックログの木の末尾の、種類（エピック、ストーリー、タスク）を選べる1つの空の行（本番の木の末尾の DraftRow。#1645）。
+  // 選んだ種類で欄の案内文と読み上げの名前が変わり、題の書きかけは残る。既定はタスク
+  let draftKind = "task";
+  const draftKindWords = () => ({ epic: t("epic"), story: t("story"), task: t("task") });
+  function draftKindRow() {
+    const kinds = Object.entries(draftKindWords());
+    const lead = `<div class="segmented" role="radiogroup" aria-label="足す種類">${kinds.map(([k, name]) =>
+      `<label><input type="radio" name="draft-kind" value="${k}" data-draft-kind${k === draftKind ? " checked" : ""}><span>${esc(name)}</span></label>`).join("")}</div>`;
+    return draftRow("kind", "root", `${draftKindWords()[draftKind]}を足す`, undefined, lead);
   }
   // ボードの列の末尾の空の行の下に並べる、作る前に選ぶ担当と期日のチップ（.draft-attrs。本番の DraftAttrs。#1501）。
   // 選んだ値は見本の中の draftChoices に列ごとに持ち、題を打って Enter で作ると、そのタスクに付けて空に戻す
@@ -2552,11 +2563,23 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     row.addEventListener("animationend", finish);
   }
   let draftSeq = 0;
+  // 種類を替えると、欄の案内文と読み上げの名前だけが替わり、題の書きかけは残る
+  document.addEventListener("change", (ev) => {
+    const radio = ev.target.matches && ev.target.matches("input[data-draft-kind]") ? ev.target : null;
+    if (!radio) return;
+    draftKind = radio.value;
+    const input = radio.closest("[data-draft-row]").querySelector("input[data-draft]");
+    const label = `${draftKindWords()[draftKind]}を足す`;
+    input.placeholder = `${label}（題を打って Enter）`;
+    document.querySelector(`label[for="${input.id}"]`).textContent = label;
+  });
   // 題を打って Enter で足す。見本の中だけで持ち、足したら同じ欄に戻って続けて打てる
   function createFromDraft(input) {
     const title = input.value.trim();
     if (!title) return;
-    const [kind, key] = input.dataset.draft.split(":");
+    let [kind, key] = input.dataset.draft.split(":");
+    // 木の末尾の、種類を選べる行は、選んだ種類の親のない項目を作る
+    if (kind === "kind") { kind = draftKind === "epic" ? "new-epic" : draftKind === "story" ? "new-story" : "root"; key = "root"; }
     // エピックとストーリーも題だけで作り、同じ空の行へ戻る
     if (kind === "new-epic" || kind === "new-story") {
       const id = `sample-${++draftSeq}`;
@@ -5283,7 +5306,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     D, t, brandMark, brandSymbol, googleMark, githubMark, THEMES, THEME_LABEL, THEME_NOTE, esc, icon, md, sumPts, cycleTheme, setTheme, applyTheme, mount,
     onRedraw: (fn) => extraRedraws.push(fn), openDrawer, drawerHtml, drawerState: drawer, flashRow,
     user, task, tasksWhere, repoTag, categoryTag, sprintTag, repoPicker, sprintLabel, colName, categoryOf, storyPts, epicPts, dueOf,
-    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, pts, dueChip, taskDue, sourceKey, entry, rowMenu, orderItems, draftRow, draftAttrs, attrChip, book, section, foldedSection, pane, paneList, newsList, dashboard, activity, activityLoading, activityFailed, activityEmptyNoWorkspace, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
+    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, pts, dueChip, taskDue, sourceKey, entry, rowMenu, orderItems, draftRow, draftKindRow, draftAttrs, attrChip, book, section, foldedSection, pane, paneList, newsList, dashboard, activity, activityLoading, activityFailed, activityEmptyNoWorkspace, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
     narrowDisclosure, popover, card, board, boardToolbar, treeStory, treeEpic, completedTasks, sprintNotice, progress, load, capacityRows,
     openDialog, closeDialog, toast, miniCap, redraw: () => redrawAll(), DIALOGS, loginTarget, orgMenuHtml, workspaceListHtml, accountMenuHtml, breadcrumbHtml,
     filesOf, fileThumb, fileRow, dropzone, attachments, markdownEditor, markdownToolbarHtml, mdBody, markdownSample, meter, storageBytes,

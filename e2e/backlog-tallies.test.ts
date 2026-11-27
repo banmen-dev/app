@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures.ts';
-import { addTaskRow, createWorkspace, signIn, waitForResponses } from './helpers.ts';
+import { addTaskRow, chooseTreeKind, createWorkspace, signIn, waitForResponses } from './helpers.ts';
 import { backlogTree } from '../src/shared/operations/task/index.ts';
 import { routeOperation } from './operations.ts';
 
@@ -114,7 +114,7 @@ test('絞り込みで隠れる起票も、木の応答が来る前から全体�
   });
   const finishReading = await holdTree(page);
   try {
-    const input = page.locator('.tree > .draft-row').getByRole('textbox', { name: 'タスクを足す', exact: true });
+    const input = await chooseTreeKind(page, 'タスク');
     await input.fill('手順を書く');
     const saved = waitForResponses(page, '/task-create');
     await input.press('Enter');

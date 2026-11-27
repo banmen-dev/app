@@ -23,7 +23,8 @@
   import MoveParentDialog from '../../../../lib/components/MoveParentDialog.svelte';
   import PageHead from '../../../../lib/components/PageHead.svelte';
   import TaskEntry from '../../../../lib/components/TaskEntry.svelte';
-  import DraftRow from '../../../../lib/components/DraftRow.svelte';
+  import DraftRow, { DraftRowState } from '../../../../lib/components/DraftRow.svelte';
+  import { draftKinds, readDraftKind, writeDraftKind, type DraftKind } from '../../../../lib/draft-kind.ts';
   import TreeEpic from '../../../../lib/components/TreeEpic.svelte';
   import TreeStory from '../../../../lib/components/TreeStory.svelte';
   import { callOperation, type ApiResult } from '../../../../lib/api.ts';
@@ -176,7 +177,34 @@
     return none ? t('filterResultNone') : t('filterResultCount', { count: rows });
   });
   const canWrite = $derived(workspace !== null && workspace.closedAt === null);
-  // `c` で、親なしのタスクの空の行（木の末尾）へフォーカスを移す。行が無い（書き込めない、木を読み込み中）間は働かない
+  // 木の末尾の空の行は1つで、足す種類（エピック、ストーリー、タスク）を行の中で選ぶ。最後に選んだ種類を覚える（#1645）。
+  // 題の書きかけは、種類を替えても残す（DraftRowState を替えない）
+  let rootKind = $state<DraftKind>(readDraftKind());
+  const rootDraft = new DraftRowState();
+  function chooseRootKind(kind: DraftKind): void {
+    rootKind = kind;
+    rootDraft.error = null;
+    writeDraftKind(kind);
+  }
+  const rootKindLabel = (kind: DraftKind): string => t(kind);
+  const rootRowLabel = $derived(
+    rootKind === 'epic'
+      ? t('treeAddEpic', { epic: t('epic') })
+      : rootKind === 'story'
+        ? t('treeAddStory', { story: t('story') })
+        : t('treeAddTask', { task: t('task') }),
+  );
+  function rootRowProblem(title: string): string | null {
+    return rootKind === 'task' ? taskRowProblem(title) : rowTitleProblem(rootKind, title);
+  }
+  function addRootRow(title: string): Promise<string | null> {
+    return rootKind === 'epic'
+      ? addEpicRow(title)
+      : rootKind === 'story'
+        ? addStoryRow(null, title)
+        : addTaskRow(null, title);
+  }
+  // `c` で、木の末尾の空の行（選んだ種類のまま）へフォーカスを移す。行が無い（書き込めない、木を読み込み中）間は働かない
   // bind:this は、部品が外れると null に戻る
   let rootTaskRow = $state<DraftRow | null>();
   useShortcut(() => ({
@@ -1625,25 +1653,34 @@
       {:else if rowDnd?.item?.kind === 'task'}
         {@render dropSlot(taskSlot, t('dropSlotTask', { task: t('task') }))}
       {/if}
-      <!-- 木の末尾の空の行。エピックは最上段に、親のないストーリーは親なしで作る（エピックの下は、各エピックの末尾の行） -->
+      <!-- 木の末尾の空の行は1つ。種類（エピック、ストーリー、タスク）を行の中で選ぶ（エピックの下は、各エピックの末尾の行） -->
       {#if canWrite}
         <DraftRow
-          label={t('treeAddEpic', { epic: t('epic') })}
-          problem={(title) => rowTitleProblem('epic', title)}
-          create={addEpicRow}
-        />
-        <DraftRow
-          label={t('treeAddStory', { story: t('story') })}
-          problem={(title) => rowTitleProblem('story', title)}
-          create={(title) => addStoryRow(null, title)}
-        />
-        <DraftRow
           bind:this={rootTaskRow}
+          draft={rootDraft}
           keyshortcut={ariaKeyshortcuts(NEW_TASK_KEY)}
-          label={t('treeAddTask', { task: t('task') })}
-          problem={taskRowProblem}
-          create={(title) => addTaskRow(null, title)}
-        />
+          label={rootRowLabel}
+          problem={rootRowProblem}
+          create={addRootRow}
+        >
+          {#snippet lead(sending)}
+            <div class="segmented" role="radiogroup" aria-label={t('treeAddKind')}>
+              {#each draftKinds as kind (kind)}
+                <label>
+                  <input
+                    type="radio"
+                    name="backlog-draft-kind"
+                    value={kind}
+                    checked={rootKind === kind}
+                    disabled={sending}
+                    onchange={() => chooseRootKind(kind)}
+                  />
+                  <span>{rootKindLabel(kind)}</span>
+                </label>
+              {/each}
+            </div>
+          {/snippet}
+        </DraftRow>
       {/if}
     </div>
   {/snippet}
