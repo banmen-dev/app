@@ -33,6 +33,12 @@ function codeOf(result: FailedResult, path: string): string | undefined {
   return undefined;
 }
 
+// 409 の details の reason
+function reasonOf(result: FailedResult): unknown {
+  const details = result.error?.details;
+  return typeof details === 'object' && details !== null && 'reason' in details ? details.reason : undefined;
+}
+
 function connectionInputFailure(result: FailedResult): ConnectionFailure | null {
   const code = codeOf(result, 'credential');
   if (code === 'credential_shape') return { field: 'credential', key: 'connectionCredentialShape' };
@@ -91,10 +97,12 @@ export function connectionUpdateFailure(result: FailedResult, sentCredential: bo
 }
 
 // 範囲の候補（connection-scope-candidates）と保存（connection-scopes-save）の失敗。
-// 候補の 409（credential_rejected）は、保存した認証情報を取り込み元が受け付けなくなったこと
+// 候補の 409（credential_rejected）は、保存した認証情報を取り込み元が受け付けなくなったこと。
+// 409（connection_stopped）は、持ち主の離脱、無効化、ワークスペースの閉鎖で止めた接続
 export function connectionScopeFailure(result: FailedResult): DictionaryKey {
   if (result.error?.code === 'credential_keys_unavailable') return 'connectionCredentialKeysUnavailable';
   if (result.error?.code === 'workspace_closed') return 'connectionWorkspaceClosed';
+  if (result.status === 409 && reasonOf(result) === 'connection_stopped') return 'connectionScopeStopped';
   if (result.status === 409) return 'connectionScopeRejected';
   if (result.status === 403 || result.status === 404) return 'connectionScopeGone';
   if (result.status === 400) return 'connectionScopeInvalid';

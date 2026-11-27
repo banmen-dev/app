@@ -312,6 +312,8 @@ async function ownConnection(db: OrganizationDb, actorUserId: string, workspaceI
           'c.credential_ciphertext',
           'c.credential_key_version',
           'c.last_manual_sync_at',
+          'c.status',
+          'c.stopped_reason',
         ])
         .where('c.id', '=', connectionId),
     ),
@@ -319,6 +321,16 @@ async function ownConnection(db: OrganizationDb, actorUserId: string, workspaceI
   if (row === undefined) throw new ApiError(404, 'not_found');
   if (row.owner_user_id !== actorUserId) throw new ApiError(403, 'forbidden');
   return row;
+}
+
+// 持ち主が抜けた、無効にされた、ワークスペースが閉じたことで止めた接続の理由。保存した認証情報で取り込み元に
+// 問い合わせない（範囲の候補と保存は 409 の connection_stopped で断る）
+const OWNER_GONE_REASONS = ['member_left', 'user_disabled', 'workspace_closed'] as const;
+
+function throwIfOwnerGone(row: { status: string; stopped_reason: string | null }): void {
+  if (row.status === 'stopped' && (OWNER_GONE_REASONS as readonly (string | null)[]).includes(row.stopped_reason)) {
+    throw new ApiError(409, 'conflict', { reason: 'connection_stopped' });
+  }
 }
 
 export const connectionUpdateOperation = implement(connectionUpdate, async ({ db, actor, tools, workspace, input }) => {
@@ -382,37 +394,25 @@ export const connectionUpdateOperation = implement(connectionUpdate, async ({ db
         .updateTable('connections')
         .set({ name: input.name, updated_at: stamp })
         .$if(credential !== undefined, (query) =>
-          query.set((eb) => ({
-            ...credential,
-            // 同期側の指紋で古い続きは使われないが、照合の位置も含めて PAT の更新時点で両方消す。
-            sync_state_json: '{}',
-            reconcile_state_json: '{}',
-            status: eb.case().when('stopped_reason', '=', 'auth_failed').then('active').else(eb.ref('status')).end(),
-            stopped_reason: eb
-              .case()
-              .when('stopped_reason', '=', 'auth_failed')
-              .then(null)
-              .else(eb.ref('stopped_reason'))
-              .end(),
-            last_error_message: eb
-              .case()
-              .when('stopped_reason', '=', 'auth_failed')
-              .then(null)
-              .else(eb.ref('last_error_message'))
-              .end(),
-            last_error_at: eb
-              .case()
-              .when('stopped_reason', '=', 'auth_failed')
-              .then(null)
-              .else(eb.ref('last_error_at'))
-              .end(),
-            consecutive_failures: eb
-              .case()
-              .when('stopped_reason', '=', 'auth_failed')
-              .then(0)
-              .else(eb.ref('consecutive_failures'))
-              .end(),
-          })),
+          query.set((eb) => {
+            // 認証の失敗で止めた接続を再開するのは、持ち主が今もそのワークスペースのメンバーのときだけ。抜けた管理者が
+            // 抜けたワークスペースの接続を戻さない（member_left で止めた接続と扱いを揃える）
+            const resumes = eb.and([
+              eb('stopped_reason', '=', 'auth_failed'),
+              eb.exists(activeMemberName(q, organizationId, workspaceId, ownerUserId)),
+            ]);
+            return {
+              ...credential,
+              // 同期側の指紋で古い続きは使われないが、照合の位置も含めて PAT の更新時点で両方消す。
+              sync_state_json: '{}',
+              reconcile_state_json: '{}',
+              status: eb.case().when(resumes).then('active').else(eb.ref('status')).end(),
+              stopped_reason: eb.case().when(resumes).then(null).else(eb.ref('stopped_reason')).end(),
+              last_error_message: eb.case().when(resumes).then(null).else(eb.ref('last_error_message')).end(),
+              last_error_at: eb.case().when(resumes).then(null).else(eb.ref('last_error_at')).end(),
+              consecutive_failures: eb.case().when(resumes).then(0).else(eb.ref('consecutive_failures')).end(),
+            };
+          }),
         )
         .where('id', '=', row.id)
         .where('workspace_id', '=', workspaceId)
@@ -454,6 +454,7 @@ export const connectionScopeCandidatesOperation = implement(
   connectionScopeCandidates,
   async ({ db, actor, tools, workspace, input }) => {
     const row = await ownConnection(db, actorUserIdOf(actor), workspace.workspaceId, input.connection_id);
+    throwIfOwnerGone(row);
     return { candidates: await fetchCandidates(tools, row) };
   },
 );
@@ -465,6 +466,7 @@ export const connectionScopesSaveOperation = implement(
     const workspaceId = workspace.workspaceId;
     const organizationId = db.organizationId;
     const row = await ownConnection(db, actorUserId, workspaceId, input.connection_id);
+    throwIfOwnerGone(row);
     const source = isImportSourceKind(row.provider) ? tools.importSource(row.provider) : undefined;
     if (source === undefined) throw new ApiError(409, 'conflict', { reason: 'provider_unknown' });
 
@@ -501,6 +503,8 @@ export const connectionScopesSaveOperation = implement(
           .where('workspace_id', '=', workspaceId)
           .where('owner_user_id', '=', actorUserId)
           .where('deleted_at', 'is', null)
+          // 候補を取っている間に持ち主の離脱や無効化で止まった接続の範囲は書かない
+          .where((eb) => eb.or([eb('stopped_reason', 'is', null), eb('stopped_reason', 'not in', OWNER_GONE_REASONS)]))
           .where((eb) => eb.exists(openWorkspace(q, organizationId, workspaceId))),
       ),
       db.statement((q) =>
@@ -566,7 +570,7 @@ export const connectionScopesSaveOperation = implement(
     if (((results as readonly { changes?: number }[])[0]?.changes ?? 0) === 0) {
       await throwIfClosed(db, workspaceId);
       // 読んだ後に接続が削除されたときは、存在しないときと同じ 404
-      await ownConnection(db, actorUserId, workspaceId, row.id);
+      throwIfOwnerGone(await ownConnection(db, actorUserId, workspaceId, row.id));
       throw new ApiError(409, 'conflict');
     }
     const [connection] = await readConnections(db, workspaceId, row.id);

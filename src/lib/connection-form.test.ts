@@ -136,6 +136,9 @@ describe('connectionScopeFailure', () => {
     expect(connectionScopeFailure(failed(409, 'conflict', { reason: 'credential_rejected' }))).toBe(
       'connectionScopeRejected',
     );
+    expect(connectionScopeFailure(failed(409, 'conflict', { reason: 'connection_stopped' }))).toBe(
+      'connectionScopeStopped',
+    );
     expect(connectionScopeFailure(failed(409, 'workspace_closed'))).toBe('connectionWorkspaceClosed');
     expect(connectionScopeFailure(failed(403, 'forbidden'))).toBe('connectionScopeGone');
     expect(connectionScopeFailure(failed(404, 'not_found'))).toBe('connectionScopeGone');
