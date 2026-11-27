@@ -47,11 +47,21 @@ describe('operator-feedback', () => {
   test('存在しない ID、UUID でない値、消えた meta.json は 404', async () => {
     const stored = await storeFeedback();
     await env.ATTACHMENTS.delete(`feedback/${stored.feedbackId}/meta.json`);
-    for (const id of [uuidv7(), 'not-a-uuid', stored.feedbackId, '../x', `${stored.feedbackId}/meta.json`]) {
+    for (const id of [uuidv7(), 'not-a-uuid', stored.feedbackId, '../x']) {
       const res = await post(app, operatorFeedback, { token: await operator(), body: { id } });
-      // 長すぎる値は R2 を引く前に 400、それ以外は 404
-      expect([400, 404], id).toContain(res.status);
+      expect(res.status, id).toBe(404);
+      expect(await errorCodeOf(res), id).toBe('not_found');
     }
+  });
+
+  test('36 字を超える ID は R2 を引く前に 400', async () => {
+    const stored = await storeFeedback();
+    const res = await post(app, operatorFeedback, {
+      token: await operator(),
+      body: { id: `${stored.feedbackId}/meta.json` },
+    });
+    expect(res.status).toBe(400);
+    expect(await errorCodeOf(res)).toBe('invalid_input');
   });
 
   test('壊れた meta.json と別のフィードバックの meta.json は 404', async () => {
@@ -132,7 +142,8 @@ describe('operator-feedback-image', () => {
       `${stored.feedbackId}.${organizationId}`,
     ]) {
       const res = await post(app, operatorFeedbackImage, { token: await operator(), body: { id } });
-      expect([400, 404], id).toContain(res.status);
+      expect(res.status, id).toBe(404);
+      expect(await errorCodeOf(res), id).toBe('not_found');
     }
   });
 
