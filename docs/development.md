@@ -609,6 +609,8 @@ Claude と Codex はそれぞれ単独で使用する。スキルから別製品
 allow に入れるものは、確認の数を減らし、残る確認を書き込みや外に出る操作に絞るために選ぶ。
 
 - 入れる: GitHub の MCP の、書き込まないツール（`issue_read`、`pull_request_read`、`list_*`、`search_issues`、`search_pull_requests`、`get_commit`、`get_check_run`、`get_job_logs`、`actions_get`、`actions_list`）。差分のパッチや CI のログ全文も返すので、ファイルの中身を読むのと変わらない。クラウドのセッションでは、読める範囲はセッションに許したリポジトリ（このリポジトリ）に限られる。手元では MCP のトークンが届くリポジトリすべてを読めるが、読むだけなので受け入れる。CI のログの秘密は GitHub Actions が伏せる
+  - `list_pull_requests` と `search_pull_requests` も許可に残す。結果を受け取った時点で、外の人の PR のブランチ名、本文、題がセッションに入るので、許可は確認を省くだけで、守りにはならない。守りは上の「GitHub の書き込み権限」の決まり（入口に使わない）だけが担う。外すと、使ってよい用途のたびに確認が出て、確認を押し慣れる害のほうが大きいと見て残した（2026-11-27、#1609 で人が決めた）
+  - 使ってよい用途は2つだけ。`sync-base` などが、自分のブランチを `head`（`<owner>:<branch>`）で絞って PR を1件引くとき（`pr/github-mcp.md`）と、`pr/github-mcp.md` のマイルストーンの手順が、直近の実績の PR のマイルストーンの番号を `repo:<owner>/<repo> is:merged` の検索で引くとき。開いた PR やマージ済みの PR の一覧の入口には使わない（`make` の着手前の確認、`d1-migration`、`daily-scrum`、`sprint-pick`、`sprint-review` は `gh` が使えなければ止まる）
 - 入れない: `get_file_contents` と `search_code`。危ないからではなく、手元のチェックアウトを読めば足りるため
 - 入れない: 手元の点検（`pnpm check`、`pnpm lint`、`pnpm test`など）。セッションが確認なしに書き換えられるテストや設定のコードを動かすので、allow に入れると `.dev.vars` の読み出しと外への送信まで確認なしに通る。`permissions.deny` もこの経路を止めない。点検の確認を減らすときは、ルールでなく Auto モードの判定に任せる
 - 入れない: `git status` や `cat` のように、Claude Code がもともと確認なしで通すもの
