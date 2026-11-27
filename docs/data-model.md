@@ -69,7 +69,7 @@
 
 添付ファイルの中身は D1 ではなく R2 に置く。`wrangler.jsonc` の binding は `ATTACHMENTS`、本番のバケット名は `banmen-attachments`。組織のデータ（添付ファイルとプロフィール画像）のキーの先頭は組織の ID なので、D1 を分けても R2 は分けずに済む。組織の ID で始まらないキーは、定期処理の進捗の `system/`（取り込みは `system/sync-imports-cursor`）と、下のフィードバックの `feedback/` だけ。プロフィール画像の中身も同じバケットに、`<組織の ID>/avatars/<users.id>/<画像の ID>` で置く（`user_avatars`）。組織の接頭辞の下に置くので、組織のデータを消す手順（`docs/operations.md`）で接頭辞ごと消える。
 
-フィードバック（`docs/requirements.md` の「機能」の「フィードバック」）は D1 に行を持たず、同じバケットの `feedback/<フィードバックの ID>/` に、添えた画像と `meta.json`（送った画面の URL（オリジンとパスだけ）、送った人のアカウントの ID、立てた Issue の番号、送った日時）を置く。フィードバックの ID はサーバーが送信ごとに作る UUIDv7 で、クライアントから受けない。公開の Issue の本文にはこの ID を載せ、運用者は ID から R2 のファイルを辿る。書く順と失敗の扱いは要件の「フィードバック」の節。組織の接頭辞の外に置くので、D1 を分けても動かさず、組織のデータを消す手順でも消えない（`system/cleanup-attachments-cursor` と同じく、組織の削除の対象にしない）。消すのは R2 のライフサイクルの規則（接頭辞 `feedback/`、180 日。`docs/operations.md` の「R2」）だけで、アプリは消さない。見るのは運用者だけ。
+フィードバック（`docs/requirements.md` の「機能」の「フィードバック」）は D1 に行を持たず、同じバケットの `feedback/<フィードバックの ID>/` に、添えた画像と `meta.json`（送った人のアカウントの ID、送った画面の URL（オリジンとパスだけ。招待と認証の画面では持たない）と route ID、文、画像の ID と種類と大きさ、送った日時）を置く。画像のキーは `feedback/<フィードバックの ID>/<画像の ID>`（画像の ID は UUIDv7）。画像を先に、`meta.json` を最後に書く。フィードバックの ID はサーバーが送信ごとに作る UUIDv7 で、クライアントから受けない。公開の Issue の本文にはこの ID と運用者の閲覧の口のリンクを載せ、運用者はそこから R2 のファイルを辿る。書く順と失敗の扱いは要件の「フィードバック」の節。組織の接頭辞の外に置くので、D1 を分けても動かさず、組織のデータを消す手順でも消えない（`system/cleanup-attachments-cursor` と同じく、組織の削除の対象にしない）。消すのは R2 のライフサイクルの規則（接頭辞 `feedback/`、180 日。`docs/operations.md` の「R2」）だけで、アプリは消さない。見るのは運用者だけ。
 
 - 共通の表から組織の中の表へは外部キーを張らない。
 - 組織の中の表から共通の表へ張る外部キーは、`users.account_id` と、`users`、`workspaces`、`organization_holidays`、`delegatees`、`change_logs`、`wiki_pages`（組織の Wiki のページだけが持つ列）の `organization_id` だけにする。分けるときはこれらを外し、アプリの検査に替える。

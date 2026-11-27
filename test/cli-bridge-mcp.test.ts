@@ -248,12 +248,12 @@ describe('sg mcp の既定は読み取りだけ（--allow-write）', () => {
     expect(JSON.parse(textOf(result))).toEqual({ lit: 2, color: '白' });
   });
 
-  test('本番の操作一覧にあるフィードバックを MCP からは呼べない', async () => {
+  test('フィードバックは画像を受ける multipart の操作で、トークンの操作一覧に出ず、MCP からは呼べない', async () => {
     const connection = await connectionOf(await createLoginPerson());
     const deps = depsOf(createApp());
 
-    expect(await catalogFor(deps, connection)).toContainEqual(
-      expect.objectContaining({ name: feedbackSubmit.name, scope: 'outside', mode: 'write' }),
+    expect(await catalogFor(deps, connection)).not.toContainEqual(
+      expect.objectContaining({ name: feedbackSubmit.name }),
     );
     expect((await listTools(deps, connection)).map((tool) => tool.name)).not.toContain(feedbackSubmit.name);
     const result = await callTool(deps, connection, feedbackSubmit.name, {});

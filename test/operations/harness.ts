@@ -86,6 +86,8 @@ type PostOptions = {
   body?: unknown;
   // 本文をそのまま送る。body: 'binary' の操作ではファイルのバイトで、X-Operation-Input を付けない
   rawBody?: string | Uint8Array | ReadableStream<Uint8Array>;
+  // body: 'multipart' の操作で、入力の JSON の部分とは別の部分に並べるファイル
+  files?: readonly File[];
   // body: 'binary' の操作で、body の入力と一緒に送るファイルのバイト（省略は SMALL_FILE）
   file?: string | Uint8Array | ReadableStream<Uint8Array>;
   // body: 'binary' の操作の Content-Length。省略は本文の長さ（ReadableStream なら付けない）、null は付けない
@@ -127,6 +129,15 @@ function binaryRequest(options: PostOptions, headers: Headers): string | Uint8Ar
   return body;
 }
 
+// body: 'multipart' の操作の本文。入力の JSON は `input` の部分（body、rawBody なら壊れた JSON を送れる）、ファイルはほかの部分
+function multipartRequest(options: PostOptions): FormData {
+  const form = new FormData();
+  const text = typeof options.rawBody === 'string' ? options.rawBody : JSON.stringify(options.body ?? {});
+  form.append('input', new Blob([text], { type: 'application/json' }));
+  for (const file of options.files ?? []) form.append('file', file, file.name);
+  return form;
+}
+
 async function postOperation(
   app: App,
   definition: AnyOperationDefinition,
@@ -134,7 +145,11 @@ async function postOperation(
 ): Promise<Response> {
   const env = options.env ?? testEnv;
   const binary = definition.body === 'binary';
-  const headers = new Headers(binary ? options.headers : { 'Content-Type': 'application/json', ...options.headers });
+  const multipart = definition.body === 'multipart';
+  // multipart の Content-Type は境界を含むので、FormData に任せる
+  const headers = new Headers(
+    binary || multipart ? options.headers : { 'Content-Type': 'application/json', ...options.headers },
+  );
   const origin = options.origin === undefined ? env.PUBLIC_ORIGIN : options.origin;
   if (origin !== null) headers.set('Origin', origin);
   if (options.token !== undefined) {
@@ -146,7 +161,9 @@ async function postOperation(
     ? undefined
     : binary
       ? binaryRequest(options, headers)
-      : (options.rawBody ?? JSON.stringify(options.body ?? {}));
+      : multipart
+        ? multipartRequest(options)
+        : (options.rawBody ?? JSON.stringify(options.body ?? {}));
   return app.request(
     operationPath(definition, options.slug, download ? (options.body as { id: string }) : undefined),
     // 本文が ReadableStream のときは Content-Length が付かない（chunked と同じ）

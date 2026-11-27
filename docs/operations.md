@@ -237,7 +237,7 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
 - 鍵は git、ログ、Issue、PR に書かない。漏れたと分かったら、App で鍵を消して作り直す。漏れた鍵でできるのは、Issue を立てることだけではない。Issues の書き込みは、banmen-dev/app のすべての Issue とコメントの題と本文の書き換え、閉じる、ラベル（PR の `needs-human` を含む）の付け外しに及ぶ。セッションは Issue とコメントの信頼を作者で決めるので、身内の Issue の本文を書き換えると、開発のセッションに指示を仕込める。漏れていた疑いがあれば、鍵を作り直した後に、その間に App の bot が行ったことを洗い出し、戻す。見るのは、ラベルそのものの削除と改名（`needs-human` を消すか改名すると、人が読むはずの PR が人に聞かずにマージされうる。ラベルの削除は PR ごとの timeline に出ないことがあるので、ラベルの一覧に `needs-human`、`feedback`、`status:` で始まるもの、`ai-review` が今の名前であるかを見て、開いている PR の `label` のジョブを走らせ直して `needs-human` を付け直す）、Issue と PR のアサイン、マイルストーン、ロック、Issue と PR の題と本文、Issue と PR の会話のコメント（AI レビューのまとめを含む）の編集の履歴、timeline の `renamed`、`labeled`、`unlabeled`（特に PR の `needs-human` と `ai-review`）、`closed`、`reopened`、サブ Issue と依存関係の付け外し。コメントと Issue の削除は timeline に残らないので、banmen-dev の Organization の audit log（Settings → Audit log、`actor:` に App の bot）も見る
 - App の権限を足さない。足すと、漏れたときに書けるものが増え、インストールの承認も要る
 - 画像、URL、アカウントの ID は R2 の `feedback/` に置き、上の「R2」のライフサイクルの規則で消す。公開の Issue には載せない
-- 運用者は、Issue の本文のフィードバックの ID で、Cloudflare のダッシュボードの R2 Object Storage → `banmen-attachments` → `feedback/<ID>/` を開いて画像と `meta.json` を見る（運用の画面に口ができるまで）。画像はダウンロードして見る
+- 運用者は、Issue の本文の閲覧の口のリンク（`<公開の URL>/operator/feedback/<ID>`。閲覧の口は #1557 で作る）か、フィードバックの ID で、Cloudflare のダッシュボードの R2 Object Storage → `banmen-attachments` → `feedback/<ID>/` を開いて画像と `meta.json` を見る（運用の画面に口ができるまで）。画像はダウンロードして見る
 - 荒らしの Issue（全体の枠を使って同じ文を並べたものなど）は、運用者が banmen-dev/app で「Close as not planned」で閉じる。続くときは、`meta.json` のアカウントの ID を見て、そのアカウントのセッションを消す手段を別の Issue で決める
 - 利用者から公開の Issue を消す求めがあったら、運用者が banmen-dev/app の Issue を削除する（Issue の削除はリポジトリの管理者だけができる）
 
@@ -245,7 +245,7 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
 
 1. 上の手順 1〜7 で App とシークレットを用意し、上の「R2」の `feedback-180d` の規則を入れる
 2. 文だけの送信を追加した #1553 で、公開する情報と IP の保持期間をプライバシーポリシーに反映し、`PRIVACY_VERSION` と seed の同意の版を上げた。画像とメタ情報の保存を出すときは、下の文案で保管の範囲と期間を反映し、「規約を改めるとき」に従って版を上げる
-3. 出した後に、自分のアカウントで1件送り、Issue の作者が App の bot（`user.type` が `Bot`、`author_association` が身内でない）であること、Issue の題、本文（文の囲い、フィードバックの ID、アカウントの ID が無いこと）、`feedback` のラベル、R2 の `feedback/<ID>/` の画像と `meta.json` を見る。見た Issue は閉じて削除する
+3. 出した後に、自分のアカウントで1件送り、Issue の作者が App の bot（`user.type` が `Bot`、`author_association` が身内でない）であること、Issue の題、本文（文の囲い、フィードバックの ID、閲覧の口のリンクが1本だけあること、完全な URL とアカウントの ID が無いこと）、`feedback` のラベル、R2 の `feedback/<ID>/` の画像と `meta.json` を見る。見た Issue は閉じて削除する
 
 文だけのフィードバックを追加した版を戻すときは、改定後のプライバシーポリシーに同意済みの人に再同意が必要になる。対象の利用者への連絡と CLI の再同意の扱いは「[規約への同意の門を出す前に](#規約への同意の門を出す前に)」の手順に従う。起票済みの Issue は、必要に応じて運用者が個別に扱う。
 

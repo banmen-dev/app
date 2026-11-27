@@ -7,7 +7,14 @@ test('ログインした人の送信は GitHub App が未設定の環境で 503 
   const origin = new URL(baseURL!).origin;
   const options = {
     headers: { Origin: origin },
-    data: { text: '画面についての感想です', route_id: '/', url: origin + '/' },
+    // multipart。入力の JSON は `input` の部分、画像はほかの部分（ここでは添えない）
+    multipart: {
+      input: {
+        name: 'input',
+        mimeType: 'application/json',
+        buffer: Buffer.from(JSON.stringify({ text: '画面についての感想です', route_id: '/', url: origin + '/' })),
+      },
+    },
   };
 
   const anonymous = await context.request.post(operationPath(feedbackSubmit), options);
