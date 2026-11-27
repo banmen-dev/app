@@ -15,6 +15,7 @@ export type SyncConnection = {
   provider: string;
   status: string;
   scope_mode: string;
+  ignore_source_due: number;
   settings_json: string;
   credential_ciphertext: string | null;
   credential_key_version: number | null;
@@ -66,6 +67,7 @@ export async function readSyncConnection(
           'connections.provider',
           'connections.status',
           'connections.scope_mode',
+          'connections.ignore_source_due',
           'connections.settings_json',
           'connections.credential_ciphertext',
           'connections.credential_key_version',
@@ -472,7 +474,14 @@ export type SyncOutcome =
 // （同期の最中に止められた接続や削除された接続を、成功で書き戻さない）。ほかの失敗の回数は、読み直さず SQL の中で足す
 export function syncOutcomeStatement(
   db: OrganizationDb,
-  connection: { id: string; workspaceId: string; credential?: string | null; keyVersion?: number | null },
+  connection: {
+    id: string;
+    workspaceId: string;
+    credential?: string | null;
+    keyVersion?: number | null;
+    // 同期が読んだ ignore_source_due。終わるときに値が変わっていたら、次の同期が全部を読むよう最後の成功と続きを空にする
+    ignoreSourceDue?: number;
+  },
   outcome: SyncOutcome,
   at: string,
 ): Statement<'organization'> {
@@ -482,16 +491,32 @@ export function syncOutcomeStatement(
       outcome.kind === 'progress'
         ? base.set({ sync_state_json: outcome.syncStateJson, updated_at: at })
         : outcome.kind === 'success'
-          ? base.set({
+          ? base.set((eb) => ({
               status: 'active',
               stopped_reason: null,
-              sync_state_json: outcome.syncStateJson,
-              last_success_at: outcome.lastSuccessAt ?? at,
+              sync_state_json:
+                connection.ignoreSourceDue === undefined
+                  ? outcome.syncStateJson
+                  : eb
+                      .case()
+                      .when('connections.ignore_source_due', '=', connection.ignoreSourceDue)
+                      .then(outcome.syncStateJson)
+                      .else('{}')
+                      .end(),
+              last_success_at:
+                connection.ignoreSourceDue === undefined
+                  ? (outcome.lastSuccessAt ?? at)
+                  : eb
+                      .case()
+                      .when('connections.ignore_source_due', '=', connection.ignoreSourceDue)
+                      .then(outcome.lastSuccessAt ?? at)
+                      .else(null)
+                      .end(),
               consecutive_failures: 0,
               last_error_message: null,
               last_error_at: null,
               updated_at: at,
-            })
+            }))
           : outcome.kind === 'auth_failed'
             ? base.set({
                 status: 'stopped',

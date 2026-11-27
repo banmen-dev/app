@@ -419,6 +419,7 @@ export async function syncConnection(
           workspaceId,
           credential: connection.credential_ciphertext,
           keyVersion: connection.credential_key_version,
+          ignoreSourceDue: Number(connection.ignore_source_due),
         },
         outcome,
         now().toISOString(),
@@ -533,7 +534,16 @@ export async function syncConnection(
                 continue;
               const tail = await readInboxTailPosition(db, workspaceId);
               const [position] = generateNKeysBetween(tail ?? null, null, 1);
-              await db.batch(reviewUpdateStatements(db, connection, target, item, position!, now().toISOString()));
+              await db.batch(
+                reviewUpdateStatements(
+                  db,
+                  connection,
+                  target,
+                  withoutIgnoredDue(connection, item),
+                  position!,
+                  now().toISOString(),
+                ),
+              );
             }
             current =
               page.next === null
@@ -546,10 +556,11 @@ export async function syncConnection(
             current.phase === 'reviews' ? await source.fetchReviewRequestsPage!(input) : await source.fetchPage(input);
           if (!validPage(page, current.cursor)) throw invalid();
           // 発見は未完了新規だけを作る。既存は target の応答だけが更新できる。
-          const items =
+          const items = (
             current.phase === 'reviews'
               ? page.items.filter((item) => item.containerId === scope.id && item.kind === 'review_request')
-              : page.items;
+              : page.items
+          ).map((item) => withoutIgnoredDue(connection, item));
           imported += await writePage(db, connection, workspaceId, items, repositories, now);
           if (page.next !== null) {
             current = { ...current, cursor: page.next };
@@ -648,7 +659,7 @@ export async function syncConnection(
         streak = 0;
         // 別の項目が返った応答は使わない（不変の ID と種別が保存した値と同じ項目だけ更新する）
         if (isValidItem(item) && item.kind === target.source_kind && item.sourceId === target.source_id) {
-          await writeKnown(db, connection, workspaceId, item, now);
+          await writeKnown(db, connection, workspaceId, withoutIgnoredDue(connection, item), now);
         }
         known = { after: target.task_id };
       }
@@ -836,6 +847,11 @@ async function writeKnown(
 ): Promise<void> {
   const statements = updateStatementsOf(db, connection, workspaceId, item, now());
   if (statements.length > 0) await db.batch(statements);
+}
+
+// 取り込み元の期限を無視する接続は、期限を書かない（取り込み元の値を task_sources に残さない）
+function withoutIgnoredDue(connection: { ignore_source_due: number }, item: ImportItem): ImportItem {
+  return Number(connection.ignore_source_due) === 1 && item.dueOn !== null ? { ...item, dueOn: null } : item;
 }
 
 function titleOf(item: ImportItem): string {

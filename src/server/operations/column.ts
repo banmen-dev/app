@@ -616,6 +616,13 @@ async function deleteColumn(
             }).where(previousStatementChanged),
           ),
       ),
+      // 取り込み元の状態からこの列への対応を外す（その状態は先頭の列に置く扱いになる）。最後の文がタスクの移動のままになるよう、ここに置く
+      db.statement((q) =>
+        q
+          .deleteFrom('connection_status_mappings')
+          .where('column_id', '=', columnId)
+          .where((eb) => eb.exists(ownLog(q))),
+      ),
       ...(tasks.length === 0 || targetId === undefined
         ? []
         : [

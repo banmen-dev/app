@@ -1,6 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import { callOperation } from '../../../../../lib/api.ts';
 import { isUnauthenticated, loginUrl } from '../../../../../lib/login-redirect.ts';
+import { columnList } from '../../../../../shared/operations/column/index.ts';
 import { connectionList } from '../../../../../shared/operations/connection/index.ts';
 import type { PageLoad } from './$types';
 
@@ -10,11 +11,15 @@ import type { PageLoad } from './$types';
 // `app:connections` は、登録と範囲の保存の後に、この画面の値だけを読み直す印（枠の load を走らせない）
 export const load: PageLoad = async ({ params, fetch, url, depends }) => {
   depends('app:connections');
-  const result = await callOperation(
-    connectionList,
-    { workspace_id: params.id },
-    { slug: params.slug, fetcher: fetch },
-  );
+  const options = { slug: params.slug, fetcher: fetch };
+  const [result, columns] = await Promise.all([
+    callOperation(connectionList, { workspace_id: params.id }, options),
+    // 状態から列への対応の選びに使う。読めなくても一覧は出す（対応の欄だけ読み直しを出す）
+    callOperation(columnList, { workspace_id: params.id }, options),
+  ]);
   if (isUnauthenticated(result)) redirect(307, loginUrl(url));
-  return { connections: result.ok ? result.data.connections : null };
+  return {
+    connections: result.ok ? result.data.connections : null,
+    columns: columns.ok ? columns.data.columns : null,
+  };
 };

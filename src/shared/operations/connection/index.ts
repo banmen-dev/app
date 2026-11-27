@@ -2,6 +2,7 @@
 import type { AnyOperationDefinition } from '../define.ts';
 import { connectionCreate } from './connection-create.ts';
 import { connectionDelete } from './connection-delete.ts';
+import { connectionMappingSave } from './connection-mapping-save.ts';
 import { connectionList } from './connection-list.ts';
 import { connectionScopeCandidates } from './connection-scope-candidates.ts';
 import { connectionScopesSave } from './connection-scopes-save.ts';
@@ -14,6 +15,7 @@ export {
   connectionCreate,
   connectionDelete,
   connectionList,
+  connectionMappingSave,
   connectionScopeCandidates,
   connectionScopesSave,
   connectionStop,
@@ -29,6 +31,7 @@ export const connectionOperations: readonly AnyOperationDefinition[] = [
   connectionUpdate,
   connectionScopeCandidates,
   connectionScopesSave,
+  connectionMappingSave,
   connectionSync,
   connectionStop,
   connectionDelete,
