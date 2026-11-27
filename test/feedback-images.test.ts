@@ -156,6 +156,21 @@ test('PNG、JPEG、WebP を3枚まで受け、画像ごとと meta.json を R2 �
   expect(issues).toHaveLength(1);
 });
 
+test('置くファイルは、種類を中身から決め、ダウンロードとして返すヘッダーを付ける', async () => {
+  const person = await createPerson();
+  const { app } = fakeGithub();
+
+  const res = await submit(app, person, [image(pngImage(8, 8))]);
+
+  const { feedback_id } = await res.json<{ feedback_id: string }>();
+  for (const key of await objectKeys()) {
+    const object = await testEnv.ATTACHMENTS.head(key);
+    expect(object?.httpMetadata?.contentDisposition, key).toBe('attachment');
+    expect(object?.httpMetadata?.contentType, key).toBe(key.endsWith('meta.json') ? 'application/json' : 'image/png');
+    expect(key.startsWith(`feedback/${feedback_id}/`)).toBe(true);
+  }
+});
+
 test('画像が無くても meta.json を置く', async () => {
   const person = await createPerson();
   const { app } = fakeGithub();
@@ -214,6 +229,7 @@ test.each([
   ['認証の画面', '/auth/callback'],
   ['パーセントエンコードした招待の画面', '/%69nvite/secret-token'],
   ['先頭にスラッシュが重なった招待の画面', '//invite/secret-token'],
+  ['壊れたエスケープを含む経路', '/invite/%ZZ'],
 ])('%s からの送信では URL を残さない', async (_label, path) => {
   const person = await createPerson();
   const { app } = fakeGithub();

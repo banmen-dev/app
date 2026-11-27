@@ -102,11 +102,12 @@ function validateUrl(value: string, publicOrigin: string): void {
 // 招待の秘密を運用者が持たないよう残さない
 function storedUrl(value: string): string | null {
   const url = new URL(value);
-  let path = url.pathname;
+  let path: string;
   try {
-    path = decodeURIComponent(path);
+    path = decodeURIComponent(url.pathname);
   } catch {
-    // 復号できない経路は、そのまま見る
+    // 復号できない経路は、招待や認証の画面かを見分けられないので、残さない
+    return null;
   }
   // 最初の区間だけを見る（組織の slug が invitecorp の画面は残す）
   const first = path
