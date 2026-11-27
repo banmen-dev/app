@@ -204,7 +204,7 @@
         ? addStoryRow(null, title)
         : addTaskRow(null, title);
   }
-  // `c` で、木の末尾の空の行（選んだ種類のまま）へフォーカスを移す。行が無い（書き込めない、木を読み込み中）間は働かない
+  // `c` で、木の末尾の空の行へ、種類をタスクに戻してフォーカスを移す。行が無い（書き込めない、木を読み込み中）間は働かない
   // bind:this は、部品が外れると null に戻る
   let rootTaskRow = $state<DraftRow | null>();
   useShortcut(() => ({
@@ -212,7 +212,11 @@
     keys: NEW_TASK_KEY,
     label: () => t('shortcutNewTask', { task: t('task') }),
     enabled: () => rootTaskRow != null,
-    run: () => rootTaskRow?.focus(),
+    // 名前（「<タスク>を書く」）と食い違わないよう、覚えた種類が何でもタスクに戻してから移る
+    run: () => {
+      chooseRootKind('task');
+      rootTaskRow?.focus();
+    },
   }));
   // 完成の定義の畳みを開いたか。開くまで本文を描かない
   let dodOpen = $state(false);

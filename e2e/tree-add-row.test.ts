@@ -229,8 +229,8 @@ test('木の末尾の空の行は1つ。種類を選んで3種類を作れ、書
   ).toBeChecked();
   await expect(treeTail(page).getByRole('textbox', { name: 'ストーリーを足す', exact: true })).toBeVisible();
 
-  // `c` のショートカットで、この行の題の欄にフォーカスが移る
+  // `c` のショートカット（名前は「タスクを書く」）で、種類がタスクに戻り、この行の題の欄にフォーカスが移る
   await page.getByRole('heading', { level: 1, name: 'バックログ' }).click();
   await page.keyboard.press('c');
-  await expect(treeTail(page).getByRole('textbox', { name: 'ストーリーを足す', exact: true })).toBeFocused();
+  await expect(treeTail(page).getByRole('textbox', { name: 'タスクを足す', exact: true })).toBeFocused();
 });
