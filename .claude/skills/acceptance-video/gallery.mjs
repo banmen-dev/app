@@ -290,7 +290,8 @@ const CLIENT_SCRIPT = String.raw`(function () {
     saved.forEach(function (e) {
       var panel = e && document.getElementById('panel-' + e.issue);
       if (!panel || !panel.hasAttribute('data-issue') || !panel.querySelector('.judge')) return;
-      // 復元の前に人が触った項目は、画面の今の値を残す（前の判定で上書きしない）。触っていない項目は前の値に戻す
+      // 復元の前に人が触った項目は、画面の今の値を残す（前の判定で上書きしない）。触っていない項目は前の値に戻す。
+      // 判定と理由は別の項目で、判定だけを替えても前の理由は残る（理由は ng のときだけ結果に出る）
       // 戻した完了済みは、戻した状態で開き直す
       if (!touched(panel, 'returned') && e.returned === true && panel.hasAttribute('data-done')) {
         panel.removeAttribute('data-done');
