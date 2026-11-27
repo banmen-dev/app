@@ -683,7 +683,7 @@ async function openTokenSection(page: Page): Promise<void> {
 }
 
 // 発行の応答を差し替えて、値のダイアログを開く。トークンの値はコピーの確かめ用の偽の値で、DB には書かれない
-async function openIssuedDialog(page: Page, token = `sgp_${'A'.repeat(43)}`, name = '確かめ用'): Promise<Locator> {
+async function openIssuedDialog(page: Page, token = `bnp_${'A'.repeat(43)}`, name = '確かめ用'): Promise<Locator> {
   await mockOperation(page, tokenCreate, {
     id: '019a0000-0000-7000-8000-00000000f686',
     name,
@@ -868,7 +868,7 @@ test('320px の幅で、長いトークンの値のダイアログが横には�
   await signIn(context, baseURL, 'admin');
   await page.setViewportSize({ width: 320, height: 700 });
   // 空白の無い半角100文字の名前（API が通す上限）が、本文の「「…」の値です。」で折り返される
-  const dialog = await openIssuedDialog(page, `sgp_${'A'.repeat(120)}`, 'A'.repeat(100));
+  const dialog = await openIssuedDialog(page, `bnp_${'A'.repeat(120)}`, 'A'.repeat(100));
 
   const overflow = () =>
     page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth }));

@@ -31,12 +31,13 @@ export const connectionCredentialSchema = z.string().max(CONNECTION_CREDENTIAL_M
 // 1人が1つのワークスペースに登録できる接続の数の上限。超える登録は 409（conflict、details.reason は connection_limit）
 export const CONNECTIONS_PER_MEMBER_MAX = 20;
 
-// 持ち主が抜けた、無効にされた、ワークスペースが閉じたことで止めた接続の理由。保存した認証情報を使わないので、
-// 範囲の候補と保存は 409（conflict、details.reason は connection_stopped）で断り、画面は範囲を選ぶ入口を出さない
+// 持ち主が抜けた、無効にされたことで止めた接続の理由。保存した認証情報を使わないので、
+// 範囲の候補と保存は 409（conflict、details.reason は connection_stopped）で断り、画面は範囲を選ぶ入口を出さない。
+// workspace_closed は書く処理が無い（閉じても接続は止まらない）が、CHECK が許す値なので、行があっても同じ扱いで断る防御として残す
 export const CONNECTION_OWNER_GONE_REASONS = ['member_left', 'user_disabled', 'workspace_closed'] as const;
 
-// 持ち主が今のメンバーなら、新しい認証情報の保存で再開する停止の理由。owner と leader（リーダーが下した停止）と
-// workspace_closed は、本人の認証情報では戻さない
+// 持ち主が今のメンバーなら、新しい認証情報の保存で再開する停止の理由。owner と leader（本人かリーダーが下した停止）と
+// workspace_closed（書く処理が無く CHECK にだけ残る値）は、本人の認証情報では戻さない
 export const CONNECTION_CREDENTIAL_RESUME_REASONS = ['auth_failed', 'member_left', 'user_disabled'] as const;
 
 export function resumesOnCredential(connection: { status: string; stopped_reason: string | null }): boolean {

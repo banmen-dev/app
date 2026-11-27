@@ -466,7 +466,7 @@ describe('操作のログの accountId・organizationId・code', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     const person = await createLoginPerson();
     const { write } = await tokens(person.accountId);
-    await post(app, whoAmI, { headers: { Authorization: 'Bearer sgp_invalid' }, origin: null });
+    await post(app, whoAmI, { headers: { Authorization: 'Bearer bnp_invalid' }, origin: null });
     await post(app, whoAmI, { headers: { Authorization: 'Bearer' }, origin: null });
     await post(app, whoAmI, { headers: { Authorization: `Basic ${btoa(`u:${write.raw}`)}` } });
     const entries = operationLogs([log, error], 'who-am-i');

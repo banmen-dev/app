@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, test } from 'node:test';
 import ts from 'typescript';
-import { SEED_API_TOKENS } from '../seed/api-tokens.ts';
+import { SEED_API_TOKENS, SEED_BEARER_TOKENS } from '../seed/api-tokens.ts';
 import { SEED_SESSIONS } from '../seed/sessions.ts';
 import { LEGACY_REDIRECT_TARGET } from '../src/legacy-redirect/worker.ts';
 import { deploy, PRODUCTION_URL, versionFromHealth, type DeployDeps, type WranglerResult } from './deploy.ts';
@@ -123,8 +123,9 @@ function fake(options: {
   return result;
 }
 
-// Cookie のセッションと Bearer の API トークンを合わせた、本番に拒ませる seed のトークンの数
-const seedCount = Object.keys(SEED_SESSIONS).length + Object.keys(SEED_API_TOKENS).length;
+// 新旧の接頭辞の Bearer の seed の値（旧 sgp_ の値も本番が拒むことを確かめる）と、Cookie のセッションを合わせた、本番に拒ませる seed のトークンの数
+const BEARER_SEEDS = SEED_BEARER_TOKENS;
+const seedCount = Object.keys(SEED_SESSIONS).length + Object.keys(BEARER_SEEDS).length;
 
 const commands = (calls: string[][]) => calls.map((args) => args.slice(0, 2).join(' '));
 const lastCall = (f: Fake) => f.calls.at(-1)?.slice(0, 2);
@@ -529,10 +530,10 @@ describe('deploy', () => {
   });
 
   describe('seed の API トークン（Authorization: Bearer）', () => {
-    const bearerNames = Object.keys(SEED_API_TOKENS) as (keyof typeof SEED_API_TOKENS)[];
+    const bearerNames = Object.keys(BEARER_SEEDS);
     const allValues = [
       ...Object.values(SEED_SESSIONS).map((seed) => seed.token),
-      ...Object.values(SEED_API_TOKENS).map((seed) => seed.token),
+      ...Object.values(BEARER_SEEDS).map((seed) => seed.token),
     ];
     const leaked = (f: Fake) =>
       [...f.errors, ...f.logs].some((line) => allValues.some((value) => line.includes(value)));
@@ -549,9 +550,17 @@ describe('deploy', () => {
       }
       assert.deepEqual(
         f.bearerRequests.map((request) => request.headers.Authorization),
-        bearerNames.map((name) => `Bearer ${SEED_API_TOKENS[name].token}`),
+        bearerNames.map((name) => `Bearer ${BEARER_SEEDS[name]!.token}`),
       );
       assert.ok(!f.calls.some((args) => args[0] === 'rollback'));
+    });
+
+    test('旧 sgp_ の seed の値が受け付けられたら、戻して失敗し、旧の名前を報告する', async () => {
+      const f = fake({ bearerStatus: (token) => (token.startsWith('sgp_') ? 200 : 401) });
+      assert.equal(await deploy(f.deps), 1);
+      assert.deepEqual(lastCall(f), ['rollback', CURRENT]);
+      assert.ok(f.errors.some((entry) => entry.includes('adminWrite（旧 sgp_）')));
+      assert.ok(!leaked(f));
     });
 
     test('Cookie 側が拒まれ、Bearer 側が受け付けられたら、全部確かめてから戻して失敗し、Bearer 側の名前だけを報告する', async () => {

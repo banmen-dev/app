@@ -188,7 +188,7 @@
 
 | 列 | 型 | 制約 | 説明 |
 | --- | --- | --- | --- |
-| token_hash | TEXT | PK、`CHECK (length(token_hash) = 64 AND token_hash NOT GLOB '*[^0-9a-f]*')` | 生の値 `sgp_` + 32 バイトの乱数の base64url（43文字）の SHA-256 を小文字の16進（64文字）にしたもの。生の値は発行の応答で1回だけ返し、DB にもログにも残さない。形は `sessions.token_hash` と同じ CHECK |
+| token_hash | TEXT | PK、`CHECK (length(token_hash) = 64 AND token_hash NOT GLOB '*[^0-9a-f]*')` | 生の値 `bnp_`（旧名の `sgp_` で発行済みのものも、`API_TOKEN_LEGACY_LAST_DAY` までは読める）+ 32 バイトの乱数の base64url（43文字）の SHA-256 を小文字の16進（64文字）にしたもの。生の値は発行の応答で1回だけ返し、DB にもログにも残さない。形は `sessions.token_hash` と同じ CHECK |
 | account_id | TEXT | NOT NULL、FK accounts | トークンを発行した人。呼び出しはこの人として行う |
 | name | TEXT | NOT NULL、`CHECK (length(name) BETWEEN 1 AND 100)` | 発行した人が付ける、用途を思い出すための名前。SQLite の `length()` は NUL（U+0000）で数えるのをやめて CHECK に落ちるので、発行の入力の検証で NUL を断る |
 | scope | TEXT | NOT NULL、`CHECK (scope IN ('read', 'write'))` | `read` は読み取りの操作（`mode: 'read'`）だけ、`write` は読み取りと書き込みの両方を呼べる |
@@ -199,7 +199,7 @@
 | authenticated_at | TEXT | NULL 可、`????-??-??T??:??:??*Z` の GLOB CHECK（ミリ秒の桁数は固定しない） | 発行元のセッションの `created_at`。組織の認証の線と比べる。旧版の行や seed の NULL は `created_at` として読み、既存行は追加時に新しい CHECK の UTC 形式に合う `created_at` だけで埋め、合わない行は NULL のまま読み取り時に元の値へフォールバックする |
 
 - 索引: `(account_id)`。その人のトークンを取り消すときと、一覧が引く。
-- 読めるのは、`token_hash` の行があり、`revoked_at` が空で、`expires_at` が基準の時刻より後のとき。形が違う値（`API_TOKEN_PATTERN` に合わない）は DB を引かずに断る。
+- 読めるのは、`token_hash` の行があり、`revoked_at` が空で、`expires_at` が基準の時刻より後のとき。形が違う値（`API_TOKEN_PATTERN` に合わない。最終日を過ぎた `sgp_` も含む）は DB を引かずに断る。
 - 入れる組織を失ったことでは取り消さない（`sessions` と同じ。アカウントがあれば、組織の外の操作で使える）。`revoked_at` を書くのは、本人が取り消したときと、設定の全失効（`credentials-revoke-all`。実行したセッションの行が残っているときだけで、先に自分のセッションを消された側は何も取り消さず、件数 0 を返す。「書き込みの単位」）を実行したときだけ。取り消したトークンは戻さない。
 - 行数の上限: 1アカウントの有効な行（`revoked_at` が空で、`expires_at` が基準の時刻より後）は20件まで（`API_TOKEN_MAX_ACTIVE`）。発行の `INSERT` を `INSERT ... SELECT ... WHERE (有効な行の数) < 20` の1文にして守り、同時に発行しても超えない。発行元のセッションが有効でも入らなかったとき（`changes` が 0）は 409 の `conflict`（`details.reason` は `limit`）。取り消し済みと期限切れの行は数えない。一覧は上限と同じ件数までを返す（超えないはずの保険）。
 - Cookie からの発行は、発行元の `sessions.created_at` を、組織の線の比較と同じ JavaScript の日時の解釈で UTC ミリ秒表記へ揃えて `authenticated_at` に写す。INSERT の存在条件は、読んだセッションの作成時刻が変わっていないことも確かめる。トークンの発行日時では比べないので、古い Cookie で新しいトークンを発行しても組織の線を越えられない。ログインし直したセッションからトークンも発行し直す必要がある。セッションを渡さないテストの発行は発行日時を使う。
@@ -697,7 +697,6 @@
 - `CHECK (wip_limit IS NULL OR (wip_limit BETWEEN 1 AND 99 AND is_done = 0))`。完了の列は溜まるのが正しい状態なので、上限を付けない。
 - 完了の列を末尾に置くことは、読むときに `ORDER BY is_done, position` で守る。完了の列の `position` は使わない。
 - 削除は論理削除にする。変更の履歴と完了の記録が列を指すため。最後に残った完了以外の列と完了の列を削除できないことは、アプリが検査する。
-- 作成と削除を繰り返すと、論理削除の行と履歴は増える。`CONNECTIONS_PER_MEMBER_MAX` は削除していない行だけを数え、作成には 10 回 / 600 秒の上限がある。削除した行を数える、ワークスペースあたりの上限、定期処理での削除は、実害が出るまで入れない（#1634 で見送りと決めた）。
 - 操作は `column-list`（`member`、読み取り）、`column-create`、`column-update`（`name` と `wip_limit`）、`column-move`、`column-delete` で、後ろの4つは `leader`（管理者を含む）の書き込み（`src/shared/operations/column/`、処理は `src/server/operations/column.ts`）。一覧は削除していない列を `ORDER BY is_done, position, id` で返し（完了の列は最後で `name` は空。閉じたワークスペースでも読める）、各列に `task_count`（削除すると移り先へ移る、進行中と先のスプリントの未完了のタスクの数。完了の列は 0）を添える。画面（スプリントの画面の列の並びと設定）は完了の列の名前を辞書から出す。
   - `name` は前後の空白を除いて 1〜30 字（`workspaces.name` と同じ字数の数え方と断る文字。上限は `src/shared/column.ts` の `COLUMN_NAME_MAX_LENGTH`）。同じワークスペースの削除していない完了以外の列と同じ名前は 409（`conflict`、理由は `duplicate_name`。前後の空白を除いた後の完全一致で比べ、大文字と小文字、全角と半角は別の名前とみなす）。削除していない完了以外の列が 12 件（`COLUMNS_PER_WORKSPACE`）あれば足すのは 409（`conflict`、理由は `limit`）。理由の一覧は `src/shared/operations/column/column.ts` の `columnConflictReasons`（`duplicate_name`、`limit`、`last_column`、`done_column`、`target_required`、`target_invalid`、`changed`）。どちらも書く文の条件（足すのは `INSERT ... SELECT ... WHERE NOT EXISTS (同じ名前) AND (数) < 12`、名前の変更は同じ名前が無いことと読んだ名前のままであることを条件にした `UPDATE`）で守り、同時に足しても重複を作らず上限を超えない。足す位置は完了以外の列の末尾。
   - 上限（`wip_limit`）は `column-update` の省ける欄で受ける（`name` と `wip_limit` はどちらも省けるが、どちらも無ければ 400 の `invalid_input`）。1〜99 の整数で、`null` は上限を外す（`src/shared/column.ts` の `COLUMN_WIP_LIMIT_MIN`、`COLUMN_WIP_LIMIT_MAX`）。上限は目安で、超えてもタスクの移動（`task-column-move`）と追加は止めない（止めると、取り込みの同期（#911）で列が決まるタスクを置けなくなる）。画面（ボードの列の見出し）が件数を「件数 / 上限」で出し、超えたら警告の色にする。`UPDATE` の `SET` には送られた欄だけを入れる（名前だけの変更が、読んだ後にほかの要求が決めた上限を古い値で書き戻さないため）。上限だけの変更は名前を条件にせず、同時に決めたら後に書いた値が残る。上限の変更は変更の履歴に残さない（並べ替えと同じく、列の見た目の設定のため）。`column-list` と `sprint-board` の列に `wip_limit` を返す（完了の列は常に `null`）。
@@ -809,7 +808,7 @@
 | provider | TEXT | NOT NULL | 取り込み元の種類（初版は `backlog` と `github`）。値は取り込み元の型の一覧でアプリが検証する |
 | name | TEXT | NOT NULL | 本人が付けた表示名 |
 | status | TEXT | NOT NULL、`active`、`error`、`stopped` | |
-| stopped_reason | TEXT | `auth_failed`、`owner`、`leader`、`member_left`、`workspace_closed`、`user_disabled` | 停止の理由。`status = 'stopped'` のときは必ず入り、ほかは空（`CHECK`）。`workspace_closed` は使わない（閉じたワークスペースは接続の行を書き換えず、同期で飛ばす。「ワークスペース」の節）。値は `CHECK` に残るが、どこからも書かない |
+| stopped_reason | TEXT | `auth_failed`、`owner`、`leader`、`member_left`、`workspace_closed`、`user_disabled` | 停止の理由。`status = 'stopped'` のときは必ず入り、ほかは空（`CHECK`）。書くのは `auth_failed`（同期の認証失敗）、`member_left`、`user_disabled`（離脱と無効化）、`owner`（本人が止めた）、`leader`（リーダーか管理者が止めた。`connection-stop`）。`workspace_closed` は使わない（閉じたワークスペースは接続の行を書き換えず、同期で飛ばす。「ワークスペース」の節）。値は `CHECK` に残るが、どこからも書かない（`CHECK` を縮めるのは、使わなくなった版を出した後の別の PR） |
 | scope_mode | TEXT | NOT NULL、`include` か `exclude`、既定 `include` | 対象を挙げるか、除外を挙げるか |
 | ignore_source_due | INTEGER | NOT NULL、既定 0 | 取り込み元の期限を無視する |
 | settings_json | TEXT | NOT NULL、既定 `'{}'`、`json_valid` | 取り込み元に固有の設定。Backlog のスペースのドメインとユーザー ID、GitHub の PAT を発行したユーザーの ID（担当分の判定に使う「自分」）と PAT の持ち主（ユーザーか組織。範囲の候補を出す先）など。型が検証する |
@@ -834,13 +833,14 @@
 - 1回に10接続、50組織、60秒を上限にする。開始した頁の処理と続きの保存は終えてから止める。巡回の開始時刻と処理位置は R2 の `system/sync-imports-cursor` に保存し、次の回で残りを処理する。巡回の開始後に作られた組織・接続と、その巡回中に同期に成功した接続は次の巡回で選ぶ。接続の中で頁の上限に達したときは、既存の `sync_state_json` から次の同期を続ける。
 - 同期を始める前に組織の停止状態を確かめ直す。すでに始まった接続の同期は完了することがある。認証の失敗では接続を停止する。ほかの失敗はエラーにして、残りの接続や組織の処理を続ける。上限で未処理の接続が残った場合はそちらを先に巡り、一巡した次の回からエラーの接続も再試行する。
 - 削除は論理削除にする。取り込んだタスクが `task_sources.connection_id` で指すため。削除したら認証情報の列を消す。
+- 作成と削除を繰り返すと、論理削除の行と履歴は増える。`CONNECTIONS_PER_MEMBER_MAX` は削除していない行だけを数え、作成には 10 回 / 600 秒の上限がある。削除した行を数える、ワークスペースあたりの上限、定期処理での削除は、実害が出るまで入れない（#1634 で見送りと決めた）。
 - 停止と削除の操作は `connection-stop` と `connection-delete`（どちらも `member`）。登録した本人と、そのワークスペースのリーダー、管理者だけが対象にできる（ほかは 403。別のワークスペース、別の組織、削除済みは 404）。停止は `status = 'stopped'` と理由（本人は `owner`、リーダーと管理者は `leader`）を書く。本人が認証情報で再開できる理由（`auth_failed`、`member_left`、`user_disabled`）で止まっている接続も、止めると理由を `owner` か `leader` に書き換え、再開しない停止にする。それ以外の理由で止まっている接続は理由を書き換えない。削除は `deleted_at` を入れ、認証情報の3列、`sync_state_json`、`reconcile_state_json`、`last_success_at` を消す（範囲と取り込み済みのタスクは残す）。どちらも閉じたワークスペースでは 409 の `workspace_closed`（止まっている接続の停止も同じ。開いていれば何もせず 200）。停止と削除が同時に走り、停止が接続を読んだ後に削除が先に入ったときの停止は、削除済みと同じ 404（停止の履歴は書かない）。リーダーと管理者に開くのは停止と削除だけで、範囲の保存（`connection-scopes-save`）と認証情報の更新は本人のまま。
 - 登録者がワークスペースを抜けると、そのワークスペースのその人の接続を `member_left` で止め、ユーザーを無効にすると、その人のすべての接続を `user_disabled` で止めて認証情報の列を消す（「書き込みの単位」のメンバーの離脱とユーザーの無効化）。既に止まった接続の理由は書き換えない。
-- 範囲の候補（`connection-scope-candidates`）と範囲の保存（`connection-scopes-save`）は、持ち主が去って止めた接続では、保存した認証情報を復号せず、取り込み元にも問い合わせずに 409 の `connection_stopped` で断る。断るのは、`member_left`、`user_disabled`、`workspace_closed` で止めた接続と、本人かリーダーが止めた（`owner`、`leader`）接続（止めた接続では保存した認証情報を使わせない。`member_left` を `leader` に書き換えた接続も同じ）と、止まった接続の持ち主が今そのワークスペースのメンバーでないとき（離脱と無効化は既に止まった接続の理由を書き換えないので、先に `auth_failed` などで止まった接続は理由だけでは分からない）。保存は候補を取っている間に止まった接続にも書かない。持ち主が所属している `auth_failed` の接続と、動いている接続（メンバーでない管理者の接続も）は範囲を選び直せる。`workspace_closed` で止める処理は今は無い（閉じたワークスペースの保存は `workspace_closed` の 409 で先に断る）。
+- 範囲の候補（`connection-scope-candidates`）と範囲の保存（`connection-scopes-save`）は、持ち主が去って止めた接続では、保存した認証情報を復号せず、取り込み元にも問い合わせずに 409 の `connection_stopped` で断る。断るのは、`member_left`、`user_disabled` で止めた接続（書かれない `workspace_closed` の行があっても同じに見る）と、本人かリーダーが止めた（`owner`、`leader`）接続（止めた接続では保存した認証情報を使わせない。`member_left` を `leader` に書き換えた接続も同じ）と、止まった接続の持ち主が今そのワークスペースのメンバーでないとき（離脱と無効化は既に止まった接続の理由を書き換えないので、先に `auth_failed` などで止まった接続は理由だけでは分からない）。保存は候補を取っている間に止まった接続にも書かない。持ち主が所属している `auth_failed` の接続と、動いている接続（メンバーでない管理者の接続も）は範囲を選び直せる。`workspace_closed` で止める処理は今は無い（閉じたワークスペースの保存は `workspace_closed` の 409 で先に断る）。
 - `credential_*` と `sync_state_json` は API で返さない。返すのは `credential_last4` まで。
 - 鍵の入れ替えは `credential_key_version` が古い行を選んで書き直す。
 - `connection-update` は開いているワークスペースの、削除していない本人の接続の表示名を更新する。見つからない接続（別の組織、別のワークスペース、削除済みを含む）は 404、他人の接続は 403。認証情報を送ったときは、取り込み元で確かめて最新の鍵の版で暗号化し、末尾4文字と、同期・照合の続きの位置（`{}`）を更新する。
-- 認証情報の更新時に `stopped_reason` が `auth_failed`、`member_left`、`user_disabled` のいずれかで、持ち主が今もそのワークスペースのメンバーなら、`status = 'active'` に戻し、停止理由、直近のエラーとその日時、連続失敗回数を空（回数は 0）にする（`user_disabled` は認証情報が消えているので、新しい認証情報が要る）。メンバーでない管理者（ワークスペースを抜けた管理者を含む）の更新では、認証情報だけを書き換えて停止のまま残す（同期は所属している持ち主の接続しか選ばないので、所属し直しただけでは自動で再開しない）。`owner`、`leader`、`workspace_closed` の停止は、認証情報を更新しても戻さない。範囲の行は止めても消していないので、再開の後は前の範囲で取り込みが始まる。最後に成功した日時は（再開の有無に関わらず）空にして次の同期で全部を読み、手動同期の受付日時は保持する。履歴と接続は同じバッチで書き、履歴には表示名の変更と認証情報を更新した印を残し、再開したときは `status` と `stopped_reason` の前後（`[前, 後]`）も足す。
+- 認証情報の更新時に `stopped_reason` が `auth_failed`、`member_left`、`user_disabled` のいずれかで、持ち主が今もそのワークスペースのメンバーなら、`status = 'active'` に戻し、停止理由、直近のエラーとその日時、連続失敗回数を空（回数は 0）にする（`user_disabled` は認証情報が消えているので、新しい認証情報が要る）。メンバーでない管理者（ワークスペースを抜けた管理者を含む）の更新では、認証情報だけを書き換えて停止のまま残す（同期は所属している持ち主の接続しか選ばないので、所属し直しただけでは自動で再開しない）。`owner`、`leader`、`workspace_closed`（書かれない）の停止は、認証情報を更新しても戻さない。範囲の行は止めても消していないので、再開の後は前の範囲で取り込みが始まる。最後に成功した日時は（再開の有無に関わらず）空にして次の同期で全部を読み、手動同期の受付日時は保持する。履歴と接続は同じバッチで書き、履歴には表示名の変更と認証情報を更新した印を残し、再開したときは `status` と `stopped_reason` の前後（`[前, 後]`）も足す。
 
 ### connection_scopes
 

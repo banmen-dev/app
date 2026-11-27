@@ -10,7 +10,7 @@ import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const ENTRY = fileURLToPath(new URL('../banmen.ts', import.meta.url));
-const TOKEN = `sgp_${'M'.repeat(43)}`;
+const TOKEN = `bnp_${'M'.repeat(43)}`;
 
 function run(args: string[], env: Record<string, string>, input: string[]) {
   const home = mkdtempSync(join(tmpdir(), 'sg-mcp-home-'));

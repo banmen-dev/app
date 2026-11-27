@@ -55,7 +55,7 @@ test('一覧の行は名前、範囲、期限、未使用を出し、ハッシ�
   expect(body).toContain('未使用');
   expect(body).toContain('aria-label="API トークン「手元の端末」を取り消す"');
   expect(body).not.toContain(HASH);
-  expect(body).not.toContain('sgp_');
+  expect(body).not.toContain('bnp_');
 });
 
 test('最後に使った日があれば未使用を出さず、日付を出す', () => {
@@ -90,7 +90,7 @@ test('発行の欄の初期値は、範囲が読み取り、有効日数が90で
   expect(body).toMatch(/type="number"[^>]*value="90"|value="90"[^>]*type="number"/);
   expect(body).toContain('max="90"');
   expect(body).not.toContain('二度と見られません');
-  expect(body).not.toContain('sgp_');
+  expect(body).not.toContain('bnp_');
 });
 
 test.each(['github', 'google'])(

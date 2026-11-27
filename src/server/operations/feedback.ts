@@ -24,7 +24,7 @@ import { implement } from './implement.ts';
 const textPattern = new RegExp(`^.{1,${FEEDBACK_TEXT_MAX}}$`, 'su');
 
 // Banmen と GitHub のトークンの接頭辞、秘密鍵の PEM ヘッダーを検出する。
-const secretPattern = /(?:sgp_|gh[pousr]_|github_pat_)[A-Za-z0-9_-]+|-----BEGIN\b/;
+const secretPattern = /(?:bnp_|sgp_|gh[pousr]_|github_pat_)[A-Za-z0-9_-]+|-----BEGIN\b/;
 
 export type FeedbackTools = {
   readonly publicOrigin: string;

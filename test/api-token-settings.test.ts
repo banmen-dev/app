@@ -60,7 +60,7 @@ describe('操作の定義', () => {
 });
 
 describe('完了条件: 発行', () => {
-  test('応答は { id, name, scope, expires_at, token }。生の値は sgp_ + 43文字、id は小文字16進64文字', async () => {
+  test('応答は { id, name, scope, expires_at, token }。生の値は bnp_ + 43文字、id は小文字16進64文字', async () => {
     const person = await createLoginPerson();
     const body = await created(person, { name: '手元の CLI', scope: 'read', lifetime_days: 7 });
     expect(Object.keys(body).sort()).toEqual(['expires_at', 'id', 'name', 'scope', 'token']);
@@ -397,7 +397,7 @@ describe('断る場合: 取消の入力の検証', () => {
       hash.toUpperCase(),
       `${hash.slice(0, 63)}g`,
       ` ${hash.slice(1)}`,
-      'sgp_' + 'a'.repeat(43),
+      'bnp_' + 'a'.repeat(43),
       1,
       null,
       undefined,

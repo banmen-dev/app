@@ -21,13 +21,13 @@ export type TokenRow = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// 本物と同じ形の `sgp_` + base64url の43文字
+// 本物と同じ形の `bnp_` + base64url の43文字
 export function rawApiToken(): string {
   const body = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
     .replaceAll('+', '-')
     .replaceAll('/', '_')
     .replaceAll('=', '');
-  return `sgp_${body}`;
+  return `bnp_${body}`;
 }
 
 export type InsertOptions = {

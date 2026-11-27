@@ -1,5 +1,18 @@
 // API トークン（docs/data-model.md の `api_tokens`）の形と上限。Authorization: Bearer に載せる
-export const API_TOKEN_PATTERN = /^sgp_[A-Za-z0-9_-]{43}$/;
+// 新しく発行するトークンの接頭辞
+export const API_TOKEN_PREFIX = 'bnp_';
+// 旧名（Scrum Guild）の接頭辞。API_TOKEN_LEGACY_LAST_DAY（UTC の日付）まで検証だけ受け付ける
+export const API_TOKEN_LEGACY_PREFIX = 'sgp_';
+export const API_TOKEN_LEGACY_LAST_DAY = '2027-03-27';
+
+// 検証が通す形。新しい接頭辞と、最終日までの旧の接頭辞のどちらも、乱数は base64url の43文字
+export const API_TOKEN_PATTERN = new RegExp(`^(?:${API_TOKEN_PREFIX}|${API_TOKEN_LEGACY_PREFIX})[A-Za-z0-9_-]{43}$`);
+
+// 旧の接頭辞を受け付けるのは、now の UTC の日付が最終日以前のあいだ（最終日の終わりまで通し、翌日の 00:00 から断る）
+export function isLegacyApiTokenAccepted(now: Date): boolean {
+  // 数で比べる（文字列では西暦10000年以降の '+' が先に来て通ってしまう）。不正な Date は NaN で false
+  return now.getTime() < Date.parse(API_TOKEN_LEGACY_LAST_DAY) + 24 * 60 * 60 * 1000;
+}
 
 // 発行から失効までの上限の日数。使っても延ばさない
 export const API_TOKEN_MAX_LIFETIME_DAYS = 90;

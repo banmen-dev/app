@@ -6,7 +6,7 @@ import { createMembership, createOrganization, createUser, createWorkspace } fro
 import { createPerson, testEnv, type Person } from './operations/world.ts';
 
 const NOW = '2026-11-02T03:00:00.000Z';
-const SECRET = '本文_タスクの題_認証情報_sgp_架空の秘密';
+const SECRET = '本文_タスクの題_認証情報_bnp_架空の秘密';
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
