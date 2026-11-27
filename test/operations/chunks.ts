@@ -6,7 +6,10 @@ import { describe } from 'vitest';
 import type { ImplementedOperation } from '../../src/server/operations/implement.ts';
 import { implementedOperations } from '../../src/server/operations/index.ts';
 import { defineOperationChecks } from './harness.ts';
+import { fakeFeedbackGithubEnv } from '../feedback/fake-github-app.ts';
+import { feedbackSubmit } from '../../src/shared/operations/feedback.ts';
 import { pointers, registryFetcher } from './pointers.ts';
+import { testEnv } from './world.ts';
 
 export const productionChunkCount = 6;
 
@@ -29,7 +32,12 @@ export function operationChunk(
 // 運用者の操作は、差し替えた GitHub に問い合わせる。トークンでも、組織の分離と権限は Cookie と同じ結果になる
 export function defineProductionChunk(number: number): void {
   const chunk = operationChunk(implementedOperations, number - 1, productionChunkCount);
-  describe('本番の一覧の分離と権限', () => defineOperationChecks(chunk, pointers, { fetcher: registryFetcher }));
+  const options = {
+    fetcher: registryFetcher,
+    envFor: (definition: ImplementedOperation['definition']) =>
+      definition === feedbackSubmit ? fakeFeedbackGithubEnv(testEnv) : undefined,
+  };
+  describe('本番の一覧の分離と権限', () => defineOperationChecks(chunk, pointers, options));
   describe('本番の一覧の分離と権限（API トークン）', () =>
-    defineOperationChecks(chunk, pointers, { fetcher: registryFetcher, credential: 'bearer' }));
+    defineOperationChecks(chunk, pointers, { ...options, credential: 'bearer' }));
 }

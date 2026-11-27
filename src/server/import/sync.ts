@@ -60,6 +60,9 @@ export type SyncOptions = {
   maxDurationMs?: number;
 };
 
+type ScheduledSyncOptions = SyncOptions & { absoluteDeadline: number };
+type DeferredSync = { outcome: 'budget_exhausted' };
+
 export type SyncResult =
   // 接続が無い（別の組織、別のワークスペース、削除済み）か、閉じたワークスペース
   | { outcome: 'not_found' }
@@ -254,13 +257,29 @@ async function scopesOf(
   return candidates.filter((candidate) => !excluded.has(candidate.id)).sort((a, b) => (a.id < b.id ? -1 : 1));
 }
 
+export function syncConnection(
+  env: object,
+  db: OrganizationDb,
+  workspaceId: string,
+  connectionId: string,
+  options: ScheduledSyncOptions,
+): Promise<SyncResult | DeferredSync>;
+export function syncConnection(
+  env: object,
+  db: OrganizationDb,
+  workspaceId: string,
+  connectionId: string,
+  options?: SyncOptions & { absoluteDeadline?: never },
+): Promise<SyncResult>;
 export async function syncConnection(
   env: object,
   db: OrganizationDb,
   workspaceId: string,
   connectionId: string,
-  options: SyncOptions = {},
-): Promise<SyncResult> {
+  options: SyncOptions & { absoluteDeadline?: number } = {},
+): Promise<SyncResult | DeferredSync> {
+  const absoluteDeadline = options.absoluteDeadline;
+  const jobTimeExpired = () => absoluteDeadline !== undefined && Date.now() >= absoluteDeadline;
   let requests = 0;
   let budgetReached = false;
   const requestLimit = DEFAULT_MAX_PAGES;
@@ -281,6 +300,7 @@ export async function syncConnection(
   if (connection.status === 'stopped') return { outcome: 'stopped' };
   // 対象を挙げる接続で範囲が空なら、取り込み元に問い合わせない（登録した直後の状態）
   if (connection.scope_mode !== 'exclude' && read.scopes.length === 0) return { outcome: 'no_scope' };
+  if (jobTimeExpired()) return { outcome: 'budget_exhausted' };
 
   let imported = 0;
   let resume: Resume | null = null;
@@ -343,23 +363,30 @@ export async function syncConnection(
   };
 
   try {
+    if (jobTimeExpired()) return { outcome: 'budget_exhausted' };
     const source =
       options.source ?? (isImportSourceKind(connection.provider) ? importSourceOf(connection.provider) : undefined);
     if (source === undefined) throw invalid();
 
     const credential = await credentialOf(env, connection);
+    if (jobTimeExpired()) return { outcome: 'budget_exhausted' };
     const settings = parseSettings(connection.settings_json);
     const stored = read.scopes.map((scope) => ({ id: scope.source_id, name: scope.source_name }));
-    const deadline = Date.now() + (options.maxDurationMs ?? DEFAULT_MAX_DURATION_MS);
+    const deadline = absoluteDeadline ?? Date.now() + (options.maxDurationMs ?? DEFAULT_MAX_DURATION_MS);
     const repositories = await readRepositoriesByContainer(db, workspaceId, connection.provider);
     let pages = 0;
+    const pause = async (): Promise<SyncResult | DeferredSync> => {
+      // 接続の始めの読み取りだけで定期処理の期限に達した場合、同期の進捗も巡回位置も進めない。
+      if (pages === 0 && requests === 0 && jobTimeExpired()) return { outcome: 'budget_exhausted' };
+      if (!(await finish(checkpoint()))) return interrupted();
+      return { outcome: 'success', imported, more: true };
+    };
     const pagedCandidates = connection.scope_mode === 'exclude' && source.fetchScopeCandidatesPage !== undefined;
     while (true) {
       if (pagedCandidates && scopeBatch === null) {
         if (requests >= requestLimit || pages >= maxPages || Date.now() >= deadline) {
           // 候補一覧だけで上限に達しても、その続きの位置から再開する。
-          if (!(await finish(checkpoint()))) return interrupted();
-          return { outcome: 'success', imported, more: true };
+          return await pause();
         }
         pages++;
         const page = await source.fetchScopeCandidatesPage!({ credential, fetcher, cursor: candidateCursor });
@@ -372,6 +399,7 @@ export async function syncConnection(
           throw invalid();
         scopeBatch = page;
       }
+      if (jobTimeExpired()) return await pause();
       const excluded = new Set(stored.map((s) => s.id));
       const scopes = pagedCandidates
         ? scopeBatch!.candidates.filter((s) => !excluded.has(s.id))
@@ -391,12 +419,12 @@ export async function syncConnection(
         while (true) {
           resume = current;
           if (pages >= maxPages || requests >= requestLimit || Date.now() >= deadline) {
-            if (!(await finish(checkpoint()))) return interrupted();
-            return { outcome: 'success', imported, more: true };
+            return await pause();
           }
           const input = { credential, fetcher, settings, scope, cursor: current.cursor };
           if (current.phase === 'targets') {
             const target = await readReviewTarget(db, connection, scope.id, current.after);
+            if (jobTimeExpired()) return await pause();
             if (!target) {
               current = { ...current, phase: 'items', cursor: null };
               continue;

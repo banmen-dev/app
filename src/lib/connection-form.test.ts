@@ -5,7 +5,8 @@ import {
   connectionScopeFailure,
   connectionSyncFailure,
   connectionSyncOutcome,
-  validateConnectionCreate,
+  connectionUpdateFailure,
+  validateConnectionInput,
 } from './connection-form.ts';
 
 type Failed = Extract<ApiResult<unknown>, { ok: false }>;
@@ -15,30 +16,38 @@ const failed = (status: number, code: string | null, details?: unknown): Failed 
   error: code === null ? null : ({ code, message: '', details } as NonNullable<Failed['error']>),
 });
 
-describe('validateConnectionCreate', () => {
+describe('validateConnectionInput', () => {
   it('表示名と認証情報の空を断る', () => {
-    expect(validateConnectionCreate({ name: ' ', credential: 'x' })).toEqual({
+    expect(validateConnectionInput({ name: ' ', credential: 'x' })).toEqual({
       field: 'name',
       key: 'connectionNameRequired',
     });
-    expect(validateConnectionCreate({ name: 'a'.repeat(51), credential: 'x' })).toEqual({
+    expect(validateConnectionInput({ name: 'a'.repeat(51), credential: 'x' })).toEqual({
       field: 'name',
       key: 'connectionNameTooLong',
     });
     // 見えない文字だけ・向きを変える制御文字は「50字まで」でなく、それぞれの理由にする
-    expect(validateConnectionCreate({ name: '\u200b', credential: 'x' })).toEqual({
+    expect(validateConnectionInput({ name: '\u200b', credential: 'x' })).toEqual({
       field: 'name',
       key: 'connectionNameRequired',
     });
-    expect(validateConnectionCreate({ name: 'a\u202eb', credential: 'x' })).toEqual({
+    expect(validateConnectionInput({ name: 'a\u202eb', credential: 'x' })).toEqual({
       field: 'name',
       key: 'connectionNameInvalid',
     });
-    expect(validateConnectionCreate({ name: 'a', credential: ' ' })).toEqual({
+    expect(validateConnectionInput({ name: 'a', credential: ' ' })).toEqual({
       field: 'credential',
       key: 'connectionCredentialRequired',
     });
-    expect(validateConnectionCreate({ name: 'a'.repeat(50), credential: 'x' })).toBeNull();
+    expect(validateConnectionInput({ name: 'a'.repeat(50), credential: 'x' })).toBeNull();
+  });
+
+  it('省略した認証情報は通し、明示した空文字は断る', () => {
+    expect(validateConnectionInput({ name: 'GitHub' })).toBeNull();
+    expect(validateConnectionInput({ name: 'GitHub', credential: '' })).toEqual({
+      field: 'credential',
+      key: 'connectionCredentialRequired',
+    });
   });
 });
 
@@ -84,6 +93,42 @@ describe('connectionCreateFailure', () => {
     expect(connectionCreateFailure(failed(0, null)).key).toBe('connectionCreateUnreachable');
     expect(connectionCreateFailure(failed(500, 'internal')).key).toBe('connectionCreateFailed');
   });
+});
+
+describe('connectionUpdateFailure', () => {
+  it('取り込み元の拒否は認証情報の欄、鍵の設定不備はフォームの理由にする', () => {
+    expect(
+      connectionUpdateFailure(
+        failed(400, 'invalid_input', [{ path: 'credential', code: 'credential_rejected' }]),
+        true,
+      ),
+    ).toEqual({ field: 'credential', key: 'connectionCredentialRejected' });
+    expect(connectionUpdateFailure(failed(400, 'invalid_input', [{ path: 'name', code: 'too_big' }]), false)).toEqual({
+      field: 'name',
+      key: 'connectionNameTooLong',
+    });
+    expect(connectionUpdateFailure(failed(503, 'credential_keys_unavailable'), true)).toEqual({
+      field: 'form',
+      key: 'connectionEditKeysUnavailable',
+    });
+  });
+
+  it.each([
+    [429, 'rate_limited', 'connectionRateLimited', 'connectionCreateRateLimited'],
+    [503, 'unavailable', 'connectionEditNetwork', 'connectionCreateUnreachable'],
+    [0, null, 'connectionEditNetwork', 'connectionEditNetworkCredential'],
+    [500, 'internal', 'connectionUpdateFailed', 'connectionUpdateCredentialFailed'],
+  ] as const)(
+    '状態 %i では、送信した認証情報があるときに入力し直す欄へ戻す',
+    (status, code, nameOnly, withCredential) => {
+      expect(connectionUpdateFailure(failed(status, code), false)).toEqual({ field: 'form', key: nameOnly });
+      expect(connectionUpdateFailure(failed(status, code), true)).toEqual({
+        field: 'form',
+        key: withCredential,
+        refocus: 'credential',
+      });
+    },
+  );
 });
 
 describe('connectionScopeFailure', () => {

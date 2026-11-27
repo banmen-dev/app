@@ -14,6 +14,7 @@ import {
   type AnyOperationDefinition,
   type Permission,
 } from '../../shared/operations/define.ts';
+import { feedbackSubmit } from '../../shared/operations/feedback.ts';
 import { readApiToken, type ApiToken } from '../auth/api-token.ts';
 import { PASSWORD_LOGIN_ENABLED } from '../../shared/password-login-enabled.ts';
 import { sessionCookieClearOptions, sessionCookieName, sessionCookieOptions } from '../../shared/session-cookie.ts';
@@ -35,6 +36,7 @@ import { ApiError, knownError } from '../errors.ts';
 import { executionContextOf } from '../execution-context.ts';
 import { outsideAccount } from './account.ts';
 import { isCurrentConsent, latestConsentOf } from './consent.ts';
+import { checkFeedbackGlobalLimit, createFeedbackToolsFactory } from './feedback.ts';
 import {
   readBinaryBody,
   readDownloadInput,
@@ -88,10 +90,12 @@ function unreachable(value: never): never {
 
 // 定義が型の検査を抜けていても、登録のときに落とす。権限の分岐に知らない値が来たまま動かさない
 export type OperationsAppOptions = {
-  // ログインの手段（GitHub）への通信。運用者の操作と組織の中の操作が GitHub のユーザー名を解決するのに使う。テストが差し替える
+  // GitHub のユーザー名の解決とフィードバックの起票に使う。テストが差し替える
   fetcher: typeof fetch;
   passwordLogin?: boolean;
 };
+
+type OperationServices = OperationsAppOptions & { feedbackFor: ReturnType<typeof createFeedbackToolsFactory> };
 
 // 運用者の道具と組織の道具に渡す、招待する人の解決器。持つのは GitHub だけ。
 // ログインの手段のほかの口（認可の URL、code の確かめ）を処理に渡さないよう、resolveInvitee だけを持つ入れ物に包む
@@ -111,6 +115,7 @@ export function operationsApp(
   operations: readonly ImplementedOperation[],
   options: OperationsAppOptions,
 ): Hono<AppEnv> {
+  const services = { ...options, feedbackFor: createFeedbackToolsFactory(options.fetcher) };
   const names = new Set<string>();
   const app = new Hono<AppEnv>();
   for (const operation of operations) {
@@ -121,9 +126,9 @@ export function operationsApp(
     names.add(name);
     const path = isOutsideOperation(operation.definition) ? `/${name}` : `/:slug/${name}`;
     if (operation.definition.response === 'binary') {
-      app.get(`${path}/:id`, (c) => handleOperation(c, operation, options));
+      app.get(`${path}/:id`, (c) => handleOperation(c, operation, services));
     } else {
-      app.post(path, (c) => handleOperation(c, operation, options));
+      app.post(path, (c) => handleOperation(c, operation, services));
     }
   }
   return app;
@@ -149,7 +154,7 @@ function applySessionCookie(c: Context<AppEnv>, cookie: SessionCookie): void {
 async function handleOperation(
   c: Context<AppEnv>,
   operation: ImplementedOperation,
-  options: OperationsAppOptions,
+  options: OperationServices,
 ): Promise<Response> {
   const startedAt = Date.now();
   const trace: Trace = { organizationId: null, userId: null, accountId: null };
@@ -287,7 +292,7 @@ async function execute(
   operation: ImplementedOperation,
   trace: Trace,
   cookie: SessionCookie,
-  options: OperationsAppOptions,
+  options: OperationServices,
   bearer: string | undefined,
 ): Promise<Response> {
   const { definition } = operation;
@@ -357,6 +362,9 @@ async function execute(
         inviteeResolverOf(c, options),
       );
     }
+    const isFeedback = definition.name === feedbackSubmit.name;
+    // 全体の枠が上限なら、アカウントの枠を数えず本文も読まない。
+    if (isFeedback) await checkFeedbackGlobalLimit(c.env);
     await enforceRateLimit(c, definition, accountId);
     // R2 を持たない隔離プレビューでは、R2 に触る本文と応答の操作を本文を読む前に 503 にする（組織の中の操作と同じ）
     checkAttachmentAvailability(isPreviewWithoutAttachments(c.env), definition, undefined);
@@ -374,6 +382,7 @@ async function execute(
       input = await readInput(c, definition.input, undefined, definition.maxBodyBytes);
     }
     await enforceWeightedRateLimit(c, definition, accountId, input);
+    const executionCtx = isFeedback ? executionContextOf(c) : undefined;
     result = await handler({
       db: commonDb(c.env),
       accountId,
@@ -381,6 +390,7 @@ async function execute(
       session,
       tokenScope: apiToken?.scope,
       ...(operator === undefined ? {} : { operator }),
+      ...(isFeedback ? { feedback: options.feedbackFor(c.env, executionCtx?.waitUntil.bind(executionCtx)) } : {}),
       input,
       ...(multipart === undefined ? {} : { multipart }),
       ...(definition.response === 'binary'

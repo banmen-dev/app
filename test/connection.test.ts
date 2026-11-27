@@ -11,6 +11,7 @@ import {
   connectionScopeCandidates,
   connectionScopesSave,
   connectionSync,
+  connectionUpdate,
 } from '../src/shared/operations/connection/index.ts';
 import { createApp } from '../src/server/app.ts';
 import { decryptCredential } from '../src/server/crypto/credential.ts';
@@ -40,6 +41,22 @@ async function register(
     slug: target.slug,
     token: person.token,
     body: { workspace_id: target.workspace.id, provider: 'github', name, credential: pat },
+  });
+}
+
+function update(
+  ctx: ReturnType<typeof setup>,
+  target: Target,
+  person: Person,
+  connectionId: string,
+  credential?: string,
+  bindings: Env = env,
+) {
+  return post(ctx.app, connectionUpdate, {
+    env: bindings,
+    slug: target.slug,
+    token: person.token,
+    body: { workspace_id: target.workspace.id, connection_id: connectionId, name: '  更新した GitHub  ', credential },
   });
 }
 
@@ -598,6 +615,168 @@ describe('守りの条件', () => {
   });
 });
 
+describe('connection-update', () => {
+  test('名前だけを変えられ、PAT の更新では最新の鍵の版と末尾4文字を保存する', async () => {
+    const ctx = setup();
+    const target = await createTarget();
+    const { id } = await registered(ctx, target, target.member, 'before-update');
+    const before = (await rowsOf(target)).connections[0]!;
+    const calls = ctx.github.calls.length;
+
+    const renamed = await update(ctx, target, target.member, id);
+    expect(renamed.status).toBe(200);
+    expect(await renamed.json()).toMatchObject({
+      connection: { name: '更新した GitHub', credential_last4: before.credential_last4 },
+    });
+    expect(ctx.github.calls).toHaveLength(calls);
+    expect((await rowsOf(target)).connections[0]!.credential_ciphertext).toBe(before.credential_ciphertext);
+
+    const pat = fakePat('after-update');
+    ctx.github.addAccount(pat, OWNER, fakeRepos(2));
+    const bindings = {
+      ...env,
+      CONNECTION_CREDENTIAL_KEYS: JSON.stringify({ 2: btoa('2'.repeat(32)) }),
+    };
+    const rotated = await update(ctx, target, target.member, id, pat, bindings);
+    expect(rotated.status).toBe(200);
+    const text = await rotated.text();
+    expect(JSON.parse(text)).toMatchObject({
+      connection: { name: '更新した GitHub', credential_last4: pat.slice(-4) },
+    });
+    expect(text).not.toContain(pat);
+    expect(text).not.toContain('ciphertext');
+    expect(text).not.toContain('key_version');
+
+    const { connections, logs } = await rowsOf(target);
+    const row = connections[0]!;
+    expect(row.credential_key_version).toBe(2);
+    expect(row.credential_ciphertext).not.toBe(before.credential_ciphertext);
+    expect(await decryptCredential(bindings, { ciphertext: row.credential_ciphertext!, keyVersion: 2 }, id)).toBe(pat);
+    const changes = logs.filter((log) => log.action === 'update').map((log) => JSON.parse(log.changes_json!));
+    expect(changes).toEqual(
+      expect.arrayContaining([{ name: [before.name, '更新した GitHub'] }, { credential_updated: [null, true] }]),
+    );
+    expect(JSON.stringify(logs)).not.toContain(pat);
+  });
+
+  test('無効な PAT では表示名も更新せず、他人や削除済みの接続は取り込み元に問い合わせる前に断る', async () => {
+    const ctx = setup();
+    const target = await createTarget();
+    const { id } = await registered(ctx, target, target.member, 'invalid-update');
+    const before = await rowsOf(target);
+    const calls = ctx.github.calls.length;
+    const malformed = await update(ctx, target, target.member, id, 'github_pat_short');
+    expect(malformed.status).toBe(400);
+    expect(await malformed.json()).toMatchObject({ error: { details: [{ code: 'credential_shape' }] } });
+    expect(ctx.github.calls).toHaveLength(calls);
+
+    const rejected = await update(ctx, target, target.member, id, fakePat('rejected-update'));
+    expect(rejected.status).toBe(400);
+    expect(await rejected.json()).toMatchObject({ error: { details: [{ code: 'credential_rejected' }] } });
+    const afterRejection = ctx.github.calls.length;
+    for (const person of [target.leader, target.admin]) {
+      expect((await update(ctx, target, person, id, fakePat('forbidden-update'))).status).toBe(403);
+    }
+    expect(await rowsOf(target)).toEqual(before);
+
+    const db = orgDb(env, target.organization.verified);
+    await db.run(
+      db.statement((q) =>
+        q
+          .updateTable('connections')
+          .set({
+            deleted_at: new Date().toISOString(),
+            credential_ciphertext: null,
+            credential_key_version: null,
+            credential_last4: null,
+          })
+          .where('id', '=', id),
+      ),
+    );
+    expect((await update(ctx, target, target.member, id, fakePat('deleted-update'))).status).toBe(404);
+    expect(ctx.github.calls).toHaveLength(afterRejection);
+  });
+
+  test('別の組織と別のワークスペースの接続は 404、閉じたワークスペースの接続は 409', async () => {
+    const ctx = setup();
+    const target = await createTarget();
+    const other = await createTarget();
+    const closed = await createTarget({ closed: true });
+    const foreign = await createConnection(other.organization, other.workspace.id, other.member.userId!);
+    const sibling = await createConnection(target.organization, target.otherWorkspace.id, target.bystander.userId!);
+    const readOnly = await createConnection(closed.organization, closed.workspace.id, closed.member.userId!);
+    const pat = fakePat('workspace-boundary-update');
+
+    for (const connection of [foreign, sibling]) {
+      const response = await update(ctx, target, target.member, connection.id, pat);
+      expect(response.status).toBe(404);
+      expect(await response.json()).toMatchObject({ error: { code: 'not_found' } });
+    }
+    const response = await update(ctx, closed, closed.member, readOnly.id, pat);
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ error: { code: 'workspace_closed' } });
+    expect(ctx.github.calls).toHaveLength(0);
+  });
+
+  test('新しい PAT を検証している間に所属を失うと、接続も履歴も更新しない', async () => {
+    const ctx = setup();
+    const target = await createTarget();
+    const { id } = await registered(ctx, target, target.member, 'leave-during-update');
+    const before = await rowsOf(target);
+    const db = orgDb(env, target.organization.verified);
+    const pat = fakePat('leave-during-update-new');
+    ctx.github.addAccount(pat, OWNER, fakeRepos(2));
+    const app = createApp(implementedOperations, {
+      fetcher: async (input, init) => {
+        await db.run(
+          db.statement((q) =>
+            q
+              .updateTable('memberships')
+              .set({ left_at: '2026-11-26T00:00:00.000Z', left_on: '2026-11-26' })
+              .where('workspace_id', '=', target.workspace.id)
+              .where('user_id', '=', target.member.userId!),
+          ),
+        );
+        return ctx.github.fetcher(input, init);
+      },
+    });
+
+    expect((await update({ ...ctx, app }, target, target.member, id, pat)).status).toBe(403);
+    expect(await rowsOf(target)).toEqual(before);
+  });
+
+  test.each([
+    { status: 'stopped', stopped_reason: 'leader' },
+    { status: 'error', stopped_reason: null },
+  ] as const)('PAT を更新しても認証失敗以外では状態（$status）と失敗の記録を保つ', async (state) => {
+    const ctx = setup();
+    const target = await createTarget();
+    const failure = {
+      last_error_message: '取り込み元に届きませんでした',
+      last_error_at: '2026-11-26T00:00:00.000Z',
+      consecutive_failures: 2,
+    };
+    const connection = await createConnection(target.organization, target.workspace.id, target.member.userId!, {
+      ...state,
+      ...failure,
+      sync_state_json: '{"position":{}}',
+      reconcile_state_json: '{"position":{}}',
+    });
+
+    const pat = fakePat('keep-state-update');
+    ctx.github.addAccount(pat, OWNER, fakeRepos(2));
+    const res = await update(ctx, target, target.member, connection.id, pat);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      connection: { ...state, ...failure, credential_last4: pat.slice(-4) },
+    });
+    expect((await rowsOf(target)).connections[0]).toMatchObject({
+      sync_state_json: '{}',
+      reconcile_state_json: '{}',
+    });
+  });
+});
+
 describe('connection-sync（今すぐ同期）', () => {
   function sync(ctx: ReturnType<typeof setup>, target: Target, person: Person, connectionId: string) {
     return post(ctx.app, connectionSync, {
@@ -754,6 +933,58 @@ describe('connection-sync（今すぐ同期）', () => {
     expect(again.status).toBe(409);
     const error = ((await again.json()) as { error: { details: { reason: string } } }).error;
     expect(error.details.reason).toBe('connection_stopped');
+  });
+
+  test('認証で停止した接続は名前だけでは再開せず、PAT を更新すると次の同期で取り込む', async () => {
+    const ctx = setup();
+    const target = await createTarget();
+    const { id } = await ready(ctx, target, target.member, 'resume-after-edit');
+    const db = orgDb(env, target.organization.verified);
+    ctx.github.failNext({ kind: 'status', status: 401 });
+    const stopped = await sync(ctx, target, target.member, id);
+    expect(await stopped.json()).toMatchObject({ result: 'auth_failed' });
+    await db.run(
+      db.statement((q) =>
+        q
+          .updateTable('connections')
+          .set({
+            sync_state_json: '{"position":{}}',
+            reconcile_state_json: '{"position":{}}',
+            consecutive_failures: 3,
+          })
+          .where('id', '=', id),
+      ),
+    );
+
+    const renamed = await update(ctx, target, target.member, id);
+    expect(await renamed.json()).toMatchObject({ connection: { status: 'stopped', stopped_reason: 'auth_failed' } });
+    expect((await rowsOf(target)).connections[0]).toMatchObject({
+      sync_state_json: '{"position":{}}',
+      reconcile_state_json: '{"position":{}}',
+      consecutive_failures: 3,
+    });
+    const pat = fakePat('resume-after-edit-new');
+    ctx.github.addAccount(pat, OWNER, fakeRepos(2));
+    const edited = await update(ctx, target, target.member, id, pat);
+    expect(edited.status).toBe(200);
+    expect(await edited.json()).toMatchObject({
+      connection: {
+        name: '更新した GitHub',
+        credential_last4: pat.slice(-4),
+        status: 'active',
+        stopped_reason: null,
+        last_error_message: null,
+        last_error_at: null,
+        consecutive_failures: 0,
+        scopes: [{ id: '1001' }],
+      },
+    });
+    expect((await rowsOf(target)).connections[0]).toMatchObject({ sync_state_json: '{}', reconcile_state_json: '{}' });
+
+    await backdate(target, id);
+    const resumed = await sync(ctx, target, target.member, id);
+    expect(await resumed.json()).toMatchObject({ result: 'success', imported: 2 });
+    expect(await inboxTitles(target)).toEqual(['架空の課題 1', '架空の課題 2']);
   });
 
   test('取り込み元の不調は止めずに result: error で返し、範囲が空なら no_scope で何も問い合わせない', async () => {

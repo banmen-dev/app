@@ -3,12 +3,13 @@
 import { describe, expect, test } from 'vitest';
 import { z } from 'zod';
 import { defineOperation } from '../src/shared/operations/define.ts';
+import { feedbackSubmit } from '../src/shared/operations/feedback.ts';
 import { invitationCreate } from '../src/shared/operations/workspace/invitation-create.ts';
 import { adminNomineeInput } from '../src/shared/operations/operator/create-organization.ts';
 import { createApp } from '../src/server/app.ts';
 import { implement, type ImplementedOperation } from '../src/server/operations/implement.ts';
 import { operationListOperationFor } from '../src/server/operations/operation-list.ts';
-import type { CliDeps, Connection } from '../cli/lib/main.ts';
+import { catalogFor, type CliDeps, type Connection } from '../cli/lib/main.ts';
 import { callTool as callToolWith, listTools as listToolsWith, type McpToolResult } from '../cli/lib/mcp-tools.ts';
 import { createTask, createWorkspace } from './factories.ts';
 import { insertApiToken, type TokenScope } from './operations/api-token.ts';
@@ -67,9 +68,9 @@ const app = createApp([
 ]);
 
 const outputs: string[] = [];
-const depsOf = (): CliDeps => ({
+const depsOf = (target = app): CliDeps => ({
   fetch: ((input: RequestInfo | URL, init?: RequestInit) =>
-    app.fetch(new Request(input, init), testEnv)) as typeof fetch,
+    target.fetch(new Request(input, init), testEnv)) as typeof fetch,
   env: {},
   stdout: (text) => outputs.push(text),
   stderr: (text) => outputs.push(text),
@@ -245,6 +246,19 @@ describe('sg mcp の既定は読み取りだけ（--allow-write）', () => {
     const result = await callToolWith(depsOf(), connection, 'lantern-light', { count: 2, color: '白' }, options);
     expect(result.isError).toBeUndefined();
     expect(JSON.parse(textOf(result))).toEqual({ lit: 2, color: '白' });
+  });
+
+  test('本番の操作一覧にあるフィードバックを MCP からは呼べない', async () => {
+    const connection = await connectionOf(await createLoginPerson());
+    const deps = depsOf(createApp());
+
+    expect(await catalogFor(deps, connection)).toContainEqual(
+      expect.objectContaining({ name: feedbackSubmit.name, scope: 'outside', mode: 'write' }),
+    );
+    expect((await listTools(deps, connection)).map((tool) => tool.name)).not.toContain(feedbackSubmit.name);
+    const result = await callTool(deps, connection, feedbackSubmit.name, {});
+    expect(result.isError).toBe(true);
+    expect(JSON.parse(textOf(result)).error.code).toBe('usage');
   });
 
   test('読み取りのトークンでは、--allow-write でも書き込みの道具が出ず、呼ぶと isError', async () => {

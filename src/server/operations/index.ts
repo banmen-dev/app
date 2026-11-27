@@ -1,3 +1,4 @@
+import { feedbackSubmitOperation } from './feedback.ts';
 import { billingOperations } from './billing.ts';
 import {
   delegateeCreateOperation,
@@ -35,6 +36,7 @@ import {
   connectionScopeCandidatesOperation,
   connectionScopesSaveOperation,
   connectionSyncOperation,
+  connectionUpdateOperation,
 } from './connection.ts';
 import { attachmentDownloadOperation, attachmentUploadOperation } from './attachment.ts';
 import { operationListOperationFor } from './operation-list.ts';
@@ -163,6 +165,7 @@ const listedOperations: readonly ImplementedOperation[] = [
   ...billingOperations,
   notificationListOperation,
   notificationReadOperation,
+  feedbackSubmitOperation,
   favoriteListOperation,
   favoriteSetOperation,
   orgWikiDeleteOperation,
@@ -318,6 +321,7 @@ const listedOperations: readonly ImplementedOperation[] = [
   connectionScopeCandidatesOperation,
   connectionScopesSaveOperation,
   connectionSyncOperation,
+  connectionUpdateOperation,
   invitationListOperation,
   invitationAcceptOperation,
   invitationDeclineOperation,

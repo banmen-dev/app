@@ -6,14 +6,17 @@ import { describe, test } from 'node:test';
 const root = import.meta.dirname + '/..';
 
 describe('wrangler.jsonc の triggers.crons', () => {
-  test('毎分と毎時 0 分の 2 つ', () => {
+  test('固定の式と取り込み用の変数の式を登録する', () => {
     const text = readFileSync(`${root}/wrangler.jsonc`, 'utf8');
     const match = /"crons"\s*:\s*(\[[^\]]*\])/.exec(text);
+    const importCron = /"IMPORT_SYNC_CRON"\s*:\s*"([^"]+)"/.exec(text)?.[1];
     assert.ok(match, 'triggers.crons が見つからない');
-    assert.deepEqual(JSON.parse(match[1]!), ['* * * * *', '0 * * * *']);
+    assert.ok(importCron, 'vars.IMPORT_SYNC_CRON が見つからない');
+    const expected = [...new Set(['* * * * *', '0 * * * *', importCron])];
+    assert.deepEqual((JSON.parse(match[1]!) as string[]).sort(), expected.sort());
   });
 
-  test('設定の式がすべて定期処理の表にある', () => {
+  test('固定の式が定期処理の表にある', () => {
     const text = readFileSync(`${root}/src/server/scheduled/index.ts`, 'utf8');
     for (const cron of ['* * * * *', '0 * * * *']) {
       assert.ok(text.includes(`['${cron}',`), `定期処理の表に無い式: ${cron}`);

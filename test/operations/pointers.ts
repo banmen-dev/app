@@ -36,7 +36,8 @@ import {
 import { storeAvatar } from '../me-avatar-helpers.ts';
 import { insertApiToken } from './api-token.ts';
 import type { Pointers } from './harness.ts';
-import { SUSPENDED_AT, type Person, type Target } from './world.ts';
+import { fakeFeedbackGithubResponse } from '../feedback/fake-github-app.ts';
+import { SUSPENDED_AT, testEnv, type Person, type Target } from './world.ts';
 
 // 運用者の操作が問い合わせる GitHub。chunks.ts の defineProductionChunk が fetcher を createApp に渡す
 export const operatorGithub = createFakeGithub();
@@ -44,10 +45,14 @@ export const operatorGithub = createFakeGithub();
 // 接続の操作が問い合わせる、PAT で呼ぶ GitHub。PAT（Authorization が `Bearer github_pat_` で始まる呼び出し）だけをこちらに向け、
 // ほかはログインの偽物（operatorGithub）に向ける。chunks.ts の defineProductionChunk が registryFetcher を createApp に渡す
 export const patGithub = createFakePatGithub();
-export const registryFetcher: typeof fetch = (input, init) =>
-  (new Headers(init?.headers).get('authorization') ?? '').startsWith('Bearer github_pat_')
+export const registryFetcher: typeof fetch = async (input, init) => {
+  const request = new Request(input, init);
+  const feedback = fakeFeedbackGithubResponse(request);
+  if (feedback !== undefined) return feedback;
+  return (request.headers.get('authorization') ?? '').startsWith('Bearer github_pat_')
     ? patGithub.fetcher(input, init)
     : operatorGithub.fetcher(input, init);
+};
 
 // 呼ぶ人（対象の組織の人でなければ管理者）が登録した接続を、対象のワークスペースに作る。認証情報は本物の暗号で暗号化して置く。
 // 偽の GitHub には、その PAT で候補になるリポジトリ 2 件（ID は 1000 と 1001）を持たせる
@@ -192,6 +197,11 @@ async function billingFor(caller: Person, status: 'active' | 'pending' = 'active
 }
 
 export const pointers: Pointers = {
+  'feedback-submit': async () => ({
+    text: '画面についての感想です',
+    route_id: '/',
+    url: new URL('/', testEnv.PUBLIC_ORIGIN).href,
+  }),
   'billing-admin-list': async (_target, caller) => ({ slug: (await billingFor(caller)).organization.slug }),
   'billing-organization-summary': async (_target, caller) => ({
     slug: (await billingFor(caller)).organization.slug,
@@ -964,6 +974,11 @@ export const pointers: Pointers = {
     patGithub.addAccount(pat, { type: 'User', id: 7_000_002, login: 'guild-fake' }, []);
     return { workspace_id: target.workspace.id, provider: 'github', name: 'あおばの GitHub', credential: pat };
   },
+  'connection-update': async (target, caller) => ({
+    workspace_id: target.workspace.id,
+    connection_id: (await connectionFor(target, caller)).id,
+    name: '取り込みの接続',
+  }),
   'connection-scope-candidates': async (target, caller) => ({
     workspace_id: target.workspace.id,
     connection_id: (await connectionFor(target, caller)).id,
