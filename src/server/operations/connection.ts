@@ -11,6 +11,7 @@ import {
   connectionDelete,
   connectionList,
   connectionMappingSave,
+  CONNECTION_SOURCE_STATUS_MAX_LENGTH,
   CONNECTION_STATUS_MAPPINGS_MAX,
   connectionScopeCandidates,
   connectionScopesSave,
@@ -166,9 +167,14 @@ async function readConnections(db: OrganizationDb, workspaceId: string, connecti
   }));
 }
 
+function selectableStatus(name: string): boolean {
+  return name.trim() !== '' && [...name].length <= CONNECTION_SOURCE_STATUS_MAX_LENGTH;
+}
+
 function statusNames(mappings: readonly { source_status: string }[], seen: ReadonlySet<string> | undefined): string[] {
   const names = new Set(mappings.map((mapping) => mapping.source_status));
-  for (const name of [...(seen ?? [])].sort()) {
+  // 保存できない状態名（空、上限超え）は選ばせない
+  for (const name of [...(seen ?? [])].filter(selectableStatus).sort()) {
     if (names.size >= CONNECTION_STATUS_MAPPINGS_MAX) break;
     names.add(name);
   }
@@ -703,6 +709,8 @@ export const connectionMappingSaveOperation = implement(
     const workspaceId = workspace.workspaceId;
     const organizationId = db.organizationId;
     const row = await ownConnection(db, actorUserId, workspaceId, input.connection_id);
+    // 持ち主が去って止めた接続は、画面と同じく断る（範囲の保存と同じ 409 の connection_stopped）
+    throwIfScopeBlocked(row);
 
     // 同じ状態名は後の指定を採る
     const byStatus = new Map<string, string>();
@@ -755,6 +763,8 @@ export const connectionMappingSaveOperation = implement(
           .where('workspace_id', '=', workspaceId)
           .where('owner_user_id', '=', actorUserId)
           .where('deleted_at', 'is', null)
+          // 読んだ設定のまま（並行する保存で、巻き戻しの有無がずれない）
+          .where('ignore_source_due', '=', Number(row.ignore_source_due))
           .where((eb) => eb.exists(openWorkspace(q, organizationId, workspaceId)))
           // 読んだ列が今もすべてある（読んでから書くまでに消えた列を指す対応を書かない）
           .where((eb) =>

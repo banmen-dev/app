@@ -370,10 +370,24 @@
     }
   }
 
+  // 開いている接続の保存済みの対応から、下書きを作る。今は選べない列を指す対応は、先頭の列（既定）として開く
+  function draftOf(target: Connection): Record<string, string> {
+    const liveIds = new Set((mappingColumns ?? []).map((column) => column.id));
+    return Object.fromEntries(
+      target.status_mappings.filter((m) => liveIds.has(m.column_id)).map((m) => [m.source_status, m.column_id]),
+    );
+  }
+
   async function retryMappingColumns(): Promise<void> {
     mappingFailure = null;
     await reload();
-    if (data.columns === null) mappingFailure = 'connectionMappingColumnsFailed';
+    if (data.columns === null) {
+      mappingFailure = 'connectionMappingColumnsFailed';
+      return;
+    }
+    // 列を読めなかった間は下書きが空なので、読めた時点で保存済みの対応から作り直す（空のまま保存して対応を消さない）
+    const target = connections?.find((connection) => connection.id === mappingId);
+    if (target !== undefined) mappingDraft = draftOf(target);
   }
 
   async function openMapping(target: Connection): Promise<void> {
@@ -384,11 +398,7 @@
     }
     if (editingId !== null && !updating) editingId = null;
     mappingId = target.id;
-    // 今は選べない列（完了の列に変わった、削除された）を指す対応は、先頭の列（既定）として開く
-    const liveIds = new Set((mappingColumns ?? []).map((column) => column.id));
-    mappingDraft = Object.fromEntries(
-      target.status_mappings.filter((m) => liveIds.has(m.column_id)).map((m) => [m.source_status, m.column_id]),
-    );
+    mappingDraft = draftOf(target);
     mappingIgnoreDue = target.ignore_source_due;
     mappingFailure = mappingColumns === null ? 'connectionMappingColumnsFailed' : null;
     await tick();

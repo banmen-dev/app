@@ -316,3 +316,31 @@ describe('connection-mapping-save の範囲外', () => {
     expect(deleted.status).toBe(404);
   });
 });
+
+describe('connection-mapping-save の追加の確かめ', () => {
+  test('持ち主が去って止めた接続の保存は 409 の connection_stopped', async () => {
+    const { target, connection } = await setup();
+    const db = orgDb(env, target.organization.verified);
+    await db.run(
+      db.statement((q) =>
+        q
+          .updateTable('connections')
+          .set({ status: 'stopped', stopped_reason: 'member_left' })
+          .where('id', '=', connection.id),
+      ),
+    );
+    const res = await save(target, connection.id, { mappings: [], ignore_source_due: true });
+    expect(res.status).toBe(409);
+    expect(JSON.stringify(await res.json())).toContain('connection_stopped');
+  });
+
+  test('保存できない状態名（上限超え）は、選べる状態の一覧に出さない', async () => {
+    const { target, connection } = await setup();
+    await importedTask(target, connection.id, 'x'.repeat(101));
+    await importedTask(target, connection.id, 'open');
+    const res = await save(target, connection.id, { mappings: [], ignore_source_due: false });
+    expect(((await res.json()) as { connection: { source_statuses: string[] } }).connection.source_statuses).toEqual([
+      'open',
+    ]);
+  });
+});

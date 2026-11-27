@@ -401,6 +401,7 @@ export async function syncConnection(
           workspaceId,
           credential: connection.credential_ciphertext,
           keyVersion: connection.credential_key_version,
+          ignoreSourceDue: Number(connection.ignore_source_due),
         },
         outcome,
         now().toISOString(),
