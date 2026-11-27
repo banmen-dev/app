@@ -180,6 +180,7 @@ describe('user-disable の接続', () => {
       ...CREDENTIAL,
       sync_state_json: '{"version":2,"credential":"fp"}',
       reconcile_state_json: '{"after":"x"}',
+      last_success_at: '2026-11-01T00:00:00.000Z',
     });
     await createConnectionScope(target.organization, here.id);
     const other = await createConnection(target.organization, target.otherWorkspace.id, memberId, {
@@ -203,6 +204,8 @@ describe('user-disable の接続', () => {
         reconcile_state_json: '{}',
       });
     }
+    // 認証情報を消した後に登録し直した接続は、差分でなく全部を読む
+    expect(await connectionOf(target, here.id)).toMatchObject({ last_success_at: null });
     expect(await connectionOf(target, leaders.id)).toEqual(leaders);
 
     const logs = await connectionLogs(target);

@@ -40,6 +40,20 @@ const EMOJI_PRESENTATION_SELECTOR = 0xfe0f;
 // U+FE0F を残してよい直前の文字（絵文字になりうる文字。キーキャップの基底の #、*、数字を含む）
 const EMOJI_BASE = /\p{Emoji}/u;
 
+// 運用者の閲覧の口（#1557）の URL。公開の URL（PUBLIC_ORIGIN）とフィードバックの ID だけから作り、リクエストの Host などは使わない。
+// Issue の本文に載せられる形（VIEWER_URL_PATTERN）に合わなければ null（本文は黙って載せないので、呼ぶ側が警告を出す）
+export function feedbackViewerUrl(publicOrigin: string, feedbackId: string): string | null {
+  if (!FEEDBACK_ID_PATTERN.test(feedbackId)) return null;
+  let origin: string;
+  try {
+    origin = new URL(publicOrigin).origin;
+  } catch {
+    return null;
+  }
+  const url = `${origin}/operator/feedback/${feedbackId}`;
+  return VIEWER_URL_PATTERN.test(url) ? url : null;
+}
+
 export type FeedbackGithubCredentials = { appId: string; installationId: string; privateKeyPem: string };
 
 // env から FEEDBACK_GITHUB_APP_ID、FEEDBACK_GITHUB_INSTALLATION_ID、FEEDBACK_GITHUB_PRIVATE_KEY を読む。

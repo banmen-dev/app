@@ -64,7 +64,7 @@ describe('完了条件: 作者か担当者が自分の PR', () => {
     expect(items.filter((i) => i.kind === 'issue').map((i) => i.sourceId)).toEqual(['500007']);
     const pulls = items.filter((i) => i.kind === 'pull_request');
     expect(pulls.map((i) => i.sourceId).sort()).toEqual(['800001', '800002', '800003']);
-    expect(pulls[0]).toEqual({
+    expect(pulls.find((i) => i.sourceId === '800001')).toEqual({
       kind: 'pull_request',
       sourceId: '800001',
       reviewerSourceId: '',
@@ -123,7 +123,8 @@ describe('完了条件: 作者か担当者が自分の PR', () => {
       if (result.items.some((i) => i.kind === 'pull_request')) break;
     }
     expect(seen.filter((i) => i.kind === 'pull_request')).toHaveLength(100);
-    f.data.pulls[0] = { ...f.data.pulls[0], state: 'closed', updated_at: '2026-06-01T00:00:00Z' };
+    // 読み終えた頁の PR が更新（終了）されて先頭へ動いても、後ろの頁の未読の PR は頁をずれるだけで漏れない
+    f.data.pulls[200] = { ...f.data.pulls[200], state: 'closed', updated_at: '2026-06-01T00:00:00Z' };
     const rest = cursor === null ? [] : await drain(f, cursor);
     expect(new Set([...seen, ...rest].map((i) => i.sourceId)).size).toBe(250);
   });

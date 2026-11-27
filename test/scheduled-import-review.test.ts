@@ -50,7 +50,9 @@ async function setup(organization = undefined as Awaited<ReturnType<typeof addOr
   await createMembership(organization, workspace.id, owner.id);
   const db = orgDb(env, organization.verified);
   const fake = createFakePatGithub();
-  fake.addIssues(repo.id, [fakeIssue(repo.full_name, 1, { title: '同期対象の課題' })]);
+  fake.addIssues(repo.id, [
+    fakeIssue(repo.full_name, 1, { title: '同期対象の課題', updatedAt: '2099-01-01T00:00:00.000Z' }),
+  ]);
   return {
     fake,
     async addConnection(options: {
