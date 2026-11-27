@@ -341,6 +341,8 @@ export async function syncConnection(
   let candidateCursor: string | null = null;
   let reviewRetry: Progress | null = null;
   let known: Known | null = null;
+  // 取り込み済みの項目の段に入った（発見の走査は終えている）
+  let inKnown = false;
   let itemsOnly = false;
   // 認証情報を替えた場合、本人 ID を含む保存カーソルは使わない。平文も暗号文も状態には保存しない。
   const digest = await crypto.subtle.digest(
@@ -364,10 +366,10 @@ export async function syncConnection(
     (storedState.resume !== null ||
       storedState.scopeBatch !== null ||
       storedState.candidateCursor !== null ||
-      storedState.reviewRetry !== null ||
-      storedState.known !== null);
-  const inProgress =
-    resume !== null || scopeBatch !== null || candidateCursor !== null || reviewRetry !== null || known !== null;
+      storedState.reviewRetry !== null);
+  // known（取り込み済みの項目を取りに行く段の位置）は発見の走査の続きではないので、進行中に数えない。
+  // 発見の走査は毎回の同期で差分から始め、known は同期をまたいで残りの予算で進める（新しい担当の取り込みを遅らせないため）
+  const inProgress = resume !== null || scopeBatch !== null || candidateCursor !== null || reviewRetry !== null;
   // 続きの同期は、始めに決めた起点を使う（途中保存でも last_success_at は進むので、新しい同期の起点とは別に持つ）。
   // 新しい同期は、前の同期が全部を読み終えた時点（その書き込みが最後の last_success_at）から始める。
   // 起点が無い途中の状態（旧形式）は全部を読む。初めての同期（last_success_at が空）も全部を読む
@@ -443,8 +445,7 @@ export async function syncConnection(
       return { outcome: 'success', imported, more: true };
     };
     const pagedCandidates = connection.scope_mode === 'exclude' && source.fetchScopeCandidatesPage !== undefined;
-    // 取り込み済みの項目の段（known）で止まった続きは、発見の走査を終えているので、その段から再開する
-    while (known === null) {
+    while (true) {
       if (pagedCandidates && scopeBatch === null) {
         if (requests >= requestLimit || pages >= maxPages || Date.now() >= deadline) {
           // 候補一覧だけで上限に達しても、その続きの位置から再開する。
@@ -577,14 +578,26 @@ export async function syncConnection(
     }
     resume = null;
     // 発見の走査で見えなかった取り込み済みの項目（担当が外れた、範囲の外へ移った）も、不変の ID で取りに行って同じ更新を当てる。
-    // 頁と時間の上限は発見の走査と同じに数え、尽きたら続きの task_id から再開する
+    // 発見の走査を先に済ませ、残りの予算（頁・要求・時間は発見の走査と同じに数える）で、続きの task_id から進める。
+    // 全件を取り終えるまでは同期をまたぎ、止まった位置は known に残す（発見の走査は毎回やり直す）
     if (source.fetchKnownItem !== undefined) {
+      inKnown = true;
       known ??= { after: '' };
+      // 一時的な失敗と思われるもの（権限、届かない）が続いたら、その回の段を止め、続く項目を無駄に飛ばさない
+      let streak = 0;
+      let streakStart = known.after;
+      const stop = async (): Promise<SyncResult> => {
+        if (!(await finish({ kind: 'success', syncStateJson: stateJson(), lastSuccessAt: startedAt }))) {
+          return interrupted();
+        }
+        return { outcome: 'success', imported, more: false };
+      };
       while (true) {
-        if (pages >= maxPages || requests >= requestLimit || Date.now() >= deadline) return await pause();
         const target = await readKnownTarget(db, connection, known.after);
-        if (jobTimeExpired()) return await pause();
         if (!target) break;
+        if (pages >= maxPages || requests >= requestLimit || Date.now() >= deadline || jobTimeExpired()) {
+          return await stop();
+        }
         pages++;
         let item: ImportItem;
         try {
@@ -603,16 +616,24 @@ export async function syncConnection(
         } catch (error) {
           if (budgetReached) throw error;
           // 取れない項目（見つからない、権限で断られた、応答が想定と違う）は動かさず、次の項目へ進む。
-          // 「取り込み元で見つからない」の印は #914 の照合が付ける
+          // 「取り込み元で見つからない」の印は #914 の照合が付ける。3件続けて取れなければ、
+          // 取り込み元の障害か制限とみなし、最初に取れなかった項目の手前の位置に戻して、その回の段を止める
           if (
             error instanceof ImportSourceError &&
             (error.failure === 'unavailable' || error.failure === 'forbidden')
           ) {
+            if (streak === 0) streakStart = known.after;
+            streak++;
+            if (streak >= 3) {
+              known = { after: streakStart };
+              return await stop();
+            }
             known = { after: target.task_id };
             continue;
           }
           throw error;
         }
+        streak = 0;
         // 別の項目が返った応答は使わない（不変の ID と種別が保存した値と同じ項目だけ更新する）
         if (isValidItem(item) && item.kind === target.source_kind && item.sourceId === target.source_id) {
           await writeKnown(db, connection, workspaceId, item, now);
@@ -624,7 +645,13 @@ export async function syncConnection(
     if (!(await finish({ kind: 'success', syncStateJson: '{}', lastSuccessAt: startedAt }))) return interrupted();
     return { outcome: 'success', imported, more: false };
   } catch (error) {
-    if (budgetReached && (resume !== null || candidateCursor !== null || scopeBatch !== null || known !== null)) {
+    if (budgetReached && inKnown) {
+      if (!(await finish({ kind: 'success', syncStateJson: stateJson(), lastSuccessAt: startedAt }))) {
+        return interrupted();
+      }
+      return { outcome: 'success', imported, more: false };
+    }
+    if (budgetReached && (resume !== null || candidateCursor !== null || scopeBatch !== null)) {
       if (!(await finish(checkpoint()))) return interrupted();
       return { outcome: 'success', imported, more: true };
     }

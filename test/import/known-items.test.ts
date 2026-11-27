@@ -205,10 +205,10 @@ describe('取り込み元: 保存済みの項目を不変の ID で取る', () =
     });
   });
 
-  test('保存した値の形が合わなければ、通信せずに TypeError にする', async () => {
+  test('保存した値の形が合わなければ、通信せずに、取れない項目として unavailable で断る', async () => {
     const f = fakeGithub();
-    await expect(call(f, { key: 'alpha#1' })).rejects.toBeInstanceOf(TypeError);
-    await expect(call(f, { containerId: '../user' })).rejects.toBeInstanceOf(TypeError);
+    await expect(call(f, { key: 'alpha#1' })).rejects.toMatchObject({ failure: 'unavailable' });
+    await expect(call(f, { containerId: '../user' })).rejects.toMatchObject({ failure: 'unavailable' });
     expect(f.calls).toEqual([]);
   });
 });
@@ -270,14 +270,14 @@ describe('同期: 担当が外れた項目と範囲の外へ移した項目', ()
     ]);
   });
 
-  test('範囲から外したリポジトリの項目も、保存した入れ物の ID で取りに行く', async () => {
+  test('範囲から外したリポジトリの項目は、取りに行かず動かさない', async () => {
     const t = await setup([PULL_SCOPE, OTHER_SCOPE]);
     const f = fakeGithub();
     put(f, OTHER_SCOPE, 5);
     await t.sync(f);
     expect(await t.sources()).toHaveLength(1);
 
-    // 範囲を 1001 だけにし、2002 の項目の題が変わる
+    // 範囲を 1001 だけにし、2002 の項目の題が変わる（範囲から外したリポジトリの内容は取り続けない）
     await t.db.batch([
       t.db.statement((q) =>
         q.deleteFrom('connection_scopes').where('connection_id', '=', t.id).where('source_id', '=', OTHER_SCOPE.id),
@@ -285,8 +285,76 @@ describe('同期: 担当が外れた項目と範囲の外へ移した項目', ()
     ]);
     put(f, OTHER_SCOPE, 5, { title: '範囲から外れた後の題', updated_at: '2026-12-03T00:00:00.000Z' });
     f.issues.set(OTHER_SCOPE.id, []);
+    f.calls.length = 0;
     await t.sync(f);
-    expect((await t.tasks()).map((task) => task.title)).toEqual(['範囲から外れた後の題']);
+    expect(f.calls.filter((c) => /\/issues\/\d+$/.test(c))).toEqual([]);
+    expect((await t.tasks()).map((task) => task.title)).toEqual(['架空の課題 5']);
+  });
+
+  test('別の組織の項目は取りに行かない', async () => {
+    const mine = await setup();
+    const other = await setup();
+    const g = fakeGithub();
+    put(g, PULL_SCOPE, 1);
+    await mine.sync(g);
+    const h = fakeGithub();
+    put(h, PULL_SCOPE, 2);
+    await other.sync(h);
+
+    put(g, PULL_SCOPE, 1, {
+      assignees: [],
+      assignee: null,
+      title: '自分の項目',
+      updated_at: '2026-12-06T00:00:00.000Z',
+    });
+    g.issues.set(PULL_SCOPE.id, []);
+    g.calls.length = 0;
+    await mine.sync(g);
+    expect(g.calls.filter((c) => /\/issues\/\d+$/.test(c))).toEqual(['/repositories/1001/issues/1']);
+    expect((await other.tasks()).map((task) => task.title)).toEqual(['架空の課題 2']);
+  });
+
+  test('保存値の形が合わない行は飛ばし、後ろの項目と発見の走査を止めない', async () => {
+    const t = await setup();
+    const f = fakeGithub();
+    for (const n of [1, 2]) put(f, PULL_SCOPE, n);
+    await t.sync(f);
+    const [first] = (await t.sources()).sort((a, b) => (a.task_id < b.task_id ? -1 : 1));
+    await t.db.batch([
+      t.db.statement((q) =>
+        q.updateTable('task_sources').set({ source_key: '壊れた' }).where('task_id', '=', first!.task_id),
+      ),
+    ]);
+    for (const n of [1, 2])
+      put(f, PULL_SCOPE, n, {
+        assignees: [],
+        assignee: null,
+        title: `改題 ${n}`,
+        updated_at: '2026-12-07T00:00:00.000Z',
+      });
+    f.issues.set(PULL_SCOPE.id, []);
+    expect(await t.sync(f)).toEqual({ outcome: 'success', imported: 0, more: false });
+    expect((await t.tasks()).filter((task) => task.title.startsWith('改題'))).toHaveLength(1);
+  });
+
+  test('続けて3件取れなければ、その回の段を止めて位置を戻し、次の回にやり直す', async () => {
+    const t = await setup();
+    const f = fakeGithub();
+    for (const n of [1, 2, 3, 4]) put(f, PULL_SCOPE, n);
+    await t.sync(f);
+    for (const n of [1, 2, 3, 4]) put(f, PULL_SCOPE, n, { title: `改題 ${n}`, updated_at: '2026-12-08T00:00:00.000Z' });
+    f.issues.set(PULL_SCOPE.id, []);
+    for (const n of [1, 2, 3, 4]) f.single.set(`/repositories/1001/issues/${n}`, { status: 429 });
+    f.calls.length = 0;
+    expect(await t.sync(f)).toEqual({ outcome: 'success', imported: 0, more: false });
+    // 4件目は取りに行かない。位置は最初に取れなかった項目の手前（先頭）に戻る
+    expect(f.calls.filter((c) => /\/issues\/\d+$/.test(c))).toHaveLength(3);
+    expect(JSON.parse((await t.state())!)).toMatchObject({ known: { after: '' } });
+    for (const n of [1, 2, 3, 4]) put(f, PULL_SCOPE, n, { title: `改題 ${n}`, updated_at: '2026-12-08T00:00:00.000Z' });
+    f.issues.set(PULL_SCOPE.id, []);
+    expect(await t.sync(f)).toEqual({ outcome: 'success', imported: 0, more: false });
+    expect((await t.tasks()).filter((task) => task.title.startsWith('改題'))).toHaveLength(4);
+    expect(await t.state()).toBe('{}');
   });
 
   test('上限で止まった同期は、次の回で続きの項目から取りに行く', async () => {
@@ -309,21 +377,21 @@ describe('同期: 担当が外れた項目と範囲の外へ移した項目', ()
     f.calls.length = 0;
     // 発見の走査は4回の取得口の呼び出し（Issue、PR、レビュー依頼の本人照会と一覧）。5回目の1項目だけ取って止まる
     const first = await t.sync(f, { maxPages: 5 });
-    expect(first).toEqual({ outcome: 'success', imported: 0, more: true });
+    // 発見の走査は終えているので、続きは同期をまたいで残すが、同期は終えた（more は偽）
+    expect(first).toEqual({ outcome: 'success', imported: 0, more: false });
     const known = () => f.calls.filter((c) => /\/issues\/\d+$/.test(c));
     expect(known()).toHaveLength(1);
     expect(JSON.parse((await t.state())!)).toMatchObject({ version: 2, known: { after: expect.any(String) } });
     expect((await t.tasks()).filter((task) => task.title.startsWith('改題'))).toHaveLength(1);
 
-    // 次の回は、発見の走査をやり直さず、続きの項目から取りに行く（取った項目をもう一度取らない）
+    // 次の回は、発見の走査を先にやり直し、残りの予算で続きの項目から取りに行く（取った項目をもう一度取らない）
     const firstCalls = known();
     f.calls.length = 0;
-    expect(await t.sync(f, { maxPages: 2 })).toEqual({ outcome: 'success', imported: 0, more: true });
-    expect(f.calls.filter((c) => !/\/issues\/\d+$/.test(c))).toEqual([]);
+    expect(await t.sync(f, { maxPages: 6 })).toEqual({ outcome: 'success', imported: 0, more: false });
+    expect(f.calls.some((c) => c.includes('assignee='))).toBe(true);
     expect(known()).toHaveLength(2);
     expect(new Set([...firstCalls, ...known()]).size).toBe(3);
     expect((await t.tasks()).filter((task) => task.title.startsWith('改題'))).toHaveLength(3);
-    expect(await t.sync(f, { maxPages: 2 })).toEqual({ outcome: 'success', imported: 0, more: false });
     expect(await t.state()).toBe('{}');
   });
 

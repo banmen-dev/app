@@ -16,8 +16,8 @@ const KEY = /^([A-Za-z0-9_.-]{1,80}\/[A-Za-z0-9_.-]{1,100})#([1-9][0-9]{0,15})$/
 const MOVED_ISSUE = /^https:\/\/api\.github\.com\/repositories\/[1-9][0-9]{0,15}\/issues\/[1-9][0-9]{0,15}$/;
 
 function invalid(): never {
-  // 呼び出す側の誤り。認証情報の失敗とは区別する
-  throw new TypeError('保存済みの項目の取得の入力が不正');
+  // 保存済みの行の形の不備。1行のために同期を止めず、取れない項目として扱わせる（通信はしない）
+  throw fail('unavailable');
 }
 
 // 移動先は、固定のホストと形の URL だけを許す（クエリ、断片、認証情報は通さない）
