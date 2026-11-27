@@ -665,7 +665,7 @@ export const dictionary = defineDictionary({
   feedbackImageField: '画像（なくても送れます）',
   feedbackImageDrop: 'ここに画像をドラッグするか、貼り付けて付ける',
   feedbackImageDropOver: '離すと画像を付けます',
-  feedbackImageHint: 'PNG、JPEG、WebP の静止画を{count}枚まで、1枚 {size} MiB まで。画像は運用者だけが見ます。',
+  feedbackImageHint: 'PNG、JPEG、WebP の静止画を{count}枚まで、1枚 {size} MB まで。画像は運用者だけが見ます。',
   feedbackImageChoose: '画像を選ぶ',
   feedbackImageFull: '画像は{count}枚まで付いています',
   feedbackImageFullHint: '別の画像を付けるには、付けた画像を外してください。',
@@ -677,7 +677,7 @@ export const dictionary = defineDictionary({
   feedbackImageBusy: '送っている間は、画像を付けたり外したりできません。',
   feedbackImageRejected: '{name} は付けられませんでした。{reason}',
   feedbackImageTooMany: '付けられる画像は{count}枚までです。',
-  feedbackImageTooLarge: '1枚 {size} MiB まで、一辺 {side} 画素までの画像だけ付けられます。',
+  feedbackImageTooLarge: '1枚 {size} MB まで、一辺 {side} 画素までの画像だけ付けられます。',
   feedbackImageUnsupported: 'PNG、JPEG、WebP の静止画だけ付けられます。',
   // ダイアログを閉じた後に送れなかったときのトースト。reason は上の失敗の文
   feedbackFailedClosed: '{reason}\n書いた文は残っています。フィードバックのボタンから開き直すと続けられます。',

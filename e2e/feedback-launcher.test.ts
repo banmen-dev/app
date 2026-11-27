@@ -491,7 +491,7 @@ test.describe('画像を付ける', () => {
         mimeType: 'image/png',
         buffer: Buffer.concat([Buffer.from(PNG_BASE64, 'base64'), Buffer.alloc(4 * 1024 * 1024)]),
       });
-    await expect(dialog(page).getByRole('alert').filter({ hasText: '大きい.png' })).toContainText('1枚 4 MiB まで');
+    await expect(dialog(page).getByRole('alert').filter({ hasText: '大きい.png' })).toContainText('1枚 4 MB まで');
 
     await dialog(page)
       .locator('input[data-feedback-images]')

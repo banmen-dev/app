@@ -111,11 +111,15 @@
 
   // 付けようとしたファイルを確かめて足す。続けて呼ばれても、付けた枚数を数え直してから足す（上限を越えない）
   let admitting: Promise<void> = Promise.resolve();
-  let addedCount = 0;
+  // 同じ文が続いても読み上げられるよう、一度空にしてから入れ直す
+  function announce(text: string): void {
+    imageStatus = '';
+    if (text !== '') void tick().then(() => (imageStatus = text));
+  }
   function addImages(files: readonly File[]): void {
     if (files.length === 0) return;
     if (waiting) {
-      imageStatus = t('feedbackImageBusy');
+      announce(t('feedbackImageBusy'));
       return;
     }
     admitting = admitting
@@ -123,17 +127,15 @@
         const { accepted, rejected } = await admitFeedbackImages(feedbackDraft.images, files);
         // 確かめている間に送り始めたら、送った分とずれるので足さない
         if (waiting) {
-          imageStatus = t('feedbackImageBusy');
+          announce(t('feedbackImageBusy'));
           return;
         }
         feedbackDraft.images = [...feedbackDraft.images, ...accepted];
         feedbackDraft.imageProblems = rejected;
         // 同じ名前を続けて付けても読み上げられるよう、通し番号を添えて毎回違う文にする
-        addedCount += accepted.length;
-        imageStatus =
-          accepted.length === 0
-            ? ''
-            : `${t('feedbackImageAdded', { name: accepted.map((f) => f.name).join('、') })}（${addedCount}）`;
+        announce(
+          accepted.length === 0 ? '' : t('feedbackImageAdded', { name: accepted.map((f) => f.name).join('、') }),
+        );
         if (imagesFull)
           void tick().then(() =>
             document.activeElement === document.body || !dialogHasFocus() ? textarea?.focus() : undefined,
@@ -152,8 +154,7 @@
     if (waiting) return;
     feedbackDraft.images = feedbackDraft.images.filter((item) => item !== file);
     feedbackDraft.imageProblems = [];
-    addedCount++;
-    imageStatus = `${t('feedbackImageRemoved', { name: file.name })}（${addedCount}）`;
+    announce(t('feedbackImageRemoved', { name: file.name }));
     void tick().then(() => (chooseButton ?? textarea)?.focus());
   }
 
@@ -187,29 +188,46 @@
     over = accepting;
   }
 
+  // 入った数と出た数を数え、画面の外へ出たときだけ戻す（relatedTarget を渡さないブラウザでも、子の間の移動でちらつかない）
+  let dragDepth = 0;
+  function dragenter(event: DragEvent): void {
+    if (carriesFiles(event)) dragDepth++;
+  }
+
   function dragleave(event: DragEvent): void {
-    // 画面の外へ出たときだけ（子の間の移動では relatedTarget が子になる）
-    if (event.relatedTarget === null) over = false;
+    if (!carriesFiles(event)) return;
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) over = false;
   }
 
   function drop(event: DragEvent): void {
     if (!carriesFiles(event)) return;
     event.preventDefault();
     over = false;
+    dragDepth = 0;
     addImages([...(event.dataTransfer?.files ?? [])]);
   }
 
   $effect(() => {
     if (!open) return;
+    window.addEventListener('dragenter', dragenter);
     window.addEventListener('dragover', dragover);
     window.addEventListener('dragleave', dragleave);
     window.addEventListener('drop', drop);
     return () => {
+      window.removeEventListener('dragenter', dragenter);
       window.removeEventListener('dragover', dragover);
       window.removeEventListener('dragleave', dragleave);
       window.removeEventListener('drop', drop);
       over = false;
+      dragDepth = 0;
     };
+  });
+
+  // 送り終わったら、送っている間は付けられない、の知らせを消す
+  const imageBusy = $derived(imageStatus === t('feedbackImageBusy'));
+  $effect(() => {
+    if (!waiting && untrack(() => imageBusy)) imageStatus = '';
   });
 
   // 付ける前の画像の縮小を canvas に描く（CSP の img-src が blob: を許さないので <img> に URL を渡さない）。
@@ -261,6 +279,8 @@
     feedbackDraft.sending = true;
     feedbackDraft.stalled = false;
     setError(null);
+    // 前の送信でサーバーが画像を断った理由は消す（付けたときの断りは、名前があるので残す）
+    feedbackDraft.imageProblems = feedbackDraft.imageProblems.filter((problem) => problem.name !== '');
     const stallTimer = setTimeout(
       () => {
         if (feedbackDraft.attempt === attempt) feedbackDraft.stalled = true;
@@ -415,6 +435,7 @@
           bind:this={picker}
           onchange={picked}
         />
+        {#if imageBusy}<p class="field-hint">{t('feedbackImageBusy')}</p>{/if}
         {#each feedbackDraft.imageProblems as problem, index (index)}
           <span class="field-error" role="alert"
             ><Icon name="alert" />{problem.name === ''
