@@ -1261,6 +1261,22 @@ export const dictionary = defineDictionary({
   organizationSuspendedText: 'この組織は停止しています。運用者に問い合わせてください。',
   operatorOpen: '運用の画面へ',
   pageOperator: '運用',
+  // フィードバックの閲覧（/operator/feedback/[id]）。見られるのは利用者が自分で送った分だけ
+  pageOperatorFeedback: 'フィードバック',
+  operatorFeedbackNotice:
+    '利用者が自分で送った文、画面の URL、アカウントの ID、画像だけを見られます。{organization}の中のデータは見られません。送られて 180 日で消えます。',
+  operatorFeedbackText: '送られた文',
+  operatorFeedbackUrl: '送った画面の URL',
+  operatorFeedbackUrlNone: '残していません（招待と認証の画面から送られた）',
+  operatorFeedbackRoute: '画面の経路',
+  operatorFeedbackRouteNone: '既知の経路に合いませんでした',
+  operatorFeedbackAccount: '送った人のアカウントの ID',
+  operatorFeedbackSubmittedAt: '送った日時',
+  operatorFeedbackImages: '画像',
+  operatorFeedbackImagesNone: '画像は添えられていません',
+  operatorFeedbackImageDownload: '画像 {number} をダウンロード（{type}、{size}）',
+  operatorFeedbackNotFoundTitle: 'フィードバックが見つかりません',
+  operatorFeedbackNotFoundText: 'ID が違うか、送られて 180 日がたって消えました。',
   // 運用の画面。{organization} {admin} は、それぞれ辞書の同じ名前の項目で埋める
   operatorNotice:
     '運用者は{organization}の中（タスク、メンバー、記録、添付ファイルの中身など）を見られません。ここに出すのは名前、slug、状態と、数、上限、日時だけです。',

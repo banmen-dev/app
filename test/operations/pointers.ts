@@ -33,6 +33,8 @@ import {
   createUser,
   createWorkspace,
 } from '../factories.ts';
+import { feedbackImageRef } from '../../src/shared/operations/operator/feedback.ts';
+import { storeFeedback } from '../feedback/stored.ts';
 import { storeAvatar } from '../me-avatar-helpers.ts';
 import { insertApiToken } from './api-token.ts';
 import type { Pointers } from './harness.ts';
@@ -222,6 +224,13 @@ export const pointers: Pointers = {
     slug: (await createOrganization()).slug,
     account_id: (await createAccount()).id,
   }),
+
+  // 送られたフィードバックを R2 に置き、その ID を指す（運用者だけが見る。組織の外の操作）
+  'operator-feedback': async () => ({ id: (await storeFeedback()).feedbackId }),
+  'operator-feedback-image': async () => {
+    const stored = await storeFeedback();
+    return { id: feedbackImageRef(stored.feedbackId, stored.imageIds[0]!) };
+  },
 
   'delegatee-list': { noReference: {} },
   'delegatee-create': {

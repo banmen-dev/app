@@ -3,6 +3,7 @@
 import { operatorBillingAdminInvite } from './billing-admin-invite.ts';
 import type { AnyOperationDefinition } from '../define.ts';
 import { createOrganization } from './create-organization.ts';
+import { operatorFeedback, operatorFeedbackImage } from './feedback.ts';
 import { listOrganizations } from './list-organizations.ts';
 import { organizationAdminReassign } from './organization-admin-reassign.ts';
 import { organizationStorageUpdate } from './organization-storage-update.ts';
@@ -17,6 +18,8 @@ export {
   operatorBillingAdminInvite,
   createOrganization,
   listOrganizations,
+  operatorFeedback,
+  operatorFeedbackImage,
   organizationAdminReassign,
   organizationPlanUpdate,
   organizationStorageUpdate,
@@ -49,6 +52,7 @@ export {
   ORGANIZATION_NAME_MAX_LENGTH,
   type CreateOrganizationProblem,
 } from './create-organization.ts';
+export { FEEDBACK_ID_PATTERN, FEEDBACK_IMAGE_REF_PATTERN, feedbackImageRef, feedbackImageTypes } from './feedback.ts';
 export { GITHUB_USERNAME_MAX_LENGTH } from './resolve-github-user.ts';
 export { adminStatuses, type AdminStatus } from './list-organizations.ts';
 
@@ -56,6 +60,8 @@ export const operatorOperations: readonly AnyOperationDefinition[] = [
   operatorBillingAdminInvite,
   listOrganizations,
   resolveGithubUser,
+  operatorFeedback,
+  operatorFeedbackImage,
   createOrganization,
   organizationSuspend,
   organizationSuspensionUpdate,

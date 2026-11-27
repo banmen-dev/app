@@ -197,7 +197,7 @@ describe('本番の閉じたワークスペースへの書き込み', () => {
 });
 
 describe('本番の運用者の操作', () => {
-  test('組織の一覧、GitHub のユーザー名の解決、組織の作成、停止、再開、管理者の指名し直し、上限の変更、契約の変更が、運用者の権限で一覧に載っている', () => {
+  test('組織の一覧、GitHub のユーザー名の解決、フィードバックの閲覧、組織の作成、停止、再開、管理者の指名し直し、上限の変更、契約の変更が、運用者の権限で一覧に載っている', () => {
     const operator = implementedOperations
       .map((operation) => operation.definition)
       .filter((definition) => definition.permission === 'operator')
@@ -207,6 +207,8 @@ describe('本番の運用者の操作', () => {
       'create-organization',
       'list-organizations',
       'operator-billing-admin-invite',
+      'operator-feedback',
+      'operator-feedback-image',
       'organization-admin-reassign',
       'organization-plan-update',
       'organization-quota-update',
