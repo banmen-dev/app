@@ -1,6 +1,6 @@
 // 接続の画面（#922）。seed の受託開発チームの接続（ミナトの GitHub。読むだけ）が一覧に出ること、
-// 形の違う PAT が理由つきで断られて登録されないこと、登録から範囲の選択と保存までの流れ（取り込み元に届く操作は応答を差し替える）。
-// 登録の操作は本物を流さない（seed の行を増やさず、GitHub にも問い合わせない）
+// 形の違う PAT が理由つきで断られること、登録から範囲の選択と保存までの流れ、本人による接続の編集を確かめる。
+// 取り込み元に届く操作は応答を差し替える（seed の行を変えず、GitHub にも問い合わせない）
 import { expect, test } from './fixtures.ts';
 import { signIn, watchViolations } from './helpers.ts';
 import { failOperation, mockOperation, routeOperation } from './operations.ts';
@@ -10,6 +10,7 @@ import {
   connectionScopeCandidates,
   connectionScopesSave,
   connectionSync,
+  connectionUpdate,
   type Connection,
 } from '../src/shared/operations/connection/index.ts';
 
@@ -248,7 +249,7 @@ test('候補を読んでいる間に別の接続を開いても、遅れて届�
   await expect(group.getByLabel('two/from-b')).toBeVisible();
 });
 
-test('止まっている接続は、止まった事実と次の手（誰に伝えるか）を出し、再開の操作は案内しない', async ({ page }) => {
+test('止まっている接続は、停止の理由と登録した人に応じて次の手を案内する', async ({ page }) => {
   await mockOperation(
     page,
     connectionList,
@@ -296,7 +297,7 @@ test('止まっている接続は、止まった事実と次の手（誰に伝�
   const auth = page.locator('[data-connection-id="stopped-auth"]');
   await expect(auth.locator('.state-badge')).toHaveText('停止');
   await expect(auth.locator('.callout.is-danger')).toHaveText(
-    '認証に失敗したので止めました。リーダーに、止まっていることを伝えてください。',
+    '認証に失敗したので止めました。編集から新しいトークンを保存すると、次の同期から再開します。',
   );
   const other = page.locator('[data-connection-id="stopped-other"]');
   await expect(other.locator('.callout.is-danger')).toHaveText(
@@ -319,17 +320,58 @@ test('止まっている接続は、止まった事実と次の手（誰に伝�
   await expect(page.locator('[data-connection-id="stopped-with-error"] .callout.is-warn')).toHaveText(
     '認証に失敗しました',
   );
-  await expect(page.getByText('再開')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '再開', exact: true })).toHaveCount(0);
 });
 
-test('他の人の接続には、範囲を選ぶボタンが出ない', async ({ context, baseURL, page }) => {
+test('他の人の接続には、範囲を選ぶボタンと編集ボタンが出ない', async ({ context, baseURL, page }) => {
   await signIn(context, baseURL, 'member');
   await page.goto(`${WORKSPACE}/connections`);
   await expect(page.getByRole('heading', { level: 1, name: '接続' })).toBeVisible();
   await expect(page.getByRole('list', { name: '接続の一覧' }).getByRole('listitem')).toHaveCount(1);
   await expect(page.getByRole('button', { name: '範囲を選ぶ' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '編集', exact: true })).toHaveCount(0);
   // 登録の欄は、メンバーなら誰にでも出る
   await expect(page.getByRole('button', { name: '登録する' })).toBeVisible();
+});
+
+test('本人が表示名と PAT を更新すると接続が再開し、PAT 欄は応答を待たずに空になる', async ({ page }) => {
+  const name = '開発チームの GitHub';
+  const token = 'github_pat_' + 'A'.repeat(30) + '5678';
+  const scopes = [{ id: '2001', name: 'aoba/point-api' }];
+  let connection = created({ scopes, status: 'stopped', stopped_reason: 'auth_failed' });
+  const response = Promise.withResolvers<void>();
+  await routeOperation(page, connectionList, { slug: 'aoba' }, (call) => call.fulfill({ connections: [connection] }));
+  await routeOperation(page, connectionUpdate, { slug: 'aoba' }, async (call) => {
+    expect(call.input).toMatchObject({ workspace_id: WORKSPACE_ID, connection_id: NEW_ID, name, credential: token });
+    await response.promise;
+    connection = created({ name, scopes, credential_last4: '5678' });
+    await call.fulfill({ connection });
+  });
+
+  await page.goto(`${WORKSPACE}/connections`);
+  const row = page.getByRole('list', { name: '接続の一覧' }).getByRole('listitem');
+  await expect(row.locator('.state-badge')).toHaveText('停止');
+  await row.getByRole('button', { name: '編集', exact: true }).click();
+  const form = page.getByRole('form', { name: '接続を編集' });
+  const nameField = form.getByLabel('表示名');
+  const tokenField = form.getByLabel('新しい GitHub の PAT');
+  await expect(nameField).toHaveValue(connection.name);
+  await expect(tokenField).toHaveValue('');
+  await nameField.fill(name);
+  await tokenField.fill(token);
+  try {
+    await form.getByRole('button', { name: '保存する', exact: true }).click();
+    await expect(tokenField).toHaveValue('');
+    await expect(row.locator('.state-badge')).toHaveText('停止');
+  } finally {
+    response.resolve();
+  }
+
+  await expect(form).toHaveCount(0);
+  await expect(row.getByText(name, { exact: true })).toBeVisible();
+  await expect(row.locator('dd.mono').last()).toHaveText('••••末尾5678');
+  await expect(row.locator('.state-badge')).toHaveText('有効');
+  await expect(row.getByRole('button', { name: '今すぐ同期' })).toBeVisible();
 });
 
 test('今すぐ同期は本人の接続にだけ出て、押すと届いた件数がトーストに出る。5分以内の再押しは断りが出る', async ({
@@ -368,7 +410,7 @@ test('今すぐ同期は本人の接続にだけ出て、押すと届いた件�
   await expect(list.getByRole('listitem').filter({ hasText: 'ハルカの GitHub' })).not.toContainText('今すぐ同期');
   await expect(list.getByRole('listitem').filter({ hasText: '止まった GitHub' })).not.toContainText('今すぐ同期');
   await expect(list.getByRole('listitem').filter({ hasText: '止まった GitHub' })).toContainText(
-    '認証に失敗したので止めました。リーダーに、止まっていることを伝えてください',
+    '認証に失敗したので止めました。編集から新しいトークンを保存すると、次の同期から再開します。',
   );
 
   await list.getByRole('button', { name: '今すぐ同期' }).click();

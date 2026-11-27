@@ -11,16 +11,20 @@ export type ConnectionField = 'name' | 'credential' | 'form';
 export type ConnectionFailure = { field: ConnectionField; key: DictionaryKey; refocus?: 'name' | 'credential' };
 
 // 送る前の確かめ。サーバーも同じ確かめをする（ここは入力の誤りをすぐ知らせるため）。形の検査は取り込み元の型が行うので、
-// ここでは認証情報が空かどうかだけを見る
-export function validateConnectionCreate(input: { name: string; credential: string }): ConnectionFailure | null {
+// ここでは認証情報が空かどうかだけを見る。編集では認証情報を省略できる
+export function validateConnectionInput(input: { name: string; credential?: string }): ConnectionFailure | null {
   const name = input.name.trim();
   if (name === '') return { field: 'name', key: 'connectionNameRequired' };
   const problem = connectionNameProblem(name);
   if (problem === 'required') return { field: 'name', key: 'connectionNameRequired' };
   if (problem === 'invalid_character') return { field: 'name', key: 'connectionNameInvalid' };
   if (problem === 'too_long') return { field: 'name', key: 'connectionNameTooLong' };
-  if (input.credential.trim() === '') return { field: 'credential', key: 'connectionCredentialRequired' };
+  if (input.credential?.trim() === '') return { field: 'credential', key: 'connectionCredentialRequired' };
   return null;
+}
+
+export function validateConnectionCreate(input: { name: string; credential: string }): ConnectionFailure | null {
+  return validateConnectionInput(input);
 }
 
 // 400 の details のうち、path が引数の項目の code
@@ -34,22 +38,22 @@ function codeOf(result: FailedResult, path: string): string | undefined {
   return undefined;
 }
 
-// 登録（connection-create）の失敗。400 は認証情報の形（credential_shape）と取り込み元が受け付けなかった（credential_rejected）で、
-// どちらも登録されず、認証情報の欄に理由を出す。届かない（503、通信できない）は何も登録されていないので、トークンを入れ直してもう一度試せる。
-// 409 の workspace_closed と connection_limit は枠に出す。ログインが切れた（401）は呼び出し側が画面ごと移すので、ここへ渡さない
+function connectionInputFailure(result: FailedResult): ConnectionFailure | null {
+  const code = codeOf(result, 'credential');
+  if (code === 'credential_shape') return { field: 'credential', key: 'connectionCredentialShape' };
+  if (code === 'credential_rejected') return { field: 'credential', key: 'connectionCredentialRejected' };
+  // 長すぎるなど、入力の上限で断られた認証情報も、形が違うものとして欄に出す
+  if (code !== undefined) return { field: 'credential', key: 'connectionCredentialShape' };
+  const nameCode = codeOf(result, 'name');
+  if (nameCode === 'too_big') return { field: 'name', key: 'connectionNameTooLong' };
+  if (nameCode === 'too_small') return { field: 'name', key: 'connectionNameRequired' };
+  if (nameCode !== undefined) return { field: 'name', key: 'connectionNameInvalid' };
+  return null;
+}
+
+// 登録（connection-create）の失敗。入力の理由は欄の下、通信や回数の上限は送信ボタンの上に出す。
 export function connectionCreateFailure(result: FailedResult): ConnectionFailure {
-  if (result.status === 400) {
-    const code = codeOf(result, 'credential');
-    if (code === 'credential_shape') return { field: 'credential', key: 'connectionCredentialShape' };
-    if (code === 'credential_rejected') return { field: 'credential', key: 'connectionCredentialRejected' };
-    // 長すぎるなど、入力の上限で断られた認証情報も、形が違うものとして欄に出す
-    if (code !== undefined) return { field: 'credential', key: 'connectionCredentialShape' };
-    const nameCode = codeOf(result, 'name');
-    if (nameCode === 'too_big') return { field: 'name', key: 'connectionNameTooLong' };
-    if (nameCode === 'too_small') return { field: 'name', key: 'connectionNameRequired' };
-    if (nameCode !== undefined) return { field: 'name', key: 'connectionNameInvalid' };
-    return { field: 'form', key: 'connectionCreateInvalid' };
-  }
+  if (result.status === 400) return connectionInputFailure(result) ?? { field: 'form', key: 'connectionCreateInvalid' };
   if (result.error?.code === 'workspace_closed') return { field: 'form', key: 'connectionWorkspaceClosed' };
   if (result.status === 409) return { field: 'form', key: 'connectionLimit' };
   // 認証情報は送った直後に欄から消してあるので、やり直すときは入れ直す
@@ -61,6 +65,23 @@ export function connectionCreateFailure(result: FailedResult): ConnectionFailure
     return { field: 'form', key: 'connectionCreateUnreachable', refocus: 'credential' };
   }
   return { field: 'form', key: 'connectionCreateFailed', refocus: 'credential' };
+}
+
+export function connectionUpdateFailure(result: FailedResult, sentCredential: boolean): ConnectionFailure {
+  if (result.status === 400) {
+    return connectionInputFailure(result) ?? { field: 'form', key: 'connectionCreateInvalid' };
+  }
+  if (result.error?.code === 'credential_keys_unavailable') {
+    return { field: 'form', key: 'connectionCredentialKeysUnavailable' };
+  }
+  if (result.status === 429) {
+    return sentCredential
+      ? { field: 'form', key: 'connectionCreateRateLimited', refocus: 'credential' }
+      : { field: 'form', key: 'connectionRateLimited' };
+  }
+  return sentCredential
+    ? { field: 'form', key: 'connectionUpdateCredentialFailed', refocus: 'credential' }
+    : { field: 'form', key: 'connectionUpdateFailed' };
 }
 
 // 範囲の候補（connection-scope-candidates）と保存（connection-scopes-save）の失敗。

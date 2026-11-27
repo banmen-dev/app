@@ -11,6 +11,7 @@ import {
   connectionScopeCandidates,
   connectionScopesSave,
   connectionSync,
+  connectionUpdate,
   type Connection,
   type ConnectionCreateProblem,
 } from '../../shared/operations/connection/index.ts';
@@ -25,8 +26,8 @@ import { CredentialKeysError } from '../crypto/credential.ts';
 import { ImportSourceError, isImportSourceKind, type ScopeCandidate } from '../import/index.ts';
 import { uuidv7 } from '../uuid.ts';
 import { implement } from './implement.ts';
-import type { OrganizationTools } from './organization-tools.ts';
-import { actorUserIdOf, changeLogColumns, openWorkspace, throwIfClosed } from './write-guards.ts';
+import type { BoundImportSource, OrganizationTools } from './organization-tools.ts';
+import { activeMemberName, actorUserIdOf, changeLogColumns, openWorkspace, throwIfClosed } from './write-guards.ts';
 
 type Tables = OrganizationTables;
 type From = Pick<QueryCreator<Tables>, 'selectFrom'>;
@@ -130,6 +131,31 @@ function importFailure(err: unknown, onRejected: () => ApiError): never {
   throw err;
 }
 
+async function verifyCredential(source: BoundImportSource, value: string): Promise<string> {
+  const credential = value.trim();
+  if (!source.isCredentialShape(credential)) throw rejected('credential_shape', '認証情報の形が合わない');
+  try {
+    await source.verifyCredential(credential);
+  } catch (err) {
+    importFailure(err, () => rejected('credential_rejected', '取り込み元が認証情報を受け付けなかった'));
+  }
+  return credential;
+}
+
+async function sealCredential(
+  tools: OrganizationTools,
+  source: BoundImportSource,
+  credential: string,
+  connectionId: string,
+) {
+  const sealed = await credentialOperation(() => tools.sealCredential(credential, connectionId));
+  return {
+    credential_ciphertext: sealed.ciphertext,
+    credential_key_version: sealed.keyVersion,
+    credential_last4: source.credentialLast4(credential),
+  };
+}
+
 export const connectionListOperation = implement(connectionList, async ({ db, workspace }) => ({
   connections: await readConnections(db, workspace.workspaceId),
 }));
@@ -148,23 +174,13 @@ export const connectionCreateOperation = implement(connectionCreate, async ({ db
     ]);
   }
   const source = tools.importSource(input.provider);
-  // 前後の空白は呼ぶ側で取る（取り込み元の型は形の合わない値として断る）
-  const credential = input.credential.trim();
-  // 形が違う認証情報は、取り込み元に問い合わせずに断る
-  if (!source.isCredentialShape(credential)) throw rejected('credential_shape', '認証情報の形が合わない');
   const settings = source.parseSettings(undefined);
   if (settings === null) throw new Error('取り込み元の既定の設定が検証を通らない');
-  try {
-    await source.verifyCredential(credential);
-  } catch (err) {
-    importFailure(err, () => rejected('credential_rejected', '取り込み元が認証情報を受け付けなかった'));
-  }
-
+  const verified = await verifyCredential(source, input.credential);
   const at = now();
   const stamp = at.toISOString();
   const connectionId = uuidv7(at);
-  const sealed = await credentialOperation(() => tools.sealCredential(credential, connectionId));
-  const last4 = source.credentialLast4(credential);
+  const credential = await sealCredential(tools, source, verified, connectionId);
 
   const results = await db.batch([
     // 閉じたワークスペースへは入れない（登録の関数が見る閉じたかどうかは読み取りの時点の値）
@@ -197,9 +213,9 @@ export const connectionCreateOperation = implement(connectionCreate, async ({ db
               eb.val('active').as('status'),
               eb.val('include').as('scope_mode'),
               eb.val(JSON.stringify(settings)).as('settings_json'),
-              eb.val(sealed.ciphertext).as('credential_ciphertext'),
-              eb.val(sealed.keyVersion).as('credential_key_version'),
-              eb.val(last4).as('credential_last4'),
+              eb.val(credential.credential_ciphertext).as('credential_ciphertext'),
+              eb.val(credential.credential_key_version).as('credential_key_version'),
+              eb.val(credential.credential_last4).as('credential_last4'),
               eb.val(stamp).as('created_at'),
               eb.val(stamp).as('updated_at'),
             ])
@@ -270,6 +286,126 @@ async function ownConnection(db: OrganizationDb, actorUserId: string, workspaceI
   if (row.owner_user_id !== actorUserId) throw new ApiError(403, 'forbidden');
   return row;
 }
+
+export const connectionUpdateOperation = implement(connectionUpdate, async ({ db, actor, tools, workspace, input }) => {
+  const ownerUserId = actorUserIdOf(actor);
+  const { workspaceId } = workspace;
+  const { organizationId } = db;
+  const row = await ownConnection(db, ownerUserId, workspaceId, input.connection_id);
+  let credential: Awaited<ReturnType<typeof sealCredential>> | undefined;
+  if (input.credential !== undefined) {
+    if (!isImportSourceKind(row.provider)) throw new ApiError(409, 'conflict', { reason: 'provider_unknown' });
+    const source = tools.importSource(row.provider);
+    const verified = await verifyCredential(source, input.credential);
+    credential = await sealCredential(tools, source, verified, row.id);
+  }
+
+  const at = now();
+  const stamp = at.toISOString();
+  const results = await db.batch([
+    // 書く直前の表示名を履歴に使い、認証情報の更新は値を含まない印だけを残す。
+    db.statement((q) =>
+      q
+        .insertInto('change_logs')
+        .columns(changeLogColumns)
+        .expression(
+          liveConnections(q, workspaceId)
+            .where('c.id', '=', row.id)
+            .where('c.owner_user_id', '=', ownerUserId)
+            .where((eb) => eb.exists(openWorkspace(q, organizationId, workspaceId)))
+            // PAT の検証中に所属や管理者の権限を失った場合は書かない。
+            .where((eb) =>
+              eb.or([
+                eb.exists(activeMemberName(q, organizationId, workspaceId, ownerUserId)),
+                eb.exists(
+                  q
+                    .selectFrom('users')
+                    .select('id')
+                    .where('id', '=', ownerUserId)
+                    .where('organization_id', '=', organizationId)
+                    .where('disabled_at', 'is', null)
+                    .where('is_admin', '=', 1),
+                ),
+              ]),
+            )
+            .select((eb) => [
+              eb.val(uuidv7(at)).as('id'),
+              eb.val(organizationId).as('organization_id'),
+              eb.val(workspaceId).as('workspace_id'),
+              eb.val(ownerUserId).as('actor_user_id'),
+              eb.val('connection').as('entity_type'),
+              eb.ref('c.id').as('entity_id'),
+              eb.val('update').as('action'),
+              eb
+                .fn<string>('json_patch', [
+                  eb
+                    .case()
+                    .when('c.name', '!=', input.name)
+                    .then(
+                      eb.fn('json_object', [
+                        eb.val('name'),
+                        eb.fn('json_array', [eb.ref('c.name'), eb.val(input.name)]),
+                      ]),
+                    )
+                    .else('{}')
+                    .end(),
+                  eb.val(credential === undefined ? '{}' : '{"credential_updated":[null,true]}'),
+                ])
+                .as('changes_json'),
+              eb.val(stamp).as('created_at'),
+            ]),
+        ),
+    ),
+    db.statement((q) =>
+      q
+        .updateTable('connections')
+        .set({ name: input.name, updated_at: stamp })
+        .$if(credential !== undefined, (query) =>
+          query.set((eb) => ({
+            ...credential,
+            sync_state_json: '{}',
+            reconcile_state_json: '{}',
+            status: eb.case().when('stopped_reason', '=', 'auth_failed').then('active').else(eb.ref('status')).end(),
+            stopped_reason: eb
+              .case()
+              .when('stopped_reason', '=', 'auth_failed')
+              .then(null)
+              .else(eb.ref('stopped_reason'))
+              .end(),
+            last_error_message: eb
+              .case()
+              .when('stopped_reason', '=', 'auth_failed')
+              .then(null)
+              .else(eb.ref('last_error_message'))
+              .end(),
+            last_error_at: eb
+              .case()
+              .when('stopped_reason', '=', 'auth_failed')
+              .then(null)
+              .else(eb.ref('last_error_at'))
+              .end(),
+            consecutive_failures: eb
+              .case()
+              .when('stopped_reason', '=', 'auth_failed')
+              .then(0)
+              .else(eb.ref('consecutive_failures'))
+              .end(),
+          })),
+        )
+        .where('id', '=', row.id)
+        .where('workspace_id', '=', workspaceId)
+        .where(previousStatementChanged),
+    ),
+  ] as const);
+  if ((results[1]?.changes ?? 0) === 0) {
+    await throwIfClosed(db, workspaceId);
+    await ownConnection(db, ownerUserId, workspaceId, row.id);
+    throw new ApiError(403, 'forbidden');
+  }
+  const [connection] = await readConnections(db, workspaceId, row.id);
+  if (connection === undefined) throw new ApiError(404, 'not_found');
+  return { connection };
+});
 
 // 保存した認証情報で取り込み元に範囲の候補を問い合わせる。復号は呼んだ処理の中だけで、平文を外に出さない
 async function fetchCandidates(

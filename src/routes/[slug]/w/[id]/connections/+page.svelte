@@ -14,7 +14,9 @@
     connectionScopeFailure,
     connectionSyncFailure,
     connectionSyncOutcome,
+    connectionUpdateFailure,
     validateConnectionCreate,
+    validateConnectionInput,
     type ConnectionFailure,
   } from '../../../../../lib/connection-form.ts';
   import { formatLocalDateTime } from '../../../../../lib/format.ts';
@@ -27,6 +29,7 @@
     connectionScopeCandidates,
     connectionScopesSave,
     connectionSync,
+    connectionUpdate,
     type Connection,
   } from '../../../../../shared/operations/connection/index.ts';
   import type { DictionaryKey } from '../../../../../shared/vocabulary.ts';
@@ -38,7 +41,7 @@
   // GitHub が受け付けないトークンは、理由を欄の下に出して登録しない。登録できたら同じ画面で続けて範囲の候補を読み、選んで保存する
   // （2段目。選ばずに閉じてもよく、範囲を選ぶまで何も取り込まない。登録した本人の接続で範囲がまだ無いものからも開ける）。
   // 公開範囲（取り込んだ内容は private を含めてワークスペースの全員に見える）と、組織の承認制の案内は登録の欄に出す。
-  // 今すぐ同期、編集、停止、削除は別のタスクで足す。認証情報は送った直後に欄から消し、画面の状態にも残さない
+  // 認証情報は送った直後に欄から消し、画面の状態にも残さない
   let { data }: PageProps = $props();
 
   const workspace = $derived(data.workspace);
@@ -69,6 +72,14 @@
   let creating = $state(false);
   let failure = $state<ConnectionFailure | null>(null);
 
+  let editingId = $state<string | null>(null);
+  let editName = $state('');
+  let editFailure = $state<ConnectionFailure | null>(null);
+  let updating = $state(false);
+  const editNameFailure = $derived(editFailure?.field === 'name' ? editFailure.key : null);
+  const editCredentialFailure = $derived(editFailure?.field === 'credential' ? editFailure.key : null);
+  const editFormFailure = $derived(editFailure?.field === 'form' ? editFailure.key : null);
+
   // 2段目: 範囲を選んでいる接続の ID と、その候補。candidates が null の間は読み込み中か失敗
   let choosing = $state<{ id: string; name: string } | null>(null);
   let candidates = $state<{ id: string; name: string }[] | null>(null);
@@ -89,6 +100,82 @@
 
   async function reload(): Promise<void> {
     await invalidate('app:connections');
+  }
+
+  async function openEdit(target: Connection): Promise<void> {
+    if (updating) return;
+    if (editingId === target.id) {
+      await closeEdit(target.id);
+      return;
+    }
+    editName = target.name;
+    editFailure = null;
+    editingId = target.id;
+    await tick();
+    document.getElementById('connection-edit-name')?.focus();
+  }
+
+  async function closeEdit(id: string): Promise<void> {
+    editingId = null;
+    editName = '';
+    editFailure = null;
+    await tick();
+    const target = document.getElementById(`connection-edit-${id}`) ?? document.querySelector<HTMLElement>('main h1');
+    target?.focus();
+  }
+
+  async function focusEditFailure(): Promise<void> {
+    const field = editFailure?.refocus ?? editFailure?.field;
+    await tick();
+    if (field === 'name' || field === 'credential') {
+      document.getElementById(`connection-edit-${field}`)?.focus();
+    } else {
+      document.getElementById('connection-edit-error')?.focus();
+    }
+  }
+
+  async function saveEdit(event: SubmitEvent & { currentTarget: HTMLFormElement }, id: string): Promise<void> {
+    event.preventDefault();
+    if (updating || workspace === null || !canWrite || editingId !== id || (saving && choosing?.id === id)) return;
+    editFailure = validateConnectionInput({ name: editName });
+    if (editFailure !== null) {
+      await focusEditFailure();
+      return;
+    }
+
+    const field = event.currentTarget.elements.namedItem('connection-edit-credential') as HTMLInputElement;
+    const secret = field.value.trim();
+    const sentCredential = secret !== '';
+    field.value = '';
+    updating = true;
+    try {
+      const result = await callOperation(
+        connectionUpdate,
+        { workspace_id: workspace.id, connection_id: id, name: editName.trim(), credential: secret || undefined },
+        { slug },
+      );
+      if (!result.ok && unauthenticated(result)) return;
+      if (result.ok) {
+        showToast(t('connectionEditSaved', { name: result.data.connection.name }), 'check');
+        if (choosing?.id === id) {
+          choosing.name = result.data.connection.name;
+          if (sentCredential) void loadCandidates();
+        }
+        await reload();
+        await closeEdit(id);
+      } else if (result.error?.code === 'workspace_closed' || result.status === 403 || result.status === 404) {
+        const key = result.error?.code === 'workspace_closed' ? 'connectionWorkspaceClosed' : 'connectionSyncGone';
+        showToast(t(key, { connection: t('connection'), workspace: t('workspace') }), 'alert');
+        if (result.error?.code === 'workspace_closed') await invalidate('app:workspace');
+        else await reload();
+        await closeEdit(id);
+      } else {
+        editFailure = connectionUpdateFailure(result, sentCredential);
+        await focusEditFailure();
+      }
+    } finally {
+      updating = false;
+    }
   }
 
   // 範囲の候補を読んだ回数。応答が着いたとき、読み始めた回と同じでなければ（別の接続を開いた、閉じた）捨てる
@@ -195,6 +282,7 @@
 
   async function saveScope(): Promise<void> {
     if (choosing === null || workspace === null || saving || overLimit || candidates === null) return;
+    if (updating && editingId === choosing.id) return;
     saving = true;
     scopeFailure = null;
     const connectionId = choosing.id;
@@ -281,7 +369,7 @@
 {#if workspace && connections === null}
   <LoadFailed inShell />
 {:else if workspace && connections !== null}
-  <PageHead title={t('connection')} narrowEyebrow={workspace.name} {tallies} />
+  <PageHead title={t('connection')} narrowEyebrow={workspace.name} {tallies} focusable />
 
   <p class="action-note">{t('connectionNote', { connection: t('connection'), workspace: t('workspace') })}</p>
   {#if !canWrite && connections.length > 0}
@@ -312,23 +400,31 @@
             <span class="kind is-story"><Icon name="git" /></span>
             <h2 class="conn-name">{connection.name}</h2>
             <span class="state-badge {state.cls}">{t(state.key)}</span>
-            {#if canWrite && mine && connection.scopes.length === 0 && choosing?.id !== connection.id}
+            {#if canWrite && mine}
               <span class="conn-actions">
-                <button class="btn is-sm" type="button" aria-disabled={saving} onclick={() => openScope(connection)}
-                  >{t('connectionChooseScope')}</button
-                >
-              </span>
-            {:else if canWrite && mine && connection.status !== 'stopped' && connection.scopes.length > 0}
-              <span class="conn-actions">
+                {#if connection.scopes.length === 0 && choosing?.id !== connection.id}
+                  <button class="btn is-sm" type="button" aria-disabled={saving} onclick={() => openScope(connection)}
+                    >{t('connectionChooseScope')}</button
+                  >
+                {:else if connection.status !== 'stopped' && connection.scopes.length > 0}
+                  <button
+                    class="btn is-sm"
+                    type="button"
+                    aria-disabled={syncingId !== null}
+                    aria-busy={syncingId === connection.id}
+                    onclick={() => syncNow(connection)}
+                    ><Icon name="refresh" />{syncingId === connection.id
+                      ? t('connectionSyncing')
+                      : t('connectionSyncNow')}</button
+                  >
+                {/if}
                 <button
-                  class="btn is-sm"
+                  class="btn is-sm is-quiet"
                   type="button"
-                  aria-disabled={syncingId !== null}
-                  aria-busy={syncingId === connection.id}
-                  onclick={() => syncNow(connection)}
-                  ><Icon name="refresh" />{syncingId === connection.id
-                    ? t('connectionSyncing')
-                    : t('connectionSyncNow')}</button
+                  id={`connection-edit-${connection.id}`}
+                  aria-expanded={editingId === connection.id}
+                  aria-disabled={updating}
+                  onclick={() => openEdit(connection)}>{t('connectionEdit')}</button
                 >
               </span>
             {/if}
@@ -351,7 +447,9 @@
               <Icon name="alert" /><span
                 >{connection.stopped_reason === 'auth_failed'
                   ? t('connectionStoppedAuthFailed')
-                  : t('connectionStoppedOther')}{t('connectionNextStopped', { who })}</span
+                  : t('connectionStoppedOther')}{mine && canWrite && connection.stopped_reason === 'auth_failed'
+                  ? t('connectionStoppedEditHint')
+                  : t('connectionNextStopped', { who })}</span
               >
             </div>
           {/if}
@@ -398,6 +496,86 @@
               </dd>
             </div>
           </dl>
+          {#if canWrite && mine && editingId === connection.id}
+            <form
+              class="form"
+              method="post"
+              aria-label={t('connectionEditTitle', { connection: t('connection') })}
+              onsubmit={(event) => saveEdit(event, connection.id)}
+              novalidate
+            >
+              <fieldset class="form-fields">
+                <legend class="step-title">{t('connectionEditTitle', { connection: t('connection') })}</legend>
+                <div class="form-row is-start">
+                  <div class="field">
+                    <label class="field-label" for="connection-edit-name">{t('connectionNameLabel')}</label>
+                    <input
+                      class="input"
+                      id="connection-edit-name"
+                      bind:value={editName}
+                      readonly={updating}
+                      autocomplete="off"
+                      aria-invalid={editNameFailure !== null}
+                      aria-describedby={editNameFailure !== null ? 'connection-edit-name-error' : undefined}
+                    />
+                    {#if editNameFailure !== null}
+                      <span class="field-error" id="connection-edit-name-error" role="alert"
+                        ><Icon name="alert" />{t(editNameFailure)}</span
+                      >
+                    {/if}
+                  </div>
+                  <div class="field">
+                    <label class="field-label" for="connection-edit-credential"
+                      >{t('connectionEditCredentialLabel')}</label
+                    >
+                    <input
+                      class="input"
+                      id="connection-edit-credential"
+                      type="password"
+                      readonly={updating}
+                      autocomplete="off"
+                      data-1p-ignore
+                      data-lpignore="true"
+                      data-bwignore
+                      data-form-type="other"
+                      spellcheck="false"
+                      aria-invalid={editCredentialFailure !== null}
+                      aria-describedby={editCredentialFailure !== null
+                        ? 'connection-edit-credential-error connection-edit-credential-hint'
+                        : 'connection-edit-credential-hint'}
+                    />
+                    {#if editCredentialFailure !== null}
+                      <span class="field-error" id="connection-edit-credential-error" role="alert"
+                        ><Icon name="alert" />{t(editCredentialFailure)}</span
+                      >
+                    {/if}
+                    <span class="field-hint" id="connection-edit-credential-hint"
+                      >{t('connectionEditCredentialHint')}</span
+                    >
+                  </div>
+                </div>
+                {#if editFormFailure !== null}
+                  <div class="callout is-warn" id="connection-edit-error" role="alert" tabindex="-1">
+                    <Icon name="alert" /><span>{t(editFormFailure)}</span>
+                  </div>
+                {/if}
+              </fieldset>
+              <div class="form-actions">
+                <button
+                  class="btn is-primary"
+                  type="submit"
+                  aria-disabled={updating || (saving && choosing?.id === connection.id)}
+                  aria-busy={updating}>{updating ? t('connectionScopeSaving') : t('connectionEditSave')}</button
+                >
+                <button
+                  class="btn is-quiet"
+                  type="button"
+                  aria-disabled={updating}
+                  onclick={() => !updating && closeEdit(connection.id)}>{t('cancel')}</button
+                >
+              </div>
+            </form>
+          {/if}
         </section>
       {/each}
     </div>
@@ -532,8 +710,11 @@
                 {/if}
                 <div class="form-actions">
                   {#if candidates !== null}
-                    <button class="btn is-primary" type="button" aria-disabled={saving || overLimit} onclick={saveScope}
-                      >{saving ? t('connectionScopeSaving') : t('connectionScopeSave')}</button
+                    <button
+                      class="btn is-primary"
+                      type="button"
+                      aria-disabled={saving || overLimit || (updating && editingId === choosing.id)}
+                      onclick={saveScope}>{saving ? t('connectionScopeSaving') : t('connectionScopeSave')}</button
                     >
                   {:else if !loadingCandidates}
                     <button class="btn" type="button" onclick={loadCandidates}>{t('connectionScopeRetry')}</button>

@@ -3061,6 +3061,15 @@ export const dictionary = defineDictionary({
     '取り込んだ内容は、private なリポジトリのものも含めて{workspace}の全員に見えます。範囲を選ぶまでは何も取り込みません。',
   connectionOrgApprovalNotice:
     '組織のリポジトリは、組織が fine-grained PAT を承認制にしていると、承認されるまで公開リポジトリしか読めません。private を取り込むときは、組織の管理者に承認を頼んでください。',
+  connectionEdit: '編集',
+  connectionEditTitle: '{connection}を編集',
+  connectionEditCredentialLabel: '新しい GitHub の PAT',
+  connectionEditCredentialHint: '空欄のまま保存すると、現在のトークンを使い続けます。',
+  connectionEditSave: '保存する',
+  connectionEditSaved: '「{name}」を更新しました',
+  connectionUpdateCredentialFailed: '保存できませんでした。トークンを入れ直して、もう一度試してください。',
+  connectionUpdateFailed: '保存できませんでした。もう一度試してください。',
+  connectionStoppedEditHint: '編集から新しいトークンを保存すると、次の同期から再開します。',
   connectionSubmit: '登録する',
   connectionSubmitting: '確かめています',
   connectionRegistered: '「{name}」を登録しました。続けて取り込む範囲を選んでください。',
@@ -3092,7 +3101,7 @@ export const dictionary = defineDictionary({
   connectionSyncStopped: 'この{connection}は止まっているため、同期できません',
   connectionSyncFailed: '同期を始められませんでした。もう一度試してください',
   connectionSyncGone: 'この{connection}は見つかりません。一覧を読み直します',
-  connectionWorkspaceClosed: 'この{workspace}は終了しているため、登録も範囲の保存も同期もできません。',
+  connectionWorkspaceClosed: 'この{workspace}は終了しているため、登録、編集、範囲の保存、同期ができません。',
   connectionLimit: '登録できる{connection}の数の上限に達しています。',
   connectionRateLimited: '短い間に試しすぎました。少し待ってからもう一度試してください。',
   connectionUnreachable: 'GitHub に届きませんでした。しばらくしてからもう一度試してください。',
@@ -3100,7 +3109,7 @@ export const dictionary = defineDictionary({
   connectionCreateUnreachable:
     'GitHub に届きませんでした。しばらくしてから、トークンを入れ直してもう一度試してください。',
   connectionCreateRateLimited: '短い間に試しすぎました。少し待ってから、トークンを入れ直してもう一度試してください。',
-  connectionReadonlyNote: 'この{workspace}は終了しているため、{connection}の登録と範囲の保存はできません。',
+  connectionReadonlyNote: 'この{workspace}は終了しているため、{connection}の登録、編集、範囲の保存ができません。',
   connectionScopeTarget: '範囲を選ぶ{connection}: {name}',
   connectionCredentialLast4: '末尾',
   connectionCredentialKeysUnavailable:

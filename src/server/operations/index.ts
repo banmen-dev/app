@@ -35,6 +35,7 @@ import {
   connectionScopeCandidatesOperation,
   connectionScopesSaveOperation,
   connectionSyncOperation,
+  connectionUpdateOperation,
 } from './connection.ts';
 import { attachmentDownloadOperation, attachmentUploadOperation } from './attachment.ts';
 import { operationListOperationFor } from './operation-list.ts';
@@ -318,6 +319,7 @@ const listedOperations: readonly ImplementedOperation[] = [
   connectionScopeCandidatesOperation,
   connectionScopesSaveOperation,
   connectionSyncOperation,
+  connectionUpdateOperation,
   invitationListOperation,
   invitationAcceptOperation,
   invitationDeclineOperation,
