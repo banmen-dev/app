@@ -146,6 +146,6 @@
   "wiki-transfer.test.ts": 15,
   "wiki.test.ts": 91,
   "workspace-close.test.ts": 58,
-  "workspace-switcher.test.ts": 14,
+  "workspace-list.test.ts": 14,
   "workspace.test.ts": 42
 }

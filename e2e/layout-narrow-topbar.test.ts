@@ -142,7 +142,7 @@ test('浮きメニューに全項目と切り替えがあり、Esc・外・リ�
   expect(await dialog.evaluate((el) => el.contains(document.activeElement))).toBe(true);
   // ワークスペースの一覧は浮きメニューの中に出る。見出しのボタンで畳んでも、メニューは閉じない
   const toggle = dialog.locator('.nav-group-toggle');
-  const list = dialog.getByRole('list', { name: '所属するワークスペース' });
+  const list = dialog.getByRole('list', { name: 'ワークスペースの一覧' });
   await expect(list).toBeVisible();
   await toggle.click();
   await expect(list).toBeHidden();
