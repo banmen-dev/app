@@ -363,6 +363,7 @@ export const connectionUpdateOperation = implement(connectionUpdate, async ({ db
         .$if(credential !== undefined, (query) =>
           query.set((eb) => ({
             ...credential,
+            // 同期側の指紋で古い続きは使われないが、照合の位置も含めて PAT の更新時点で両方消す。
             sync_state_json: '{}',
             reconcile_state_json: '{}',
             status: eb.case().when('stopped_reason', '=', 'auth_failed').then('active').else(eb.ref('status')).end(),

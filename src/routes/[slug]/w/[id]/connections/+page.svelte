@@ -553,6 +553,9 @@
                     >
                   </div>
                 </div>
+                {#if connection.status === 'stopped' && connection.stopped_reason !== 'auth_failed'}
+                  <span class="field-hint">{t('connectionEditStillStopped')}</span>
+                {/if}
                 {#if editFormFailure !== null}
                   <div class="callout is-warn" id="connection-edit-error" role="alert" tabindex="-1">
                     <Icon name="alert" /><span>{t(editFormFailure)}</span>
