@@ -632,7 +632,7 @@ export async function mockSeedAdminLists(page: Page): Promise<void> {
           avatar_url: null,
           is_admin: false,
           disabled_at: null,
-          workspace_count: 1,
+          workspace_count: 2,
           last_seen_at: null,
         },
         {
@@ -666,6 +666,14 @@ export async function mockSeedAdminLists(page: Page): Promise<void> {
           id: '019a0000-0000-7000-8000-000000000401',
           name: '受託開発チーム',
           member_count: 2,
+          leader_count: 1,
+          created_on: '2026-10-01',
+          closed_at: null,
+        },
+        {
+          id: '019a0000-0000-7000-8000-000000000407',
+          name: '問い合わせ対応チーム',
+          member_count: 1,
           leader_count: 1,
           created_on: '2026-10-01',
           closed_at: null,
