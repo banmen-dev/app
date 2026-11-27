@@ -2460,6 +2460,8 @@ html:has(.feedback-launch:not(.is-static)) .gate { padding-bottom: calc(var(--sp
 .file-art-time { position: absolute; right: 6px; bottom: 4px; font-family: var(--font-mono); font-size: var(--text-xs); }
 .file-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-1); background: var(--color-surface); font-size: var(--text-sm); }
 .file-row > .ico { width: 20px; height: 20px; color: var(--color-muted); }
+/* 付ける前の画像の縮小。本番は canvas に描き、見本は絵の代わりの地（.file-art と同じ）。画像の名前は行の文字で読ませるので、絵は飾り（aria-hidden） */
+.file-preview { display: grid; width: var(--feedback-image-size); height: var(--feedback-image-size); border: 1px solid var(--color-line); border-radius: var(--radius-1); background: var(--color-sunken); color: var(--color-faint); place-items: center; overflow: hidden; }
 .file-main { display: grid; min-width: 0; }
 .file-name { overflow-wrap: anywhere; }
 button.file-name { border: 0; background: none; padding: 0; text-align: left; color: var(--color-fg); text-decoration: underline; text-decoration-color: var(--color-line); text-underline-offset: 3px; }

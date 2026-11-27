@@ -661,6 +661,24 @@ export const dictionary = defineDictionary({
   // 応答が来ないまま時間が過ぎ、送り直せるようにしたときの欄の下の知らせ
   feedbackStalled:
     '応答がありません。送り直せますが、前に送った文がすでに載っていて、同じ文が2件になることがあります。',
+  // 画像を付ける欄（FeedbackLauncher.svelte）。画像は運用者だけが見る。count と size は上限の数（FEEDBACK_IMAGE_MAX_COUNT、FEEDBACK_IMAGE_MAX_BYTES）
+  feedbackImageField: '画像（なくても送れます）',
+  feedbackImageDrop: 'ここに画像をドラッグするか、貼り付けて付ける',
+  feedbackImageDropOver: '離すと画像を付けます',
+  feedbackImageHint: 'PNG、JPEG、WebP の静止画を{count}枚まで、1枚 {size} MB まで。画像は運用者だけが見ます。',
+  feedbackImageChoose: '画像を選ぶ',
+  feedbackImageFull: '画像は{count}枚まで付いています',
+  feedbackImageFullHint: '別の画像を付けるには、付けた画像を外してください。',
+  feedbackImageListLabel: '付けた画像',
+  feedbackImageRemove: '外す',
+  feedbackImageRemoveLabel: '{name} を外す',
+  feedbackImageAdded: '画像を付けました: {name}',
+  feedbackImageRemoved: '画像を外しました: {name}',
+  feedbackImageBusy: '送っている間は、画像を付けたり外したりできません。',
+  feedbackImageRejected: '{name} は付けられませんでした。{reason}',
+  feedbackImageTooMany: '付けられる画像は{count}枚までです。',
+  feedbackImageTooLarge: '1枚 {size} MB まで、一辺 {side} 画素までの画像だけ付けられます。',
+  feedbackImageUnsupported: 'PNG、JPEG、WebP の静止画だけ付けられます。',
   // ダイアログを閉じた後に送れなかったときのトースト。reason は上の失敗の文
   feedbackFailedClosed: '{reason}\n書いた文は残っています。フィードバックのボタンから開き直すと続けられます。',
 

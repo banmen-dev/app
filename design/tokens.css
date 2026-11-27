@@ -45,6 +45,8 @@
   /* 右下のフィードバックの入口（.feedback-launch）。押せる範囲の 44px 四方。本文（.content）と枠の外の紙（.gate）は、入口の下端からこの分を足して空ける */
   --feedback-launch-size: 44px;
   --feedback-launch-stack: calc(var(--feedback-launch-size) + var(--space-2));
+  /* フィードバックに付けた画像の縮小（.file-preview）。一覧の行（.file-row）の頭に置く正方形 */
+  --feedback-image-size: 48px;
 
   /* ---- 動き ---- */
   --duration-fast: 120ms;

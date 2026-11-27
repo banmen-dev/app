@@ -63,7 +63,9 @@ test.describe('ログインした画面', () => {
     await expect(page.locator('.callout')).toHaveCount(1);
     await expect(field(page)).toBeFocused();
     await page.keyboard.type('一覧の見出しが読みにくいです');
-    // 欄から、やめる、送るの順に進む
+    // 欄から、画像を選ぶ、やめる、送るの順に進む
+    await page.keyboard.press('Tab');
+    await expect(dialog(page).getByRole('button', { name: '画像を選ぶ' })).toBeFocused();
     await page.keyboard.press('Tab');
     await page.keyboard.press('Tab');
     await expect(dialog(page).getByRole('button', { name: '送る' })).toBeFocused();
@@ -407,6 +409,161 @@ test.describe('ログインした画面', () => {
       },
     );
     expect(hit).toBe(true);
+  });
+});
+
+// 1×1 の PNG。画像として読め、縮小の絵に描ける
+const PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+const png = (name: string) => ({ name, mimeType: 'image/png', buffer: Buffer.from(PNG_BASE64, 'base64') });
+
+// クリップボードの貼り付けと、ファイルのドラッグ＆ドロップを、ブラウザの中で作って欄へ送る
+async function pasteImage(page: Page, name: string): Promise<void> {
+  await field(page).evaluate(
+    (element, { name, data }) => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([Uint8Array.from(atob(data), (c) => c.charCodeAt(0))], name, { type: 'image/png' }));
+      element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: transfer, bubbles: true, cancelable: true }));
+    },
+    { name, data: PNG_BASE64 },
+  );
+}
+
+async function dropFile(page: Page, name: string, content: string | null = null): Promise<void> {
+  await dialog(page)
+    .locator('.dropzone')
+    .evaluate(
+      (element, { name, data, text }) => {
+        const bytes =
+          text === null ? Uint8Array.from(atob(data), (c) => c.charCodeAt(0)) : new TextEncoder().encode(text);
+        const transfer = new DataTransfer();
+        transfer.items.add(new File([bytes], name, { type: text === null ? 'image/png' : 'image/svg+xml' }));
+        for (const type of ['dragover', 'drop']) {
+          element.dispatchEvent(new DragEvent(type, { dataTransfer: transfer, bubbles: true, cancelable: true }));
+        }
+      },
+      { name, data: PNG_BASE64, text: content },
+    );
+}
+
+test.describe('画像を付ける', () => {
+  test.beforeEach(async ({ context, baseURL }) => {
+    await signIn(context, baseURL, 'admin');
+  });
+
+  test('選ぶ、貼る、落とすで付き、縮小の行が出て外せる。上限に達すると付ける欄が止まり、外すと戻る', async ({
+    page,
+  }) => {
+    await page.goto('/aoba');
+    await launcher(page).click();
+    const rows = dialog(page).locator('.file-row');
+    await expect(rows).toHaveCount(0);
+
+    await dialog(page).locator('input[data-feedback-images]').setInputFiles(png('選んだ.png'));
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toContainText('選んだ.png');
+    await expect(rows.first().locator('canvas.file-preview')).toBeVisible();
+    await pasteImage(page, '貼った.png');
+    await expect(rows).toHaveCount(2);
+    await dropFile(page, '落とした.png');
+    await expect(rows).toHaveCount(3);
+    // 3枚で付ける欄が止まる
+    await expect(dialog(page).locator('.dropzone.is-disabled')).toContainText('3枚まで付いています');
+    await expect(dialog(page).getByRole('button', { name: '画像を選ぶ' })).toHaveCount(0);
+
+    await dialog(page).getByRole('button', { name: '貼った.png を外す' }).click();
+    await expect(rows).toHaveCount(2);
+    await expect(dialog(page).getByRole('button', { name: '画像を選ぶ' })).toBeFocused();
+  });
+
+  test('形式の外と大きすぎる画像は付ける前に名前と理由を出し、枚数の外も断る', async ({ page }) => {
+    await page.goto('/aoba');
+    await launcher(page).click();
+    await dropFile(page, '図.svg', '<svg xmlns="http://www.w3.org/2000/svg"/>');
+    await expect(dialog(page).getByRole('alert').filter({ hasText: '図.svg は付けられませんでした' })).toContainText(
+      'PNG、JPEG、WebP の静止画だけ',
+    );
+    await expect(dialog(page).locator('.file-row')).toHaveCount(0);
+
+    await dialog(page)
+      .locator('input[data-feedback-images]')
+      .setInputFiles({
+        name: '大きい.png',
+        mimeType: 'image/png',
+        buffer: Buffer.concat([Buffer.from(PNG_BASE64, 'base64'), Buffer.alloc(4 * 1024 * 1024)]),
+      });
+    await expect(dialog(page).getByRole('alert').filter({ hasText: '大きい.png' })).toContainText('1枚 4 MB まで');
+
+    await dialog(page)
+      .locator('input[data-feedback-images]')
+      .setInputFiles(['1', '2', '3', '4'].map((n) => png(`${n}.png`)));
+    await expect(dialog(page).locator('.file-row')).toHaveCount(3);
+    await expect(dialog(page).getByRole('alert').filter({ hasText: '4.png' })).toContainText('3枚まで');
+  });
+
+  test('ダイアログのフッターに落としても付き、ブラウザがファイルを開かない', async ({ page }) => {
+    await page.goto('/aoba');
+    await launcher(page).click();
+    await field(page).fill('書きかけの文');
+    await dialog(page)
+      .getByRole('button', { name: 'やめる' })
+      .evaluate((element, data) => {
+        const transfer = new DataTransfer();
+        const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+        transfer.items.add(new File([bytes], '落とした.png', { type: 'image/png' }));
+        for (const type of ['dragover', 'drop']) {
+          element.dispatchEvent(new DragEvent(type, { dataTransfer: transfer, bubbles: true, cancelable: true }));
+        }
+      }, PNG_BASE64);
+    await expect(dialog(page).locator('.file-row')).toContainText('落とした.png');
+    await expect(field(page)).toHaveValue('書きかけの文');
+  });
+
+  test('同じ名前の画像をまとめて断られても、一覧が崩れない', async ({ page }) => {
+    await page.goto('/aoba');
+    await launcher(page).click();
+    const picker = dialog(page).locator('input[data-feedback-images]');
+    await picker.setInputFiles([png('a.png'), png('b.png'), png('c.png')]);
+    await picker.setInputFiles([png('image.png'), png('image.png')]);
+    await expect(dialog(page).getByRole('alert')).toHaveCount(2);
+  });
+
+  test('画像を付けて送ると画像が同じリクエストで送られ、送れたら空になる', async ({ page }) => {
+    const parts: number[] = [];
+    page.on('request', async (request) => {
+      if (!request.url().endsWith('/api/feedback-submit')) return;
+      const contentType = request.headers()['content-type'] ?? '';
+      const form = await new Response(new Uint8Array(request.postDataBuffer() ?? Buffer.alloc(0)), {
+        headers: { 'Content-Type': contentType },
+      }).formData();
+      parts.push(form.getAll('file').length);
+    });
+    await routeOperation(page, feedbackSubmit, (call) => call.fulfill({ feedback_id: FEEDBACK_ID }));
+    await page.goto('/aoba');
+    await launcher(page).click();
+    await field(page).fill('画面が崩れます');
+    await dialog(page)
+      .locator('input[data-feedback-images]')
+      .setInputFiles([png('a.png'), png('b.png')]);
+    await dialog(page).getByRole('button', { name: '送る' }).click();
+    await expect(dialog(page)).toBeHidden();
+    expect(parts).toEqual([2]);
+    await launcher(page).click();
+    await expect(dialog(page).locator('.file-row')).toHaveCount(0);
+    await expect(field(page)).toHaveValue('');
+  });
+
+  test('サーバーが画像を断ったら、画像と文を残して理由を出す', async ({ page }) => {
+    await failOperation(page, feedbackSubmit, 400, 'invalid_input', {
+      details: [{ path: 'files', code: 'custom', message: 'image_unsupported' }],
+    });
+    await page.goto('/aoba');
+    await launcher(page).click();
+    await field(page).fill('動く画像です');
+    await dialog(page).locator('input[data-feedback-images]').setInputFiles(png('a.png'));
+    await dialog(page).getByRole('button', { name: '送る' }).click();
+    await expect(dialog(page).getByRole('alert')).toContainText('PNG、JPEG、WebP の静止画だけ');
+    await expect(dialog(page).locator('.file-row')).toHaveCount(1);
+    await expect(field(page)).toHaveValue('動く画像です');
   });
 });
 

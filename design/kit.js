@@ -72,6 +72,21 @@
     feedbackEmpty: "送る文を入れてください。",
     feedbackRateLimited: "送る回数の上限に達しました。しばらく待ってから、もう一度送ってください。",
     feedbackStalled: "応答がありません。送り直せますが、前に送った文がすでに載っていて、同じ文が2件になることがあります。",
+    feedbackImageField: "画像（なくても送れます）",
+    feedbackImageDrop: "ここに画像をドラッグするか、貼り付けて付ける",
+    feedbackImageDropOver: "離すと画像を付けます",
+    feedbackImageHint: "PNG、JPEG、WebP の静止画を{count}枚まで、1枚 {size} MB まで。画像は運用者だけが見ます。",
+    feedbackImageChoose: "画像を選ぶ",
+    feedbackImageFull: "画像は{count}枚まで付いています",
+    feedbackImageFullHint: "別の画像を付けるには、付けた画像を外してください。",
+    feedbackImageListLabel: "付けた画像",
+    feedbackImageRemove: "外す",
+    feedbackImageRemoveLabel: "{name} を外す",
+    feedbackImageBusy: "送っている間は、画像を付けたり外したりできません。",
+    feedbackImageRejected: "{name} は付けられませんでした。{reason}",
+    feedbackImageTooMany: "付けられる画像は{count}枚までです。",
+    feedbackImageTooLarge: "1枚 {size} MB まで、一辺 {side} 画素までの画像だけ付けられます。",
+    feedbackImageUnsupported: "PNG、JPEG、WebP の静止画だけ付けられます。",
     taskTemplateEmpty: "テンプレートがまだありません。",
     taskTemplateAskLeader: "ワークスペースのリーダーにテンプレートの作成を依頼してください。",
     taskTemplateManage: "テンプレートの設定を開く",
@@ -2885,9 +2900,22 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       // data-state="stalled" で、応答が 30 秒来ずに送り直せるようにした状態（欄と送るボタンを戻し、欄の下に囲みで知らせる）
       const stalled = el?.dataset.state === "stalled";
       const hint = t("feedbackHint").replace("{max}", "5,000");
+      // data-images="1" で画像を1枚付けた状態、"3" で上限の3枚（付ける欄は止める）、"over" でドラッグを重ねた状態、"rejected" で付けられなかった理由を出した状態
+      const imageState = el?.dataset.images ?? "";
+      const imageCount = imageState === "3" ? 3 : imageState === "1" ? 1 : 0;
+      const imageRule = (text) => text.replace("{count}", "3").replace("{size}", "4").replace("{side}", "8,192");
+      const imageNames = ["画面.png", "列の見出し.webp", "貼り付け.jpeg"];
+      const imageRows = Array.from({ length: imageCount }, (_, i) => `<li class="file-row"><span class="file-preview" aria-hidden="true">${icon("image")}</span><div class="file-main"><span class="file-name">${imageNames[i]}</span><span class="file-meta mono">${[ "812 KB", "1.4 MB", "96 KB" ][i]}</span></div><div class="file-actions"><button class="btn is-sm is-quiet" type="button" aria-label="${t("feedbackImageRemoveLabel").replace("{name}", imageNames[i])}">${t("feedbackImageRemove")}</button></div></li>`).join("");
+      const imageZone = imageCount >= 3
+        ? `<div class="dropzone is-disabled">${icon("alert")}<span class="dropzone-text"><b>${imageRule(t("feedbackImageFull"))}</b><span id="d-fb-image-hint">${t("feedbackImageFullHint")}</span></span></div>`
+        : `<div class="dropzone${imageState === "over" ? " is-over" : ""}">${icon("upload")}<span class="dropzone-text"><b>${imageState === "over" ? t("feedbackImageDropOver") : t("feedbackImageDrop")}</b><span id="d-fb-image-hint">${imageRule(t("feedbackImageHint"))}</span></span><button class="btn is-sm" type="button" aria-describedby="d-fb-image-hint">${icon("clip")}${t("feedbackImageChoose")}</button></div>`;
+      const imageProblem = imageState === "rejected"
+        ? `<span class="field-error" role="alert">${icon("alert")}${t("feedbackImageRejected").replace("{name}", "動画.gif").replace("{reason}", t("feedbackImageUnsupported"))}</span>`
+        : "";
       openDialog(t("feedbackTitle"),
         `<div class="callout is-info" id="d-fb-public">${icon("alert")}<span>${t("feedbackPublic")} <a href="#" target="_blank" rel="noopener noreferrer">${t("feedbackPrivacy")}${icon("external")}<span class="visually-hidden">${t("markdownNewTab")}</span></a></span></div>
          <div class="field${failed ? " is-invalid" : ""}"><label class="field-label" for="d-fb">${t("feedbackField")}</label><textarea class="textarea" id="d-fb" rows="6" aria-describedby="d-fb-public d-fb-hint${failed ? " d-fb-error" : ""}"${failed ? ' aria-invalid="true"' : ""}${sending ? " readonly" : ""}>${failed || sending || stalled ? "ボードの列の見出しが、狭い幅で2行に折れて読みにくいです。" : ""}</textarea><p class="field-hint" id="d-fb-hint">${hint}</p>${stalled ? `<div class="callout is-warn">${icon("alert")}<span>${t("feedbackStalled")}</span></div>` : ""}${failed ? `<span class="field-error" id="d-fb-error" role="alert">${icon("alert")}${t("feedbackRateLimited")}</span>` : ""}</div>
+         <div class="field${imageProblem ? " is-invalid" : ""}" role="group" aria-labelledby="d-fb-image-label"><span class="field-label" id="d-fb-image-label">${t("feedbackImageField")}</span>${imageRows ? `<ul class="files" aria-label="${t("feedbackImageListLabel")}">${imageRows}</ul>` : ""}${imageZone}${imageProblem}</div>
          <span class="visually-hidden" role="status">${sending ? t("feedbackSending") : stalled ? t("feedbackStalled") : ""}</span>`,
         `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button>${sending ? `<button class="btn is-primary" type="button" aria-disabled="true">${t("feedbackSending")}</button>` : `<button class="btn is-primary" type="button" data-close-dialog data-toast="${t("feedbackSent")}">${t("feedbackSend")}</button>`}`);
     },

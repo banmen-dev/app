@@ -2,7 +2,13 @@ import { describe, expect, test } from 'vitest';
 import type { ErrorBody } from '../shared/errors.ts';
 import { feedbackSubmit } from '../shared/operations/feedback.ts';
 import {
+  FEEDBACK_IMAGE_MAX_BYTES,
   FEEDBACK_TEXT_MAX,
+  admitFeedbackImages,
+  clipboardImages,
+  feedbackImageSize,
+  feedbackStallMs,
+  sniffFeedbackImage,
   feedbackFailure,
   feedbackInput,
   feedbackTextLength,
@@ -79,5 +85,85 @@ describe('feedbackFailure', () => {
     expect(feedbackFailure(failed(503, 'unavailable'))).toBe('feedbackUnavailable');
     expect(feedbackFailure({ ok: false, status: 0, error: null })).toBe('feedbackFailed');
     expect(feedbackFailure(failed(500, 'internal'))).toBe('feedbackFailed');
+  });
+});
+
+describe('画像を付ける前の確かめ', () => {
+  const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  const file = (bytes: number[], name: string, size = bytes.length) =>
+    new File([new Uint8Array(Math.max(size, bytes.length)).map((_, i) => bytes[i] ?? 0)], name);
+
+  test('形式は先頭のバイトで決め、名前と種類は見ない', () => {
+    expect(sniffFeedbackImage(new Uint8Array(png))).toBe('image/png');
+    expect(sniffFeedbackImage(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))).toBe('image/jpeg');
+    const webp = [0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50];
+    expect(sniffFeedbackImage(new Uint8Array(webp))).toBe('image/webp');
+    expect(sniffFeedbackImage(new TextEncoder().encode('<svg xmlns="x"/>'))).toBeNull();
+  });
+
+  test('形式の外、大きすぎる、枚数の外を、名前と理由つきで断る', async () => {
+    const big = file(png, 'big.png', FEEDBACK_IMAGE_MAX_BYTES + 1);
+    const svg = new File(['<svg/>'], 'a.png', { type: 'image/png' });
+    const ok = (n: string) => file(png, n);
+    const { accepted, rejected } = await admitFeedbackImages(
+      [ok('a.png'), ok('b.png')],
+      [big, svg, ok('c.png'), ok('d.png')],
+    );
+    expect(accepted.map((f) => f.name)).toEqual(['c.png']);
+    expect(rejected).toEqual([
+      { name: 'big.png', reason: 'feedbackImageTooLarge' },
+      { name: 'a.png', reason: 'feedbackImageUnsupported' },
+      { name: 'd.png', reason: 'feedbackImageTooMany' },
+    ]);
+  });
+
+  test('4 MiB ちょうどは通る', async () => {
+    const { accepted } = await admitFeedbackImages([], [file(png, 'x.png', FEEDBACK_IMAGE_MAX_BYTES)]);
+    expect(accepted).toHaveLength(1);
+  });
+
+  test('サーバーが画像を断った理由を、画像の文言に写す', () => {
+    const reason = (message: string) => feedbackFailure(failed(400, 'invalid_input', [{ message }]));
+    expect(reason('too_many_images')).toBe('feedbackImageTooMany');
+    expect(reason('image_too_large')).toBe('feedbackImageTooLarge');
+    expect(reason('image_unsupported')).toBe('feedbackImageUnsupported');
+  });
+
+  test('読めないファイルは、そのファイルだけ断り、ほかは付ける', async () => {
+    const unreadable = new File([new Uint8Array(png)], 'gone.png');
+    Object.defineProperty(unreadable, 'slice', {
+      value: () => ({ arrayBuffer: () => Promise.reject(new Error('NotReadableError')) }),
+    });
+    const { accepted, rejected } = await admitFeedbackImages([], [unreadable, file(png, 'ok.png')]);
+    expect(accepted.map((f) => f.name)).toEqual(['ok.png']);
+    expect(rejected).toEqual([{ name: 'gone.png', reason: 'feedbackImageUnsupported' }]);
+  });
+
+  test('RIFF だけで WebP とみなさず、PNG の署名は8バイト全部を見る', () => {
+    expect(sniffFeedbackImage(new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x41, 0x56, 0x45]))).toBeNull();
+    expect(sniffFeedbackImage(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0]))).toBeNull();
+  });
+
+  test('詰まったとみなす時間は、付けた画像の大きさに応じて延びる', () => {
+    expect(feedbackStallMs(0)).toBe(30_000);
+    expect(feedbackStallMs(12 * 1024 * 1024)).toBe(30_000 + 120_000);
+  });
+
+  test('貼り付けは、文字が無いか、文字がファイルの名前だけのときだけ画像として付ける', () => {
+    const image = new File([new Uint8Array(1)], 'shot.png', { type: 'image/png' });
+    expect(clipboardImages([image], '')).toEqual([image]);
+    expect(clipboardImages([image], 'shot.png')).toEqual([image]);
+    expect(clipboardImages([image], '/Users/a/Desktop/shot.png\n')).toEqual([image]);
+    // 文字が一緒（表計算のセル、文書の一部）、画像以外が混ざる、ファイルが無いときは、画像として付けない
+    expect(clipboardImages([image], '売上\t120')).toEqual([]);
+    expect(clipboardImages([image], '<TABLE>')).toEqual([]);
+    expect(clipboardImages([image, new File(['a'], 'a.txt', { type: 'text/plain' })], '')).toEqual([]);
+    expect(clipboardImages([], '')).toEqual([]);
+  });
+
+  test('大きさは attachmentSize と同じ書き方', () => {
+    expect(feedbackImageSize(FEEDBACK_IMAGE_MAX_BYTES)).toBe('4 MB');
+    expect(feedbackImageSize(1536)).toBe('1.5 KB');
+    expect(feedbackImageSize(12)).toBe('12 B');
   });
 });
