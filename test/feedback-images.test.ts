@@ -193,7 +193,7 @@ test('Issue の本文には閲覧の口のリンクを1本だけ載せ、完全�
 test('PUBLIC_ORIGIN が https でなく閲覧の口の URL を作れなければ、固定の文で警告し、Issue は立てる', async () => {
   const person = await createPerson();
   const { app, issues } = fakeGithub();
-  const env = { ...githubEnv, PUBLIC_ORIGIN: 'http://localhost:5173' } as Env;
+  const env = { ...githubEnv, PUBLIC_ORIGIN: 'http://localhost:5173' } as unknown as Env;
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
   const res = await submit(app, person, [], { ...input, url: 'http://localhost:5173/' }, env);
