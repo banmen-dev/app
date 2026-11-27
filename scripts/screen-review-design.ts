@@ -3,17 +3,25 @@
 export const DESIGN_RULE_HEADINGS = ['## デザイン原則', '### どのテーマにも共通すること'] as const;
 
 // コードフェンスの中の `#` は見出しにしない。
+// 開いたときの記号と長さを覚え、同じ記号で同じ長さ以上、後ろが空白だけの行でだけ閉じる。
+// 走査の終わりで開いたままなら、後ろの見出しを黙って隠さないよう例外にする。
 function headingDepths(lines: string[]): (number | null)[] {
-  let fenced = false;
-  return lines.map((line) => {
-    if (/^(```|~~~)/.test(line)) {
-      fenced = !fenced;
+  let open: { char: string; length: number; line: number } | null = null;
+  const depths = lines.map((line, index) => {
+    const fence = /^(`{3,}|~{3,})(.*)$/.exec(line);
+    if (open) {
+      if (fence && fence[1][0] === open.char && fence[1].length >= open.length && fence[2].trim() === '') open = null;
       return null;
     }
-    if (fenced) return null;
+    if (fence) {
+      open = { char: fence[1][0], length: fence[1].length, line: index + 1 };
+      return null;
+    }
     const match = /^(#{1,6}) /.exec(line);
     return match ? match[1].length : null;
   });
+  if (open) throw new Error(`docs/design.md の${(open as { line: number }).line}行目のコードフェンスが閉じていません`);
+  return depths;
 }
 
 // 見出しの完全一致で節を探し、同じ深さか浅い次の見出しの手前までを返す。

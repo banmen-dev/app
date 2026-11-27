@@ -29,6 +29,19 @@ describe('採点役に渡す設計文書の抜粋', () => {
     assert.equal(extractDesignSection(md, '## A'), '## A\nx\n```sh\n# comment\n## A\n```\ny\n');
   });
 
+  test('長いフェンスの中の短いフェンスでは閉じず、~~~ も同じに扱う', () => {
+    const long = '## A\nx\n````md\n```sh\n# c\n```\n````\ny\n## B\nb\n';
+    assert.equal(extractDesignSection(long, '## A'), '## A\nx\n````md\n```sh\n# c\n```\n````\ny\n');
+    const tilde = '## A\nx\n~~~\n# c\n~~~\ny\n## B\nb\n';
+    assert.equal(extractDesignSection(tilde, '## A'), '## A\nx\n~~~\n# c\n~~~\ny\n');
+    const mixed = '## A\nx\n~~~\n```\n# c\n~~~\ny\n## B\nb\n';
+    assert.equal(extractDesignSection(mixed, '## A'), '## A\nx\n~~~\n```\n# c\n~~~\ny\n');
+  });
+
+  test('閉じていないフェンスは、開いた行番号を出して例外にする', () => {
+    assert.throws(() => extractDesignSection('## A\nx\n```\n## B\n', '## A'), /3行目のコードフェンスが閉じていません/);
+  });
+
   test('CRLF、末尾の空白、ファイル末尾までの節を扱う', () => {
     assert.equal(extractDesignSection('## A \r\nx\r\n## B\r\n', '## A'), '## A \nx\n');
     assert.equal(extractDesignSection('## B\nb\n## A\nx\n', '## A'), '## A\nx\n');
