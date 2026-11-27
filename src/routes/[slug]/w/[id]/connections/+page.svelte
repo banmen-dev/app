@@ -29,6 +29,7 @@
     connectionScopesSave,
     connectionSync,
     connectionUpdate,
+    isOwnerGoneStop,
     type Connection,
   } from '../../../../../shared/operations/connection/index.ts';
   import type { DictionaryKey } from '../../../../../shared/vocabulary.ts';
@@ -48,6 +49,9 @@
   const slug = $derived(page.params.slug ?? '');
   const canWrite = $derived(workspace !== null && workspace.closedAt === null);
   const meId = $derived(data.organization?.me.id ?? null);
+  // 見ている人がこのワークスペースの今のメンバーか（所属していない管理者は role が null）。本人の接続では持ち主の所属と同じで、
+  // 止まった接続の再開（PAT の更新）と範囲の選び直しは、持ち主が今のメンバーのときだけ通る
+  const isMember = $derived(workspace?.role != null);
 
   const STATE: Record<Connection['status'], { cls: string; key: DictionaryKey }> = {
     active: { cls: 'is-ok', key: 'connectionStateActive' },
@@ -218,9 +222,23 @@
       const live = new Set(candidates.map((candidate) => candidate.id));
       chosen = chosen.filter((id) => live.has(id));
     } else {
-      scopeFailure = connectionScopeFailure(result);
-      if (result.status === 403 || result.status === 404) await reload();
+      const key = connectionScopeFailure(result);
+      if (key === 'connectionScopeStopped') await scopeStopped();
+      else {
+        scopeFailure = key;
+        if (result.status === 403 || result.status === 404) await reload();
+      }
     }
+  }
+
+  // 持ち主が去って止めた接続（読んだ後に止まったものを含む）は、読み直しても選べないので段を閉じ、止まった理由が出る一覧を読み直す
+  async function scopeStopped(): Promise<void> {
+    showToast(t('connectionScopeStopped', { connection: t('connection') }), 'alert');
+    closeScope(true);
+    await reload();
+    // 押したボタンが消えるので、フォーカスを段のタイトルへ戻す（保存できたときと同じ）
+    await tick();
+    document.getElementById('connection-scope')?.focus();
   }
 
   function toggle(id: string, on: boolean): void {
@@ -302,7 +320,12 @@
         await tick();
         document.getElementById('connection-scope')?.focus();
       } else {
-        scopeFailure = connectionScopeFailure(result);
+        const key = connectionScopeFailure(result);
+        if (key === 'connectionScopeStopped') {
+          await scopeStopped();
+          return;
+        }
+        scopeFailure = key;
         if (result.error?.code === 'workspace_closed') {
           showToast(t('connectionWorkspaceClosed', { workspace: t('workspace') }), 'alert');
           await invalidate('app:workspace');
@@ -391,8 +414,10 @@
     <div role="list" aria-label={t('connectionListLabel', { connection: t('connection') })}>
       {#each connections as connection (connection.id)}
         {@const state = STATE[connection.status]}
-        {@const staysStopped = connection.status === 'stopped' && connection.stopped_reason !== 'auth_failed'}
         {@const mine = meId !== null && connection.owner_user_id === meId}
+        {@const staysStopped =
+          connection.status === 'stopped' && (connection.stopped_reason !== 'auth_failed' || !isMember)}
+        {@const ownerGone = isOwnerGoneStop(connection) || (mine && connection.status === 'stopped' && !isMember)}
         {@const who =
           mine || !connection.owner_name
             ? t('connectionNextWhoLeader', { leader: t('leader') })
@@ -404,7 +429,7 @@
             <span class="state-badge {state.cls}">{t(state.key)}</span>
             {#if canWrite && mine}
               <span class="conn-actions">
-                {#if connection.scopes.length === 0 && choosing?.id !== connection.id}
+                {#if connection.scopes.length === 0 && choosing?.id !== connection.id && !ownerGone}
                   <button class="btn is-sm" type="button" aria-disabled={saving} onclick={() => openScope(connection)}
                     >{t('connectionChooseScope')}</button
                   >
@@ -449,7 +474,10 @@
               <Icon name="alert" /><span
                 >{connection.stopped_reason === 'auth_failed'
                   ? t('connectionStoppedAuthFailed')
-                  : t('connectionStoppedOther')}{mine && canWrite && connection.stopped_reason === 'auth_failed'
+                  : t('connectionStoppedOther')}{mine &&
+                canWrite &&
+                isMember &&
+                connection.stopped_reason === 'auth_failed'
                   ? t('connectionStoppedEditHint')
                   : t('connectionNextStopped', { who })}</span
               >

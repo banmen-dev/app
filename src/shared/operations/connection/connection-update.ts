@@ -4,7 +4,8 @@ import { connectionCredentialSchema, connectionIdInput, connectionNameSchema, co
 
 export const connectionUpdate = defineOperation({
   name: 'connection-update',
-  description: '本人の接続の表示名と認証情報を更新する。認証の失敗で止まった接続は認証情報の更新で再開する',
+  description:
+    '本人の接続の表示名と認証情報を更新する。認証の失敗で止まった接続は、本人がそのワークスペースのメンバーなら認証情報の更新で再開する',
   mode: 'write',
   permission: 'member',
   workspace: true,

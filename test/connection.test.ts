@@ -17,7 +17,7 @@ import { createApp } from '../src/server/app.ts';
 import { decryptCredential } from '../src/server/crypto/credential.ts';
 import { orgDb } from '../src/server/db/index.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
-import { createConnection } from './factories.ts';
+import { createConnection, createMembership } from './factories.ts';
 import { createFakePatGithub, fakeIssue, fakePat, fakeRepos } from './import/fake-github-pat.ts';
 import { post } from './operations/harness.ts';
 import { createTarget, type Person, type Target } from './operations/world.ts';
@@ -634,6 +634,158 @@ describe('守りの条件', () => {
   });
 });
 
+describe('持ち主が去って止めた接続の範囲', () => {
+  async function stop(target: Target, connectionId: string, reason: string) {
+    const db = orgDb(env, target.organization.verified);
+    await db.run(
+      db.statement((q) =>
+        q.updateTable('connections').set({ status: 'stopped', stopped_reason: reason }).where('id', '=', connectionId),
+      ),
+    );
+  }
+
+  function errorOf(body: unknown) {
+    return (body as { error: { code: string; details?: { reason?: string } } }).error;
+  }
+
+  test.each(['member_left', 'user_disabled', 'workspace_closed'])(
+    '%s で止めた接続は、候補も保存も 409 の connection_stopped で、取り込み元に問い合わせず範囲も履歴も変わらない',
+    async (reason) => {
+      const ctx = setup();
+      const target = await createTarget();
+      const { id } = await registered(ctx, target, target.member, `gone-${reason}`);
+      expect((await save(ctx, target, target.member, id, ['1001'])).status).toBe(200);
+      await stop(target, id, reason);
+      const before = await rowsOf(target);
+      const calls = ctx.github.calls.length;
+
+      const listed = await candidates(ctx, target, target.member, id);
+      expect(listed.status).toBe(409);
+      expect(errorOf(await listed.json())).toMatchObject({
+        code: 'conflict',
+        details: { reason: 'connection_stopped' },
+      });
+      // 範囲を外すだけの保存（取り込み元に問い合わせない）も断る
+      for (const ids of [['1002'], []]) {
+        const saved = await save(ctx, target, target.member, id, ids);
+        expect(saved.status).toBe(409);
+        expect(errorOf(await saved.json())).toMatchObject({ details: { reason: 'connection_stopped' } });
+      }
+      expect(ctx.github.calls).toHaveLength(calls);
+      expect(await rowsOf(target)).toEqual(before);
+    },
+  );
+
+  test.each(['auth_failed', 'owner', 'leader'])(
+    '先に %s で止まった接続は、持ち主の管理者がワークスペースを抜けると、候補も保存も 409 の connection_stopped',
+    async (reason) => {
+      const ctx = setup();
+      const target = await createTarget();
+      const joined = await createMembership(target.organization, target.workspace.id, target.admin.userId!);
+      const { id } = await registered(ctx, target, target.admin, `gone-admin-${reason}`);
+      await stop(target, id, reason);
+      const db = orgDb(env, target.organization.verified);
+      await db.run(
+        db.statement((q) =>
+          q
+            .updateTable('memberships')
+            .set({ left_at: '2026-11-26T00:00:00.000Z', left_on: '2026-11-26' })
+            .where('id', '=', joined.id),
+        ),
+      );
+      const before = await rowsOf(target);
+      const calls = ctx.github.calls.length;
+
+      const listed = await candidates(ctx, target, target.admin, id);
+      expect(listed.status).toBe(409);
+      expect(errorOf(await listed.json())).toMatchObject({ details: { reason: 'connection_stopped' } });
+      for (const ids of [['1001'], []]) {
+        const saved = await save(ctx, target, target.admin, id, ids);
+        expect(saved.status).toBe(409);
+        expect(errorOf(await saved.json())).toMatchObject({ details: { reason: 'connection_stopped' } });
+      }
+      expect(ctx.github.calls).toHaveLength(calls);
+      expect(await rowsOf(target)).toEqual(before);
+    },
+  );
+
+  test('auth_failed で止まった接続の持ち主が候補を取っている間に抜けたら、保存は 409 の connection_stopped で範囲も履歴も増えない', async () => {
+    const github = createFakePatGithub();
+    const target = await createTarget();
+    const joined = await createMembership(target.organization, target.workspace.id, target.admin.userId!);
+    const db = orgDb(env, target.organization.verified);
+    let armed = false;
+    const fetcher: typeof fetch = async (input, init) => {
+      const res = await github.fetcher(input, init);
+      if (armed) {
+        await db.run(
+          db.statement((q) =>
+            q
+              .updateTable('memberships')
+              .set({ left_at: '2026-11-26T00:00:00.000Z', left_on: '2026-11-26' })
+              .where('id', '=', joined.id),
+          ),
+        );
+      }
+      return res;
+    };
+    const ctx = { github, app: createApp(implementedOperations, { fetcher }) };
+    const { id } = await registered(ctx, target, target.admin, 'gone-admin-race');
+    await stop(target, id, 'auth_failed');
+    const before = await rowsOf(target);
+    armed = true;
+
+    const res = await save(ctx, target, target.admin, id, ['1001']);
+    expect(res.status).toBe(409);
+    expect(errorOf(await res.json())).toMatchObject({ details: { reason: 'connection_stopped' } });
+    const rows = await rowsOf(target);
+    expect(rows.scopes).toEqual(before.scopes);
+    expect(rows.logs).toEqual(before.logs);
+  });
+
+  test('メンバーでない管理者も、動いている自分の接続の範囲は選べる', async () => {
+    const ctx = setup();
+    const target = await createTarget();
+    const { id } = await registered(ctx, target, target.admin, 'admin-not-member');
+
+    expect((await candidates(ctx, target, target.admin, id)).status).toBe(200);
+    expect((await save(ctx, target, target.admin, id, ['1001'])).status).toBe(200);
+  });
+
+  test('auth_failed で止めた接続は、範囲を選び直せる', async () => {
+    const ctx = setup();
+    const target = await createTarget();
+    const { id } = await registered(ctx, target, target.member, 'gone-auth-failed');
+    await stop(target, id, 'auth_failed');
+
+    expect((await candidates(ctx, target, target.member, id)).status).toBe(200);
+    expect((await save(ctx, target, target.member, id, ['1001'])).status).toBe(200);
+  });
+
+  test('候補を取っている間に持ち主が抜けて止まったら、保存は 409 の connection_stopped で範囲も履歴も増えない', async () => {
+    const github = createFakePatGithub();
+    const target = await createTarget();
+    let connectionId = '';
+    let armed = false;
+    const fetcher: typeof fetch = async (input, init) => {
+      const res = await github.fetcher(input, init);
+      if (armed) await stop(target, connectionId, 'member_left');
+      return res;
+    };
+    const ctx = { github, app: createApp(implementedOperations, { fetcher }) };
+    connectionId = (await registered(ctx, target, target.member, 'gone-race')).id;
+    const before = await rowsOf(target);
+    armed = true;
+
+    const res = await save(ctx, target, target.member, connectionId, ['1001']);
+    expect(res.status).toBe(409);
+    expect(errorOf(await res.json())).toMatchObject({ details: { reason: 'connection_stopped' } });
+    const rows = await rowsOf(target);
+    expect(rows.scopes).toEqual(before.scopes);
+    expect(rows.logs).toEqual(before.logs);
+  });
+});
+
 describe('connection-update', () => {
   test('名前だけを変えられ、PAT の更新では最新の鍵の版と末尾4文字を保存する', async () => {
     const ctx = setup();
@@ -770,6 +922,34 @@ describe('connection-update', () => {
 
     expect((await update({ ...ctx, app }, target, target.member, id, pat)).status).toBe(403);
     expect(await rowsOf(target)).toEqual(before);
+  });
+
+  test('ワークスペースを抜けた管理者が PAT を更新しても、認証の失敗で止めた接続は止まったまま', async () => {
+    const ctx = setup();
+    const target = await createTarget();
+    await createMembership(target.organization, target.workspace.id, target.admin.userId!, {
+      left_at: '2026-11-26T00:00:00.000Z',
+      left_on: '2026-11-26',
+    });
+    const failure = {
+      status: 'stopped',
+      stopped_reason: 'auth_failed',
+      last_error_message: '取り込み元が認証情報を受け付けませんでした',
+      last_error_at: '2026-11-26T00:00:00.000Z',
+      consecutive_failures: 1,
+    } as const;
+    const connection = await createConnection(target.organization, target.workspace.id, target.admin.userId!, failure);
+
+    const pat = fakePat('left-admin-update');
+    ctx.github.addAccount(pat, OWNER, fakeRepos(2));
+    const res = await update(ctx, target, target.admin, connection.id, pat);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ connection: { ...failure, credential_last4: pat.slice(-4) } });
+
+    // 所属し直した後に PAT を更新し直せば再開する
+    await createMembership(target.organization, target.workspace.id, target.admin.userId!);
+    const again = await update(ctx, target, target.admin, connection.id, pat);
+    expect(await again.json()).toMatchObject({ connection: { status: 'active', stopped_reason: null } });
   });
 
   test.each([
