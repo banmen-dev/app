@@ -14,6 +14,7 @@
   import { latestNews } from '../lib/news.ts';
   import GateSheet from '../lib/components/GateSheet.svelte';
   import LoadFailed from '../lib/components/LoadFailed.svelte';
+  import FeedbackLauncher from '../lib/components/FeedbackLauncher.svelte';
   import LogoutButton from '../lib/components/LogoutButton.svelte';
   import CreatePersonalOrganizationDialog from '../lib/components/CreatePersonalOrganizationDialog.svelte';
   import { callOperation } from '../lib/api.ts';
@@ -364,3 +365,5 @@
     oncreated={() => void loadWorkspaces()}
   />
 {/if}
+<!-- ログインした人だけがここまで来る（401 は load がログインへ移す） -->
+<FeedbackLauncher />
