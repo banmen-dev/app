@@ -344,7 +344,7 @@ export function importTaskStatements(db: OrganizationDb, task: ImportedTask, at:
 
 // 同期の結果として接続に書く値。成功は続きの位置（なければ空の状態）まで、失敗は種別ごと
 export type SyncOutcome =
-  | { kind: 'success'; syncStateJson: string }
+  | { kind: 'success'; syncStateJson: string; lastSuccessAt?: string }
   | { kind: 'progress'; syncStateJson: string }
   | { kind: 'auth_failed'; message: string; syncStateJson?: string }
   | { kind: 'error'; message: string; syncStateJson?: string };
@@ -367,7 +367,7 @@ export function syncOutcomeStatement(
               status: 'active',
               stopped_reason: null,
               sync_state_json: outcome.syncStateJson,
-              last_success_at: at,
+              last_success_at: outcome.lastSuccessAt ?? at,
               consecutive_failures: 0,
               last_error_message: null,
               last_error_at: null,

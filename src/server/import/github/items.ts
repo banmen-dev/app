@@ -27,6 +27,8 @@ function parsePosition(cursor: string | null): Position {
   }
   const modern = /^(?:v2|v3):(issues|pulls):([1-9][0-9]{0,15}):(.+)$/.exec(cursor);
   if (modern !== null) {
+    // 書くのは v2:issues と v3:pulls だけ
+    if (cursor.startsWith(modern[1] === 'issues' ? 'v3:' : 'v2:')) invalid();
     const id = modern[2]!;
     if (!Number.isSafeInteger(Number(id)) || String(Number(id)) !== id) invalid();
     if (modern[1] === 'issues') {

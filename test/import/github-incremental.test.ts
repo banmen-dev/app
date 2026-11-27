@@ -178,4 +178,29 @@ describe('同期: 前回成功した時点からの差分', () => {
     expect(listCalls(f, 'issues').every((u) => (u.searchParams.get('since') ?? since) === since)).toBe(true);
     expect((await t.sources()).filter((s) => s.source_kind === 'pull_request')).toHaveLength(150);
   });
+
+  test('複数回の実行にまたがった同期で、読み終えた頁に走査中に作られた項目も、次の同期の差分で拾う', async () => {
+    const t = await setup();
+    const f = ownPullFixture();
+    f.data.pulls = Array.from({ length: 150 }, (_, i) => fakePull(i + 1, { updated_at: at(i + 1) }));
+    let now = at(1000);
+    const nowFn = () => new Date(now);
+    const paused = await syncConnection(env, t.db, t.workspace.id, t.id, {
+      fetcher: f.fetcher,
+      maxPages: 2,
+      now: nowFn,
+    });
+    expect(paused).toMatchObject({ outcome: 'success', more: true });
+    // 読み終えた先頭の頁に、走査中に新しい PR が作られる
+    f.data.pulls.push(fakePull(999, { updated_at: at(1002) }));
+    now = at(1030);
+    const done = await syncConnection(env, t.db, t.workspace.id, t.id, { fetcher: f.fetcher, now: nowFn });
+    expect(done).toMatchObject({ outcome: 'success', more: false });
+    // last_success_at は、全部を読み終えた時刻でなく、その同期を始めた時刻
+    expect((await t.read())?.last_success_at).toBe(at(1000));
+    now = at(1031);
+    const next = await syncConnection(env, t.db, t.workspace.id, t.id, { fetcher: f.fetcher, now: nowFn });
+    expect(next).toMatchObject({ outcome: 'success', imported: 1 });
+    expect((await t.sources()).some((s) => s.source_id === '800999')).toBe(true);
+  });
 });

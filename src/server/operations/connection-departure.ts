@@ -111,6 +111,8 @@ export function stopDepartedConnectionStatements(db: OrganizationDb, options: De
               credential_last4: null,
               sync_state_json: '{}',
               reconcile_state_json: '{}',
+              // 認証情報を消した後に登録し直した接続は、全部を読む
+              last_success_at: null,
             }
           : {}),
       }))

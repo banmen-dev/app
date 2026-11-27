@@ -100,6 +100,8 @@ type SyncState = Progress & {
   reviewRetry: Progress | null;
   // 進行中の同期の差分の起点。同期の始めに決め、途中保存をまたいで変えない
   since: string | null;
+  // 進行中の同期を始めた時刻。全部を読み終えたとき、last_success_at にこれを書く（次の起点を、終わった時刻でなく始めた時刻から作るため）
+  startedAt: string | null;
 };
 function parseProgress(value: Record<string, unknown>): Progress {
   const r = value.position as Partial<Resume> | undefined;
@@ -136,6 +138,7 @@ function parseSyncState(json: string): SyncState {
     itemsOnly: false,
     reviewRetry: null,
     since: null,
+    startedAt: null,
   };
   try {
     const value = JSON.parse(json);
@@ -144,6 +147,8 @@ function parseSyncState(json: string): SyncState {
       ...parseProgress(value),
       credential: typeof value.credential === 'string' ? value.credential : null,
       itemsOnly: value.itemsOnly === true,
+      startedAt:
+        typeof value.startedAt === 'string' && !Number.isNaN(Date.parse(value.startedAt)) ? value.startedAt : null,
       since: typeof value.since === 'string' && !Number.isNaN(Date.parse(value.since)) ? value.since : null,
       reviewRetry: value.reviewRetry && typeof value.reviewRetry === 'object' ? parseProgress(value.reviewRetry) : null,
     };
@@ -355,7 +360,11 @@ export async function syncConnection(
     ? storedState.since
     : discardedProgress
       ? null
-      : sinceOf(connection.last_success_at);
+      : // 除外で持つ接続は、後から見えるようになった範囲の古い項目を差分で飛ばさないよう、毎回全部を読む
+        connection.scope_mode === 'exclude'
+        ? null
+        : sinceOf(connection.last_success_at);
+  const startedAt: string = (inProgress ? storedState.startedAt : null) ?? now().toISOString();
   const stateJson = () =>
     resume === null && scopeBatch === null && candidateCursor === null && reviewRetry === null
       ? '{}'
@@ -364,6 +373,7 @@ export async function syncConnection(
           ...progressValue({ resume, scopeBatch, candidateCursor }),
           credential: credentialStamp,
           since,
+          startedAt,
           itemsOnly,
           reviewRetry: reviewRetry === null ? null : progressValue(reviewRetry),
         });
@@ -549,7 +559,7 @@ export async function syncConnection(
       return { outcome: 'success', imported, more: true };
     }
     resume = null;
-    if (!(await finish({ kind: 'success', syncStateJson: '{}' }))) return interrupted();
+    if (!(await finish({ kind: 'success', syncStateJson: '{}', lastSuccessAt: startedAt }))) return interrupted();
     return { outcome: 'success', imported, more: false };
   } catch (error) {
     if (budgetReached && (resume !== null || candidateCursor !== null || scopeBatch !== null)) {

@@ -656,8 +656,16 @@ describe('connection-update', () => {
       ...env,
       CONNECTION_CREDENTIAL_KEYS: JSON.stringify({ 2: btoa('2'.repeat(32)) }),
     };
+    const dbBefore = orgDb(env, target.organization.verified);
+    await dbBefore.batch([
+      dbBefore.statement((q) =>
+        q.updateTable('connections').set({ last_success_at: '2026-10-22T00:00:00.000Z' }).where('id', '=', id),
+      ),
+    ]);
     const rotated = await update(ctx, target, target.member, id, pat, bindings);
     expect(rotated.status).toBe(200);
+    // 見える範囲が変わりうるので、次の同期は差分でなく全部を読む
+    expect((await rowsOf(target)).connections[0]!.last_success_at).toBeNull();
     const text = await rotated.text();
     expect(JSON.parse(text)).toMatchObject({
       connection: { name: '更新した GitHub', credential_last4: pat.slice(-4) },
