@@ -85,7 +85,7 @@ e2e は seed のセッションを全ファイルで共有し、ファイルを�
 手元の API を `pnpm preview`（`http://localhost:8787`）に向けて、Origin も Cookie も付けずに呼べる。
 
 ```bash
-curl -s -X POST -H "Authorization: Bearer sgp_dev-seed-admin-write00000000000000000000000" \
+curl -s -X POST -H "Authorization: Bearer bnp_dev-seed-admin-write00000000000000000000000" \
   -H "Content-Type: application/json" -d '{}' http://localhost:8787/api/me
 ```
 

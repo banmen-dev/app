@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { main, type Config, type ConfigStore } from './main.ts';
 
-const TOKEN = `sgp_${'Q'.repeat(43)}`;
+const TOKEN = `bnp_${'Q'.repeat(43)}`;
 
 function memoryStore(initial: Config): ConfigStore & { current(): Config } {
   let saved = structuredClone(initial);

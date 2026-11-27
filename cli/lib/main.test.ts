@@ -5,10 +5,10 @@ import { main, type CliDeps, type Config, type ConfigStore } from './main.ts';
 
 const URL_MAIN = 'https://guild.example';
 const URL_SUB = 'https://sub.guild.example';
-const TOKEN_MAIN = `sgp_${'M'.repeat(43)}`;
-const TOKEN_SUB = `sgp_${'S'.repeat(43)}`;
-const TOKEN_ENV = `sgp_${'E'.repeat(43)}`;
-const TOKEN_STDIN = `sgp_${'I'.repeat(43)}`;
+const TOKEN_MAIN = `bnp_${'M'.repeat(43)}`;
+const TOKEN_SUB = `bnp_${'S'.repeat(43)}`;
+const TOKEN_ENV = `bnp_${'E'.repeat(43)}`;
+const TOKEN_STDIN = `bnp_${'I'.repeat(43)}`;
 const ALL_TOKENS = [TOKEN_MAIN, TOKEN_SUB, TOKEN_ENV, TOKEN_STDIN];
 
 const object = (properties: Record<string, unknown>, required: string[] = []) => ({

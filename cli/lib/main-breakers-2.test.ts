@@ -8,8 +8,8 @@ import { fileConfigStore } from './config-file.ts';
 import { main, type CliDeps, type Config, type ConfigStore } from './main.ts';
 
 const URL_MAIN = 'https://lantern.guild.example';
-const TOKEN = `sgp_${'L'.repeat(43)}`;
-const TOKEN_ENV = `sgp_${'V'.repeat(43)}`;
+const TOKEN = `bnp_${'L'.repeat(43)}`;
+const TOKEN_ENV = `bnp_${'V'.repeat(43)}`;
 
 const object = (properties: Record<string, unknown>) => ({
   $schema: 'https://json-schema.org/draft/2020-12/schema',

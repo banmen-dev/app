@@ -265,7 +265,7 @@ describe('認証が先', () => {
   });
 
   test('無効な Bearer は 401 の unauthenticated', async () => {
-    const response = await post(app, myOrganizations, { bearer: 'sgp_invalid', origin: null });
+    const response = await post(app, myOrganizations, { bearer: 'bnp_invalid', origin: null });
     expect(response.status).toBe(401);
     expect(await errorCodeOf(response)).toBe('unauthenticated');
   });

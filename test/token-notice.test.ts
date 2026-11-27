@@ -202,7 +202,7 @@ describe('新しいログインと再認証への引き継ぎ', () => {
       scope: 'read',
       now: new Date(),
     });
-    expect(issued.raw).toMatch(/^sgp_/);
+    expect(issued.raw).toMatch(/^bnp_/);
     expect((await notice(person.token)).count).toBe(1);
   });
 });

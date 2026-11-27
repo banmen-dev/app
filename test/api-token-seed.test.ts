@@ -1,9 +1,9 @@
 // seed の API トークン（seed/api-tokens.ts の生の値と、seed/data.sql のハッシュ）が合い、API で読めること
 import { describe, expect, test } from 'vitest';
 import dataSql from '../seed/data.sql?raw';
-import { SEED_API_TOKENS } from '../seed/api-tokens.ts';
+import { SEED_API_TOKENS, SEED_LEGACY_API_TOKENS } from '../seed/api-tokens.ts';
 import { SEED_SESSIONS } from '../seed/sessions.ts';
-import { API_TOKEN_PATTERN } from '../src/shared/api-token.ts';
+import { API_TOKEN_LEGACY_PREFIX, API_TOKEN_PATTERN } from '../src/shared/api-token.ts';
 import { hashApiToken } from '../src/server/auth/api-token.ts';
 
 const tokens = Object.values(SEED_API_TOKENS);
@@ -34,5 +34,18 @@ describe('seed の API トークン', () => {
     const insert = /INSERT INTO api_tokens[^;]*;/.exec(dataSql)?.[0] ?? '';
     const found = [...insert.matchAll(/^\s*\('([0-9a-f]{64})'/gm)].map((match) => match[1]);
     expect(found.sort()).toEqual(hashes.sort());
+  });
+
+  test('旧 sgp_ の値は、新の値と同じ本体で、旧の接頭辞の形に合い、重ならない', () => {
+    const legacy = Object.values(SEED_LEGACY_API_TOKENS);
+    expect(legacy).toHaveLength(tokens.length);
+    for (const { token } of legacy) {
+      expect(token.startsWith(API_TOKEN_LEGACY_PREFIX)).toBe(true);
+      expect(token).toMatch(API_TOKEN_PATTERN);
+    }
+    expect(legacy.map(({ token }) => token.slice(4))).toEqual(tokens.map(({ token }) => token.slice(4)));
+    expect(new Set([...tokens, ...legacy].map(({ token }) => token)).size).toBe(tokens.length * 2);
+    // 公開された履歴の値を1つ、リテラルで固定する（派生の式を変えても、拒ませる値が空にならないように）
+    expect(legacy.map(({ token }) => token)).toContain('sgp_dev-seed-admin-write00000000000000000000000');
   });
 });

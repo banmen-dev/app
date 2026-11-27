@@ -343,7 +343,7 @@ async function ownConnection(db: OrganizationDb, actorUserId: string, workspaceI
 }
 
 // 持ち主が去って止めた接続は、保存した認証情報で取り込み元に問い合わせない（範囲の候補と保存は 409 の connection_stopped）。
-// 去ったと見るのは、離脱・無効化・閉鎖の理由で止めたときと、止まった接続の持ち主が今のメンバーでないとき
+// 去ったと見るのは、離脱・無効化の理由で止めたとき（書かれない workspace_closed の行も同じ）と、止まった接続の持ち主が今のメンバーでないとき
 // （離脱と無効化は既に止まった接続の理由を書き換えないので、先に auth_failed などで止まった接続は理由だけでは分からない）
 function throwIfOwnerGone(row: {
   status: string;
@@ -441,7 +441,7 @@ export const connectionUpdateOperation = implement(connectionUpdate, async ({ db
         .$if(credential !== undefined, (query) =>
           query.set((eb) => {
             // 認証の失敗、離脱、無効化で止めた接続を再開するのは、持ち主が今もそのワークスペースのメンバーのときだけ。
-            // 抜けた管理者が抜けたワークスペースの接続を戻さない。owner と leader の停止は戻さない
+            // 抜けた管理者が抜けたワークスペースの接続を戻さない。owner と leader の停止と、書かれない workspace_closed の行は戻さない
             const resumes = eb.and([
               eb('stopped_reason', 'in', [...CONNECTION_CREDENTIAL_RESUME_REASONS]),
               eb.exists(activeMemberName(q, organizationId, workspaceId, ownerUserId)),

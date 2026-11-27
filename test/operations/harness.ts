@@ -359,7 +359,7 @@ export function defineOperationChecks(
     if (credential === 'bearer') {
       test('無効な API トークンは、有効な Cookie があっても 401（Cookie に落とさない）', async () => {
         const session = isOutsideOperation(definition) ? operator : own.admin;
-        for (const bearer of [`sgp_${'A'.repeat(43)}`, 'invalid']) {
+        for (const bearer of [`bnp_${'A'.repeat(43)}`, 'invalid']) {
           const res = await post(app, definition, {
             slug: own.slug,
             token: session.token,

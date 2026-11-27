@@ -43,7 +43,7 @@ describe('API トークン発行時のセッションの再確認', () => {
     const session = await createSession(account.id, { expires_at: new Date(NOW.getTime() + 1).toISOString() });
     const issued = await issueApiTokenWith(db, inputFor(account.id, session.token_hash));
 
-    expect(issued.raw).toMatch(/^sgp_/);
+    expect(issued.raw).toMatch(/^bnp_/);
     expect(await tokenRowsOf(account.id)).toMatchObject([{ token_hash: issued.tokenHash, account_id: account.id }]);
   });
 

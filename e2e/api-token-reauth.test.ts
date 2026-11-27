@@ -70,7 +70,7 @@ test.describe('API トークンの再認証', () => {
           name: '手元の CLI',
           scope: 'read',
           expires_at: '2026-12-31T00:00:00.000Z',
-          token: `sgp_${'a'.repeat(43)}`,
+          token: `bnp_${'a'.repeat(43)}`,
         });
         await mockOperation(page, tokenList, { can_create: canCreate, tokens: [] });
         await section.getByRole('button', { name: '発行する', exact: true }).click();
@@ -87,7 +87,7 @@ test.describe('API トークンの再認証', () => {
           ? section.getByLabel('名前', { exact: true })
           : section.getByRole('link', { name: 'ログインし直す', exact: true });
         await expect(target).toBeFocused();
-        await expect(page.locator(`input[value="sgp_${'a'.repeat(43)}"]`)).toHaveCount(0);
+        await expect(page.locator(`input[value="bnp_${'a'.repeat(43)}"]`)).toHaveCount(0);
       });
     }
   }

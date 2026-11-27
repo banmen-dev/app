@@ -91,7 +91,7 @@ async function bodySentBy(catalog: CatalogOperation[], argv: string[]) {
     readStdin: async () => '',
     config: memoryStore({
       default_profile: 'main',
-      profiles: { main: { url: BASE_URL, token: `sgp_${'B'.repeat(43)}`, org: 'kogane', workspace: 'ws-kogane' } },
+      profiles: { main: { url: BASE_URL, token: `bnp_${'B'.repeat(43)}`, org: 'kogane', workspace: 'ws-kogane' } },
     }),
   };
   const code = await main(argv, deps);

@@ -560,7 +560,7 @@ describe('生の値の漏れ', () => {
       await post(app, tokenRevoke, { token: person.token, body: { id: `${missingId}Z` } }),
       await revoke(person, missingId),
       await post(app, tokenCreate, { bearer: bearer.raw, origin: null, body: { name: secretName, scope: 'read' } }),
-      await post(app, tokenCreate, { bearer: `sgp_${'Q'.repeat(43)}`, body: { name: secretName, scope: 'read' } }),
+      await post(app, tokenCreate, { bearer: `bnp_${'Q'.repeat(43)}`, body: { name: secretName, scope: 'read' } }),
     ];
     for (const res of responses) {
       const text = await res.text();
@@ -595,7 +595,7 @@ describe('生の値の漏れ', () => {
     await revoke(person, missingId);
     await post(app, tokenRevoke, { token: person.token, body: { id: `${missingId}!` } });
     await post(app, tokenCreate, { bearer: bearer.raw, origin: null, body: { name: secretName, scope: 'read' } });
-    await post(app, tokenList, { bearer: `sgp_${'R'.repeat(43)}` });
+    await post(app, tokenList, { bearer: `bnp_${'R'.repeat(43)}` });
     await callWhoAmI(bearer.raw);
     const output = [...log.mock.calls, ...error.mock.calls, ...warn.mock.calls].flat().map(String).join('\n');
     expect(output).toContain('token-revoke');
