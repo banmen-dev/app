@@ -257,7 +257,30 @@ test('止まっている接続は、停止の理由と登録した人に応じ�
     {
       connections: [
         created({ id: 'stopped-auth', name: '認証が切れた接続', status: 'stopped', stopped_reason: 'auth_failed' }),
-        created({ id: 'stopped-other', name: '別の理由の接続', status: 'stopped', stopped_reason: 'member_left' }),
+        created({ id: 'stopped-other', name: '別の理由の接続', status: 'stopped', stopped_reason: 'leader' }),
+        created({
+          id: 'stopped-left-theirs',
+          name: 'ハルカの抜けた接続',
+          status: 'stopped',
+          stopped_reason: 'member_left',
+          owner_user_id: 'other',
+          owner_name: 'ハルカ',
+        }),
+        created({
+          id: 'stopped-closed-theirs',
+          name: 'ハルカの終了した接続',
+          status: 'stopped',
+          stopped_reason: 'workspace_closed',
+          owner_user_id: 'other',
+          owner_name: 'ハルカ',
+        }),
+        created({ id: 'stopped-left', name: '抜けて止まった接続', status: 'stopped', stopped_reason: 'member_left' }),
+        created({
+          id: 'stopped-disabled',
+          name: '無効で止まった接続',
+          status: 'stopped',
+          stopped_reason: 'user_disabled',
+        }),
         created({
           id: 'stopped-theirs',
           name: 'ハルカの接続',
@@ -303,6 +326,20 @@ test('止まっている接続は、停止の理由と登録した人に応じ�
   await expect(other.locator('.callout.is-danger')).toHaveText(
     '止まっています。リーダーに、止まっていることを伝えてください。',
   );
+  // 抜けた人と無効にされた人の接続は、所属し直した本人が新しいトークンを保存すると再開する
+  await expect(page.locator('[data-connection-id="stopped-left"] .callout.is-danger')).toHaveText(
+    'ワークスペースを抜けたので止めました。編集から新しいトークンを保存すると、次の同期から再開します。',
+  );
+  await expect(page.locator('[data-connection-id="stopped-disabled"] .callout.is-danger')).toHaveText(
+    'アカウントが無効になったので止めました。認証情報は消えています。編集から新しいトークンを保存すると、次の同期から再開します。',
+  );
+  // 抜けた人の接続は、持ち主に伝えても届かないので、伝える相手をリーダーだけにする。終了で止めた接続は持ち主も伝える相手に含める
+  await expect(page.locator('[data-connection-id="stopped-left-theirs"] .callout.is-danger')).toHaveText(
+    'ワークスペースを抜けたので止めました。リーダーに、止まっていることを伝えてください。',
+  );
+  await expect(page.locator('[data-connection-id="stopped-closed-theirs"] .callout.is-danger')).toHaveText(
+    '止まっています。登録したハルカかリーダーに、止まっていることを伝えてください。',
+  );
   await expect(page.locator('[data-connection-id="stopped-theirs"] .callout.is-danger')).toHaveText(
     '認証に失敗したので止めました。登録したハルカかリーダーに、止まっていることを伝えてください。',
   );
@@ -323,9 +360,19 @@ test('止まっている接続は、停止の理由と登録した人に応じ�
   await expect(page.getByRole('button', { name: '再開', exact: true })).toHaveCount(0);
   const tokenField = page.getByRole('form', { name: '接続を編集' }).getByLabel('新しい GitHub の PAT');
   await other.getByRole('button', { name: '編集', exact: true }).click();
+  await expect(other.getByRole('form', { name: '接続を編集' })).toBeVisible();
   await expect(tokenField).toHaveAccessibleDescription(/この接続は停止したままです/);
+  const resumeHint = /新しいトークンを入れて保存すると、この接続は再開します/;
   await auth.getByRole('button', { name: '編集', exact: true }).click();
-  await expect(tokenField).toHaveAccessibleDescription('空欄のまま保存すると、現在のトークンを使い続けます。');
+  await expect(auth.getByRole('form', { name: '接続を編集' })).toBeVisible();
+  await expect(tokenField).toHaveAccessibleDescription(resumeHint);
+  for (const id of ['stopped-left', 'stopped-disabled']) {
+    const item = page.locator(`[data-connection-id="${id}"]`);
+    await item.getByRole('button', { name: '編集', exact: true }).click();
+    await expect(item.getByRole('form', { name: '接続を編集' })).toBeVisible();
+    await expect(tokenField).toHaveAccessibleDescription(resumeHint);
+    await expect(tokenField).not.toHaveAccessibleDescription(/停止したままです/);
+  }
 });
 
 test('持ち主が去って止めた接続には範囲を選ぶボタンが出ず、選んでいる間に止まったら段を閉じて一覧を読み直す', async ({
@@ -355,7 +402,7 @@ test('持ち主が去って止めた接続には範囲を選ぶボタンが出�
   await page.goto(`${WORKSPACE}/connections`);
   const list = page.getByRole('list', { name: '接続の一覧' });
   const departedItem = list.getByRole('listitem').filter({ hasText: '抜けた後の接続' });
-  await expect(departedItem).toContainText('止まっています。');
+  await expect(departedItem).toContainText('ワークスペースを抜けたので止めました。');
   await expect(departedItem.getByRole('button', { name: '範囲を選ぶ' })).toHaveCount(0);
 
   const freshItem = list.getByRole('listitem').filter({ hasText: '選んでいる接続' });

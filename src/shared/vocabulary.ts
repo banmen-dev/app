@@ -3070,6 +3070,8 @@ export const dictionary = defineDictionary({
   connectionErrorCalloutPlain: '{message}',
   connectionStoppedAuthFailed: '認証に失敗したので止めました。',
   connectionStoppedOther: '止まっています。',
+  connectionStoppedMemberLeft: '{workspace}を抜けたので止めました。',
+  connectionStoppedUserDisabled: 'アカウントが無効になったので止めました。認証情報は消えています。',
   connectionNextWhoOwner: '登録した{owner}か{leader}',
   connectionNextWhoLeader: '{leader}',
   connectionNextStopped: '{who}に、止まっていることを伝えてください。',
@@ -3107,6 +3109,8 @@ export const dictionary = defineDictionary({
   connectionEditTitle: '{connection}を編集',
   connectionEditCredentialLabel: '新しい GitHub の PAT',
   connectionEditCredentialHint: '空欄のまま保存すると、現在のトークンを使い続けます。',
+  connectionEditResumeHint:
+    '新しいトークンを入れて保存すると、この{connection}は再開します。空欄のままでは停止が続きます。',
   connectionEditStillStopped: 'トークンを保存しても、この{connection}は停止したままです。',
   connectionEditSave: '保存する',
   connectionEditSaving: '保存しています',

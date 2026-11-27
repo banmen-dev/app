@@ -13,6 +13,7 @@ import {
   connectionScopesSave,
   connectionSync,
   connectionUpdate,
+  CONNECTION_CREDENTIAL_RESUME_REASONS,
   isOwnerGoneStop,
   type Connection,
   type ConnectionCreateProblem,
@@ -380,18 +381,41 @@ export const connectionUpdateOperation = implement(connectionUpdate, async ({ db
               eb.val('update').as('action'),
               eb
                 .fn<string>('json_patch', [
-                  eb
-                    .case()
-                    .when('c.name', '!=', input.name)
-                    .then(
-                      eb.fn('json_object', [
-                        eb.val('name'),
-                        eb.fn('json_array', [eb.ref('c.name'), eb.val(input.name)]),
-                      ]),
-                    )
-                    .else('{}')
-                    .end(),
-                  eb.val(credential === undefined ? '{}' : '{"credential_updated":[null,true]}'),
+                  eb.fn<string>('json_patch', [
+                    eb
+                      .case()
+                      .when('c.name', '!=', input.name)
+                      .then(
+                        eb.fn('json_object', [
+                          eb.val('name'),
+                          eb.fn('json_array', [eb.ref('c.name'), eb.val(input.name)]),
+                        ]),
+                      )
+                      .else('{}')
+                      .end(),
+                    eb.val(credential === undefined ? '{}' : '{"credential_updated":[null,true]}'),
+                  ]),
+                  // 再開する更新（下の接続の更新と同じ条件）は、状態と停止の理由の前後も残す
+                  credential === undefined
+                    ? eb.val('{}')
+                    : eb
+                        .case()
+                        .when(
+                          eb.and([
+                            eb('c.stopped_reason', 'in', [...CONNECTION_CREDENTIAL_RESUME_REASONS]),
+                            eb.exists(activeMemberName(q, organizationId, workspaceId, ownerUserId)),
+                          ]),
+                        )
+                        .then(
+                          eb.fn('json_object', [
+                            eb.val('status'),
+                            eb.fn('json_array', [eb.ref('c.status'), eb.val('active')]),
+                            eb.val('stopped_reason'),
+                            eb.fn('json_array', [eb.ref('c.stopped_reason'), eb.val(null)]),
+                          ]),
+                        )
+                        .else('{}')
+                        .end(),
                 ])
                 .as('changes_json'),
               eb.val(stamp).as('created_at'),
@@ -404,10 +428,10 @@ export const connectionUpdateOperation = implement(connectionUpdate, async ({ db
         .set({ name: input.name, updated_at: stamp })
         .$if(credential !== undefined, (query) =>
           query.set((eb) => {
-            // 認証の失敗で止めた接続を再開するのは、持ち主が今もそのワークスペースのメンバーのときだけ。抜けた管理者が
-            // 抜けたワークスペースの接続を戻さない（member_left で止めた接続と扱いを揃える）
+            // 認証の失敗、離脱、無効化で止めた接続を再開するのは、持ち主が今もそのワークスペースのメンバーのときだけ。
+            // 抜けた管理者が抜けたワークスペースの接続を戻さない。owner と leader の停止は戻さない
             const resumes = eb.and([
-              eb('stopped_reason', '=', 'auth_failed'),
+              eb('stopped_reason', 'in', [...CONNECTION_CREDENTIAL_RESUME_REASONS]),
               eb.exists(activeMemberName(q, organizationId, workspaceId, ownerUserId)),
             ]);
             return {
