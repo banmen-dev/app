@@ -4031,7 +4031,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     if (orgMenuOpen && next && !next.closest(".org-menu")) setOrgMenu(false);
   });
   // ワークスペースの一覧（左のメニューの「ワークスペース」の見出しの下）。見出しのボタンで畳み、畳んだ状態は本番と同じキーに覚える（#1515）。
-  // 行は通常のリンクで、押すとそのワークスペースのバックログへ移る。畳むのは一覧だけで、760px 以下の浮きメニューの機能の項目は畳まない
+  // 行は通常のリンクで、押すとそのワークスペースのバックログへ移る。畳むのは一覧だけ
   const WS_LIST_KEY = "sg-nav-workspaces-collapsed";
   let workspaceListCollapsed = false;
   try { workspaceListCollapsed = localStorage.getItem(WS_LIST_KEY) === "true"; } catch { /* 覚えられない端末は開いた状態 */ }

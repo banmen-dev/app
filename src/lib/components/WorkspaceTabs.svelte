@@ -64,7 +64,10 @@
     if (hadFocus)
       void tick().then(() => {
         if (bar && !bar.contains(document.activeElement))
-          bar.querySelector<HTMLElement>('a.route-tab[aria-current="page"], a.route-tab')?.focus();
+          (
+            bar.querySelector<HTMLElement>('a.route-tab[aria-current="page"]') ??
+            bar.querySelector<HTMLElement>('a.route-tab')
+          )?.focus();
       });
   }
 

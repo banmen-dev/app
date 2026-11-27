@@ -414,11 +414,7 @@ button.route-tab[aria-expanded="true"] { color: var(--color-fg); }
 .route-tabs-measure > [data-measure-more] { flex-direction: row; gap: var(--space-1); font-weight: 600; }
 .route-tabs-measure > [data-measure-more]::after { display: none; }
 @media (max-width: 760px), (pointer: coarse) { .route-tab { min-height: 44px; } .route-tabs-more-list a { min-height: 44px; } }
-/* 761px 以上は、一覧を「その他」のボタンの右端に合わせて開く。760px 以下は帯の左端（ボタンが左に寄っても画面の外へ出ない） */
-@media not (max-width: 760px) {
-  .route-tab-more { position: relative; }
-  .route-tabs-more-list { left: auto; right: 0; }
-}
+
 @media (forced-colors: active) {
   .route-tab { border-bottom-color: Canvas; }
   .route-tab[aria-current="page"], .route-tab[data-current="true"] { border-bottom-color: Highlight; }
