@@ -21,6 +21,8 @@ const input = {
 beforeEach(async () => {
   const db = commonDb(testEnv);
   await db.batch([db.statement((q) => q.deleteFrom('rate_limits').where('key', '=', globalKey))]);
+  const { objects } = await testEnv.ATTACHMENTS.list({ prefix: 'feedback/' });
+  if (objects.length > 0) await testEnv.ATTACHMENTS.delete(objects.map((object) => object.key));
 });
 
 function submit(
@@ -139,14 +141,27 @@ test('本文の字数はサロゲートペアを1字と数え、上限の5,000�
   expect(tooLong.status).toBe(400);
 });
 
-test('JSON の本文を読み込む上限を超えた送信は、起票せず 413 を返す', async () => {
+test('本文の上限を超えた送信は、起票せず 413 を返し、R2 にも置かない', async () => {
+  const [person, env] = await Promise.all([createPerson(), fakeFeedbackGithubEnv(testEnv)]);
+  const fetcher = vi.fn<typeof fetch>();
+  const app = createApp(undefined, { fetcher });
+
+  const response = await submit(app, person, env, { ...input, text: 'a'.repeat(14 * 1024 * 1024) });
+
+  expect(response.status).toBe(413);
+  expect(await response.json()).toMatchObject({ error: { code: 'invalid_input' } });
+  expect(fetcher).not.toHaveBeenCalled();
+  expect((await env.ATTACHMENTS.list({ prefix: 'feedback/' })).objects).toHaveLength(0);
+});
+
+test('画面に出ない文字を大量に並べた文は、正規化の前に 400 で断る', async () => {
   const [person, env] = await Promise.all([createPerson(), fakeFeedbackGithubEnv(testEnv)]);
   const fetcher = vi.fn<typeof fetch>();
   const app = createApp(undefined, { fetcher });
 
   const response = await submit(app, person, env, { ...input, text: '\u200Bab'.repeat(27_000) });
 
-  expect(response.status).toBe(413);
+  expect(response.status).toBe(400);
   expect(await response.json()).toMatchObject({ error: { code: 'invalid_input' } });
   expect(fetcher).not.toHaveBeenCalled();
 });

@@ -1,4 +1,4 @@
-import { expect, type Page, type Route } from '@playwright/test';
+import { expect, type Page, type Request as PageRequest, type Route } from '@playwright/test';
 import { z } from 'zod';
 import type { ErrorBody, ErrorCode } from '../src/shared/errors.ts';
 import {
@@ -87,6 +87,17 @@ function splitScope<D extends AnyOperationDefinition, Rest extends unknown[]>(
 }
 
 // 土台。handler は、入力がスキーマに通ったときだけ呼ぶ
+// body: 'multipart' の操作の入力。`input` の部分の JSON を読む（画像などのほかの部分は読まない）
+async function multipartInput(request: PageRequest): Promise<unknown> {
+  const contentType = request.headers()['content-type'];
+  const buffer = request.postDataBuffer();
+  if (contentType === undefined || buffer === null) throw new Error('multipart の本文が無い');
+  const form = await new Response(new Uint8Array(buffer), { headers: { 'Content-Type': contentType } }).formData();
+  const part = form.get('input');
+  if (part === null || typeof part === 'string') throw new Error('input の部分が無い');
+  return JSON.parse(await part.text());
+}
+
 export async function routeOperation<D extends AnyOperationDefinition>(
   page: Page,
   definition: D,
@@ -109,7 +120,7 @@ export async function routeOperation<D extends AnyOperationDefinition>(
     };
     let body: unknown;
     try {
-      body = route.request().postDataJSON();
+      body = definition.body === 'multipart' ? await multipartInput(route.request()) : route.request().postDataJSON();
     } catch {
       await rejectCall(route, `操作 ${name} の入力が JSON でない`);
       return;
