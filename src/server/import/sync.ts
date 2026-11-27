@@ -51,6 +51,15 @@ const FAILURE_MESSAGES: Record<ImportSourceFailure, string> = {
 const CREDENTIAL_UNAVAILABLE_MESSAGE = '認証情報を取り出せなかった';
 const UNKNOWN_FAILURE_MESSAGE = '同期で想定外の失敗が起きた';
 
+// 差分の起点は、前回の同期が終わった時点（last_success_at）から少し戻す。
+// 終わった時点の直前に更新された項目と、取り込み元との時計のずれ、複数の要求にまたがる走査の間の更新を拾うため
+export const SINCE_MARGIN_MS = 5 * 60_000;
+function sinceOf(lastSuccessAt: string | null): string | null {
+  if (lastSuccessAt === null) return null;
+  const time = Date.parse(lastSuccessAt);
+  return Number.isNaN(time) ? null : new Date(time - SINCE_MARGIN_MS).toISOString();
+}
+
 export type SyncOptions = {
   // 取り込み元の実装。省くと接続の種類から引く（テストが偽の取り込み元を差す）
   source?: ImportSource;
@@ -85,7 +94,15 @@ type Resume = {
 };
 type ScopeBatch = { candidates: Scope[]; next: string | null };
 type Progress = { resume: Resume | null; scopeBatch: ScopeBatch | null; candidateCursor: string | null };
-type SyncState = Progress & { credential: string | null; itemsOnly: boolean; reviewRetry: Progress | null };
+type SyncState = Progress & {
+  credential: string | null;
+  itemsOnly: boolean;
+  reviewRetry: Progress | null;
+  // 進行中の同期の差分の起点。同期の始めに決め、途中保存をまたいで変えない
+  since: string | null;
+  // 進行中の同期を始めた時刻。全部を読み終えたとき、last_success_at にこれを書く（次の起点を、終わった時刻でなく始めた時刻から作るため）
+  startedAt: string | null;
+};
 function parseProgress(value: Record<string, unknown>): Progress {
   const r = value.position as Partial<Resume> | undefined;
   const validCursor = (v: unknown): v is string | null =>
@@ -120,6 +137,8 @@ function parseSyncState(json: string): SyncState {
     candidateCursor: null,
     itemsOnly: false,
     reviewRetry: null,
+    since: null,
+    startedAt: null,
   };
   try {
     const value = JSON.parse(json);
@@ -128,6 +147,9 @@ function parseSyncState(json: string): SyncState {
       ...parseProgress(value),
       credential: typeof value.credential === 'string' ? value.credential : null,
       itemsOnly: value.itemsOnly === true,
+      startedAt:
+        typeof value.startedAt === 'string' && !Number.isNaN(Date.parse(value.startedAt)) ? value.startedAt : null,
+      since: typeof value.since === 'string' && !Number.isNaN(Date.parse(value.since)) ? value.since : null,
       reviewRetry: value.reviewRetry && typeof value.reviewRetry === 'object' ? parseProgress(value.reviewRetry) : null,
     };
   } catch {
@@ -322,6 +344,27 @@ export async function syncConnection(
     reviewRetry = storedState.reviewRetry;
     itemsOnly = storedState.itemsOnly;
   }
+  // 続きの位置があるのに認証情報の指紋が合わず捨てた状態は、起点を失っているので全部を読む
+  // （途中保存でも last_success_at は進むので、そこから起点を作ると、まだ読んでいない古い項目を飛ばす）
+  const discardedProgress =
+    storedState.credential !== credentialStamp &&
+    (storedState.resume !== null ||
+      storedState.scopeBatch !== null ||
+      storedState.candidateCursor !== null ||
+      storedState.reviewRetry !== null);
+  const inProgress = resume !== null || scopeBatch !== null || candidateCursor !== null || reviewRetry !== null;
+  // 続きの同期は、始めに決めた起点を使う（途中保存でも last_success_at は進むので、新しい同期の起点とは別に持つ）。
+  // 新しい同期は、前の同期が全部を読み終えた時点（その書き込みが最後の last_success_at）から始める。
+  // 起点が無い途中の状態（旧形式）は全部を読む。初めての同期（last_success_at が空）も全部を読む
+  const since: string | null = inProgress
+    ? storedState.since
+    : discardedProgress
+      ? null
+      : // 除外で持つ接続は、後から見えるようになった範囲の古い項目を差分で飛ばさないよう、毎回全部を読む
+        connection.scope_mode === 'exclude'
+        ? null
+        : sinceOf(connection.last_success_at);
+  const startedAt: string = (inProgress ? storedState.startedAt : null) ?? now().toISOString();
   const stateJson = () =>
     resume === null && scopeBatch === null && candidateCursor === null && reviewRetry === null
       ? '{}'
@@ -329,14 +372,16 @@ export async function syncConnection(
           version: 2,
           ...progressValue({ resume, scopeBatch, candidateCursor }),
           credential: credentialStamp,
+          since,
+          startedAt,
           itemsOnly,
           reviewRetry: reviewRetry === null ? null : progressValue(reviewRetry),
         });
   // 通常項目（Issue/PR）だけの走査はレビューの失敗を解消していないので、接続の成功・失敗の記録を変えない。
-  const checkpoint = (preserveFailure = false): SyncOutcome => ({
-    kind: preserveFailure || itemsOnly || reviewRetry !== null ? 'progress' : 'success',
-    syncStateJson: stateJson(),
-  });
+  const checkpoint = (preserveFailure = false): SyncOutcome =>
+    preserveFailure || itemsOnly || reviewRetry !== null
+      ? { kind: 'progress', syncStateJson: stateJson() }
+      : { kind: 'success', syncStateJson: stateJson() };
   // 保存条件が変わった場合も、認証情報の差し替えを「停止」とは報告しない。
   const interrupted = async (): Promise<SyncResult> => {
     const latest = await readSyncConnection(db, workspaceId, connectionId);
@@ -421,7 +466,7 @@ export async function syncConnection(
           if (pages >= maxPages || requests >= requestLimit || Date.now() >= deadline) {
             return await pause();
           }
-          const input = { credential, fetcher, settings, scope, cursor: current.cursor };
+          const input = { credential, fetcher, settings, scope, cursor: current.cursor, since };
           if (current.phase === 'targets') {
             const target = await readReviewTarget(db, connection, scope.id, current.after);
             if (jobTimeExpired()) return await pause();
@@ -514,7 +559,7 @@ export async function syncConnection(
       return { outcome: 'success', imported, more: true };
     }
     resume = null;
-    if (!(await finish({ kind: 'success', syncStateJson: '{}' }))) return interrupted();
+    if (!(await finish({ kind: 'success', syncStateJson: '{}', lastSuccessAt: startedAt }))) return interrupted();
     return { outcome: 'success', imported, more: false };
   } catch (error) {
     if (budgetReached && (resume !== null || candidateCursor !== null || scopeBatch !== null)) {

@@ -69,6 +69,11 @@ describe('ai-review の Claude に許す道具', () => {
     assert.ok(!toolList('--allowedTools').some((tool) => tool.includes('github.workspace')));
   });
 
+  // base の .claude/settings.json の japanese-guard は、人が読まない出力の CI では差し戻しの1ターンを無駄に増やす
+  test('CI では japanese-guard のフックを無効にする', () => {
+    assert.equal(actionStep().env?.JAPANESE_GUARD_DISABLE, '1');
+  });
+
   // 上の一覧の外でも、action の入力（allowed_tools、settings など）や claude_args の別の引数
   // （--permission-mode、--mcp-config、--settings など）で許可を広げられる。mcp__github__ を1つでも許すと、
   // action が github の MCP サーバーを入れ、base の .claude/settings.json の許可で絞る前のコメントを読める。

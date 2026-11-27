@@ -4,6 +4,7 @@
 // （検索 API を選ばなかった理由は docs/development.md の「取り込み元の型と GitHub の PAT」）。
 // 通信の作法と失敗の区別は client.ts（401、403、それ以外）。
 //
+// 同期の始めは input.since（差分の起点）から読む。差分の起点が無い（初めての同期）ときは先頭から全部を読む。
 // 続きの位置（不透明な文字列）は「自分のログイン名:頁:更新日時の起点」。満杯の頁の後は、頁番号を進めず、
 // 最後に読んだ項目の更新日時を新しい起点（since）にして頁を1に戻す。昇順の頁番号のまま進めると、
 // 取得の間に読み終えた側の項目が更新されて末尾へ動いたとき、後ろの項目が詰まって取りこぼすため。
@@ -155,8 +156,9 @@ export async function fetchAssignedIssuesPage(input: FetchPageInput): Promise<Fe
   const login = position.login ?? (await loginOf(input));
   const { page, anchor } = position;
 
-  // 読んだ項目から決めた起点は、1秒戻して送る（境界を含まない動きでも、起点ちょうどの項目を取りこぼさない）
-  const since = anchor === null ? null : new Date(Date.parse(anchor) - 1000).toISOString();
+  // 読んだ項目から決めた起点は、1秒戻して送る（境界を含まない動きでも、起点ちょうどの項目を取りこぼさない）。
+  // 続きの位置が無い同期の始めは、同期の仕組みが渡した差分の起点（前回の成功から少し戻した時点）から読む。無ければ全部を読む
+  const since = anchor === null ? (input.since ?? null) : new Date(Date.parse(anchor) - 1000).toISOString();
   const body = await getJson(urlOf(scope, login, since, page), input.credential, input.fetcher);
   if (!Array.isArray(body)) throw fail('unavailable');
 

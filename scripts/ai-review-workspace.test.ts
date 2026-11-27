@@ -312,7 +312,7 @@ test('head で上書きした後の action・コマンド・環境変数は既�
   for (const [name, keys] of Object.entries(expectedEnvKeys)) {
     assert.deepEqual(Object.keys(named(name).env ?? {}).sort(), keys.sort(), name);
   }
-  assert.deepEqual(after[0]?.env, { CLAUDE_CODE_REMOTE: 'false' });
+  assert.deepEqual(after[0]?.env, { CLAUDE_CODE_REMOTE: 'false', JAPANESE_GUARD_DISABLE: '1' });
   assert.equal(after[0]?.run, undefined);
   assert.equal(
     after[1]?.run,

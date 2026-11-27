@@ -57,14 +57,15 @@ describe('反証: PR の範囲と頁境界', () => {
   test('閉じたPRだけの満杯頁でも終わらず、後続の未完了PRへ進む', async () => {
     const f = ownPullFixture();
     f.data.pulls = [
-      ...Array.from({ length: 100 }, (_, index) => fakePull(index + 1, { state: 'closed' })),
-      fakePull(101),
+      // 更新日時の新しい順に読むので、未完了の PR を最も古くして、閉じた PR だけの満杯頁の後ろに置く
+      fakePull(1),
+      ...Array.from({ length: 100 }, (_, index) => fakePull(index + 2, { state: 'closed' })),
     ];
     const first = await page(f);
     expect(first.items).toEqual([]);
     expect(first.next).not.toBeNull();
     const second = await page(f, first.next);
-    expect(second.items.map((item) => item.sourceId)).toEqual(['800101']);
+    expect(second.items.map((item) => item.sourceId)).toEqual(['800001']);
     expect(second.next).toBeNull();
   });
 
@@ -90,7 +91,7 @@ describe('反証: PR の範囲と頁境界', () => {
     await expect(page(f, first.next)).rejects.toMatchObject({ failure: 'forbidden' });
     f.data.pullFailure = 0;
     const retry = await page(f, first.next);
-    expect(retry.items.map((item) => item.sourceId)).toEqual(['800101']);
+    expect(retry.items.map((item) => item.sourceId)).toEqual(['800001']);
     expect(retry.next).toBeNull();
     const pulls = f.calls.filter((call) => new URL(call.url).pathname.endsWith('/pulls'));
     expect(pulls.map((call) => new URL(call.url).searchParams.get('page'))).toEqual(['1', '2', '2']);
