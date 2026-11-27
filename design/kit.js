@@ -3944,12 +3944,14 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
   const WS_LIST_KEY = "sg-nav-workspaces-collapsed";
   let workspaceListCollapsed = false;
   try { workspaceListCollapsed = localStorage.getItem(WS_LIST_KEY) === "true"; } catch { /* 覚えられない端末は開いた状態 */ }
-  function workspaceListHtml({ workspaceItems = false, collapsed = workspaceListCollapsed, id = "app-nav-workspaces", live = true, workspaces = Object.entries(D.workspaces).map(([id, w]) => ({ id, ...w })), current = { id: D.workspace, ...D.workspaces[D.workspace] }, inWorkspaceScreen = !page || !["today", "notifications", "orgwiki", "me", "admin", "favorites", "operator"].includes(page.current) } = {}) {
+  // workspaceItems は浮きメニュー（機能の項目あり）の形。itemIsCurrent は、その機能の項目のどれかが現在地か（本番の NavMenu と同じ。
+  // 偽（タスクの詳細など）なら、行が aria-current を持つ）
+  function workspaceListHtml({ workspaceItems = false, itemIsCurrent = workspaceItems, collapsed = workspaceListCollapsed, id = "app-nav-workspaces", live = true, workspaces = Object.entries(D.workspaces).map(([id, w]) => ({ id, ...w })), current = { id: D.workspace, ...D.workspaces[D.workspace] }, inWorkspaceScreen = !page || !["today", "notifications", "orgwiki", "me", "admin", "favorites", "operator"].includes(page.current) } = {}) {
     const label = t("workspaceListToggleLabel").replace("{workspace}", t("workspace"));
     const listLabel = t("workspaceNavListLabel").replace("{workspace}", t("workspace"));
-    const opened = workspaceItems ? `<span class="visually-hidden">${t("workspaceNavOpened")}</span>` : "";
-    const row = (w) => `<li data-name="${esc(w.name)}"><a class="nav-item" href="${firstHref("backlog.html")}${first ? "&" : "?"}workspace=${encodeURIComponent(w.id)}" title="${esc(w.name)}" ${live ? `data-ws-target="${esc(w.id)}"` : ""}${w.id === current.id && inWorkspaceScreen && !workspaceItems ? ' aria-current="page"' : ""}><span class="nav-item-label">${esc(w.name)}</span>${w.id === current.id ? icon("check") + opened : ""}</a></li>`;
-    const outside = workspaces.some((w) => w.id === current.id) ? "" : `<li><span class="nav-item is-current"${workspaceItems ? "" : ' aria-current="page"'} title="${esc(current.name)}"><span class="nav-item-label">${esc(current.name)}</span>${icon("check")}${opened}</span></li>`;
+    const opened = itemIsCurrent ? `<span class="visually-hidden">${t("workspaceNavOpened")}</span>` : "";
+    const row = (w) => `<li data-name="${esc(w.name)}"><a class="nav-item" href="${firstHref("backlog.html")}${first ? "&" : "?"}workspace=${encodeURIComponent(w.id)}" title="${esc(w.name)}" ${live ? `data-ws-target="${esc(w.id)}"` : ""}${w.id === current.id && inWorkspaceScreen && !itemIsCurrent ? ' aria-current="page"' : ""}><span class="nav-item-label">${esc(w.name)}</span>${w.id === current.id ? icon("check") + opened : ""}</a></li>`;
+    const outside = workspaces.some((w) => w.id === current.id) ? "" : `<li><span class="nav-item is-current"${itemIsCurrent ? "" : ' aria-current="page"'} title="${esc(current.name)}"><span class="nav-item-label">${esc(current.name)}</span>${icon("check")}${opened}</span></li>`;
     return `<div class="nav-group is-toggle"><button class="nav-group-toggle" type="button" aria-expanded="${!collapsed}" aria-controls="${id}" aria-label="${esc(label)}" ${live ? "data-ws-list" : ""}>${icon("chevron")}<span class="nav-group-label">${t("workspace")}</span></button></div>
       <ul class="nav-ws-list" id="${id}" aria-label="${esc(listLabel)}" ${collapsed ? "hidden" : ""}>${outside}${workspaces.map(row).join("")}</ul>`;
   }
