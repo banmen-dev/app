@@ -175,6 +175,35 @@ test.describe('ログインした画面', () => {
     await expect(field(page)).toHaveValue('閉じた後に失敗する文');
   });
 
+  test('送っている間に閉じて別の画面へ移っても、書いた文と送っている途中の印は残り、失敗の案内のとおり開き直せる', async ({
+    page,
+  }) => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await routeOperation(page, feedbackSubmit, async (call) => {
+      await held;
+      await call.fail(429, 'rate_limited');
+    });
+    await page.goto('/');
+    await launcher(page).click();
+    await field(page).fill('組織の選択から書いた文');
+    await dialog(page).getByRole('button', { name: '送る' }).click();
+    await expect(dialog(page).getByRole('button', { name: '送っています…' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog(page)).toBeHidden();
+    // 読み直さずに（SPA の中で）組織の画面へ移る。入口は別の画面の別の部品になる
+    await page.locator('a[href="/aoba"]').first().click();
+    await expect(page).toHaveURL(/\/aoba$/);
+    await launcher(page).click();
+    await expect(field(page)).toHaveValue('組織の選択から書いた文');
+    await expect(dialog(page).getByRole('button', { name: '送っています…' })).toBeVisible();
+    // 開いている間に失敗が届いたら、トーストでなく欄の下に理由を出す
+    release();
+    await expect(dialog(page).getByRole('alert')).toHaveText(/送る回数の上限に達しました/);
+    await expect(field(page)).toHaveValue('組織の選択から書いた文');
+    await expect(dialog(page).getByRole('button', { name: '送る' })).toBeVisible();
+  });
+
   test('ログインが切れていたらログインへ、同意していなければ同意の画面へ移す', async ({ page }) => {
     const unroute = await failOperation(page, feedbackSubmit, 401, 'unauthenticated');
     await page.goto('/aoba');

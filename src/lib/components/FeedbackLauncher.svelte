@@ -1,8 +1,10 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
+  import { untrack } from 'svelte';
   import { callOperation } from '../api.ts';
   import { FEEDBACK_TEXT_MAX, feedbackFailure, feedbackInput, validateFeedback } from '../feedback-form.ts';
+  import { feedbackDraft } from '../feedback-draft.svelte.ts';
   import { consentUrl, isTermsRequired, isUnauthenticated, loginUrl } from '../login-redirect.ts';
   import { showToast } from '../toast.svelte.ts';
   import { t } from '../vocabulary.svelte.ts';
@@ -15,7 +17,8 @@
   // 置くのは、ログインを前提に読み込む画面（組織の枠、組織の選択、運用）だけ。root のレイアウトはログインの状態を持たないので置かない。
   // 押すとダイアログが開き、文を feedback-submit で送る。送った文は公開の GitHub の Issue に載るので、ダイアログの先頭にそう出す。
   // 送れたら閉じてトーストを出し、入力を空にする。送れなかったら閉じずに入力を残し、欄の下に理由を出す。
-  // 送っている間は欄を読むだけにし、送るボタンを止めて二重に送らない（開き直しても sending は残る）。
+  // 書いた文と送っている途中の印は feedback-draft.svelte.ts に持ち、置いた画面をまたいで移っても残す。
+  // 送っている間は欄を読むだけにし、送るボタンを止めて二重に送らない（開き直しても、別の画面の入口から開いても残る）。
   // 閉じる操作は止めない（書き込みは画面で打ち切らないので、通信が詰まったときにダイアログから出られなくなるため）。
   // 閉じた後に送れたらトーストで知らせて入力を空にし、送れなかったら理由をトーストで知らせて入力を残す。
   // ログインが切れた（401）と同意していない（403 の terms_required）は、画面ごと移るので書いた文は残らない。
@@ -31,34 +34,60 @@
   let launcher = $state<HTMLButtonElement>();
   let textarea = $state<HTMLTextAreaElement>();
   let open = $state(false);
-  let text = $state('');
-  let error = $state<DictionaryKey | null>(null);
-  let sending = $state(false);
+  const error = $derived(feedbackDraft.error);
 
   const max = FEEDBACK_TEXT_MAX.toLocaleString('ja-JP');
 
+  // 開いている間だけ数える。送り終わりの知らせを、欄の下に出すかトーストにするかを決める
+  $effect(() => {
+    if (!open) return;
+    untrack(() => feedbackDraft.openCount++);
+    return () => untrack(() => feedbackDraft.openCount--);
+  });
+
+  // 送れたら、どの部品から送り始めたかにかかわらず、開いているダイアログを閉じる
+  let seenSent = untrack(() => feedbackDraft.sent);
+  $effect(() => {
+    const sent = feedbackDraft.sent;
+    if (sent === seenSent) return;
+    seenSent = sent;
+    untrack(() => (open = false));
+  });
+
+  // 理由が出たら欄へフォーカスを戻す（送り始めた部品が外れていても、今開いている部品が受け持つ）
+  $effect(() => {
+    if (feedbackDraft.error !== null && open) untrack(() => textarea?.focus());
+  });
+
   function show(): void {
-    error = null;
+    feedbackDraft.error = null;
     dialog?.show(launcher);
+  }
+
+  function setError(value: DictionaryKey | null): void {
+    feedbackDraft.error = value;
   }
 
   async function submit(event: SubmitEvent): Promise<void> {
     event.preventDefault();
-    if (sending) return;
-    const invalid = validateFeedback(text);
+    if (feedbackDraft.sending) return;
+    const invalid = validateFeedback(feedbackDraft.text);
     if (invalid !== null) {
-      error = invalid;
+      setError(invalid);
       textarea?.focus();
       return;
     }
-    sending = true;
-    error = null;
+    feedbackDraft.sending = true;
+    setError(null);
     try {
-      const result = await callOperation(feedbackSubmit, feedbackInput(text, page.route.id, window.location));
+      const result = await callOperation(
+        feedbackSubmit,
+        feedbackInput(feedbackDraft.text, page.route.id, window.location),
+      );
       if (result.ok) {
-        open = false;
-        text = '';
-        error = null;
+        feedbackDraft.text = '';
+        setError(null);
+        feedbackDraft.sent++;
         showToast(t('feedbackSent'), 'check');
         return;
       }
@@ -71,14 +100,14 @@
         return;
       }
       const reason = feedbackFailure(result);
-      if (open) {
-        error = reason;
-        textarea?.focus();
+      // 送り始めた部品が外れていても、今どこかでダイアログが開いていれば、その欄の下に出す
+      if (feedbackDraft.openCount > 0) {
+        setError(reason);
       } else {
         showToast(t('feedbackFailedClosed', { reason: t(reason, { max }) }), 'alert');
       }
     } finally {
-      sending = false;
+      feedbackDraft.sending = false;
     }
   }
 </script>
@@ -113,9 +142,9 @@
         id={fieldId}
         rows="6"
         bind:this={textarea}
-        bind:value={text}
-        oninput={() => (error = null)}
-        readonly={sending}
+        bind:value={feedbackDraft.text}
+        oninput={() => setError(null)}
+        readonly={feedbackDraft.sending}
         aria-invalid={error !== null}
         aria-describedby="{publicId} {hintId}{error !== null ? ` ${errorId}` : ''}"></textarea>
       <p class="field-hint" id={hintId}>{t('feedbackHint', { max })}</p>
@@ -124,12 +153,12 @@
         >{/if}
     </div>
     <!-- 送っている間は、目にはボタンの文言で、読み上げにはこの領域で伝える -->
-    <span class="visually-hidden" role="status">{sending ? t('feedbackSending') : ''}</span>
+    <span class="visually-hidden" role="status">{feedbackDraft.sending ? t('feedbackSending') : ''}</span>
   </form>
   {#snippet footer(close)}
     <button class="btn is-quiet" type="button" onclick={close}>{t('cancel')}</button>
-    <button class="btn is-primary" type="submit" form="{ids}-form" aria-disabled={sending}
-      >{sending ? t('feedbackSending') : t('feedbackSend')}</button
+    <button class="btn is-primary" type="submit" form="{ids}-form" aria-disabled={feedbackDraft.sending}
+      >{feedbackDraft.sending ? t('feedbackSending') : t('feedbackSend')}</button
     >
   {/snippet}
 </Dialog>
