@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, test } from 'node:test';
+import { describe, test, type TestContext } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 // .claude/settings.json の japanese-guard のフックの command を、sh -c で実際に走らせて確かめる（docs/development.md の「Claude の設定」）。
@@ -26,10 +26,13 @@ const WRAP_UP_INPUT = JSON.stringify({
   tool_input: { recap: ENGLISH, ask: 'Shall I open the pull request now' },
 });
 
+// japanese-guard の command だけを取る（ほかのフックが同じイベントに増えても落とさない）
 function commandOf(event: string): string {
   const entries = settings.hooks[event] ?? [];
-  const commands = entries.flatMap((entry) => entry.hooks.map((hook) => hook.command));
-  assert.equal(commands.length, 1, `${event} のフックがちょうど1つでない`);
+  const commands = entries
+    .flatMap((entry) => entry.hooks.map((hook) => hook.command))
+    .filter((command) => command.includes('japanese-guard'));
+  assert.equal(commands.length, 1, `${event} の japanese-guard のフックがちょうど1つでない`);
   return commands[0]!;
 }
 
@@ -42,10 +45,29 @@ function run(command: string, projectDir: string, input: string, extraEnv: Recor
     encoding: 'utf8',
     env: { ...Object.fromEntries(inherited), CLAUDE_PROJECT_DIR: projectDir, ...extraEnv },
   });
-  return { status: result.status, stdout: result.stdout };
+  return { status: result.status, stdout: result.stdout, stderr: result.stderr };
+}
+
+// 失敗したときに原因を切り分けられるよう、stderr をメッセージに付ける
+function assertResult(result: ReturnType<typeof run>, stdout: string) {
+  const detail = `status=${result.status} stdout=${JSON.stringify(result.stdout)} stderr=${JSON.stringify(result.stderr)}`;
+  assert.equal(result.status, 0, detail);
+  assert.equal(result.stdout, stdout, detail);
+}
+
+function tempDir(t: TestContext): string {
+  const dir = mkdtempSync(join(tmpdir(), 'japanese-guard-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  return dir;
 }
 
 describe('japanese-guard の登録', () => {
+  // python3 が無いと、以降の多くのテストは何も出さずに緑になるか、JSON.parse('') で落ちる。先にここで明示して落とす
+  test('python3 が使える', () => {
+    const result = spawnSync('python3', ['--version'], { encoding: 'utf8' });
+    assert.equal(result.status, 0, 'python3 が無い。このテストは python3 の入った環境で走らせる');
+  });
+
   test('PreToolUse は wrap_up の MCP ツールだけに掛け、Stop と同じスクリプトを呼ぶ', () => {
     const [entry] = settings.hooks.PreToolUse!.filter((e) => e.hooks.some((h) => h.command.includes('japanese-guard')));
     assert.equal(entry?.matcher, 'mcp__.*__wrap_up');
@@ -54,57 +76,50 @@ describe('japanese-guard の登録', () => {
 
   test('英語の最終回答は差し戻し、日本語の最終回答は何も出さない', () => {
     const english = run(commandOf('Stop'), repoRoot, STOP_INPUT);
-    assert.equal(english.status, 0);
+    assert.equal(english.status, 0, english.stderr);
     assert.equal(JSON.parse(english.stdout).decision, 'block');
-    const japanese = run(commandOf('Stop'), repoRoot, JAPANESE_STOP_INPUT);
-    assert.equal(japanese.status, 0);
-    assert.equal(japanese.stdout, '');
+    assertResult(run(commandOf('Stop'), repoRoot, JAPANESE_STOP_INPUT), '');
   });
 
   test('JAPANESE_GUARD_DISABLE=1 のときは、英語でも何も出さない（ai-review の設定の意味）', () => {
     const disabled = { JAPANESE_GUARD_DISABLE: '1' };
-    assert.deepEqual(run(commandOf('Stop'), repoRoot, STOP_INPUT, disabled), { status: 0, stdout: '' });
-    assert.deepEqual(run(commandOf('PreToolUse'), repoRoot, WRAP_UP_INPUT, disabled), { status: 0, stdout: '' });
+    assertResult(run(commandOf('Stop'), repoRoot, STOP_INPUT, disabled), '');
+    assertResult(run(commandOf('PreToolUse'), repoRoot, WRAP_UP_INPUT, disabled), '');
   });
 
   test('英語の wrap_up は PreToolUse で deny する', () => {
     const result = run(commandOf('PreToolUse'), repoRoot, WRAP_UP_INPUT);
-    assert.equal(result.status, 0);
+    assert.equal(result.status, 0, result.stderr);
     assert.equal(JSON.parse(result.stdout).hookSpecificOutput.permissionDecision, 'deny');
   });
 });
 
 describe('japanese-guard はセッションを止めない', () => {
   for (const event of ['Stop', 'PreToolUse']) {
-    test(`${event}: スクリプトが無いときは、何も出さずに終了コード 0 で終わる`, () => {
-      const emptyDir = mkdtempSync(join(tmpdir(), 'japanese-guard-'));
-      const result = run(commandOf(event), emptyDir, STOP_INPUT);
-      assert.deepEqual(result, { status: 0, stdout: '' });
+    test(`${event}: スクリプトが無いときは、何も出さずに終了コード 0 で終わる`, (t) => {
+      assertResult(run(commandOf(event), tempDir(t), STOP_INPUT), '');
     });
 
     test(`${event}: CLAUDE_PROJECT_DIR が空でも、終了コード 0 で終わる`, () => {
-      const result = run(commandOf(event), '', STOP_INPUT);
-      assert.deepEqual(result, { status: 0, stdout: '' });
+      assertResult(run(commandOf(event), '', STOP_INPUT), '');
     });
 
     // -I が無いと、python3 はスクリプトのあるディレクトリを import の探索に入れ、隣に置かれた json.py などを先に読む
-    test(`${event}: -I で起動し、スクリプトの隣の同名モジュールを読まない`, () => {
-      const projectDir = mkdtempSync(join(tmpdir(), 'japanese-guard-'));
+    test(`${event}: -I で起動し、スクリプトの隣の同名モジュールを読まない`, (t) => {
+      const projectDir = tempDir(t);
       const hooksDir = join(projectDir, '.claude', 'hooks');
       mkdirSync(hooksDir, { recursive: true });
       writeFileSync(join(hooksDir, 'japanese-guard.py'), "import json\nprint('ran')\n");
       writeFileSync(join(hooksDir, 'json.py'), 'raise SystemExit(7)\n');
-      const result = run(commandOf(event), projectDir, STOP_INPUT);
-      assert.deepEqual(result, { status: 0, stdout: 'ran\n' });
+      assertResult(run(commandOf(event), projectDir, STOP_INPUT), 'ran\n');
     });
 
     // 'ran' を出させて、スクリプトが実際に走ったことを確かめる（引用符を外すと、空白入りのパスでは [ -f ] が偽になり、何も走らずに 0 で終わる）
-    test(`${event}: パスに空白があっても走り、スクリプトが 0 以外で終わっても、終了コード 0 で終わる`, () => {
-      const projectDir = join(mkdtempSync(join(tmpdir(), 'japanese-guard-')), 'a b');
+    test(`${event}: パスに空白があっても走り、スクリプトが 0 以外で終わっても、終了コード 0 で終わる`, (t) => {
+      const projectDir = join(tempDir(t), 'a b');
       mkdirSync(join(projectDir, '.claude', 'hooks'), { recursive: true });
       writeFileSync(join(projectDir, '.claude', 'hooks', 'japanese-guard.py'), "import sys\nprint('ran')\nsys.exit(3)\n");
-      const result = run(commandOf(event), projectDir, STOP_INPUT);
-      assert.deepEqual(result, { status: 0, stdout: 'ran\n' });
+      assertResult(run(commandOf(event), projectDir, STOP_INPUT), 'ran\n');
     });
   }
 });
