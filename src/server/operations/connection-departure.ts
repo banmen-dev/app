@@ -17,19 +17,19 @@ export type DepartedConnections = {
   actorUserId: string;
   ownerUserId: string;
   at: Date;
-  reason: 'member_left' | 'user_disabled';
-  // そのワークスペースの接続だけを止める。無ければ、組織のすべてのワークスペース（閉じたもの、論理削除したものを含む。
-  // 認証情報を DB に残さないため）の接続を止める
-  workspaceId?: string;
-  // 認証情報の列（暗号文、鍵の版、末尾4文字）と、認証情報に結んだ同期と照合の続きの位置を消す
-  removeCredential: boolean;
+  // 離脱はそのワークスペースの接続だけを止める。無効化は組織のすべてのワークスペース（閉じたもの、論理削除したものを含む。
+  // 認証情報を DB に残さないため）の接続を止め、認証情報の列（暗号文、鍵の版、末尾4文字）と、認証情報に結んだ同期と照合の続きの位置を消す
+  departure: { reason: 'member_left'; workspaceId: string } | { reason: 'user_disabled' };
   // この要求で書いた（所属が終わった、無効になった）ことの見方。それが返す行があるときだけ動く
   writtenHere: (from: From) => Expression<unknown>;
 };
 
 // 履歴を先に置く（止めた後では、止める前の状態と認証情報の有無を読めない）
 export function stopDepartedConnectionStatements(db: OrganizationDb, options: DepartedConnections) {
-  const { actorUserId, ownerUserId, at, reason, workspaceId, removeCredential, writtenHere } = options;
+  const { actorUserId, ownerUserId, at, departure, writtenHere } = options;
+  const reason = departure.reason;
+  const workspaceId = departure.reason === 'member_left' ? departure.workspaceId : undefined;
+  const removeCredential = departure.reason === 'user_disabled';
   const organizationId = db.organizationId;
   const stamp = at.toISOString();
 

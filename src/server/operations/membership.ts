@@ -328,9 +328,7 @@ export const membershipLeaveOperation = implement(membershipLeave, async (contex
       actorUserId,
       ownerUserId: userId,
       at,
-      reason: 'member_left',
-      workspaceId,
-      removeCredential: false,
+      departure: { reason: 'member_left', workspaceId },
       writtenHere: endedHere,
     }),
     ...(removingOther
