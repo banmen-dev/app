@@ -1087,7 +1087,7 @@
 | source_updated_at | TEXT | NOT NULL | 差分の判定に使う |
 | is_source_done | INTEGER | NOT NULL、既定 0 | 「取り込み元で完了」の印。同期が付け外しする（閉じたら付き、開き直されたら外れる）。タスクの完了にはしない |
 | missing_since_at | TEXT | | 「取り込み元で見つからない」の印。入っていれば印あり |
-| last_seen_at | TEXT | NOT NULL | 最後に取り込み元で確認できた日時 |
+| last_seen_at | TEXT | NOT NULL | 取り込み元の値を最後に書いた日時。同期は値が変わらない項目を書かないので、確認した日時ではない。「見つからない」の判定に使うときは、確認の仕組みを別に足す |
 | created_at、updated_at | TEXT | NOT NULL | |
 
 - 一意: `(workspace_id, provider, source_kind, source_id, reviewer_source_id)`。同じワークスペースで同じ項目を1件にまとめ、レビュー依頼だけはレビュアーごとに分ける。

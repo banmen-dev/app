@@ -328,6 +328,7 @@ describe('取り込みの同期', () => {
         ),
       );
       await run({ isDone: true, updatedAt: '2026-11-02T00:00:00.000Z' });
+      expect(await firstTask(db, workspace.id)).toMatchObject({ is_source_done: 1, completed_by: owner.id });
       await run({ isDone: false, updatedAt: '2026-11-03T00:00:00.000Z' });
       expect(await firstTask(db, workspace.id)).toMatchObject({
         completed_at: '2026-11-01T01:00:00.000Z',
