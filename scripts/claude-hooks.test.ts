@@ -118,7 +118,10 @@ describe('japanese-guard はセッションを止めない', () => {
     test(`${event}: パスに空白があっても走り、スクリプトが 0 以外で終わっても、終了コード 0 で終わる`, (t) => {
       const projectDir = join(tempDir(t), 'a b');
       mkdirSync(join(projectDir, '.claude', 'hooks'), { recursive: true });
-      writeFileSync(join(projectDir, '.claude', 'hooks', 'japanese-guard.py'), "import sys\nprint('ran')\nsys.exit(3)\n");
+      writeFileSync(
+        join(projectDir, '.claude', 'hooks', 'japanese-guard.py'),
+        "import sys\nprint('ran')\nsys.exit(3)\n",
+      );
       assertResult(run(commandOf(event), projectDir, STOP_INPUT), 'ran\n');
     });
   }
