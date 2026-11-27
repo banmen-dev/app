@@ -22,6 +22,12 @@ const source = importSourceOf('github');
 const BASE = Date.UTC(2026, 5, 1, 0, 0, 0);
 const at = (minutes: number) => new Date(BASE + minutes * 60_000).toISOString();
 type Fixture = ReturnType<typeof ownPullFixture>;
+// 除外で持つ接続の範囲の一覧を、偽の GitHub に頼らず固定する
+const allScopes = {
+  ...source,
+  fetchScopeCandidatesPage: undefined,
+  listScopeCandidates: async () => [PULL_SCOPE],
+};
 
 function listCalls(f: Fixture, kind: 'issues' | 'pulls') {
   return f.calls
@@ -100,7 +106,7 @@ describe('取り込み元: 差分の起点', () => {
   });
 });
 
-async function setup(options: { lastSuccessAt?: string | null } = {}) {
+async function setup(options: { lastSuccessAt?: string | null; scopeMode?: 'include' | 'exclude' } = {}) {
   const organization = await createOrganization();
   const owner = await createUser(organization);
   const workspace = await createWorkspace(organization, owner.id);
@@ -114,8 +120,12 @@ async function setup(options: { lastSuccessAt?: string | null } = {}) {
     credential_key_version: sealed.keyVersion,
     credential_last4: PULL_PAT.slice(-4),
     last_success_at: options.lastSuccessAt ?? null,
+    ...(options.scopeMode === undefined ? {} : { scope_mode: options.scopeMode }),
   });
-  await createConnectionScope(organization, id, { source_id: PULL_SCOPE.id, source_name: PULL_SCOPE.name });
+  // 除外で持つ接続の範囲の行は除外の対象なので、置かない
+  if (options.scopeMode !== 'exclude') {
+    await createConnectionScope(organization, id, { source_id: PULL_SCOPE.id, source_name: PULL_SCOPE.name });
+  }
   const read = () => db.first(db.statement((q) => q.selectFrom('connections').selectAll().where('id', '=', id)));
   const sources = () =>
     db.rows(db.statement((q) => q.selectFrom('task_sources').selectAll().where('workspace_id', '=', workspace.id)));
@@ -202,5 +212,35 @@ describe('同期: 前回成功した時点からの差分', () => {
     const next = await syncConnection(env, t.db, t.workspace.id, t.id, { fetcher: f.fetcher, now: nowFn });
     expect(next).toMatchObject({ outcome: 'success', imported: 1 });
     expect((await t.sources()).some((s) => s.source_id === '800999')).toBe(true);
+  });
+
+  test('除外で持つ接続は、前回の成功があっても起点を付けず全部を読む', async () => {
+    const t = await setup({ lastSuccessAt: at(100), scopeMode: 'exclude' });
+    const f = ownPullFixture();
+    f.data.issues = [fakeIssue(PULL_SCOPE.name, 1, { updatedAt: at(1) })];
+    await syncConnection(env, t.db, t.workspace.id, t.id, { fetcher: f.fetcher, source: allScopes });
+    expect(listCalls(f, 'issues').length).toBeGreaterThan(0);
+    expect(listCalls(f, 'issues').every((u) => !u.searchParams.has('since'))).toBe(true);
+  });
+
+  test('認証情報を替えて捨てた途中の続きの後は、起点を付けず全部を読む', async () => {
+    const t = await setup({ lastSuccessAt: at(100) });
+    const f = ownPullFixture();
+    f.data.pulls = Array.from({ length: 150 }, (_, i) => fakePull(i + 1, { updated_at: at(1 + i) }));
+    const paused = await syncConnection(env, t.db, t.workspace.id, t.id, { fetcher: f.fetcher, maxPages: 2 });
+    expect(paused).toMatchObject({ more: true });
+    // 認証情報を替える（指紋が変わる）。続きの状態は残る
+    const sealed = await encryptCredential(env, PULL_PAT, t.id);
+    await t.db.batch([
+      t.db.statement((q) =>
+        q
+          .updateTable('connections')
+          .set({ credential_ciphertext: sealed.ciphertext, credential_key_version: sealed.keyVersion })
+          .where('id', '=', t.id),
+      ),
+    ]);
+    f.calls.length = 0;
+    await syncConnection(env, t.db, t.workspace.id, t.id, { fetcher: f.fetcher });
+    expect(listCalls(f, 'issues')[0]!.searchParams.has('since')).toBe(false);
   });
 });
