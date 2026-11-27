@@ -885,11 +885,10 @@
     <p>
       {managing?.kind === 'delete'
         ? t('connectionDeleteBody', { task: t('task') })
-        : t('connectionStopBody', { connection: t('connection'), task: t('task') })}
+        : managing?.resumable
+          ? t('connectionStopBodyResumable', { connection: t('connection'), task: t('task') })
+          : t('connectionStopBody', { connection: t('connection'), task: t('task') })}
     </p>
-    {#if managing?.resumable}
-      <p>{t('connectionStopBodyResumable', { connection: t('connection') })}</p>
-    {/if}
     {#if managing?.discards}
       <p>{t('connectionManageBodyDiscards')}</p>
     {/if}

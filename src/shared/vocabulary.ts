@@ -3096,7 +3096,7 @@ export const dictionary = defineDictionary({
   connectionStopBody:
     '停止した{connection}は同期せず、トークンを保存しても再開しません。取り込む範囲は変わらず、取り込み済みの{task}も残ります。',
   connectionStopBodyResumable:
-    '再開できる理由で止まっている{connection}も、止めると再開できなくなり、使うときは新しく登録します。',
+    'この{connection}は、新しいトークンを保存すれば再開できる状態です。止めると再開できなくなり、使うときは新しく登録します。取り込む範囲は変わらず、取り込み済みの{task}も残ります。',
   connectionManageBodyDiscards: '開いている編集と範囲の選択は閉じ、入力した内容は消えます。',
   connectionStopConfirm: '止める',
   connectionStopDone: '「{name}」を止めました',
