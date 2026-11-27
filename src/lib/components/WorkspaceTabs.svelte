@@ -72,8 +72,10 @@
   }
 
   // 帯の幅、測る側の幅（文字の読み込みや拡大で変わる）、タブの数（ロールで設定が増減する）のどれかが変わったら決め直す
+  // 依存は数だけにする。`tabs` そのものを読むと、今の画面が替わるたび（`?task=` の引き出しの出現など）に測り直し、位置を測る読み出しが CSS の transition を潰す
+  const tabCount = $derived(tabs.length);
   $effect(() => {
-    void tabs.length;
+    void tabCount;
     if (!bar || !measurer) return;
     measure();
     const observer = new ResizeObserver(measure);

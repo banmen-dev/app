@@ -410,7 +410,7 @@ button.route-tab[aria-expanded="true"] { color: var(--color-fg); }
 .route-tabs-more-list a .ico { margin-left: auto; color: var(--color-accent); }
 .route-tabs-more-name { min-width: 0; overflow-wrap: anywhere; }
 /* 幅を測るための見えない並び。レイアウトに影響せず、読み上げにも出さない */
-.route-tabs-measure { position: absolute; top: 0; left: 0; display: flex; gap: var(--space-1); width: max-content; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; clip-path: inset(50%); }
+.route-tabs-measure { position: fixed; top: 0; left: 0; display: flex; gap: var(--space-1); width: max-content; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; clip-path: inset(50%); }
 .route-tabs-measure > [data-measure-more] { flex-direction: row; gap: var(--space-1); font-weight: 600; }
 .route-tabs-measure > [data-measure-more]::after { display: none; }
 @media (max-width: 760px), (pointer: coarse) { .route-tab, .route-tab-probe { min-height: 44px; } .route-tabs-more-list a { min-height: 44px; } }
