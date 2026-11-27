@@ -370,7 +370,8 @@ test.describe('760px 以下の浮きメニュー', () => {
     await signIn(context, baseURL, 'member');
     await page.goto(backlog);
     const dialog = await openMenu(page);
-    await expect(dialog.locator('[aria-current="page"]')).toHaveCount(1);
+    // 組織の切り替え（今の組織）の aria-current は別。メニュー（nav）の中の現在地が1つだけ
+    await expect(dialog.locator('#app-nav [aria-current="page"]')).toHaveCount(1);
     await expect(dialog.locator('.nav-ws-list [aria-current]')).toHaveCount(0);
     await expect(dialog.locator('.nav-ws-list .nav-item').filter({ has: page.locator('.ico') })).toContainText(
       '（開いている）',
