@@ -197,11 +197,10 @@ for (const entry of ['URL を直接開く', 'ダッシュボードから移る']
 }
 
 for (const activeSprint of [true, false]) {
-  test(`390px のボードは進行中のスプリントがある見出しに骨組みを合わせる（進行中${activeSprint ? 'あり' : 'なし'}）`, async ({
-    page,
-    context,
-    baseURL,
-  }) => {
+  const title = activeSprint
+    ? '進行中のボードは390pxで題が骨組みと揃い、760pxと761pxの境で骨組みの上の帯が切り替わる'
+    : '進行中のスプリントが無いボードは390pxで読み込み後に小見出しが加わる';
+  test(title, async ({ page, context, baseURL }) => {
     await signIn(context, baseURL, 'admin');
     await page.setViewportSize({ width: 390, height: 844 });
     let release = () => {};
