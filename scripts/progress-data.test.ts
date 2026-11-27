@@ -1077,7 +1077,7 @@ describe('外の人の Issue の題と本文', () => {
   });
 
   test('作者を確かめられない記録の Issue は、例外にも履歴の題の警告にもせず、読まなかった理由を警告に出す', () => {
-    const unread = (patch: Partial<RawIssue>) => ({ ...patch, title: '', body: '', outsider: true as const });
+    const unread = (found: RawIssue): RawIssue => ({ ...found, title: '', body: '', outsider: true });
     const openLog = unread(sprintLog(10, 7, ['| #2 | | 題 | 2 |']));
     const closedLog = unread(closed(9, { labels: ['sprint-log'] }));
     const built = buildProgress(
