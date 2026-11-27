@@ -17,6 +17,7 @@ import {
   connectionUpdate,
   CONNECTION_CREDENTIAL_RESUME_REASONS,
   isOwnerGoneStop,
+  resumesOnCredential,
   type Connection,
   type ConnectionCreateProblem,
 } from '../../shared/operations/connection/index.ts';
@@ -721,7 +722,7 @@ async function manageableConnection(
   const row = await db.first(
     db.statement((q) =>
       liveConnections(q, workspace.workspaceId)
-        .select(['c.id', 'c.owner_user_id', 'c.status'])
+        .select(['c.id', 'c.owner_user_id', 'c.status', 'c.stopped_reason'])
         .where('c.id', '=', connectionId),
     ),
   );
@@ -838,9 +839,10 @@ export const connectionStopOperation = implement(connectionStop, async ({ db, ac
   ] as const);
   if ((results[1]?.changes ?? 0) === 0) {
     await throwIfClosed(db, workspaceId);
-    // 読んだ後に、別の操作で止まった、消えた、操作した人の権限が変わった
+    // 読んだ後に、別の操作で止まった、消えた、操作した人の権限が変わった。成功として返すのは、別の操作が先に
+    // 再開しない停止にしたときだけ。再開できる理由のまま止まっているなら、書けなかったのは権限を失ったため
     const latest = await manageableConnection(db, actor, workspace, row.id);
-    if (latest.status !== 'stopped') throw new ApiError(403, 'forbidden');
+    if (latest.status !== 'stopped' || resumesOnCredential(latest)) throw new ApiError(403, 'forbidden');
   }
   const [connection] = await readConnections(db, workspaceId, row.id);
   if (connection === undefined) throw new ApiError(404, 'not_found');

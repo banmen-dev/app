@@ -12,6 +12,7 @@ import {
 import { createApp } from '../src/server/app.ts';
 import { orgDb } from '../src/server/db/index.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
+import { afterFirstQuery } from './auth/helpers.ts';
 import { createConnection, createTask, createTaskSource } from './factories.ts';
 import { post } from './operations/harness.ts';
 import { createTarget, type Person, type Target } from './operations/world.ts';
@@ -30,8 +31,15 @@ function connectionOf(target: Target, owner: Person, overrides: Parameters<typeo
   });
 }
 
-function call(op: typeof connectionStop | typeof connectionDelete, target: Target, caller: Person, id: string) {
+function call(
+  op: typeof connectionStop | typeof connectionDelete,
+  target: Target,
+  caller: Person,
+  id: string,
+  bindings: Env = env,
+) {
   return post(app, op, {
+    env: bindings,
     slug: target.slug,
     token: caller.token,
     body: { workspace_id: target.workspace.id, connection_id: id },
@@ -309,5 +317,54 @@ describe('他のメンバーの接続の範囲', () => {
       });
       expect(res.status).toBe(403);
     }
+  });
+});
+
+describe('読んだ後に権限を失った操作', () => {
+  // 接続を読んだ直後に、呼んだリーダーをメンバーへ下げる（書く文の条件が偽になる）
+  function demoteLeaderAfterRead(target: Target): Env {
+    return afterFirstQuery(
+      env,
+      (sql) => sql.includes('from "connections"') && sql.includes('"owner_user_id"'),
+      async () => {
+        const db = orgDb(env, target.organization.verified);
+        await db.run(
+          db.statement((q) =>
+            q
+              .updateTable('memberships')
+              .set({ role: 'member' })
+              .where('user_id', '=', target.leader.userId!)
+              .where('workspace_id', '=', target.workspace.id),
+          ),
+        );
+      },
+    );
+  }
+
+  test('再開できる理由で止まった接続の停止は、書けなかったときに 403。理由も履歴も変わらない', async () => {
+    const target = await createTarget();
+    const row = await connectionOf(target, target.member, { status: 'stopped', stopped_reason: 'auth_failed' });
+
+    const res = await call(connectionStop, target, target.leader, row.id, demoteLeaderAfterRead(target));
+    expect(res.status).toBe(403);
+    expect(await rowOf(target, row.id)).toMatchObject({ stopped_reason: 'auth_failed' });
+    expect(await logsOf(target, row.id)).toEqual([]);
+  });
+
+  test('止まっていない接続の停止と削除も、権限を失っていれば 403 で何も書かない', async () => {
+    const target = await createTarget();
+    const stop = await connectionOf(target, target.member);
+    const remove = await connectionOf(target, target.member);
+
+    expect((await call(connectionStop, target, target.leader, stop.id, demoteLeaderAfterRead(target))).status).toBe(
+      403,
+    );
+    expect((await call(connectionDelete, target, target.leader, remove.id, demoteLeaderAfterRead(target))).status).toBe(
+      403,
+    );
+    expect(await rowOf(target, stop.id)).toMatchObject({ status: 'active' });
+    expect((await rowOf(target, remove.id))!.deleted_at).toBeNull();
+    expect(await logsOf(target, stop.id)).toEqual([]);
+    expect(await logsOf(target, remove.id)).toEqual([]);
   });
 });
