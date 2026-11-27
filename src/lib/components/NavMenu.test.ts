@@ -203,7 +203,10 @@ describe('ワークスペースの一覧', () => {
     navWorkspacesState.collapsed = true;
     const body = render(NavMenu, { props: { ...props, workspace: { ...workspace, role: 'leader' } } }).body;
     expect(body).toMatch(/<ul[^>]*id="app-nav-workspaces"[^>]*hidden/);
-    for (const path of ['', '/members', '/settings']) expect(body).toContain(`href="/aoba/w/one${path}"`);
+    // 一覧（ul）を取り除いた残りに、機能の項目がある。バックログの項目は一覧の行と同じ行き先なので、項目に付く説明の id で見分ける
+    const outside = body.replace(/<ul[\s\S]*?<\/ul>/, '');
+    expect(outside).toMatch(/href="\/aoba\/w\/one"[^>]*aria-describedby="nav-go-backlog"/);
+    for (const path of ['/members', '/settings']) expect(outside).toContain(`href="/aoba/w/one${path}"`);
   });
 
   test('今日やることの画面では、対象の行にチェックだけを付け、現在地にはしない', () => {
