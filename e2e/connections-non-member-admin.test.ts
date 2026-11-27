@@ -21,7 +21,7 @@ test('所属していない管理者が開いたワークスペースは、一�
   await expect(list.getByRole('link', { name: '受託開発チーム', exact: true })).toBeVisible();
 });
 
-test('所属していない管理者には、ハルカの接続に止めると削除が出て、範囲と編集は出ない', async ({ page }) => {
+test('所属していない管理者には、ハルカの接続に止めると削除が出て、範囲を選ぶと編集は出ない', async ({ page }) => {
   await page.goto(`${SUPPORT}/connections`);
   await expect(page.getByRole('heading', { level: 1, name: '接続' })).toBeVisible();
   const items = page.getByRole('list', { name: '接続の一覧' }).getByRole('listitem');
@@ -30,5 +30,5 @@ test('所属していない管理者には、ハルカの接続に止めると�
   await expect(item.getByRole('button', { name: '止める' })).toBeEnabled();
   await expect(item.getByRole('button', { name: '削除' })).toBeEnabled();
   await expect(item.getByRole('button', { name: '編集', exact: true })).toHaveCount(0);
-  await expect(item.getByRole('button', { name: '今すぐ同期' })).toHaveCount(0);
+  await expect(item.getByRole('button', { name: '範囲を選ぶ' })).toHaveCount(0);
 });
