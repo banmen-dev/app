@@ -254,6 +254,30 @@ test.describe('ログインした画面', () => {
     await expect(dialog(page).getByRole('alert')).toHaveCount(0);
   });
 
+  test('応答が 30 秒来なければ送り直せるようにし、同じ文が2件になりうることを出す', async ({ page }) => {
+    await page.clock.install();
+    let calls = 0;
+    const releases: (() => void)[] = [];
+    await routeOperation(page, feedbackSubmit, async (call) => {
+      calls += 1;
+      await new Promise<void>((resolve) => releases.push(resolve));
+      await call.fulfill({ feedback_id: FEEDBACK_ID });
+    });
+    await page.goto('/aoba');
+    await launcher(page).click();
+    await field(page).fill('応答が詰まる文');
+    await dialog(page).getByRole('button', { name: '送る' }).click();
+    await expect(dialog(page).getByRole('button', { name: '送っています…' })).toBeVisible();
+    await page.clock.fastForward(30_000);
+    await expect(dialog(page).getByText(/応答がありません。送り直せますが/)).toBeVisible();
+    await expect(field(page)).not.toHaveAttribute('readonly');
+    await dialog(page).getByRole('button', { name: '送る' }).click();
+    await expect.poll(() => calls).toBe(2);
+    for (const release of releases) release();
+    await expect(dialog(page)).toBeHidden();
+    await expect(page.getByRole('status').filter({ hasText: 'フィードバックを送りました' }).first()).toBeVisible();
+  });
+
   test('ログインが切れていたらログインへ、同意していなければ同意の画面へ移す', async ({ page }) => {
     const unroute = await failOperation(page, feedbackSubmit, 401, 'unauthenticated');
     await page.goto('/aoba');
