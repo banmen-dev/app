@@ -352,6 +352,25 @@ describe('取り込みの同期', () => {
         expect((await connectionOf(db, connection.id)).last_success_at).toBeNull();
       });
 
+      test('同じ項目を別の接続が拾っても、期限は行の持ち主の接続の設定で決まる', async () => {
+        const { organization, owner, workspace, connection, db } = await setup();
+        const other = await createConnection(organization, workspace.id, owner.id, { ignore_source_due: 0 });
+        await createConnectionScope(organization, other.id, { source_id: '501', source_name: 'fake/box' });
+        const run = (id: string, over: Partial<ImportItem>) =>
+          syncConnection(env, db, workspace.id, id, {
+            source: fakeSource({ '501': [{ items: [item(1, over)], next: null }] }).source,
+          });
+        await db.run(
+          db.statement((q) =>
+            q.updateTable('connections').set({ ignore_source_due: 1 }).where('id', '=', connection.id),
+          ),
+        );
+        await run(connection.id, { dueOn: '2026-12-10' });
+        // 持ち主でない接続（無視をしていない）が同じ項目を、期限だけ違えて流しても、持ち主の設定で空のまま
+        await run(other.id, { dueOn: '2026-12-11' });
+        expect(await dues(db, workspace.id)).toEqual({ 'src-1': null });
+      });
+
       test('外した回の残りの頁は期限を空で書くが、次の同期が全部を読んで期限が戻る', async () => {
         const { workspace, connection, db } = await setup();
         await db.run(
