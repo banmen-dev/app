@@ -97,12 +97,7 @@
 
 <svelte:window onkeydown={menu.onkeydown} onclick={menu.onclick} />
 
-<nav
-  bind:this={bar}
-  class="route-tabs"
-  class:is-fit={fitCount !== null}
-  aria-label={t('workspaceTabs', { workspace: t('workspace') })}
->
+<nav bind:this={bar} class="route-tabs" aria-label={t('workspaceTabs', { workspace: t('workspace') })}>
   {#each shown as tab (tab.label)}
     <a
       class="route-tab"

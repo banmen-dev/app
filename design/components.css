@@ -366,7 +366,7 @@ a.breadcrumb-item:hover { color: var(--color-fg); text-decoration: underline; }
    今の画面は、文字の色と太さ（600。パンくずと左のメニューと同じ）と、下の操作の色の線で示す。太さで幅が変わって並びが動かないよう、::after で太い字の幅を先に取る。
    タブの高さは 36px（指で押す画面は 44px）で、読み込み中の骨組み（.skeleton-frame の .sheet-tabs、static/boot-loading.css の .boot-tabs）と高さを揃える。
    幅が足りなければ、入るだけを前から並べて残りを「その他 <件数>」のボタン（.route-tab-more）にまとめ、押すとボタンの下に残りの一覧（.route-tabs-more-list）を開く（#1516。
-   入る数の計算は kit.js と本番の WorkspaceTabs で同じ）。今の画面が一覧の中にあるときは、ボタンを今のタブと同じ印にする。幅を測るまでは全部を並べ、はみ出す分を隠す。
+   入る数の計算は kit.js と本番の WorkspaceTabs で同じ）。今の画面が一覧の中にあるときは、ボタンを今のタブと同じ印にする。幅を測るまでは全部を並べ、はみ出す分は横だけ切る（`overflow-x: clip`。開いた一覧は切らない）。
    760px 以下も出し、左右の余白を本文と同じ --space-4 にする */
 .sheet-tabs {
   padding-top: var(--space-2);
@@ -374,7 +374,7 @@ a.breadcrumb-item:hover { color: var(--color-fg); text-decoration: underline; }
   padding-right: max(var(--space-8), env(safe-area-inset-right, 0px));
 }
 .route-tabs { position: relative; display: flex; gap: var(--space-1); border-bottom: 1px solid var(--color-line); }
-.route-tabs:not(.is-fit) { overflow: hidden; }
+.route-tabs { overflow-x: clip; } /* 幅が変わって測り直すまでの間も、はみ出す分でページを横に溢れさせない（縦は visible のまま、開いた一覧を切らない） */
 .route-tab, .route-tab-probe {
   box-sizing: border-box; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; flex: none;
   min-height: calc(var(--space-6) + var(--space-3)); padding: 0 var(--space-3);

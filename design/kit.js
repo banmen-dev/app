@@ -3684,7 +3684,6 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const link = (tab) => `<a class="route-tab" href="${esc(tab.href)}" data-label="${esc(tab.label)}"${tab.current ? ' aria-current="page"' : ""}>${esc(tab.label)}</a>`;
     const more = rest.length === 0 ? "" : `<div class="route-tab-more"><button class="route-tab" type="button" data-label="${t("workspaceTabsMore")} ${rest.length}"${rest.some((tab) => tab.current) ? ' data-current="true"' : ""} aria-expanded="${st.open}" aria-controls="${st.id}"${rest.some((tab) => tab.current) ? ` aria-label="${esc(t("workspaceTabsMoreCurrent").replace("{more}", t("workspaceTabsMore")).replace("{count}", rest.length))}"` : ""} data-route-tabs-more>${t("workspaceTabsMore")} <span class="route-tab-count">${rest.length}</span>${icon("chevron")}</button><ul class="route-tabs-more-list" id="${st.id}" aria-label="${esc(t("workspaceTabsMoreList").replace("{workspace}", t("workspace")))}" ${st.open ? "" : "hidden"}>${rest.map((tab) => `<li><a href="${esc(tab.href)}"${tab.current ? ' aria-current="page"' : ""}><span class="route-tabs-more-name">${esc(tab.label)}</span>${tab.current ? icon("check") : ""}</a></li>`).join("")}</ul></div>`;
     nav.innerHTML = shown.map(link).join("") + more;
-    nav.classList.add("is-fit");
     if (focusButton) nav.querySelector("[data-route-tabs-more]")?.focus();
   }
   function fitRouteTabs(nav) {
