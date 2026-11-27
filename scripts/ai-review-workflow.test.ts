@@ -65,6 +65,7 @@ describe('ai-review の Claude に許す道具', () => {
 
   test('CI では SessionStart の依存導入を無効にし、出力は checkout の外に固定する', () => {
     assert.equal(actionStep().env?.CLAUDE_CODE_REMOTE, 'false');
+    assert.equal(actionStep().env?.JAPANESE_GUARD_DISABLE, '1');
     assert.equal(actionStep().with?.prompt?.split(' OUT_FILE: ')[1], '${{ runner.temp }}/pr-out/summary.md');
     assert.ok(!toolList('--allowedTools').some((tool) => tool.includes('github.workspace')));
   });

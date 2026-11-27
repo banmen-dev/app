@@ -598,7 +598,7 @@ claude mcp add banmen -- node <main の作業コピーの絶対パス>/cli/banme
 | --- | --- |
 | `permissions.allow` | GitHub の MCP の読むだけのツール。決め方は表の下の「allow に入れるもの」 |
 | `permissions.deny` | `.dev.vars`、`.env` とその環境ごとのファイル（`.local`、`.production` など）の読み取り、`.dev.vars` と `.env` の書き込み、wrangler の資格情報のディレクトリの読み取り |
-| `hooks` | `.claude/hooks/japanese-guard.py` を `Stop` と、デスクトップアプリの「次の一手」の箱（`mcp__.*__wrap_up`）の `PreToolUse` に登録する。本文の英字が日本語の3倍を超えたら終了を止め、英語の箇所だけ日本語に書き直させる（1ターンに1回まで）。コードブロック、インラインコード、URL、JSON だけの回答は数えない。`~/.claude` に届かないクラウドのセッションにも効かせるため、リポジトリに置く。`claude -p` で人が読まない出力を作るときは `JAPANESE_GUARD_DISABLE=1` で止める。しきい値は `JAPANESE_GUARD_*` の環境変数で変える。出典は [claude-code-japanese-guard](https://github.com/minorun365/claude-code-japanese-guard)（Apache License 2.0） |
+| `hooks` | `.claude/hooks/japanese-guard.py` を `Stop` と、デスクトップアプリの「次の一手」の箱（`mcp__.*__wrap_up`）の `PreToolUse` に登録する。最終回答と、ツール呼び出しの間の途中報告、「次の一手」の箱の文言の英字が日本語の3倍を超えたら終了を止め、英語の箇所だけ日本語に書き直させる（1ターンに1回まで）。コードブロック、インラインコード、URL、JSON だけの回答は数えない。英字25字未満の短い返事は見逃す。バッククォートの外のパスや識別子、英訳や英文の下書きは数えてしまうので、英語を頼むときはコードブロックに入れる。`~/.claude` に届かないクラウドのセッションにも効かせるため、リポジトリに置く。`python3` が要り、無い環境では黙って効かない。スクリプトが無いときも、セッションを止めずに素通しにする。`claude -p` で人が読まない出力を作るときは `JAPANESE_GUARD_DISABLE=1` で止める（`ai-review` の `claude-code-action` の段は設定済み）。しきい値は `JAPANESE_GUARD_*` の環境変数で変える。出典は [claude-code-japanese-guard](https://github.com/minorun365/claude-code-japanese-guard)（Apache License 2.0）の `hooks/japanese-guard.py`。取り込んだ版は上流のコミット `4434ef4b65f87959a3d0fb0dd8ed584bcfe3cc1c`（blob `266f6ef0f690372b78a8b92da0cec6481cfc415b`）で、出典の1行を足した以外は変えない。更新するときは、上流の blob と照合してから取り込む |
 | `env` | `WRANGLER_SEND_METRICS=false`（テレメトリを送らない） |
 | `attribution`、`includeCoAuthoredBy` | コミットと PR に Claude の署名（`Co-Authored-By` と生成の行）を付けない |
 

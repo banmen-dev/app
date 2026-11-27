@@ -244,6 +244,8 @@ jobs:
         env:
           # SessionStart の依存インストールを CI の head の木では走らせない。
           CLAUDE_CODE_REMOTE: "false"
+          # base の .claude/settings.json の japanese-guard は、人が読まない出力の CI では差し戻しの1ターンを無駄に増やす。
+          JAPANESE_GUARD_DISABLE: "1"
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # Claude の GitHub App のトークンは contents: write を持ち、上の permissions に縛られない。

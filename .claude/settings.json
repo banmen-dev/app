@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/japanese-guard.py\""
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/japanese-guard.py\"; [ -f \"$f\" ] && python3 -I \"$f\"; exit 0"
           }
         ]
       }
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/japanese-guard.py\""
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/japanese-guard.py\"; [ -f \"$f\" ] && python3 -I \"$f\"; exit 0"
           }
         ]
       }
