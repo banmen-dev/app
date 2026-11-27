@@ -598,7 +598,7 @@
                       : t('connectionSyncNow')}</button
                   >
                 {/if}
-                {#if mine && !ownerGone}
+                {#if mine && !scopeBlocked}
                   <button
                     class="btn is-sm is-quiet"
                     type="button"
@@ -830,7 +830,7 @@
               </div>
             </form>
           {/if}
-          {#if canWrite && mine && !ownerGone && mappingId === connection.id}
+          {#if canWrite && mine && !scopeBlocked && mappingId === connection.id}
             <form
               class="form"
               method="post"
