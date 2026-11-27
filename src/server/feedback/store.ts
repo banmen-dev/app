@@ -19,10 +19,6 @@ export type FeedbackImage = {
   file: Blob;
 };
 
-// 種類と縦横を読むために読む先頭のバイト数。ここまでに画像のデータの始まり（PNG の IDAT、JPEG の SOF、WebP の最初のチャンク）が
-// 無ければ断る
-const HEADER_BYTES = 1024 * 1024;
-
 // meta.json の中身。運用者だけが見る（公開の Issue には載せない）
 export type FeedbackMeta = {
   feedbackId: string;
@@ -52,8 +48,8 @@ export async function readFeedbackImages(files: readonly File[], at: Date): Prom
   }
   const images: FeedbackImage[] = [];
   for (const file of files) {
-    const head = new Uint8Array(await file.slice(0, HEADER_BYTES).arrayBuffer());
-    const image = readAvatarImage(head);
+    // 大きさは上で 4MiB 以内と確かめてある。先頭だけでは、大きな1チャンクの WebP や、画像のデータの前に大きなチャンクを持つ PNG を読み切れない
+    const image = readAvatarImage(new Uint8Array(await file.arrayBuffer()));
     if (image === null || image.animated) throw imageError('image_unsupported');
     if (image.width > FEEDBACK_IMAGE_MAX_SIDE || image.height > FEEDBACK_IMAGE_MAX_SIDE) {
       throw imageError('image_too_large');

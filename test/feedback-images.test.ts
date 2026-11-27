@@ -15,6 +15,11 @@ import {
   svgImage,
   webpAnimated,
   webpLossless,
+  riffChunk,
+  textChunk,
+  vp8Frame,
+  vp8lFrame,
+  webpFile,
   webpLossy,
 } from './avatar-images.ts';
 import { fakeFeedbackGithubEnv, fakeFeedbackGithubResponse, FEEDBACK_ISSUES_URL } from './feedback/fake-github-app.ts';
@@ -243,6 +248,22 @@ test('meta.json の文は、Issue に載せるのと同じく正規化したも�
   const { feedback_id } = await res.json<{ feedback_id: string }>();
   const meta = await (await testEnv.ATTACHMENTS.get(`feedback/${feedback_id}/meta.json`))!.json<{ text: string }>();
   expect(meta.text).toBe('ab\nc');
+});
+
+test('1MiB を超える画像（大きな1チャンクの WebP、画像のデータの前に大きなチャンクを持つ PNG）も通る', async () => {
+  const person = await createPerson();
+  const { app } = fakeGithub();
+  const big = new Uint8Array(2 * MIB).fill(0x61);
+  const files = [
+    image(webpFile(riffChunk('VP8 ', concatBytes(vp8Frame(64, 64), big))), 'a.webp', 'image/webp'),
+    image(webpFile(riffChunk('VP8L', concatBytes(vp8lFrame(64, 64), big))), 'b.webp', 'image/webp'),
+    image(pngImage(64, 64, { beforeIdat: [textChunk(1536 * 1024)] })),
+  ];
+
+  const res = await submit(app, person, files);
+
+  expect(res.status).toBe(200);
+  expect(await objectKeys()).toHaveLength(4);
 });
 
 test('4MiB ちょうどの画像を3枚送ると通り、4つのファイルを置く（本文の上限に収まる）', async () => {
