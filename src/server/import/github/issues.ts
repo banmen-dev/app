@@ -74,13 +74,14 @@ function partsOfIssueUrl(url: string): { key: string; url: string; number: strin
 }
 
 // null は、返さない項目（PR、担当が他人）。閉じた Issue は完了（isDone）の印つきで返す（同期の仕組みが、取り込み済みの項目の印を付け、開き直されたら外す）
-function convert(raw: unknown, scope: ScopeCandidate, login: string): ImportItem | null {
+export function convertIssue(raw: unknown, scope: ScopeCandidate, login: string | null): ImportItem | null {
   if (!isRecord(raw)) throw fail('unavailable');
   // 一覧は PR も返す。PR は次のストーリーで扱う
   if (raw.pull_request !== undefined) return null;
   if (raw.state !== 'open' && raw.state !== 'closed') throw fail('unavailable');
   const closed = raw.state === 'closed';
-  if (!isAssignedTo(raw, login)) return null;
+  // login が null のときは担当を見ない（保存済みの項目を ID で取る場合。担当が外れた項目も返す）
+  if (login !== null && !isAssignedTo(raw, login)) return null;
 
   const id = idOf(raw.id);
   const number = idOf(raw.number);
@@ -165,7 +166,7 @@ export async function fetchAssignedIssuesPage(input: FetchPageInput): Promise<Fe
   // 境目の項目が重なるので、1頁の中では sourceId で除く（後に読んだ方を残す）
   const found = new Map<string, ImportItem>();
   for (const raw of body as unknown[]) {
-    const item = convert(raw, scope, login);
+    const item = convertIssue(raw, scope, login);
     if (item !== null) found.set(item.sourceId, item);
   }
   const items = [...found.values()];

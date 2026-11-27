@@ -4,6 +4,7 @@ import { describe, expect, test } from 'vitest';
 import { orgDb } from '../../src/server/db/index.ts';
 import { encryptCredential } from '../../src/server/crypto/credential.ts';
 import { syncConnection } from '../../src/server/import/sync.ts';
+import { discoveryOnly } from './discovery-only.ts';
 import {
   createConnection,
   createConnectionScope,
@@ -139,7 +140,11 @@ describe('完了条件: PR を受信箱へ同期する', () => {
     let more = false;
     for (let turn = 0; turn < 20; turn++) {
       const before = f.calls.length;
-      const result = await syncConnection(env, t.db, t.workspace.id, c.id, { fetcher: f.fetcher, maxPages: 1 });
+      const result = await syncConnection(env, t.db, t.workspace.id, c.id, {
+        fetcher: f.fetcher,
+        maxPages: 1,
+        source: discoveryOnly,
+      });
       expect(result.outcome).toBe('success');
       if (result.outcome !== 'success') throw new Error('同期が成功していない');
       imported += result.imported;
