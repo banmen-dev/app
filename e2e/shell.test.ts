@@ -364,6 +364,11 @@ test.describe('高さの低い指で押す画面の左のメニュー', () => {
   test.beforeEach(async ({ page, context, baseURL }) => {
     await signIn(context, baseURL, 'admin');
     await lengthenNav(page, 9);
+    // 列の長さが前提のテスト。ほかのテストが足したワークスペースで一覧が伸びないよう、所属を開く1つに固定する
+    await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (organization) => ({
+      ...organization,
+      workspaces: organization.workspaces.filter((workspace) => workspace.id === AOBA_WORKSPACE_ID),
+    }));
   });
 
   // overflows: お気に入りを9つ並べた列（lengthenNav）は 1024×680 以下で溢れ、1024×768 では余白まで収まる
