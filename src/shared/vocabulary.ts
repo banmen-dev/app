@@ -637,6 +637,24 @@ export const dictionary = defineDictionary({
   invitationCountFailed: '招待の件数を読み込めませんでした。',
   // 全画面の右下に出す、読み込んだ画面の版（本番は Release のタグ vX.Y.Z）の前に、読み上げにだけ添える名前
   appVersionLabel: '版',
+  // ログインした画面の右下のフィードバックの入口（FeedbackLauncher.svelte）。送った文は公開の Issue に載る
+  feedbackOpen: 'フィードバックを送る',
+  feedbackTitle: 'フィードバックを送る',
+  feedbackField: '気づいたこと、困ったこと、不具合',
+  feedbackHint: '{max}字まで。返事はしません。',
+  feedbackPublic:
+    '送った文は、公開の GitHub（banmen-dev/app）の Issue に載り、だれでも読めます。組織の名前、人の名前、秘密にしたいことは書かないでください。',
+  feedbackPrivacy: '預かるものと消す時期',
+  feedbackSend: '送る',
+  feedbackSending: '送っています',
+  feedbackSent: 'フィードバックを送りました。ありがとうございます。',
+  feedbackEmpty: '送る文を入れてください。',
+  feedbackTooLong: '{max}字以内にしてください。',
+  feedbackInvalid: '送れない文字が含まれています。文を見直してから、もう一度送ってください。',
+  feedbackSecret: 'トークンや秘密鍵のような文字列が含まれています。消してから送ってください。',
+  feedbackRateLimited: '送る回数の上限に達しました。しばらく待ってから、もう一度送ってください。',
+  feedbackUnavailable: '今はフィードバックを受け付けていません。時間をおいて、もう一度送ってください。',
+  feedbackFailed: '送れませんでした。通信を確かめて、もう一度送ってください。',
 
   // メニューの項目と見出し。ワークスペースの外の画面は organization
   pageToday: '今日やること',

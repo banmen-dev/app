@@ -13,6 +13,7 @@
   import GateSheet from '../../lib/components/GateSheet.svelte';
   import InvitationInbox from '../../lib/components/InvitationInbox.svelte';
   import LoadFailed from '../../lib/components/LoadFailed.svelte';
+  import FeedbackLauncher from '../../lib/components/FeedbackLauncher.svelte';
   import OrganizationSwitcher from '../../lib/components/OrganizationSwitcher.svelte';
   import TokenNotice from '../../lib/components/TokenNotice.svelte';
   import WorkspaceSwitcher from '../../lib/components/WorkspaceSwitcher.svelte';
@@ -207,3 +208,5 @@
 {:else}
   <LoadFailed />
 {/if}
+<!-- ログインした人だけがここまで来る（401 は load がログインへ移す）。組織に入れないときの画面にも出す -->
+<FeedbackLauncher />

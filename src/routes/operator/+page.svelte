@@ -12,6 +12,7 @@
   import GateSheet from '../../lib/components/GateSheet.svelte';
   import Icon from '../../lib/components/Icon.svelte';
   import LoadFailed from '../../lib/components/LoadFailed.svelte';
+  import FeedbackLauncher from '../../lib/components/FeedbackLauncher.svelte';
   import LogoutButton from '../../lib/components/LogoutButton.svelte';
   import OrganizationStorageDialog from '../../lib/components/OrganizationStorageDialog.svelte';
   import OrganizationPlanDialog from '../../lib/components/OrganizationPlanDialog.svelte';
@@ -566,3 +567,4 @@
 <OrganizationPlanDialog bind:this={planDialog} onfinish={planFinished} />
 
 <OrganizationStorageDialog bind:this={storageDialog} onfinish={storageFinished} />
+<FeedbackLauncher />
