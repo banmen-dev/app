@@ -8,20 +8,49 @@ describe('採点役に渡す設計文書の抜粋', () => {
     const { headings, text } = extractDesignRules(readFileSync(new URL('../docs/design.md', import.meta.url), 'utf8'));
     assert.deepEqual(headings, [...DESIGN_RULE_HEADINGS]);
     for (const heading of DESIGN_RULE_HEADINGS)
-      assert.ok(text.includes(`\n${heading}\n`) || text.startsWith(`${heading}\n`));
-    assert.ok(!text.includes('## 文字サイズ'));
-    assert.ok(!text.includes('### テーマごとの違い'));
+      assert.ok(
+        text.includes(`\n${heading}\n`) || text.startsWith(`${heading}\n`),
+        `抜粋に見出し「${heading}」がありません`,
+      );
+    assert.ok(
+      !text.includes('## 文字サイズ'),
+      '抜粋に「## 文字サイズ」が入っています（次の節まで混ざったか、本文に同じ文字列が入りました）',
+    );
+    assert.ok(
+      !text.includes('### テーマごとの違い'),
+      '抜粋に「### テーマごとの違い」が入っています（次の節まで混ざったか、本文に同じ文字列が入りました）',
+    );
     // 節ごとの最後の項目まで入っている（途中で切れていない）
-    assert.ok(text.includes('6. **言葉が長くなっても崩れない。**'));
-    assert.ok(text.includes('**演出・面の出現と行の合図:**'));
+    assert.ok(
+      text.includes('6. **言葉が長くなっても崩れない。**'),
+      '「## デザイン原則」の末尾の項目「6. **言葉が長くなっても崩れない。**」が抜粋にありません（docs/design.md の文言が変わったか、節が途中で切れています）',
+    );
+    assert.ok(
+      text.includes('**演出・面の出現と行の合図:**'),
+      '「### どのテーマにも共通すること」の末尾の項目「**演出・面の出現と行の合図:**」が抜粋にありません（docs/design.md の文言が変わったか、節が途中で切れています）',
+    );
     // 見出しから次の見出しまでを別の方法で切り出した全文と一致する
     const source = readFileSync(new URL('../docs/design.md', import.meta.url), 'utf8');
     const slice = (from: string, to: string) =>
       source.slice(source.indexOf(`\n${from}\n`) + 1, source.indexOf(`\n${to}\n`) + 1);
+    const expected = [
+      slice('## デザイン原則', '## 文字サイズ').trimEnd(),
+      slice('### どのテーマにも共通すること', '### テーマごとの違い').trimEnd(),
+    ];
+    const [principles, common] = text.split('\n### どのテーマにも共通すること\n');
     assert.equal(
-      text,
-      `${slice('## デザイン原則', '## 文字サイズ').trimEnd()}\n\n${slice('### どのテーマにも共通すること', '### テーマごとの違い').trimEnd()}\n`,
+      principles.trimEnd(),
+      expected[0],
+      '「## デザイン原則」の抜粋が、見出しから次の見出しまでの全文と食い違います',
     );
+    assert.equal(
+      `### どのテーマにも共通すること\n${common}`.trimEnd(),
+      expected[1],
+      '「### どのテーマにも共通すること」の抜粋が、見出しから次の見出しまでの全文と食い違います',
+    );
+    // 2節は空行1つでつなぎ、末尾は改行で終わる
+    assert.ok(text.includes('\n\n### どのテーマにも共通すること\n'), '2節の間が空行1つでつながっていません');
+    assert.ok(text.endsWith('\n'), '抜粋の末尾が改行で終わっていません');
   });
 
   test('コードフェンスの中の # は見出しにしない', () => {
@@ -63,6 +92,10 @@ describe('採点役に渡す設計文書の抜粋', () => {
 
   test('本文が空だと例外を投げる', () => {
     assert.throws(() => extractDesignSection('## A\n\n## B\nb\n', '## A'), /本文が空/);
+  });
+
+  test('子見出しの行だけが残った節は本文ありと数え、例外にしない', () => {
+    assert.equal(extractDesignSection('## A\n### 子\n## B\nb\n', '## A'), '## A\n### 子\n');
   });
 
   test('見出しは完全一致で、部分一致や深さ違いは拾わない', () => {
