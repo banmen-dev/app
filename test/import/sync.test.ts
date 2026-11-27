@@ -352,36 +352,66 @@ describe('取り込みの同期', () => {
         expect((await connectionOf(db, connection.id)).last_success_at).toBeNull();
       });
 
-      test('同じ項目を別の接続が拾っても、期限は行の持ち主の接続の設定で決まる', async () => {
-        const { organization, owner, workspace, connection, db } = await setup();
-        const other = await createConnection(organization, workspace.id, owner.id, { ignore_source_due: 0 });
+      // 同じワークスペースに、同じ範囲を持つ認証情報つきの2本目の接続を作る
+      async function secondConnection(setupResult: Awaited<ReturnType<typeof setup>>, ignoreSourceDue: number) {
+        const { organization, owner, workspace } = setupResult;
+        const id = uuidv7();
+        const real = await encryptCredential(env, SECRET, id);
+        const other = await createConnection(organization, workspace.id, owner.id, {
+          id,
+          credential_ciphertext: real.ciphertext,
+          credential_key_version: real.keyVersion,
+          credential_last4: SECRET.slice(-4),
+          ignore_source_due: ignoreSourceDue,
+        });
         await createConnectionScope(organization, other.id, { source_id: '501', source_name: 'fake/box' });
-        const run = (id: string, over: Partial<ImportItem>) =>
-          syncConnection(env, db, workspace.id, id, {
-            source: fakeSource({ '501': [{ items: [item(1, over)], next: null }] }).source,
-          });
+        return other;
+      }
+      const runItem = ({ db, workspace }: Awaited<ReturnType<typeof setup>>, id: string, over: Partial<ImportItem>) =>
+        syncConnection(env, db, workspace.id, id, {
+          source: fakeSource({ '501': [{ items: [item(1, over)], next: null }] }).source,
+        });
+      const sourceStatus = async ({ db, workspace }: Awaited<ReturnType<typeof setup>>) =>
+        (
+          await db.first(
+            db.statement((q) =>
+              q.selectFrom('task_sources').select('source_status').where('workspace_id', '=', workspace.id),
+            ),
+          )
+        )?.source_status;
+
+      test('同じ項目を別の接続が拾っても、期限は行の持ち主の接続の設定で決まる', async () => {
+        const ctx = await setup();
+        const { workspace, connection, db } = ctx;
+        const other = await secondConnection(ctx, 0);
         await db.run(
           db.statement((q) =>
             q.updateTable('connections').set({ ignore_source_due: 1 }).where('id', '=', connection.id),
           ),
         );
-        await run(connection.id, { dueOn: '2026-12-10' });
-        // 持ち主でない接続（無視をしていない）が同じ項目を、期限だけ違えて流しても、持ち主の設定で空のまま
-        await run(other.id, { dueOn: '2026-12-11' });
+        await runItem(ctx, connection.id, { dueOn: '2026-12-10' });
+        // 持ち主でない接続（無視をしていない）が同じ項目を、期限と状態を変えて流す。状態は書かれ、期限は持ち主の設定で空のまま
+        await runItem(ctx, other.id, {
+          dueOn: '2026-12-11',
+          status: 'in review',
+          updatedAt: '2026-11-02T00:00:00.000Z',
+        });
+        expect(await sourceStatus(ctx)).toBe('in review');
         expect(await dues(db, workspace.id)).toEqual({ 'src-1': null });
       });
 
-      test('無視をしている接続が、持ち主でない項目の期限を空にしない', async () => {
-        const { organization, owner, workspace, connection, db } = await setup();
-        const other = await createConnection(organization, workspace.id, owner.id, { ignore_source_due: 1 });
-        await createConnectionScope(organization, other.id, { source_id: '501', source_name: 'fake/box' });
-        const run = (id: string, over: Partial<ImportItem>) =>
-          syncConnection(env, db, workspace.id, id, {
-            source: fakeSource({ '501': [{ items: [item(1, over)], next: null }] }).source,
-          });
-        await run(connection.id, { dueOn: '2026-12-10' });
-        await run(other.id, { dueOn: '2026-12-11', updatedAt: '2026-11-02T00:00:00.000Z' });
-        expect(await dues(db, workspace.id)).toEqual({ 'src-1': '2026-12-10' });
+      test('無視をしている接続が同期しても、無視をしていない持ち主の行の期限は取り込み元の値で書かれる', async () => {
+        const ctx = await setup();
+        const { workspace, connection, db } = ctx;
+        const other = await secondConnection(ctx, 1);
+        await runItem(ctx, connection.id, { dueOn: '2026-12-10' });
+        await runItem(ctx, other.id, {
+          dueOn: '2026-12-11',
+          status: 'in review',
+          updatedAt: '2026-11-02T00:00:00.000Z',
+        });
+        expect(await sourceStatus(ctx)).toBe('in review');
+        expect(await dues(db, workspace.id)).toEqual({ 'src-1': '2026-12-11' });
       });
 
       test('外した回の残りの頁は今の設定で期限を書き、読み済みの頁の期限は次の同期が全部を読んで戻る', async () => {
