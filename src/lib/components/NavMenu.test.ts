@@ -245,11 +245,23 @@ describe('ワークスペースの一覧', () => {
 
   test('浮きメニューで所属していない管理者の行も、aria-current を付けず見えない文言で伝える', () => {
     const body = render(NavMenu, {
-      props: { ...props, isAdmin: true, workspace: { id: 'other', name: '架空の管理対象チーム', role: null } },
+      props: {
+        ...props,
+        current: '/aoba/w/other',
+        isAdmin: true,
+        workspace: { id: 'other', name: '架空の管理対象チーム', role: null },
+      },
     }).body;
     const list = body.match(/<ul[\s\S]*?<\/ul>/)![0];
     expect(list).not.toContain('aria-current');
     expect(list).toContain('（開いている）');
+  });
+
+  test('浮きメニューでも、どの機能の項目も当たらない画面（タスクの詳細など）では、行が現在地を伝える', () => {
+    const body = render(NavMenu, { props: { ...props, current: '/aoba/w/one/tasks/xxx' } }).body;
+    const list = body.match(/<ul[\s\S]*?<\/ul>/)![0];
+    expect(list).toMatch(/href="\/aoba\/w\/one"[^>]*aria-current="page"/);
+    expect(list).not.toContain('（開いている）');
   });
 
   test('対象が無い人（所属が無い）には見出しも一覧も出さない', () => {
