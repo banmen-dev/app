@@ -1,4 +1,4 @@
-// sg の入口（cli/sg.ts）の設定ファイルの場所を、子プロセスで確かめる。XDG Base Directory の決まり:
+// banmen の入口（cli/banmen.ts）の設定ファイルの場所を、子プロセスで確かめる。XDG Base Directory の決まり:
 // XDG_CONFIG_HOME は絶対パスのときだけ使い、空や相対パスは未設定と同じく $HOME/.config を使う
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-const ENTRY = fileURLToPath(new URL('../sg.ts', import.meta.url));
+const ENTRY = fileURLToPath(new URL('../banmen.ts', import.meta.url));
 
 function sg(argv: string[], env: Record<string, string>, cwd: string): Promise<{ code: number; stderr: string }> {
   return new Promise((resolve) => {

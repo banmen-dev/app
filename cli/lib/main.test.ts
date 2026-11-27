@@ -1,4 +1,4 @@
-// sg の本体（main）を、偽の fetch と操作の一覧の見本で確かめる。コマンド、優先順位、型の変換、出力、終了コードは Issue #582 の前提
+// banmen の本体（main）を、偽の fetch と操作の一覧の見本で確かめる。コマンド、優先順位、型の変換、出力、終了コードは Issue #582 の前提
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { main, type CliDeps, type Config, type ConfigStore } from './main.ts';
@@ -160,7 +160,7 @@ function usageError(result: { code: number; stderr: string }) {
 
 const workspaceConfig = () => memoryStore(oneProfile({ org: 'aoba', workspace: 'ws-config' }));
 
-describe('sg call の引数の型の変換', () => {
+describe('banmen call の引数の型の変換', () => {
   test('string、number、integer、boolean、null を許す項目の null を、入力の JSON Schema の型で変える', async () => {
     const { code, server } = await sg(
       [
@@ -270,7 +270,7 @@ describe('sg call の引数の型の変換', () => {
   });
 });
 
-describe('sg call の URL と認証', () => {
+describe('banmen call の URL と認証', () => {
   test('組織の外の操作は /api/<name> に POST し、Authorization: Bearer を付け、workspace_id を補わない', async () => {
     const { code, server } = await sg(['call', 'who-am-i'], { config: workspaceConfig() });
     assert.equal(code, 0);
@@ -314,28 +314,31 @@ describe('sg call の URL と認証', () => {
 describe('組織とワークスペースの補い', () => {
   const orgOf = (url: string) => new URL(url).pathname.split('/')[2];
 
-  test('組織は --org > SG_ORG > 設定', async () => {
+  test('組織は --org > BANMEN_ORG > 設定', async () => {
     const config = () => memoryStore(oneProfile({ org: 'from-config' }));
     const viaConfig = await sg(['call', 'task-get', '--task_id', 't'], { config: config() });
     assert.equal(orgOf(viaConfig.server.calls()[0]!.url), 'from-config');
-    const viaEnv = await sg(['call', 'task-get', '--task_id', 't'], { config: config(), env: { SG_ORG: 'from-env' } });
+    const viaEnv = await sg(['call', 'task-get', '--task_id', 't'], {
+      config: config(),
+      env: { BANMEN_ORG: 'from-env' },
+    });
     assert.equal(orgOf(viaEnv.server.calls()[0]!.url), 'from-env');
     const viaFlag = await sg(['call', 'task-get', '--task_id', 't', '--org', 'from-flag'], {
       config: config(),
-      env: { SG_ORG: 'from-env' },
+      env: { BANMEN_ORG: 'from-env' },
     });
     assert.equal(orgOf(viaFlag.server.calls()[0]!.url), 'from-flag');
   });
 
-  test('workspace_id は 入力 > --workspace > SG_WORKSPACE > 設定', async () => {
+  test('workspace_id は 入力 > --workspace > BANMEN_WORKSPACE > 設定', async () => {
     const workspaceOf = async (args: string[], env: Record<string, string> = {}) => {
       const { code, server } = await sg(['call', 'workspace-peek', ...args], { config: workspaceConfig(), env });
       assert.equal(code, 0);
       return (server.calls()[0]!.body as { workspace_id: string }).workspace_id;
     };
     assert.equal(await workspaceOf([]), 'ws-config');
-    assert.equal(await workspaceOf([], { SG_WORKSPACE: 'ws-env' }), 'ws-env');
-    assert.equal(await workspaceOf(['--workspace', 'ws-flag'], { SG_WORKSPACE: 'ws-env' }), 'ws-flag');
+    assert.equal(await workspaceOf([], { BANMEN_WORKSPACE: 'ws-env' }), 'ws-env');
+    assert.equal(await workspaceOf(['--workspace', 'ws-flag'], { BANMEN_WORKSPACE: 'ws-env' }), 'ws-flag');
     assert.equal(await workspaceOf(['--workspace_id', 'ws-input', '--workspace', 'ws-flag']), 'ws-input');
     assert.equal(await workspaceOf(['{"workspace_id":"ws-json"}', '--workspace', 'ws-flag']), 'ws-json');
   });
@@ -361,10 +364,10 @@ describe('設定が無い、つながらない、API のエラー', () => {
     );
   });
 
-  test('環境変数の SG_URL と SG_TOKEN だけでも呼べる', async () => {
+  test('環境変数の BANMEN_URL と BANMEN_TOKEN だけでも呼べる', async () => {
     const { code, server } = await sg(['call', 'who-am-i'], {
       config: memoryStore(),
-      env: { SG_URL: URL_SUB, SG_TOKEN: TOKEN_ENV },
+      env: { BANMEN_URL: URL_SUB, BANMEN_TOKEN: TOKEN_ENV },
     });
     assert.equal(code, 0);
     assert.equal(server.calls()[0]!.url, `${URL_SUB}/api/who-am-i`);
@@ -377,7 +380,7 @@ describe('設定が無い、つながらない、API のエラー', () => {
     assert.equal(JSON.parse(stderr).error.code, 'connection_failed');
   });
 
-  test('sg ops もつながらなければ 3', async () => {
+  test('banmen ops もつながらなければ 3', async () => {
     const { code } = await sg(['ops'], { server: fakeServer({ throws: true }) });
     assert.equal(code, 3);
   });
@@ -413,12 +416,12 @@ describe('名前付きの接続先', () => {
     assert.deepEqual(await target([]), { url: `${URL_MAIN}/api/who-am-i`, authorization: `Bearer ${TOKEN_MAIN}` });
   });
 
-  test('SG_PROFILE が default_profile に勝ち、--profile が SG_PROFILE に勝つ', async () => {
-    assert.deepEqual(await target([], { SG_PROFILE: 'sub' }), {
+  test('BANMEN_PROFILE が default_profile に勝ち、--profile が BANMEN_PROFILE に勝つ', async () => {
+    assert.deepEqual(await target([], { BANMEN_PROFILE: 'sub' }), {
       url: `${URL_SUB}/api/who-am-i`,
       authorization: `Bearer ${TOKEN_SUB}`,
     });
-    assert.deepEqual(await target(['--profile', 'main'], { SG_PROFILE: 'sub' }), {
+    assert.deepEqual(await target(['--profile', 'main'], { BANMEN_PROFILE: 'sub' }), {
       url: `${URL_MAIN}/api/who-am-i`,
       authorization: `Bearer ${TOKEN_MAIN}`,
     });
@@ -428,11 +431,14 @@ describe('名前付きの接続先', () => {
     });
   });
 
-  test('SG_URL と SG_TOKEN が接続先の設定に勝つ', async () => {
-    assert.deepEqual(await target(['--profile', 'sub'], { SG_URL: 'https://env.guild.example', SG_TOKEN: TOKEN_ENV }), {
-      url: 'https://env.guild.example/api/who-am-i',
-      authorization: `Bearer ${TOKEN_ENV}`,
-    });
+  test('BANMEN_URL と BANMEN_TOKEN が接続先の設定に勝つ', async () => {
+    assert.deepEqual(
+      await target(['--profile', 'sub'], { BANMEN_URL: 'https://env.guild.example', BANMEN_TOKEN: TOKEN_ENV }),
+      {
+        url: 'https://env.guild.example/api/who-am-i',
+        authorization: `Bearer ${TOKEN_ENV}`,
+      },
+    );
   });
 
   test('無い接続先を --profile で選ぶと 2', async () => {
@@ -440,7 +446,7 @@ describe('名前付きの接続先', () => {
   });
 });
 
-describe('sg config', () => {
+describe('banmen config', () => {
   test('config set url と、標準入力から読んだ config set token で、その接続先から呼べる', async () => {
     const config = memoryStore();
     assert.equal((await sg(['config', 'set', 'url', URL_SUB], { config })).code, 0);
@@ -498,14 +504,14 @@ describe('sg config', () => {
   });
 });
 
-describe('sg ops', () => {
+describe('banmen ops', () => {
   test('一覧に操作の名前が並び、終了コード 0', async () => {
     const { code, stdout } = await sg(['ops']);
     assert.equal(code, 0);
     for (const operation of catalog.operations) assert.ok(stdout.includes(operation.name), operation.name);
   });
 
-  test('sg ops <操作名> は説明と入力の形を見せる', async () => {
+  test('banmen ops <操作名> は説明と入力の形を見せる', async () => {
     const { code, stdout } = await sg(['ops', 'task-edit']);
     assert.equal(code, 0);
     assert.ok(stdout.includes('タスクを書き換える'), stdout);
@@ -518,15 +524,15 @@ describe('sg ops', () => {
 });
 
 describe('コマンドの名前', () => {
-  test('無いコマンドは使い方の誤りで、一覧に mcp を含める（mcp は入口の cli/sg.ts が処理する）', async () => {
+  test('無いコマンドは使い方の誤りで、一覧に mcp を含める（mcp は入口の cli/banmen.ts が処理する）', async () => {
     const result = await sg(['nope']);
     usageError(result);
     assert.match(JSON.parse(result.stderr).error.message, /ops、call、config、mcp/);
   });
 });
 
-describe('--allow-write は sg mcp だけが受ける', () => {
-  test('sg call と sg ops に付けると使い方の誤りのまま', async () => {
+describe('--allow-write は banmen mcp だけが受ける', () => {
+  test('banmen call と banmen ops に付けると使い方の誤りのまま', async () => {
     usageError(await sg(['call', 'who-am-i', '--allow-write']));
     usageError(await sg(['call', 'who-am-i', '--allow-write', 'true']));
     usageError(await sg(['ops', '--allow-write']));

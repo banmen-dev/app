@@ -1,4 +1,4 @@
-// sg mcp の道具の一覧と呼び出しの本体。node の組み込みと MCP の SDK は import しない（Workers のテストから本物の app の fetch を渡して呼ぶため）。
+// banmen mcp の道具の一覧と呼び出しの本体。node の組み込みと MCP の SDK は import しない（Workers のテストから本物の app の fetch を渡して呼ぶため）。
 // SDK との結びは mcp-server.ts。src/ は import しない（道具は API の操作の一覧から作る）
 import {
   callOperation,
@@ -94,7 +94,7 @@ function flatten(
 function toolOf(operation: CatalogOperation, connection: Connection): McpTool {
   const { schema, note } = flatten(
     { ...operation.input_schema },
-    // workspace_id は接続先が補えるので、必須から外す。補うのは sg call と同じく scope が workspace の操作だけ
+    // workspace_id は接続先が補えるので、必須から外す。補うのは banmen call と同じく scope が workspace の操作だけ
     Boolean(connection.workspace) && operation.scope === 'workspace',
   );
   const description = typeof operation.description === 'string' ? operation.description : '';
@@ -106,7 +106,7 @@ function toolOf(operation: CatalogOperation, connection: Connection): McpTool {
   };
 }
 
-// sg mcp の --allow-write。既定（false）では、読み取り（mode: 'read'）の操作だけを道具にする。
+// banmen mcp の --allow-write。既定（false）では、読み取り（mode: 'read'）の操作だけを道具にする。
 // 付けても、読み取りのトークンでは書き込みの操作が一覧に来ない（サーバーがトークンで絞る）ので、書き込みの道具は出ない
 export type McpOptions = { allowWrite?: boolean };
 // 公開リポジトリに文を送るフィードバックは、人が画面か CLI から明示して送る。
@@ -136,7 +136,7 @@ export async function callTool(
       .find((item) => item.name === name);
     if (!operation) throw usage(UNLISTED_OPERATION);
     const input = { ...args };
-    // 接続先がワークスペースを持つとき、null と空文字の workspace_id は省いたものとして補う（AI が空欄を埋めて渡すため。sg call は変えない）
+    // 接続先がワークスペースを持つとき、null と空文字の workspace_id は省いたものとして補う（AI が空欄を埋めて渡すため。banmen call は変えない）
     if (
       connection.workspace &&
       operation.scope === 'workspace' &&

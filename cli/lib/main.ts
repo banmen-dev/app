@@ -1,4 +1,4 @@
-// sg コマンドの本体。終了コードを返す。node の組み込みは import しない（Workers のテストから本物の app の fetch を渡して呼ぶため）。
+// banmen コマンドの本体。終了コードを返す。node の組み込みは import しない（Workers のテストから本物の app の fetch を渡して呼ぶため）。
 // src/ は import しない（操作の一覧は API から取る）
 export type Profile = { url?: string; token?: string; org?: string; workspace?: string };
 
@@ -20,6 +20,7 @@ export type CliDeps = {
 
 // 終了コード: API のエラーと応答の誤りは 1、使い方の誤りは 2、fetch が投げたときは 3
 export async function main(argv: string[], deps: CliDeps): Promise<number> {
+  noticeLegacyNames(deps);
   try {
     const command = argv[0];
     if (command === 'config') return await configCommand(argv.slice(1), deps);
@@ -33,7 +34,7 @@ export async function main(argv: string[], deps: CliDeps): Promise<number> {
   }
 }
 
-// 失敗の出力（標準エラーの JSON、MCP の isError の text）と終了コード。sg mcp も同じ形を使う
+// 失敗の出力（標準エラーの JSON、MCP の isError の text）と終了コード。banmen mcp も同じ形を使う
 export function reportOf(error: unknown): { text: string; exitCode: number } {
   if (error instanceof ApiCliError) return { text: error.output, exitCode: 1 };
   if (error instanceof CliError) {
@@ -92,8 +93,55 @@ const HEADER_SAFE_TOKEN = /^[\x21-\x7e]+$/;
 // 0x10、0b11、Infinity、先頭の + や末尾の . を数にしない
 const NUMBER_PATTERN = /^-?\d+(\.\d+)?([eE][-+]?\d+)?$/;
 
+// 環境変数は BANMEN_* を正とし、名前を改める前の SG_* も次のリリースまで読む（#1429。消すのは別の Issue）
+type Env = CliDeps['env'];
+const LEGACY_ENV_PREFIX = 'SG_';
+const ENV_PREFIX = 'BANMEN_';
+const ENV_SETTINGS = ['URL', 'TOKEN', 'ORG', 'WORKSPACE', 'PROFILE'] as const;
 // 空の環境変数は未設定として扱う
-const envOf = (deps: CliDeps, key: string): string | undefined => deps.env[key] || undefined;
+const valueOfEnv = (env: Env, key: string): string | undefined => env[key] || undefined;
+const envOf = (deps: CliDeps, key: string): string | undefined => valueOfEnv(deps.env, key);
+// URL とトークンは系統ごとの組で選ぶ（組を混ぜると、別のサーバーへトークンを送りかねない）。BANMEN_* の組に片方でもあれば BANMEN_* を使う
+const usesNewPair = (env: Env) =>
+  valueOfEnv(env, `${ENV_PREFIX}URL`) !== undefined || valueOfEnv(env, `${ENV_PREFIX}TOKEN`) !== undefined;
+// ORG、WORKSPACE、PROFILE は宛先を変えないので、項目ごとに BANMEN_* が勝つ
+const settingEnvOf = (deps: CliDeps, setting: 'ORG' | 'WORKSPACE' | 'PROFILE'): string | undefined =>
+  envOf(deps, ENV_PREFIX + setting) ?? envOf(deps, LEGACY_ENV_PREFIX + setting);
+
+function envPairOf(deps: CliDeps): { url?: string; token?: string } {
+  const prefix = usesNewPair(deps.env) ? ENV_PREFIX : LEGACY_ENV_PREFIX;
+  const url = envOf(deps, `${prefix}URL`);
+  const token = envOf(deps, `${prefix}TOKEN`);
+  // 片方だけなら、もう一方の系統で補わずに止める
+  if ((url === undefined) !== (token === undefined)) throw usage(`${prefix}URL と ${prefix}TOKEN は両方を設定する`);
+  return { url, token };
+}
+
+// 旧名で動いたときの注意を1行で返す。値は出さず名前だけを出す
+export function legacyNoticeOf(env: Env): string | undefined {
+  const renamed: string[] = [];
+  const ignored: string[] = [];
+  // pnpm はスクリプトの名前を npm_lifecycle_event で渡す
+  if (env.npm_lifecycle_event === 'sg') renamed.push('pnpm sg → pnpm banmen');
+  for (const setting of ENV_SETTINGS) {
+    const legacy = LEGACY_ENV_PREFIX + setting;
+    if (valueOfEnv(env, legacy) === undefined) continue;
+    const overridden =
+      setting === 'URL' || setting === 'TOKEN' ? usesNewPair(env) : valueOfEnv(env, ENV_PREFIX + setting) !== undefined;
+    if (overridden) ignored.push(legacy);
+    else renamed.push(`${legacy} → ${ENV_PREFIX}${setting}`);
+  }
+  const parts: string[] = [];
+  if (renamed.length > 0) parts.push(`旧名を使っている（${renamed.join('、')}）。旧名は次のリリースの後に使えなくなる`);
+  if (ignored.length > 0) parts.push(`BANMEN_* があるので ${ignored.join('、')} は使わない`);
+  return parts.length === 0 ? undefined : `banmen: 注意: ${parts.join('。')}`;
+}
+
+// 注意は標準エラーにだけ出す。標準出力（MCP のプロトコル）と終了コードは変えない
+export function noticeLegacyNames(deps: CliDeps): void {
+  const notice = legacyNoticeOf(deps.env);
+  if (notice !== undefined) deps.stderr(notice + '\n');
+}
 
 // 設定ファイルが読めない（壊れた JSON など）のはサーバーへ送る前の誤り。元の message には設定の中身（トークン）が入りうるので使わない
 async function readConfig(deps: CliDeps): Promise<Config | undefined> {
@@ -172,7 +220,7 @@ async function configCommand(args: string[], deps: CliDeps): Promise<number> {
       if (positional.length !== 3 || positional[2] === undefined) throw usage('config set の値が無い');
     }
     const profileName = checkedProfileName(
-      options.profile ?? envOf(deps, 'SG_PROFILE') ?? config.default_profile ?? 'main',
+      options.profile ?? settingEnvOf(deps, 'PROFILE') ?? config.default_profile ?? 'main',
     );
     let value = positional[2]!;
     if (key === 'url') value = checkedUrl(value);
@@ -273,13 +321,11 @@ async function opsCommand(args: string[], deps: CliDeps): Promise<number> {
 export type Connection = { url: string; token: string; org?: string; workspace?: string };
 export async function connectionOf(options: Options, deps: CliDeps): Promise<Connection> {
   const config = (await readConfig(deps)) ?? { profiles: {} };
-  const name = checkedProfileName(options.profile ?? envOf(deps, 'SG_PROFILE') ?? config.default_profile ?? 'main');
+  const name = checkedProfileName(options.profile ?? settingEnvOf(deps, 'PROFILE') ?? config.default_profile ?? 'main');
   const profile = hasProfile(config, name) ? config.profiles[name] : undefined;
   if (options.profile !== undefined && profile === undefined) throw usage('接続先が無い');
   // URL とトークンは同じ出どころから取る（片方だけ環境変数だと、別のサーバーへ設定のトークンを送りかねない）
-  const envUrl = envOf(deps, 'SG_URL');
-  const envToken = envOf(deps, 'SG_TOKEN');
-  if ((envUrl === undefined) !== (envToken === undefined)) throw usage('SG_URL と SG_TOKEN は両方を設定する');
+  const { url: envUrl, token: envToken } = envPairOf(deps);
   const url = envUrl ?? profile?.url;
   const token = envToken ?? profile?.token;
   if (!url || !token) throw usage('url と token の設定が必要');
@@ -288,8 +334,8 @@ export async function connectionOf(options: Options, deps: CliDeps): Promise<Con
   return {
     url: checkedUrl(url),
     token,
-    org: options.org ?? envOf(deps, 'SG_ORG') ?? profile?.org,
-    workspace: options.workspace ?? envOf(deps, 'SG_WORKSPACE') ?? profile?.workspace,
+    org: options.org ?? settingEnvOf(deps, 'ORG') ?? profile?.org,
+    workspace: options.workspace ?? settingEnvOf(deps, 'WORKSPACE') ?? profile?.workspace,
   };
 }
 
@@ -335,7 +381,7 @@ async function callCommand(args: string[], deps: CliDeps): Promise<number> {
   return 0;
 }
 
-// 一覧にある操作を呼ぶ。組織の slug とワークスペースの ID を補い、API のエラーは ApiCliError で投げる。sg call と sg mcp が共通に使う。input は書き換える
+// 一覧にある操作を呼ぶ。組織の slug とワークスペースの ID を補い、API のエラーは ApiCliError で投げる。banmen call と banmen mcp が共通に使う。input は書き換える
 export async function callOperation(
   deps: CliDeps,
   connection: Connection,
@@ -356,8 +402,8 @@ export async function callOperation(
   return await jsonOf(response);
 }
 
-// sg mcp の引数（--profile、--org、--workspace、--allow-write）から接続先を決める。接続先は sg call と同じ順で補う。
-// --allow-write は値を取らないフラグで、sg mcp だけが受ける（sg call と sg ops は optionsOf に渡るので、付けると使い方の誤りのまま）
+// banmen mcp の引数（--profile、--org、--workspace、--allow-write）から接続先を決める。接続先は banmen call と同じ順で補う。
+// --allow-write は値を取らないフラグで、banmen mcp だけが受ける（banmen call と banmen ops は optionsOf に渡るので、付けると使い方の誤りのまま）
 export async function connectionFromArgs(
   args: string[],
   deps: CliDeps,

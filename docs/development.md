@@ -57,7 +57,7 @@
   - 同意の門: 今の版の規約に同意していない人は、同意するまで API を呼べない。検査は `execute()` の認証の直後に1回だけで、組織に入る前、API トークンの範囲の検査より前に行う。存在しない slug も入れない組織も、組織の確かめより先に 403 の `terms_required` になり、組織があるかを漏らさない（Origin が違う呼び出しは認証の前に 403 の `forbidden`）。運用者の操作も同じで、運用者も同意するまで運用の操作を呼べない
     - 判定は `src/server/operations/consent.ts` の `latestConsentOf`（アカウントの最新の `account_consents` の行）と `isCurrentConsent` を使い、行の `terms_version` と `privacy_version` が、どちらも今の版（`src/lib/legal/versions.ts` の `TERMS_VERSION` と `PRIVACY_VERSION`）と一致するときだけ同意済み。`consent-status` の `current` も同じ関数で決める。行が無い、片方でも古い、最新の行が古いときは未同意（より前の行が今の版でも未同意）
     - 検査を飛ばすのは、定義に `skipsConsent: true` を付けた操作だけ。同意するための操作と、同意を断った人が抜けるための操作に限り、今は `me`、`logout`、`consent-status`、`consent-record` の4つ（`src/shared/operations/session/`）。`permission: 'login'` の操作にだけ付けられ、ほかの権限や `true` 以外の値は、登録のときの検査（`assertOperationDefinition`）で弾く。ほかの `login` の操作（`token-list`、`operation-list` など）は付けず、同意するまで 403
-    - API トークンの呼び出しも同じ検査を通る。本人が同意するまで、そのトークンはどの操作（`skipsConsent` の操作を除く）も 403 の `terms_required`。CLI（`sg`）と MCP のトークンも同じで、本人が画面で同意すると通る。トークンは `consent-record` を呼べない（`cookieOnly`）ので、同意は本人がブラウザでする
+    - API トークンの呼び出しも同じ検査を通る。本人が同意するまで、そのトークンはどの操作（`skipsConsent` の操作を除く）も 403 の `terms_required`。CLI（`banmen`）と MCP のトークンも同じで、本人が画面で同意すると通る。トークンは `consent-record` を呼べない（`cookieOnly`）ので、同意は本人がブラウザでする
     - 画面は、組織の画面（`src/routes/[slug]/+layout.ts`）、`/`（`src/routes/+page.ts`）、運用の画面（`src/routes/operator/+page.ts`）の load が、401 の確かめより前に 403 の `terms_required`（`isTermsRequired`）を見る。見つけたら `/consent?return_to=<今のパスとクエリ>`（`consentUrl`）へ 307 で移し、同意の後は `return_to` の画面へ戻る。運用の画面の「403 なら `/` へ戻す」より `terms_required` が先。ログインで新しく作られたアカウント（同意の行が無い人）も、ログインの直後にこの門で同意の画面へ移る
   - ログインできる条件: 組織の外の操作は、入れる組織を確かめない。セッションか API トークンが読めれば（アカウントがあれば）通し、入れる組織を失った人（すべてのワークスペースから外れた人）、停止した組織にしか入れない人、運用者の一覧から外れた人も 401 にしない（アカウント全体の認証の扱いであり、組織への入場では下記の再ログイン要求がある）。セッションも Cookie も API トークンも消さない
     - 組織の中の操作は、組織に入れなかったときは 404 の `not_found`、停止した組織で停止していなければ入れた人には 403 の `organization_suspended`（「API のエラーとログ」）。どちらもセッションを消さず、ほかに入れる組織があるかも確かめない
@@ -517,52 +517,55 @@ Wrangler の assets で本番ビルドを SPA として配り、ループバッ�
 
 `pnpm install` の後（`prepare`）と、`pnpm dev`、`pnpm test`、`pnpm check` の前に、`scripts/prepare.ts` が `svelte-kit sync` と `wrangler types` を走らせ、空の `build/` を作る。`tsconfig.json` は `svelte-kit sync` が作る `$app/tsconfig` を継ぎ、Worker の型は `wrangler types` が作る `worker-configuration.d.ts`（git に入れない）を読み、wrangler の設定の `assets` は `build/` を指す。どれも、`pnpm build` より先に型の検査とテストを通すための準備。
 
-## CLI（sg）
+## CLI（banmen）
 
-`sg`（`cli/`）は API トークンで操作を呼ぶコマンドラインのクライアント。操作の定義を取り込まず、呼ぶたびに `operation-list` で一覧を取り、その JSON Schema から入力を作る。
+`banmen`（`cli/`）は API トークンで操作を呼ぶコマンドラインのクライアント。操作の定義を取り込まず、呼ぶたびに `operation-list` で一覧を取り、その JSON Schema から入力を作る。
 
-- 設定: `sg config set url <URL>` と `sg config set token`（トークンは標準入力から読む。引数では受けない）で接続先を設定する。`config set org|workspace <値>` で既定の組織とワークスペース、`config use <名前>` で既定の接続先、`config show` でトークンを伏せた設定を扱う。`config` も `--profile <名前>` で接続先を選ぶ。保存先は `$XDG_CONFIG_HOME/banmen/config.json`（未設定、空、相対パスなら `~/.config/banmen/config.json`）で、0600 で書く。そこに無いときは、名前を改める前の置き場所（`scrum-guild/config.json`）を読み、次に書いたときに `banmen` へ書く。前の置き場所のファイルは消さないので、トークンが残る。移った後は前のファイルを消し、要らなくなったトークンは失効させる。接続先の名前に `__proto__`、`constructor`、`prototype` は使えない
-- 環境変数: `SG_URL`、`SG_TOKEN`、`SG_ORG`、`SG_WORKSPACE`、`SG_PROFILE` が設定に勝ち、`--profile` が `SG_PROFILE` に勝つ。空の値は未設定と同じ。`SG_URL` と `SG_TOKEN` は両方を設定する（片方だけなら使い方の誤り）。別の出どころの URL とトークンを組み合わせて、トークンを意図しない宛先へ送らないため
+- 設定: `banmen config set url <URL>` と `banmen config set token`（トークンは標準入力から読む。引数では受けない）で接続先を設定する。`config set org|workspace <値>` で既定の組織とワークスペース、`config use <名前>` で既定の接続先、`config show` でトークンを伏せた設定を扱う。`config` も `--profile <名前>` で接続先を選ぶ。保存先は `$XDG_CONFIG_HOME/banmen/config.json`（未設定、空、相対パスなら `~/.config/banmen/config.json`）で、0600 で書く。そこに無いときは、名前を改める前の置き場所（`scrum-guild/config.json`）を読み、次に書いたときに `banmen` へ書く。前の置き場所のファイルは消さないので、トークンが残る。移った後は前のファイルを消し、要らなくなったトークンは失効させる。接続先の名前に `__proto__`、`constructor`、`prototype` は使えない
+- 環境変数: `BANMEN_URL`、`BANMEN_TOKEN`、`BANMEN_ORG`、`BANMEN_WORKSPACE`、`BANMEN_PROFILE` が設定に勝ち、`--profile` が `BANMEN_PROFILE` に勝つ。空の値は未設定と同じ。`BANMEN_URL` と `BANMEN_TOKEN` は両方を設定する（片方だけなら使い方の誤り）。別の出どころの URL とトークンを組み合わせて、トークンを意図しない宛先へ送らないため
+- 旧名: 名前を改める前の `pnpm sg` と `SG_URL`、`SG_TOKEN`、`SG_ORG`、`SG_WORKSPACE`、`SG_PROFILE` も、次のリリースまで読む（#1429。その後の別の Issue で消す）。旧名で動くと、標準エラーに `banmen: 注意:` で始まる1行を出す（値は出さず名前だけ。標準出力と終了コードは変えない）。標準エラーの誤りの JSON を読むときは、最後の行を読む。URL とトークンは系統ごとの組で選ぶ。`BANMEN_URL` か `BANMEN_TOKEN` があれば `BANMEN_*` の組を使い、`SG_URL` と `SG_TOKEN` は使わずに注意に名前を出す。`BANMEN_*` の組の片方が無いときは `SG_*` で補わず、使い方の誤りにする（`BANMEN_URL` と `SG_TOKEN` の組など）。`ORG`、`WORKSPACE`、`PROFILE` は項目ごとに `BANMEN_*` が勝つ
 - URL: `https:` か、ループバック（`localhost`、`127.0.0.1`、`[::1]`）への `http:` だけ。認証情報、問い合わせ（`?`）、断片（`#`）を含む URL は使えない（パスは含めてよく、その下に `/api` を足す）。リダイレクトは追わず、3xx は API のエラーにする。30 秒で応答が無ければ打ち切る
-- 同意: トークンの持ち主が今の版の規約に同意するまで、`sg ops` を含むすべての呼び出し（`me` と `consent-status` を除く）は 403 の `terms_required` になる。同意は `cookieOnly` なので、持ち主が画面（`/consent`）でする（同意の門は「操作の定義」）。
-- `sg ops` は一覧を、`sg ops <操作名>` は説明と、入力と出力の JSON Schema を出す。`sg call <操作名> [JSON] [--<項目> <値>]...` は入力を作って呼び、`--org` と `--workspace` で既定を上書きする。`workspace_id` は入力に無いときだけ補う。一覧はトークンで絞るので、読み取りのトークンで書き込みの操作を呼ぶと、無い操作と同じく使い方の誤りになる
+- 同意: トークンの持ち主が今の版の規約に同意するまで、`banmen ops` を含むすべての呼び出し（`me` と `consent-status` を除く）は 403 の `terms_required` になる。同意は `cookieOnly` なので、持ち主が画面（`/consent`）でする（同意の門は「操作の定義」）。
+- `banmen ops` は一覧を、`banmen ops <操作名>` は説明と、入力と出力の JSON Schema を出す。`banmen call <操作名> [JSON] [--<項目> <値>]...` は入力を作って呼び、`--org` と `--workspace` で既定を上書きする。`workspace_id` は入力に無いときだけ補う。一覧はトークンで絞るので、読み取りのトークンで書き込みの操作を呼ぶと、無い操作と同じく使い方の誤りになる
 - 引数の型: 項目の Schema の `type`、`const`、`enum`、`anyOf`、`oneOf` を辿って決める（null を許す項目は `null` で null、数の `const` だけの分岐は数）。入力が `oneOf` の操作は、どれかの分岐にある項目を受け付ける。数は10進の書き方だけを受け、整数は安全な範囲に限る。boolean や数に変えられない値は、string を許す項目なら文字列のまま送り、許さなければ使い方の誤り。`allOf` と `$ref` は辿らないので、その項目は JSON で渡す。同じ `--<項目>` を2回渡すのも使い方の誤り
 - 出力と終了コード: 成功は標準出力に JSON で 0。API のエラーは標準エラーに `{"status", "error"}` で 1（応答の形が不正なときの `invalid_response` も 1）。使い方の誤りは `{"error": {"code": "usage", …}}` で 2。サーバーへ送る前の誤り（壊れた JSON、無い操作、余分な引数、設定が無い、設定ファイルを読めないか書けないか形が違う、ヘッダーに置けない文字を含むトークン、使えない URL）が当たる。つながらないときは `connection_failed` で 3。どの出力にもトークンと設定の中身を出さない
 
 手元のサーバーへ向けるときは、`pnpm db:seed` と `pnpm dev` の後に次を打つ。seed のトークンは `seed/api-tokens.ts` にある。URL は `pnpm dev` が出す画面の URL を使う（ワークツリーではポートがずれる。下の「ポート」）。
 
 ```bash
-printf '%s\n' 'sgp_dev-seed-admin-write00000000000000000000000' | pnpm -s sg config set token
-pnpm -s sg config set url http://localhost:5173
-pnpm -s sg config set org aoba
-pnpm -s sg ops
+printf '%s\n' 'sgp_dev-seed-admin-write00000000000000000000000' | pnpm -s banmen config set token
+pnpm -s banmen config set url http://localhost:5173
+pnpm -s banmen config set org aoba
+pnpm -s banmen ops
 ```
 
-`pnpm -s` を付けると、pnpm の見出しと失敗時の `ELIFECYCLE` が出ない。出力を `jq` に渡すときは `pnpm -s sg` か `node cli/sg.ts` で呼ぶ。
+`pnpm -s` を付けると、pnpm の見出しと失敗時の `ELIFECYCLE` が出ない。出力を `jq` に渡すときは `pnpm -s banmen` か `node cli/banmen.ts` で呼ぶ。
 
-### MCP（sg mcp）
+### MCP（banmen mcp）
 
-`sg mcp` は stdio の MCP サーバーで、手元の AI（Claude Code など）に操作を道具として見せる。`--profile`、`--org`、`--workspace` と環境変数、設定ファイルは `sg call` と同じ意味で、同じ順に接続先を決める。`--allow-write` は `sg mcp` だけが受ける（下の「権限」）。操作の定義は取り込まず、`tools/list` のたびに `operation-list` を取るので、サーバーに操作の定義を足すと、MCP のコードを書かずに道具が増える。
+`banmen mcp` は stdio の MCP サーバーで、手元の AI（Claude Code など）に操作を道具として見せる。`--profile`、`--org`、`--workspace` と環境変数、設定ファイルは `banmen call` と同じ意味で、同じ順に接続先を決める。`--allow-write` は `banmen mcp` だけが受ける（下の「権限」）。操作の定義は取り込まず、`tools/list` のたびに `operation-list` を取るので、サーバーに操作の定義を足すと、MCP のコードを書かずに道具が増える。
 
 - 道具: 名前は操作の `name`、説明は `description`、入力は `input_schema`。`mode` が `read` の操作に `readOnlyHint: true` を、`write` に `false` を付ける。`outputSchema` は付けず、成功の本文は JSON の text で返す。入力の最上位が `oneOf`、`anyOf`、`allOf`（`discriminatedUnion` の操作。例: `invitation-create`）の操作は、Claude API が最上位のこれらを受け付けないので、各分岐の項目の和集合の1つの object に平らにする（`required` は全分岐に共通のものだけ。同名で Schema が分かれる項目は `anyOf` でまとめる。分岐ごとの必須は説明の末尾の「分岐: …」に足す）
-- 接続先: 組織とワークスペースは接続先から補い、道具の入力に `org` は足さない。接続先がワークスペースを持つと、ワークスペースの下の操作の `workspace_id` は必須から外れる。入力に渡せばその値を使い、`null` か空文字なら省いたものとして接続先のワークスペースで補う（MCP の経路だけ。`sg call` は変えない）。これらは境界ではない。トークンはアカウントのすべての組織に効き、組織にもワークスペースにも絞れない。道具の引数で組織を切り替えられないだけで、`my-organizations` などの操作は道具として見え、`--workspace` も範囲を絞らない（`workspace_id` を渡せば上書きできる）。組織を確実に分けるにはトークンを分ける（ただし今はトークンを組織に絞れない）
-- 権限: 呼び出しは `sg call` と同じ経路（トークン付きの API）で、トークンの持ち主の権限の範囲で動く。道具は、既定では読み取り（`mode` が `read`）の操作だけを `tools/list` に出す。書き込みの道具は、`sg mcp --allow-write` で起動したときだけ出る。既定で出さない書き込みの道具を名指しで呼んでも、一覧に無い操作と同じ使い方の誤りの `isError` の結果になる（書き込みのトークンでも同じ）。`--allow-write` を付けても、読み取りのトークンでは書き込みの道具は出ず、名指しで呼ぶと `isError` の結果になる（読み取り／書き込みの範囲はトークンが決め、`--allow-write` はその範囲の中で出すかを決める）。運用者の操作と、公開リポジトリに文を送る `feedback-submit` は出ない。`sg call` と `sg ops` に `--allow-write` を付けると使い方の誤りになる。書き込む道具を実行する前の確認は、クライアント（Claude Code の許可の確認）に任せる
-- エラー: API のエラーは `isError: true` の結果に、`sg call` の標準エラーと同じ `{"status", "error"}` の JSON を text で返す（権限が無ければ 403、別の組織の ID は 404）。使い方の誤りとつながらない場合も `isError` の結果にし、サーバーは落とさない。一覧が取れないときの `tools/list` はプロトコルのエラーにする
+- 接続先: 組織とワークスペースは接続先から補い、道具の入力に `org` は足さない。接続先がワークスペースを持つと、ワークスペースの下の操作の `workspace_id` は必須から外れる。入力に渡せばその値を使い、`null` か空文字なら省いたものとして接続先のワークスペースで補う（MCP の経路だけ。`banmen call` は変えない）。これらは境界ではない。トークンはアカウントのすべての組織に効き、組織にもワークスペースにも絞れない。道具の引数で組織を切り替えられないだけで、`my-organizations` などの操作は道具として見え、`--workspace` も範囲を絞らない（`workspace_id` を渡せば上書きできる）。組織を確実に分けるにはトークンを分ける（ただし今はトークンを組織に絞れない）
+- 権限: 呼び出しは `banmen call` と同じ経路（トークン付きの API）で、トークンの持ち主の権限の範囲で動く。道具は、既定では読み取り（`mode` が `read`）の操作だけを `tools/list` に出す。書き込みの道具は、`banmen mcp --allow-write` で起動したときだけ出る。既定で出さない書き込みの道具を名指しで呼んでも、一覧に無い操作と同じ使い方の誤りの `isError` の結果になる（書き込みのトークンでも同じ）。`--allow-write` を付けても、読み取りのトークンでは書き込みの道具は出ず、名指しで呼ぶと `isError` の結果になる（読み取り／書き込みの範囲はトークンが決め、`--allow-write` はその範囲の中で出すかを決める）。運用者の操作と、公開リポジトリに文を送る `feedback-submit` は出ない。`banmen call` と `banmen ops` に `--allow-write` を付けると使い方の誤りになる。書き込む道具を実行する前の確認は、クライアント（Claude Code の許可の確認）に任せる
+- エラー: API のエラーは `isError: true` の結果に、`banmen call` の標準エラーと同じ `{"status", "error"}` の JSON を text で返す（権限が無ければ 403、別の組織の ID は 404）。使い方の誤りとつながらない場合も `isError` の結果にし、サーバーは落とさない。一覧が取れないときの `tools/list` はプロトコルのエラーにする
 - 起動: 標準出力は MCP のプロトコル専用で、ほかは書かない。接続先の誤り（設定が無い、`--profile` が無いなど）は標準エラーに `{"error": {"code": "usage", …}}` を出して終了コード 2。標準入力が閉じたら終わり、クライアントが先に消えて標準出力が閉じたときも、スタックトレースを出さず静かに終わる。どの出力にもトークンを含めない
-- 環境変数: `SG_URL` と `SG_TOKEN` は、`--profile` を明示しても設定に勝つ（`sg call` と同じ）。Claude Code は起動したシェルの環境変数を道具のサーバーに引き継ぐので、読み取りだけで使うなら、`SG_URL` と `SG_TOKEN` を `export` したまま Claude Code を起動しない（書き込みのトークンが `--profile` の読み取りのトークンに勝つ）
+- 環境変数: `BANMEN_URL` と `BANMEN_TOKEN`（旧名の `SG_*` の組も同じ）は、`--profile` を明示しても設定に勝つ（`banmen call` と同じ）。Claude Code は起動したシェルの環境変数を道具のサーバーに引き継ぐので、読み取りだけで使うなら、`BANMEN_URL` と `BANMEN_TOKEN`（旧名の `SG_*` も）を `export` したまま Claude Code を起動しない（書き込みのトークンが `--profile` の読み取りのトークンに勝つ）
 
 Claude Code への登録は、`main` の作業コピーの絶対パスで CLI を直に指すのを勧める（`pnpm` を挟むと、起動したディレクトリの `package.json` のスクリプトが動き、`pnpm` の出力が標準出力に混ざる余地も残る）。
 
 ```bash
-claude mcp add banmen -- node <main の作業コピーの絶対パス>/cli/sg.ts mcp
+claude mcp add banmen -- node <main の作業コピーの絶対パス>/cli/banmen.ts mcp
 ```
 
-このリポジトリの作業コピーの中だけで試すなら、`claude mcp add banmen -- pnpm -s sg mcp` でもよい（`pnpm -s` は、`package.json` のあるディレクトリで動くため）。
+入口は 2026-11 に `cli/sg.ts` から `cli/banmen.ts` に改めた（#1429）。`cli/sg.ts` を指して登録したままの MCP は起動しないので、登録し直す: `claude mcp remove banmen` の後に、上の `claude mcp add` を打つ（組織や書き込みで分けた登録も同じ）。
 
-- 組織ごとに登録を分ける。別の組織は別の名前で、`--org` を付けて登録する: `claude mcp add banmen-aoba -- node <main の作業コピーの絶対パス>/cli/sg.ts mcp --org aoba`。組織ごとに別のトークンを使うなら、`sg config set` で接続先（`--profile`）を作り、`-- node <main の作業コピーの絶対パス>/cli/sg.ts mcp --profile <名前>` と登録する
-- 普段は `--allow-write` を付けずに登録し（読み取りの道具だけ）、読み取りのトークンの接続先を使う。書き込みが要るときだけ、書き込みのトークンの接続先に `--allow-write` を付けた登録を足す: `claude mcp add banmen-write -- node <main の作業コピーの絶対パス>/cli/sg.ts mcp --profile <書き込みの接続先> --allow-write`。書き込みの道具が出るのは、`--allow-write` と書き込みのトークンの両方が揃ったときだけ。使い終えたら `claude mcp remove banmen-write` で外す（残すと読み取りの登録と同時に有効のまま）。`--allow-write` は道具の見せ方を決めるだけで、境界ではない（Bash が使える AI は `sg call` で直に書き込める）。書き込みを確実に防ぐのは、読み取りのトークンだけ
+このリポジトリの作業コピーの中だけで試すなら、`claude mcp add banmen -- pnpm -s banmen mcp` でもよい（`pnpm -s` は、`package.json` のあるディレクトリで動くため）。
+
+- 組織ごとに登録を分ける。別の組織は別の名前で、`--org` を付けて登録する: `claude mcp add banmen-aoba -- node <main の作業コピーの絶対パス>/cli/banmen.ts mcp --org aoba`。組織ごとに別のトークンを使うなら、`banmen config set` で接続先（`--profile`）を作り、`-- node <main の作業コピーの絶対パス>/cli/banmen.ts mcp --profile <名前>` と登録する
+- 普段は `--allow-write` を付けずに登録し（読み取りの道具だけ）、読み取りのトークンの接続先を使う。書き込みが要るときだけ、書き込みのトークンの接続先に `--allow-write` を付けた登録を足す: `claude mcp add banmen-write -- node <main の作業コピーの絶対パス>/cli/banmen.ts mcp --profile <書き込みの接続先> --allow-write`。書き込みの道具が出るのは、`--allow-write` と書き込みのトークンの両方が揃ったときだけ。使い終えたら `claude mcp remove banmen-write` で外す（残すと読み取りの登録と同時に有効のまま）。`--allow-write` は道具の見せ方を決めるだけで、境界ではない（Bash が使える AI は `banmen call` で直に書き込める）。書き込みを確実に防ぐのは、読み取りのトークンだけ
 - 書き込みの道具（`mcp__banmen__*` のうち書き込むもの）を、Claude Code の許可（`permissions.allow`）に常には入れない。取り込んだ内容や他人が書いたタスクの本文は信頼できない入力で、AI が読むと、本文の指示に従って書き込みの道具を呼びかねない。呼ぶたびに人が確かめる
-- どの作業コピーからでも動かすときは、`pnpm -s sg` の代わりに `node <作業コピーの絶対パス>/cli/sg.ts mcp` と登録する。決まった版の CLI（`main` の作業コピーの絶対パス）にしておくことを勧める。作業ブランチのワークツリーを指すと、その作業中のコードが道具の実体になり、ブランチを消すと動かなくなる
+- どの作業コピーからでも動かすときは、`pnpm -s banmen` の代わりに `node <作業コピーの絶対パス>/cli/banmen.ts mcp` と登録する。決まった版の CLI（`main` の作業コピーの絶対パス）にしておくことを勧める。作業ブランチのワークツリーを指すと、その作業中のコードが道具の実体になり、ブランチを消すと動かなくなる
 - 登録の後、Claude Code の `/mcp` で道具の一覧を見られる。読み取りを1つ頼んで確かめ、書き込みは `--allow-write` を付けた登録で1つ頼んで確かめる
 
 ## AI 開発の分担

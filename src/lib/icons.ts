@@ -70,6 +70,9 @@ export const icons = {
   // 引き出しの開き方の「ページ全体」。Lucide の maximize（https://lucide.dev/icons/maximize、lucide-static 1.70.0、ISC）。Feather 由来で MIT も適用（licenses/lucide.txt）
   maximize:
     '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
+  // 右下のフィードバックの入口。Lucide の message-square（https://lucide.dev/icons/message-square、lucide-static 1.70.0、ISC。licenses/lucide.txt）
+  message:
+    '<path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"/>',
   more: '<path d="M5 12h.01M12 12h.01M19 12h.01"/>',
 } as const;
 
