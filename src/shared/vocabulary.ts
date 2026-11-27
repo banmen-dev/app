@@ -3065,7 +3065,7 @@ export const dictionary = defineDictionary({
   connectionEditTitle: '{connection}を編集',
   connectionEditCredentialLabel: '新しい GitHub の PAT',
   connectionEditCredentialHint: '空欄のまま保存すると、現在のトークンを使い続けます。',
-  connectionEditStillStopped: 'トークンを保存しても、この接続は停止したままです。',
+  connectionEditStillStopped: 'トークンを保存しても、この{connection}は停止したままです。',
   connectionEditSave: '保存する',
   connectionEditSaving: '保存しています',
   connectionEditKeysUnavailable:

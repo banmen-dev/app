@@ -74,10 +74,13 @@ export function connectionUpdateFailure(result: FailedResult, sentCredential: bo
       ? { field: 'form', key: 'connectionCreateRateLimited', refocus: 'credential' }
       : { field: 'form', key: 'connectionRateLimited' };
   }
-  if (result.status === 503 && sentCredential) {
-    return { field: 'form', key: 'connectionCreateUnreachable', refocus: 'credential' };
+  // 編集の unavailable は、PAT を確かめる問い合わせが取り込み元に届かなかったときに返る。
+  if (result.status === 503) {
+    return sentCredential
+      ? { field: 'form', key: 'connectionCreateUnreachable', refocus: 'credential' }
+      : { field: 'form', key: 'connectionEditNetwork' };
   }
-  if (result.status === 0 || result.status === 503) {
+  if (result.status === 0) {
     return sentCredential
       ? { field: 'form', key: 'connectionEditNetworkCredential', refocus: 'credential' }
       : { field: 'form', key: 'connectionEditNetwork' };

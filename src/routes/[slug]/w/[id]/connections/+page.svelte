@@ -170,6 +170,8 @@
         await closeEdit(id);
       } else {
         editFailure = connectionUpdateFailure(result, sentCredential);
+        // 応答だけが途切れた場合にも、保存された状態を一覧で確かめられるようにする。
+        if (result.status === 0) await reload();
         await focusEditFailure();
       }
     } finally {
@@ -389,6 +391,7 @@
     <div role="list" aria-label={t('connectionListLabel', { connection: t('connection') })}>
       {#each connections as connection (connection.id)}
         {@const state = STATE[connection.status]}
+        {@const staysStopped = connection.status === 'stopped' && connection.stopped_reason !== 'auth_failed'}
         {@const mine = meId !== null && connection.owner_user_id === meId}
         {@const who =
           mine || !connection.owner_name
@@ -539,9 +542,13 @@
                       data-form-type="other"
                       spellcheck="false"
                       aria-invalid={editCredentialFailure !== null}
-                      aria-describedby={editCredentialFailure !== null
-                        ? 'connection-edit-credential-error connection-edit-credential-hint'
-                        : 'connection-edit-credential-hint'}
+                      aria-describedby={[
+                        editCredentialFailure !== null ? 'connection-edit-credential-error' : null,
+                        'connection-edit-credential-hint',
+                        staysStopped ? 'connection-edit-still-stopped' : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
                     />
                     {#if editCredentialFailure !== null}
                       <span class="field-error" id="connection-edit-credential-error" role="alert"
@@ -551,11 +558,13 @@
                     <span class="field-hint" id="connection-edit-credential-hint"
                       >{t('connectionEditCredentialHint')}</span
                     >
+                    {#if staysStopped}
+                      <span class="field-hint" id="connection-edit-still-stopped"
+                        >{t('connectionEditStillStopped', { connection: t('connection') })}</span
+                      >
+                    {/if}
                   </div>
                 </div>
-                {#if connection.status === 'stopped' && connection.stopped_reason !== 'auth_failed'}
-                  <span class="field-hint">{t('connectionEditStillStopped')}</span>
-                {/if}
                 {#if editFormFailure !== null}
                   <div class="callout is-warn" id="connection-edit-error" role="alert" tabindex="-1">
                     <Icon name="alert" /><span>{t(editFormFailure)}</span>

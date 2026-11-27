@@ -8,7 +8,7 @@ export const connectionUpdate = defineOperation({
   mode: 'write',
   permission: 'member',
   workspace: true,
-  // 認証情報を更新するときは取り込み元に問い合わせる
+  // 認証情報の検証で取り込み元に問い合わせる。入力を読む前に数えるため、表示名だけの保存も同じ枠を使う。
   rateLimit: { max: 10, windowSeconds: 600 },
   input: connectionIdInput.extend({
     name: connectionNameSchema,

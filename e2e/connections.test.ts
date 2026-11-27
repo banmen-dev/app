@@ -321,6 +321,11 @@ test('止まっている接続は、停止の理由と登録した人に応じ�
     '認証に失敗しました',
   );
   await expect(page.getByRole('button', { name: '再開', exact: true })).toHaveCount(0);
+  const tokenField = page.getByRole('form', { name: '接続を編集' }).getByLabel('新しい GitHub の PAT');
+  await other.getByRole('button', { name: '編集', exact: true }).click();
+  await expect(tokenField).toHaveAccessibleDescription(/この接続は停止したままです/);
+  await auth.getByRole('button', { name: '編集', exact: true }).click();
+  await expect(tokenField).toHaveAccessibleDescription('空欄のまま保存すると、現在のトークンを使い続けます。');
 });
 
 test('他の人の接続には、範囲を選ぶボタンと編集ボタンが出ない', async ({ context, baseURL, page }) => {
@@ -382,8 +387,10 @@ test('編集で空白だけの PAT を断り、拒否と通信の失敗を区別
       await call.fail(400, 'invalid_input', {
         details: [{ path: 'credential', code: 'credential_rejected', message: '拒否' }],
       });
-    } else {
+    } else if (attempts === 2) {
       await call.fail(503, 'unavailable');
+    } else {
+      await call.abort();
     }
   });
 
@@ -407,7 +414,14 @@ test('編集で空白だけの PAT を断り、拒否と通信の失敗を区別
     await expect(tokenField).toHaveValue('');
     await expect(tokenField).toBeFocused();
   }
-  expect(attempts).toBe(2);
+  const listReload = page.waitForResponse((response) => response.url().endsWith('/connection-list'));
+  await tokenField.fill(token);
+  await save.click();
+  await listReload;
+  await expect(form.getByRole('alert')).toContainText('通信できませんでした');
+  await expect(tokenField).toHaveValue('');
+  await expect(tokenField).toBeFocused();
+  expect(attempts).toBe(3);
 });
 
 test('今すぐ同期は本人の接続にだけ出て、押すと届いた件数がトーストに出る。5分以内の再押しは断りが出る', async ({
