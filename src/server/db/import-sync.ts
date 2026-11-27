@@ -345,7 +345,7 @@ export function importTaskStatements(db: OrganizationDb, task: ImportedTask, at:
     : [insertTask, insertSource, reviewCycleStatement(db, task.taskId, task.workspaceId, task.reviewCycle, at)];
 }
 
-// 取り込み済みの1件に、取り込み元が持つ属性（タイトル、状態、期限、URL、完了の印）だけを書き戻す。値は呼び出し側が整えた後のもの
+// 取り込み済みの1件に、取り込み元が持つ属性（タイトル、状態、期限、URL、完了の印）だけを書き戻す。値は呼び出し側が整えた後のもの（期限だけは、書く文が持ち主の接続の ignore_source_due で空にする）
 export type ImportedUpdate = {
   workspaceId: string;
   connectionId: string;
@@ -447,7 +447,7 @@ export function updateImportedStatements(
 }
 
 // 書く期限。行の持ち主の接続の今の ignore_source_due が 1 なら、同期が読んだ値に依らず空にする（同期の途中で無視に変えられても、保存が空にした期限を書き戻さない。
-// 同じ項目を別の接続が拾っても、持ち主の接続の設定で決める）。owner は行の持ち主の接続の ID の式
+// 同じ項目を別の接続が拾っても、持ち主の接続の設定で決める。持ち主が削除済みや停止中でも、その設定を使う）。owner は行の持ち主の接続の ID の式。CAST は、束縛した null と文字列を CASE の結果の型 text にそろえるため
 function effectiveSourceDue(owner: RawBuilder<string>, workspaceId: string, dueOn: string | null) {
   return sql<
     string | null
