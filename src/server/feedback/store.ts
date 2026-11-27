@@ -15,8 +15,13 @@ import { uuidv7 } from '../uuid.ts';
 export type FeedbackImage = {
   id: string;
   contentType: 'image/png' | 'image/jpeg' | 'image/webp';
-  bytes: Uint8Array;
+  // 置くファイル。バイトにそろえて写さず、そのまま R2 に渡す（メモリの写しを増やさない）
+  file: Blob;
 };
+
+// 種類と縦横を読むために読む先頭のバイト数。ここまでに画像のデータの始まり（PNG の IDAT、JPEG の SOF、WebP の最初のチャンク）が
+// 無ければ断る
+const HEADER_BYTES = 1024 * 1024;
 
 // meta.json の中身。運用者だけが見る（公開の Issue には載せない）
 export type FeedbackMeta = {
@@ -47,14 +52,13 @@ export async function readFeedbackImages(files: readonly File[], at: Date): Prom
   }
   const images: FeedbackImage[] = [];
   for (const file of files) {
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    if (bytes.byteLength > FEEDBACK_IMAGE_MAX_BYTES) throw imageError('image_too_large');
-    const image = readAvatarImage(bytes);
+    const head = new Uint8Array(await file.slice(0, HEADER_BYTES).arrayBuffer());
+    const image = readAvatarImage(head);
     if (image === null || image.animated) throw imageError('image_unsupported');
     if (image.width > FEEDBACK_IMAGE_MAX_SIDE || image.height > FEEDBACK_IMAGE_MAX_SIDE) {
       throw imageError('image_too_large');
     }
-    images.push({ id: uuidv7(at), contentType: image.contentType, bytes });
+    images.push({ id: uuidv7(at), contentType: image.contentType, file });
   }
   return images;
 }
@@ -72,25 +76,45 @@ export async function putFeedbackObjects(
 ): Promise<boolean> {
   const prefix = `feedback/${meta.feedbackId}`;
   try {
-    await Promise.all(
+    // 1つが失敗しても、ほかの書き込みが終わるのを待つ（待たずに消すと、消した後に届いた書き込みが残る）
+    const results = await Promise.allSettled(
       images.map((image) =>
-        bucket.put(`${prefix}/${image.id}`, image.bytes, { httpMetadata: { contentType: image.contentType } }),
+        bucket.put(`${prefix}/${image.id}`, image.file, {
+          httpMetadata: { contentType: image.contentType, contentDisposition: 'attachment' },
+        }),
       ),
     );
+    if (results.some((result) => result.status === 'rejected')) return logPutFailure(images.length);
     const body = JSON.stringify({
       feedback_id: meta.feedbackId,
       account_id: meta.accountId,
       url: meta.url,
       route_id: meta.routeId,
       text: meta.text,
-      images: images.map((image) => ({ id: image.id, content_type: image.contentType, bytes: image.bytes.byteLength })),
+      images: images.map((image) => ({ id: image.id, content_type: image.contentType, bytes: image.file.size })),
       submitted_at: meta.submittedAt.toISOString(),
     });
-    await bucket.put(`${prefix}/meta.json`, body, { httpMetadata: { contentType: 'application/json' } });
+    await bucket.put(`${prefix}/meta.json`, body, {
+      httpMetadata: { contentType: 'application/json', contentDisposition: 'attachment' },
+    });
     return true;
   } catch {
-    return false;
+    return logPutFailure(images.length);
   }
+}
+
+// 例外の文はキーを含みうるので出さない。固定の文と画像の枚数だけ
+function logPutFailure(imageCount: number): false {
+  console.error(
+    JSON.stringify({
+      level: 'error',
+      code: 'internal',
+      operation: 'feedback-submit',
+      reason: 'フィードバックの R2 に置けなかった',
+      images: imageCount,
+    }),
+  );
+  return false;
 }
 
 // 起票されていないと分かった後に、置いた R2 を消す。失敗しても操作の結果は変えず、消せなかった件数だけをログに出す

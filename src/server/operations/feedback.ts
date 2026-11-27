@@ -100,8 +100,18 @@ function validateUrl(value: string, publicOrigin: string): void {
 // 招待の秘密を運用者が持たないよう残さない
 function storedUrl(value: string): string | null {
   const url = new URL(value);
-  const path = url.pathname.toLowerCase();
-  if (path.startsWith('/invite') || path.startsWith('/auth/')) return null;
+  let path = url.pathname;
+  try {
+    path = decodeURIComponent(path);
+  } catch {
+    // 復号できない経路は、そのまま見る
+  }
+  // 最初の区間だけを見る（組織の slug が invitecorp の画面は残す）
+  const first = path
+    .toLowerCase()
+    .split('/')
+    .find((segment) => segment !== '');
+  if (first === 'invite' || first === 'auth') return null;
   return `${url.origin}${url.pathname}`;
 }
 

@@ -207,17 +207,53 @@ test.each([
   ['招待の画面', '/invite/secret-token'],
   ['招待の画面（大文字）', '/Invite/secret-token'],
   ['認証の画面', '/auth/callback'],
+  ['パーセントエンコードした招待の画面', '/%69nvite/secret-token'],
+  ['先頭にスラッシュが重なった招待の画面', '//invite/secret-token'],
 ])('%s からの送信では URL を残さない', async (_label, path) => {
   const person = await createPerson();
   const { app } = fakeGithub();
 
-  const res = await submit(app, person, [], { ...input, url: new URL(path, testEnv.PUBLIC_ORIGIN).href });
+  const res = await submit(app, person, [], { ...input, url: `${new URL(testEnv.PUBLIC_ORIGIN).origin}${path}` });
 
   expect(res.status).toBe(200);
   const { feedback_id } = await res.json<{ feedback_id: string }>();
   const meta = await (await testEnv.ATTACHMENTS.get(`feedback/${feedback_id}/meta.json`))!.json<{ url: unknown }>();
   expect(meta.url).toBeNull();
   expect(JSON.stringify(meta)).not.toContain('secret-token');
+});
+
+test('slug が invite や auth で始まるだけの組織の画面の URL は残す', async () => {
+  const person = await createPerson();
+  const { app } = fakeGithub();
+  const url = new URL('/invitecorp/w/x/board?q=1', testEnv.PUBLIC_ORIGIN).href;
+
+  const res = await submit(app, person, [], { ...input, url });
+
+  const { feedback_id } = await res.json<{ feedback_id: string }>();
+  const meta = await (await testEnv.ATTACHMENTS.get(`feedback/${feedback_id}/meta.json`))!.json<{ url: string }>();
+  expect(meta.url).toBe(new URL('/invitecorp/w/x/board', testEnv.PUBLIC_ORIGIN).href);
+});
+
+test('meta.json の文は、Issue に載せるのと同じく正規化したもの', async () => {
+  const person = await createPerson();
+  const { app } = fakeGithub();
+
+  const res = await submit(app, person, [], { ...input, text: 'a\u200Bb\r\nc' });
+
+  const { feedback_id } = await res.json<{ feedback_id: string }>();
+  const meta = await (await testEnv.ATTACHMENTS.get(`feedback/${feedback_id}/meta.json`))!.json<{ text: string }>();
+  expect(meta.text).toBe('ab\nc');
+});
+
+test('4MiB ちょうどの画像を3枚送ると通り、4つのファイルを置く（本文の上限に収まる）', async () => {
+  const person = await createPerson();
+  const { app } = fakeGithub();
+  const files = Array.from({ length: 3 }, () => image(pngImage(8, 8, { totalBytes: 4 * MIB })));
+
+  const res = await submit(app, person, files);
+
+  expect(res.status).toBe(200);
+  expect(await objectKeys()).toHaveLength(4);
 });
 
 const rejected: [string, () => File[], string][] = [
@@ -393,6 +429,54 @@ test('R2 への書き込みに失敗したら、置けた分を消して 503 を
 
   expect(res.status).toBe(503);
   expect(issues).toHaveLength(0);
+  expect(await objectKeys()).toEqual([]);
+});
+
+test('画像の1つの書き込みが失敗しても、遅れて終わる書き込みを待ってから消し、何も残さない', async () => {
+  const person = await createPerson();
+  const { app, issues } = fakeGithub();
+  const real = githubEnv.ATTACHMENTS;
+  let puts = 0;
+  const env = {
+    ...githubEnv,
+    ATTACHMENTS: {
+      put: async (key: string, value: never, options: never) => {
+        if (key.endsWith('/meta.json')) return real.put(key, value, options);
+        puts += 1;
+        if (puts === 1) throw new Error('feedback/secret-key r2 down');
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        return real.put(key, value, options);
+      },
+      delete: (keys: string | string[]) => real.delete(keys),
+    },
+  } as unknown as Env;
+  const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+  const res = await submit(app, person, [image(pngImage(8, 8)), image(jpegImage(8, 8))], input, env);
+
+  expect(res.status).toBe(503);
+  expect(issues).toHaveLength(0);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  expect(await objectKeys()).toEqual([]);
+  const logs = error.mock.calls.map((call) => String(call[0]));
+  expect(logs.filter((line) => line.includes('フィードバックの R2 に置けなかった'))).toHaveLength(1);
+  for (const line of logs) expect(line).not.toContain('secret-key');
+});
+
+test('起票の要求だけが送った後に接続断で落ちるときは、今の分類（not_created）のまま R2 を消す', async () => {
+  const person = await createPerson();
+  const app = createApp(undefined, {
+    fetcher: async (requestInput, init) => {
+      const request = new Request(requestInput, init);
+      if (request.url === FEEDBACK_ISSUES_URL) throw new TypeError('Network connection lost.');
+      return fakeFeedbackGithubResponse(request)!;
+    },
+  });
+
+  const res = await submit(app, person, [image(pngImage(8, 8))]);
+
+  // GitHub の起票の応答を受けられない TypeError は、届かなかった失敗と区別できず、#1552 の分類は not_created
+  expect(res.status).toBe(503);
   expect(await objectKeys()).toEqual([]);
 });
 
