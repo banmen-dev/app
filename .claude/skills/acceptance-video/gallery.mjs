@@ -182,6 +182,14 @@ const CLIENT_SCRIPT = String.raw`(function () {
   var issuePanels = panels.filter(function (p) { return p.hasAttribute('data-issue'); });
   // 作り直した HTML に、前の判定を引き継がないよう、生成ごとの値をキーに入れる。file:// は同じ origin で共有される
   var storeKey = 'scrum-guild-review:' + location.pathname + ':' + document.body.getAttribute('data-run');
+  // 前の判定を復元し終えたか。済むまでは保存せず、触った項目（status、reasons、comment、returned）をパネルの
+  // data-touched に空白区切りで書く（下の restoreLater）
+  var restored = false;
+  function touched(panel, field) { return (' ' + (panel.getAttribute('data-touched') || '') + ' ').indexOf(' ' + field + ' ') >= 0; }
+  function touch(panel, field) {
+    if (restored || !panel || touched(panel, field)) return;
+    panel.setAttribute('data-touched', ((panel.getAttribute('data-touched') || '') + ' ' + field).trim());
+  }
 
   function select(id, focus) {
     tabList().forEach(function (tab) {
@@ -267,7 +275,7 @@ const CLIENT_SCRIPT = String.raw`(function () {
     document.getElementById('counts').textContent = 'ok ' + n('ok') + ' 件、ng ' + n('ng') + ' 件、未判定 ' + n('') + ' 件';
     document.getElementById('result').value = buildResult(entries);
     layout();
-    if (save) {
+    if (save && restored) {
       var kept = entries.map(function (e) {
         return { issue: e.issue, status: e.status, reasons: e.reasons, comment: e.comment, returned: e.returned };
       });
@@ -282,16 +290,20 @@ const CLIENT_SCRIPT = String.raw`(function () {
     saved.forEach(function (e) {
       var panel = e && document.getElementById('panel-' + e.issue);
       if (!panel || !panel.hasAttribute('data-issue') || !panel.querySelector('.judge')) return;
+      // 復元の前に人が触った項目は、画面の今の値を残す（前の判定で上書きしない）。触っていない項目は前の値に戻す。
+      // 判定と理由は別の項目で、判定だけを替えても前の理由は残る（理由は ng のときだけ結果に出る）
       // 戻した完了済みは、戻した状態で開き直す
-      if (e.returned === true && panel.hasAttribute('data-done')) {
+      if (!touched(panel, 'returned') && e.returned === true && panel.hasAttribute('data-done')) {
         panel.removeAttribute('data-done');
         place(panel);
       }
-      if (e.status === 'ok' || e.status === 'ng') panel.setAttribute('data-status', e.status);
-      [].forEach.call(panel.querySelectorAll('.reasons input'), function (i) {
-        i.checked = Array.isArray(e.reasons) && e.reasons.indexOf(i.value) >= 0;
-      });
-      if (typeof e.comment === 'string') panel.querySelector('textarea').value = e.comment;
+      if (!touched(panel, 'status') && (e.status === 'ok' || e.status === 'ng')) panel.setAttribute('data-status', e.status);
+      if (!touched(panel, 'reasons')) {
+        [].forEach.call(panel.querySelectorAll('.reasons input'), function (i) {
+          i.checked = Array.isArray(e.reasons) && e.reasons.indexOf(i.value) >= 0;
+        });
+      }
+      if (!touched(panel, 'comment') && typeof e.comment === 'string') panel.querySelector('textarea').value = e.comment;
     });
   }
 
@@ -314,6 +326,7 @@ const CLIENT_SCRIPT = String.raw`(function () {
     [].forEach.call(document.querySelectorAll('.verdict-btn'), function (btn) {
       btn.addEventListener('click', function () {
         var panel = btn.closest('[data-issue]');
+        touch(panel, 'status');
         var next = btn.getAttribute('data-set');
         // 押し直すと未判定に戻す
         if (panel.getAttribute('data-status') === next) panel.removeAttribute('data-status');
@@ -324,6 +337,7 @@ const CLIENT_SCRIPT = String.raw`(function () {
     [].forEach.call(document.querySelectorAll('[data-return]'), function (btn) {
       btn.addEventListener('click', function () {
         var panel = btn.closest('[data-issue]');
+        touch(panel, 'returned');
         panel.removeAttribute('data-done');
         place(panel);
         refresh(true);
@@ -332,7 +346,13 @@ const CLIENT_SCRIPT = String.raw`(function () {
         if (first) first.focus();
       });
     });
-    document.addEventListener('input', function () { refresh(true); });
+    document.addEventListener('input', function (ev) {
+      var target = ev.target;
+      var panel = target && target.closest ? target.closest('[data-issue]') : null;
+      if (target && target.tagName === 'TEXTAREA') touch(panel, 'comment');
+      else if (target && target.closest && target.closest('.reasons')) touch(panel, 'reasons');
+      refresh(true);
+    });
     document.getElementById('copy').addEventListener('click', function () {
       var result = document.getElementById('result');
       var message = document.getElementById('copied');
@@ -349,8 +369,34 @@ const CLIENT_SCRIPT = String.raw`(function () {
         fallback();
       }
     });
-    restore();
     refresh(false);
+    // 前の判定の復元は、load の後に間を置いてから読む（#1387）。Chromium で file:// の文書を開き、読み込みの直後に
+    // localStorage に触れると、その後の書き込みが開き直した文書に残らないことがあった（load の直後で数％から1割強。
+    // 数 ms から数十 ms 空けると実測で起きなくなった。開き直す前に待っても防げず、http で配れば起きない。仕組みは未調査）。
+    // load が遅れても復元が止まらないよう、3 秒たてば load を待たずに復元する。復元するまでは保存せず、触った項目は
+    // 復元で上書きしない。触ったものがあれば復元の後（復元の前に離れるときはその場）で保存する。済んだら body に
+    // data-restored を付ける
+    var finishRestore = function () {
+      if (restored) return;
+      // 復元が例外で止まっても、保存止めを解き、印を付ける
+      try { restore(); } finally {
+        restored = true;
+        var marked = document.querySelectorAll('[data-touched]');
+        [].forEach.call(marked, function (p) { p.removeAttribute('data-touched'); });
+        document.body.setAttribute('data-restored', '');
+        refresh(marked.length > 0);
+      }
+    };
+    var restoreStarted = false;
+    var restoreLater = function () {
+      if (restoreStarted) return;
+      restoreStarted = true;
+      setTimeout(finishRestore, 100);
+    };
+    window.addEventListener('load', restoreLater);
+    setTimeout(finishRestore, 3000);
+    // 復元の前に触って離れるときは、その場で復元して保存する（触った判定を保存しないまま失わない）
+    window.addEventListener('pagehide', function () { if (document.querySelector('[data-touched]')) finishRestore(); });
   }
 
   var initial = location.hash.slice(1);
