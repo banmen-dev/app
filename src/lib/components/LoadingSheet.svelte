@@ -2,7 +2,13 @@
   import { t } from '../vocabulary.svelte.ts';
   import { navState } from '../nav-collapse.svelte.ts';
   import { navWidthState } from '../nav-width.svelte.ts';
-  import { loadingShapeCounts, loadingShapeHasActions, loadingTabCount, type LoadingShape } from '../loading-shape.ts';
+  import {
+    loadingShapeCounts,
+    loadingShapeHasActions,
+    loadingTabCount,
+    type LoadingEyebrow,
+    type LoadingShape,
+  } from '../loading-shape.ts';
   import BrandSymbol from './BrandSymbol.svelte';
   import Gate from './Gate.svelte';
   import GateSheet from './GateSheet.svelte';
@@ -14,14 +20,13 @@
   // 行き先が枠の外（shape が null）なら紙を出す。/ だけ dashboard を指定し、広い紙の2列にする。
   // 骨組みは装飾なので aria-hidden。見出しは読み上げと画面の構造のために見えないまま置く。
   // 読み上げの領域（role="status"）と、出す遅れ（短い読み込みでは出さない）は呼ぶ側の root レイアウトが持つ
-  // narrowEyebrow は、行き先の見出しの小見出しが 760px 以下だけに出る画面（loading-shape.ts の loadingShapeNarrowEyebrow）。小見出しの帯も同じ幅だけに出す
   // tabs は、行き先がワークスペースの画面（loading-shape.ts の loadingShapeTabs）。パンくずの下にタブの帯（761px 以上）を出す
   let {
     shape = null,
     dashboard = false,
-    narrowEyebrow = false,
+    eyebrow = 'always',
     tabs = false,
-  }: { shape?: LoadingShape | null; dashboard?: boolean; narrowEyebrow?: boolean; tabs?: boolean } = $props();
+  }: { shape?: LoadingShape | null; dashboard?: boolean; eyebrow?: LoadingEyebrow; tabs?: boolean } = $props();
 </script>
 
 <svelte:head>
@@ -73,7 +78,9 @@
         <h1 class="visually-hidden">{t('loading')}</h1>
         {#if shape !== 'task'}
           <div class="page-head skeleton" aria-hidden="true">
-            <span class="skeleton-line is-eyebrow" class:is-narrow-only={narrowEyebrow}></span>
+            {#if eyebrow !== 'none'}
+              <span class="skeleton-line is-eyebrow" class:is-narrow-only={eyebrow === 'narrow'}></span>
+            {/if}
             <div class="page-head-row">
               <span class="skeleton-line is-title"></span>
               {#if loadingShapeHasActions(shape)}<span class="skeleton-line is-button"></span>{/if}

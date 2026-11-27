@@ -159,6 +159,41 @@ for (const pointer of ['細かいポインター', '指で押す 1024px'] as con
   });
 }
 
+for (const entry of ['URL を直接開く', 'ダッシュボードから移る'] as const) {
+  test(`390px でバックログの題の位置が骨組みと揃う（${entry}）`, async ({ page, context, baseURL }) => {
+    await signIn(context, baseURL, 'admin');
+    await page.setViewportSize({ width: 390, height: 844 });
+    const direct = entry === 'URL を直接開く';
+    if (!direct) await page.goto('/');
+
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    await routeOperation(page, backlogTree, { slug: 'aoba' }, async (call) => {
+      await gate;
+      await call.passThrough();
+    });
+    const loadingHead = page.locator(
+      direct ? '#boot-loading .boot-head' : '.loading-overlay [data-shape="tree"] .page-head',
+    );
+    let loadingTitle;
+    try {
+      if (direct) await page.goto(WORKSPACE, { waitUntil: 'commit' });
+      else await page.locator(`a.pane-link[href="${WORKSPACE}"]`).click();
+
+      await expect(loadingHead).toBeVisible();
+      await expect(loadingHead.locator('.is-eyebrow')).toHaveCount(0);
+      loadingTitle = await shownBox(loadingHead.locator('.is-title'));
+    } finally {
+      release();
+    }
+
+    const title = page.getByRole('heading', { level: 1, name: 'バックログ' });
+    await expect(title).toBeVisible();
+    await expect(loadingHead).toHaveCount(0);
+    expect(loadingTitle.y).toBeCloseTo((await shownBox(title)).y, 0);
+  });
+}
+
 // 左のメニューを閉じたと覚えているときは、最初の読み込みの骨組みも、移る間の骨組み（LoadingSheet）も、
 // 読み込んだ後と同じく左の列を出さず、本文を上の帯の下の全幅にする（#1512）
 test('閉じた左のメニューでは、最初の読み込みと移る間の骨組みにも列が無く、本文の位置が描いた後と揃う', async ({

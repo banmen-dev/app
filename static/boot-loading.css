@@ -501,6 +501,14 @@ html[data-boot-tabs] #boot-loading .boot-tabs ~ .boot-content {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: 'bar' 'sheet';
   }
+  /* バックログとボードは、移る間の骨組みと同じく本文から始め、読み込み後と題の位置を揃える */
+  html:is([data-boot='tree'], [data-boot='board']) #boot-loading .boot-frame {
+    grid-template-rows: 1fr;
+    grid-template-areas: 'sheet';
+  }
+  html:is([data-boot='tree'], [data-boot='board']) #boot-loading .boot-topbar {
+    display: none;
+  }
   /* 左のメニューと、上の帯の左端（開閉のボタンとマーク）は出さない */
   #boot-loading .boot-binding,
   #boot-loading .boot-start {
