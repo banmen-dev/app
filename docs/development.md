@@ -947,6 +947,7 @@ GitHub の標準の応答では `maintain` は `write`、`triage` は `read` に
 API の失敗、未知の権限、欠けた欄は許可しない。同じ処理内では本人ごとに確認結果を再利用してよい。
 `github-actions[bot]` は `user.login` と `user.type` の `Bot` の両方が一致したときだけ、既存のワークフローのコメントとして許可する。ほかの bot は許可しない。
 GitHub CLI や MCP で権限を確認できないときは、区分から推測せず、各スキルの外の人への扱いに従う。
+PR で Issue の状態（レビュー中、`prs`）を決めるのは、上の基準で許可された作者（と `github-actions[bot]`）の PR だけにする。fork の PR のブランチ名は外の人が自由に付けられ、本文の `Closes #N` も誰でも書けるので、外の人は PR を1つ開くだけで、任意の Issue を人の番に移し、着手できるものから消せるため。`sprint-pick` と `sprint-review` と `scripts/progress-data.ts`（`daily-scrum` と `sprint-review` が使う）は、PR の一覧を、ブランチ名の全文でなく先頭の番号と本文の参照の数字だけで読み、作者を確かめた後に数える。許可されない作者の PR は、番号と作者だけを出し、数えない。`progress-data.ts` は、取得の段（`readGitHub`）で確かめた login の集合（`writeUsers`）を `buildProgress` に渡し、外した件数を警告に出す（#1571）。
 
 ### AI レビュー
 
