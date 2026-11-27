@@ -494,6 +494,12 @@ export function buildProgress(raw: RawData, now: Date): Built {
 
   // 今のスプリントは開いている記録。2つ開いていれば番号の大きいほう。題を読めない記録は飛ばし、どれも読めなければ止まる
   const openLogs = logs.filter((issue) => issue.state === 'open');
+  // 開いた記録が、作者を確かめられなかったものしか無いときは、「スプリントが無い」と取り違えないよう止まる
+  const unreadableOpen = unreadableLogs.filter((issue) => issue.state === 'open');
+  if (openLogs.length === 0 && unreadableOpen.length > 0)
+    throw new Error(
+      `開いた記録 ${unreadableOpen.map((issue) => `#${issue.number}`).join('、')} の作者の書き込み権限を確認できないので、スプリントを読めない`,
+    );
   const readable = openLogs.flatMap((log) => {
     try {
       return [{ log, n: parseSprintTitle(log.title).n }];

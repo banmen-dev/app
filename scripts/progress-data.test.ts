@@ -1076,21 +1076,26 @@ describe('外の人の Issue の題と本文', () => {
     assert.deepEqual(built.sprint?.plan, [{ number: 2, title: '自分の Issue', pt: 2 }]);
   });
 
-  test('作者を確かめられない記録の Issue は、例外にも履歴の題の警告にもせず、読まなかった理由を警告に出す', () => {
+  test('作者を確かめられない閉じた記録は、履歴の題の警告にせず、読まなかった理由を警告に出す。ほかに読める開いた記録があれば続ける', () => {
     const unread = (found: RawIssue): RawIssue => ({ ...found, title: '', body: '', outsider: true });
-    const openLog = unread(sprintLog(10, 7, ['| #2 | | 題 | 2 |']));
+    const openLog = sprintLog(10, 7, ['| #2 | | 題 | 2 |']);
     const closedLog = unread(closed(9, { labels: ['sprint-log'] }));
     const built = buildProgress(
       raw({ issues: [openLog, closedLog, issue(2)], comments: { 9: ['## 締め\nベロシティ: 1'] } }),
       NOW,
     );
-    assert.equal(built.sprint, null);
+    assert.equal(built.sprint?.log, 10);
     assert.deepEqual(built.history, []);
     assert.equal(built.issues.length, 1);
-    assert.equal(built.warnings.filter((w) => w.includes('題を読めないのではない')).length, 2);
+    assert.equal(built.warnings.filter((w) => w.includes('題を読めないのではない')).length, 1);
     assert.equal(
       built.warnings.some((w) => w.includes('履歴から飛ばした')),
       false,
     );
+  });
+
+  test('開いた記録が、作者を確かめられないものしか無いときは、sprint: null にせず止まる', () => {
+    const openLog: RawIssue = { ...sprintLog(10, 7, []), title: '', body: '', outsider: true };
+    assert.throws(() => buildProgress(raw({ issues: [openLog, issue(2)] }), NOW), /#10.*権限を確認できない/);
   });
 });
