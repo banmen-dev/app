@@ -662,7 +662,7 @@ export const dictionary = defineDictionary({
   feedbackStalled:
     '応答がありません。送り直せますが、前に送った文がすでに載っていて、同じ文が2件になることがあります。',
   // ダイアログを閉じた後に送れなかったときのトースト。reason は上の失敗の文
-  feedbackFailedClosed: '{reason}\n書いた文は、右下のボタンから開き直すと残っています。',
+  feedbackFailedClosed: '{reason}\n書いた文は残っています。フィードバックのボタンから開き直すと続けられます。',
 
   // メニューの項目と見出し。ワークスペースの外の画面は organization
   pageToday: '今日やること',
