@@ -2,6 +2,7 @@ import { render } from 'svelte/server';
 import { expect, test, vi } from 'vitest';
 vi.mock('$app/paths', () => ({ asset: (path: string) => path }));
 import LoadingSheet from './components/LoadingSheet.svelte';
+import { loadingShape, loadingShapeEyebrow } from './loading-shape.ts';
 
 test('ダッシュボードの待ちは広い紙の2列で、組織の枠を出さない', () => {
   const { body } = render(LoadingSheet, { props: { dashboard: true } });
@@ -17,13 +18,24 @@ test('ほかの枠の外の待ちは狭い紙を保つ', () => {
   expect(body).not.toContain('dashboard-main');
 });
 
-test('小見出しを 760px 以下だけに出す画面では、骨組みの小見出しの帯にも is-narrow-only を付ける（#1509）', () => {
-  const narrow = render(LoadingSheet, { props: { shape: 'list', narrowEyebrow: true } }).body;
+test('骨組みの小見出しの帯には表示する幅を反映する', () => {
+  const narrow = render(LoadingSheet, { props: { shape: 'list', eyebrow: 'narrow' } }).body;
   expect(narrow).toMatch(/class="skeleton-line is-eyebrow is-narrow-only"/);
   const always = render(LoadingSheet, { props: { shape: 'list' } }).body;
   expect(always).toMatch(/class="skeleton-line is-eyebrow"/);
   expect(always).not.toContain('is-narrow-only');
 });
+
+test.each(['/[slug]/w/[id]', '/[slug]/w/[id]/board', '/[slug]/w/[id]/sprint'])(
+  '%s の骨組みは見出しの題の帯だけを出し、小見出しの帯は描かない',
+  (routeId) => {
+    const { body } = render(LoadingSheet, {
+      props: { shape: loadingShape(routeId), eyebrow: loadingShapeEyebrow(routeId) },
+    });
+    expect(body).toContain('skeleton-line is-title');
+    expect(body).not.toContain('is-eyebrow');
+  },
+);
 
 test('パンくずの帯は上の帯の外、本文の直前に置く（#1509）', () => {
   const { body } = render(LoadingSheet, { props: { shape: 'today' } });

@@ -16,8 +16,9 @@
   import {
     loadingDashboard,
     loadingShape,
-    loadingShapeNarrowEyebrow,
+    loadingShapeEyebrow,
     loadingShapeTabs,
+    type LoadingEyebrow,
     type LoadingShape,
   } from '../lib/loading-shape.ts';
   import { shortcuts } from '../lib/shortcuts.svelte.ts';
@@ -31,7 +32,7 @@
   // 行き先の情報は到着時に消える。退場中に枠を紙へ替えないよう、表示した形を保持する。
   let shownLoadingShape = $state<LoadingShape | null>(null);
   let shownLoadingDashboard = $state(false);
-  let shownLoadingNarrowEyebrow = $state(false);
+  let shownLoadingEyebrow = $state<LoadingEyebrow>('always');
   let shownLoadingTabs = $state(false);
 
   // URL を直接開いた最初の読み込みの表示（src/app.html の #boot-loading）は、画面が描かれたら要らない
@@ -98,7 +99,7 @@
     if (slow && loadingKind === 'outside') {
       shownLoadingShape = loadingShapeTo;
       shownLoadingDashboard = loadingDashboard(navigating.to?.route.id);
-      shownLoadingNarrowEyebrow = loadingShapeNarrowEyebrow(navigating.to?.route.id);
+      shownLoadingEyebrow = loadingShapeEyebrow(navigating.to?.route.id);
       shownLoadingTabs = loadingShapeTabs(navigating.to?.route.id);
     }
   });
@@ -121,7 +122,7 @@
     <LoadingSheet
       shape={shownLoadingShape}
       dashboard={shownLoadingDashboard}
-      narrowEyebrow={shownLoadingNarrowEyebrow}
+      eyebrow={shownLoadingEyebrow}
       tabs={shownLoadingTabs}
     />
   </div>

@@ -8,11 +8,12 @@ import {
   loadingDashboard,
   loadingShape,
   loadingShapeCounts,
+  loadingShapeEyebrow,
   loadingShapeHasActions,
-  loadingShapeNarrowEyebrow,
   loadingShapeTabs,
   loadingShapes,
   loadingTabCount,
+  type LoadingEyebrow,
   type LoadingShape,
 } from '../src/lib/loading-shape.ts';
 import { NAV_WIDTH_KEY, parseNavWidth } from '../src/lib/nav-width.ts';
@@ -94,16 +95,37 @@ describe('最初の読み込みの骨組みの形（static/boot-shape.js）', ()
     }
   });
 
-  test('小見出しを 760px 以下だけに出すワークスペースの画面は、骨組みの小見出しの帯も同じ扱いにする（#1509）', () => {
+  test('全経路で、小見出しの帯を出す幅が移る間の骨組みと同じ', () => {
     for (const id of routeIds()) {
-      const { content } = runBootShape(samplePath(id));
-      assert.equal(content.innerHTML.includes('is-eyebrow is-narrow-only'), loadingShapeNarrowEyebrow(id), id);
+      for (const path of [samplePath(id), `${samplePath(id)}/`]) {
+        const { content } = runBootShape(path);
+        const eyebrow = /class="is-eyebrow( is-narrow-only)?"/.exec(content.innerHTML);
+        const visibility = eyebrow ? (eyebrow[1] ? 'narrow' : 'always') : 'none';
+        assert.equal(visibility, loadingShapeEyebrow(id), path);
+      }
     }
-    assert.equal(loadingShapeNarrowEyebrow('/[slug]/w/[id]/members'), true);
-    assert.equal(loadingShapeNarrowEyebrow('/[slug]/w/[id]/board'), true);
-    assert.equal(loadingShapeNarrowEyebrow('/[slug]/w/[id]/epics/[epicId]'), false);
-    assert.equal(loadingShapeNarrowEyebrow('/[slug]/wiki'), false);
-    assert.equal(loadingShapeNarrowEyebrow('/[slug]/me'), false);
+  });
+
+  test('バックログとボードの小見出しを省き、ほかのワークスペースの小見出しを保つ', () => {
+    const workspace = '/[slug]/w/[id]';
+    const expected: Record<string, LoadingEyebrow> = {
+      [workspace]: 'none',
+      [`${workspace}/board`]: 'none',
+      [`${workspace}/sprint`]: 'none',
+      [`${workspace}/tasks/[taskId]`]: 'none',
+      [`${workspace}/members`]: 'narrow',
+      [`${workspace}/plan`]: 'narrow',
+      [`${workspace}/inbox`]: 'narrow',
+      [`${workspace}/connections`]: 'narrow',
+      [`${workspace}/settings`]: 'narrow',
+      [`${workspace}/wiki`]: 'narrow',
+      [`${workspace}/epics/[epicId]`]: 'always',
+      '/[slug]/wiki': 'always',
+      '/[slug]/me': 'always',
+    };
+    for (const [id, visibility] of Object.entries(expected)) {
+      assert.equal(loadingShapeEyebrow(id), visibility, id);
+    }
   });
 
   test('ワークスペースの画面は、移る間と同じく骨組みにタブの帯を出す（#1514）', () => {
