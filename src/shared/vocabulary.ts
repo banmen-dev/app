@@ -1226,8 +1226,11 @@ export const dictionary = defineDictionary({
   // 組織の切り替えのボタンと一覧の読み上げの名前。{name} はボタンに見える文字の並び
   organizationSwitchLabel: '{name}。組織を切り替える',
   organizationListLabel: '入れる組織',
-  workspaceListToggleLabel: '所属する{workspace}の一覧',
-  workspaceNavListLabel: '所属する{workspace}',
+  // 一覧には、所属していない管理者が開いているものの行も入るので、「所属する」とは言わない
+  workspaceListToggleLabel: '{workspace}の一覧を開閉',
+  workspaceNavListLabel: '{workspace}の一覧',
+  // 浮きメニューでは、機能の項目が現在地（aria-current）を伝えるので、一覧の行は目に見えない文言で開いているものを伝える
+  workspaceNavOpened: '（開いている）',
   organizationMoving: '移っています',
   invitationsBadge: '届いた招待あり',
   invitationsReceived: '招待が届いています',
@@ -3095,6 +3098,9 @@ export const dictionary = defineDictionary({
   connectionStopTitle: '「{name}」を止めますか',
   connectionStopBody:
     '停止した{connection}は同期せず、トークンを保存しても再開しません。取り込む範囲は変わらず、取り込み済みの{task}も残ります。',
+  connectionStopBodyResumable:
+    'この{connection}は、新しいトークンを保存すれば再開できる状態です。止めると再開できなくなり、使うときは新しく登録します。取り込む範囲は変わらず、取り込み済みの{task}も残ります。',
+  connectionManageBodyDiscards: '開いている編集と範囲の選択は閉じ、入力した内容は消えます。',
   connectionStopConfirm: '止める',
   connectionStopDone: '「{name}」を止めました',
   connectionDelete: '削除',

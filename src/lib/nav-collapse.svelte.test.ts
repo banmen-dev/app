@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
-  handleNavCollapsedStorage,
-  listenNavCollapsedStorage,
+  handleNavStorage,
+  listenNavStorage,
   navState,
   navWorkspacesState,
   NAV_COLLAPSED_KEY,
@@ -74,26 +74,26 @@ describe('左のメニューの開閉の既定', () => {
 
 describe('ほかのタブでの変更', () => {
   test('キーの true と false を当てる', () => {
-    handleNavCollapsedStorage({ key: NAV_COLLAPSED_KEY, newValue: 'true' });
+    handleNavStorage({ key: NAV_COLLAPSED_KEY, newValue: 'true' });
     expect(navState.collapsed).toBe(true);
-    handleNavCollapsedStorage({ key: NAV_COLLAPSED_KEY, newValue: 'false' });
+    handleNavStorage({ key: NAV_COLLAPSED_KEY, newValue: 'false' });
     expect(navState.collapsed).toBe(false);
   });
 
   test('知らない値と別のキーは、今の状態を保つ', () => {
     navState.collapsed = true;
-    handleNavCollapsedStorage({ key: NAV_COLLAPSED_KEY, newValue: 'unknown' });
+    handleNavStorage({ key: NAV_COLLAPSED_KEY, newValue: 'unknown' });
     expect(navState.collapsed).toBe(true);
-    handleNavCollapsedStorage({ key: 'sg-theme', newValue: 'false' });
+    handleNavStorage({ key: 'sg-theme', newValue: 'false' });
     expect(navState.collapsed).toBe(true);
   });
 
   test('キーの消去（removeItem）と、別のタブの clear() は開いた状態に戻す', () => {
     navState.collapsed = true;
-    handleNavCollapsedStorage({ key: NAV_COLLAPSED_KEY, newValue: null });
+    handleNavStorage({ key: NAV_COLLAPSED_KEY, newValue: null });
     expect(navState.collapsed).toBe(false);
     navState.collapsed = true;
-    handleNavCollapsedStorage({ key: null, newValue: null });
+    handleNavStorage({ key: null, newValue: null });
     expect(navState.collapsed).toBe(false);
   });
 
@@ -101,18 +101,18 @@ describe('ほかのタブでの変更', () => {
     const local = storage('true');
     navState.collapsed = true;
     const other = { getItem: () => null, setItem: () => undefined };
-    handleNavCollapsedStorage({ key: null, newValue: null, storageArea: other as unknown as Storage });
+    handleNavStorage({ key: null, newValue: null, storageArea: other as unknown as Storage });
     expect(navState.collapsed).toBe(true);
-    handleNavCollapsedStorage({ key: NAV_COLLAPSED_KEY, newValue: 'false', storageArea: other as unknown as Storage });
+    handleNavStorage({ key: NAV_COLLAPSED_KEY, newValue: 'false', storageArea: other as unknown as Storage });
     expect(navState.collapsed).toBe(true);
-    handleNavCollapsedStorage({ key: NAV_COLLAPSED_KEY, newValue: 'false', storageArea: local as unknown as Storage });
+    handleNavStorage({ key: NAV_COLLAPSED_KEY, newValue: 'false', storageArea: local as unknown as Storage });
     expect(navState.collapsed).toBe(false);
   });
 
   test('storage のイベントを受ける', () => {
     const addEventListener = vi.fn();
-    listenNavCollapsedStorage({ addEventListener });
-    expect(addEventListener).toHaveBeenCalledWith('storage', handleNavCollapsedStorage);
+    listenNavStorage({ addEventListener });
+    expect(addEventListener).toHaveBeenCalledWith('storage', handleNavStorage);
   });
 });
 
@@ -152,16 +152,16 @@ describe('ワークスペースの一覧を畳む状態（#1515）', () => {
   });
 
   test('ほかのタブでの変更と clear() を追い、左のメニューの開閉には触れない', () => {
-    handleNavCollapsedStorage({ key: NAV_WORKSPACES_COLLAPSED_KEY, newValue: 'true' });
+    handleNavStorage({ key: NAV_WORKSPACES_COLLAPSED_KEY, newValue: 'true' });
     expect(navWorkspacesState.collapsed).toBe(true);
     expect(navState.collapsed).toBe(false);
-    handleNavCollapsedStorage({ key: NAV_WORKSPACES_COLLAPSED_KEY, newValue: 'unknown' });
+    handleNavStorage({ key: NAV_WORKSPACES_COLLAPSED_KEY, newValue: 'unknown' });
     expect(navWorkspacesState.collapsed).toBe(true);
-    handleNavCollapsedStorage({ key: NAV_WORKSPACES_COLLAPSED_KEY, newValue: null });
+    handleNavStorage({ key: NAV_WORKSPACES_COLLAPSED_KEY, newValue: null });
     expect(navWorkspacesState.collapsed).toBe(false);
     navState.collapsed = true;
     navWorkspacesState.collapsed = true;
-    handleNavCollapsedStorage({ key: null, newValue: null });
+    handleNavStorage({ key: null, newValue: null });
     expect(navState.collapsed).toBe(false);
     expect(navWorkspacesState.collapsed).toBe(false);
   });

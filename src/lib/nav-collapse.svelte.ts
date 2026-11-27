@@ -41,30 +41,31 @@ export function readNavWorkspacesCollapsed(): boolean {
 export const navState = $state({ collapsed: readNavCollapsed() });
 export const navWorkspacesState = $state({ collapsed: readNavWorkspacesCollapsed() });
 
-// ワークスペースの一覧を畳む。覚えられない端末でも、押したら今の画面では畳める（次に開くと開いた状態に戻る）
-export function setNavWorkspacesCollapsed(collapsed: boolean): void {
-  navWorkspacesState.collapsed = collapsed;
+// 畳んだ（閉じた）かを、今の画面に当てて端末に覚える。覚えられない端末（localStorage が拒まれる）でも、押したら今の画面では畳める。
+// 覚えないだけで、次に開くと開いた状態に戻る
+function setCollapsed(target: { collapsed: boolean }, key: string, collapsed: boolean): void {
+  target.collapsed = collapsed;
   try {
-    storage()?.setItem(NAV_WORKSPACES_COLLAPSED_KEY, String(collapsed));
+    storage()?.setItem(key, String(collapsed));
   } catch {
     // 容量超過や拒否は、覚えないだけにする
   }
 }
 
-// 覚えられない端末（localStorage が拒まれる）でも、押したら今の画面では開閉する。覚えないだけで、次に開くと開いた状態に戻る
+// 左のメニュー全体を開閉する
 export function setNavCollapsed(collapsed: boolean): void {
-  navState.collapsed = collapsed;
-  try {
-    storage()?.setItem(NAV_COLLAPSED_KEY, String(collapsed));
-  } catch {
-    // 容量超過や拒否は、覚えないだけにする
-  }
+  setCollapsed(navState, NAV_COLLAPSED_KEY, collapsed);
+}
+
+// ワークスペースの一覧だけを畳む
+export function setNavWorkspacesCollapsed(collapsed: boolean): void {
+  setCollapsed(navWorkspacesState, NAV_WORKSPACES_COLLAPSED_KEY, collapsed);
 }
 
 // 別のタブでの変更を追う。key が null なのは別のタブの localStorage.clear() で、既定（開いた状態）に戻す。
 // 値は 'true' と 'false' と消去（null）だけを当て、それ以外は今の状態を保つ（drawer.svelte.ts と同じ扱い）。
 // storage のイベントは sessionStorage の変更でも届き、その clear() も key が null になるので、localStorage のものだけを見る
-export function handleNavCollapsedStorage(event: {
+export function handleNavStorage(event: {
   key: string | null;
   newValue: string | null;
   storageArea?: Storage | null;
@@ -82,8 +83,8 @@ export function handleNavCollapsedStorage(event: {
   else if (event.newValue === 'true') target.collapsed = true;
 }
 
-export function listenNavCollapsedStorage(target: Pick<Window, 'addEventListener'>): void {
-  target.addEventListener('storage', handleNavCollapsedStorage);
+export function listenNavStorage(target: Pick<Window, 'addEventListener'>): void {
+  target.addEventListener('storage', handleNavStorage);
 }
 
-if (typeof window !== 'undefined') listenNavCollapsedStorage(window);
+if (typeof window !== 'undefined') listenNavStorage(window);
