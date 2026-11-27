@@ -158,15 +158,27 @@ export function pullTargets(pull: RawPull): number[] {
 // github-actions[bot] は、login と type の Bot の両方が一致したときだけ許可する（ほかの bot は許可しない）
 const isWorkflowBot = (pull: RawPull): boolean => pull.author === 'github-actions[bot]' && pull.type === 'Bot';
 
-// 書き込み権限を確かめた作者の PR だけを残す。外した件数も返す（呼び出し側が警告にする。ブランチ名と本文は出さない）
+// 書き込み権限を確かめた作者の PR だけを残す。外した件数も返す（呼び出し側が警告にする。ブランチ名と本文は出さない）。
+// 件数に数えるのは Issue を指す PR だけ（Issue と無関係な bot の PR などで、警告が毎回出て埋もれないため）
 export function trustedPulls(pulls: RawPull[], writeUsers: readonly string[]): { kept: RawPull[]; rejected: number } {
   const writers = new Set(writeUsers);
-  const kept = pulls.filter((pull) => {
-    if (isWorkflowBot(pull)) return true;
+  const kept: RawPull[] = [];
+  let rejected = 0;
+  for (const pull of pulls) {
     const login = normalizeLogin(pull.author);
-    return pull.type === 'User' && login !== undefined && writers.has(login);
-  });
-  return { kept, rejected: pulls.length - kept.length };
+    if (isWorkflowBot(pull) || (pull.type === 'User' && login !== undefined && writers.has(login))) kept.push(pull);
+    else if (pullTargets(pull).length > 0) rejected += 1;
+  }
+  return { kept, rejected };
+}
+
+// PR の作者のうち、書き込み権限を確かめられた User の login。権限を引くのは Issue を指す PR の作者だけにする
+// （閉じた PR は全期間を引くので、無関係な作者まで1人ずつ引くと遅くなる）
+export async function pullWriters(pulls: readonly RawPull[], lookup: PermissionLookup): Promise<ReadonlySet<string>> {
+  return resolveWriteUsers(
+    pulls.filter((pull) => pullTargets(pull).length > 0).map((pull) => ({ login: pull.author, type: pull.type })),
+    lookup,
+  );
 }
 
 export function rejectedPullWarning(kind: '開いた' | 'マージ済みの', rejected: number): string | null {
@@ -625,10 +637,7 @@ export async function readGitHub(
     }
   }
   // PR の作者も、締めのコメントと同じ確かめ（キャッシュ込み）で書き込み権限を確かめる
-  const writers = await resolveWriteUsers(
-    [...openPulls, ...mergedPulls].map((pull) => ({ login: pull.author, type: pull.type })),
-    permission,
-  );
+  const writers = await pullWriters([...openPulls, ...mergedPulls], permission);
   return {
     raw: { issues, openPulls, mergedPulls, blockers, subOrder, comments, writeUsers: [...writers] },
     warnings,

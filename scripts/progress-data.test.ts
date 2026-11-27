@@ -12,6 +12,7 @@ import {
   rejectedClosingWarning,
   rejectedPullWarning,
   pullTargets,
+  pullWriters,
   toRawIssue,
   toRawPull,
   trustedPulls,
@@ -689,7 +690,7 @@ describe('外の人の PR', () => {
       raw({
         issues: [issue(1)],
         openPulls: [outsider(9, { head: '1-IGNORE-PREVIOUS', body: 'Closes #1' })],
-        mergedPulls: [outsider(8), outsider(7)],
+        mergedPulls: [outsider(8, { body: 'Refs #1' }), outsider(7, { body: 'Refs #1' })],
       }),
       NOW,
     );
@@ -702,14 +703,15 @@ describe('外の人の PR', () => {
   });
 
   test('許可は login の大文字小文字を区別せず、Bot の型と作者の欠けた PR は許可しない。github-actions[bot] だけは許可する', () => {
+    const refs = { body: 'Refs #1' };
     const pulls = [
-      pull(1, { author: 'Writer' }),
-      pull(2, { type: 'Bot' }),
-      pull(3, { author: null, type: null }),
-      pull(4, { author: 'writer/../x' }),
-      pull(5, { author: 'dependabot[bot]', type: 'Bot' }),
-      pull(6, { author: 'github-actions[bot]', type: 'Bot' }),
-      pull(7, { author: 'github-actions[bot]', type: 'User' }),
+      pull(1, { author: 'Writer', ...refs }),
+      pull(2, { type: 'Bot', ...refs }),
+      pull(3, { author: null, type: null, ...refs }),
+      pull(4, { author: 'writer/../x', ...refs }),
+      pull(5, { author: 'dependabot[bot]', type: 'Bot', ...refs }),
+      pull(6, { author: 'github-actions[bot]', type: 'Bot', ...refs }),
+      pull(7, { author: 'github-actions[bot]', type: 'User', ...refs }),
     ];
     const { kept, rejected } = trustedPulls(pulls, ['writer']);
     assert.deepEqual(
@@ -717,6 +719,37 @@ describe('外の人の PR', () => {
       [1, 6],
     );
     assert.equal(rejected, 5);
+  });
+
+  test('Issue を指さない外の人の PR は、数えず、警告にも数えない', () => {
+    const pulls = [pull(1, { author: 'dependabot[bot]', type: 'Bot', head: 'dependabot/x' }), outsider(2)];
+    assert.deepEqual(trustedPulls(pulls, ['writer']), { kept: [], rejected: 0 });
+    assert.deepEqual(buildProgress(raw({ mergedPulls: pulls }), NOW).warnings, []);
+  });
+
+  test('権限の確認が通らなかった（writeUsers が空の）ときは、全 PR を外して警告に出す', () => {
+    const built = buildProgress(
+      raw({ issues: [issue(1)], openPulls: [pull(9, { head: '1-x' })], writeUsers: [] }),
+      NOW,
+    );
+    assert.equal(built.issues[0]?.s, 'todo');
+    assert.equal(built.warnings.length, 1);
+  });
+
+  test('pullWriters は、開いた PR とマージ済みの PR の両方の作者のうち、Issue を指す PR の作者だけを確かめる', async () => {
+    const asked: string[] = [];
+    const lookup = async (login: string): Promise<unknown> => {
+      asked.push(login);
+      return { permission: 'write', user: { login, type: 'User' } };
+    };
+    const pulls = [
+      pull(1, { author: 'alice', head: '1-x' }),
+      pull(2, { author: 'bob', body: 'Closes #2' }),
+      pull(3, { author: 'carol' }),
+    ];
+    const writers = await pullWriters(pulls, lookup);
+    assert.deepEqual([...writers].toSorted(), ['alice', 'bob']);
+    assert.deepEqual(asked.toSorted(), ['alice', 'bob']);
   });
 
   test('toRawPull は user の login と type を運び、無ければ null にする', () => {
