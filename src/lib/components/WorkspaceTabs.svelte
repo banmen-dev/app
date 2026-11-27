@@ -161,9 +161,9 @@
   <!-- 幅を測るための見えない並び。全部のタブと、全部をまとめた件数の「その他」のボタンを、本物と同じ部品で置く -->
   <div class="route-tabs-measure" aria-hidden="true" bind:this={measurer}>
     {#each tabs as tab (tab.label)}
-      <span class="route-tab" data-measure-tab data-label={t(tab.label)}>{t(tab.label)}</span>
+      <span class="route-tab-probe" data-measure-tab data-label={t(tab.label)}>{t(tab.label)}</span>
     {/each}
-    <span class="route-tab" data-measure-more data-label="{t('workspaceTabsMore')} {tabs.length}"
+    <span class="route-tab-probe" data-measure-more data-label="{t('workspaceTabsMore')} {tabs.length}"
       >{t('workspaceTabsMore')} <span class="route-tab-count">{tabs.length}</span><Icon name="chevron" /></span
     >
   </div>

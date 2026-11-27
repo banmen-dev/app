@@ -3699,7 +3699,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const measurer = document.createElement("div");
     measurer.className = "route-tabs-measure";
     measurer.setAttribute("aria-hidden", "true");
-    measurer.innerHTML = st.tabs.map((tab) => `<span class="route-tab" data-measure-tab data-label="${esc(tab.label)}">${esc(tab.label)}</span>`).join("") + `<span class="route-tab" data-measure-more data-label="${t("workspaceTabsMore")} ${st.tabs.length}">${t("workspaceTabsMore")} <span class="route-tab-count">${st.tabs.length}</span>${icon("chevron")}</span>`;
+    measurer.innerHTML = st.tabs.map((tab) => `<span class="route-tab-probe" data-measure-tab data-label="${esc(tab.label)}">${esc(tab.label)}</span>`).join("") + `<span class="route-tab-probe" data-measure-more data-label="${t("workspaceTabsMore")} ${st.tabs.length}">${t("workspaceTabsMore")} <span class="route-tab-count">${st.tabs.length}</span>${icon("chevron")}</span>`;
     nav.append(measurer);
     const gap = Number.parseFloat(getComputedStyle(measurer).columnGap) || 0;
     const widths = [...measurer.querySelectorAll("[data-measure-tab]")].map((el) => el.getBoundingClientRect().width);
