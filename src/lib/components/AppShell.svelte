@@ -66,7 +66,7 @@
     workspace?: NavigationWorkspace;
     organizationSwitcher?: Snippet;
     workspaces?: readonly { id: string; name: string }[];
-    inWorkspaceScreen?: boolean;
+    inWorkspaceScreen: boolean;
     assistant?: Snippet;
     account?: Snippet<[narrow?: boolean]>;
     notice?: Snippet<[narrow?: boolean]>;
