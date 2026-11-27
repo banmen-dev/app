@@ -113,6 +113,87 @@ test.describe('ログインした画面', () => {
     expect(calls).toBe(1);
   });
 
+  test('送っている間は二重に送らず欄を読むだけにし、閉じる操作は止めない。閉じた後に送れたら知らせる', async ({
+    page,
+  }) => {
+    let calls = 0;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await routeOperation(page, feedbackSubmit, async (call) => {
+      calls += 1;
+      await held;
+      await call.fulfill({ feedback_id: FEEDBACK_ID });
+    });
+    await page.goto('/aoba');
+    await launcher(page).click();
+    await field(page).fill('送っている途中で閉じる文');
+    await dialog(page).getByRole('button', { name: '送る' }).click();
+    const sendingButton = dialog(page).getByRole('button', { name: '送っています…' });
+    await expect(sendingButton).toHaveAttribute('aria-disabled', 'true');
+    await expect(field(page)).toHaveAttribute('readonly', '');
+    // 送っている間にもう一度押しても、送るのは1回
+    // aria-disabled のボタンは Playwright が押せないものとして待つので、力ずくで押す
+    await sendingButton.click({ force: true });
+    await sendingButton.press('Enter');
+    expect(calls).toBe(1);
+    // 通信が詰まっても出られるよう、Esc で閉じられる
+    await page.keyboard.press('Escape');
+    await expect(dialog(page)).toBeHidden();
+    // 開き直しても、送り終わるまでは送れない
+    await launcher(page).click();
+    await expect(dialog(page).getByRole('button', { name: '送っています…' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog(page)).toBeHidden();
+    release();
+    await expect(page.getByRole('status').filter({ hasText: 'フィードバックを送りました' })).toBeVisible();
+    expect(calls).toBe(1);
+    await launcher(page).click();
+    await expect(field(page)).toHaveValue('');
+  });
+
+  test('閉じた後に送れなかったら、理由をトーストで出して入力を残す', async ({ page }) => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await routeOperation(page, feedbackSubmit, async (call) => {
+      await held;
+      await call.fail(503, 'unavailable');
+    });
+    await page.goto('/aoba');
+    await launcher(page).click();
+    await field(page).fill('閉じた後に失敗する文');
+    await dialog(page).getByRole('button', { name: '送る' }).click();
+    await expect(dialog(page).getByRole('button', { name: '送っています…' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog(page)).toBeHidden();
+    release();
+    const toast = page.getByRole('status').filter({ hasText: '今はフィードバックを受け付けられませんでした' });
+    await expect(toast).toBeVisible();
+    await expect(toast).toContainText('開き直すと残っています');
+    // 送り直すと同じ文が2件載りうることを添える
+    await expect(toast).toContainText('同じ文が2件になることがあります');
+    await launcher(page).click();
+    await expect(field(page)).toHaveValue('閉じた後に失敗する文');
+  });
+
+  test('ログインが切れていたらログインへ、同意していなければ同意の画面へ移す', async ({ page }) => {
+    const unroute = await failOperation(page, feedbackSubmit, 401, 'unauthenticated');
+    await page.goto('/aoba');
+    await launcher(page).click();
+    await field(page).fill('ログインが切れている');
+    const toLogin = page.waitForURL(/\/login\?return_to=%2Faoba$/, { waitUntil: 'commit' });
+    await dialog(page).getByRole('button', { name: '送る' }).click();
+    await toLogin;
+    await unroute();
+
+    await failOperation(page, feedbackSubmit, 403, 'terms_required');
+    await page.goto('/aoba');
+    await launcher(page).click();
+    await field(page).fill('同意していない');
+    const toConsent = page.waitForURL(/\/consent\?return_to=%2Faoba$/, { waitUntil: 'commit' });
+    await dialog(page).getByRole('button', { name: '送る' }).click();
+    await toConsent;
+  });
+
   test('開くと中にフォーカスが入り、Esc で閉じて入口へ戻る', async ({ page }) => {
     await page.goto('/aoba');
     await expectModalFocus(page, { opener: launcher(page), modal: dialog(page) });
@@ -149,4 +230,12 @@ test('ログインしていない画面には出さない', async ({ page }) => 
   await page.goto('/login');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await expect(launcher(page)).toHaveCount(0);
+});
+
+test('運用の画面にも出す', async ({ context, baseURL, page }) => {
+  await signIn(context, baseURL, 'operator');
+  await page.goto('/operator');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await launcher(page).click();
+  await expect(dialog(page)).toBeVisible();
 });

@@ -15,7 +15,11 @@
   // 置くのは、ログインを前提に読み込む画面（組織の枠、組織の選択、運用）だけ。root のレイアウトはログインの状態を持たないので置かない。
   // 押すとダイアログが開き、文を feedback-submit で送る。送った文は公開の GitHub の Issue に載るので、ダイアログの先頭にそう出す。
   // 送れたら閉じてトーストを出し、入力を空にする。送れなかったら閉じずに入力を残し、欄の下に理由を出す。
-  // 送っている間は閉じる操作と送るボタンを止める（Dialog の dismissible）。規約の文書は別のタブで開き、書いている文を失わない。
+  // 送っている間は欄を読むだけにし、送るボタンを止めて二重に送らない（開き直しても sending は残る）。
+  // 閉じる操作は止めない（書き込みは画面で打ち切らないので、通信が詰まったときにダイアログから出られなくなるため）。
+  // 閉じた後に送れたらトーストで知らせて入力を空にし、送れなかったら理由をトーストで知らせて入力を残す。
+  // ログインが切れた（401）と同意していない（403 の terms_required）は、画面ごと移るので書いた文は残らない。
+  // 規約の文書は別のタブで開き、書いている文を失わない。
 
   const ids = $props.id();
   const fieldId = `${ids}-text`;
@@ -54,6 +58,7 @@
       if (result.ok) {
         open = false;
         text = '';
+        error = null;
         showToast(t('feedbackSent'), 'check');
         return;
       }
@@ -65,8 +70,13 @@
         window.location.assign(consentUrl(page.url));
         return;
       }
-      error = feedbackFailure(result);
-      textarea?.focus();
+      const reason = feedbackFailure(result);
+      if (open) {
+        error = reason;
+        textarea?.focus();
+      } else {
+        showToast(t('feedbackFailedClosed', { reason: t(reason, { max }) }), 'alert');
+      }
     } finally {
       sending = false;
     }
@@ -85,13 +95,15 @@
   <Icon name="message" />
 </button>
 
-<Dialog bind:this={dialog} bind:open dismissible={!sending} title={t('feedbackTitle')}>
+<Dialog bind:this={dialog} bind:open title={t('feedbackTitle')}>
   <form class="form" id="{ids}-form" onsubmit={submit} novalidate>
     <div class="callout is-info" id={publicId}>
       <Icon name="alert" />
       <span
         >{t('feedbackPublic')}
-        <a href={resolve('/privacy')} target="_blank" rel="noopener noreferrer">{t('feedbackPrivacy')}</a></span
+        <a href={resolve('/privacy')} target="_blank" rel="noopener noreferrer"
+          >{t('feedbackPrivacy')}<Icon name="external" /><span class="visually-hidden">{t('markdownNewTab')}</span></a
+        ></span
       >
     </div>
     <div class="field" class:is-invalid={error !== null}>
@@ -111,12 +123,13 @@
           ><Icon name="alert" />{t(error, { max })}</span
         >{/if}
     </div>
+    <!-- 送っている間は、目にはボタンの文言で、読み上げにはこの領域で伝える -->
     <span class="visually-hidden" role="status">{sending ? t('feedbackSending') : ''}</span>
   </form>
   {#snippet footer(close)}
-    <button class="btn is-quiet" type="button" aria-disabled={sending} onclick={() => !sending && close()}
-      >{t('cancel')}</button
+    <button class="btn is-quiet" type="button" onclick={close}>{t('cancel')}</button>
+    <button class="btn is-primary" type="submit" form="{ids}-form" aria-disabled={sending}
+      >{sending ? t('feedbackSending') : t('feedbackSend')}</button
     >
-    <button class="btn is-primary" type="submit" form="{ids}-form" aria-disabled={sending}>{t('feedbackSend')}</button>
   {/snippet}
 </Dialog>

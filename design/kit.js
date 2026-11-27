@@ -67,6 +67,7 @@
     feedbackPublic: "送った文は、公開の GitHub（banmen-dev/app）の Issue に載り、だれでも読めます。組織の名前、人の名前、秘密にしたいことは書かないでください。",
     feedbackPrivacy: "預かるものと消す時期",
     feedbackSend: "送る",
+    feedbackSending: "送っています…",
     feedbackSent: "フィードバックを送りました。ありがとうございます。",
     feedbackEmpty: "送る文を入れてください。",
     feedbackRateLimited: "送る回数の上限に達しました。しばらく待ってから、もう一度送ってください。",
@@ -2875,14 +2876,17 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
          <p class="field-hint">延ばした${t("sprint")}はベロシティの計算から除きます。</p>`,
         `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="${t("sprint")}を 2 日延長しました">2 日延長する</button>`);
     },
-    // 右下のフィードバックの入口から開く（本番の FeedbackLauncher.svelte）。data-state="failed" で、送れなかったとき（入力を残して理由を出す）
+    // 右下のフィードバックの入口から開く（本番の FeedbackLauncher.svelte）。data-state="failed" で送れなかったとき（入力を残して理由を出す）、
+    // data-state="sending" で送っている途中（欄は読むだけ、送るボタンは止めて「送っています…」。閉じる操作は止めない）
     feedback: (el) => {
       const failed = el?.dataset.state === "failed";
+      const sending = el?.dataset.state === "sending";
       const hint = t("feedbackHint").replace("{max}", "5,000");
       openDialog(t("feedbackTitle"),
-        `<div class="callout is-info" id="d-fb-public">${icon("alert")}<span>${t("feedbackPublic")} <a href="#" target="_blank" rel="noopener noreferrer">${t("feedbackPrivacy")}</a></span></div>
-         <div class="field${failed ? " is-invalid" : ""}"><label class="field-label" for="d-fb">${t("feedbackField")}</label><textarea class="textarea" id="d-fb" rows="6" aria-describedby="d-fb-public d-fb-hint${failed ? " d-fb-error" : ""}"${failed ? ' aria-invalid="true"' : ""}>${failed ? "ボードの列の見出しが、狭い幅で2行に折れて読みにくいです。" : ""}</textarea><p class="field-hint" id="d-fb-hint">${hint}</p>${failed ? `<span class="field-error" id="d-fb-error" role="alert">${icon("alert")}${t("feedbackRateLimited")}</span>` : ""}</div>`,
-        `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button><button class="btn is-primary" type="button" data-close-dialog data-toast="${t("feedbackSent")}">${t("feedbackSend")}</button>`);
+        `<div class="callout is-info" id="d-fb-public">${icon("alert")}<span>${t("feedbackPublic")} <a href="#" target="_blank" rel="noopener noreferrer">${t("feedbackPrivacy")}${icon("external")}<span class="visually-hidden">${t("markdownNewTab")}</span></a></span></div>
+         <div class="field${failed ? " is-invalid" : ""}"><label class="field-label" for="d-fb">${t("feedbackField")}</label><textarea class="textarea" id="d-fb" rows="6" aria-describedby="d-fb-public d-fb-hint${failed ? " d-fb-error" : ""}"${failed ? ' aria-invalid="true"' : ""}${sending ? " readonly" : ""}>${failed || sending ? "ボードの列の見出しが、狭い幅で2行に折れて読みにくいです。" : ""}</textarea><p class="field-hint" id="d-fb-hint">${hint}</p>${failed ? `<span class="field-error" id="d-fb-error" role="alert">${icon("alert")}${t("feedbackRateLimited")}</span>` : ""}</div>
+         <span class="visually-hidden" role="status">${sending ? t("feedbackSending") : ""}</span>`,
+        `<button class="btn is-quiet" type="button" data-close-dialog>やめる</button>${sending ? `<button class="btn is-primary" type="button" aria-disabled="true">${t("feedbackSending")}</button>` : `<button class="btn is-primary" type="button" data-close-dialog data-toast="${t("feedbackSent")}">${t("feedbackSend")}</button>`}`);
     },
     // ボードの列の上限（本番の ColumnLimitDialog）。空にして決めると上限を外す
     columnLimit: (el) => {

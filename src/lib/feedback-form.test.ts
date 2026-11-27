@@ -17,10 +17,9 @@ const failed = (status: number, code: string, details?: unknown) => ({
 
 describe('feedbackInput', () => {
   test('URL はクエリとフラグメントを除き、経路はそのまま送る', () => {
-    const input = feedbackInput('見出しが読みにくい', '/[slug]/w/[id]/board', {
-      origin: 'https://banmen.example.test',
-      pathname: '/aoba/w/w1/board',
-    });
+    // 画面は window.location をそのまま渡すので、href、search、hash も持つ形で確かめる
+    const location = new URL('https://banmen.example.test/aoba/w/w1/board?task=t1&token=x#comments');
+    const input = feedbackInput('見出しが読みにくい', '/[slug]/w/[id]/board', location);
     expect(input).toEqual({
       text: '見出しが読みにくい',
       route_id: '/[slug]/w/[id]/board',
@@ -49,8 +48,21 @@ describe('validateFeedback', () => {
     expect(validateFeedback('😀'.repeat(FEEDBACK_TEXT_MAX))).toBeNull();
   });
 
-  test('CRLF は1字に数える', () => {
+  test('CRLF と CR は1字に数える', () => {
     expect(feedbackTextLength('a\r\nb')).toBe(3);
+    expect(feedbackTextLength('a\rb')).toBe(3);
+  });
+
+  test('画面に出ない文字は数えない（サーバーが除いてから数えるので、サーバーが受ける文を断らない）', () => {
+    // 接合子でつないだ家族の絵文字は 7 コードポイントだが、サーバーは接合子を除いて 4 字に数える
+    const family = '👨\u200d👩\u200d👧\u200d👦';
+    expect(feedbackTextLength(family)).toBe(4);
+    expect(validateFeedback(family.repeat(1250))).toBeNull();
+    expect(validateFeedback(family.repeat(1251))).toBe('feedbackTooLong');
+  });
+
+  test('画面に出ない文字だけの文は空とみなす', () => {
+    expect(validateFeedback('\u200b\u2060 \ufeff')).toBe('feedbackEmpty');
   });
 });
 

@@ -646,15 +646,20 @@ export const dictionary = defineDictionary({
     '送った文は、公開の GitHub（banmen-dev/app）の Issue に載り、だれでも読めます。組織の名前、人の名前、秘密にしたいことは書かないでください。',
   feedbackPrivacy: '預かるものと消す時期',
   feedbackSend: '送る',
-  feedbackSending: '送っています',
+  feedbackSending: '送っています…',
   feedbackSent: 'フィードバックを送りました。ありがとうございます。',
   feedbackEmpty: '送る文を入れてください。',
   feedbackTooLong: '{max}字以内にしてください。',
   feedbackInvalid: '送れない文字が含まれています。文を見直してから、もう一度送ってください。',
   feedbackSecret: 'トークンや秘密鍵のような文字列が含まれています。消してから送ってください。',
   feedbackRateLimited: '送る回数の上限に達しました。しばらく待ってから、もう一度送ってください。',
-  feedbackUnavailable: '今はフィードバックを受け付けていません。時間をおいて、もう一度送ってください。',
-  feedbackFailed: '送れませんでした。通信を確かめて、もう一度送ってください。',
+  // 503 と通信の失敗は、Issue が立った後に失敗したこともある。送り直すと同じ文が2件載りうることを添える
+  feedbackUnavailable:
+    '今はフィードバックを受け付けられませんでした。時間をおいて送り直してください。すでに載っていて、同じ文が2件になることがあります。',
+  feedbackFailed:
+    '送れたか確かめられませんでした。通信を確かめてから送り直してください。すでに載っていて、同じ文が2件になることがあります。',
+  // ダイアログを閉じた後に送れなかったときのトースト。reason は上の失敗の文
+  feedbackFailedClosed: '{reason}\n書いた文は、右下のボタンから開き直すと残っています。',
 
   // メニューの項目と見出し。ワークスペースの外の画面は organization
   pageToday: '今日やること',

@@ -1,4 +1,4 @@
-import { feedbackSubmit } from '../../shared/operations/feedback.ts';
+import { FEEDBACK_TEXT_MAX, feedbackSubmit } from '../../shared/operations/feedback.ts';
 import { ROUTE_IDS } from '../../shared/route-ids.ts';
 import { consumeRateLimit, FEEDBACK_GLOBAL_RATE_LIMIT, isRateLimitExceeded } from '../auth/rate-limit.ts';
 import { ApiError } from '../errors.ts';
@@ -13,6 +13,8 @@ import {
 } from '../feedback/github-app.ts';
 import { uuidv7 } from '../uuid.ts';
 import { implement } from './implement.ts';
+
+const textPattern = new RegExp(`^.{1,${FEEDBACK_TEXT_MAX}}$`, 'su');
 
 // Banmen と GitHub のトークンの接頭辞、秘密鍵の PEM ヘッダーを検出する。
 const secretPattern = /(?:sgp_|gh[pousr]_|github_pat_)[A-Za-z0-9_-]+|-----BEGIN\b/;
@@ -62,7 +64,7 @@ export function createFeedbackToolsFactory(fetcher: typeof fetch) {
 function validateText(value: string): void {
   const text = normalizeFeedbackText(value);
   // 改行を含め、Unicode のコードポイントで長さを数える。
-  if (!/^.{1,5000}$/su.test(text) || text.trim() === '') throw new ApiError(400, 'invalid_input');
+  if (!textPattern.test(text) || text.trim() === '') throw new ApiError(400, 'invalid_input');
   if (secretPattern.test(text)) {
     throw new ApiError(400, 'invalid_input', [{ path: 'text', code: 'custom', message: 'secret_detected' }]);
   }

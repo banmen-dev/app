@@ -2373,13 +2373,15 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
  * 版（.app-version）の帯より上に置き、トーストはこのボタンの上へ上げる（下の html:has(.feedback-launch) の規則）。
  * 本文より上で、上の帯、引き出し、アシスタントの横の欄、ダイアログ、トーストより下（z-index 4。版は 3）。
  * 広い画面は下端から --space-5。760px 以下は、下のタブが無い画面で版の上（下端から --space-10）、下のタブがある画面でタブの上の余白（版が入る）からさらに --space-2 上に置き、版と詰めすぎない。
- * 本文の末尾は、この分だけ下を空けて、最後の行がボタンの下に隠れないようにする */
+ * 本文の末尾（.content と枠の外の紙 .gate）は、この分だけ下を空けて、最後の行がボタンの下に隠れないようにする。
+ * スクロールの途中でボタンの下を通る行の操作は、送ってボタンの外へ出してから押す（ボタンは畳まない）。
+ * 浮く物なので、常に出ていても --shadow-float を付け、枠（--color-control-edge）でも地と見分ける */
 .feedback-launch {
   position: fixed; z-index: 4;
   right: max(var(--space-4), env(safe-area-inset-right, 0px)); bottom: calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
   width: var(--feedback-launch-size); height: var(--feedback-launch-size); padding: 0;
   display: grid; place-items: center;
-  border: 1px solid var(--color-control-edge); border-radius: 50%;
+  border: 1px solid var(--color-control-edge); border-radius: var(--radius-full);
   background: var(--color-surface); color: var(--color-fg); box-shadow: var(--shadow-float); cursor: pointer;
 }
 .feedback-launch:hover { background: var(--color-sunken); }
@@ -2388,6 +2390,7 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
 .feedback-launch.is-static { position: static; }
 html:has(.feedback-launch:not(.is-static)) .toasts { bottom: calc(var(--space-5) + var(--feedback-launch-stack) + env(safe-area-inset-bottom, 0px)); }
 html:has(.feedback-launch:not(.is-static)) .content { padding-bottom: calc(var(--space-5) + var(--feedback-launch-stack)); }
+html:has(.feedback-launch:not(.is-static)) .gate { padding-bottom: calc(var(--space-8) + var(--feedback-launch-stack) + env(safe-area-inset-bottom, 0px)); }
 @media (max-width: 760px) {
   .feedback-launch:not(.is-static) { view-transition-name: feedback-launch; bottom: calc(var(--space-10) + env(safe-area-inset-bottom, 0px)); }
   html:has(.mobile-navigation) .feedback-launch:not(.is-static) { bottom: calc(var(--mobile-navigation-clearance) + var(--space-2) + env(safe-area-inset-bottom, 0px)); }
