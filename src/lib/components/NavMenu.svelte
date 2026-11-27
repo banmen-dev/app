@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import {
@@ -25,6 +26,8 @@
   // 組織の切り替えはメニューの外（AppShell のブランドの下）に置く。
   // ワークスペースの設定は、対象のリーダーと管理者にだけ出す。
   // inWorkspaceScreen が偽（「今日やること」など組織の画面）のときは、対象の行にチェックだけを付け、現在地（aria-current）にはしない。
+  // 現在地（aria-current）は、workspaceItems が真（760px 以下の浮きメニュー）では機能の項目だけが伝える（対象の行も同じ宛先で、
+  // 両方に付けると現在地が二重に読み上げられるため）。行は目に見えない「（開いている）」で伝え、チェックは見た目に残す。
   // workspaceItems が偽（761px 以上の左のメニュー）なら、ワークスペースの機能の項目と「管理」の見出しを出さない。
   // 機能はワークスペースの画面の上のタブ（WorkspaceTabs）で切り替える。ワークスペースの見出しと一覧は残す
   let {
@@ -34,7 +37,7 @@
     isAdmin,
     workspace,
     workspaces = [],
-    inWorkspaceScreen = true,
+    inWorkspaceScreen,
     workspaceItems = true,
   }: {
     current: string;
@@ -43,7 +46,7 @@
     isAdmin: boolean;
     workspace?: NavigationWorkspace;
     workspaces?: readonly { id: string; name: string }[];
-    inWorkspaceScreen?: boolean;
+    inWorkspaceScreen: boolean;
     workspaceItems?: boolean;
   } = $props();
 
@@ -52,6 +55,16 @@
       .map((favorite) => ({ favorite, item: favoriteNavItem(resolve('/[slug]', { slug }), favorite) }))
       .filter(({ item }) => item.href !== null),
   );
+
+  let workspaceToggle = $state<HTMLButtonElement>();
+  let workspaceList = $state<HTMLUListElement>();
+
+  // 別のタブで畳まれると一覧が hidden になり、中にあったフォーカスは body に落ちる。DOM に当てる前に中にあったかを見て、
+  // 見出しのボタンへ移す（左のメニュー全体の開閉の AppShell と同じ形。このボタンで畳んだときはフォーカスがボタンにあるので当たらない）
+  $effect.pre(() => {
+    if (!navWorkspacesState.collapsed || !workspaceList?.contains(document.activeElement)) return;
+    void tick().then(() => workspaceToggle?.focus());
+  });
 
   const isMember = $derived(workspace !== undefined && workspaces.some((entry) => entry.id === workspace.id));
 
@@ -77,6 +90,7 @@
           type="button"
           aria-expanded={!collapsed}
           aria-controls={NAV_WORKSPACES_ID}
+          bind:this={workspaceToggle}
           aria-label={t('workspaceListToggleLabel', { workspace: t('workspace') })}
           onclick={() => setNavWorkspacesCollapsed(!collapsed)}
         >
@@ -88,25 +102,30 @@
         id={NAV_WORKSPACES_ID}
         aria-label={t('workspaceNavListLabel', { workspace: t('workspace') })}
         hidden={collapsed}
+        bind:this={workspaceList}
       >
         {#if !isMember}
-          <!-- 所属していない管理者が開いているものは、移動先に加えず、押せない行で先頭に出す -->
+          <!-- 所属していない管理者が開いているものは、移動先に加えず、押せない行で先頭に出す。長い名前は折り返して全文を見せる -->
           <li>
-            <span class="nav-item is-current" aria-current="page" title={workspace.name}>
-              <span class="nav-item-label">{workspace.name}</span><Icon name="check" />
+            <span class="nav-item is-current" aria-current={workspaceItems ? undefined : 'page'} title={workspace.name}>
+              <span class="nav-item-label">{workspace.name}</span><Icon name="check" />{#if workspaceItems}<span
+                  class="visually-hidden">{t('workspaceNavOpened')}</span
+                >{/if}
             </span>
           </li>
         {/if}
         {#each workspaces as entry (entry.id)}
           {@const isCurrent = entry.id === workspace.id}
-          <li>
+          <li data-name={entry.name}>
             <a
               class="nav-item"
               href={resolve('/[slug]/w/[id]', { slug, id: entry.id })}
               title={entry.name}
-              aria-current={isCurrent && inWorkspaceScreen ? 'page' : undefined}
+              aria-current={isCurrent && inWorkspaceScreen && !workspaceItems ? 'page' : undefined}
             >
-              <span class="nav-item-label">{entry.name}</span>{#if isCurrent}<Icon name="check" />{/if}
+              <span class="nav-item-label">{entry.name}</span>{#if isCurrent}<Icon
+                  name="check"
+                />{#if workspaceItems}<span class="visually-hidden">{t('workspaceNavOpened')}</span>{/if}{/if}
             </a>
           </li>
         {/each}

@@ -29,6 +29,7 @@ test('本文の main は初期状態では tabindex を持たない', () => {
       slug: 'aoba',
       hasWorkspace: false,
       isAdmin: false,
+      inWorkspaceScreen: false,
       children: createRawSnippet(() => ({ render: () => '<p>架空の本文</p>' })),
     },
   }).body;
@@ -44,6 +45,7 @@ const shell = (current: string, workspace?: { id: string; name: string; role: 'l
       slug: 'aoba',
       hasWorkspace: true,
       isAdmin: false,
+      inWorkspaceScreen: false,
       workspace,
       children: createRawSnippet(() => ({ render: () => '<p>架空の本文</p>' })),
     },
@@ -104,6 +106,7 @@ test('上の帯に検索の欄があり、ワークスペースの画面では�
       slug: 'aoba',
       hasWorkspace: false,
       isAdmin: false,
+      inWorkspaceScreen: false,
       children: createRawSnippet(() => ({ render: () => '<p>架空の本文</p>' })),
     },
   }).body;
@@ -147,6 +150,7 @@ test('組織の切り替えは上の帯のアシスタントとアカウント�
       slug: 'aoba',
       hasWorkspace: false,
       isAdmin: false,
+      inWorkspaceScreen: false,
       assistant: createRawSnippet(() => ({ render: () => '<button class="assist-launch">架空の頼む</button>' })),
       organizationSwitcher: createRawSnippet(() => ({ render: () => '<div class="org-menu">架空の組織</div>' })),
       account: createRawSnippet(() => ({ render: () => '<div class="account-menu">架空の人</div>' })),
@@ -167,6 +171,7 @@ test('上の帯は枠の先頭にあり、左端に開閉のボタンとマー�
       slug: 'aoba',
       hasWorkspace: false,
       isAdmin: false,
+      inWorkspaceScreen: false,
       account: createRawSnippet(() => ({ render: () => '<div class="account-menu">架空の人</div>' })),
       children: createRawSnippet(() => ({ render: () => '<p>架空の本文</p>' })),
     },
@@ -190,6 +195,7 @@ test('左のメニューの右の境目は、幅の値と範囲を持つ separat
       slug: 'aoba',
       hasWorkspace: false,
       isAdmin: false,
+      inWorkspaceScreen: false,
       children: createRawSnippet(() => ({ render: () => '<p>架空の本文</p>' })),
     },
   }).body.replace(/<!--[^>]*-->/g, '');

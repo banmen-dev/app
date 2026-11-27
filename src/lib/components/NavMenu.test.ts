@@ -77,7 +77,7 @@ test('設定は対象の今のロールがリーダーか管理者の場合に�
 
 test('対象が無いときも今日やることと組織の Wiki を出す', () => {
   const body = render(NavMenu, {
-    props: { current: '/aoba', slug: 'aoba', hasWorkspace: false, isAdmin: true },
+    props: { current: '/aoba', slug: 'aoba', hasWorkspace: false, isAdmin: true, inWorkspaceScreen: true },
   }).body;
   expect(body).not.toContain('/w/');
   expect(body).toContain('href="/aoba/wiki"');
@@ -139,7 +139,7 @@ test('お気に入りは組織とワークスペースの節の間に、種類�
 });
 
 test('0件は節を出さず、一覧失敗は0件と分けて説明と再試行を出す', () => {
-  const props = { current: '/aoba', slug: 'aoba', hasWorkspace: false, isAdmin: false };
+  const props = { current: '/aoba', slug: 'aoba', hasWorkspace: false, isAdmin: false, inWorkspaceScreen: true };
   favoriteState.current = { available: true, items: [] };
   expect(render(NavMenu, { props }).body).not.toContain('nav-favorites');
   favoriteState.current = { available: false, items: [] };
@@ -155,13 +155,17 @@ test('リンクにできる対象が無い一覧では見出しだけの節を�
       { id: 'bad', target_type: 'task', target_id: 'task', workspace_id: null, title: '架空の題', created_at: '' },
     ],
   };
-  const body = render(NavMenu, { props: { current: '/aoba', slug: 'aoba', hasWorkspace: false, isAdmin: false } }).body;
+  const body = render(NavMenu, {
+    props: { current: '/aoba', slug: 'aoba', hasWorkspace: false, isAdmin: false, inWorkspaceScreen: true },
+  }).body;
   expect(body).not.toContain('nav-favorites');
 });
 
 test('手動の再試行が続く間は0件へ更新されても操作の節を外さない', () => {
   favoriteState.current = { available: true, items: [], loadFailed: false, loading: true };
-  const body = render(NavMenu, { props: { current: '/aoba', slug: 'aoba', hasWorkspace: false, isAdmin: false } }).body;
+  const body = render(NavMenu, {
+    props: { current: '/aoba', slug: 'aoba', hasWorkspace: false, isAdmin: false, inWorkspaceScreen: true },
+  }).body;
   expect(body).toContain('nav-favorites');
   expect(body).toContain('もう一度試す');
   expect(body).toContain('読み込んでいます');
@@ -183,8 +187,7 @@ describe('ワークスペースの一覧', () => {
     expect(body).toMatch(
       /<button[^>]*class="nav-group-toggle"[^>]*aria-expanded="true"[^>]*aria-controls="app-nav-workspaces"/,
     );
-    expect(body).toContain('aria-label="所属するワークスペースの一覧"');
-    expect(body).toContain('aria-label="所属するワークスペース"');
+    expect(body).toContain('aria-label="ワークスペースの一覧"');
     expect(body).not.toMatch(/<ul[^>]*\shidden/);
     expect(body.indexOf('href="/aoba/w/one"')).toBeLessThan(body.indexOf('href="/aoba/w/two"'));
     expect(body).toMatch(/href="\/aoba\/w\/one"[^>]*aria-current="page"/);
@@ -231,9 +234,34 @@ describe('ワークスペースの一覧', () => {
     expect(body.indexOf('架空の管理対象チーム')).toBeLessThan(body.indexOf('href="/aoba/w/one"'));
   });
 
+  test('浮きメニュー（機能の項目あり）では、行に aria-current を付けず、見えない文言で開いているものを伝える', () => {
+    const body = render(NavMenu, { props: { ...props, current: '/aoba/w/one' } }).body;
+    expect(body).not.toMatch(/href="\/aoba\/w\/one"[^>]*title="[^"]*"[^>]*aria-current/);
+    const list = body.match(/<ul[\s\S]*?<\/ul>/)![0];
+    expect(list).not.toContain('aria-current');
+    expect(list).toContain('（開いている）');
+    expect(list.match(/（開いている）/g)).toHaveLength(1);
+  });
+
+  test('浮きメニューで所属していない管理者の行も、aria-current を付けず見えない文言で伝える', () => {
+    const body = render(NavMenu, {
+      props: { ...props, isAdmin: true, workspace: { id: 'other', name: '架空の管理対象チーム', role: null } },
+    }).body;
+    const list = body.match(/<ul[\s\S]*?<\/ul>/)![0];
+    expect(list).not.toContain('aria-current');
+    expect(list).toContain('（開いている）');
+  });
+
   test('対象が無い人（所属が無い）には見出しも一覧も出さない', () => {
     const body = render(NavMenu, {
-      props: { current: '/aoba', slug: 'aoba', hasWorkspace: false, isAdmin: false, workspaces: [] },
+      props: {
+        current: '/aoba',
+        slug: 'aoba',
+        hasWorkspace: false,
+        isAdmin: false,
+        inWorkspaceScreen: true,
+        workspaces: [],
+      },
     }).body;
     expect(body).not.toContain('nav-group-toggle');
     expect(body).not.toContain('app-nav-workspaces');

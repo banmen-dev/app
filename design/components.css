@@ -140,8 +140,10 @@ h1, h2, h3 { text-wrap: balance; }
 .nav-ws-list[hidden] { display: none; }
 .nav-ws-list .nav-item-label { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-ws-list .nav-item .ico { flex: none; margin-left: auto; color: var(--color-accent); }
-/* 所属していない管理者が開いているものは押せない行。押せる行と同じホバーの見た目にしない */
+/* 所属していない管理者が開いているものは押せない行（span）。押せる行と同じホバーの見た目にせず、フォーカスも来ないので、
+   省略せず折り返して全文を見せる */
 .nav-item.is-current { cursor: default; }
+.nav-ws-list .nav-item.is-current .nav-item-label { white-space: normal; overflow-wrap: anywhere; }
 .nav-item {
   position: relative;
   display: flex; align-items: center; gap: var(--space-3);
@@ -1028,7 +1030,7 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
   /* 切り替えの一覧は面を押し広げる。スクロール領域の外へ切らない。 */
   .mobile-menu .org-menu-list { position: static; margin-top: var(--space-2); }
   /* ワークスペースの一覧は、所属が多くても下の機能の項目まで届くよう高さを抑えて中で送り、長い名前は指の端末で読めるよう折り返す */
-  .mobile-menu .nav-ws-list { max-height: 40vh; overflow-y: auto; overscroll-behavior: contain; padding: var(--space-1); }
+  .mobile-menu .nav-ws-list { max-height: 40dvh; overflow-y: auto; overscroll-behavior: contain; padding: var(--space-1); }
   .mobile-menu .nav-ws-list .nav-item-label { white-space: normal; overflow-wrap: anywhere; }
   .mobile-menu .org-menu-button { min-height: 44px; }
 
@@ -2785,10 +2787,31 @@ body.has-assist .toasts { right: calc(400px + var(--space-4)); }
 
 /* title を開けないタッチ端末では、項目にフォーカスすると省略した題を全文にする。 */
 @media (hover: none) {
-  .nav-favorites .nav-item:focus .nav-item-label, .nav-ws-list .nav-item:focus .nav-item-label { white-space: normal; overflow-wrap: anywhere; }
+  .nav-favorites .nav-item:focus .nav-item-label { white-space: normal; overflow-wrap: anywhere; }
 }
-/* キーボードで行に当てたときも、省略した名前を全文にする（title はホバーでしか出ないため） */
-.nav-ws-list .nav-item:focus-visible .nav-item-label { white-space: normal; overflow-wrap: anywhere; }
+/* ワークスペースの一覧は、行を折り返すと下の行が Tab のたびに動くので、行は省略したままにする。キーボード（とタッチ）で行に当てたときだけ、
+   行の下に全文の吹き出しを浮かせる（li の data-name。読み上げは行の文字で足りるので、代替の文字を空にして二重に読ませない）。
+   760px 以下の浮きメニューは、行が折り返して全文が見えているので出さない */
+.nav-ws-list > li { position: relative; }
+.nav-ws-list > li:has(> .nav-item:focus-visible)::after {
+  content: attr(data-name) / "";
+  position: absolute; inset: calc(100% + var(--space-half)) 0 auto; z-index: 1;
+  padding: var(--space-1) var(--space-2); overflow-wrap: anywhere;
+  background: var(--color-surface); color: var(--color-fg); border: 1px solid var(--color-line);
+  border-radius: var(--radius-1); box-shadow: var(--shadow-float); pointer-events: none;
+}
+@media (hover: none) {
+  .nav-ws-list > li:has(> .nav-item:focus)::after {
+    content: attr(data-name) / "";
+    position: absolute; inset: calc(100% + var(--space-half)) 0 auto; z-index: 1;
+    padding: var(--space-1) var(--space-2); overflow-wrap: anywhere;
+    background: var(--color-surface); color: var(--color-fg); border: 1px solid var(--color-line);
+    border-radius: var(--radius-1); box-shadow: var(--shadow-float); pointer-events: none;
+  }
+}
+@media (max-width: 760px) {
+  .mobile-menu .nav-ws-list > li::after { content: none !important; }
+}
 
 /* 全画面の起票。上の行をスクロールから分け、ソフトキーボードの上でも作成へ届く。 */
 .mobile-create {

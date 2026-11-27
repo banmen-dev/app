@@ -1226,8 +1226,11 @@ export const dictionary = defineDictionary({
   // 組織の切り替えのボタンと一覧の読み上げの名前。{name} はボタンに見える文字の並び
   organizationSwitchLabel: '{name}。組織を切り替える',
   organizationListLabel: '入れる組織',
-  workspaceListToggleLabel: '所属する{workspace}の一覧',
-  workspaceNavListLabel: '所属する{workspace}',
+  // 一覧には、所属していない管理者が開いているものの行も入るので、「所属する」とは言わない
+  workspaceListToggleLabel: '{workspace}の一覧',
+  workspaceNavListLabel: '{workspace}の一覧',
+  // 浮きメニューでは、機能の項目が現在地（aria-current）を伝えるので、一覧の行は目に見えない文言で開いているものを伝える
+  workspaceNavOpened: '（開いている）',
   organizationMoving: '移っています',
   invitationsBadge: '届いた招待あり',
   invitationsReceived: '招待が届いています',
