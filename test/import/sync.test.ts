@@ -191,6 +191,118 @@ describe('取り込みの同期', () => {
     expect(await sourcesOf(db, workspace.id)).toHaveLength(2);
   });
 
+  describe('取り込み済みの項目の更新', () => {
+    async function firstTask(db: ReturnType<typeof orgDb>, workspaceId: string) {
+      return (await db.first(
+        db.statement((q) =>
+          q
+            .selectFrom('tasks')
+            .innerJoin('task_sources', 'task_sources.task_id', 'tasks.id')
+            .selectAll('tasks')
+            .select([
+              'task_sources.source_url',
+              'task_sources.source_status',
+              'task_sources.source_due_on',
+              'task_sources.is_source_done',
+              'task_sources.source_updated_at',
+            ])
+            .where('tasks.workspace_id', '=', workspaceId),
+        ),
+      ))!;
+    }
+    async function logCount(db: ReturnType<typeof orgDb>, workspaceId: string) {
+      const rows = await db.rows(
+        db.statement((q) => q.selectFrom('change_logs').select('id').where('workspace_id', '=', workspaceId)),
+      );
+      return rows.length;
+    }
+
+    test('取り込み元が持つ属性だけが映り、Banmen が持つ属性とタスクの完了は変わらず、履歴も書かない', async () => {
+      const { organization, workspace, connection, db } = await setup();
+      const other = await createUser(organization, { name: '緑川 凪' });
+      await createMembership(organization, workspace.id, other.id);
+      const first = fakeSource({ '501': [{ items: [item(1)], next: null }] });
+      await syncConnection(env, db, workspace.id, connection.id, { source: first.source });
+      const before = await firstTask(db, workspace.id);
+      // 人が付けた属性
+      await db.run(
+        db.statement((q) =>
+          q
+            .updateTable('tasks')
+            .set({ tray: 'backlog', points: 5, due_on: '2026-12-24', assignee_user_id: other.id })
+            .where('id', '=', before.id),
+        ),
+      );
+      const changed = item(1, {
+        title: '  新しい題\n2行目 ',
+        url: 'https://fake.example/box/1-moved',
+        status: 'in review',
+        dueOn: '2026-12-10',
+        updatedAt: '2026-11-02T00:00:00.000Z',
+      });
+      const second = fakeSource({ '501': [{ items: [changed], next: null }] });
+      expect(await syncConnection(env, db, workspace.id, connection.id, { source: second.source })).toMatchObject({
+        outcome: 'success',
+        imported: 0,
+      });
+      const after = await firstTask(db, workspace.id);
+      expect(after).toMatchObject({
+        id: before.id,
+        title: '新しい題 2行目',
+        source_url: 'https://fake.example/box/1-moved',
+        source_status: 'in review',
+        source_due_on: '2026-12-10',
+        source_updated_at: '2026-11-02T00:00:00.000Z',
+        is_source_done: 0,
+        // Banmen が持つ属性
+        tray: 'backlog',
+        points: 5,
+        due_on: '2026-12-24',
+        assignee_user_id: other.id,
+        repository_id: before.repository_id,
+        sprint_id: before.sprint_id,
+        column_id: before.column_id,
+        story_id: before.story_id,
+        completed_at: null,
+      });
+      expect(await tasksOf(db, workspace.id)).toHaveLength(1);
+      expect(await logCount(db, workspace.id)).toBe(0);
+    });
+
+    test('取り込み元で閉じると完了の印が付き、タスクは完了にならない。開き直すと印が外れる', async () => {
+      const { workspace, connection, db } = await setup();
+      const run = async (over: Partial<ImportItem>) =>
+        syncConnection(env, db, workspace.id, connection.id, {
+          source: fakeSource({ '501': [{ items: [item(1, over)], next: null }] }).source,
+        });
+      await run({});
+      await run({ isDone: true, status: 'closed', updatedAt: '2026-11-02T00:00:00.000Z' });
+      let row = await firstTask(db, workspace.id);
+      expect(row).toMatchObject({ is_source_done: 1, source_status: 'closed', completed_at: null, tray: 'inbox' });
+      expect(await tasksOf(db, workspace.id)).toHaveLength(1);
+      await run({ isDone: false, status: 'open', updatedAt: '2026-11-03T00:00:00.000Z' });
+      row = await firstTask(db, workspace.id);
+      expect(row).toMatchObject({ is_source_done: 0, source_status: 'open', completed_at: null });
+      expect(await logCount(db, workspace.id)).toBe(0);
+    });
+
+    test('取り込んでいない完了済みの項目は入れず、古い更新日時の頁は新しい値を戻さない', async () => {
+      const { workspace, connection, db } = await setup();
+      const run = (items: ImportItem[]) =>
+        syncConnection(env, db, workspace.id, connection.id, {
+          source: fakeSource({ '501': [{ items, next: null }] }).source,
+        });
+      await run([item(1), item(2, { isDone: true })]);
+      expect(await tasksOf(db, workspace.id)).toHaveLength(1);
+      await run([item(1, { title: '新しい', updatedAt: '2026-11-05T00:00:00.000Z' })]);
+      await run([item(1, { title: '古い', updatedAt: '2026-11-03T00:00:00.000Z' })]);
+      expect(await firstTask(db, workspace.id)).toMatchObject({
+        title: '新しい',
+        source_updated_at: '2026-11-05T00:00:00.000Z',
+      });
+    });
+  });
+
   test('並行して同期しても、同じ項目が二重に入らず、片方だけの行も残らない', async () => {
     const { workspace, connection, db } = await setup();
     const pages = { '501': [{ items: [item(1), item(2), item(3)], next: null }] };

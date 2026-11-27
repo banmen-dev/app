@@ -1,6 +1,7 @@
 // 取り込みの同期（src/server/import/sync.ts）が使う文。接続と範囲の読み取り、取り込み（1件）の書き込み、接続の状態の書き込み。
 // 組織の中の表だけを使い、共通の表とは結合しない（docs/data-model.md の「データベースの分け方」）。
 // 組織は、接続のワークスペースを workspaces.organization_id で絞って確かめる
+import { sql } from 'kysely';
 import { previousStatementChanged } from './previous-statement.ts';
 import type { ImportItem } from '../import/source.ts';
 import type { Statement } from './entry.ts';
@@ -340,6 +341,116 @@ export function importTaskStatements(db: OrganizationDb, task: ImportedTask, at:
   return task.reviewCycle === undefined
     ? [insertTask, insertSource]
     : [insertTask, insertSource, reviewCycleStatement(db, task.taskId, task.workspaceId, task.reviewCycle, at)];
+}
+
+// 取り込み済みの1件に、取り込み元が持つ属性（タイトル、状態、期限、URL、完了の印）だけを書き戻す。値は呼び出し側が整えた後のもの
+export type ImportedUpdate = {
+  workspaceId: string;
+  connectionId: string;
+  provider: string;
+  credentialCiphertext: string | null;
+  credentialKeyVersion: number | null;
+  kind: 'issue' | 'pull_request';
+  sourceId: string;
+  title: string;
+  url: string;
+  status: string;
+  dueOn: string | null;
+  isDone: boolean;
+  updatedAt: string;
+};
+
+// 取り込み済みの1件の更新（docs/data-model.md の「書き込みの単位」）: tasks のタイトルと task_sources の取り込み元の属性だけを、1回の batch() で書く文の組を作る。
+// 列、スプリント、親、ポイント、期日、担当、リポジトリ、完了は書かない。変更の履歴（change_logs）も書かない。
+// 完了の印（is_source_done）は付け外しだけで、タスクの完了には触れない。
+// どちらの文も、同じ項目の task_sources の行があり、その source_updated_at が取り込み元の更新日時以前（古い頁で新しい値を戻さない）ことを条件にする。
+// tasks の文を先に流すので、task_sources の条件は tasks の文でも同じ値を見る。行が無い（まだ取り込んでいない）項目では、どちらも0件になる
+export function updateImportedStatements(
+  db: OrganizationDb,
+  update: ImportedUpdate,
+  at: string,
+): Statement<'organization'>[] {
+  const updateTask = db.statement((q) =>
+    q
+      .updateTable('tasks')
+      .set({ title: update.title, updated_at: at })
+      .where('tasks.workspace_id', '=', update.workspaceId)
+      .where('tasks.is_imported', '=', 1)
+      .where('tasks.deleted_at', 'is', null)
+      .where('tasks.title', '!=', update.title)
+      .where((eb) =>
+        eb.and([
+          eb.exists(
+            q
+              .selectFrom('task_sources')
+              .select('task_sources.task_id')
+              .where(sql<boolean>`task_sources.task_id = tasks.id`)
+              .where('task_sources.workspace_id', '=', update.workspaceId)
+              .where('task_sources.provider', '=', update.provider)
+              .where('task_sources.source_kind', '=', update.kind)
+              .where('task_sources.source_id', '=', update.sourceId)
+              .where('task_sources.reviewer_source_id', '=', '')
+              .where('task_sources.source_updated_at', '<=', update.updatedAt),
+          ),
+          activeConnectionExists(db, q, eb, update),
+        ]),
+      ),
+  );
+  const updateSource = db.statement((q) =>
+    q
+      .updateTable('task_sources')
+      .set({
+        source_url: update.url,
+        source_status: update.status,
+        source_due_on: update.dueOn,
+        is_source_done: update.isDone ? 1 : 0,
+        source_updated_at: update.updatedAt,
+        last_seen_at: at,
+        updated_at: at,
+      })
+      .where('task_sources.workspace_id', '=', update.workspaceId)
+      .where('task_sources.provider', '=', update.provider)
+      .where('task_sources.source_kind', '=', update.kind)
+      .where('task_sources.source_id', '=', update.sourceId)
+      .where('task_sources.reviewer_source_id', '=', '')
+      .where('task_sources.source_updated_at', '<=', update.updatedAt)
+      .where((eb) =>
+        eb.and([
+          eb.exists(
+            q
+              .selectFrom('tasks')
+              .select('tasks.id')
+              .where(sql<boolean>`tasks.id = task_sources.task_id`)
+              .where('tasks.workspace_id', '=', update.workspaceId)
+              .where('tasks.is_imported', '=', 1)
+              .where('tasks.deleted_at', 'is', null),
+          ),
+          activeConnectionExists(db, q, eb, update),
+        ]),
+      ),
+  );
+  return [updateTask, updateSource];
+}
+
+// 接続が今も削除されず止まっておらず、認証情報が読んだときのままで、ワークスペースが閉じておらず、登録者が今もいる、という条件
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function activeConnectionExists(db: OrganizationDb, q: any, eb: any, update: ImportedUpdate) {
+  return eb.exists(
+    q
+      .selectFrom('connections')
+      .innerJoin('workspaces', 'workspaces.id', 'connections.workspace_id')
+      .select('connections.id')
+      .where('connections.id', '=', update.connectionId)
+      .where('connections.credential_ciphertext', 'is', update.credentialCiphertext)
+      .where('connections.credential_key_version', 'is', update.credentialKeyVersion)
+      .where('connections.workspace_id', '=', update.workspaceId)
+      .where('connections.deleted_at', 'is', null)
+      .where('connections.status', '!=', 'stopped')
+      .where('workspaces.organization_id', '=', db.organizationId)
+      .where('workspaces.closed_at', 'is', null)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .where((cb: any) => ownerIsActive(cb, q, 'connections.owner_user_id', 'connections.workspace_id')),
+  );
 }
 
 // 同期の結果として接続に書く値。成功は続きの位置（なければ空の状態）まで、失敗は種別ごと
