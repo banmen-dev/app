@@ -104,6 +104,8 @@
   let saving = $state(false);
   // 同期中の接続の ID（同時に1つだけ）
   let syncingId = $state<string | null>(null);
+  // 止める、削除、同期、編集の保存、範囲の保存のどれかが進んでいる間は、行の操作を重ねない（ガードとボタンの aria-disabled が同じ式を使う）
+  const busyElsewhere = $derived(managingId !== null || syncingId !== null || updating || saving);
 
   const overLimit = $derived(chosen.length > CONNECTION_SCOPES_MAX);
 
@@ -349,12 +351,14 @@
   }
 
   async function manage(kind: 'stop' | 'delete', target: Connection, trigger: HTMLElement | null): Promise<void> {
-    const busy = () => managingId !== null || syncingId !== null || updating || saving;
-    if (busy() || workspace === null || !canWrite) return;
+    if (busyElsewhere || workspace === null || !canWrite) return;
     managing = { kind, connection: target };
     if (!(await confirmDialog?.ask(trigger))) return;
-    // 確認している間に、同期、編集、範囲の保存が始まっていたら、重ねない
-    if (busy()) return;
+    // 確認している間に、同期、編集、範囲の保存が始まっていたら、重ねずに知らせる
+    if (busyElsewhere) {
+      showToast(t('connectionManageBusy', { connection: t('connection') }), 'alert');
+      return;
+    }
     managingId = target.id;
     try {
       const input = { workspace_id: workspace.id, connection_id: target.id };
@@ -386,7 +390,7 @@
   }
 
   async function syncNow(target: Connection): Promise<void> {
-    if (syncingId !== null || managingId !== null || workspace === null || !canWrite) return;
+    if (busyElsewhere || workspace === null || !canWrite) return;
     syncingId = target.id;
     try {
       const result = await callOperation(
@@ -488,7 +492,7 @@
                   <button
                     class="btn is-sm"
                     type="button"
-                    aria-disabled={syncingId !== null}
+                    aria-disabled={busyElsewhere}
                     aria-busy={syncingId === connection.id}
                     onclick={() => syncNow(connection)}
                     ><Icon name="refresh" />{syncingId === connection.id
@@ -511,7 +515,7 @@
                     class="btn is-sm is-quiet"
                     type="button"
                     data-action="connection-stop"
-                    aria-disabled={managingId !== null}
+                    aria-disabled={busyElsewhere}
                     onclick={(event) => manage('stop', connection, event.currentTarget)}>{t('connectionStop')}</button
                   >
                 {/if}
@@ -519,7 +523,7 @@
                   class="btn is-sm is-quiet is-danger"
                   type="button"
                   data-action="connection-delete"
-                  aria-disabled={managingId !== null}
+                  aria-disabled={busyElsewhere}
                   onclick={(event) => manage('delete', connection, event.currentTarget)}>{t('connectionDelete')}</button
                 >
               </span>

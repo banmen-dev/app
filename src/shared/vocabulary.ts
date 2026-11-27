@@ -3104,6 +3104,8 @@ export const dictionary = defineDictionary({
   connectionDeleteConfirm: '削除する',
   connectionDeleteDone: '「{name}」を削除しました',
   connectionManageGone: 'この{connection}は見つからないか、操作できません。一覧を読み直します',
+  connectionManageBusy:
+    '別の操作が進んでいるため、この{connection}の操作を始められませんでした。終わってからもう一度試してください',
   connectionManageFailed: '操作できませんでした。もう一度試してください',
   connectionStoppedMemberLeft: '{workspace}を抜けたので止めました。',
   connectionStoppedUserDisabled: 'アカウントが無効になったので止めました。認証情報は消えています。',
