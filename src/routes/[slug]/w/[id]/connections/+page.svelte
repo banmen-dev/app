@@ -419,7 +419,10 @@
         {@const staysStopped = connection.status === 'stopped' && !(resumesOnCredential(connection) && isMember)}
         {@const ownerGone = isOwnerGoneStop(connection) || (mine && connection.status === 'stopped' && !isMember)}
         {@const who =
-          mine || !connection.owner_name || isOwnerGoneStop(connection)
+          mine ||
+          !connection.owner_name ||
+          connection.stopped_reason === 'member_left' ||
+          connection.stopped_reason === 'user_disabled'
             ? t('connectionNextWhoLeader', { leader: t('leader') })
             : t('connectionNextWhoOwner', { owner: connection.owner_name, leader: t('leader') })}
         <section class="panel conn" role="listitem" data-connection-id={connection.id}>

@@ -258,6 +258,22 @@ test('止まっている接続は、停止の理由と登録した人に応じ�
       connections: [
         created({ id: 'stopped-auth', name: '認証が切れた接続', status: 'stopped', stopped_reason: 'auth_failed' }),
         created({ id: 'stopped-other', name: '別の理由の接続', status: 'stopped', stopped_reason: 'leader' }),
+        created({
+          id: 'stopped-left-theirs',
+          name: 'ハルカの抜けた接続',
+          status: 'stopped',
+          stopped_reason: 'member_left',
+          owner_user_id: 'other',
+          owner_name: 'ハルカ',
+        }),
+        created({
+          id: 'stopped-closed-theirs',
+          name: 'ハルカの終了した接続',
+          status: 'stopped',
+          stopped_reason: 'workspace_closed',
+          owner_user_id: 'other',
+          owner_name: 'ハルカ',
+        }),
         created({ id: 'stopped-left', name: '抜けて止まった接続', status: 'stopped', stopped_reason: 'member_left' }),
         created({
           id: 'stopped-disabled',
@@ -316,6 +332,13 @@ test('止まっている接続は、停止の理由と登録した人に応じ�
   );
   await expect(page.locator('[data-connection-id="stopped-disabled"] .callout.is-danger')).toHaveText(
     'アカウントが無効になったので止めました。認証情報は消えています。編集から新しいトークンを保存すると、次の同期から再開します。',
+  );
+  // 抜けた人の接続は、持ち主に伝えても届かないので、伝える相手をリーダーだけにする。終了で止めた接続は持ち主も伝える相手に含める
+  await expect(page.locator('[data-connection-id="stopped-left-theirs"] .callout.is-danger')).toHaveText(
+    'ワークスペースを抜けたので止めました。リーダーに、止まっていることを伝えてください。',
+  );
+  await expect(page.locator('[data-connection-id="stopped-closed-theirs"] .callout.is-danger')).toHaveText(
+    '止まっています。登録したハルカかリーダーに、止まっていることを伝えてください。',
   );
   await expect(page.locator('[data-connection-id="stopped-theirs"] .callout.is-danger')).toHaveText(
     '認証に失敗したので止めました。登録したハルカかリーダーに、止まっていることを伝えてください。',

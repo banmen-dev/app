@@ -989,7 +989,7 @@ describe('connection-update', () => {
     },
   );
 
-  test('表示名も変えて再開すると、履歴に名前、認証情報、状態、理由が揃う。表示名だけの保存は止まったまま', async () => {
+  test('表示名だけの保存は、止まった接続を止めたまま履歴にも状態を残さない', async () => {
     const ctx = setup();
     const target = await createTarget();
     const connection = await createConnection(target.organization, target.workspace.id, target.member.userId!, {
@@ -998,21 +998,34 @@ describe('connection-update', () => {
     });
     const renamed = await update(ctx, target, target.member, connection.id, undefined);
     expect(await renamed.json()).toMatchObject({ connection: { status: 'stopped', stopped_reason: 'auth_failed' } });
-    const nameOnly = JSON.parse((await rowsOf(target)).logs.find((log) => log.action === 'update')!.changes_json!);
-    expect(nameOnly).not.toHaveProperty('status');
+    const changes = JSON.parse((await rowsOf(target)).logs.find((log) => log.action === 'update')!.changes_json!);
+    expect(changes).toHaveProperty('name');
+    expect(changes).not.toHaveProperty('status');
+    expect(changes).not.toHaveProperty('stopped_reason');
+  });
 
+  test('表示名も変えて再開すると、同じ履歴の行に名前、認証情報、状態、理由が揃う', async () => {
+    const ctx = setup();
+    const target = await createTarget();
+    // 保存する名前（update ヘルパーの「更新した GitHub」）と違う名前から始める
+    const connection = await createConnection(target.organization, target.workspace.id, target.member.userId!, {
+      status: 'stopped',
+      stopped_reason: 'auth_failed',
+    });
     const pat = fakePat('resume-with-name');
     ctx.github.addAccount(pat, OWNER, fakeRepos(2));
     const res = await update(ctx, target, target.member, connection.id, pat);
-    expect(await res.json()).toMatchObject({ connection: { status: 'active', last_success_at: null } });
+    expect(await res.json()).toMatchObject({
+      connection: { name: '更新した GitHub', status: 'active', last_success_at: null },
+    });
     const logs = (await rowsOf(target)).logs.filter((log) => log.action === 'update');
-    expect(logs.map((log) => JSON.parse(log.changes_json!))).toContainEqual(
-      expect.objectContaining({
-        credential_updated: [null, true],
-        status: ['stopped', 'active'],
-        stopped_reason: ['auth_failed', null],
-      }),
-    );
+    expect(logs).toHaveLength(1);
+    expect(JSON.parse(logs[0]!.changes_json!)).toEqual({
+      name: [expect.any(String), '更新した GitHub'],
+      credential_updated: [null, true],
+      status: ['stopped', 'active'],
+      stopped_reason: ['auth_failed', null],
+    });
   });
 
   test.each(['member_left', 'user_disabled'] as const)(
