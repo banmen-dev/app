@@ -1,5 +1,6 @@
 import { syncConnection } from '../import/sync.ts';
 import { commonDb, orgDb } from './entries.ts';
+import { ownerIsActive } from './import-sync.ts';
 import { issueVerifiedOrganization } from './verify-organization.ts';
 
 type ScheduledImportPosition = { id: string; last_success_at: string | null };
@@ -36,6 +37,18 @@ export async function readScheduledImportConnections(
         .where('workspaces.deleted_at', 'is', null)
         .where('connections.status', 'in', ['active', 'error'])
         .where('connections.deleted_at', 'is', null)
+        .where((eb) => ownerIsActive(eb, q, 'connections.owner_user_id', 'connections.workspace_id'))
+        .where((eb) =>
+          eb.or([
+            eb('connections.scope_mode', '=', 'exclude'),
+            eb.exists(
+              eb
+                .selectFrom('connection_scopes')
+                .select('connection_scopes.connection_id')
+                .whereRef('connection_scopes.connection_id', '=', 'connections.id'),
+            ),
+          ]),
+        )
         .where('connections.created_at', '<=', cycleStartedAt)
         .where((eb) =>
           eb.or([
@@ -71,7 +84,7 @@ export async function syncScheduledImportConnection(
 ) {
   // 同じ回の接続一覧を読んだ後に組織が停止していないか、同期を始める直前にも確かめる。
   const db = await activeOrganizationDb(env, organizationId);
-  if (!db) return 'organization_suspended';
+  if (!db) return { outcome: 'organization_suspended' } as const;
   if (Date.now() >= deadline) return { outcome: 'budget_exhausted' } as const;
   return syncConnection(env, db, connection.workspace_id, connection.id, { fetcher, absoluteDeadline: deadline });
 }

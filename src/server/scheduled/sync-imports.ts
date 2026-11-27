@@ -97,7 +97,7 @@ export async function syncImports(
         if (!hasBudget()) break scan;
         try {
           const result = await syncScheduledImportConnection(env, id, connection, deadline, fetcher);
-          if (result === 'organization_suspended') break;
+          if (result.outcome === 'organization_suspended') break;
           if (result.outcome === 'budget_exhausted') break scan;
           outcomes[result.outcome]++;
           if (result.outcome === 'success' && result.more) outcomes.continued++;
