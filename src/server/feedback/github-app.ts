@@ -56,20 +56,64 @@ export function feedbackViewerUrl(publicOrigin: string, feedbackId: string): str
 
 export type FeedbackGithubCredentials = { appId: string; installationId: string; privateKeyPem: string };
 
-// env から FEEDBACK_GITHUB_APP_ID、FEEDBACK_GITHUB_INSTALLATION_ID、FEEDBACK_GITHUB_PRIVATE_KEY を読む。
+export type FeedbackGithubCredentialsInspection =
+  | { ok: true; credentials: FeedbackGithubCredentials }
+  // problems は固定の文だけ（シークレットの名前と、形の違いの種類）。値とその一部を含めない
+  | { ok: false; problems: string[] };
+
+function secretValue(env: object, name: string): unknown {
+  // シークレットは型に出ないことがある。型に頼らず、値の有無を見る
+  return name in env ? (env as Record<string, unknown>)[name] : undefined;
+}
+
+function idProblem(name: string, value: unknown): string | undefined {
+  if (typeof value !== 'string' || value === '') return `${name} が無い`;
+  if (DECIMAL_ID_PATTERN.test(value)) return undefined;
+  // 前後の空白と改行は読み替えない。入れ直してもらうために、数字の誤りと分けて知らせる
+  if (DECIMAL_ID_PATTERN.test(value.trim())) return `${name} の前後に空白か改行がある`;
+  return `${name} が10進の数字だけでない`;
+}
+
+// GitHub が出す PKCS#1（BEGIN RSA PRIVATE KEY）、暗号化した鍵、改行が文字の \n のまま入った鍵は Web Crypto で読めないので、
+// 設定が無いものとして扱う（docs/operations.md の「フィードバックの GitHub App」の手順 6 で PKCS#8 に直して入れる）
+function privateKeyProblems(name: string, value: unknown): string[] {
+  if (typeof value !== 'string' || value.trim() === '') return [`${name} が無い`];
+  if (pemBody(value) !== undefined) return [];
+  const problems: string[] = [];
+  if (value.includes('-----BEGIN RSA PRIVATE KEY-----')) problems.push(`${name} が PKCS#1（BEGIN RSA PRIVATE KEY）`);
+  if (value.includes('-----BEGIN ENCRYPTED PRIVATE KEY-----')) problems.push(`${name} が暗号化された鍵`);
+  if (value.includes('\\n')) problems.push(`${name} の改行が文字の \\n のまま`);
+  return problems.length > 0 ? problems : [`${name} が PKCS#8 の PEM でない`];
+}
+
+// env の FEEDBACK_GITHUB_APP_ID、FEEDBACK_GITHUB_INSTALLATION_ID、FEEDBACK_GITHUB_PRIVATE_KEY を確かめる。
+// 使えなければ、使えない理由をすべて返す（本番で 503 の原因を Workers Logs から見分けるため）
+export function inspectFeedbackGithubCredentials(env: object): FeedbackGithubCredentialsInspection {
+  const appId = secretValue(env, 'FEEDBACK_GITHUB_APP_ID');
+  const installationId = secretValue(env, 'FEEDBACK_GITHUB_INSTALLATION_ID');
+  const privateKeyPem = secretValue(env, 'FEEDBACK_GITHUB_PRIVATE_KEY');
+  const problems = [
+    idProblem('FEEDBACK_GITHUB_APP_ID', appId),
+    idProblem('FEEDBACK_GITHUB_INSTALLATION_ID', installationId),
+    ...privateKeyProblems('FEEDBACK_GITHUB_PRIVATE_KEY', privateKeyPem),
+  ].filter((problem) => problem !== undefined);
+  if (problems.length > 0) return { ok: false, problems };
+  // problems が空なら3つとも文字列（idProblem と privateKeyProblems が確かめた）
+  return {
+    ok: true,
+    credentials: {
+      appId: appId as string,
+      installationId: installationId as string,
+      privateKeyPem: privateKeyPem as string,
+    },
+  };
+}
+
 // どれかが無い・空・文字列でない、App ID とインストールの ID が10進の数字だけでない、または鍵が PKCS#8 の PEM
 // （BEGIN PRIVATE KEY の囲みで、本文が base64）でなければ undefined
 export function feedbackGithubCredentials(env: object): FeedbackGithubCredentials | undefined {
-  // シークレットは型に出ないことがある。型に頼らず、値の有無を見る
-  const appId = 'FEEDBACK_GITHUB_APP_ID' in env ? env.FEEDBACK_GITHUB_APP_ID : undefined;
-  const installationId = 'FEEDBACK_GITHUB_INSTALLATION_ID' in env ? env.FEEDBACK_GITHUB_INSTALLATION_ID : undefined;
-  const privateKeyPem = 'FEEDBACK_GITHUB_PRIVATE_KEY' in env ? env.FEEDBACK_GITHUB_PRIVATE_KEY : undefined;
-  if (typeof appId !== 'string' || !DECIMAL_ID_PATTERN.test(appId)) return undefined;
-  if (typeof installationId !== 'string' || !DECIMAL_ID_PATTERN.test(installationId)) return undefined;
-  // GitHub が出す PKCS#1（BEGIN RSA PRIVATE KEY）、暗号化した鍵、改行が文字の \n のまま入った鍵は Web Crypto で読めないので、
-  // 設定が無いものとして扱う（docs/operations.md の「フィードバックの GitHub App」の手順 6 で PKCS#8 に直して入れる）
-  if (typeof privateKeyPem !== 'string' || pemBody(privateKeyPem) === undefined) return undefined;
-  return { appId, installationId, privateKeyPem };
+  const inspected = inspectFeedbackGithubCredentials(env);
+  return inspected.ok ? inspected.credentials : undefined;
 }
 
 // not_created: Issue は立っていない（届かなかった、トークンが取れなかった、起票の応答が 3xx か 4xx）

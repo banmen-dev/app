@@ -7,6 +7,7 @@ import {
   feedbackGithubCredentials,
   feedbackViewerUrl,
   FeedbackIssueError,
+  inspectFeedbackGithubCredentials,
   normalizeFeedbackText,
   type FeedbackGithubClient,
   type FeedbackGithubCredentials,
@@ -48,7 +49,13 @@ export function createFeedbackToolsFactory(fetcher: typeof fetch) {
     publicOrigin: env.PUBLIC_ORIGIN,
     bucket: env.ATTACHMENTS,
     async reserve() {
-      if (feedbackGithubCredentials(env) === undefined) throw new ApiError(503, 'unavailable');
+      const inspected = inspectFeedbackGithubCredentials(env);
+      if (!inspected.ok) {
+        // 503 の応答はログに残らない（onError は既知のエラーを出さない）。設定の誤りを Workers Logs で見分けられるよう、
+        // シークレットの名前と形の違いの種類だけを出す。値は出さない
+        console.warn(`フィードバックの GitHub App の設定が使えない（${inspected.problems.join('、')}）`);
+        throw new ApiError(503, 'unavailable');
+      }
       const { key, policy } = FEEDBACK_GLOBAL_RATE_LIMIT;
       if (!(await consumeRateLimit(env, key, policy, new Date()))) throw new ApiError(429, 'rate_limited');
     },

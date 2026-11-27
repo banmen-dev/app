@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, expect, test } from 'vitest';
+import { beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { createApp } from '../src/server/app.ts';
 import { commonDb } from '../src/server/db/index.ts';
 import { feedbackSubmit } from '../src/shared/operations/feedback.ts';
@@ -205,6 +205,32 @@ test('GitHub App のシークレットが無い環境では通信せず 503 を�
   await expectError(await submit(app, person, input, unconfiguredEnv), 503, 'unavailable');
 
   expect(requests).toHaveLength(0);
+});
+
+test('GitHub App の設定が使えない 503 では、使えない理由だけをログに出し、値を出さない', async () => {
+  const person = await createPerson();
+  const { app, requests } = fakeGithub();
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const pkcs1Env = {
+    ...testEnv,
+    FEEDBACK_GITHUB_APP_ID: '864201',
+    FEEDBACK_GITHUB_INSTALLATION_ID: undefined,
+    FEEDBACK_GITHUB_PRIVATE_KEY: '-----BEGIN RSA PRIVATE KEY-----\nMIIkakuuSecretBody\n-----END RSA PRIVATE KEY-----\n',
+  } as unknown as Env;
+
+  try {
+    await expectError(await submit(app, person, input, pkcs1Env), 503, 'unavailable');
+
+    expect(requests).toHaveLength(0);
+    const logged = warn.mock.calls.map((args) => args.join(' '));
+    expect(logged).toEqual([
+      'フィードバックの GitHub App の設定が使えない（FEEDBACK_GITHUB_INSTALLATION_ID が無い、FEEDBACK_GITHUB_PRIVATE_KEY が PKCS#1（BEGIN RSA PRIVATE KEY））',
+    ]);
+    expect(logged.join('\n')).not.toContain('864201');
+    expect(logged.join('\n')).not.toContain('MIIkakuuSecretBody');
+  } finally {
+    warn.mockRestore();
+  }
 });
 
 test.each([
