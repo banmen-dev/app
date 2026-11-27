@@ -805,10 +805,10 @@ function nothingAdded(skipped: AddCounts): ApiError {
 }
 
 // スプリントにタスクを入れる。書く文は送られたタスクの数によらない4文で、1回の batch() で送る。
-// どの文も同じ前提（閉じていないワークスペース、入れる先が削除していない planned か active、読んだ先頭の列が今もある）と、
+// どの文も同じ前提（閉じていないワークスペース、入れる先が削除していない planned か active、置く列（先頭の列と、取り込み元の状態に対応する列）が今もある）と、
 // タスクごとの条件（そのワークスペースの、バックログの、未完了の、削除していない、このスプリントに入っていないタスク）を持つ。
 // 1. 変更の履歴（{"sprint": [前, 後]}。前は今入っているスプリントか null）、2. 別のスプリントに入っている行を removed で閉じる、
-// 3. 入った行を足す、4. タスクのスプリント、先頭の列、列の中の末尾の位置を書く。1〜3 はタスクを書き換えないので、4 まで同じタスクに当たる
+// 3. 入った行を足す、4. タスクのスプリント、置く列（対応する列か先頭の列）、その列の中の末尾の位置を書く。1〜3 はタスクを書き換えないので、4 まで同じタスクに当たる
 export const sprintTaskAddOperation = implement(sprintTaskAdd, async ({ db, actor, workspace, input }) => {
   const actorUserId = actorUserIdOf(actor);
   const organizationId = db.organizationId;

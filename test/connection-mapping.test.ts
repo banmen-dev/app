@@ -148,7 +148,7 @@ describe('connection-mapping-save', () => {
   });
 
   test('他の人の接続は 403、別のワークスペースの列は 400', async () => {
-    const { target, review, connection } = await setup();
+    const { target, connection } = await setup();
     const other = await save(target, connection.id, { mappings: [], ignore_source_due: true }, target.leader);
     expect(other.status).toBe(403);
     const otherTarget = await setup();
