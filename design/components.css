@@ -410,10 +410,15 @@ button.route-tab[aria-expanded="true"] { color: var(--color-fg); }
 .route-tabs-more-list a .ico { margin-left: auto; color: var(--color-accent); }
 .route-tabs-more-name { min-width: 0; overflow-wrap: anywhere; }
 /* 幅を測るための見えない並び。レイアウトに影響せず、読み上げにも出さない */
-.route-tabs-measure { position: absolute; top: 0; left: 0; display: flex; gap: var(--space-1); width: max-content; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
-.route-tabs-measure > [data-measure-more] { flex-direction: row; gap: var(--space-1); }
+.route-tabs-measure { position: absolute; top: 0; left: 0; display: flex; gap: var(--space-1); width: max-content; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; clip-path: inset(50%); }
+.route-tabs-measure > [data-measure-more] { flex-direction: row; gap: var(--space-1); font-weight: 600; }
 .route-tabs-measure > [data-measure-more]::after { display: none; }
-@media (pointer: coarse) { .route-tab { min-height: 44px; } .route-tabs-more-list a { min-height: 44px; } }
+@media (max-width: 760px), (pointer: coarse) { .route-tab { min-height: 44px; } .route-tabs-more-list a { min-height: 44px; } }
+/* 761px 以上は、一覧を「その他」のボタンの右端に合わせて開く。760px 以下は帯の左端（ボタンが左に寄っても画面の外へ出ない） */
+@media not (max-width: 760px) {
+  .route-tab-more { position: relative; }
+  .route-tabs-more-list { left: auto; right: 0; }
+}
 @media (forced-colors: active) {
   .route-tab { border-bottom-color: Canvas; }
   .route-tab[aria-current="page"], .route-tab[data-current="true"] { border-bottom-color: Highlight; }
@@ -1056,7 +1061,7 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
   .mobile-menu .org-menu { position: relative; min-width: 0; }
   /* 切り替えの一覧は面を押し広げる。スクロール領域の外へ切らない。 */
   .mobile-menu .org-menu-list { position: static; margin-top: var(--space-2); }
-  /* ワークスペースの一覧は、所属が多くても下の機能の項目まで届くよう高さを抑えて中で送り、長い名前は指の端末で読めるよう折り返す */
+  /* ワークスペースの一覧は、所属が多くても下のお気に入りまで届くよう高さを抑えて中で送り、長い名前は指の端末で読めるよう折り返す */
   .mobile-menu .nav-ws-list { max-height: 40vh; max-height: 40dvh; overflow-y: auto; overscroll-behavior: contain; padding: var(--space-1); }
   .mobile-menu .nav-ws-list .nav-item-label { white-space: normal; overflow-wrap: anywhere; }
   .mobile-menu .org-menu-button { min-height: 44px; }

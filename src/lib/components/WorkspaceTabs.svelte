@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import { resolve } from '$app/paths';
   import { GO_KEYS, isNavItemCurrent, visibleWorkspaceTabs } from '../nav.ts';
   import { fitTabCount } from '../tab-fit.ts';
@@ -53,7 +54,7 @@
     const gap = Number.parseFloat(getComputedStyle(measurer).columnGap) || 0;
     fitCount = fitTabCount(
       items.map((item) => item.getBoundingClientRect().width),
-      bar.clientWidth,
+      bar.getBoundingClientRect().width,
       gap,
       more.getBoundingClientRect().width,
     );
@@ -75,6 +76,23 @@
   $effect(() => {
     void path;
     menu.open = false;
+  });
+  // 一覧の項目や列のタブにフォーカスがあるまま、まとめる数が変わると、その要素が消えてフォーカスが body に落ちる。
+  // DOM に当てる前に中にあったかを見て、帯の中に残るリンク（今の画面か先頭）へ移す
+  $effect.pre(() => {
+    void shownCount;
+    const active = document.activeElement;
+    if (!bar || !(active instanceof HTMLElement) || !bar.contains(active)) return;
+    const stays =
+      active.closest('.route-tabs-more') === null &&
+      shownCount > 0 &&
+      tabs.slice(0, shownCount).some((tab) => tab.link === active.getAttribute('href'));
+    const insideMenu = active.closest('.route-tabs-more') !== null;
+    if (stays || (insideMenu && rest.length > 0)) return;
+    const next = bar.querySelector<HTMLElement>('a.route-tab[aria-current="page"], a.route-tab');
+    void tick().then(() =>
+      (bar?.querySelector<HTMLElement>('a.route-tab[aria-current="page"], a.route-tab') ?? next)?.focus(),
+    );
   });
   $effect(() => {
     if (rest.length === 0) menu.open = false;

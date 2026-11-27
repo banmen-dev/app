@@ -212,6 +212,22 @@ test.describe('760px 以下と「その他」', () => {
     await expect(moreList(page)).toBeHidden();
   });
 
+  test('一覧を開いたまま幅を広げて狭めると、一覧は閉じていて、フォーカスは body に落ちない', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await signIn(context, baseURL, 'admin');
+    await page.goto(WORKSPACE);
+    await more(page).click();
+    await moreList(page).getByRole('link').first().focus();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect(more(page)).toHaveCount(0);
+    await expect(tabsOf(page).getByRole('link').first()).toBeFocused();
+    await page.setViewportSize({ width: 390, height: 800 });
+    await expect(more(page)).toHaveAttribute('aria-expanded', 'false');
+  });
+
   test('幅を広げると、まとめていたタブが列に戻る', async ({ page, context, baseURL }) => {
     await signIn(context, baseURL, 'admin');
     await page.goto(WORKSPACE);

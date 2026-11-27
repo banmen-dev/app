@@ -33,7 +33,7 @@ export function isWorkspaceId(id: string | null | undefined): id is string {
   return typeof id === 'string' && id !== '';
 }
 
-// メニューの項目。761px 以上の左のメニューは組織の画面だけ、760px 以下の浮きメニューはワークスペースの機能（workspaceTabs）も並べる。
+// メニューの項目。左のメニューも浮きメニューも組織の画面だけを並べ、ワークスペースの機能（workspaceTabs）は画面の上のタブで移る（#1516）。
 // 見本の kit.js の PAGES は、見本だけの画面（エピック、積載量、記録など）も持つ。
 // href が null の項目は、画面がまだ無いのでメニューに出さない（今の定義には無いが、visibleNav は外す）（色を薄くして押せなくする形は、
 // 状態が色だけに頼り、コントラストも足りないので採らない）。画面を足したら href に経路の ID を入れる。
@@ -68,8 +68,8 @@ export type VisibleNavOptions = {
   hasWorkspaceMenu?: boolean;
   // メニューの対象ワークスペースの ID。無いときは、ワークスペースの経路の項目を出さない
   workspaceId?: string | null;
-  // ワークスペースの機能（workspaceTabs）の項目を出すか。761px 以上の左のメニューは、機能をタブに任せて出さない（偽）。
-  // 浮きメニュー、画面の検索の候補、パンくずは出す（真）
+  // ワークスペースの機能（workspaceTabs）の項目を出すか。左のメニューと浮きメニュー（NavMenu）は、機能をタブに任せて出さない（偽）。
+  // 画面の検索の候補とパンくずは出す（真）
   workspaceItems?: boolean;
 };
 
@@ -105,10 +105,10 @@ export function isNavItemCurrent(label: DictionaryKey, href: string, current: st
   return current === href || ((label === 'wiki' || label === 'orgWiki') && current.startsWith(href + '/'));
 }
 
-// ワークスペースの機能。761px 以上はワークスペースの画面の上のタブ（WorkspaceTabs）、760px 以下は浮きメニューの項目
-// （下の navSections が manage で節を分けて読む）に出す。画面の検索の候補、パンくずの画面名、`g b`・`g s` も、
+// ワークスペースの機能。どの幅でもワークスペースの画面の上のタブ（WorkspaceTabs）で移る。
+// （下の navSections が manage で節を分けて読む。）画面の検索の候補、パンくずの画面名、`g b`・`g s` も、
 // navSections を通してこの1つの定義を読む。並びはタブの並び。画面の無い機能（エピック、積載量、記録、アーカイブ、履歴）は載せない。
-// leaderOnly の項目は、対象のワークスペースのリーダーと管理者にだけ出す。manage の項目は、浮きメニューで「管理」の見出しの下に出す
+// leaderOnly の項目は、対象のワークスペースのリーダーと管理者にだけ出す。manage の項目は、画面の検索の候補などで「管理」の節に分ける
 export type WorkspaceTab = {
   icon: IconName;
   label: DictionaryKey;
