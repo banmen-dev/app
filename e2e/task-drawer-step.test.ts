@@ -379,7 +379,7 @@ test('スプリントの画面では、列は左から右、列の中は上か�
   test.setTimeout(90_000);
   await createWorkspace(page, '盤の前後ワークスペース');
   for (const title of ['盤 一', '盤 二', '盤 三']) await addTaskRow(page, title);
-  await page.getByRole('link', { name: '計画' }).click();
+  await page.getByRole('link', { name: '計画', exact: true }).click();
   await createSprint(page, '2099-03-01', '第1回');
   await putIntoSprint(page, '第1回', ['盤 一', '盤 二', '盤 三']);
   await page.getByRole('button', { name: '始める: スプリント「第1回」' }).click();

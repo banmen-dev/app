@@ -140,13 +140,16 @@ test('浮きメニューに全項目と切り替えがあり、Esc・外・リ�
   expect(await dialog.evaluate((el) => el.contains(document.activeElement))).toBe(true);
   await page.keyboard.press('Tab');
   expect(await dialog.evaluate((el) => el.contains(document.activeElement))).toBe(true);
-  const switcher = dialog.locator('.ws-menu-button');
-  await switcher.click();
-  await expect(dialog.locator('.ws-menu-list')).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(dialog.locator('.ws-menu-list')).toBeHidden();
+  // ワークスペースの一覧は浮きメニューの中に出る。見出しのボタンで畳んでも、メニューは閉じない
+  const toggle = dialog.locator('.nav-group-toggle');
+  const list = dialog.getByRole('list', { name: '所属するワークスペース' });
+  await expect(list).toBeVisible();
+  await toggle.click();
+  await expect(list).toBeHidden();
   await expect(dialog).toBeVisible();
-  await expect(switcher).toBeFocused();
+  await expect(toggle).toBeFocused();
+  await toggle.click();
+  await expect(list).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();

@@ -119,7 +119,7 @@ test.describe('管理者（あおば開発のミナト）', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeFocused();
     // 所属しているので、所属していない印は出ない。メニューにワークスペースの節が出る
     await expect(page.getByText(/所属せず/)).toHaveCount(0);
-    await expect(page.locator('.ws-menu > button')).toContainText('保守チーム');
+    await expect(page.getByRole('list', { name: '所属するワークスペース' })).toContainText('保守チーム');
     // 761px 以上の左のメニューはワークスペースの見出しと切り替えだけ。機能はタブにあり、「管理」の見出しも出さない（#1514）
     await expect(page.locator('.nav-group')).toHaveText(['ワークスペース']);
     // 完了のダイアログが同じことを伝えるので、トーストは出さない
@@ -598,7 +598,9 @@ test.describe('管理者（あおば開発のミナト）', () => {
     ).toBeVisible();
     // 移る動作が組織の枠を読み直す（所属するワークスペースにも入っているので、メニューに出る）
     expect(organizationReads).toBeGreaterThanOrEqual(1);
-    await expect(page.locator('.ws-menu > button')).toContainText(openedName);
+    await expect(
+      page.getByRole('list', { name: '所属するワークスペース' }).getByRole('link', { name: openedName, exact: true }),
+    ).toBeVisible();
   });
 
   test('選んだ最初のリーダーが指せなくなっていて 404 になったら、選び直しを促し、候補を取り直す', async ({ page }) => {
@@ -733,6 +735,6 @@ test.describe('一般のユーザー（あおば開発のハルカ）', () => {
       page.getByRole('navigation', { name: 'パンくず' }).getByRole('link', { name: '受託開発チーム', exact: true }),
     ).toBeVisible();
     await expect(page.getByText(/所属せず/)).toHaveCount(0);
-    await expect(page.locator('.ws-menu > button')).toContainText('受託開発チーム');
+    await expect(page.getByRole('list', { name: '所属するワークスペース' })).toContainText('受託開発チーム');
   });
 });

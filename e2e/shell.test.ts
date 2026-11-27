@@ -364,6 +364,11 @@ test.describe('高さの低い指で押す画面の左のメニュー', () => {
   test.beforeEach(async ({ page, context, baseURL }) => {
     await signIn(context, baseURL, 'admin');
     await lengthenNav(page, 9);
+    // 列の長さが前提のテスト。ほかのテストが足したワークスペースで一覧が伸びないよう、所属を開く1つに固定する
+    await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (organization) => ({
+      ...organization,
+      workspaces: organization.workspaces.filter((workspace) => workspace.id === AOBA_WORKSPACE_ID),
+    }));
   });
 
   // overflows: お気に入りを9つ並べた列（lengthenNav）は 1024×680 以下で溢れ、1024×768 では余白まで収まる
@@ -849,11 +854,11 @@ test('画面の題名は「画面 - Banmen」で、メニューには画面の�
   for (const item of await page.locator('.nav-item').all()) await expect(item).toHaveAttribute('href', /^\/aoba/);
   await expect(page.locator('.nav-item[aria-current="page"]')).toHaveCount(1);
   await expect(page.locator('.is-later')).toHaveCount(0);
-  // 項目も切り替えも無いグループは、見出しごと出さない。
+  // 項目も一覧も無いグループは、見出しごと出さない。
   const emptyGroups = await page
     .locator('.nav-group')
     .evaluateAll(
-      (groups) => groups.filter((group) => !group.nextElementSibling?.matches('.nav-item, .ws-menu')).length,
+      (groups) => groups.filter((group) => !group.nextElementSibling?.matches('.nav-item, .nav-ws-list')).length,
     );
   expect(emptyGroups).toBe(0);
 });

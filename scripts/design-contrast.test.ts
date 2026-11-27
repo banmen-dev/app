@@ -136,14 +136,7 @@ describe('操作部品の枠の色のコントラスト', () => {
   });
 
   test('操作部品の基本の規則は、枠に --color-control-edge を使う', () => {
-    const selectors = [
-      '.btn',
-      '.pill',
-      '.search',
-      '.nav-search',
-      ':is(.org-menu-button, .ws-menu-button)',
-      '.input, .select, .textarea',
-    ];
+    const selectors = ['.btn', '.pill', '.search', '.nav-search', '.org-menu-button', '.input, .select, .textarea'];
     for (const selector of selectors) {
       const rule = [...components.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find(([, s]) => s.trim() === selector);
       assert.ok(rule, `design/components.css に ${selector} の規則が見つからない`);

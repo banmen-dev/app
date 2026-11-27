@@ -14,7 +14,7 @@
   import GateSheet from './GateSheet.svelte';
 
   // 移る間の、読み込み中の表示。文字ではなく、読み込んだ後の画面に近い骨組み（スケルトン）を出す。
-  // 行き先が組織の枠（/<slug> の下）なら、枠と同じ部品（.app、.topbar、.binding、.sheet-crumbs、.sheet-tabs、.content）で全幅の上の帯（左端に開閉のボタンとマーク）、左のメニュー（組織の画面とワークスペースの見出しと切り替え）、パンくずの帯（ワークスペースの画面はタブの帯も）を出し、
+  // 行き先が組織の枠（/<slug> の下）なら、枠と同じ部品（.app、.topbar、.binding、.sheet-crumbs、.sheet-tabs、.content）で全幅の上の帯（左端に開閉のボタンとマーク）、左のメニュー（組織の画面と、ワークスペースの見出しと一覧）、パンくずの帯（ワークスペースの画面はタブの帯も）を出し、
   // 本文は行き先の画面の組み（shape。src/lib/loading-shape.ts）に近い形にする。読み込んだ後に画面の組みと位置が変わらないように、
   // 本文の2列や設定の節は、本物と同じ部品（.layout-aside、.layout-wiki、.settings、.board、.lanes）を使う。
   // 行き先が枠の外（shape が null）なら紙を出す。/ だけ dashboard を指定し、広い紙の2列にする。
@@ -59,6 +59,7 @@
           </div>
           <div class="skeleton skeleton-nav is-group">
             <span class="skeleton-line is-group-label"></span>
+            <span class="skeleton-line is-org"></span>
             <span class="skeleton-line is-org"></span>
           </div>
         </div>

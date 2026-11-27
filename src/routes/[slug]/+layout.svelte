@@ -16,7 +16,6 @@
   import FeedbackLauncher from '../../lib/components/FeedbackLauncher.svelte';
   import OrganizationSwitcher from '../../lib/components/OrganizationSwitcher.svelte';
   import TokenNotice from '../../lib/components/TokenNotice.svelte';
-  import WorkspaceSwitcher from '../../lib/components/WorkspaceSwitcher.svelte';
   import { hasPersonalOrganization, organizationLabel } from '../../lib/organization-label.ts';
   import { applyOrganization } from '../../lib/organization.svelte.ts';
   import { t } from '../../lib/vocabulary.svelte.ts';
@@ -150,16 +149,6 @@
       {/snippet}
     </AccountMenu>
   {/snippet}
-  {#snippet workspaceSwitcher()}
-    {#if navigationWorkspace}
-      <WorkspaceSwitcher
-        workspaces={organization.workspaces}
-        currentWorkspace={navigationWorkspace}
-        inWorkspaceScreen={openWorkspace !== null}
-        slug={data.slug}
-      />
-    {/if}
-  {/snippet}
   {#snippet notice(narrow = false)}
     {#if narrow && openWorkspace?.role === null}
       <div class="shell-notice"><span class="chip">{t('notMemberAdminChip', { admin: t('admin') })}</span></div>
@@ -175,7 +164,8 @@
     isAdmin={organization.me.is_admin}
     workspace={navigationWorkspace ?? undefined}
     {organizationSwitcher}
-    workspaceSwitcher={navigationWorkspace ? workspaceSwitcher : undefined}
+    workspaces={organization.workspaces}
+    inWorkspaceScreen={openWorkspace !== null}
     {account}
     {notice}
   >
