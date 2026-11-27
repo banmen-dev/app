@@ -94,7 +94,11 @@ export const screens: Screen[] = [
   },
   { route: '/[slug]/w/[id]/members', operations: [w('member-list')] },
   { route: '/[slug]/w/[id]/inbox', operations: [w('inbox-list')] },
-  { route: '/[slug]/w/[id]/connections', operations: [w('connection-list')] },
+  {
+    route: '/[slug]/w/[id]/connections',
+    operations: [w('column-list'), w('connection-list')],
+    note: '2つを並列で読む。',
+  },
   {
     route: '/[slug]/w/[id]/epics/[epicId]',
     operations: [op('epic-detail', { ...ws, epic_id: loadingEpic })],
