@@ -57,7 +57,7 @@ GitHub の操作は `gh api` の REST で行う（理由: クラウドのセッ�
 ```bash
 gh api repos/{owner}/{repo}/issues/<Issue番号> --jq '[.labels[].name]'                    # migration があること
 gh api "repos/{owner}/{repo}/pulls?state=open&per_page=100" --paginate --jq '.[] | {number, author: .user.login, type: .user.type}'
-gh api "repos/{owner}/{repo}/pulls/<PR番号>/files?per_page=100" --paginate --jq '[.[].filename | select(startswith("migrations/"))]'   # 許可した作者の開いた PR ごとに
+gh api "repos/{owner}/{repo}/pulls/<PR番号>/files?per_page=100" --paginate --jq '.[].filename | select(startswith("migrations/"))'   # 許可した作者の開いた PR ごとに
 gh api "repos/{owner}/{repo}/issues?labels=migration&state=open&per_page=100" --jq '.[] | select(.pull_request | not) | .number'
 git ls-remote --heads origin '<他の Issue の番号>-*'                                         # 作業中のブランチがあるか
 ```
