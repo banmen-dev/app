@@ -152,6 +152,9 @@ describe('operator-feedback-image', () => {
     const ref = feedbackImageRef(stored.feedbackId, stored.imageIds[0]!);
     const res = await post(app, operatorFeedbackImage, { token: await operator(), body: { id: ref } });
     expect(res.headers.get('Content-Type')).toBe(contentType);
+    expect(res.headers.get('Content-Disposition')).toBe(
+      `attachment; filename="feedback-${stored.imageIds[0]}.${contentType === 'image/jpeg' ? 'jpg' : 'webp'}"`,
+    );
     expect(res.headers.get('Content-Length')).toBe(String(stored.imageBytes.byteLength));
     const listed = await post(app, operatorFeedback, { token: await operator(), body: { id: stored.feedbackId } });
     expect(((await listed.json()) as { images: { content_type: string }[] }).images[0]?.content_type).toBe(contentType);

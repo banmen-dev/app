@@ -81,13 +81,18 @@ test.describe('運用者', () => {
     await expect(main.getByRole('link', { name: /ダウンロード/ })).toHaveCount(0);
   });
 
-  test('存在しない、または消えた ID は見つからないと出し、運用の画面へ戻れる', async ({ page }) => {
-    await failOperation(page, operatorFeedback, 404, 'not_found');
-    await mockOperation(page, listOrganizations, { organizations: [] });
-    await page.goto(PATH);
-    await waitForSettled(page);
-    await expect(page.getByText('フィードバックが見つかりません')).toBeVisible();
-    await page.getByRole('link', { name: '運用の画面へ' }).click();
-    await expect(page).toHaveURL(/\/operator$/);
-  });
+  for (const [label, status, code] of [
+    ['存在しない、または消えた', 404, 'not_found'],
+    ['長すぎる', 400, 'invalid_input'],
+  ] as const) {
+    test(`${label} ID は見つからないと出し、運用の画面へ戻れる`, async ({ page }) => {
+      await failOperation(page, operatorFeedback, status, code);
+      await mockOperation(page, listOrganizations, { organizations: [] });
+      await page.goto(PATH);
+      await waitForSettled(page);
+      await expect(page.getByText('フィードバックが見つかりません')).toBeVisible();
+      await page.getByRole('link', { name: '運用の画面へ' }).click();
+      await expect(page).toHaveURL(/\/operator$/);
+    });
+  }
 });

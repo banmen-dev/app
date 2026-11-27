@@ -64,6 +64,7 @@
         </dl>
         <h2 class="dialog-title">{t('operatorFeedbackText')}</h2>
         <!-- 利用者の文はそのまま文字として出す（Markdown や HTML として解釈しない）。改行は残す -->
+        <!-- 外側の div は、紙の直下の .doc-box の枠と余白を外す規則（.gate-sheet > .doc-box）に当たらないための包み。利用者の文を案内文と見分けるため枠を残す -->
         <div><div class="doc-box is-plain">{feedback.text}</div></div>
         <h2 class="dialog-title">{t('operatorFeedbackImages')}</h2>
         {#if feedback.images.length === 0}
