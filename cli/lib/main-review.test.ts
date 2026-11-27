@@ -389,7 +389,7 @@ describe('一覧に無い操作', () => {
 });
 
 describe('変異で生き残った箇所', () => {
-  test('一覧の取得が 401 なら sg ops は 1 で、status を出す', async () => {
+  test('一覧の取得が 401 なら banmen ops は 1 で、status を出す', async () => {
     const result = await sg(['ops'], {
       fetcher: (async () => Response.json({ error: { code: 'unauthorized' } }, { status: 401 })) as typeof fetch,
     });

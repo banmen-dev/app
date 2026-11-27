@@ -1,4 +1,4 @@
-// sg mcp のサーバー（mcp-server.ts）を、SDK の Client と InMemoryTransport で tools/list と tools/call を通して確かめる
+// banmen mcp のサーバー（mcp-server.ts）を、SDK の Client と InMemoryTransport で tools/list と tools/call を通して確かめる
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -145,7 +145,7 @@ describe('banmen mcp', () => {
     await done;
   });
 
-  test('--profile、--org、--workspace を sg call と同じ意味で受ける', async () => {
+  test('--profile、--org、--workspace を banmen call と同じ意味で受ける', async () => {
     resetOperations();
     const config: Config = {
       default_profile: 'main',

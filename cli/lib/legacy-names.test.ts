@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { legacyNoticeOf, main, type CliDeps } from './main.ts';
 import { runMcp } from './mcp-server.ts';
@@ -16,8 +17,19 @@ const URL_OLD = 'https://kaede.guild.example';
 const TOKEN_NEW = `sgp_${'N'.repeat(43)}`;
 const TOKEN_OLD = `sgp_${'O'.repeat(43)}`;
 
+const operationOf = (name: string, scope: string, properties: Record<string, unknown> = {}) => ({
+  name,
+  description: name,
+  mode: 'read',
+  scope,
+  permission: 'login',
+  input_schema: { type: 'object', properties, required: [] },
+  output_schema: { type: 'object', properties: {}, required: [] },
+});
+
 const catalog = {
   operations: [
+    operationOf('lantern-ws', 'workspace', { workspace_id: { type: 'string' } }),
     {
       name: 'lantern-org',
       description: 'lantern-org',
@@ -30,7 +42,7 @@ const catalog = {
   ],
 };
 
-type Call = { url: string; authorization: string };
+type Call = { url: string; authorization: string; body: unknown };
 
 function world(env: Record<string, string>) {
   const calls: Call[] = [];
@@ -39,7 +51,11 @@ function world(env: Record<string, string>) {
   const deps: CliDeps = {
     fetch: (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      calls.push({ url, authorization: new Headers(init?.headers).get('authorization') ?? '' });
+      calls.push({
+        url,
+        authorization: new Headers(init?.headers).get('authorization') ?? '',
+        body: JSON.parse(String(init?.body ?? 'null')),
+      });
       if (new URL(url).pathname === '/api/operation-list') return Response.json(catalog);
       return Response.json({ ok: true });
     }) as typeof fetch,
@@ -181,6 +197,29 @@ describe('BANMEN_* と SG_* の選び方', () => {
     assert.ok(legacy.stderr.includes('SG_ORG → BANMEN_ORG'));
   });
 
+  test('BANMEN_WORKSPACE は SG_WORKSPACE に勝ち、SG_WORKSPACE だけなら SG_WORKSPACE を使う', async () => {
+    const base = { BANMEN_URL: URL_NEW, BANMEN_TOKEN: TOKEN_NEW, BANMEN_ORG: 'aoba' };
+    const both = await run(['call', 'lantern-ws'], { ...base, BANMEN_WORKSPACE: 'ws-new', SG_WORKSPACE: 'ws-old' });
+    assert.deepEqual(both.calls.at(-1)?.body, { workspace_id: 'ws-new' });
+    assert.ok(both.stderr.includes('SG_WORKSPACE は使わない'));
+    const legacy = await run(['call', 'lantern-ws'], { ...base, SG_WORKSPACE: 'ws-old' });
+    assert.deepEqual(legacy.calls.at(-1)?.body, { workspace_id: 'ws-old' });
+    assert.ok(legacy.stderr.includes('SG_WORKSPACE → BANMEN_WORKSPACE'));
+  });
+
+  test('config set も BANMEN_PROFILE を SG_PROFILE より先に見る', async () => {
+    const w = world({ BANMEN_PROFILE: 'night', SG_PROFILE: 'day' });
+    let saved: unknown;
+    w.deps.config = {
+      read: async () => ({ profiles: {} }),
+      write: async (config) => {
+        saved = config;
+      },
+    };
+    assert.equal(await main(['config', 'set', 'org', 'kaede'], w.deps), 0);
+    assert.deepEqual(saved, { profiles: { night: { org: 'kaede' } } });
+  });
+
   test('BANMEN_PROFILE は SG_PROFILE に勝つ', async () => {
     const w = world({ BANMEN_PROFILE: 'main', SG_PROFILE: 'sub' });
     w.deps.config = {
@@ -204,6 +243,26 @@ describe('banmen mcp の旧名の注意', () => {
     assert.equal(stdout, '');
     assert.ok(lines(stderr)[0]?.startsWith('banmen: 注意:'));
     assert.equal(JSON.parse(lines(stderr).at(-1)!).error.message, 'SG_URL と SG_TOKEN は両方を設定する');
+    assert.ok(!stderr.includes(TOKEN_OLD));
+  });
+});
+
+describe('banmen mcp を SG_* だけで起動する', () => {
+  test('SG_URL と SG_TOKEN で起動して tools/list に答え、注意は標準エラーにだけ出る', async () => {
+    const w = world({ SG_URL: URL_OLD, SG_TOKEN: TOKEN_OLD, SG_ORG: 'kaede' });
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    const running = runMcp([], w.deps, serverSide);
+    const client = new Client({ name: 'legacy-test', version: '0.0.0' });
+    await client.connect(clientSide);
+    const { tools } = await client.listTools();
+    assert.ok(tools.some((tool) => tool.name === 'lantern-org'));
+    assert.ok(w.calls.every((call) => call.url.startsWith(URL_OLD) && call.authorization === `Bearer ${TOKEN_OLD}`));
+    await client.close();
+    assert.equal(await running, 0);
+    const { stdout, stderr } = w.output();
+    assert.equal(stdout, '');
+    assert.equal(lines(stderr).length, 1);
+    assert.ok(stderr.includes('SG_URL → BANMEN_URL'));
     assert.ok(!stderr.includes(TOKEN_OLD));
   });
 });

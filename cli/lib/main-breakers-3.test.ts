@@ -49,7 +49,7 @@ async function bodyOf(request: IncomingMessage): Promise<string> {
   return Buffer.concat(chunks).toString('utf8');
 }
 
-// 子プロセスの sg から呼ばれる小さなサーバー。受けた Authorization と本文を記録する
+// 子プロセスの banmen から呼ばれる小さなサーバー。受けた Authorization と本文を記録する
 const received: { path: string; authorization: string | undefined; body: string }[] = [];
 let server: Server;
 let serverUrl: string;

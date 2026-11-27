@@ -531,8 +531,8 @@ describe('コマンドの名前', () => {
   });
 });
 
-describe('--allow-write は sg mcp だけが受ける', () => {
-  test('banmen call と sg ops に付けると使い方の誤りのまま', async () => {
+describe('--allow-write は banmen mcp だけが受ける', () => {
+  test('banmen call と banmen ops に付けると使い方の誤りのまま', async () => {
     usageError(await sg(['call', 'who-am-i', '--allow-write']));
     usageError(await sg(['call', 'who-am-i', '--allow-write', 'true']));
     usageError(await sg(['ops', '--allow-write']));
