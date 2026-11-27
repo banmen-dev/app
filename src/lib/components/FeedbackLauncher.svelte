@@ -142,39 +142,42 @@
 </button>
 
 <Dialog bind:this={dialog} bind:open title={t('feedbackTitle')}>
-  <form class="form" id="{ids}-form" onsubmit={submit} novalidate>
-    <div class="callout is-info" id={publicId}>
-      <Icon name="alert" />
-      <span
-        >{t('feedbackPublic')}
-        <a href={resolve('/privacy')} target="_blank" rel="noopener noreferrer"
-          >{t('feedbackPrivacy')}<Icon name="external" /><span class="visually-hidden">{t('markdownNewTab')}</span></a
-        ></span
-      >
-    </div>
-    <div class="field" class:is-invalid={error !== null}>
-      <label class="field-label" for={fieldId}>{t('feedbackField')}</label>
-      <textarea
-        class="textarea"
-        id={fieldId}
-        rows="6"
-        bind:this={textarea}
-        bind:value={feedbackDraft.text}
-        oninput={() => setError(null)}
-        readonly={waiting}
-        aria-invalid={error !== null}
-        aria-describedby="{publicId} {hintId}{error !== null ? ` ${errorId}` : ''}"></textarea>
-      <p class="field-hint" id={hintId}>{t('feedbackHint', { max })}</p>
-      {#if feedbackDraft.sending && feedbackDraft.stalled}<p class="field-hint" role="status">
-          <Icon name="alert" />{t('feedbackStalled')}
-        </p>{/if}
-      {#if error !== null}<span class="field-error" id={errorId} role="alert"
-          ><Icon name="alert" />{t(error, { max })}</span
-        >{/if}
-    </div>
-    <!-- 送っている間は、目にはボタンの文言で、読み上げにはこの領域で伝える -->
-    <span class="visually-hidden" role="status">{waiting ? t('feedbackSending') : ''}</span>
-  </form>
+  <!-- 中身は開いている間だけ描く。閉じている間に、囲みや欄が画面の DOM に残らないようにする（書いた文は feedbackDraft に残る） -->
+  {#if open}
+    <form class="form" id="{ids}-form" onsubmit={submit} novalidate>
+      <div class="callout is-info" id={publicId}>
+        <Icon name="alert" />
+        <span
+          >{t('feedbackPublic')}
+          <a href={resolve('/privacy')} target="_blank" rel="noopener noreferrer"
+            >{t('feedbackPrivacy')}<Icon name="external" /><span class="visually-hidden">{t('markdownNewTab')}</span></a
+          ></span
+        >
+      </div>
+      <div class="field" class:is-invalid={error !== null}>
+        <label class="field-label" for={fieldId}>{t('feedbackField')}</label>
+        <textarea
+          class="textarea"
+          id={fieldId}
+          rows="6"
+          bind:this={textarea}
+          bind:value={feedbackDraft.text}
+          oninput={() => setError(null)}
+          readonly={waiting}
+          aria-invalid={error !== null}
+          aria-describedby="{publicId} {hintId}{error !== null ? ` ${errorId}` : ''}"></textarea>
+        <p class="field-hint" id={hintId}>{t('feedbackHint', { max })}</p>
+        {#if feedbackDraft.sending && feedbackDraft.stalled}<p class="field-hint" role="status">
+            <Icon name="alert" />{t('feedbackStalled')}
+          </p>{/if}
+        {#if error !== null}<span class="field-error" id={errorId} role="alert"
+            ><Icon name="alert" />{t(error, { max })}</span
+          >{/if}
+      </div>
+      <!-- 送っている間は、目にはボタンの文言で、読み上げにはこの領域で伝える -->
+      <span class="visually-hidden" role="status">{waiting ? t('feedbackSending') : ''}</span>
+    </form>
+  {/if}
   {#snippet footer(close)}
     <button class="btn is-quiet" type="button" onclick={close}>{t('cancel')}</button>
     <button class="btn is-primary" type="submit" form="{ids}-form" aria-disabled={waiting}

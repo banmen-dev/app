@@ -59,6 +59,8 @@ test.describe('ログインした画面', () => {
     await page.keyboard.press('Enter');
     await expect(dialog(page)).toBeVisible();
     await expect(dialog(page)).toContainText('公開の GitHub');
+    // 閉じている間は中身を描かないので、囲みは開いたダイアログの中にだけある
+    await expect(page.locator('.callout')).toHaveCount(1);
     await expect(field(page)).toBeFocused();
     await page.keyboard.type('一覧の見出しが読みにくいです');
     // 欄から、やめる、送るの順に進む
@@ -310,7 +312,7 @@ test.describe('ログインした画面', () => {
     await expect(dialog(page)).toBeVisible();
   });
 
-  test('狭い幅では下のタブと重ならず、送れた知らせはボタンの上に出る', async ({ page }) => {
+  test('狭い幅では下のタブと重ならず、送れた知らせはボタンに隠れずに出る', async ({ page }) => {
     await page.setViewportSize(NARROW_VIEWPORT);
     await mockOperation(page, feedbackSubmit, { feedback_id: FEEDBACK_ID });
     await page.goto('/aoba');
@@ -325,7 +327,14 @@ test.describe('ログインした画面', () => {
     await dialog(page).getByRole('button', { name: '送る' }).click();
     const toast = page.locator('.toasts .toast').filter({ hasText: 'フィードバックを送りました', visible: true });
     await expect(toast).toBeVisible();
-    expect(await overlaps(button, toast)).toBe(false);
+    // トーストはボタンより上に重なる。トーストの中ほどを指すと、トーストの中の要素に当たる
+    const box = await toast.boundingBox();
+    if (box === null) throw new Error('トーストの箱が無い');
+    const hit = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('.toast') !== null, {
+      x: box.x + box.width - 12,
+      y: box.y + box.height / 2,
+    });
+    expect(hit).toBe(true);
   });
 });
 
