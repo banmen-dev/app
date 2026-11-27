@@ -13,7 +13,20 @@ function invalid(): never {
 function parsePosition(cursor: string | null): Position {
   if (cursor === null) return { phase: 'issues', page: 1, anchor: null, owner: null };
   // v2 は不変の本人 ID を持つ。文字列としても正規形に絞り、壊れた入力では問い合わせない。
-  const modern = /^v2:(issues|pulls):([1-9][0-9]{0,15}):(.+)$/.exec(cursor);
+  // v2 の PR の続きは作成順の頁番号なので、更新日時の降順に変えた今は使えない。先頭から読み直す
+  const legacyPulls = /^v2:pulls:([1-9][0-9]{0,15}):([^:]+):([1-9][0-9]{0,6})$/.exec(cursor);
+  if (legacyPulls !== null) {
+    if (
+      !Number.isSafeInteger(Number(legacyPulls[1])) ||
+      String(Number(legacyPulls[1])) !== legacyPulls[1] ||
+      !LOGIN_PATTERN.test(legacyPulls[2]!) ||
+      Number(legacyPulls[3]) > 1_000_000
+    )
+      invalid();
+    return { phase: 'pulls', page: 1, anchor: null, owner: { id: legacyPulls[1]!, login: legacyPulls[2]! } };
+  }
+  // 書くのは v2:issues と v3:pulls だけ（正規表現の先読みで、ほかの組を断る）
+  const modern = /^(?:v2:(?=issues)|v3:(?=pulls))(issues|pulls):([1-9][0-9]{0,15}):(.+)$/.exec(cursor);
   if (modern !== null) {
     const id = modern[2]!;
     if (!Number.isSafeInteger(Number(id)) || String(Number(id)) !== id) invalid();
@@ -28,7 +41,8 @@ function parsePosition(cursor: string | null): Position {
   if (cursor.startsWith('v1:pulls:')) {
     const match = /^v1:pulls:([^:]+):([1-9][0-9]{0,6})$/.exec(cursor);
     if (match === null || !LOGIN_PATTERN.test(match[1]!) || Number(match[2]) > 1_000_000) invalid();
-    return { phase: 'pulls', page: Number(match[2]), anchor: null, owner: null };
+    // 作成順の頁番号は更新日時の降順では使えない。本人確認の後に先頭から読み直す
+    return { phase: 'pulls', page: 1, anchor: null, owner: null };
   }
   const position = parseIssueCursor(cursor.startsWith('v1:issues:') ? cursor.slice('v1:issues:'.length) : cursor);
   return { ...position, phase: 'issues', owner: null };
@@ -43,7 +57,7 @@ async function readOwner(input: FetchPageInput): Promise<GithubOwner> {
 
 function cursorOf(position: Position, owner: GithubOwner): string {
   return position.phase === 'pulls'
-    ? `v2:pulls:${owner.id}:${owner.login}:${position.page}`
+    ? `v3:pulls:${owner.id}:${owner.login}:${position.page}`
     : `v2:issues:${owner.id}:${owner.login}:${position.page}:${position.anchor ?? ''}`;
 }
 
@@ -64,6 +78,6 @@ export async function fetchOwnItemsPage(input: FetchPageInput): Promise<FetchPag
   });
   return {
     items: result.items,
-    next: result.next === null ? `v2:pulls:${owner.id}:${owner.login}:1` : `v2:issues:${owner.id}:${result.next}`,
+    next: result.next === null ? `v3:pulls:${owner.id}:${owner.login}:1` : `v2:issues:${owner.id}:${result.next}`,
   };
 }

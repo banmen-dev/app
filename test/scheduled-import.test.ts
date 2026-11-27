@@ -105,7 +105,7 @@ function github() {
     ...fake,
     add(pat: string, repo: number, title = `担当の課題 ${repo}`) {
       fake.addAccount(pat, { type: 'User', id: 42, login: 'fake-ranger' });
-      fake.addIssues(repo, [fakeIssue(repoName(repo), repo, { title })]);
+      fake.addIssues(repo, [fakeIssue(repoName(repo), repo, { title, updatedAt: '2026-06-01T00:00:00.000Z' })]);
     },
     attemptedPats() {
       return [...new Set(fake.calls.map((call) => call.headers['authorization']?.replace(/^Bearer /, '')))];

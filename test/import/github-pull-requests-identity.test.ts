@@ -112,9 +112,9 @@ describe('PAT 本人の改名と login の再利用', () => {
     expect(first).toHaveLength(100);
     expect(cursor).not.toBeNull();
     f.data.owner.login = 'renamed-again';
-    f.data.pulls[100] = fakePull(101, { user: { id: 42, login: 'renamed-again' } });
+    f.data.pulls[0] = fakePull(1, { user: { id: 42, login: 'renamed-again' } });
     const rest = await f.drain(cursor);
-    expect(rest.map((i) => i.sourceId)).toEqual(['800101']);
+    expect(rest.map((i) => i.sourceId)).toEqual(['800001']);
     expect(new Set([...first, ...rest].map((i) => i.sourceId)).size).toBe(101);
   });
 });
