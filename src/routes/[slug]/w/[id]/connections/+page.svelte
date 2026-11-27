@@ -4,6 +4,7 @@
   import { page } from '$app/state';
   import { callOperation } from '../../../../../lib/api.ts';
   import Avatar from '../../../../../lib/components/Avatar.svelte';
+  import ConfirmDialog from '../../../../../lib/components/ConfirmDialog.svelte';
   import EmptyState from '../../../../../lib/components/EmptyState.svelte';
   import Icon from '../../../../../lib/components/Icon.svelte';
   import LoadFailed from '../../../../../lib/components/LoadFailed.svelte';
@@ -11,6 +12,7 @@
   import Section from '../../../../../lib/components/Section.svelte';
   import {
     connectionCreateFailure,
+    connectionManageFailure,
     connectionScopeFailure,
     connectionSyncFailure,
     connectionSyncOutcome,
@@ -25,8 +27,10 @@
   import {
     CONNECTION_SCOPES_MAX,
     connectionCreate,
+    connectionDelete,
     connectionScopeCandidates,
     connectionScopesSave,
+    connectionStop,
     connectionSync,
     connectionUpdate,
     isOwnerGoneStop,
@@ -53,6 +57,13 @@
   // 見ている人がこのワークスペースの今のメンバーか（所属していない管理者は role が null）。本人の接続では持ち主の所属と同じで、
   // 止まった接続の再開（PAT の更新）と範囲の選び直しは、持ち主が今のメンバーのときだけ通る
   const isMember = $derived(workspace?.role != null);
+  // 他のメンバーの接続を止めて消せる人（リーダーと管理者）。本人は自分の接続を止めて消せる
+  const managesOthers = $derived(workspace?.role === 'leader' || data.organization?.me.is_admin === true);
+
+  // 停止と削除の確認。ダイアログは1つで、押した行の接続と操作を持つ
+  let confirmDialog = $state<ReturnType<typeof ConfirmDialog>>();
+  let managing = $state<{ kind: 'stop' | 'delete'; connection: Connection } | null>(null);
+  let managingId = $state<string | null>(null);
 
   const STATE: Record<Connection['status'], { cls: string; key: DictionaryKey }> = {
     active: { cls: 'is-ok', key: 'connectionStateActive' },
@@ -337,6 +348,40 @@
     }
   }
 
+  async function manage(kind: 'stop' | 'delete', target: Connection, trigger: HTMLElement | null): Promise<void> {
+    if (managingId !== null || workspace === null || !canWrite) return;
+    managing = { kind, connection: target };
+    if (!(await confirmDialog?.ask(trigger))) return;
+    managingId = target.id;
+    try {
+      const input = { workspace_id: workspace.id, connection_id: target.id };
+      const result =
+        kind === 'stop'
+          ? await callOperation(connectionStop, input, { slug })
+          : await callOperation(connectionDelete, input, { slug });
+      if (!result.ok && unauthenticated(result)) return;
+      if (result.ok) {
+        showToast(t(kind === 'stop' ? 'connectionStopDone' : 'connectionDeleteDone', { name: target.name }), 'check');
+        if (kind === 'delete') {
+          if (editingId === target.id) await closeEdit(target.id);
+          if (choosing?.id === target.id) closeScope(true);
+        }
+      } else {
+        showToast(
+          t(connectionManageFailure(result), { connection: t('connection'), workspace: t('workspace') }),
+          'alert',
+        );
+        if (result.error?.code === 'workspace_closed') await invalidate('app:workspace');
+      }
+      await reload();
+      // 押したボタンが消えるので、フォーカスを見出しへ戻す
+      await tick();
+      document.querySelector<HTMLElement>('main h1')?.focus();
+    } finally {
+      managingId = null;
+    }
+  }
+
   async function syncNow(target: Connection): Promise<void> {
     if (syncingId !== null || workspace === null || !canWrite) return;
     syncingId = target.id;
@@ -430,13 +475,13 @@
             <span class="kind is-story"><Icon name="git" /></span>
             <h2 class="conn-name">{connection.name}</h2>
             <span class="state-badge {state.cls}">{t(state.key)}</span>
-            {#if canWrite && mine}
+            {#if canWrite && (mine || managesOthers)}
               <span class="conn-actions">
-                {#if connection.scopes.length === 0 && choosing?.id !== connection.id && !ownerGone}
+                {#if mine && connection.scopes.length === 0 && choosing?.id !== connection.id && !ownerGone}
                   <button class="btn is-sm" type="button" aria-disabled={saving} onclick={() => openScope(connection)}
                     >{t('connectionChooseScope')}</button
                   >
-                {:else if connection.status !== 'stopped' && connection.scopes.length > 0}
+                {:else if mine && connection.status !== 'stopped' && connection.scopes.length > 0}
                   <button
                     class="btn is-sm"
                     type="button"
@@ -448,13 +493,31 @@
                       : t('connectionSyncNow')}</button
                   >
                 {/if}
+                {#if mine}
+                  <button
+                    class="btn is-sm is-quiet"
+                    type="button"
+                    id={`connection-edit-${connection.id}`}
+                    aria-expanded={editingId === connection.id}
+                    aria-disabled={updating}
+                    onclick={() => openEdit(connection)}>{t('connectionEdit')}</button
+                  >
+                {/if}
+                {#if connection.status !== 'stopped'}
+                  <button
+                    class="btn is-sm is-quiet"
+                    type="button"
+                    data-action="connection-stop"
+                    aria-disabled={managingId !== null}
+                    onclick={(event) => manage('stop', connection, event.currentTarget)}>{t('connectionStop')}</button
+                  >
+                {/if}
                 <button
-                  class="btn is-sm is-quiet"
+                  class="btn is-sm is-quiet is-danger"
                   type="button"
-                  id={`connection-edit-${connection.id}`}
-                  aria-expanded={editingId === connection.id}
-                  aria-disabled={updating}
-                  onclick={() => openEdit(connection)}>{t('connectionEdit')}</button
+                  data-action="connection-delete"
+                  aria-disabled={managingId !== null}
+                  onclick={(event) => manage('delete', connection, event.currentTarget)}>{t('connectionDelete')}</button
                 >
               </span>
             {/if}
@@ -475,15 +538,23 @@
           {#if connection.status === 'stopped'}
             <div class="callout is-danger">
               <Icon name="alert" /><span
-                >{connection.stopped_reason === 'auth_failed'
-                  ? t('connectionStoppedAuthFailed')
-                  : connection.stopped_reason === 'member_left'
-                    ? t('connectionStoppedMemberLeft', { workspace: t('workspace') })
-                    : connection.stopped_reason === 'user_disabled'
-                      ? t('connectionStoppedUserDisabled')
-                      : t('connectionStoppedOther')}{mine && canWrite && isMember && resumesOnCredential(connection)
-                  ? t('connectionStoppedEditHint')
-                  : t('connectionNextStopped', { who })}</span
+                >{#if connection.stopped_reason === 'owner'}
+                  {t('connectionStoppedOwner')}
+                {:else if connection.stopped_reason === 'leader'}
+                  {t('connectionStoppedLeader', { leader: t('leader') })}
+                {:else if connection.stopped_reason === 'workspace_closed'}
+                  {t('connectionStoppedWorkspaceClosed', { workspace: t('workspace') })}
+                {:else}
+                  {connection.stopped_reason === 'auth_failed'
+                    ? t('connectionStoppedAuthFailed')
+                    : connection.stopped_reason === 'member_left'
+                      ? t('connectionStoppedMemberLeft', { workspace: t('workspace') })
+                      : connection.stopped_reason === 'user_disabled'
+                        ? t('connectionStoppedUserDisabled')
+                        : t('connectionStoppedOther')}{mine && canWrite && isMember && resumesOnCredential(connection)
+                    ? t('connectionStoppedEditHint')
+                    : t('connectionNextStopped', { who })}
+                {/if}</span
               >
             </div>
           {/if}
@@ -775,4 +846,20 @@
       </div>
     </Section>
   {/if}
+
+  <ConfirmDialog
+    bind:this={confirmDialog}
+    title={managing?.kind === 'delete'
+      ? t('connectionDeleteTitle', { name: managing.connection.name })
+      : t('connectionStopTitle', { name: managing?.connection.name ?? '' })}
+    confirmLabel={managing?.kind === 'delete' ? t('connectionDeleteConfirm') : t('connectionStopConfirm')}
+    cancelLabel={t('cancel')}
+    danger
+  >
+    <p>
+      {managing?.kind === 'delete'
+        ? t('connectionDeleteBody', { task: t('task') })
+        : t('connectionStopBody', { connection: t('connection'), task: t('task') })}
+    </p>
+  </ConfirmDialog>
 {/if}

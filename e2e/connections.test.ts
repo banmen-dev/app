@@ -6,9 +6,11 @@ import { signIn, watchViolations } from './helpers.ts';
 import { failOperation, mockOperation, routeOperation } from './operations.ts';
 import {
   connectionCreate,
+  connectionDelete,
   connectionList,
   connectionScopeCandidates,
   connectionScopesSave,
+  connectionStop,
   connectionSync,
   connectionUpdate,
   type Connection,
@@ -576,4 +578,70 @@ test('鍵の設定不備は登録と範囲の候補で運用者への確認を�
   await expect(page.getByLabel('fine-grained personal access token')).toHaveValue('');
   await page.getByRole('button', { name: '範囲を選ぶ' }).click();
   await expect(page.getByRole('alert').filter({ hasText: message })).toHaveCount(2);
+});
+
+test('管理者は他のメンバーの接続を止めて消せる。止めた理由が一覧に出て、確認でやめると何も変わらない', async ({
+  page,
+}) => {
+  const scopes = [{ id: '2001', name: 'aoba/point-api' }];
+  let rows: Connection[] = [
+    created({ id: 'others', name: 'ハルカの GitHub', scopes, owner_user_id: 'other', owner_name: 'ハルカ' }),
+  ];
+  const calls: string[] = [];
+  await routeOperation(page, connectionList, { slug: 'aoba' }, (call) => call.fulfill({ connections: rows }));
+  await routeOperation(page, connectionStop, { slug: 'aoba' }, async (call) => {
+    calls.push(`stop:${call.input.connection_id}`);
+    rows = rows.map((row) => ({ ...row, status: 'stopped', stopped_reason: 'leader' }));
+    await call.fulfill({ connection: rows[0]! });
+  });
+  await routeOperation(page, connectionDelete, { slug: 'aoba' }, async (call) => {
+    calls.push(`delete:${call.input.connection_id}`);
+    rows = [];
+    await call.fulfill({ connection_id: call.input.connection_id });
+  });
+
+  await page.goto(`${WORKSPACE}/connections`);
+  const item = page
+    .getByRole('list', { name: '接続の一覧' })
+    .getByRole('listitem')
+    .filter({ hasText: 'ハルカの GitHub' });
+  // 他の人の接続なので、範囲、同期、編集は出ない
+  await expect(item.getByRole('button', { name: '今すぐ同期' })).toHaveCount(0);
+  await expect(item.getByRole('button', { name: '編集', exact: true })).toHaveCount(0);
+
+  await item.getByRole('button', { name: '止める' }).click();
+  const dialog = page.getByRole('dialog', { name: '「ハルカの GitHub」を止めますか' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'やめる' }).click();
+  await expect(dialog).toBeHidden();
+  expect(calls).toEqual([]);
+
+  await item.getByRole('button', { name: '止める' }).click();
+  await dialog.getByRole('button', { name: '止める' }).click();
+  await expect(page.getByRole('status').filter({ hasText: '「ハルカの GitHub」を止めました' })).toBeVisible();
+  await expect(item).toContainText('リーダーが止めました。再開はできません。');
+  // 止めた接続には「止める」が出ず、削除は残る
+  await expect(item.getByRole('button', { name: '止める' })).toHaveCount(0);
+
+  await item.getByRole('button', { name: '削除' }).click();
+  await page
+    .getByRole('dialog', { name: '「ハルカの GitHub」を削除しますか' })
+    .getByRole('button', { name: '削除する' })
+    .click();
+  await expect(page.getByRole('status').filter({ hasText: '「ハルカの GitHub」を削除しました' })).toBeVisible();
+  await expect(page.getByRole('list', { name: '接続の一覧' })).toHaveCount(0);
+  expect(calls).toEqual(['stop:others', 'delete:others']);
+});
+
+test('リーダーでも管理者でもないメンバーには、他の人の接続の止めるボタンと削除ボタンが出ない', async ({
+  context,
+  baseURL,
+  page,
+}) => {
+  await signIn(context, baseURL, 'member');
+  await page.goto(`${WORKSPACE}/connections`);
+  await expect(page.getByRole('heading', { level: 1, name: '接続' })).toBeVisible();
+  // seed の接続はミナト（メンバーではない人）のもの
+  await expect(page.getByRole('button', { name: '止める' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '削除' })).toHaveCount(0);
 });

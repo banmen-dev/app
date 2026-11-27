@@ -1,18 +1,22 @@
 // 接続の一覧、登録、範囲の候補と保存の操作の定義
 import type { AnyOperationDefinition } from '../define.ts';
 import { connectionCreate } from './connection-create.ts';
+import { connectionDelete } from './connection-delete.ts';
 import { connectionList } from './connection-list.ts';
 import { connectionScopeCandidates } from './connection-scope-candidates.ts';
 import { connectionScopesSave } from './connection-scopes-save.ts';
+import { connectionStop } from './connection-stop.ts';
 import { connectionSync } from './connection-sync.ts';
 
 import { connectionUpdate } from './connection-update.ts';
 
 export {
   connectionCreate,
+  connectionDelete,
   connectionList,
   connectionScopeCandidates,
   connectionScopesSave,
+  connectionStop,
   connectionSync,
   connectionUpdate,
 };
@@ -26,4 +30,6 @@ export const connectionOperations: readonly AnyOperationDefinition[] = [
   connectionScopeCandidates,
   connectionScopesSave,
   connectionSync,
+  connectionStop,
+  connectionDelete,
 ];

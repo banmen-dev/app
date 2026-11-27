@@ -133,3 +133,12 @@ export function connectionSyncFailure(result: FailedResult): DictionaryKey {
   if (result.status === 0 || result.status === 503) return 'connectionUnreachable';
   return 'connectionSyncFailed';
 }
+
+// 接続の停止と削除（connection-stop、connection-delete）が断られた理由。権限が無い、見つからない（消えた、別の人が先に消した）は
+// 一覧を読み直す文言にまとめる
+export function connectionManageFailure(result: FailedResult): DictionaryKey {
+  if (result.error?.code === 'workspace_closed') return 'connectionWorkspaceClosed';
+  if (result.status === 403 || result.status === 404) return 'connectionManageGone';
+  if (result.status === 0 || result.status === 503) return 'connectionUnreachable';
+  return 'connectionManageFailed';
+}
