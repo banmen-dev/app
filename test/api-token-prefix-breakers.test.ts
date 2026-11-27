@@ -256,7 +256,7 @@ describe('feedback の秘密検知', () => {
     ['zero width joiner', `bn‍p_${B}`],
     ['bidi mark', `bnp_‎${B}`],
     ['改行コードの正規化', `bnp_${B}\r\n`],
-    ['BOM', `﻿bnp_${B}`],
+    ['BOM', `\uFEFFbnp_${B}`],
     ['Bearer 付き', `Authorization: Bearer bnp_${B}`],
     ['URL の中', `https://example.test/?t=sgp_${B}`],
     ['短い本体', 'bnp_abc'],
