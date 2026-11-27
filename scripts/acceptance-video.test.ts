@@ -595,6 +595,87 @@ describe('gallery.mjs', () => {
   );
 
   test(
+    '判定の画面: 復元の前に付けた判定とコメントは、前の判定で上書きせず、復元の後に保存する',
+    { skip: !existsSync(chromium.executablePath()) && 'Playwright の chromium が無い' },
+    async () => {
+      const files = {
+        'manifest.json': JSON.stringify({ judge: true, items: [video] }),
+        'issue-574.mp4': 'dummy',
+      };
+      const browser = await chromium.launch();
+      try {
+        await inTempDirAsync(files, async (path) => {
+          assert.equal(run(join(path('manifest.json'), '..')).status, 0);
+          const context = await browser.newContext();
+          const page = await context.newPage();
+          const result = () => page.locator('#result').inputValue();
+          const open = () => openGallery(page, path('index.html'));
+          // 前の判定（ok とコメント）を保存しておく
+          await open();
+          await page.click('#tab-574');
+          await page.click('#panel-574 [data-set=ok]');
+          await page.fill('#panel-574 textarea', '前のコメント');
+          // 開き直し、復元の前（DOMContentLoaded）に ng とコメントを付ける。前の判定の復元は load の後に間を置いて行う
+          await page.addInitScript(() => {
+            document.addEventListener('DOMContentLoaded', () => {
+              (document.querySelector('#panel-574 [data-set=ng]') as HTMLElement).click();
+              const comment = document.querySelector('#panel-574 textarea') as HTMLTextAreaElement;
+              comment.value = '復元の前のコメント';
+              comment.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+          });
+          await open();
+          assert.equal(await page.evaluate(() => document.body.hasAttribute('data-restored')), true);
+          assert.match(await result(), /#574 .*: ng/);
+          assert.match(await result(), /コメント: 復元の前のコメント/);
+          // 復元の後に保存したので、別のページで開き直しても残る（初期化のスクリプトは前のページだけに付けた）
+          const reopened = await context.newPage();
+          await openGallery(reopened, path('index.html'));
+          assert.match(await reopened.locator('#result').inputValue(), /#574 .*: ng/);
+          assert.match(await reopened.locator('#result').inputValue(), /コメント: 復元の前のコメント/);
+        });
+      } finally {
+        await browser.close();
+      }
+    },
+  );
+
+  test(
+    '判定の画面: 復元の前に付けた判定は、復元の前に離れても保存する',
+    { skip: !existsSync(chromium.executablePath()) && 'Playwright の chromium が無い' },
+    async () => {
+      const files = {
+        'manifest.json': JSON.stringify({ judge: true, items: [video] }),
+        'issue-574.mp4': 'dummy',
+      };
+      const browser = await chromium.launch();
+      try {
+        await inTempDirAsync(files, async (path) => {
+          assert.equal(run(join(path('manifest.json'), '..')).status, 0);
+          const context = await browser.newContext();
+          const page = await context.newPage();
+          // 復元の前（DOMContentLoaded）に ng を付け、そのまま別のページへ移る
+          await page.addInitScript(() => {
+            document.addEventListener('DOMContentLoaded', () => {
+              const ng = document.querySelector('#panel-574 [data-set=ng]') as HTMLElement | null;
+              if (!ng) return;
+              ng.click();
+              location.href = 'about:blank';
+            });
+          });
+          await page.goto(pathToFileURL(path('index.html')).href);
+          await page.waitForURL('about:blank');
+          const reopened = await context.newPage();
+          await openGallery(reopened, path('index.html'));
+          assert.match(await reopened.locator('#result').inputValue(), /#574 .*: ng/);
+        });
+      } finally {
+        await browser.close();
+      }
+    },
+  );
+
+  test(
     '完了済みの画面: 判定の一覧、件数、結果に入らず、戻すと入り、戻した状態は開き直しても残る',
     { skip: !existsSync(chromium.executablePath()) && 'Playwright の chromium が無い' },
     async () => {

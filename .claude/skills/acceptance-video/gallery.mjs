@@ -182,8 +182,9 @@ const CLIENT_SCRIPT = String.raw`(function () {
   var issuePanels = panels.filter(function (p) { return p.hasAttribute('data-issue'); });
   // 作り直した HTML に、前の判定を引き継がないよう、生成ごとの値をキーに入れる。file:// は同じ origin で共有される
   var storeKey = 'scrum-guild-review:' + location.pathname + ':' + document.body.getAttribute('data-run');
-  // 前の判定を復元し終えたか。済むまでは保存しない（下の restoreLater）
+  // 前の判定を復元し終えたか。済むまでは保存せず、触ったパネルに印を付ける（下の restoreLater）
   var restored = false;
+  function touch(panel) { if (!restored && panel) panel.setAttribute('data-touched', ''); }
 
   function select(id, focus) {
     tabList().forEach(function (tab) {
@@ -284,6 +285,8 @@ const CLIENT_SCRIPT = String.raw`(function () {
     saved.forEach(function (e) {
       var panel = e && document.getElementById('panel-' + e.issue);
       if (!panel || !panel.hasAttribute('data-issue') || !panel.querySelector('.judge')) return;
+      // 復元の前に人が触ったパネルは、画面の今の値を残す（前の判定で上書きしない）
+      if (panel.hasAttribute('data-touched')) return;
       // 戻した完了済みは、戻した状態で開き直す
       if (e.returned === true && panel.hasAttribute('data-done')) {
         panel.removeAttribute('data-done');
@@ -316,6 +319,7 @@ const CLIENT_SCRIPT = String.raw`(function () {
     [].forEach.call(document.querySelectorAll('.verdict-btn'), function (btn) {
       btn.addEventListener('click', function () {
         var panel = btn.closest('[data-issue]');
+        touch(panel);
         var next = btn.getAttribute('data-set');
         // 押し直すと未判定に戻す
         if (panel.getAttribute('data-status') === next) panel.removeAttribute('data-status');
@@ -326,6 +330,7 @@ const CLIENT_SCRIPT = String.raw`(function () {
     [].forEach.call(document.querySelectorAll('[data-return]'), function (btn) {
       btn.addEventListener('click', function () {
         var panel = btn.closest('[data-issue]');
+        touch(panel);
         panel.removeAttribute('data-done');
         place(panel);
         refresh(true);
@@ -334,7 +339,10 @@ const CLIENT_SCRIPT = String.raw`(function () {
         if (first) first.focus();
       });
     });
-    document.addEventListener('input', function () { refresh(true); });
+    document.addEventListener('input', function (ev) {
+      touch(ev.target && ev.target.closest ? ev.target.closest('[data-issue]') : null);
+      refresh(true);
+    });
     document.getElementById('copy').addEventListener('click', function () {
       var result = document.getElementById('result');
       var message = document.getElementById('copied');
@@ -352,20 +360,31 @@ const CLIENT_SCRIPT = String.raw`(function () {
       }
     });
     refresh(false);
-    // 前の判定の復元は、load の後に間を置いてから読む。Chromium は、file:// の文書が読み込みの直後に localStorage に
-    // 触れると、その文書の後の書き込みが保存先に届かず、開き直すと判定が消えることがある（#1387。load の直後に読むと
-    // 1 割近くで起き、5ms 後からは起きなかった。開き直す前に待っても防げず、http で配れば起きない）。
-    // 復元するまでは保存しない（復元の前の操作で、前の判定を空で上書きしない）。済んだら body に data-restored を付ける
-    var restoreLater = function () {
-      setTimeout(function () {
-        restore();
-        restored = true;
-        refresh(false);
-        document.body.setAttribute('data-restored', '');
-      }, 100);
+    // 前の判定の復元は、load の後に間を置いてから読む（#1387）。Chromium で file:// の文書を開き、読み込みの直後に
+    // localStorage に触れると、その後の書き込みが開き直した文書に残らないことがあった（load の直後で数％から1割強。
+    // 数 ms から数十 ms 空けると実測で起きなくなった。開き直す前に待っても防げず、http で配れば起きない。仕組みは未調査）。
+    // load が遅れても復元が止まらないよう、3 秒たてば load を待たずに始める。復元するまでは保存せず、触ったパネルは
+    // 復元で上書きしない。触ったものがあれば復元の後（復元の前に離れるときはその場）で保存する。済んだら body に
+    // data-restored を付ける
+    var finishRestore = function () {
+      if (restored) return;
+      restore();
+      restored = true;
+      var touched = document.querySelectorAll('[data-touched]');
+      [].forEach.call(touched, function (p) { p.removeAttribute('data-touched'); });
+      refresh(touched.length > 0);
+      document.body.setAttribute('data-restored', '');
     };
-    if (document.readyState === 'complete') restoreLater();
-    else window.addEventListener('load', restoreLater);
+    var restoreStarted = false;
+    var restoreLater = function () {
+      if (restoreStarted) return;
+      restoreStarted = true;
+      setTimeout(finishRestore, 100);
+    };
+    window.addEventListener('load', restoreLater);
+    setTimeout(restoreLater, 3000);
+    // 復元の前に触って離れるときは、その場で復元して保存する（触った判定を保存しないまま失わない）
+    window.addEventListener('pagehide', function () { if (document.querySelector('[data-touched]')) finishRestore(); });
   }
 
   var initial = location.hash.slice(1);
