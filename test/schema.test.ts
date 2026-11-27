@@ -6,6 +6,7 @@ import { describe, expect, test, vi } from 'vitest';
 import { orgDb } from '../src/server/db/index.ts';
 import { compiledQueryForTest, queryPlanForTest, verifiedOrganizationForTest } from '../src/server/db/testing.ts';
 import { revokeSameEmailStatements } from '../src/server/operations/invitation.ts';
+import { connectionListOperation } from '../src/server/operations/connection.ts';
 import { todayOperation } from '../src/server/operations/today.ts';
 import {
   createComment,
@@ -488,6 +489,31 @@ describe('外部キー', () => {
       'USING INDEX tasks_assignee_user (assignee_user_id=? AND deleted_at=? AND completed_at=?)',
     );
     expect(details).not.toMatch(/^SCAN tasks\b/m);
+  });
+
+  // 接続の一覧が集める状態名（#1654）は、接続から task_sources_connection_status を引いて重複を除く。
+  // task_sources をワークスペースの索引でたどると、取り込みが数万件の接続で全件を読む。connection-list の本物の文で見る
+  test('接続の状態名を集める文は、接続から task_sources_connection_status の索引だけで引く', async () => {
+    const db = orgDb(env, verifiedOrganizationForTest(id()));
+    const batch = vi.spyOn(db, 'batch');
+    try {
+      await connectionListOperation.handler({ db, workspace: { workspaceId: id() }, input: {} } as never);
+      const statements = batch.mock.calls[0][0].filter((candidate) =>
+        compiledQueryForTest(candidate).sql.includes('from "task_sources" as "ts"'),
+      );
+      expect(statements).toHaveLength(1);
+      // ワークスペースと削除の絞り込みは、結んだ接続の列で行う（task_sources の列は使わない）
+      const sql = compiledQueryForTest(statements[0]!).sql;
+      expect(sql).toContain('"c"."workspace_id" = ?');
+      expect(sql).toContain('"c"."deleted_at" is null');
+      const details = await queryPlanForTest(env, statements[0]!);
+      const text = details.join('\n');
+
+      expect(text).toContain('SEARCH ts USING COVERING INDEX task_sources_connection_status (connection_id=?)');
+      expect(text).not.toMatch(/task_sources_container|^SCAN ts\b/m);
+    } finally {
+      batch.mockRestore();
+    }
   });
 
   // 今日やること（today）は未完了と完了を別の文にして、どちらも tasks_assignee_user の範囲で引く。

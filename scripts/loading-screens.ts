@@ -1,4 +1,4 @@
-import { loadingEpic, loadingFeedback, loadingWorkspace } from './loading-fixture.ts';
+import { loadingEpic, loadingFeedback, loadingImportWorkspace, loadingWorkspace } from './loading-fixture.ts';
 export type Reading = { name: string; secondary: boolean; input: Record<string, unknown>; global: boolean };
 const op = (name: string, input: Record<string, unknown> = {}, secondary = false, global = false): Reading => ({
   name,
@@ -98,6 +98,14 @@ export const screens: Screen[] = [
     route: '/[slug]/w/[id]/connections',
     operations: [w('column-list'), w('connection-list')],
     note: '2つを並列で読む。',
+  },
+  {
+    route: '/[slug]/w/[id]/connections（取り込みが多い）',
+    operations: [
+      op('column-list', { workspace_id: loadingImportWorkspace }),
+      op('connection-list', { workspace_id: loadingImportWorkspace }),
+    ],
+    note: '取り込み済みの項目が3万件ある接続1つ（状態名12種類）。状態名を集める読みの重さを見る。',
   },
   {
     route: '/[slug]/w/[id]/epics/[epicId]',
