@@ -223,7 +223,8 @@ test.describe('760px 以下と「その他」', () => {
     await moreList(page).getByRole('link').first().focus();
     await page.setViewportSize({ width: 1280, height: 800 });
     await expect(more(page)).toHaveCount(0);
-    await expect(tabsOf(page).getByRole('link').first()).toBeFocused();
+    // フォーカスは今の画面（バックログ）のタブへ戻る
+    await expect(tabsOf(page).locator('[aria-current="page"]')).toBeFocused();
     await page.setViewportSize({ width: 390, height: 800 });
     await expect(more(page)).toHaveAttribute('aria-expanded', 'false');
   });
