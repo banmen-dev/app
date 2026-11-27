@@ -1,10 +1,11 @@
-// 定期処理の表。wrangler.jsonc の triggers.crons の式から処理を引く。表に無い式で起きたら、設定の食い違いなので例外にする
+// wrangler.jsonc の固定の式と vars.IMPORT_SYNC_CRON から処理を引く。どちらにもない式は設定の食い違いとして例外にする
 import { attachmentQuotaWarningJob } from './attachment-quota-warning.ts';
 import { cleanupWiki } from './cleanup-wiki.ts';
 import { cleanupAttachments } from './cleanup-attachments.ts';
 import { cleanupApiTokens } from './cleanup-api-tokens.ts';
 import { cleanupExpired } from './cleanup-expired.ts';
 import { suspendExpiredTrialsJob } from './suspend-expired-trials.ts';
+import { syncImports } from './sync-imports.ts';
 
 type ScheduledJob = (env: Env, scheduledTime: Date) => Promise<void>;
 
@@ -32,6 +33,11 @@ const scheduledJobs: ReadonlyMap<string, ScheduledJob> = new Map<string, Schedul
 
 export async function runScheduled(controller: ScheduledController, env: Env): Promise<void> {
   const job = scheduledJobs.get(controller.cron);
+  const scheduledTime = new Date(controller.scheduledTime);
+  if (controller.cron === env.IMPORT_SYNC_CRON) {
+    await runJobs(job === undefined ? [syncImports] : [job, syncImports], env, scheduledTime);
+    return;
+  }
   if (job === undefined) throw new Error(`定期処理の表に無い cron の式: ${controller.cron}`);
-  await job(env, new Date(controller.scheduledTime));
+  await job(env, scheduledTime);
 }

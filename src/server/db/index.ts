@@ -40,6 +40,7 @@ export {
   type SyncOutcome,
   type SyncScope,
 } from './import-sync.ts';
+export { readScheduledImportConnections, syncScheduledImportConnection } from './scheduled-import.ts';
 export { titleContainsAll } from './title-search.ts';
 export { purgeDueInDatabase, purgeNotDue } from './purge-due.ts';
 export { unindexed } from './unindexed.ts';

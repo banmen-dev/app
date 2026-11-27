@@ -23,7 +23,7 @@ export type SyncConnection = {
 
 // 登録者が無効でなく、ワークスペースに今も所属している、という条件（接続の停止は #67 で足すまでの守り）
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ownerIsActive(eb: any, q: any, ownerColumn: string, workspaceColumn: string) {
+export function ownerIsActive(eb: any, q: any, ownerColumn: string, workspaceColumn: string) {
   return eb.and([
     eb.exists(
       q

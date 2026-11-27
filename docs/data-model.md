@@ -67,7 +67,7 @@
 | 共通 | `accounts`、`account_profiles`、`account_logins`、`password_credentials`、`sessions`、`api_tokens`、`account_consents`、`oauth_states`、`rate_limits`、`organizations`、`organization_contracts`、`billing_administrators`、`billing_admin_events` | 共通の DB に1つだけ |
 | 組織の中 | それ以外のすべて | 組織が置かれた DB |
 
-添付ファイルの中身は D1 ではなく R2 に置く。`wrangler.jsonc` の binding は `ATTACHMENTS`、本番のバケット名は `banmen-attachments`。組織のデータ（添付ファイルとプロフィール画像）のキーの先頭は組織の ID なので、D1 を分けても R2 は分けずに済む。組織の ID で始まらないキーは、掃除の進捗の `system/` と、下のフィードバックの `feedback/` だけ。プロフィール画像の中身も同じバケットに、`<組織の ID>/avatars/<users.id>/<画像の ID>` で置く（`user_avatars`）。組織の接頭辞の下に置くので、組織のデータを消す手順（`docs/operations.md`）で接頭辞ごと消える。
+添付ファイルの中身は D1 ではなく R2 に置く。`wrangler.jsonc` の binding は `ATTACHMENTS`、本番のバケット名は `banmen-attachments`。組織のデータ（添付ファイルとプロフィール画像）のキーの先頭は組織の ID なので、D1 を分けても R2 は分けずに済む。組織の ID で始まらないキーは、定期処理の進捗の `system/`（取り込みは `system/sync-imports-cursor`）と、下のフィードバックの `feedback/` だけ。プロフィール画像の中身も同じバケットに、`<組織の ID>/avatars/<users.id>/<画像の ID>` で置く（`user_avatars`）。組織の接頭辞の下に置くので、組織のデータを消す手順（`docs/operations.md`）で接頭辞ごと消える。
 
 フィードバック（`docs/requirements.md` の「機能」の「フィードバック」）は D1 に行を持たず、同じバケットの `feedback/<フィードバックの ID>/` に、添えた画像と `meta.json`（送った画面の URL（オリジンとパスだけ）、送った人のアカウントの ID、立てた Issue の番号、送った日時）を置く。フィードバックの ID はサーバーが送信ごとに作る UUIDv7 で、クライアントから受けない。公開の Issue の本文にはこの ID を載せ、運用者は ID から R2 のファイルを辿る。書く順と失敗の扱いは要件の「フィードバック」の節。組織の接頭辞の外に置くので、D1 を分けても動かさず、組織のデータを消す手順でも消えない（`system/cleanup-attachments-cursor` と同じく、組織の削除の対象にしない）。消すのは R2 のライフサイクルの規則（接頭辞 `feedback/`、180 日。`docs/operations.md` の「R2」）だけで、アプリは消さない。見るのは運用者だけ。
 
@@ -829,7 +829,9 @@
 - `CHECK`: `credential_ciphertext`、`credential_key_version`、`credential_last4` は3つとも空か3つとも入る。`deleted_at` が入っていれば認証情報は空。
 - 索引: `(workspace_id) WHERE deleted_at IS NULL`、`(owner_user_id)`。`owner_user_id` は外部キーの検査にも使うので、部分索引にしない。
 - 索引（外部キーの検査）: `(workspace_id, deleted_at)`。
-- 定期処理は `status IN ('active', 'error') AND deleted_at IS NULL` を `last_success_at` の古い順に処理する。
+- 定期処理は停止していない組織を ID 順に巡る。組織ごとに閉鎖・削除されていないワークスペースの接続を `status IN ('active', 'error') AND deleted_at IS NULL` で絞る。登録者が有効でワークスペースに所属している接続のうち、範囲を指定した `include` と、すべての `exclude` を対象にする。`last_success_at` が空の接続を先に、残りを古い順に処理する。同じ値なら接続の ID 順にする。
+- 1回に10接続、50組織、60秒を上限にする。開始した頁の処理と続きの保存は終えてから止める。巡回の開始時刻と処理位置は R2 の `system/sync-imports-cursor` に保存し、次の回で残りを処理する。巡回の開始後に作られた組織・接続と、その巡回中に同期に成功した接続は次の巡回で選ぶ。接続の中で頁の上限に達したときは、既存の `sync_state_json` から次の同期を続ける。
+- 同期を始める前に組織の停止状態を確かめ直す。すでに始まった接続の同期は完了することがある。認証の失敗では接続を停止する。ほかの失敗はエラーにして、残りの接続や組織の処理を続ける。上限で未処理の接続が残った場合はそちらを先に巡り、一巡した次の回からエラーの接続も再試行する。
 - 削除は論理削除にする。取り込んだタスクが `task_sources.connection_id` で指すため。削除したら認証情報の列を消す。
 - `credential_*` と `sync_state_json` は API で返さない。返すのは `credential_last4` まで。
 - 鍵の入れ替えは `credential_key_version` が古い行を選んで書き直す。
