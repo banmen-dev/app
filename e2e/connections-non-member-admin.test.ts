@@ -12,7 +12,7 @@ test.beforeEach(async ({ context, baseURL }) => {
 
 test('所属していない管理者が開いたワークスペースは、一覧の先頭に現在地の行として出る', async ({ page }) => {
   await page.goto(SUPPORT);
-  const list = page.getByRole('list', { name: '所属するワークスペース' });
+  const list = page.getByRole('list', { name: 'ワークスペースの一覧' });
   await expect(list.locator('li').first()).toHaveText('問い合わせ対応チーム');
   const current = list.locator('.nav-item.is-current');
   await expect(current).toHaveText('問い合わせ対応チーム');
