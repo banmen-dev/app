@@ -94,7 +94,7 @@ test.describe('管理者（あおば開発のミナト）', () => {
     await expect(me.getByRole('button')).toHaveCount(0);
     const haruka = rowOf(page, 'ハルカ');
     await expect(haruka.getByRole('checkbox', { name: 'ハルカを管理者にする' })).not.toBeChecked();
-    // 所属の数は API の値。ハルカは seed では 1 だが、ほかのファイル（e2e/workspace.test.ts）がハルカをリーダーにワークスペースを作り、
+    // 所属の数は API の値。ハルカは seed では 2 だが、ほかのファイル（e2e/workspace.test.ts）がハルカをリーダーにワークスペースを作り、
     // 消せずに残るので、並べて走る順と繰り返し（--repeat-each）で増える。所属の無いソラは、このファイルしか触らないので 0 のまま
     const harukaCount = listed?.users.find((user) => user.name === 'ハルカ')?.workspace_count;
     expect(harukaCount).toBeGreaterThanOrEqual(1);
