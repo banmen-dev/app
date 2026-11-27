@@ -416,10 +416,10 @@
       {#each connections as connection (connection.id)}
         {@const state = STATE[connection.status]}
         {@const mine = meId !== null && connection.owner_user_id === meId}
-        {@const staysStopped = connection.status === 'stopped' && (!resumesOnCredential(connection) || !isMember)}
+        {@const staysStopped = connection.status === 'stopped' && !(resumesOnCredential(connection) && isMember)}
         {@const ownerGone = isOwnerGoneStop(connection) || (mine && connection.status === 'stopped' && !isMember)}
         {@const who =
-          mine || !connection.owner_name
+          mine || !connection.owner_name || isOwnerGoneStop(connection)
             ? t('connectionNextWhoLeader', { leader: t('leader') })
             : t('connectionNextWhoOwner', { owner: connection.owner_name, leader: t('leader') })}
         <section class="panel conn" role="listitem" data-connection-id={connection.id}>
@@ -479,9 +479,7 @@
                     : connection.stopped_reason === 'user_disabled'
                       ? t('connectionStoppedUserDisabled')
                       : t('connectionStoppedOther')}{mine && canWrite && isMember && resumesOnCredential(connection)
-                  ? connection.stopped_reason === 'auth_failed'
-                    ? t('connectionStoppedEditHint')
-                    : t('connectionStoppedResumeHint')
+                  ? t('connectionStoppedEditHint')
                   : t('connectionNextStopped', { who })}</span
               >
             </div>
@@ -587,7 +585,9 @@
                       >
                     {/if}
                     <span class="field-hint" id="connection-edit-credential-hint"
-                      >{t('connectionEditCredentialHint')}</span
+                      >{connection.status === 'stopped' && !staysStopped
+                        ? t('connectionEditResumeHint')
+                        : t('connectionEditCredentialHint')}</span
                     >
                     {#if staysStopped}
                       <span class="field-hint" id="connection-edit-still-stopped"

@@ -312,10 +312,10 @@ test('止まっている接続は、停止の理由と登録した人に応じ�
   );
   // 抜けた人と無効にされた人の接続は、所属し直した本人が新しいトークンを保存すると再開する
   await expect(page.locator('[data-connection-id="stopped-left"] .callout.is-danger')).toHaveText(
-    'ワークスペースを抜けたので止めました。新しいトークンを保存すると再開します。',
+    'ワークスペースを抜けたので止めました。編集から新しいトークンを保存すると、次の同期から再開します。',
   );
   await expect(page.locator('[data-connection-id="stopped-disabled"] .callout.is-danger')).toHaveText(
-    'アカウントが無効になったので止めました。認証情報は消えています。新しいトークンを保存すると再開します。',
+    'アカウントが無効になったので止めました。認証情報は消えています。編集から新しいトークンを保存すると、次の同期から再開します。',
   );
   await expect(page.locator('[data-connection-id="stopped-theirs"] .callout.is-danger')).toHaveText(
     '認証に失敗したので止めました。登録したハルカかリーダーに、止まっていることを伝えてください。',
@@ -337,11 +337,19 @@ test('止まっている接続は、停止の理由と登録した人に応じ�
   await expect(page.getByRole('button', { name: '再開', exact: true })).toHaveCount(0);
   const tokenField = page.getByRole('form', { name: '接続を編集' }).getByLabel('新しい GitHub の PAT');
   await other.getByRole('button', { name: '編集', exact: true }).click();
+  await expect(other.getByRole('form', { name: '接続を編集' })).toBeVisible();
   await expect(tokenField).toHaveAccessibleDescription(/この接続は停止したままです/);
+  const resumeHint = /新しいトークンを入れて保存すると、この接続は再開します/;
   await auth.getByRole('button', { name: '編集', exact: true }).click();
-  await expect(tokenField).toHaveAccessibleDescription('空欄のまま保存すると、現在のトークンを使い続けます。');
-  await page.locator('[data-connection-id="stopped-left"]').getByRole('button', { name: '編集', exact: true }).click();
-  await expect(tokenField).toHaveAccessibleDescription('空欄のまま保存すると、現在のトークンを使い続けます。');
+  await expect(auth.getByRole('form', { name: '接続を編集' })).toBeVisible();
+  await expect(tokenField).toHaveAccessibleDescription(resumeHint);
+  for (const id of ['stopped-left', 'stopped-disabled']) {
+    const item = page.locator(`[data-connection-id="${id}"]`);
+    await item.getByRole('button', { name: '編集', exact: true }).click();
+    await expect(item.getByRole('form', { name: '接続を編集' })).toBeVisible();
+    await expect(tokenField).toHaveAccessibleDescription(resumeHint);
+    await expect(tokenField).not.toHaveAccessibleDescription(/停止したままです/);
+  }
 });
 
 test('持ち主が去って止めた接続には範囲を選ぶボタンが出ず、選んでいる間に止まったら段を閉じて一覧を読み直す', async ({

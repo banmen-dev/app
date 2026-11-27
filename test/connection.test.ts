@@ -989,6 +989,32 @@ describe('connection-update', () => {
     },
   );
 
+  test('表示名も変えて再開すると、履歴に名前、認証情報、状態、理由が揃う。表示名だけの保存は止まったまま', async () => {
+    const ctx = setup();
+    const target = await createTarget();
+    const connection = await createConnection(target.organization, target.workspace.id, target.member.userId!, {
+      status: 'stopped',
+      stopped_reason: 'auth_failed',
+    });
+    const renamed = await update(ctx, target, target.member, connection.id, undefined);
+    expect(await renamed.json()).toMatchObject({ connection: { status: 'stopped', stopped_reason: 'auth_failed' } });
+    const nameOnly = JSON.parse((await rowsOf(target)).logs.find((log) => log.action === 'update')!.changes_json!);
+    expect(nameOnly).not.toHaveProperty('status');
+
+    const pat = fakePat('resume-with-name');
+    ctx.github.addAccount(pat, OWNER, fakeRepos(2));
+    const res = await update(ctx, target, target.member, connection.id, pat);
+    expect(await res.json()).toMatchObject({ connection: { status: 'active', last_success_at: null } });
+    const logs = (await rowsOf(target)).logs.filter((log) => log.action === 'update');
+    expect(logs.map((log) => JSON.parse(log.changes_json!))).toContainEqual(
+      expect.objectContaining({
+        credential_updated: [null, true],
+        status: ['stopped', 'active'],
+        stopped_reason: ['auth_failed', null],
+      }),
+    );
+  });
+
   test.each(['member_left', 'user_disabled'] as const)(
     '持ち主が所属していないと、%s の接続は PAT を保存しても止まったまま（履歴に状態の変化は残らない）',
     async (reason) => {
@@ -1046,6 +1072,11 @@ describe('connection-update', () => {
       sync_state_json: '{}',
       reconcile_state_json: '{}',
     });
+    // 再開しない更新の履歴に、状態の変化は残らない
+    const changes = JSON.parse((await rowsOf(target)).logs.find((log) => log.action === 'update')!.changes_json!);
+    expect(changes).toMatchObject({ credential_updated: [null, true] });
+    expect(changes).not.toHaveProperty('status');
+    expect(changes).not.toHaveProperty('stopped_reason');
   });
 });
 
