@@ -542,8 +542,6 @@
                   {t('connectionStoppedOwner')}
                 {:else if connection.stopped_reason === 'leader'}
                   {t('connectionStoppedLeader', { leader: t('leader') })}
-                {:else if connection.stopped_reason === 'workspace_closed'}
-                  {t('connectionStoppedWorkspaceClosed', { workspace: t('workspace') })}
                 {:else}
                   {connection.stopped_reason === 'auth_failed'
                     ? t('connectionStoppedAuthFailed')
@@ -551,7 +549,9 @@
                       ? t('connectionStoppedMemberLeft', { workspace: t('workspace') })
                       : connection.stopped_reason === 'user_disabled'
                         ? t('connectionStoppedUserDisabled')
-                        : t('connectionStoppedOther')}{mine && canWrite && isMember && resumesOnCredential(connection)
+                        : connection.stopped_reason === 'workspace_closed'
+                          ? t('connectionStoppedWorkspaceClosed', { workspace: t('workspace') })
+                          : t('connectionStoppedOther')}{mine && canWrite && isMember && resumesOnCredential(connection)
                     ? t('connectionStoppedEditHint')
                     : t('connectionNextStopped', { who })}
                 {/if}</span

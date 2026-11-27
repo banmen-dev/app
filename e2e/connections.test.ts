@@ -325,8 +325,9 @@ test('止まっている接続は、停止の理由と登録した人に応じ�
     '認証に失敗したので止めました。編集から新しいトークンを保存すると、次の同期から再開します。',
   );
   const other = page.locator('[data-connection-id="stopped-other"]');
+  // リーダーが止めた接続は、理由だけを出す（再開の操作は無いので、次の手は書かない）
   await expect(other.locator('.callout.is-danger')).toHaveText(
-    '止まっています。リーダーに、止まっていることを伝えてください。',
+    'リーダーが止めました。再開はできません。使うときは新しく登録してください。',
   );
   // 抜けた人と無効にされた人の接続は、所属し直した本人が新しいトークンを保存すると再開する
   await expect(page.locator('[data-connection-id="stopped-left"] .callout.is-danger')).toHaveText(
@@ -340,7 +341,7 @@ test('止まっている接続は、停止の理由と登録した人に応じ�
     'ワークスペースを抜けたので止めました。リーダーに、止まっていることを伝えてください。',
   );
   await expect(page.locator('[data-connection-id="stopped-closed-theirs"] .callout.is-danger')).toHaveText(
-    '止まっています。登録したハルカかリーダーに、止まっていることを伝えてください。',
+    'ワークスペースを終了したので止めました。登録したハルカかリーダーに、止まっていることを伝えてください。',
   );
   await expect(page.locator('[data-connection-id="stopped-theirs"] .callout.is-danger')).toHaveText(
     '認証に失敗したので止めました。登録したハルカかリーダーに、止まっていることを伝えてください。',
