@@ -3,13 +3,13 @@
   import { page } from '$app/state';
   import { tick, untrack } from 'svelte';
   import { callOperation } from '../api.ts';
-  import { attachmentSize } from '../attachment-display.ts';
   import {
     FEEDBACK_IMAGE_MAX_COUNT,
     FEEDBACK_MESSAGE_PARAMS as params,
     admitFeedbackImages,
     clipboardImages,
     feedbackFailure,
+    feedbackImageSize,
     feedbackInput,
     feedbackStallMs,
     validateFeedback,
@@ -384,7 +384,7 @@
                 <canvas class="file-preview" aria-hidden="true" use:thumbnail={file}></canvas>
                 <div class="file-main">
                   <span class="file-name">{file.name}</span>
-                  <span class="file-meta mono">{attachmentSize(file.size)}</span>
+                  <span class="file-meta mono">{feedbackImageSize(file.size)}</span>
                 </div>
                 <div class="file-actions">
                   <button

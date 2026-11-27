@@ -6,6 +6,7 @@ import {
   FEEDBACK_TEXT_MAX,
   admitFeedbackImages,
   clipboardImages,
+  feedbackImageSize,
   feedbackStallMs,
   sniffFeedbackImage,
   feedbackFailure,
@@ -158,5 +159,11 @@ describe('画像を付ける前の確かめ', () => {
     expect(clipboardImages([image], '<TABLE>')).toEqual([]);
     expect(clipboardImages([image, new File(['a'], 'a.txt', { type: 'text/plain' })], '')).toEqual([]);
     expect(clipboardImages([], '')).toEqual([]);
+  });
+
+  test('大きさは attachmentSize と同じ書き方', () => {
+    expect(feedbackImageSize(FEEDBACK_IMAGE_MAX_BYTES)).toBe('4 MB');
+    expect(feedbackImageSize(1536)).toBe('1.5 KB');
+    expect(feedbackImageSize(12)).toBe('12 B');
   });
 });

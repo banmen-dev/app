@@ -162,3 +162,11 @@ export function clipboardImages(files: readonly File[], plainText: string): File
   const namesOnly = lines.every((line) => files.some((file) => file.name !== '' && line.endsWith(file.name)));
   return namesOnly ? [...files] : [];
 }
+
+// 付けた画像の大きさの表示。attachment-display.ts の attachmentSize と同じ書き方（MB は 1024×1024 バイト）。
+// 初回表示で読む JavaScript の本数を増やさないよう（e2e/boot-javascript.test.ts）、別のファイルの共有を避けてここに持つ
+export function feedbackImageSize(bytes: number): string {
+  const unit = bytes >= 1024 ** 2 ? 'MB' : bytes >= 1024 ? 'KB' : 'B';
+  const divisor = unit === 'MB' ? 1024 ** 2 : unit === 'KB' ? 1024 : 1;
+  return `${new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 1 }).format(bytes / divisor)}\u00a0${unit}`;
+}
