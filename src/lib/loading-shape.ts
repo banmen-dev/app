@@ -64,9 +64,10 @@ export type LoadingEyebrow = 'always' | 'narrow' | 'none';
 // 最初の読み込みの static/boot-shape.js も同じ扱いにする（scripts/boot-shape.test.ts が突き合わせる）
 const narrowEyebrowShapes: readonly LoadingShape[] = ['list', 'plan', 'settings', 'wiki'];
 export function loadingShapeEyebrow(routeId: string | null | undefined): LoadingEyebrow {
+  if (!routeId) return 'none';
   const shape = loadingShape(routeId);
   if (shape === null || shape === 'task' || shape === 'tree' || shape === 'board') return 'none';
-  return routeId?.startsWith('/[slug]/w/[id]') && narrowEyebrowShapes.includes(shape) ? 'narrow' : 'always';
+  return routeId.startsWith('/[slug]/w/[id]') && narrowEyebrowShapes.includes(shape) ? 'narrow' : 'always';
 }
 
 // 枠の外の紙のうち、/ だけはダッシュボードの広い2列にする。
