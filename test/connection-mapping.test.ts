@@ -345,14 +345,12 @@ describe('connection-mapping-save の追加の確かめ', () => {
   });
 
   // 状態名の読みは task_sources.workspace_id で絞らず、結んだ接続（connections.workspace_id）で絞る（#1654）。
-  // 別の組織の接続の状態名と、同じワークスペースの別の接続の状態名が混ざらない
-  test('選べる状態の一覧は、その接続の状態だけで、別の接続と別の組織の状態を混ぜない', async () => {
+  // 同じワークスペースの別の接続の状態名が混ざらない（接続の絞り込みは schema.test.ts の計画のテストが SQL で見る）
+  test('選べる状態の一覧は、接続ごとに分かれ、別の接続の状態を混ぜない', async () => {
     const { target, connection } = await setup();
     const other = await createConnection(target.organization, target.workspace.id, target.member.userId!);
     await importedTask(target, connection.id, 'open');
     await importedTask(target, other.id, 'other-connection-status');
-    const foreign = await setup();
-    await importedTask(foreign.target, foreign.connection.id, 'foreign-organization-status');
 
     const res = await post(app, connectionList, {
       slug: target.slug,

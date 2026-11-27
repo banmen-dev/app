@@ -502,6 +502,10 @@ describe('外部キー', () => {
         compiledQueryForTest(candidate).sql.includes('from "task_sources" as "ts"'),
       );
       expect(statements).toHaveLength(1);
+      // ワークスペースと削除の絞り込みは、結んだ接続の列で行う（task_sources の列は使わない）
+      const sql = compiledQueryForTest(statements[0]!).sql;
+      expect(sql).toContain('"c"."workspace_id" = ?');
+      expect(sql).toContain('"c"."deleted_at" is null');
       const details = await queryPlanForTest(env, statements[0]!);
       const text = details.join('\n');
 

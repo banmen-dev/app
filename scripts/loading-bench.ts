@@ -34,6 +34,15 @@ function positiveIntegerOption(name: string, input: string, max: number): number
   return value;
 }
 const runs = positiveIntegerOption('--runs', args.runs?.[0] ?? '20', 10000);
+// 計測する画面。サーバーと D1 を用意する前に絞り、当たる画面が無ければ（綴りの誤り、--layout-only との食い違い）すぐ止める
+const routes = args.route ?? [];
+const selectedScreens = screens.filter(
+  (screen) =>
+    (!args['layout-only'] || screen.route.startsWith('/[slug]/+layout')) &&
+    (routes.length === 0 || routes.some((route) => screen.route.startsWith(route))),
+);
+if (selectedScreens.length === 0)
+  throw new Error(`計測する画面がありません（--route: ${routes.join(', ') || '指定なし'}）`);
 const port = positiveIntegerOption('--port', args.port?.[0] ?? '9742', 65534);
 const origin = `http://127.0.0.1:${port}`;
 const dir = mkdtempSync(path.join(tmpdir(), 'banmen-loading-'));
@@ -127,14 +136,7 @@ async function report() {
   );
   console.log('| load | 操作（主/従） | p50 ms | p95 ms |');
   console.log('| --- | --- | ---: | ---: |');
-  const routes = args.route ?? [];
-  if (routes.length > 0 && !screens.some((screen) => routes.some((route) => screen.route.startsWith(route))))
-    throw new Error(`--route に当たる画面が計測表にありません: ${routes.join(', ')}`);
-  for (const screen of screens.filter(
-    (screen) =>
-      (!args['layout-only'] || screen.route.startsWith('/[slug]/+layout')) &&
-      (routes.length === 0 || routes.some((route) => screen.route.startsWith(route))),
-  )) {
+  for (const screen of selectedScreens) {
     if (!screen.operations.length) {
       console.log(`| ${screen.route} | 操作なし | — | — |`);
       continue;
