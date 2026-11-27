@@ -11,7 +11,7 @@ import { SEED_OPERATOR_LOGIN_ID, SEED_SESSIONS } from '../seed/sessions.ts';
 import { sessionCookieName } from '../src/shared/session-cookie.ts';
 import { operations } from '../src/shared/operations/index.ts';
 import { isOutsideOperation } from '../src/shared/operations/define.ts';
-import { loadingFixtureSql } from './loading-fixture.ts';
+import { loadingFeedback, loadingFixtureSql } from './loading-fixture.ts';
 import { screens, type Reading } from './loading-screens.ts';
 import { comparison, percentile, trialTiming } from './loading-stats.ts';
 import { sessionInserts } from './seed.ts';
@@ -205,6 +205,21 @@ try {
       loadingFixtureSql(),
   );
   command(['d1', 'execute', 'DB', '--file', file]);
+  // 運用者のフィードバックの閲覧が読む R2 の meta.json（画像は添えない）
+  const meta = path.join(dir, 'feedback-meta.json');
+  writeFileSync(
+    meta,
+    JSON.stringify({
+      feedback_id: loadingFeedback,
+      account_id: '01939c12-0000-7000-8000-00000000fb02',
+      url: null,
+      route_id: null,
+      text: '計測用のフィードバック',
+      images: [],
+      submitted_at: new Date().toISOString(),
+    }),
+  );
+  command(['r2', 'object', 'put', `loading-bench/feedback/${loadingFeedback}/meta.json`, '--file', meta]);
   server = spawn(
     'wrangler',
     [

@@ -61,6 +61,8 @@ INSERT INTO tasks (id, workspace_id, is_imported, tray, title, story_id, categor
 }
 
 export const loadingWorkspace = id('1', 1);
+// 運用者のフィードバックの閲覧（/operator/feedback/[id]）の計測が読む R2 の meta.json の ID。計測の開始時に置く（scripts/loading-bench.ts）
+export const loadingFeedback = '01939c12-0000-7000-8000-00000000fb01';
 export const loadingEpic = id('1', 1, 'e');
 export function loadingFixtureSql(now = new Date()): string {
   const timestamp = now.toISOString();

@@ -1,4 +1,4 @@
-import { loadingEpic, loadingWorkspace } from './loading-fixture.ts';
+import { loadingEpic, loadingFeedback, loadingWorkspace } from './loading-fixture.ts';
 export type Reading = { name: string; secondary: boolean; input: Record<string, unknown>; global: boolean };
 const op = (name: string, input: Record<string, unknown> = {}, secondary = false, global = false): Reading => ({
   name,
@@ -40,6 +40,12 @@ export const screens: Screen[] = [
   },
   { route: '/auth/setup', operations: [op('onboarding-status', {}, false, true), op('me', {}, false, true)] },
   { route: '/operator', operator: true, operations: [op('list-organizations', {}, false, true)] },
+  {
+    route: '/operator/feedback/[id]',
+    operator: true,
+    operations: [op('operator-feedback', { id: loadingFeedback }, false, true)],
+    note: 'R2 の meta.json を1回読む。D1 は引かない。',
+  },
   {
     route: '/[slug]/+layout',
     deferSecondary: true,
