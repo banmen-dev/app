@@ -4,7 +4,10 @@ import {
   API_TOKEN_LIMIT_REASON,
   API_TOKEN_MAX_ACTIVE,
   API_TOKEN_MAX_LIFETIME_DAYS,
+  API_TOKEN_LEGACY_PREFIX,
   API_TOKEN_PATTERN,
+  API_TOKEN_PREFIX,
+  isLegacyApiTokenAccepted,
   type ApiTokenScope,
 } from '../../shared/api-token.ts';
 import { apiTokenSeenAt, commonDb, previousStatementChanged, type CommonDb, type Statement } from '../db/index.ts';
@@ -15,7 +18,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type ApiToken = { accountId: string; tokenHash: string; scope: ApiTokenScope; authenticatedAt: string };
 
-// 生の値は、ハッシュする前の `sgp_` + 乱数。DB にはこの SHA-256 の小文字の16進だけを持つ
+// 生の値は、ハッシュする前の `bnp_` + 乱数。DB にはこの SHA-256 の小文字の16進だけを持つ
 export function hashApiToken(token: string): Promise<string> {
   return sha256Hex(token);
 }
@@ -53,7 +56,7 @@ export async function issueApiTokenWith(
   if (!Number.isInteger(lifetimeDays) || lifetimeDays < 1 || lifetimeDays > API_TOKEN_MAX_LIFETIME_DAYS) {
     throw new Error(`API トークンの有効日数は 1〜${API_TOKEN_MAX_LIFETIME_DAYS} の整数`);
   }
-  const raw = `sgp_${randomToken()}`;
+  const raw = `${API_TOKEN_PREFIX}${randomToken()}`;
   const tokenHash = await hashApiToken(raw);
   const expiresAt = new Date(input.now.getTime() + lifetimeDays * DAY_MS).toISOString();
   const createdAt = input.now.toISOString();
@@ -252,6 +255,8 @@ export async function revokeApiTokenOf(
 // 書き直しは、より新しい last_used_at を巻き戻さないよう、前の値が now より前のときだけ当てる
 export async function readApiToken(env: Env, token: string | undefined, now: Date): Promise<ApiToken | undefined> {
   if (token === undefined || !API_TOKEN_PATTERN.test(token)) return undefined;
+  // 旧の接頭辞は最終日の翌日から、存在しないトークンと同じに断る（DB は引かず、last_used_at も書かない）
+  if (token.startsWith(API_TOKEN_LEGACY_PREFIX) && !isLegacyApiTokenAccepted(now)) return undefined;
   const tokenHash = await hashApiToken(token);
   const db = commonDb(env);
   const row = await db.first(

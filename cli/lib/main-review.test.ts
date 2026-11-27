@@ -5,9 +5,9 @@ import { main, type CliDeps, type Config, type ConfigStore } from './main.ts';
 
 const URL_A = 'https://aoba.guild.example';
 const URL_B = 'https://kaede.guild.example';
-const TOKEN_A = `sgp_${'A'.repeat(43)}`;
-const TOKEN_B = `sgp_${'B'.repeat(43)}`;
-const TOKEN_ENV = `sgp_${'V'.repeat(43)}`;
+const TOKEN_A = `bnp_${'A'.repeat(43)}`;
+const TOKEN_B = `bnp_${'B'.repeat(43)}`;
+const TOKEN_ENV = `bnp_${'V'.repeat(43)}`;
 
 const object = (properties: Record<string, unknown>) => ({ type: 'object', properties, required: [] });
 const entry = (name: string, scope: string, properties: Record<string, unknown>) => ({

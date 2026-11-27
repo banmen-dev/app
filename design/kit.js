@@ -2829,7 +2829,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
       openDialog("API トークンを発行しました",
         `<p>「手元の CLI」の値です。</p>
          <div class="field"><label class="field-label" for="d-token">トークンの値</label>
-           <div class="input-row"><input class="input mono" id="d-token" value="sgp_Qm7tX2vLr9aKpE4wZc8hN3bYd6fGs1uJ0oTiRl5eWxA" readonly spellcheck="false" autocomplete="off">
+           <div class="input-row"><input class="input mono" id="d-token" value="bnp_Qm7tX2vLr9aKpE4wZc8hN3bYd6fGs1uJ0oTiRl5eWxA" readonly spellcheck="false" autocomplete="off">
              <button class="btn" type="button" data-toast="トークンの値をコピーしました">${icon("link")}コピーする</button></div></div>
          <div class="callout is-warn">${icon("alert")}<span>この値は二度と見られません。閉じる前にコピーして、安全な場所に保管してください。</span></div>
          <p class="field-hint">2027/01/29 09:00 まで使えます。</p>`,

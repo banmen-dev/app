@@ -170,6 +170,7 @@ test('既知の秘密の形や正規化で秘密の形になる文は内容を�
   const person = await createPerson();
   const { app, requests } = fakeGithub();
   const markers = [
+    `bnp_${'a'.repeat(43)}`,
     `sgp_${'a'.repeat(43)}`,
     `ghp_${'a'.repeat(36)}`,
     `git\u200Bhub_pat_${'a'.repeat(82)}`,

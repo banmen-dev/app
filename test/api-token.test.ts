@@ -25,19 +25,19 @@ afterEach(() => {
 });
 
 describe('形と上限の定数', () => {
-  test('API_TOKEN_PATTERN は sgp_ + base64url の43文字だけを通す', () => {
+  test('API_TOKEN_PATTERN は bnp_ + base64url の43文字だけを通す', () => {
     const body = 'A1_-'.repeat(10) + 'abc';
     expect(body).toHaveLength(43);
-    expect(API_TOKEN_PATTERN.test(`sgp_${body}`)).toBe(true);
+    expect(API_TOKEN_PATTERN.test(`bnp_${body}`)).toBe(true);
     for (const bad of [
       body,
-      `sgp_${body.slice(1)}`,
-      `sgp_${body}A`,
+      `bnp_${body.slice(1)}`,
+      `bnp_${body}A`,
       `SGP_${body}`,
-      `sgp_${body.slice(1)}+`,
-      `sgp_${body.slice(1)}=`,
-      `sgp_${body.slice(1)} `,
-      `xsgp_${body}`,
+      `bnp_${body.slice(1)}+`,
+      `bnp_${body.slice(1)}=`,
+      `bnp_${body.slice(1)} `,
+      `xbnp_${body}`,
       '',
     ]) {
       expect(API_TOKEN_PATTERN.test(bad), bad).toBe(false);
@@ -56,7 +56,7 @@ describe('hashApiToken', () => {
 });
 
 describe('issueApiToken', () => {
-  test('sgp_ + 43文字の生の値を返し、毎回違う', async () => {
+  test('bnp_ + 43文字の生の値を返し、毎回違う', async () => {
     const account = await createAccount();
     const input = { accountId: account.id, name: '手元の CLI', scope: 'read', now: NOW } as const;
     const first = await issueApiToken(env, input);
@@ -138,13 +138,13 @@ describe('readApiToken', () => {
   test('無い、空、行の無い値は undefined', async () => {
     expect(await readApiToken(env, undefined, NOW)).toBeUndefined();
     expect(await readApiToken(env, '', NOW)).toBeUndefined();
-    expect(await readApiToken(env, `sgp_${'B'.repeat(43)}`, NOW)).toBeUndefined();
+    expect(await readApiToken(env, `bnp_${'B'.repeat(43)}`, NOW)).toBeUndefined();
   });
 
   test('形の違う値は、同じ値の行があっても undefined', async () => {
     const account = await createAccount();
     const body = 'k'.repeat(43);
-    for (const raw of [body, `sgp_${body.slice(1)}`, `sgp_${body}k`, `SGP_${body}`, `sgp_${body.slice(1)}+`]) {
+    for (const raw of [body, `bnp_${body.slice(1)}`, `bnp_${body}k`, `SGP_${body}`, `bnp_${body.slice(1)}+`]) {
       await insertApiToken(account.id, { raw, expiresAt: at(DAY_MS) });
       expect(await readApiToken(env, raw, NOW), raw).toBeUndefined();
     }

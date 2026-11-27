@@ -16,8 +16,8 @@ import { runMcp } from './mcp-server.ts';
 
 const URL_NEW = 'https://aoba.guild.example';
 const URL_OLD = 'https://kaede.guild.example';
-const TOKEN_NEW = `sgp_${'N'.repeat(43)}`;
-const TOKEN_OLD = `sgp_${'O'.repeat(43)}`;
+const TOKEN_NEW = `bnp_${'N'.repeat(43)}`;
+const TOKEN_OLD = `bnp_${'O'.repeat(43)}`;
 
 const operationOf = (name: string, scope: string, properties: Record<string, unknown> = {}) => ({
   name,
