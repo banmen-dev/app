@@ -8,12 +8,21 @@ describe('採点役に渡す設計文書の抜粋', () => {
     const { headings, text } = extractDesignRules(readFileSync(new URL('../docs/design.md', import.meta.url), 'utf8'));
     assert.deepEqual(headings, [...DESIGN_RULE_HEADINGS]);
     for (const heading of DESIGN_RULE_HEADINGS)
-      assert.ok(text.includes(`\n${heading}\n`) || text.startsWith(`${heading}\n`));
-    assert.ok(!text.includes('## 文字サイズ'));
-    assert.ok(!text.includes('### テーマごとの違い'));
+      assert.ok(
+        text.includes(`\n${heading}\n`) || text.startsWith(`${heading}\n`),
+        `抜粋に見出し「${heading}」がありません`,
+      );
+    assert.ok(!text.includes('## 文字サイズ'), '抜粋に次の節「## 文字サイズ」まで混ざっています');
+    assert.ok(!text.includes('### テーマごとの違い'), '抜粋に次の節「### テーマごとの違い」まで混ざっています');
     // 節ごとの最後の項目まで入っている（途中で切れていない）
-    assert.ok(text.includes('6. **言葉が長くなっても崩れない。**'));
-    assert.ok(text.includes('**演出・面の出現と行の合図:**'));
+    assert.ok(
+      text.includes('6. **言葉が長くなっても崩れない。**'),
+      '「## デザイン原則」の末尾の項目「6. **言葉が長くなっても崩れない。**」が抜粋にありません（docs/design.md の文言が変わったか、節が途中で切れています）',
+    );
+    assert.ok(
+      text.includes('**演出・面の出現と行の合図:**'),
+      '「### どのテーマにも共通すること」の末尾の項目「**演出・面の出現と行の合図:**」が抜粋にありません（docs/design.md の文言が変わったか、節が途中で切れています）',
+    );
     // 見出しから次の見出しまでを別の方法で切り出した全文と一致する
     const source = readFileSync(new URL('../docs/design.md', import.meta.url), 'utf8');
     const slice = (from: string, to: string) =>
