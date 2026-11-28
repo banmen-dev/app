@@ -1099,7 +1099,7 @@
 | created_at、updated_at | TEXT | NOT NULL | |
 
 - 一意: `(workspace_id, provider, source_kind, source_id, reviewer_source_id)`。同じワークスペースで同じ項目を1件にまとめ、レビュー依頼だけはレビュアーごとに分ける。
-- 索引: `(connection_id)`、`(workspace_id, source_container_id)`、`(connection_id, source_status)`。最後のものは、`connection-list` が接続ごとに状態名の重複を除いて集める読み（カバリング索引で足りる）のため。この読みはワークスペースを結んだ接続（`connections.workspace_id`）で絞り、`task_sources.workspace_id` では絞らない（絞ると、ワークスペースの索引で `task_sources` を全件たどるか、カバリング索引にならない）。取り込みが3万件の接続で測った（`pnpm bench:loading --route '/[slug]/w/[id]/connections'`）。
+- 索引: `(workspace_id, source_container_id)`、`(connection_id, source_status)`。後者は、`connection-list` が接続ごとに状態名の重複を除いて集める読み（カバリング索引で足りる）のため。`connection_id` だけで引く文と `connection_id` の外部キーの検査も、この複合索引の先頭の列で引くので、`connection_id` だけの索引は持たない（#1658）。この読みはワークスペースを結んだ接続（`connections.workspace_id`）で絞り、`task_sources.workspace_id` では絞らない（絞ると、ワークスペースの索引で `task_sources` を全件たどるか、カバリング索引にならない）。取り込みが3万件の接続で測った（`pnpm bench:loading --route '/[slug]/w/[id]/connections'`）。
 - `workspace_id` は、`connection_id` の接続の `connections.workspace_id` と同じ。取り込みが入れるときだけ書き（同じワークスペースの接続を条件にする）、以後書き換えない（DB の制約ではなくアプリが守る）。`connection-list` の状態名の読みは、この一致を前提に `task_sources.workspace_id` では絞らない。
 - 接続が削除されても行は残す。続けて同期する接続がなくなるだけ。
 
