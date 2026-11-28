@@ -53,7 +53,7 @@ gh api "repos/{owner}/{repo}/commits/<head_sha>/check-runs" --jq '.check_runs[] 
 `review` は AI レビュー（`.github/workflows/ai-review.yml`）のチェックで、助言なので `ci-ok` に含めず、落ちてもマージの判定を止めない（`docs/development.md` の「CI」）。
 `review` の `status` と `conclusion` が何でも、この前提は満たすものとして扱う（理由: 回した先の pr も `review` の失敗は直さないので、数に入れると done-check が先へ進めない）。
 実行中の `review` が後から付ける指摘は、pr/feedback.md の手順 1 が完了を待って拾う。
-PR 作成後の段では、`e2e`、`e2e-dev`、`e2e-repeat` の結果も確かめる。e2e はセッションが手元で走らせないので、これが e2e の確かめになる。この 3 つは `ci-ok` に含まれ、上の表の「CI が成功」で見る。落ちていたら、ローカルでは再現せずログと trace で直し、クラウドでは関連ファイルで再現して修正後に事前検査を通す。回した先の pr/feedback.md の手順 5 に従う（`docs/development.md` の「CI の e2e が落ちたとき」）。
+PR 作成後の段では、`e2e`、`e2e-dev`、`e2e-repeat` の結果も確かめる。e2e はローカルでもクラウドでもセッションが走らせないので、これが e2e の確かめになる。この 3 つは `ci-ok` に含まれ、上の表の「CI が成功」で見る。落ちていたら、再現せずログと trace で直す。回した先の pr/feedback.md の手順 5 に従う（`docs/development.md` の「CI の e2e が落ちたとき」）。
 
 ```bash
 gh api graphql -f query='{ repository(owner:"<owner>", name:"<repo>") { pullRequest(number:<number>) { author { login } reviewThreads(first:100) { nodes { isResolved path comments(first:1) { nodes { body author { login } } } } } } } }'
@@ -95,7 +95,7 @@ git diff <base>...HEAD
 
 ### 5. 動かして確かめる
 
-共通の点検基準の「動かして確かめる」に従う。ローカルの画面確認に使うブラウザの道具は、このスキルを呼んだときに決める（人の指示かセッションの設定に従い、無ければ `AskUserQuestion` で1回聞いて、同じセッションで使い回す）。人に聞けない実行で指定も無ければ、画面の確認を省き、省いたことを出力に書く。e2e は CI に任せる。クラウドでは PR 前に `pnpm e2e:preflight [base-ref] --files … --reason …` を通し、対象の通常・開発・関連する繰り返しの記録を確認する。全件は CI に任せ、CI も省略しない。`e2e:preflight` を実行して Playwright が無いとして終了コード 3 が返ったときだけ、e2e を未実施として残し、CI で担保する（`docs/development.md` の「Playwright が無い環境」）。
+共通の点検基準の「動かして確かめる」に従う。ローカルの画面確認に使うブラウザの道具は、このスキルを呼んだときに決める（人の指示かセッションの設定に従い、無ければ `AskUserQuestion` で1回聞いて、同じセッションで使い回す）。人に聞けない実行で指定も無ければ、画面の確認を省き、省いたことを出力に書く。e2e はローカルでもクラウドでも走らせず、CI に任せる（`pnpm e2e:preflight` も実行しない）。CI も省略しない。
 
 新しい画面や全画面に効く差分（デザインシステムの部品とトークン、画面の枠、言葉の辞書の大きな変更）では、[Claude 用の `screen-review`](../screen-review/SKILL.md) で撮影と採点を行う。対応する状態が未登録なら、対応する見本と操作を確認し、撮れる状態を登録する。対象を撮れない場合は理由と手元で行う確認を引き渡し、PR を `needs-human` として扱う。既存の画面だけの差分は `ui-reviewer` の点検と目視で確かめる。採点後に修正したときは、影響する機械的な検査をやり直す。
 
@@ -152,5 +152,3 @@ PR 作成後はここで終える。判断の差分は出力に出すだけに�
 - 完了条件を満たせない。実装計画に戻る
 - テストが落ちて原因が分からない
 - 規約と実装方針が食い違う。どちらを取るか確認する
-
-コミットや工程の移動だけで入力が同じで、実行時HEADが現在のHEADの祖先なら e2e を再実行しない。amend・squash・rebaseなどで祖先関係が失われた場合は再実行する。実行時と同じ対象指定で `pnpm e2e:preflight --verify <result.json> [base-ref] [同じ選定オプション]` を使い、元の結果と両HEAD・入力の一致を示す照合記録を引き継ぐ。条件は `docs/agent-workflows/validation.md` と `docs/development.md` の「クラウドで PR 前に e2e を確かめる」に従う。
