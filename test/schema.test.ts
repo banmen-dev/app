@@ -487,7 +487,7 @@ describe('0049_make_epics_reward_tier_nullable', () => {
 
   // 行と、epics を指す子の行が入った状態で 0049 を当て直す（テストの D1 には全マイグレーションが当て済み）
   test('0049 を行の入った epics に当て直しても、行も子の行も変わらず、外部キーの違反も出ない', async () => {
-    const migration = env.TEST_MIGRATIONS.find((m) => m.name.startsWith('0049_'));
+    const migration = env.TEST_MIGRATIONS.find((m) => m.name.startsWith('0049_make_epics_reward_tier_nullable'));
     expect(migration).toBeDefined();
     const organization = await createOrganization();
     const user = await createUser(organization);
