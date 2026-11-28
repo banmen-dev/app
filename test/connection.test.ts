@@ -361,6 +361,16 @@ describe('connection-scopes-save', () => {
     expect((await rowsOf(target)).connections[0]).toMatchObject({ last_success_at: null, sync_state_json: '{}' });
   });
 
+  test('保存のたびに世代を進める（同期の途中の保存を、同期の終わりの書き込みが上書きしない）', async () => {
+    const ctx = setup();
+    const target = await createTarget();
+    const { id } = await registered(ctx, target, target.member, 'save-generation');
+    const before = Number((await rowsOf(target)).connections[0]!.ignore_source_due_generation);
+    expect((await save(ctx, target, target.member, id, ['1001'])).status).toBe(200);
+    expect((await save(ctx, target, target.member, id, ['1001', '1002'])).status).toBe(200);
+    expect(Number((await rowsOf(target)).connections[0]!.ignore_source_due_generation)).toBe(before + 2);
+  });
+
   test('候補に無い ID は 400 で、今の範囲は変わらない', async () => {
     const ctx = setup();
     const target = await createTarget();

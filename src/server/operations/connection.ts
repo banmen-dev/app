@@ -604,13 +604,15 @@ export const connectionScopesSaveOperation = implement(
       db.statement((q) =>
         q
           .updateTable('connections')
-          .set({
+          .set((eb) => ({
             scope_mode: 'include',
             updated_at: stamp,
             // 範囲が変わるので、次の同期は全部を読む（足した範囲の古い項目は、前回の成功より前に更新されている）
             last_success_at: null,
             sync_state_json: '{}',
-          })
+            // 同期の途中で保存しても、同期の終わりの書き込みが上の印を上書きしないよう世代を進める（期限の無視の保存と同じ世代）
+            ignore_source_due_generation: eb('ignore_source_due_generation', '+', 1),
+          }))
           .where('id', '=', row.id)
           .where('workspace_id', '=', workspaceId)
           .where('owner_user_id', '=', actorUserId)
