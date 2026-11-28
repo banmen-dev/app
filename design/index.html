@@ -913,7 +913,7 @@ const SECTIONS = [
      <div class="field"><span class="field-label">ドラッグ中と、上限に達したとき</span>${SQ.dropzone("demo", { over: true, full: false })}${SQ.dropzone("demo", { full: true })}</div>
      <div class="field"><span class="field-label">小さなボタン（${t("story")}、起票、コメント）</span>${SQ.dropzone("demo", { button: true, full: false })}</div>
      <div class="field"><span class="field-label">使っている量と上限</span><div class="grid-2">${SQ.meter(3.1, 10)}${SQ.meter(8.3, 10)}${SQ.meter(10, 10)}<div class="panel">${SQ.meter(21.7, 50, { small: true })}</div></div></div>`,
-    ["画像（PNG、JPEG、GIF、WebP）と動画（MP4、WebM）は画面で見せる。それ以外はダウンロードだけ。", "失敗は理由と数字を出す（何 MB を超えたか）。上限に達したら、上げる場所を止めて、誰が何をすれば添付できるかを書く。", "量の色は 80% を超えたら警告、上限で危険。色だけでなく、割合と文字を添える。", "消すときは、戻せないことと、差し込んだ所がどうなるかを確認のダイアログで伝える。"],
+    ["画像（PNG、JPEG、GIF、WebP）と動画（MP4、WebM）は画面で見せる。それ以外はダウンロードだけ。", "失敗は理由と数字を出す（何 MB を超えたか）。上限に達したら、上げる場所を止めて、誰が何をすれば添付できるかを書く。", "量の色は 80% を超えたら警告、上限で危険。色だけでなく、割合と文字を添える。", "消すときは、戻せないことと、差し込んだ所がどうなるかを確認のダイアログで伝える。", "ページの中で画像を描くとき（運用者のフィードバックの閲覧）は、.md-figure に、幅いっぱいの .preview の画像と、下にダウンロードの .btn を縦に組む。読み込めなかった画像は、.preview の代わりに理由と次にできることを .props-note で出す。"],
     ".files .file-thumb .file-thumb-label .file-art .is-video / .file-row .file-main .file-name .file-meta .file-actions .is-error .file-bar / .dropzone .is-over .is-disabled / .md-figure .comment-files .composer-foot / .preview .dialog-sheet.is-wide / .meter .meter-small .is-warn .is-full")],
   ["markdown-editor", "Markdown を書く欄", () => block("markdown-editor", "Markdown を書く欄", "本文・受け入れ基準・決まった欄・コメントで使う共通の入力欄。複数ファイルの選択・ドロップ・貼り付けを試せる。60%の行は固定の状態見本で、選んだファイルは進捗が動いて保存待ちになる。見本では実際の保存や送信は行わない。",
     SQ.markdownEditor("catalog-editor", { label: "Markdown の本文", value: "## 確認すること\n\n- [ ] 画像と手順を添付する", files: [

@@ -82,11 +82,12 @@
             })}
             <figure class="md-figure">
               {#if failedImages.includes(image.id)}
-                <p class="props-note" role="status">{t('operatorFeedbackImageFailed', { number: index + 1 })}</p>
+                <p class="props-note">{t('operatorFeedbackImageFailed', { number: index + 1 })}</p>
               {:else}
                 <div class="preview">
                   <img
                     {src}
+                    decoding="async"
                     alt={t('operatorFeedbackImageAlt', { number: index + 1 })}
                     onerror={() => markFailed(image.id)}
                   />

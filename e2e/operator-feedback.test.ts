@@ -4,6 +4,7 @@
 // ログインしていない人のログインへの移しと、運用者でない人の戻しは本物のサーバーで確かめる
 import type { Page } from '@playwright/test';
 import type { OutputOf } from '../src/shared/operations/define.ts';
+import { attachmentCacheControl, attachmentCsp } from '../src/shared/security-headers.ts';
 import { feedbackImageRef, listOrganizations, operatorFeedback } from '../src/shared/operations/operator/index.ts';
 import { expect, test } from './fixtures.ts';
 import { signIn, waitForSettled } from './helpers.ts';
@@ -20,7 +21,8 @@ const PNG_1X1 = Buffer.from(
 );
 const imagePath = (imageId: string) => `/api/operator-feedback-image/${feedbackImageRef(FEEDBACK_ID, imageId)}`;
 
-// 画像の操作は GET でバイトを返す（routeOperation は POST の JSON の入力を読むので使えない）。本物と同じヘッダーで返す
+// 画像の操作は GET でバイトを返す（routeOperation は POST の JSON の入力を読むので使えない）。
+// 本物と同じヘッダー（src/server/operations/operator-feedback.ts と src/server/app.ts の binary の応答）で返し、それでも <img> が描けることを確かめる
 async function serveImage(page: Page, imageId: string, status = 200) {
   await page.route(`**${imagePath(imageId)}`, (route) =>
     status === 200
@@ -31,6 +33,8 @@ async function serveImage(page: Page, imageId: string, status = 200) {
             'Content-Type': 'image/png',
             'Content-Disposition': `attachment; filename="feedback-${imageId}.png"`,
             'X-Content-Type-Options': 'nosniff',
+            'Content-Security-Policy': attachmentCsp,
+            'Cache-Control': attachmentCacheControl,
           },
         })
       : route.fulfill({ status, json: { error: { code: 'not_found', message: 'not_found' } } }),
@@ -88,12 +92,19 @@ test.describe('運用者', () => {
     await expect(text).toHaveText(feedback.text);
     await expect(text.locator('b, a')).toHaveCount(0);
     // 画像は attachment の応答のまま <img> で描き、下にダウンロードのリンクを添える
-    const image = main.getByRole('img', { name: '画像 1' });
+    const image = main.locator('figure .preview > img');
+    await expect(image).toHaveAccessibleName('画像 1');
     await expect(image).toBeVisible();
     await expect.poll(() => image.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
     const link = main.getByRole('link', { name: /画像 1 をダウンロード/ });
     await expect(link).toHaveAttribute('href', imagePath(IMAGE_ID));
     await expect(link).toHaveAttribute('download', '');
+    // ダウンロードのボタンは画像の下に置く
+    const imageBox = await main.locator('figure .preview').boundingBox();
+    const linkBox = await link.boundingBox();
+    expect(imageBox).not.toBeNull();
+    expect(linkBox).not.toBeNull();
+    expect(linkBox!.y).toBeGreaterThanOrEqual(imageBox!.y + imageBox!.height);
   });
 
   test('画像を送られた順に描き、読み込めなかった画像の場所だけに読み込めなかった旨を出す', async ({ page }) => {
@@ -109,7 +120,9 @@ test.describe('運用者', () => {
     const figures = main.locator('figure');
     await expect(figures).toHaveCount(2);
     await expect(figures.nth(0).getByRole('img', { name: '画像 1' })).toBeVisible();
-    await expect(figures.nth(1).getByRole('status')).toHaveText('画像 2 を読み込めませんでした');
+    await expect(figures.nth(1).locator('.props-note')).toHaveText(
+      '画像 2 を読み込めませんでした。ページを開き直してください。',
+    );
     await expect(figures.nth(1).getByRole('img')).toHaveCount(0);
     // 読み込めなかった画像もダウンロードのリンクは残し、文はそのまま見られる
     await expect(figures.nth(1).getByRole('link', { name: /画像 2 をダウンロード/ })).toBeVisible();
