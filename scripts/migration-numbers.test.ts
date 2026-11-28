@@ -29,7 +29,7 @@ export function findDuplicates(names: string[]): Record<string, string[]> {
 
 function unexpected(duplicates: Record<string, string[]>): string[] {
   return Object.entries(duplicates)
-    .filter(([n, files]) => JSON.stringify(files) !== JSON.stringify(ALLOWED_DUPLICATES[n]))
+    .filter(([n, files]) => JSON.stringify(files) !== JSON.stringify([...(ALLOWED_DUPLICATES[n] ?? [])].sort()))
     .map(([n, files]) => `${n}: ${files.join(', ')}`);
 }
 
