@@ -242,7 +242,8 @@ jobs:
         id: claude
         if: steps.diff.outputs.mode != 'none'
         env:
-          # SessionStart の依存インストールを CI の head の木では走らせない。
+          # CI をクラウドのセッションと取り違えさせない。base の SessionStart のフック（scripts/session-start.sh）は PATH を書くだけで依存を入れず、
+          # ランナーに /opt/node<主版> が無ければ何もしないが、クラウドのセッションの判定に使うスキルとフックがこの値を見るので、明示して残す。
           CLAUDE_CODE_REMOTE: "false"
           # base の .claude/settings.json の japanese-guard は、人が読まない出力の CI では差し戻しの1ターンを無駄に増やす。
           JAPANESE_GUARD_DISABLE: "1"

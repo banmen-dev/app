@@ -107,8 +107,7 @@ install_node_in() {
   mv "$tmp/node" "$node_dir"
 }
 if install_node; then
-  # VM の PATH には /opt/node22/bin があるので、シェルの初期化で先頭に足す。Claude の Bash は初期化ファイルを読まないので、
-  # セッションの Bash は初期化ファイルを読まない。
+  # VM の PATH には /opt/node22/bin があるので、シェルの初期化で先頭に足す（初期化ファイルを読むシェル向け）。
   # Ubuntu の .bashrc は対話でないと冒頭で return するので、末尾ではなく先頭に置く
   line="export PATH=\"${node_dir}/bin:\$PATH\""
   echo "$line" >/etc/profile.d/banmen-node.sh
@@ -156,8 +155,8 @@ if [ -n "$repo" ] && cd "$repo"; then
   rm -rf node_modules
 fi
 
-# セッションの Bash は初期化ファイルを読まない。/opt/node<主版>/bin は、セッションの環境で PATH に足す。
-# そこに置いた node の版を確かめる
+# セッションの Bash は初期化ファイルを読まないので、/opt/node<主版>/bin を PATH に足すのは SessionStart のフック
+# （.claude/settings.json から呼ぶ scripts/session-start.sh）が受け持つ。ここでは、そこに置いた node の版を確かめる
 got=$("${node_dir}/bin/node" --version 2>/dev/null)
 if [[ "$got" != "v${node_major}."* ]]; then
   warn "${node_dir}/bin/node が ${got:-動かない} で、${node_major} と合わない"
