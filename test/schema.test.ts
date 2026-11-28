@@ -478,7 +478,39 @@ describe('0048_drop_game_tables', () => {
     const workspace = await createWorkspace(organization, user.id);
     await createEpic(organization, workspace.id, user.id, { reward_tier: null });
     await createEpic(organization, workspace.id, user.id, { reward_tier: 'large' });
-    await expect(createEpic(organization, workspace.id, user.id, { reward_tier: 'huge' as never })).rejects.toThrow();
+    await expect(createEpic(organization, workspace.id, user.id, { reward_tier: 'huge' as never })).rejects.toThrow(
+      /CHECK constraint failed/,
+    );
+  });
+
+  // 行と、epics を指す子の行が入った状態で 0049 を当て直す（テストの D1 には全マイグレーションが当て済み）
+  test('0049 を行の入った epics に当て直しても、行も子の行も変わらず、外部キーの違反も出ない', async () => {
+    const migration = env.TEST_MIGRATIONS.find((m) => m.name.startsWith('0049_'));
+    expect(migration).toBeDefined();
+    const organization = await createOrganization();
+    const user = await createUser(organization);
+    const workspace = await createWorkspace(organization, user.id);
+    const epic = await createEpic(organization, workspace.id, user.id, {
+      body_md: '本文',
+      due_on: '2026-12-01',
+      link_url: 'https://example.com/e',
+      reward_tier: 'large',
+      completed_at: AT,
+      completed_by: user.id,
+    });
+    const story = await createStory(organization, workspace.id, user.id, { epic_id: epic.id });
+    const read = () => env.DB.prepare('SELECT * FROM epics WHERE id = ?').bind(epic.id).first();
+    const before = await read();
+    const countBefore = await env.DB.prepare('SELECT count(*) AS n FROM epics').first<{ n: number }>();
+
+    await env.DB.batch(migration!.queries.map((query) => env.DB.prepare(query)));
+
+    expect(await read()).toEqual(before);
+    expect(await env.DB.prepare('SELECT count(*) AS n FROM epics').first()).toEqual(countBefore);
+    expect(await env.DB.prepare('SELECT epic_id FROM stories WHERE id = ?').bind(story.id).first()).toEqual({
+      epic_id: epic.id,
+    });
+    expect((await env.DB.prepare('PRAGMA foreign_key_check').all()).results).toEqual([]);
   });
 
   test('epics を指す表の外部キーは epics を指したままで、違反の行は無い', async () => {
