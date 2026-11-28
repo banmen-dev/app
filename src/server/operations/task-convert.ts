@@ -1,6 +1,5 @@
 // タスクをストーリーかエピックに変える（task-convert）。docs/data-model.md の「書き込みの単位」の「種類の変更」
 import { generateKeyBetween } from 'fractional-indexing';
-import { EPIC_DEFAULT_REWARD_TIER } from '../../shared/epic.ts';
 import { now } from '../../shared/clock.ts';
 import {
   taskConvert,
@@ -338,7 +337,6 @@ export const taskConvertOperation = implement(taskConvert, async ({ db, actor, w
               'due_on',
               'link_url',
               'category_id',
-              'reward_tier',
               'requester_user_id',
               'created_by',
               'position',
@@ -355,7 +353,6 @@ export const taskConvertOperation = implement(taskConvert, async ({ db, actor, w
                   eb.val(source.due_on).as('due_on'),
                   eb.val(source.link_url).as('link_url'),
                   eb.val(categoryId).as('category_id'),
-                  eb.val(EPIC_DEFAULT_REWARD_TIER).as('reward_tier'),
                   eb.val(createdBy).as('requester_user_id'),
                   eb.val(createdBy).as('created_by'),
                   eb.val(position).as('position'),
