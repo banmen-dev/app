@@ -14,7 +14,6 @@ import {
   createMembership,
   createStory,
   createTask,
-  createThanks,
   createWorkspace,
 } from './factories.ts';
 import { errorCodeOf, post } from './operations/harness.ts';
@@ -43,24 +42,16 @@ function complete(target: Target, person: Person, taskId: string, options: { env
   });
 }
 
-// 完了の文が書く4表の、このタスクの行
+// 完了の文が書く3表の、このタスクの行
 async function recordsOf(target: Target, taskId: string) {
   const db = orgDb(env, target.organization.verified);
   const workspaceId = target.workspace.id;
-  const [tasks, completions, grants, logs] = await db.batch([
+  const [tasks, completions, logs] = await db.batch([
     db.statement((q) =>
       q.selectFrom('tasks').selectAll().where('id', '=', taskId).where('workspace_id', '=', workspaceId),
     ),
     db.statement((q) =>
       q.selectFrom('completions').selectAll().where('task_id', '=', taskId).where('workspace_id', '=', workspaceId),
-    ),
-    db.statement((q) =>
-      q
-        .selectFrom('xp_grants')
-        .selectAll()
-        .where('task_id', '=', taskId)
-        .where('workspace_id', '=', workspaceId)
-        .orderBy('amount'),
     ),
     db.statement((q) =>
       q
@@ -70,7 +61,7 @@ async function recordsOf(target: Target, taskId: string) {
         .where('organization_id', '=', target.organization.id),
     ),
   ] as const);
-  return { task: tasks.rows[0], completions: completions.rows, grants: grants.rows, logs: logs.rows };
+  return { task: tasks.rows[0], completions: completions.rows, logs: logs.rows };
 }
 
 describe('task-create', () => {
@@ -109,9 +100,8 @@ describe('task-create', () => {
     });
     const two = await recordsOf(target, secondTask.id);
     expect(two.task!.position > one.task!.position).toBe(true);
-    // 起票では経験値も完了の記録も書かない
+    // 起票では完了の記録を書かない
     expect(one.completions).toEqual([]);
-    expect(one.grants).toEqual([]);
     expect(one.logs).toHaveLength(1);
     expect(one.logs[0]).toMatchObject({
       workspace_id: target.workspace.id,
@@ -697,11 +687,6 @@ describe('backlog-tree', () => {
       completed_at: '2026-10-21T00:00:00.000Z',
       completed_by: adminId,
     });
-    const canceled = await createEpic(organization, workspaceId, adminId, {
-      position: 'a2',
-      canceled_at: '2026-10-21T00:00:00.000Z',
-      canceled_by: adminId,
-    });
     // 削除したエピックと、別のワークスペースのエピックは返さない。削除したエピックの下のストーリーも出さない
     const deleted = await createEpic(organization, workspaceId, adminId, { deleted_at: '2026-10-21T00:00:00.000Z' });
     await createStory(organization, workspaceId, adminId, { epic_id: deleted.id });
@@ -746,7 +731,7 @@ describe('backlog-tree', () => {
         points_all: number;
       }[];
     };
-    expect(body.epics.map((epic) => epic.id)).toEqual([earlier.id, later.id, canceled.id]);
+    expect(body.epics.map((epic) => epic.id)).toEqual([earlier.id, later.id]);
     // 本文は長いので載せない（ダイアログを開くときに epic-get で読む）
     expect(body.epics[0]).not.toHaveProperty('body_md');
     expect(body.epics[0]).toMatchObject({
@@ -768,8 +753,6 @@ describe('backlog-tree', () => {
     expect(body.epics[0]!.stories[0]).not.toHaveProperty('epic_id');
     expect(body.epics[0]!.stories[1]!.tasks.map((task) => task.id)).toEqual([open.id]);
     expect(body.epics[1]).toMatchObject({ stories: [], points_done: 0, points_all: 0 });
-    // 前に中止したエピック（中止の列が残る行）も、ふつうのエピックとして出す。canceled_at は前の版の画面のために常に null（#1438 で消す）
-    expect(body.epics[2]).toMatchObject({ completed_at: null, canceled_at: null });
     // エピックの下のストーリーは、親のないストーリーの段に入らない
     expect(body.stories.map((story) => story.id)).toEqual([root.id]);
   });
@@ -856,7 +839,7 @@ describe('backlog-tree', () => {
 });
 
 describe('task-complete', () => {
-  test('tasks、completions、change_logs を書く。xp_grants は書かず、応答に xp_granted を含めない', async () => {
+  test('tasks、completions、change_logs を書き、応答に xp_granted を含めない', async () => {
     const target = await createTarget();
     const task = await createTask(target.organization, target.workspace.id, target.leader.userId!, { points: 3 });
 
@@ -882,8 +865,6 @@ describe('task-complete', () => {
       category_id: null,
       billing_month: null,
     });
-    // 起票も完了も経験値の行は書かない
-    expect(records.grants).toEqual([]);
     expect(records.logs).toHaveLength(1);
     expect(records.logs[0]).toMatchObject({
       workspace_id: target.workspace.id,
@@ -901,7 +882,7 @@ describe('task-complete', () => {
   test.each([
     ['ポイントが未設定', null],
     ['ポイントが0', 0],
-  ])('%s のタスクの完了では、xp_grants は0行で、完了の記録と履歴は書く', async (_name, points) => {
+  ])('%s のタスクの完了でも、完了の記録と履歴は書く', async (_name, points) => {
     const target = await createTarget();
     const task = await createTask(target.organization, target.workspace.id, target.admin.userId!, { points });
     const response = await complete(target, target.member, task.id);
@@ -909,7 +890,6 @@ describe('task-complete', () => {
     expect(await response.json()).not.toHaveProperty('xp_granted');
 
     const records = await recordsOf(target, task.id);
-    expect(records.grants).toEqual([]);
     expect(records.completions).toHaveLength(1);
     expect(records.completions[0]!.points).toBe(points);
     expect(records.logs).toHaveLength(1);
@@ -928,11 +908,10 @@ describe('task-complete', () => {
     const after = await recordsOf(target, task.id);
     expect(after.task).toEqual(before.task);
     expect(after.completions).toEqual(before.completions);
-    expect(after.grants).toEqual(before.grants);
     expect(after.logs).toEqual(before.logs);
   });
 
-  test('2つの要求が同時に同じタスクを完了にすると、遅れた方が 409 で、completions は1組だけで、xp_grants は0行', async () => {
+  test('2つの要求が同時に同じタスクを完了にすると、遅れた方が 409 で、completions は1組だけ', async () => {
     const target = await createTarget();
     const task = await createTask(target.organization, target.workspace.id, target.leader.userId!, { points: 3 });
 
@@ -946,7 +925,6 @@ describe('task-complete', () => {
 
     const records = await recordsOf(target, task.id);
     expect(records.completions).toHaveLength(1);
-    expect(records.grants).toEqual([]);
     expect(records.logs).toHaveLength(1);
     // 勝った方の人に付く
     const winner = results[0]!.status === 200 ? target.member : target.leader;
@@ -977,7 +955,6 @@ describe('task-complete', () => {
     for (const id of [task.id, other.id]) {
       const records = await recordsOf(target, id);
       expect(records.completions).toHaveLength(1);
-      expect(records.grants).toEqual([]);
       expect(records.logs).toHaveLength(1);
       expect(records.task!.completed_at).toBe(DEV_NOW_ISO);
     }
@@ -994,7 +971,6 @@ describe('task-complete', () => {
     const records = await recordsOf(target, task.id);
     expect(records.task!.completed_at).toBe(DEV_NOW_ISO);
     expect(records.completions[0]!.completed_at).toBe(DEV_NOW_ISO);
-    expect(records.grants).toEqual([]);
     expect(records.logs[0]!.created_at).toBe(DEV_NOW_ISO);
   });
 
@@ -1068,7 +1044,6 @@ describe('task-complete', () => {
       const records = await recordsOf(foreign, task.id);
       expect(records.task!.completed_at).toBeNull();
       expect(records.completions).toEqual([]);
-      expect(records.grants).toEqual([]);
       expect(records.logs).toEqual([]);
     });
 
@@ -1107,13 +1082,12 @@ describe('task-complete', () => {
       expect(records.task!.completed_at).toBeNull();
       expect(records.task!.completed_by).toBeNull();
       expect(records.completions).toEqual([]);
-      expect(records.grants).toEqual([]);
       expect(records.logs).toEqual([]);
     });
   });
 
   describe('ストーリーの下のタスク', () => {
-    test('完了にでき、完了の記録を書く（経験値は書かない）。もう一度は 409 の conflict', async () => {
+    test('完了にでき、完了の記録を書く。もう一度は 409 の conflict', async () => {
       const target = await createTarget();
       const adminId = target.admin.userId!;
       const story = await createStory(target.organization, target.workspace.id, adminId);
@@ -1127,7 +1101,6 @@ describe('task-complete', () => {
       expect(records.task!.completed_by).toBe(target.member.userId);
       expect(records.completions).toHaveLength(1);
       expect(records.completions[0]).toMatchObject({ points: 3, category_id: null, billing_month: null });
-      expect(records.grants).toEqual([]);
       expect(records.logs).toHaveLength(1);
 
       const again = await complete(target, target.leader, task.id);
@@ -1332,7 +1305,6 @@ describe('task-complete', () => {
       const records = await recordsOf(target, task.id);
       expect(records.task!.completed_at).toBeNull();
       expect(records.completions).toEqual([]);
-      expect(records.grants).toEqual([]);
       expect(records.logs).toEqual([]);
     });
 
@@ -1377,45 +1349,3 @@ describe('task-complete', () => {
     expect((await recordsOf(target, task.id)).task!.completed_at).toBeNull();
   });
 });
-
-describe('完了と経験値', () => {
-  test('同じワークスペースの2つのタスクを別の人が完了にしても、xp_grants には1行も増えない', async () => {
-    const target = await createTarget();
-    const author = await createPerson({
-      organization: target.organization,
-      membership: { workspaceId: target.workspace.id, role: 'member' },
-    });
-    const first = await createTask(target.organization, target.workspace.id, author.userId!, { points: 2 });
-    const second = await createTask(target.organization, target.workspace.id, author.userId!, { points: 8 });
-    await complete(target, target.member, first.id);
-    await complete(target, target.leader, second.id);
-
-    expect(await xpGrantCount(target)).toBe(0);
-  });
-
-  test('感謝のあるタスクを完了にしても xp_grants に行が増えず、感謝の行は残る', async () => {
-    const target = await createTarget();
-    const task = await createTask(target.organization, target.workspace.id, target.member.userId!, { points: 3 });
-    await createThanks(target.organization, target.workspace.id, task.id, target.member.userId!, target.leader.userId!);
-    await createThanks(target.organization, target.workspace.id, task.id, target.member.userId!, target.admin.userId!);
-
-    const res = await complete(target, target.member, task.id);
-    expect(res.status).toBe(200);
-    expect(await res.json()).not.toHaveProperty('xp_granted');
-
-    expect(await xpGrantCount(target)).toBe(0);
-    const db = orgDb(env, target.organization.verified);
-    const thanks = await db.rows(
-      db.statement((q) => q.selectFrom('thanks').select('id').where('task_id', '=', task.id)),
-    );
-    expect(thanks).toHaveLength(2);
-  });
-});
-
-async function xpGrantCount(target: Target) {
-  const db = orgDb(env, target.organization.verified);
-  const rows = await db.rows(
-    db.statement((q) => q.selectFrom('xp_grants').select('id').where('workspace_id', '=', target.workspace.id)),
-  );
-  return rows.length;
-}

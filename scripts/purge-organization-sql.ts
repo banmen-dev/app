@@ -19,16 +19,14 @@
 // UUID の形（小文字の16進）。組織の ID は小文字で作る（src/server/uuid.ts）
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-// 組織で絞る条件の形。epic は workspace_id を持たず、エピックを通して組織に結ぶ表（epic_party_members）
-type Scope = 'organization' | 'workspace' | 'epic' | 'task' | 'connection' | 'user';
+// 組織で絞る条件の形
+type Scope = 'organization' | 'workspace' | 'task' | 'connection' | 'user';
 
 // 通常の削除と残件数の照合に使う表の一覧（Wiki の2表は別枠）。favorites は Wiki より先に専用の文で消し、通常の削除文からは除く。
-// ほかは外部キーの子から順。xp_grants は自分の表を指す（reverses_grant_id）が、1文で組織の行をまとめて消すので、文の終わりの検査に当たらない
+// ほかは外部キーの子から順
 const TABLES: readonly (readonly [table: string, scope: Scope])[] = [
   ['notifications', 'user'],
   ['favorites', 'user'],
-  ['xp_grants', 'workspace'],
-  ['thanks', 'workspace'],
   ['attachments', 'workspace'],
   ['comments', 'workspace'],
   ['review_request_cycles', 'task'],
@@ -45,7 +43,6 @@ const TABLES: readonly (readonly [table: string, scope: Scope])[] = [
   ['tasks', 'workspace'],
   ['delegatees', 'organization'],
   ['stories', 'workspace'],
-  ['epic_party_members', 'epic'],
   ['epics', 'workspace'],
   ['sprints', 'workspace'],
   ['board_columns', 'workspace'],
@@ -79,9 +76,7 @@ function scopeOf(scope: Scope, id: string): string {
   if (scope === 'user') return `user_id IN (SELECT id FROM users WHERE organization_id = ${id})`;
   if (scope === 'workspace') return `workspace_id IN (${workspaces})`;
   if (scope === 'task') return `task_id IN (SELECT id FROM tasks WHERE workspace_id IN (${workspaces}))`;
-  if (scope === 'connection')
-    return `connection_id IN (SELECT id FROM connections WHERE workspace_id IN (${workspaces}))`;
-  return `epic_id IN (SELECT id FROM epics WHERE workspace_id IN (${workspaces}))`;
+  return `connection_id IN (SELECT id FROM connections WHERE workspace_id IN (${workspaces}))`;
 }
 
 // 消す文。外部キーの子から順に並び、最後が organizations の行

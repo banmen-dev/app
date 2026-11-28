@@ -390,13 +390,10 @@ export async function createEpic(
     category_id: null,
     due_on: null,
     link_url: null,
-    reward_tier: 'small',
     requester_user_id: createdBy,
     created_by: createdBy,
     completed_at: null,
     completed_by: null,
-    canceled_at: null,
-    canceled_by: null,
     position: 'a0',
     deleted_at: null,
     created_at: AT,
@@ -830,79 +827,6 @@ export async function createSprintEntry(
   };
   const db = orgDb(env, organization.verified);
   await db.run(db.statement((q) => q.insertInto('sprint_entries').values(row)));
-  return row;
-}
-
-// 経験値の明細の1行。既定は起票の 10 で、dedupe_key は呼ぶたびに別の値にする。打ち消しは amount を負にして reverses_grant_id で元を指す
-export async function createXpGrant(
-  organization: OrganizationFixture,
-  workspaceId: string,
-  userId: string,
-  overrides: Partial<Row<OrganizationTables, 'xp_grants'>> = {},
-) {
-  const id = overrides.id ?? uuidv7();
-  const row: Row<OrganizationTables, 'xp_grants'> = {
-    id,
-    workspace_id: workspaceId,
-    user_id: userId,
-    action: 'task_created',
-    task_id: null,
-    story_id: null,
-    epic_id: null,
-    completion_id: null,
-    thank_id: null,
-    helper_sender_user_id: null,
-    amount: 10,
-    reverses_grant_id: null,
-    dedupe_key: `test:${id}`,
-    confirmed_at: AT,
-    ...overrides,
-  };
-  const db = orgDb(env, organization.verified);
-  await db.run(db.statement((q) => q.insertInto('xp_grants').values(row)));
-  return row;
-}
-
-// エピックの討伐隊の1人。既定は受注（joined_via が self、入れたのは本人）
-export async function createEpicPartyMember(
-  organization: OrganizationFixture,
-  epicId: string,
-  userId: string,
-  overrides: Partial<Row<OrganizationTables, 'epic_party_members'>> = {},
-) {
-  const row: Row<OrganizationTables, 'epic_party_members'> = {
-    epic_id: epicId,
-    user_id: userId,
-    joined_via: 'self',
-    added_by: userId,
-    joined_at: AT,
-    ...overrides,
-  };
-  const db = orgDb(env, organization.verified);
-  await db.run(db.statement((q) => q.insertInto('epic_party_members').values(row)));
-  return row;
-}
-
-// 感謝の1行。送る人と受け取る人は別の人にする
-export async function createThanks(
-  organization: OrganizationFixture,
-  workspaceId: string,
-  taskId: string,
-  senderUserId: string,
-  recipientUserId: string,
-  overrides: Partial<Row<OrganizationTables, 'thanks'>> = {},
-) {
-  const row: Row<OrganizationTables, 'thanks'> = {
-    id: uuidv7(),
-    workspace_id: workspaceId,
-    task_id: taskId,
-    sender_user_id: senderUserId,
-    recipient_user_id: recipientUserId,
-    created_at: AT,
-    ...overrides,
-  };
-  const db = orgDb(env, organization.verified);
-  await db.run(db.statement((q) => q.insertInto('thanks').values(row)));
   return row;
 }
 

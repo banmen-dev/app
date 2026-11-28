@@ -1,4 +1,4 @@
-// ストーリーの完了と取り消しの振る舞い（経験値の行を書かないこと、競合、変更の履歴）。
+// ストーリーの完了と取り消しの振る舞い（競合、変更の履歴）。
 // 組織の分離と権限の種類ごとの許可と拒否は、一覧を回す test/operation-registry.test.ts が確かめる
 import { env } from 'cloudflare:workers';
 import { describe, expect, test } from 'vitest';
@@ -8,7 +8,7 @@ import { createApp } from '../src/server/app.ts';
 import { orgDb } from '../src/server/db/index.ts';
 import { envWithD1Hooks } from '../src/server/db/testing.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
-import { AT, createEpic, createStory, createTask, createXpGrant } from './factories.ts';
+import { AT, createEpic, createStory, createTask } from './factories.ts';
 import { errorCodeOf, post } from './operations/harness.ts';
 import { createTarget, testEnv, type Person, type Target } from './operations/world.ts';
 
@@ -69,44 +69,6 @@ async function storyRow(target: Target, storyId: string) {
   );
 }
 
-async function storyGrants(target: Target, storyId: string) {
-  const db = orgDb(env, target.organization.verified);
-  return db.rows(
-    db.statement((q) =>
-      q
-        .selectFrom('xp_grants')
-        .selectAll()
-        .where('story_id', '=', storyId)
-        .where('workspace_id', '=', target.workspace.id)
-        .orderBy('confirmed_at')
-        .orderBy('id'),
-    ),
-  );
-}
-
-// このワークスペースの経験値の行の数（ストーリーに結ばれない行も数える）
-async function workspaceGrantCount(target: Target) {
-  const db = orgDb(env, target.organization.verified);
-  const rows = await db.rows(
-    db.statement((q) => q.selectFrom('xp_grants').select('id').where('workspace_id', '=', target.workspace.id)),
-  );
-  return rows.length;
-}
-
-// このワークスペースの経験値の行（打ち消しの行が増えていないかを見る）
-async function workspaceGrants(target: Target) {
-  const db = orgDb(env, target.organization.verified);
-  return db.rows(
-    db.statement((q) =>
-      q
-        .selectFrom('xp_grants')
-        .select(['id', 'amount', 'reverses_grant_id'])
-        .where('workspace_id', '=', target.workspace.id)
-        .orderBy('id'),
-    ),
-  );
-}
-
 async function logsOf(target: Target, storyId: string) {
   const db = orgDb(env, target.organization.verified);
   return db.rows(
@@ -123,7 +85,7 @@ async function logsOf(target: Target, storyId: string) {
   );
 }
 
-// 完了したタスク（経験値の行は書かない。タスクの完了も経験値を付けない）
+// 完了したタスク
 function completedTask(target: Target, storyId: string, userId: string, options: { deleted?: boolean } = {}) {
   return createTask(target.organization, target.workspace.id, target.admin.userId!, {
     story_id: storyId,
@@ -140,7 +102,7 @@ function emptyStory(target: Target, overrides: Parameters<typeof createStory>[3]
 }
 
 describe('story-complete', () => {
-  test('完了にして、完了した日時と人と変更の履歴を残し、経験値の行は書かない', async () => {
+  test('完了にして、完了した日時と人と変更の履歴を残す', async () => {
     const target = await createTarget();
     const story = await emptyStory(target);
     const member = target.member.userId!;
@@ -159,8 +121,6 @@ describe('story-complete', () => {
       updated_at: body.completed_at,
     });
 
-    expect(await storyGrants(target, story.id)).toEqual([]);
-    expect(await workspaceGrantCount(target)).toBe(0);
 
     const logs = await logsOf(target, story.id);
     expect(logs).toHaveLength(1);
@@ -171,7 +131,7 @@ describe('story-complete', () => {
     });
   });
 
-  test('配下のタスクを完了の操作で完了にしてから完了にしても、経験値の行は増えない', async () => {
+  test('配下のタスクを完了の操作で完了にしてから完了にできる', async () => {
     const target = await createTarget();
     const story = await emptyStory(target);
     const assigned = await createTask(target.organization, target.workspace.id, target.admin.userId!, {
@@ -191,34 +151,14 @@ describe('story-complete', () => {
       });
       expect(res.status).toBe(200);
     }
-    const before = await workspaceGrantCount(target);
     expect((await complete(target, story.id)).status).toBe(200);
-    expect(await workspaceGrantCount(target)).toBe(before);
-    expect(await storyGrants(target, story.id)).toEqual([]);
   });
 
-  test('前の版の完了で付いた task_completed の明細がある配下でも、完了にして story_completed を書かない', async () => {
-    const target = await createTarget();
-    const story = await emptyStory(target);
-    const member = target.member.userId!;
-    const task = await completedTask(target, story.id, member);
-    // この版を出す前の完了で、配下のタスクに付いた明細（前の版ではこれを受け取った人にストーリーの完了の経験値が付いた）
-    const grant = await createXpGrant(target.organization, target.workspace.id, member, {
-      action: 'task_completed',
-      task_id: task.id,
-      amount: 30,
-    });
-
-    expect((await complete(target, story.id)).status).toBe(200);
-    expect(await workspaceGrants(target)).toEqual([{ id: grant.id, amount: 30, reverses_grant_id: null }]);
-  });
-
-  test('配下にタスクが1件も無いストーリーも完了にでき、経験値の行も書かない', async () => {
+  test('配下にタスクが1件も無いストーリーも完了にできる', async () => {
     const target = await createTarget();
     const story = await emptyStory(target);
     expect((await complete(target, story.id)).status).toBe(200);
     expect((await storyRow(target, story.id))!.completed_at).not.toBeNull();
-    expect(await storyGrants(target, story.id)).toEqual([]);
     expect(await logsOf(target, story.id)).toHaveLength(1);
   });
 
@@ -231,7 +171,6 @@ describe('story-complete', () => {
     expect(res.status).toBe(409);
     expect(await errorOf(res)).toEqual({ code: 'conflict', reason: 'open_tasks' });
     expect((await storyRow(target, story.id))!.completed_at).toBeNull();
-    expect(await storyGrants(target, story.id)).toEqual([]);
     expect(await logsOf(target, story.id)).toEqual([]);
   });
 
@@ -258,15 +197,10 @@ describe('story-complete', () => {
       expect(res.status).toBe(409);
       expect(await errorOf(res)).toEqual({ code: 'conflict', reason: 'parent_completed' });
       expect((await storyRow(target, story.id))!.completed_at).toBeNull();
-      expect(await storyGrants(target, story.id)).toEqual([]);
       expect(await logsOf(target, story.id)).toEqual([]);
     }
-    // 開いているエピック、前に中止したエピック（中止の列が残る行）、削除したエピックの下なら完了にできる
-    for (const overrides of [
-      {},
-      { canceled_at: AT, canceled_by: adminId },
-      { completed_at: AT, completed_by: adminId, deleted_at: AT },
-    ]) {
+    // 開いているエピックと、削除したエピックの下なら完了にできる
+    for (const overrides of [{}, { completed_at: AT, completed_by: adminId, deleted_at: AT }]) {
       const epic = await createEpic(target.organization, target.workspace.id, adminId, overrides);
       const story = await emptyStory(target, { epic_id: epic.id });
       expect((await complete(target, story.id)).status).toBe(200);
@@ -320,7 +254,6 @@ describe('story-complete', () => {
     expect(first.status).toBe(409);
     expect(await errorOf(first)).toEqual({ code: 'conflict', reason: 'completed' });
     expect((await storyRow(target, story.id))!.completed_by).toBe(target.leader.userId);
-    expect(await storyGrants(target, story.id)).toEqual([]);
     expect(await logsOf(target, story.id)).toHaveLength(1);
   });
 
@@ -334,7 +267,6 @@ describe('story-complete', () => {
       complete(target, story.id, target.member, frozen),
     ]);
     expect(results.map((res) => res.status).sort()).toEqual([200, 409]);
-    expect(await storyGrants(target, story.id)).toEqual([]);
     expect(await logsOf(target, story.id)).toHaveLength(1);
   });
 
@@ -379,24 +311,7 @@ describe('story-complete', () => {
 });
 
 describe('story-reopen', () => {
-  test('前の版の完了で付いた story_completed の明細は、取り消しても打ち消さず、そのまま残す', async () => {
-    const target = await createTarget();
-    const story = await emptyStory(target);
-    const member = target.member.userId!;
-    await completedTask(target, story.id, member);
-    expect((await complete(target, story.id, target.member, clockAt('2026-10-26T01:00:00.000Z'))).status).toBe(200);
-    // この版を出す前の完了で付いた明細（打ち消されていない行）
-    const grant = await createXpGrant(target.organization, target.workspace.id, member, {
-      action: 'story_completed',
-      story_id: story.id,
-      amount: 20,
-    });
-
-    expect((await reopen(target, story.id, target.leader, clockAt('2026-10-26T02:00:00.000Z'))).status).toBe(200);
-    expect(await workspaceGrants(target)).toEqual([{ id: grant.id, amount: 20, reverses_grant_id: null }]);
-  });
-
-  test('完了を取り消しても打ち消しの行は書かず、もう一度完了にできる', async () => {
+  test('完了を取り消すと、もう一度完了にできる', async () => {
     const target = await createTarget();
     const story = await emptyStory(target);
     const member = target.member.userId!;
@@ -405,7 +320,6 @@ describe('story-reopen', () => {
     await completedTask(target, story.id, leader);
     const completing = await complete(target, story.id, target.member, clockAt('2026-10-26T01:00:00.000Z'));
     const first = (await completing.json()) as { completed_at: string };
-    expect(await workspaceGrantCount(target)).toBe(0);
 
     const res = await reopen(target, story.id, target.leader, clockAt('2026-10-26T02:00:00.000Z'));
     expect(res.status).toBe(200);
@@ -415,13 +329,11 @@ describe('story-reopen', () => {
       completed_by: null,
       updated_at: '2026-10-26T02:00:00.000Z',
     });
-    expect(await workspaceGrantCount(target)).toBe(0);
 
-    // もう一度完了にでき、もう一度取り消せる。経験値の行は増えない
+    // もう一度完了にでき、もう一度取り消せる
     expect((await complete(target, story.id, target.member, clockAt('2026-10-26T03:00:00.000Z'))).status).toBe(200);
     expect((await storyRow(target, story.id))!.completed_at).toBe('2026-10-26T03:00:00.000Z');
     expect((await reopen(target, story.id, target.member, clockAt('2026-10-26T04:00:00.000Z'))).status).toBe(200);
-    expect(await workspaceGrantCount(target)).toBe(0);
 
     const logs = await logsOf(target, story.id);
     expect(logs.map((log) => log.action)).toEqual(['complete', 'reopen', 'complete', 'reopen']);
@@ -441,7 +353,6 @@ describe('story-reopen', () => {
     expect((await reopen(target, story.id, target.member, frozen)).status).toBe(200);
     expect((await complete(target, story.id, target.member, frozen)).status).toBe(200);
     expect((await storyRow(target, story.id))!.completed_at).toBe('2026-10-26T01:00:00.000Z');
-    expect(await workspaceGrantCount(target)).toBe(0);
   });
 
   test('閉じたワークスペースでは 409 の workspace_closed で、何も書かない', async () => {
@@ -474,12 +385,10 @@ describe('story-reopen', () => {
       expect(await errorOf(res)).toEqual({ code: 'conflict', reason: 'parent_completed' });
       expect((await storyRow(target, story.id))!.completed_at).toBe(AT);
     }
-    // 開いているエピックと、前に中止したエピック（中止の列が残る行）の下なら取り消せる
-    for (const overrides of [{}, { canceled_at: AT, canceled_by: adminId }]) {
-      const open = await createEpic(target.organization, target.workspace.id, adminId, overrides);
-      const story = await emptyStory(target, { epic_id: open.id, completed_at: AT, completed_by: adminId });
-      expect((await reopen(target, story.id)).status).toBe(200);
-    }
+    // 開いているエピックの下なら取り消せる
+    const open = await createEpic(target.organization, target.workspace.id, adminId);
+    const openStory = await emptyStory(target, { epic_id: open.id, completed_at: AT, completed_by: adminId });
+    expect((await reopen(target, openStory.id)).status).toBe(200);
     // 削除したエピックは親として数えない（クリアしてから削除したものも）。409 の changed にならずに取り消せる
     for (const overrides of [{ deleted_at: AT }, { completed_at: AT, completed_by: adminId, deleted_at: AT }]) {
       const deleted = await createEpic(target.organization, target.workspace.id, adminId, overrides);
@@ -509,7 +418,6 @@ describe('story-reopen', () => {
     expect(second?.status).toBe(200);
     expect(first.status).toBe(409);
     expect(await errorOf(first)).toEqual({ code: 'conflict', reason: 'not_completed' });
-    expect(await workspaceGrantCount(target)).toBe(0);
     expect((await logsOf(target, story.id)).map((log) => log.action)).toEqual(['complete', 'reopen']);
   });
 });

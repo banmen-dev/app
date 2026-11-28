@@ -27,7 +27,6 @@ import {
   createDetailField,
   createDelegatee,
   createEpic,
-  createEpicPartyMember,
   createInvitation,
   createMembership,
   createOrganization,
@@ -41,11 +40,9 @@ import {
   createTaskFieldValue,
   createTaskSource,
   createTaskSourcePayload,
-  createThanks,
   createUser,
   createWorkspace,
   createWorkspacePointRate,
-  createXpGrant,
   uuidv7,
 } from './factories.ts';
 import { storeAvatar } from './me-avatar-helpers.ts';
@@ -107,9 +104,6 @@ async function fillOrganization(organization: Awaited<ReturnType<typeof createOr
   await createConnectionStatusMapping(organization, connection.id, column.id);
   await createTaskSource(organization, ws, task.id, connection.id);
   await createTaskSourcePayload(organization, task.id);
-  // 討伐隊は workspace_id を持たず、エピックを通して組織に結ぶ
-  await createEpicPartyMember(organization, epic.id, member.id, { added_by: admin.id });
-  await createThanks(organization, ws, task.id, admin.id, member.id);
   const completion = await createCompletion(organization, ws, task.id, member.id, {
     sprint_id: sprint.id,
     previous_column_id: column.id,
@@ -127,19 +121,6 @@ async function fillOrganization(organization: Awaited<ReturnType<typeof createOr
       }),
     ),
   );
-  const grant = await createXpGrant(organization, ws, member.id, {
-    action: 'task_completed',
-    task_id: task.id,
-    story_id: story.id,
-    epic_id: epic.id,
-    completion_id: completion.id,
-  });
-  await createXpGrant(organization, ws, member.id, {
-    action: 'task_completed',
-    task_id: task.id,
-    amount: -10,
-    reverses_grant_id: grant.id,
-  });
   const comment = await createComment(organization, ws, task.id, member.id);
   for (const target of [
     {},

@@ -524,27 +524,6 @@ describe('story-move', () => {
     expect(await storyOrder(target, epic.id)).toEqual([]);
   });
 
-  test('前に中止したエピック（中止の列が残る行）の下へは移せる', async () => {
-    const target = await createTarget();
-    const adminId = target.admin.userId!;
-    const moving = await createStory(target.organization, target.workspace.id, adminId);
-    const epic = await createEpic(target.organization, target.workspace.id, adminId, {
-      canceled_at: '2026-10-21T00:00:00.000Z',
-      canceled_by: adminId,
-    });
-    const res = await moveStory(target, { story_id: moving.id, epic_id: epic.id });
-    expect(res.status).toBe(200);
-    expect(await storyOrder(target, epic.id)).toEqual([moving.id]);
-
-    // その下から、親なしへも、別の開いたエピックへも移せる
-    const other = await createEpic(target.organization, target.workspace.id, adminId);
-    expect((await moveStory(target, { story_id: moving.id, epic_id: other.id })).status).toBe(200);
-    expect(await storyOrder(target, other.id)).toEqual([moving.id]);
-    const inCanceled = await createStory(target.organization, target.workspace.id, adminId, { epic_id: epic.id });
-    expect((await moveStory(target, { story_id: inCanceled.id, epic_id: null })).status).toBe(200);
-    expect(await storyOrder(target, epic.id)).toEqual([]);
-  });
-
   test('直前の行が移す先に無いか別の組織なら 404、自分自身なら 400、別の組織のストーリーとエピックは 404', async () => {
     const target = await createTarget();
     const foreign = await createTarget();

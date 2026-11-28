@@ -128,7 +128,7 @@ async function completedTask(target: Target, overrides: Parameters<typeof create
 
 async function countRecords(target: Target, taskId: string) {
   const db = dbOf(target);
-  const [completions, grants] = await db.batch([
+  const completions = await db.rows(
     db.statement((q) =>
       q
         .selectFrom('completions')
@@ -136,15 +136,8 @@ async function countRecords(target: Target, taskId: string) {
         .where('task_id', '=', taskId)
         .where('workspace_id', '=', target.workspace.id),
     ),
-    db.statement((q) =>
-      q
-        .selectFrom('xp_grants')
-        .select('id')
-        .where('task_id', '=', taskId)
-        .where('workspace_id', '=', target.workspace.id),
-    ),
-  ] as const);
-  return { completions: completions.rows.length, grants: grants.rows.length };
+  );
+  return { completions: completions.length };
 }
 
 // 取り込んだタスク（手で作ったタスクの CHECK を外れる列を埋める）

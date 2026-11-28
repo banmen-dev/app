@@ -6,7 +6,7 @@ import { SEED_SESSIONS } from '../seed/sessions.ts';
 import { loadingFixtureSql, loadingWorkspace } from './loading-fixture.ts';
 import { fillSeedDates } from './seed-dates.ts';
 
-test('読み取り計測fixtureは実スキーマで最近の完了・経験値・終了スプリントを集計できる', () => {
+test('読み取り計測fixtureは実スキーマで最近の完了・終了スプリントを集計できる', () => {
   // UTCの日付境界直前でも、全ステートメントは同じ基準日を使う。
   const now = new Date('2026-11-08T23:59:59.999Z');
   const db = new DatabaseSync(':memory:');
@@ -51,7 +51,6 @@ test('読み取り計測fixtureは実スキーマで最近の完了・経験値�
     const completed = count('tasks', 'completed_at IS NOT NULL');
     assert.ok(completed >= 3900 && completed <= 4100);
     assert.equal(count('completions'), completed);
-    assert.ok(count('xp_grants') >= 3000);
     assert.equal(count('comments'), 5000);
     assert.equal(count('sprints', "status='closed'"), 3);
     assert.equal(count('tasks', "sprint_id IN (SELECT id FROM sprints WHERE status='active')"), 30);
@@ -71,16 +70,6 @@ test('読み取り計測fixtureは実スキーマで最近の完了・経験値�
           `SELECT count(*) AS n FROM completions c JOIN tasks t ON t.id=c.task_id
       WHERE c.workspace_id=? AND (c.workspace_id<>t.workspace_id OR c.completed_at<>t.completed_at
       OR c.completed_by<>t.completed_by OR c.assignee_user_id IS NOT t.assignee_user_id OR c.sprint_id IS NOT t.sprint_id)`,
-        )
-        .get(loadingWorkspace)?.n,
-      0,
-    );
-    assert.equal(
-      db
-        .prepare(
-          `SELECT count(*) AS n FROM xp_grants x JOIN completions c ON c.id=x.completion_id
-      WHERE x.workspace_id=? AND (x.workspace_id<>c.workspace_id OR x.task_id<>c.task_id
-      OR x.user_id<>coalesce(c.assignee_user_id,c.completed_by) OR x.amount<>30)`,
         )
         .get(loadingWorkspace)?.n,
       0,

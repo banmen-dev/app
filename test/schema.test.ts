@@ -286,51 +286,60 @@ describe('0041_reset_neon_theme', () => {
   });
 });
 
-describe('0042_uncancel_epics', () => {
-  // 前の版で中止した行を作ってから、0042 の SQL を当て直す（テストの D1 には全マイグレーションが当て済み）
-  test('中止の列を両方とも NULL に戻し、ほかの列と中止していない行は変えない', async () => {
-    const migration = env.TEST_MIGRATIONS.find((m) => m.name.startsWith('0042_'));
-    expect(migration).toBeDefined();
-    const organization = await createOrganization();
-    const user = await createUser(organization);
-    const workspace = await createWorkspace(organization, user.id);
-    const canceled = await createEpic(organization, workspace.id, user.id, {
-      canceled_at: AT,
-      canceled_by: user.id,
-      updated_at: AT,
-    });
-    // 中止した人だけが残る行（CHECK では作れるので、こちらも戻す）
-    const byOnly = await createEpic(organization, workspace.id, user.id, { canceled_by: user.id, updated_at: AT });
-    const cleared = await createEpic(organization, workspace.id, user.id, {
-      completed_at: AT,
-      completed_by: user.id,
-      updated_at: AT,
-    });
-    type EpicState = {
-      title: string;
-      completed_at: string | null;
-      updated_at: string;
-      canceled_at: string | null;
-      canceled_by: string | null;
-    };
-    const stateOf = async (epicId: string) =>
-      (await env.DB.prepare('SELECT title, completed_at, updated_at, canceled_at, canceled_by FROM epics WHERE id = ?')
-        .bind(epicId)
-        .first<EpicState>())!;
-    const before = await stateOf(cleared.id);
+describe('0047_drop_game_tables_and_epic_columns', () => {
+  test('経験値、感謝、討伐隊の表と、tasks_created_by_open は無い', async () => {
+    const { results } = await env.DB.prepare(
+      `SELECT name FROM sqlite_master WHERE name IN ('xp_grants', 'thanks', 'epic_party_members', 'tasks_created_by_open')
+        OR name LIKE 'xp_grants_%' OR name LIKE 'thanks_%' OR name LIKE 'epic_party_members_%'`,
+    ).all();
+    expect(results).toEqual([]);
+  });
 
-    await env.DB.batch(migration!.queries.map((query) => env.DB.prepare(query)));
+  test('epics は報酬の段階と中止の列を持たず、ほかの列と索引は残る', async () => {
+    const { results: columns } = await env.DB.prepare(`SELECT name FROM pragma_table_info('epics') ORDER BY cid`).all<{
+      name: string;
+    }>();
+    expect(columns.map((column) => column.name)).toEqual([
+      'id',
+      'workspace_id',
+      'title',
+      'body_md',
+      'category_id',
+      'due_on',
+      'link_url',
+      'requester_user_id',
+      'created_by',
+      'completed_at',
+      'completed_by',
+      'position',
+      'deleted_at',
+      'created_at',
+      'updated_at',
+    ]);
+    const { results: indexes } = await env.DB.prepare(
+      `SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'epics' AND name NOT LIKE 'sqlite_%' ORDER BY name`,
+    ).all<{ name: string }>();
+    expect(indexes.map((index) => index.name)).toEqual([
+      'epics_category_fk',
+      'epics_completed_by',
+      'epics_created_by',
+      'epics_requester_user',
+      'epics_workspace',
+      'epics_workspace_fk',
+    ]);
+  });
 
-    for (const epic of [canceled, byOnly]) {
-      expect(await stateOf(epic.id)).toEqual({
-        title: epic.title,
-        completed_at: null,
-        updated_at: AT,
-        canceled_at: null,
-        canceled_by: null,
-      });
+  test('epics を指す表の外部キーは、作り直した epics を指したままで、違反の行は無い', async () => {
+    const { results: violations } = await env.DB.prepare(`PRAGMA foreign_key_check`).all();
+    expect(violations).toEqual([]);
+    for (const table of ['stories', 'attachments', 'favorites']) {
+      const { results } = await env.DB.prepare(
+        `SELECT "table" AS parent FROM pragma_foreign_key_list(?) WHERE "from" = 'epic_id'`,
+      )
+        .bind(table)
+        .all<{ parent: string }>();
+      expect(results, table).toEqual([{ parent: 'epics' }]);
     }
-    expect(await stateOf(cleared.id)).toEqual(before);
   });
 });
 
@@ -417,13 +426,6 @@ function googlePending() {
 }
 
 describe('外部キー', () => {
-  test('0030 で削除した xp_grants_user_workspace は残っていない', async () => {
-    const { results } = await env.DB.prepare(
-      `SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'xp_grants_user_workspace'`,
-    ).all();
-    expect(results).toEqual([]);
-  });
-
   test('D1 は外部キーを検査する', async () => {
     await expect(insertUser(id()).result).rejects.toThrow(/FOREIGN KEY/);
   });
@@ -463,16 +465,6 @@ describe('外部キー', () => {
         /^SEARCH (\w+) USING (?:COVERING )?INDEX \w+ \((\w+)=\?\)$/.exec(detail)?.slice(1).join('.'),
       );
       expect(searched.sort(), details.join('\n')).toEqual([`${parent}.id`, ...children].sort());
-
-      if (parent === 'users') {
-        expect(details).toEqual(
-          expect.arrayContaining([
-            expect.stringMatching(
-              /^SEARCH xp_grants USING (COVERING )?INDEX xp_grants_user_(workspace_amount|confirmed) \(user_id=\?\)$/,
-            ),
-          ]),
-        );
-      }
     }
   });
 
@@ -1460,102 +1452,6 @@ describe('sprint_entries', () => {
     await expect(entry(AT, 'deleted')).rejects.toThrow(/CHECK/);
     await expect(entry(AT, 'completed')).resolves.toBeTruthy();
     await expect(entry(AT, 'carried_over')).resolves.toBeTruthy();
-  });
-});
-
-describe('epic_party_members', () => {
-  async function epicAndUsers() {
-    const { orgId, userId, workspaceId } = await workspace();
-    const otherUserId = await user(orgId);
-    const epicId = id();
-    await run(
-      `INSERT INTO epics (id, workspace_id, title, reward_tier, requester_user_id, created_by, position, created_at, updated_at) VALUES (?, ?, 'エピック', 'medium', ?, ?, 'a0', ?, ?)`,
-      epicId,
-      workspaceId,
-      userId,
-      userId,
-      AT,
-      AT,
-    );
-    const join = (user: string, joinedVia: string) =>
-      run(
-        `INSERT INTO epic_party_members (epic_id, user_id, joined_via, added_by, joined_at) VALUES (?, ?, ?, ?, ?)`,
-        epicId,
-        user,
-        joinedVia,
-        userId,
-        AT,
-      );
-    return { userId, otherUserId, join };
-  }
-
-  test('同じエピックに同じ人は1回だけ入れる', async () => {
-    const { userId, otherUserId, join } = await epicAndUsers();
-    await expect(join(userId, 'self')).resolves.toBeTruthy();
-    await expect(join(otherUserId, 'assigned')).resolves.toBeTruthy();
-    await expect(join(userId, 'self')).rejects.toThrow(/UNIQUE|PRIMARY KEY/);
-  });
-
-  test('入り方は self、assigned、task_assignee のどれか', async () => {
-    const { userId, otherUserId, join } = await epicAndUsers();
-    await expect(join(userId, 'task_assignee')).resolves.toBeTruthy();
-    await expect(join(otherUserId, 'invited')).rejects.toThrow(/CHECK/);
-  });
-});
-
-describe('thanks', () => {
-  async function taskAndUsers() {
-    const { orgId, userId, workspaceId } = await workspace();
-    const recipientId = await user(orgId);
-    const taskId = id();
-    await run(
-      `INSERT INTO tasks (id, workspace_id, is_imported, tray, title, position, created_by, created_at, updated_at) VALUES (?, ?, 0, 'backlog', 'タスク', 'a0', ?, ?, ?)`,
-      taskId,
-      workspaceId,
-      userId,
-      AT,
-      AT,
-    );
-    const thank = (sender: string, recipient: string) =>
-      run(
-        `INSERT INTO thanks (id, workspace_id, task_id, sender_user_id, recipient_user_id, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-        id(),
-        workspaceId,
-        taskId,
-        sender,
-        recipient,
-        AT,
-      );
-    return { userId, recipientId, thank };
-  }
-
-  test('自分には送れない', async () => {
-    const { userId, thank } = await taskAndUsers();
-    await expect(thank(userId, userId)).rejects.toThrow(/CHECK/);
-  });
-
-  test('同じタスクで同じ相手への感謝は1回。相手が違えば別に送れる', async () => {
-    const { userId, recipientId, thank } = await taskAndUsers();
-    await expect(thank(userId, recipientId)).resolves.toBeTruthy();
-    await expect(thank(userId, recipientId)).rejects.toThrow(/UNIQUE/);
-    await expect(thank(recipientId, userId)).resolves.toBeTruthy();
-  });
-});
-
-describe('xp_grants.dedupe_key', () => {
-  test('同じキーの付与は2つ作れない', async () => {
-    const { userId, workspaceId } = await workspace();
-    const grant = () =>
-      run(
-        `INSERT INTO xp_grants (id, workspace_id, user_id, action, amount, dedupe_key, confirmed_at) VALUES (?, ?, ?, 'task_completed', 10, ?, ?)`,
-        id(),
-        workspaceId,
-        userId,
-        'task_completed:019a0000-0000-7000-8000-000000000901',
-        AT,
-      );
-    await grant();
-    await expect(grant()).rejects.toThrow(/UNIQUE/);
   });
 });
 

@@ -32,10 +32,10 @@ INSERT INTO categories (id, workspace_id, name, is_billed_monthly, position, cre
 INSERT INTO repositories (id, workspace_id, name, position, created_at, updated_at) VALUES
   ('${id(prefix, 1, 'r')}', '${ws}', 'shop-api', 'a0', '${AT}', '${AT}'),
   ('${id(prefix, 2, 'r')}', '${ws}', 'shop-web', 'a1', '${AT}', '${AT}');
-INSERT INTO epics (id, workspace_id, title, category_id, reward_tier, requester_user_id, created_by, position, created_at, updated_at)
+INSERT INTO epics (id, workspace_id, title, category_id, requester_user_id, created_by, position, created_at, updated_at)
   WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 10)
   SELECT ${sqlId(prefix, 'e', 'i')}, '${ws}', '大きな目標 ' || i,
-    CASE WHEN i % 2 = 0 THEN '${id(prefix, 1, 'c')}' END, 'small', '${ADMIN_USER_ID}', '${ADMIN_USER_ID}',
+    CASE WHEN i % 2 = 0 THEN '${id(prefix, 1, 'c')}' END, '${ADMIN_USER_ID}', '${ADMIN_USER_ID}',
     printf('a0%04dV', i), '${AT}', '${AT}' FROM n;
 INSERT INTO stories (id, workspace_id, epic_id, title, category_id, created_by, position, created_at, updated_at)
   WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 100)
@@ -120,11 +120,6 @@ INSERT INTO completions (id, workspace_id, task_id, completed_at, completed_by, 
     strftime('%Y-%m', t.completed_at), t.completed_at, t.completed_at
   FROM tasks t LEFT JOIN stories s ON s.id=t.story_id LEFT JOIN epics e ON e.id=s.epic_id
   WHERE t.workspace_id='${loadingWorkspace}' AND t.completed_at IS NOT NULL;
--- task-complete と同じく1点以上の完了を担当者（未割当なら完了者）の30XPにする。
-INSERT INTO xp_grants (id, workspace_id, user_id, action, task_id, completion_id, amount, dedupe_key, confirmed_at)
-  SELECT ${sqlId('1', 'x', 'CAST(substr(task_id, -12) AS INTEGER)')}, workspace_id,
-    coalesce(assignee_user_id, completed_by), 'task_completed', task_id, id, 30, 'task_completed:' || id, completed_at
-  FROM completions WHERE workspace_id='${loadingWorkspace}' AND points >= 1;
 INSERT INTO comments (id, workspace_id, task_id, author_user_id, body_md, created_at)
   SELECT ${sqlId('1', 'h', 'CAST(substr(id, -12) AS INTEGER)')}, workspace_id, id, '${ADMIN_USER_ID}',
     '計測用の作業メモ: 確認と引き継ぎを記録する。', coalesce(completed_at, '${AT}')

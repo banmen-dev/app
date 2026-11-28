@@ -1,4 +1,4 @@
-// エピックのクリアと取り消し（epic-complete、epic-reopen）の振る舞い（経験値の行を書かないこと、競合、変更の履歴）。
+// エピックのクリアと取り消し（epic-complete、epic-reopen）の振る舞い（競合、変更の履歴）。
 // 組織の分離と権限の種類ごとの許可と拒否は、一覧を回す test/operation-registry.test.ts が確かめる
 import { env } from 'cloudflare:workers';
 import { describe, expect, test } from 'vitest';
@@ -10,7 +10,7 @@ import { deleteStatements } from '../src/server/operations/tree-delete.ts';
 import { orgDb } from '../src/server/db/index.ts';
 import { envWithD1Hooks } from '../src/server/db/testing.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
-import { AT, createEpic, createStory, createTask, createXpGrant } from './factories.ts';
+import { AT, createEpic, createStory, createTask } from './factories.ts';
 import { post } from './operations/harness.ts';
 import { createTarget, testEnv, type Person, type Target } from './operations/world.ts';
 
@@ -82,43 +82,6 @@ async function epicRow(target: Target, epicId: string) {
   ))!;
 }
 
-async function rewardGrants(target: Target, epicId: string) {
-  const db = orgDb(env, target.organization.verified);
-  return db.rows(
-    db.statement((q) =>
-      q
-        .selectFrom('xp_grants')
-        .selectAll()
-        .where('epic_id', '=', epicId)
-        .where('workspace_id', '=', target.workspace.id)
-        .orderBy('id'),
-    ),
-  );
-}
-
-// このワークスペースの経験値の行の数（エピックに結ばれない行も数える）
-async function workspaceGrantCount(target: Target) {
-  const db = orgDb(env, target.organization.verified);
-  const rows = await db.rows(
-    db.statement((q) => q.selectFrom('xp_grants').select('id').where('workspace_id', '=', target.workspace.id)),
-  );
-  return rows.length;
-}
-
-// このワークスペースの経験値の行（打ち消しの行が増えていないかを見る）
-async function workspaceGrants(target: Target) {
-  const db = orgDb(env, target.organization.verified);
-  return db.rows(
-    db.statement((q) =>
-      q
-        .selectFrom('xp_grants')
-        .select(['id', 'amount', 'reverses_grant_id'])
-        .where('workspace_id', '=', target.workspace.id)
-        .orderBy('id'),
-    ),
-  );
-}
-
 async function logsOf(target: Target, epicId: string) {
   const db = orgDb(env, target.organization.verified);
   const rows = await db.rows(
@@ -142,13 +105,13 @@ async function logsOf(target: Target, epicId: string) {
 
 // 配下が完了したストーリー1件のエピック
 async function readyEpic(target: Target, overrides: Parameters<typeof createEpic>[3] = {}) {
-  const epic = await epicOf(target, { reward_tier: 'medium', ...overrides });
+  const epic = await epicOf(target, overrides);
   await storyUnder(target, epic.id);
   return epic;
 }
 
 describe('epic-complete', () => {
-  test('クリアして、完了の記録と変更の履歴を残し、経験値の行は書かない（応答は epic_id と completed_at だけ）', async () => {
+  test('クリアして、完了の記録と変更の履歴を残す（応答は epic_id と completed_at だけ）', async () => {
     const target = await createTarget();
     const epic = await readyEpic(target);
 
@@ -160,16 +123,14 @@ describe('epic-complete', () => {
     const row = await epicRow(target, epic.id);
     expect(row.completed_at).toBe(body.completed_at);
     expect(row.completed_by).toBe(target.leader.userId);
-    expect(await rewardGrants(target, epic.id)).toEqual([]);
-    expect(await workspaceGrantCount(target)).toBe(0);
     const logs = await logsOf(target, epic.id);
     expect(logs).toHaveLength(1);
     expect(logs[0]).toMatchObject({ actor: target.leader.userId, action: 'complete' });
   });
 
-  test('タスクとストーリーを完了の操作で完了にしてから、エピックをクリアしても、経験値の行は増えない', async () => {
+  test('タスクとストーリーを完了の操作で完了にしてから、エピックをクリアできる', async () => {
     const target = await createTarget();
-    const epic = await epicOf(target, { reward_tier: 'large' });
+    const epic = await epicOf(target);
     const story = await storyUnder(target, epic.id, { completed_at: null, completed_by: null });
     const task = await createTask(target.organization, target.workspace.id, target.admin.userId!, {
       story_id: story.id,
@@ -188,14 +149,11 @@ describe('epic-complete', () => {
       body: { workspace_id: target.workspace.id, story_id: story.id },
     });
     expect(completeStory.status).toBe(200);
-    const before = await workspaceGrantCount(target);
 
     const res = await clear(target, epic.id);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ epic_id: epic.id, completed_at: expect.any(String) });
     expect((await epicRow(target, epic.id)).completed_at).not.toBeNull();
-    expect(await workspaceGrantCount(target)).toBe(before);
-    expect(await rewardGrants(target, epic.id)).toEqual([]);
   });
 
   test('依頼主は一般のメンバーでもクリアできる。依頼主でもリーダーでもないメンバーは 403 で、何も書かない', async () => {
@@ -204,20 +162,10 @@ describe('epic-complete', () => {
     const denied = await clear(target, epic.id, target.member);
     expect(denied.status).toBe(403);
     expect((await epicRow(target, epic.id)).completed_at).toBeNull();
-    expect(await rewardGrants(target, epic.id)).toEqual([]);
     expect(await logsOf(target, epic.id)).toEqual([]);
 
     const own = await readyEpic(target, { requester_user_id: target.member.userId! });
     expect((await clear(target, own.id, target.member)).status).toBe(200);
-  });
-
-  test('クリアしても、報酬の行を書かない', async () => {
-    const target = await createTarget();
-    const epic = await epicOf(target);
-    await storyUnder(target, epic.id);
-    const res = await clear(target, epic.id);
-    expect(res.status).toBe(200);
-    expect(await rewardGrants(target, epic.id)).toEqual([]);
   });
 
   test('未完了のストーリーが残っていれば 409 の conflict（open_stories）、削除したストーリーは数えない', async () => {
@@ -228,7 +176,6 @@ describe('epic-complete', () => {
     expect(res.status).toBe(409);
     expect(await errorOf(res)).toEqual({ code: 'conflict', reason: 'open_stories' });
     expect((await epicRow(target, epic.id)).completed_at).toBeNull();
-    expect(await rewardGrants(target, epic.id)).toEqual([]);
     expect(await logsOf(target, epic.id)).toEqual([]);
 
     const db = orgDb(env, target.organization.verified);
@@ -250,18 +197,6 @@ describe('epic-complete', () => {
     const res = await clear(target, epic.id);
     expect(res.status).toBe(409);
     expect(await errorOf(res)).toEqual({ code: 'conflict', reason: 'empty' });
-    expect(await rewardGrants(target, epic.id)).toEqual([]);
-  });
-
-  test('前の版が中止の列を書いたエピックもクリアでき、中止の列を空に戻す', async () => {
-    // マイグレーション（0042）を当ててから版が切り替わるまでに、前の版が中止した行
-    const target = await createTarget();
-    const canceled = await readyEpic(target, { canceled_at: AT, canceled_by: target.admin.userId! });
-    expect((await clear(target, canceled.id)).status).toBe(200);
-    const row = await epicRow(target, canceled.id);
-    expect(row.completed_at).not.toBeNull();
-    expect(row.canceled_at).toBeNull();
-    expect(row.canceled_by).toBeNull();
   });
 
   test('すでにクリアしていれば 409 の conflict（completed）', async () => {
@@ -271,7 +206,6 @@ describe('epic-complete', () => {
     const again = await clear(target, epic.id);
     expect(again.status).toBe(409);
     expect(await errorOf(again)).toEqual({ code: 'conflict', reason: 'completed' });
-    expect(await rewardGrants(target, epic.id)).toEqual([]);
   });
 
   test('閉じたワークスペースでは 409 の workspace_closed で、何も書かない', async () => {
@@ -281,7 +215,6 @@ describe('epic-complete', () => {
     expect(res.status).toBe(409);
     expect(await errorOf(res)).toEqual({ code: 'workspace_closed', reason: undefined });
     expect((await epicRow(target, epic.id)).completed_at).toBeNull();
-    expect(await rewardGrants(target, epic.id)).toEqual([]);
   });
 
   test('別の組織・別のワークスペースのエピックと存在しない ID は 404', async () => {
@@ -302,7 +235,6 @@ describe('epic-complete', () => {
       clear(target, epic.id, target.leader, frozen),
     ]);
     expect(results.map((res) => res.status).sort()).toEqual([200, 409]);
-    expect(await rewardGrants(target, epic.id)).toEqual([]);
     expect(await logsOf(target, epic.id)).toHaveLength(1);
   });
 
@@ -318,7 +250,6 @@ describe('epic-complete', () => {
     expect(first.status).toBe(409);
     expect(await errorOf(first)).toEqual({ code: 'conflict', reason: 'completed' });
     expect((await epicRow(target, epic.id)).completed_by).toBe(target.admin.userId);
-    expect(await rewardGrants(target, epic.id)).toEqual([]);
     expect(await logsOf(target, epic.id)).toHaveLength(1);
   });
 
@@ -331,7 +262,6 @@ describe('epic-complete', () => {
     const res = await clear(target, epic.id, target.leader, raced);
     expect(res.status).toBe(409);
     expect(await errorOf(res)).toEqual({ code: 'conflict', reason: 'open_stories' });
-    expect(await rewardGrants(target, epic.id)).toEqual([]);
     expect(await logsOf(target, epic.id)).toEqual([]);
   });
 
@@ -465,27 +395,11 @@ describe('epic-complete', () => {
 });
 
 describe('epic-reopen', () => {
-  test('前の版のクリアで付いた epic_reward の明細は、取り消しても打ち消さず、そのまま残す', async () => {
-    const target = await createTarget();
-    const epic = await readyEpic(target);
-    expect((await clear(target, epic.id)).status).toBe(200);
-    // この版を出す前のクリアで付いた明細（打ち消されていない行）
-    const grant = await createXpGrant(target.organization, target.workspace.id, target.member.userId!, {
-      action: 'epic_reward',
-      epic_id: epic.id,
-      amount: 300,
-    });
-
-    expect((await reopen(target, epic.id, target.leader)).status).toBe(200);
-    expect(await workspaceGrants(target)).toEqual([{ id: grant.id, amount: 300, reverses_grant_id: null }]);
-  });
-
-  test('クリアを取り消しても打ち消しの行は書かず、もう一度クリアできる', async () => {
+  test('クリアを取り消すと、もう一度クリアできる', async () => {
     const target = await createTarget();
     const epic = await readyEpic(target);
     expect((await clear(target, epic.id)).status).toBe(200);
     const firstRow = await epicRow(target, epic.id);
-    expect(await workspaceGrantCount(target)).toBe(0);
 
     const res = await reopen(target, epic.id, target.leader);
     expect(res.status).toBe(200);
@@ -493,14 +407,12 @@ describe('epic-reopen', () => {
     const reopened = await epicRow(target, epic.id);
     expect(reopened.completed_at).toBeNull();
     expect(reopened.completed_by).toBeNull();
-    expect(await workspaceGrantCount(target)).toBe(0);
 
-    // もう一度クリアできる。経験値の行は増えない
+    // もう一度クリアできる
     const again = await clear(target, epic.id);
     expect(again.status).toBe(200);
     expect(await again.json()).toMatchObject({ epic_id: epic.id });
     expect((await epicRow(target, epic.id)).completed_at).not.toBe(firstRow.completed_at);
-    expect(await workspaceGrantCount(target)).toBe(0);
 
     const actions = (await logsOf(target, epic.id)).map((log) => log.action);
     expect(actions).toEqual(['complete', 'reopen', 'complete']);
@@ -520,17 +432,15 @@ describe('epic-reopen', () => {
     expect(again.status).toBe(200);
     expect(await again.json()).toMatchObject({ epic_id: epic.id });
     expect((await epicRow(target, epic.id)).completed_at).toBe('2026-10-26T01:00:00.000Z');
-    expect(await workspaceGrantCount(target)).toBe(0);
   });
 
-  test('クリアと取り消しを2回ずつ流しても、経験値の行は増えない', async () => {
+  test('クリアと取り消しを2回ずつ流せる', async () => {
     const target = await createTarget();
     const epic = await readyEpic(target);
     for (let round = 0; round < 2; round++) {
       expect((await clear(target, epic.id)).status).toBe(200);
       expect((await reopen(target, epic.id)).status).toBe(200);
     }
-    expect(await workspaceGrantCount(target)).toBe(0);
     expect((await logsOf(target, epic.id)).map((log) => log.action)).toEqual([
       'complete',
       'reopen',
@@ -553,7 +463,6 @@ describe('epic-reopen', () => {
     expect((await clear(target, epic.id)).status).toBe(200);
     expect((await reopen(target, epic.id, target.member)).status).toBe(403);
     expect((await epicRow(target, epic.id)).completed_at).not.toBeNull();
-    expect(await rewardGrants(target, epic.id)).toEqual([]);
 
     const own = await readyEpic(target, { requester_user_id: target.member.userId! });
     expect((await clear(target, own.id, target.member)).status).toBe(200);
@@ -581,7 +490,6 @@ describe('epic-reopen', () => {
     expect(second?.status).toBe(200);
     expect(first.status).toBe(409);
     expect(await errorOf(first)).toEqual({ code: 'conflict', reason: 'not_completed' });
-    expect(await rewardGrants(target, epic.id)).toEqual([]);
     expect((await logsOf(target, epic.id)).map((log) => log.action)).toEqual(['complete', 'reopen']);
   });
 
