@@ -431,6 +431,76 @@ describe('story-convert', () => {
     expect(await detailsOf(plain)).toBeUndefined();
   });
 
+  test('1 万字の数え方はコードポイントで、UTF-16 の長さでは数えない', async () => {
+    const target = await createTarget();
+    const ws = target.workspace.id;
+    // 写した後は 5,013 コードポイント（UTF-16 では 10,026）。上限以下なので通る
+    const ok = await createStory(target.organization, ws, target.member.userId!, {
+      body_md: '😀'.repeat(4_900),
+      acceptance_criteria_md: '😀'.repeat(100),
+    });
+    expect((await convertStory(target, ok.id, 'task')).status).toBe(200);
+    // 写した後は 10,013 コードポイント。上限を超えるので断る（見出しの 13 字も数える）
+    const over = await createStory(target.organization, ws, target.member.userId!, {
+      body_md: '😀'.repeat(9_000),
+      acceptance_criteria_md: '😀'.repeat(1_000),
+    });
+    const res = await convertStory(target, over.id, 'task');
+    expect(res.status).toBe(409);
+    expect(await reasonOf(res)).toBe('too_long');
+    // 写す前は上限以下で、見出しを足すと超える
+    const heading = await createStory(target.organization, ws, target.member.userId!, {
+      body_md: 'あ'.repeat(9_900),
+      acceptance_criteria_md: 'い'.repeat(95),
+    });
+    expect(await reasonOf(await convertStory(target, heading.id, 'task'))).toBe('too_long');
+  });
+
+  test('親のエピックが削除済みのストーリーは、ストーリー自身の区分を写して変えられる', async () => {
+    const target = await createTarget();
+    const ws = target.workspace.id;
+    const category = await createCategory(target.organization, ws);
+    const epic = await createEpic(target.organization, ws, target.admin.userId!, {
+      deleted_at: '2026-11-02T00:00:00.000Z',
+    });
+    const story = await createStory(target.organization, ws, target.member.userId!, {
+      epic_id: epic.id,
+      category_id: category.id,
+    });
+    const res = await convertStory(target, story.id, 'task');
+    expect(res.status).toBe(200);
+    const { id } = (await res.json()) as { id: string };
+    expect((await rowsOf(target, 'tasks')).find((t) => t.id === id)?.category_id).toBe(category.id);
+  });
+
+  test('読んでから書くまでに親のエピックが完了したら、何も書かずに 409 を返す', async () => {
+    const target = await createTarget();
+    const ws = target.workspace.id;
+    const epic = await createEpic(target.organization, ws, target.admin.userId!);
+    const story = await createStory(target.organization, ws, target.member.userId!, { epic_id: epic.id });
+    let done = false;
+    const racing = envWithD1Hooks(testEnv, {
+      afterQuery: async (sql) => {
+        if (done || !sql.includes('as "has_children"')) return;
+        done = true;
+        const db = dbOf(target);
+        await db.run(
+          db.statement((q) =>
+            q
+              .updateTable('epics')
+              .set({ completed_at: '2026-11-20T00:00:00.000Z', completed_by: target.admin.userId! })
+              .where('id', '=', epic.id),
+          ),
+        );
+      },
+    });
+    const res = await convertStory(target, story.id, 'task', target.member, racing);
+    expect(res.status).toBe(409);
+    expect(await reasonOf(res)).toBe('parent_completed');
+    expect(await conversionsOf(target)).toEqual([]);
+    expect((await rowsOf(target, 'stories')).find((s) => s.id === story.id)?.deleted_at).toBeNull();
+  });
+
   test('同じストーリーを同時に2回変えても、行き先は1つだけできる', async () => {
     const target = await createTarget();
     const story = await createStory(target.organization, target.workspace.id, target.member.userId!);
@@ -677,6 +747,25 @@ describe('epic-convert', () => {
     });
     expect(plain.status).toBe(404);
     expect(await detailsOf(plain)).toBeUndefined();
+  });
+
+  test('区分は写し（履歴にも残り）、削除された区分は引き継がない', async () => {
+    const target = await createTarget();
+    const ws = target.workspace.id;
+    const live = await createCategory(target.organization, ws);
+    const gone = await createCategory(target.organization, ws, { deleted_at: '2026-11-02T00:00:00.000Z' });
+    const withLive = await createEpic(target.organization, ws, target.member.userId!, { category_id: live.id });
+    const withGone = await createEpic(target.organization, ws, target.member.userId!, { category_id: gone.id });
+
+    const a = (await (await convertEpic(target, withLive.id, 'story')).json()) as { id: string };
+    const b = (await (await convertEpic(target, withGone.id, 'task')).json()) as { id: string };
+    expect((await rowsOf(target, 'stories')).find((s) => s.id === a.id)?.category_id).toBe(live.id);
+    expect(JSON.parse((await logsOf(target, 'story', a.id))[0]!.changes_json).category).toEqual([
+      null,
+      { id: live.id, name: live.name },
+    ]);
+    expect((await rowsOf(target, 'tasks')).find((t) => t.id === b.id)?.category_id).toBeNull();
+    expect(JSON.parse((await logsOf(target, 'task', b.id))[0]!.changes_json).category).toBeUndefined();
   });
 
   test('同じエピックを同時に2回変えても、行き先は1つだけできる', async () => {

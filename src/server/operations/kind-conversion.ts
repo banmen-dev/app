@@ -31,7 +31,7 @@ export async function convertedToOf(db: OrganizationDb, workspaceId: string, fro
 }
 
 // 変えた元の項目の読み取りは 404 のまま、details に先の種類と ID を添える（元の URL から先へ案内し、再送が先の ID を引けるように）
-export function notFoundAfterConversion(converted: { to_kind: string; to_id: string } | undefined): ApiError {
+function notFoundAfterConversion(converted: { to_kind: string; to_id: string } | undefined): ApiError {
   return new ApiError(
     404,
     'not_found',
