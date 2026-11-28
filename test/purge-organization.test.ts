@@ -99,6 +99,21 @@ async function fillOrganization(organization: Awaited<ReturnType<typeof createOr
   });
   await createSprintEntry(organization, ws, sprint.id, task.id, admin.id);
   await createTaskFieldValue(organization, task.id, field.id, member.id);
+  const conversionDb = orgDb(env, organization.verified);
+  await conversionDb.run(
+    conversionDb.statement((q) =>
+      q.insertInto('kind_conversions').values({
+        id: uuidv7(),
+        workspace_id: ws,
+        from_kind: 'task',
+        from_id: uuidv7(),
+        to_kind: 'story',
+        to_id: uuidv7(),
+        converted_by: member.id,
+        converted_at: AT,
+      }),
+    ),
+  );
   const connection = await createConnection(organization, ws, member.id);
   await createConnectionScope(organization, connection.id);
   await createConnectionStatusMapping(organization, connection.id, column.id);

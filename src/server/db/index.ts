@@ -45,6 +45,7 @@ export {
 export { readScheduledImportConnections, syncScheduledImportConnection } from './scheduled-import.ts';
 export { titleContainsAll } from './title-search.ts';
 export { purgeDueInDatabase, purgeNotDue } from './purge-due.ts';
+export { sameValue } from './same-value.ts';
 export { unindexed } from './unindexed.ts';
 export type { CommonTables, OrganizationTables } from './tables.ts';
 export type { VerifiedOrganization } from './verify-organization.ts';

@@ -12,6 +12,7 @@ const changedTargets = new Set([
   'task-update',
   'task-delete',
   'task-restore',
+  'task-convert',
   'task-move',
   'story-update',
   'story-delete',

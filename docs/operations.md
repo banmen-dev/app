@@ -539,6 +539,12 @@ D1 とバケットを `banmen`、`banmen-attachments` に切り替える前の�
 
 ワークスペースの論理削除を使った後は、削除済みワークスペースを除外できる版を戻し先にする。論理削除に対応する版が1つしかないときは、除外の処理を残した修正版を新しい Release として出す。列を残したまま論理削除を実装する前の版を配ると、削除済みのワークスペースや添付が以前の URL から読めるため。初回の公開は2回に分ける。先の Release では `wrangler.jsonc` の `WORKSPACE_DELETE_ENABLED` を `false` のまま公開する。マイグレーションと削除済みを除外する処理は働き、削除 API は 404 を返す。設定画面の操作も出ない。先の Release の稼働を確認してから、別の変更で値を `true` にし、次の Release で削除を有効にする。煙のテストは版が切り替わってから動くため、先に互換のある版を配っておけば、削除を有効にした Release から自動で戻る間もアクセス制限が効く。ループバックへの HTTP の開発環境では有効化済みとして検証できる。
 
+種類の変更（#1647 の `task-convert`）を使った後は、`task-convert` を含む版より前の版へコードだけ戻すと、前の版の `task-restore` が、種類を変えたタスク（削除済みの元）を戻せてしまい、先の項目と二重になる。下の番号の手順に入る前に、戻すと決めた人が次を確かめる。戻すのは Worker 全体なので、組織で絞らず全組織を数える（読み取りだけ）。行があれば、戻した後に元のタスクを戻さないようメンバーに伝える。止める仕組みは、`task-convert` を含む版の `task-restore` の条件だけにある。
+
+```bash
+pnpm exec wrangler d1 execute banmen --remote --command "SELECT count(*) AS n FROM kind_conversions"
+```
+
 1. ダッシュボードの Worker の Deployments か `wrangler deployments list` で、戻したい版の ID を確かめる。版の message が `<vX.Y.Z> <コミットの SHA>`（#1165 より前の版はコミットの SHA だけ）。シークレットを入れ替えた後なら、入れ替えより前の版は選ばない（下の「戻るもの、戻らないもの」）。Create application が出した初期の版（message が無い）は選ばない
 2. 手元（上の「手元の準備」）で `wrangler rollback <版の ID> --message "<理由>"` を実行する。確認が出たら版の ID を見て進める。版の ID は必ず渡す。渡さないと wrangler が履歴から戻し先を選び、意図した版とずれることがある
 3. `https://banmen.ucan-lab.workers.dev/api/health` の `version` が戻した版（`vX.Y.Z`）になったことを確かめる

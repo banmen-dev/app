@@ -78,6 +78,21 @@ async function readDeletable(db: OrganizationDb, workspaceId: string, taskId: st
   );
 }
 
+// 種類を変えたタスクか（対応表に元として残っている）
+async function isConverted(db: OrganizationDb, workspaceId: string, taskId: string): Promise<boolean> {
+  const row = await db.first(
+    db.statement((q) =>
+      q
+        .selectFrom('kind_conversions')
+        .select('kind_conversions.id')
+        .where('kind_conversions.workspace_id', '=', workspaceId)
+        .where('kind_conversions.from_kind', '=', 'task')
+        .where('kind_conversions.from_id', '=', taskId),
+    ),
+  );
+  return row !== undefined;
+}
+
 type Readout = NonNullable<Awaited<ReturnType<typeof readDeletable>>>;
 
 function blockOf(row: Readout): TaskRestoreConflictReason | null {
@@ -128,6 +143,8 @@ export const taskRestoreOperation = implement(taskRestore, async ({ db, actor, w
     );
     if (deleter?.actor_user_id !== actorUserId) throw new ApiError(403, 'forbidden');
   }
+  // 種類を変えたタスク（task-convert）は戻さない。先の項目があるので、戻すと元と先で二重になる（親の完了などより先に断る）
+  if (await isConverted(db, workspaceId, taskId)) throw new ApiError(409, 'conflict', { reason: 'converted' });
   const reason = blockOf(task);
   if (reason !== null) throw new ApiError(409, 'conflict', { reason });
 
@@ -206,6 +223,17 @@ export const taskRestoreOperation = implement(taskRestore, async ({ db, actor, w
               ? eb('repository_id', 'is', null)
               : eb('repository_id', '=', task.repository_id),
             eb.exists(openWorkspace(q, organizationId, workspaceId)),
+            // 種類を変えたタスクではない（読んでから書くまでに変えられたら、書かずに読み直して 409）
+            eb.not(
+              eb.exists(
+                eb
+                  .selectFrom('kind_conversions')
+                  .select('kind_conversions.id')
+                  .where('kind_conversions.workspace_id', '=', workspaceId)
+                  .where('kind_conversions.from_kind', '=', 'task')
+                  .where('kind_conversions.from_id', '=', taskId),
+              ),
+            ),
             // 外す担当は、書く時点でもまだ有効でない（読んでから書くまでに招待などで戻っていたら、外さずに読み直す）
             assigneeGone
               ? eb.not(eb.exists(activeMemberName(q, organizationId, workspaceId, assigneeId!)))
@@ -282,6 +310,7 @@ export const taskRestoreOperation = implement(taskRestore, async ({ db, actor, w
     await throwIfClosed(db, workspaceId);
     const current = await readDeletable(db, workspaceId, taskId);
     if (current === undefined) throw new ApiError(404, 'not_found');
+    if (await isConverted(db, workspaceId, taskId)) throw new ApiError(409, 'conflict', { reason: 'converted' });
     throw new ApiError(409, 'conflict', { reason: blockOf(current) ?? 'changed' });
   }
   // 外した参照は、画面が「元のとおりには戻らなかった」と知らせるために返す
