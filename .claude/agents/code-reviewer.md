@@ -68,9 +68,9 @@ GitHub の操作は `gh api` の REST で行う（クラウドのセッション
 同じ問題が複数箇所にあるときは、`File:` の行を箇所ごとに並べる。
 
 ```
-[HIGH] (confidence: high) 完了と経験値の付与が別々の書き込みになっている
+[HIGH] (confidence: high) 完了と変更の履歴が別々の書き込みになっている
 File: src/server/tasks/complete.ts:57
-Issue: tasks の更新と xp_grants の挿入を別々の run() で送っており、2つ目で失敗すると経験値の無い完了が残る。docs/data-model.md の「書き込みの単位」ではタスクの完了は1回のバッチ。
+Issue: tasks の更新と change_logs の挿入を別々の run() で送っており、2つ目で失敗すると履歴の無い完了が残る。docs/data-model.md の「書き込みの単位」ではタスクの完了は1回のバッチ。
 Fix: 文を並べて db.batch([...]) で1回に送る。
 ```
 
