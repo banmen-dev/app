@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { DatabaseSync, type SQLOutputValue } from 'node:sqlite';
 import { test } from 'node:test';
 import { fillSeedDates } from './seed-dates.ts';
+import { withEpicRewardTier } from './legacy-seed.ts';
 
 const migrations = new URL('../migrations/', import.meta.url);
 const migration = '0040_add_foreign_key_indexes.sql';
@@ -35,7 +36,7 @@ function beforeMigration() {
     db.exec(readFileSync(new URL(name, migrations), 'utf8'));
   }
   const seed = readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8');
-  db.exec(fillSeedDates(seed, new Date('2026-11-21T12:00:00Z')));
+  db.exec(withEpicRewardTier(fillSeedDates(seed, new Date('2026-11-21T12:00:00Z'))));
   const workspace = db.prepare('SELECT id FROM workspaces ORDER BY id LIMIT 1').get()?.id;
   assert.ok(typeof workspace === 'string');
   const story = db.prepare('SELECT * FROM stories WHERE workspace_id = ? LIMIT 1').get(workspace);

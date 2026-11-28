@@ -4,6 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
 import { fillSeedDates } from './seed-dates.ts';
+import { withEpicRewardTier } from './legacy-seed.ts';
 
 const migrations = new URL('../migrations/', import.meta.url);
 const migration = readFileSync(new URL('0036_add_workspace_sprint_naming.sql', migrations), 'utf8');
@@ -18,7 +19,9 @@ test('既存の次番号は削除していない全状態のスプリント数�
       db.exec(readFileSync(new URL(name, migrations), 'utf8'));
     }
     // 0038の依頼回と0039のプランを使う契約を除き、旧スキーマへ入れる。
-    const seed = fillSeedDates(readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8'), new Date());
+    const seed = withEpicRewardTier(
+      fillSeedDates(readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8'), new Date()),
+    );
     const legacySeed = seed
       .replace(/^UPDATE task_sources SET review_cycle = .*;$/gm, '')
       .replace(/^INSERT INTO review_request_cycles\b[^;]*;/gm, '')
