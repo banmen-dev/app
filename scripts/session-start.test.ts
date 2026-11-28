@@ -116,7 +116,6 @@ describe('session-start.sh', () => {
     assert.equal(r.stderr, '');
   });
 
-  // settings.json の command そのものを sh -c で走らせる（綴りやクォートの誤りも落とす）
   test('CRLF の .node-version でも主版を取れる', () => {
     const f = fixture({ nodeVersion: '26\r\n', fakeNode: { major: '26', prints: 'v26.13.1' } });
     assert.equal(run(f).status, 0);
@@ -162,6 +161,7 @@ describe('session-start.sh', () => {
     assert.equal(existsSync(f.envFile), false);
   });
 
+  // settings.json の command そのものを sh -c で走らせる（綴りやクォートの誤りも落とす）
   test('.claude/settings.json の SessionStart の command が、実際に PATH の行を書く', () => {
     const commands = (settings.hooks.SessionStart ?? []).flatMap((e) => e.hooks.map((h) => h.command));
     const command = commands.find((c) => c.includes('session-start.sh'));
