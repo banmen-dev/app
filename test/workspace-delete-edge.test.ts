@@ -38,7 +38,11 @@ test('削除前に読み取った同期の結果は、削除後の接続に書�
   const result = await db.run(
     syncOutcomeStatement(
       db,
-      { id: read!.connection.id, workspaceId: read!.connection.workspace_id },
+      {
+        id: read!.connection.id,
+        workspaceId: read!.connection.workspace_id,
+        ignoreSourceDueGeneration: read!.connection.ignore_source_due_generation,
+      },
       { kind: 'success', syncStateJson: '{"next":"later"}' },
       '2026-11-23T00:00:00.000Z',
     ),

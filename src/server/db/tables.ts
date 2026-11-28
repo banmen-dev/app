@@ -297,6 +297,8 @@ export const organizationTableColumns = {
     stopped_reason: textOrNull,
     scope_mode: textDefault,
     ignore_source_due: integerDefault,
+    // migrations/0046_add_connections_ignore_source_due_generation.sql で足した
+    ignore_source_due_generation: integerDefault,
     settings_json: textDefault,
     credential_ciphertext: textOrNull,
     credential_key_version: integerOrNull,

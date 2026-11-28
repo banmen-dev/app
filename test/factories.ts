@@ -646,6 +646,7 @@ export async function createConnection(
     stopped_reason: null,
     scope_mode: 'include',
     ignore_source_due: 0,
+    ignore_source_due_generation: 0,
     settings_json: '{}',
     credential_ciphertext: null,
     credential_key_version: null,
