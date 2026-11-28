@@ -17,7 +17,10 @@ major="${version%%.*}"
 [[ "$major" =~ ^[0-9]+$ ]] || exit 0
 
 bin="${root}/node${major}/bin"
-got=$(timeout 5 "${bin}/node" --version 2>/dev/null) || exit 0
+# 固まった node でセッションの開始を止めないよう、timeout があれば 5 秒で切る（macOS には標準で無いので、無ければそのまま走らせる）
+limit=()
+command -v timeout >/dev/null 2>&1 && limit=(timeout 5)
+got=$("${limit[@]}" "${bin}/node" --version 2>/dev/null) || exit 0
 [[ "$got" == "v${major}."* ]] || exit 0
 
 # 同じ行を二重に書かない（再開や clear でもう一度走る）
