@@ -34,8 +34,6 @@ export const epicDetail = defineOperation({
       category: definitionRefSchema.nullable(),
       // クリアした日時。空なら進行中
       completed_at: z.string().nullable(),
-      // 中止は外した（#1435）。前の版の画面の束のために、1版だけ常に null で返す（backlog-tree と同じ）。#1438 で消す
-      canceled_at: z.null(),
     }),
     requester: epicPersonSchema,
     stories: z.array(

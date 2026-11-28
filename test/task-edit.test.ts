@@ -906,31 +906,28 @@ describe('task-delete', () => {
     expect(await logsOf(target, task.id)).toEqual([]);
   });
 
-  test('完了したタスクも論理削除で、完了の記録は残り、xp_grants は増えない。ストーリーの合計からは外れる', async () => {
+  test('完了したタスクも論理削除で、完了の記録は残る。ストーリーの合計からは外れる', async () => {
     const target = await createTarget();
     const story = await createStory(target.organization, target.workspace.id, target.admin.userId!);
     const task = await completedTask(target, { story_id: story.id });
     const db = orgDb(env, target.organization.verified);
-    const countOf = async (table: 'completions' | 'xp_grants') =>
+    const countOfCompletions = async () =>
       (
         await db.rows(
           db.statement((q) =>
             q
-              .selectFrom(table)
+              .selectFrom('completions')
               .select('id')
               .where('task_id', '=', task.id)
               .where('workspace_id', '=', target.workspace.id),
           ),
         )
       ).length;
-    const completions = await countOf('completions');
-    const grants = await countOf('xp_grants');
+    const completions = await countOfCompletions();
     expect(completions).toBe(1);
-    expect(grants).toBe(0);
 
     expect((await remove(target, task.id, target.admin)).status).toBe(200);
-    expect(await countOf('completions')).toBe(completions);
-    expect(await countOf('xp_grants')).toBe(grants);
+    expect(await countOfCompletions()).toBe(completions);
     const tree = (await (
       await post(app, backlogTree, {
         slug: target.slug,
