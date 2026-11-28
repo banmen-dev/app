@@ -776,6 +776,12 @@ export const pointers: Pointers = {
     workspace_id: target.workspace.id,
     task_id: (await createTask(target.organization, target.workspace.id, target.member.userId!)).id,
   }),
+  // 呼ぶたびに、一般のメンバーが作ったタスクを作る（変えられるのは作った人とリーダーなので、メンバーも通る。変えたタスクは続けて変えられない）
+  'task-convert': async (target) => ({
+    workspace_id: target.workspace.id,
+    task_id: (await createTask(target.organization, target.workspace.id, target.member.userId!)).id,
+    kind: 'story',
+  }),
   // 呼ぶたびに、一般のメンバーが作って削除したタスクを作る（戻せるのは作った人とリーダーなので、メンバーも通る。戻したタスクは続けて戻せない）
   'task-restore': async (target) => ({
     workspace_id: target.workspace.id,

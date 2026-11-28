@@ -34,6 +34,7 @@ const TABLES: readonly (readonly [table: string, scope: Scope])[] = [
   ['change_logs', 'organization'],
   ['organization_holidays', 'organization'],
   ['sprint_entries', 'workspace'],
+  ['kind_conversions', 'workspace'],
   ['task_field_values', 'task'],
   ['task_source_payloads', 'task'],
   ['task_sources', 'task'],

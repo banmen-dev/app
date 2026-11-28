@@ -504,6 +504,17 @@ export const organizationTableColumns = {
     read_at: textOrNull,
     created_at: text,
   },
+  // migrations/0049_add_kind_conversions.sql で足した。種類の変更の元と先の対応
+  kind_conversions: {
+    id: text,
+    workspace_id: text,
+    from_kind: text,
+    from_id: text,
+    to_kind: text,
+    to_id: text,
+    converted_by: text,
+    converted_at: text,
+  },
   change_logs: {
     id: text,
     organization_id: text,

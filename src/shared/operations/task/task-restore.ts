@@ -6,9 +6,10 @@ import { defineOperation } from '../define.ts';
 // タスクの削除を取り消すのを 409 の conflict で断った理由（details.reason）。
 // not_deleted は削除していないタスクを戻そうとした（2つの画面から同時に戻した後の方を含む）、
 // parent_completed は完了していないタスクを、完了したストーリーの下へ戻そうとした（ストーリーの完了を取り消してから戻す）、
-// changed は読んでから書くまでに別の要求がタスクを変えた（消し直した、親が変わったなど）。
+// changed は読んでから書くまでに別の要求がタスクを変えた（消し直した、親が変わったなど）、
+// converted は種類を変えたタスク（task-convert。先の項目があるので、戻すと元と先で二重になる）。
 // 親のストーリーが削除されているときは断らず、親なしで戻す（ストーリーを戻す操作は無く、断ると二度と戻せないため）
-export const taskRestoreConflictReasons = ['not_deleted', 'parent_completed', 'changed'] as const;
+export const taskRestoreConflictReasons = ['not_deleted', 'parent_completed', 'changed', 'converted'] as const;
 export type TaskRestoreConflictReason = (typeof taskRestoreConflictReasons)[number];
 
 // 戻すときに外した参照（親、担当、区分、リポジトリ）。画面が、元のとおりには戻らなかったことを知らせるのに使う

@@ -5,7 +5,7 @@ import { taskFieldValueSchema } from './task-field-set.ts';
 import { taskDetailSchema } from './task.ts';
 
 // 詳細の引き出しを開くときに、タスク1件の属性と本文を読む。閉じたワークスペースでも読める。
-// 無いタスク（別の組織・別のワークスペース・削除済みを含む）は 404。
+// 無いタスク（別の組織・別のワークスペース・削除済みを含む）は 404。種類を変えたタスク（task-convert）の 404 は、details に先の種類と ID（converted_to: { kind, id }）を添える。
 // fields は、削除していない決まった欄を並びの順に、値（書かれていなければ null）つきで返す。
 // today はワークスペースのタイムゾーンでの今日、week_start は週の始まり（0〜6、0 が日曜）。backlog-tree と同じ決め方で、
 // 期日の印（過ぎた、今日、今週、それ以外）は、この2つで決める（ブラウザの時計とタイムゾーンに頼らない）

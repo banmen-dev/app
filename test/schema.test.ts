@@ -2418,3 +2418,53 @@ describe('レビュー依頼回の保存', () => {
     ).toHaveLength(2);
   });
 });
+
+describe('kind_conversions', () => {
+  async function setup() {
+    const { userId, workspaceId } = await workspace();
+    return { userId, workspaceId };
+  }
+
+  function conversion(columns: {
+    workspaceId: string;
+    userId: string;
+    fromKind?: string;
+    fromId?: string;
+    toKind?: string;
+    convertedAt?: string;
+  }) {
+    return run(
+      `INSERT INTO kind_conversions (id, workspace_id, from_kind, from_id, to_kind, to_id, converted_by, converted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      id(),
+      columns.workspaceId,
+      columns.fromKind ?? 'task',
+      columns.fromId ?? id(),
+      columns.toKind ?? 'story',
+      id(),
+      columns.userId,
+      columns.convertedAt ?? '2026-11-28T00:00:00.000Z',
+    );
+  }
+
+  test('元の種類と先の種類は epic、story、task で、同じ種類には変えられない', async () => {
+    const { userId, workspaceId } = await setup();
+    await expect(conversion({ workspaceId, userId })).resolves.toBeDefined();
+    await expect(conversion({ workspaceId, userId, fromKind: 'wiki' })).rejects.toThrow(/CHECK/);
+    await expect(conversion({ workspaceId, userId, toKind: 'wiki' })).rejects.toThrow(/CHECK/);
+    await expect(conversion({ workspaceId, userId, fromKind: 'story', toKind: 'story' })).rejects.toThrow(/CHECK/);
+  });
+
+  test('変えた日時は、往復できる形だけ', async () => {
+    const { userId, workspaceId } = await setup();
+    await expect(conversion({ workspaceId, userId, convertedAt: '2026-11-28' })).rejects.toThrow(/CHECK/);
+  });
+
+  test('同じワークスペースの同じ元は1行だけ', async () => {
+    const { userId, workspaceId } = await setup();
+    const fromId = id();
+    await conversion({ workspaceId, userId, fromId });
+    await expect(conversion({ workspaceId, userId, fromId })).rejects.toThrow(/UNIQUE/);
+    // 元の種類が違えば別の行
+    await expect(conversion({ workspaceId, userId, fromId, fromKind: 'story', toKind: 'epic' })).resolves.toBeDefined();
+  });
+});

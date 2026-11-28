@@ -7,6 +7,7 @@ import { inboxList, inboxToBacklog } from './inbox.ts';
 import { commentCreate, commentDelete, commentList, commentUpdate } from './comment.ts';
 import { taskAssign } from './task-assign.ts';
 import { taskComplete } from './task-complete.ts';
+import { taskConvert } from './task-convert.ts';
 import { taskCreate } from './task-create.ts';
 import { taskDelete } from './task-delete.ts';
 import { taskDetail } from './task-detail.ts';
@@ -26,6 +27,7 @@ export {
   taskAssign,
   taskDelegate,
   taskComplete,
+  taskConvert,
   taskCreate,
   taskDelete,
   taskDetail,
@@ -44,6 +46,13 @@ export {
   type TaskFieldValue,
   taskFieldValueSchema,
 } from './task-field-set.ts';
+export {
+  taskConvertConflictReasonOf,
+  taskConvertConflictReasons,
+  taskConvertKinds,
+  type TaskConvertConflictReason,
+  type TaskConvertKind,
+} from './task-convert.ts';
 export { taskCreateConflictReasonOf, taskCreateConflictReasons, type TaskCreateConflictReason } from './task-create.ts';
 export { taskReopenConflictReasonOf, taskReopenConflictReasons, type TaskReopenConflictReason } from './task-reopen.ts';
 export {
@@ -93,6 +102,7 @@ export const taskOperations: readonly AnyOperationDefinition[] = [
   taskTodayMark,
   taskDelete,
   taskRestore,
+  taskConvert,
   taskMove,
   taskHistory,
   commentList,
