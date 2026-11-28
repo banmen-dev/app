@@ -383,7 +383,9 @@ describe('connection-scopes-save', () => {
           .where('organization_id', '=', db.organizationId),
       ),
     ]);
-    expect((await save(ctx, target, target.member, id, ['1002'])).status).toBe(409);
+    const closed = await save(ctx, target, target.member, id, ['1002']);
+    expect(closed.status).toBe(409);
+    expect(((await closed.json()) as { error: { code: string } }).error.code).toBe('workspace_closed');
     expect(Number((await rowsOf(target)).connections[0]!.ignore_source_due_generation)).toBe(before + 3);
   });
 
