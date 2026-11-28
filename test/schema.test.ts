@@ -516,6 +516,32 @@ describe('外部キー', () => {
     }
   });
 
+  // connection_id だけの索引は、複合索引 task_sources_connection_status の先頭の列と重なるので持たない（#1658）。
+  // connection_id だけで引く文と、connection_id を指す外部キーの検査（connections の DELETE）が、全件の走査にならないこと
+  test('task_sources を connection_id だけで引く文は、task_sources_connection_status の先頭の列で引く', async () => {
+    const { results: indexes } = await env.DB.prepare(
+      `SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'task_sources' AND name = 'task_sources_connection_id'`,
+    ).all<{ name: string }>();
+    expect(indexes).toEqual([]);
+
+    const statements = [
+      'SELECT task_id FROM task_sources WHERE connection_id = ?',
+      'UPDATE task_sources SET source_due_on = NULL WHERE connection_id = ? AND workspace_id = ? AND source_due_on IS NOT NULL',
+      'DELETE FROM connections WHERE id = ?',
+    ];
+    for (const sql of statements) {
+      const { results: plan } = await env.DB.prepare(`EXPLAIN QUERY PLAN ${sql}`)
+        .bind(...(sql.includes('workspace_id') ? [id(), id()] : [id()]))
+        .all<{ detail: string }>();
+      const details = plan.map((row) => row.detail).join('\n');
+
+      expect(details, sql).toMatch(
+        /task_sources USING (COVERING )?INDEX task_sources_connection_status \(connection_id=\?\)/,
+      );
+      expect(details, sql).not.toMatch(/^SCAN task_sources\b/m);
+    }
+  });
+
   // 今日やること（today）は未完了と完了を別の文にして、どちらも tasks_assignee_user の範囲で引く。
   // memberships、workspaces、tasks を結合する本物の文で、別の索引が選ばれて tasks を全件走査していないこと
   test('今日やることの未完了と完了の文は、tasks_assignee_user で引き、tasks を SCAN しない', async () => {
