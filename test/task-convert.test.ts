@@ -571,6 +571,13 @@ describe('task-convert', () => {
 
     const [a, b] = await Promise.all([convert(target, task.id, 'story'), convert(target, task.id, 'story')]);
     expect([a.status, b.status].sort()).toEqual([200, 409]);
+    // 負けた側の 409 にも、先に通った要求の先の種類と ID が載る
+    const loser = a.status === 409 ? a : b;
+    const winner = (await (a.status === 200 ? a : b).json()) as { id: string };
+    expect(((await loser.json()) as { error: { details?: unknown } }).error.details).toEqual({
+      reason: 'changed',
+      converted_to: { kind: 'story', id: winner.id },
+    });
     expect(await rowsOf(target, 'stories')).toHaveLength(1);
     expect(await conversionsOf(target)).toHaveLength(1);
     expect(await logsOf(target, 'task', task.id)).toHaveLength(1);

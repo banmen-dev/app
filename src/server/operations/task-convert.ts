@@ -486,14 +486,17 @@ export const taskConvertOperation = implement(taskConvert, async ({ db, actor, w
       db.statement((q) =>
         q
           .selectFrom('kind_conversions')
-          .select('kind_conversions.id')
+          .select(['kind_conversions.to_kind', 'kind_conversions.to_id'])
           .where('kind_conversions.workspace_id', '=', workspaceId)
           .where('kind_conversions.from_kind', '=', 'task')
           .where('kind_conversions.from_id', '=', taskId),
       ),
     );
     if (converted === undefined) throw new ApiError(404, 'not_found');
-    throw new ApiError(409, 'conflict', { reason: 'changed' satisfies TaskConvertConflictReason });
+    throw new ApiError(409, 'conflict', {
+      reason: 'changed' satisfies TaskConvertConflictReason,
+      converted_to: { kind: converted.to_kind, id: converted.to_id },
+    });
   }
   throw new ApiError(409, 'conflict', { reason: convertBlockOf(current, kind) ?? 'changed' });
 });

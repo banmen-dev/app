@@ -34,6 +34,8 @@ export function taskConvertConflictReasonOf(details: unknown): TaskConvertConfli
 // 元と先の対応（kind_conversions）、お気に入りの付け替え、変更の履歴（元に delete、先に create）を同時に書く。
 // 変えられるのは、作った人とリーダー（管理者を含む）。それ以外は 403 の forbidden。
 // 無いタスク（別の組織・別のワークスペース・削除済みを含む）は 404。権限より先に、存在で決める。
+// 変えた後の再送（変えた元のタスクを、もう一度変える）は 404 のまま、details に先の種類と ID（converted_to: { kind, id }）を添える。
+// 同時に届いて負けた側は 409（reason は changed）で、同じ converted_to を添える（先に通った要求の先の項目を引ける）。
 // 断る理由は taskConvertConflictReasons。何も書かれない
 export const taskConvert = defineOperation({
   name: 'task-convert',
