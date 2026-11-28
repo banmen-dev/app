@@ -1,9 +1,12 @@
 // rename-session の名前の組み立て。Issue の題は外の人が書き換えられるので、モデルに書き写させず、ここで組む。
 //   node .claude/skills/rename-session/rename-line.mjs [--issue <番号>] [--pr <番号>] [--copy]
 // 標準出力は `/rename <名前>` の1行。`--copy` を付けると、同じ行を pbcopy でクリップボードに入れる。
+// Issue の題は、作者が docs/development.md の「GitHub の書き込み権限」で許可された人か github-actions[bot] のときだけ引く。
+// 許可しない作者、権限を確かめられない作者、番号が PR のものは、題を引かず「外の人の Issue」にする。
 // 引けなかった値と pbcopy の失敗は、標準エラーに理由を出して終了コード 1 で終わる。
 import { execFileSync, spawnSync } from 'node:child_process';
-import { titleFor } from './session-title-rules.mjs';
+import { ghPermissionLookup, normalizeLogin, resolveWriteUsers } from '../../../scripts/github-write-permissions.ts';
+import { OUTSIDER_TITLE, isAllowedAuthor, titleFor } from './session-title-rules.mjs';
 
 // 値の無いフラグ、重複、未知の引数は失敗にする（黙って無視すると、PR の後なのに PR の前の名前をクリップボードに入れる）
 function parseArgs(argv) {
@@ -43,10 +46,19 @@ let issueTitle;
 let pr;
 try {
   // クラウドのセッションは GraphQL（gh issue view、gh pr view）が 403 になるので、REST の gh api で引く。{owner}/{repo} は gh api が置き換える
-  if (issueNumber !== undefined) issueTitle = gh('api', `repos/{owner}/{repo}/issues/${issueNumber}`, '--jq', '.title');
+  if (issueNumber !== undefined) {
+    // 題と本文を含まない欄だけを先に引く（作者を確かめる前に、外の人が書ける文字列を読み込まない）
+    const issue = JSON.parse(gh('api', `repos/{owner}/{repo}/issues/${issueNumber}`, '--jq', '{author: .user.login, type: .user.type, pr: (.pull_request != null)}'));
+    // User だけ権限を引く。login の形が不正なとき、API の失敗は許可しない側に倒れる
+    const writers =
+      issue?.type === 'User' && normalizeLogin(issue.author) !== undefined
+        ? await resolveWriteUsers([{ login: issue.author, type: issue.type }], ghPermissionLookup('{owner}/{repo}'))
+        : new Set();
+    issueTitle = isAllowedAuthor({ ...issue, writers }) ? gh('api', `repos/{owner}/{repo}/issues/${issueNumber}`, '--jq', '.title') : OUTSIDER_TITLE;
+  }
   if (prNumber !== undefined) pr = { number: prNumber, title: issueNumber === undefined ? gh('api', `repos/{owner}/{repo}/pulls/${prNumber}`, '--jq', '.title') : '' };
 } catch {
-  fail('gh で Issue か PR の題を引けませんでした');
+  fail('gh で Issue の作者か題、または PR の題を引けませんでした');
 }
 
 const name = titleFor({ issueNumber, issueTitle, pr });
