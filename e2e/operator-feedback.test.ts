@@ -123,7 +123,7 @@ test.describe('運用者', () => {
     for (const index of [0, 1]) await expect(figures.nth(index)).toHaveAttribute('aria-live', 'polite');
     await expect(figures.nth(0).getByRole('img', { name: '画像 1' })).toBeVisible();
     await expect(figures.nth(1).locator('.props-note')).toHaveText(
-      '画像 2 を読み込めませんでした。ページを開き直してください。',
+      '画像 2 を読み込めませんでした。ページを開き直してください。直らないときは、Cloudflare の R2 の feedback/ で画像を確かめてください。',
     );
     await expect(figures.nth(1).getByRole('img')).toHaveCount(0);
     // 読み込めなかった画像もダウンロードのリンクは残し、文はそのまま見られる
