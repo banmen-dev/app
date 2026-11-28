@@ -571,7 +571,7 @@ claude mcp add banmen -- node <main の作業コピーの絶対パス>/cli/banme
 
 ### Claude の設定
 
-フックは、応答が英語に切り替わるのを日本語に直させる `japanese-guard` の1つだけを使う。1人で開発しているので、守りは `permissions.deny` と、この文書の決まりを自分で守ることに置く。`permissions.deny` は Read と Edit の道具にだけ効き、Bash で `.dev.vars` を読むことや、本番への操作、`gh release`、`v*` タグの push、`gh pr merge` の形は止めない。sandbox もこのリポジトリでは使わない（`.claude/settings.json` の `sandbox.enabled` は `false`）。
+フックは、SessionStart で PATH に Node を足す `scripts/session-start.sh` と、応答が英語に切り替わるのを日本語に直させる `japanese-guard` の2つだけを使う。1人で開発しているので、守りは `permissions.deny` と、この文書の決まりを自分で守ることに置く。`permissions.deny` は Read と Edit の道具にだけ効き、Bash で `.dev.vars` を読むことや、本番への操作、`gh release`、`v*` タグの push、`gh pr merge` の形は止めない。sandbox もこのリポジトリでは使わない（`.claude/settings.json` の `sandbox.enabled` は `false`）。
 
 | 仕組み | 中身 |
 | --- | --- |
@@ -745,7 +745,7 @@ CI は既存のものを使う。
 - ネットワークアクセス: 「カスタム」にし、既定のパッケージマネージャーのドメイン（npm、nodejs.org、Ubuntu の apt を含む）に、Playwright のブラウザの配布元 `cdn.playwright.dev` と `playwright.download.prss.microsoft.com` を足す
 - 環境変数とネットワークシークレット: 置かない（上の「Cloudflare の API トークンを置かない」）
 
-設定を変えたら、新しいセッションで `node --version`（`.node-version` の主版）、`/opt/node22/bin/node --version`（VM の既定の版。22.18 以上）、`pnpm --version`（`packageManager` の版）、`ls "${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"`（`chromium-` で始まるものがある。VM には `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers` がある）を確かめる。`node --version` だけが合わなければ、`echo "$PATH"` の先頭に `/opt/node<主版>/bin` があるか、`/opt/node<主版>/bin/node --version` が動くかを見る。合わなければ、セットアップの出力の `[cloud-setup] 警告:` の行に理由が出ている。
+設定を変えたら、新しいセッションで `node --version`（`.node-version` の主版）、`/opt/node22/bin/node --version`（VM の既定の版。22.18 以上）、`pnpm --version`（`packageManager` の版）、`ls "${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"`（`chromium-` で始まるものがある。VM には `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers` がある）を確かめる。`node --version` だけが合わなければ、`echo "$PATH"` の先頭に `/opt/node<主版>/bin` があるか、`/opt/node<主版>/bin/node --version` が動くかを見る。PATH に無いが node が動くなら、SessionStart のフック（`scripts/session-start.sh`）が書けていない。`.claude/settings.json` と `CLAUDE_ENV_FILE` を見る。`/opt/node<主版>/bin/node` が動かなければ、セットアップの出力の `[cloud-setup] 警告:` の行に理由が出ている。
 
 ## リポジトリのスキル
 
@@ -894,7 +894,7 @@ CI は既存のものを使う。
 
 人に聞けない実行（`claude -p` などの非対話の実行、CI の中）で、差分が Issue の「やらないこと」に触れた PR には、セッションが `pr/issue-update.md` で `needs-human` を足す（`done-check` が触れたことを出力に残す。CI の `label` の機械的な付与とは別の経路で、パスの規則に当たらない PR にも付く）。付けるだけで外さない。触らないと決めたものを変えた差分を、人が読まずにマージしないようにするため。対話の実行では、`done-check` が `AskUserQuestion` で人に聞いて止まるので、足さない。
 
-この仕組みが守るのは PR を通る変更だけで、GitHub の側では `main` への直接の push を止められない。自分で守る（上の「`main` を守る仕組み」）。
+この仕組みが守るのは PR を通る変更だけで、GitHub の側では `main` への直接の push を止める設定を置いていない。自分で守る（上の「`main` を守る仕組み」）。
 
 ## CI
 
