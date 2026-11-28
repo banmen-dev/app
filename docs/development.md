@@ -745,7 +745,7 @@ CI は既存のものを使う。
 - ネットワークアクセス: 「カスタム」にし、既定のパッケージマネージャーのドメイン（npm、nodejs.org、Ubuntu の apt を含む）に、Playwright のブラウザの配布元 `cdn.playwright.dev` と `playwright.download.prss.microsoft.com` を足す
 - 環境変数とネットワークシークレット: 置かない（上の「Cloudflare の API トークンを置かない」）
 
-設定を変えたら、新しいセッションで `node --version`（`.node-version` の主版）、`/opt/node22/bin/node --version`（VM の既定の版。22.18 以上）、`pnpm --version`（`packageManager` の版）、`ls "${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"`（`chromium-` で始まるものがある。VM には `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers` がある）を確かめる。`node --version` だけが合わなければ、`echo "$PATH"` の先頭に `/opt/node<主版>/bin` があるか、`/opt/node<主版>/bin/node --version` が動くかを見る。PATH に無いが node が動くなら、SessionStart のフック（`scripts/session-start.sh`）が書けていない。`.claude/settings.json` と `CLAUDE_ENV_FILE` を見る。`/opt/node<主版>/bin/node` が動かなければ、セットアップの出力の `[cloud-setup] 警告:` の行に理由が出ている。
+設定を変えたら、新しいセッションで `node --version`（`.node-version` の主版）、`/opt/node22/bin/node --version`（VM の既定の版。22.18 以上）、`pnpm --version`（`packageManager` の版）、`ls "${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"`（`chromium-` で始まるものがある。VM には `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers` がある）を確かめる。`node --version` だけが合わなければ、`echo "$PATH"` の先頭に `/opt/node<主版>/bin` があるか、`/opt/node<主版>/bin/node --version` が動くかを見る。PATH に無いが node が動くなら、SessionStart のフック（`scripts/session-start.sh`）が書けていない。`.claude/settings.json` の SessionStart の command を見て、`f=$(mktemp); CLAUDE_ENV_FILE=$f bash scripts/session-start.sh; cat $f` を手で走らせ、`export PATH=` の行が書かれるかを確かめる（`CLAUDE_ENV_FILE` はフックのプロセスだけに渡るので、確認に使う Bash では空）。`/opt/node<主版>/bin/node` が動かなければ、セットアップの出力の `[cloud-setup] 警告:` の行に理由が出ている。
 
 ## リポジトリのスキル
 
