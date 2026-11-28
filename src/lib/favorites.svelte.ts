@@ -13,6 +13,8 @@ const changedTargets = new Set([
   'task-delete',
   'task-restore',
   'task-convert',
+  'story-convert',
+  'epic-convert',
   'task-move',
   'story-update',
   'story-delete',

@@ -17,6 +17,7 @@ import {
 } from './change-log-merge.ts';
 import { categoryRow, readCategoryRef, refOf } from './definition-refs.ts';
 import { implement } from './implement.ts';
+import { notFoundOf } from './kind-conversion.ts';
 import {
   MAX_TIES,
   moveConflict,
@@ -86,7 +87,7 @@ function detailOf(row: EpicRow): EpicDetail {
 // 削除のボタンと確認のために、呼んだ人が削除できるか（作った人かリーダー。管理者を含む）、まとめて削除できるかと、配下の件数も返す
 export const epicGetOperation = implement(epicGet, async ({ db, actor, workspace, input }) => {
   const epic = await readEpic(db, workspace.workspaceId, input.epic_id);
-  if (epic === undefined) throw new ApiError(404, 'not_found');
+  if (epic === undefined) throw await notFoundOf(db, workspace.workspaceId, 'epic', input.epic_id);
   // 区分の名前。削除した区分と、引けない区分は、epic-detail と同じく無いものとする
   const category =
     epic.category_id === null || epic.category_name === null || epic.category_deleted_at !== null
