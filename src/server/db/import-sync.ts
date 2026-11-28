@@ -493,41 +493,29 @@ export function syncOutcomeStatement(
     workspaceId: string;
     credential?: string | null;
     keyVersion?: number | null;
-    // 同期が読んだ ignore_source_due_generation（期限の無視を変える保存のたびに進む）。
-    // 終わるときに今の世代と違えば、保存が置いた印を上書きせず、次の同期が全部を読むよう最後の成功と続きを空にする（値の比較では、0→1→0 の往復を見逃す）
-    ignoreSourceDueGeneration?: number;
+    // 同期が読んだ ignore_source_due_generation（下の saved の説明）
+    ignoreSourceDueGeneration: number;
   },
   outcome: SyncOutcome,
   at: string,
 ): Statement<'organization'> {
   return db.statement((q) => {
     const base = q.updateTable('connections');
-    const generation = connection.ignoreSourceDueGeneration;
-    // 読んだ後に、期限の無視を変える保存があった（世代が進んだ）。世代を渡さない呼び出しは判定しない
-    const saved =
-      generation === undefined ? null : sql<boolean>`connections.ignore_source_due_generation <> ${generation}`;
+    // 世代は必須（渡し忘れると、保存が置いた印の保護が黙って外れる）。期限の無視を変える保存のたびに世代が進む。
+    // 終わるときに今の世代と違えば、保存が置いた印を上書きせず、次の同期が全部を読むよう最後の成功と続きを空にする（値の比較では、0→1→0 の往復を見逃す）
+    const saved = sql<boolean>`connections.ignore_source_due_generation <> ${connection.ignoreSourceDueGeneration}`;
     // 状態の書き込み。値を書かない失敗でも、保存があれば保存が置いた空の状態のままにする
-    const stateOf = (written: string | undefined) =>
-      saved === null
-        ? written === undefined
-          ? {}
-          : { sync_state_json: written }
-        : {
-            sync_state_json: sql<string>`CASE WHEN ${saved} THEN '{}' ELSE ${
-              written === undefined ? sql`connections.sync_state_json` : sql`CAST(${written} AS TEXT)`
-            } END`,
-          };
+    const stateOf = (written: string | undefined) => ({
+      sync_state_json: sql<string>`CASE WHEN ${saved} THEN '{}' ELSE ${
+        written === undefined ? sql`connections.sync_state_json` : sql`CAST(${written} AS TEXT)`
+      } END`,
+    });
     // 最後の成功。保存があれば空にする。成功以外は、保存が無ければ触らない
-    const successOf = (written?: string) =>
-      saved === null
-        ? written === undefined
-          ? {}
-          : { last_success_at: written }
-        : {
-            last_success_at: sql<string | null>`CASE WHEN ${saved} THEN NULL ELSE ${
-              written === undefined ? sql`connections.last_success_at` : sql`CAST(${written} AS TEXT)`
-            } END`,
-          };
+    const successOf = (written?: string) => ({
+      last_success_at: sql<string | null>`CASE WHEN ${saved} THEN NULL ELSE ${
+        written === undefined ? sql`connections.last_success_at` : sql`CAST(${written} AS TEXT)`
+      } END`,
+    });
     const set =
       outcome.kind === 'progress'
         ? base.set({ ...stateOf(outcome.syncStateJson), ...successOf(), updated_at: at })

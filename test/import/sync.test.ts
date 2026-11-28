@@ -528,11 +528,17 @@ describe('取り込みの同期', () => {
         // 保存が世代を 1 に進め、全部を読む印（最後の成功と続きを空）を置いた後の接続に、世代 0 を読んだ同期の終わりを書く
         async function finish(outcome: SyncOutcome, readGeneration: number) {
           const { workspace, connection, db } = await setup();
+          // 世代が違う側（読んだのは 0）は、保存が置いた印（最後の成功と続きを空）が入った接続。同じ側は、前の成功と続きが入った接続
+          const saved = readGeneration !== 1;
           await db.run(
             db.statement((q) =>
               q
                 .updateTable('connections')
-                .set({ ignore_source_due_generation: 1, last_success_at: null, sync_state_json: '{}' })
+                .set({
+                  ignore_source_due_generation: 1,
+                  last_success_at: saved ? null : '2026-11-01T00:00:00.000Z',
+                  sync_state_json: saved ? '{}' : '{"version":2,"since":"old"}',
+                })
                 .where('id', '=', connection.id),
             ),
           );
@@ -550,11 +556,12 @@ describe('取り込みの同期', () => {
           const after = await finish(outcome, 0);
           expect(after).toMatchObject({ last_success_at: null, sync_state_json: '{}' });
         });
-        test.each(outcomes)('%s: 世代が同じなら、通常どおり書く', async (_name, outcome) => {
+        test.each(outcomes)('%s: 世代が同じなら、通常どおり書き、書かない分は触らない', async (_name, outcome) => {
           const after = await finish(outcome, 1);
-          if (outcome.syncStateJson === undefined) expect(after.sync_state_json).toBe('{}');
-          else expect(after.sync_state_json).toBe(state);
-          expect(after.last_success_at).toBe(outcome.kind === 'success' ? '2026-11-05T00:00:00.000Z' : null);
+          expect(after.sync_state_json).toBe(outcome.syncStateJson ?? '{"version":2,"since":"old"}');
+          expect(after.last_success_at).toBe(
+            outcome.kind === 'success' ? '2026-11-05T00:00:00.000Z' : '2026-11-01T00:00:00.000Z',
+          );
         });
       });
     });
