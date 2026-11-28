@@ -10,6 +10,16 @@
     "WRANGLER_SEND_METRICS": "false"
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/scripts/session-start.sh\"; [ -f \"$f\" ] && bash \"$f\"; exit 0"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [

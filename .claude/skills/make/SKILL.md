@@ -68,8 +68,6 @@ Claude のセッション内で進め、Codex の CLI やエージェントを�
 done-check から pr へ続ける。親のある最後のタスクでは親の受け入れ条件も引き渡し、マージ後の後片付けまで進める。
 原因不明の検査失敗、Issue の分割が必要、仕様から決められないテストの誤りは報告して止まる。
 
-## クラウドの対象検査
+## e2e
 
-PR 前は `docs/development.md` の「クラウドで PR 前に e2e を確かめる」に従い、対象と理由を指定して通常・開発・関連する繰り返しを確認する。全件は CI に任せ、必要時だけ `--all --reason …` で明示する。実行前に対象・モード・所要時間の見込みを共有し、対象検査と CI の待ちを分けて記録する。`e2e:preflight` を実行して Playwright が無いとして終了コード 3 が返ったときだけ e2e を省いて PR を作り、CI で担保する。
-
-コミットや工程の移動だけで入力が同じで、実行時HEADが現在のHEADの祖先なら e2e を再実行しない。amend・squash・rebaseなどで祖先関係が失われた場合は再実行する。実行時と同じ対象指定で `pnpm e2e:preflight --verify <result.json> [base-ref] [同じ選定オプション]` を使い、元の結果と両HEAD・入力の一致を示す照合記録を引き継ぐ。条件は `docs/agent-workflows/validation.md` と `docs/development.md` の「クラウドで PR 前に e2e を確かめる」に従う。
+e2e はローカルでもクラウドでも走らせず、CI の `e2e`、`e2e-dev`、`e2e-repeat` に任せる。変えた画面を開く e2e のテストは差分に足す。
