@@ -9,7 +9,7 @@ export type TaskConvertKind = (typeof taskConvertKinds)[number];
 
 // タスクの種類の変更を 409 の conflict で断った理由（details.reason）。
 // completed は完了している、in_sprint はスプリントに入っている、imported は取り込んだタスク、
-// has_comments は削除していないコメントがある、has_attachments は添付がある、has_field_values は決まった欄に値がある、
+// has_comments は削除していないコメントがある、has_attachments は添付がある、has_field_values は削除していない決まった欄に値がある（削除した欄の値は数えず、元の行に残り先へ運ばれない）、
 // parent_completed は置く先のエピックが完了している（ストーリーに変えるときだけ）、
 // changed は読んでから書くまでに別の要求がタスクか置く先を変えた（先に変えた要求があったことを含む）
 export const taskConvertConflictReasons = [
@@ -38,7 +38,7 @@ export function taskConvertConflictReasonOf(details: unknown): TaskConvertConfli
 export const taskConvert = defineOperation({
   name: 'task-convert',
   description:
-    'タスクをストーリーかエピックに変える（行き先に作り直し、元は削除する）。作った人とリーダー（管理者を含む）だけが変えられる。完了、スプリントに入っている、取り込んだ、コメントか添付か決まった欄の値がある、置く先のエピックが完了しているタスクは変えられない',
+    'タスクをストーリーかエピックに変える（行き先に作り直し、元は削除する）。作った人とリーダー（管理者を含む）だけが変えられる。完了、スプリントに入っている、取り込んだ、コメントか添付か削除していない決まった欄の値がある（削除した欄の値は元の行に残り先へ運ばれない）、置く先のエピックが完了しているタスクは変えられない',
   mode: 'write',
   permission: 'member',
   workspace: true,
