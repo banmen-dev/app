@@ -1,7 +1,7 @@
 // 取り込みの同期（src/server/import/sync.ts）が使う文。接続と範囲の読み取り、取り込み（1件）の書き込み、接続の状態の書き込み。
 // 組織の中の表だけを使い、共通の表とは結合しない（docs/data-model.md の「データベースの分け方」）。
 // 組織は、接続のワークスペースを workspaces.organization_id で絞って確かめる
-import { sql } from 'kysely';
+import { sql, type RawBuilder } from 'kysely';
 import { previousStatementChanged } from './previous-statement.ts';
 import type { ImportItem } from '../import/source.ts';
 import type { Statement } from './entry.ts';
@@ -319,7 +319,7 @@ export function importTaskStatements(db: OrganizationDb, task: ImportedTask, at:
             eb.val(task.containerId).as('source_container_id'),
             eb.val(task.containerName).as('source_container_name'),
             eb.val(task.status).as('source_status'),
-            eb.cast<string | null>(eb.val(task.dueOn), 'text').as('source_due_on'),
+            effectiveSourceDue(sql<string>`${task.connectionId}`, task.workspaceId, task.dueOn).as('source_due_on'),
             eb.val(task.updatedAt).as('source_updated_at'),
             eb.val(0).as('is_source_done'),
             eb.cast<string | null>(eb.val(null), 'text').as('missing_since_at'),
@@ -345,7 +345,7 @@ export function importTaskStatements(db: OrganizationDb, task: ImportedTask, at:
     : [insertTask, insertSource, reviewCycleStatement(db, task.taskId, task.workspaceId, task.reviewCycle, at)];
 }
 
-// 取り込み済みの1件に、取り込み元が持つ属性（タイトル、状態、期限、URL、完了の印）だけを書き戻す。値は呼び出し側が整えた後のもの
+// 取り込み済みの1件に、取り込み元が持つ属性（タイトル、状態、期限、URL、完了の印）だけを書き戻す。値は呼び出し側が整えた後のもの（期限だけは、書く文が持ち主の接続の ignore_source_due で空にする）
 export type ImportedUpdate = {
   workspaceId: string;
   connectionId: string;
@@ -402,7 +402,7 @@ export function updateImportedStatements(
       .set({
         source_url: update.url,
         source_status: update.status,
-        source_due_on: update.dueOn,
+        source_due_on: effectiveSourceDue(sql<string>`task_sources.connection_id`, update.workspaceId, update.dueOn),
         is_source_done: update.isDone ? 1 : 0,
         source_updated_at: update.updatedAt,
         last_seen_at: at,
@@ -420,7 +420,11 @@ export function updateImportedStatements(
           eb('task_sources.source_updated_at', '<', update.updatedAt),
           eb('task_sources.source_url', '!=', update.url),
           eb('task_sources.source_status', '!=', update.status),
-          eb('task_sources.source_due_on', 'is not', update.dueOn),
+          eb(
+            'task_sources.source_due_on',
+            'is not',
+            effectiveSourceDue(sql<string>`task_sources.connection_id`, update.workspaceId, update.dueOn),
+          ),
           eb('task_sources.is_source_done', '!=', update.isDone ? 1 : 0),
         ]),
       )
@@ -440,6 +444,14 @@ export function updateImportedStatements(
       ),
   );
   return [updateTask, updateSource];
+}
+
+// 書く期限。行の持ち主の接続の今の ignore_source_due が 1 なら、同期が読んだ値に依らず空にする（同期の途中で無視に変えられても、保存が空にした期限を書き戻さない。
+// 同じ項目を別の接続が拾っても、持ち主の接続の設定で決める。持ち主が削除済みや停止中でも、その設定を使う）。owner は行の持ち主の接続の ID の式。CAST は、束縛した null と文字列を CASE の結果の型 text にそろえるため
+function effectiveSourceDue(owner: RawBuilder<string>, workspaceId: string, dueOn: string | null) {
+  return sql<
+    string | null
+  >`CASE WHEN EXISTS (SELECT 1 FROM connections WHERE connections.id = ${owner} AND connections.workspace_id = ${workspaceId} AND connections.ignore_source_due = 1) THEN NULL ELSE CAST(${dueOn} AS TEXT) END`;
 }
 
 // 接続が今も削除されず止まっておらず、認証情報が読んだときのままで、ワークスペースが閉じておらず、登録者が今もいる、という条件
