@@ -107,6 +107,10 @@ describe('rename-line.mjs（偽の gh と pbcopy）', () => {
       assert.equal(calls[1], 'api repos/{owner}/{repo}/collaborators/alice/permission');
       assert.equal(calls[2], 'api repos/{owner}/{repo}/issues/661 --jq .title');
     });
+    test('login が大文字を含む作者も、権限があれば許可する', () => {
+      const r = run(['--issue', '661'], { GH_ISSUE_META: meta('Alice'), GH_PERMISSION: permission('Alice', 'write') });
+      assert.equal(r.stdout, '/rename #661 招待する\n');
+    });
     test('maintain と admin も許可する', () => {
       for (const level of ['maintain', 'admin']) {
         assert.equal(run(['--issue', '661'], { GH_PERMISSION: permission('alice', level) }).stdout, '/rename #661 招待する\n');
