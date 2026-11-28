@@ -1,17 +1,23 @@
 // タスクをストーリーかエピックに変える（task-convert）。docs/data-model.md の「書き込みの単位」の「種類の変更」
-import { generateKeyBetween } from 'fractional-indexing';
 import { now } from '../../shared/clock.ts';
 import {
   taskConvert,
   type TaskConvertConflictReason,
   type TaskConvertKind,
 } from '../../shared/operations/task/index.ts';
-import { previousStatementChanged, sameValue, type OrganizationDb } from '../db/index.ts';
+import { sameValue, type OrganizationDb } from '../db/index.ts';
 import { ApiError } from '../errors.ts';
 import { uuidv7 } from '../uuid.ts';
+import {
+  conversionStatements,
+  convertedToOf,
+  insertConvertedStatement,
+  notFoundOf,
+  tailPositionOf,
+} from './kind-conversion.ts';
 import { categoryRow } from './definition-refs.ts';
 import { implement } from './implement.ts';
-import { actorUserIdOf, changeLogColumns, mayDeleteOwned, openWorkspace, throwIfClosed } from './write-guards.ts';
+import { actorUserIdOf, mayDeleteOwned, openWorkspace, throwIfClosed } from './write-guards.ts';
 
 // 削除していないタスクと、親のストーリー、その親のエピック（どちらも同じワークスペースの削除していない行だけ）、変えられない理由の元になる事実を読む
 async function readSource(db: OrganizationDb, workspaceId: string, taskId: string) {
@@ -112,21 +118,7 @@ export const taskConvertOperation = implement(taskConvert, async ({ db, actor, w
   if (source === undefined) {
     await throwIfClosed(db, workspaceId);
     // 変えた後の再送は、task-detail と同じく、404 に先の種類と ID を添える（応答だけが落ちたときに先の ID を引ける）
-    const converted = await db.first(
-      db.statement((q) =>
-        q
-          .selectFrom('kind_conversions')
-          .select(['kind_conversions.to_kind', 'kind_conversions.to_id'])
-          .where('kind_conversions.workspace_id', '=', workspaceId)
-          .where('kind_conversions.from_kind', '=', 'task')
-          .where('kind_conversions.from_id', '=', taskId),
-      ),
-    );
-    throw new ApiError(
-      404,
-      'not_found',
-      converted === undefined ? undefined : { converted_to: { kind: converted.to_kind, id: converted.to_id } },
-    );
+    throw await notFoundOf(db, workspaceId, 'task', taskId);
   }
   // 作った人とリーダー（管理者を含む）だけ。権限は、変えられない理由より先に見る
   if (!mayDeleteOwned(source.created_by, actor, workspace)) throw new ApiError(403, 'forbidden');
@@ -144,33 +136,7 @@ export const taskConvertOperation = implement(taskConvert, async ({ db, actor, w
 
   const parentEpicId = kind === 'story' ? source.epic_id : null;
   // 位置は行き先の並びの末尾（作成と同じ。完了したものも並びに残っているので、含めた末尾に置く）
-  const last =
-    kind === 'story'
-      ? await db.first(
-          db.statement((q) =>
-            q
-              .selectFrom('stories')
-              .select('stories.position')
-              .where('stories.workspace_id', '=', workspaceId)
-              .where('stories.epic_id', parentEpicId === null ? 'is' : '=', parentEpicId)
-              .where('stories.deleted_at', 'is', null)
-              .orderBy('stories.position', 'desc')
-              .orderBy('stories.id', 'desc')
-              .limit(1),
-          ),
-        )
-      : await db.first(
-          db.statement((q) =>
-            q
-              .selectFrom('epics')
-              .select('epics.position')
-              .where('epics.workspace_id', '=', workspaceId)
-              .where('epics.deleted_at', 'is', null)
-              .orderBy('epics.position', 'desc')
-              .limit(1),
-          ),
-        );
-  const position = generateKeyBetween(last?.position ?? null, null);
+  const position = await tailPositionOf(db, workspaceId, kind, parentEpicId);
 
   const at = now();
   const convertedAt = at.toISOString();
@@ -190,7 +156,6 @@ export const taskConvertOperation = implement(taskConvert, async ({ db, actor, w
   if (source.link_url !== null) created.link_url = [null, source.link_url];
   if (category !== null && category !== undefined) created.category = [null, { id: category.id, name: category.name }];
   if (parentEpicId !== null) created.epic = [null, { id: parentEpicId, title: source.epic_title ?? '' }];
-  created.converted_from = [null, { id: taskId, kind: 'task', title: source.title }];
 
   const results = await db.batch([
     // 1. 元を、読んだとおりの状態のときだけ論理削除する。読んでから書くまでに、タスクか親か区分が変わったか、コメント、添付、決まった欄の値、
@@ -287,189 +252,30 @@ export const taskConvertOperation = implement(taskConvert, async ({ db, actor, w
         ),
     ),
     // 2. 先の行を作る。1 が元を削除したときだけ
-    kind === 'story'
-      ? db.statement((q) =>
-          q
-            .insertInto('stories')
-            .columns([
-              'id',
-              'workspace_id',
-              'epic_id',
-              'title',
-              'acceptance_criteria_md',
-              'body_md',
-              'due_on',
-              'link_url',
-              'category_id',
-              'created_by',
-              'position',
-              'created_at',
-              'updated_at',
-            ])
-            .expression(
-              q
-                .selectNoFrom((eb) => [
-                  eb.val(newId).as('id'),
-                  eb.val(workspaceId).as('workspace_id'),
-                  eb.val(parentEpicId).as('epic_id'),
-                  eb.val(source.title).as('title'),
-                  eb.val(null).as('acceptance_criteria_md'),
-                  eb.val(source.body_md).as('body_md'),
-                  eb.val(source.due_on).as('due_on'),
-                  eb.val(source.link_url).as('link_url'),
-                  eb.val(categoryId).as('category_id'),
-                  eb.val(createdBy).as('created_by'),
-                  eb.val(position).as('position'),
-                  eb.val(convertedAt).as('created_at'),
-                  eb.val(convertedAt).as('updated_at'),
-                ])
-                .where(previousStatementChanged),
-            ),
-        )
-      : db.statement((q) =>
-          q
-            .insertInto('epics')
-            .columns([
-              'id',
-              'workspace_id',
-              'title',
-              'body_md',
-              'due_on',
-              'link_url',
-              'category_id',
-              'requester_user_id',
-              'created_by',
-              'position',
-              'created_at',
-              'updated_at',
-            ])
-            .expression(
-              q
-                .selectNoFrom((eb) => [
-                  eb.val(newId).as('id'),
-                  eb.val(workspaceId).as('workspace_id'),
-                  eb.val(source.title).as('title'),
-                  eb.val(source.body_md).as('body_md'),
-                  eb.val(source.due_on).as('due_on'),
-                  eb.val(source.link_url).as('link_url'),
-                  eb.val(categoryId).as('category_id'),
-                  eb.val(createdBy).as('requester_user_id'),
-                  eb.val(createdBy).as('created_by'),
-                  eb.val(position).as('position'),
-                  eb.val(convertedAt).as('created_at'),
-                  eb.val(convertedAt).as('updated_at'),
-                ])
-                .where(previousStatementChanged),
-            ),
-        ),
-    // 3. 元と先の対応を1行書く。2 が先の行を作ったときだけ。同時に2回変えても、(workspace_id, from_kind, from_id) の一意で1行になる
-    db.statement((q) =>
-      q
-        .insertInto('kind_conversions')
-        .columns(['id', 'workspace_id', 'from_kind', 'from_id', 'to_kind', 'to_id', 'converted_by', 'converted_at'])
-        .expression(
-          q
-            .selectNoFrom((eb) => [
-              eb.val(uuidv7(at)).as('id'),
-              eb.val(workspaceId).as('workspace_id'),
-              eb.val('task').as('from_kind'),
-              eb.val(taskId).as('from_id'),
-              eb.val(kind).as('to_kind'),
-              eb.val(newId).as('to_id'),
-              eb.val(actorUserId).as('converted_by'),
-              eb.val(convertedAt).as('converted_at'),
-            ])
-            .where(previousStatementChanged),
-        ),
-    ),
-    // 4. お気に入りを先へ付け替える。対応が書けたとき（先の行が元から引ける）だけ
-    db.statement((q) =>
-      q
-        .updateTable('favorites')
-        .set(kind === 'story' ? { task_id: null, story_id: newId } : { task_id: null, epic_id: newId })
-        .where('favorites.task_id', '=', taskId)
-        .where('favorites.workspace_id', '=', workspaceId)
-        .where((eb) =>
-          eb.exists(
-            eb
-              .selectFrom('kind_conversions')
-              .select('kind_conversions.id')
-              .where('kind_conversions.workspace_id', '=', workspaceId)
-              .where('kind_conversions.from_kind', '=', 'task')
-              .where('kind_conversions.from_id', '=', taskId)
-              .where('kind_conversions.to_id', '=', newId),
-          ),
-        ),
-    ),
-    // 5. 元の履歴（delete。先の種類と ID を添える）。対応が書けたときだけ
-    db.statement((q) =>
-      q
-        .insertInto('change_logs')
-        .columns(changeLogColumns)
-        .expression(
-          q
-            .selectNoFrom((eb) => [
-              eb.val(uuidv7(at)).as('id'),
-              eb.val(organizationId).as('organization_id'),
-              eb.val(workspaceId).as('workspace_id'),
-              eb.val(actorUserId).as('actor_user_id'),
-              eb.val('task').as('entity_type'),
-              eb.val(taskId).as('entity_id'),
-              eb.val('delete').as('action'),
-              eb
-                .val(
-                  JSON.stringify({
-                    deleted_at: [null, convertedAt],
-                    converted_to: [null, { id: newId, kind, title: source.title }],
-                  }),
-                )
-                .as('changes_json'),
-              eb.val(convertedAt).as('created_at'),
-            ])
-            .where((eb) =>
-              eb.exists(
-                eb
-                  .selectFrom('kind_conversions')
-                  .select('kind_conversions.id')
-                  .where('kind_conversions.workspace_id', '=', workspaceId)
-                  .where('kind_conversions.from_kind', '=', 'task')
-                  .where('kind_conversions.from_id', '=', taskId)
-                  .where('kind_conversions.to_id', '=', newId),
-              ),
-            ),
-        ),
-    ),
-    // 6. 先の履歴（create。元の種類と ID を添える）。対応が書けたときだけ
-    db.statement((q) =>
-      q
-        .insertInto('change_logs')
-        .columns(changeLogColumns)
-        .expression(
-          q
-            .selectNoFrom((eb) => [
-              eb.val(uuidv7(at)).as('id'),
-              eb.val(organizationId).as('organization_id'),
-              eb.val(workspaceId).as('workspace_id'),
-              eb.val(actorUserId).as('actor_user_id'),
-              eb.val(kind).as('entity_type'),
-              eb.val(newId).as('entity_id'),
-              eb.val('create').as('action'),
-              eb.val(JSON.stringify(created)).as('changes_json'),
-              eb.val(convertedAt).as('created_at'),
-            ])
-            .where((eb) =>
-              eb.exists(
-                eb
-                  .selectFrom('kind_conversions')
-                  .select('kind_conversions.id')
-                  .where('kind_conversions.workspace_id', '=', workspaceId)
-                  .where('kind_conversions.from_kind', '=', 'task')
-                  .where('kind_conversions.from_id', '=', taskId)
-                  .where('kind_conversions.to_id', '=', newId),
-              ),
-            ),
-        ),
-    ),
+    insertConvertedStatement(db, kind, {
+      id: newId,
+      workspaceId,
+      title: source.title,
+      bodyMd: source.body_md,
+      dueOn: source.due_on,
+      linkUrl: source.link_url,
+      categoryId,
+      createdBy,
+      position,
+      convertedAt,
+      epicId: parentEpicId,
+    }),
+    // 3〜6. 元と先の対応、お気に入りの付け替え、元の履歴（delete）、先の履歴（create）。先の行が書けたときだけ
+    ...conversionStatements(db, {
+      organizationId,
+      workspaceId,
+      actorUserId,
+      at,
+      convertedAt,
+      from: { kind: 'task', id: taskId, title: source.title },
+      to: { kind, id: newId },
+      created,
+    }),
   ]);
 
   if ((results[0]?.changes ?? 0) > 0) return { task_id: taskId, kind, id: newId };
@@ -479,16 +285,7 @@ export const taskConvertOperation = implement(taskConvert, async ({ db, actor, w
   const current = await readSource(db, workspaceId, taskId);
   if (current === undefined) {
     // 先に変えた（か削除した）要求がある。変えたものなら、対応が残っているので 409（先は1つだけできている）。無ければ 404
-    const converted = await db.first(
-      db.statement((q) =>
-        q
-          .selectFrom('kind_conversions')
-          .select(['kind_conversions.to_kind', 'kind_conversions.to_id'])
-          .where('kind_conversions.workspace_id', '=', workspaceId)
-          .where('kind_conversions.from_kind', '=', 'task')
-          .where('kind_conversions.from_id', '=', taskId),
-      ),
-    );
+    const converted = await convertedToOf(db, workspaceId, 'task', taskId);
     if (converted === undefined) throw new ApiError(404, 'not_found');
     throw new ApiError(409, 'conflict', {
       reason: 'changed' satisfies TaskConvertConflictReason,

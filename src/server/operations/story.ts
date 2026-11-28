@@ -32,6 +32,7 @@ import {
 } from './change-log-merge.ts';
 import { categoryConflict, categoryRow, readCategoryRef, refOf } from './definition-refs.ts';
 import { implement } from './implement.ts';
+import { notFoundOf } from './kind-conversion.ts';
 import {
   MAX_TIES,
   moveConflict,
@@ -121,7 +122,7 @@ function detailOf(row: StoryRow): StoryDetail {
 // 削除のボタンと確認のために、呼んだ人が削除できるか（作った人かリーダー。管理者を含む）、まとめて削除できるかと、配下の件数も返す
 export const storyGetOperation = implement(storyGet, async ({ db, actor, workspace, input }) => {
   const story = await readStory(db, workspace.workspaceId, input.story_id);
-  if (story === undefined) throw new ApiError(404, 'not_found');
+  if (story === undefined) throw await notFoundOf(db, workspace.workspaceId, 'story', input.story_id);
   // 完了の状態。配下の未完了のタスクは、完了にできるかの判定（story-complete）と同じく、削除していないバックログのタスクを数える
   const open = await db.first(
     db.statement((q) =>

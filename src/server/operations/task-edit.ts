@@ -26,6 +26,7 @@ import {
 } from './definition-refs.ts';
 import { taskAssignmentStatements } from './task-assignment.ts';
 import { implement } from './implement.ts';
+import { notFoundOf } from './kind-conversion.ts';
 import { sprintRefColumns, sprintRefOf } from './sprint-refs.ts';
 import { readTaskFields } from './task-field.ts';
 import { reopenBlockOf } from './task-reopen.ts';
@@ -218,22 +219,8 @@ function detailOf(
 export const taskDetailOperation = implement(taskDetail, async ({ db, actor, workspace, input }) => {
   const task = await readTask(db, workspace.workspaceId, input.task_id);
   if (task === undefined) {
-    // 種類を変えたタスク（task-convert）は 404 のまま、先の種類と ID を添える（元の URL から先へ案内するため）。同じワークスペースの対応だけを読む
-    const converted = await db.first(
-      db.statement((q) =>
-        q
-          .selectFrom('kind_conversions')
-          .select(['kind_conversions.to_kind', 'kind_conversions.to_id'])
-          .where('kind_conversions.workspace_id', '=', workspace.workspaceId)
-          .where('kind_conversions.from_kind', '=', 'task')
-          .where('kind_conversions.from_id', '=', input.task_id),
-      ),
-    );
-    throw new ApiError(
-      404,
-      'not_found',
-      converted === undefined ? undefined : { converted_to: { kind: converted.to_kind, id: converted.to_id } },
-    );
+    // 種類を変えたタスク（task-convert）は 404 のまま、先の種類と ID を添える（元の URL から先へ案内するため）
+    throw await notFoundOf(db, workspace.workspaceId, 'task', input.task_id);
   }
   // 期日の印を決める、ワークスペースのタイムゾーンでの今日と週の始まり（backlog-tree と同じ。ブラウザの時計に頼らない）。組織とワークスペースで絞る
   const settings = await db.first(

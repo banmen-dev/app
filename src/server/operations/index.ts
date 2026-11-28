@@ -151,6 +151,8 @@ import { epicDeleteOperation, storyDeleteOperation } from './tree-delete.ts';
 import { backlogTreeOperation, taskCompleteOperation, taskCreateOperation, taskMoveOperation } from './task.ts';
 import { taskReopenOperation } from './task-reopen.ts';
 import { taskConvertOperation } from './task-convert.ts';
+import { storyConvertOperation } from './story-convert.ts';
+import { epicConvertOperation } from './epic-convert.ts';
 import { taskRestoreOperation } from './task-restore.ts';
 import {
   memberListOperation,
@@ -283,6 +285,8 @@ const listedOperations: readonly ImplementedOperation[] = [
   taskDeleteOperation,
   taskRestoreOperation,
   taskConvertOperation,
+  storyConvertOperation,
+  epicConvertOperation,
   taskMoveOperation,
   taskHistoryOperation,
   commentListOperation,
