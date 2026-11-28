@@ -2,6 +2,18 @@
 
 const MAX_LENGTH = 80;
 
+// 作者を許可できない Issue の題の代わりに出す決まった言葉
+export const OUTSIDER_TITLE = '外の人の Issue';
+
+// Issue の作者を許可するか。writers は、書き込み権限を API で確かめた User の login（小文字）の集合。
+// 許可するのは、確かめた User と、login と type の両方が一致した github-actions[bot] だけ。
+// 番号が PR のもの、欄が欠けたもの、ほかの bot は許可しない
+export function isAllowedAuthor({ author, type, pr, writers }) {
+  if (pr !== false || typeof author !== 'string') return false;
+  if (type === 'Bot') return author === 'github-actions[bot]';
+  return type === 'User' && writers instanceof Set && writers.has(author.toLowerCase());
+}
+
 // ブランチ名 `<Issue番号>-<短い名前>` の Issue 番号。クラウドの `claude/*` や main は番号なし。
 // 0 始まりや桁あふれの数字は、Issue の番号とみなさない
 export function issueNumberOf(branch) {
