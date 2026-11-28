@@ -86,17 +86,50 @@ describe('session-start.sh', () => {
   });
 
   test('.node-version が無い、主版でない値のときも何も書かず 0 で終わる', () => {
-    for (const nodeVersion of [undefined, 'lts/*', '../x']) {
+    for (const nodeVersion of [undefined, 'lts/*', '../x', '26"; touch pwned; "']) {
       const f = fixture({ nodeVersion, fakeNode: { major: '26', prints: 'v26.13.1' } });
       assert.equal(run(f).status, 0);
       assert.equal(existsSync(f.envFile), false);
     }
   });
 
-  test('.claude/settings.json の SessionStart が、このスクリプトを呼ぶ', () => {
+  test('既存の最終行が改行で終わっていなくても、行を連結しない', () => {
+    const f = fixture({ nodeVersion: '26', fakeNode: { major: '26', prints: 'v26.13.1' } });
+    writeFileSync(f.envFile, 'export FOO=bar');
+    run(f);
+    assert.equal(readFileSync(f.envFile, 'utf8'), `export FOO=bar\nexport PATH="${f.root}/node26/bin:$PATH"\n`);
+  });
+
+  test('書き込めない CLAUDE_ENV_FILE でも 0 で終わり、何も出さない', () => {
+    const f = fixture({ nodeVersion: '26', fakeNode: { major: '26', prints: 'v26.13.1' } });
+    const r = run({ ...f, envFile: join(f.root, 'no', 'such', 'env') });
+    assert.equal(r.status, 0);
+    assert.equal(r.stderr, '');
+  });
+
+  // settings.json の command そのものを sh -c で走らせる（綴りやクォートの誤りも落とす）
+  test('.claude/settings.json の SessionStart の command が、実際に PATH の行を書く', () => {
     const commands = (settings.hooks.SessionStart ?? []).flatMap((e) => e.hooks.map((h) => h.command));
     const command = commands.find((c) => c.includes('session-start.sh'));
     assert.ok(command, 'SessionStart に session-start.sh のフックが無い');
-    assert.match(command, /exit 0\s*$/, '失敗してもセッションを止めない（exit 0 で終える）');
+    const f = fixture({ fakeNode: { major: '26', prints: 'v26.13.1' } });
+    const repoRoot = fileURLToPath(new URL('../', import.meta.url));
+    const r = spawnSync('sh', ['-c', command], {
+      env: {
+        PATH: process.env.PATH ?? '',
+        CLAUDE_PROJECT_DIR: repoRoot,
+        CLAUDE_ENV_FILE: f.envFile,
+        BANMEN_NODE_ROOT: f.root,
+      },
+      encoding: 'utf8',
+    });
+    assert.equal(r.status, 0);
+    assert.equal(readFileSync(f.envFile, 'utf8'), `export PATH="${f.root}/node26/bin:$PATH"\n`);
+    // スクリプトが無いときも 0
+    const none = spawnSync('sh', ['-c', command], {
+      env: { PATH: process.env.PATH ?? '', CLAUDE_PROJECT_DIR: f.root },
+      encoding: 'utf8',
+    });
+    assert.equal(none.status, 0);
   });
 });

@@ -17,10 +17,16 @@ major="${version%%.*}"
 [[ "$major" =~ ^[0-9]+$ ]] || exit 0
 
 bin="${root}/node${major}/bin"
-got=$("${bin}/node" --version 2>/dev/null) || exit 0
+got=$(timeout 5 "${bin}/node" --version 2>/dev/null) || exit 0
 [[ "$got" == "v${major}."* ]] || exit 0
 
 # 同じ行を二重に書かない（再開や clear でもう一度走る）
 line="export PATH=\"${bin}:\$PATH\""
-grep -qxF -- "$line" "$CLAUDE_ENV_FILE" 2>/dev/null || printf '%s\n' "$line" >> "$CLAUDE_ENV_FILE" 2>/dev/null
+# 既存の最終行が改行で終わっていなければ、先に改行を足す（ほかのフックが書いた行に連結しない）
+if ! grep -qxF -- "$line" "$CLAUDE_ENV_FILE" 2>/dev/null; then
+  {
+    if [ -s "$CLAUDE_ENV_FILE" ] && [ -n "$(tail -c 1 "$CLAUDE_ENV_FILE")" ]; then printf '\n'; fi
+    printf '%s\n' "$line"
+  } 2>/dev/null >> "$CLAUDE_ENV_FILE"
+fi
 exit 0
