@@ -163,6 +163,7 @@ describe('task-convert', () => {
       created_by: target.member.userId,
       requester_user_id: target.member.userId,
       deleted_at: null,
+      reward_tier: null,
     });
     expect(epic.position > 'a5').toBe(true);
     expect((await conversionsOf(target))[0]).toMatchObject({ to_kind: 'epic', to_id: id });
