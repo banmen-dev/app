@@ -440,7 +440,7 @@ describe('story-convert', () => {
       acceptance_criteria_md: '😀'.repeat(100),
     });
     expect((await convertStory(target, ok.id, 'task')).status).toBe(200);
-    // 写した後は 10,013 コードポイント。上限を超えるので断る（見出しの 13 字も数える）
+    // 写した後は 10,013 コードポイント。上限を超えるので断る（見出しの 13 字も数える）。数え方の違いは見分けない（どちらでも超える）。区別するのは上の ok の側
     const over = await createStory(target.organization, ws, target.member.userId!, {
       body_md: '😀'.repeat(9_000),
       acceptance_criteria_md: '😀'.repeat(1_000),
@@ -448,6 +448,12 @@ describe('story-convert', () => {
     const res = await convertStory(target, over.id, 'task');
     expect(res.status).toBe(409);
     expect(await reasonOf(res)).toBe('too_long');
+    // 写した後がちょうど 10,001 コードポイントなら断る（上限の 1 字上）
+    const edge = await createStory(target.organization, ws, target.member.userId!, {
+      body_md: 'あ'.repeat(9_888),
+      acceptance_criteria_md: 'い'.repeat(100),
+    });
+    expect(await reasonOf(await convertStory(target, edge.id, 'task'))).toBe('too_long');
     // 写す前は上限以下で、見出しを足すと超える
     const heading = await createStory(target.organization, ws, target.member.userId!, {
       body_md: 'あ'.repeat(9_900),
