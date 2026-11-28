@@ -59,6 +59,7 @@ describe('session-start.sh', () => {
     const f = fixture({ nodeVersion: '26\n', fakeNode: { major: '26', prints: 'v26.13.1' } });
     const r = run(f);
     assert.equal(r.status, 0);
+    assert.equal(r.stdout, '');
     assert.equal(readFileSync(f.envFile, 'utf8'), `export PATH="${f.root}/node26/bin:$PATH"\n`);
   });
 
@@ -88,9 +89,12 @@ describe('session-start.sh', () => {
     assert.equal(existsSync(f.envFile), false);
   });
 
-  test('CLAUDE_ENV_FILE が無ければ何も書かず 0 で終わる', () => {
+  test('CLAUDE_ENV_FILE が無ければ何も書かず、何も出さず、0 で終わる', () => {
     const f = fixture({ nodeVersion: '26', fakeNode: { major: '26', prints: 'v26.13.1' } });
-    assert.equal(run(f, false).status, 0);
+    const r = run(f, false);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, '');
+    assert.equal(r.stderr, '');
     assert.equal(existsSync(f.envFile), false);
   });
 
@@ -128,19 +132,19 @@ describe('session-start.sh', () => {
     assert.match(readFileSync(f.envFile, 'utf8'), /node26\/bin/);
   });
 
-  test('主版が前方一致するだけの版（v260.）や、値と同名のディレクトリは通さない', () => {
-    const a = fixture({ nodeVersion: '26', fakeNode: { major: '26', prints: 'v260.1.0' } });
-    run(a);
-    assert.equal(existsSync(a.envFile), false);
-    const b = fixture({ nodeVersion: '2x', fakeNode: { major: '2x', prints: 'v2x.1.0' } });
-    run(b);
-    assert.equal(existsSync(b.envFile), false);
+  test('主版が前方一致するだけの版（v260.）は通さない', () => {
+    const f = fixture({ nodeVersion: '26', fakeNode: { major: '26', prints: 'v260.1.0' } });
+    run(f);
+    assert.equal(existsSync(f.envFile), false);
   });
 
-  test('CLAUDE_ENV_FILE が無いとき、何も出さない', () => {
-    const f = fixture({ nodeVersion: '26', fakeNode: { major: '26', prints: 'v26.13.1' } });
-    const r = run(f, false);
-    assert.equal(r.stderr, '');
+  // 数字の検査を消すと、値と同名のディレクトリの node が選ばれてしまう（偽の node を置いて、検査が拒むことを確かめる）
+  test('数字だけでない主版は、同名のディレクトリに動く node があっても通さない', () => {
+    for (const value of ['2x', '../x']) {
+      const f = fixture({ nodeVersion: value, fakeNode: { major: value, prints: `v${value}.1.0` } });
+      assert.equal(run(f).status, 0);
+      assert.equal(existsSync(f.envFile), false, value);
+    }
   });
 
   test('同じ行がコメントとしてあるだけなら、PATH の行を足す', () => {
