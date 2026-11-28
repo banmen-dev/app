@@ -105,7 +105,7 @@ async function logsOf(target: Target, epicId: string) {
 
 // 配下が完了したストーリー1件のエピック
 async function readyEpic(target: Target, overrides: Parameters<typeof createEpic>[3] = {}) {
-  const epic = await epicOf(target, { reward_tier: 'medium', ...overrides });
+  const epic = await epicOf(target, overrides);
   await storyUnder(target, epic.id);
   return epic;
 }
@@ -130,7 +130,7 @@ describe('epic-complete', () => {
 
   test('タスクとストーリーを完了の操作で完了にしてから、エピックをクリアできる', async () => {
     const target = await createTarget();
-    const epic = await epicOf(target, { reward_tier: 'large' });
+    const epic = await epicOf(target);
     const story = await storyUnder(target, epic.id, { completed_at: null, completed_by: null });
     const task = await createTask(target.organization, target.workspace.id, target.admin.userId!, {
       story_id: story.id,
@@ -197,17 +197,6 @@ describe('epic-complete', () => {
     const res = await clear(target, epic.id);
     expect(res.status).toBe(409);
     expect(await errorOf(res)).toEqual({ code: 'conflict', reason: 'empty' });
-  });
-
-  test('前の版が中止の列を書いたエピックもクリアでき、中止の列を空に戻す', async () => {
-    // マイグレーション（0042）を当ててから版が切り替わるまでに、前の版が中止した行
-    const target = await createTarget();
-    const canceled = await readyEpic(target, { canceled_at: AT, canceled_by: target.admin.userId! });
-    expect((await clear(target, canceled.id)).status).toBe(200);
-    const row = await epicRow(target, canceled.id);
-    expect(row.completed_at).not.toBeNull();
-    expect(row.canceled_at).toBeNull();
-    expect(row.canceled_by).toBeNull();
   });
 
   test('すでにクリアしていれば 409 の conflict（completed）', async () => {

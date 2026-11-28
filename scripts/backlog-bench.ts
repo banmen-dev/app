@@ -68,10 +68,10 @@ INSERT INTO categories (id, workspace_id, name, is_billed_monthly, position, cre
 INSERT INTO repositories (id, workspace_id, name, position, created_at, updated_at) VALUES
   ('${id(prefix, 1, 'r')}', '${ws}', 'shop-api', 'a0', '${AT}', '${AT}'),
   ('${id(prefix, 2, 'r')}', '${ws}', 'shop-web', 'a1', '${AT}', '${AT}');
-INSERT INTO epics (id, workspace_id, title, category_id, reward_tier, requester_user_id, created_by, position, created_at, updated_at)
+INSERT INTO epics (id, workspace_id, title, category_id, requester_user_id, created_by, position, created_at, updated_at)
   WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 50)
   SELECT ${sqlId(prefix, 'e', 'i')}, '${ws}', '大きな目標 ' || i,
-    CASE WHEN i % 2 = 0 THEN '${id(prefix, 1, 'c')}' END, 'small', '${ADMIN_USER_ID}', '${ADMIN_USER_ID}',
+    CASE WHEN i % 2 = 0 THEN '${id(prefix, 1, 'c')}' END, '${ADMIN_USER_ID}', '${ADMIN_USER_ID}',
     printf('a0%04dV', i), '${AT}', '${AT}' FROM n;
 INSERT INTO stories (id, workspace_id, epic_id, title, category_id, created_by, position, created_at, updated_at)
   WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 1000)

@@ -390,7 +390,7 @@ export async function createEpic(
     category_id: null,
     due_on: null,
     link_url: null,
-    reward_tier: 'small',
+    reward_tier: null,
     requester_user_id: createdBy,
     created_by: createdBy,
     completed_at: null,

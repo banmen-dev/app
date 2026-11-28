@@ -4,6 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
 import { fillSeedDates } from './seed-dates.ts';
+import { withEpicRewardTier } from './legacy-seed.ts';
 
 const migrations = new URL('../migrations/', import.meta.url);
 const migrationFiles = readdirSync(migrations)
@@ -18,7 +19,9 @@ function oldDatabase() {
     db.exec(readFileSync(new URL(file, migrations), 'utf8'));
   }
   // 0033の請求管理者、0038の依頼回、0039のプランを使う契約を除き、旧スキーマへ入れる。
-  const seed = fillSeedDates(readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8'), new Date());
+  const seed = withEpicRewardTier(
+    fillSeedDates(readFileSync(new URL('../seed/data.sql', import.meta.url), 'utf8'), new Date()),
+  );
   const legacySeed = seed
     .replace(/^UPDATE task_sources SET review_cycle = .*;$/gm, '')
     .replace(/^INSERT INTO review_request_cycles\b[^;]*;/gm, '')
