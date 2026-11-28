@@ -58,7 +58,7 @@ try {
   }
   if (prNumber !== undefined) pr = { number: prNumber, title: issueNumber === undefined ? gh('api', `repos/{owner}/{repo}/pulls/${prNumber}`, '--jq', '.title') : '' };
 } catch {
-  fail('gh で Issue か PR の題を引けませんでした');
+  fail('gh で Issue の作者か題、または PR の題を引けませんでした');
 }
 
 const name = titleFor({ issueNumber, issueTitle, pr });

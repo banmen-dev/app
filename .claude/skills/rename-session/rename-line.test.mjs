@@ -185,13 +185,13 @@ describe('rename-line.mjs（偽の gh と pbcopy）', () => {
       const r = run(['--issue', '661'], { GH_FAIL: '1' });
       assert.equal(r.status, 1);
       assert.equal(r.stdout, '');
-      assert.ok(r.stderr.includes('gh で Issue か PR の題を引けませんでした'));
+      assert.ok(r.stderr.includes('gh で Issue の作者か題、または PR の題を引けませんでした'));
     });
     test('PR のタイトルを引けなければ失敗し、何も出さない', () => {
       const r = run(['--pr', '663'], { GH_FAIL: '1' });
       assert.equal(r.status, 1);
       assert.equal(r.stdout, '');
-      assert.ok(r.stderr.includes('gh で Issue か PR の題を引けませんでした'));
+      assert.ok(r.stderr.includes('gh で Issue の作者か題、または PR の題を引けませんでした'));
     });
     test('題が書式の文字だけで空になるときは、名前を組み立てられないと失敗する', () => {
       const r = run(['--issue', '661'], { GH_ISSUE_TITLE: ZWSP });

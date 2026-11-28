@@ -293,7 +293,7 @@ gh api repos/{owner}/{repo}/issues/<n>/assignees -f "assignees[]=<user>"
 
 ## Step 5-D: セッション名に Issue と PR の番号を入れる
 
-どちらのモードでも、PR の番号が分かったら、`rename-session` に Issue の番号（無ければ無し）と PR の番号を渡して、セッション名を「PR の後」の形 `#<Issue の番号> PR #<PR の番号> <Issue の題>` にする。紐づく Issue が無ければ `PR #<PR の番号> <PR のタイトル>` になる。許可しない作者の Issue は題を引かず、題の代わりに「外の人の Issue」が入る（`rename-line.mjs` が作者を確かめる）。形は `docs/development.md` の「並行して作業するときの決まり」のセッション名に従う（`make` が付けた名前に PR の番号を足す形）。
+どちらのモードでも、PR の番号が分かったら、`rename-session` に Issue の番号（無ければ無し）と PR の番号を渡して、セッション名を「PR の後」の形 `#<Issue の番号> PR #<PR の番号> <Issue の題>` にする。紐づく Issue が無ければ `PR #<PR の番号> <PR のタイトル>` になる。許可しない作者の Issue は題を引かず、題の代わりに「外の人の Issue」が入る（`rename-line.mjs` が作者を確かめる）。ただし、Step 1 の外の人の Issue の節で「Issue なし」と決めたときは、Issue の番号を渡さず、`PR #<PR の番号> <PR のタイトル>` にする。形は `docs/development.md` の「並行して作業するときの決まり」のセッション名に従う（`make` が付けた名前に PR の番号を足す形）。
 
 ## Step 6: インラインコメントを投稿する
 
