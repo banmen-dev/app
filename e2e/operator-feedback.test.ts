@@ -99,12 +99,15 @@ test.describe('運用者', () => {
     const link = main.getByRole('link', { name: /画像 1 をダウンロード/ });
     await expect(link).toHaveAttribute('href', imagePath(IMAGE_ID));
     await expect(link).toHaveAttribute('download', '');
-    // ダウンロードのボタンは画像の下に置く
+    // ダウンロードのボタンは画像の下に置き、枠は画像が小さくても figure の幅いっぱいに広げる
     const imageBox = await main.locator('figure .preview').boundingBox();
+    const figureBox = await main.locator('figure').boundingBox();
     const linkBox = await link.boundingBox();
     expect(imageBox).not.toBeNull();
+    expect(figureBox).not.toBeNull();
     expect(linkBox).not.toBeNull();
     expect(linkBox!.y).toBeGreaterThanOrEqual(imageBox!.y + imageBox!.height);
+    expect(Math.round(imageBox!.width)).toBe(Math.round(figureBox!.width));
   });
 
   test('画像を送られた順に描き、読み込めなかった画像の場所だけに読み込めなかった旨を出す', async ({ page }) => {
