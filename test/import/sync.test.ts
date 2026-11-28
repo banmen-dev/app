@@ -528,16 +528,16 @@ describe('取り込みの同期', () => {
         // 保存が世代を 1 に進め、全部を読む印（最後の成功と続きを空）を置いた後の接続に、世代 0 を読んだ同期の終わりを書く
         async function finish(outcome: SyncOutcome, readGeneration: number) {
           const { workspace, connection, db } = await setup();
-          // 世代が違う側（読んだのは 0）は、保存が置いた印（最後の成功と続きを空）が入った接続。同じ側は、前の成功と続きが入った接続
-          const saved = readGeneration !== 1;
+          // どちらも前の成功と続きが入った接続。世代が違う側（読んだのは 0）は、保存が世代だけ進めた状態（0→1 の保存は 2 列を空にしない）で、
+          // 空になることを確かめられるよう非空にしておく
           await db.run(
             db.statement((q) =>
               q
                 .updateTable('connections')
                 .set({
                   ignore_source_due_generation: 1,
-                  last_success_at: saved ? null : '2026-11-01T00:00:00.000Z',
-                  sync_state_json: saved ? '{}' : '{"version":2,"since":"old"}',
+                  last_success_at: '2026-11-01T00:00:00.000Z',
+                  sync_state_json: '{"version":2,"since":"old"}',
                 })
                 .where('id', '=', connection.id),
             ),
