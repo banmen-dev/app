@@ -4,7 +4,7 @@
 -- 元と先は種類ごとに違う表の行を指すので、外部キーにしない（from_id、to_id は、tasks、stories、epics のどれかの ID）。
 -- 元は1度しか変えられないので、(workspace_id, from_kind, from_id) を一意にする。同時に2回変えても、2つ目の行は入らない。
 -- この一意の索引は、workspaces への外部キーの検査と、元から先を引く読み出しも兼ねる。converted_by も users を指すので索引を足す。
--- to_id の索引は、先から元を引く読み出し（次のタスクで足す、ストーリーとエピックの種類の変更）に使う。
+-- 先から元を引く索引（workspace_id、to_kind、to_id）は、ワークスペースで絞る読み出し（次のタスクで足す、ストーリーとエピックの種類の変更）に使う。
 
 CREATE TABLE kind_conversions (
   id TEXT NOT NULL PRIMARY KEY,
@@ -19,5 +19,5 @@ CREATE TABLE kind_conversions (
 );
 
 CREATE UNIQUE INDEX kind_conversions_from ON kind_conversions (workspace_id, from_kind, from_id);
-CREATE INDEX kind_conversions_to ON kind_conversions (to_kind, to_id);
+CREATE INDEX kind_conversions_to ON kind_conversions (workspace_id, to_kind, to_id);
 CREATE INDEX kind_conversions_converted_by ON kind_conversions (converted_by);

@@ -1363,7 +1363,7 @@
 
 - 作ったのは `migrations/0049_add_kind_conversions.sql`（#1647）。組織の中の表で、ほかのワークスペースの中の表と同じく `workspace_id` を持ち、読む文も書く文もワークスペースで絞る。組織を消すときは `workspace_id` で消す（`scripts/purge-organization-sql.ts`）。
 - 一意: `(workspace_id, from_kind, from_id)`。1つの元が変えられるのは1度だけで、同時に2回変えても、2つ目の行は入らない（行き先も1つだけできる。書き込みの単位は下の「種類の変更」）。この索引が `workspace_id` への外部キーの検査も兼ねる。
-- 索引: `(to_kind, to_id)`（先から元を引く。次のタスクで足す、ストーリーとエピックの種類の変更が使う）、`(converted_by)`（外部キーの検査）。
+- 索引: `(workspace_id, to_kind, to_id)`（先から元を引く。読む文はワークスペースでも絞る。次のタスクで足す、ストーリーとエピックの種類の変更が使う）、`(converted_by)`（外部キーの検査）。
 - 広げる変更（表を足す）。前の版のコードはこの表を読み書きしない。コードだけを前の版に戻すと、前の版の `task-restore` は種類を変えたタスクを戻せてしまう（元と先で二重になる）。`task-convert` を含む版を本番に出した後は、戻すときにこの点を人が確かめる（`docs/operations.md` の「戻し方」）。
 - 読む使い道は2つ。`task-restore` が、元として残っているタスクを 409（`converted`）で断る。`task-detail` が、削除済みの元のタスクの 404 に、先の種類と ID（`details.converted_to`）を添える。
 

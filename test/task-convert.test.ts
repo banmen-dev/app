@@ -445,6 +445,15 @@ describe('task-convert', () => {
       converted_to: { kind: 'epic', id },
     });
 
+    // 別のワークスペースの人が、自分のワークスペースの ID で引いても、先の種類と ID は載らない
+    const other = await post(app, taskDetail, {
+      slug: target.slug,
+      token: target.bystander.token,
+      body: { workspace_id: target.otherWorkspace.id, task_id: task.id },
+    });
+    expect(other.status).toBe(404);
+    expect(((await other.json()) as { error: { details?: unknown } }).error.details).toBeUndefined();
+
     const deleted = await createTask(target.organization, ws, target.member.userId!, {
       deleted_at: '2026-11-02T00:00:00.000Z',
     });
