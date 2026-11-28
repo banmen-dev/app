@@ -210,14 +210,14 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
    | --- | --- |
    | GitHub App name | Banmen Feedback |
    | Homepage URL | `https://banmen.ucan-lab.workers.dev` |
-   | Callback URL、Setup URL | 空 |
+   | 「Identifying and authorizing users」の redirect URI（「Add redirect URI」で足す欄）、「Post installation」の Setup URL | 空（redirect URI は足さない） |
    | Webhook | Active を外す（受けない） |
    | Repository permissions | Issues: Read and write だけ。Metadata: Read-only は GitHub が必ず付ける。ほかは No access |
    | Organization permissions、Account permissions | すべて No access |
    | Where can this GitHub App be installed? | Only on this account |
 
 3. 作った App の「App ID」を控える（Client ID ではない）
-4. 同じ画面の Private keys →「Generate a private key」で鍵（`.pem`）を落とす。クラウドに同期されない場所に置く。GitHub が出す鍵は PKCS#1（`-----BEGIN RSA PRIVATE KEY-----`）で、Workers の Web Crypto は読めないので、次の手順 6 で PKCS#8 に直しながら入れる。直した鍵をファイルに書かない
+4. App の設定の左のメニュー「Credentials」→「Key pairs」のタブ →「New key」で鍵（`.pem`）を落とす（URL は `https://github.com/organizations/banmen-dev/settings/apps/<App のスラッグ>/key_pairs`）。クラウドに同期されない場所に置く。GitHub が出す鍵は PKCS#1（`-----BEGIN RSA PRIVATE KEY-----`）で、Workers の Web Crypto は読めないので、次の手順 6 で PKCS#8 に直しながら入れる。直した鍵をファイルに書かない
 
 5. App の Install App → banmen-dev の「Install」を開き、「Only select repositories」で banmen-dev/app だけを選ぶ。入れた後の URL `https://github.com/organizations/banmen-dev/settings/installations/<数字>` の数字がインストールの ID
 6. 本番は `wrangler secret put FEEDBACK_GITHUB_APP_ID` と `wrangler secret put FEEDBACK_GITHUB_INSTALLATION_ID` で入れ、鍵は PKCS#8 に直したものを中間のファイルを作らずに流し込む。入れた後に、落とした `.pem` を消す
@@ -248,7 +248,7 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
 - 鍵は git、ログ、Issue、PR に書かない。漏れたと分かったら、App で鍵を消して作り直す。漏れた鍵でできるのは、Issue を立てることだけではない。Issues の書き込みは、banmen-dev/app のすべての Issue とコメントの題と本文の書き換え、閉じる、ラベル（PR の `needs-human` を含む）の付け外しに及ぶ。セッションは Issue とコメントの信頼を作者で決めるので、身内の Issue の本文を書き換えると、開発のセッションに指示を仕込める。漏れていた疑いがあれば、鍵を作り直した後に、その間に App の bot が行ったことを洗い出し、戻す。見るのは、ラベルそのものの削除と改名（`needs-human` を消すか改名すると、人が読むはずの PR が人に聞かずにマージされうる。ラベルの削除は PR ごとの timeline に出ないことがあるので、ラベルの一覧に `needs-human`、`feedback`、`status:` で始まるもの、`ai-review` が今の名前であるかを見て、開いている PR の `label` のジョブを走らせ直して `needs-human` を付け直す）、Issue と PR のアサイン、マイルストーン、ロック、Issue と PR の題と本文、Issue と PR の会話のコメント（AI レビューのまとめを含む）の編集の履歴、timeline の `renamed`、`labeled`、`unlabeled`（特に PR の `needs-human` と `ai-review`）、`closed`、`reopened`、サブ Issue と依存関係の付け外し。コメントと Issue の削除は timeline に残らないので、banmen-dev の Organization の audit log（Settings → Audit log、`actor:` に App の bot）も見る
 - App の権限を足さない。足すと、漏れたときに書けるものが増え、インストールの承認も要る
 - 画像、URL、アカウントの ID は R2 の `feedback/` に置き、上の「R2」のライフサイクルの規則で消す。公開の Issue には載せない
-- 運用者は、Issue の本文の閲覧の口のリンク（`<公開の URL>/operator/feedback/<ID>`）を、運用者のアカウントでログインして開き、文、URL、アカウントの ID を見て、画像をダウンロードする。180 日で消えた分は画面が「見つからない」と出す。画面が開けないときの代わりに、Cloudflare のダッシュボードの R2 Object Storage → `banmen-attachments` → `feedback/<ID>/` で `meta.json` と画像を見られる。`banmen-attachments` に公開のアクセス（r2.dev、カスタムドメイン）を付けない（公開の Issue の ID から `feedback/<ID>/meta.json` が読めてしまうため）
+- 運用者は、Issue の本文の閲覧の口のリンク（`<公開の URL>/operator/feedback/<ID>`）を、運用者のアカウントでログインして開き、文、URL、アカウントの ID、画像を見る。元の大きさで見るときは画像をダウンロードする。画像は開くだけで運用者のブラウザが復号するので、運用者はブラウザを最新に保つ（docs/requirements.md の「フィードバック」）。180 日で消えた分は画面が「見つからない」と出す。画面が開けないときの代わりに、Cloudflare のダッシュボードの R2 Object Storage → `banmen-attachments` → `feedback/<ID>/` で `meta.json` と画像を見られる。`banmen-attachments` に公開のアクセス（r2.dev、カスタムドメイン）を付けない（公開の Issue の ID から `feedback/<ID>/meta.json` が読めてしまうため）
 - 荒らしの Issue（全体の枠を使って同じ文を並べたものなど）は、運用者が banmen-dev/app で「Close as not planned」で閉じる。続くときは、`meta.json` のアカウントの ID を見て、そのアカウントのセッションを消す手段を別の Issue で決める
 - 利用者から公開の Issue を消す求めがあったら、運用者が banmen-dev/app の Issue を削除する（Issue の削除はリポジトリの管理者だけができる）
 

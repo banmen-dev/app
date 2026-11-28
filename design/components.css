@@ -2541,14 +2541,15 @@ button.file-name:hover { text-decoration-color: currentColor; }
 .dropzone-text b { color: var(--color-fg); font-weight: 400; }
 .dropzone.is-over { border-style: solid; border-color: var(--color-accent); background: var(--color-accent-soft); color: var(--color-accent); }
 .dropzone.is-disabled { background: var(--color-bg); }
-/* 本文に差し込んだ画像 */
+/* 本文に差し込んだ画像。画像を枠（.preview）で描き、下に操作のボタンを添える組みにも使い、そのときの枠は幅いっぱいにする */
 .md-figure { margin: 0; display: grid; gap: var(--space-1); justify-items: start; }
 .md-figure .file-thumb { width: min(240px, 100%); }
+.md-figure > .preview { justify-self: stretch; }
 .md-figure figcaption { font-size: var(--text-xs); color: var(--color-muted); }
 .comment-files { display: grid; gap: var(--space-2); margin-top: var(--space-2); }
 .composer-foot { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
 .composer-foot .field-hint { flex: 1 1 200px; }
-/* プレビュー（ダイアログの中） */
+/* プレビュー（ダイアログの中と、ページの中で画像を描く .md-figure の中） */
 .preview { display: grid; place-items: center; min-height: 240px; border: 1px solid var(--color-line); border-radius: var(--radius-1); overflow: hidden; }
 .preview > img, .preview > video { max-width: 100%; max-height: 60vh; object-fit: contain; }
 .preview .file-art { width: 100%; aspect-ratio: 16 / 10; }

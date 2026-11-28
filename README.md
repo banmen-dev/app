@@ -1,8 +1,6 @@
 # Banmen
 
-チームのタスクを集め、ゲームの仕組みで回すサービスです。Cloudflare Workers（Hono、D1、R2）と SvelteKit の SPA モードで作っています。
-
-経験値は自分から動くことを促すためのもので、人の評価には使いません。協力型で、メンバー間の順位は出しません。
+チームのタスクを集め、スクラムで回すサービスです。Cloudflare Workers（Hono、D1、R2）と SvelteKit の SPA モードで作っています。
 
 ## 始め方
 

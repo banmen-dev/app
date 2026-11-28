@@ -416,7 +416,7 @@ function googlePending() {
   };
 }
 
-describe('0047_drop_game_tables', () => {
+describe('0048_drop_game_tables', () => {
   test('経験値、感謝、討伐隊の表と、tasks_created_by_open は無い', async () => {
     const { results } = await env.DB.prepare(
       `SELECT name FROM sqlite_master WHERE name IN ('xp_grants', 'thanks', 'epic_party_members', 'tasks_created_by_open')
@@ -558,6 +558,32 @@ describe('外部キー', () => {
       expect(text).not.toMatch(/task_sources_container|^SCAN ts\b/m);
     } finally {
       batch.mockRestore();
+    }
+  });
+
+  // connection_id だけの索引は、複合索引 task_sources_connection_status の先頭の列と重なるので持たない（#1658）。
+  // connection_id だけで引く文と、connection_id を指す外部キーの検査（connections の DELETE）が、全件の走査にならないこと
+  test('task_sources を connection_id だけで引く文は、task_sources_connection_status の先頭の列で引く', async () => {
+    const { results: indexes } = await env.DB.prepare(
+      `SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'task_sources' AND name = 'task_sources_connection_id'`,
+    ).all<{ name: string }>();
+    expect(indexes).toEqual([]);
+
+    const statements = [
+      'SELECT task_id FROM task_sources WHERE connection_id = ?',
+      'UPDATE task_sources SET source_due_on = NULL WHERE connection_id = ? AND workspace_id = ? AND source_due_on IS NOT NULL',
+      'DELETE FROM connections WHERE id = ?',
+    ];
+    for (const sql of statements) {
+      const { results: plan } = await env.DB.prepare(`EXPLAIN QUERY PLAN ${sql}`)
+        .bind(...(sql.includes('workspace_id') ? [id(), id()] : [id()]))
+        .all<{ detail: string }>();
+      const details = plan.map((row) => row.detail).join('\n');
+
+      expect(details, sql).toMatch(
+        /task_sources USING (COVERING )?INDEX task_sources_connection_status \(connection_id=\?\)/,
+      );
+      expect(details, sql).not.toMatch(/^SCAN task_sources\b/m);
     }
   });
 

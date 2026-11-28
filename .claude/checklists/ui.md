@@ -27,7 +27,7 @@
 - 部品の CSS で色、書体、余白、角、影を直に書いている。`design/tokens.css` の変数を使う
 - 部品を足したのに、カタログに見本と使い方が無い
 - テーマの違いを変数でなく部品の CSS の分岐で書いている。テーマごとの飾りは置かない。要るときは先に `docs/design.md` の「飾りの決まり」に書く
-- `data-theme` の値が `src/shared/theme.ts` の `themes`（`simple`、`simple_light`、`simple_dark`）と違う。DB の列挙に残る `medieval`（消した中世風）か `modern`（消したネオン）を書いている
+- `data-theme` の値が `src/shared/theme.ts` の `themes`（`simple`、`simple_light`、`simple_dark`）と違う。DB の列挙に残る消したテーマの値（`medieval`、`modern`）を書いている
 - 本番の Svelte のコンポーネントが、対応する `design/kit.js` の関数と違う HTML の構造やクラスを出している
 
 ## Svelte の書き方

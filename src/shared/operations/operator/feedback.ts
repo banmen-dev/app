@@ -42,10 +42,12 @@ export const operatorFeedback = defineOperation({
   }),
 });
 
-// 画像のバイトをダウンロードとして返す。パスの id は feedbackImageRef の形。種類は meta.json の検証済みの値を使う
+// 画像のバイトをダウンロードの応答（attachment）で返す。運用者の画面は同じ URL を <img> でも読む。
+// パスの id は feedbackImageRef の形。種類は meta.json の検証済みの値を使う
 export const operatorFeedbackImage = defineOperation({
   name: 'operator-feedback-image',
-  description: 'フィードバックに添えた画像を、フィードバックの ID と画像の ID で、ダウンロードとして返す',
+  description:
+    'フィードバックに添えた画像を、フィードバックの ID と画像の ID で、ダウンロードの応答（attachment）として返す。運用者の画面は同じ URL を画像として描く',
   mode: 'read',
   permission: 'operator',
   response: 'binary',

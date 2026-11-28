@@ -305,6 +305,68 @@ describe('取り込みの同期', () => {
       expect(await firstTask(db, workspace.id)).toMatchObject({ source_status: 'in review', source_due_on: null });
     });
 
+    describe('同期の途中で範囲を足す', () => {
+      // 本人の保存（connection-scopes-save）が接続に書くのと同じ。範囲が変わるので、次の同期が全部を読む印を置く
+      async function saveScopes(db: ReturnType<typeof orgDb>, id: string, scopes: { id: string; name: string }[]) {
+        await db.batch([
+          db.statement((q) =>
+            q
+              .updateTable('connections')
+              .set((eb) => ({
+                scope_mode: 'include',
+                last_success_at: null,
+                sync_state_json: '{}',
+                ignore_source_due_generation: eb('ignore_source_due_generation', '+', 1),
+              }))
+              .where('id', '=', id),
+          ),
+          db.statement((q) => q.deleteFrom('connection_scopes').where('connection_id', '=', id)),
+          ...scopes.map((scope) =>
+            db.statement((q) =>
+              q.insertInto('connection_scopes').values({
+                connection_id: id,
+                scope_kind: 'github_repo',
+                source_id: scope.id,
+                source_name: scope.name,
+              }),
+            ),
+          ),
+        ]);
+      }
+
+      test('範囲 A を読む途中で範囲 B を足しても、同期の成功が印を上書きせず、次の同期が B の古い項目を読む', async () => {
+        const { workspace, connection, db } = await setup();
+        const pages: Record<string, Page[]> = {
+          '501': [
+            { items: [item(1)], next: '1' },
+            { items: [item(2)], next: null },
+          ],
+          '502': [{ items: [item(3, { containerId: '502', containerName: 'fake/second' })], next: null }],
+        };
+        const fake = fakeSource(pages);
+        const fetchPage = fake.source.fetchPage.bind(fake.source);
+        fake.source.fetchPage = async (input) => {
+          if (input.scope.id === '501' && input.cursor === '1') {
+            await saveScopes(db, connection.id, [
+              { id: '501', name: 'fake/box' },
+              { id: '502', name: 'fake/second' },
+            ]);
+          }
+          return fetchPage(input);
+        };
+        await syncConnection(env, db, workspace.id, connection.id, { source: fake.source });
+        const done = await connectionOf(db, connection.id);
+        expect(done.last_success_at).toBeNull();
+        expect(done.sync_state_json).toBe('{}');
+
+        const next = fakeSource(pages);
+        await syncConnection(env, db, workspace.id, connection.id, { source: next.source });
+        // 次の同期は差分でなく全部を読むので、B の項目も取り込む
+        expect((await tasksOf(db, workspace.id)).map((t) => t.title).sort()).toEqual(['項目 1', '項目 2', '項目 3']);
+        expect(next.calls.every((call) => call.since === null)).toBe(true);
+      });
+    });
+
     describe('同期の途中で期限の無視を変える', () => {
       // 2頁目を取る直前に、本人の保存（connection-mapping-save）と同じ書き込みを差し込む偽の取り込み元
       function racing(pages: Page[], beforeSecondPage: () => Promise<void>) {
