@@ -680,6 +680,11 @@ describe('backlog-tree', () => {
       completed_at: '2026-10-21T00:00:00.000Z',
       completed_by: adminId,
     });
+    const canceled = await createEpic(organization, workspaceId, adminId, {
+      position: 'a2',
+      canceled_at: '2026-10-21T00:00:00.000Z',
+      canceled_by: adminId,
+    });
     // 削除したエピックと、別のワークスペースのエピックは返さない。削除したエピックの下のストーリーも出さない
     const deleted = await createEpic(organization, workspaceId, adminId, { deleted_at: '2026-10-21T00:00:00.000Z' });
     await createStory(organization, workspaceId, adminId, { epic_id: deleted.id });
@@ -724,7 +729,7 @@ describe('backlog-tree', () => {
         points_all: number;
       }[];
     };
-    expect(body.epics.map((epic) => epic.id)).toEqual([earlier.id, later.id]);
+    expect(body.epics.map((epic) => epic.id)).toEqual([earlier.id, later.id, canceled.id]);
     // 本文は長いので載せない（ダイアログを開くときに epic-get で読む）
     expect(body.epics[0]).not.toHaveProperty('body_md');
     expect(body.epics[0]).toMatchObject({
@@ -746,6 +751,9 @@ describe('backlog-tree', () => {
     expect(body.epics[0]!.stories[0]).not.toHaveProperty('epic_id');
     expect(body.epics[0]!.stories[1]!.tasks.map((task) => task.id)).toEqual([open.id]);
     expect(body.epics[1]).toMatchObject({ stories: [], points_done: 0, points_all: 0 });
+    // 前に中止したエピック（中止の列が残る行）も、ふつうのエピックとして出す。canceled_at は返さない
+    expect(body.epics[2]).toMatchObject({ completed_at: null });
+    for (const epic of body.epics) expect(epic).not.toHaveProperty('canceled_at');
     // エピックの下のストーリーは、親のないストーリーの段に入らない
     expect(body.stories.map((story) => story.id)).toEqual([root.id]);
   });

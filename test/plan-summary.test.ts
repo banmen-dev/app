@@ -294,15 +294,23 @@ describe('plan-summary のエピックごとの残り', () => {
     ]);
   });
 
-  test('完了したエピック、削除したエピック、ほかのワークスペースのエピックを出さない', async () => {
+  test('完了したエピック、削除したエピック、ほかのワークスペースのエピックを出さない。前に中止したエピックは出す', async () => {
     const target = await createTarget();
     const open = await epicWith(target, { position: 'a0' });
     const completed = await epicWith(target, { position: 'a1', completed_at: '2026-10-21T00:00:00.000Z' });
+    const canceled = await epicWith(target, {
+      position: 'a2',
+      canceled_at: '2026-10-21T00:00:00.000Z',
+      canceled_by: target.member.userId,
+    });
     await epicWith(target, { position: 'a3', deleted_at: '2026-10-21T00:00:00.000Z' });
     await createEpic(target.organization, target.otherWorkspace.id, target.admin.userId!, { position: 'a4' });
     await taskIn(target, (await storyIn(target, completed.id)).id, { points: 5 });
+    await taskIn(target, (await storyIn(target, canceled.id)).id, { points: 3 });
     const body = await read(target);
-    expect(body.epics.map((epic) => epic.id)).toEqual([open.id]);
+    expect(body.epics.map((epic) => epic.id)).toEqual([open.id, canceled.id]);
+    // 前に中止したエピックの配下も数える
+    expect(body.epics[1]).toMatchObject({ points_done: 0, points_all: 3 });
   });
 
   test('エピックの残りは、バックログの木のエピックの points_done と points_all から引いた値と同じ', async () => {

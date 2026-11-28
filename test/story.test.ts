@@ -942,19 +942,23 @@ describe('story-get', () => {
     const cleared = await createEpic(target.organization, target.workspace.id, adminId, {
       completed_at: '2026-10-20T00:00:00.000Z',
     });
-    const open = await createEpic(target.organization, target.workspace.id, adminId);
+    const canceled = await createEpic(target.organization, target.workspace.id, adminId, {
+      canceled_at: '2026-10-20T00:00:00.000Z',
+      canceled_by: adminId,
+    });
     const done = await createStory(target.organization, target.workspace.id, adminId, {
       epic_id: cleared.id,
       completed_at: '2026-10-21T00:00:00.000Z',
     });
-    const inOpen = await createStory(target.organization, target.workspace.id, adminId, { epic_id: open.id });
+    const inCanceled = await createStory(target.organization, target.workspace.id, adminId, { epic_id: canceled.id });
     const first = (await (await get(target, done.id)).json()) as Record<string, unknown>;
-    const second = (await (await get(target, inOpen.id)).json()) as Record<string, unknown>;
+    const second = (await (await get(target, inCanceled.id)).json()) as Record<string, unknown>;
     expect(first).toMatchObject({
       completed_at: '2026-10-21T00:00:00.000Z',
       open_task_count: 0,
       parent_finished: true,
     });
+    // 前に中止したエピック（中止の列が残る行）は終わったものに数えない
     expect(second).toMatchObject({ completed_at: null, parent_finished: false });
   });
 

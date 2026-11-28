@@ -286,60 +286,51 @@ describe('0041_reset_neon_theme', () => {
   });
 });
 
-describe('0047_drop_game_tables_and_epic_columns', () => {
-  test('経験値、感謝、討伐隊の表と、tasks_created_by_open は無い', async () => {
-    const { results } = await env.DB.prepare(
-      `SELECT name FROM sqlite_master WHERE name IN ('xp_grants', 'thanks', 'epic_party_members', 'tasks_created_by_open')
-        OR name LIKE 'xp_grants_%' OR name LIKE 'thanks_%' OR name LIKE 'epic_party_members_%'`,
-    ).all();
-    expect(results).toEqual([]);
-  });
+describe('0042_uncancel_epics', () => {
+  // 前の版で中止した行を作ってから、0042 の SQL を当て直す（テストの D1 には全マイグレーションが当て済み）
+  test('中止の列を両方とも NULL に戻し、ほかの列と中止していない行は変えない', async () => {
+    const migration = env.TEST_MIGRATIONS.find((m) => m.name.startsWith('0042_'));
+    expect(migration).toBeDefined();
+    const organization = await createOrganization();
+    const user = await createUser(organization);
+    const workspace = await createWorkspace(organization, user.id);
+    const canceled = await createEpic(organization, workspace.id, user.id, {
+      canceled_at: AT,
+      canceled_by: user.id,
+      updated_at: AT,
+    });
+    // 中止した人だけが残る行（CHECK では作れるので、こちらも戻す）
+    const byOnly = await createEpic(organization, workspace.id, user.id, { canceled_by: user.id, updated_at: AT });
+    const cleared = await createEpic(organization, workspace.id, user.id, {
+      completed_at: AT,
+      completed_by: user.id,
+      updated_at: AT,
+    });
+    type EpicState = {
+      title: string;
+      completed_at: string | null;
+      updated_at: string;
+      canceled_at: string | null;
+      canceled_by: string | null;
+    };
+    const stateOf = async (epicId: string) =>
+      (await env.DB.prepare('SELECT title, completed_at, updated_at, canceled_at, canceled_by FROM epics WHERE id = ?')
+        .bind(epicId)
+        .first<EpicState>())!;
+    const before = await stateOf(cleared.id);
 
-  test('epics は報酬の段階と中止の列を持たず、ほかの列と索引は残る', async () => {
-    const { results: columns } = await env.DB.prepare(`SELECT name FROM pragma_table_info('epics') ORDER BY cid`).all<{
-      name: string;
-    }>();
-    expect(columns.map((column) => column.name)).toEqual([
-      'id',
-      'workspace_id',
-      'title',
-      'body_md',
-      'category_id',
-      'due_on',
-      'link_url',
-      'requester_user_id',
-      'created_by',
-      'completed_at',
-      'completed_by',
-      'position',
-      'deleted_at',
-      'created_at',
-      'updated_at',
-    ]);
-    const { results: indexes } = await env.DB.prepare(
-      `SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'epics' AND name NOT LIKE 'sqlite_%' ORDER BY name`,
-    ).all<{ name: string }>();
-    expect(indexes.map((index) => index.name)).toEqual([
-      'epics_category_fk',
-      'epics_completed_by',
-      'epics_created_by',
-      'epics_requester_user',
-      'epics_workspace',
-      'epics_workspace_fk',
-    ]);
-  });
+    await env.DB.batch(migration!.queries.map((query) => env.DB.prepare(query)));
 
-  test('epics を指す表の外部キーは、作り直した epics を指したままで、違反の行は無い', async () => {
-    const { results: violations } = await env.DB.prepare(`PRAGMA foreign_key_check`).all();
-    expect(violations).toEqual([]);
-    for (const table of ['stories', 'attachments', 'favorites']) {
-      const { results } = await env.DB.prepare(
-        `SELECT "table" AS parent FROM pragma_foreign_key_list(?) WHERE "from" = 'epic_id'`,
-      )
-        .bind(table)
-        .all<{ parent: string }>();
-      expect(results, table).toEqual([{ parent: 'epics' }]);
+    for (const epic of [canceled, byOnly]) {
+      expect(await stateOf(epic.id)).toEqual({
+        title: epic.title,
+        completed_at: null,
+        updated_at: AT,
+        canceled_at: null,
+        canceled_by: null,
+      });
     }
+    expect(await stateOf(cleared.id)).toEqual(before);
   });
 });
 
@@ -424,6 +415,68 @@ function googlePending() {
     claimExpiresAt: CLAIM_EXPIRES_AT,
   };
 }
+
+describe('0047_drop_game_tables', () => {
+  test('経験値、感謝、討伐隊の表と、tasks_created_by_open は無い', async () => {
+    const { results } = await env.DB.prepare(
+      `SELECT name FROM sqlite_master WHERE name IN ('xp_grants', 'thanks', 'epic_party_members', 'tasks_created_by_open')
+        OR name LIKE 'xp_grants_%' OR name LIKE 'thanks_%' OR name LIKE 'epic_party_members_%'`,
+    ).all();
+    expect(results).toEqual([]);
+  });
+
+  // 本番の版がまだ reward_tier と中止の列を書くので、epics は作り直さずに列も索引も残す
+  test('epics は列も索引も変わらない（reward_tier、canceled_at、canceled_by と epics_canceled_by を含む）', async () => {
+    const { results: columns } = await env.DB.prepare(`SELECT name FROM pragma_table_info('epics') ORDER BY cid`).all<{
+      name: string;
+    }>();
+    expect(columns.map((column) => column.name)).toEqual([
+      'id',
+      'workspace_id',
+      'title',
+      'body_md',
+      'category_id',
+      'due_on',
+      'link_url',
+      'reward_tier',
+      'requester_user_id',
+      'created_by',
+      'completed_at',
+      'completed_by',
+      'canceled_at',
+      'canceled_by',
+      'position',
+      'deleted_at',
+      'created_at',
+      'updated_at',
+    ]);
+    const { results: indexes } = await env.DB.prepare(
+      `SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'epics' AND name NOT LIKE 'sqlite_%' ORDER BY name`,
+    ).all<{ name: string }>();
+    expect(indexes.map((index) => index.name)).toEqual([
+      'epics_canceled_by',
+      'epics_category_fk',
+      'epics_completed_by',
+      'epics_created_by',
+      'epics_requester_user',
+      'epics_workspace',
+      'epics_workspace_fk',
+    ]);
+  });
+
+  test('epics を指す表の外部キーは epics を指したままで、違反の行は無い', async () => {
+    const { results: violations } = await env.DB.prepare(`PRAGMA foreign_key_check`).all();
+    expect(violations).toEqual([]);
+    for (const table of ['stories', 'attachments', 'favorites']) {
+      const { results } = await env.DB.prepare(
+        `SELECT "table" AS parent FROM pragma_foreign_key_list(?) WHERE "from" = 'epic_id'`,
+      )
+        .bind(table)
+        .all<{ parent: string }>();
+      expect(results, table).toEqual([{ parent: 'epics' }]);
+    }
+  });
+});
 
 describe('外部キー', () => {
   test('D1 は外部キーを検査する', async () => {
