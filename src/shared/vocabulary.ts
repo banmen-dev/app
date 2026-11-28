@@ -615,6 +615,11 @@ export const dictionary = defineDictionary({
   breadcrumb: 'パンくず',
   // ワークスペースの画面の上のタブ（WorkspaceTabs）の nav の読み上げの名前
   workspaceTabs: '{workspace}の画面',
+  // 幅が足りずに入りきらないタブをまとめるボタン（「その他 3」）と、開く一覧の読み上げの名前。
+  // 今の画面がまとめた中にあるときは、ボタンの名前でも伝える
+  workspaceTabsMore: 'その他',
+  workspaceTabsMoreCurrent: '{more} {count}（開いている画面を含む）',
+  workspaceTabsMoreList: '{workspace}のその他の画面',
   mobilePageToolsLabel: '検索とアカウント',
   navSearchLabel: '画面とタスクを探す',
   navSearchPlaceholder: '画面やタスクを探す',
@@ -1074,6 +1079,8 @@ export const dictionary = defineDictionary({
   treeAddStory: '{story}を足す',
   treeAddStoryUnder: '{story}を足す: {title}',
   treeAddTask: '{task}を足す',
+  // 木の末尾の1つの行で、足す種類を選ぶ（{epic}、{story}、{task}）。選んだ種類は欄の案内文と読み上げの名前に出る
+  treeAddKind: '足す種類',
   treeAddTaskUnder: '{task}を足す: {title}',
   // 親の{story}が完了していた（読み直して、空の行を消す）
   treeAddTaskParentDone: 'この{story}は{done}したので、{task}を足せません。一覧を読み直します',
@@ -1229,8 +1236,6 @@ export const dictionary = defineDictionary({
   // 一覧には、所属していない管理者が開いているものの行も入るので、「所属する」とは言わない
   workspaceListToggleLabel: '{workspace}の一覧を開閉',
   workspaceNavListLabel: '{workspace}の一覧',
-  // 浮きメニューでは、機能の項目が現在地（aria-current）を伝えるので、一覧の行は目に見えない文言で開いているものを伝える
-  workspaceNavOpened: '（開いている）',
   organizationMoving: '移っています',
   invitationsBadge: '届いた招待あり',
   invitationsReceived: '招待が届いています',

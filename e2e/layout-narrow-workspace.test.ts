@@ -35,9 +35,9 @@ test.beforeEach(async ({ context, baseURL }) => {
   await signIn(context, baseURL, 'admin');
 });
 
-// ワークスペースの言葉が出ていること。左のメニューのバックログの項目の名前で見る（狭い幅では帯の中に畳まれる）
+// ワークスペースの言葉が出ていること。画面の上のタブのバックログの名前で見る（狭い幅では「その他」の一覧に入ることもある）
 async function expectWorkspaceWords(page: Page, w: W): Promise<void> {
-  await expect(page.locator('.nav a.nav-item', { hasText: w('backlog') })).toHaveCount(1);
+  await expect(page.locator('.route-tabs a', { hasText: w('backlog') })).toHaveCount(1);
 }
 
 test('バックログが 390px で横にはみ出さず、押せる要素が 44px 四方で押せる', async ({ page }) => {

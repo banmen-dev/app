@@ -75,7 +75,7 @@ export function loadingDashboard(routeId: string | null | undefined): boolean {
   return routeId === '/';
 }
 
-// ワークスペースの画面（タスクとエピックの詳細も）は、761px 以上でパンくずの下にタブの帯（WorkspaceTabs）を持つ。
+// ワークスペースの画面（タスクとエピックの詳細も）は、本文の見出しの上にタブの帯（WorkspaceTabs。761px 以上はパンくずの下、760px 以下は上の帯の下）を持つ。
 // 骨組みも同じ画面にだけ帯を出し、読み込んだ後と見出しの位置を揃える。最初の読み込みの static/boot-shape.js は同じ対応を URL から持つ
 // （scripts/boot-shape.test.ts が突き合わせる）
 export function loadingShapeTabs(routeId: string | null | undefined): boolean {

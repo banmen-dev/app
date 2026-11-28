@@ -114,19 +114,12 @@ test('浮きメニューに全項目と切り替えがあり、Esc・外・リ�
   await expect(dialog).toBeVisible();
   await expect(trigger).toHaveAttribute('aria-expanded', 'true');
   await expect(dialog.getByRole('button', { name: /組織を切り替える/ })).toBeVisible();
-  for (const name of [
-    '今日やること',
-    'あおば開発の Wiki',
-    '受信箱',
-    'バックログ',
-    'ボード',
-    '計画',
-    'Wiki',
-    '接続',
-    'メンバー',
-    '設定',
-  ]) {
+  for (const name of ['今日やること', 'あおば開発の Wiki']) {
     await expect(dialog.getByRole('link', { name, exact: true })).toBeVisible();
+  }
+  // ワークスペースの機能の項目は、画面の上のタブで移るので浮きメニューには出さない（#1516）
+  for (const name of ['受信箱', 'ボード', '計画', 'Wiki', '接続', 'メンバー', '設定']) {
+    await expect(dialog.getByRole('link', { name, exact: true })).toHaveCount(0);
   }
   await expect(dialog.getByRole('link', { name: '浮きメニューのお気に入り', exact: true })).toHaveAttribute(
     'href',
@@ -158,8 +151,11 @@ test('浮きメニューに全項目と切り替えがあり、Esc・外・リ�
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();
   await trigger.click();
-  await dialog.getByRole('link', { name: 'メンバー', exact: true }).click();
-  await expect(page).toHaveURL(`${WORKSPACE}/members`);
+  await dialog
+    .getByRole('list', { name: 'ワークスペースの一覧' })
+    .getByRole('link', { name: '受託開発チーム' })
+    .click();
+  await expect(page).toHaveURL(WORKSPACE);
   await expect(dialog).toBeHidden();
 });
 

@@ -8,6 +8,7 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import { artViewBox, arts } from '../src/lib/art.ts';
 import { iconViewBox, icons } from '../src/lib/icons.ts';
+import { fitTabCount } from '../src/lib/tab-fit.ts';
 import { themeLabelKeys, themeNoteKeys, themes } from '../src/shared/theme.ts';
 import { dictionary } from '../src/shared/vocabulary.ts';
 
@@ -366,5 +367,24 @@ test('スプリントの見本の開始と削除は、名前なしでも期間�
     const renderedCarry = vm.runInContext('`' + carry + '`', context) as string;
     const label = name === null ? '1/4〜1/17' : `${name}（1/4〜1/17）`;
     assert.equal(renderedCarry, `スプリント「${label}」へ持ち越す`);
+  }
+});
+
+test('見本の fitTabCount は、本番の fitTabCount（src/lib/tab-fit.ts）と同じ数を返す', () => {
+  const source = read('kit.js').match(/function fitTabCount\([\s\S]*?\n {2}\}\n/)?.[0];
+  assert.ok(source, 'design/kit.js に fitTabCount が無い');
+  const designFit = vm.runInNewContext(`(${source.replace('function fitTabCount', 'function')})`) as typeof fitTabCount;
+  for (const widths of [[], [60], [60, 60, 60, 60], [100, 20, 20], [20, 100, 60, 44]]) {
+    for (const available of [Number.NaN, -1, 0, 40, 100, 190, 215, 216, 263, 264, 400]) {
+      for (const gap of [0, 4, 8]) {
+        for (const moreWidth of [0, 70, 80]) {
+          assert.equal(
+            designFit(widths, available, gap, moreWidth),
+            fitTabCount(widths, available, gap, moreWidth),
+            JSON.stringify({ widths, available, gap, moreWidth }),
+          );
+        }
+      }
+    }
   }
 });

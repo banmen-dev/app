@@ -21,15 +21,13 @@
   // アカウントと組織の入口は上の帯の AccountMenu に置く。所属するワークスペースが無い人（hasWorkspace が偽）には、組織の画面だけを出す。
   // workspace（メニューの対象）があれば、組織の画面でも「ワークスペース」の節を出す。見出しは畳めるボタンで、下に所属するワークスペースを
   // 名前順に並べ、押すとそのバックログへ移る（#1515）。所属していない管理者が開いているものは、一覧の先頭に押せない行で出す。
-  // 畳んだ状態は端末に覚える（nav-collapse.svelte.ts）。畳むのは一覧だけで、760px 以下の浮きメニューの機能の項目は畳まない。
+  // 畳んだ状態は端末に覚える（nav-collapse.svelte.ts）。
   // ワークスペースの経路の項目（メンバーなど）は、対象の ID があるときだけ出す。
   // 組織の切り替えはメニューの外（AppShell のブランドの下）に置く。
   // ワークスペースの設定は、対象のリーダーと管理者にだけ出す。
   // inWorkspaceScreen が偽（「今日やること」など組織の画面）のときは、対象の行にチェックだけを付け、現在地（aria-current）にはしない。
-  // 現在地（aria-current）は、workspaceItems が真（760px 以下の浮きメニュー）では、機能の項目のどれかが現在地のとき、その項目だけが伝える（対象の行も同じ宛先で、
-  // 両方に付けると現在地が二重に読み上げられるため）。行は目に見えない「（開いている）」で伝え、チェックは見た目に残す。
-  // workspaceItems が偽（761px 以上の左のメニュー）なら、ワークスペースの機能の項目と「管理」の見出しを出さない。
-  // 機能はワークスペースの画面の上のタブ（WorkspaceTabs）で切り替える。ワークスペースの見出しと一覧は残す
+  // ワークスペースの機能の項目と「管理」の見出しは、左のメニューにも760px 以下の浮きメニューにも出さない（#1514、#1516）。
+  // 機能はどの幅でもワークスペースの画面の上のタブ（WorkspaceTabs。入りきらないものは「その他」）で切り替える。ワークスペースの見出しと一覧は残す
   let {
     current,
     slug,
@@ -38,7 +36,6 @@
     workspace,
     workspaces = [],
     inWorkspaceScreen,
-    workspaceItems = true,
   }: {
     current: string;
     slug: string;
@@ -47,7 +44,6 @@
     workspace?: NavigationWorkspace;
     workspaces?: readonly { id: string; name: string }[];
     inWorkspaceScreen: boolean;
-    workspaceItems?: boolean;
   } = $props();
 
   const favoriteLinks = $derived(
@@ -75,23 +71,8 @@
       isLeader: workspace?.role === 'leader',
       hasWorkspaceMenu: workspace !== undefined,
       workspaceId: workspace?.id ?? null,
-      workspaceItems,
+      workspaceItems: false,
     }),
-  );
-
-  // 浮きメニューの機能の項目のどれかが現在地か。そうなら対象の行は aria-current を付けない（二重にしない）。
-  // タスクの詳細のように、どの項目も当たらない画面では、行が現在地を伝える
-  const itemIsCurrent = $derived(
-    workspaceItems &&
-      workspace !== undefined &&
-      isWorkspaceId(workspace.id) &&
-      sections.some((section) =>
-        section.items.some(
-          (item) =>
-            isWorkspaceRoute(item.href) &&
-            isNavItemCurrent(item.label, resolve(item.href, { slug, id: workspace.id }), current),
-        ),
-      ),
   );
 </script>
 
@@ -122,10 +103,8 @@
         {#if !isMember}
           <!-- 所属していない管理者が開いているものは、移動先に加えず、押せない行で先頭に出す。長い名前は折り返して全文を見せる -->
           <li>
-            <span class="nav-item is-current" aria-current={itemIsCurrent ? undefined : 'page'} title={workspace.name}>
-              <span class="nav-item-label">{workspace.name}</span><Icon name="check" />{#if itemIsCurrent}<span
-                  class="visually-hidden">{t('workspaceNavOpened')}</span
-                >{/if}
+            <span class="nav-item is-current" aria-current="page" title={workspace.name}>
+              <span class="nav-item-label">{workspace.name}</span><Icon name="check" />
             </span>
           </li>
         {/if}
@@ -136,11 +115,9 @@
               class="nav-item"
               href={resolve('/[slug]/w/[id]', { slug, id: entry.id })}
               title={entry.name}
-              aria-current={isCurrent && inWorkspaceScreen && !itemIsCurrent ? 'page' : undefined}
+              aria-current={isCurrent && inWorkspaceScreen ? 'page' : undefined}
             >
-              <span class="nav-item-label">{entry.name}</span>{#if isCurrent}<Icon
-                  name="check"
-                />{#if itemIsCurrent}<span class="visually-hidden">{t('workspaceNavOpened')}</span>{/if}{/if}
+              <span class="nav-item-label">{entry.name}</span>{#if isCurrent}<Icon name="check" />{/if}
             </a>
           </li>
         {/each}

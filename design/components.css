@@ -209,7 +209,7 @@ h1, h2, h3 { text-wrap: balance; }
 .org-menu-note { flex-basis: 100%; font-size: var(--text-xs); color: var(--color-muted); }
 /* 組織ではない行（組織の一覧へ戻るリンクと、押すとダイアログを開く「組織を作る」）は、組織の行より控えめにする */
 .org-menu-list .is-aside a, .org-menu-list .is-aside button { color: var(--color-muted); }
-/* 狭い幅と、指で押す画面では、押す所を 44px 以上にする。左のメニューのロゴと項目（狭い幅では項目を浮きメニューに出す）も同じ */
+/* 狭い幅と、指で押す画面では、押す所を 44px 以上にする。左のメニューのロゴと項目も同じ */
 @media (max-width: 760px), (pointer: coarse) {
   .org-menu-list a, .org-menu-list button, .account-menu-list a, .account-menu-list button, .account-menu-button { min-height: 44px; }
   .nav-toggle { width: 44px; height: 44px; }
@@ -365,32 +365,60 @@ a.breadcrumb-item:hover { color: var(--color-fg); text-decoration: underline; }
    画面を移るリンクの並びなので、.tabs（aria-selected の tablist とタブパネル）とは分け、nav の中のリンクにして今の画面に aria-current="page" を付ける。
    今の画面は、文字の色と太さ（600。パンくずと左のメニューと同じ）と、下の操作の色の線で示す。太さで幅が変わって並びが動かないよう、::after で太い字の幅を先に取る。
    タブの高さは 36px（指で押す画面は 44px）で、読み込み中の骨組み（.skeleton-frame の .sheet-tabs、static/boot-loading.css の .boot-tabs）と高さを揃える。
-   幅が足りなければ帯の中で横に送る（入らないタブを「その他」にまとめるのは #1516）。送りの棒は出さず（常に出す環境で帯の高さが変わり、骨組みとずれるため）、
-   今の画面のタブは WorkspaceTabs が帯の見える範囲へ送る。760px 以下は出さない */
+   幅が足りなければ、入るだけを前から並べて残りを「その他 <件数>」のボタン（.route-tab-more）にまとめ、押すとボタンの下に残りの一覧（.route-tabs-more-list）を開く（#1516。
+   入る数の計算は kit.js と本番の WorkspaceTabs で同じ）。今の画面が一覧の中にあるときは、ボタンを今のタブと同じ印にする。幅を測るまでは全部を並べ、はみ出す分は横だけ切る（`overflow-x: clip`。開いた一覧は切らない）。
+   760px 以下も出し、左右の余白を本文と同じ --space-4 にする */
 .sheet-tabs {
   padding-top: var(--space-2);
   padding-left: max(var(--space-8), env(safe-area-inset-left, 0px));
   padding-right: max(var(--space-8), env(safe-area-inset-right, 0px));
 }
-.route-tabs { position: relative; display: flex; gap: var(--space-1); border-bottom: 1px solid var(--color-line); overflow-x: auto; scrollbar-width: none; }
-.route-tabs::-webkit-scrollbar { display: none; }
-.route-tab {
+.route-tabs { position: relative; display: flex; gap: var(--space-1); border-bottom: 1px solid var(--color-line); }
+.route-tabs { overflow-x: clip; } /* 幅が変わって測り直すまでの間も、はみ出す分でページを横に溢れさせない（縦は visible のまま、開いた一覧を切らない） */
+.route-tab, .route-tab-probe {
   box-sizing: border-box; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; flex: none;
   min-height: calc(var(--space-6) + var(--space-3)); padding: 0 var(--space-3);
   font-size: var(--text-sm); white-space: nowrap; color: var(--color-muted); text-decoration: none;
   border-bottom: 2px solid transparent;
 }
-.route-tab::after { content: attr(data-label); font-weight: 600; height: 0; overflow: hidden; visibility: hidden; }
+.route-tab::after, .route-tab-probe::after { content: attr(data-label); font-weight: 600; height: 0; overflow: hidden; visibility: hidden; }
 .route-tab:hover { color: var(--color-fg); }
 .route-tab:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
-.route-tab[aria-current="page"] { color: var(--color-fg); font-weight: 600; border-bottom-color: var(--color-accent); }
-@media (pointer: coarse) { .route-tab { min-height: 44px; } }
+.route-tab[aria-current="page"], .route-tab[data-current="true"] { color: var(--color-fg); font-weight: 600; border-bottom-color: var(--color-accent); }
+/* 「その他 3」のボタン。タブと同じ高さと文字で、ボタンの既定の見た目を消す。山形は閉じていると下向き、開くと上向き */
+button.route-tab { border-top: 0; border-left: 0; border-right: 0; background: none; font-family: inherit; cursor: pointer; flex-direction: row; gap: var(--space-1); }
+button.route-tab::after { display: none; }
+button.route-tab[aria-expanded="true"] { color: var(--color-fg); }
+.route-tab-more { flex: none; }
+.route-tab-more > .route-tab > .ico { color: var(--color-muted); transform: rotate(90deg); }
+.route-tab-more > .route-tab[aria-expanded="true"] > .ico { transform: rotate(-90deg); }
+.route-tab-count { font-variant-numeric: tabular-nums; }
+/* 開く一覧。帯（.route-tabs）の下の左端に、帯の幅の内側で開く（ボタンが右に寄っても画面の外へ出ない）。一覧の見た目は組織の切り替えの一覧と同じ */
+.route-tabs-more-list {
+  list-style: none; margin: 0; padding: var(--space-1); display: grid; gap: 1px;
+  position: absolute; z-index: 10; top: calc(100% + var(--space-1)); left: 0; min-width: min(12rem, 100%); max-width: 100%;
+  max-height: 60vh; overflow-y: auto; overscroll-behavior: contain;
+  border-radius: var(--radius-1); border: 1px solid var(--color-line); background: var(--color-surface); box-shadow: var(--shadow-float);
+}
+.route-tabs-more-list[hidden] { display: none; }
+.route-tabs-more-list a {
+  display: flex; align-items: center; column-gap: var(--space-2); min-height: var(--space-8);
+  padding: var(--space-2); border-radius: var(--radius-1); color: var(--color-fg); text-decoration: none; font-size: var(--text-sm);
+}
+.route-tabs-more-list a:hover { background: var(--color-rule); }
+.route-tabs-more-list a[aria-current="page"] { background: var(--color-sunken); font-weight: 700; box-shadow: 0 0 0 1px var(--color-line); }
+.route-tabs-more-list a .ico { margin-left: auto; color: var(--color-accent); }
+.route-tabs-more-name { min-width: 0; overflow-wrap: anywhere; }
+/* 幅を測るための見えない並び。レイアウトに影響せず、読み上げにも出さない */
+.route-tabs-measure { position: fixed; top: 0; left: 0; display: flex; gap: var(--space-1); width: max-content; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; clip-path: inset(50%); }
+.route-tabs-measure > [data-measure-more] { flex-direction: row; gap: var(--space-1); font-weight: 600; }
+.route-tabs-measure > [data-measure-more]::after { display: none; }
+@media (max-width: 760px), (pointer: coarse) { .route-tab, .route-tab-probe { min-height: 44px; } .route-tabs-more-list a { min-height: 44px; } }
+
 @media (forced-colors: active) {
   .route-tab { border-bottom-color: Canvas; }
-  .route-tab[aria-current="page"] { border-bottom-color: Highlight; }
+  .route-tab[aria-current="page"], .route-tab[data-current="true"] { border-bottom-color: Highlight; }
 }
-/* 760px を超える幅の左のメニューに出さない項目（見本の kit.js の navHtml。機能はワークスペースの画面のタブで移る）。760px 以下の浮きメニューでは出す */
-@media not (max-width: 760px) { .binding .is-menu-only { display: none; } }
 /* 上の帯の検索。帯の右に寄せ、アシスタントと組織の切り替えとアカウントの左に置く。画面の名前を絞り、今のワークスペースがあれば末尾にバックログの検索の行を足す。Ctrl+K（⌘K）で欄へ移る。
    候補の小窓は帯の下へ重ね、狭い幅では欄を帯の1行に広げて小窓を画面の幅に収める */
 .nav-search {
@@ -1029,7 +1057,7 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
   .mobile-menu .org-menu { position: relative; min-width: 0; }
   /* 切り替えの一覧は面を押し広げる。スクロール領域の外へ切らない。 */
   .mobile-menu .org-menu-list { position: static; margin-top: var(--space-2); }
-  /* ワークスペースの一覧は、所属が多くても下の機能の項目まで届くよう高さを抑えて中で送り、長い名前は指の端末で読めるよう折り返す */
+  /* ワークスペースの一覧は、所属が多くても下のお気に入りまで届くよう高さを抑えて中で送り、長い名前は指の端末で読めるよう折り返す */
   .mobile-menu .nav-ws-list { max-height: 40vh; max-height: 40dvh; overflow-y: auto; overscroll-behavior: contain; padding: var(--space-1); }
   .mobile-menu .nav-ws-list .nav-item-label { white-space: normal; overflow-wrap: anywhere; }
   .mobile-menu .org-menu-button { min-height: 44px; }
@@ -1043,8 +1071,13 @@ button.entry-title { text-align: left; background: transparent; border: 0; paddi
     padding-right: max(var(--space-4), env(safe-area-inset-right, 0px));
   }
   .topbar { justify-content: flex-start; position: relative; z-index: auto; }
-  .sheet-crumbs, .sheet-tabs { display: none; }
+  .sheet-crumbs { display: none; }
   .sheet-crumbs + .content { padding-top: var(--space-4); }
+  /* ワークスペースの画面のタブは、パンくずが無い幅でも本文の見出しの上に出す。左右の余白は本文と同じ */
+  .sheet-tabs {
+    padding-left: max(var(--space-4), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--space-4), env(safe-area-inset-right, 0px));
+  }
   /* アカウントのボタンはアバターと▾だけにし、帯の1行目に幅を残す。表示名は読み上げの名前と一覧の「マイプロフィール」で分かる */
   .account-menu-button .me-detail { display: none; }
   /* 所属していない管理者の印（帯の直接の子の .chip）は、帯の1行目に並べると幅が足りずアカウントのボタンを2行目へ押し出すので、
@@ -2178,7 +2211,7 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
 .skeleton-frame .route-tabs { overflow: hidden; }
 .skeleton-frame .route-tabs > .skeleton-tab { box-sizing: border-box; display: flex; align-items: center; flex: none; min-height: calc(var(--space-6) + var(--space-3)); padding: 0 var(--space-3); }
 .skeleton-frame .route-tabs > .skeleton-tab > .skeleton-line { width: 3.5rem; }
-@media (pointer: coarse) { .skeleton-frame .route-tabs > .skeleton-tab { min-height: 44px; } }
+@media (max-width: 760px), (pointer: coarse) { .skeleton-frame .route-tabs > .skeleton-tab { min-height: 44px; } }
 .skeleton-frame .topbar > .skeleton-line.is-search { flex: 0 1 18rem; min-width: 9rem; height: 36px; }
 .skeleton-frame .topbar > .skeleton-line.is-account { width: 7rem; height: 28px; }
 .skeleton-frame .topbar > .skeleton-line.is-org-name { width: 8rem; height: 1.25em; margin-inline: var(--space-2); }
@@ -2263,6 +2296,11 @@ a.choice:hover > .ico, a.choice:focus-visible > .ico { color: var(--color-accent
 .draft-row .input { flex: 1 1 auto; min-width: 0; border-style: dashed; }
 .draft-row .input:focus { border-style: solid; }
 .tree-children .draft-row { padding-left: var(--space-10); }
+/* 種類を選べる空の行（.is-lead。バックログの木の末尾。#1645）。種類の選択（.segmented）を題の欄の前に置き、狭い幅では題の欄が下の段へ折り返す */
+.draft-row.is-lead { flex-wrap: wrap; }
+.draft-row.is-lead > .segmented { flex: none; }
+.draft-row.is-lead > .input { flex: 1 1 14rem; }
+@media (max-width: 760px) { .draft-row.is-lead > .input { flex-basis: 100%; } .draft-row.is-lead ~ .draft-error { padding-left: var(--space-3); } }
 /* 空の行の失敗の文。行の下に出し、字下げは行と揃える */
 .draft-error { margin: 0; padding: 0 var(--space-3) var(--space-2) calc(var(--space-3) + var(--space-5) + var(--space-2)); }
 .tree-children .draft-error { padding-left: calc(var(--space-10) + var(--space-5) + var(--space-2)); }

@@ -331,7 +331,7 @@ html[data-boot-tabs] #boot-loading .boot-tabs ~ .boot-content {
 #boot-loading .boot-tablist i {
   width: 3.5rem;
 }
-@media (pointer: coarse) {
+@media (max-width: 760px), (pointer: coarse) {
   #boot-loading .boot-tablist > b {
     min-height: 44px;
   }
@@ -520,10 +520,12 @@ html[data-boot-tabs] #boot-loading .boot-tabs ~ .boot-content {
     min-height: 60px;
     padding: 5px 16px;
   }
-  /* 狭い幅ではパンくずとタブの帯を出さない。上の帯が残る形では検索とアカウントだけを出す */
-  #boot-loading .boot-crumbs,
-  html[data-boot-tabs] #boot-loading .boot-tabs {
+  /* 狭い幅ではパンくずを出さない。上の帯が残る形では検索とアカウントだけを出す。タブの帯は本文の見出しの上に残し、左右の余白を本文と同じ 16px にする（#1516） */
+  #boot-loading .boot-crumbs {
     display: none;
+  }
+  #boot-loading .boot-tabs {
+    padding-inline: 16px;
   }
   #boot-loading .boot-topbar .is-account {
     width: 3.5rem;

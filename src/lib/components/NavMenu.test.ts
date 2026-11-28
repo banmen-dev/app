@@ -48,29 +48,29 @@ test('今日やることでも対象のリンクがあり、現在地は今日�
     },
   }).body;
   expect(body).toContain('href="/aoba/w/two"');
-  for (const path of ['', '/board', '/plan', '/wiki', '/members']) {
-    expect(body).toContain(`href="/aoba/w/one${path}"`);
-  }
-  expect(body).not.toContain('/settings');
+  expect(body).toContain('href="/aoba/w/one"');
   expect(body.match(/aria-current="page"/g)).toHaveLength(1);
   expect(body).toMatch(/href="\/aoba"[^>]*aria-current="page"/);
 });
 
-test('設定は対象の今のロールがリーダーか管理者の場合に出す', () => {
+test('ワークスペースの機能の項目と「管理」の見出しは、ロールによらず出さない（タブで移る）', () => {
   for (const role of ['leader', 'member'] as const) {
     for (const isAdmin of [false, true]) {
       const body = render(NavMenu, {
         props: {
-          current: '/aoba',
+          current: '/aoba/w/one',
           slug: 'aoba',
           hasWorkspace: true,
           isAdmin,
           workspace: { ...workspace, role },
           workspaces,
-          inWorkspaceScreen: false,
+          inWorkspaceScreen: true,
         },
       }).body;
-      expect(body.includes('/settings')).toBe(isAdmin || role === 'leader');
+      for (const path of ['/board', '/plan', '/wiki', '/members', '/settings', '/connections']) {
+        expect(body).not.toContain(`href="/aoba/w/one${path}"`);
+      }
+      expect(body).not.toContain('nav-go-backlog');
     }
   }
 });
@@ -102,7 +102,6 @@ test.each([
   }).body;
   expect(body).toContain(label);
   expect(body).toMatch(/class="nav-item is-wrapping"[^>]*href="\/aoba\/wiki"[^>]*aria-current="page"/);
-  expect(body).toContain('href="/aoba/w/one/wiki"');
   expect(body).toContain('href="/aoba/w/two"');
   expect(body.match(/aria-current="page"/g)).toHaveLength(1);
 });
@@ -183,7 +182,7 @@ describe('ワークスペースの一覧', () => {
   };
 
   test('見出しは開閉のボタンで、一覧を所属の順に並べ、今のものにチェックと現在地を付ける', () => {
-    const body = render(NavMenu, { props: { ...props, workspaceItems: false } }).body;
+    const body = render(NavMenu, { props: props }).body;
     expect(body).toMatch(
       /<button[^>]*class="nav-group-toggle"[^>]*aria-expanded="true"[^>]*aria-controls="app-nav-workspaces"/,
     );
@@ -197,24 +196,14 @@ describe('ワークスペースの一覧', () => {
 
   test('畳んだ状態は一覧を隠し、aria-expanded を偽にする', () => {
     navWorkspacesState.collapsed = true;
-    const body = render(NavMenu, { props: { ...props, workspaceItems: false } }).body;
+    const body = render(NavMenu, { props: props }).body;
     expect(body).toMatch(/aria-expanded="false"/);
     expect(body).toMatch(/<ul[^>]*id="app-nav-workspaces"[^>]*hidden/);
   });
 
-  test('畳んだ状態でも、浮きメニューの機能の項目（バックログ、メンバー、設定）は畳まない', () => {
-    navWorkspacesState.collapsed = true;
-    const body = render(NavMenu, { props: { ...props, workspace: { ...workspace, role: 'leader' } } }).body;
-    expect(body).toMatch(/<ul[^>]*id="app-nav-workspaces"[^>]*hidden/);
-    // 一覧（ul）を取り除いた残りに、機能の項目がある。バックログの項目は一覧の行と同じ行き先なので、項目に付く説明の id で見分ける
-    const outside = body.replace(/<ul[\s\S]*?<\/ul>/, '');
-    expect(outside).toMatch(/href="\/aoba\/w\/one"[^>]*aria-describedby="nav-go-backlog"/);
-    for (const path of ['/members', '/settings']) expect(outside).toContain(`href="/aoba/w/one${path}"`);
-  });
-
   test('今日やることの画面では、対象の行にチェックだけを付け、現在地にはしない', () => {
     const body = render(NavMenu, {
-      props: { ...props, current: '/aoba', inWorkspaceScreen: false, workspaceItems: false },
+      props: { ...props, current: '/aoba', inWorkspaceScreen: false },
     }).body;
     expect(body).not.toMatch(/href="\/aoba\/w\/one"[^>]*aria-current/);
     expect(body).toContain('href="#i-check"');
@@ -226,7 +215,6 @@ describe('ワークスペースの一覧', () => {
         ...props,
         isAdmin: true,
         workspace: { id: 'other', name: '架空の管理対象チーム', role: null },
-        workspaceItems: false,
       },
     }).body;
     expect(body).toMatch(/<span[^>]*aria-current="page"[^>]*>[\s\S]*架空の管理対象チーム/);
@@ -234,30 +222,7 @@ describe('ワークスペースの一覧', () => {
     expect(body.indexOf('架空の管理対象チーム')).toBeLessThan(body.indexOf('href="/aoba/w/one"'));
   });
 
-  test('浮きメニュー（機能の項目あり）では、行に aria-current を付けず、見えない文言で開いているものを伝える', () => {
-    const body = render(NavMenu, { props: { ...props, current: '/aoba/w/one' } }).body;
-    expect(body).not.toMatch(/href="\/aoba\/w\/one"[^>]*title="[^"]*"[^>]*aria-current/);
-    const list = body.match(/<ul[\s\S]*?<\/ul>/)![0];
-    expect(list).not.toContain('aria-current');
-    expect(list).toContain('（開いている）');
-    expect(list.match(/（開いている）/g)).toHaveLength(1);
-  });
-
-  test('浮きメニューで所属していない管理者の行も、aria-current を付けず見えない文言で伝える', () => {
-    const body = render(NavMenu, {
-      props: {
-        ...props,
-        current: '/aoba/w/other',
-        isAdmin: true,
-        workspace: { id: 'other', name: '架空の管理対象チーム', role: null },
-      },
-    }).body;
-    const list = body.match(/<ul[\s\S]*?<\/ul>/)![0];
-    expect(list).not.toContain('aria-current');
-    expect(list).toContain('（開いている）');
-  });
-
-  test('浮きメニューでも、どの機能の項目も当たらない画面（タスクの詳細など）では、行が現在地を伝える', () => {
+  test('タスクの詳細のような画面でも、対象の行が現在地を伝える', () => {
     const body = render(NavMenu, { props: { ...props, current: '/aoba/w/one/tasks/xxx' } }).body;
     const list = body.match(/<ul[\s\S]*?<\/ul>/)![0];
     expect(list).toMatch(/href="\/aoba\/w\/one"[^>]*aria-current="page"/);

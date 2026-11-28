@@ -339,7 +339,7 @@ test('完了したストーリーには「タスクを足す」の空の行を�
 test('seed の社内ツール: ストーリーの行の合計と畳んだ件数が出る', async ({ page }) => {
   await page.goto(SEED_INTERNAL_WORKSPACE);
   await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();
-  await expect(page.getByRole('textbox', { name: 'ストーリーを足す', exact: true })).toBeVisible();
+  await expect(page.getByRole('radiogroup', { name: '足す種類' })).toBeVisible();
   const group = storyGroup(page, '勤怠の締め処理を月末にまとめて回せる');
   await expect(group.locator('.tree-ratio')).toHaveText('完了 1 / 6 pt');
   await expect(group.locator('.tree-folded')).toHaveText('完了 1 件を折りたたんでいます');
@@ -362,6 +362,7 @@ test('閉じたワークスペースでは、作る操作と「タスクを足�
   await page.goto(SEED_CLIENT_WORKSPACE);
   await expect(page.getByRole('heading', { level: 1, name: 'バックログ' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: /ストーリーを足す|エピックを足す/ })).toHaveCount(0);
+  await expect(page.getByRole('radiogroup', { name: '足す種類' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /タスクを足す/ })).toHaveCount(0);
   await expect(page.getByRole('textbox', { name: /タスクを足す/ })).toHaveCount(0);
 

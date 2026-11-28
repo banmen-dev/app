@@ -552,7 +552,8 @@
     wikiHistoryRetry: "版の一覧を読み直す",
     wikiRestoreFailed: "戻せませんでした。もう一度試してください。",
 
-    workspaceListToggleLabel: "{workspace}の一覧を開閉", workspaceNavListLabel: "{workspace}の一覧", workspaceNavOpened: "（開いている）",
+    workspaceListToggleLabel: "{workspace}の一覧を開閉", workspaceNavListLabel: "{workspace}の一覧",
+    workspaceTabsMore: "その他", workspaceTabsMoreCurrent: "{more} {count}（開いている画面を含む）", workspaceTabsMoreList: "{workspace}のその他の画面",
     workspacePaneHint: "押すと{backlog}を開きます", paneNews: "{app} のニュース", appName: "Banmen",
     paneActivity: "最近の更新", activityEmptyTitle: "まだ更新はありません", activityEmptyText: "所属する{workspace}の{task}、{story}、{epic}の変更とコメントが、ここに新しい順に並びます。", activityEmptyNoWorkspaceText: "{workspace}に所属すると、{task}、{story}、{epic}の更新がここに並びます。",
     activityCreated: "{actor}が作成した", activityUpdated: "{actor}が{fields}を変更した", activityChanged: "{actor}が変更した", activityCompleted: "{actor}が{done}にした", activityReopened: "{actor}が{done}を戻した", activityCommented: "{actor}がコメントした",
@@ -773,10 +774,21 @@
     ];
   }
   // 空の行（.draft-row）。題だけを打って Enter で足す。kind は root（親なし）、story（ストーリーの下）、col（スプリントの列）
-  function draftRow(kind, key, label, placeholder) {
+  // lead は題の欄の前に置く部品（バックログの木の末尾の、種類の選択。draftKindRow）
+  function draftRow(kind, key, label, placeholder, lead) {
     const id = `draft-${kind}-${key}`;
-    return `<div class="draft-row" data-draft-row>${icon("plus")}<label class="visually-hidden" for="${id}">${esc(label)}</label>` +
+    return `<div class="draft-row${lead ? " is-lead" : ""}" data-draft-row>${icon("plus")}${lead || ""}<label class="visually-hidden" for="${id}">${esc(label)}</label>` +
       `<input class="input" id="${id}" data-draft="${kind}:${key}" placeholder="${esc(placeholder ?? `${label}（題を打って Enter）`)}" autocomplete="off" enterkeyhint="done"></div>`;
+  }
+  // バックログの木の末尾の、種類（エピック、ストーリー、タスク）を選べる1つの空の行（本番の木の末尾の DraftRow。#1645）。
+  // 選んだ種類で欄の案内文と読み上げの名前が変わり、題の書きかけは残る。既定はタスク
+  let draftKind = "task";
+  const draftKindWords = () => ({ epic: t("epic"), story: t("story"), task: t("task") });
+  function draftKindRow() {
+    const kinds = Object.entries(draftKindWords());
+    const lead = `<div class="segmented" role="radiogroup" aria-label="足す種類">${kinds.map(([k, name]) =>
+      `<label><input type="radio" name="draft-kind" value="${k}" data-draft-kind${k === draftKind ? " checked" : ""}><span>${esc(name)}</span></label>`).join("")}</div>`;
+    return draftRow("kind", "root", `${draftKindWords()[draftKind]}を足す`, undefined, lead);
   }
   // ボードの列の末尾の空の行の下に並べる、作る前に選ぶ担当と期日のチップ（.draft-attrs。本番の DraftAttrs。#1501）。
   // 選んだ値は見本の中の draftChoices に列ごとに持ち、題を打って Enter で作ると、そのタスクに付けて空に戻す
@@ -2552,11 +2564,23 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     row.addEventListener("animationend", finish);
   }
   let draftSeq = 0;
+  // 種類を替えると、欄の案内文と読み上げの名前だけが替わり、題の書きかけは残る
+  document.addEventListener("change", (ev) => {
+    const radio = ev.target.matches && ev.target.matches("input[data-draft-kind]") ? ev.target : null;
+    if (!radio) return;
+    draftKind = radio.value;
+    const input = radio.closest("[data-draft-row]").querySelector("input[data-draft]");
+    const label = `${draftKindWords()[draftKind]}を足す`;
+    input.placeholder = `${label}（題を打って Enter）`;
+    document.querySelector(`label[for="${input.id}"]`).textContent = label;
+  });
   // 題を打って Enter で足す。見本の中だけで持ち、足したら同じ欄に戻って続けて打てる
   function createFromDraft(input) {
     const title = input.value.trim();
     if (!title) return;
-    const [kind, key] = input.dataset.draft.split(":");
+    let [kind, key] = input.dataset.draft.split(":");
+    // 木の末尾の、種類を選べる行は、選んだ種類の親のない項目を作る
+    if (kind === "kind") { kind = draftKind === "epic" ? "new-epic" : draftKind === "story" ? "new-story" : "root"; key = "root"; }
     // エピックとストーリーも題だけで作り、同じ空の行へ戻る
     if (kind === "new-epic" || kind === "new-story") {
       const id = `sample-${++draftSeq}`;
@@ -3635,28 +3659,117 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     const cut = Object.keys(D.workspaces).length ? pages.length : pages.indexOf("workspace");
     return pages.slice(0, cut < 0 ? pages.length : cut).map((p) => {
       const inWs = PAGES.indexOf(p) > PAGES.indexOf("workspace");
-      // 761px 以上の左のメニューは、ワークスペースの機能の項目と「記録」「管理」の見出しを出さない（本番の NavMenu の workspaceItems）。
-      // 機能はワークスペースの画面の上のタブ（workspaceTabsHtml）で移る。760px 以下の浮きメニューには今までどおり出す（.is-menu-only）
-      const menuOnly = inWs ? " is-menu-only" : "";
+      // 左のメニューにも760px 以下の浮きメニューにも、ワークスペースの機能の項目と「記録」「管理」の見出しを出さない（本番の NavMenu。#1514、#1516）。
+      // 機能はどの幅でもワークスペースの画面の上のタブ（workspaceTabsHtml。入りきらないものは「その他」）で移る
+      if (inWs) return "";
       // 組織の切り替えは、メニューの外（上の帯の右）の orgMenuHtml
       if (p === "organization") return "";
       if (p === "workspace") return workspaceListHtml();
-      if (typeof p === "string") return `<div class="nav-group${menuOnly}"><span class="nav-group-label">${p}</span></div>`;
+      if (typeof p === "string") return `<div class="nav-group"><span class="nav-group-label">${p}</span></div>`;
       const [id, ic, label, href, badge] = p;
-      const target = inWs ? workspaceHref(href) : firstHref(href);
-      return `<a class="nav-item${id === "orgwiki" ? " is-wrapping" : ""}${menuOnly}" href="${target}" ${current === id ? 'aria-current="page"' : ""}>${icon(ic)}<span class="nav-item-label">${label()}</span>${badge && !first ? `<span class="nav-badge">${badge}</span>` : ""}</a>`;
+      const target = firstHref(href);
+      return `<a class="nav-item${id === "orgwiki" ? " is-wrapping" : ""}" href="${target}" ${current === id ? 'aria-current="page"' : ""}>${icon(ic)}<span class="nav-item-label">${label()}</span>${badge && !first ? `<span class="nav-badge">${badge}</span>` : ""}</a>`;
     }).join("");
   }
-  // ワークスペースの画面の上のタブ（761px 以上。本番の WorkspaceTabs.svelte と同じ並びと印。g b・g s の見えない案内と今のタブへの横の送りは本番だけ）。本番に画面のある機能だけを、本番と同じ並びで出す。
-  // 設定は対象のリーダーと管理者にだけ出す（見本の「最初の日・一般」では出さない）。見本だけの画面（エピック、積載量、記録など）ではどれも選ばない
+  // ワークスペースの画面の上のタブ（どの幅でも出す。本番の WorkspaceTabs.svelte と同じ並びと印。g b・g s の見えない案内は本番だけ）。本番に画面のある機能だけを、本番と同じ並びで出す。
+  // 設定は対象のリーダーと管理者にだけ出す（見本の「最初の日・一般」では出さない）。見本だけの画面（エピック、積載量、記録など）ではどれも選ばない。
+  // 幅が足りなければ、入るだけを前から並べ、残りを「その他 <件数>」にまとめる（fitRouteTabs。data-fit の nav に掛かる）
   const WORKSPACE_TABS = ["inbox", "backlog", "sprint", "plan", "wiki", "connection", "members", "settings"];
   function workspaceTabsHtml(current) {
     // タスクのページ全体（task.html。枠はバックログの見本で組む）では、本番と同じくどのタブも選ばない
     if (location.pathname.endsWith("/task.html")) current = null;
     const leader = D.workspaces[D.workspace]?.role !== "member";
     const tabs = WORKSPACE_TABS.filter((id) => id !== "settings" || leader).map((id) => PAGES.find((p) => Array.isArray(p) && p[0] === id));
-    return `<nav class="route-tabs" aria-label="${t("workspace")}の画面">${tabs.map(([id, , label, href]) => `<a class="route-tab" href="${workspaceHref(href)}" data-label="${esc(label())}" ${current === id ? 'aria-current="page"' : ""}>${label()}</a>`).join("")}</nav>`;
+    return `<nav class="route-tabs" data-fit aria-label="${t("workspace")}の画面">${tabs.map(([id, , label, href]) => `<a class="route-tab" href="${workspaceHref(href)}" data-label="${esc(label())}" ${current === id ? 'aria-current="page"' : ""}>${label()}</a>`).join("")}</nav>`;
   }
+  // 入りきらないタブを「その他」にまとめる（本番の src/lib/tab-fit.ts の fitTabCount と同じ計算。scripts/design-parity.test.ts が突き合わせる）。
+  // widths は各タブの幅、available は帯の幅、moreWidth は「その他」のボタンの幅。全部入れば全部、入らなければボタンの分を空けて入るだけを前から残す
+  function fitTabCount(widths, available, gap, moreWidth) {
+    if (!Number.isFinite(available) || available <= 0) return widths.length;
+    const total = widths.reduce((sum, width) => sum + width, 0) + gap * Math.max(0, widths.length - 1);
+    if (total <= available) return widths.length;
+    let used = moreWidth;
+    let count = 0;
+    for (const width of widths) {
+      used += gap + width;
+      if (used > available) break;
+      count += 1;
+    }
+    return count;
+  }
+  // data-fit の nav を組み直す。元のタブは最初の組み直しで覚え、幅が変わるたびに測り直す。
+  // 一覧は押すと開き、Esc、外を押す、項目を押す、Tab で外へ出ると閉じる（閉じたときにフォーカスが中にあれば、ボタンへ戻す。本番の SwitcherMenu と同じ）
+  const routeTabsState = new WeakMap();
+  const routeTabsNavs = new Set();
+  function routeTabsRender(nav, st, focusButton) {
+    const shown = st.tabs.slice(0, st.count);
+    const rest = st.tabs.slice(st.count);
+    const link = (tab) => `<a class="route-tab" href="${esc(tab.href)}" data-label="${esc(tab.label)}"${tab.current ? ' aria-current="page"' : ""}>${esc(tab.label)}</a>`;
+    const more = rest.length === 0 ? "" : `<div class="route-tab-more"><button class="route-tab" type="button" data-label="${t("workspaceTabsMore")} ${rest.length}"${rest.some((tab) => tab.current) ? ' data-current="true"' : ""} aria-expanded="${st.open}" aria-controls="${st.id}"${rest.some((tab) => tab.current) ? ` aria-label="${esc(t("workspaceTabsMoreCurrent").replace("{more}", t("workspaceTabsMore")).replace("{count}", rest.length))}"` : ""} data-route-tabs-more>${t("workspaceTabsMore")} <span class="route-tab-count">${rest.length}</span>${icon("chevron")}</button><ul class="route-tabs-more-list" id="${st.id}" aria-label="${esc(t("workspaceTabsMoreList").replace("{workspace}", t("workspace")))}" ${st.open ? "" : "hidden"}>${rest.map((tab) => `<li><a href="${esc(tab.href)}"${tab.current ? ' aria-current="page"' : ""}><span class="route-tabs-more-name">${esc(tab.label)}</span>${tab.current ? icon("check") : ""}</a></li>`).join("")}</ul></div>`;
+    nav.innerHTML = shown.map(link).join("") + more;
+    if (focusButton) nav.querySelector("[data-route-tabs-more]")?.focus();
+  }
+  function fitRouteTabs(nav) {
+    let st = routeTabsState.get(nav);
+    if (!st) {
+      st = { id: `route-tabs-more-${routeTabsNavs.size}-${Math.random().toString(36).slice(2, 6)}`, open: false, count: null, tabs: [...nav.querySelectorAll(":scope > .route-tab")].map((a) => ({ href: a.getAttribute("href"), label: a.dataset.label, current: a.getAttribute("aria-current") === "page" })) };
+      routeTabsState.set(nav, st);
+      routeTabsNavs.add(nav);
+      new ResizeObserver(() => fitRouteTabs(nav)).observe(nav);
+    }
+    // 全部のタブと、全部をまとめた件数のボタンを見えない並びに置いて幅を測る（本番の WorkspaceTabs の measurer と同じ）
+    const measurer = document.createElement("div");
+    measurer.className = "route-tabs-measure";
+    measurer.setAttribute("aria-hidden", "true");
+    measurer.innerHTML = st.tabs.map((tab) => `<span class="route-tab-probe" data-measure-tab data-label="${esc(tab.label)}">${esc(tab.label)}</span>`).join("") + `<span class="route-tab-probe" data-measure-more data-label="${t("workspaceTabsMore")} ${st.tabs.length}">${t("workspaceTabsMore")} <span class="route-tab-count">${st.tabs.length}</span>${icon("chevron")}</span>`;
+    nav.append(measurer);
+    const gap = Number.parseFloat(getComputedStyle(measurer).columnGap) || 0;
+    const widths = [...measurer.querySelectorAll("[data-measure-tab]")].map((el) => el.getBoundingClientRect().width);
+    const moreWidth = measurer.querySelector("[data-measure-more]").getBoundingClientRect().width;
+    measurer.remove();
+    const count = fitTabCount(widths, nav.clientWidth, gap, moreWidth);
+    if (count === st.count) return;
+    st.count = count;
+    if (count === st.tabs.length) st.open = false;
+    routeTabsRender(nav, st, false);
+  }
+  function closeRouteTabs(nav, st) {
+    if (!st.open) return;
+    const inside = nav.contains(document.activeElement) && document.activeElement !== nav;
+    st.open = false;
+    routeTabsRender(nav, st, inside);
+  }
+  document.addEventListener("click", (ev) => {
+    const button = ev.target.closest?.("[data-route-tabs-more]");
+    for (const nav of routeTabsNavs) {
+      const st = routeTabsState.get(nav);
+      if (button && nav.contains(button)) {
+        st.open = !st.open;
+        routeTabsRender(nav, st, true);
+      } else if (st.open && !(ev.target instanceof Node && nav.querySelector(".route-tab-more")?.contains(ev.target))) closeRouteTabs(nav, st);
+    }
+  });
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key !== "Escape" || ev.isComposing) return;
+    for (const nav of routeTabsNavs) {
+      const st = routeTabsState.get(nav);
+      if (st.open) { ev.preventDefault(); ev.stopPropagation(); closeRouteTabs(nav, st); }
+    }
+  });
+  document.addEventListener("focusout", (ev) => {
+    const next = ev.relatedTarget;
+    for (const nav of routeTabsNavs) {
+      const st = routeTabsState.get(nav);
+      if (st.open && next instanceof Node && !nav.querySelector(".route-tab-more")?.contains(next)) { st.open = false; routeTabsRender(nav, st, false); }
+    }
+  });
+  // 見本は innerHTML で画面を組み直すので、まだ掛けていない data-fit の nav が入ったら掛ける。掛けた後の測り直しは nav の ResizeObserver が受け持つ
+  // （測る並びを足し引きする変更で、ここがまた走らないよう、掛けていないものだけを見る）
+  function fitAllRouteTabs() {
+    for (const nav of [...routeTabsNavs]) if (!nav.isConnected) routeTabsNavs.delete(nav);
+    document.querySelectorAll("nav.route-tabs[data-fit]").forEach((nav) => { if (!routeTabsState.has(nav)) fitRouteTabs(nav); });
+  }
+  new MutationObserver(fitAllRouteTabs).observe(document.documentElement, { childList: true, subtree: true });
   // 全画面の起票の見本。属性は横に送り、種類を替えても題と本文を保つ。
   // 本番の CreateSheet も行と同じ AttrChip を使うので、包み（.attr-chip）と山形を付ける。ポイントは等幅の書体（.is-points）
   function createSheetChip(label, values, points = false) {
@@ -3940,18 +4053,15 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     if (orgMenuOpen && next && !next.closest(".org-menu")) setOrgMenu(false);
   });
   // ワークスペースの一覧（左のメニューの「ワークスペース」の見出しの下）。見出しのボタンで畳み、畳んだ状態は本番と同じキーに覚える（#1515）。
-  // 行は通常のリンクで、押すとそのワークスペースのバックログへ移る。畳むのは一覧だけで、760px 以下の浮きメニューの機能の項目は畳まない
+  // 行は通常のリンクで、押すとそのワークスペースのバックログへ移る。畳むのは一覧だけ
   const WS_LIST_KEY = "sg-nav-workspaces-collapsed";
   let workspaceListCollapsed = false;
   try { workspaceListCollapsed = localStorage.getItem(WS_LIST_KEY) === "true"; } catch { /* 覚えられない端末は開いた状態 */ }
-  // workspaceItems は浮きメニュー（機能の項目あり）の形。itemIsCurrent は、その機能の項目のどれかが現在地か（本番の NavMenu と同じ。
-  // 偽（タスクの詳細など）なら、行が aria-current を持つ）
-  function workspaceListHtml({ workspaceItems = false, itemIsCurrent = workspaceItems, collapsed = workspaceListCollapsed, id = "app-nav-workspaces", live = true, workspaces = Object.entries(D.workspaces).map(([id, w]) => ({ id, ...w })), current = { id: D.workspace, ...D.workspaces[D.workspace] }, inWorkspaceScreen = !page || !["today", "notifications", "orgwiki", "me", "admin", "favorites", "operator"].includes(page.current) } = {}) {
+  function workspaceListHtml({ collapsed = workspaceListCollapsed, id = "app-nav-workspaces", live = true, workspaces = Object.entries(D.workspaces).map(([id, w]) => ({ id, ...w })), current = { id: D.workspace, ...D.workspaces[D.workspace] }, inWorkspaceScreen = !page || !["today", "notifications", "orgwiki", "me", "admin", "favorites", "operator"].includes(page.current) } = {}) {
     const label = t("workspaceListToggleLabel").replace("{workspace}", t("workspace"));
     const listLabel = t("workspaceNavListLabel").replace("{workspace}", t("workspace"));
-    const opened = itemIsCurrent ? `<span class="visually-hidden">${t("workspaceNavOpened")}</span>` : "";
-    const row = (w) => `<li data-name="${esc(w.name)}"><a class="nav-item" href="${firstHref("backlog.html")}${first ? "&" : "?"}workspace=${encodeURIComponent(w.id)}" title="${esc(w.name)}" ${live ? `data-ws-target="${esc(w.id)}"` : ""}${w.id === current.id && inWorkspaceScreen && !itemIsCurrent ? ' aria-current="page"' : ""}><span class="nav-item-label">${esc(w.name)}</span>${w.id === current.id ? icon("check") + opened : ""}</a></li>`;
-    const outside = workspaces.some((w) => w.id === current.id) ? "" : `<li><span class="nav-item is-current"${itemIsCurrent ? "" : ' aria-current="page"'} title="${esc(current.name)}"><span class="nav-item-label">${esc(current.name)}</span>${icon("check")}${opened}</span></li>`;
+    const row = (w) => `<li data-name="${esc(w.name)}"><a class="nav-item" href="${firstHref("backlog.html")}${first ? "&" : "?"}workspace=${encodeURIComponent(w.id)}" title="${esc(w.name)}" ${live ? `data-ws-target="${esc(w.id)}"` : ""}${w.id === current.id && inWorkspaceScreen ? ' aria-current="page"' : ""}><span class="nav-item-label">${esc(w.name)}</span>${w.id === current.id ? icon("check") : ""}</a></li>`;
+    const outside = workspaces.some((w) => w.id === current.id) ? "" : `<li><span class="nav-item is-current" aria-current="page" title="${esc(current.name)}"><span class="nav-item-label">${esc(current.name)}</span>${icon("check")}</span></li>`;
     return `<div class="nav-group is-toggle"><button class="nav-group-toggle" type="button" aria-expanded="${!collapsed}" aria-controls="${id}" aria-label="${esc(label)}" ${live ? "data-ws-list" : ""}>${icon("chevron")}<span class="nav-group-label">${t("workspace")}</span></button></div>
       <ul class="nav-ws-list" id="${id}" aria-label="${esc(listLabel)}" ${collapsed ? "hidden" : ""}>${outside}${workspaces.map(row).join("")}</ul>`;
   }
@@ -5283,7 +5393,7 @@ const looooooooooooooooooooooooooooooooooongLine = "コードの長い1行は、
     D, t, brandMark, brandSymbol, googleMark, githubMark, THEMES, THEME_LABEL, THEME_NOTE, esc, icon, md, sumPts, cycleTheme, setTheme, applyTheme, mount,
     onRedraw: (fn) => extraRedraws.push(fn), openDrawer, drawerHtml, drawerState: drawer, flashRow,
     user, task, tasksWhere, repoTag, categoryTag, sprintTag, repoPicker, sprintLabel, colName, categoryOf, storyPts, epicPts, dueOf,
-    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, pts, dueChip, taskDue, sourceKey, entry, rowMenu, orderItems, draftRow, draftAttrs, attrChip, book, section, foldedSection, pane, paneList, newsList, dashboard, activity, activityLoading, activityFailed, activityEmptyNoWorkspace, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
+    attrChipExamples, avatar, avatarOf, SAMPLE_PHOTO, BROKEN_PHOTO, pts, dueChip, taskDue, sourceKey, entry, rowMenu, orderItems, draftRow, draftKindRow, draftAttrs, attrChip, book, section, foldedSection, pane, paneList, newsList, dashboard, activity, activityLoading, activityFailed, activityEmptyNoWorkspace, wikiTree, wikiCrumbs, wikiHit, pageHead, mobilePageHead,
     narrowDisclosure, popover, card, board, boardToolbar, treeStory, treeEpic, completedTasks, sprintNotice, progress, load, capacityRows,
     openDialog, closeDialog, toast, miniCap, redraw: () => redrawAll(), DIALOGS, loginTarget, orgMenuHtml, workspaceListHtml, accountMenuHtml, breadcrumbHtml,
     filesOf, fileThumb, fileRow, dropzone, attachments, markdownEditor, markdownToolbarHtml, mdBody, markdownSample, meter, storageBytes,
