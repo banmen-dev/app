@@ -1844,7 +1844,7 @@ SQL では粗く絞り、区分に入るかの厳密な判定はワークスペ�
 
 - 消した表: `xp_grants`（経験値の明細）、`thanks`（感謝）、`epic_party_members`（討伐隊）。索引は表と一緒に消えた。
 - 消した索引: `tasks_created_by_open`。経験値の見込みだけが使っていた。外部キーの検査は `tasks_created_by` で足りる。
-- 残した列: `epics.reward_tier`、`canceled_at`、`canceled_by`（CHECK `completed_at IS NULL OR canceled_at IS NULL` と索引 `epics_canceled_by` も）。本番の版がまだ `reward_tier`（NOT NULL）を書き、クリアで `canceled_*` に NULL を書くので、消す `epics` の作り直しは、書くコードを外した版が本番に出た後の別の Issue（#1676）で行う。#1676 の先の PR で、アプリは `reward_tier` も `canceled_*` も書かなくし、`reward_tier` を NULL 可にした（0049）。
+- 残した列: `epics.reward_tier`、`canceled_at`、`canceled_by`（CHECK `completed_at IS NULL OR canceled_at IS NULL` と索引 `epics_canceled_by` も）。0048 の時点では本番の版がまだ `reward_tier`（NOT NULL）を書き、クリアで `canceled_*` に NULL を書いていたので残した。#1676 の先の PR で、アプリは `reward_tier` も `canceled_*` も書かなくし、`reward_tier` を NULL 可にした（0049）。列と CHECK、索引を消す `epics` の作り直しは、この変更を含む Release が本番に出た後の #1676 の後の PR で行う。
 - API の出力から `epics.canceled_at` を外した。`epic-detail` と `backlog-tree` は返さない（前の版の画面のために `null` で返していたものをやめた）。
 - 残したもの: `notifications.kind` の CHECK にある `party_assigned`、`reward_changed`、`thanked`。変えるには `notifications` の作り直しが要り、コードからは書かない。
 - 前に書いた `change_logs` の行（`party_member`、`thanks`）は消さない（`change_logs` の節）。
