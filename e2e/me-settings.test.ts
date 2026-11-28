@@ -5,9 +5,12 @@
 // 招待は seed に、あおば開発の一般のユーザーへ届いたものが無いので、招待の一覧（invitation-list）と組織の選択（my-organizations）の応答を差し替える。
 // サーバーの承諾と辞退の処理は test/invitation-response.test.ts が確かめる
 import type { Page } from '@playwright/test';
+import { meThemeUpdate, myOrganizations } from '../src/shared/operations/organization/index.ts';
+import { invitationAccept, invitationDecline, invitationList } from '../src/shared/operations/workspace/index.ts';
 import { expect, test } from './fixtures.ts';
 import { signIn, watchViolations } from './helpers.ts';
 import { resetAobaMemberTheme } from './local-d1.ts';
+import { failOperation, mockOperation, rewriteOperation, routeOperation } from './operations.ts';
 import { setSeedTheme } from './screen-capture.ts';
 
 const AOBA_WORKSPACE_ID = '019a0000-0000-7000-8000-000000000401';
@@ -89,9 +92,7 @@ test.describe('テーマの節（ハルカ）', () => {
   });
 
   test('保存に失敗したら、選択と画面を送る前の値に戻し、理由を画面に出す', async ({ page }) => {
-    await page.route('**/api/aoba/me-theme-update', (route) =>
-      route.fulfill({ status: 500, json: { error: { code: 'internal', message: 'x' } } }),
-    );
+    const unrouteTheme = await failOperation(page, meThemeUpdate, { slug: 'aoba' }, 500, 'internal');
     await page.goto('/aoba/me');
     const section = themeSection(page);
     await expect(section.getByRole('radio', { name: /^シンプル（自動）/ })).toBeChecked();
@@ -105,8 +106,8 @@ test.describe('テーマの節（ハルカ）', () => {
     expect(await htmlTheme(page)).toBe(before);
 
     // 次に選ぶと理由は消え、通れば保存される
-    await page.unroute('**/api/aoba/me-theme-update');
-    await page.route('**/api/aoba/me-theme-update', (route) => route.fulfill({ json: { theme: 'simple_light' } }));
+    await unrouteTheme();
+    await mockOperation(page, meThemeUpdate, { slug: 'aoba' }, { theme: 'simple_light' });
     await section.getByRole('radio', { name: /^シンプル（ライト）/ }).click();
     await expect(section.getByRole('alert')).toHaveText('');
   });
@@ -116,11 +117,10 @@ test.describe('テーマの節（ハルカ）', () => {
     const sent: unknown[] = [];
     let release!: () => void;
     const gate = new Promise<void>((resolve) => (release = resolve));
-    await page.route('**/api/aoba/me-theme-update', async (route) => {
-      const body = route.request().postDataJSON() as { theme: string };
-      sent.push(body);
+    await routeOperation(page, meThemeUpdate, { slug: 'aoba' }, async (call) => {
+      sent.push(call.input);
       if (sent.length === 1) await gate;
-      await route.fulfill({ json: { theme: body.theme } });
+      await call.fulfill({ theme: call.input.theme });
     });
     await page.goto('/aoba/me');
     const section = themeSection(page);
@@ -195,22 +195,18 @@ function invitation(overrides: Partial<InboxInvitation> = {}): InboxInvitation {
 // あおば開発の一般のユーザーとして、招待の一覧と組織の選択の届いた招待を差し替える。state.invitations は呼ぶたびに今の値を返す。
 // 組織の選択は本物の応答に、招待のある間だけあおば開発の届いた招待を足す
 async function stubInvitations(page: Page, state: { invitations: InboxInvitation[]; listStatus?: number }) {
-  await page.route('**/api/aoba/invitation-list', (route) =>
+  await routeOperation(page, invitationList, { slug: 'aoba' }, (call) =>
     state.listStatus && state.listStatus !== 200
-      ? route.fulfill({ status: state.listStatus, json: { error: { code: 'internal', message: 'x' } } })
-      : route.fulfill({
-          json: { organization: { name: 'あおば開発' }, invitations: state.invitations },
-        }),
+      ? call.fail(state.listStatus, 'internal')
+      : call.fulfill({ organization: { name: 'あおば開発' }, invitations: state.invitations }),
   );
-  await page.route('**/api/my-organizations', async (route) => {
-    const response = await route.fetch();
-    const body = (await response.json()) as { invitations: { organization_name: string; slug: string }[] };
-    body.invitations =
+  await rewriteOperation(page, myOrganizations, (output) => ({
+    ...output,
+    invitations:
       state.invitations.length > 0
         ? [{ organization_name: 'あおば開発', slug: 'aoba' }]
-        : body.invitations.filter((item) => item.slug !== 'aoba');
-    await route.fulfill({ response, json: body });
-  });
+        : output.invitations.filter((item) => item.slug !== 'aoba'),
+  }));
 }
 
 const accountButton = (page: Page) => page.getByRole('button', { name: /アカウントのメニュー$/ });
@@ -263,10 +259,10 @@ test.describe('届いた招待（ハルカ）', () => {
     });
     const state = { invitations: [first, second] };
     await stubInvitations(page, state);
-    await page.route('**/api/aoba/invitation-decline', async (route) => {
-      const { invitation_id } = route.request().postDataJSON() as { invitation_id: string };
+    await routeOperation(page, invitationDecline, { slug: 'aoba' }, async (call) => {
+      const { invitation_id } = call.input;
       state.invitations = state.invitations.filter((item) => item.invitation_id !== invitation_id);
-      await route.fulfill({ json: { invitation_id } });
+      await call.fulfill({ invitation_id });
     });
     const collect = await watchViolations(page);
     await page.goto('/aoba/me');
@@ -315,9 +311,9 @@ test.describe('届いた招待（ハルカ）', () => {
     });
     const state = { invitations: [open, closed] };
     await stubInvitations(page, state);
-    await page.route('**/api/aoba/invitation-accept', (route) => {
+    await routeOperation(page, invitationAccept, { slug: 'aoba' }, (call) => {
       state.invitations = [];
-      return route.fulfill({ json: { workspace_id: AOBA_WORKSPACE_ID } });
+      return call.fulfill({ workspace_id: AOBA_WORKSPACE_ID });
     });
     await page.goto('/aoba/me');
     await expect(page.locator('.callout.is-info[data-invitation-row]')).toHaveCount(2);
@@ -337,9 +333,9 @@ test.describe('届いた招待（ハルカ）', () => {
   }) => {
     const state: { invitations: InboxInvitation[]; listStatus?: number } = { invitations: [invitation()] };
     await stubInvitations(page, state);
-    await page.route('**/api/aoba/invitation-accept', (route) => {
+    await routeOperation(page, invitationAccept, { slug: 'aoba' }, (call) => {
       state.invitations = [];
-      return route.fulfill({ status: 409, json: { error: { code: 'conflict', message: 'x' } } });
+      return call.fail(409, 'conflict');
     });
     await page.goto('/aoba/me');
     await page.getByRole('button', { name: '保守チームへの招待を承諾する' }).click();

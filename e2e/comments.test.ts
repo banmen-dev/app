@@ -2,8 +2,12 @@
 // 直している途中に消されたら書きかけを残して知らせる、終了したワークスペースでは書く欄と操作を出さない。
 // seed のセッション（seed/sessions.ts）の Cookie で開く。あおば開発の管理者（リーダー）はミナト、一般はハルカ
 import type { Browser, Locator, Page } from '@playwright/test';
+import type { ErrorCode } from '../src/shared/errors.ts';
+import { commentCreate, commentDelete, commentList, commentUpdate } from '../src/shared/operations/task/index.ts';
+import { workspaceInfo } from '../src/shared/operations/workspace/workspace.ts';
 import { expect, test } from './fixtures.ts';
 import { addTaskRow, createWorkspace, signIn, watchViolations } from './helpers.ts';
+import { failOperation, rewriteOperation, routeOperation } from './operations.ts';
 
 test.use({ timezoneId: 'Asia/Tokyo' });
 
@@ -148,16 +152,14 @@ test.describe('自分のコメント', () => {
   test('一覧を読めるまでは、書く欄と件数を出さない。読めなければ「もう一度試す」で読み直す', async ({ page }) => {
     await createWorkspace(page, '読めないコメントのワークスペース');
     await addTaskRow(page, '読めないコメント');
-    await page.route('**/api/aoba/comment-list', (route) =>
-      route.fulfill({ status: 500, json: { error: { code: 'internal', message: 'x' } } }),
-    );
+    const unrouteList = await failOperation(page, commentList, { slug: 'aoba' }, 500, 'internal');
     const drawer = await openDrawer(page, '読めないコメント');
     const panel = drawer.getByRole('tabpanel', { name: /^コメント/ });
     await expect(panel.getByText('コメントを読み込めませんでした。')).toBeVisible();
     await expect(drawer.getByRole('tab', { name: /^コメント/ })).toHaveText('コメント');
     await expect(panel.getByRole('textbox', { name: 'コメントを書く' })).toHaveCount(0);
     await expect(panel.getByRole('button', { name: '送る' })).toHaveCount(0);
-    await page.unroute('**/api/aoba/comment-list');
+    await unrouteList();
     await panel.getByRole('button', { name: 'もう一度試す' }).click();
     await expect(panel.getByRole('textbox', { name: 'コメントを書く' })).toBeVisible();
     await expect(drawer.getByRole('tab', { name: /^コメント/ })).toHaveText('コメント 0');
@@ -172,14 +174,11 @@ test.describe('自分のコメント', () => {
     await addTaskRow(page, '途中で閉じる依頼');
     const drawer = await openDrawer(page, '途中で閉じる依頼');
     // 送ると 409 の workspace_closed で断られ、枠を読み直すと閉じている
-    await page.route('**/api/aoba/comment-create', (route) =>
-      route.fulfill({ status: 409, json: { error: { code: 'workspace_closed', message: 'x' } } }),
-    );
-    await page.route('**/api/aoba/workspace', async (route) => {
-      const response = await route.fetch();
-      const body = (await response.json()) as Record<string, unknown>;
-      await route.fulfill({ response, json: { ...body, closed_at: '2026-10-20T00:00:00.000Z' } });
-    });
+    await failOperation(page, commentCreate, { slug: 'aoba' }, 409, 'workspace_closed');
+    await rewriteOperation(page, workspaceInfo, { slug: 'aoba' }, (output) => ({
+      ...output,
+      closed_at: '2026-10-20T00:00:00.000Z',
+    }));
     const input = drawer.getByRole('textbox', { name: 'コメントを書く' });
     await input.fill('閉じる前に書きかけた文');
     await drawer.getByRole('button', { name: '送る' }).click();
@@ -200,14 +199,11 @@ test.describe('自分のコメント', () => {
     await expect(drawer.getByRole('tab', { name: /^コメント/ })).toHaveText('コメント 1');
 
     // 送ると閉じていた。理由の文の<ワークスペース>が、スクラムの言葉で出る
-    await page.route('**/api/aoba/comment-create', (route) =>
-      route.fulfill({ status: 409, json: { error: { code: 'workspace_closed', message: 'x' } } }),
-    );
-    await page.route('**/api/aoba/workspace', async (route) => {
-      const response = await route.fetch();
-      const body = (await response.json()) as Record<string, unknown>;
-      await route.fulfill({ response, json: { ...body, closed_at: '2026-10-20T00:00:00.000Z' } });
-    });
+    await failOperation(page, commentCreate, { slug: 'aoba' }, 409, 'workspace_closed');
+    await rewriteOperation(page, workspaceInfo, { slug: 'aoba' }, (output) => ({
+      ...output,
+      closed_at: '2026-10-20T00:00:00.000Z',
+    }));
     await drawer.getByRole('textbox', { name: 'コメントを書く' }).fill('閉じた後の文');
     await drawer.getByRole('button', { name: '送る' }).click();
     await expect(
@@ -219,9 +215,7 @@ test.describe('自分のコメント', () => {
     await createWorkspace(page, '送れないワークスペース');
     await addTaskRow(page, '送れない依頼');
     const drawer = await openDrawer(page, '送れない依頼');
-    await page.route('**/api/aoba/comment-create', (route) =>
-      route.fulfill({ status: 500, json: { error: { code: 'internal', message: 'x' } } }),
-    );
+    const unrouteCreate = await failOperation(page, commentCreate, { slug: 'aoba' }, 500, 'internal');
     const input = drawer.getByRole('textbox', { name: 'コメントを書く' });
     await input.fill('届かない文');
     await drawer.getByRole('button', { name: '送る' }).click();
@@ -229,7 +223,7 @@ test.describe('自分のコメント', () => {
       drawer.getByText('コメントを送れませんでした。書いた文は残しています。もう一度試してください。'),
     ).toBeVisible();
     await expect(input).toHaveValue('届かない文');
-    await page.unroute('**/api/aoba/comment-create');
+    await unrouteCreate();
     await drawer.getByRole('button', { name: '送る' }).click();
     await expect(drawer.locator('.comment', { hasText: '届かない文' })).toBeVisible();
     await expect(input).toHaveValue('');
@@ -252,18 +246,17 @@ test.describe('自分のコメント', () => {
       can_edit: false,
       can_delete: false,
     });
-    await page.route('**/api/aoba/comment-list', async (route) => {
-      const body = route.request().postDataJSON() as { before?: unknown };
-      const json =
-        body.before === undefined
+    await routeOperation(page, commentList, { slug: 'aoba' }, async (call) => {
+      await call.fulfill(
+        call.input.before === undefined
           ? {
               comments: Array.from({ length: 50 }, (_, i) => comment(i + 2)),
               next: { created_at: at(2), id: id(2) },
               count: 51,
               timezone: 'Asia/Tokyo',
             }
-          : { comments: [comment(1)], next: null, count: 51, timezone: 'Asia/Tokyo' };
-      await route.fulfill({ json });
+          : { comments: [comment(1)], next: null, count: 51, timezone: 'Asia/Tokyo' },
+      );
     });
     const drawer = await openDrawer(page, '前を足す依頼');
     await expect(drawer.getByRole('tab', { name: /^コメント/ })).toHaveText('コメント 51');
@@ -283,17 +276,15 @@ test.describe('自分のコメント', () => {
     await createWorkspace(page, '前を読むワークスペース');
     await addTaskRow(page, '前を読む依頼');
     // 先頭の読みには続きがあるように見せ、続きの読みはタスクが消えたときの 404 にする
-    await page.route('**/api/aoba/comment-list', async (route) => {
-      const body = route.request().postDataJSON() as { before?: unknown };
-      if (body.before !== undefined) {
-        await route.fulfill({ status: 404, json: { error: { code: 'not_found', message: 'x' } } });
+    await routeOperation(page, commentList, { slug: 'aoba' }, async (call) => {
+      if (call.input.before !== undefined) {
+        await call.fail(404, 'not_found');
         return;
       }
-      const response = await route.fetch();
-      const data = (await response.json()) as Record<string, unknown>;
-      await route.fulfill({
-        response,
-        json: { ...data, next: { created_at: '2026-10-01T00:00:00.000Z', id: '019a0000-0000-7000-8000-000000000001' } },
+      const data = await call.fetch();
+      await call.fulfill({
+        ...data,
+        next: { created_at: '2026-10-01T00:00:00.000Z', id: '019a0000-0000-7000-8000-000000000001' },
       });
     });
     const drawer = await openDrawer(page, '前を読む依頼');
@@ -310,14 +301,11 @@ test.describe('自分のコメント', () => {
     const edit = comment.getByRole('textbox', { name: 'コメントを直す' });
     await edit.fill('閉じた後に直そうとした文');
     // 保存すると 409 の workspace_closed で断られ、枠を読み直すと閉じている
-    await page.route('**/api/aoba/comment-update', (route) =>
-      route.fulfill({ status: 409, json: { error: { code: 'workspace_closed', message: 'x' } } }),
-    );
-    await page.route('**/api/aoba/workspace', async (route) => {
-      const response = await route.fetch();
-      const body = (await response.json()) as Record<string, unknown>;
-      await route.fulfill({ response, json: { ...body, closed_at: '2026-10-20T00:00:00.000Z' } });
-    });
+    await failOperation(page, commentUpdate, { slug: 'aoba' }, 409, 'workspace_closed');
+    await rewriteOperation(page, workspaceInfo, { slug: 'aoba' }, (output) => ({
+      ...output,
+      closed_at: '2026-10-20T00:00:00.000Z',
+    }));
     await comment.getByRole('button', { name: '保存', exact: true }).click();
     await expect(comment.getByText('終了したワークスペースには書き込めません', { exact: false })).toBeVisible();
     await expect(comment.getByRole('button', { name: '保存', exact: true })).toHaveCount(0);
@@ -333,11 +321,10 @@ test.describe('自分のコメント', () => {
     await expect(drawer).toBeHidden();
 
     // ワークスペースの情報だけを閉じた状態に差し替える
-    await page.route('**/api/aoba/workspace', async (route) => {
-      const response = await route.fetch();
-      const body = (await response.json()) as Record<string, unknown>;
-      await route.fulfill({ response, json: { ...body, closed_at: '2026-10-20T00:00:00.000Z' } });
-    });
+    await rewriteOperation(page, workspaceInfo, { slug: 'aoba' }, (output) => ({
+      ...output,
+      closed_at: '2026-10-20T00:00:00.000Z',
+    }));
     await page.reload();
     drawer = await openDrawer(page, '閉じた後に読む');
     const comment = drawer.locator('.comment', { hasText: '閉じる前に書いた文' });
@@ -481,24 +468,28 @@ test.describe('コメントの削除の取り消し', () => {
     const drawer = await openDrawer(page, '断られるのを確かめる');
     const tab = drawer.getByRole('tab', { name: /^コメント/ });
     const comment = await sendComment(drawer, '断られるコメント');
-    const refuse = (status: number, error: object) =>
-      page.route(
-        '**/comment-delete',
-        (route) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error }) }),
-        { times: 1 },
-      );
-    const cases: [number, object, string][] = [
-      [500, { code: 'internal', message: 'x' }, 'コメントを削除できませんでした'],
-      [409, { code: 'conflict', message: 'x', details: { reason: 'deleted' } }, 'このコメントはすでに削除されています'],
-      [403, { code: 'forbidden', message: 'x' }, 'このコメントは操作できません'],
+    // 1回だけ断る。2回目からは本物の API へ流す
+    const refuse = (status: number, code: ErrorCode, details?: unknown) => {
+      let refused = false;
+      return routeOperation(page, commentDelete, { slug: 'aoba' }, async (call) => {
+        if (refused) return call.passThrough();
+        refused = true;
+        return call.fail(status, code, details === undefined ? {} : { details });
+      });
+    };
+    const cases: [number, ErrorCode, unknown, string][] = [
+      [500, 'internal', undefined, 'コメントを削除できませんでした'],
+      [409, 'conflict', { reason: 'deleted' }, 'このコメントはすでに削除されています'],
+      [403, 'forbidden', undefined, 'このコメントは操作できません'],
     ];
-    for (const [status, error, message] of cases) {
-      await refuse(status, error);
+    for (const [status, code, details, message] of cases) {
+      const unrefuse = await refuse(status, code, details);
       await comment.getByRole('button', { name: '削除', exact: true }).click();
       await expect(comment).toHaveCount(0);
       await expect(page.getByRole('status').filter({ hasText: message })).toBeVisible({ timeout: DELETE_SENT });
       await expect(comment.locator('.comment-body')).toContainText('断られるコメント');
       await expect(tab).toHaveText('コメント 1');
+      await unrefuse();
     }
   });
 });

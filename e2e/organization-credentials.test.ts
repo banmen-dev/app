@@ -49,9 +49,7 @@ test('添付の送信中も、組織の古い認証を断られたら案内へ�
   const drawer = page.getByRole('dialog', { name: 'ポイント付与のバッチを作る' });
   const input = drawer.getByRole('textbox', { name: 'コメントを書く', exact: true });
   await expect(input).toBeVisible();
-  await page.route(`**${operationPath(attachmentUpload, 'aoba')}`, (route) =>
-    route.fulfill({ status: 401, json: { error: { code: 'organization_reauth_required', message: '' } } }),
-  );
+  await failOperation(page, attachmentUpload, { slug: 'aoba' }, 401, 'organization_reauth_required');
   await input
     .locator('xpath=ancestor::form')
     .locator('input[type="file"]')

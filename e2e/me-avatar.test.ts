@@ -1,6 +1,8 @@
 import type { Page } from '@playwright/test';
+import { meAvatarDelete, meAvatarUpload } from '../src/shared/operations/organization/index.ts';
 import { test, expect } from './fixtures.ts';
 import { signIn, watchViolations } from './helpers.ts';
+import { routeOperation } from './operations.ts';
 
 const section = (page: Page) => page.getByRole('region', { name: 'プロフィール画像', exact: true });
 async function photo(page: Page, mimeType = 'image/png', color = '#0b57d0') {
@@ -186,14 +188,14 @@ test.describe('プロフィール画像', () => {
     for (const status of [400, 413]) {
       let releaseResponse!: () => void;
       const held = new Promise<void>((resolve) => (releaseResponse = resolve));
-      await page.route(
-        '**/api/aoba/me-avatar-upload',
-        async (route) => {
-          await held;
-          await route.fulfill({ status, json: { error: { code: 'invalid_input', message: 'invalid' } } });
-        },
-        { times: 1 },
-      );
+      // 1回だけ断る。2回目からは本物の API へ流す
+      let refused = false;
+      const unrouteUpload = await routeOperation(page, meAvatarUpload, { slug: 'aoba' }, async (call) => {
+        if (refused) return call.passThrough();
+        refused = true;
+        await held;
+        return call.fail(status, 'invalid_input');
+      });
       const rejected = page.waitForResponse(
         (response) => response.url().endsWith('/api/aoba/me-avatar-upload') && response.status() === status,
       );
@@ -205,15 +207,18 @@ test.describe('プロフィール画像', () => {
       }
       await rejected;
       await expect(dialog.getByRole('alert')).toContainText('512KiB');
+      await unrouteUpload();
     }
     await dialog.getByRole('button', { name: '上げる', exact: true }).click();
     await expect(dialog).not.toBeVisible();
     await expect(section(page).getByRole('button', { name: '外す', exact: true })).toBeVisible();
-    await page.route(
-      '**/api/aoba/me-avatar-delete',
-      (route) => route.fulfill({ status: 500, json: { error: { code: 'internal_error', message: 'invalid' } } }),
-      { times: 1 },
-    );
+    // 1回だけ失敗させる。2回目からは本物の API へ流す
+    let failed = false;
+    await routeOperation(page, meAvatarDelete, { slug: 'aoba' }, (call) => {
+      if (failed) return call.passThrough();
+      failed = true;
+      return call.fail(500, 'internal');
+    });
     await section(page).getByRole('button', { name: '外す', exact: true }).click();
     await expect(section(page).getByRole('alert')).toContainText('プロフィール画像を変更できませんでした');
     await expect(section(page).locator('.avatar img')).toBeVisible();
