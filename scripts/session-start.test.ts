@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, test } from 'node:test';
@@ -108,16 +117,65 @@ describe('session-start.sh', () => {
   });
 
   // settings.json の command そのものを sh -c で走らせる（綴りやクォートの誤りも落とす）
+  test('CRLF の .node-version でも主版を取れる', () => {
+    const f = fixture({ nodeVersion: '26\r\n', fakeNode: { major: '26', prints: 'v26.13.1' } });
+    assert.equal(run(f).status, 0);
+    assert.match(readFileSync(f.envFile, 'utf8'), /node26\/bin/);
+  });
+
+  test('複数行の .node-version は1行目だけを使う', () => {
+    const f = fixture({ nodeVersion: '26\n27\n', fakeNode: { major: '26', prints: 'v26.13.1' } });
+    run(f);
+    assert.match(readFileSync(f.envFile, 'utf8'), /node26\/bin/);
+  });
+
+  test('主版が前方一致するだけの版（v260.）や、値と同名のディレクトリは通さない', () => {
+    const a = fixture({ nodeVersion: '26', fakeNode: { major: '26', prints: 'v260.1.0' } });
+    run(a);
+    assert.equal(existsSync(a.envFile), false);
+    const b = fixture({ nodeVersion: '2x', fakeNode: { major: '2x', prints: 'v2x.1.0' } });
+    run(b);
+    assert.equal(existsSync(b.envFile), false);
+  });
+
+  test('CLAUDE_ENV_FILE が無いとき、何も出さない', () => {
+    const f = fixture({ nodeVersion: '26', fakeNode: { major: '26', prints: 'v26.13.1' } });
+    const r = run(f, false);
+    assert.equal(r.stderr, '');
+  });
+
+  test('同じ行がコメントとしてあるだけなら、PATH の行を足す', () => {
+    const f = fixture({ nodeVersion: '26', fakeNode: { major: '26', prints: 'v26.13.1' } });
+    const line = `export PATH="${f.root}/node26/bin:$PATH"`;
+    writeFileSync(f.envFile, `# ${line}\n`);
+    run(f);
+    assert.equal(readFileSync(f.envFile, 'utf8'), `# ${line}\n${line}\n`);
+  });
+
+  test('node が固まっても、上限で戻り何も書かない', () => {
+    const f = fixture({ nodeVersion: '26', fakeNode: { major: '26', prints: 'v26.13.1' } });
+    writeFileSync(join(f.root, 'node26', 'bin', 'node'), '#!/bin/sh\nsleep 30\n');
+    const start = Date.now();
+    const r = run(f);
+    assert.equal(r.status, 0);
+    assert.ok(Date.now() - start < 15000);
+    assert.equal(existsSync(f.envFile), false);
+  });
+
   test('.claude/settings.json の SessionStart の command が、実際に PATH の行を書く', () => {
     const commands = (settings.hooks.SessionStart ?? []).flatMap((e) => e.hooks.map((h) => h.command));
     const command = commands.find((c) => c.includes('session-start.sh'));
     assert.ok(command, 'SessionStart に session-start.sh のフックが無い');
-    const f = fixture({ fakeNode: { major: '26', prints: 'v26.13.1' } });
-    const repoRoot = fileURLToPath(new URL('../', import.meta.url));
+    const f = fixture({ nodeVersion: '26', fakeNode: { major: '26', prints: 'v26.13.1' } });
+    // 空白を含む CLAUDE_PROJECT_DIR でも、引用符が正しければ書ける
+    const project = join(f.project, 'sp ace');
+    mkdirSync(join(project, 'scripts'), { recursive: true });
+    copyFileSync(script, join(project, 'scripts', 'session-start.sh'));
+    writeFileSync(join(project, '.node-version'), '26\n');
     const r = spawnSync('sh', ['-c', command], {
       env: {
         PATH: process.env.PATH ?? '',
-        CLAUDE_PROJECT_DIR: repoRoot,
+        CLAUDE_PROJECT_DIR: project,
         CLAUDE_ENV_FILE: f.envFile,
         BANMEN_NODE_ROOT: f.root,
       },
