@@ -2,6 +2,7 @@
 import type { AnyOperationDefinition } from '../define.ts';
 import { storyChoices } from './story-choices.ts';
 import { storyComplete } from './story-complete.ts';
+import { storyConvert } from './story-convert.ts';
 import { storyCreate } from './story-create.ts';
 import { storyDelete } from './story-delete.ts';
 import { storyGet } from './story-get.ts';
@@ -9,7 +10,24 @@ import { storyMove } from './story-move.ts';
 import { storyReopen } from './story-reopen.ts';
 import { storyUpdate } from './story-update.ts';
 
-export { storyChoices, storyComplete, storyCreate, storyDelete, storyGet, storyMove, storyReopen, storyUpdate };
+export {
+  storyChoices,
+  storyComplete,
+  storyConvert,
+  storyCreate,
+  storyDelete,
+  storyGet,
+  storyMove,
+  storyReopen,
+  storyUpdate,
+};
+export {
+  storyConvertConflictReasonOf,
+  storyConvertConflictReasons,
+  storyConvertKinds,
+  type StoryConvertConflictReason,
+  type StoryConvertKind,
+} from './story-convert.ts';
 export { storyDetailSchema, type StoryDetail } from './story.ts';
 
 export const storyOperations: readonly AnyOperationDefinition[] = [
@@ -21,4 +39,5 @@ export const storyOperations: readonly AnyOperationDefinition[] = [
   storyComplete,
   storyReopen,
   storyDelete,
+  storyConvert,
 ];

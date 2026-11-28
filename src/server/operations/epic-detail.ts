@@ -3,6 +3,7 @@ import { epicDetail } from '../../shared/operations/epic/index.ts';
 import { ApiError } from '../errors.ts';
 import { amountOf } from './aggregate.ts';
 import { implement } from './implement.ts';
+import { notFoundOf } from './kind-conversion.ts';
 import { isLeaderOrAdmin } from './write-guards.ts';
 
 // エピックの画面の読み取り（docs/data-model.md の epics の epic-detail）。読む表はどれも組織の中の表で、
@@ -96,7 +97,8 @@ export const epicDetailOperation = implement(epicDetail, async ({ db, actor, wor
 
   const epic = epicResult.rows[0];
   const settings = settingsResult.rows[0];
-  if (epic === undefined || settings === undefined) throw new ApiError(404, 'not_found');
+  if (settings === undefined) throw new ApiError(404, 'not_found');
+  if (epic === undefined) throw await notFoundOf(db, workspaceId, 'epic', epicId);
 
   return {
     today: todayIn(settings.timezone),
