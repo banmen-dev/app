@@ -1,5 +1,5 @@
 // マイプロフィール、アカウントのメニュー、メンバーの一覧、ワークスペースのホーム（バックログ）に、経験値とレベルが出ないこと（#1432）。
-// seed のセッション（seed/sessions.ts）の Cookie で開く。表 xp_grants には seed の明細が残っているが、画面も API も読まない
+// seed のセッション（seed/sessions.ts）の Cookie で開く。経験値の明細は seed に無く、画面も API も読まない
 import { organizationInfo } from '../src/shared/operations/organization/index.ts';
 import { expect, test } from './fixtures.ts';
 import { signIn, watchViolations } from './helpers.ts';

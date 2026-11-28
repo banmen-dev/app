@@ -122,11 +122,7 @@ describe('ワークスペースの Wiki', () => {
         q.selectFrom('change_logs').select('id').where('organization_id', '=', target.organization.id),
       ),
     );
-    const xp = await db.rows(
-      db.statement((q) => q.selectFrom('xp_grants').select('id').where('workspace_id', '=', target.workspace.id)),
-    );
     expect(logs).toHaveLength(0);
-    expect(xp).toHaveLength(0);
   });
 
   test('frontmatter の有効な title は入力の無効な題より優先する', async () => {

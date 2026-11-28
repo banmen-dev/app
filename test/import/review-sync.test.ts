@@ -18,7 +18,6 @@ import {
   createUser,
   createWorkspace,
   createCompletion,
-  createXpGrant,
   createSprint,
   createBoardColumn,
   createSprintEntry,
@@ -131,7 +130,7 @@ describe('レビュー依頼の同期と保存', () => {
     expect(await rows(ctx)).toHaveLength(3);
   });
 
-  test.each(['reviewed', 'closed'])('本人の提出・PR終了(%s)は印だけで、自動完了もXP付与もしない', async (status) => {
+  test.each(['reviewed', 'closed'])('本人の提出・PR終了(%s)は印だけで、自動完了もしない', async (status) => {
     const ctx = await setup();
     const f = fake();
     await sync(ctx, f.source);
@@ -145,14 +144,9 @@ describe('レビュー依頼の同期と保存', () => {
         ctx.db.statement((q) => q.selectFrom('completions').selectAll().where('workspace_id', '=', ctx.workspace.id)),
       ),
     ).toEqual([]);
-    expect(
-      await ctx.db.rows(
-        ctx.db.statement((q) => q.selectFrom('xp_grants').selectAll().where('workspace_id', '=', ctx.workspace.id)),
-      ),
-    ).toEqual([]);
   });
 
-  test('再依頼は同じタスクを1度だけ受信箱へ戻し、完了・経験値を保持する', async () => {
+  test('再依頼は同じタスクを1度だけ受信箱へ戻し、完了の記録を保持する', async () => {
     const ctx = await setup();
     const f = fake();
     await sync(ctx, f.source);
@@ -166,11 +160,6 @@ describe('レビュー依頼の同期と保存', () => {
     const story = await createStory(ctx.organization, ctx.workspace.id, ctx.owner.id);
     const entry = await createSprintEntry(ctx.organization, ctx.workspace.id, sprint.id, task!.id, ctx.owner.id);
     const completion = await createCompletion(ctx.organization, ctx.workspace.id, task!.id, ctx.owner.id);
-    const grant = await createXpGrant(ctx.organization, ctx.workspace.id, ctx.owner.id, {
-      action: 'task_completed',
-      task_id: task!.id,
-      completion_id: completion.id,
-    });
     await ctx.db.run(
       ctx.db.statement((q) =>
         q
@@ -247,9 +236,6 @@ describe('レビュー依頼の同期と保存', () => {
         ctx.db.statement((q) => q.selectFrom('completions').selectAll().where('id', '=', completion.id)),
       ),
     ).toEqual(completion);
-    expect(
-      await ctx.db.first(ctx.db.statement((q) => q.selectFrom('xp_grants').selectAll().where('id', '=', grant.id))),
-    ).toEqual(grant);
     await moveToBacklog(ctx, task!.id);
     await sync(ctx, f.source);
     expect(await rows(ctx)).toMatchObject([{ id: task!.id, tray: 'backlog' }]);

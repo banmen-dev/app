@@ -239,33 +239,7 @@ describe('task-delegate', () => {
     expect(await logs(target, task.id)).toEqual([]);
   });
 
-  test('自分を担当にしても、親エピックの討伐隊（epic_party_members）に行を入れない', async () => {
-    const target = await createPersonalTarget();
-    const person = await add(target);
-    const epic = await createEpic(target.organization, target.workspace.id, target.admin.userId!);
-    const story = await createStory(target.organization, target.workspace.id, target.admin.userId!, {
-      epic_id: epic.id,
-    });
-    const task = await createTask(target.organization, target.workspace.id, target.admin.userId!, {
-      story_id: story.id,
-    });
-    expect((await delegate(target, task.id, person.id)).status).toBe(200);
-    expect((await delegate(target, task.id, person.id)).status).toBe(200);
-    const db = orgDb(env, target.organization.verified);
-    const party = await db.rows(
-      db.statement((q) =>
-        q
-          .selectFrom('epic_party_members')
-          .innerJoin('epics', 'epics.id', 'epic_party_members.epic_id')
-          .selectAll('epic_party_members')
-          .where('epics.workspace_id', '=', target.workspace.id)
-          .where('epic_id', '=', epic.id),
-      ),
-    );
-    expect(party).toEqual([]);
-  });
-
-  test('完了の記録は担当の自分に付き、xp_grants は増えない', async () => {
+  test('完了の記録は担当の自分に付く', async () => {
     const target = await createPersonalTarget();
     const person = await add(target);
     const task = await createTask(target.organization, target.workspace.id, target.admin.userId!, { points: 3 });
@@ -288,16 +262,6 @@ describe('task-delegate', () => {
     );
     expect(completions).toHaveLength(1);
     expect(completions[0]).toMatchObject({ assignee_user_id: target.admin.userId });
-    const xp = await db.rows(
-      db.statement((q) =>
-        q
-          .selectFrom('xp_grants')
-          .selectAll()
-          .where('workspace_id', '=', target.workspace.id)
-          .where('task_id', '=', task.id),
-      ),
-    );
-    expect(xp).toEqual([]);
   });
 
   test('別組織・削除済み・存在しない依頼先は404で何も変えない', async () => {

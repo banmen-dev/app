@@ -13,10 +13,8 @@ import {
   createInvitation,
   createMembership,
   createOrganization,
-  createTask,
   createUser,
   createWorkspace,
-  uuidv7,
   type OrganizationFixture,
 } from './factories.ts';
 import { errorCodeOf, post } from './operations/harness.ts';
@@ -263,7 +261,7 @@ describe('invitation-accept', () => {
     ]);
   });
 
-  test('前に抜けた人は同じ users の ID で戻り、経験値の合計が変わらない', async () => {
+  test('前に抜けた人は同じ users の ID で戻る', async () => {
     const { organization, owner, workspace } = await organizationWithOwner();
     const returning = await createPerson({ organization });
     await createMembership(organization, workspace.id, returning.userId!, {
@@ -272,30 +270,6 @@ describe('invitation-accept', () => {
       left_on: '2026-09-30',
       left_at: '2026-09-30T00:00:00.000Z',
     });
-    const task = await createTask(organization, workspace.id, returning.userId!);
-    const db = orgDb(env, organization.verified);
-    for (const amount of [3, 5]) {
-      await db.run(
-        db.statement((q) =>
-          q.insertInto('xp_grants').values({
-            id: uuidv7(),
-            workspace_id: workspace.id,
-            user_id: returning.userId!,
-            action: 'task_created',
-            task_id: task.id,
-            amount,
-            dedupe_key: `test:${crypto.randomUUID()}`,
-            confirmed_at: '2026-09-10T00:00:00.000Z',
-          }),
-        ),
-      );
-    }
-    const xpTotal = async () =>
-      (
-        await db.rows(
-          db.statement((q) => q.selectFrom('xp_grants').select('amount').where('user_id', '=', returning.userId!)),
-        )
-      ).reduce((sum, row) => sum + row.amount, 0);
     const invitation = await createInvitation(organization, workspace.id, owner.id, returning.login);
 
     const res = await accept(organization, returning, invitation.id);
@@ -305,7 +279,6 @@ describe('invitation-accept', () => {
     expect(users.map((user) => user.id)).toEqual([returning.userId]);
     const memberships = await membershipsIn(organization, workspace.id, returning.userId!);
     expect(memberships.map((membership) => membership.left_at)).toEqual(['2026-09-30T00:00:00.000Z', null]);
-    expect(await xpTotal()).toBe(8);
     const membershipLogs = await logsOf(organization, 'membership', memberships[1]!.id);
     expect(JSON.parse(membershipLogs[0]!.changes_json)).toEqual({
       user: [null, { id: returning.userId, name: '星野 澪' }],
