@@ -130,8 +130,8 @@ export async function routeOperation<D extends AnyOperationDefinition>(
       if (definition.body === 'multipart') body = await multipartInput(route.request());
       else if (definition.body === 'binary') body = binaryInput(route.request());
       else body = route.request().postDataJSON();
-    } catch {
-      await rejectCall(route, `操作 ${name} の入力が JSON でない`);
+    } catch (error) {
+      await rejectCall(route, `操作 ${name} の入力が JSON でない: ${String(error)}`);
       return;
     }
     const input = definition.input.safeParse(body);
