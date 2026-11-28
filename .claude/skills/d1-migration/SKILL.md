@@ -86,6 +86,8 @@ pnpm exec wrangler d1 migrations create DB <名前>
 `<名前>` は英語の小文字とスネークケースで、変更が分かるもの（例 `add_sprints`、`add_tasks_today_on`）。
 番号は wrangler が `migrations/` の最大の番号の次を振る。`migrations/` が無ければ作る。
 
+番号が他の PR と重なると `pnpm test:node`（`scripts/migration-numbers.test.ts`）が落ちる。後から main に入る側が、`sync-base` で取り込むときに自分のファイルの番号を取り直す。既にマージ済みのものは改名も書き換えもせず、そのテストの `ALLOWED_DUPLICATES` に足す（`docs/development.md` の「並行して作業するときの決まり」）。
+
 ### 4. SQL を書く
 
 決まりは `docs/data-model.md` の「決まりごと」に従う。主に当たるもの: 主キーは UUIDv7 の `TEXT`、日時の `_at`、日付の `_on` と月の `_month` の CHECK、真偽の `is_`、列挙の CHECK、`_json` の `json_valid`、本文の長さの CHECK、論理削除の部分索引、`ON DELETE` を付けない。取り込み元に固有の値（取り込み元の種類、取り込む範囲の種類）は CHECK に書かない（理由: SQLite では CHECK を後から変えられず、取り込み元を足すたびに表の作り直しになる）。
