@@ -4,7 +4,7 @@ description: e2e の手元の D1 などの状態（.wrangler/state）を tmpfs�
 # CI の e2e では、workerd の主スレッドがランナーのディスクのジャーナルのコミット（fsync の確定）を数秒待ち、
 # 静的ファイルを含めてサーバーごと応答しなくなり、5 秒の expect が切れることがあった（#1149）。
 # wrangler dev と seed（wrangler d1 --local）はどちらも既定の .wrangler/state を使うので、そこを tmpfs へのリンクにする。
-# ジョブごとにランナーが新しいので、状態はジョブが終われば消えてよい。手元の開発と e2e:preflight には使わない。
+# ジョブごとにランナーが新しいので、状態はジョブが終われば消えてよい。手元の開発には使わない。
 # checkout と setup の後、e2e を走らせる前に置く（wrangler が .wrangler/state を作る前）
 runs:
   using: composite

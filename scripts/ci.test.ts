@@ -121,7 +121,6 @@ describe('needsDevBuild', () => {
   }
 
   const skips: string[] = [
-    'scripts/e2e-preflight.ts',
     'src/server/operations/register.ts',
     'migrations/0001_init.sql',
     'test/operations.test.ts',

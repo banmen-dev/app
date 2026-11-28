@@ -20,7 +20,6 @@ vite.config.ts.timestamp-*
 # e2e の結果（pnpm e2e）
 test-results/
 playwright-report/
-.e2e-preflight/
 # 画面の自己レビューの結果（E2E の掃除の対象外）
 /screen-review-results/
 # wrangler types が作る（scripts/prepare.ts）

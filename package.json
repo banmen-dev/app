@@ -23,7 +23,6 @@
     "test:node": "node --test scripts/*.test.ts && node --test cli/lib/*.test.ts",
     "e2e": "playwright test",
     "screen-review": "node scripts/screen-review.ts",
-    "e2e:preflight": "node scripts/e2e-preflight.ts",
     "db:migrate:fresh": "node scripts/migrate-fresh.ts",
     "db:seed": "node scripts/db-seed.ts",
     "bench:loading": "node scripts/loading-bench.ts",
