@@ -262,6 +262,17 @@ describe('story-create', () => {
     expect(await storyCount(target)).toBe(0);
   });
 
+  test('前に中止したエピック（中止の列が残る行）の下には作れる', async () => {
+    const target = await createTarget();
+    const epic = await createEpic(target.organization, target.workspace.id, target.admin.userId!, {
+      canceled_at: '2026-10-21T00:00:00.000Z',
+      canceled_by: target.admin.userId!,
+    });
+    const res = await create(target, { title: 'x', epic_id: epic.id });
+    expect(res.status).toBe(200);
+    expect(await storyCount(target)).toBe(1);
+  });
+
   test.each([['完了した', { completed_at: '2026-10-21T00:00:00.000Z' }]])(
     '%sエピックの下には 409 の conflict（parent_completed）で作らない',
     async (_name, overrides) => {

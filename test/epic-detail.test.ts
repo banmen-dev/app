@@ -74,7 +74,7 @@ describe('epic-detail', () => {
     });
     expect(body.requester).toEqual({ id: requester.id, name: '青木 遥', left: false });
     expect(body.stories).toEqual([]);
-    for (const key of ['reward_tier', 'reward_xp', 'party', 'can_join', 'joined', 'can_change_requester']) {
+    for (const key of ['canceled_at', 'reward_tier', 'reward_xp', 'party', 'can_join', 'joined', 'can_change_requester']) {
       expect(body).not.toHaveProperty(key);
     }
   });
@@ -89,6 +89,15 @@ describe('epic-detail', () => {
       completed_at: '2026-10-22T00:00:00.000Z',
       completed_by: target.admin.userId!,
     });
+
+    // 前に中止したエピック（中止の列が残る行）も、ふつうのエピックとして出る。canceled_at は返さない
+    const canceled = await createEpic(target.organization, target.workspace.id, target.admin.userId!, {
+      canceled_at: '2026-10-23T00:00:00.000Z',
+      canceled_by: target.admin.userId!,
+    });
+    const canceledEpic = (await read(target, canceled.id)).epic;
+    expect(canceledEpic).toMatchObject({ completed_at: null });
+    expect(canceledEpic).not.toHaveProperty('canceled_at');
 
     const clearedBody = await read(target, cleared.id);
     expect(clearedBody.epic.completed_at).toBe('2026-10-22T00:00:00.000Z');

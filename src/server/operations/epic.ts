@@ -1,5 +1,6 @@
 import { generateKeyBetween } from 'fractional-indexing';
 import { now } from '../../shared/clock.ts';
+import { EPIC_DEFAULT_REWARD_TIER } from '../../shared/epic.ts';
 import { epicCreate, epicGet, epicMove, epicUpdate, type EpicDetail } from '../../shared/operations/epic/index.ts';
 import { type OrganizationDb, type OrganizationTables, type QueryCreator } from '../db/index.ts';
 import { ApiError } from '../errors.ts';
@@ -143,6 +144,7 @@ export const epicCreateOperation = implement(epicCreate, async ({ db, actor, wor
           'due_on',
           'link_url',
           'category_id',
+          'reward_tier',
           'requester_user_id',
           'created_by',
           'position',
@@ -159,6 +161,7 @@ export const epicCreateOperation = implement(epicCreate, async ({ db, actor, wor
               eb.val(input.due_on).as('due_on'),
               eb.val(input.link_url).as('link_url'),
               eb.val(category?.id ?? null).as('category_id'),
+              eb.val(EPIC_DEFAULT_REWARD_TIER).as('reward_tier'),
               // 依頼主は作った人。変える操作は #65 で足す
               eb.val(actorUserId).as('requester_user_id'),
               eb.val(actorUserId).as('created_by'),

@@ -140,7 +140,15 @@ export const epicCompleteOperation = implement(epicComplete, async ({ db, actor,
       db.statement((q) =>
         q
           .updateTable('epics')
-          .set({ completed_at: completedAt, completed_by: userId, updated_at: completedAt })
+          // 中止の列は読まない。マイグレーション（0042）を当ててから版が切り替わるまでに前の版が中止した行でも、
+          // 表の CHECK（完了と中止は同時に入らない）に当たらないよう、空に戻す
+          .set({
+            completed_at: completedAt,
+            completed_by: userId,
+            canceled_at: null,
+            canceled_by: null,
+            updated_at: completedAt,
+          })
           .where('id', '=', epicId)
           .where('workspace_id', '=', workspaceId)
           .where('deleted_at', 'is', null)

@@ -146,8 +146,8 @@ INSERT INTO repositories (id, workspace_id, name, position, created_at, updated_
   ('019a0000-0000-7000-8000-000000000d11', '019a0000-0000-7000-8000-000000000402', 'kintai-tool', 'a0', '2026-10-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z');
 
 -- エピックは受託開発チームに1件。その下のストーリーは、配下のタスクがすべて完了していて、完了にできる
-INSERT INTO epics (id, workspace_id, title, body_md, due_on, link_url, requester_user_id, created_by, position, created_at, updated_at) VALUES
-  ('019a0000-0000-7000-8000-000000000b01', '019a0000-0000-7000-8000-000000000401', 'ポイントの交換先を増やす', '貯まったポイントを、送料の割引と提携先の商品券に交換できるようにする。', {{T+38}}, NULL, '019a0000-0000-7000-8000-000000000301', '019a0000-0000-7000-8000-000000000301', 'a0', '2026-10-12T00:00:00.000Z', '2026-10-12T00:00:00.000Z');
+INSERT INTO epics (id, workspace_id, title, body_md, due_on, link_url, reward_tier, requester_user_id, created_by, position, created_at, updated_at) VALUES
+  ('019a0000-0000-7000-8000-000000000b01', '019a0000-0000-7000-8000-000000000401', 'ポイントの交換先を増やす', '貯まったポイントを、送料の割引と提携先の商品券に交換できるようにする。', {{T+38}}, NULL, 'medium', '019a0000-0000-7000-8000-000000000301', '019a0000-0000-7000-8000-000000000301', 'a0', '2026-10-12T00:00:00.000Z', '2026-10-12T00:00:00.000Z');
 
 INSERT INTO stories (id, workspace_id, epic_id, title, acceptance_criteria_md, body_md, due_on, link_url, created_by, position, created_at, updated_at) VALUES
   ('019a0000-0000-7000-8000-000000000903', '019a0000-0000-7000-8000-000000000401', '019a0000-0000-7000-8000-000000000b01', '送料の割引にポイントを使える', '- 注文の確認画面で使うポイントを選べる', NULL, NULL, NULL, '019a0000-0000-7000-8000-000000000301', 'a0', '2026-10-12T00:00:00.000Z', '2026-10-12T00:00:00.000Z');
