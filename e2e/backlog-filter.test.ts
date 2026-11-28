@@ -9,6 +9,7 @@ import {
   addStoryRow,
   addTaskRow,
   chooseRowAction,
+  chooseTreeKind,
   createWorkspace,
   rowMenuItem,
   signIn,
@@ -206,7 +207,7 @@ test('絞っているときに作ったタスクやストーリーが当たら�
 
   // 当たらないタスクは出さず、「表示していません」の1つだけで知らせる（作った知らせは重ねない）
   await page.reload();
-  const taskInput = page.locator('.tree > .draft-row').getByRole('textbox', { name: 'タスクを足す', exact: true });
+  const taskInput = await chooseTreeKind(page, 'タスク');
   await taskInput.fill('誰かのタスク');
   await taskInput.press('Enter');
   await expect(notice).toBeVisible();
@@ -217,7 +218,7 @@ test('絞っているときに作ったタスクやストーリーが当たら�
   await page.reload();
   await expect(notice).toHaveCount(0);
   // 絞っている間も、木の末尾の空の行で作れる。当たらないので、木には出さずにトーストで知らせる
-  const rootInput = page.locator('.tree > .draft-row').getByRole('textbox', { name: 'ストーリーを足す', exact: true });
+  const rootInput = await chooseTreeKind(page, 'ストーリー');
   await rootInput.fill('新しい目標');
   await rootInput.press('Enter');
   await expect(notice).toBeVisible();

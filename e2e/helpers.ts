@@ -882,10 +882,19 @@ async function expectRowOrReload(page: Page, title: string, input: Locator): Pro
   }
 }
 
-// 木の末尾の「エピックを足す」で作る
-export async function addEpicRow(page: Page, title: string): Promise<void> {
+// 木の末尾の1つの空の行で、足す種類を選ぶ（選んだ種類はブラウザに覚えられ、欄の名前が「<種類>を足す」に替わる。#1645）
+export async function chooseTreeKind(page: Page, kind: 'エピック' | 'ストーリー' | 'タスク'): Promise<Locator> {
   await ensureTree(page);
-  const input = page.locator('.tree > .draft-row').getByRole('textbox', { name: 'エピックを足す', exact: true });
+  const row = page.locator('.tree > .draft-row');
+  await row.getByRole('radio', { name: kind, exact: true }).check({ force: true });
+  const input = row.getByRole('textbox', { name: `${kind}を足す`, exact: true });
+  await expect(input).toBeVisible();
+  return input;
+}
+
+// 木の末尾の空の行で、エピックを作る
+export async function addEpicRow(page: Page, title: string): Promise<void> {
+  const input = await chooseTreeKind(page, 'エピック');
   await input.fill(title);
   await input.press('Enter');
   await expectRowOrReload(page, title, input);
@@ -896,7 +905,7 @@ export async function addStoryRow(page: Page, title: string, epicTitle?: string)
   await ensureTree(page);
   const input =
     epicTitle === undefined
-      ? page.locator('.tree > .draft-row').getByRole('textbox', { name: 'ストーリーを足す', exact: true })
+      ? await chooseTreeKind(page, 'ストーリー')
       : page.getByRole('textbox', { name: `ストーリーを足す: ${epicTitle}`, exact: true });
   await input.fill(title);
   await input.press('Enter');
@@ -908,7 +917,7 @@ export async function addTaskRow(page: Page, title: string, storyTitle?: string)
   await ensureTree(page);
   const input =
     storyTitle === undefined
-      ? page.locator('.tree > .draft-row').getByRole('textbox', { name: 'タスクを足す', exact: true })
+      ? await chooseTreeKind(page, 'タスク')
       : page.getByRole('textbox', { name: `タスクを足す: ${storyTitle}`, exact: true });
   await input.fill(title);
   await input.press('Enter');

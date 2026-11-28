@@ -15,6 +15,7 @@
   // 何を作る行かは、欄の案内文（label に「（題を打って Enter）」を添えたもの）で示す。読み上げの名前（name）は、親の題を添えて同じ名前の行を区別する。
   // create は作る処理で、エラーの文（画面に出す）か、成功の null を返す。成功したら入力を空に戻し、フォーカスを残して続けて打てる。
   // 日本語の変換中の Enter は確定なので作らず、変換中の Esc は変換の取り消しなので素通しする（Safari は確定の Enter の前に compositionend を出すので、keyCode 229 も見る）。
+  // lead を渡すと（バックログの木の末尾。#1645）、題の欄の前に種類の選択などを置く（見本は design/kit.js の draftRow の lead）。行は折り返せる形（.is-lead）になる。
   // 変換中でない Esc は書きかけを捨てる（フォーカスは欄に残す。preventDefault するので、引き出しは閉じない）。
   // 空のまま Enter を押しても、離れても、何も送らない。書きかけで離れたときは、書きかけを残す（自動では作らない）。
   // 送っている間は欄を readonly にしてフォーカスを残し、読み上げの領域に「作っています」を出す。
@@ -29,6 +30,7 @@
     placeholder,
     describedby,
     attrs,
+    lead,
     ondiscard,
     draft = new DraftRowState(),
   }: {
@@ -47,6 +49,8 @@
     create: (title: string) => Promise<string | null>;
     // 題の欄の下に並べる、作る前に選ぶ属性。引数は送っている間か
     attrs?: Snippet<[boolean]>;
+    // 題の欄の前に並べる部品（種類の選択）。引数は送っている間か
+    lead?: Snippet<[boolean]>;
     // Esc で書きかけを捨てたとき（属性の選択も捨てるため）
     ondiscard?: () => void;
     draft?: DraftRowState;
@@ -106,8 +110,9 @@
   }
 </script>
 
-<div class="draft-row" data-draft-row>
+<div class="draft-row" class:is-lead={lead !== undefined} data-draft-row>
   <Icon name="plus" />
+  {#if lead !== undefined}{@render lead(draft.sending)}{/if}
   <label class="visually-hidden" for={inputId}>{name}</label>
   <input
     id={inputId}

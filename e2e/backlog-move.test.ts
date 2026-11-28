@@ -11,6 +11,7 @@ import {
   addStoryRow,
   addTaskRow,
   chooseRowAction,
+  chooseTreeKind,
   createWorkspace,
   dragTo,
   rowMenuItem,
@@ -732,7 +733,7 @@ test('引き出しの保存と終了で読み直した木が、空の行で作�
     await call.fulfill(body);
     created.resolve();
   });
-  const draft = page.locator('.tree > .draft-row').getByRole('textbox', { name: 'タスクを足す', exact: true });
+  const draft = await chooseTreeKind(page, 'タスク');
   await draft.fill('遅れた木にも消されないタスク');
   await draft.press('Enter');
   await creating.promise;

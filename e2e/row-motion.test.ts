@@ -16,6 +16,7 @@ import {
   addStoryRow,
   addTaskRow,
   applyTheme,
+  chooseTreeKind,
   createWorkspace,
   signIn,
   waitForResponses,
@@ -223,7 +224,7 @@ for (const kind of ['タスク', 'ストーリー'] as const) {
     await applyTheme(page, 'simple_light');
     await clearMotion(page);
 
-    const input = page.locator('.tree > .draft-row').getByRole('textbox', { name: `${kind}を足す`, exact: true });
+    const input = await chooseTreeKind(page, kind);
     const matching = `一致する新しい${kind}`;
     await input.fill(matching);
     await input.press('Enter');

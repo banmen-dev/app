@@ -1079,6 +1079,8 @@ export const dictionary = defineDictionary({
   treeAddStory: '{story}を足す',
   treeAddStoryUnder: '{story}を足す: {title}',
   treeAddTask: '{task}を足す',
+  // 木の末尾の1つの行で、足す種類を選ぶ（{epic}、{story}、{task}）。選んだ種類は欄の案内文と読み上げの名前に出る
+  treeAddKind: '足す種類',
   treeAddTaskUnder: '{task}を足す: {title}',
   // 親の{story}が完了していた（読み直して、空の行を消す）
   treeAddTaskParentDone: 'この{story}は{done}したので、{task}を足せません。一覧を読み直します',

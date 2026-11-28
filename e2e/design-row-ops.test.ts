@@ -1,9 +1,16 @@
+import type { Page } from '@playwright/test';
 import { openCatalog } from './design-samples.ts';
 import { expect, test } from './fixtures.ts';
 import { A11Y_THEMES, applyTheme } from './helpers.ts';
 
 // 見本（design/）の、行で直に操作する部品（空の行、チップ、「⋯」、自動保存、取り消せるトースト、「/」の小窓）を
 // バックログとスプリントの見本で通す。
+
+// 見本の木の末尾の、種類を選べる1つの空の行（#1645）。種類を選んでから、その題の欄を返す
+async function treeDraft(page: Page, kind: 'epic' | 'story' | 'task') {
+  await page.locator(`input[data-draft-kind][value="${kind}"]`).check({ force: true });
+  return page.locator('input[data-draft="kind:root"]');
+}
 
 test('見本の近道一覧はスプリントとカタログだけにカードの3項目を出し、バックログへ混ぜない', async ({ page }) => {
   const labels = [
@@ -27,7 +34,7 @@ test('見本の近道一覧はスプリントとカタログだけにカード�
 
 test('見本のバックログ: 空の行に題を打って Enter で足し、続けて打てる。Esc では作らない', async ({ page }) => {
   const errors = await openCatalog(page, 'backlog.html');
-  const draft = page.locator('input[data-draft="root:backlog"]');
+  const draft = await treeDraft(page, 'task');
   await draft.fill('見本で足す一件目');
   await draft.press('Enter');
   await expect(page.locator('.entry-title', { hasText: '見本で足す一件目' })).toHaveCount(1);
@@ -51,7 +58,7 @@ test('見本のバックログ: 空の行に題を打って Enter で足し、�
 
 test('見本のバックログ: 変換中の Enter では作らない', async ({ page }) => {
   const errors = await openCatalog(page, 'backlog.html');
-  const draft = page.locator('input[data-draft="root:backlog"]');
+  const draft = await treeDraft(page, 'task');
   await draft.fill('へんかんちゅう');
   const count = await page.locator('.entry-title').count();
   // 変換中の Enter は keyCode 229 で届く
@@ -269,9 +276,15 @@ test('見本のバックログ: 続けて消した2件を古い方から取り�
   const titles = page.locator('.tree > div:has(> .entry) > .entry .entry-title');
   const before = await titles.allTextContents();
   for (let i = 0; i < 2; i++) {
+    // 行を画面の上へ寄せる（木の末尾が短く、下に残った行の「⋯」のメニューが、先に出たトーストと重なるため）
+    await page
+      .locator('.tree > div:has(> .entry) > .entry')
+      .first()
+      .evaluate((el) => el.scrollIntoView({ block: 'start' }));
     await page.locator('.tree > div:has(> .entry) > .entry').first().hover();
     await page.locator('.tree > div:has(> .entry) > .entry .row-menu-btn').first().click();
-    await page.locator('.row-menu-list:not([hidden]) [data-task-delete]').click();
+    // 木の末尾が短く、2件目のメニューの「削除」が先に出たトーストの下に隠れるので、当たり判定を通さず click を送る
+    await page.locator('.row-menu-list:not([hidden]) [data-task-delete]').dispatchEvent('click');
   }
   await page.locator('.toast-action').first().click();
   await page.locator('.toast-action').first().click();
@@ -285,7 +298,7 @@ test('見本のバックログ: 空の行の書きかけは別の行の操作で
   const errors = await openCatalog(page, 'backlog.html');
   const story = page.locator('input[data-draft^="story:"]').first();
   await story.fill('書きかけのA');
-  const root = page.locator('input[data-draft="root:backlog"]');
+  const root = await treeDraft(page, 'task');
   await root.fill('Bを作る');
   await root.press('Enter');
   await expect(story).toHaveValue('書きかけのA');
@@ -386,9 +399,15 @@ test('見本のバックログ: 下の行を先に、上の行を後に消し、
   const before = await titles.allTextContents();
   // 2 行目、1 行目の順に消す
   for (const index of [1, 0]) {
+    // 行を画面の上へ寄せる（下に残った行の「⋯」のメニューが、先に出たトーストと重なるため）
+    await page
+      .locator(rows)
+      .nth(index)
+      .evaluate((el) => el.scrollIntoView({ block: 'start' }));
     await page.locator(rows).nth(index).hover();
     await page.locator(`${rows} .row-menu-btn`).nth(index).click();
-    await page.locator('.row-menu-list:not([hidden]) [data-task-delete]').click();
+    // 木の末尾が短く、2件目のメニューの「削除」が先に出たトーストの下に隠れるので、当たり判定を通さず click を送る
+    await page.locator('.row-menu-list:not([hidden]) [data-task-delete]').dispatchEvent('click');
   }
   await page.locator('.toast-action').first().click();
   await page.locator('.toast-action').first().click();
@@ -551,7 +570,7 @@ test('カタログの横送りの見本で属性と行の操作を選んでも�
 
 test('見本のエピックとストーリー: 題だけで木に作り、引き出しで詳細を書く', async ({ page }) => {
   const errors = await openCatalog(page, 'backlog.html');
-  const epicDraft = page.locator('[data-draft="new-epic:root"]');
+  const epicDraft = await treeDraft(page, 'epic');
   await epicDraft.fill('追加したエピック');
   await epicDraft.press('Enter');
   await expect(epicDraft).toBeFocused();
@@ -568,7 +587,7 @@ test('見本のエピックとストーリー: 題だけで木に作り、引き
   await expect(storyDraft).toBeFocused();
   await expect(storyDraft).toHaveValue('');
   await expect(stableEpic.locator('a[data-story]')).toHaveText('配下に追加したストーリー');
-  const rootDraft = page.locator('[data-draft="new-story:root"]');
+  const rootDraft = await treeDraft(page, 'story');
   await rootDraft.fill('親なしのストーリー');
   await rootDraft.press('Enter');
   await expect(page.locator('a[data-story]', { hasText: '親なしのストーリー' })).toBeVisible();
