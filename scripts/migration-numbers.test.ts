@@ -33,9 +33,16 @@ function unexpected(duplicates: Record<string, string[]>): string[] {
     .map(([n, files]) => `${n}: ${files.join(', ')}`);
 }
 
+const sqlNames = () => readdirSync(migrationsDir).filter((name) => name.endsWith('.sql'));
+
 describe('migrations の番号', () => {
+  test('.sql の名前は <4桁の番号>_<名前>.sql の形', () => {
+    const bad = sqlNames().filter((name) => !/^\d{4}_[a-z0-9_]+\.sql$/.test(name));
+    assert.deepEqual(bad, [], '形に当たらないと番号の重なりの検査から外れる');
+  });
+
   test('今の migrations/ は、許した重なりのほかに番号が重ならない', () => {
-    const names = readdirSync(migrationsDir).filter((name) => name.endsWith('.sql'));
+    const names = sqlNames();
     assert.deepEqual(
       unexpected(findDuplicates(names)),
       [],
@@ -44,7 +51,7 @@ describe('migrations の番号', () => {
   });
 
   test('許した重なりのファイルが、今も migrations/ にある', () => {
-    const names = readdirSync(migrationsDir);
+    const names = sqlNames();
     for (const files of Object.values(ALLOWED_DUPLICATES)) {
       for (const file of files) assert.ok(names.includes(file), `${file} が無い。許可の一覧から外す`);
     }
