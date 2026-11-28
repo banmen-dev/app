@@ -21,7 +21,7 @@
   // 骨組みは装飾なので aria-hidden。見出しは読み上げと画面の構造のために見えないまま置く。
   // 読み上げの領域（role="status"）と、出す遅れ（短い読み込みでは出さない）は呼ぶ側の root レイアウトが持つ
   // eyebrow は行き先の小見出しの扱い。always は全幅、narrow は 760px 以下だけ、none は帯を描かない。
-  // tabs は、行き先がワークスペースの画面（loading-shape.ts の loadingShapeTabs）。パンくずの下にタブの帯（761px 以上）を出す
+  // tabs は、行き先がワークスペースの画面（loading-shape.ts の loadingShapeTabs）。本文の見出しの上にタブの帯を出す（どの幅でも）
   let {
     shape = null,
     dashboard = false,

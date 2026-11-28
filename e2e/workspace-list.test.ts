@@ -363,7 +363,7 @@ test.describe('760px 以下の浮きメニュー', () => {
     return dialog;
   };
 
-  test('現在地は機能の項目の1つだけで、一覧の行は見えない文言で開いているものを伝える', async ({
+  test('機能の項目は無く（タブで移る）、現在地は一覧の今のワークスペースの行が伝える', async ({
     page,
     context,
     baseURL,
@@ -371,19 +371,13 @@ test.describe('760px 以下の浮きメニュー', () => {
     await signIn(context, baseURL, 'member');
     await page.goto(backlog);
     const dialog = await openMenu(page);
-    // 組織の切り替え（今の組織）の aria-current は別。メニュー（nav）の中の現在地が1つだけ
+    await expect(dialog.getByRole('link', { name: 'メンバー', exact: true })).toHaveCount(0);
+    // 組織の切り替え（今の組織）の aria-current は別。メニュー（nav）の中の現在地は、一覧の今のワークスペースの行の1つだけ
     await expect(dialog.locator('#app-nav [aria-current="page"]')).toHaveCount(1);
-    await expect(dialog.locator('.nav-ws-list [aria-current]')).toHaveCount(0);
-    await expect(dialog.locator('.nav-ws-list .nav-item').filter({ has: page.locator('.ico') })).toContainText(
-      '（開いている）',
-    );
+    await expect(dialog.locator('.nav-ws-list [aria-current="page"]')).toHaveCount(1);
   });
 
-  test('一覧の高さは 40dvh までで、超えたら一覧の中でスクロールし、下の機能の項目に届く', async ({
-    page,
-    context,
-    baseURL,
-  }) => {
+  test('一覧の高さは 40dvh までで、超えたら一覧の中でスクロールする', async ({ page, context, baseURL }) => {
     await signIn(context, baseURL, 'member');
     await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (body) => ({
       ...body,
@@ -399,10 +393,6 @@ test.describe('760px 以下の浮きメニュー', () => {
     const label = list.getByRole('link', { name: manyNames[3]!.name, exact: true }).locator('.nav-item-label');
     await label.scrollIntoViewIfNeeded();
     expect(await label.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-    // 一覧の下の機能の項目へ、メニューのスクロールで届く
-    const members = dialog.getByRole('link', { name: 'メンバー', exact: true });
-    await members.scrollIntoViewIfNeeded();
-    await expect(members).toBeInViewport();
   });
 
   test('開いた、畳んだ、長い名前の一覧が、ライトとダークで axe の違反を持たず、押せる範囲が 44px 以上で、テーマが戻らない', async ({
