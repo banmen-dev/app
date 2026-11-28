@@ -114,6 +114,9 @@ export async function routeOperation<D extends AnyOperationDefinition>(
     slug,
     rest: [handler],
   } = splitScope<D, [(call: OperationCall<D>) => Promise<void> | void]>(definition, args);
+  if (definition.response === 'binary') {
+    throw new Error(`操作 ${definition.name} は response: 'binary' なので、routeBinaryOperation を使う`);
+  }
   const url = `**${operationPath(definition, slug)}`;
   const name = definition.name;
   const routeHandler = async (route: Route) => {
