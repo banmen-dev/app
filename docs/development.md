@@ -11,7 +11,7 @@
 | 項目 | 決定 | 理由 |
 | --- | --- | --- |
 | パッケージマネージャー | pnpm。`package.json` の `packageManager` で版を固定する | 速く、依存が厳密 |
-| Node | 26。`.node-version` で固定する。`package.json` の `engines` は、`scripts/` の `.ts` を型の除去で直に動かせる下限の 22.18 にし、`engine-strict` は使わない（クラウドのセッションの Node は `.node-version` を読まず、セットアップスクリプトが 26 を入れられなかったときのセッションは、VM の既定の 22 で動くため。下の「クラウド環境」）。Node 25 からは corepack が同梱されないので、pnpm は `packageManager` の版を corepack に頼らずに入れる | 長く使える LTS |
+| Node | 26。`.node-version` で固定する。`package.json` の `engines` は、`scripts/` の `.ts` を型の除去で直に動かせる下限の 22.18 にし、`engine-strict` は使わない（クラウドのセッションは、セットアップスクリプトが入れた `/opt/node<主版>` を SessionStart のフックが選ぶ。セットアップスクリプトが 26 を入れられなかったときのセッションは、VM の既定の 22 で動くため。下の「クラウド環境」）。Node 25 からは corepack が同梱されないので、pnpm は `packageManager` の版を corepack に頼らずに入れる | 長く使える LTS |
 | リポジトリの形 | 1つのパッケージ。`src/server`（Hono の API と定期処理）、`src/shared`（操作の定義、スキーマ、言葉の辞書）、SvelteKit の既定の場所（`src/routes`、`src/lib`、`src/app.html`）に分ける。SvelteKit の設定は `vite.config.ts` の `sveltekit()` に書く（SvelteKit 3 は `svelte.config.js` を読まない） | Worker が1つなので、ワークスペースに分ける設定の手間に見合わない。画面を別の場所に移す `kit.files` は非推奨 |
 | lint と整形 | ESLint と Prettier（`eslint-plugin-svelte`、`prettier-plugin-svelte`） | Svelte のテンプレートの中まで見られる。下の「入口を守る規則」を自前で書ける |
 | 画面 | SvelteKit の SPA モード。SSR を切り、静的に書き出す。API は Hono のまま | 組織、ワークスペース、画面の入れ子をレイアウトで表せる。画面と API の版のずれを `version.pollInterval` と `updated` で検知できる。AI が書き慣れている |
@@ -276,13 +276,13 @@ Wikiの一括取り込みは、`requestRateLimit` の要求枠（本文を読む
 
 ### `main` を守る仕組み
 
-GitHub は無料のプランのまま使う（2026-10-23 に決めた）。無料のプランの private のリポジトリでは、ブランチ保護、Rulesets、auto-merge、Environment が使えない。そのため、守りは次のように置く。
+GitHub は無料のプランのまま使う（2026-10-23 に決めた）。リポジトリは public なので Rulesets と Environment が使えるが（private のあいだは使えなかった）、`main` にはブランチ保護も Ruleset も置いていない。Ruleset が効いているのは、リリースの2つ（`production` の `release-production` と `v*` のタグの `release-tags`）と、プレビューの `preview-builds-parked` だけで、2026-11-28 に API で確かめた。`main` は自分で守る。守りは次のように置く。
 
 - リポジトリの設定で squash merge だけを許し、マージ後にブランチを消す。squash のコミットの件名は PR のタイトルにし、本文は空にする（設定済み）
 - `main` の上のコミット、`main` への直接の push、force push はしない。守りはフックではなく、この決まりを自分で守ることに置く
 - セッションは、`main` にいる作業コピーのファイルを書き換えない。手元のセッションはワークツリーを切ってから書き、クラウドのセッションは `claude/*` のブランチで書く
 - `production` と `v*` のタグ、Release も、セッションから動かさない（#1164）。`production` への push と削除、`v*` のタグの push、Release の publish をしない
-- 必須のチェックは設定できない。マージする人かセッションが `ci-ok` の成功を確かめてからマージする
+- `main` に必須のチェックは設定していない。マージする人かセッションが `ci-ok` の成功を確かめてからマージする
 - `needs-human` の無い PR は、`label` と `ci-ok` が通り、AI レビューの CRITICAL と HIGH が残っていなければ、手元のセッションが人に聞かずに `gh pr merge` を打つ。`needs-human` の PR は人が差分を読んでマージする。承認の数は求めず、人のレビューは「人がマージを決める」ことで表す（下の「マージの判定」）
 - 本番へデプロイする鍵は GitHub に置かない（下の「CD」）。リポジトリのシークレットは PR のブランチのワークフローからも読め、Environment で `main` だけに絞れないため。ただし、Release の publish で `production` を進める GitHub App の鍵は、リポジトリのシークレットではなく Environment `release` のシークレットに置き、Environment の対象を `v*` のタグだけに絞る（2026-11-11 に人が決めた。#1164）。Environment が縛るのはジョブの ref だけで、ワークフローの YAML は縛らない。`v*` のタグを作れる人は、鍵を読む YAML を置いたコミットにタグを付ければ鍵を読めるので、Ruleset で `refs/tags/v*` の作成、更新、削除を管理者に絞ることを必須にする。リポジトリが public になり、無料のプランでも Environment と Rulesets が使えるため。この鍵は `production` を進められるが、Cloudflare にデプロイする鍵ではない
 
@@ -556,7 +556,7 @@ claude mcp add banmen -- node <main の作業コピーの絶対パス>/cli/banme
 | --- | --- | --- |
 | 何を作るか、仕様の判断 | 人 | `issue-create` の詰める手順で詰め、`docs/` と Issue の「人が決めたこと」に書く |
 | Issue と完了条件 | AI が書き、人が確かめる。人の答えは「人が決めたこと」に言い換えずに写し、AI が調べて決めたことと置いた前提は「セッションが置いた前提」に根拠と一緒に分けて書く。今回やらないことは「やらないこと」に書く | `issue-create`、`make` |
-| 実装とテスト | 現在の製品のセッションで実装する。小変更はメインが直接実装し、分離して任せることで速くなる独立した作業だけ同じ製品のサブエージェントへ渡す。守る仕組み、認証・認可、Workers のランタイムではテスト・実装・崩す役を分ける（`docs/agent-workflows/test-first.md`）。Claude と Codex をスキルから相互に呼び出さない | `CLAUDE.md`、各製品の入口、`docs/agent-workflows/` |
+| 実装とテスト | 現在の製品のセッションで実装する。小変更はメインが直接実装し、分離して任せることで速くなる独立した作業だけ同じ製品のサブエージェントへ渡す。認証・認可、Workers のランタイムではテスト・実装・崩す役を分ける（`docs/agent-workflows/test-first.md`）。Claude と Codex をスキルから相互に呼び出さない | `CLAUDE.md`、各製品の入口、`docs/agent-workflows/` |
 | 点検 | 実装したのとは別のエージェント | `done-check`、CI の AI レビュー |
 | マージ | パスの規則と人 | 下の「マージの判定」 |
 
@@ -571,13 +571,13 @@ claude mcp add banmen -- node <main の作業コピーの絶対パス>/cli/banme
 
 ### Claude の設定
 
-フックは、応答が英語に切り替わるのを日本語に直させる `japanese-guard` の1つだけを使う。1人で開発しているので、守りは `permissions.deny` と、この文書の決まりを自分で守ることに置く。`permissions.deny` は Read と Edit の道具にだけ効き、Bash で `.dev.vars` を読むことや、本番への操作、`gh release`、`v*` タグの push、`gh pr merge` の形は止めない。sandbox もこのリポジトリでは使わない（`.claude/settings.json` の `sandbox.enabled` は `false`）。
+フックは、SessionStart で PATH に Node を足す `scripts/session-start.sh` と、応答が英語に切り替わるのを日本語に直させる `japanese-guard` の2つだけを使う。1人で開発しているので、守りは `permissions.deny` と、この文書の決まりを自分で守ることに置く。`permissions.deny` は Read と Edit の道具にだけ効き、Bash で `.dev.vars` を読むことや、本番への操作、`gh release`、`v*` タグの push、`gh pr merge` の形は止めない。sandbox もこのリポジトリでは使わない（`.claude/settings.json` の `sandbox.enabled` は `false`）。
 
 | 仕組み | 中身 |
 | --- | --- |
 | `permissions.allow` | GitHub の MCP の読むだけのツール。決め方は表の下の「allow に入れるもの」 |
 | `permissions.deny` | `.dev.vars`、`.env` とその環境ごとのファイル（`.local`、`.production` など）の読み取り、`.dev.vars` と `.env` の書き込み、wrangler の資格情報のディレクトリの読み取り |
-| `hooks` | `.claude/hooks/japanese-guard.py` を `Stop` と、デスクトップアプリの「次の一手」の箱（`mcp__.*__wrap_up`）の `PreToolUse` に登録する。最終回答と、ツール呼び出しの間の途中報告、「次の一手」の箱の文言の英字が日本語の3倍を超えたら終了を止め、英語の箇所だけ日本語に書き直させる（1ターンに1回まで）。コードブロック、インラインコード、URL、JSON だけの回答は数えない。英字25字未満の短い返事は見逃す。バッククォートの外のパスや識別子、英訳や英文の下書きは数えてしまうので、英語を頼むときはコードブロックに入れる。`~/.claude` に届かないクラウドのセッションにも効かせるため、リポジトリに置く。`python3` が要り、無い環境では黙って効かない。スクリプトが無いときも、セッションを止めずに素通しにする。`claude -p` で人が読まない出力を作るときは `JAPANESE_GUARD_DISABLE=1` で止める（`ai-review` の `claude-code-action` の段は設定済み）。しきい値は `JAPANESE_GUARD_*` の環境変数で変える。出典は [claude-code-japanese-guard](https://github.com/minorun365/claude-code-japanese-guard)（Apache License 2.0）の `hooks/japanese-guard.py`。取り込んだ版は上流のコミット `4434ef4b65f87959a3d0fb0dd8ed584bcfe3cc1c`（blob `266f6ef0f690372b78a8b92da0cec6481cfc415b`）で、出典の1行を足した以外は変えない。更新するときは、上流の blob と照合してから取り込む |
+| `hooks` | `SessionStart` で `scripts/session-start.sh` を呼び、クラウドのセッションの Bash の PATH に Node を足す（下の「クラウド環境」）。`.claude/hooks/japanese-guard.py` を `Stop` と、デスクトップアプリの「次の一手」の箱（`mcp__.*__wrap_up`）の `PreToolUse` に登録する。最終回答と、ツール呼び出しの間の途中報告、「次の一手」の箱の文言の英字が日本語の3倍を超えたら終了を止め、英語の箇所だけ日本語に書き直させる（1ターンに1回まで）。コードブロック、インラインコード、URL、JSON だけの回答は数えない。英字25字未満の短い返事は見逃す。バッククォートの外のパスや識別子、英訳や英文の下書きは数えてしまうので、英語を頼むときはコードブロックに入れる。`~/.claude` に届かないクラウドのセッションにも効かせるため、リポジトリに置く。`python3` が要り、無い環境では黙って効かない。スクリプトが無いときも、セッションを止めずに素通しにする。`claude -p` で人が読まない出力を作るときは `JAPANESE_GUARD_DISABLE=1` で止める（`ai-review` の `claude-code-action` の段は設定済み）。しきい値は `JAPANESE_GUARD_*` の環境変数で変える。出典は [claude-code-japanese-guard](https://github.com/minorun365/claude-code-japanese-guard)（Apache License 2.0）の `hooks/japanese-guard.py`。取り込んだ版は上流のコミット `4434ef4b65f87959a3d0fb0dd8ed584bcfe3cc1c`（blob `266f6ef0f690372b78a8b92da0cec6481cfc415b`）で、出典の1行を足した以外は変えない。更新するときは、上流の blob と照合してから取り込む |
 | `env` | `WRANGLER_SEND_METRICS=false`（テレメトリを送らない） |
 | `attribution`、`includeCoAuthoredBy` | コミットと PR に Claude の署名（`Co-Authored-By` と生成の行）を付けない |
 
@@ -647,7 +647,7 @@ Claude と Codex のスキルは、次の必要な文書だけを読む。各製
 
 - Issue があるときの着手、信頼できる入力、範囲と記録: [Issue の基準](agent-workflows/issue.md)
 - 実装する変更の検査と文書: [受け入れ条件](agent-workflows/acceptance.md)
-- 守る仕組み、認証・認可、Workers のランタイム: [書き手を分ける手順](agent-workflows/test-first.md)
+- 認証・認可、Workers のランタイム: [書き手を分ける手順](agent-workflows/test-first.md)
 - 検査の記録と再実行の判断: [検査結果の再利用](agent-workflows/validation.md)
 - 自分の実装の点検と修正: [点検基準](agent-workflows/review.md)
 
@@ -745,7 +745,7 @@ CI は既存のものを使う。
 - ネットワークアクセス: 「カスタム」にし、既定のパッケージマネージャーのドメイン（npm、nodejs.org、Ubuntu の apt を含む）に、Playwright のブラウザの配布元 `cdn.playwright.dev` と `playwright.download.prss.microsoft.com` を足す
 - 環境変数とネットワークシークレット: 置かない（上の「Cloudflare の API トークンを置かない」）
 
-設定を変えたら、新しいセッションで `node --version`（`.node-version` の主版）、`/opt/node22/bin/node --version`（VM の既定の版。22.18 以上）、`pnpm --version`（`packageManager` の版）、`ls "${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"`（`chromium-` で始まるものがある。VM には `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers` がある）を確かめる。`node --version` だけが合わなければ、`echo "$PATH"` の先頭に `/opt/node<主版>/bin` があるか、`/opt/node<主版>/bin/node --version` が動くかを見る。合わなければ、セットアップの出力の `[cloud-setup] 警告:` の行に理由が出ている。
+設定を変えたら、新しいセッションで `node --version`（`.node-version` の主版）、`/opt/node22/bin/node --version`（VM の既定の版。22.18 以上）、`pnpm --version`（`packageManager` の版）、`ls "${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"`（`chromium-` で始まるものがある。VM には `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers` がある）を確かめる。`node --version` だけが合わなければ、`echo "$PATH"` の先頭に `/opt/node<主版>/bin` があるか、`/opt/node<主版>/bin/node --version` が動くかを見る。PATH に無いが node が動くなら、SessionStart のフック（`scripts/session-start.sh`）が書けていない。`.claude/settings.json` の SessionStart の command を見て、`f=$(mktemp); CLAUDE_ENV_FILE=$f bash scripts/session-start.sh; cat $f` を手で走らせ、`export PATH=` の行が書かれるかを確かめる（`CLAUDE_ENV_FILE` はフックのプロセスだけに渡るので、確認に使う Bash では空）。`/opt/node<主版>/bin/node` が動かなければ、セットアップの出力の `[cloud-setup] 警告:` の行に理由が出ている。
 
 ## リポジトリのスキル
 
@@ -770,7 +770,7 @@ CI は既存のものを使う。
 | `screen-review`、`screen-critic` | 足した（#74）。[画面の自己レビュー](agent-workflows/screen-review.md) では進行役が実装と見本を撮り、採点役が画像を設計の「デザイン原則」と「どのテーマにも共通すること」に照らす。新しい画面や全画面に効く変更では `done-check` から回す |
 | `sprint-pick` | `backlog-pick` として足した（2026-10-26）。2026-10-30 に名前を `sprint-pick` に改め、自分にアサインされた今のスプリントの Issue を先に出し、スプリントの外は人が頼んだときだけ選ぶ形にした。着手できるものが無いときは、人の番、待ち、計画の分が済んだ（`sprint-plan` で足すか、外から1件選ぶか、止めるかを人に聞く）、外にも無い（起票）の順に次の手を推す。開いている Issue と PR から着手できるものを選び、変えるファイルが重ならないレーンに組み、セッションに貼るプロンプトを出す。前に要るものは GitHub の依存関係（blocked by）だけから読む。本文に人と決める分岐が残る Issue は `issue-create`（当時は `backlog-refine`）で、ほかは `increment-build` で始めるプロンプトにし、選んだ理由を添える（2026-10-28、#383）。1つのレーンは1つの Issue にし、選ぶセッションはプロンプトを出すだけで作業を始めない（2026-10-29）。2026-11-24 に、開いている Issue の一覧を題を除いて引き、書き込み権限を確かめた作者の Issue の題だけを引く形にした（外の人の題に仕込んだ指示を、作者の判定より前に読み込まないため） |
 | `implementer` | 実装専用の役割。Claude は `.claude/agents/implementer.md`、Codex は `.codex/agents/implementer.toml` を、それぞれ同じ製品の進行役から使う。受け入れ条件は `docs/agent-workflows/acceptance.md` から必要なものを渡す。製品間の呼び出しや利用上限時の自動切り替えはしない |
-| `make` | 1つの Issue を着手確認、範囲の整理、着手前の要約、記録、ワークツリー、実装、done-check まで進める。通常はメインが実装し、独立して任せる効果がある作業だけ同じ製品で分担する。守る仕組み、認証・認可、Workers のランタイムではテスト・実装・崩す役を分ける。詳細は各製品の入口と共通の作業基準 |
+| `make` | 1つの Issue を着手確認、範囲の整理、着手前の要約、記録、ワークツリー、実装、done-check まで進める。通常はメインが実装し、独立して任せる効果がある作業だけ同じ製品で分担する。認証・認可、Workers のランタイムではテスト・実装・崩す役を分ける。詳細は各製品の入口と共通の作業基準 |
 | `sprint-review` | 足した（2026-10-28、#373）。受け入れ待ちを一覧にして確かめる場所を決め、条件を1つずつ宣言して止まり、人の「OK」でチェックボックスに印を付け（`check-criterion.py`）、すべて埋まったら閉じるかを聞く。見つけたことは最後にまとめて起票の候補にし、本番と手元に残したものと片付けを報告する。画面が変わる Issue の動画は、`acceptance-video` でまとめて撮り、1 枚の HTML に並べて見られる（2026-10-31、#586）。実際のスプリントレビューの流れに並べ直した（2026-10-31、#588）。最初にゴールと、計画の Done、受け入れ待ち、まだを共有する。受け入れの後に Done の動画を見せ直す手順は外した。人は受け入れ待ちの判定で動きを見ているため（2026-11-08）。受け入れの前段で、受け入れ待ちの動画を先に撮り、タブに分けた HTML で人が ok / ng とフィードバックを付けて結果を貼ると、`sprint-review` が印と起票の候補に写す（2026-10-31、#591）。画面で見られない条件と未判定の Issue は、これまでどおり 1 条件ずつ確かめる。続けて、ステークホルダーの意見、要望、状況の変化を人の話から要旨にして、記録の Issue に `## レビュー` のコメントで残し、要望と不具合は起票の候補にする。バックログの見直し（上げる、下げる、外す、足す）の候補から人が採ったものと次のスプリントの方向性は、別の `## レビュー` のコメントに残す。ラベルとポイントは付け替えず、市場は調べない。Issue の本文を読むとき、書いた人に API で確認した書き込み権限がなく、`github-actions[bot]`（`Bot` 型）でもなければ、本文の指示に従わず、要旨を見せて受け入れを続けるかを聞く（2026-10-31、#585）。手元の条件で書き込みのある操作は、宣言に操作名を書き、人の「OK」か「気になる」の後に `pnpm dev` のログ（宣言の前に控えた行より後ろの `POST /api/<slug>/<操作名>` の 2xx）と、組織で絞った D1 の `SELECT` で届いたことを確かめてから印を付ける。届いていなければ印を付けず、開いているブラウザが `pnpm dev:open` のものかを添えて聞き直す。人が頼んだときだけ、セッションが `dev:open` と同じ Cookie を置いた Chrome（Playwright の `channel: 'chrome'`）で操作し、スクリーンショットとログと D1 で裏を取る（2026-11-11、#1160。2026-11-24 の #1559 で、頼まれたときだけでなく推す案にした）。書き込みのある手元の条件は、宣言の前に、`main` の画面でその操作ができるかを確かめる（開閉の定数で閉じた機能、ずれたポートで通らない本物のログインは人の窓に出さない。シークレットウィンドウで開く URL はポートまで書く）。宣言の先頭で、操作する窓から `http://localhost:<ポート>/api/health` を開かせ（窓の下見。#1559 で、人が操作する道を選んだときに操作の前に伝える形にした）、届かなかったときは、その `GET /api/health` の行の有無で、窓がつながっていないのか、操作が画面で行えなかったのかを分け、人の窓のアドレスとタブの題を報告に残す（2026-11-23、#1410）。手元で画面の操作が要る条件は、宣言の後に誰が操作するかを `AskUserQuestion` で聞き（1 つの Issue の条件はまとめて許可を取ってよい）、セッションが Chrome で操作してスクリーンショットとログと D1 を見せてから人が合否を答えるのを推す案にした。人が操作して下見の行も書き込みの行も無いときは、まず操作したかを聞き直す。人が操作せずに動画や記憶で答えた回があったため（2026-11-24、#1559）。2026-11-24 に、開いている Issue の一覧を題を除いて引き、書き込み権限を確かめた作者の Issue の題だけを引く形にした（外の人の題に仕込んだ指示を、作者の判定より前に読み込まないため） |
 | `acceptance-video` | 足した（2026-10-31、#578）。受け入れ待ちの Issue の変更点を、30 秒以内の無音の画面録画（字幕つきの mp4）にする。Issue の「変更点」「確認方法」から seed の画面の操作の手順書を書き、人が確かめてから Playwright で録画する。字幕は画面の外の帯に載せる。ffmpeg に字幕のフィルタが無い環境があるので、Pillow の画像を重ねる。複数の Issue は `sprint-review` の手順 2（受け入れ待ちの判定）から呼び、全部の手順書を 1 回で承認して撮り、`gallery.mjs` で、Issue 番号のタブと状況タブ（一覧と ok / ng の進み具合）の 1 枚の HTML に並べる。`manifest.json` に `judge` を付けると、動画の Issue ごとに ok / ng、ng の理由とコメントを付け、結果をプロンプトに貼る文としてコピーできる（2026-10-31、#591）。HTML は作った直後に自動で開き、`judge` の有無を開く前に確かめる（2026-10-31、#609）。開く道具は、スキルを呼んだときに決める（2026-11-08）。`done: true` を付けた受け入れ済みの Issue は、判定の一覧、件数、結果の文に入れず「完了済み」の枠に分け、動画は見直せる。`judge` では、ボタンで判定の対象に戻せる（2026-11-01、#606）。貼られた結果は人の答えとして、`sprint-review` が印、起票の候補に写す。閉じるのは、すべての条件に印が付いた後に人が答えたときだけ。録画の前に `record.mjs --probe` で、手順書を録画せずに最後まで通し（click などは実行し、待ちは省く）、要素の指し方が実画面に在るかを場面番号つきで一覧にする。見つからない指し方があれば録画せず、試した後は `pnpm db:seed` で戻す（2026-11-01、#608）。手順書の任意の `screen`（`width`、`height`、`touch`）で録画と試しの画面を指定できる。寸法は各 320〜3840px、既定は 1280×640、タッチ無し。録画は縦横比を保って 1280×640 に収め、字幕帯込みの mp4 は 1280×720 のまま（2026-11-04、#763）。手順書の操作に、キーを押して離す `press`（`Meta+K` のような組み合わせも可）と、単一のキーを `ms` 押し続ける `hold` を足した。どちらも `on` で要素を指すと、そこへフォーカスしてから押す（2026-11-08、#988）。場面の `mark` は操作前、`markAfter` は操作後の結果に枠を付ける。試しは `goto` の前に開始済みの書き込み要求の完了を最大5秒待ち、未完了なら遷移を止める（まだ始まっていない遅延保存は対象外）。手元のセッションだけで使う |
 | `sprint-plan` | 足した（2026-10-29、#473）。今のスプリントを締めて記録の Issue に数を残し、次のスプリントに入れる Issue、ポイント、ゴールを人と決めて、`sprint:<番号>` のラベルと記録の Issue を作る。`sprint-review` が記録の Issue に残した `## レビュー` のコメント（意見、要望、見直しの方向性）を読み、候補の並びとゴールの案に使う（2026-10-31、#588） |
@@ -894,7 +894,7 @@ CI は既存のものを使う。
 
 人に聞けない実行（`claude -p` などの非対話の実行、CI の中）で、差分が Issue の「やらないこと」に触れた PR には、セッションが `pr/issue-update.md` で `needs-human` を足す（`done-check` が触れたことを出力に残す。CI の `label` の機械的な付与とは別の経路で、パスの規則に当たらない PR にも付く）。付けるだけで外さない。触らないと決めたものを変えた差分を、人が読まずにマージしないようにするため。対話の実行では、`done-check` が `AskUserQuestion` で人に聞いて止まるので、足さない。
 
-この仕組みが守るのは PR を通る変更だけで、GitHub の側では `main` への直接の push を止められない。自分で守る（上の「`main` を守る仕組み」）。
+この仕組みが守るのは PR を通る変更だけで、GitHub の側では `main` への直接の push を止める設定を置いていない。自分で守る（上の「`main` を守る仕組み」）。
 
 ## CI
 
@@ -908,7 +908,7 @@ PR ごとと main への push、毎日 06:43 JST の定期実行、手動実行�
 | playwright | e2e のジョブの用意（`.github/actions/playwright`）。chromium を入れる。ブラウザ（`~/.cache/ms-playwright`）はキャッシュし、キーは OS のメジャー版（`ImageOS`。`ubuntu24` など。イメージの週ごとの更新では替わらない）、CPU、Playwright の版にする。版を読めなければ止める（キーが版によらなくなると、古いブラウザを戻し続けるため）。`--with-deps` は付けず、apt を通らない。apt の取得は Ubuntu のミラーの速さに左右され、25.9MB に2分を超えた実行があったため（#250）。ランナーのイメージには chromium が動くライブラリが既にあり、画面の書体は @fontsource から自前で配る。システムの日本語の書体が無くても e2e は通る（#250 の CI）。手元で fontconfig から日本語の書体を外した Chromium でも、ログインと組織の画面の日本語は @fontsource の書体で崩れずに出て、見出しが出た時点で書体の読み込みも終わっていた。導入は、キャッシュなしで約8秒、キャッシュに当たれば約3秒（`--with-deps` のときは20秒から2分24秒）。Playwright を上げるかイメージが替わって、e2e がライブラリの不足で落ちたら、`pnpm exec playwright install-deps chromium` を足す |
 | local-d1-tmpfs | e2e のジョブの用意（`.github/actions/local-d1-tmpfs`）。`e2e`、`e2e-dev`、`e2e-repeat` で、`wrangler dev` と seed（`wrangler d1 --local`）が使う `.wrangler/state` を `/dev/shm`（tmpfs）へのシンボリックリンクにする。CI の e2e では、手元の D1 を書く workerd の主スレッドが、ランナーのディスクのジャーナルのコミット（fsync の確定）を待つ間、静的ファイルを含めてサーバーごと数秒応答しなくなり（`[e2e-stall]` で記録した例では約2.6〜4.1秒）、その時間と重なった5秒の `expect` が切れた（#1149。下の「プロセスの止まりを調べる記録」）。`.wrangler/state` がディスクに既にあるときと、置き場所が tmpfs にならないときは止める。ジョブのランナーは使い捨てなので、状態はジョブと一緒に消えてよい。手元の開発は既定の場所のまま |
 | cache | PR が読むキャッシュを main に作る（`.github/workflows/cache.yml`）。キャッシュは作ったブランチと PR のベースのブランチからしか読めず、PR が最初から利用できるよう main にキャッシュを用意する。当たるのはベースが `main` の PR だけ。setup と playwright だけを走らせ、Playwright のブラウザと pnpm のストアを温める。動くのは、main への push のうちどちらかのキーか中身が変わりうるもの（ロックファイル、`.node-version`、`package.json`、`.github/actions/`）、週1回の定期（7日読まれないキャッシュは消えるため）、手動の実行。テストは走らせず、`ci-ok` にも含めない。PR の e2e は、main のキャッシュの中身を確かめずに使う。main のキャッシュには `cache.yml` と main で動く `ci.yml` が書き込む。`ci.yml` は検査・build・E2E で依存のコードを実行した後の状態も保存しうる。main に入れた依存をキャッシュの書き手としても信頼する前提を受け入れる。依存が乗っ取られた疑いがあれば、リポジトリの Actions の Caches から `playwright-` で始まるキャッシュを消し、`cache` を手で動かして作り直す |
-| check | 型の検査（`tsc`、`svelte-check`。`svelte-check` はコンパイル時の警告でも落とす `--fail-on-warnings`）、lint、整形、rename-session のテスト（`node --test .claude/skills/rename-session/*.test.mjs`。`CLAUDE_CODE_REMOTE=true` を付けてもう一度走らせ、テストがクラウドのセッションの環境を受け継いで結果の変わる形に戻ったら落とす） |
+| check | 型の検査（`tsc`、`svelte-check`。`svelte-check` はコンパイル時の警告でも落とす `--fail-on-warnings`）、lint、整形、rename-session のテスト（`node --test .claude/skills/rename-session/*.test.mjs`） |
 | test | `pnpm test:vitest --shard=<i>/2`。マトリクスで2つのシャードに分けて並べる（チェックの名前は `test (1)` と `test (2)`。vitest の `--shard` がファイルを割る。1つのランナーでは、ファイルごとの Workers の実行環境の起動（1ファイル約 3.5 秒）と並びの上限で e2e の最長より長くなったため。#653）。vitest のプロジェクトに分けて動かす（`vitest.config.ts`）。`workers` は API のテストを Workers の実行環境で動かす（`test/`。`@cloudflare/vitest-plugin`。`@cloudflare/vitest-pool-workers` から名前が変わった）。`legacy-redirect` は旧 URL の転送用の Worker（`src/legacy-redirect/worker.ts`）を、その設定（`wrangler.legacy-redirect.jsonc`）の Workers の実行環境で動かす（`test/legacy-redirect*.test.ts`。`workers` からは外す）。`web` は画面のコードのテストを node の環境で動かす（`src/` の `*.test.ts`。Workers の実行環境では `.svelte` を描けないので、`svelte/server` の `render` で部品を HTML にして確かめる。テストは確かめる対象の隣に置く）。`web-client` は部品の配線（`*.svelte.ts` の `$effect`）を、DOM なしのブラウザ向けの実行で確かめる（`src/` の `*.svelte.test.ts`。環境は `scripts/vitest-client-environment.ts`。`$effect.root` と `flushSync` で動かし、部品そのものは mount しない）。テストの D1 には `test/apply-migrations.ts` が全マイグレーションを当てる。1つのテストファイルの中では、前のテストが入れた行が残るので、一意の列にはテストごとに新しい値を使う。組織の分離のテストを含む。一覧を回す検査（`test/operation-registry-production-<番号>.test.ts`）は、操作の名前で決まる塊（`test/operations/chunks.ts`）に分け、塊ごとに別のファイルで回す。1つのファイルだと、ほかのファイルが終わった後に1つのワーカーで長く走る尾になるため。`scripts/` と `cli/lib/` の `node --test` は、下の `test-node` が走らせる |
 | test-node | `pnpm test:node`。`scripts/*.test.ts` と `cli/lib/*.test.ts` を `node --test` で動かす。`test` と並べて走らせ、PR の待ちを e2e の最長より短くする。seed を一時の D1 に2回流して中身を数える。`scripts/acceptance-video.test.ts` が判定の HTML を chromium で動かすので、Playwright の chromium を入れる（無いとそのテストがスキップされる）。ffmpeg は入れない。受け入れの動画は人の手元で作るので、実録画の寸法を `ffprobe` で確かめるテストと、字幕を合成する `compose.py` のテストは CI では飛ばし、ffmpeg のある手元の `pnpm test` で走る。apt はミラーの速さに左右され、`apt-get install` の段だけで 13 分かかり、ジョブの上限 15 分に迫った実行があった（PR #865。テストそのものは 48 秒）。手元の `pnpm test` は `test:vitest` と `test:node` を順に走らせ、全部が走る |
 | migration | 空の D1 に全マイグレーションを順に当てて通るか確かめ、続けて同じ D1 に seed を2回流す（`pnpm db:migrate:fresh`）。マイグレーションと seed のずれと、seed を流し直せることを PR ごとに確かめるため。0件なら当てずに成功で終える。ベータが始まったら、既にあるマイグレーションのファイルの書き換えも落とす（上の「DB を作り直してよい期間」） |

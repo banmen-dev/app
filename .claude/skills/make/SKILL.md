@@ -53,7 +53,7 @@ Issue に、ブランチ名とセッションの識別をコメントで残す�
 
 Claude のセッション内で進め、Codex の CLI やエージェントを起動しない。
 [受け入れ条件](../../../docs/agent-workflows/acceptance.md) を読み、通常は自分で実装する。分離して任せることで速くなる独立した作業だけ Claude の implementer に委譲する。小変更は引き継ぎを挟まない。
-[書き手を分ける変更](../../../docs/agent-workflows/test-first.md) の対象（守る仕組み、認証・認可、Workers のランタイム）では、その手順でテスト・実装・崩す役を分ける。
+[書き手を分ける変更](../../../docs/agent-workflows/test-first.md) の対象（認証・認可、Workers のランタイム）では、その手順でテスト・実装・崩す役を分ける。
 委譲先はコミットせず、Edit と Write で編集する。担当範囲と受け入れ条件、検査ログ・入力状態を返させる。
 実装の担い手（メインか Claude の implementer）と役割を分けた検査の結果を pr に渡す。
 

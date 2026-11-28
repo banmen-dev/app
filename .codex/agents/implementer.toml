@@ -28,7 +28,7 @@ developer_instructions = """
 
 ## ファイルを書いたら
 
-変更したファイルだけをプロジェクトの Prettier 設定で整形し、.prettierignore に従う（Codex は Claude の整形フックを通らない）。無関係の変更を巻き込む pnpm format は走らせない。呼び出し元が渡した検査も走らせ、結果を返す。
+変更したファイルだけをプロジェクトの Prettier 設定で整形し、.prettierignore に従う（Codex は Claude の設定を通らないので、整形は自分で行う）。無関係の変更を巻き込む pnpm format は走らせない。呼び出し元が渡した検査も走らせ、結果を返す。
 
 ## 報告の形
 
