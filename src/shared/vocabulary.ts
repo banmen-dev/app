@@ -1301,6 +1301,8 @@ export const dictionary = defineDictionary({
   operatorFeedbackImages: '画像',
   operatorFeedbackImagesNone: '画像は添えられていません',
   operatorFeedbackImageDownload: '画像 {number} をダウンロード（{type}、{size}）',
+  operatorFeedbackImageAlt: '画像 {number}',
+  operatorFeedbackImageFailed: '画像 {number} を読み込めませんでした',
   operatorFeedbackNotFoundTitle: 'フィードバックが見つかりません',
   operatorFeedbackNotFoundText: 'ID が違うか、送られて 180 日がたって消えました。',
   // 運用の画面。{organization} {admin} は、それぞれ辞書の同じ名前の項目で埋める

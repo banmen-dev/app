@@ -13,10 +13,16 @@
   import type { PageProps } from './$types';
 
   // フィードバックの閲覧の画面。運用者だけが、利用者が自分で送った文、送った画面の URL と経路、アカウントの ID、画像を見る。
-  // 文と URL は文字として出し（HTML にもリンクにもしない）、画像は同じオリジンで描かず、ダウンロードの操作にする。
+  // 文と URL は文字として出し（HTML にもリンクにもしない）、画像は <img> で描いてダウンロードの操作を添える。
+  // 画像の応答は Content-Disposition: attachment のままで、<img> の読み込みには効かず、URL を直接開いたときだけ保存になる。
   // 一覧は持たない。Issue の本文のリンクから開く
   let { data }: PageProps = $props();
   const words = { organization: t('organization') };
+  // 読み込めなかった画像の ID。その画像の場所だけを読み込めなかった旨に替え、ほかの画像と文はそのまま出す
+  let failedImages = $state<readonly string[]>([]);
+  const markFailed = (id: string) => {
+    if (!failedImages.includes(id)) failedImages = [...failedImages, id];
+  };
 </script>
 
 <svelte:head>
@@ -70,15 +76,24 @@
         {#if feedback.images.length === 0}
           <p class="props-note">{t('operatorFeedbackImagesNone')}</p>
         {:else}
-          <div class="form-actions">
-            {#each feedback.images as image, index (image.id)}
+          {#each feedback.images as image, index (image.id)}
+            {@const src = operationPath(operatorFeedbackImage, undefined, {
+              id: feedbackImageRef(feedback.feedback_id, image.id),
+            })}
+            <figure class="md-figure">
+              {#if failedImages.includes(image.id)}
+                <p class="props-note" role="status">{t('operatorFeedbackImageFailed', { number: index + 1 })}</p>
+              {:else}
+                <div class="preview">
+                  <img
+                    {src}
+                    alt={t('operatorFeedbackImageAlt', { number: index + 1 })}
+                    onerror={() => markFailed(image.id)}
+                  />
+                </div>
+              {/if}
               <!-- eslint-disable svelte/no-navigation-without-resolve 画像の配信 URL は API の定義から作る -->
-              <a
-                class="btn"
-                href={operationPath(operatorFeedbackImage, undefined, {
-                  id: feedbackImageRef(feedback.feedback_id, image.id),
-                })}
-                download
+              <a class="btn" href={src} download
                 ><Icon name="download" />{t('operatorFeedbackImageDownload', {
                   number: index + 1,
                   type: image.content_type,
@@ -86,8 +101,8 @@
                 })}</a
               >
               <!-- eslint-enable svelte/no-navigation-without-resolve -->
-            {/each}
-          </div>
+            </figure>
+          {/each}
         {/if}
       {/if}
     </GateSheet>
