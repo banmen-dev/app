@@ -114,7 +114,7 @@ describe('epic-create', () => {
     const two = (await rowOf(target, secondEpic.id))!;
     expect(one).toMatchObject({
       workspace_id: target.workspace.id,
-      reward_tier: 'medium',
+      reward_tier: null,
       requester_user_id: target.member.userId,
       created_by: target.member.userId,
       category_id: null,

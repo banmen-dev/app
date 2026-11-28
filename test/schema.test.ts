@@ -425,8 +425,8 @@ describe('0048_drop_game_tables', () => {
     expect(results).toEqual([]);
   });
 
-  // 本番の版がまだ reward_tier と中止の列を書くので、epics は作り直さずに列も索引も残す
-  test('epics は列も索引も変わらない（reward_tier、canceled_at、canceled_by と epics_canceled_by を含む）', async () => {
+  // 本番の版がまだ中止の列を書くので、reward_tier を NULL 可にして作り直した epics も、列も索引も残す（0049）
+  test('epics は列も索引も変わらず、reward_tier は NULL を書ける（canceled_at、canceled_by と epics_canceled_by を含む）', async () => {
     const { results: columns } = await env.DB.prepare(`SELECT name FROM pragma_table_info('epics') ORDER BY cid`).all<{
       name: string;
     }>();
@@ -462,6 +462,23 @@ describe('0048_drop_game_tables', () => {
       'epics_workspace',
       'epics_workspace_fk',
     ]);
+    const tier = await env.DB.prepare(
+      `SELECT "notnull" AS not_null FROM pragma_table_info('epics') WHERE name = 'reward_tier'`,
+    ).first<{
+      not_null: number;
+    }>();
+    expect(tier).toEqual({ not_null: 0 });
+    const { results: violations } = await env.DB.prepare('PRAGMA foreign_key_check').all();
+    expect(violations).toEqual([]);
+  });
+
+  test('epics.reward_tier は NULL か small、medium、large だけ書ける', async () => {
+    const organization = await createOrganization();
+    const user = await createUser(organization);
+    const workspace = await createWorkspace(organization, user.id);
+    await createEpic(organization, workspace.id, user.id, { reward_tier: null });
+    await createEpic(organization, workspace.id, user.id, { reward_tier: 'large' });
+    await expect(createEpic(organization, workspace.id, user.id, { reward_tier: 'huge' as never })).rejects.toThrow();
   });
 
   test('epics を指す表の外部キーは epics を指したままで、違反の行は無い', async () => {

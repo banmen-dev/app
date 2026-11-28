@@ -356,7 +356,7 @@ export const organizationTableColumns = {
     category_id: textOrNull,
     due_on: textOrNull,
     link_url: textOrNull,
-    reward_tier: text,
+    reward_tier: textOrNull,
     requester_user_id: text,
     created_by: text,
     completed_at: textOrNull,
