@@ -29,7 +29,7 @@ export const operatorFeedbackImageOperation = implement(
     const image = feedback?.images.find((item) => item.id === imageId);
     if (image === undefined) throw new ApiError(404, 'not_found');
     const key = feedbackKey(feedbackId, imageId);
-    // 描かずに保存させる（運用者の画面と同じオリジンで画像を開かない）。種類は meta.json の値
+    // URL を直接開いたときは描かずに保存させる。attachment は <img> の読み込みには効かないので、運用者の画面は描ける。種類は meta.json の値
     const headers = new Headers({
       'Content-Type': image.content_type,
       // 画像の ID は検証済みの UUID なのでヘッダーに入れてよい。拡張子は meta.json の種類から決める
