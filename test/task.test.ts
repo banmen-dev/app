@@ -8,14 +8,7 @@ import { createApp } from '../src/server/app.ts';
 import { orgDb, verifyWorkspace } from '../src/server/db/index.ts';
 import { implementedOperations } from '../src/server/operations/index.ts';
 import { taskCompleteOperation, taskCreateOperation } from '../src/server/operations/task.ts';
-import {
-  createCategory,
-  createEpic,
-  createMembership,
-  createStory,
-  createTask,
-  createWorkspace,
-} from './factories.ts';
+import { createCategory, createEpic, createMembership, createStory, createTask, createWorkspace } from './factories.ts';
 import { errorCodeOf, post } from './operations/harness.ts';
 import { createPerson, createTarget, testEnv, type Person, type Target } from './operations/world.ts';
 

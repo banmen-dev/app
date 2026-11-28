@@ -121,7 +121,6 @@ describe('story-complete', () => {
       updated_at: body.completed_at,
     });
 
-
     const logs = await logsOf(target, story.id);
     expect(logs).toHaveLength(1);
     expect(logs[0]).toMatchObject({ action: 'complete', actor_user_id: member, created_at: body.completed_at });
