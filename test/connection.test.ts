@@ -369,6 +369,22 @@ describe('connection-scopes-save', () => {
     expect((await save(ctx, target, target.member, id, ['1001'])).status).toBe(200);
     expect((await save(ctx, target, target.member, id, ['1001', '1002'])).status).toBe(200);
     expect(Number((await rowsOf(target)).connections[0]!.ignore_source_due_generation)).toBe(before + 2);
+
+    // 範囲を空にする保存も進め、断られた保存（閉じたワークスペースの 409）は進めない
+    expect((await save(ctx, target, target.member, id, [])).status).toBe(200);
+    expect(Number((await rowsOf(target)).connections[0]!.ignore_source_due_generation)).toBe(before + 3);
+    const db = orgDb(env, target.organization.verified);
+    await db.batch([
+      db.statement((q) =>
+        q
+          .updateTable('workspaces')
+          .set({ closed_at: '2026-10-22T00:00:00.000Z' })
+          .where('id', '=', target.workspace.id)
+          .where('organization_id', '=', db.organizationId),
+      ),
+    ]);
+    expect((await save(ctx, target, target.member, id, ['1002'])).status).toBe(409);
+    expect(Number((await rowsOf(target)).connections[0]!.ignore_source_due_generation)).toBe(before + 3);
   });
 
   test('候補に無い ID は 400 で、今の範囲は変わらない', async () => {
