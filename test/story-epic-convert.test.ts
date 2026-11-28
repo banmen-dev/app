@@ -434,7 +434,7 @@ describe('story-convert', () => {
   test('1 万字の数え方はコードポイントで、UTF-16 の長さでは数えない', async () => {
     const target = await createTarget();
     const ws = target.workspace.id;
-    // 写した後は 5,013 コードポイント（UTF-16 では 10,026）。上限以下なので通る
+    // 写した後は 5,013 コードポイント（UTF-16 では 10,013）。上限以下なので通る
     const ok = await createStory(target.organization, ws, target.member.userId!, {
       body_md: '😀'.repeat(4_900),
       acceptance_criteria_md: '😀'.repeat(100),
