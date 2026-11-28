@@ -210,14 +210,14 @@ Worker のシークレットは、ダッシュボードの Worker の Settings �
    | --- | --- |
    | GitHub App name | Banmen Feedback |
    | Homepage URL | `https://banmen.ucan-lab.workers.dev` |
-   | Callback URL、Setup URL | 空 |
+   | 「Identifying and authorizing users」の redirect URI（「Add redirect URI」で足す欄）、「Post installation」の Setup URL | 空（redirect URI は足さない） |
    | Webhook | Active を外す（受けない） |
    | Repository permissions | Issues: Read and write だけ。Metadata: Read-only は GitHub が必ず付ける。ほかは No access |
    | Organization permissions、Account permissions | すべて No access |
    | Where can this GitHub App be installed? | Only on this account |
 
 3. 作った App の「App ID」を控える（Client ID ではない）
-4. 同じ画面の Private keys →「Generate a private key」で鍵（`.pem`）を落とす。クラウドに同期されない場所に置く。GitHub が出す鍵は PKCS#1（`-----BEGIN RSA PRIVATE KEY-----`）で、Workers の Web Crypto は読めないので、次の手順 6 で PKCS#8 に直しながら入れる。直した鍵をファイルに書かない
+4. App の設定の左のメニュー「Credentials」→「Key pairs」のタブ →「New key」で鍵（`.pem`）を落とす（URL は `https://github.com/organizations/banmen-dev/settings/apps/<App のスラッグ>/key_pairs`）。クラウドに同期されない場所に置く。GitHub が出す鍵は PKCS#1（`-----BEGIN RSA PRIVATE KEY-----`）で、Workers の Web Crypto は読めないので、次の手順 6 で PKCS#8 に直しながら入れる。直した鍵をファイルに書かない
 
 5. App の Install App → banmen-dev の「Install」を開き、「Only select repositories」で banmen-dev/app だけを選ぶ。入れた後の URL `https://github.com/organizations/banmen-dev/settings/installations/<数字>` の数字がインストールの ID
 6. 本番は `wrangler secret put FEEDBACK_GITHUB_APP_ID` と `wrangler secret put FEEDBACK_GITHUB_INSTALLATION_ID` で入れ、鍵は PKCS#8 に直したものを中間のファイルを作らずに流し込む。入れた後に、落とした `.pem` を消す
