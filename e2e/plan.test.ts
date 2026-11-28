@@ -279,12 +279,12 @@ test('入れるダイアログ: 読めなければ枠と「もう一度試す」
   let release!: () => void;
   const held = new Promise<void>((resolve) => (release = resolve));
   let first = true;
-  await page.route('**/api/aoba/backlog-tree', async (route) => {
+  await routeOperation(page, backlogTree, { slug: 'aoba' }, async (call) => {
     if (first) {
       first = false;
       await held;
     }
-    await route.continue();
+    await call.passThrough();
   });
   const addButton = page.getByRole('button', { name: /^バックログから入れる/ });
   await addButton.click();

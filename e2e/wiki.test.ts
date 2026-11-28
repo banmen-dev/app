@@ -324,11 +324,11 @@ test('同時保存の競合で入力を残し、今の版と見比べてから�
   const pending = new Promise<void>((resolve) => {
     received = resolve;
   });
-  await page.route('**/workspace-wiki-update', async (route) => {
-    const response = await route.fetch();
+  await routeOperation(page, workspaceWikiUpdate, { slug: 'aoba' }, async (call) => {
+    const output = await call.fetch();
     received();
     await gate;
-    await route.fulfill({ response });
+    await call.fulfill(output);
   });
   await page.getByRole('button', { name: '保存する', exact: true }).click();
   await pending;
@@ -565,13 +565,17 @@ for (const scope of ['organization', 'workspace'] as const) {
     const pending = new Promise<void>((resolve) => {
       received = resolve;
     });
-    const operation = scope === 'workspace' ? '**/workspace-wiki-update' : '**/org-wiki-update';
-    await page.route(operation, async (route) => {
-      const response = await route.fetch();
-      received();
-      await gate;
-      await route.fulfill({ response });
-    });
+    const unrouteUpdate = await routeOperation(
+      page,
+      scope === 'workspace' ? workspaceWikiUpdate : orgWikiUpdate,
+      { slug: 'aoba' },
+      async (call) => {
+        const output = await call.fetch();
+        received();
+        await gate;
+        await call.fulfill(output);
+      },
+    );
     await dialog.getByRole('button', { name: '戻す', exact: true }).click();
     await pending;
     try {
@@ -588,7 +592,7 @@ for (const scope of ['organization', 'workspace'] as const) {
     await expect(page.getByRole('status').filter({ hasText: '第3版として保存しました' })).toBeVisible();
     await expect(page.getByRole('heading', { level: 2, name: title })).toBeVisible();
     await expect(page.getByRole('cell', { name: '過去の分類', exact: true })).toBeVisible();
-    await page.unroute(operation);
+    await unrouteUpdate();
     await page.getByRole('button', { name: '版の一覧', exact: true }).click();
     await expect(rows).toHaveCount(3);
     await expect(rows.first()).toContainText('第3版');

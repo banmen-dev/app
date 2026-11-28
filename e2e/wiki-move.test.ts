@@ -1,9 +1,9 @@
 import { expect, test } from './fixtures.ts';
 import type { Page } from '@playwright/test';
 import { createWorkspace, signIn, watchViolations } from './helpers.ts';
-import { failOperation } from './operations.ts';
+import { failOperation, routeOperation } from './operations.ts';
 import { resetWikiRateLimits } from './local-d1.ts';
-import { workspaceWikiMove } from '../src/shared/operations/wiki/index.ts';
+import { orgWikiMove, workspaceWikiMove } from '../src/shared/operations/wiki/index.ts';
 
 test.beforeEach(async ({ context, baseURL }) => {
   await resetWikiRateLimits();
@@ -61,16 +61,16 @@ for (const scope of ['org', 'workspace'] as const) {
     const pending = new Promise<void>((resolve) => {
       received = resolve;
     });
-    await page.route(
-      `**/${scope === 'org' ? 'org' : 'workspace'}-wiki-move`,
-      async (route) => {
-        const response = await route.fetch();
-        received();
-        await gate;
-        await route.fulfill({ response });
-      },
-      { times: 1 },
-    );
+    // 1回目の応答だけを止める。2回目からは本物の API へ流す
+    let held = false;
+    await routeOperation(page, scope === 'org' ? orgWikiMove : workspaceWikiMove, { slug: 'aoba' }, async (call) => {
+      if (held) return call.passThrough();
+      held = true;
+      const output = await call.fetch();
+      received();
+      await gate;
+      return call.fulfill(output);
+    });
     await up.focus();
     await up.press('Enter');
     await pending;
@@ -170,11 +170,11 @@ test('遅い移動応答が編集中のフォーカスを奪わない', async ({
   const pending = new Promise<void>((resolve) => {
     received = resolve;
   });
-  await page.route('**/workspace-wiki-move', async (route) => {
-    const response = await route.fetch();
+  await routeOperation(page, workspaceWikiMove, { slug: 'aoba' }, async (call) => {
+    const output = await call.fetch();
     received();
     await gate;
-    await route.fulfill({ response });
+    await call.fulfill(output);
   });
   await page.getByRole('button', { name: '上へ: 編集中のページ', exact: true }).click();
   await pending;

@@ -6,10 +6,10 @@
 import type { Page } from '@playwright/test';
 import type { OutputOf } from '../src/shared/operations/define.ts';
 import { organizationInfo } from '../src/shared/operations/organization/index.ts';
-import { userEnable, userList } from '../src/shared/operations/organization/user.ts';
+import { userAdminUpdate, userEnable, userList } from '../src/shared/operations/organization/user.ts';
 import { expect, test } from './fixtures.ts';
 import { expectFocusReturned, signIn, watchViolations } from './helpers.ts';
-import { failOperation, mockOperation, rewriteOperation } from './operations.ts';
+import { failOperation, mockOperation, rewriteOperation, routeOperation } from './operations.ts';
 
 test.use({ timezoneId: 'Asia/Tokyo' });
 
@@ -140,9 +140,9 @@ test.describe('管理者（あおば開発のミナト）', () => {
 
   test('管理者が自分だけなら、自分の切り替えは確認を出さずにその場で断り、何も送らない', async ({ page }) => {
     let requests = 0;
-    await page.route('**/api/aoba/user-admin-update', async (route) => {
+    await routeOperation(page, userAdminUpdate, { slug: 'aoba' }, async (call) => {
       requests++;
-      await route.continue();
+      await call.passThrough();
     });
     await page.goto('/aoba/admin');
     const toggle = rowOf(page, 'ミナト').getByRole('checkbox', { name: 'ミナトを管理者にする' });
@@ -178,24 +178,17 @@ test.describe('管理者（あおば開発のミナト）', () => {
 
   test('自分の解除が通ったら、組織の枠を読み直して「見つからない」の見出しへフォーカスを移す', async ({ page }) => {
     // ほかの管理者がいる応答と、解除が通った応答に差し替える（seed のミナトは解除しない。ほかのファイルが管理者として使うため）
-    await page.route('**/api/aoba/user-list', async (route) => {
-      const response = await route.fetch();
-      const json = (await response.json()) as { users: { name: string; is_admin: boolean }[] };
-      for (const user of json.users) if (user.name === 'ソラ') user.is_admin = true;
-      await route.fulfill({ response, json });
-    });
+    await rewriteOperation(page, userList, { slug: 'aoba' }, (output) => ({
+      users: output.users.map((user) => (user.name === 'ソラ' ? { ...user, is_admin: true } : user)),
+    }));
     let revoked = false;
-    await page.route('**/api/aoba/user-admin-update', async (route) => {
-      const body = route.request().postDataJSON() as { user_id: string };
+    await routeOperation(page, userAdminUpdate, { slug: 'aoba' }, async (call) => {
       revoked = true;
-      await route.fulfill({ json: { user_id: body.user_id, is_admin: false, disabled_at: null } });
+      await call.fulfill({ user_id: call.input.user_id, is_admin: false, disabled_at: null });
     });
-    await page.route('**/api/aoba/organization', async (route) => {
-      const response = await route.fetch();
-      const json = (await response.json()) as { me: { is_admin: boolean } };
-      if (revoked) json.me.is_admin = false;
-      await route.fulfill({ response, json });
-    });
+    await rewriteOperation(page, organizationInfo, { slug: 'aoba' }, (output) =>
+      revoked ? { ...output, me: { ...output.me, is_admin: false } } : output,
+    );
     await page.goto('/aoba/admin');
     await rowOf(page, 'ミナト').getByRole('checkbox', { name: 'ミナトを管理者にする' }).click();
     await page
@@ -210,13 +203,11 @@ test.describe('管理者（あおば開発のミナト）', () => {
 
   test('切り替えが 403 で断られたら、組織の枠を読み直し、一覧は読み直さない', async ({ page }) => {
     let lists = 0;
-    await page.route('**/api/aoba/user-list', async (route) => {
+    await routeOperation(page, userList, { slug: 'aoba' }, async (call) => {
       lists++;
-      await route.continue();
+      await call.passThrough();
     });
-    await page.route('**/api/aoba/user-admin-update', (route) =>
-      route.fulfill({ status: 403, json: { error: { code: 'forbidden', message: 'forbidden' } } }),
-    );
+    await failOperation(page, userAdminUpdate, { slug: 'aoba' }, 403, 'forbidden');
     await page.goto('/aoba/admin');
     await expect(rowOf(page, 'ハルカ')).toBeVisible();
     const before = lists;
@@ -233,13 +224,11 @@ test.describe('管理者（あおば開発のミナト）', () => {
 
   test('切り替えが 401 で断られたら、ログインへ移り、一覧は読み直さない', async ({ page }) => {
     let lists = 0;
-    await page.route('**/api/aoba/user-list', async (route) => {
+    await routeOperation(page, userList, { slug: 'aoba' }, async (call) => {
       lists++;
-      await route.continue();
+      await call.passThrough();
     });
-    await page.route('**/api/aoba/user-admin-update', (route) =>
-      route.fulfill({ status: 401, json: { error: { code: 'unauthenticated', message: 'unauthenticated' } } }),
-    );
+    await failOperation(page, userAdminUpdate, { slug: 'aoba' }, 401, 'unauthenticated');
     await page.goto('/aoba/admin');
     await expect(rowOf(page, 'ハルカ')).toBeVisible();
     const before = lists;
@@ -253,9 +242,7 @@ test.describe('管理者（あおば開発のミナト）', () => {
     const toggle = rowOf(page, 'ソラ').getByRole('checkbox', { name: 'ソラを管理者にする' });
     const admins = page.locator('.tally > div').nth(1);
     await expect(admins).toHaveText('管理者 1');
-    await page.route('**/api/aoba/user-list', (route) =>
-      route.fulfill({ status: 500, json: { error: { code: 'internal', message: 'internal' } } }),
-    );
+    const unrouteList = await failOperation(page, userList, { slug: 'aoba' }, 500, 'internal');
     try {
       await toggle.click();
       await expect(toast(page, 'ソラを管理者に指名しました')).toBeVisible();
@@ -263,7 +250,7 @@ test.describe('管理者（あおば開発のミナト）', () => {
       await expect(admins).toHaveText('管理者 2');
       await expect(toggle).toBeChecked();
     } finally {
-      await page.unroute('**/api/aoba/user-list');
+      await unrouteList();
       await toggle.click();
       await expect(toast(page, 'ソラの管理者を解除しました')).toBeVisible();
       await expect(admins).toHaveText('管理者 1');
@@ -320,12 +307,7 @@ test.describe('管理者（あおば開発のミナト）', () => {
   });
 
   test('409 の理由ごとに知らせ、一覧を読み直す', async ({ page }) => {
-    await page.route('**/api/aoba/user-admin-update', (route) =>
-      route.fulfill({
-        status: 409,
-        json: { error: { code: 'conflict', message: 'conflict', details: { reason: 'disabled' } } },
-      }),
-    );
+    await failOperation(page, userAdminUpdate, { slug: 'aoba' }, 409, 'conflict', { details: { reason: 'disabled' } });
     await page.goto('/aoba/admin');
     const toggle = rowOf(page, 'ハルカ').getByRole('checkbox', { name: 'ハルカを管理者にする' });
     await toggle.click();
@@ -334,12 +316,9 @@ test.describe('管理者（あおば開発のミナト）', () => {
   });
 
   test('人数が上限に達していて指名を断られたら、理由を知らせて切り替えを戻す', async ({ page }) => {
-    await page.route('**/api/aoba/user-admin-update', (route) =>
-      route.fulfill({
-        status: 409,
-        json: { error: { code: 'conflict', message: 'conflict', details: { reason: 'member_limit' } } },
-      }),
-    );
+    await failOperation(page, userAdminUpdate, { slug: 'aoba' }, 409, 'conflict', {
+      details: { reason: 'member_limit' },
+    });
     await page.goto('/aoba/admin');
     const toggle = rowOf(page, 'ユイ').getByRole('checkbox', { name: 'ユイを管理者にする' });
     await toggle.click();
@@ -353,12 +332,15 @@ test.describe('管理者（あおば開発のミナト）', () => {
   });
 
   // ユイを、一覧の上だけで無効の人にする（seed のユイを無効にしたままにしない）。有効に戻す操作は route で差し替える
-  async function showYuiDisabled(page: Page) {
-    await rewriteOperation(page, userList, { slug: 'aoba' }, (output) => ({
+  function yuiDisabled(output: OutputOf<typeof userList>): OutputOf<typeof userList> {
+    return {
       users: output.users.map((user) =>
         user.name === 'ユイ' ? { ...user, disabled_at: '2026-10-22T00:00:00.000Z' } : user,
       ),
-    }));
+    };
+  }
+  async function showYuiDisabled(page: Page) {
+    await rewriteOperation(page, userList, { slug: 'aoba' }, yuiDisabled);
   }
 
   // 人数の上限で断られた理由は、4秒で消えるトーストでなく、表の上の消えないコールアウトに出す
@@ -369,11 +351,10 @@ test.describe('管理者（あおば開発のミナト）', () => {
   test('有効に戻すが 409 の member_limit_reached になったら、増える人数と今の人数、上限、対処を表の上に残して読み直す', async ({
     page,
   }) => {
-    await showYuiDisabled(page);
     let lists = 0;
-    await page.route('**/api/aoba/user-list', async (route) => {
+    await routeOperation(page, userList, { slug: 'aoba' }, async (call) => {
       lists++;
-      await route.fallback();
+      await call.fulfill(yuiDisabled(await call.fetch()));
     });
     const unroute = await failOperation(page, userEnable, { slug: 'aoba' }, 409, 'member_limit_reached', {
       details: { used: 15, limit: 15, adding: 1 },

@@ -1,6 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
 import { attachmentUpload } from '../src/shared/operations/attachment/index.ts';
-import { operationPath } from '../src/shared/operations/define.ts';
 import { commentCreate } from '../src/shared/operations/task/comment.ts';
 import { taskUpdate } from '../src/shared/operations/task/task-update.ts';
 import { routeOperation } from './operations.ts';
@@ -160,15 +159,14 @@ test('保存時に未添付のファイルが消えていても、本文と引�
   await expect(drawer.locator('.doc-box').filter({ hasText: '残しておく本文' })).toBeVisible();
 });
 
-// routeOperation は JSON 入力専用なので、バイナリのアップロードだけ定義から URL を作って差し替える。
 test('組織の上限では残りの追加を止め、管理者への依頼を示す', async ({ page, baseURL }) => {
   const drawer = await openTask(page, baseURL);
   const input = drawer.getByRole('textbox', { name: 'コメントを書く', exact: true });
   const form = input.locator('xpath=ancestor::form');
   let requests = 0;
-  await page.route(`**${operationPath(attachmentUpload, 'aoba')}`, async (route) => {
+  await routeOperation(page, attachmentUpload, { slug: 'aoba' }, async (call) => {
     requests++;
-    await route.fulfill({ status: 409, json: { error: { code: 'attachment_quota_exceeded', message: '' } } });
+    await call.fail(409, 'attachment_quota_exceeded');
   });
   await form.locator('input[type="file"]').setInputFiles([
     {
@@ -247,19 +245,16 @@ test('アップロード中は送信を止め、ファイルをやめても本�
   const gate = new Promise<void>((resolve) => {
     release = resolve;
   });
-  await page.route(`**${operationPath(attachmentUpload, 'aoba')}`, async (route) => {
+  await routeOperation(page, attachmentUpload, { slug: 'aoba' }, async (call) => {
     started = true;
     await gate;
-    await route
+    await call
       .fulfill({
-        status: 200,
-        json: {
-          id: crypto.randomUUID(),
-          file_name: '途中.png',
-          content_type: 'image/png',
-          size_bytes: PNG.length,
-          created_at: new Date().toISOString(),
-        },
+        id: crypto.randomUUID(),
+        file_name: '途中.png',
+        content_type: 'image/png',
+        size_bytes: PNG.length,
+        created_at: new Date().toISOString(),
       })
       .catch(() => {});
   });
@@ -316,9 +311,9 @@ test('50 MBを超えるファイルは送らず、ファイルごとの容量と
   const drawer = await openTask(page, baseURL);
   const input = drawer.getByRole('textbox', { name: 'コメントを書く', exact: true });
   let requests = 0;
-  await page.route(`**${operationPath(attachmentUpload, 'aoba')}`, async (route) => {
+  await routeOperation(page, attachmentUpload, { slug: 'aoba' }, async (call) => {
     requests++;
-    await route.abort();
+    await call.abort();
   });
   await input.evaluate((element) => {
     const transfer = new DataTransfer();

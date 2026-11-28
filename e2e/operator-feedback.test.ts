@@ -3,12 +3,17 @@
 // サーバーの処理（運用者でない人の 403、存在しない ID の 404、画像の配り方）は test/operator-feedback.test.ts、
 // ログインしていない人のログインへの移しと、運用者でない人の戻しは本物のサーバーで確かめる
 import type { Page } from '@playwright/test';
-import type { OutputOf } from '../src/shared/operations/define.ts';
+import { operationPath, type OutputOf } from '../src/shared/operations/define.ts';
 import { attachmentCacheControl, attachmentCsp } from '../src/shared/security-headers.ts';
-import { feedbackImageRef, listOrganizations, operatorFeedback } from '../src/shared/operations/operator/index.ts';
+import {
+  feedbackImageRef,
+  listOrganizations,
+  operatorFeedback,
+  operatorFeedbackImage,
+} from '../src/shared/operations/operator/index.ts';
 import { expect, test } from './fixtures.ts';
 import { signIn, waitForSettled } from './helpers.ts';
-import { failOperation, mockOperation } from './operations.ts';
+import { failOperation, mockOperation, routeBinaryOperation } from './operations.ts';
 
 const FEEDBACK_ID = '01939c12-0000-7000-8000-000000000001';
 const IMAGE_ID = '01939c12-0000-7000-8000-000000000002';
@@ -19,12 +24,14 @@ const PNG_1X1 = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
   'base64',
 );
-const imagePath = (imageId: string) => `/api/operator-feedback-image/${feedbackImageRef(FEEDBACK_ID, imageId)}`;
 
-// 画像の操作は GET でバイトを返す（routeOperation は POST の JSON の入力を読むので使えない）。
+const imagePath = (imageId: string) =>
+  operationPath(operatorFeedbackImage, undefined, { id: feedbackImageRef(FEEDBACK_ID, imageId) });
+
+// 画像の操作は GET でバイトを返す（response: 'binary'。routeBinaryOperation で、URL を定義と画像の参照から作る）。
 // 本物と同じヘッダー（src/server/operations/operator-feedback.ts と src/server/app.ts の binary の応答）で返し、それでも <img> が描けることを確かめる
 async function serveImage(page: Page, imageId: string, status = 200) {
-  await page.route(`**${imagePath(imageId)}`, (route) =>
+  await routeBinaryOperation(page, operatorFeedbackImage, { id: feedbackImageRef(FEEDBACK_ID, imageId) }, (route) =>
     status === 200
       ? route.fulfill({
           status,

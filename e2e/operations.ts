@@ -98,6 +98,13 @@ async function multipartInput(request: PageRequest): Promise<unknown> {
   return JSON.parse(await part.text());
 }
 
+// body: 'binary' の操作の入力。本文はファイルのバイトで、入力の JSON はヘッダー X-Operation-Input（encodeURIComponent した形）で運ぶ
+function binaryInput(request: PageRequest): unknown {
+  const header = request.headers()['x-operation-input'];
+  if (header === undefined) throw new Error('X-Operation-Input が無い');
+  return JSON.parse(decodeURIComponent(header));
+}
+
 export async function routeOperation<D extends AnyOperationDefinition>(
   page: Page,
   definition: D,
@@ -120,7 +127,9 @@ export async function routeOperation<D extends AnyOperationDefinition>(
     };
     let body: unknown;
     try {
-      body = definition.body === 'multipart' ? await multipartInput(route.request()) : route.request().postDataJSON();
+      if (definition.body === 'multipart') body = await multipartInput(route.request());
+      else if (definition.body === 'binary') body = binaryInput(route.request());
+      else body = route.request().postDataJSON();
     } catch {
       await rejectCall(route, `操作 ${name} の入力が JSON でない`);
       return;
@@ -207,6 +216,27 @@ export async function routeOperation<D extends AnyOperationDefinition>(
   };
   await page.route(url, routeHandler);
   return () => page.unroute(url, routeHandler);
+}
+
+// response: 'binary' の操作（GET で画像などのバイトを返す）。URL は定義と入力の id から作る。
+// 出力は Response なのでスキーマに通さず、route をそのまま渡す。応答は handler が返す
+export async function routeBinaryOperation<D extends AnyOperationDefinition>(
+  page: Page,
+  definition: D,
+  ...args: [...ScopeArguments<D>, input: InputOf<D>, handler: (route: Route) => Promise<void> | void]
+): Promise<Unroute> {
+  const {
+    slug,
+    rest: [input, handler],
+  } = splitScope<D, [InputOf<D>, (route: Route) => Promise<void> | void]>(definition, args);
+  if (definition.response !== 'binary') throw new Error(`操作 ${definition.name} は response: 'binary' ではない`);
+  const parsed = definition.input.safeParse(input);
+  if (!parsed.success) {
+    throw new Error(`操作 ${definition.name} の入力が定義のスキーマに合わない\n${z.prettifyError(parsed.error)}`);
+  }
+  const url = `**${operationPath(definition, slug, input as { id: string })}`;
+  await page.route(url, handler);
+  return () => page.unroute(url, handler);
 }
 
 // 出力を差し替える
