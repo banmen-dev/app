@@ -74,7 +74,15 @@ describe('epic-detail', () => {
     });
     expect(body.requester).toEqual({ id: requester.id, name: '青木 遥', left: false });
     expect(body.stories).toEqual([]);
-    for (const key of ['canceled_at', 'reward_tier', 'reward_xp', 'party', 'can_join', 'joined', 'can_change_requester']) {
+    for (const key of [
+      'canceled_at',
+      'reward_tier',
+      'reward_xp',
+      'party',
+      'can_join',
+      'joined',
+      'can_change_requester',
+    ]) {
       expect(body).not.toHaveProperty(key);
     }
   });

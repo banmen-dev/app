@@ -218,7 +218,7 @@ INSERT INTO sprint_entries (id, workspace_id, sprint_id, task_id, added_at, adde
 
 -- 終了したスプリントは受託開発チームに1つ（先のスプリントより前の期間。ゴールあり、達成。ベロシティの元になる）。
 -- 完了したタスク2件（「付与の履歴を返す API を作る」「確認画面にポイントの選択欄を足す」）は、終えたスプリントの完了の列に残り、
--- 完了の記録（completions。sprint_id がこのスプリント。前者の id は経験値の明細の completion_id と同じ）と、completed で閉じた行を置く。
+-- 完了の記録（completions。sprint_id がこのスプリント）と、completed で閉じた行を置く。
 -- 終わらなかったタスク2件（先のスプリントに入れた 822 と 825）は、このスプリントでの行を carried_over で閉じて先のスプリントへ持ち越した。
 -- 先のスプリントの開いた行の added_at は、持ち越した日時（終了の日時）にそろえる。ended_at と closed_at は同じ日時。変更の履歴は置かない
 INSERT INTO sprints (id, workspace_id, name, goal, start_on, end_on, status, is_goal_achieved, started_at, started_by, closed_at, closed_by, created_at, updated_at) VALUES
