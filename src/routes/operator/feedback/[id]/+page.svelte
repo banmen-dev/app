@@ -80,7 +80,9 @@
             {@const src = operationPath(operatorFeedbackImage, undefined, {
               id: feedbackImageRef(feedback.feedback_id, image.id),
             })}
-            <figure class="md-figure">
+            <!-- 失敗の文は onerror の後に差し込む。後から足した role="status" は読み上げられないことがあるので、
+                 初めからある figure をライブ領域にし、差し込んだ文を伝える（画像が消えたことは伝えない） -->
+            <figure class="md-figure" aria-live="polite">
               {#if failedImages.includes(image.id)}
                 <p class="props-note">{t('operatorFeedbackImageFailed', { number: index + 1 })}</p>
               {:else}

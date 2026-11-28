@@ -119,6 +119,8 @@ test.describe('運用者', () => {
     const main = page.locator('.gate-sheet');
     const figures = main.locator('figure');
     await expect(figures).toHaveCount(2);
+    // 失敗の文は後から差し込まれる。常にある figure をライブ領域にして、差し込んだ文を読み上げに伝える
+    for (const index of [0, 1]) await expect(figures.nth(index)).toHaveAttribute('aria-live', 'polite');
     await expect(figures.nth(0).getByRole('img', { name: '画像 1' })).toBeVisible();
     await expect(figures.nth(1).locator('.props-note')).toHaveText(
       '画像 2 を読み込めませんでした。ページを開き直してください。',
