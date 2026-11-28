@@ -73,8 +73,11 @@ async function readSource(db: OrganizationDb, workspaceId: string, taskId: strin
             .exists(
               eb
                 .selectFrom('task_field_values')
+                .innerJoin('detail_fields', 'detail_fields.id', 'task_field_values.field_id')
                 .select('task_field_values.task_id')
-                .whereRef('task_field_values.task_id', '=', 'tasks.id'),
+                .whereRef('task_field_values.task_id', '=', 'tasks.id')
+                .where('detail_fields.workspace_id', '=', workspaceId)
+                .where('detail_fields.deleted_at', 'is', null),
             )
             .as('has_field_values'),
         ])
@@ -109,7 +112,22 @@ export const taskConvertOperation = implement(taskConvert, async ({ db, actor, w
   const source = await readSource(db, workspaceId, taskId);
   if (source === undefined) {
     await throwIfClosed(db, workspaceId);
-    throw new ApiError(404, 'not_found');
+    // 変えた後の再送は、task-detail と同じく、404 に先の種類と ID を添える（応答だけが落ちたときに先の ID を引ける）
+    const converted = await db.first(
+      db.statement((q) =>
+        q
+          .selectFrom('kind_conversions')
+          .select(['kind_conversions.to_kind', 'kind_conversions.to_id'])
+          .where('kind_conversions.workspace_id', '=', workspaceId)
+          .where('kind_conversions.from_kind', '=', 'task')
+          .where('kind_conversions.from_id', '=', taskId),
+      ),
+    );
+    throw new ApiError(
+      404,
+      'not_found',
+      converted === undefined ? undefined : { converted_to: { kind: converted.to_kind, id: converted.to_id } },
+    );
   }
   // 作った人とリーダー（管理者を含む）だけ。権限は、変えられない理由より先に見る
   if (!mayDeleteOwned(source.created_by, actor, workspace)) throw new ApiError(403, 'forbidden');
@@ -220,8 +238,11 @@ export const taskConvertOperation = implement(taskConvert, async ({ db, actor, w
               eb.exists(
                 eb
                   .selectFrom('task_field_values')
+                  .innerJoin('detail_fields', 'detail_fields.id', 'task_field_values.field_id')
                   .select('task_field_values.task_id')
-                  .whereRef('task_field_values.task_id', '=', 'tasks.id'),
+                  .whereRef('task_field_values.task_id', '=', 'tasks.id')
+                  .where('detail_fields.workspace_id', '=', workspaceId)
+                  .where('detail_fields.deleted_at', 'is', null),
               ),
             ),
             // 親のストーリーが、読んだときと同じ状態（同じエピックの下、同じ区分。削除されていれば削除されたまま）

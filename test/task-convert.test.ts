@@ -380,6 +380,191 @@ describe('task-convert', () => {
     });
   });
 
+  test('削除した欄の値だけが残るタスクは変えられる', async () => {
+    const target = await createTarget();
+    const ws = target.workspace.id;
+    const task = await createTask(target.organization, ws, target.member.userId!);
+    const field = await createDetailField(target.organization, ws, { deleted_at: '2026-11-02T00:00:00.000Z' });
+    await createTaskFieldValue(target.organization, task.id, field.id, target.leader.userId!);
+    expect((await convert(target, task.id, 'story')).status).toBe(200);
+  });
+
+  test('変えた後にもう一度変えると 404 で、先の種類と ID が載る', async () => {
+    const target = await createTarget();
+    const task = await createTask(target.organization, target.workspace.id, target.member.userId!);
+    const { id } = (await (await convert(target, task.id, 'story')).json()) as { id: string };
+    const again = await convert(target, task.id, 'epic');
+    expect(again.status).toBe(404);
+    expect(((await again.json()) as { error: { details?: unknown } }).error.details).toEqual({
+      converted_to: { kind: 'story', id },
+    });
+  });
+
+  test('権限の無い人には、変えられない理由より先に 403 を返す', async () => {
+    const target = await createTarget();
+    const ws = target.workspace.id;
+    const other = await createPerson({
+      organization: target.organization,
+      membership: { workspaceId: ws, role: 'member' },
+    });
+    const task = await createTask(target.organization, ws, target.member.userId!, {
+      completed_at: '2026-11-20T00:00:00.000Z',
+      completed_by: target.member.userId!,
+    });
+    expect((await convert(target, task.id, 'story', other)).status).toBe(403);
+  });
+
+  test('エピックに変えるときも、お気に入りは先のエピックへ付け替わる', async () => {
+    const target = await createTarget();
+    const ws = target.workspace.id;
+    const task = await createTask(target.organization, ws, target.member.userId!);
+    const db = dbOf(target);
+    await db.run(
+      db.statement((q) =>
+        q.insertInto('favorites').values({
+          id: uuidv7(),
+          user_id: target.leader.userId!,
+          workspace_id: ws,
+          task_id: task.id,
+          created_at: '2026-11-01T00:00:00.000Z',
+        }),
+      ),
+    );
+    const { id } = (await (await convert(target, task.id, 'epic')).json()) as { id: string };
+    const rows = await db.rows(
+      db.statement((q) => q.selectFrom('favorites').selectAll().where('workspace_id', '=', ws)),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ task_id: null, story_id: null, epic_id: id });
+  });
+
+  test('親のストーリーが削除されているタスクは、親なしとして変えられる', async () => {
+    const target = await createTarget();
+    const ws = target.workspace.id;
+    const parent = await createStory(target.organization, ws, target.admin.userId!, {
+      deleted_at: '2026-11-02T00:00:00.000Z',
+    });
+    const task = await createTask(target.organization, ws, target.member.userId!, { story_id: parent.id });
+    const { id } = (await (await convert(target, task.id, 'story')).json()) as { id: string };
+    expect((await rowsOf(target, 'stories')).find((s) => s.id === id)).toMatchObject({ epic_id: null });
+  });
+
+  test('リーダーが変えても、先の作った人は元の作った人で、変えた人は対応に残る。エピックの履歴と今日やるの印も確かめる', async () => {
+    const target = await createTarget();
+    const ws = target.workspace.id;
+    const task = await createTask(target.organization, ws, target.member.userId!, {
+      today_on: '2026-11-28',
+      title: '制度を作る',
+    });
+    const { id } = (await (await convert(target, task.id, 'epic', target.leader)).json()) as { id: string };
+    expect((await rowsOf(target, 'epics')).find((e) => e.id === id)).toMatchObject({
+      created_by: target.member.userId,
+      requester_user_id: target.member.userId,
+    });
+    expect((await conversionsOf(target))[0]).toMatchObject({ converted_by: target.leader.userId });
+    expect((await rowsOf(target, 'tasks')).find((t) => t.id === task.id)).toMatchObject({ today_on: null });
+    const log = (await logsOf(target, 'epic', id))[0]!;
+    expect(JSON.parse(log.changes_json)).toMatchObject({
+      title: [null, '制度を作る'],
+      converted_from: [null, { id: task.id, kind: 'task', title: '制度を作る' }],
+    });
+    expect(JSON.parse((await logsOf(target, 'task', task.id))[0]!.changes_json)).toMatchObject({
+      converted_to: [null, { id, kind: 'epic' }],
+    });
+  });
+
+  test('区分は、エピック、ストーリー、タスクの順に最初に入っているものを写し、削除された区分は引き継がない', async () => {
+    const target = await createTarget();
+    const ws = target.workspace.id;
+    const own = await createCategory(target.organization, ws, { name: '追加案件' });
+    const fromStory = await createCategory(target.organization, ws, { name: '保守' });
+    const gone = await createCategory(target.organization, ws, {
+      name: '古い',
+      deleted_at: '2026-11-02T00:00:00.000Z',
+    });
+
+    const story = await createStory(target.organization, ws, target.admin.userId!, { category_id: fromStory.id });
+    const both = await createTask(target.organization, ws, target.member.userId!, {
+      story_id: story.id,
+      category_id: own.id,
+    });
+    const a = (await (await convert(target, both.id, 'epic')).json()) as { id: string };
+    // ストーリーの区分がタスク自身より先
+    expect((await rowsOf(target, 'epics')).find((e) => e.id === a.id)).toMatchObject({ category_id: fromStory.id });
+
+    const deleted = await createTask(target.organization, ws, target.member.userId!, { category_id: gone.id });
+    const b = (await (await convert(target, deleted.id, 'epic')).json()) as { id: string };
+    expect((await rowsOf(target, 'epics')).find((e) => e.id === b.id)).toMatchObject({ category_id: null });
+  });
+
+  test('先の位置は、行き先の並びの削除していない最後の直後に入る', async () => {
+    const target = await createTarget();
+    const ws = target.workspace.id;
+    const epic = await createEpic(target.organization, ws, target.admin.userId!);
+    const other = await createEpic(target.organization, ws, target.admin.userId!, { position: 'a9' });
+    await createStory(target.organization, ws, target.admin.userId!, { epic_id: epic.id, position: 'a3' });
+    await createStory(target.organization, ws, target.admin.userId!, {
+      epic_id: epic.id,
+      position: 'a7',
+      deleted_at: '2026-11-02T00:00:00.000Z',
+    });
+    await createStory(target.organization, ws, target.admin.userId!, { epic_id: other.id, position: 'a8' });
+    const parent = await createStory(target.organization, ws, target.admin.userId!, {
+      epic_id: epic.id,
+      position: 'a1',
+    });
+    const task = await createTask(target.organization, ws, target.member.userId!, { story_id: parent.id });
+
+    const { id } = (await (await convert(target, task.id, 'story')).json()) as { id: string };
+    const row = (await rowsOf(target, 'stories')).find((s) => s.id === id)!;
+    expect(row.epic_id).toBe(epic.id);
+    expect(row.position > 'a3' && row.position < 'a7').toBe(true);
+  });
+
+  test('置く先のエピックだけが完了しているときは断り、ストーリーだけが完了していても変えられる', async () => {
+    const target = await createTarget();
+    const ws = target.workspace.id;
+    const doneAt = { completed_at: '2026-11-10T00:00:00.000Z', completed_by: target.admin.userId! };
+    const doneEpic = await createEpic(target.organization, ws, target.admin.userId!, doneAt);
+    const openParent = await createStory(target.organization, ws, target.admin.userId!, { epic_id: doneEpic.id });
+    const blocked = await createTask(target.organization, ws, target.member.userId!, { story_id: openParent.id });
+    expect(await reasonOf(await convert(target, blocked.id, 'story'))).toBe('parent_completed');
+
+    const openEpic = await createEpic(target.organization, ws, target.admin.userId!);
+    const doneParent = await createStory(target.organization, ws, target.admin.userId!, {
+      epic_id: openEpic.id,
+      ...doneAt,
+    });
+    const ok = await createTask(target.organization, ws, target.member.userId!, {
+      story_id: doneParent.id,
+      completed_at: null,
+    });
+    expect((await convert(target, ok.id, 'story')).status).toBe(200);
+  });
+
+  test('変えたタスクの task-restore は、元の親が完了していても converted で断る', async () => {
+    const target = await createTarget();
+    const ws = target.workspace.id;
+    const parent = await createStory(target.organization, ws, target.admin.userId!);
+    const task = await createTask(target.organization, ws, target.member.userId!, { story_id: parent.id });
+    expect((await convert(target, task.id, 'epic')).status).toBe(200);
+    const db = dbOf(target);
+    await db.run(
+      db.statement((q) =>
+        q
+          .updateTable('stories')
+          .set({ completed_at: '2026-11-10T00:00:00.000Z', completed_by: target.admin.userId! })
+          .where('id', '=', parent.id),
+      ),
+    );
+    const res = await post(app, taskRestore, {
+      slug: target.slug,
+      token: target.leader.token,
+      body: { workspace_id: ws, task_id: task.id },
+    });
+    expect(await reasonOf(res)).toBe('converted');
+  });
+
   test('同じタスクを同時に2回変えても、行き先は1つだけできる', async () => {
     const target = await createTarget();
     const task = await createTask(target.organization, target.workspace.id, target.member.userId!);

@@ -143,10 +143,10 @@ export const taskRestoreOperation = implement(taskRestore, async ({ db, actor, w
     );
     if (deleter?.actor_user_id !== actorUserId) throw new ApiError(403, 'forbidden');
   }
+  // 種類を変えたタスク（task-convert）は戻さない。先の項目があるので、戻すと元と先で二重になる（親の完了などより先に断る）
+  if (await isConverted(db, workspaceId, taskId)) throw new ApiError(409, 'conflict', { reason: 'converted' });
   const reason = blockOf(task);
   if (reason !== null) throw new ApiError(409, 'conflict', { reason });
-  // 種類を変えたタスク（task-convert）は戻さない。先の項目があるので、戻すと元と先で二重になる
-  if (await isConverted(db, workspaceId, taskId)) throw new ApiError(409, 'conflict', { reason: 'converted' });
 
   // 削除の間に変わった参照は、戻すときに外す。親が削除されたストーリーは親なし（並びは親なしの末尾）、
   // 所属を外れた担当は担当なし（今日やるの印も外す）、削除された区分とリポジトリは空にする。外した分は履歴に残す。
