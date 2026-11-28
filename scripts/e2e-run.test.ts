@@ -202,7 +202,7 @@ describe('CI とクラウドで共有する e2e の実行', () => {
   });
 });
 
-test('事前検査だけが実行0件を失敗にする reporter を追加し、CI の reporter は変えない', async () => {
+test('`--require-executed` だけが実行0件を失敗にする reporter を追加し、CI の reporter は変えない', async () => {
   for (const mode of ['normal', 'dev', 'repeat'] as const) {
     const { calls, execute } = harness();
     await runE2eWith(mode, { files: ['e2e/a.test.ts'], requireExecuted: true }, execute, {});

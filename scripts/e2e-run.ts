@@ -1,4 +1,4 @@
-// CI とクラウドの事前検査で Playwright の条件を揃える。対象の選定は呼び出し元が受け持つ。
+// CI で Playwright の条件を揃える。対象の選定は呼び出し元が受け持つ。
 import { spawn } from 'node:child_process';
 import { repeatVerdict, REPEAT_TEST_LIMIT, type ListReport } from './ci.ts';
 
