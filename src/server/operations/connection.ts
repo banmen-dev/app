@@ -752,13 +752,17 @@ export const connectionMappingSaveOperation = implement(
         q
           .updateTable('connections')
           // 無視をやめる保存では、次の同期で全部を読む（差分では、取り込み元で更新されていない項目の期限が戻らない）
-          .set({
+          .set((eb) => ({
             ignore_source_due: input.ignore_source_due ? 1 : 0,
             updated_at: stamp,
+            // 値を変える保存のたびに世代を進める。同期の終わりの書き込みは、読んだ世代と違えば、この保存が置いた印を上書きしない
+            ...((input.ignore_source_due ? 1 : 0) !== Number(row.ignore_source_due)
+              ? { ignore_source_due_generation: eb('ignore_source_due_generation', '+', 1) }
+              : {}),
             ...(!input.ignore_source_due && Number(row.ignore_source_due) === 1
               ? { last_success_at: null, sync_state_json: '{}' }
               : {}),
-          })
+          }))
           .where('id', '=', row.id)
           .where('workspace_id', '=', workspaceId)
           .where('owner_user_id', '=', actorUserId)

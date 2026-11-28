@@ -2,7 +2,7 @@
 // 同期の関数を直に呼ぶ。取り込み元の通信は fetcher に偽物を差さず、ImportSource の実装そのものを偽にする
 import { env } from 'cloudflare:workers';
 import { describe, expect, test } from 'vitest';
-import { orgDb } from '../../src/server/db/index.ts';
+import { orgDb, syncOutcomeStatement, type SyncOutcome } from '../../src/server/db/index.ts';
 import { encryptCredential } from '../../src/server/crypto/credential.ts';
 import { syncConnection } from '../../src/server/import/sync.ts';
 import {
@@ -115,6 +115,27 @@ async function sourcesOf(db: ReturnType<typeof orgDb>, workspaceId: string) {
 async function connectionOf(db: ReturnType<typeof orgDb>, id: string) {
   const row = await db.first(db.statement((q) => q.selectFrom('connections').selectAll().where('id', '=', id)));
   return row!;
+}
+
+// 本人の保存（connection-mapping-save）が接続に書くのと同じ。値を変えるたびに世代が進み、無視を外すと次の同期が全部を読む
+async function saveIgnoreSourceDue(db: ReturnType<typeof orgDb>, id: string, value: 0 | 1) {
+  const row = await connectionOf(db, id);
+  await db.run(
+    db.statement((q) =>
+      q
+        .updateTable('connections')
+        .set((eb) => ({
+          ignore_source_due: value,
+          ...(value !== Number(row.ignore_source_due)
+            ? { ignore_source_due_generation: eb('ignore_source_due_generation', '+', 1) }
+            : {}),
+          ...(value === 0 && Number(row.ignore_source_due) === 1
+            ? { last_success_at: null, sync_state_json: '{}' }
+            : {}),
+        }))
+        .where('id', '=', id),
+    ),
+  );
 }
 
 describe('取り込みの同期', () => {
@@ -321,10 +342,8 @@ describe('取り込みの同期', () => {
             },
           ],
           async () => {
+            await saveIgnoreSourceDue(db, connection.id, 1);
             await db.batch([
-              db.statement((q) =>
-                q.updateTable('connections').set({ ignore_source_due: 1 }).where('id', '=', connection.id),
-              ),
               db.statement((q) =>
                 q.updateTable('task_sources').set({ source_due_on: null }).where('connection_id', '=', connection.id),
               ),
@@ -348,7 +367,7 @@ describe('取り込みの同期', () => {
             )
           )?.source_status,
         ).toBe('in review');
-        // 読んだ値と今の値が違うので、次の同期が全部を読む
+        // 読んだ世代と今の世代が違うので、次の同期が全部を読む
         expect((await connectionOf(db, connection.id)).last_success_at).toBeNull();
       });
 
@@ -426,14 +445,7 @@ describe('取り込みの同期', () => {
           { items: [item(2, { dueOn: '2026-12-12' })], next: null },
         ];
         const source = racing(pages, async () => {
-          await db.run(
-            db.statement((q) =>
-              q
-                .updateTable('connections')
-                .set({ ignore_source_due: 0, last_success_at: null, sync_state_json: '{}' })
-                .where('id', '=', connection.id),
-            ),
-          );
+          await saveIgnoreSourceDue(db, connection.id, 0);
         });
         await syncConnection(env, db, workspace.id, connection.id, { source });
         // 2頁目は今の設定（無視を外した）で書かれる。1頁目は無視のまま空
@@ -443,6 +455,114 @@ describe('取り込みの同期', () => {
         expect(done.sync_state_json).toBe('{}');
         await syncConnection(env, db, workspace.id, connection.id, { source: fakeSource({ '501': pages }).source });
         expect(await dues(db, workspace.id)).toEqual({ 'src-1': '2026-12-10', 'src-2': '2026-12-12' });
+      });
+
+      test('同期の途中で 0→1→0 と保存しても、値は元に戻るが、次の同期が全部を読む', async () => {
+        const { workspace, connection, db } = await setup();
+        const pages: Page[] = [
+          { items: [item(1, { dueOn: '2026-12-10' })], next: '1' },
+          { items: [item(2, { dueOn: '2026-12-12' })], next: null },
+        ];
+        const source = racing(pages, async () => {
+          await saveIgnoreSourceDue(db, connection.id, 1);
+          await db.run(
+            db.statement((q) =>
+              q.updateTable('task_sources').set({ source_due_on: null }).where('connection_id', '=', connection.id),
+            ),
+          );
+          await saveIgnoreSourceDue(db, connection.id, 0);
+        });
+        await syncConnection(env, db, workspace.id, connection.id, { source });
+        const done = await connectionOf(db, connection.id);
+        // 値は同じ 0 に戻っているが、世代は進んでいるので、保存が置いた印を成功の書き込みが上書きしない
+        expect(done.ignore_source_due).toBe(0);
+        expect(done.ignore_source_due_generation).toBe(2);
+        expect(done.last_success_at).toBeNull();
+        expect(done.sync_state_json).toBe('{}');
+        await syncConnection(env, db, workspace.id, connection.id, { source: fakeSource({ '501': pages }).source });
+        expect(await dues(db, workspace.id)).toEqual({ 'src-1': '2026-12-10', 'src-2': '2026-12-12' });
+      });
+
+      test('無視を外した直後にエラーで終わった同期の後も、次の同期が全部を読む', async () => {
+        const { workspace, connection, db } = await setup();
+        await db.run(
+          db.statement((q) =>
+            q
+              .updateTable('connections')
+              .set({ ignore_source_due: 1, last_success_at: '2026-11-01T00:00:00.000Z' })
+              .where('id', '=', connection.id),
+          ),
+        );
+        const pages: Page[] = [
+          { items: [item(1, { dueOn: '2026-12-10' })], next: '1' },
+          { items: [item(2, { dueOn: '2026-12-12' })], next: null },
+        ];
+        const fake = fakeSource({ '501': pages });
+        const fetchPage = fake.source.fetchPage.bind(fake.source);
+        fake.source.fetchPage = async (input) => {
+          if (input.cursor === '1') {
+            await saveIgnoreSourceDue(db, connection.id, 0);
+            throw new Error('boom');
+          }
+          return fetchPage(input);
+        };
+        expect(await syncConnection(env, db, workspace.id, connection.id, { source: fake.source })).toMatchObject({
+          outcome: 'error',
+        });
+        const failed = await connectionOf(db, connection.id);
+        expect(failed).toMatchObject({ status: 'error', last_success_at: null, sync_state_json: '{}' });
+        await syncConnection(env, db, workspace.id, connection.id, { source: fakeSource({ '501': pages }).source });
+        expect(await dues(db, workspace.id)).toEqual({ 'src-1': '2026-12-10', 'src-2': '2026-12-12' });
+      });
+
+      describe('終わりの書き込みの種類ごと', () => {
+        const state = '{"version":2,"since":"2026-11-01T00:00:00.000Z"}';
+        const outcomes: [string, SyncOutcome][] = [
+          ['成功', { kind: 'success', syncStateJson: state, lastSuccessAt: '2026-11-05T00:00:00.000Z' }],
+          ['続き', { kind: 'progress', syncStateJson: state }],
+          ['認証の失敗（状態つき）', { kind: 'auth_failed', message: 'x', syncStateJson: state }],
+          ['認証の失敗（状態なし）', { kind: 'auth_failed', message: 'x' }],
+          ['エラー（状態つき）', { kind: 'error', message: 'x', syncStateJson: state }],
+          ['エラー（状態なし）', { kind: 'error', message: 'x' }],
+        ];
+        // 保存が世代を 1 に進め、全部を読む印（最後の成功と続きを空）を置いた後の接続に、世代 0 を読んだ同期の終わりを書く
+        async function finish(outcome: SyncOutcome, readGeneration: number) {
+          const { workspace, connection, db } = await setup();
+          // どちらも前の成功と続きが入った接続。世代が違う側（読んだのは 0）は、保存が世代だけ進めた状態（0→1 の保存は 2 列を空にしない）で、
+          // 空になることを確かめられるよう非空にしておく
+          await db.run(
+            db.statement((q) =>
+              q
+                .updateTable('connections')
+                .set({
+                  ignore_source_due_generation: 1,
+                  last_success_at: '2026-11-01T00:00:00.000Z',
+                  sync_state_json: '{"version":2,"since":"old"}',
+                })
+                .where('id', '=', connection.id),
+            ),
+          );
+          await db.run(
+            syncOutcomeStatement(
+              db,
+              { id: connection.id, workspaceId: workspace.id, ignoreSourceDueGeneration: readGeneration },
+              outcome,
+              '2026-11-06T00:00:00.000Z',
+            ),
+          );
+          return connectionOf(db, connection.id);
+        }
+        test.each(outcomes)('%s: 世代が違えば、保存が置いた印を上書きしない', async (_name, outcome) => {
+          const after = await finish(outcome, 0);
+          expect(after).toMatchObject({ last_success_at: null, sync_state_json: '{}' });
+        });
+        test.each(outcomes)('%s: 世代が同じなら、通常どおり書き、書かない分は触らない', async (_name, outcome) => {
+          const after = await finish(outcome, 1);
+          expect(after.sync_state_json).toBe(outcome.syncStateJson ?? '{"version":2,"since":"old"}');
+          expect(after.last_success_at).toBe(
+            outcome.kind === 'success' ? '2026-11-05T00:00:00.000Z' : '2026-11-01T00:00:00.000Z',
+          );
+        });
       });
     });
 

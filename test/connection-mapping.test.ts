@@ -126,6 +126,30 @@ describe('connection-mapping-save', () => {
     expect(reset?.last_success_at).toBeNull();
   });
 
+  test('期限の無視の値を変える保存のたびに世代が進み、値を変えない保存では進まない', async () => {
+    const { target, connection } = await setup();
+    const db = orgDb(env, target.organization.verified);
+    const generation = async () =>
+      Number(
+        (
+          await db.first(
+            db.statement((q) =>
+              q.selectFrom('connections').select('ignore_source_due_generation').where('id', '=', connection.id),
+            ),
+          )
+        )?.ignore_source_due_generation,
+      );
+    expect(await generation()).toBe(0);
+    expect((await save(target, connection.id, { mappings: [], ignore_source_due: false })).status).toBe(200);
+    expect(await generation()).toBe(0);
+    expect((await save(target, connection.id, { mappings: [], ignore_source_due: true })).status).toBe(200);
+    expect(await generation()).toBe(1);
+    expect((await save(target, connection.id, { mappings: [], ignore_source_due: true })).status).toBe(200);
+    expect(await generation()).toBe(1);
+    expect((await save(target, connection.id, { mappings: [], ignore_source_due: false })).status).toBe(200);
+    expect(await generation()).toBe(2);
+  });
+
   test('完了の列と、ワークスペースに無い列は 400 で、何も書かない', async () => {
     const { target, done, connection } = await setup();
     const doneRes = await save(target, connection.id, {

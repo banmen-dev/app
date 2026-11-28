@@ -16,6 +16,7 @@ export type SyncConnection = {
   status: string;
   scope_mode: string;
   ignore_source_due: number;
+  ignore_source_due_generation: number;
   settings_json: string;
   credential_ciphertext: string | null;
   credential_key_version: number | null;
@@ -68,6 +69,7 @@ export async function readSyncConnection(
           'connections.status',
           'connections.scope_mode',
           'connections.ignore_source_due',
+          'connections.ignore_source_due_generation',
           'connections.settings_json',
           'connections.credential_ciphertext',
           'connections.credential_key_version',
@@ -491,56 +493,57 @@ export function syncOutcomeStatement(
     workspaceId: string;
     credential?: string | null;
     keyVersion?: number | null;
-    // 同期が読んだ ignore_source_due。終わるときに値が変わっていたら、次の同期が全部を読むよう最後の成功と続きを空にする
-    ignoreSourceDue?: number;
+    // 同期が読んだ ignore_source_due_generation（下の saved の説明）
+    ignoreSourceDueGeneration: number;
   },
   outcome: SyncOutcome,
   at: string,
 ): Statement<'organization'> {
   return db.statement((q) => {
     const base = q.updateTable('connections');
+    // 世代は必須（渡し忘れると、保存が置いた印の保護が黙って外れる）。期限の無視を変える保存のたびに世代が進む。
+    // 終わるときに今の世代と違えば、保存が置いた印を上書きせず、次の同期が全部を読むよう最後の成功と続きを空にする（値の比較では、0→1→0 の往復を見逃す）
+    const saved = sql<boolean>`connections.ignore_source_due_generation <> ${connection.ignoreSourceDueGeneration}`;
+    // 状態の書き込み。値を書かない失敗でも、保存があれば保存が置いた空の状態のままにする
+    const stateOf = (written: string | undefined) => ({
+      sync_state_json: sql<string>`CASE WHEN ${saved} THEN '{}' ELSE ${
+        written === undefined ? sql`connections.sync_state_json` : sql`CAST(${written} AS TEXT)`
+      } END`,
+    });
+    // 最後の成功。保存があれば空にする。成功以外は、保存が無ければ触らない
+    const successOf = (written?: string) => ({
+      last_success_at: sql<string | null>`CASE WHEN ${saved} THEN NULL ELSE ${
+        written === undefined ? sql`connections.last_success_at` : sql`CAST(${written} AS TEXT)`
+      } END`,
+    });
     const set =
       outcome.kind === 'progress'
-        ? base.set({ sync_state_json: outcome.syncStateJson, updated_at: at })
+        ? base.set({ ...stateOf(outcome.syncStateJson), ...successOf(), updated_at: at })
         : outcome.kind === 'success'
-          ? base.set((eb) => ({
+          ? base.set({
               status: 'active',
               stopped_reason: null,
-              sync_state_json:
-                connection.ignoreSourceDue === undefined
-                  ? outcome.syncStateJson
-                  : eb
-                      .case()
-                      .when('connections.ignore_source_due', '=', connection.ignoreSourceDue)
-                      .then(outcome.syncStateJson)
-                      .else('{}')
-                      .end(),
-              last_success_at:
-                connection.ignoreSourceDue === undefined
-                  ? (outcome.lastSuccessAt ?? at)
-                  : eb
-                      .case()
-                      .when('connections.ignore_source_due', '=', connection.ignoreSourceDue)
-                      .then(outcome.lastSuccessAt ?? at)
-                      .else(null)
-                      .end(),
+              ...stateOf(outcome.syncStateJson),
+              ...successOf(outcome.lastSuccessAt ?? at),
               consecutive_failures: 0,
               last_error_message: null,
               last_error_at: null,
               updated_at: at,
-            }))
+            })
           : outcome.kind === 'auth_failed'
             ? base.set({
                 status: 'stopped',
                 stopped_reason: 'auth_failed',
-                ...(outcome.syncStateJson === undefined ? {} : { sync_state_json: outcome.syncStateJson }),
+                ...stateOf(outcome.syncStateJson),
+                ...successOf(),
                 last_error_message: outcome.message,
                 last_error_at: at,
                 updated_at: at,
               })
             : base.set((eb) => ({
                 status: 'error',
-                ...(outcome.syncStateJson === undefined ? {} : { sync_state_json: outcome.syncStateJson }),
+                ...stateOf(outcome.syncStateJson),
+                ...successOf(),
                 consecutive_failures: eb('connections.consecutive_failures', '+', 1),
                 last_error_message: outcome.message,
                 last_error_at: at,
