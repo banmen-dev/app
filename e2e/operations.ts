@@ -134,7 +134,7 @@ export async function routeOperation<D extends AnyOperationDefinition>(
       else if (definition.body === 'binary') body = binaryInput(route.request());
       else body = route.request().postDataJSON();
     } catch (error) {
-      await rejectCall(route, `操作 ${name} の入力が JSON でない: ${String(error)}`);
+      await rejectCall(route, `操作 ${name} の入力が読めない: ${String(error)}`);
       return;
     }
     const input = definition.input.safeParse(body);
