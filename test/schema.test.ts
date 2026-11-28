@@ -424,8 +424,10 @@ describe('0048_drop_game_tables', () => {
     ).all();
     expect(results).toEqual([]);
   });
+});
 
-  // 本番の版がまだ中止の列を書くので、reward_tier を NULL 可にして作り直した epics も、列も索引も残す（0049）
+describe('0049_make_epics_reward_tier_nullable', () => {
+  // 本番の版がまだ中止の列を書くので、reward_tier を NULL 可にして作り直した epics も、列も索引も残す
   test('epics は列も索引も変わらず、reward_tier は NULL を書ける（canceled_at、canceled_by と epics_canceled_by を含む）', async () => {
     const { results: columns } = await env.DB.prepare(`SELECT name FROM pragma_table_info('epics') ORDER BY cid`).all<{
       name: string;
