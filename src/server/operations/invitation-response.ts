@@ -215,7 +215,7 @@ async function acceptableOrThrow(
 // 書く順: 招待を読んで断る → users（行が無い人だけ）、memberships、invitations（accepted）、change_logs 2行を1回の batch で書く。
 // どの文も承諾できる招待（acceptableInvitation）を条件に持ち、後ろの文はこの要求の所属の行があることを条件にする。
 // 所属の user_id は、同じ組織の users をログインの手段と ID で引き直すサブクエリ（users の行がある人はその行）。
-// 前に抜けた人は users の行が残っているので、同じ ID のまま所属し、経験値（xp_grants）も同じ ID に付いたまま引き継ぐ。
+// 前に抜けた人は users の行が残っているので、同じ ID のまま所属する。
 // 人数の上限は見ない（承諾待ちの招待は人数に数えている）。読んでから書くまでに条件が崩れたら、読み直して理由を返す
 export const invitationAcceptOperation = implement(invitationAccept, async ({ db, actor, tools, input }) => {
   const organizationId = db.organizationId;

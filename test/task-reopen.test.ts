@@ -1,4 +1,4 @@
-// タスクの完了を戻す（task-reopen）の振る舞い（戻す列、完了の記録の削除、経験値の打ち消しを書かないこと、断る理由、競合、変更の履歴）と、
+// タスクの完了を戻す（task-reopen）の振る舞い（戻す列、完了の記録の削除、断る理由、競合、変更の履歴）と、
 // 戻せるかの印（task-detail の reopenable、sprint-board のカードの reopenable）。
 // 組織の分離と権限の種類ごとの許可と拒否は、一覧を回す test/operation-registry.test.ts が確かめる。ここでは要の場面だけを重ねて見る
 import { env } from 'cloudflare:workers';
@@ -16,7 +16,6 @@ import {
   createSprintEntry,
   createStory,
   createTask,
-  createXpGrant,
 } from './factories.ts';
 import { errorCodeOf, post } from './operations/harness.ts';
 import { createTarget, testEnv, type Person, type Target } from './operations/world.ts';
@@ -109,20 +108,6 @@ async function completionsOf(target: Target, taskId: string) {
   );
 }
 
-async function grantsOf(target: Target, taskId: string) {
-  const db = orgDb(env, target.organization.verified);
-  return db.rows(
-    db.statement((q) =>
-      q
-        .selectFrom('xp_grants')
-        .selectAll()
-        .where('task_id', '=', taskId)
-        .where('workspace_id', '=', target.workspace.id)
-        .orderBy('id'),
-    ),
-  );
-}
-
 async function logsOf(target: Target, taskId: string) {
   const db = orgDb(env, target.organization.verified);
   return db.rows(
@@ -177,7 +162,7 @@ async function reopenableOf(target: Target, taskId: string) {
 }
 
 describe('task-reopen', () => {
-  test('進行中のスプリントで完了にしたカードを戻すと、前の列の末尾に戻り、記録を消し、経験値の打ち消しは書かず、履歴を残す', async () => {
+  test('進行中のスプリントで完了にしたカードを戻すと、前の列の末尾に戻り、記録を消し、履歴を残す', async () => {
     const { target, board, sprint } = await setup();
     await card(target, sprint.id, board.second.id, 'a0', { title: '先にいた札' });
     const task = await card(target, sprint.id, board.second.id, 'a1', { title: '戻す札' });
@@ -187,8 +172,6 @@ describe('task-reopen', () => {
     await card(target, sprint.id, board.second.id, 'a2', { title: '後から来た札' });
     const [completion] = await completionsOf(target, task.id);
     expect(completion).toMatchObject({ sprint_id: sprint.id, previous_column_id: board.second.id });
-    // 完了は経験値を付けない
-    expect(await grantsOf(target, task.id)).toEqual([]);
 
     const res = await reopen(target, task.id);
     expect(res.status).toBe(200);
@@ -203,9 +186,6 @@ describe('task-reopen', () => {
     });
     expect(await titlesIn(target, sprint.id, board.second.id)).toEqual(['先にいた札', '後から来た札', '戻す札']);
     expect(await completionsOf(target, task.id)).toEqual([]);
-
-    // 戻しても打ち消しの行（xp_grants）は書かない
-    expect(await grantsOf(target, task.id)).toEqual([]);
 
     const logs = await logsOf(target, task.id);
     const last = logs.at(-1)!;
@@ -272,13 +252,12 @@ describe('task-reopen', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ task_id: task.id, sprint_id: null, column_id: null });
     expect(await taskRow(target, task.id)).toMatchObject({ completed_at: null, sprint_id: null, column_id: null });
-    expect(await grantsOf(target, task.id)).toEqual([]);
     expect(await completionsOf(target, task.id)).toEqual([]);
     const changes = JSON.parse((await logsOf(target, task.id)).at(-1)!.changes_json);
     expect(Object.keys(changes)).toEqual(['completed_at', 'completed_by']);
   });
 
-  test('戻す記録は completed_at が今の完了と同じ行だけで、前の完了の記録には触れない。既にある経験値の行も打ち消しの行も増やさない', async () => {
+  test('戻す記録は completed_at が今の完了と同じ行だけで、前の完了の記録には触れない', async () => {
     const { target } = await setup();
     const task = await createTask(target.organization, target.workspace.id, target.member.userId!, {
       completed_at: COMPLETED_AT,
@@ -287,28 +266,11 @@ describe('task-reopen', () => {
     const older = await createCompletion(target.organization, target.workspace.id, task.id, target.member.userId!, {
       completed_at: '2026-10-10T00:00:00.000Z',
     });
-    const current = await createCompletion(target.organization, target.workspace.id, task.id, target.member.userId!, {
+    await createCompletion(target.organization, target.workspace.id, task.id, target.member.userId!, {
       completed_at: COMPLETED_AT,
     });
-    // 以前の版が書いた経験値の行。戻しても触れず、打ち消しの行も足さない
-    const olderGrant = await createXpGrant(target.organization, target.workspace.id, target.member.userId!, {
-      task_id: task.id,
-      completion_id: older.id,
-      action: 'task_completed',
-      amount: 30,
-    });
-    const currentGrant = await createXpGrant(target.organization, target.workspace.id, target.admin.userId!, {
-      task_id: task.id,
-      completion_id: current.id,
-      action: 'task_completed',
-      amount: 30,
-    });
-
     expect((await reopen(target, task.id)).status).toBe(200);
     expect((await completionsOf(target, task.id)).map((row) => row.id)).toEqual([older.id]);
-    const grants = await grantsOf(target, task.id);
-    expect(grants.map((grant) => grant.id).sort()).toEqual([olderGrant.id, currentGrant.id].sort());
-    expect(grants.every((grant) => grant.reverses_grant_id === null && grant.amount === 30)).toBe(true);
   });
 
   test('終了したか削除したスプリントの中で完了したタスクは 409 の sprint_closed で、何も変わらない', async () => {
@@ -414,7 +376,7 @@ describe('task-reopen', () => {
     expect(await reopenableOf(target, task.id)).toBe(false);
   });
 
-  test('2つの画面から同時に戻しても、通るのは1つで、記録の削除と履歴は1つずつ。打ち消しは書かない', async () => {
+  test('2つの画面から同時に戻しても、通るのは1つで、記録の削除と履歴は1つずつ', async () => {
     const { target, board, sprint } = await setup();
     const task = await card(target, sprint.id, board.first.id, 'a0');
     expect((await complete(target, task.id)).status).toBe(200);
@@ -424,38 +386,33 @@ describe('task-reopen', () => {
     const loser = results.find((res) => res.status === 409)!;
     expect(await reasonOf(loser)).toBe('not_completed');
 
-    expect(await grantsOf(target, task.id)).toEqual([]);
     expect(await completionsOf(target, task.id)).toEqual([]);
     expect((await logsOf(target, task.id)).filter((log) => log.action === 'reopen')).toHaveLength(1);
   });
 
-  test('2つの画面から同時に完了にしても、記録は1つで、経験値は書かず、戻しても打ち消しは書かない', async () => {
+  test('2つの画面から同時に完了にしても、記録は1つで、戻すと消える', async () => {
     const { target, board, sprint } = await setup();
     const task = await card(target, sprint.id, board.first.id, 'a0');
     const results = await Promise.all([complete(target, task.id), complete(target, task.id)]);
     expect(results.map((res) => res.status).sort()).toEqual([200, 409]);
     expect(await completionsOf(target, task.id)).toHaveLength(1);
-    expect(await grantsOf(target, task.id)).toEqual([]);
 
     expect((await reopen(target, task.id)).status).toBe(200);
-    expect(await grantsOf(target, task.id)).toEqual([]);
+    expect(await completionsOf(target, task.id)).toEqual([]);
   });
 
-  test('止めた時計で、完了、戻す、同じ時刻にもう一度完了にしても、記録が入り、もう一度戻すと消える。経験値の行は書かない', async () => {
+  test('止めた時計で、完了、戻す、同じ時刻にもう一度完了にしても、記録が入り、もう一度戻すと消える', async () => {
     const { target, board, sprint } = await setup();
     const task = await card(target, sprint.id, board.first.id, 'a0');
     const stopped = { env: clockAt('2026-10-26T10:00:00+09:00') };
 
     expect((await complete(target, task.id, stopped)).status).toBe(200);
-    expect(await grantsOf(target, task.id)).toEqual([]);
     expect((await reopen(target, task.id, stopped)).status).toBe(200);
 
     expect((await complete(target, task.id, stopped)).status).toBe(200);
     expect(await completionsOf(target, task.id)).toHaveLength(1);
-    expect(await grantsOf(target, task.id)).toEqual([]);
 
     expect((await reopen(target, task.id, stopped)).status).toBe(200);
-    expect(await grantsOf(target, task.id)).toEqual([]);
     expect(await completionsOf(target, task.id)).toEqual([]);
     // 止めた時計では履歴の時刻がそろい、id の順も書いた順にならないので、数だけを見る
     expect((await logsOf(target, task.id)).map((log) => log.action).sort()).toEqual([

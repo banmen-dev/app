@@ -1043,12 +1043,6 @@ describe('task-create の入れ先（スプリントの列の末尾の空の行�
       assignee_user_id: target.leader.userId,
     });
     expect(state.entries).toHaveLength(1);
-    // 討伐隊（epic_party_members）には行を入れない
-    const db = orgDb(env, target.organization.verified);
-    const party = await db.rows(
-      db.statement((q) => q.selectFrom('epic_party_members').selectAll().where('epic_id', '=', epic.id)),
-    );
-    expect(party).toEqual([]);
   });
 
   test('完了の列、終了したスプリント、削除したスプリントや列は断り、タスクも作らない', async () => {

@@ -766,7 +766,7 @@ export function reviewUpdateStatements(
       ),
     );
   }
-  // 過去の回を記録しておく。completions と xp_grants には触れない。
+  // 過去の回を記録しておく。completions には触れない。
   statements.push(reviewCycleStatement(db, target.task_id, connection.workspace_id, item.reviewCycle!, at));
   return statements;
 }

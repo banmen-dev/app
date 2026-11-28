@@ -97,7 +97,7 @@ export function startOfDayIn(timezone: string, date: string): Date {
 }
 
 // 時刻を含む週の範囲を、UTC の ISO の時刻で返す。始まり（含む）は週の始まり（0〜6、0 が日曜）の日の 0 時、終わり（含まない）は7日後の 0 時。
-// 日付と週の始まりはワークスペースのタイムゾーンで数える。xp_grants.confirmed_at と同じ形なので、文字列のまま範囲を比べられる
+// 日付と週の始まりはワークスペースのタイムゾーンで数える。UTC の ISO の時刻と同じ形なので、文字列のまま範囲を比べられる
 export function weekRangeIn(timezone: string, weekStart: number, at: Date): { start: string; end: string } {
   const weekEnd = weekEndOf(todayIn(timezone, at), weekStart);
   return {
